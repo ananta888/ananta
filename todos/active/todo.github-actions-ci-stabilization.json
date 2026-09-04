@@ -2,10 +2,10 @@
   "$schema": "../todo.schema.json",
   "version": "1.0",
   "created": "2026-08-15",
-  "updated": "2026-09-01",
+  "updated": "2026-09-04",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "910ba3253",
+    "reviewed_commit_range": "910ba3253..4f7fd4bcd8bfa123a64c62bb520429856864ec22",
     "review_goal": "Alle aktuell fehlgeschlagenen GitHub-Actions-Checks lokal reproduzierbar analysieren, echte Ursachen beheben und komplexe Punkte strukturiert nachhalten.",
     "reviewed_paths": [
       "frontend-angular/tests",
@@ -17,16 +17,32 @@
       "scripts/generate_visual_process_assistant_baseline.py",
       "scripts/run_semantic_sfu_gate.py",
       ".github/workflows/e2e-compose.yml",
-      ".github/workflows/quality-and-docs.yml"
+      ".github/workflows/quality-and-docs.yml",
+      ".github/workflows/backend-isolated-flows.yml",
+      ".github/workflows/python-verification.yml",
+      ".github/workflows/research-training-gate.yml",
+      "agent/services/collaboration_agent_control_service.py",
+      "docker/compose-next/requirements.verification-worker.in",
+      "docker/compose-next/requirements.research-training-cpu.txt",
+      "frontend-angular/vitest.config.mts"
     ],
     "latest_failed_run_ids": [
       "33451954201",
-      "33456939447"
+      "33456939447",
+      "33882383020",
+      "33882383257",
+      "33908670417"
     ],
     "latest_success_run_ids": [
       "33456939454",
       "33456939500",
-      "33456939614"
+      "33456939614",
+      "33908670362"
+    ],
+    "latest_pending_run_ids": [
+      "33908670367",
+      "33908670412",
+      "33908670423"
     ]
   },
   "categories": [
@@ -783,16 +799,117 @@
             "33456939447"
           ],
           "implemented_solution": "SFU-Datenvertraege und Secret-/Repository-Ports liegen nun unter agent.models beziehungsweise agent.ports; die bisherigen Service-Module bleiben kompatible Fassaden. Repository-Implementierungen importieren nur noch diese abwaertsgerichteten Abstraktionen. TaskRepository erhaelt die Organization-Completion-Policy ueber einen schmalen Port von agent.repository als Composition Root; ohne Policy wird ein gebundener Abschluss explizit abgelehnt. Fuenf obsolete Architektur-Baseline-Ausnahmen wurden entfernt, ohne den Gate abzuschwaechen."
+        },
+        {
+          "id": "CI-023",
+          "status": "open",
+          "workflow": "Python Verification",
+          "workflow_job": "hypothesis-matrix / symbolic-targeted",
+          "step": "Collect isolated verification tests",
+          "severity": "high",
+          "risk_assessment": "Hoch: der neu eingefuehrte isolierte Verification-Worker kann seine eigene Testmatrix auf keiner unterstuetzten Python-Version sammeln.",
+          "observed_error": "Run 33882383020 scheitert in allen Matrix-Jobs sowie symbolic-targeted bereits waehrend der Collection: ModuleNotFoundError fuer flask ueber repository_registry und fuer yaml in test_schemas_and_architecture.py.",
+          "root_cause": "requirements.verification-worker.lock bildet die tatsaechliche Importgrenze der Verification-Suite nicht vollstaendig ab. PyYAML ist direkter Testbedarf; task_dependency_policy zieht ueber einen unnoetigen Repository-Registry-Import die Flask-Infrastruktur in den isolierten Worker.",
+          "affected_files_or_subsystems": [
+            "agent/services/task_dependency_policy.py",
+            "tests/verification/test_schemas_and_architecture.py",
+            "docker/compose-next/requirements.verification-worker.in",
+            "docker/compose-next/requirements.verification-worker.lock"
+          ],
+          "proposed_solution": "Die Infrastrukturkopplung am Policy-Modul entfernen und den legitimen YAML-Testbedarf deterministisch in den gehashten Worker-Lock aufnehmen; danach Collection und Toolchain auf mindestens Python 3.12 und einer Randversion ausfuehren.",
+          "expected_result": "Alle Verification-Jobs sammeln und laufen aus ihrem isolierten, gehashten Dependency-Satz ohne implizite Hub-Abhaengigkeiten.",
+          "relevant_validations": [
+            "GitHub-Run 33882383020 und betroffene Joblogs am Quellstand 6d08109f9 ausgewertet.",
+            "Der Lock enthaelt weder Flask noch PyYAML; die beiden Collection-Pfade wurden im aktuellen Quellstand bestaetigt."
+          ],
+          "dependencies": [],
+          "commit_changes": [],
+          "run_ids": ["33882383020"]
+        },
+        {
+          "id": "CI-024",
+          "status": "open",
+          "workflow": "Research Training Gate",
+          "workflow_job": "cpu-e2e",
+          "step": "Run headless CPU, DDP, policy and failure gates",
+          "severity": "high",
+          "risk_assessment": "Hoch: der vollautomatische CPU-Gate startet wegen eines fehlenden Test-Runner-Plugins ueberhaupt nicht.",
+          "observed_error": "Run 33882383257 beendet pytest mit 'unrecognized arguments: -n'; weder requirements-dev.lock noch der isolierte Research-Training-Dependency-Satz enthalten pytest-xdist.",
+          "root_cause": "Der Workflow wurde auf parallele Testausfuehrung umgestellt, ohne pytest-xdist als explizite CI-Testabhaengigkeit zu installieren.",
+          "affected_files_or_subsystems": [
+            ".github/workflows/research-training-gate.yml",
+            "requirements-dev.in",
+            "requirements-dev.lock"
+          ],
+          "proposed_solution": "pytest-xdist im zentralen, gehashten Development-Test-Lock deklarieren und den exakt gleichen headless CPU-Testbefehl lokal ausfuehren.",
+          "expected_result": "Der Job fuehrt die Research-Training-Suite mit zwei Workern vollautomatisch aus, statt an der CLI-Option zu scheitern.",
+          "relevant_validations": [
+            "GitHub-Run 33882383257, Job cpu-e2e, am Quellstand 6d08109f9 ausgewertet.",
+            "Die aktuelle Workflow-Option -n 2 und das Fehlen von pytest-xdist in beiden installierten Locks wurden bestaetigt."
+          ],
+          "dependencies": [],
+          "commit_changes": [],
+          "run_ids": ["33882383257"]
+        },
+        {
+          "id": "CI-025",
+          "status": "open",
+          "workflow": "Research Training Gate",
+          "workflow_job": "angular-workbench",
+          "step": "Test accessible Hub-only workbench",
+          "severity": "medium",
+          "risk_assessment": "Mittel: die Frontend-Vertraege werden installiert, aber ohne ihre versionierte Vitest-Projektkonfiguration ausgefuehrt.",
+          "observed_error": "Run 33882383257 meldet 'describe is not defined' und fehlenden Angular-JIT-Compiler. Vitest startet laut Log mit /home/runner/work/ananta/ananta als root statt frontend-angular.",
+          "root_cause": "npm --prefix beeinflusst npm, uebergibt dem via npm exec gestarteten Vitest aber nicht verlaesslich das Frontend-Arbeitsverzeichnis. Dadurch fehlen globals, jsdom und src/test-setup.ts aus frontend-angular/vitest.config.mts.",
+          "affected_files_or_subsystems": [
+            ".github/workflows/research-training-gate.yml",
+            "frontend-angular/vitest.config.mts",
+            "frontend-angular/src/test-setup.ts"
+          ],
+          "proposed_solution": "Dem Angular-Job ein explizites working-directory geben und Vitest dort ueber das lokale npm-Script beziehungsweise npx ausfuehren.",
+          "expected_result": "Beide gezielten Angular-Specs laufen mit globals, jsdom und Angular-Compiler-Setup vollstaendig headless.",
+          "relevant_validations": [
+            "GitHub-Run 33882383257, Job angular-workbench, am Quellstand 6d08109f9 ausgewertet.",
+            "Die benoetigte Konfiguration existiert in frontend-angular/vitest.config.mts und importiert @angular/compiler ueber src/test-setup.ts."
+          ],
+          "dependencies": [],
+          "commit_changes": [],
+          "run_ids": ["33882383257"]
+        },
+        {
+          "id": "CI-026",
+          "status": "open",
+          "workflow": "Backend Isolated Flows",
+          "workflow_job": "isolated-flows",
+          "step": "Import Hub collaboration bootstrap",
+          "severity": "critical",
+          "risk_assessment": "Kritisch: ein Syntaxfehler in einem Hub-Service verhindert den App-Start und verursacht 49 Setupfehler in voneinander unabhaengigen Flows.",
+          "observed_error": "Run 33908670417 am aktuellen HEAD 4f7fd4bcd scheitert mit 49 errors: SyntaxError 'unterminated string literal' in collaboration_agent_control_service.py:202.",
+          "root_cause": "Commit e7b9fbcd7 fuegte eine mehrzeilige f-string-Interpolation ein, die unter der im Workflow verwendeten Python-Version 3.11 syntaktisch ungueltig ist; ein frueher Compile-Gate fuer Produktionsmodule fehlte.",
+          "affected_files_or_subsystems": [
+            "agent/services/collaboration_agent_control_service.py",
+            "tests/test_collaboration_agent_control_service.py",
+            ".github/workflows/backend-isolated-flows.yml"
+          ],
+          "proposed_solution": "Den Digest separat berechnen und anschliessend in einen einfachen f-string einsetzen; einen fokussierten Test sowie py_compile/compileall als fruehen CI-Guard ergaenzen.",
+          "expected_result": "Der Hub-Service ist unter Python 3.11 kompilierbar und alle isolierten Backend-Flows koennen ihre Tests ausfuehren.",
+          "relevant_validations": [
+            "GitHub-Run 33908670417 und Job 101139632991 am exakten HEAD ausgewertet.",
+            "git blame ordnet die defekte Zeile Commit e7b9fbcd7 zu."
+          ],
+          "dependencies": [],
+          "commit_changes": [],
+          "run_ids": ["33908670417"]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 22,
+    "total_items": 26,
     "by_status": {
       "completed": 21,
       "partial": 0,
-      "open": 0,
+      "open": 4,
       "in_progress": 0,
       "blocked": 1,
       "blocked_decision": 0,
@@ -811,8 +928,9 @@
       "STAND NACH DER ZWEITEN RUNDE: von 26 Workflows sind 20 gruen. Rot bleiben Coverage Report (CI-013, eigene breitere Ursache), Unsloth Release Gate (CI-016, lokal gruen, CI-Verifikation braucht externe Evidenz-Inputs), Container Release Build (CI-018, nur mit echtem Release beurteilbar) und - innerhalb von Quality And Docs - der Temporal-Job (CI-014b) sowie das zurueckgestellte Zeilenlimit-Gate (CI-017). E2E Compose (CI-015) ist unangetastet: acht Shards, deren Diagnose den vollen Compose-Stack braucht.",
       "AKTUELLER AUDIT 2026-08-30: CI-021 ersetzt keine historische Ursache, sondern bindet den exakt gepushten Commit 69308b399 an die beiden roten Laeufe 33307559841 und 33307559864. Die aktuelle Matrix ist aus Artefakten und Traces erhoben; unbekannte SRC_*- oder RUN_*-Belege wurden nicht erfunden.",
       "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab.",
-      "ABSCHLUSS 2026-09-01: CI-013 ist durch Coverage-Lauf 33478142971 am Commit d4da32c56 mit 21 von 21 erfolgreichen Jobs abgeschlossen. Damit verbleibt in dieser Datei ausschliesslich CI-018 als extern evidenzgebundener Blocker; es gibt keine nicht blockierte Arbeit mehr."
+      "ABSCHLUSS 2026-09-01: CI-013 ist durch Coverage-Lauf 33478142971 am Commit d4da32c56 mit 21 von 21 erfolgreichen Jobs abgeschlossen. Damit verbleibt in dieser Datei ausschliesslich CI-018 als extern evidenzgebundener Blocker; es gibt keine nicht blockierte Arbeit mehr.",
+      "AUDIT 2026-09-04: Neue, reproduzierbare Fehler aus Python Verification 33882383020, Research Training Gate 33882383257 und Backend Isolated Flows 33908670417 sind als CI-023 bis CI-026 aufgenommen. CI-018 bleibt extern blockiert: seit 2026-06-27 kein neuer Container-Release-Lauf und alle fuenf letzten Dogfood-Laeufe wurden abgebrochen."
     ],
-    "recommended_order": []
+    "recommended_order": ["CI-026", "CI-023", "CI-024", "CI-025"]
   }
 }
