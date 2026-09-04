@@ -27,6 +27,8 @@ def test_event_classes_are_explicit_and_unknown_types_fail_closed() -> None:
         {"nested": {"access_token": "not-allowed"}},
         {"items": [{"private_reasoning": "not-allowed"}]},
         {"raw_tool_output": "unbounded"},
+        {"text": "Authorization: Bearer abcdefghijklmnop"},
+        {"message": "api_key=abcdefghijklmnop"},
     ],
 )
 def test_sensitive_content_is_rejected_before_durable_storage(payload: dict[str, object]) -> None:

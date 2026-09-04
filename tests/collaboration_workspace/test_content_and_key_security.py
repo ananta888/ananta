@@ -7,6 +7,7 @@ from pathlib import Path
 from agent.services.collaboration_content_security import (
     CollaborationContentRedactor,
     CollaborationPromptBuilder,
+    CollaborationSensitiveContentDetector,
 )
 from agent.services.collaboration_key_custody import CollaborationKeyCustody
 
@@ -37,6 +38,13 @@ def test_recursive_redaction_does_not_mutate_input() -> None:
     result = CollaborationContentRedactor().redact(original)
     assert result == {"nested": [{"password": "***REDACTED***"}], "text": "***REDACTED***"}
     assert original["nested"][0]["password"] == "sensitive"
+
+
+def test_sensitive_detector_reports_only_a_path_and_never_the_secret() -> None:
+    secret = "Bearer abcdefghijklmnop"
+    path = CollaborationSensitiveContentDetector().sensitive_path({"nested": [{"message": secret}]})
+    assert path == "payload.nested[0].message"
+    assert secret not in path
 
 
 def test_key_rotation_revocation_signing_and_tamper_detection(tmp_path: Path) -> None:

@@ -611,6 +611,13 @@ class CollaborationWorkspaceStore:
                 raise CollaborationStoreConflict("collaboration_agent_intent_loop_limit")
             if intent.get("causation_id") == intent_id:
                 raise CollaborationStoreConflict("collaboration_agent_intent_self_causation")
+            self._validate_intent_causation(
+                connection,
+                tenant,
+                workspace,
+                intent_id=intent_id,
+                causation_id=intent.get("causation_id"),
+            )
             value = {**dict(intent), "state": "pending_hub_decision", "payload_digest": digest}
             connection.execute(
                 "INSERT INTO collaboration_agent_intents(tenant_id,workspace_id,intent_id,correlation_id,"
@@ -628,6 +635,32 @@ class CollaborationWorkspaceStore:
                 ),
             )
         return value, False
+
+    @staticmethod
+    def _validate_intent_causation(
+        connection: sqlite3.Connection,
+        tenant_id: str,
+        workspace_id: str,
+        *,
+        intent_id: str,
+        causation_id: object,
+    ) -> None:
+        current = str(causation_id or "").strip() or None
+        visited = {intent_id}
+        depth = 0
+        while current is not None:
+            if current in visited:
+                raise CollaborationStoreConflict("collaboration_agent_intent_causation_cycle")
+            visited.add(current)
+            depth += 1
+            if depth > 8:
+                raise CollaborationStoreConflict("collaboration_agent_intent_causation_depth")
+            row = connection.execute(
+                "SELECT causation_id FROM collaboration_agent_intents WHERE tenant_id=? AND workspace_id=? "
+                "AND intent_id=?",
+                (tenant_id, workspace_id, current),
+            ).fetchone()
+            current = (str(row[0] or "").strip() or None) if row else None
 
     def decide_agent_intent(
         self,

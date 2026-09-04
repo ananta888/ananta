@@ -147,6 +147,16 @@ def test_agent_intent_loop_limit_is_bounded(tmp_path: Path) -> None:
         )
 
 
+def test_workflow_projection_cannot_retrigger_task_intent(tmp_path: Path) -> None:
+    control = _setup(tmp_path / "state.sqlite3", AssignmentAuthority())
+    with pytest.raises(ValueError, match="workflow_retrigger_forbidden"):
+        control.propose_intent(
+            tenant_id="tenant-a",
+            principal_actor_id="human-user-a",
+            intent={**_intent(), "origin_event_type": "workflow.projected"},
+        )
+
+
 def test_resource_lease_is_hub_bound_fenced_and_cancelable(tmp_path: Path) -> None:
     authority = AssignmentAuthority()
     control = _setup(tmp_path / "state.sqlite3", authority)

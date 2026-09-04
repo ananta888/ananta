@@ -322,7 +322,7 @@
     {
       "id": "M06",
       "title": "Agenten und Ressourcen als First-Class-Mitglieder",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "PDCW-AGT-001",
         "PDCW-AGT-002",
@@ -1115,7 +1115,7 @@
     {
       "id": "PDCW-AGT-006",
       "title": "Agentenbudgets, Concurrency und Loop-Prevention durchsetzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1130,7 +1130,7 @@
         "Correlation-/Causation-Graph, Hop-Count, Depth und dedizierte Workflow-Event-Ausschlüsse verhindern Selbsttrigger.",
         "Budget-/Policy-Denials erscheinen als redigierte Events und werden nicht automatisch erneut geplant."
       ],
-      "progress_percent": 93.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-FLOW-001",
@@ -1150,7 +1150,7 @@
         "Task-Status in der Timeline ist Projektion; Room-Events schreiben nicht direkt TaskDB oder Queue.",
         "Löschen/Archivieren eines Fachobjekts besitzt definierte Room- und Retention-Folge."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 95.0
     },
     {
       "id": "PDCW-FLOW-002",
@@ -1582,12 +1582,12 @@
         "URLs, Markdown, HTML, Patches, Attachments und Tooloutput besitzen Größen-, Typ-, Encoding-, Malware- und Path-Grenzen.",
         "Security-relevante Antworten ohne Evidenz werden nicht als belegte Negativaussage ausgegeben."
       ],
-      "progress_percent": 92.0
+      "progress_percent": 95.0
     },
     {
       "id": "PDCW-SEC-005",
       "title": "Secret-Redaction, Key-Custody und tamper-evident Audit integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1605,7 +1605,7 @@
         "Audit-Kette erkennt Reihenfolge-/Digest-Manipulation und bleibt tenant-/workspace-separiert.",
         "Redaction-, Key-Custody- und Audit-Implementierungen können unabhängig ersetzt und mit fokussierten Contract-Tests geprüft werden."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SEC-006",
@@ -1626,7 +1626,7 @@
         "Queue-/Storage-/Search-/LLM-/Tool-Amplification wird im Native Core adversarial getestet; aktivierte Live-/Agent-/Bridge-Profile erweitern dieselbe Matrix.",
         "Abuse-Sperren können scoped widerrufen werden und blockieren keine kritischen Revocation-/Cancel-Signale."
       ],
-      "progress_percent": 92.0
+      "progress_percent": 96.0
     },
     {
       "id": "PDCW-OPS-001",
@@ -1954,11 +1954,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 13,
+      "partial": 11,
       "blocked": 4,
-      "done": 55
+      "done": 57
     },
-    "progress_percent_done": 76.4,
+    "progress_percent_done": 79.2,
     "by_priority": {
       "P0": 34,
       "P1": 33,
@@ -1972,15 +1972,15 @@
     },
     "critical_path": {
       "total": 39,
-      "done": 31,
-      "remaining": 8
+      "done": 32,
+      "remaining": 7
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 8,
+      "in_progress": 7,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -2054,21 +2054,21 @@
         "done": 30,
         "partial": 6,
         "blocked": 0,
-        "progress_percent": 97.6
+        "progress_percent": 97.9
       },
       "security": {
         "total": 11,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 5,
+          "partial": 3,
           "blocked": 0,
-          "done": 6
+          "done": 8
         },
-        "done": 6,
-        "partial": 5,
+        "done": 8,
+        "partial": 3,
         "blocked": 0,
-        "progress_percent": 96.5
+        "progress_percent": 98.7
       },
       "test": {
         "total": 8,
@@ -2104,11 +2104,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 13,
+    "partial": 11,
     "blocked": 4,
-    "done": 55,
-    "count_based_percent": 76.4,
-    "weighted_percent": 96.5
+    "done": 57,
+    "count_based_percent": 79.2,
+    "weighted_percent": 96.9
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2156,10 +2156,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 116.3,
-    "remaining_weight": 4.2,
+    "done_weight": 116.745,
+    "remaining_weight": 3.755,
     "blocked_weight": 6.0,
-    "weighted_percent": 96.5
+    "weighted_percent": 96.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2205,18 +2205,18 @@
       },
       "M06": {
         "total_tasks": 6,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 83.3,
-        "weighted_percent": 99.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M07": {
         "total_tasks": 6,
         "done": 5,
         "blocked": 0,
         "count_based_percent": 83.3,
-        "weighted_percent": 98.3,
+        "weighted_percent": 99.4,
         "status": "in_progress"
       },
       "M08": {
@@ -2237,10 +2237,10 @@
       },
       "M10": {
         "total_tasks": 6,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 33.3,
-        "weighted_percent": 94.7,
+        "count_based_percent": 50.0,
+        "weighted_percent": 97.6,
         "status": "in_progress"
       },
       "M11": {
@@ -2264,10 +2264,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T16:05:00.744887Z",
+    "generated_at": "2026-09-04T16:21:33.871219Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "e4fe2df8b9a23e454d05f7f10522af4e0d3da1abd1b4964a07ce13939ef2508f",
+    "source_hash": "a319dd2135cafc5fa4733feb0d443bbb1a028501ab15f22671cbd5209a2a0427",
     "is_stale": false
   },
   "implementation_review": {

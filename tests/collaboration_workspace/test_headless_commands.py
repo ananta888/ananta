@@ -17,7 +17,7 @@ from ananta_contracts.collaboration_workspace import canonical_digest
 from tests.collaboration_workspace.helpers import actor, room, service
 
 
-def _command_service(database: Path, tools: frozenset[str]) -> CollaborationCommandService:
+def _command_service(database: Path, tools: frozenset[str], *, budget=None) -> CollaborationCommandService:
     workspaces = service(database)
     workspaces.create_workspace(
         tenant_id="tenant-a",
@@ -36,6 +36,7 @@ def _command_service(database: Path, tools: frozenset[str]) -> CollaborationComm
         CollaborationWorkspaceStore(database),
         workspace_policy=CollaborationWorkspacePolicy(),
         command_policy=PreauthorizedCommandPolicy(allowed_tool_ids=tools, revision=7),
+        budget=budget,
     )
 
 
@@ -90,3 +91,23 @@ def test_stale_policy_revision_fails_bounded(tmp_path: Path) -> None:
     stale = {**_request(), "policy_revision": 6}
     with pytest.raises(PermissionError, match="policy_revision_stale"):
         commands.decide(tenant_id="tenant-a", principal_actor_id="human-user-a", request=stale)
+
+
+def test_command_budget_denial_is_terminal_before_policy_execution(tmp_path: Path) -> None:
+    class DenyingBudget:
+        def admit(self, **request):
+            assert request["traffic_class"] == "command_intent"
+            assert request["dimensions"] == {
+                "room": "room-main",
+                "principal": "human-user-a",
+                "actor": "human-user-a",
+                "task": "task-a",
+                "provider": None,
+                "intent_chain": "request-a",
+                "connection": "hub-command",
+            }
+            return {"allowed": False, "reason_code": "collaboration_budget_exhausted"}
+
+    commands = _command_service(tmp_path / "state.sqlite3", frozenset({"pytest"}), budget=DenyingBudget())
+    with pytest.raises(PermissionError, match="budget_exhausted"):
+        commands.decide(tenant_id="tenant-a", principal_actor_id="human-user-a", request=_request())

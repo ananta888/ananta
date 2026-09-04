@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from agent.services.collaboration_budget_service import CollaborationBudgetService
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
 from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
 from ananta_contracts.collaboration_workspace import canonical_digest, require_digest, require_id
@@ -51,10 +52,12 @@ class CollaborationCommandService:
         *,
         workspace_policy: CollaborationWorkspacePolicy,
         command_policy: HeadlessCommandPolicy,
+        budget: CollaborationBudgetService | None = None,
     ) -> None:
         self._store = store
         self._workspace_policy = workspace_policy
         self._command_policy = command_policy
+        self._budget = budget
 
     def decide(
         self,
@@ -93,6 +96,23 @@ class CollaborationCommandService:
             if request.get("artifact_digest") is not None
             else None,
         }
+        if self._budget is not None:
+            admission = self._budget.admit(
+                tenant_id=tenant_id,
+                workspace_id=workspace_id,
+                traffic_class="command_intent",
+                dimensions={
+                    "room": room_id,
+                    "principal": principal_actor_id,
+                    "actor": actor_id,
+                    "task": normalized["task_id"],
+                    "provider": None,
+                    "intent_chain": normalized["request_id"],
+                    "connection": "hub-command",
+                },
+            )
+            if not admission["allowed"]:
+                raise PermissionError(admission["reason_code"])
         allowed, reason_code = self._command_policy.decide(normalized)
         decision = {
             **normalized,

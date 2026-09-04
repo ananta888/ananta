@@ -13,12 +13,47 @@ _SECRET_VALUE = re.compile(
 )
 
 
+class CollaborationSensitiveContentDetector:
+    """Finds a sensitive field or value without returning the secret itself."""
+
+    SENSITIVE_KEYS = frozenset(
+        {
+            "authorization",
+            "chain_of_thought",
+            "cookie",
+            "password",
+            "private_key",
+            "private_reasoning",
+            "raw_tool_output",
+            "secret",
+            "token",
+        }
+    )
+
+    def sensitive_path(self, value: Any, path: str = "payload") -> str | None:
+        if isinstance(value, Mapping):
+            for key, nested in value.items():
+                normalized = str(key).strip().casefold().replace("-", "_")
+                child_path = f"{path}.{normalized}"
+                if normalized in self.SENSITIVE_KEYS or normalized.endswith("_secret") or normalized.endswith("_token"):
+                    return child_path
+                violation = self.sensitive_path(nested, child_path)
+                if violation is not None:
+                    return violation
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            for index, nested in enumerate(value):
+                violation = self.sensitive_path(nested, f"{path}[{index}]")
+                if violation is not None:
+                    return violation
+        elif isinstance(value, str) and _SECRET_VALUE.search(value):
+            return path
+        return None
+
+
 class CollaborationContentRedactor:
     """Removes secret-looking values before content reaches durable adapters."""
 
-    SENSITIVE_KEYS = frozenset(
-        {"authorization", "cookie", "password", "private_key", "secret", "token", "raw_tool_output"}
-    )
+    SENSITIVE_KEYS = CollaborationSensitiveContentDetector.SENSITIVE_KEYS
 
     def redact(self, value: Any) -> Any:
         if isinstance(value, Mapping):
@@ -90,4 +125,8 @@ class CollaborationPromptBuilder:
         return {"name": name, "trust": trust, "content": redacted}
 
 
-__all__ = ["CollaborationContentRedactor", "CollaborationPromptBuilder"]
+__all__ = [
+    "CollaborationContentRedactor",
+    "CollaborationPromptBuilder",
+    "CollaborationSensitiveContentDetector",
+]

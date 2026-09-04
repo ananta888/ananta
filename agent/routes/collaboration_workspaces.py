@@ -203,6 +203,42 @@ def transition_room(workspace_id: str, room_id: str):
     return _invoke(operation)
 
 
+@collaboration_workspaces_bp.put("/<workspace_id>/rooms/<room_id>/binding")
+@check_user_auth
+def put_room_binding(workspace_id: str, room_id: str):
+    def operation():
+        body = _body()
+        expected_revision = body.get("expected_revision")
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
+            raise ValueError("collaboration_room_binding_revision_invalid")
+        return _extension("collaboration_binding_service").bind_room(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+            binding=body.get("binding") or {},
+            expected_revision=expected_revision,
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/branch-rooms")
+@check_user_auth
+def create_branch_room(workspace_id: str):
+    def operation():
+        body = _body()
+        return _extension("collaboration_binding_service").create_branch_room(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            title=body.get("title"),
+            binding=body.get("binding") or {},
+        )
+
+    return _invoke(operation, created=True)
+
+
 @collaboration_workspaces_bp.get("/<workspace_id>/threads/<thread_id>")
 @check_user_auth
 def get_thread(workspace_id: str, thread_id: str):

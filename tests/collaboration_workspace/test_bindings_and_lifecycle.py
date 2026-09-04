@@ -5,6 +5,10 @@ from pathlib import Path
 import pytest
 
 from agent.services.collaboration_binding_service import CollaborationBindingService
+from agent.services.collaboration_domain_binding_authority import (
+    CollaborationDomainRecord,
+    HubCollaborationBindingAuthority,
+)
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
 from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
 from tests.collaboration_workspace.helpers import actor, service
@@ -23,6 +27,20 @@ class BindingAuthority:
             "reason_code": "binding_verified" if self.verified else "binding_not_found",
             "authoritative_revision": binding["revision"],
         }
+
+
+class DomainCatalog:
+    def __init__(self, record: CollaborationDomainRecord | None) -> None:
+        self.record = record
+        self.access = True
+
+    def principal_can_access(self, *, tenant_id: str, project_id: str, subject_id: str) -> bool:
+        assert (tenant_id, project_id, subject_id) == ("tenant-a", "project-a", "user-a")
+        return self.access
+
+    def resolve(self, *, tenant_id: str, project_id: str, kind: str, object_id: str):
+        assert (tenant_id, project_id, kind, object_id) == ("tenant-a", "project-a", "task", "task-a")
+        return self.record
 
 
 def _binding(*, change: str = "create", head: str | None = None):
@@ -120,3 +138,34 @@ def test_denied_binding_does_not_leave_orphan_room(tmp_path: Path) -> None:
         tenant_id="tenant-a", workspace_id="workspace-a", principal_actor_id="human-user-a"
     )
     assert workspace["rooms"] == []
+
+
+def test_hub_domain_authority_checks_principal_scope_lifecycle_and_revision(tmp_path: Path) -> None:
+    database = tmp_path / "state.sqlite3"
+    _service(database, BindingAuthority())
+    catalog = DomainCatalog(CollaborationDomainRecord("task", "task-a", "project-a", "active", "7"))
+    authority = HubCollaborationBindingAuthority(CollaborationWorkspaceStore(database), catalog)
+    binding = {
+        "binding_kind": "task",
+        "binding_id": "task-a",
+        "project_id": "project-a",
+        "lifecycle": "active",
+        "revision": "7",
+        "metadata": {},
+    }
+    assert authority.verify(tenant_id="tenant-a", principal_actor_id="human-user-a", binding=binding) == {
+        "verified": True,
+        "reason_code": "collaboration_binding_verified",
+        "authoritative_revision": "7",
+    }
+    stale = authority.verify(
+        tenant_id="tenant-a", principal_actor_id="human-user-a", binding={**binding, "revision": "6"}
+    )
+    assert stale == {
+        "verified": False,
+        "reason_code": "collaboration_binding_revision_stale",
+        "authoritative_revision": "7",
+    }
+    catalog.access = False
+    denied = authority.verify(tenant_id="tenant-a", principal_actor_id="human-user-a", binding=binding)
+    assert denied["reason_code"] == "collaboration_binding_project_access_denied"

@@ -120,28 +120,27 @@ class AgentIntentV1:
     hop_count: int
     payload: Mapping[str, Any]
     payload_digest: str
+    origin_event_type: str | None = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> AgentIntentV1:
-        _exact(
-            value,
-            {
-                "schema",
-                "intent_id",
-                "workspace_id",
-                "room_id",
-                "actor_binding_id",
-                "intent_type",
-                "target_actor_binding_id",
-                "task_id",
-                "correlation_id",
-                "causation_id",
-                "hop_count",
-                "payload",
-                "payload_digest",
-            },
-            "agent_intent",
-        )
+        required = {
+            "schema",
+            "intent_id",
+            "workspace_id",
+            "room_id",
+            "actor_binding_id",
+            "intent_type",
+            "target_actor_binding_id",
+            "task_id",
+            "correlation_id",
+            "causation_id",
+            "hop_count",
+            "payload",
+            "payload_digest",
+        }
+        if not required.issubset(value) or set(value) - (required | {"origin_event_type"}):
+            raise ValueError("collaboration_agent_intent_fields_invalid")
         intent_type = str(value.get("intent_type") or "")
         payload = value.get("payload")
         hop_count = value.get("hop_count")
@@ -157,6 +156,12 @@ class AgentIntentV1:
         forbidden = {"assignment_id", "budget", "provider", "team_id", "tools", "worker_id"}
         if cls._contains_forbidden(payload, forbidden):
             raise ValueError("collaboration_agent_intent_authority_escalation")
+        origin_event_type = str(value.get("origin_event_type") or "").strip() or None
+        if origin_event_type in {"workflow.projected", "task.projected"} and intent_type in {
+            "propose_task",
+            "handoff_request",
+        }:
+            raise ValueError("collaboration_agent_intent_workflow_retrigger_forbidden")
         digest = require_digest(value.get("payload_digest"), "payload_digest")
         if digest != canonical_digest(payload):
             raise ValueError("collaboration_agent_intent_digest_mismatch")
@@ -176,10 +181,14 @@ class AgentIntentV1:
             hop_count,
             dict(payload),
             digest,
+            origin_event_type,
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {**asdict(self), "payload": dict(self.payload)}
+        value = {**asdict(self), "payload": dict(self.payload)}
+        if self.origin_event_type is None:
+            value.pop("origin_event_type")
+        return value
 
     @staticmethod
     def _contains_forbidden(value: Any, forbidden: set[str]) -> bool:

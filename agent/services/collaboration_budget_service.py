@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from agent.services.collaboration_workspace_store import CollaborationStoreConflict, CollaborationWorkspaceStore
-from ananta_contracts.collaboration_workspace import canonical_digest, require_id
+from ananta_contracts.collaboration_workspace import WorkspaceEventV1, canonical_digest, require_id
 
 
 class CollaborationBudgetService:
@@ -77,8 +77,52 @@ class CollaborationBudgetService:
         except CollaborationStoreConflict as exc:
             if str(exc) != "collaboration_admission_rate_limited":
                 raise
-            return self._decision(False, "budget_exhausted", traffic, [])
+            decision = self._decision(False, "budget_exhausted", traffic, [])
+            self._record_denial(selected, traffic, decision)
+            return decision
         return self._decision(True, "budget_admitted", traffic, counters)
+
+    def _record_denial(
+        self,
+        dimensions: Mapping[str, str],
+        traffic_class: str,
+        decision: Mapping[str, Any],
+    ) -> None:
+        window = int(self._clock() // self._window) * self._window
+        identity = canonical_digest([dimensions["tenant"], dimensions["workspace"], traffic_class, window, dimensions])
+        payload = {
+            "decision": "denied",
+            "reason_code": decision["reason_code"],
+            "traffic_class": traffic_class,
+            "retry_allowed": False,
+            "replan_allowed": False,
+        }
+        event = WorkspaceEventV1.from_mapping(
+            {
+                "schema": WorkspaceEventV1.SCHEMA,
+                "event_id": f"event-budget-{identity[:24]}",
+                "workspace_id": dimensions["workspace"],
+                "room_id": dimensions.get("room"),
+                "thread_id": None,
+                "event_type": "command.decided",
+                "actor_binding_id": dimensions.get("principal") or dimensions.get("actor"),
+                "idempotency_key": f"budget-{identity[:32]}",
+                "correlation_id": dimensions.get("intent_chain") or f"budget-{identity[:24]}",
+                "causation_id": None,
+                "visibility": "room" if dimensions.get("room") else "workspace",
+                "retention": "audit",
+                "occurred_at": float(self._clock()),
+                "payload": payload,
+                "payload_digest": canonical_digest(payload),
+                "source_refs": [],
+                "run_refs": [],
+            }
+        ).to_dict()
+        try:
+            self._store.append_event(dimensions["tenant"], event)
+        except (CollaborationStoreConflict, KeyError, PermissionError, ValueError):
+            # Denial reporting is best-effort and can never turn denial into admission.
+            return
 
     @staticmethod
     def _decision(

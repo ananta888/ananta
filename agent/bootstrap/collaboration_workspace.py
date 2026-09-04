@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from flask import Flask
+from sqlmodel import Session
 
 from agent.config import settings
+from agent.database import engine
 from agent.services.collaboration_agent_control_service import CollaborationAgentControlService
 from agent.services.collaboration_binding_service import CollaborationBindingService
 from agent.services.collaboration_bridge_ports import DisabledCollaborationBridge
@@ -16,6 +18,10 @@ from agent.services.collaboration_command_service import CollaborationCommandSer
 from agent.services.collaboration_delivery_service import (
     CollaborationDeliveryService,
     CollaborationProjectionService,
+)
+from agent.services.collaboration_domain_binding_authority import (
+    HubCollaborationBindingAuthority,
+    SqlModelCollaborationDomainCatalog,
 )
 from agent.services.collaboration_evidence_policy import CollaborationEvidencePolicy
 from agent.services.collaboration_flow_projection_service import CollaborationFlowProjectionService
@@ -72,13 +78,16 @@ def initialize_collaboration_workspace(app: Flask) -> CollaborationWorkspaceWiri
         app.extensions["collaboration_workspace_service"] = service
         app.extensions["collaboration_delivery_service"] = CollaborationDeliveryService(store)
         projections = CollaborationProjectionService(store)
-        search = CollaborationSearchService(store, policy=policy)
+        search = CollaborationSearchService(store, policy=policy, budget=budget)
         app.extensions["collaboration_projection_service"] = projections
         app.extensions["collaboration_search_service"] = search
         app.extensions["collaboration_flow_projection_service"] = CollaborationFlowProjectionService(store)
         app.extensions["collaboration_observability_service"] = CollaborationObservabilityService(store)
+        domain_catalog = SqlModelCollaborationDomainCatalog(lambda: Session(engine))
         app.extensions["collaboration_binding_service"] = CollaborationBindingService(
-            store, policy=policy, authority=_DenyBindingAuthority()
+            store,
+            policy=policy,
+            authority=HubCollaborationBindingAuthority(store, domain_catalog),
         )
         app.extensions["collaboration_legacy_migration_service"] = CollaborationLegacyMigrationService(
             get_share_session_service(), service
@@ -103,6 +112,7 @@ def initialize_collaboration_workspace(app: Flask) -> CollaborationWorkspaceWiri
             store,
             workspace_policy=policy,
             command_policy=PreauthorizedCommandPolicy(allowed_tools, command_revision),
+            budget=budget,
         )
         app.extensions["collaboration_bridge"] = DisabledCollaborationBridge()
         status = CollaborationWorkspaceWiringStatus(True, None)
@@ -118,16 +128,6 @@ class _DenyAssignmentAuthority:
     def decide(self, *, tenant_id: str, intent):
         del tenant_id, intent
         return {"authorized": False, "reason_code": "hub_assignment_authority_not_configured", "assignment": {}}
-
-
-class _DenyBindingAuthority:
-    def verify(self, *, tenant_id: str, principal_actor_id: str, binding):
-        del tenant_id, principal_actor_id, binding
-        return {
-            "verified": False,
-            "reason_code": "hub_binding_authority_not_configured",
-            "authoritative_revision": "unavailable",
-        }
 
 
 __all__ = ["CollaborationWorkspaceWiringStatus", "initialize_collaboration_workspace"]

@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.collaboration_content_security import CollaborationSensitiveContentDetector
 from ananta_contracts.collaboration_workspace import EVENT_TYPES, canonical_json
 
 
@@ -22,19 +23,9 @@ class CollaborationEventPolicy:
     EPHEMERAL_TYPES = frozenset({"cursor.moved", "typing.changed", "view.delta", "presence.heartbeat"})
     BULK_REFERENCE_TYPES = frozenset({"artifact.linked"})
     COMMAND_TYPES = frozenset({"command.proposed", "command.decided"})
-    SENSITIVE_KEYS = frozenset(
-        {
-            "authorization",
-            "chain_of_thought",
-            "cookie",
-            "password",
-            "private_key",
-            "private_reasoning",
-            "raw_tool_output",
-            "secret",
-            "token",
-        }
-    )
+
+    def __init__(self, detector: CollaborationSensitiveContentDetector | None = None) -> None:
+        self._detector = detector or CollaborationSensitiveContentDetector()
 
     def classify(self, event_type: str) -> CollaborationEventDecision:
         normalized = str(event_type or "").strip()
@@ -56,7 +47,7 @@ class CollaborationEventPolicy:
             raise ValueError("collaboration_event_type_unknown")
         if not decision.durable:
             raise ValueError("collaboration_ephemeral_event_not_durable")
-        violation = self._sensitive_path(payload)
+        violation = self._detector.sensitive_path(payload)
         if violation is not None:
             raise ValueError(f"collaboration_sensitive_content_rejected:{violation}")
         if len(canonical_json(payload).encode()) > 65_536:
@@ -82,23 +73,6 @@ class CollaborationEventPolicy:
             or not isinstance(payload.get("export_allowed"), bool)
         ):
             raise ValueError("collaboration_artifact_reference_invalid")
-
-    def _sensitive_path(self, value: Any, path: str = "payload") -> str | None:
-        if isinstance(value, Mapping):
-            for key, nested in value.items():
-                normalized = str(key).strip().casefold().replace("-", "_")
-                child_path = f"{path}.{normalized}"
-                if normalized in self.SENSITIVE_KEYS or normalized.endswith("_secret") or normalized.endswith("_token"):
-                    return child_path
-                violation = self._sensitive_path(nested, child_path)
-                if violation is not None:
-                    return violation
-        elif isinstance(value, (list, tuple)):
-            for index, nested in enumerate(value):
-                violation = self._sensitive_path(nested, f"{path}[{index}]")
-                if violation is not None:
-                    return violation
-        return None
 
 
 __all__ = ["CollaborationEventDecision", "CollaborationEventPolicy"]

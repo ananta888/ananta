@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from agent.services.collaboration_budget_service import CollaborationBudgetService
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
 from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
 from ananta_contracts.collaboration_workspace import canonical_digest, canonical_json, require_id
@@ -18,10 +19,12 @@ class CollaborationSearchService:
         *,
         policy: CollaborationWorkspacePolicy,
         clock: Callable[[], float] = time.time,
+        budget: CollaborationBudgetService | None = None,
     ) -> None:
         self._store = store
         self._policy = policy
         self._clock = clock
+        self._budget = budget
 
     def rebuild(self, tenant_id: str, workspace_id: str, *, mode: str = "full") -> dict[str, Any]:
         if mode not in {"full", "incremental"}:
@@ -48,6 +51,13 @@ class CollaborationSearchService:
         mode: str = "full",
     ) -> dict[str, Any]:
         self._policy.require(self._store.membership(tenant_id, workspace_id, principal_actor_id), "workspace.manage")
+        self._admit_budget(
+            tenant_id,
+            workspace_id,
+            principal_actor_id,
+            "search_rebuild",
+            connection="hub-search-rebuild",
+        )
         return self.rebuild(tenant_id, workspace_id, mode=mode)
 
     def drift(self, tenant_id: str, workspace_id: str) -> dict[str, Any]:
@@ -83,6 +93,7 @@ class CollaborationSearchService:
         limit: int = 20,
     ) -> dict[str, Any]:
         self._authorize(tenant_id, workspace_id, principal_actor_id)
+        self._admit_budget(tenant_id, workspace_id, principal_actor_id, "search_query")
         candidates = self._store.search_documents(tenant_id, workspace_id, query, limit=50)
         items: list[dict[str, Any]] = []
         for document in candidates:
@@ -107,6 +118,13 @@ class CollaborationSearchService:
         maximum_events: int = 20,
     ) -> dict[str, Any]:
         self._authorize(tenant_id, workspace_id, principal_actor_id)
+        self._admit_budget(
+            tenant_id,
+            workspace_id,
+            principal_actor_id,
+            "search_memory",
+            room_id=room_id,
+        )
         if not 1 <= maximum_events <= 100 or not self._store.room_visible(
             tenant_id, workspace_id, room_id, principal_actor_id
         ):
@@ -210,6 +228,37 @@ class CollaborationSearchService:
 
     def _authorize(self, tenant_id: str, workspace_id: str, actor_id: str) -> None:
         self._policy.require(self._store.membership(tenant_id, workspace_id, actor_id), "event.read")
+
+    def _admit_budget(
+        self,
+        tenant_id: str,
+        workspace_id: str,
+        actor_id: str,
+        traffic_class: str,
+        *,
+        room_id: str | None = None,
+        task_id: str | None = None,
+        intent_chain: str | None = None,
+        connection: str = "hub-search",
+    ) -> None:
+        if self._budget is None:
+            return
+        admission = self._budget.admit(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            traffic_class=traffic_class,
+            dimensions={
+                "room": room_id,
+                "principal": actor_id,
+                "actor": actor_id,
+                "task": task_id,
+                "provider": None,
+                "intent_chain": intent_chain,
+                "connection": connection,
+            },
+        )
+        if not admission["allowed"]:
+            raise PermissionError(admission["reason_code"])
 
     @staticmethod
     def _documents(events: list[dict[str, Any]]) -> list[dict[str, Any]]:

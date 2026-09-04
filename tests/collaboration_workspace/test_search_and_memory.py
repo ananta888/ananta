@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from agent.services.collaboration_search_service import CollaborationSearchService
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
 from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
 from tests.collaboration_workspace.helpers import actor, build_event, room, service
 
 
-def _setup(database: Path):
+def _setup(database: Path, *, budget=None):
     workspaces = service(database)
     workspaces.create_workspace(
         tenant_id="tenant-a",
@@ -43,7 +45,10 @@ def _setup(database: Path):
         expected_revision=1,
     )
     return workspaces, CollaborationSearchService(
-        CollaborationWorkspaceStore(database), policy=CollaborationWorkspacePolicy(), clock=lambda: 100.0
+        CollaborationWorkspaceStore(database),
+        policy=CollaborationWorkspacePolicy(),
+        clock=lambda: 100.0,
+        budget=budget,
     )
 
 
@@ -216,3 +221,21 @@ def test_codecompass_metadata_is_digest_bound_and_context_only_reduces_scope(tmp
     assert result["scope_broadened"] is False
     assert result["items"][0]["codecompass"]["graph_digest"] == "b" * 64
     assert result["coverage_notice"] == "codecompass_partial_or_unavailable"
+
+
+def test_search_budget_is_scoped_and_fails_before_query_amplification(tmp_path: Path) -> None:
+    class DenyingBudget:
+        def admit(self, **request):
+            assert request["traffic_class"] == "search_query"
+            assert request["dimensions"]["principal"] == "human-user-a"
+            assert request["dimensions"]["connection"] == "hub-search"
+            return {"allowed": False, "reason_code": "collaboration_budget_exhausted"}
+
+    _workspaces, search = _setup(tmp_path / "state.sqlite3", budget=DenyingBudget())
+    with pytest.raises(PermissionError, match="budget_exhausted"):
+        search.query(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            principal_actor_id="human-user-a",
+            query="needle",
+        )
