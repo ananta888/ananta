@@ -2,8 +2,8 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-02",
-  "updated_at": "2026-09-03",
-  "last_reviewed": "2026-09-03",
+  "updated_at": "2026-09-04",
+  "last_reviewed": "2026-09-04",
   "owner": "Peter Stuiber / Ananta",
   "track": "dspy-optimization-evaluation-engine-integration",
   "status": "partial",
@@ -21,6 +21,13 @@
     "observed_latest_stable_tag_commit": "29448ae12756abdd14bd8796c819247ebb83673c",
     "observed_dspy_license": "MIT",
     "note": "Der Hub hat die lokale DSPy-Quell-, Lizenz-, Lock- und Security-Baseline auf der unveraenderlichen Ananta-Revision 93f52f88d4606c9c333ceccfe7f972ed9e28836c registriert und mit 33 headless Tests verifiziert. Diese lokale Evidenz ist keine Produktionsfreigabe.",
+    "latest_repository_audit": {
+      "audited_commit": "e2b408fe1ae34ea9145d4a271c01ac6381e67548",
+      "audited_at": "2026-09-04",
+      "status": "local_observation_unregistered",
+      "focused_test_result": "33 passed, 0 failed, 0 skipped",
+      "note": "Der erneute Quellcodeabgleich bestaetigt die registrierte lokale Baseline ohne neue DSPy-Implementierung seit deren Evidenzlauf. Der aktuelle Commit ist keine nachtraeglich zum Produktionsbeleg erhobene RUN-Identitaet."
+    },
     "blocked_audit": {
       "status": "production_blocked_local_baseline_verified",
       "reason_codes": [
@@ -89,8 +96,8 @@
     ]
   },
   "implementation_review": {
-    "reviewed_at": "2026-09-03",
-    "state": "implemented_locally_release_blocked",
+    "reviewed_at": "2026-09-04",
+    "state": "local_implementation_in_progress_release_blocked",
     "implemented_boundaries": [
       "Hub-owned default-off job lifecycle, HMAC attempt fencing, tenant revisions and automatic cancellation",
       "Dependency-free contracts, exact ProviderExecutionBinding roles, bounded LM usage and scoped retrieval ports",
@@ -101,10 +108,11 @@
       "Hub-issued local evidence binding with 33 fully automatic tests and no skips"
     ],
     "remaining_local_gaps": [
-      "Real DSPy 3.2.1 Legacy-/Typed-BaseLM and optimizer compatibility execution",
-      "Built-image SBOM and CI compatibility matrix",
-      "Production CodeCompass adapter, native prompt-program runtime integration and task-specific use-case E2E",
-      "Complete telemetry, retention/legal-hold and browser/load/failure-recovery suites"
+      "Real DSPy 3.2.1 Legacy-/Typed-BaseLM and optimizer compatibility execution; the current compatibility test uses a deterministic double.",
+      "OptimizationRun and PromotionPlan JSON schemas plus explicit compatibility/property coverage are absent.",
+      "Built-image SBOM and a headless CI compatibility matrix are absent.",
+      "Production CodeCompass adapter, native prompt-program runtime integration and task-specific use-case E2E remain incomplete.",
+      "Complete telemetry, retention/legal-hold and browser/load/failure-recovery suites remain incomplete."
     ],
     "release_blockers": [
       "production_dataset_not_admitted",
