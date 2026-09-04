@@ -802,7 +802,7 @@
         },
         {
           "id": "CI-023",
-          "status": "open",
+          "status": "completed",
           "workflow": "Python Verification",
           "workflow_job": "hypothesis-matrix / symbolic-targeted",
           "step": "Collect isolated verification tests",
@@ -820,15 +820,16 @@
           "expected_result": "Alle Verification-Jobs sammeln und laufen aus ihrem isolierten, gehashten Dependency-Satz ohne implizite Hub-Abhaengigkeiten.",
           "relevant_validations": [
             "GitHub-Run 33882383020 und betroffene Joblogs am Quellstand 6d08109f9 ausgewertet.",
-            "Der Lock enthaelt weder Flask noch PyYAML; die beiden Collection-Pfade wurden im aktuellen Quellstand bestaetigt."
+            "GitHub Python Verification Run 33910210131 auf Commit 7ad0784329fd4998809b89134a76b72670321875: core-boundary, repeated-fast-gate, worker-image, symbolic-targeted und Python 3.10 bis 3.14 erfolgreich."
           ],
           "dependencies": [],
-          "commit_changes": [],
-          "run_ids": ["33882383020"]
+          "commit_changes": ["cab7bfb34"],
+          "run_ids": ["33882383020", "33910210131"],
+          "implemented_solution": "Repository-Zugriff wird erst an der persistenzgebundenen Policy-Grenze importiert; PyYAML ist vollständig gehasht im Worker-Lock enthalten. Pytest-Kindprozesse erhalten confcutdir, damit sie nicht versehentlich den globalen Hub-conftest und dessen Flask-Graph laden."
         },
         {
           "id": "CI-024",
-          "status": "open",
+          "status": "completed",
           "workflow": "Research Training Gate",
           "workflow_job": "cpu-e2e",
           "step": "Run headless CPU, DDP, policy and failure gates",
@@ -845,15 +846,16 @@
           "expected_result": "Der Job fuehrt die Research-Training-Suite mit zwei Workern vollautomatisch aus, statt an der CLI-Option zu scheitern.",
           "relevant_validations": [
             "GitHub-Run 33882383257, Job cpu-e2e, am Quellstand 6d08109f9 ausgewertet.",
-            "Die aktuelle Workflow-Option -n 2 und das Fehlen von pytest-xdist in beiden installierten Locks wurden bestaetigt."
+            "Research Training Gate Run 33910217014, Job 101144612767 cpu-e2e, auf Commit 7ad0784329fd4998809b89134a76b72670321875 erfolgreich."
           ],
           "dependencies": [],
-          "commit_changes": [],
-          "run_ids": ["33882383257"]
+          "commit_changes": ["7ad078432"],
+          "run_ids": ["33882383257", "33910217014"],
+          "implemented_solution": "pytest-xdist 3.8.0 und execnet wurden in den reproduzierbaren Development-Lock aufgenommen; der headless Gate läuft mit zwei Workern und ohne interaktive Freigabe."
         },
         {
           "id": "CI-025",
-          "status": "open",
+          "status": "completed",
           "workflow": "Research Training Gate",
           "workflow_job": "angular-workbench",
           "step": "Test accessible Hub-only workbench",
@@ -870,15 +872,16 @@
           "expected_result": "Beide gezielten Angular-Specs laufen mit globals, jsdom und Angular-Compiler-Setup vollstaendig headless.",
           "relevant_validations": [
             "GitHub-Run 33882383257, Job angular-workbench, am Quellstand 6d08109f9 ausgewertet.",
-            "Die benoetigte Konfiguration existiert in frontend-angular/vitest.config.mts und importiert @angular/compiler ueber src/test-setup.ts."
+            "Research Training Gate Run 33910217014, Job 101144612520 angular-workbench, auf Commit 7ad0784329fd4998809b89134a76b72670321875 erfolgreich."
           ],
           "dependencies": [],
-          "commit_changes": [],
-          "run_ids": ["33882383257"]
+          "commit_changes": ["7ad078432"],
+          "run_ids": ["33882383257", "33910217014"],
+          "implemented_solution": "Der Angular-Job arbeitet explizit in frontend-angular und verwendet dadurch die versionierte Vitest-Konfiguration samt globals, jsdom und Angular-Test-Setup."
         },
         {
           "id": "CI-026",
-          "status": "open",
+          "status": "completed",
           "workflow": "Backend Isolated Flows",
           "workflow_job": "isolated-flows",
           "step": "Import Hub collaboration bootstrap",
@@ -895,11 +898,12 @@
           "expected_result": "Der Hub-Service ist unter Python 3.11 kompilierbar und alle isolierten Backend-Flows koennen ihre Tests ausfuehren.",
           "relevant_validations": [
             "GitHub-Run 33908670417 und Job 101139632991 am exakten HEAD ausgewertet.",
-            "git blame ordnet die defekte Zeile Commit e7b9fbcd7 zu."
+            "Backend Isolated Flows Run 33910210132, Job 101144591241, auf Commit 7ad0784329fd4998809b89134a76b72670321875 erfolgreich."
           ],
           "dependencies": [],
-          "commit_changes": [],
-          "run_ids": ["33908670417"]
+          "commit_changes": ["2318ee415", "cab7bfb34"],
+          "run_ids": ["33908670417", "33910210132"],
+          "implemented_solution": "Der fehlerhafte mehrzeilige f-string wurde durch eine getrennte Digest-Berechnung ersetzt. Ein früher compileall-Guard mit isoliertem PYTHONPYCACHEPREFIX stoppt vergleichbare Syntaxfehler vor dem teuren Flow-Test."
         }
       ]
     }
@@ -907,9 +911,9 @@
   "meta": {
     "total_items": 26,
     "by_status": {
-      "completed": 21,
+      "completed": 25,
       "partial": 0,
-      "open": 4,
+      "open": 0,
       "in_progress": 0,
       "blocked": 1,
       "blocked_decision": 0,
@@ -929,8 +933,9 @@
       "AKTUELLER AUDIT 2026-08-30: CI-021 ersetzt keine historische Ursache, sondern bindet den exakt gepushten Commit 69308b399 an die beiden roten Laeufe 33307559841 und 33307559864. Die aktuelle Matrix ist aus Artefakten und Traces erhoben; unbekannte SRC_*- oder RUN_*-Belege wurden nicht erfunden.",
       "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab.",
       "ABSCHLUSS 2026-09-01: CI-013 ist durch Coverage-Lauf 33478142971 am Commit d4da32c56 mit 21 von 21 erfolgreichen Jobs abgeschlossen. Damit verbleibt in dieser Datei ausschliesslich CI-018 als extern evidenzgebundener Blocker; es gibt keine nicht blockierte Arbeit mehr.",
-      "AUDIT 2026-09-04: Neue, reproduzierbare Fehler aus Python Verification 33882383020, Research Training Gate 33882383257 und Backend Isolated Flows 33908670417 sind als CI-023 bis CI-026 aufgenommen. CI-018 bleibt extern blockiert: seit 2026-06-27 kein neuer Container-Release-Lauf und alle fuenf letzten Dogfood-Laeufe wurden abgebrochen."
+      "AUDIT 2026-09-04: Neue, reproduzierbare Fehler aus Python Verification 33882383020, Research Training Gate 33882383257 und Backend Isolated Flows 33908670417 sind als CI-023 bis CI-026 aufgenommen. CI-018 bleibt extern blockiert: seit 2026-06-27 kein neuer Container-Release-Lauf und alle fuenf letzten Dogfood-Laeufe wurden abgebrochen.",
+      "ABSCHLUSS 2026-09-04: CI-023 bis CI-026 sind durch Python Verification 33910210131, Research Training Gate 33910217014 und Backend Isolated Flows 33910210132 auf Commit 7ad0784329fd4998809b89134a76b72670321875 vollständig grün. In diesem Track verbleibt nur CI-018 als echte externe Release-/Dogfood-Evidenzblockade."
     ],
-    "recommended_order": ["CI-026", "CI-023", "CI-024", "CI-025"]
+    "recommended_order": []
   }
 }
