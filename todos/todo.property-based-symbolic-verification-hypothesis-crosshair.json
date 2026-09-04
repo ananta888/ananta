@@ -796,7 +796,7 @@
       "analysis": 1,
       "architecture": 1,
       "security": 1,
-      "implementation": 6,
+      "implementation": 5,
       "experiment": 1,
       "integration": 1,
       "ci": 1,
