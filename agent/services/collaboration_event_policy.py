@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from agent.services.collaboration_content_ingress_policy import CollaborationContentIngressPolicy
 from agent.services.collaboration_content_security import CollaborationSensitiveContentDetector
 from ananta_contracts.collaboration_workspace import EVENT_TYPES, canonical_json
 
@@ -24,8 +25,13 @@ class CollaborationEventPolicy:
     BULK_REFERENCE_TYPES = frozenset({"artifact.linked"})
     COMMAND_TYPES = frozenset({"command.proposed", "command.decided"})
 
-    def __init__(self, detector: CollaborationSensitiveContentDetector | None = None) -> None:
+    def __init__(
+        self,
+        detector: CollaborationSensitiveContentDetector | None = None,
+        content_ingress: CollaborationContentIngressPolicy | None = None,
+    ) -> None:
         self._detector = detector or CollaborationSensitiveContentDetector()
+        self._content_ingress = content_ingress or CollaborationContentIngressPolicy(self._detector)
 
     def classify(self, event_type: str) -> CollaborationEventDecision:
         normalized = str(event_type or "").strip()
@@ -52,6 +58,11 @@ class CollaborationEventPolicy:
             raise ValueError(f"collaboration_sensitive_content_rejected:{violation}")
         if len(canonical_json(payload).encode()) > 65_536:
             raise ValueError("collaboration_event_payload_too_large")
+        ingress = payload.get("content_ingress")
+        if ingress is not None:
+            if not isinstance(ingress, Mapping):
+                raise ValueError("collaboration_content_ingress_invalid")
+            self._content_ingress.validate(ingress)
         if event_type == "artifact.linked":
             self._validate_artifact(payload)
         return decision

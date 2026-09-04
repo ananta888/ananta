@@ -26,7 +26,9 @@ from agent.services.collaboration_domain_binding_authority import (
 from agent.services.collaboration_evidence_policy import CollaborationEvidencePolicy
 from agent.services.collaboration_flow_projection_service import CollaborationFlowProjectionService
 from agent.services.collaboration_legacy_migration_service import CollaborationLegacyMigrationService
+from agent.services.collaboration_live_control_service import CollaborationLiveControlService
 from agent.services.collaboration_observability_service import CollaborationObservabilityService
+from agent.services.collaboration_operational_signals import CollaborationOperationalSignals
 from agent.services.collaboration_recovery_service import CollaborationRecoveryService
 from agent.services.collaboration_search_service import CollaborationSearchService
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
@@ -82,7 +84,11 @@ def initialize_collaboration_workspace(app: Flask) -> CollaborationWorkspaceWiri
         app.extensions["collaboration_projection_service"] = projections
         app.extensions["collaboration_search_service"] = search
         app.extensions["collaboration_flow_projection_service"] = CollaborationFlowProjectionService(store)
-        app.extensions["collaboration_observability_service"] = CollaborationObservabilityService(store)
+        app.extensions["collaboration_live_control_service"] = CollaborationLiveControlService(store, policy=policy)
+        operational_signals = CollaborationOperationalSignals()
+        app.extensions["collaboration_observability_service"] = CollaborationObservabilityService(
+            store, signals=operational_signals
+        )
         domain_catalog = SqlModelCollaborationDomainCatalog(lambda: Session(engine))
         app.extensions["collaboration_binding_service"] = CollaborationBindingService(
             store,

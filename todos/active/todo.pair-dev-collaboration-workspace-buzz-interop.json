@@ -972,7 +972,7 @@
     {
       "id": "PDCW-UI-005",
       "title": "Multi-Cursor, Follow-Modus und Remote-Control für n>2 erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -988,7 +988,7 @@
         "Follow ist jederzeit lokal beendbar; Remote-Control erfordert einen session-/actor-/revisiongebundenen Grant.",
         "Control-Konflikte, Revocation und Owner-Wechsel beenden aktive Steuerung deterministisch."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-UI-006",
@@ -1565,7 +1565,7 @@
     {
       "id": "PDCW-SEC-004",
       "title": "Prompt-Injection-, Content- und Artifact-Ingress härten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1582,7 +1582,7 @@
         "URLs, Markdown, HTML, Patches, Attachments und Tooloutput besitzen Größen-, Typ-, Encoding-, Malware- und Path-Grenzen.",
         "Security-relevante Antworten ohne Evidenz werden nicht als belegte Negativaussage ausgegeben."
       ],
-      "progress_percent": 95.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SEC-005",
@@ -1626,7 +1626,7 @@
         "Queue-/Storage-/Search-/LLM-/Tool-Amplification wird im Native Core adversarial getestet; aktivierte Live-/Agent-/Bridge-Profile erweitern dieselbe Matrix.",
         "Abuse-Sperren können scoped widerrufen werden und blockieren keine kritischen Revocation-/Cancel-Signale."
       ],
-      "progress_percent": 96.0
+      "progress_percent": 97.0
     },
     {
       "id": "PDCW-OPS-001",
@@ -1671,7 +1671,7 @@
     {
       "id": "PDCW-OPS-003",
       "title": "Content-safe Observability, SLOs und Alarmierung implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1687,7 +1687,7 @@
         "Correlation nutzt opaque IDs; Payload, Prompt, Secret, Key, Nonce und Message-Text bleiben ausgeschlossen.",
         "Cardinality-Budgets verhindern actor-/room-/event-id-basierte Metrikexplosion."
       ],
-      "progress_percent": 80.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-OPS-004",
@@ -1728,7 +1728,7 @@
         "Teilnehmer-, Event-, Room-, Queue-, Search- und Bridge-Caps stammen nur aus reproduzierbaren Messungen.",
         "Profile komponieren getrennte Durable-, Live- und Bridge-Adapter; optionale SFU-/Buzz-Konfiguration wird nicht in Native-Core-Services importiert."
       ],
-      "progress_percent": 60.0
+      "progress_percent": 80.0
     },
     {
       "id": "PDCW-OPS-006",
@@ -1954,11 +1954,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 11,
+      "partial": 8,
       "blocked": 4,
-      "done": 57
+      "done": 60
     },
-    "progress_percent_done": 79.2,
+    "progress_percent_done": 83.3,
     "by_priority": {
       "P0": 34,
       "P1": 33,
@@ -1972,8 +1972,8 @@
     },
     "critical_path": {
       "total": 39,
-      "done": 32,
-      "remaining": 7
+      "done": 34,
+      "remaining": 5
     },
     "milestones": {
       "total": 12,
@@ -2026,7 +2026,7 @@
         "done": 1,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 80.0
+        "progress_percent": 90.0
       },
       "documentation": {
         "total": 2,
@@ -2047,28 +2047,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 6,
+          "partial": 4,
           "blocked": 0,
-          "done": 30
+          "done": 32
         },
-        "done": 30,
-        "partial": 6,
+        "done": 32,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 97.9
+        "progress_percent": 98.8
       },
       "security": {
         "total": 11,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 2,
           "blocked": 0,
-          "done": 8
+          "done": 9
         },
-        "done": 8,
-        "partial": 3,
+        "done": 9,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 98.7
+        "progress_percent": 99.3
       },
       "test": {
         "total": 8,
@@ -2104,11 +2104,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 11,
+    "partial": 8,
     "blocked": 4,
-    "done": 57,
-    "count_based_percent": 79.2,
-    "weighted_percent": 96.9
+    "done": 60,
+    "count_based_percent": 83.3,
+    "weighted_percent": 97.8
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2156,10 +2156,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 116.745,
-    "remaining_weight": 3.755,
+    "done_weight": 117.79,
+    "remaining_weight": 2.71,
     "blocked_weight": 6.0,
-    "weighted_percent": 96.9
+    "weighted_percent": 97.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2197,10 +2197,10 @@
       },
       "M05": {
         "total_tasks": 6,
-        "done": 4,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 66.7,
-        "weighted_percent": 96.2,
+        "count_based_percent": 83.3,
+        "weighted_percent": 97.5,
         "status": "in_progress"
       },
       "M06": {
@@ -2237,18 +2237,18 @@
       },
       "M10": {
         "total_tasks": 6,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 97.6,
+        "count_based_percent": 66.7,
+        "weighted_percent": 98.6,
         "status": "in_progress"
       },
       "M11": {
         "total_tasks": 6,
-        "done": 4,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 66.7,
-        "weighted_percent": 90.4,
+        "count_based_percent": 83.3,
+        "weighted_percent": 97.4,
         "status": "in_progress"
       },
       "M12": {
@@ -2264,10 +2264,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T16:21:33.871219Z",
+    "generated_at": "2026-09-04T16:38:31.457665Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a319dd2135cafc5fa4733feb0d443bbb1a028501ab15f22671cbd5209a2a0427",
+    "source_hash": "6894c70cc9004d6e5684b5004d8536404864a7c412f547203db765f22c237dbc",
     "is_stale": false
   },
   "implementation_review": {

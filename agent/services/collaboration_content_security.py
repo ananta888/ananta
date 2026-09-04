@@ -6,6 +6,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from agent.services.collaboration_evidence_policy import CollaborationEvidencePolicy
 from ananta_contracts.collaboration_workspace import canonical_digest, canonical_json
 
 _SECRET_VALUE = re.compile(
@@ -77,8 +78,13 @@ class CollaborationPromptBuilder:
 
     _MAX_SECTION_BYTES = 65_536
 
-    def __init__(self, redactor: CollaborationContentRedactor | None = None) -> None:
+    def __init__(
+        self,
+        redactor: CollaborationContentRedactor | None = None,
+        evidence_policy: CollaborationEvidencePolicy | None = None,
+    ) -> None:
         self._redactor = redactor or CollaborationContentRedactor()
+        self._evidence_policy = evidence_policy
 
     def build(
         self,
@@ -109,13 +115,33 @@ class CollaborationPromptBuilder:
         statement: str,
         source_refs: Sequence[str],
         run_refs: Sequence[str],
+        evidence_binding: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        grounded = bool(statement.strip() and source_refs and len(run_refs) == 1)
+        grounded = False
+        reason_code = "collaboration_hub_evidence_registry_required"
+        binding = dict(evidence_binding or {})
+        required = {"tenant_id", "workspace_id", "project_id", "task_id", "repository_revision", "evidence_scope"}
+        if self._evidence_policy is not None and set(binding) == required and statement.strip():
+            try:
+                self._evidence_policy.require_verified(
+                    tenant_id=str(binding["tenant_id"]),
+                    workspace_id=str(binding["workspace_id"]),
+                    event_type="decision.recorded",
+                    payload=binding,
+                    source_refs=tuple(source_refs),
+                    run_refs=tuple(run_refs),
+                )
+            except (PermissionError, TypeError, ValueError) as exc:
+                reason_code = str(exc).split(":", 1)[0]
+            else:
+                grounded = True
+                reason_code = "collaboration_hub_evidence_verified"
         return {
             "statement": self._redactor.redact(statement)[:1024],
             "verification_status": "hub_verified" if grounded else "unverified",
             "source_refs": list(source_refs) if grounded else [],
             "run_refs": list(run_refs) if grounded else [],
+            "reason_code": reason_code,
         }
 
     def _section(self, name: str, trust: str, value: Any) -> dict[str, Any]:

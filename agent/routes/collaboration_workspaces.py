@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -51,18 +52,59 @@ def _body() -> dict[str, Any]:
 
 
 def _invoke(operation: Callable[[], Any], *, created: bool = False):
+    started = time.perf_counter()
+    outcome = "error"
+    result: Any = None
+    reason_code = ""
     try:
-        return api_response(data=operation(), code=201 if created else 200)
+        result = operation()
+        outcome = "success"
+        return api_response(data=result, code=201 if created else 200)
     except CollaborationStoreConflict as exc:
+        outcome = "blocked"
+        reason_code = str(exc)
         return api_response(status="error", message=str(exc), code=409)
     except (CollaborationPolicyDenied, PermissionError) as exc:
+        outcome = "blocked"
+        reason_code = str(exc)
         return api_response(status="error", message=str(exc), code=403)
     except KeyError as exc:
+        reason_code = str(exc.args[0])
         return api_response(status="error", message=str(exc.args[0]), code=404)
     except (CollaborationContractError, TypeError, ValueError) as exc:
+        reason_code = str(exc)
         return api_response(status="error", message=str(exc), code=422)
     except RuntimeError as exc:
+        reason_code = str(exc)
         return api_response(status="error", message=str(exc), code=503)
+    finally:
+        observer = current_app.extensions.get("collaboration_observability_service")
+        if observer is not None:
+            signal = _request_signal()
+            duration_ms = (time.perf_counter() - started) * 1_000
+            try:
+                observer.record(signal, outcome=outcome, duration_ms=duration_ms)
+                if isinstance(result, dict) and result.get("replayed") is True:
+                    observer.record("replay", outcome="success", duration_ms=0)
+                if "loop" in reason_code or "causation" in reason_code:
+                    observer.record("loop_detection", outcome="blocked", duration_ms=0)
+                if "sensitive" in reason_code or "signature" in reason_code:
+                    observer.record("security", outcome="blocked", duration_ms=0)
+            except (TypeError, ValueError):
+                pass
+
+
+def _request_signal() -> str:
+    endpoint = str(request.endpoint or "")
+    if "cancel" in endpoint or "revoke" in endpoint:
+        return "revocation"
+    if "search" in endpoint or "memory" in endpoint:
+        return "search"
+    if "command" in endpoint:
+        return "command"
+    if "append_event" in endpoint:
+        return "event_admission"
+    return "api"
 
 
 @collaboration_workspaces_bp.get("/capabilities")
@@ -469,6 +511,90 @@ def room_presence(workspace_id: str, room_id: str):
             principal_actor_id=_identity()[2],
         )
     )
+
+
+@collaboration_workspaces_bp.put("/<workspace_id>/rooms/<room_id>/live/cursor")
+@check_user_auth
+def publish_live_cursor(workspace_id: str, room_id: str):
+    def operation():
+        body = _body()
+        return _extension("collaboration_live_control_service").publish_cursor(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+            view_id=body.get("view_id"),
+            x=body.get("x"),
+            y=body.get("y"),
+            epoch=body.get("epoch"),
+            ttl_seconds=body.get("ttl_seconds"),
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/rooms/<room_id>/live/cursors")
+@check_user_auth
+def live_cursors(workspace_id: str, room_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_live_control_service").cursors(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+            view_id=request.args.get("view_id"),
+        )
+    )
+
+
+@collaboration_workspaces_bp.put("/<workspace_id>/rooms/<room_id>/live/control")
+@check_user_auth
+def grant_live_control(workspace_id: str, room_id: str):
+    def operation():
+        body = _body()
+        return _extension("collaboration_live_control_service").grant_control(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+            controller_actor_binding_id=body.get("controller_actor_binding_id"),
+            session_id=body.get("session_id"),
+            view_id=body.get("view_id"),
+            epoch=body.get("epoch"),
+            expected_revision=body.get("expected_revision"),
+            ttl_seconds=body.get("ttl_seconds"),
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/live/control")
+@check_user_auth
+def current_live_control(workspace_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_live_control_service").current_grant(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+        )
+    )
+
+
+@collaboration_workspaces_bp.delete("/<workspace_id>/live/control")
+@check_user_auth
+def revoke_live_control(workspace_id: str):
+    def operation():
+        expected_revision = request.args.get("expected_revision")
+        if expected_revision is None:
+            raise ValueError("collaboration_control_revision_invalid")
+        return _extension("collaboration_live_control_service").revoke_control(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            expected_revision=int(expected_revision),
+        )
+
+    return _invoke(operation)
 
 
 @collaboration_workspaces_bp.get("/<workspace_id>/flow-projection")

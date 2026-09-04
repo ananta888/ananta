@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { HubApiCoreService } from '../../services/hub-api-core.service';
+import { CollaborationCursor, RemoteControlGrant } from './collaboration-live-state.service';
 import {
   CollaborationEvent,
   CollaborationPage,
@@ -109,6 +110,75 @@ export class CollaborationWorkspaceApiService {
   flowProjection(hubUrl: string, workspaceId: string): Observable<CollaborationFlowProjection> {
     return this.core.get<CollaborationFlowProjection>(
       `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/flow-projection`, hubUrl,
+    );
+  }
+
+  liveCursors(
+    hubUrl: string,
+    workspaceId: string,
+    roomId: string,
+    viewId: string,
+  ): Observable<{ items: CollaborationCursor[]; server_time: number }> {
+    const query = new URLSearchParams({ view_id: viewId }).toString();
+    return this.core.get<{ items: CollaborationCursor[]; server_time: number }>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/rooms/${encodeURIComponent(roomId)}/live/cursors?${query}`,
+      hubUrl,
+      undefined,
+      false,
+    );
+  }
+
+  publishCursor(
+    hubUrl: string,
+    workspaceId: string,
+    roomId: string,
+    cursor: { view_id: string; x: number; y: number; epoch: number; ttl_seconds: number },
+  ): Observable<CollaborationCursor> {
+    return this.core.put<CollaborationCursor>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/rooms/${encodeURIComponent(roomId)}/live/cursor`,
+      cursor,
+      hubUrl,
+    );
+  }
+
+  grantControl(
+    hubUrl: string,
+    workspaceId: string,
+    roomId: string,
+    request: {
+      controller_actor_binding_id: string;
+      session_id: string;
+      view_id: string;
+      epoch: number;
+      expected_revision: number;
+      ttl_seconds: number;
+    },
+  ): Observable<RemoteControlGrant> {
+    return this.core.put<RemoteControlGrant>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/rooms/${encodeURIComponent(roomId)}/live/control`,
+      request,
+      hubUrl,
+    );
+  }
+
+  currentControl(hubUrl: string, workspaceId: string): Observable<RemoteControlGrant | null> {
+    return this.core.get<RemoteControlGrant | null>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/live/control`,
+      hubUrl,
+      undefined,
+      false,
+    );
+  }
+
+  revokeControl(
+    hubUrl: string,
+    workspaceId: string,
+    expectedRevision: number,
+  ): Observable<{ revoked: boolean; revision?: number; reason_code: string }> {
+    const query = new URLSearchParams({ expected_revision: String(expectedRevision) }).toString();
+    return this.core.delete<{ revoked: boolean; revision?: number; reason_code: string }>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/live/control?${query}`,
+      hubUrl,
     );
   }
 

@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 from agent.services.collaboration_delivery_service import CollaborationDeliveryService
 from agent.services.collaboration_event_policy import CollaborationEventPolicy
+from agent.services.collaboration_operational_signals import CollaborationOperationalSignals
 from ananta_contracts.collaboration_workspace import canonical_digest, canonical_json, require_id
 
 PINNED_BUZZ_REVISION = "01bacb8df3d2f5718e0a468828e07ae874a38eae"
@@ -133,6 +134,7 @@ class BuzzCollaborationBridge:
         room_mapping: Callable[[str], str | None],
         membership_active: Callable[[str, str], bool],
         clock: Callable[[], float] = time.time,
+        operational_signals: CollaborationOperationalSignals | None = None,
     ) -> None:
         self._config = config
         self._relay = relay
@@ -144,6 +146,7 @@ class BuzzCollaborationBridge:
         self._room_mapping = room_mapping
         self._membership_active = membership_active
         self._clock = clock
+        self._operational_signals = operational_signals
         self._connected = False
         self._rates: dict[str, deque[float]] = defaultdict(deque)
         self._content_policy = CollaborationEventPolicy()
@@ -162,16 +165,16 @@ class BuzzCollaborationBridge:
 
     def connect(self) -> Mapping[str, Any]:
         if not self._config.enabled:
-            return {"connected": False, "reason_code": "buzz_bridge_disabled"}
+            return self._connect_result(False, "buzz_bridge_disabled", "blocked")
         try:
             remote = dict(self._relay.negotiate())
         except Exception as exc:
             del exc
-            return {"connected": False, "reason_code": "buzz_relay_unavailable"}
+            return self._connect_result(False, "buzz_relay_unavailable", "error")
         if remote.get("mapping_version") != MAPPING_VERSION or remote.get("revision") != PINNED_BUZZ_REVISION:
-            return {"connected": False, "reason_code": "buzz_capability_mismatch"}
+            return self._connect_result(False, "buzz_capability_mismatch", "blocked")
         self._connected = True
-        return {"connected": True, "reason_code": "buzz_bridge_connected"}
+        return self._connect_result(True, "buzz_bridge_connected", "success")
 
     def disconnect(self) -> Mapping[str, Any]:
         self._connected = False
@@ -314,6 +317,11 @@ class BuzzCollaborationBridge:
         if len(window) >= 60:
             raise PermissionError("buzz_inbound_rate_limited")
         window.append(now)
+
+    def _connect_result(self, connected: bool, reason_code: str, outcome: str) -> dict[str, Any]:
+        if self._operational_signals is not None:
+            self._operational_signals.record("bridge_reconnect", outcome=outcome)
+        return {"connected": connected, "reason_code": reason_code}
 
 
 def buzz_bridge_conformance(*, runtime_evidence_verified: bool) -> dict[str, Any]:

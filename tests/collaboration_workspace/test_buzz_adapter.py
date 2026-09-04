@@ -13,6 +13,7 @@ from agent.adapters.buzz_collaboration import (
     buzz_bridge_conformance,
 )
 from agent.services.collaboration_delivery_service import CollaborationDeliveryService
+from agent.services.collaboration_operational_signals import CollaborationOperationalSignals
 from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
 from ananta_contracts.collaboration_workspace import canonical_digest, canonical_json
 from tests.collaboration_workspace.helpers import actor, build_event, service
@@ -200,3 +201,23 @@ def test_outbound_delivery_revalidates_current_membership(tmp_path: Path) -> Non
         workspace_id="workspace-a",
     )
     assert native.list_workspaces(tenant_id="tenant-a", principal_actor_id="human-user-a")["items"]
+
+
+def test_bridge_reconnect_signals_are_content_free_and_bounded(tmp_path: Path) -> None:
+    signals = CollaborationOperationalSignals()
+    bridge = BuzzCollaborationBridge(
+        BuzzBridgeConfig("tenant-a", "workspace-a", "buzz-a", "relay.example", enabled=True),
+        relay=Relay(),
+        keys=Keys(),
+        signatures=Signatures(),
+        deliveries=BuzzBridgeDeliveryStore(tmp_path / "buzz.sqlite3"),
+        inbox=CollaborationDeliveryService(CollaborationWorkspaceStore(tmp_path / "collaboration.sqlite3")),
+        actor_mapping=lambda _value: None,
+        room_mapping=lambda _value: None,
+        membership_active=lambda _actor, _room: False,
+        operational_signals=signals,
+    )
+    assert bridge.connect()["connected"] is True
+    snapshot = signals.snapshot()
+    assert snapshot["operations"] == 1
+    assert snapshot["content_included"] is False

@@ -51,4 +51,17 @@ def test_local_profile_requires_no_optional_bridge_or_sfu() -> None:
         "multi_hub": False,
         "state": "ready",
         "reason_code": "local_standalone_ready",
+        "dependencies": ["hub", "sqlite"],
+        "secret_refs": [],
+        "configured_safety_caps": {"event_payload_bytes": 65_536, "live_queue_items": 64},
+        "capacity_evidence": "local_technical_observation",
     }
+
+
+def test_optional_profiles_keep_secrets_as_refs_and_runtime_claims_unverified() -> None:
+    for name in ("sfu_enabled", "buzz_enabled"):
+        profile = deployment_profile(name).to_dict()
+        assert profile["state"] == "unverified"
+        assert profile["capacity_evidence"] == "unverified"
+        assert profile["secret_refs"]
+        assert all(value.endswith("_ref") for value in profile["secret_refs"])

@@ -4,8 +4,8 @@ import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { PageIntroComponent, SectionCardComponent } from '../../shared/ui/layout';
+import { CollaborationLivePanelComponent } from './collaboration-live-panel.component';
 import { CollaborationWorkspaceApiService } from './collaboration-workspace-api.service';
-import { CollaborationLiveStateService } from './collaboration-live-state.service';
 import {
   CollaborationEvent,
   CollaborationFlowProjection,
@@ -19,7 +19,7 @@ import {
 @Component({
   selector: 'app-collaboration-workspace-page',
   standalone: true,
-  imports: [FormsModule, JsonPipe, PageIntroComponent, SectionCardComponent],
+  imports: [FormsModule, JsonPipe, PageIntroComponent, SectionCardComponent, CollaborationLivePanelComponent],
   template: `
     <app-page-intro
       title="Collaboration Workspaces"
@@ -99,21 +99,11 @@ import {
         @if (error) { <p class="error" role="alert">{{ error }}</p> }
       </app-section-card>
       <app-section-card title="Actors und Rechte" subtitle="Presence ist Live-Zustand und verleiht weder Membership noch Task-Autorität.">
-        @for (membership of memberships; track membership.actor_binding_id) {
-          <article>
-            <strong>{{ membership.actor.display_name }} · {{ membership.actor.actor_kind }}</strong>
-            @if (membership.actor.profile) {
-              <small>Profil: {{ membership.actor.profile.provider }} / {{ membership.actor.profile.model }} · {{ membership.actor.profile.profile_revision }}</small>
-            }
-            <span>{{ membership.role }} · {{ membership.status }} · Revision {{ membership.revision }}</span>
-            <small>Rechte: {{ membership.effective_capabilities?.join(', ') || 'rollenbasiert / serverseitig' }}</small>
-            <small>{{ capabilityReason(membership, 'event.write') }}</small>
-            <small>Presence: {{ presenceFor(membership.actor_binding_id)?.presence_state || 'unbekannt' }} (keine Autorität)</small>
-            <button type="button" (click)="toggleFollow(membership.actor_binding_id)">
-              {{ live.followedActor === membership.actor_binding_id ? 'Follow beenden' : 'Actor folgen' }}
-            </button>
-          </article>
-        }
+        <app-collaboration-live-panel
+          [workspace]="selected"
+          [room]="selectedRoom"
+          [memberships]="memberships"
+          [presence]="presence" />
         @if (selectedRoom) {
           <button type="button" (click)="loadPresence()" [disabled]="busy">Presence aktualisieren</button>
         }
@@ -160,7 +150,6 @@ export class CollaborationWorkspacePageComponent implements OnInit {
   private readonly api = inject(CollaborationWorkspaceApiService);
   private readonly agents = inject(AgentDirectoryService);
   private readonly changeDetector = inject(ChangeDetectorRef);
-  readonly live = inject(CollaborationLiveStateService);
   workspaces: CollaborationWorkspaceSummary[] = [];
   rooms: CollaborationRoom[] = [];
   events: CollaborationEvent[] = [];
@@ -372,23 +361,6 @@ export class CollaborationWorkspacePageComponent implements OnInit {
       next: projection => { this.flow = projection; this.render(); },
       error: error => this.fail(error),
     });
-  }
-
-  presenceFor(actorBindingId: string): CollaborationPresence | undefined {
-    return this.presence.find(item => item.actor_binding_id === actorBindingId);
-  }
-
-  capabilityReason(membership: CollaborationMembership, capability: string): string {
-    if (membership.status !== 'active') return `${capability}: denied_membership_revoked`;
-    return membership.effective_capabilities?.includes(capability)
-      ? `${capability}: allowed_by_role_${membership.role}`
-      : `${capability}: denied_by_role_${membership.role}`;
-  }
-
-  toggleFollow(actorBindingId: string): void {
-    if (this.live.followedActor === actorBindingId) this.live.stopFollow();
-    else this.live.startFollow(actorBindingId);
-    this.render();
   }
 
   projectionEntries(value: Record<string, Record<string, unknown>>): [string, Record<string, unknown>][] {

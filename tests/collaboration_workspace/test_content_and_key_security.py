@@ -47,6 +47,37 @@ def test_sensitive_detector_reports_only_a_path_and_never_the_secret() -> None:
     assert secret not in path
 
 
+def test_security_claims_require_hub_registry_verification() -> None:
+    unverified = CollaborationPromptBuilder().grounded_security_claim(
+        statement="No vulnerability observed.",
+        source_refs=["SRC_caller_supplied"],
+        run_refs=["RUN_caller_supplied"],
+    )
+    assert unverified["verification_status"] == "unverified"
+    assert unverified["source_refs"] == []
+
+    class EvidencePolicy:
+        def require_verified(self, **values):
+            assert values["tenant_id"] == "tenant-a"
+            assert values["run_refs"] == ("RUN_registered",)
+
+    verified = CollaborationPromptBuilder(evidence_policy=EvidencePolicy()).grounded_security_claim(  # type: ignore[arg-type]
+        statement="No vulnerability observed.",
+        source_refs=["SRC_registered"],
+        run_refs=["RUN_registered"],
+        evidence_binding={
+            "tenant_id": "tenant-a",
+            "workspace_id": "workspace-a",
+            "project_id": "project-a",
+            "task_id": "task-a",
+            "repository_revision": "a" * 40,
+            "evidence_scope": "production",
+        },
+    )
+    assert verified["verification_status"] == "hub_verified"
+    assert verified["source_refs"] == ["SRC_registered"]
+
+
 def test_key_rotation_revocation_signing_and_tamper_detection(tmp_path: Path) -> None:
     secrets = {"secret:buzz:v1": b"a" * 32, "secret:buzz:v2": b"b" * 32}
     database = tmp_path / "keys.sqlite3"
