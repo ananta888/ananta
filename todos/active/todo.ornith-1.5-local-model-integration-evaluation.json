@@ -1,11 +1,11 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-09-03",
+  "updated_at": "2026-09-04",
   "owner": "Peter Stuiber / Ananta",
   "track": "ornith_1_5_local_model_integration_evaluation",
   "title": "Ornith 1.5 als lokales Coding-, Reasoning- und Agentenmodell für Ananta evaluieren",
-  "status": "todo",
+  "status": "in_progress",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -41,12 +41,23 @@
   "purpose": "Ornith 1.5 nicht lediglich wegen Hersteller-Benchmarks aufzunehmen, sondern die Modellfamilie revisionsgebunden, sicher und reproduzierbar gegen Anantas bestehende lokale Modelle zu prüfen. Schwerpunkt sind Ornith-1.5-9B auf Peters RTX 3080 mit 10 GB VRAM sowie Ornith-1.5-35B-A3B mit 64 GB Host-RAM und GPU-/CPU-Offloading.",
   "goal": "Ananta kann geeignete Ornith-1.5-Varianten über die bestehende zentrale Modellverwaltung und lokale OpenAI-kompatible Provider nutzen. Tool-Calling, Reasoning, strukturierte Ausgaben, Vision, CodeCompass-Qualität, Kontextgrenzen, Speicherbedarf und Geschwindigkeit werden pro Runtime und Quantisierung real gemessen. Keine Variante wird ohne bestandene Lizenz-, Supply-Chain-, Sicherheits- und Qualitätsgates zum Default.",
   "research_basis": {
-    "reviewed_at": "2026-09-03",
+    "reviewed_at": "2026-09-04",
     "official_sources": [
       "https://ornith.ai/ornith_1_5.html",
       "https://huggingface.co/ornith-ai/Ornith-1.5-9B",
+      "https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B",
+      "https://huggingface.co/ornith-ai/Ornith-1.5-397B",
+      "https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF",
+      "https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF",
       "https://ollama.com/library/ornith-1.5"
     ],
+    "audited_revisions": {
+      "ornith-ai/Ornith-1.5-9B": "489cb97981b8654bcfcf30ce1f94ed1b62e07b53",
+      "ornith-ai/Ornith-1.5-35B-A3B": "10fbf86fed7ecee4a061f8b499a618f46001cac1",
+      "ornith-ai/Ornith-1.5-397B": "8f6cc8a7aea505364523f84ccf37706e8aea0ee7",
+      "ornith-ai/Ornith-1.5-9B-GGUF": "abdd624b12ebf020b767fff532ff44fe552b28c3",
+      "ornith-ai/Ornith-1.5-35B-A3B-GGUF": "12393612fd4f730ff5aadc23e9b8f9648aa49ceb"
+    },
     "unverified_upstream_claims": [
       "Die Familie umfasst 9B Dense, 35B-A3B MoE und 397B MoE.",
       "Der Hersteller meldet starke Coding-, Reasoning- und Agenten-Benchmarks; diese Ergebnisse gelten bis zu unabhängigen Ananta-Läufen nur als Upstream-Behauptungen.",
@@ -84,7 +95,7 @@
     {
       "id": "M0",
       "title": "Upstream, Lizenz und Modellverträge",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "ORN-001",
         "ORN-002",
@@ -94,7 +105,7 @@
     {
       "id": "M1",
       "title": "Lokale Laufzeiten und Capabilities",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "ORN-004",
         "ORN-005",
@@ -106,7 +117,7 @@
     {
       "id": "M2",
       "title": "Benchmarks, Hardware und zentrale Auswahl",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "ORN-009",
         "ORN-010",
@@ -132,7 +143,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [],
       "target_files": [
         "docs/research/ornith-1.5-model-matrix.md",
@@ -161,10 +172,10 @@
       "title": "Getrennte Modellprofile und Capability-Verträge definieren",
       "type": "architecture",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 35.0,
       "depends_on": [
         "ORN-001"
       ],
@@ -189,6 +200,10 @@
       "test_expectations": [
         "GPU-freie Contract-Tests prüfen Aliasauflösung, unknown-Zustände, Konflikte und Kontextgrenzen.",
         "Ein 397B-Profil kann nicht versehentlich als lokal verfügbar geroutet werden."
+      ],
+      "audit_notes": [
+        "Der generische Local-Runtime-Vertrag modelliert unbekannte Capabilities bereits fail-closed und bindet Snapshots an Runtime- und Modelldigests.",
+        "Ornith-spezifische Profile, Herkunftsstufen, deklarierte-vs-beobachtete Konflikte sowie nominale-vs-freigegebene Kontextgrenzen fehlen noch."
       ]
     },
     {
@@ -196,10 +211,10 @@
       "title": "Sicheren Modellimport und digestgebundene Artefakte umsetzen",
       "type": "security",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 60.0,
       "depends_on": [
         "ORN-001",
         "ORN-002"
@@ -225,6 +240,10 @@
       "test_expectations": [
         "Negative Fixtures prüfen manipuliertes GGUF, Pickle, Symlink, falschen Digest, Egress und Secret-Leak.",
         "Ein wiederholter identischer Import ist idempotent und erzeugt keine unkontrollierte Kopie."
+      ],
+      "audit_notes": [
+        "worker/training/model_imports.py implementiert bereits revisionsgebundene, netzwerkautorisierte und idempotente Safetensors-/GGUF-Importe mit Digest-, Größen-, Symlink-, Pfad-, Lizenz- und Remote-Code-Gates.",
+        "Die Implementierung ist derzeit an den Unsloth-Taskpfad gekoppelt; eine Hub-seitige Ornith-Admission, eine eigenständige Policykonfiguration und Ollama-Layer-Auflösung fehlen."
       ]
     },
     {
@@ -235,7 +254,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-003"
       ],
@@ -269,7 +288,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-003"
       ],
@@ -300,10 +319,10 @@
       "title": "Ollama, LM Studio/llama.cpp sowie optionale vLLM-/SGLang-Endpunkte anbinden",
       "type": "integration",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 65.0,
       "depends_on": [
         "ORN-004",
         "ORN-005"
@@ -329,6 +348,10 @@
       "test_expectations": [
         "Contract-Fixtures decken Timeout, malformed response, model missing, parser missing und Runtime down ab.",
         "Mutierende Tool-Calls werden bei Provider-Fallback niemals automatisch wiederholt."
+      ],
+      "audit_notes": [
+        "Ollama und LM Studio besitzen bereits getrennte Discovery-Adapter, gemeinsame normalisierte Snapshots und einheitliche Ollama-/OpenAI-Antwortprojektionen.",
+        "Die Ornith-spezifische Runtime-/Parser-Matrix sowie explizite vLLM-/SGLang-Readiness-Profile fehlen."
       ]
     },
     {
@@ -336,10 +359,10 @@
       "title": "Reasoning-, Tool-Calling- und strukturierte Ausgabe sicher normalisieren",
       "type": "security",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70.0,
       "depends_on": [
         "ORN-006"
       ],
@@ -364,6 +387,10 @@
       "test_expectations": [
         "Adversarial Fixtures prüfen verschachtelte Toolblöcke, Prompt Injection, übergroße Argumente, unbekannte Tools und doppelte Aufrufe.",
         "Parserfehler führen zu einem typisierten Fehler oder sicherem Fallback, nicht zu Freitextausführung."
+      ],
+      "audit_notes": [
+        "Die bestehende Pipeline trennt content, thinking/reasoning_content und tool_calls, begrenzt Toolargumente und schützt mutierende Aufrufe mit stabilen Operation-IDs.",
+        "Ornith-/Qwen-spezifische Parserbindung, Mehrdeutigkeitsprüfung und explizite Nichtpersistenz von Reasoning fehlen noch."
       ]
     },
     {
@@ -374,7 +401,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-004",
         "ORN-006"
@@ -408,7 +435,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-007",
         "ORN-008"
@@ -443,7 +470,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-004",
         "ORN-005",
@@ -476,10 +503,10 @@
       "title": "Zentrale Modellwahl, Routing und Fallbacks um Ornith ergänzen",
       "type": "frontend",
       "milestone_id": "M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 45.0,
       "depends_on": [
         "ORN-002",
         "ORN-009",
@@ -506,6 +533,10 @@
       "test_expectations": [
         "Angular- und Service-Tests prüfen Auswahl, Capabilityfilter, unbekannte Evidenz, OOM und Providerausfall.",
         "Security-Policy kann jede Ornith-Zuweisung weiterhin blockieren."
+      ],
+      "audit_notes": [
+        "Der Hub besitzt bereits einen zentralen Modellkatalog, Capabilityfilter, Zuweisungen, Fallbackgruppen, Dry-Runs und eine Angular-Detailansicht.",
+        "Ornith-Profile, Hardware-/Benchmarkevidenz und Ornith-spezifische Fallbackursachen sind noch nicht angebunden."
       ]
     },
     {
@@ -516,7 +547,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-003",
         "ORN-007",
@@ -554,7 +585,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "ORN-011",
         "ORN-012"
@@ -599,6 +630,43 @@
     "ORN-009 bis ORN-011: CodeCompass-Benchmark, Hardwaregrenzen und zentrale Auswahl",
     "ORN-012 bis ORN-013: Security-Gates, gestufter Rollout und finale ADR"
   ],
+  "implementation_review": {
+    "reviewed_at": "2026-09-04",
+    "state": "generic_runtime_found_ornith_work_started",
+    "source_revision": "904cd2feba07ad702d8ca2ed894f6096a0bf176a",
+    "implemented_baseline": [
+      "Hub-owned local runtime capability discovery and fail-closed routing for Ollama and LM Studio",
+      "Provider-neutral response normalization with separate reasoning, content and native tool-call fields",
+      "Stable operation IDs and approval/execution boundaries for tool calls",
+      "Central model inventory, assignment, fallback and Angular dashboard flows",
+      "Worker-side immutable model import with revision, digest, size, path, symlink, license and remote-code checks"
+    ],
+    "ornith_specific_gaps": [
+      "Pinned source manifest and validated Ornith profiles",
+      "Hub-owned import admission and Ollama manifest resolution",
+      "Runtime, parser, vision, benchmark and resource contracts",
+      "Ornith routing projection, security gate, rollout and operating documentation",
+      "Real RTX-3080/64-GB runs bound to Hub-issued evidence identities"
+    ],
+    "environment_observation": {
+      "gpu": "NVIDIA GeForce RTX 3080, 10240 MiB",
+      "host_ram_bytes": 65782554624,
+      "swap_configured_bytes": 8589930496,
+      "ollama_available": false,
+      "lmstudio_endpoint_available": false,
+      "classification": "technical_observation_not_release_evidence"
+    },
+    "solid_review": {
+      "preserved": [
+        "Provider adapters, normalization, routing and projection remain separate responsibilities.",
+        "Hub coordination and worker execution boundaries remain intact."
+      ],
+      "cleanup_required": [
+        "The reusable model importer is coupled to the Unsloth class name and task composition; introduce a provider-neutral port instead of duplicating it for Ornith.",
+        "Do not add Ornith branches to ModelInvocationService; use profile and parser strategies."
+      ]
+    }
+  },
   "open_questions_for_implementation": [
     "Welche konkrete GGUF-Quantisierung liefert auf der RTX 3080 die beste Qualitäts-/Kontextreserve für 9B?",
     "Ist die Vision-Pipeline in den ausgewählten Ollama- und GGUF-Artefakten tatsächlich vollständig enthalten?",
@@ -616,13 +684,13 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 13,
+      "todo": 8,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 5,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 6,
       "P1": 6,
@@ -641,35 +709,218 @@
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
-      "partial": 0,
+      "todo": 1,
+      "in_progress": 3,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 13,
+    "state": "in_progress",
+    "todo_remaining": 8,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 5,
     "blocked": 0,
     "done": 0,
-    "count_based_percent": 0
+    "count_based_percent": 0.0,
+    "weighted_percent": 19.5
   },
   "tasks_type_summary": {
     "total": 13,
     "by_type": {
-      "research": 1,
-      "architecture": 1,
-      "security": 3,
-      "implementation": 2,
-      "integration": 1,
-      "evaluation": 1,
-      "benchmark": 1,
-      "performance": 1,
-      "frontend": 1,
-      "documentation": 1
+      "research": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 35.0
+      },
+      "security": {
+        "total": 3,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 43.3
+      },
+      "implementation": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 65.0
+      },
+      "evaluation": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "benchmark": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "performance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "frontend": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 45.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 24.0,
+    "done_weight": 4.675,
+    "remaining_weight": 19.325,
+    "blocked_weight": 0.0,
+    "weighted_percent": 19.5
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M0": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 28.5,
+        "status": "in_progress"
+      },
+      "M1": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 22.4,
+        "status": "in_progress"
+      },
+      "M2": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 16.4,
+        "status": "in_progress"
+      },
+      "M3": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-09-04T18:03:49.368392Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "925967c8f28c0ae040b386f5de694aa60f8cfd8b029c9e7eb54420fcd9db3eba",
+    "is_stale": false
   }
 }
