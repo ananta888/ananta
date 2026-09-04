@@ -343,6 +343,16 @@ The collaboration event store is append-oriented and idempotent. Mutable UI
 state is derived through projections. Corrections use explicit replacement,
 redaction or tombstone events under policy; history is not silently rewritten.
 
+The shared durable adapter uses PostgreSQL workspace-stream rows as the CAS
+and locks exactly one stream row while assigning each sequence. Event and
+outbox records commit in the same transaction; projection checkpoints have
+their own revision CAS and cannot regress or advance beyond admitted history.
+Tenant/workspace keys are present in every primary, unique and lookup path,
+with an additional tenant/workspace/room/sequence index. Its Alembic migration
+is reversible and exercised against PostgreSQL. This completes the durable
+event boundary, but does not by itself authorize a Multi-Hub release: shared
+workspace policy, presence and cache composition remain separate gates.
+
 Required reliability mechanisms:
 
 - transactional outbox for downstream projections and bridges

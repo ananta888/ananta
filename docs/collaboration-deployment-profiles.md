@@ -8,7 +8,7 @@ other workers.
 | --- | --- | --- | --- | --- |
 | `local` | SQLite | Hub relay | disabled | ready for local technical use |
 | `single_hub` | SQLite | Hub relay | disabled | ready; no HA claim |
-| `multi_hub` | shared CAS required | shared relay required | disabled | unverified |
+| `multi_hub` | PostgreSQL shared event CAS | shared relay required | disabled | unverified |
 | `sfu_enabled` | shared CAS required | SFU/TURN | disabled | unverified |
 | `buzz_enabled` | shared CAS required | shared relay required | Buzz | unverified |
 
@@ -25,6 +25,11 @@ shared authority fails closed for writes. It must not fall back to a local
 writer, merge divergent workspace sequences, or promote local observations to
 release evidence. Read-only degraded behavior may expose the last verified
 checkpoint with an explicit stale marker.
+
+The PostgreSQL event/outbox/checkpoint migration and repository are available
+as the durable boundary and have a real concurrent database gate. Multi-Hub
+still remains `unverified` because presence, policy/cache composition and
+split-brain runtime behavior must be shared and tested as one deployment.
 
 ## Capacity boundaries
 

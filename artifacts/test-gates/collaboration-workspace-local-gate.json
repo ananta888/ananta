@@ -6,8 +6,15 @@
   "native_core": {
     "python_collaboration_tests": {
       "status": "passed",
-      "tests": 126,
+      "tests": 130,
       "parallel_runner": "pytest-xdist"
+    },
+    "postgresql_shared_event_tests": {
+      "status": "passed",
+      "tests": 4,
+      "database": "PostgreSQL 16.13",
+      "migration_upgrade_downgrade": "passed",
+      "multi_repository_cas": "passed"
     },
     "angular_production_build": "passed",
     "typescript_live_state_tests": {

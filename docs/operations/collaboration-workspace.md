@@ -40,6 +40,13 @@ was reserved before execution and completed in the Evidence Registry.
 - `single_hub`: the same durable boundary with operator-managed storage and backup.
 - `multi_hub`: `unverified`; requires shared CAS, outbox, presence/cache and tested split-brain fencing.
 
+The PostgreSQL shared-event repository is tested separately with
+`COLLABORATION_POSTGRES_TEST_URL`. The gate upgrades to the current Alembic
+head, exercises downgrade/upgrade, uses two repository instances for concurrent
+append/checkpoint CAS, and verifies tenant and room isolation. Absence of this
+explicit test URL skips only that database-specific gate; it never converts a
+SQLite observation into Multi-Hub evidence.
+
 Do not enable SFU from an `observe_only` or `no_go` state. Do not present a
 successful local test as Live/Buzz production evidence. The three release lanes
 are independent.

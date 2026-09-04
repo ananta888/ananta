@@ -37,7 +37,7 @@ def test_multi_hub_claim_remains_unverified_without_shared_cas_evidence() -> Non
         "reason_code": "native_multi_hub_store_unverified",
     }
     profile = deployment_profile("multi_hub")
-    assert profile.durable_adapter == "shared_cas_required"
+    assert profile.durable_adapter == "postgresql_shared_event_store"
     assert profile.reason_code == "multi_hub_split_brain_evidence_required"
 
 

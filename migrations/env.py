@@ -3,41 +3,44 @@ import sys
 import time
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.exc import OperationalError
 
-from alembic import context
-
 # Projekt-Root zum Pfad hinzufügen
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Importiere SQLModel und Modelle
 from sqlmodel import SQLModel
-from agent.db_models import *  # Damit die Metadaten gefüllt sind
-from agent.database import DATABASE_URL
-from agent.config import settings
 
-def backup_sqlite_db():
+from agent.config import settings
+from agent.database import DATABASE_URL
+from agent.db_models import *  # noqa: F403  # Damit die Metadaten gefüllt sind
+
+
+def backup_sqlite_db(database_url: str):
     """Erstellt ein Backup der SQLite-Datenbank vor der Migration."""
-    if not DATABASE_URL.startswith("sqlite:///"):
+    if not database_url.startswith("sqlite:///"):
         return
-    
-    db_path = DATABASE_URL.replace("sqlite:///", "")
+
+    db_path = database_url.replace("sqlite:///", "")
     if not os.path.exists(db_path):
         return
 
     backup_dir = os.path.join(settings.data_dir, "backups")
     os.makedirs(backup_dir, exist_ok=True)
-    
+
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     backup_path = os.path.join(backup_dir, f"pre_migration_{timestamp}.db")
-    
+
     try:
         import shutil
+
         shutil.copy2(db_path, backup_path)
         print(f"Database backup created: {backup_path}")
     except Exception as e:
         print(f"Failed to create database backup: {e}")
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -51,9 +54,15 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = SQLModel.metadata
 
+
+def _migration_database_url() -> str:
+    """Allow isolated migration tests/tools to select a URL without mutating runtime settings."""
+    return str(config.attributes.get("database_url") or DATABASE_URL)
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = DATABASE_URL
+    url = _migration_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -62,7 +71,7 @@ def run_migrations_offline() -> None:
     )
 
     with context.begin_transaction():
-        backup_sqlite_db()
+        backup_sqlite_db(url)
         context.run_migrations()
 
 
@@ -78,10 +87,7 @@ def _connect_with_retry(connectable):
             if attempt == max_retries - 1:
                 print("Max retries reached. Could not connect to database.")
                 raise
-            print(
-                f"Database connection failed: {exc}. "
-                f"Retrying in {retry_delay}s... ({attempt + 1}/{max_retries})"
-            )
+            print(f"Database connection failed: {exc}. Retrying in {retry_delay}s... ({attempt + 1}/{max_retries})")
             time.sleep(retry_delay)
 
 
@@ -89,8 +95,8 @@ def run_migrations_online() -> None:
     """Run migrations once after establishing a retryable connection."""
     # Wir überschreiben die sqlalchemy.url in der config mit der aus DATABASE_URL
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = DATABASE_URL
-    
+    configuration["sqlalchemy.url"] = _migration_database_url()
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",

@@ -54,13 +54,13 @@ PROFILES = {
     ),
     "multi_hub": CollaborationDeploymentProfile(
         "multi_hub",
-        "shared_cas_required",
+        "postgresql_shared_event_store",
         "shared_relay_required",
         "disabled",
         True,
         "unverified",
         "multi_hub_split_brain_evidence_required",
-        dependencies=("shared_cas", "shared_outbox", "shared_presence", "shared_cache"),
+        dependencies=("postgresql", "shared_outbox", "shared_presence", "shared_cache"),
         secret_refs=("database_credentials_ref", "relay_credentials_ref"),
     ),
     "sfu_enabled": CollaborationDeploymentProfile(
