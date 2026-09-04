@@ -28,6 +28,13 @@ symbols with `config/verification/property-catalog.v1.json`; on CodeCompass
 failure it uses only explicit allowlisted targets and never scans the complete
 repository implicitly.
 
+The assignment contract applies a backend-specific grammar: Hypothesis paths
+must be explicit `tests/verification/*.py::test_*` node IDs, while CrossHair
+receives dotted Python symbols. The Worker independently intersects them with
+the catalog immediately before execution. Leading options, absolute paths,
+path traversal, control characters, option separators, unknown symbols and
+`--option=value` plugin/unblock variants fail closed.
+
 ## Install and run
 
 Install the optional stack:
@@ -66,18 +73,30 @@ EVERYTHING` and plugin options are rejected by the process boundary.
   solver-backed Hypothesis backend.
 - `crosshair-diff-experimental`: compares two explicitly assigned symbols.
 
-`passed` is reserved for completed finite property cases.
+`passed` is reserved for completed finite property runs.
 `passed_with_bounded_search` records successful bounded tool execution without
 claiming completeness. `inconclusive`, `unsupported`, `timed_out`,
 `failed_to_reproduce`, `policy_denied`, and `tool_error` remain distinct and
 can block a release only through explicit Hub policy.
 
+Pytest-backed adapters load an internal result plugin. Reports contain observed
+collection, pass and failure counts plus bounded-search metadata. A violated
+property becomes `counterexample_found`; collection/import failures,
+unparseable output, process failures and timeouts retain separate reason codes.
+The actual number of Hypothesis examples is not available through the Pytest
+reporter, so `cases_executed` stays zero and `case_count_observed=false` instead
+of copying the configured budget into an observation field.
+
 ## Counterexamples and promotion
 
 Only JSON-concrete values cross the Worker boundary. Symbolic proxies and
-custom tool objects are rejected. A counterexample includes a standalone
-Pytest command and a digest of the exact candidate. Changing arguments,
-invariant, target, or command invalidates promotion. Tests and fake adapters
+custom tool objects are rejected. CrossHair call output is parsed as balanced
+Python literals through `ast.literal_eval`; calls, starred arguments, malformed
+nesting and ambiguous target mappings are unsupported and cannot be promoted.
+All safe findings are retained rather than only the first. A counterexample
+includes a target-derived standalone command and a digest of the exact
+candidate. Changing arguments, invariant, target, or command invalidates
+promotion. Tests and fake adapters
 use `evidence_scope=test`; mutating that scope invalidates the Hub projection
 digest and cannot satisfy a production gate.
 
@@ -112,3 +131,7 @@ hypothesis-crosshair, or Z3, so disabling the feature has no runtime effect.
 The pinned package and license inventory is in
 `config/licenses/python-verification.v1.json`. The current CrossHair upstream
 is Alpha and must remain isolated even when its checks are useful.
+
+Optional generator candidates and their Go/Hold/No-Go decisions are recorded
+in `docs/research/python-verification-generator-candidates.md`. They remain
+outside the Worker Core and outside production evidence.

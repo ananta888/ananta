@@ -1,6 +1,6 @@
 # ADR: bounded Python property and symbolic verification
 
-- Status: accepted for bounded pilot
+- Status: accepted for hardened bounded use
 - Date: 2026-09-04
 
 ## Context
@@ -22,19 +22,20 @@ Capability decisions after the controlled pilot:
 
 | Capability | Decision | Basis |
 |---|---|---|
-| Hypothesis core | Go | Ten deterministic properties across contracts, policies, transformations, and normalization; stable shrinking and low fast-suite cost. |
-| Hypothesis stateful | Go | Two headless models cover lifecycle terminality and permission monotonicity. |
-| CrossHair check | Go, targeted only | Five typed targets complete bounded analysis and the seeded defect yields concrete `-1`. CrossHair remains Alpha. |
+| Hypothesis core | Go | Twenty deterministic properties include ten production-facing contracts and adversarial inputs; failures are distinct from collection and tool failures. |
+| Hypothesis stateful | Go | Generated lifecycle actions use an independent reference model; every allowed and forbidden transition is checked deterministically. |
+| CrossHair check | Go, targeted only | Five authoritative production targets complete bounded analysis and the seeded defect yields concrete `-1`. CrossHair remains Alpha. |
 | CrossHair cover | Hold/experimental | It emits a concrete Pytest candidate, but usefulness and review cost need more repository-scale evidence. |
 | Hypothesis CrossHair backend | Hold/nightly | Five shared properties run successfully, but solver startup is materially slower than the normal backend. |
 | CrossHair diffbehavior | Hold/experimental | It finds an intentional semantic delta and reports an equivalent pair only as inconclusive; revision-pair use remains explicitly bounded. |
 
-The local 2026-09-04 pilot ran 39 contract/property/stateful tests in 11.40
-seconds and five real-tool tests in 58.96 seconds. Twenty isolated fast-suite
-repetitions had no failure, a 0.618-second median, and a 0.854-second maximum.
-For the same five properties, normal Hypothesis took 3.406 seconds and the
-CrossHair backend 20.853 seconds. These are local technical observations, not
-production evidence. The structured report is
+The hardened local 2026-09-04 run completed 87 contract/property/stateful tests
+in 71.29 seconds and seven real-tool tests in 51.86 seconds. Twenty isolated
+fast-suite repetitions had no failure, a 0.628-second median, and a 0.780-second
+maximum. For the same five properties, normal Hypothesis took 0.576 seconds and
+the CrossHair backend 14.148 seconds. These are local technical observations,
+not production evidence. Commit-bound GitHub CI is recorded separately in the
+structured report
 `artifacts/test-gates/python-verification-pilot.json`.
 
 The property pilot found and fixed one pre-existing production defect:
@@ -42,6 +43,19 @@ self-dependencies were normalized away before graph-cycle detection. Toolchain
 tests also found and fixed three integration defects in the new code: a
 host-UID-wide process limit, greedy counterexample parsing, and overallocated
 per-condition symbolic budgets.
+
+The hardened boundary additionally rejects backend-inappropriate targets and
+uncatalogued symbols, parses nested CrossHair literals without evaluation,
+materializes every safe counterexample, and emits bounded Pytest result records
+that distinguish property failures, collection failures, timeouts and tool
+failures. `cases_executed` is not inferred from a configured maximum; when a
+backend cannot expose the actual case count it remains zero and the report marks
+`case_count_observed=false`.
+
+Pynguin is No-Go as a Core/CI dependency and Hold only for isolated legacy
+candidate experiments. Qodo Cover is No-Go. The measured basis and external
+boundaries are documented in
+`docs/research/python-verification-generator-candidates.md`.
 
 ## Security and architecture consequences
 

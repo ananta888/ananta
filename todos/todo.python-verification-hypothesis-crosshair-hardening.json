@@ -10,7 +10,7 @@
   "updated_at": "2026-09-04",
   "repository": "ananta888/ananta",
   "branch": "main",
-  "reviewed_commit": "7ad0784329fd4998809b89134a76b72670321875",
+  "reviewed_commit": "083a2ab0e9cb5685eb90ce2dc8133c8840936c43",
   "purpose": "Die vorhandene Hypothesis- und CrossHair-Integration von einem erfolgreichen lokalen Pilot zu einer reproduzierbar grünen, produktionsnahen und gehärteten Verification-Fähigkeit weiterentwickeln.",
   "goal": "CI-Abhängigkeiten schließen, Ergebnissemantik und Sicherheitsgrenzen korrigieren, echte Ananta-Produktionsziele prüfen und Abschlussstatus ausschließlich an aktuelle maschinenlesbare Evidenz binden.",
   "status_scale": [
@@ -69,8 +69,18 @@
       {
         "run_id": "33910210131",
         "commit": "7ad0784329fd4998809b89134a76b72670321875",
-        "conclusion": "in_progress",
-        "observed_jobs": {}
+        "conclusion": "success",
+        "observed_jobs": {
+          "core_boundary": "success",
+          "repeated_fast_gate": "success",
+          "worker_image": "success",
+          "symbolic_targeted": "success",
+          "hypothesis_matrix_3_10": "success",
+          "hypothesis_matrix_3_11": "success",
+          "hypothesis_matrix_3_12": "success",
+          "hypothesis_matrix_3_13": "success",
+          "hypothesis_matrix_3_14": "success"
+        }
       }
     ],
     "primary_findings": [
@@ -81,7 +91,8 @@
       "Die Gegenbeispielmaterialisierung ist bei verschachtelten Argumenten durch komma-basierte Zerlegung nicht robust.",
       "Target-Symbole sind nicht als strikte backendabhängige Grammatik validiert und können als CLI-Optionen interpretiert werden.",
       "Property-Verstöße, Collection-Fehler und Toolfehler werden nicht ausreichend getrennt berichtet.",
-      "Die Reparatur auf 7ad078432 schließt die bekannten Collection-Abhängigkeiten und verhindert das versehentliche Laden des globalen Hub-conftest in Kindprozessen; die vollständige CI-Matrix bleibt bis zum Abschluss von Run 33910210131 offen."
+      "Die Reparatur auf 7ad078432 schließt die bekannten Collection-Abhängigkeiten und verhindert das versehentliche Laden des globalen Hub-conftest in Kindprozessen; Run 33910210131 ist für alle neun erforderlichen Jobs grün.",
+      "Commit 083a2ab0e härtet Target-Allowlist, Ergebnissemantik, Gegenbeispielparser, Produktions-Properties und CI-gebundene Completion-Policy; die aktuelle GitHub-CI-Evidenz für diesen Härtungsstand wird in PHSV-H-009 nach dem Push erzeugt."
     ]
   },
   "repo_alignment": {
@@ -146,7 +157,7 @@
         "PHSV-H-001",
         "PHSV-H-002"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "PHSV-H-M2",
@@ -156,7 +167,7 @@
         "PHSV-H-004",
         "PHSV-H-005"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "PHSV-H-M3",
@@ -166,7 +177,7 @@
         "PHSV-H-007",
         "PHSV-H-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PHSV-H-M4",
@@ -175,7 +186,7 @@
         "PHSV-H-009",
         "PHSV-H-010"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -184,16 +195,17 @@
       "title": "Isolierte Verification-Abhängigkeiten und Python-Matrix reparieren",
       "type": "ci",
       "milestone_id": "PHSV-H-M1",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 80,
+      "progress_percent": 100,
       "repo_evidence": [
         "GitHub Actions Run 33882383020: alle hypothesis-matrix-Jobs rot; Collection meldet fehlendes flask und yaml.",
         "docker/compose-next/requirements.verification-worker.in enthält PyYAML und die durch produktive Imports benötigte Abhängigkeitsgrenze nicht vollständig.",
         "Der allgemeine CI-Track führt denselben Fehler als CI-023; dieser Task ergänzt ausschließlich die Verification-spezifischen Abnahmekriterien.",
         "Commit cab7bfb34 verschiebt den Repository-Registry-Import an die tatsächlich persistenzgebundene Policy-Grenze, ergänzt PyYAML im vollständig gehashten Worker-Lock und isoliert Pytest-Kindprozesse über confcutdir.",
-        "Frische lokale Environments: Python 3.10 meldet 40 passed / 5 deselected, Python 3.12 meldet 39 passed / 5 deselected; Real Toolchain 14 passed. GitHub-Run 33910210131 ist noch nicht abgeschlossen."
+        "Frische lokale Environments: Python 3.10 meldet 40 passed / 5 deselected, Python 3.12 meldet 39 passed / 5 deselected; Real Toolchain 14 passed.",
+        "GitHub Python Verification Run 33910210131 auf Commit 7ad0784329fd4998809b89134a76b72670321875: alle neun Jobs inklusive Python 3.10 bis 3.14, symbolic-targeted, core-boundary, repeated-fast-gate und worker-image erfolgreich."
       ],
       "implementation": [
         "Unnötige Flask-Infrastrukturkopplung beim Import von agent/services/task_dependency_policy.py entfernen oder hinter eine schmale, importseitig leichte Grenze verschieben.",
@@ -219,14 +231,15 @@
       "title": "Completion- und Archivstatus an reale CI-Evidenz binden",
       "type": "ci",
       "milestone_id": "PHSV-H-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "todos/archiv/todo.property-based-symbolic-verification-hypothesis-crosshair.json meldet 13 von 13 Tasks und 100 Prozent done.",
         "Die letzten sichtbaren Python-Verification-Läufe 33872858140 und 33882383020 sind fehlgeschlagen.",
-        "artifacts/test-gates/python-verification-pilot.json ist ausdrücklich nur eine lokale technische Beobachtung und keine Produktionsevidenz."
+        "artifacts/test-gates/python-verification-pilot.json ist ausdrücklich nur eine lokale technische Beobachtung und keine Produktionsevidenz.",
+        "VerificationCompletionPolicy bindet Abschluss fail-closed an erwarteten Commit, erfolgreichen Workflow und alle erforderlichen Jobs; missing, stale, failed und skipped sind automatisiert getestet."
       ],
       "implementation": [
         "Den archivierten Pilot-Track als historische Implementierungsevidenz behandeln und diesen Härtungs-Track als offene Korrekturquelle verlinken.",
@@ -251,14 +264,15 @@
       "title": "Target-Symbole und CLI-Grenze strikt validieren",
       "type": "security",
       "milestone_id": "PHSV-H-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "ananta_contracts/verification.py prüft target_symbols aktuell nur auf Leerwert, Duplikate, Länge und Budget.",
         "worker/verification/adapters.py hängt target_symbols direkt an pytest- und CrossHair-Kommandos an.",
-        "worker/verification/process_runner.py blockiert nur exakte Tokens --unblock, --plugin und --extra_plugin; Varianten mit Gleichheitszeichen und allgemeine führende Optionen werden nicht vollständig abgewehrt."
+        "worker/verification/process_runner.py blockiert nur exakte Tokens --unblock, --plugin und --extra_plugin; Varianten mit Gleichheitszeichen und allgemeine führende Optionen werden nicht vollständig abgewehrt.",
+        "Commit 083a2ab0e erzwingt backendabhängige DTO- und Schema-Grammatik, Worker-seitige Katalogmitgliedschaft und blockiert Optionsvarianten mit Gleichheitszeichen für alle fünf Backends."
       ],
       "implementation": [
         "Eine backendabhängige, kanonische Grammatik für Python-Symbole und Pytest-Node-IDs definieren.",
@@ -284,14 +298,15 @@
       "title": "CrossHair-Gegenbeispiele struktursicher materialisieren",
       "type": "implementation",
       "milestone_id": "PHSV-H-M2",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "worker/verification/adapters.py zerlegt CrossHair-Argumente aktuell mit raw_arguments.split(',').",
         "Verschachtelte Listen, Dictionaries, Tupel und Strings mit Kommas können dadurch falsch getrennt oder als String-Fallback persistiert werden.",
-        "Gate-wirksame Gegenbeispiele müssen laut bestehender Architektur konkret und reproduzierbar sein."
+        "Gate-wirksame Gegenbeispiele müssen laut bestehender Architektur konkret und reproduzierbar sein.",
+        "CrossHairOutputParser verarbeitet balancierte Literal-Argumente ohne Codeausführung, bewahrt alle sicheren Funde und weist unsichere oder mehrdeutige Ausgaben als unsupported zurück."
       ],
       "implementation": [
         "Bevorzugt eine strukturierte CrossHair-Ausgabe oder einen kleinen parserbasierten Adapter verwenden; keine komma-basierte Textzerlegung.",
@@ -319,15 +334,16 @@
       "title": "Property-Fehler, Toolfehler und Suchgrenzen sauber unterscheiden",
       "type": "implementation",
       "milestone_id": "PHSV-H-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 15,
+      "progress_percent": 100,
       "repo_evidence": [
         "PytestHypothesisRunnerAdapter bildet jeden Nicht-Null-Exit derzeit auf TOOL_ERROR/pytest_failed ab.",
         "HypothesisCrossHairBackendAdapter meldet den aktuellen fünften Toolchain-Test nur als tool_error; die eigentliche Ursache ist im strukturierten Report nicht sichtbar.",
         "cases_executed wird aus dem Budget übernommen und nicht aus tatsächlich beobachteter Ausführung abgeleitet.",
-        "Commit cab7bfb34 behebt einen konkreten Environment-/Collection-Fehler im verschachtelten CrossHair-Backend-Lauf; die geforderte allgemeine Status- und Ergebnissemantik ist weiterhin offen."
+        "Commit cab7bfb34 behebt einen konkreten Environment-/Collection-Fehler im verschachtelten CrossHair-Backend-Lauf.",
+        "Der interne Pytest-Result-Pluginpfad meldet beobachtete Collection-, Pass-, Fail-, Error- und Skip-Zahlen; Property-Verstoß, Collectionfehler, fehlendes Ergebnis, Timeout und Toolfehler besitzen getrennte Status-/Reason-Codes."
       ],
       "implementation": [
         "Testfehler beziehungsweise gefundene Gegenbeispiele, Collection-/Importfehler, Timeout, Unsupported, Parserfehler und interne Toolfehler getrennt klassifizieren.",
@@ -356,14 +372,15 @@
       "title": "CrossHair von Pilotfunktionen auf echten Ananta-Code ausweiten",
       "type": "verification",
       "milestone_id": "PHSV-H-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "tests/verification/test_real_toolchain.py prüft CrossHair check, cover und diffbehavior überwiegend gegen worker/verification/pilot_targets.py.",
         "config/verification/property-catalog.v1.json enthält bereits produktive Kandidaten aus Policies, Verträgen und Normalisierung.",
-        "Der absichtlich fehlerhafte abs-Test beweist die Werkzeugkette, aber keinen zusätzlichen Produktionsnutzen."
+        "Der absichtlich fehlerhafte abs-Test beweist die Werkzeugkette, aber keinen zusätzlichen Produktionsnutzen.",
+        "Der reale Toolchain-Test prüft nun fünf autoritative Produktionssymbole aus Task-Dependency-, Verification-Contract- und Quality-Gate-Policy; 7 von 7 realen Toolchain-Tests liefen lokal in 51.86 Sekunden grün."
       ],
       "implementation": [
         "Mindestens fünf reine, typisierte Produktionsfunktionen aus dem bestehenden Property-Katalog nach Purity, Seiteneffekten und Vertragsautorität auswählen.",
@@ -393,14 +410,15 @@
       "title": "Stateful-Tests den vollständigen Zustandsraum erkunden lassen",
       "type": "implementation",
       "milestone_id": "PHSV-H-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "AgentLifecycleModel.choose_transition wählt aktuell sorted(ALLOWED_TRANSITIONS[state])[0].",
         "Hypothesis entscheidet dadurch nicht über verschiedene erlaubte Übergänge; viele Pfade bleiben unerforscht.",
-        "PermissionGrowthModel generiert dagegen bereits unterschiedliche Fähigkeiten und dient als brauchbares Muster."
+        "PermissionGrowthModel generiert dagegen bereits unterschiedliche Fähigkeiten und dient als brauchbares Muster.",
+        "Generierte Transition-Aktionen laufen gegen ein unabhängiges Referenzmodell; alle erlaubten und verbotenen Paare werden deterministisch geprüft und eine manipulierte Transition wird von Hypothesis auf completed->running minimiert."
       ],
       "implementation": [
         "Übergangsziel oder konkrete Aktionen als Hypothesis-Strategie modellieren statt den ersten erlaubten Zustand fest zu wählen.",
@@ -428,14 +446,15 @@
       "title": "Hypothesis-Properties auf reale Verträge und Policies verbreitern",
       "type": "verification",
       "milestone_id": "PHSV-H-M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "tests/verification/test_property_pilot.py deckt bereits task_dependency_policy, canonical_digest und einige Pilotziele ab.",
         "Der Property-Katalog führt weitere geeignete produktive Verträge und Policies.",
-        "Ein früherer Property-Test fand bereits den Produktionsfehler self_dependency_cycle_normalized_away."
+        "Ein früherer Property-Test fand bereits den Produktionsfehler self_dependency_cycle_normalized_away.",
+        "Zehn neue produktive Properties decken Normalisierung, Graphen, Budgets, Evidence-Mutation, Quality-Gate-Fail-Closed, Verification-Spec und nicht-endliche Digests ab; der nicht-reale Gesamtlauf meldet 87 passed."
       ],
       "implementation": [
         "Properties für geschlossene Verification-Assignments, Digest-Stabilität, Policy-Monotonie, Fail-Closed-Verhalten und Idempotenz ergänzen.",
@@ -464,14 +483,15 @@
       "title": "Grüne End-to-End-Evidenz erzeugen und ADR korrigieren",
       "type": "release",
       "milestone_id": "PHSV-H-M4",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "repo_evidence": [
         "docs/decisions/ADR-python-property-symbolic-verification.md akzeptiert den bounded pilot auf Basis lokaler Messungen.",
         "artifacts/test-gates/python-verification-pilot.json bezeichnet sich selbst als unverified_for_production.",
-        "Die sichtbaren GitHub-Actions-Läufe 33872858140 und 33882383020 sind rot."
+        "Die sichtbaren GitHub-Actions-Läufe 33872858140 und 33882383020 sind rot.",
+        "Lokal sind 87 nicht-reale Tests, 7 reale Toolchain-Tests, 20 Fast-Gate-Wiederholungen sowie der Backend-Vergleich grün; der aktuelle GitHub-Lauf auf dem Härtungscommit und das daraus abgeleitete Gate-Artefakt stehen noch aus."
       ],
       "implementation": [
         "Nach Abschluss aller Härtungstasks die vollständige Matrix, den realen Toolchain-Test, den Fast-Gate-Wiederholungslauf und den Worker-Image-Build auf demselben Commit ausführen.",
@@ -503,14 +523,16 @@
       "title": "Pynguin und Qodo Cover erst nach stabilem Kern vergleichend bewerten",
       "type": "research",
       "milestone_id": "PHSV-H-M4",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "repo_evidence": [
         "Im aktuellen Repository sind weder Pynguin noch Qodo/CodiumAI integriert.",
         "Hypothesis und CrossHair bilden bereits einen toolneutralen, isolierten Verification-Worker-Pfad.",
-        "Automatisch erzeugte Tests können lediglich bestehendes Verhalten konservieren und müssen deshalb als reviewpflichtige Kandidaten behandelt werden."
+        "Automatisch erzeugte Tests können lediglich bestehendes Verhalten konservieren und müssen deshalb als reviewpflichtige Kandidaten behandelt werden.",
+        "Isolierter Pynguin-0.45.0-Lauf: 13 Kandidaten, 60 Prozent Branch Coverage, 10 passed/3 strict xfailed, 2 von 3 kontrollierten Mutanten getötet, kein einzigartiger Defekt; No-Go Core/CI und Hold review-only.",
+        "Qodo Cover: No-Go ohne Ausführung, weil der dokumentierte Pfad externen LLM-Provider/Quellcodekontext voraussetzt, das Open-Source-Repository AGPL-3.0 und als unmaintained markiert ist; keine Credentials oder Freigaben wurden erfunden."
       ],
       "implementation": [
         "Pynguin lokal und isoliert als Generator für Legacy-Testkandidaten benchmarken; generierte Assertions zusätzlich per Mutation prüfen.",
@@ -530,7 +552,10 @@
         "Isolation und Datenabfluss mit deaktiviertem Netzwerk beziehungsweise dokumentierter externer Übertragung verifizieren."
       ],
       "dependencies": [
-        "PHSV-H-009"
+        "PHSV-H-005",
+        "PHSV-H-006",
+        "PHSV-H-007",
+        "PHSV-H-008"
       ]
     }
   ],
@@ -548,13 +573,13 @@
   "tasks_status_summary": {
     "total": 10,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 1,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 9
     },
-    "progress_percent_done": 10,
+    "progress_percent_done": 97,
     "by_priority": {
       "P0": 5,
       "P1": 4,
@@ -568,15 +593,15 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 8,
+      "remaining": 1
     },
     "milestones": {
       "total": 4,
-      "todo": 2,
-      "in_progress": 2,
+      "todo": 0,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -592,11 +617,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 8,
+    "todo_remaining": 0,
     "in_progress": 1,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 9
   },
   "risks": [
     {
@@ -617,8 +642,8 @@
     }
   ],
   "uncertainties": [
-    "Der allgemeine CI-Track CI-023 wurde während dieser Prüfung neu auf main angelegt; seine Implementierung kann Teile von PHSV-H-001 vorwegnehmen.",
-    "Für Pynguin und Qodo Cover wurde noch kein Ananta-spezifischer Lauf ausgeführt; PHSV-H-010 bleibt deshalb ausdrücklich eine spätere Vergleichsentscheidung.",
+    "Der Härtungscommit benötigt noch einen vollständigen erfolgreichen Python-Verification-Lauf auf exakt demselben Commit; lokale Ergebnisse allein schließen PHSV-H-009 nicht.",
+    "Qodo Cover wurde wegen der nicht freigegebenen externen Provider- und Datenabflussgrenze bewusst nicht ausgeführt; die No-Go-Entscheidung vermeidet eine erfundene Vergleichsmessung.",
     "Ein fehlendes Gegenbeispiel bleibt auch nach der Härtung nur eine budgetierte Beobachtung und kein Korrektheitsbeweis."
   ],
   "references": [
