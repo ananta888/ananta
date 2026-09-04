@@ -199,16 +199,15 @@ class CollaborationAgentControlService:
         operations = selected["allowed_operations"]
         if not set(operations).issubset(offer["scopes"]):
             raise PermissionError("collaboration_resource_scope_exceeded")
-        lease_id = f"lease-{
-            canonical_digest(
-                {
-                    'workspace_id': workspace_id,
-                    'offer_id': offer_id,
-                    'task_id': selected['task_id'],
-                    'assignment_id': selected['assignment_id'],
-                }
-            )[:32]
-        }"
+        lease_digest = canonical_digest(
+            {
+                "workspace_id": workspace_id,
+                "offer_id": offer_id,
+                "task_id": selected["task_id"],
+                "assignment_id": selected["assignment_id"],
+            }
+        )
+        lease_id = f"lease-{lease_digest[:32]}"
         existing = self._store.resource_lease(tenant_id, workspace_id, lease_id)
         if existing is not None:
             return {**existing, "replayed": True}

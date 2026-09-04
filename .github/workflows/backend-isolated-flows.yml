@@ -26,6 +26,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock
           pip install -r requirements-dev.lock
+      - name: Compile production Python modules
+        run: PYTHONPYCACHEPREFIX="${RUNNER_TEMP}/ananta-pyc" python -m compileall -q agent ananta_contracts worker
       - name: Run isolated backend integration and E2E flows
         run: >
           pytest -vv --durations=25 -o faulthandler_timeout=180
