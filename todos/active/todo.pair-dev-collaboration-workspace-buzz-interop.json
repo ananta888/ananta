@@ -1501,7 +1501,7 @@
         "Ein rotes, fehlendes oder deaktiviertes Buzz-Gate verändert weder den Status noch die Verfügbarkeit des Native-Core- oder Agent-/Live-Gates."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Es fehlt ausschließlich ein vorab vom Hub reservierter Lauf gegen eine reale Instanz der gepinnten Buzz-Revision; lokale oder nachträglich erfundene RUN_*-Evidenz ist unzulässig."
+      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Der produktive Buzz/Nostr-Relay-Client, eine reale Community-/Auth-Konfiguration und ein unveränderlich zur Revision 01bacb8df3d2f5718e0a468828e07ae874a38eae gepinntes Runtime-Image fehlen; GHCR veröffentlicht derzeit weder sha-01bacb8 noch 0.5.22/v0.5.22. Erst danach kann der Hub einen realen Conformance-Lauf vorab reservieren. Das bewegliche main-Image und lokale Test-Doubles sind keine Release-Evidence."
     },
     {
       "id": "PDCW-SEC-001",
@@ -1827,7 +1827,7 @@
         "Ein fehlendes oder rotes Agent-/Live-Gate blockiert ausschließlich diese Lane und behauptet insbesondere keine SFU-/n>2-Readiness."
       ],
       "progress_percent": 70.0,
-      "blocked_reason": "Per-Receiver-, Revocation-, Reconnect-, E2EE- und Backpressure-Logik ist lokal automatisiert geprüft. Für die Agent-/Live-Freigabe fehlt ein vorab Hub-reservierter realer Multi-Browser-/Multi-Device-Lauf des konkreten Relay-/SFU-Profils."
+      "blocked_reason": "Per-Receiver-, Revocation-, Reconnect-, E2EE- und Backpressure-Logik ist lokal automatisiert geprüft; Chromium, Firefox, LiveKit und Coturn sind auf dem Host vorhanden. Es fehlen jedoch ein freigegebenes konkretes Relay-/SFU-Deployment, öffentliche TURN-/Netzwerkpfade und physisch getrennte Mobil-/Safari-Geräte. Erst auf dieser realen Topologie kann ein vorab Hub-reservierter Multi-Browser-/Multi-Device-Lauf die Lane freigeben."
     },
     {
       "id": "PDCW-QA-004",
@@ -1852,7 +1852,7 @@
         "Kapazitätsfreigaben nennen reale RUN-Evidence, Profil, Hardware, Version, Dauer und Grenzwert; fehlende Runs blockieren Claims."
       ],
       "progress_percent": 65.0,
-      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen einen vorab Hub-reservierten Lauf auf der Zielhardware mit Profil, Dauer und Grenzwerten."
+      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Eine freizugebende Zielhardware, ein konkretes Produktionsprofil und dessen Grenzwerte sind in dieser Umgebung nicht bereitgestellt. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen diese realen Inputs und anschließend einen vorab Hub-reservierten Lauf mit Profil, Hardware, Dauer und Grenzwerten."
     },
     {
       "id": "PDCW-QA-005",
@@ -2266,10 +2266,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T17:55:22.904719Z",
+    "generated_at": "2026-09-04T17:57:58.665973Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "e9d70d74a6d72798d0afa1952aa1be3b9bc93c18c9f4ccd3fea20ffcb5b9fc00",
+    "source_hash": "f2ab187ff9dca395332501bcdf6c9d0c862241d8150a108ebc30258de3675552",
     "is_stale": false
   },
   "implementation_review": {
