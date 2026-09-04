@@ -37,6 +37,10 @@ the CrossHair backend 14.148 seconds. These are local technical observations,
 not production evidence. Commit-bound GitHub CI is recorded separately in the
 structured report
 `artifacts/test-gates/python-verification-pilot.json`.
+GitHub Python Verification Run 33913756136 completed all nine required jobs
+successfully on commit `45f4486fe64facc90e894282ac24b5bd164e7dec`,
+including the commit-bound gate validator. This is CI evidence, not a
+Hub-registered `RUN_*` production identity.
 
 The property pilot found and fixed one pre-existing production defect:
 self-dependencies were normalized away before graph-cycle detection. Toolchain

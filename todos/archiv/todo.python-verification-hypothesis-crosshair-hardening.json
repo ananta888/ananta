@@ -5,12 +5,12 @@
   "title": "Hypothesis- und CrossHair-Integration belastbar fertigstellen",
   "owner": "ananta",
   "track": "python-verification-hypothesis-crosshair-hardening",
-  "status": "in_progress",
+  "status": "done",
   "created_at": "2026-09-04",
   "updated_at": "2026-09-04",
   "repository": "ananta888/ananta",
   "branch": "main",
-  "reviewed_commit": "083a2ab0e9cb5685eb90ce2dc8133c8840936c43",
+  "reviewed_commit": "45f4486fe64facc90e894282ac24b5bd164e7dec",
   "purpose": "Die vorhandene Hypothesis- und CrossHair-Integration von einem erfolgreichen lokalen Pilot zu einer reproduzierbar grünen, produktionsnahen und gehärteten Verification-Fähigkeit weiterentwickeln.",
   "goal": "CI-Abhängigkeiten schließen, Ergebnissemantik und Sicherheitsgrenzen korrigieren, echte Ananta-Produktionsziele prüfen und Abschlussstatus ausschließlich an aktuelle maschinenlesbare Evidenz binden.",
   "status_scale": [
@@ -81,6 +81,22 @@
           "hypothesis_matrix_3_13": "success",
           "hypothesis_matrix_3_14": "success"
         }
+      },
+      {
+        "run_id": "33913756136",
+        "commit": "45f4486fe64facc90e894282ac24b5bd164e7dec",
+        "conclusion": "success",
+        "observed_jobs": {
+          "core_boundary": "success",
+          "repeated_fast_gate": "success",
+          "worker_image": "success",
+          "symbolic_targeted": "success",
+          "hypothesis_matrix_3_10": "success",
+          "hypothesis_matrix_3_11": "success",
+          "hypothesis_matrix_3_12": "success",
+          "hypothesis_matrix_3_13": "success",
+          "hypothesis_matrix_3_14": "success"
+        }
       }
     ],
     "primary_findings": [
@@ -92,7 +108,8 @@
       "Target-Symbole sind nicht als strikte backendabhängige Grammatik validiert und können als CLI-Optionen interpretiert werden.",
       "Property-Verstöße, Collection-Fehler und Toolfehler werden nicht ausreichend getrennt berichtet.",
       "Die Reparatur auf 7ad078432 schließt die bekannten Collection-Abhängigkeiten und verhindert das versehentliche Laden des globalen Hub-conftest in Kindprozessen; Run 33910210131 ist für alle neun erforderlichen Jobs grün.",
-      "Commit 083a2ab0e härtet Target-Allowlist, Ergebnissemantik, Gegenbeispielparser, Produktions-Properties und CI-gebundene Completion-Policy; die aktuelle GitHub-CI-Evidenz für diesen Härtungsstand wird in PHSV-H-009 nach dem Push erzeugt."
+      "Commit 083a2ab0e härtet Target-Allowlist, Ergebnissemantik, Gegenbeispielparser, Produktions-Properties und CI-gebundene Completion-Policy.",
+      "GitHub Python Verification Run 33913756136 ist auf Commit 45f4486fe64facc90e894282ac24b5bd164e7dec in allen neun erforderlichen Jobs einschließlich Gate-Validator grün."
     ]
   },
   "repo_alignment": {
@@ -186,7 +203,7 @@
         "PHSV-H-009",
         "PHSV-H-010"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -483,15 +500,16 @@
       "title": "Grüne End-to-End-Evidenz erzeugen und ADR korrigieren",
       "type": "release",
       "milestone_id": "PHSV-H-M4",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "repo_evidence": [
         "docs/decisions/ADR-python-property-symbolic-verification.md akzeptiert den bounded pilot auf Basis lokaler Messungen.",
         "artifacts/test-gates/python-verification-pilot.json bezeichnet sich selbst als unverified_for_production.",
         "Die sichtbaren GitHub-Actions-Läufe 33872858140 und 33882383020 sind rot.",
-        "Lokal sind 87 nicht-reale Tests, 7 reale Toolchain-Tests, 20 Fast-Gate-Wiederholungen sowie der Backend-Vergleich grün; der aktuelle GitHub-Lauf auf dem Härtungscommit und das daraus abgeleitete Gate-Artefakt stehen noch aus."
+        "Lokal sind 87 nicht-reale Tests, 7 reale Toolchain-Tests, 20 Fast-Gate-Wiederholungen sowie der Backend-Vergleich grün.",
+        "GitHub Run 33913756136 auf Commit 45f4486fe64facc90e894282ac24b5bd164e7dec: alle neun Jobs grün; artifacts/test-gates/python-verification-pilot.json bindet denselben Commit, die Job-Matrix und deren Digests ohne erfundene RUN_*-Produktionsevidenz."
       ],
       "implementation": [
         "Nach Abschluss aller Härtungstasks die vollständige Matrix, den realen Toolchain-Test, den Fast-Gate-Wiederholungslauf und den Worker-Image-Build auf demselben Commit ausführen.",
@@ -574,12 +592,12 @@
     "total": 10,
     "by_status": {
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 9
+      "done": 10
     },
-    "progress_percent_done": 97,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 5,
       "P1": 4,
@@ -593,15 +611,15 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 8,
-      "remaining": 1
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -616,12 +634,12 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "done",
     "todo_remaining": 0,
-    "in_progress": 1,
+    "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 9
+    "done": 10
   },
   "risks": [
     {
@@ -642,7 +660,7 @@
     }
   ],
   "uncertainties": [
-    "Der Härtungscommit benötigt noch einen vollständigen erfolgreichen Python-Verification-Lauf auf exakt demselben Commit; lokale Ergebnisse allein schließen PHSV-H-009 nicht.",
+    "GitHub Python Verification Run 33913756136 bestätigt den vollständigen Härtungsstand auf Commit 45f4486fe64facc90e894282ac24b5bd164e7dec; die Daten bleiben CI-/Test-Evidenz und sind keine Hub-registrierte Produktionsevidenz.",
     "Qodo Cover wurde wegen der nicht freigegebenen externen Provider- und Datenabflussgrenze bewusst nicht ausgeführt; die No-Go-Entscheidung vermeidet eine erfundene Vergleichsmessung.",
     "Ein fehlendes Gegenbeispiel bleibt auch nach der Härtung nur eine budgetierte Beobachtung und kein Korrektheitsbeweis."
   ],
@@ -654,6 +672,10 @@
     {
       "title": "Fehlgeschlagener Python-Verification-Lauf",
       "url": "https://github.com/ananta888/ananta/actions/runs/33882383020"
+    },
+    {
+      "title": "Erfolgreicher gehärteter Python-Verification-Lauf",
+      "url": "https://github.com/ananta888/ananta/actions/runs/33913756136"
     },
     {
       "title": "Hypothesis-Dokumentation",
