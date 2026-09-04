@@ -1,0 +1,14 @@
+{
+  "schema": "ananta.local-model-provider-matrix.v1",
+  "matrix_id": "qwen3.8-27b-abliterated-local-v1",
+  "model_architecture": "qwen35",
+  "providers": [
+    {"provider_id": "llamacpp", "protocol": "openai_compatible", "state": "candidate", "remote_code_allowed": false},
+    {"provider_id": "ollama", "protocol": "ollama_native", "state": "candidate", "remote_code_allowed": false},
+    {"provider_id": "lmstudio", "protocol": "openai_compatible", "state": "candidate", "remote_code_allowed": false},
+    {"provider_id": "colibri", "protocol": "openai_compatible", "state": "unsupported", "remote_code_allowed": false, "reason_codes": ["qwen38_dense_engine_not_supported", "gguf_path_not_supported"]}
+  ],
+  "vision_state": "unknown",
+  "mtp_state": "unknown",
+  "production_allowed": false
+}

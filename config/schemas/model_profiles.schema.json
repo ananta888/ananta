@@ -239,7 +239,13 @@
         "artifact_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
         "release_state": {
           "enum": ["unavailable", "experimental", "shadow", "opt_in", "preferred", "disabled"]
-        }
+        },
+        "trust_class": {
+          "type": "string",
+          "enum": ["standard", "standard_candidate", "unsafe_research"],
+          "default": "standard"
+        },
+        "safety_modified": {"type": "boolean", "default": false}
       },
       "if": {
         "properties": { "cloud": { "const": true } }

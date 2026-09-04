@@ -1,7 +1,7 @@
 {
   "schema": "ananta.model-import-policy.v1",
   "policy_id": "immutable-local-model-import",
-  "allowed_publishers": ["ornith-ai"],
+  "allowed_publishers": ["ornith-ai", "Qwen", "huihui-ai"],
   "allowed_formats": ["gguf", "safetensors", "json", "jinja"],
   "forbidden_extensions": [".bin", ".ckpt", ".joblib", ".pkl", ".pickle", ".py", ".so"],
   "maximum_artifact_bytes": 107374182400,

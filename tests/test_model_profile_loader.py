@@ -68,6 +68,22 @@ def test_profile_can_declare_runtime_without_per_request_seed():
     assert "supports_seed" not in result.profiles[0].extra
 
 
+def test_unsafe_research_profile_requires_explicit_safety_modified() -> None:
+    invalid = ModelProfileLoader().load_dict({"profiles": [{
+        "profile_id": "unsafe", "provider_id": "ollama", "model": "modified",
+        "trust_class": "unsafe_research", "safety_modified": False,
+    }]})
+    assert not invalid.ok
+    assert "unsafe_research_requires_safety_modified" in " ".join(invalid.errors)
+
+    valid = ModelProfileLoader().load_dict({"profiles": [{
+        "profile_id": "unsafe", "provider_id": "ollama", "model": "modified",
+        "trust_class": "unsafe_research", "safety_modified": True, "enabled": False,
+    }]})
+    assert valid.ok
+    assert valid.profiles[0].trust_class == "unsafe_research"
+
+
 def test_load_cloud_profile_complete():
     loader = ModelProfileLoader()
     result = loader.load_dict(CLOUD_COMPLETE)

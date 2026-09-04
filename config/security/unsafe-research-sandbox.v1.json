@@ -1,0 +1,11 @@
+{
+  "schema": "ananta.unsafe-research-sandbox.v1",
+  "sandbox_id": "unsafe-research-text-only-v1",
+  "network": "none",
+  "environment_allowlist": ["LANG", "LC_ALL"],
+  "filesystem": {"workspace": "read_only", "scratch": "bounded_tmpfs", "model": "read_only", "host_paths": false},
+  "tools": {"default": "deny", "allowed": []},
+  "process": {"shell": false, "git_write": false, "browser": false, "messages": false, "database_write": false},
+  "container": {"privileged": false, "docker_socket": false, "no_new_privileges": true, "read_only_root": true},
+  "limits": {"parallel_requests": 1, "output_bytes": 1048576, "timeout_seconds": 900, "swap_growth_allowed": false}
+}

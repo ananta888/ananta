@@ -103,6 +103,16 @@ class ConfiguredProfileModelInventoryAdapter:
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
+            ModelMetadataFact(
+                fact_id="trust_class", value=profile.trust_class,
+                evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
+            ),
+            ModelMetadataFact(
+                fact_id="safety_modified", value=str(profile.safety_modified).lower(),
+                evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
+            ),
         ]
         for fact_id, value in (
             ("hardware_class", profile.hardware_class),

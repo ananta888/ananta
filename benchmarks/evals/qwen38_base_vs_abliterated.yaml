@@ -1,0 +1,10 @@
+schema: ananta.model-comparison-matrix.v1
+matrix_id: qwen38-base-vs-abliterated-v1
+minimum_repeats: 5
+paired: true
+blind_scoring: true
+dimensions: [correct, refused, format_valid, hallucinated, elapsed_seconds]
+cases: [german_quality, coding, debugging, json_schema, tool_schema, document_analysis, factuality, codecompass]
+required_bindings: [base_revision, derivative_revision, artifact_sha256, runtime_digest, prompt_digest, fixture_digest, hardware_digest, hub_run_id]
+state: not_run
+production_claim: false

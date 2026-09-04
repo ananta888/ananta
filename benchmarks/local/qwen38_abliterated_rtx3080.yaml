@@ -1,0 +1,13 @@
+schema: ananta.local-model-resource-benchmark.v1
+benchmark_id: qwen38-abliterated-rtx3080-v1
+hardware_class: rtx3080-10gb-host64gb-offload
+minimum_reserve_fraction: 0.15
+swap_growth_allowed: false
+parallel_requests: [1]
+contexts: [4096, 8192, 16384, 32768]
+candidates:
+  - {identity_id: qwen38-27b-abliterated-ud-iq3-xxs, size_bytes: 11021122464}
+  - {identity_id: qwen38-27b-abliterated-ud-iq4-xs, size_bytes: 14403496864}
+measurements: [cold_start_seconds, warm_start_seconds, prompt_tokens_per_second, generation_tokens_per_second, time_to_first_token_seconds, peak_ram_bytes, peak_vram_bytes, energy_wh, swap_growth_bytes, maximum_temperature_c]
+state: not_run
+production_claim: false

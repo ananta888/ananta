@@ -26,6 +26,19 @@ The upstream vLLM recipe requires remote code and is incompatible with Ananta's
 default policy. No manufacturer benchmark or model-card capability is Ananta
 release evidence.
 
+## Qwen3.8-27B abliterated research derivative
+
+Baseline date: 2026-09-04. Qwen's base repository and huihui-ai's derivative
+and GGUF repositories are pinned in
+`config/models/qwen3.8-27b-abliterated-sources.v1.json`. The official and
+derivative repositories contain Apache-2.0 license text. Community GGUF
+artifacts remain evaluation-only and `unsafe_research`; matching license
+metadata does not promote safety, quality or runtime claims.
+
+The profile cannot enter normal routing or production. llama.cpp, Ollama and
+LM Studio are candidates; Colibri is explicitly unsupported until it proves an
+exact Qwen3.8-27B dense engine and artifact path.
+
 ## Unsloth integration baseline
 
 Baseline date: 2026-07-28.

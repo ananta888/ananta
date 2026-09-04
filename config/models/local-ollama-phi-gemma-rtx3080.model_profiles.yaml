@@ -240,3 +240,49 @@ profiles:
     avoid_for: [local_execution, production]
     enabled: false
     notes: "Known upstream variant, intentionally unroutable on the 10-GB GPU / 64-GB host target."
+
+  - profile_id: local_llamacpp_qwen38_27b_abliterated_ud_iq3_research
+    provider_id: openai_compatible
+    model: "huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF:UD-IQ3_XXS"
+    model_role: reasoning
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: true
+    supports_tools: false
+    supports_json: false
+    supports_streaming: false
+    context_tokens: 4096
+    max_context_for_profile: 4096
+    nominal_context_tokens: 262144
+    verified_context_tokens: null
+    max_output_tokens: 2048
+    timeout_seconds: 900
+    temperature: 0.0
+    cost_class: free
+    quality_class: unknown
+    estimated_latency_class: local_slow
+    json_reliability_class: unknown
+    tool_calling_mode: none
+    retry_budget: 0
+    base_url: "http://127.0.0.1:12380/v1"
+    aliases: [qwen38-27b-abliterated-research]
+    input_modalities: [text]
+    output_modalities: [text]
+    hardware_class: rtx3080-10gb-host64gb-offload
+    artifact_sha256: e86259c841888b06fd84750963a0263947c9aae3c3029b52cbb3faa34a554827
+    release_state: experimental
+    trust_class: unsafe_research
+    safety_modified: true
+    response_policy: qwen3_reasoning_safe
+    quantization: ud_iq3_xxs
+    capability_claims:
+      - {capability_id: chat, value: unknown, evidence: unknown, source_id: "profile:qwen38-abliterated"}
+      - {capability_id: thinking, value: unknown, evidence: unknown, source_id: "profile:qwen38-abliterated"}
+      - {capability_id: tools, value: unsupported, evidence: declared, source_id: "policy:unsafe-research"}
+      - {capability_id: json, value: unknown, evidence: unknown, source_id: "profile:qwen38-abliterated"}
+      - {capability_id: vision, value: unknown, evidence: unknown, source_id: "profile:qwen38-abliterated"}
+      - {capability_id: streaming, value: unknown, evidence: unknown, source_id: "profile:qwen38-abliterated"}
+    avoid_for: [automatic_fallback, public_chat, production_agent, personal_data]
+    enabled: false
+    notes: "Unsafe research only. Normal routing is forbidden even if configuration is accidentally enabled."

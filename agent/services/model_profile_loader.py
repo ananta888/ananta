@@ -30,6 +30,7 @@ ALLOWED_CAPABILITY_EVIDENCE = frozenset({"declared", "detected", "benchmark", "u
 ALLOWED_RELEASE_STATES = frozenset({
     "unavailable", "experimental", "shadow", "opt_in", "preferred", "disabled",
 })
+ALLOWED_TRUST_CLASSES = frozenset({"standard", "standard_candidate", "unsafe_research"})
 
 
 @dataclass
@@ -85,6 +86,8 @@ class ModelProfile:
     hardware_class: str | None = None
     artifact_sha256: str | None = None
     release_state: str = "experimental"
+    trust_class: str = "standard"
+    safety_modified: bool = False
 
     def is_cloud(self) -> bool:
         return self.cloud or self.provider_id in {"openai", "openrouter"}
@@ -260,6 +263,7 @@ class ModelProfileLoader:
             "aliases", "input_modalities", "output_modalities", "capability_claims",
             "nominal_context_tokens", "verified_context_tokens", "hardware_class",
             "artifact_sha256", "release_state",
+            "trust_class", "safety_modified",
         }
         extra = {k: v for k, v in raw.items() if k not in known_keys}
         tool_calling_mode = str(
@@ -274,6 +278,11 @@ class ModelProfileLoader:
         release_state = str(raw.get("release_state") or "experimental").strip()
         if release_state not in ALLOWED_RELEASE_STATES:
             errors.append(f"profile[{index}]:{pid!r}:invalid_release_state:{release_state}")
+        trust_class = str(raw.get("trust_class") or "standard").strip()
+        if trust_class not in ALLOWED_TRUST_CLASSES:
+            errors.append(f"profile[{index}]:{pid!r}:invalid_trust_class:{trust_class}")
+        if trust_class == "unsafe_research" and raw.get("safety_modified") is not True:
+            errors.append(f"profile[{index}]:{pid!r}:unsafe_research_requires_safety_modified")
 
         try:
             profile = ModelProfile(
@@ -334,6 +343,8 @@ class ModelProfileLoader:
                 hardware_class=_optional_bounded_identifier(raw.get("hardware_class")),
                 artifact_sha256=_optional_sha256(raw.get("artifact_sha256")),
                 release_state=release_state,
+                trust_class=trust_class,
+                safety_modified=bool(raw.get("safety_modified", False)),
             )
             if (
                 profile.nominal_context_tokens is not None

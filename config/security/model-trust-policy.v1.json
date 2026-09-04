@@ -1,0 +1,15 @@
+{
+  "schema": "ananta.model-trust-policy.v1",
+  "policy_id": "unsafe-research-models-v1",
+  "allowed_environments": ["local_isolated_test"],
+  "forbidden_routes": ["automatic_fallback", "public_chat", "course_participant_default", "customer_communication", "production_agent", "regulated_decision", "personal_data_processing"],
+  "default_tools_allowed": false,
+  "network_allowed": false,
+  "writes_allowed": false,
+  "secrets_allowed": false,
+  "personal_data_allowed": false,
+  "authorization_required": true,
+  "maximum_authorization_seconds": 14400,
+  "normal_model_routing_allowed": false,
+  "production_allowed": false
+}

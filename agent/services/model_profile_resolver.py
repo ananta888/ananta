@@ -166,6 +166,8 @@ class SecurityPolicyChecker:
         return True, "security_policy:pass"
 
     def is_allowed_for_context(self, profile: ModelProfile, ctx: RoutingContext) -> tuple[bool, str]:
+        if profile.trust_class == "unsafe_research":
+            return False, "security_policy:unsafe_research_normal_routing_forbidden"
         if profile.is_cloud() and ctx.allow_cloud is False:
             return False, "security_policy:cloud_disabled_by_routing_context"
         if profile.is_cloud() and ctx.data_class in {"confidential", "secret"}:
