@@ -10,6 +10,7 @@ import {
   CollaborationMembership,
   CollaborationFlowProjection,
   CollaborationPresence,
+  CollaborationResourceOffer,
   CollaborationThread,
   CollaborationWorkspaceSummary,
 } from './collaboration-workspace.models';
@@ -110,6 +111,15 @@ export class CollaborationWorkspaceApiService {
   flowProjection(hubUrl: string, workspaceId: string): Observable<CollaborationFlowProjection> {
     return this.core.get<CollaborationFlowProjection>(
       `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/flow-projection`, hubUrl,
+    );
+  }
+
+  resourceOffers(hubUrl: string, workspaceId: string): Observable<CollaborationPage<CollaborationResourceOffer>> {
+    return this.core.get<CollaborationPage<CollaborationResourceOffer>>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/resource-offers`,
+      hubUrl,
+      undefined,
+      false,
     );
   }
 

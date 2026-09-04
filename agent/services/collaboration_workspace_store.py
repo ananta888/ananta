@@ -262,6 +262,34 @@ class CollaborationWorkspaceStore:
             ).fetchone()
         return json.loads(row[0]) if row else None
 
+    def room_binding(self, tenant_id: str, workspace_id: str, room_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM collaboration_room_bindings WHERE tenant_id=? AND workspace_id=? "
+                "AND room_id=?",
+                (
+                    require_id(tenant_id, "tenant_id"),
+                    require_id(workspace_id, "workspace_id"),
+                    require_id(room_id, "room_id"),
+                ),
+            ).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def room_lifecycle(self, tenant_id: str, workspace_id: str, room_id: str) -> dict[str, Any]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM collaboration_room_lifecycle WHERE tenant_id=? AND workspace_id=? "
+                "AND room_id=?",
+                (
+                    require_id(tenant_id, "tenant_id"),
+                    require_id(workspace_id, "workspace_id"),
+                    require_id(room_id, "room_id"),
+                ),
+            ).fetchone()
+        if row is None:
+            raise KeyError("collaboration_room_not_found")
+        return json.loads(row[0])
+
     def put_room_access(
         self,
         tenant_id: str,
@@ -581,6 +609,24 @@ class CollaborationWorkspaceStore:
                 ),
             ).fetchone()
         return json.loads(row[0]) if row else None
+
+    def resource_offers(
+        self, tenant_id: str, workspace_id: str, *, now: float, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        if not 1 <= limit <= 200:
+            raise ValueError("collaboration_resource_offer_limit_invalid")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM collaboration_resource_offers WHERE tenant_id=? AND workspace_id=? "
+                "AND status='active' AND expires_at>? ORDER BY offer_id LIMIT ?",
+                (
+                    require_id(tenant_id, "tenant_id"),
+                    require_id(workspace_id, "workspace_id"),
+                    float(now),
+                    limit,
+                ),
+            ).fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     def admit_agent_intent(
         self, tenant_id: str, intent: Mapping[str, Any], *, maximum_correlation_intents: int

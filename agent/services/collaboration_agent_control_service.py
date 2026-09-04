@@ -55,6 +55,25 @@ class CollaborationAgentControlService:
         value, replayed = self._store.put_resource_offer(tenant_id, parsed.to_dict())
         return {**value, "replayed": replayed, "lease_granted": False}
 
+    def list_offers(
+        self,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        principal_actor_id: str,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        self._authorize(tenant_id, workspace_id, principal_actor_id, "event.read")
+        offers = self._store.resource_offers(tenant_id, workspace_id, now=self._clock(), limit=limit)
+        return {
+            "items": [
+                offer
+                for offer in offers
+                if offer["sensitivity"] == "workspace" or offer["owner_actor_binding_id"] == principal_actor_id
+            ],
+            "limit": limit,
+        }
+
     def propose_intent(
         self,
         *,

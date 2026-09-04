@@ -54,6 +54,22 @@ export interface CollaborationPresence {
   task_ready_authority: false;
 }
 
+export interface CollaborationResourceOffer {
+  schema: 'ananta.collaboration-resource-offer.v1';
+  offer_id: string;
+  workspace_id: string;
+  owner_actor_binding_id: string;
+  resource_id: string;
+  capability_category: 'compute' | 'model' | 'repository' | 'terminal' | 'tool';
+  capacity_class: 'small' | 'medium' | 'large';
+  scopes: string[];
+  expires_at: number;
+  sensitivity: 'workspace' | 'restricted';
+  attestation_status: 'verified' | 'unverified' | 'test_only';
+  metadata: Record<string, unknown>;
+  payload_digest?: string;
+}
+
 export interface CollaborationFlowProjection {
   schema: 'ananta.collaboration-flow-projection.v1';
   workspace_id: string;

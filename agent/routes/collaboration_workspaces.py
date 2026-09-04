@@ -281,6 +281,19 @@ def create_branch_room(workspace_id: str):
     return _invoke(operation, created=True)
 
 
+@collaboration_workspaces_bp.post("/<workspace_id>/rooms/<room_id>/binding/reconcile")
+@check_user_auth
+def reconcile_room_binding(workspace_id: str, room_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_binding_service").reconcile_room(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+        )
+    )
+
+
 @collaboration_workspaces_bp.get("/<workspace_id>/threads/<thread_id>")
 @check_user_auth
 def get_thread(workspace_id: str, thread_id: str):
@@ -347,6 +360,19 @@ def publish_resource_offer(workspace_id: str):
         )
 
     return _invoke(operation, created=True)
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/resource-offers")
+@check_user_auth
+def list_resource_offers(workspace_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_agent_control_service").list_offers(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            limit=int(request.args.get("limit") or 100),
+        )
+    )
 
 
 @collaboration_workspaces_bp.post("/<workspace_id>/agent-intents")

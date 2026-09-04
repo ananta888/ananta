@@ -5,12 +5,14 @@ import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { PageIntroComponent, SectionCardComponent } from '../../shared/ui/layout';
 import { CollaborationLivePanelComponent } from './collaboration-live-panel.component';
+import { CollaborationProjectionPanelsComponent } from './collaboration-projection-panels.component';
 import { CollaborationWorkspaceApiService } from './collaboration-workspace-api.service';
 import {
   CollaborationEvent,
   CollaborationFlowProjection,
   CollaborationMembership,
   CollaborationPresence,
+  CollaborationResourceOffer,
   CollaborationRoom,
   CollaborationThread,
   CollaborationWorkspaceSummary,
@@ -19,7 +21,14 @@ import {
 @Component({
   selector: 'app-collaboration-workspace-page',
   standalone: true,
-  imports: [FormsModule, JsonPipe, PageIntroComponent, SectionCardComponent, CollaborationLivePanelComponent],
+  imports: [
+    FormsModule,
+    JsonPipe,
+    PageIntroComponent,
+    SectionCardComponent,
+    CollaborationLivePanelComponent,
+    CollaborationProjectionPanelsComponent,
+  ],
   template: `
     <app-page-intro
       title="Collaboration Workspaces"
@@ -109,27 +118,7 @@ import {
         }
       </app-section-card>
       <app-section-card title="Fachprojektionen" subtitle="Nur lesbare Hub-Projektionen; Änderungen laufen über getrennte Intent-Pfade.">
-        @if (flow) {
-          <small>Checkpoint {{ flow.checkpoint }} · Digest {{ flow.state_digest }}</small>
-          @for (task of projectionEntries(flow.state.tasks); track task[0]) {
-            <article><strong>Task · {{ task[0] }}</strong><span>{{ task[1] | json }}</span></article>
-          }
-          @for (workflow of projectionEntries(flow.state.workflows); track workflow[0]) {
-            <article><strong>Workflow · {{ workflow[0] }}</strong><span>{{ workflow[1] | json }}</span></article>
-          }
-          @for (ref of projectionEntries(flow.state.git_refs); track ref[0]) {
-            <article><strong>Git · {{ ref[0] }}</strong><span>{{ ref[1] | json }}</span></article>
-          }
-          @for (review of projectionEntries(flow.state.reviews); track review[0]) {
-            <article><strong>Review/Artifact · {{ review[0] }}</strong><span>{{ review[1] | json }}</span></article>
-          }
-          @for (artifact of projectionEntries(flow.state.artifacts); track artifact[0]) {
-            <article><strong>Artifact · {{ artifact[0] }}</strong><span>{{ artifact[1] | json }}</span></article>
-          }
-          @if (!hasProjectionEntries()) { <p>Noch keine belegten Fachprojektionen.</p> }
-        } @else {
-          <p>Workspace auswählen, um permission-gefilterte Projektionen zu laden.</p>
-        }
+        <app-collaboration-projection-panels [flow]="flow" [offers]="resourceOffers" />
       </app-section-card>
     </div>
   `,
@@ -156,6 +145,7 @@ export class CollaborationWorkspacePageComponent implements OnInit {
   memberships: CollaborationMembership[] = [];
   presence: CollaborationPresence[] = [];
   flow: CollaborationFlowProjection | null = null;
+  resourceOffers: CollaborationResourceOffer[] = [];
   searchResults: CollaborationEvent[] = [];
   selected: CollaborationWorkspaceSummary | null = null;
   selectedRoom: CollaborationRoom | null = null;
@@ -203,12 +193,14 @@ export class CollaborationWorkspacePageComponent implements OnInit {
     this.selectedThread = null;
     this.presence = [];
     this.flow = null;
+    this.resourceOffers = [];
     this.events = [];
     this.api.get(hub, workspace.workspace_id).subscribe({
       next: detail => {
         this.rooms = detail.rooms;
         this.memberships = detail.memberships;
         this.loadFlowProjection();
+        this.loadResourceOffers();
         this.render();
       },
       error: error => this.fail(error),
@@ -363,15 +355,13 @@ export class CollaborationWorkspacePageComponent implements OnInit {
     });
   }
 
-  projectionEntries(value: Record<string, Record<string, unknown>>): [string, Record<string, unknown>][] {
-    return Object.entries(value);
-  }
-
-  hasProjectionEntries(): boolean {
-    if (!this.flow) return false;
-    const state = this.flow.state;
-    return [state.tasks, state.workflows, state.git_refs, state.reviews, state.artifacts]
-      .some(value => Object.keys(value).length > 0);
+  loadResourceOffers(): void {
+    const hub = this.hubUrl();
+    if (!hub || !this.selected) return;
+    this.api.resourceOffers(hub, this.selected.workspace_id).subscribe({
+      next: result => { this.resourceOffers = result.items; this.render(); },
+      error: error => this.fail(error),
+    });
   }
 
   private async eventEnvelope(

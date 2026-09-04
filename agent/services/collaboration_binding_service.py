@@ -102,7 +102,91 @@ class CollaborationBindingService:
             expected_revision=0,
         )
 
+    def reconcile_room(
+        self,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        room_id: str,
+        principal_actor_id: str,
+    ) -> dict[str, Any]:
+        self._policy.require(self._store.membership(tenant_id, workspace_id, principal_actor_id), "room.manage")
+        stored = self._store.room_binding(tenant_id, workspace_id, room_id)
+        if stored is None:
+            raise KeyError("collaboration_room_binding_not_found")
+        request = {
+            "binding_kind": stored["binding_kind"],
+            "binding_id": stored["binding_id"],
+            "project_id": stored["project_id"],
+            "lifecycle": stored["lifecycle"],
+            "revision": stored["authoritative_revision"],
+            "metadata": stored["metadata"],
+        }
+        decision = self._authority_decision(
+            tenant_id=tenant_id,
+            principal_actor_id=principal_actor_id,
+            binding=request,
+        )
+        if decision["verified"] is True:
+            return {"state": "current", "room_id": room_id, "retention_action": "none"}
+        reason = decision["reason_code"]
+        lifecycle = decision.get("authoritative_lifecycle")
+        if reason == "collaboration_binding_revision_stale" and lifecycle == "active":
+            updated = {
+                **request,
+                "revision": decision["authoritative_revision"],
+                "lifecycle": "active",
+                "authority_reason_code": "collaboration_binding_verified",
+                "authoritative_revision": decision["authoritative_revision"],
+            }
+            value = self._store.put_room_binding(
+                tenant_id,
+                workspace_id,
+                room_id,
+                updated,
+                expected_revision=stored["revision"],
+            )
+            return {"state": "updated", "room_id": room_id, "binding": value, "retention_action": "none"}
+        if reason == "collaboration_binding_not_found" or lifecycle in {"archived", "deleted"}:
+            room_state = self._store.room_lifecycle(tenant_id, workspace_id, room_id)
+            if room_state["state"] != "archived":
+                room_state = self._store.transition_room(
+                    tenant_id,
+                    workspace_id,
+                    room_id,
+                    target_state="archived",
+                    expected_revision=room_state["revision"],
+                )
+            return {
+                "state": "archived",
+                "room_id": room_id,
+                "room": room_state,
+                "retention_action": "retain_canonical_history",
+                "reason_code": "collaboration_bound_object_unavailable",
+            }
+        raise PermissionError(reason)
+
     def _verified(
+        self,
+        *,
+        tenant_id: str,
+        principal_actor_id: str,
+        binding: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        decision = self._authority_decision(
+            tenant_id=tenant_id,
+            principal_actor_id=principal_actor_id,
+            binding=binding,
+        )
+        if decision["verified"] is not True:
+            raise PermissionError(require_id(decision["reason_code"], "binding_reason_code"))
+        return {
+            **dict(binding),
+            "authority_reason_code": require_id(decision["reason_code"], "binding_reason_code"),
+            "authoritative_revision": require_id(decision["authoritative_revision"], "authoritative_revision"),
+        }
+
+    def _authority_decision(
         self,
         *,
         tenant_id: str,
@@ -116,15 +200,16 @@ class CollaborationBindingService:
                 binding=binding,
             )
         )
-        if set(decision) != {"verified", "reason_code", "authoritative_revision"}:
+        required = {"verified", "reason_code", "authoritative_revision"}
+        if not required.issubset(decision) or set(decision) - (required | {"authoritative_lifecycle"}):
             raise ValueError("collaboration_binding_authority_response_invalid")
-        if decision["verified"] is not True:
-            raise PermissionError(require_id(decision["reason_code"], "binding_reason_code"))
-        return {
-            **dict(binding),
-            "authority_reason_code": require_id(decision["reason_code"], "binding_reason_code"),
-            "authoritative_revision": require_id(decision["authoritative_revision"], "authoritative_revision"),
-        }
+        if not isinstance(decision["verified"], bool):
+            raise ValueError("collaboration_binding_authority_response_invalid")
+        require_id(decision["reason_code"], "binding_reason_code")
+        require_id(decision["authoritative_revision"], "authoritative_revision")
+        if decision.get("authoritative_lifecycle") not in {None, "active", "archived", "deleted"}:
+            raise ValueError("collaboration_binding_authority_response_invalid")
+        return decision
 
     @staticmethod
     def _normalize(binding: Mapping[str, Any]) -> dict[str, Any]:

@@ -134,18 +134,24 @@ class HubCollaborationBindingAuthority:
         if record is None:
             return _denied("collaboration_binding_not_found")
         if binding.get("lifecycle") != record.lifecycle:
-            return _denied("collaboration_binding_lifecycle_stale", record.revision)
+            return _denied("collaboration_binding_lifecycle_stale", record.revision, record.lifecycle)
         if str(binding.get("revision") or "") != record.revision:
-            return _denied("collaboration_binding_revision_stale", record.revision)
+            return _denied("collaboration_binding_revision_stale", record.revision, record.lifecycle)
         return {
             "verified": True,
             "reason_code": "collaboration_binding_verified",
             "authoritative_revision": record.revision,
+            "authoritative_lifecycle": record.lifecycle,
         }
 
 
-def _denied(reason_code: str, revision: str = "unavailable") -> dict[str, Any]:
-    return {"verified": False, "reason_code": reason_code, "authoritative_revision": revision}
+def _denied(reason_code: str, revision: str = "unavailable", lifecycle: str | None = None) -> dict[str, Any]:
+    return {
+        "verified": False,
+        "reason_code": reason_code,
+        "authoritative_revision": revision,
+        "authoritative_lifecycle": lifecycle,
+    }
 
 
 def _epoch_revision(value: float) -> str:

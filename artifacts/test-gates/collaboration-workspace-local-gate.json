@@ -6,13 +6,13 @@
   "native_core": {
     "python_collaboration_tests": {
       "status": "passed",
-      "tests": 120,
+      "tests": 123,
       "parallel_runner": "pytest-xdist"
     },
     "angular_production_build": "passed",
     "typescript_live_state_tests": {
       "status": "passed",
-      "tests": 3
+      "tests": 7
     },
     "python_typescript_contract_parity": {
       "status": "passed",

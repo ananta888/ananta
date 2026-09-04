@@ -309,7 +309,7 @@
     {
       "id": "M05",
       "title": "Native Workspace-, Room- und Thread-Oberflächen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "PDCW-UI-001",
         "PDCW-UI-002",
@@ -335,7 +335,7 @@
     {
       "id": "M07",
       "title": "Projekt-, Git-, Task- und Workflow-Projektionen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "PDCW-FLOW-001",
         "PDCW-FLOW-002",
@@ -993,7 +993,7 @@
     {
       "id": "PDCW-UI-006",
       "title": "Task-, Artifact-, CodeCompass-, Git- und Terminal-Projektionen integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1010,7 +1010,7 @@
         "Artifact- und Code-Referenzen zeigen Digest, Version, Scope und partielle Verfügbarkeit.",
         "Vor neuen UI-Primitives wird vorhandenes shared/ui geprüft; feature-gebundene Komponenten bleiben lokal."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-AGT-001",
@@ -1135,7 +1135,7 @@
     {
       "id": "PDCW-FLOW-001",
       "title": "Project-, Organization-, Goal- und Task-Bindings implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -1150,7 +1150,7 @@
         "Task-Status in der Timeline ist Projektion; Room-Events schreiben nicht direkt TaskDB oder Queue.",
         "Löschen/Archivieren eines Fachobjekts besitzt definierte Room- und Retention-Folge."
       ],
-      "progress_percent": 95.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-FLOW-002",
@@ -1954,11 +1954,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 6,
+      "partial": 4,
       "blocked": 4,
-      "done": 62
+      "done": 64
     },
-    "progress_percent_done": 86.1,
+    "progress_percent_done": 88.9,
     "by_priority": {
       "P0": 34,
       "P1": 33,
@@ -1978,9 +1978,9 @@
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 7,
+      "in_progress": 5,
       "blocked": 0,
-      "done": 5
+      "done": 7
     }
   },
   "tasks_type_summary": {
@@ -2047,14 +2047,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
+          "partial": 2,
           "blocked": 0,
-          "done": 32
+          "done": 34
         },
-        "done": 32,
-        "partial": 4,
+        "done": 34,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 98.8
+        "progress_percent": 99.3
       },
       "security": {
         "total": 11,
@@ -2104,11 +2104,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 6,
+    "partial": 4,
     "blocked": 4,
-    "done": 62,
-    "count_based_percent": 86.1,
-    "weighted_percent": 98.0
+    "done": 64,
+    "count_based_percent": 88.9,
+    "weighted_percent": 98.3
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2156,10 +2156,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 118.113,
-    "remaining_weight": 2.387,
+    "done_weight": 118.463,
+    "remaining_weight": 2.037,
     "blocked_weight": 6.0,
-    "weighted_percent": 98.0
+    "weighted_percent": 98.3
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2197,11 +2197,11 @@
       },
       "M05": {
         "total_tasks": 6,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 83.3,
-        "weighted_percent": 97.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M06": {
         "total_tasks": 6,
@@ -2213,11 +2213,11 @@
       },
       "M07": {
         "total_tasks": 6,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 83.3,
-        "weighted_percent": 99.4,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M08": {
         "total_tasks": 6,
@@ -2264,10 +2264,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T16:47:53.339747Z",
+    "generated_at": "2026-09-04T16:58:43.266357Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a08982e63ed785fcf1d108f256468840db581d281cb6adb2946c5394a918cbd8",
+    "source_hash": "93946644545827ed3c155b26884d5f3c260b080bc67f4123f5937893667e12c7",
     "is_stale": false
   },
   "implementation_review": {

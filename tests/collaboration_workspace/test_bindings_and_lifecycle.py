@@ -10,8 +10,8 @@ from agent.services.collaboration_domain_binding_authority import (
     HubCollaborationBindingAuthority,
 )
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
-from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
-from tests.collaboration_workspace.helpers import actor, service
+from agent.services.collaboration_workspace_store import CollaborationStoreConflict, CollaborationWorkspaceStore
+from tests.collaboration_workspace.helpers import actor, build_event, room, service
 
 
 class BindingAuthority:
@@ -41,6 +41,29 @@ class DomainCatalog:
     def resolve(self, *, tenant_id: str, project_id: str, kind: str, object_id: str):
         assert (tenant_id, project_id, kind, object_id) == ("tenant-a", "project-a", "task", "task-a")
         return self.record
+
+
+class MutableBindingAuthority:
+    def __init__(self) -> None:
+        self.revision = "7"
+        self.lifecycle = "active"
+
+    def verify(self, *, tenant_id: str, principal_actor_id: str, binding):
+        del tenant_id, principal_actor_id
+        verified = binding["revision"] == self.revision and binding["lifecycle"] == self.lifecycle
+        reason = "binding_verified"
+        if not verified:
+            reason = (
+                "collaboration_binding_lifecycle_stale"
+                if binding["lifecycle"] != self.lifecycle
+                else "collaboration_binding_revision_stale"
+            )
+        return {
+            "verified": verified,
+            "reason_code": reason,
+            "authoritative_revision": self.revision,
+            "authoritative_lifecycle": self.lifecycle,
+        }
 
 
 def _binding(*, change: str = "create", head: str | None = None):
@@ -157,6 +180,7 @@ def test_hub_domain_authority_checks_principal_scope_lifecycle_and_revision(tmp_
         "verified": True,
         "reason_code": "collaboration_binding_verified",
         "authoritative_revision": "7",
+        "authoritative_lifecycle": "active",
     }
     stale = authority.verify(
         tenant_id="tenant-a", principal_actor_id="human-user-a", binding={**binding, "revision": "6"}
@@ -165,7 +189,111 @@ def test_hub_domain_authority_checks_principal_scope_lifecycle_and_revision(tmp_
         "verified": False,
         "reason_code": "collaboration_binding_revision_stale",
         "authoritative_revision": "7",
+        "authoritative_lifecycle": "active",
     }
     catalog.access = False
     denied = authority.verify(tenant_id="tenant-a", principal_actor_id="human-user-a", binding=binding)
     assert denied["reason_code"] == "collaboration_binding_project_access_denied"
+
+
+def _bound_task_room(database: Path, authority: MutableBindingAuthority) -> CollaborationBindingService:
+    workspaces = service(database)
+    workspaces.create_workspace(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        title="Domain lifecycle",
+        owner=actor(),
+        workspace_id="workspace-a",
+    )
+    workspaces.create_room(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        principal_actor_id="human-user-a",
+        room=room("room-task"),
+    )
+    bindings = CollaborationBindingService(
+        CollaborationWorkspaceStore(database),
+        policy=CollaborationWorkspacePolicy(),
+        authority=authority,
+    )
+    bindings.bind_room(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        room_id="room-task",
+        principal_actor_id="human-user-a",
+        binding={
+            "binding_kind": "task",
+            "binding_id": "task-a",
+            "project_id": "project-a",
+            "lifecycle": "active",
+            "revision": "7",
+            "metadata": {},
+        },
+        expected_revision=0,
+    )
+    return bindings
+
+
+def test_reconciliation_refreshes_active_authoritative_revision(tmp_path: Path) -> None:
+    database = tmp_path / "state.sqlite3"
+    authority = MutableBindingAuthority()
+    bindings = _bound_task_room(database, authority)
+    authority.revision = "8"
+
+    result = bindings.reconcile_room(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        room_id="room-task",
+        principal_actor_id="human-user-a",
+    )
+
+    assert result["state"] == "updated"
+    assert result["binding"]["authoritative_revision"] == "8"
+    assert result["binding"]["revision"] == 2
+
+
+def test_bound_object_archival_archives_room_and_retains_canonical_history(tmp_path: Path) -> None:
+    database = tmp_path / "state.sqlite3"
+    authority = MutableBindingAuthority()
+    bindings = _bound_task_room(database, authority)
+    workspaces = service(database)
+    workspaces.append_event(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        principal_actor_id="human-user-a",
+        event=build_event(
+            workspace_id="workspace-a",
+            room_id="room-task",
+            actor_binding_id="human-user-a",
+            event_type="message.posted",
+            payload={"text": "retained"},
+            idempotency_key="retained-before-domain-archive",
+        ),
+    )
+    authority.lifecycle = "archived"
+
+    result = bindings.reconcile_room(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        room_id="room-task",
+        principal_actor_id="human-user-a",
+    )
+
+    assert result["state"] == "archived"
+    assert result["retention_action"] == "retain_canonical_history"
+    assert result["room"]["checkpoint"] == 1
+    assert len(result["room"]["snapshot_digest"]) == 64
+    with pytest.raises(CollaborationStoreConflict, match="collaboration_room_not_active"):
+        workspaces.append_event(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            principal_actor_id="human-user-a",
+            event=build_event(
+                workspace_id="workspace-a",
+                room_id="room-task",
+                actor_binding_id="human-user-a",
+                event_type="message.posted",
+                payload={"text": "blocked"},
+                idempotency_key="blocked-after-domain-archive",
+            ),
+        )

@@ -216,6 +216,28 @@ def test_resource_lease_is_hub_bound_fenced_and_cancelable(tmp_path: Path) -> No
         )
 
 
+def test_terminal_resource_projection_revalidates_workspace_visibility(tmp_path: Path) -> None:
+    control = _setup(tmp_path / "state.sqlite3", AssignmentAuthority())
+    terminal = {
+        **_offer(offer_id="offer-terminal"),
+        "resource_id": "terminal-a",
+        "capability_category": "terminal",
+        "scopes": ["terminal.read"],
+    }
+    control.publish_offer(tenant_id="tenant-a", principal_actor_id="human-user-a", offer=terminal)
+    restricted = {
+        **terminal,
+        "offer_id": "offer-private",
+        "resource_id": "terminal-private",
+        "sensitivity": "restricted",
+    }
+    control.publish_offer(tenant_id="tenant-a", principal_actor_id="human-user-a", offer=restricted)
+    owner = control.list_offers(tenant_id="tenant-a", workspace_id="workspace-a", principal_actor_id="human-user-a")
+    member = control.list_offers(tenant_id="tenant-a", workspace_id="workspace-a", principal_actor_id="agent-a")
+    assert [item["offer_id"] for item in owner["items"]] == ["offer-private", "offer-terminal"]
+    assert [item["offer_id"] for item in member["items"]] == ["offer-terminal"]
+
+
 def test_unverified_offer_cannot_grant_production_lease(tmp_path: Path) -> None:
     authority = AssignmentAuthority()
     control = _setup(tmp_path / "state.sqlite3", authority)
