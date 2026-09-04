@@ -1,3 +1,4 @@
+from agent.services.dspy_evaluation_attestation_service import DspyEvaluationAttestationService
 from agent.services.dspy_unsloth_handoff_service import DspyUnslothHandoffService
 from agent.services.prompt_provenance import PromptProvenanceChain
 
@@ -24,14 +25,26 @@ def test_unsloth_handoff_marks_synthetic_labels_and_never_creates_training_job()
         {"input": f"input-{index}", "output": f"output-{index}", "label_origin": "synthetic_teacher"}
         for index in range(5)
     ]
-    result = DspyUnslothHandoffService().export(
+    attestations = DspyEvaluationAttestationService(b"u" * 32)
+    evaluation = {
+        "promotion_eligible": True,
+        "candidate_program_digest": "a" * 64,
+        "evaluation_digest": "b" * 64,
+    }
+    evaluation["attestation"] = attestations.issue(evaluation)
+    result = DspyUnslothHandoffService(attestations).export(
         tenant_id="tenant-1",
         dataset_id="handoff-1",
         accepted_examples=examples,
-        evaluation={"promotion_eligible": True},
+        evaluation=evaluation,
         security_gate_passed=True,
         license_id="internal",
+        run_id="run-1",
+        program_digest="a" * 64,
+        model_set_digest="c" * 64,
+        metric_digest="d" * 64,
     )
     assert all(record["synthetic"] for record in result["records"])
     assert result["training_job_created"] is False
     assert result["promotion_performed"] is False
+    assert result["manifest"]["lineage"]["run_id"] == "run-1"

@@ -1,0 +1,19 @@
+{
+  "built_image_digest": null,
+  "checks": {
+    "container_policy": "passed",
+    "contracts": "passed",
+    "dependency_lock": "passed",
+    "headless": "passed",
+    "import_boundary": "passed",
+    "observability_policy": "passed",
+    "sbom": "passed"
+  },
+  "dependency_count": 67,
+  "human_intervention_required": false,
+  "production_block_reason": "hub_registered_production_evidence_required",
+  "production_release_allowed": false,
+  "schema": "ananta.dspy-local-release-gate.v1",
+  "scope": "local",
+  "status": "passed"
+}

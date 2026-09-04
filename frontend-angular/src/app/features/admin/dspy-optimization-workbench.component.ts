@@ -1,6 +1,7 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { JsonPipe } from '@angular/common';
+import { ChangeDetectorRef, Component, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription, switchMap } from 'rxjs';
+import { Observable, Subscription, switchMap } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import {
@@ -12,9 +13,9 @@ import {
 @Component({
   standalone: true,
   selector: 'app-dspy-optimization-workbench',
-  imports: [FormsModule],
+  imports: [FormsModule, JsonPipe],
   template: `
-    <main aria-labelledby="dspy-title">
+    <div class="workbench" aria-labelledby="dspy-title">
       <header><p class="eyebrow">Hub-owned / optional engine</p><h1 id="dspy-title">DSPy Optimization</h1>
         <p>Experimente optimieren versionierte Prompt-Programme. DSPy ist weder Provider noch Orchestrator.</p></header>
       <section aria-labelledby="scope-title"><h2 id="scope-title">Tenant-Scope</h2>
@@ -26,39 +27,74 @@ import {
           <dl><div><dt>State</dt><dd>{{ capability.state }}</dd></div><div><dt>Mode</dt><dd>{{ capability.mode }}</dd></div>
             <div><dt>Version</dt><dd>{{ capability.installedVersion || 'nicht installiert' }}</dd></div>
             <div><dt>Optimizer</dt><dd>{{ capability.optimizerCapabilities.join(', ') }}</dd></div>
-            <div><dt>Programme</dt><dd>{{ capability.programKinds.join(', ') }}</dd></div></dl>
+            <div><dt>Programme</dt><dd>{{ capability.programKinds.join(', ') }}</dd></div>
+            <div><dt>Provider-Profile</dt><dd>{{ capability.providerProfiles.join(', ') || 'keine' }}</dd></div>
+            <div><dt>Metriken</dt><dd>{{ capability.metricSets.join(', ') || 'keine' }}</dd></div></dl>
+          <details><summary>Harte Limits und Policy-Digest</summary><pre>{{ capability.limits | json }}</pre><code>{{ capability.policyDigest }}</code></details>
           <p>Fehlende Capabilities oder Evidence blockieren automatisch; kein Lauf wartet auf menschliche Eingabe.</p></section>
       }
+      <section aria-labelledby="experiment-title"><h2 id="experiment-title">Experiment</h2>
+        <p>Der Dry-run prüft Dataset, Providerrollen, Optimizer, Risiken und Limits ohne Modellaufruf.</p>
+        <label>OptimizationSpec JSON<textarea [(ngModel)]="specJson" rows="8"></textarea></label>
+        <label>Idempotency Key <input [(ngModel)]="idempotencyKey" maxlength="192" /></label>
+        <div class="actions"><button type="button" (click)="dryRun()">Dry-run</button>
+          <button type="button" (click)="create()">Policy-konformen Lauf starten</button></div>
+        @if (dryRunResult) { <pre data-testid="dspy-dry-run">{{ dryRunResult | json }}</pre> }
+      </section>
       <section aria-labelledby="runs-title"><h2 id="runs-title">Runs</h2>
         @if (!runs.length) { <p>Keine Runs im gewaehlten Scope.</p> }
         @for (run of runs; track run.runId) {
           <article><h3>{{ run.runId }}</h3><p>{{ run.state }} · {{ run.reasonCode }} · Revision {{ run.revision }}</p>
             <code>{{ run.specDigest }}</code>
+            @if (run.usage) { <pre>{{ run.usage | json }}</pre> }
+            @if (run.artifact) { <p>Artefakt <code>{{ run.artifact['digest'] }}</code></p> }
             @if (run.state === 'admitted' || run.state === 'running') {
               <button type="button" (click)="cancel(run)">Automatisch sicher abbrechen</button>
             }
           </article>
         }
       </section>
-    </main>
+      <section aria-labelledby="promotion-title"><h2 id="promotion-title">Evaluation, Promotion und Rollback</h2>
+        <p>Promotion läuft ausschließlich über den digest- und revisionsgebundenen Hub-Plan; die UI ist optional.</p>
+        <label>PromotionPlan JSON<textarea [(ngModel)]="promotionPlanJson" rows="6"></textarea></label>
+        <label>Attestierte Evaluation JSON<textarea [(ngModel)]="evaluationJson" rows="6"></textarea></label>
+        <button type="button" (click)="promote()">Automatische Gates anwenden</button>
+        <label>Scope ID <input [(ngModel)]="scopeId" maxlength="192" /></label>
+        <label>Registry Revision <input [(ngModel)]="registryRevision" type="number" min="1" /></label>
+        <button type="button" (click)="rollback()">Rollback ausführen</button>
+        <button type="button" (click)="loadProvenance()">Unveränderliche Provenienz laden</button>
+        @if (promotionResult) { <pre data-testid="dspy-promotion-result">{{ promotionResult | json }}</pre> }
+        @if (provenanceResult) { <pre data-testid="dspy-provenance-result">{{ provenanceResult | json }}</pre> }
+      </section>
+    </div>
   `,
   styles: [`
-    :host{display:block;background:#f5f1e8;color:#17251f;min-height:100%}main{max-width:1100px;margin:auto;padding:clamp(18px,4vw,54px);font-family:system-ui,sans-serif}
+    :host{display:block;background:#f5f1e8;color:#17251f;min-height:100%}.workbench{max-width:1100px;margin:auto;padding:clamp(18px,4vw,54px);font-family:system-ui,sans-serif}
     header{border-bottom:4px solid #17251f;margin-bottom:28px}h1{font:700 clamp(2.6rem,7vw,5.8rem)/.9 Georgia,serif;letter-spacing:-.05em;margin:.2em 0}h2,h3{font-family:Georgia,serif}
     .eyebrow{color:#a55b18;text-transform:uppercase;font-weight:800;letter-spacing:.14em}section,article{background:#fffdf7;border:1px solid #b9c5bd;padding:20px;margin:16px 0}article{border-left:7px solid #27614c}
-    label{display:grid;gap:6px;max-width:420px;font-weight:700}input,button{min-height:44px;padding:8px 12px;border:2px solid #17251f;background:white}button{margin-top:12px;background:#27614c;color:white;font-weight:800;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #db8b28;outline-offset:3px}
+    label{display:grid;gap:6px;max-width:720px;font-weight:700;margin-top:12px}input,textarea,button{min-height:44px;padding:8px 12px;border:2px solid #17251f;background:white}textarea{font-family:ui-monospace,monospace}button{margin-top:12px;background:#27614c;color:white;font-weight:800;cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #db8b28;outline-offset:3px}.actions{display:flex;gap:10px;flex-wrap:wrap}pre{overflow:auto;background:#eef2ec;padding:12px}
     dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}dt{color:#5c6e65;font-size:.8rem;text-transform:uppercase}dd{margin:4px 0 0;font-weight:700;overflow-wrap:anywhere}code{overflow-wrap:anywhere}
   `],
 })
 export class DspyOptimizationWorkbenchComponent implements OnDestroy {
   private readonly api = inject(DspyOptimizationApiService);
   private readonly directory = inject(AgentDirectoryService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly subscriptions = new Subscription();
   tenantId = '';
   status = 'dspy_scope_required';
   loading = false;
   capability: DspyOptimizationCapability | null = null;
   runs: readonly DspyOptimizationRun[] = [];
+  specJson = '{}';
+  idempotencyKey = 'dspy-experiment-1';
+  dryRunResult: Readonly<Record<string, unknown>> | null = null;
+  promotionPlanJson = '{}';
+  evaluationJson = '{}';
+  promotionResult: Readonly<Record<string, unknown>> | null = null;
+  provenanceResult: Readonly<Record<string, unknown>> | null = null;
+  scopeId = '';
+  registryRevision = 1;
 
   ngOnDestroy(): void { this.subscriptions.unsubscribe(); }
 
@@ -66,20 +102,98 @@ export class DspyOptimizationWorkbenchComponent implements OnDestroy {
     const hub = this.directory.list().find(value => value.role === 'hub');
     if (!hub || !this.tenantId) { this.status = hub ? 'dspy_scope_required' : 'dspy_hub_unavailable'; return; }
     this.loading = true; this.status = 'dspy_loading';
-    this.subscriptions.add(this.api.capabilities(hub.url).pipe(
-      switchMap(capability => { this.capability = capability; return this.api.runs(hub.url, this.tenantId); }),
-    ).subscribe({
-      next: runs => { this.runs = runs; this.loading = false; this.status = 'dspy_snapshot_loaded'; },
-      error: error => { this.loading = false; this.status = error instanceof Error ? error.message : 'dspy_load_failed'; },
-    }));
+    try {
+      this.subscriptions.add(this.api.capabilities(hub.url).pipe(
+        switchMap(capability => {
+          this.capability = capability;
+          this.changeDetector.markForCheck();
+          return this.api.runs(hub.url, this.tenantId);
+        }),
+      ).subscribe({
+        next: runs => {
+          this.runs = runs; this.loading = false; this.status = 'dspy_snapshot_loaded';
+          this.changeDetector.markForCheck();
+        },
+        error: error => {
+          this.loading = false; this.status = error instanceof Error ? error.message : 'dspy_load_failed';
+          this.changeDetector.markForCheck();
+        },
+      }));
+    } catch (error) {
+      this.loading = false;
+      this.status = error instanceof Error ? error.message : 'dspy_load_failed';
+      this.changeDetector.markForCheck();
+    }
   }
 
   cancel(run: DspyOptimizationRun): void {
     const hub = this.directory.list().find(value => value.role === 'hub');
     if (!hub) { this.status = 'dspy_hub_unavailable'; return; }
     this.subscriptions.add(this.api.cancel(hub.url, run).subscribe({
-      next: updated => { this.runs = this.runs.map(item => item.runId === updated.runId ? updated : item); this.status = updated.reasonCode; },
-      error: error => { this.status = error instanceof Error ? error.message : 'dspy_cancel_failed'; },
+      next: updated => {
+        this.runs = this.runs.map(item => item.runId === updated.runId ? updated : item); this.status = updated.reasonCode;
+        this.changeDetector.markForCheck();
+      },
+      error: error => {
+        this.status = error instanceof Error ? error.message : 'dspy_cancel_failed';
+        this.changeDetector.markForCheck();
+      },
     }));
+  }
+
+  dryRun(): void {
+    this.withHub((url) => this.api.dryRun(url, this.document(this.specJson)), result => {
+      this.dryRunResult = result; this.status = 'dspy_dry_run_completed';
+    });
+  }
+
+  create(): void {
+    this.withHub((url) => this.api.create(url, this.document(this.specJson), this.idempotencyKey), result => {
+      this.runs = [result, ...this.runs.filter(item => item.runId !== result.runId)]; this.status = result.reasonCode;
+    });
+  }
+
+  promote(): void {
+    this.withHub(
+      (url) => this.api.promotePlan(url, this.document(this.promotionPlanJson), this.document(this.evaluationJson)),
+      result => { this.promotionResult = result; this.status = String(result['reason_code'] || 'dspy_promoted'); },
+    );
+  }
+
+  rollback(): void {
+    this.withHub(
+      (url) => this.api.rollback(url, this.tenantId, this.scopeId, this.registryRevision),
+      result => { this.promotionResult = result; this.status = String(result['reason_code'] || 'dspy_rolled_back'); },
+    );
+  }
+
+  loadProvenance(): void {
+    this.withHub(
+      (url) => this.api.provenance(url, this.tenantId, this.scopeId),
+      result => { this.provenanceResult = result; this.status = 'dspy_provenance_loaded'; },
+    );
+  }
+
+  private document(raw: string): Readonly<Record<string, unknown>> {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('dspy_document_invalid');
+    return value as Readonly<Record<string, unknown>>;
+  }
+
+  private withHub<T>(operation: (hubUrl: string) => Observable<T>, apply: (value: T) => void): void {
+    const hub = this.directory.list().find(value => value.role === 'hub');
+    if (!hub) { this.status = 'dspy_hub_unavailable'; return; }
+    try {
+      this.subscriptions.add(operation(hub.url).subscribe({
+        next: value => { apply(value); this.changeDetector.markForCheck(); },
+        error: error => {
+          this.status = error instanceof Error ? error.message : 'dspy_operation_failed';
+          this.changeDetector.markForCheck();
+        },
+      }));
+    } catch (error) {
+      this.status = error instanceof Error ? error.message : 'dspy_operation_failed';
+      this.changeDetector.markForCheck();
+    }
   }
 }

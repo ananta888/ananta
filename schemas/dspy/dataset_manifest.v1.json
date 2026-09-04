@@ -3,7 +3,7 @@
   "$id": "ananta.optimization-dataset.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "tenant_id", "dataset_id", "version", "content_digest", "record_schema_digest", "split_digests", "split_record_ids", "license_id", "sensitivity", "retention_days", "source_refs"],
+  "required": ["schema", "tenant_id", "dataset_id", "version", "content_digest", "record_schema_digest", "split_digests", "split_record_ids", "license_id", "sensitivity", "retention_days", "source_refs", "lineage"],
   "properties": {
     "schema": {"const": "ananta.optimization-dataset.v1"},
     "tenant_id": {"type": "string"},
@@ -16,6 +16,23 @@
     "license_id": {"type": "string"},
     "sensitivity": {"enum": ["public", "internal", "confidential", "restricted"]},
     "retention_days": {"type": "integer", "minimum": 1, "maximum": 3650},
-    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC_"}}
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC_"}},
+    "lineage": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run_id", "program_digest", "model_set_digest", "metric_digest", "evaluation_digest"],
+          "properties": {
+            "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+            "program_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "model_set_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "metric_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "evaluation_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+          }
+        }
+      ]
+    }
   }
 }

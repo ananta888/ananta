@@ -67,3 +67,15 @@ def test_policy_is_default_off_and_capability_projection_is_network_free() -> No
     assert projection["human_intervention_required"] is False
     with pytest.raises(ValueError, match="unsafe_capability_denied"):
         DspyOptimizationPolicy.from_mapping({"allow_pickle": True})
+
+
+@pytest.mark.parametrize(
+    ("mode", "profiles"),
+    [("mock", ("local.default",)), ("local", ("local.default",)), ("cloud_gated", ("cloud.gated",))],
+)
+def test_execution_modes_have_separate_closed_admission_profiles(mode: str, profiles: tuple[str, ...]) -> None:
+    policy = DspyOptimizationPolicy(enabled=True, mode=mode, allowed_provider_profiles=profiles)
+    policy.validate()
+    policy.admit(spec())
+    assert policy.mode == mode
+    assert policy.allowed_provider_profiles == profiles

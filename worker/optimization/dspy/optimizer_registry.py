@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from ananta_contracts.dspy_optimization import OptimizationBudgets
+
 
 class DspyOptimizerRegistry:
     _LIMITS = {
@@ -32,6 +34,23 @@ class DspyOptimizerRegistry:
         if optimizer_id == "labeled_few_shot":
             return 0
         return min(record_count, normalized["max_bootstrapped_demos"]) * normalized["max_rounds"]
+
+    def admit(
+        self,
+        optimizer_id: str,
+        config: Mapping[str, Any],
+        *,
+        record_count: int,
+        budgets: OptimizationBudgets,
+    ) -> dict[str, int]:
+        normalized = self.validate(optimizer_id, config)
+        trials = normalized.get("max_rounds", 1)
+        calls = self.estimate_calls(optimizer_id, normalized, record_count)
+        if trials > budgets.max_trials:
+            raise PermissionError("dspy_optimizer_trial_budget_exceeded")
+        if calls > budgets.max_model_calls:
+            raise PermissionError("dspy_optimizer_call_budget_exceeded")
+        return {**normalized, "estimated_calls": calls, "estimated_trials": trials}
 
 
 __all__ = ["DspyOptimizerRegistry"]

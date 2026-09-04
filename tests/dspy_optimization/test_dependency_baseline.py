@@ -4,6 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
+from scripts.check_dspy_dependency_advisories import validate as validate_advisory_report
 from worker.optimization.dspy.runtime_security import DspyRuntimeSecurityPolicy
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,3 +53,28 @@ def test_worker_image_installs_only_the_hash_locked_dspy_dependency_set() -> Non
     assert "--require-hashes" in dockerfile
     assert "requirements.dspy-optimization.lock" in dockerfile
     assert "--requirement docker/compose-next/requirements.dspy-optimization.txt" not in dockerfile
+
+
+def test_advisory_gate_accepts_only_the_documented_disabled_diskcache_finding() -> None:
+    result = validate_advisory_report({
+        "dependencies": [{
+            "name": "diskcache",
+            "vulns": [{"id": "CVE-2025-69872", "aliases": []}],
+        }],
+    })
+
+    assert result == {
+        "status": "passed",
+        "unmitigated_findings": 0,
+        "human_intervention_required": False,
+    }
+
+
+def test_advisory_gate_rejects_every_unmitigated_finding() -> None:
+    with pytest.raises(RuntimeError, match="dspy_unmitigated_dependency_advisory"):
+        validate_advisory_report({
+            "dependencies": [{
+                "name": "dspy",
+                "vulns": [{"id": "CVE-2099-0001", "aliases": []}],
+            }],
+        })

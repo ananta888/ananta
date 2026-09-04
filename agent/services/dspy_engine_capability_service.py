@@ -36,7 +36,10 @@ class DspyEngineCapabilityService:
             "compatibility_profile": self._worker.get("compatibility_profile") if self._worker else None,
             "optimizer_capabilities": list(self._policy.allowed_optimizers),
             "program_kinds": list(self._policy.allowed_program_kinds),
+            "provider_profiles": list(self._policy.allowed_provider_profiles),
+            "metric_sets": list(self._policy.allowed_metric_sets),
             "limits": asdict(self._policy.budgets),
+            "policy_digest": self._policy.digest,
             "human_intervention_required": False,
         }
 

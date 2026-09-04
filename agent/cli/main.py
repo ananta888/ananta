@@ -33,6 +33,7 @@ DOMAIN_COMMANDS = (
     "config",
     "runtime",
     "llm",
+    "optimization",
     "hub",
     "worker",
     "task",
@@ -58,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  prompt <action>  — inspect traces, render prompts, view reports\n"
             "  config <action>  — show, validate, setup-planning, apply-profile\n"
             "  llm <action>     — list, log\n"
+            "  optimization <action> — headless DSPy experiments and rollout\n"
             "  hub <action>     — status\n"
             "  worker <action>  — list, status\n"
             "  runtime <action> — profiles plus authenticated operations/run views\n"
@@ -72,7 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  ananta init --yes --runtime-mode local-dev --llm-backend ollama\n"
-            "  ananta goal create \"Build a Fibonacci API\" --profile opencode_preconfigured\n"
+            '  ananta goal create "Build a Fibonacci API" --profile opencode_preconfigured\n'
             "  ananta goal list\n"
             "  ananta goal status <goal-id>\n"
             "  ananta config show\n"
@@ -82,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  ananta prompt goal-traces --goal-id <id>\n"
             "  ananta dev acceptance --scenario-file scenario_lmstudio.json --sla-seconds 900\n"
             "  ananta dev check cycles\n"
-            "  ananta ask \"What should I do next?\"\n"
+            '  ananta ask "What should I do next?"\n'
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -132,7 +134,9 @@ def _run_ananta_run(argv: Sequence[str]) -> int:
     three.add_argument("--json", action="store_true")
     mode_group = three.add_mutually_exclusive_group()
     mode_group.add_argument("--dry-run", action="store_true", help="Use deterministic dry-run executor (default)")
-    mode_group.add_argument("--execute", action="store_true", help="Execute Hermes track and return handoff metadata for other tracks")
+    mode_group.add_argument(
+        "--execute", action="store_true", help="Execute Hermes track and return handoff metadata for other tracks"
+    )
 
     if not argv or argv[0] in {"-h", "--help"}:
         parser.print_help()
@@ -151,12 +155,16 @@ def _run_ananta_run(argv: Sequence[str]) -> int:
     use_execute = bool(parsed.execute)
     track_executor = get_three_worker_track_executor() if use_execute else None
 
-    result = get_three_worker_comparison_runner().run(
-        prompt=parsed.prompt,
-        config_path=parsed.config,
-        env=dict(os.environ),
-        track_executor=track_executor,
-    ).as_dict()
+    result = (
+        get_three_worker_comparison_runner()
+        .run(
+            prompt=parsed.prompt,
+            config_path=parsed.config,
+            env=dict(os.environ),
+            track_executor=track_executor,
+        )
+        .as_dict()
+    )
     if parsed.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
@@ -171,6 +179,7 @@ def _run_ananta_run(argv: Sequence[str]) -> int:
 
 def _run_tmux(argv: Sequence[str]) -> int:
     from agent.cli.commands.tmux import dispatch
+
     return dispatch(argv)
 
 
@@ -179,6 +188,7 @@ def _run_tui(argv: Sequence[str]) -> int:
     argv_list = list(argv)
     if "--open" in argv_list or "--tool" in argv_list:
         from agent.cli.commands.tui_editor import dispatch as tui_editor_dispatch
+
         return tui_editor_dispatch(argv_list)
 
     if any(arg in {"-h", "--help"} for arg in argv):
@@ -253,16 +263,19 @@ def _run_voice_file(argv: Sequence[str]) -> int:
 
 def _run_prompt(argv: Sequence[str]) -> int:
     from agent.cli.commands.prompt import dispatch
+
     return dispatch(argv)
 
 
 def _run_task(argv: Sequence[str]) -> int:
     from agent.cli.commands.task import dispatch
+
     return dispatch(argv)
 
 
 def _run_llm_log(argv: Sequence[str]) -> int:
     from agent.cli.commands.llm import dispatch_llm_log
+
     return dispatch_llm_log(argv)
 
 
@@ -284,12 +297,14 @@ def _run_domain(command: str, argv: Sequence[str]) -> int:
     """Dispatch to a domain command module in agent/cli/commands/."""
     try:
         from agent.cli.commands import DOMAIN_MODULES
+
         mod = DOMAIN_MODULES.get(command)
         if mod is None:
             return None  # type: ignore[return-value]
         return mod.dispatch(list(argv))
     except Exception as exc:
         import sys
+
         print(f"Error: Domain command '{command}' failed to load: {exc}", file=sys.stderr)
         return 10
 
@@ -302,6 +317,7 @@ def main(argv: list[str] | None = None) -> int:
     rest = list(parsed.args)
     if not command:
         from agent.cli.banner import print_banner
+
         print_banner()
         parser.print_help()
         return 0
@@ -311,6 +327,7 @@ def main(argv: list[str] | None = None) -> int:
         return _run_init(rest)
     if command == "status":
         from agent.cli.banner import print_banner
+
         print_banner()
         return run_cli_goals(["--status", *rest])
     if command == "first-run":

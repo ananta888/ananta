@@ -1,0 +1,94 @@
+name: DSPy Optimization
+
+on:
+  pull_request:
+    paths:
+      - "agent/**/*dspy*"
+      - "ananta_contracts/dspy_*"
+      - "worker/optimization/dspy/**"
+      - "tests/dspy_optimization/**"
+      - "schemas/dspy/**"
+      - "config/dspy/**"
+      - "config/licenses/dspy-*"
+      - "docker/compose-next/*dspy*"
+      - "scripts/*dspy*"
+      - ".github/workflows/dspy-optimization.yml"
+  push:
+    branches: [main]
+    paths:
+      - "agent/**/*dspy*"
+      - "ananta_contracts/dspy_*"
+      - "worker/optimization/dspy/**"
+      - "tests/dspy_optimization/**"
+      - "schemas/dspy/**"
+      - "config/dspy/**"
+      - "config/licenses/dspy-*"
+      - "docker/compose-next/*dspy*"
+      - "scripts/*dspy*"
+      - ".github/workflows/dspy-optimization.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  core-without-dspy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --extra dev
+      - run: uv run python -c "from worker.optimization.dspy.compatibility import DspyCompatibilityAdapter; assert DspyCompatibilityAdapter().inspect()['state'] == 'unavailable'"
+      - run: uv run pytest -q -p no:cacheprovider tests/dspy_optimization -m "not dspy_real"
+
+  pinned-dspy-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install ${{ matrix.python-version }}
+      - run: uv venv --python ${{ matrix.python-version }}
+      - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.dspy-optimization.lock
+      - run: uv pip install -e . --no-deps
+      - run: .venv/bin/pytest -q -p no:cacheprovider tests/dspy_optimization
+      - run: .venv/bin/python scripts/build_dspy_worker_sbom.py
+      - name: Audit dependency advisories
+        run: |
+          set +e
+          uv tool run --from pip-audit==2.10.1 pip-audit --requirement docker/compose-next/requirements.dspy-optimization.lock --no-deps --disable-pip --format json --output dspy-pip-audit.json
+          audit_status=$?
+          set -e
+          test "$audit_status" -eq 0 -o "$audit_status" -eq 1
+          .venv/bin/python scripts/check_dspy_dependency_advisories.py dspy-pip-audit.json
+      - run: .venv/bin/python scripts/run_dspy_optimization_release_gate.py
+
+  worker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --file docker/compose-next/Dockerfile.dspy-optimization-worker --tag ananta-dspy-ci:${{ github.sha }} .
+      - run: docker image inspect --format '{{.Id}}' ananta-dspy-ci:${{ github.sha }} | tee dspy-image-digest.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dspy-worker-image-digest
+          path: dspy-image-digest.txt
+
+  next-version-isolated-rejection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv venv --python 3.12
+      - run: uv pip install dspy==3.3.0
+      - run: uv pip install -e . --no-deps
+      - name: Reject unadmitted compatibility candidate without loading artifacts
+        run: |
+          .venv/bin/python - <<'PY'
+          from worker.optimization.dspy.compatibility import DspyCompatibilityAdapter
+          result = DspyCompatibilityAdapter().inspect()
+          assert result["state"] == "degraded"
+          assert result["reason_code"] == "dspy_version_incompatible"
+          PY

@@ -24,7 +24,16 @@ def _result(
         "provider_binding_id": "provider-binding:" + "c" * 64,
         "runtime_profile": "mock-v1",
         "test_split_digest": "d" * 64,
+        "prompt_digest": "1" * 64,
+        "dspy_version": "3.2.1",
+        "hardware_profile": "cpu-x86_64",
+        "cache_mode": "memory-only",
+        "sampling_digest": "2" * 64,
+        "seed": 17,
+        "repetitions": 3,
+        "warmups": 1,
         "sample_count": 40,
+        "quality_standard_error": 0.001,
         "metrics": {
             "quality": quality,
             "parse_rate": parse_rate,
@@ -42,6 +51,16 @@ def test_deterministic_failure_cannot_be_overridden_by_quality_score() -> None:
     )
     assert evaluation["promotion_eligible"] is False
     assert "dspy_deterministic_gate_failed" in evaluation["reason_codes"]
+
+
+def test_comparison_fails_closed_for_incomparable_or_uncertain_runs() -> None:
+    baseline = _result(quality=0.5)
+    candidate = {**_result(quality=0.53), "hardware_profile": "gpu-a100", "quality_standard_error": 0.02}
+    evaluation = DspyEvaluationBridgeService(ATTESTATIONS).compare(baseline=baseline, candidate=candidate)
+    assert evaluation["promotion_eligible"] is False
+    assert evaluation["deltas"] is None
+    assert "dspy_evaluation_not_comparable" in evaluation["reason_codes"]
+    assert "dspy_quality_improvement_insufficient" in evaluation["reason_codes"]
 
 
 def test_policy_can_promote_and_rollback_automatically_after_all_gates(tmp_path) -> None:

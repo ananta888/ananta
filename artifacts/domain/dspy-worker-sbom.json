@@ -1,0 +1,488 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "license": "NOASSERTION",
+      "name": "aiohappyeyeballs",
+      "purl": "pkg:pypi/aiohappyeyeballs@2.7.1",
+      "type": "library",
+      "version": "2.7.1"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "aiohttp",
+      "purl": "pkg:pypi/aiohttp@3.14.3",
+      "type": "library",
+      "version": "3.14.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "aiosignal",
+      "purl": "pkg:pypi/aiosignal@1.4.0",
+      "type": "library",
+      "version": "1.4.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "annotated-types",
+      "purl": "pkg:pypi/annotated-types@0.8.0",
+      "type": "library",
+      "version": "0.8.0"
+    },
+    {
+      "license": "MIT",
+      "name": "anyio",
+      "purl": "pkg:pypi/anyio@4.15.0",
+      "type": "library",
+      "version": "4.15.0"
+    },
+    {
+      "license": "MIT",
+      "name": "asyncer",
+      "purl": "pkg:pypi/asyncer@0.0.8",
+      "type": "library",
+      "version": "0.0.8"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "attrs",
+      "purl": "pkg:pypi/attrs@26.1.0",
+      "type": "library",
+      "version": "26.1.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "boto3",
+      "purl": "pkg:pypi/boto3@1.43.87",
+      "type": "library",
+      "version": "1.43.87"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "botocore",
+      "purl": "pkg:pypi/botocore@1.43.87",
+      "type": "library",
+      "version": "1.43.87"
+    },
+    {
+      "license": "MIT",
+      "name": "cachetools",
+      "purl": "pkg:pypi/cachetools@7.1.8",
+      "type": "library",
+      "version": "7.1.8"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "certifi",
+      "purl": "pkg:pypi/certifi@2026.7.22",
+      "type": "library",
+      "version": "2026.7.22"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "charset-normalizer",
+      "purl": "pkg:pypi/charset-normalizer@3.5.1",
+      "type": "library",
+      "version": "3.5.1"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "click",
+      "purl": "pkg:pypi/click@8.5.0",
+      "type": "library",
+      "version": "8.5.0"
+    },
+    {
+      "license": "BSD-3-Clause",
+      "name": "cloudpickle",
+      "purl": "pkg:pypi/cloudpickle@3.1.2",
+      "type": "library",
+      "version": "3.1.2"
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "diskcache",
+      "purl": "pkg:pypi/diskcache@5.6.3",
+      "type": "library",
+      "version": "5.6.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "distro",
+      "purl": "pkg:pypi/distro@1.9.0",
+      "type": "library",
+      "version": "1.9.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "dspy",
+      "purl": "pkg:pypi/dspy@3.2.1",
+      "type": "library",
+      "version": "3.2.1"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "fastuuid",
+      "purl": "pkg:pypi/fastuuid@0.14.0",
+      "type": "library",
+      "version": "0.14.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "filelock",
+      "purl": "pkg:pypi/filelock@3.32.5",
+      "type": "library",
+      "version": "3.32.5"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "frozenlist",
+      "purl": "pkg:pypi/frozenlist@1.8.0",
+      "type": "library",
+      "version": "1.8.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "fsspec",
+      "purl": "pkg:pypi/fsspec@2026.7.0",
+      "type": "library",
+      "version": "2026.7.0"
+    },
+    {
+      "license": "MIT",
+      "name": "gepa",
+      "purl": "pkg:pypi/gepa@0.0.27",
+      "type": "library",
+      "version": "0.0.27"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "h11",
+      "purl": "pkg:pypi/h11@0.16.0",
+      "type": "library",
+      "version": "0.16.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "hf-xet",
+      "purl": "pkg:pypi/hf-xet@1.6.0",
+      "type": "library",
+      "version": "1.6.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "httpcore",
+      "purl": "pkg:pypi/httpcore@1.0.9",
+      "type": "library",
+      "version": "1.0.9"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "httpx",
+      "purl": "pkg:pypi/httpx@0.28.1",
+      "type": "library",
+      "version": "0.28.1"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "huggingface-hub",
+      "purl": "pkg:pypi/huggingface-hub@1.30.0",
+      "type": "library",
+      "version": "1.30.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "idna",
+      "purl": "pkg:pypi/idna@3.19",
+      "type": "library",
+      "version": "3.19"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "importlib-metadata",
+      "purl": "pkg:pypi/importlib-metadata@8.9.0",
+      "type": "library",
+      "version": "8.9.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "jinja2",
+      "purl": "pkg:pypi/jinja2@3.1.6",
+      "type": "library",
+      "version": "3.1.6"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "jiter",
+      "purl": "pkg:pypi/jiter@0.16.0",
+      "type": "library",
+      "version": "0.16.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "jmespath",
+      "purl": "pkg:pypi/jmespath@1.1.0",
+      "type": "library",
+      "version": "1.1.0"
+    },
+    {
+      "license": "MIT",
+      "name": "json-repair",
+      "purl": "pkg:pypi/json-repair@0.63.4",
+      "type": "library",
+      "version": "0.63.4"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "jsonschema",
+      "purl": "pkg:pypi/jsonschema@4.26.0",
+      "type": "library",
+      "version": "4.26.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "jsonschema-specifications",
+      "purl": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "type": "library",
+      "version": "2025.9.1"
+    },
+    {
+      "license": "MIT",
+      "name": "litellm",
+      "purl": "pkg:pypi/litellm@1.99.0",
+      "type": "library",
+      "version": "1.99.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "markupsafe",
+      "purl": "pkg:pypi/markupsafe@3.0.3",
+      "type": "library",
+      "version": "3.0.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "multidict",
+      "purl": "pkg:pypi/multidict@6.7.1",
+      "type": "library",
+      "version": "6.7.1"
+    },
+    {
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "name": "numpy",
+      "purl": "pkg:pypi/numpy@2.4.6",
+      "type": "library",
+      "version": "2.4.6"
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "openai",
+      "purl": "pkg:pypi/openai@2.54.0",
+      "type": "library",
+      "version": "2.54.0"
+    },
+    {
+      "license": "MPL-2.0 AND (Apache-2.0 OR MIT)",
+      "name": "orjson",
+      "purl": "pkg:pypi/orjson@3.12.0",
+      "type": "library",
+      "version": "3.12.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "packaging",
+      "purl": "pkg:pypi/packaging@26.3",
+      "type": "library",
+      "version": "26.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "propcache",
+      "purl": "pkg:pypi/propcache@0.5.2",
+      "type": "library",
+      "version": "0.5.2"
+    },
+    {
+      "license": "MIT",
+      "name": "pydantic",
+      "purl": "pkg:pypi/pydantic@2.13.5",
+      "type": "library",
+      "version": "2.13.5"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "pydantic-core",
+      "purl": "pkg:pypi/pydantic-core@2.46.5",
+      "type": "library",
+      "version": "2.46.5"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "pydantic-settings",
+      "purl": "pkg:pypi/pydantic-settings@2.15.0",
+      "type": "library",
+      "version": "2.15.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "python-dateutil",
+      "purl": "pkg:pypi/python-dateutil@2.9.0.post0",
+      "type": "library",
+      "version": "2.9.0.post0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "python-dotenv",
+      "purl": "pkg:pypi/python-dotenv@1.2.3",
+      "type": "library",
+      "version": "1.2.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "pyyaml",
+      "purl": "pkg:pypi/pyyaml@6.0.3",
+      "type": "library",
+      "version": "6.0.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "referencing",
+      "purl": "pkg:pypi/referencing@0.37.0",
+      "type": "library",
+      "version": "0.37.0"
+    },
+    {
+      "license": "Apache-2.0 AND CNRI-Python",
+      "name": "regex",
+      "purl": "pkg:pypi/regex@2026.9.3",
+      "type": "library",
+      "version": "2026.9.3"
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "requests",
+      "purl": "pkg:pypi/requests@2.34.2",
+      "type": "library",
+      "version": "2.34.2"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "rpds-py",
+      "purl": "pkg:pypi/rpds-py@2026.6.3",
+      "type": "library",
+      "version": "2026.6.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "s3transfer",
+      "purl": "pkg:pypi/s3transfer@0.19.2",
+      "type": "library",
+      "version": "0.19.2"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "six",
+      "purl": "pkg:pypi/six@1.17.0",
+      "type": "library",
+      "version": "1.17.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "sniffio",
+      "purl": "pkg:pypi/sniffio@1.3.1",
+      "type": "library",
+      "version": "1.3.1"
+    },
+    {
+      "license": "Apache-2.0",
+      "name": "tenacity",
+      "purl": "pkg:pypi/tenacity@9.1.4",
+      "type": "library",
+      "version": "9.1.4"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "tiktoken",
+      "purl": "pkg:pypi/tiktoken@0.14.0",
+      "type": "library",
+      "version": "0.14.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "tokenizers",
+      "purl": "pkg:pypi/tokenizers@0.23.2",
+      "type": "library",
+      "version": "0.23.2"
+    },
+    {
+      "license": "MPL-2.0 AND MIT",
+      "name": "tqdm",
+      "purl": "pkg:pypi/tqdm@4.70.0",
+      "type": "library",
+      "version": "4.70.0"
+    },
+    {
+      "license": "MIT",
+      "name": "typeguard",
+      "purl": "pkg:pypi/typeguard@4.4.3",
+      "type": "library",
+      "version": "4.4.3"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "type": "library",
+      "version": "4.16.0"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "typing-inspection",
+      "purl": "pkg:pypi/typing-inspection@0.4.4",
+      "type": "library",
+      "version": "0.4.4"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "urllib3",
+      "purl": "pkg:pypi/urllib3@2.7.0",
+      "type": "library",
+      "version": "2.7.0"
+    },
+    {
+      "license": "BSD-2-Clause",
+      "name": "xxhash",
+      "purl": "pkg:pypi/xxhash@4.0.1",
+      "type": "library",
+      "version": "4.0.1"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "yarl",
+      "purl": "pkg:pypi/yarl@1.24.5",
+      "type": "library",
+      "version": "1.24.5"
+    },
+    {
+      "license": "NOASSERTION",
+      "name": "zipp",
+      "purl": "pkg:pypi/zipp@4.1.0",
+      "type": "library",
+      "version": "4.1.0"
+    }
+  ],
+  "metadata": {
+    "base_image": "python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba",
+    "built_image_digest": null,
+    "built_image_digest_reason": "populated_and_verified_by_ci_or_release_build",
+    "component": {
+      "name": "ananta-dspy-optimization-worker",
+      "type": "container"
+    },
+    "dependency_lock_sha256": "f9cc4da819d7c7714382301ea6c67965c433cd9fa44247c1a2ca9b68a6b9bd87",
+    "dockerfile_sha256": "f634bcb73704309654c701440a4b0c7f7cec14c54b8d1dc8a5d42a2b7b3d0bc6"
+  },
+  "serialNumber": "urn:uuid:7f19091a-4c8c-5fb8-a5dd-f498f9f50f33",
+  "specVersion": "1.6",
+  "version": 1
+}

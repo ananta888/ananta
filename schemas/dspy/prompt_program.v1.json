@@ -3,7 +3,7 @@
   "$id": "ananta.prompt-program.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "tenant_id", "program_id", "program_kind", "module_graph", "signatures", "demonstrations", "model_roles", "source_program_digest", "exporter_version"],
+  "required": ["schema", "tenant_id", "program_id", "program_kind", "module_graph", "signatures", "demonstrations", "model_roles", "source_program_digest", "exporter_version", "scope"],
   "properties": {
     "schema": {"const": "ananta.prompt-program.v1"},
     "tenant_id": {"type": "string"},
@@ -14,6 +14,12 @@
     "demonstrations": {"type": "array", "maxItems": 256, "items": {"type": "object"}},
     "model_roles": {"type": "object", "maxProperties": 4, "additionalProperties": {"type": "string"}},
     "source_program_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "exporter_version": {"type": "string"}
+    "exporter_version": {"type": "string"},
+    "scope": {
+      "type": "object",
+      "maxProperties": 4,
+      "propertyNames": {"enum": ["language", "planning_mode", "model_profile", "repository_id", "retrieval_profile", "input_schema", "output_schema"]},
+      "additionalProperties": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"}
+    }
   }
 }

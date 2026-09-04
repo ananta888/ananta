@@ -9,6 +9,8 @@
   "allowed_program_kinds": ["planning_structured_tasks", "rag_answer", "structured_extraction"],
   "allowed_optimizers": ["labeled_few_shot", "bootstrap_few_shot"],
   "allowed_retrievers": ["codecompass"],
+  "allowed_provider_profiles": ["local.default"],
+  "allowed_metric_sets": ["deterministic-v1"],
   "budgets": {
     "max_model_calls": 100,
     "max_tokens": 500000,
@@ -17,7 +19,9 @@
     "max_concurrency": 2,
     "max_dataset_records": 10000,
     "max_artifact_bytes": 10485760,
-    "max_retries": 2
+    "max_retries": 2,
+    "max_trials": 10,
+    "max_role_calls": 100
   },
   "promotion_mode": "automatic_after_all_gates",
   "human_intervention_required": false

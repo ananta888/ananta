@@ -17,6 +17,16 @@ def binding() -> dict[str, Any]:
     ).to_dict()
 
 
+def price_profiles() -> dict[str, dict[str, int]]:
+    return {
+        binding()["binding_id"]: {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "reasoning_micros_per_million": 0,
+        }
+    }
+
+
 def spec(*, tenant_id: str = "tenant-1", optimizer_id: str = "labeled_few_shot") -> OptimizationSpecV1:
     return OptimizationSpecV1(
         tenant_id=tenant_id,

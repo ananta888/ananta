@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.dspy-observability.v1",
+  "metric_labels": ["kind", "outcome"],
+  "forbidden_labels": ["tenant_id", "run_id", "prompt", "output", "source_code"],
+  "metrics": [
+    "jobs_by_state",
+    "duration_ms",
+    "queue_time_ms",
+    "provider_calls",
+    "tokens",
+    "cost_micros",
+    "cache_outcomes",
+    "retries",
+    "budget_stops",
+    "evaluation_scores",
+    "promotion_outcomes"
+  ],
+  "alerts": [
+    {"id": "dspy_jobs_stuck", "signal": "duration_ms", "condition": "above_policy_timeout"},
+    {"id": "dspy_cost_regression", "signal": "cost_micros", "condition": "candidate_ratio_above_1.10"},
+    {"id": "dspy_error_rate", "signal": "jobs_by_state", "condition": "failed_ratio_above_0.05"},
+    {"id": "dspy_policy_violation", "signal": "evaluation_scores", "condition": "policy_violations_above_0"},
+    {"id": "dspy_promotion_failure", "signal": "promotion_outcomes", "condition": "failed_above_0"}
+  ],
+  "content_storage": "digest_and_size_only",
+  "human_intervention_required": false
+}

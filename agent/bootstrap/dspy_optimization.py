@@ -13,8 +13,9 @@ from agent.config import settings
 from agent.services.dspy_engine_capability_service import DspyEngineCapabilityService
 from agent.services.dspy_evaluation_attestation_service import DspyEvaluationAttestationService
 from agent.services.dspy_evaluation_bridge_service import DspyEvaluationBridgeService
+from agent.services.dspy_observability_service import DspyOperationalTelemetry
+from agent.services.dspy_optimization_config_service import DspyOptimizationConfigService
 from agent.services.dspy_optimization_job_service import DspyOptimizationJobService
-from agent.services.dspy_optimization_policy import DspyOptimizationPolicy
 from agent.services.dspy_optimization_state_store import DspyOptimizationStateStore
 from agent.services.dspy_program_artifact_store import DspyProgramArtifactStore
 from agent.services.dspy_promotion_service import DspyPromotionService
@@ -43,7 +44,11 @@ def initialize_dspy_optimization(app: Flask) -> DspyOptimizationWiringStatus:
                 app.config.get("ANANTA_DSPY_OPTIMIZATION_ENABLED", settings.dspy_optimization_enabled)
             )
             raw["mode"] = str(app.config.get("ANANTA_DSPY_OPTIMIZATION_MODE", settings.dspy_optimization_mode)).strip()
-            policy = DspyOptimizationPolicy.from_mapping(raw)
+            policy, config_audit = DspyOptimizationConfigService().load(
+                raw,
+                enabled=bool(raw["enabled"]),
+                mode=str(raw["mode"]),
+            )
             state_path = Path(str(app.config.get("ANANTA_DSPY_OPTIMIZATION_STATE") or settings.dspy_optimization_state))
             capabilities = DspyEngineCapabilityService(policy)
             if policy.mode == "mock":
@@ -62,11 +67,13 @@ def initialize_dspy_optimization(app: Flask) -> DspyOptimizationWiringStatus:
             attestations = DspyEvaluationAttestationService(
                 hashlib.sha256(f"dspy-evaluation-v1:{app.secret_key}".encode()).digest()
             )
+            telemetry = DspyOperationalTelemetry()
             jobs = DspyOptimizationJobService(
                 DspyOptimizationStateStore(state_path),
                 policy=policy,
                 capabilities=capabilities,
                 signing_key=key,
+                telemetry=telemetry,
             )
             promotion = DspyPromotionService(
                 state_path.with_name(f"{state_path.stem}-registry.sqlite3"), attestations=attestations
@@ -80,11 +87,13 @@ def initialize_dspy_optimization(app: Flask) -> DspyOptimizationWiringStatus:
             status = DspyOptimizationWiringStatus(False, "disabled", "dspy_configuration_invalid")
         else:
             app.extensions["dspy_optimization_policy"] = policy
+            app.extensions["dspy_optimization_config_audit"] = config_audit
             app.extensions["dspy_engine_capabilities"] = capabilities
             app.extensions["dspy_optimization_jobs"] = jobs
             app.extensions["dspy_optimization_evaluation"] = DspyEvaluationBridgeService(attestations)
             app.extensions["dspy_optimization_promotion"] = promotion
             app.extensions["dspy_program_artifacts"] = artifacts
+            app.extensions["dspy_optimization_telemetry"] = telemetry
             status = DspyOptimizationWiringStatus(True, policy.mode, None)
     app.extensions["dspy_optimization_wiring_status"] = status
     return status

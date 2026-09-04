@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from ananta_contracts.dspy_optimization import OptimizationBudgets
 from tests.dspy_optimization.helpers import program
 from worker.optimization.dspy.artifact_serializer import DspyJsonProgramSerializer
 from worker.optimization.dspy.module_registry import DspyModuleRegistry
@@ -45,3 +46,10 @@ def test_optimizer_registry_is_closed_and_estimates_calls_conservatively() -> No
     )
     with pytest.raises(ValueError, match="unknown_field"):
         registry.validate("labeled_few_shot", {"provider": "openai"})
+    with pytest.raises(PermissionError, match="trial_budget_exceeded"):
+        registry.admit(
+            "bootstrap_few_shot",
+            {"max_labeled_demos": 2, "max_bootstrapped_demos": 3, "max_rounds": 2},
+            record_count=10,
+            budgets=OptimizationBudgets(10, 100, 0, 30, 1, 10, 10_000, max_trials=1),
+        )

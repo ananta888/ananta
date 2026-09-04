@@ -12,7 +12,7 @@ from typing import Any
 
 from agent.services.dspy_evaluation_attestation_service import DspyEvaluationAttestationService
 from agent.services.interprocess_file_transaction import InterProcessFileTransaction
-from ananta_contracts.dspy_optimization import canonical_json, require_digest, require_id
+from ananta_contracts.dspy_optimization import PromotionPlanV1, canonical_json, require_digest, require_id
 
 
 class DspyPromotionConflict(RuntimeError):
@@ -69,6 +69,81 @@ class DspyPromotionService:
             expected_revision,
         )
 
+    def promote_plan(self, *, plan: Mapping[str, Any], evaluation: Mapping[str, Any]) -> dict[str, Any]:
+        parsed = PromotionPlanV1.from_mapping(plan)
+        if (
+            parsed.evaluation_digest != evaluation.get("evaluation_digest")
+            or parsed.dataset_digest != evaluation.get("dataset_digest")
+            or parsed.metric_set_digest != evaluation.get("metric_set_digest")
+        ):
+            raise PermissionError("dspy_promotion_plan_binding_invalid")
+        if not self._attestations.verify(evaluation):
+            raise PermissionError("dspy_evaluation_attestation_invalid")
+        if (
+            evaluation.get("candidate_program_digest") != parsed.candidate_digest
+            or evaluation.get("baseline_program_digest") != parsed.baseline_digest
+        ):
+            raise PermissionError("dspy_evaluation_program_binding_invalid")
+        if not evaluation.get("promotion_eligible") or evaluation.get("reason_codes"):
+            raise PermissionError("dspy_promotion_gate_failed")
+        payload = {
+            "active_digest": parsed.candidate_digest,
+            "previous_digest": parsed.baseline_digest,
+            "evaluation_digest": parsed.evaluation_digest,
+            "canary_percent": parsed.canary_percent,
+            "state": "active",
+            "reason_code": "dspy_promoted_by_policy",
+            "updated_at": _now(),
+            "human_intervention_required": False,
+            "promotion_plan_digest": parsed.digest,
+            "automatic_stop_reason_codes": list(parsed.automatic_stop_reason_codes),
+            "canary_duration_seconds": parsed.canary_duration_seconds,
+            "minimum_sample_size": parsed.minimum_sample_size,
+        }
+        return self._append(
+            parsed.tenant_id,
+            parsed.scope_id,
+            payload,
+            parsed.expected_registry_revision,
+        )
+
+    def set_canary_percent(
+        self, *, tenant_id: str, scope_id: str, canary_percent: int, expected_revision: int
+    ) -> dict[str, Any]:
+        if not 1 <= canary_percent <= 100:
+            raise ValueError("dspy_canary_percent_invalid")
+        current = self.get(tenant_id=tenant_id, scope_id=scope_id)
+        if current.get("state") != "active":
+            raise PermissionError("dspy_canary_not_active")
+        payload = {
+            **current,
+            "canary_percent": canary_percent,
+            "reason_code": "dspy_canary_percent_updated",
+            "updated_at": _now(),
+        }
+        payload.pop("revision", None)
+        return self._append(tenant_id, scope_id, payload, expected_revision)
+
+    def stop_canary(self, *, tenant_id: str, scope_id: str, reason_code: str, expected_revision: int) -> dict[str, Any]:
+        current = self.get(tenant_id=tenant_id, scope_id=scope_id)
+        reason = require_id(reason_code, "reason_code")
+        if reason not in set(current.get("automatic_stop_reason_codes") or ()) and reason != "operator_kill_switch":
+            raise PermissionError("dspy_canary_stop_reason_denied")
+        previous = current.get("previous_digest")
+        if not previous:
+            raise PermissionError("dspy_rollback_target_missing")
+        payload = {
+            **current,
+            "active_digest": previous,
+            "previous_digest": current.get("active_digest"),
+            "canary_percent": 0,
+            "state": "auto_stopped",
+            "reason_code": reason,
+            "updated_at": _now(),
+        }
+        payload.pop("revision", None)
+        return self._append(tenant_id, scope_id, payload, expected_revision)
+
     def rollback(self, *, tenant_id: str, scope_id: str, expected_revision: int) -> dict[str, Any]:
         current = self.get(tenant_id=tenant_id, scope_id=scope_id)
         previous = current.get("previous_digest")
@@ -118,7 +193,33 @@ class DspyPromotionService:
             ).fetchone()
         if not row:
             raise KeyError("dspy_registry_scope_not_found")
-        return json.loads(row[0])
+        value = json.loads(row[0])
+        if not isinstance(value, dict):
+            raise RuntimeError("dspy_registry_payload_invalid")
+        return value
+
+    def provenance(self, *, tenant_id: str, scope_id: str) -> dict[str, Any]:
+        tenant = require_id(tenant_id, "tenant_id")
+        scope = require_id(scope_id, "scope_id")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM dspy_program_registry WHERE tenant_id=? AND scope_id=? ORDER BY revision",
+                (tenant, scope),
+            ).fetchall()
+        if not rows:
+            raise KeyError("dspy_registry_scope_not_found")
+        history = [json.loads(row[0]) for row in rows]
+        projection = {
+            "schema": "ananta.dspy-promotion-provenance.v1",
+            "tenant_id": tenant,
+            "scope_id": scope,
+            "current_revision": history[-1]["revision"],
+            "history": history,
+        }
+        projection["provenance_digest"] = require_digest(
+            hashlib.sha256(canonical_json(projection).encode()).hexdigest(), "provenance_digest"
+        )
+        return projection
 
     def _append(
         self, tenant_id: str, scope_id: str, payload: Mapping[str, Any], expected_revision: int

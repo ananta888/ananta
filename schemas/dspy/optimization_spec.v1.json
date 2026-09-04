@@ -23,7 +23,9 @@
       "max_concurrency": {"type": "integer", "minimum": 1, "maximum": 16},
       "max_dataset_records": {"type": "integer", "minimum": 1, "maximum": 100000},
       "max_artifact_bytes": {"type": "integer", "minimum": 1024, "maximum": 104857600},
-      "max_retries": {"type": "integer", "minimum": 0, "maximum": 10}
+      "max_retries": {"type": "integer", "minimum": 0, "maximum": 10},
+      "max_trials": {"type": "integer", "minimum": 1, "maximum": 1000},
+      "max_role_calls": {"type": "integer", "minimum": 1, "maximum": 10000}
     }}
   }
 }

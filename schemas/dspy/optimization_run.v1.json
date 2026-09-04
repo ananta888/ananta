@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.dspy-optimization-run.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "tenant_id",
+    "run_id",
+    "attempt_id",
+    "state",
+    "revision",
+    "spec_digest",
+    "created_at",
+    "updated_at",
+    "reason_code",
+    "artifact",
+    "usage"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.dspy-optimization-run.v1"},
+    "tenant_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "attempt_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "state": {"enum": ["requested", "admitted", "running", "cancelling", "cancelled", "failed", "completed"]},
+    "revision": {"type": "integer", "minimum": 1},
+    "spec_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "created_at": {"type": "string", "format": "date-time", "maxLength": 40},
+    "updated_at": {"type": "string", "format": "date-time", "maxLength": 40},
+    "reason_code": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "artifact": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema", "digest", "size_bytes", "media_type", "producer_run_id", "tenant_id", "artifact_ref"],
+          "properties": {
+            "schema": {"type": "string"},
+            "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "size_bytes": {"type": "integer", "minimum": 0},
+            "media_type": {"type": "string"},
+            "producer_run_id": {"type": "string"},
+            "tenant_id": {"type": "string"},
+            "artifact_ref": {"type": "string"}
+          }
+        }
+      ]
+    },
+    "usage": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model_calls", "tokens", "cost_micros"],
+          "properties": {
+            "model_calls": {"type": "integer", "minimum": 0},
+            "tokens": {"type": "integer", "minimum": 0},
+            "cost_micros": {"type": "integer", "minimum": 0}
+          }
+        }
+      ]
+    }
+  }
+}

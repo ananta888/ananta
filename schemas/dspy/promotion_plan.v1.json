@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.dspy-promotion-plan.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "tenant_id",
+    "scope_id",
+    "candidate_digest",
+    "baseline_digest",
+    "evaluation_digest",
+    "dataset_digest",
+    "metric_set_digest",
+    "thresholds_digest",
+    "expected_registry_revision",
+    "canary_percent",
+    "automatic_stop_reason_codes",
+    "canary_duration_seconds",
+    "minimum_sample_size"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.dspy-promotion-plan.v1"},
+    "tenant_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "scope_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "candidate_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "baseline_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "evaluation_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "dataset_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "metric_set_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "thresholds_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "expected_registry_revision": {"type": "integer", "minimum": 0},
+    "canary_percent": {"type": "integer", "minimum": 1, "maximum": 100},
+    "canary_duration_seconds": {"type": "integer", "minimum": 60, "maximum": 2592000},
+    "minimum_sample_size": {"type": "integer", "minimum": 20, "maximum": 1000000},
+    "automatic_stop_reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"}
+    }
+  }
+}

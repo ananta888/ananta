@@ -52,6 +52,12 @@ def capabilities():
     return _invoke(lambda: _extension("dspy_engine_capabilities").projection(), {})
 
 
+@dspy_optimization_bp.get("/observability")
+@admin_required
+def observability():
+    return _invoke(lambda: _extension("dspy_optimization_telemetry").projection(), {})
+
+
 @dspy_optimization_bp.post("/capabilities/worker")
 @check_registered_worker_auth(scope=_WORKER_SCOPE)
 def report_worker_capabilities():
@@ -114,6 +120,12 @@ def cancel_run(run_id: str):
     return _invoke(operation, {})
 
 
+@dspy_optimization_bp.post("/runs/recover")
+@admin_required
+def recover_runs():
+    return _invoke(lambda: _extension("dspy_optimization_jobs").recover(**_payload()), {})
+
+
 @dspy_optimization_bp.post("/runs/<run_id>/worker-transition")
 @check_registered_worker_auth(scope=_WORKER_SCOPE)
 def worker_transition(run_id: str):
@@ -130,6 +142,36 @@ def evaluate():
 @admin_required
 def promote():
     return _invoke(lambda: _extension("dspy_optimization_promotion").promote(**_payload()), {})
+
+
+@dspy_optimization_bp.post("/promotion-plans")
+@admin_required
+def promote_plan():
+    return _invoke(lambda: _extension("dspy_optimization_promotion").promote_plan(**_payload()), {})
+
+
+@dspy_optimization_bp.post("/promotions/canary")
+@admin_required
+def set_canary():
+    return _invoke(lambda: _extension("dspy_optimization_promotion").set_canary_percent(**_payload()), {})
+
+
+@dspy_optimization_bp.post("/promotions/stop")
+@admin_required
+def stop_canary():
+    return _invoke(lambda: _extension("dspy_optimization_promotion").stop_canary(**_payload()), {})
+
+
+@dspy_optimization_bp.get("/provenance")
+@admin_required
+def provenance():
+    return _invoke(
+        lambda: _extension("dspy_optimization_promotion").provenance(
+            tenant_id=str(request.args.get("tenant_id") or ""),
+            scope_id=str(request.args.get("scope_id") or ""),
+        ),
+        {},
+    )
 
 
 @dspy_optimization_bp.post("/rollbacks")

@@ -5,6 +5,7 @@ Each module exposes:
   - register(subparsers) -> None           — attaches group parser for enumeration/testing
   - SUBCOMMANDS: list[str]                 — leaf command names for help-coverage tests
 """
+
 from __future__ import annotations
 
 from agent.cli.commands import (
@@ -13,6 +14,7 @@ from agent.cli.commands import (
     goal,
     hub,
     llm,
+    optimization,
     project,
     prompt,
     rag,
@@ -29,6 +31,7 @@ DOMAIN_MODULES = {
     "config": config,
     "runtime": runtime,
     "llm": llm,
+    "optimization": optimization,
     "hub": hub,
     "worker": worker,
     "goal": goal,

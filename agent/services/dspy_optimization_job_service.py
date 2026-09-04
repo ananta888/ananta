@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from agent.services.dspy_engine_capability_service import DspyEngineCapabilityService
+from agent.services.dspy_observability_service import DspyOperationalTelemetry
 from agent.services.dspy_optimization_policy import DspyOptimizationPolicy
 from agent.services.dspy_optimization_state_store import DspyOptimizationStateStore
 from ananta_contracts.dspy_optimization import OptimizationRunState, OptimizationSpecV1, canonical_json, require_id
@@ -26,6 +27,7 @@ class DspyOptimizationJobService:
         policy: DspyOptimizationPolicy,
         capabilities: DspyEngineCapabilityService,
         signing_key: bytes,
+        telemetry: DspyOperationalTelemetry | None = None,
     ) -> None:
         if len(signing_key) < 32:
             raise ValueError("dspy_job_signing_key_too_short")
@@ -33,6 +35,7 @@ class DspyOptimizationJobService:
         self._policy = policy
         self._capabilities = capabilities
         self._key = bytes(signing_key)
+        self._telemetry = telemetry
 
     def dry_run(self, *, spec: Mapping[str, Any]) -> dict[str, Any]:
         parsed = OptimizationSpecV1.from_mapping(spec)
@@ -78,6 +81,8 @@ class DspyOptimizationJobService:
             "human_intervention_required": False,
         }
         created, replayed = self._store.create(payload, idempotency_key=idempotency_key)
+        if not replayed:
+            self._audit(created, action="created", actor_id="hub", correlation_id=idempotency_key)
         return {**created, "replayed": replayed}
 
     def worker_transition(
@@ -107,7 +112,9 @@ class DspyOptimizationJobService:
             "updated_at": _now(),
         }
         payload.pop("revision", None)
-        return self._store.append(tenant_id, run_id, payload, expected_revision=expected_revision)
+        updated = self._store.append(tenant_id, run_id, payload, expected_revision=expected_revision)
+        self._audit(updated, action=f"worker_{target.value}", actor_id="worker", correlation_id=attempt_id)
+        return updated
 
     def cancel(self, *, tenant_id: str, run_id: str, expected_revision: int) -> dict[str, Any]:
         current = self._store.get(tenant_id, run_id)
@@ -125,7 +132,33 @@ class DspyOptimizationJobService:
             "updated_at": _now(),
         }
         payload.pop("revision", None)
-        return self._store.append(tenant_id, run_id, payload, expected_revision=expected_revision)
+        updated = self._store.append(tenant_id, run_id, payload, expected_revision=expected_revision)
+        self._audit(updated, action="cancelled", actor_id="hub", correlation_id=run_id)
+        return updated
+
+    def recover(self, *, tenant_id: str, timeout_before: str) -> dict[str, Any]:
+        recovered: list[dict[str, Any]] = []
+        for current in self._store.list(tenant_id, limit=100):
+            state = OptimizationRunState(str(current["state"]))
+            if state not in {
+                OptimizationRunState.ADMITTED,
+                OptimizationRunState.RUNNING,
+                OptimizationRunState.CANCELLING,
+            }:
+                continue
+            if str(current.get("updated_at") or "") >= timeout_before:
+                continue
+            payload = {
+                **current,
+                "state": OptimizationRunState.FAILED.value,
+                "reason_code": "dspy_worker_lease_expired",
+                "updated_at": _now(),
+            }
+            revision = int(payload.pop("revision"))
+            updated = self._store.append(tenant_id, str(current["run_id"]), payload, expected_revision=revision)
+            self._audit(updated, action="recovered", actor_id="hub", correlation_id=str(current["run_id"]))
+            recovered.append(updated)
+        return {"items": recovered, "count": len(recovered), "human_intervention_required": False}
 
     def get(self, *, tenant_id: str, run_id: str) -> dict[str, Any]:
         return self._store.get(tenant_id, run_id)
@@ -145,6 +178,20 @@ class DspyOptimizationJobService:
         )
         if not hmac.compare_digest(expected, str(authorization)):
             raise DspyOptimizationDenied("dspy_worker_authorization_invalid")
+
+    def _audit(self, run: Mapping[str, Any], *, action: str, actor_id: str, correlation_id: str) -> None:
+        if self._telemetry is None:
+            return
+        self._telemetry.record_job(
+            actor_id=actor_id,
+            tenant_id=str(run["tenant_id"]),
+            action=action,
+            run_id=str(run["run_id"]),
+            revision=int(run["revision"]),
+            reason_code=str(run["reason_code"]),
+            correlation_id=correlation_id,
+            target_digest=str(run["spec_digest"]),
+        )
 
 
 def _now() -> str:

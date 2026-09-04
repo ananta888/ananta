@@ -26,13 +26,13 @@ def violations() -> list[str]:
                 if isinstance(node, ast.Import):
                     names = {alias.name.split(".", 1)[0] for alias in node.names}
                     if (not inside_adapter and "dspy" in names) or (
-                        optimization_scope and names & {"litellm", "cloudpickle"}
+                        optimization_scope and names & {"litellm", "cloudpickle", "mcp"}
                     ):
                         findings.append(f"{path.relative_to(ROOT)}:{node.lineno}:forbidden_import")
                 elif isinstance(node, ast.ImportFrom):
                     root_name = str(node.module or "").split(".", 1)[0]
                     if (not inside_adapter and root_name == "dspy") or (
-                        optimization_scope and root_name in {"litellm", "cloudpickle"}
+                        optimization_scope and root_name in {"litellm", "cloudpickle", "mcp"}
                     ):
                         findings.append(f"{path.relative_to(ROOT)}:{node.lineno}:forbidden_import")
                 elif optimization_scope and isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
@@ -42,6 +42,11 @@ def violations() -> list[str]:
                         and node.func.value.id in {"pickle", "cloudpickle"}
                     ):
                         findings.append(f"{path.relative_to(ROOT)}:{node.lineno}:executable_deserialization")
+                    if node.func.attr in {"LM", "ReAct", "CodeAct", "RLM", "Avatar"}:
+                        findings.append(f"{path.relative_to(ROOT)}:{node.lineno}:unsafe_dspy_capability")
+                elif optimization_scope and isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    if node.func.id in {"eval", "exec"}:
+                        findings.append(f"{path.relative_to(ROOT)}:{node.lineno}:dynamic_execution")
     return sorted(findings)
 
 
