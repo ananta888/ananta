@@ -1,0 +1,13 @@
+{
+  "schema": "ananta.research-training-safety-policy.v1",
+  "enabled_capabilities": [],
+  "maximum_dataset_bytes": 53687091200,
+  "maximum_checkpoint_count": 32,
+  "maximum_checkpoint_bytes": 21474836480,
+  "code_evaluation_enabled": false,
+  "rl_training_enabled": false,
+  "multi_gpu_training_enabled": false,
+  "network_mode": "none",
+  "filesystem_scope": "task_workspace_only",
+  "human_intervention_required": false
+}

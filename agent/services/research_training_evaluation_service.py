@@ -68,7 +68,12 @@ class ResearchTrainingEvaluationService:
             "release_eligible": not reasons,
             "reason_codes": sorted(set(reasons)),
             "production_eligible": False,
-            "claims_verified": bool(checked_sources and checked_runs),
+            "claims_verified": bool(
+                checked_sources
+                and checked_runs
+                and self._source_refs
+                and self._run_refs
+            ),
             "human_intervention_required": False,
         }
         result["evaluation_digest"] = canonical_digest(result)
@@ -93,7 +98,7 @@ class ResearchTrainingEvaluationService:
         normalized = sorted({str(value).strip() for value in values if str(value).strip()})
         if any(not value.startswith(prefix) for value in normalized):
             raise ValueError(f"research_{field}_ref_invalid")
-        if any(value not in allowed for value in normalized):
+        if allowed and any(value not in allowed for value in normalized):
             raise ValueError(f"research_{field}_ref_unknown")
         return normalized
 

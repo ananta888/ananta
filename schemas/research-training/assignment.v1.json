@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/assignment.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "task_id", "assignment_id", "dispatch_lease_id", "attempt_id",
+    "worker_id", "quota_reservation_id", "run_id", "run_spec", "stage",
+    "dataset_manifest", "runtime", "inputs", "parameters", "workspace_subdir",
+    "hub_evidence"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.research-training-stage-assignment.v1"},
+    "task_id": {"$ref": "#/$defs/id"},
+    "assignment_id": {"$ref": "#/$defs/id"},
+    "dispatch_lease_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "worker_id": {"$ref": "#/$defs/id"},
+    "quota_reservation_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "run_spec": {"type": "object"},
+    "stage": {"type": "object"},
+    "dataset_manifest": {"type": "object"},
+    "runtime": {"type": "object"},
+    "inputs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_kind", "artifact_digest", "size_bytes", "relative_ref"],
+        "properties": {
+          "artifact_kind": {"$ref": "#/$defs/id"},
+          "artifact_digest": {"$ref": "#/$defs/digest"},
+          "size_bytes": {"type": "integer", "minimum": 1, "maximum": 1125899906842624},
+          "relative_ref": {"$ref": "#/$defs/relative_ref"}
+        }
+      }
+    },
+    "parameters": {"type": "object", "maxProperties": 64},
+    "workspace_subdir": {"$ref": "#/$defs/relative_ref"},
+    "hub_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "run_id", "task_id", "assignment_id", "dispatch_lease_id",
+        "source_ids", "evidence_scope", "binding_digest", "projection_digest"
+      ],
+      "properties": {
+        "schema": {"const": "ananta.hub-evidence-assignment.v1"},
+        "run_id": {"type": "string", "pattern": "^RUN_[A-Za-z0-9][A-Za-z0-9_.:-]{0,187}$"},
+        "task_id": {"$ref": "#/$defs/id"},
+        "assignment_id": {"$ref": "#/$defs/id"},
+        "dispatch_lease_id": {"$ref": "#/$defs/id"},
+        "source_ids": {
+          "type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^SRC_[A-Za-z0-9][A-Za-z0-9_.:-]{0,187}$"}
+        },
+        "evidence_scope": {"enum": ["test", "local", "external", "production"]},
+        "binding_digest": {"$ref": "#/$defs/digest"},
+        "projection_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relative_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\).+$"
+    }
+  }
+}

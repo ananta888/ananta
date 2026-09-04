@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/metric.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "run_id", "stage_id", "attempt_id", "sequence", "metric", "value", "unit"],
+  "properties": {
+    "schema": {"const": "ananta.research-training-metric.v1"},
+    "tenant_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "stage_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "sequence": {"type": "integer", "minimum": 0, "maximum": 1000000000},
+    "metric": {"enum": ["train_loss", "validation_loss", "bits_per_byte", "tokens_per_second", "mfu_estimate", "flops_estimate", "peak_memory_bytes", "learning_rate", "gradient_norm", "checkpoint_seconds", "accuracy", "reward_mean", "reward_variance", "unique_rollout_rate"]},
+    "value": {"type": "number"},
+    "unit": {"$ref": "#/$defs/id"}
+  },
+  "$defs": {"id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}}
+}

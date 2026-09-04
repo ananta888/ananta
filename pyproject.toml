@@ -229,6 +229,8 @@ packages = [
     "worker.training",
     "worker.training.dendritic",
     "worker.training.research",
+    "worker.training.tasks",
+    "worker.training.tokenizers",
     "worker.temporal",
 ]
 

@@ -11,6 +11,9 @@ Aufteilung:
   Split/External-Validation und Validierungsreport
 - `training-wizard/`: capability- und limitgebundene Konfiguration,
   Dry-run/Live-Bestätigung und idempotenter Submit
+- `training-wizard/research-training-workbench.component.ts`: optionaler
+  Full-Model-Research-Pfad mit Hub-DAG, Stage-Timeline, immutable Lineage und
+  normalisierten Evaluationsmetriken; keine direkten Worker- oder Dateipfade
 - `jobs/` plus `model-training-job-monitor.service.ts`: Historie, Filter,
   monotone Events, Polling/SSE-Fallback, Metriken und Cancel-Zustände
 - `evaluation/`: Base-vs-Adapter-Report und bounded Samples

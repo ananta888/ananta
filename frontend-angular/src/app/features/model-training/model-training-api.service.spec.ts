@@ -53,6 +53,21 @@ describe('ModelTrainingApiService', () => {
     );
   });
 
+  it('loads research run, lineage and normalized metrics only through Hub endpoints', () => {
+    const service = TestBed.inject(ModelTrainingApiService);
+
+    service.getResearchRun('http://hub.test', 'run/1').subscribe();
+    service.getResearchLineage('http://hub.test', 'run/1').subscribe();
+    service.getResearchMetrics('http://hub.test', 'run/1').subscribe();
+
+    expect(core.get.mock.calls.map(call => call[0])).toEqual([
+      'http://hub.test/api/ml-intern-training/research/runs/run%2F1',
+      'http://hub.test/api/ml-intern-training/research/runs/run%2F1/lineage',
+      'http://hub.test/api/ml-intern-training/research/runs/run%2F1/metrics?limit=500',
+    ]);
+    expect(core.get.mock.calls.every(call => call[1] === 'http://hub.test')).toBe(true);
+  });
+
   it('reads filtered datasets and cursor events only through the Hub facade', () => {
     const service = TestBed.inject(ModelTrainingApiService);
 

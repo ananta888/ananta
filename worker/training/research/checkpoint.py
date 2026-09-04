@@ -19,11 +19,20 @@ class ResearchCheckpointManager:
             raise ValueError("research_checkpoint_limit_invalid")
         self._workspace.mkdir(parents=True, exist_ok=True)
 
-    def publish(self, *, stage_id: str, attempt_id: str, content: bytes) -> dict[str, Any]:
+    def publish(
+        self,
+        *,
+        stage_id: str,
+        attempt_id: str,
+        optimizer_step: int,
+        content: bytes,
+    ) -> dict[str, Any]:
         stage = require_id(stage_id, "stage_id")
         attempt = require_id(attempt_id, "attempt_id")
         if not isinstance(content, bytes) or not 1 <= len(content) <= self._maximum:
             raise ValueError("research_checkpoint_content_invalid")
+        if not isinstance(optimizer_step, int) or isinstance(optimizer_step, bool) or optimizer_step < 1:
+            raise ValueError("research_checkpoint_optimizer_step_invalid")
         digest = hashlib.sha256(content).hexdigest()
         relative = Path(stage) / f"{attempt}-{digest}.checkpoint"
         target = (self._workspace / relative).resolve()
@@ -44,6 +53,7 @@ class ResearchCheckpointManager:
             "schema": "ananta.research-training-checkpoint-receipt.v1",
             "stage_id": stage,
             "attempt_id": attempt,
+            "optimizer_step": optimizer_step,
             "checkpoint_ref": relative.as_posix(),
             "checkpoint_digest": digest,
             "size_bytes": len(content),

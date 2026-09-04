@@ -14,6 +14,8 @@ def _wire(app: Flask, tmp_path, *, enabled: bool = True, mode: str = "mock") -> 
         ANANTA_RESEARCH_TRAINING_AUTOMATIC_RELEASE_ENABLED=False,
         ANANTA_RESEARCH_TRAINING_STATE=str(tmp_path / "research.sqlite3"),
         ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT=str(tmp_path / "artifacts"),
+        ANANTA_RESEARCH_TRAINING_DATASET_ROOT=str(tmp_path / "datasets"),
+        ANANTA_RESEARCH_TRAINING_RESULT_ROOT=str(tmp_path / "results"),
     )
     initialize_research_training(app)
 
@@ -87,3 +89,16 @@ def test_api_rejects_cross_tenant_and_malformed_payload(app, client, admin_auth_
         data="not-json",
     )
     assert malformed.status_code == 422
+
+
+def test_openapi_inventory_covers_every_research_route_without_worker_addresses(
+    app, client, admin_auth_header, tmp_path
+) -> None:
+    _wire(app, tmp_path)
+    response = client.get("/api/ml-intern-training/research/openapi", headers=admin_auth_header)
+    assert response.status_code == 200
+    document = response.get_json()["data"]
+    assert document["openapi"] == "3.1.0"
+    assert "/api/ml-intern-training/research/runs/{run_id}/dispatch" in document["paths"]
+    assert "/api/ml-intern-training/research/results/ingress" in document["paths"]
+    assert "worker_url" not in str(document).lower()

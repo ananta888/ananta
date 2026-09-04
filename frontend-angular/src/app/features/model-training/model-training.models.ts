@@ -407,6 +407,41 @@ export interface ResearchRunAcceptance {
   human_intervention_required: false;
 }
 
+export interface ResearchRunStageState extends ResearchStage {
+  status: 'pending' | 'ready' | 'running' | 'completed' | 'failed';
+  attempts: number;
+  output_artifact_digest?: string | null;
+  reason_code?: string | null;
+}
+
+export interface ResearchRunState extends ResearchRunAcceptance {
+  reason_code: string;
+  stages: Record<string, ResearchRunStageState>;
+}
+
+export interface ResearchLineageResponse {
+  items: Array<{
+    artifact_digest: string;
+    artifact_ref: string;
+    manifest: { artifact_kind: string; parent_artifact_digests: string[] };
+  }>;
+  limit: number;
+}
+
+export interface ResearchMetricEvent {
+  sequence: number;
+  stage_id: string;
+  metric: string;
+  value: number;
+  unit: string;
+}
+
+export interface ResearchMetricResponse {
+  schema: 'ananta.research-training-metric-list.v1';
+  items: ResearchMetricEvent[];
+  limit: number;
+}
+
 export type TrainingMode = 'dry_run' | 'live';
 export type TrainingJobStatus =
   | 'queued'

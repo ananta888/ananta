@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/rl-config.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "algorithm", "samples_per_prompt", "maximum_new_tokens", "temperature", "learning_rate", "maximum_steps", "seed", "reward"],
+  "properties": {
+    "schema": {"const": "ananta.research-training-rl-config.v1"},
+    "algorithm": {"enum": ["reinforce_v1", "group_relative_v1"]},
+    "samples_per_prompt": {"type": "integer", "minimum": 1, "maximum": 64},
+    "maximum_new_tokens": {"type": "integer", "minimum": 1, "maximum": 2048},
+    "temperature": {"type": "number", "exclusiveMinimum": 0, "maximum": 10},
+    "learning_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+    "maximum_steps": {"type": "integer", "minimum": 1, "maximum": 1000000},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "reward": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "reward_id", "reward_version", "provider", "maximum_absolute_reward", "redact_rollouts"],
+      "properties": {
+        "schema": {"const": "ananta.research-training-reward.v1"},
+        "reward_id": {"$ref": "#/$defs/id"},
+        "reward_version": {"$ref": "#/$defs/id"},
+        "provider": {"enum": ["exact_match_v1", "numeric_tolerance_v1"]},
+        "maximum_absolute_reward": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000},
+        "redact_rollouts": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {"id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}}
+}

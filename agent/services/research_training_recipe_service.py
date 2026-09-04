@@ -10,6 +10,10 @@ from ananta_contracts.research_training import ResearchRunSpecV1, ResearchTraini
 
 
 class ResearchTrainingRecipeService:
+    _ARCHITECTURES = {
+        "decoder-transformer": {"minimum_depth": 1, "maximum_depth": 128},
+    }
+
     def __init__(self, policy: ResearchTrainingPolicy) -> None:
         self._policy = policy
 
@@ -29,8 +33,15 @@ class ResearchTrainingRecipeService:
         }
         if set(request) != expected:
             raise ValueError("research_recipe_request_fields_invalid")
+        model_family = str(request["model_family"])
+        architecture = str(request["architecture"])
+        if self._policy.allowed_model_families and model_family not in self._policy.allowed_model_families:
+            raise ValueError("research_recipe_model_family_unsupported")
+        support = self._ARCHITECTURES.get(architecture)
+        if support is None:
+            raise ValueError("research_recipe_architecture_unsupported")
         depth = int(request["depth"])
-        if not 1 <= depth <= 128:
+        if not support["minimum_depth"] <= depth <= support["maximum_depth"]:
             raise ValueError("research_recipe_depth_invalid")
         hidden_size = max(256, min(8192, depth * 64))
         attention_heads = max(4, min(128, hidden_size // 64))
@@ -40,8 +51,8 @@ class ResearchTrainingRecipeService:
             "schema": ResearchTrainingRecipeV1.SCHEMA,
             "recipe_id": request["recipe_id"],
             "recipe_version": "depth-v1",
-            "model_family": request["model_family"],
-            "architecture": request["architecture"],
+            "model_family": model_family,
+            "architecture": architecture,
             "depth": depth,
             "context_length": context_length,
             "vocab_size": int(request["vocab_size"]),
@@ -62,6 +73,19 @@ class ResearchTrainingRecipeService:
         recipe = ResearchTrainingRecipeV1.from_mapping(payload)
         return {**recipe.to_dict(), "recipe_digest": recipe.digest, "resolution_is_deterministic": True}
 
+    def resolve_explicit(self, recipe: Mapping[str, Any]) -> dict[str, Any]:
+        parsed = ResearchTrainingRecipeV1.from_mapping(recipe)
+        if parsed.architecture not in self._ARCHITECTURES:
+            raise ValueError("research_recipe_architecture_unsupported")
+        if self._policy.allowed_model_families and parsed.model_family not in self._policy.allowed_model_families:
+            raise ValueError("research_recipe_model_family_unsupported")
+        return {
+            **parsed.to_dict(),
+            "recipe_digest": parsed.digest,
+            "resolution_is_deterministic": True,
+            "resolution_mode": "explicit",
+        }
+
     def sweep(self, request: Mapping[str, Any], depths: Sequence[int]) -> dict[str, Any]:
         if not 1 <= len(depths) <= 16 or len(set(depths)) != len(depths):
             raise ValueError("research_sweep_depths_invalid")
@@ -73,7 +97,12 @@ class ResearchTrainingRecipeService:
             "human_intervention_required": False,
         }
 
-    def preflight(self, spec: ResearchRunSpecV1) -> dict[str, Any]:
+    def preflight(
+        self,
+        spec: ResearchRunSpecV1,
+        *,
+        hardware_profiles: Sequence[Mapping[str, Any]] = (),
+    ) -> dict[str, Any]:
         hyperparameters = spec.recipe.resolved_hyperparameters
         hidden = int(hyperparameters.get("hidden_size") or 0)
         layers = int(hyperparameters.get("num_layers") or spec.recipe.depth)
@@ -91,6 +120,33 @@ class ResearchTrainingRecipeService:
             reasons.append("research_preflight_storage_estimate_exceeded")
         if estimated_gpu_hours > spec.budget.gpu_hours:
             reasons.append("research_preflight_gpu_estimate_exceeded")
+        profiles = [
+            self._hardware_fit(profile, estimated_vram_per_worker, spec.recipe.world_size)
+            for profile in hardware_profiles
+        ]
+        compatible_profiles = [item for item in profiles if item["compatible"]]
+        if hardware_profiles and not compatible_profiles:
+            reasons.append("research_preflight_hardware_unavailable")
+        stage_estimates = [
+            {
+                "stage_id": stage.stage_id,
+                "kind": stage.kind,
+                "estimated_gpu_hours": estimated_gpu_hours
+                if stage.kind in {"pretrain", "sft", "rl"}
+                else round(estimated_gpu_hours * 0.1, 6),
+                "estimated_storage_bytes": estimated_storage
+                if stage.kind in {"pretrain", "sft", "rl", "export"}
+                else min(estimated_storage, 16 * 1024 * 1024),
+            }
+            for stage in spec.pipeline.stages
+        ]
+        aggregate_gpu_hours = round(sum(item["estimated_gpu_hours"] for item in stage_estimates), 6)
+        aggregate_storage = sum(item["estimated_storage_bytes"] for item in stage_estimates)
+        if aggregate_gpu_hours > spec.budget.gpu_hours:
+            reasons.append("research_preflight_aggregate_gpu_budget_exceeded")
+        if aggregate_storage > spec.budget.storage_bytes:
+            reasons.append("research_preflight_aggregate_storage_budget_exceeded")
+        flops = 6 * estimated_parameters * spec.recipe.max_steps * spec.recipe.context_length
         return {
             "schema": "ananta.research-training-preflight.v1",
             "admissible": not reasons,
@@ -99,9 +155,45 @@ class ResearchTrainingRecipeService:
             "estimated_vram_bytes_per_worker": estimated_vram_per_worker,
             "estimated_storage_bytes": estimated_storage,
             "estimated_gpu_hours": estimated_gpu_hours,
+            "estimated_training_flops": flops,
+            "aggregate_estimated_gpu_hours": aggregate_gpu_hours,
+            "aggregate_estimated_storage_bytes": aggregate_storage,
+            "stage_estimates": stage_estimates,
+            "hardware_profiles": profiles,
+            "compatible_hardware_profiles": [item["profile_id"] for item in compatible_profiles],
+            "smaller_recipe_suggestion": self._smaller_recipe(spec),
             "worker_call_performed": False,
             "model_download_performed": False,
             "human_intervention_required": False,
+        }
+
+    @staticmethod
+    def _hardware_fit(
+        value: Mapping[str, Any], required_vram: int, world_size: int
+    ) -> dict[str, Any]:
+        if set(value) != {"profile_id", "gpu_count", "vram_bytes_per_gpu", "throughput_flops"}:
+            raise ValueError("research_hardware_profile_fields_invalid")
+        profile_id = str(value["profile_id"])
+        gpu_count = int(value["gpu_count"])
+        vram = int(value["vram_bytes_per_gpu"])
+        throughput = float(value["throughput_flops"])
+        if not profile_id or gpu_count < 0 or vram < 0 or throughput <= 0:
+            raise ValueError("research_hardware_profile_invalid")
+        return {
+            "profile_id": profile_id,
+            "compatible": gpu_count >= world_size and vram >= required_vram,
+            "gpu_count": gpu_count,
+            "vram_bytes_per_gpu": vram,
+        }
+
+    @staticmethod
+    def _smaller_recipe(spec: ResearchRunSpecV1) -> dict[str, int] | None:
+        if spec.recipe.depth <= 1:
+            return None
+        return {
+            "depth": max(1, spec.recipe.depth // 2),
+            "context_length": max(128, spec.recipe.context_length // 2),
+            "world_size": min(spec.recipe.world_size, 1),
         }
 
 

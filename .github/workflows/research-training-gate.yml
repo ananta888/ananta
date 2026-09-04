@@ -1,0 +1,85 @@
+name: Research Training Gate
+
+on:
+  pull_request:
+    paths:
+      - "agent/**research_training*"
+      - "ananta_contracts/research_training*.py"
+      - "worker/training/research/**"
+      - "worker/training/tasks/**"
+      - "worker/training/tokenizers/**"
+      - "tests/research_training/**"
+      - "schemas/research-training/**"
+      - "config/research-training/**"
+      - "docker/compose-next/*research-training*"
+      - "frontend-angular/src/app/features/model-training/**"
+      - ".github/workflows/research-training-gate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "agent/**research_training*"
+      - "ananta_contracts/research_training*.py"
+      - "worker/training/research/**"
+      - "worker/training/tasks/**"
+      - "worker/training/tokenizers/**"
+      - "tests/research_training/**"
+      - "schemas/research-training/**"
+      - "config/research-training/**"
+      - "docker/compose-next/*research-training*"
+      - "frontend-angular/src/app/features/model-training/**"
+      - ".github/workflows/research-training-gate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-training-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  cpu-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12.14"
+          cache: pip
+      - name: Install Hub tests and isolated Worker runtime
+        run: |
+          pip install -r requirements.lock -r requirements-dev.lock
+          pip install -r docker/compose-next/requirements.research-training-cpu.txt
+      - name: Enforce Hub and Worker boundaries
+        run: python scripts/check_research_training_boundaries.py
+      - name: Run headless CPU, DDP, policy and failure gates
+        run: pytest -q -n 2 tests/research_training
+      - name: Validate and build isolated Worker image
+        env:
+          ANANTA_RESEARCH_TRAINING_INPUT_ROOT: /tmp/research-input
+          ANANTA_RESEARCH_TRAINING_OUTPUT_ROOT: /tmp/research-output
+          ANANTA_RESEARCH_REPOSITORY_REVISION: ${{ github.sha }}
+          ANANTA_RESEARCH_IMAGE_DIGEST: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+          ANANTA_RESEARCH_HARDWARE_PROFILE_DIGEST: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+        run: |
+          docker compose -f docker/compose-next/compose.research-training.yml config --quiet
+          docker build --file docker/compose-next/Dockerfile.research-training-worker --tag ananta-research-training-worker:gate .
+
+  angular-workbench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.18.0"
+          cache: npm
+          cache-dependency-path: frontend-angular/package-lock.json
+      - run: npm ci --prefix frontend-angular
+      - name: Test accessible Hub-only workbench
+        run: >-
+          npm --prefix frontend-angular exec -- vitest run
+          src/app/features/model-training/training-wizard/research-training-workbench.component.spec.ts
+          src/app/features/model-training/model-training-api.service.spec.ts
+      - run: npm --prefix frontend-angular run build

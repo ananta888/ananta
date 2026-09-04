@@ -8,12 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HUB_FILES = [
-    ROOT / "ananta_contracts/research_training.py",
+    *sorted((ROOT / "ananta_contracts").glob("research_training*.py")),
     ROOT / "agent/bootstrap/research_training.py",
     ROOT / "agent/routes/research_training.py",
     *sorted((ROOT / "agent/services").glob("research_training_*.py")),
 ]
-WORKER_FILES = sorted((ROOT / "worker/training/research").glob("*.py"))
+WORKER_FILES = [
+    *sorted((ROOT / "worker/training/research").glob("*.py")),
+    *sorted((ROOT / "worker/training/tasks").glob("*.py")),
+    *sorted((ROOT / "worker/training/tokenizers").glob("*.py")),
+]
 ALL_FILES = [*HUB_FILES, *WORKER_FILES]
 ML_RUNTIMES = {"torch", "transformers", "tokenizers", "accelerate", "deepspeed", "trl"}
 UNSAFE_SERIALIZERS = {"pickle", "cloudpickle", "dill"}

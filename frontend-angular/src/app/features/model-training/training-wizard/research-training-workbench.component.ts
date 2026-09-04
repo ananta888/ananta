@@ -1,6 +1,6 @@
 import { Component, Input, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize, switchMap } from 'rxjs';
+import { finalize, forkJoin, switchMap } from 'rxjs';
 
 import { ExplanationNoticeComponent } from '../../../shared/ui/display';
 import { FormFieldComponent } from '../../../shared/ui/forms';
@@ -8,7 +8,10 @@ import { SectionCardComponent } from '../../../shared/ui/layout';
 import { ModelTrainingApiService } from '../model-training-api.service';
 import {
   ResearchRecipeRequest,
+  ResearchLineageResponse,
+  ResearchMetricEvent,
   ResearchResolvedRecipe,
+  ResearchRunState,
   ResearchStage,
   ResearchTrainingCapability,
   ResearchTrainingPreflight,
@@ -66,6 +69,44 @@ const DIGEST = /^[a-f0-9]{64}$/;
         </div>
       }
       @if (acceptedRunId) { <div class="result">Research Run {{ acceptedRunId }} wurde angenommen.</div> }
+      @if (acceptedRunId) {
+        <div class="actions">
+          <button type="button" class="secondary" [disabled]="busy" (click)="refresh()">Status aktualisieren</button>
+        </div>
+      }
+      @if (runState) {
+        <section class="result" aria-live="polite">
+          <strong>Run: {{ runState.state }}</strong> · Revision {{ runState.revision }} · {{ runState.reason_code }}
+          <ol class="timeline" aria-label="Research-Stage-Timeline">
+            @for (stage of stagesForDisplay(); track stage.stage_id) {
+              <li>
+                <strong>{{ stage.stage_id }}</strong>: {{ stage.status }} (Versuch {{ stage.attempts }})
+                @if (stage.output_artifact_digest) { <code>{{ stage.output_artifact_digest }}</code> }
+              </li>
+            }
+          </ol>
+        </section>
+      }
+      @if (lineage.items.length) {
+        <section class="result" aria-label="Research-Artefakt-Lineage">
+          <strong>Immutable Lineage</strong>
+          <ul>
+            @for (entry of lineage.items; track entry.artifact_digest) {
+              <li>{{ entry.manifest.artifact_kind }} · {{ entry.artifact_digest }} · Eltern: {{ entry.manifest.parent_artifact_digests.join(', ') || 'keine' }}</li>
+            }
+          </ul>
+        </section>
+      }
+      @if (metrics.length) {
+        <section class="result" aria-label="Research-Evaluationsmetriken">
+          <strong>Normalisierte Metriken</strong>
+          <ul>
+            @for (metric of metrics; track metric.stage_id + ':' + metric.sequence) {
+              <li>{{ metric.stage_id }} · {{ metric.metric }} = {{ metric.value }} {{ metric.unit }}</li>
+            }
+          </ul>
+        </section>
+      }
       @if (error) { <div class="result error" role="alert">{{ error }}</div> }
     </app-section-card>
   `,
@@ -75,6 +116,8 @@ const DIGEST = /^[a-f0-9]{64}$/;
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     .result { padding:10px; border:1px solid var(--success); border-radius:8px; overflow-wrap:anywhere; }
     .result.error { border-color:var(--danger); color:var(--danger); }
+    .timeline { display:grid; gap:6px; padding-left:22px; }
+    code { display:block; font-size:11px; overflow-wrap:anywhere; }
     @media (max-width:700px) { .grid { grid-template-columns:1fr; } }
   `],
 })
@@ -96,6 +139,9 @@ export class ResearchTrainingWorkbenchComponent {
   resolved: ResearchResolvedRecipe | null = null;
   preflight: ResearchTrainingPreflight | null = null;
   acceptedRunId = '';
+  runState: ResearchRunState | null = null;
+  lineage: ResearchLineageResponse = { items: [], limit: 100 };
+  metrics: ResearchMetricEvent[] = [];
 
   valid(): boolean {
     return Boolean(
@@ -123,7 +169,7 @@ export class ResearchTrainingWorkbenchComponent {
     this.api.resolveResearchRecipe(this.hubUrl, this.recipeRequest()).pipe(
       switchMap(resolved => {
         this.resolved = resolved;
-        const request = this.runRequest(resolved);
+        const request = this.runRequest(resolved, start);
         return start
           ? this.api.createResearchTraining(this.hubUrl, request, idempotencyKey('research-training'))
           : this.api.dryRunResearchTraining(this.hubUrl, request);
@@ -131,11 +177,36 @@ export class ResearchTrainingWorkbenchComponent {
       finalize(() => { this.busy = false; }),
     ).subscribe({
       next: result => {
-        if ('run_id' in result) this.acceptedRunId = result.run_id;
+        if ('run_id' in result) {
+          this.acceptedRunId = result.run_id;
+          queueMicrotask(() => this.refresh());
+        }
         else this.preflight = result;
       },
       error: error => { this.error = apiErrorMessage(error, 'Research Training wurde vom Hub abgelehnt.'); },
     });
+  }
+
+  refresh(): void {
+    if (!this.acceptedRunId || this.busy) return;
+    this.busy = true;
+    this.error = '';
+    forkJoin({
+      run: this.api.getResearchRun(this.hubUrl, this.acceptedRunId),
+      lineage: this.api.getResearchLineage(this.hubUrl, this.acceptedRunId),
+      metrics: this.api.getResearchMetrics(this.hubUrl, this.acceptedRunId),
+    }).pipe(finalize(() => { this.busy = false; })).subscribe({
+      next: result => {
+        this.runState = result.run;
+        this.lineage = result.lineage;
+        this.metrics = result.metrics.items;
+      },
+      error: error => { this.error = apiErrorMessage(error, 'Research-Status konnte nicht geladen werden.'); },
+    });
+  }
+
+  stagesForDisplay() {
+    return Object.values(this.runState?.stages || {});
   }
 
   private recipeRequest(): ResearchRecipeRequest {
@@ -146,7 +217,7 @@ export class ResearchTrainingWorkbenchComponent {
     };
   }
 
-  private runRequest(resolved: ResearchResolvedRecipe): ResearchTrainingRequest {
+  private runRequest(resolved: ResearchResolvedRecipe, start: boolean): ResearchTrainingRequest {
     const recipe: ResearchTrainingRecipe = {
       schema: resolved.schema,
       recipe_id: resolved.recipe_id,
@@ -166,7 +237,7 @@ export class ResearchTrainingWorkbenchComponent {
     const stages = this.stages();
     return {
       spec: {
-        schema: 'ananta.research-training-run.v1', spec_id: `research-${Date.now()}`, mode: 'dry_run',
+        schema: 'ananta.research-training-run.v1', spec_id: `research-${Date.now()}`, mode: start ? 'live' : 'dry_run',
         dataset_manifest_digest: this.datasetDigest, source_revision_digest: this.sourceRevisionDigest,
         recipe,
         pipeline: {

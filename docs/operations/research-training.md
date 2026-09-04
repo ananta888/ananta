@@ -1,45 +1,56 @@
 # Operating research training
 
-Research training is disabled by default. Enable only the deterministic bounded slice with:
+Research training is disabled by default. A bounded local CPU deployment uses:
 
 ```text
 ANANTA_RESEARCH_TRAINING_ENABLED=true
-ANANTA_RESEARCH_TRAINING_MODE=mock
+ANANTA_RESEARCH_TRAINING_MODE=local
 ANANTA_RESEARCH_TRAINING_AUTOMATIC_RELEASE_ENABLED=false
+ANANTA_RESEARCH_TRAINING_POLICY_PATH=config/research-training/policy.v1.json
+ANANTA_RESEARCH_TRAINING_SAFETY_PATH=config/research-training/safety.v1.json
 ```
 
-Keep state and artifact paths on Hub-owned persistent storage. The policy file caps GPU hours, storage, cost,
-world size, stages, and artifact size. Admission and preflight happen before a run is persisted. State changes
-are immutable SQLite revisions with optimistic concurrency; retries are bounded by each stage's
-`max_attempts`.
+Enable only the stage capabilities needed in the safety policy. RL, multi-GPU and generated-code evaluation have
+independent switches. Keep Hub state, admitted datasets, Worker result ingress and artifact storage on persistent,
+separate volumes. Worker input is read-only; output is the only writable bind.
 
-Run `python scripts/check_research_training_boundaries.py` after changing the subsystem. The automatic smoke
-suite is `pytest -q tests/research_training`. It uses no network, GPU, model download, prompt, checkbox, or
-human response.
+The isolated CPU Worker can be built with:
 
-Release is always a machine decision. It remains denied unless the run completed, automatic release is
-enabled by Hub policy, evaluation is attested and bound to the run/dataset, metrics pass, and configured
-`SRC_*` plus `RUN_*` evidence is present. A denial is terminal data with reason codes, never a request for
-manual approval.
+```bash
+docker build -f docker/compose-next/Dockerfile.research-training-worker \
+  -t ananta-research-training-worker:local .
+```
 
-## Phased rollout and rollback
+Run it through `docker/compose-next/compose.research-training.yml` after setting the required input/output roots and
+the scheduler-attested `ANANTA_RESEARCH_REPOSITORY_REVISION`, `ANANTA_RESEARCH_IMAGE_DIGEST` and
+`ANANTA_RESEARCH_HARDWARE_PROFILE_DIGEST`. The Worker compares those values and its actual Python, Torch and CUDA
+versions with the immutable assignment before execution. The service has no network, runs non-root with all
+capabilities dropped, uses a read-only root filesystem and bounded CPU, memory, PIDs and tmpfs. An assignment is
+created by the Hub; never hand-author evidence IDs.
 
-`config/research-training/rollout.v1.json` is a separate Hub policy. It is
-disabled and kill-switched by default, never enables production routes, and
-permits automatic phase progression only after every gate for the current
-phase is true. Missing or false gates yield a terminal, machine-readable
-decision; no phase waits for a person.
+Operational recovery is automatic: leases receive heartbeats, expiration creates a bounded retry, deterministic
+input failures are terminal, and SIGTERM/SIGUSR1 writes an atomic digest-bound checkpoint before the Hub requeues a
+compatible attempt. Quota is reserved before execution and finalized on atomic publication. Retention deletes only
+unpinned ephemeral leaves and refuses referenced parents.
 
-| Phase | Runtime | Exit criteria |
-| --- | --- | --- |
-| 0 | Schema and dry-run | Closed schema contracts, dry-run and boundary-security gates |
-| 1 | Tiny local/CPU | Tiny E2E, complete lineage and failure cleanup |
-| 2 | Single GPU | Hardware attestation, recovery, quality and cost budgets |
-| 3 | Multi GPU | DDP, distributed recovery and scale budget |
-| 4 | Optional RL | RL sandbox, reward robustness and automatic rollback |
+Local gates:
 
-The kill switch fences progression even when all reported gates are green.
-Rollback disables only research admission/runtime and explicitly leaves the
-existing adapter-training path and production routes unchanged. Upstream
-nanochat is `review_only`: automatic code synchronization is forbidden and any
-adopted claim must first receive an immutable Hub source binding.
+```bash
+python scripts/check_research_training_boundaries.py
+pytest -q -n 2 tests/research_training
+cd frontend-angular
+npx vitest run src/app/features/model-training/training-wizard/research-training-workbench.component.spec.ts \
+  src/app/features/model-training/model-training-api.service.spec.ts
+npm run build
+```
+
+GPU absence is not an error for the CPU gate. A requested GPU profile without current inventory/evidence returns an
+explicit unavailable/unverified reason. Synthetic/test evidence never promotes production. No failure can be changed
+to verified by an interactive approval.
+
+## Rollout and rollback
+
+`config/research-training/rollout.v1.json` remains default-off and kill-switched. Phases progress automatically only
+after all declared gates pass: schema/dry-run, tiny CPU, single GPU, multi-GPU, then optional RL. Rollback disables
+only research admission/runtime and leaves LoRA plus production routes unchanged. Upstream nanochat remains
+`review_only`; no source is synchronized or executed implicitly.

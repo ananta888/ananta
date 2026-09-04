@@ -1,0 +1,28 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+
+ENV HF_HUB_OFFLINE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONHASHSEED=0 \
+    PYTHONUNBUFFERED=1 \
+    TRANSFORMERS_OFFLINE=1
+
+RUN groupadd --gid 10008 ananta-research \
+    && useradd --uid 10008 --gid 10008 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-research \
+    && install -d -o 10008 -g 10008 -m 0750 /task/input /task/output
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.research-training-cpu.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
+
+# Worker-only image: no Hub package, routes, repositories, database, queue or
+# provider credentials are copied across the container boundary.
+COPY --chown=10008:10008 ananta_contracts /app/ananta_contracts
+COPY --chown=10008:10008 worker/__init__.py /app/worker/__init__.py
+COPY --chown=10008:10008 worker/training /app/worker/training
+
+USER 10008:10008
+ENTRYPOINT ["python", "-m", "worker.training.research.job_runner"]

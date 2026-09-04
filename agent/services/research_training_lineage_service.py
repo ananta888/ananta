@@ -78,6 +78,40 @@ class ResearchTrainingLineageService:
             ).fetchall()
         return {"items": [json.loads(row[0]) for row in rows], "limit": limit}
 
+    def referenced_digests(self, *, tenant_id: str) -> list[str]:
+        tenant = require_id(tenant_id, "tenant_id")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM research_training_lineage WHERE tenant_id=?",
+                (tenant,),
+            ).fetchall()
+        referenced: set[str] = set()
+        for row in rows:
+            value = json.loads(row[0])
+            manifest = dict(value.get("manifest") or {})
+            referenced.update(str(item) for item in manifest.get("parent_artifact_digests") or [])
+        return sorted(referenced)
+
+    def delete_leaf(self, *, tenant_id: str, artifact_digest: str) -> None:
+        tenant = require_id(tenant_id, "tenant_id")
+        digest = require_digest(artifact_digest, "artifact_digest")
+        with self._transaction, self._connect() as connection:
+            rows = connection.execute(
+                "SELECT artifact_digest,payload_json FROM research_training_lineage WHERE tenant_id=?",
+                (tenant,),
+            ).fetchall()
+            if any(
+                digest in set(dict(json.loads(row[1]).get("manifest") or {}).get("parent_artifact_digests") or [])
+                for row in rows
+            ):
+                raise ValueError("research_lineage_artifact_referenced")
+            cursor = connection.execute(
+                "DELETE FROM research_training_lineage WHERE tenant_id=? AND artifact_digest=?",
+                (tenant, digest),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError("research_lineage_not_found")
+
     def _initialize(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:

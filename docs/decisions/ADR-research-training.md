@@ -1,28 +1,32 @@
 # ADR: Governed full-model research training
 
-Status: experimental, accepted for an opt-in mock/dry-run slice; not production-ready.
+Status: accepted as an experimental, opt-in local/CPU capability; production promotion remains policy- and evidence-gated.
 
 ## Decision
 
-Full-model research training is a separate bounded context from LoRA training. The Hub owns recipes,
-admission, the stage DAG, attempts, state revisions, lineage, evaluation, and release decisions. A Worker
-executes exactly one signed Hub-delegated stage and returns a closed artifact manifest. Workers never add
-stages, route tasks, or contact other Workers.
+Full-model research training remains a bounded context beside LoRA. The Hub owns dataset admission, automatic
+`SRC_*` issuance, recipe and budget decisions, the DAG, Worker selection, immutable assignments, execution leases,
+automatic `RUN_*` reservation, quota, lineage, quality gates and promotion. A Worker consumes exactly one closed
+assignment and cannot create a next stage, broaden evidence, or orchestrate another Worker.
 
-Contracts live in `ananta_contracts/research_training.py`; Hub services remain free of ML runtimes; Worker
-backends implement the small `ResearchWorkerBackend` port. This protects SRP and DIP while preserving the
-hub-worker architecture. The first implementation deliberately provides a deterministic mock backend, not
-a claim that real full-weight training is production-ready.
+The execution side uses small adapters: deterministic byte BPE, a tiny decoder-only Torch model, full-weight
+pretraining/SFT, versioned evaluation tasks, optional bounded RL, inference benchmarking and safe Safetensors export.
+Torch and Safetensors exist only in the Worker image. This split protects SRP and DIP and keeps the Hub free of ML
+runtimes.
 
-## Automation and compatibility
+## Automation, compatibility and evidence
 
-Every decision has a headless path. Policy, resource preflight, retry exhaustion, evaluation, and release
-return stable reason codes and never wait for a person. An optional future interactive client may observe or
-request a run, but is not part of correctness. Existing LoRA APIs remain unchanged; research endpoints and
-capability fields are additive and default off.
+All paths are headless. Approval policy either grants an eligible automatic action or returns a bounded reason code;
+no test or run waits for a person. The Hub Evidence Registry derives immutable identities from admitted content and
+pre-reserved execution bindings. Test/synthetic evidence exercises all mechanics but cannot satisfy production gates.
+
+Research endpoints, schemas, state and containers are additive. Existing LoRA APIs and execution images are
+unchanged. The local backend is not a blanket production claim: GPU/runtime profiles become releasable only after
+their own automatic assignment-bound evidence succeeds.
 
 ## Consequences
 
-Executable checkpoint ingress is denied in this initial slice. Real tokenizer, Torch/DDP, SFT/RL and safe
-model-export backends require later adapter work. Until then, the capability projection advertises
-`experimental`, `not_production_ready`, and `claims_not_verified`.
+The implementation accepts curated, staged datasets only, denies executable artifact ingress, uses digest-pinned
+inputs and safe tensor serialization, and isolates generated-code evaluation in a no-network container. SQLite is
+appropriate for the current single-Hub experimental deployment; a future multi-Hub implementation must replace the
+persistence adapters without changing the domain ports.

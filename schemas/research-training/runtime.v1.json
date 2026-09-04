@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/runtime.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "repository_revision", "image_digest", "python_version", "torch_version", "cuda_version", "backend_name", "backend_version", "hardware_profile_digest", "deterministic_algorithms"],
+  "properties": {
+    "schema": {"const": "ananta.research-training-runtime.v1"},
+    "repository_revision": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "image_digest": {"$ref": "#/$defs/digest"},
+    "python_version": {"$ref": "#/$defs/version"},
+    "torch_version": {"$ref": "#/$defs/version"},
+    "cuda_version": {"$ref": "#/$defs/version"},
+    "backend_name": {"$ref": "#/$defs/id"},
+    "backend_version": {"$ref": "#/$defs/id"},
+    "hardware_profile_digest": {"$ref": "#/$defs/digest"},
+    "deterministic_algorithms": {"type": "boolean"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,63}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

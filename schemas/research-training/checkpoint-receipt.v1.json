@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/checkpoint-receipt.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "stage_id", "attempt_id", "optimizer_step", "checkpoint_ref",
+    "checkpoint_digest", "size_bytes"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.research-training-checkpoint-receipt.v1"},
+    "stage_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "optimizer_step": {"type": "integer", "minimum": 1, "maximum": 100000000},
+    "checkpoint_ref": {"$ref": "#/$defs/relative_ref"},
+    "checkpoint_digest": {"$ref": "#/$defs/digest"},
+    "size_bytes": {"type": "integer", "minimum": 1, "maximum": 1125899906842624}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relative_ref": {
+      "type": "string", "minLength": 1, "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\).+$"
+    }
+  }
+}

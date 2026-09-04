@@ -718,12 +718,28 @@ class Settings(BaseSettings):
         default="config/research-training/rollout.v1.json",
         validation_alias="ANANTA_RESEARCH_TRAINING_ROLLOUT_PATH",
     )
+    research_training_safety_path: str = Field(
+        default="config/research-training/safety.v1.json",
+        validation_alias="ANANTA_RESEARCH_TRAINING_SAFETY_PATH",
+    )
     research_training_state: str = Field(
         default="data/research-training.sqlite3", validation_alias="ANANTA_RESEARCH_TRAINING_STATE"
     )
     research_training_artifact_root: str = Field(
         default="data/research-training-artifacts",
         validation_alias="ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT",
+    )
+    research_training_dataset_root: str = Field(
+        default="data/research-training-datasets",
+        validation_alias="ANANTA_RESEARCH_TRAINING_DATASET_ROOT",
+    )
+    research_training_result_root: str = Field(
+        default="data/research-training-results",
+        validation_alias="ANANTA_RESEARCH_TRAINING_RESULT_ROOT",
+    )
+    research_training_allowed_licenses: str = Field(
+        default="MIT,Apache-2.0,CC-BY-4.0,proprietary-approved,synthetic-test",
+        validation_alias="ANANTA_RESEARCH_TRAINING_ALLOWED_LICENSES",
     )
     collaboration_workspace_enabled: bool = Field(
         default=False, validation_alias="ANANTA_COLLABORATION_WORKSPACE_ENABLED"

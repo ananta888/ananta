@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/provenance.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "run_id", "spec_digest", "repository_revision",
+    "dataset_manifest_digest", "recipe_digest", "pipeline_digest",
+    "stage_artifact_digests", "promoted_artifact_digest", "source_ids",
+    "evidence_run_ids", "evaluation_digest", "quality_decision_digest",
+    "provenance_digest"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.research-training-provenance.v1"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "spec_digest": {"$ref": "#/$defs/digest"},
+    "repository_revision": {"$ref": "#/$defs/digest"},
+    "dataset_manifest_digest": {"$ref": "#/$defs/digest"},
+    "recipe_digest": {"$ref": "#/$defs/digest"},
+    "pipeline_digest": {"$ref": "#/$defs/digest"},
+    "stage_artifact_digests": {
+      "type": "object", "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/digest"}
+    },
+    "promoted_artifact_digest": {"$ref": "#/$defs/digest"},
+    "source_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^SRC_"}
+    },
+    "evidence_run_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^RUN_"}
+    },
+    "evaluation_digest": {"$ref": "#/$defs/digest"},
+    "quality_decision_digest": {"$ref": "#/$defs/digest"},
+    "provenance_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

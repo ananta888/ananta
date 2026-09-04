@@ -1,0 +1,36 @@
+services:
+  research-training-worker-cpu:
+    profiles: [research-training-cpu]
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.research-training-worker
+    image: ${ANANTA_RESEARCH_TRAINING_IMAGE:-ananta-research-training-worker}:${ANANTA_RESEARCH_TRAINING_TAG:-local}-cpu
+    network_mode: none
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: ${ANANTA_RESEARCH_TRAINING_MEMORY_LIMIT:-4g}
+    cpus: ${ANANTA_RESEARCH_TRAINING_CPU_LIMIT:-2.0}
+    user: "10008:10008"
+    environment:
+      PYTHONHASHSEED: "0"
+      OMP_NUM_THREADS: ${ANANTA_RESEARCH_TRAINING_OMP_THREADS:-1}
+      ANANTA_RESEARCH_REPOSITORY_REVISION: ${ANANTA_RESEARCH_REPOSITORY_REVISION:?set checked-out repository revision}
+      ANANTA_RESEARCH_IMAGE_DIGEST: ${ANANTA_RESEARCH_IMAGE_DIGEST:?set immutable image digest}
+      ANANTA_RESEARCH_HARDWARE_PROFILE_DIGEST: ${ANANTA_RESEARCH_HARDWARE_PROFILE_DIGEST:?set admitted hardware profile digest}
+    volumes:
+      - ${ANANTA_RESEARCH_TRAINING_INPUT_ROOT:?set immutable input root}:/task/input:ro
+      - ${ANANTA_RESEARCH_TRAINING_OUTPUT_ROOT:?set output root}:/task/output:rw
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,uid=10008,gid=10008
+    command:
+      - --assignment
+      - /task/input/${ANANTA_RESEARCH_TRAINING_ASSIGNMENT:-assignment.json}
+      - --input-root
+      - /task/input
+      - --output-root
+      - /task/output
+      - --maximum-input-bytes
+      - ${ANANTA_RESEARCH_TRAINING_MAXIMUM_INPUT_BYTES:-4294967296}

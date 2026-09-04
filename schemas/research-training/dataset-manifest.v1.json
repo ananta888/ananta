@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/dataset-manifest.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "project_id", "policy_digest", "contamination_check_digest", "shards"],
+  "properties": {
+    "schema": {"const": "ananta.research-training-dataset-manifest.v1"},
+    "tenant_id": {"$ref": "#/$defs/id"},
+    "project_id": {"$ref": "#/$defs/id"},
+    "policy_digest": {"$ref": "#/$defs/digest"},
+    "contamination_check_digest": {"$ref": "#/$defs/digest"},
+    "shards": {"type": "array", "minItems": 1, "maxItems": 4096, "items": {"$ref": "#/$defs/shard"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "shard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "relative_ref", "content_digest", "size_bytes", "split", "media_type", "license_id", "consent_class", "pii_scan_digest", "secret_scan_digest", "dedup_digest"],
+      "properties": {
+        "source_id": {"type": "string", "pattern": "^SRC_[A-Za-z0-9][A-Za-z0-9._:-]{0,187}$"},
+        "relative_ref": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?/)(?!.*\\\\).+$"},
+        "content_digest": {"$ref": "#/$defs/digest"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 1125899906842624},
+        "split": {"enum": ["train", "validation", "test"]},
+        "media_type": {"enum": ["text_plain", "application_jsonl"]},
+        "license_id": {"$ref": "#/$defs/id"},
+        "consent_class": {"$ref": "#/$defs/id"},
+        "pii_scan_digest": {"$ref": "#/$defs/digest"},
+        "secret_scan_digest": {"$ref": "#/$defs/digest"},
+        "dedup_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

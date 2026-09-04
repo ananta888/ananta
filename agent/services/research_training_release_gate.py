@@ -26,6 +26,8 @@ class ResearchTrainingReleaseGate:
             reasons.append("research_evaluation_dataset_binding_invalid")
         if evaluation.get("release_eligible") is not True or evaluation.get("reason_codes"):
             reasons.append("research_evaluation_gate_failed")
+        if evaluation.get("claims_verified") is not True:
+            reasons.append("research_evaluation_evidence_unverified")
         return {
             "schema": "ananta.research-training-release-decision.v1",
             "run_id": run.get("run_id"),

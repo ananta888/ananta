@@ -31,7 +31,10 @@ import {
   EvaluationScorerName,
   ResearchRecipeRequest,
   ResearchResolvedRecipe,
+  ResearchLineageResponse,
+  ResearchMetricResponse,
   ResearchRunAcceptance,
+  ResearchRunState,
   ResearchTrainingPreflight,
   ResearchTrainingRequest,
   TrainingCapabilities,
@@ -158,6 +161,25 @@ export class ModelTrainingApiService extends ApiBaseService {
       headers: { 'Idempotency-Key': key },
       timeoutMs: 30_000,
     });
+  }
+
+  getResearchRun(hubUrl: string, runId: string): Observable<ResearchRunState> {
+    return this.core.get<ResearchRunState>(
+      this.researchEndpoint(hubUrl, `/runs/${encodeURIComponent(runId)}`), hubUrl, undefined, false,
+    );
+  }
+
+  getResearchLineage(hubUrl: string, runId: string): Observable<ResearchLineageResponse> {
+    return this.core.get<ResearchLineageResponse>(
+      this.researchEndpoint(hubUrl, `/runs/${encodeURIComponent(runId)}/lineage`), hubUrl, undefined, false,
+    );
+  }
+
+  getResearchMetrics(hubUrl: string, runId: string): Observable<ResearchMetricResponse> {
+    return this.core.get<ResearchMetricResponse>(
+      this.researchEndpoint(hubUrl, `/runs/${encodeURIComponent(runId)}/metrics?limit=500`),
+      hubUrl, undefined, false,
+    );
   }
 
   recommendBackend(

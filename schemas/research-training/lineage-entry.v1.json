@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/lineage-entry.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "tenant_id", "run_id", "artifact_digest", "artifact_ref",
+    "manifest", "replayed"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.research-training-lineage-entry.v1"},
+    "tenant_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "artifact_digest": {"$ref": "#/$defs/digest"},
+    "artifact_ref": {"$ref": "#/$defs/relative_ref"},
+    "manifest": {"type": "object"},
+    "replayed": {"type": "boolean"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relative_ref": {
+      "type": "string", "minLength": 1, "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\).+$"
+    }
+  }
+}
