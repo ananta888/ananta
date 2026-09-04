@@ -208,6 +208,8 @@ class CollaborationWorkspaceService:
     ) -> dict[str, Any]:
         self._authorize(tenant_id, workspace_id, principal_actor_id, "event.write")
         parsed = WorkspaceEventV1.from_mapping(event)
+        if parsed.workspace_id != workspace_id or parsed.actor_binding_id != principal_actor_id:
+            raise PermissionError("collaboration_event_binding_invalid")
         self._event_policy.require_durable(parsed.event_type, parsed.payload)
         if self._budget is not None:
             budget = self._budget.admit(
@@ -234,8 +236,6 @@ class CollaborationWorkspaceService:
             source_refs=parsed.source_refs,
             run_refs=parsed.run_refs,
         )
-        if parsed.workspace_id != workspace_id or parsed.actor_binding_id != principal_actor_id:
-            raise PermissionError("collaboration_event_binding_invalid")
         if parsed.room_id is not None and not self._store.room_visible(
             tenant_id, workspace_id, parsed.room_id, principal_actor_id
         ):

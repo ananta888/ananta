@@ -282,9 +282,11 @@ budget service covering tenant, workspace, room, principal, actor, task,
 provider, intent chain and connection scopes; cancel and revocation traffic is
 explicitly exempt. Webhook, local-Git and Worker event ingress use separate
 authentication ports and a common canonical mapper, so none of those sources
-can write TaskDB, Git state or the Worker queue directly. SQLite remains the single-Hub durable adapter. Multi-Hub is an
-explicitly unverified deployment profile until a shared CAS/outbox/presence
-adapter and split-brain evidence exist.
+can write TaskDB, Git state or the Worker queue directly. SQLite remains the
+single-Hub durable adapter. The Multi-Hub profile names separate PostgreSQL
+event and coordination adapters but remains explicitly unverified until
+deployment composition and split-brain behavior have Hub-reserved runtime
+evidence.
 
 Security remains composed from focused services: prompt construction preserves
 separate runtime, Hub-policy, user, external-event and retrieval trust layers;
@@ -351,7 +353,11 @@ Tenant/workspace keys are present in every primary, unique and lookup path,
 with an additional tenant/workspace/room/sequence index. Its Alembic migration
 is reversible and exercised against PostgreSQL. This completes the durable
 event boundary, but does not by itself authorize a Multi-Hub release: shared
-workspace policy, presence and cache composition remain separate gates.
+workspace-policy composition and a Hub-reserved split-brain runtime gate remain
+separate release requirements. Tenant-qualified PostgreSQL adapters now cover
+the event/outbox/checkpoint boundary plus cursor, control-grant, presence and
+cache coordination; live-control services depend on the narrow coordination
+port and never fall back to process-local state after a shared-adapter error.
 
 Required reliability mechanisms:
 

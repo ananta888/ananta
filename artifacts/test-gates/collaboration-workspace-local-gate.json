@@ -6,7 +6,7 @@
   "native_core": {
     "python_collaboration_tests": {
       "status": "passed",
-      "tests": 130,
+      "tests": 136,
       "parallel_runner": "pytest-xdist"
     },
     "postgresql_shared_event_tests": {
@@ -16,6 +16,15 @@
       "migration_upgrade_downgrade": "passed",
       "multi_repository_cas": "passed"
     },
+    "postgresql_shared_coordination_tests": {
+      "status": "passed",
+      "tests": 3,
+      "multi_hub_control_cas": "passed",
+      "tenant_workspace_cache_isolation": "passed",
+      "migration_concurrency_fencing": "passed",
+      "local_write_fallback": false
+    },
+    "hub_resource_attestation_gate": "passed",
     "angular_production_build": "passed",
     "typescript_live_state_tests": {
       "status": "passed",

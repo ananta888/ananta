@@ -5,7 +5,7 @@
   "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "pair-dev-collaboration-workspace-buzz-interop",
-  "status": "partial",
+  "status": "blocked",
   "created_at": "2026-08-06",
   "updated_at": "2026-09-04",
   "architecture_document": "docs/architecture/pair-dev-collaboration-workspace.md",
@@ -80,7 +80,7 @@
     "blocked_audit": {
       "status": "partial",
       "reason_codes": [
-        "multi_hub_shared_store_missing",
+        "multi_hub_deployment_runtime_evidence_missing",
         "multi_participant_live_production_run_missing",
         "buzz_production_conformance_run_missing",
         "native_canary_run_missing"
@@ -93,7 +93,8 @@
       "resolved_findings": [
         "The native durable workspace, room/thread model, delivery, projections, search, recovery and optional bridge implementation now exist.",
         "A fully headless Chromium run against an isolated real Hub and Angular application covers create, message, reply, cursor, archive/reopen and reconnect.",
-        "No test or productive bounded command path waits for a human; policy auto-approves eligible operations or returns a terminal blocked result."
+        "No test or productive bounded command path waits for a human; policy auto-approves eligible operations or returns a terminal blocked result.",
+        "Shared PostgreSQL event/outbox/checkpoint and tenant-qualified live/presence/cache CAS adapters pass real concurrent database tests without local write fallback."
       ],
       "required_unblock_input": {
         "native_core": "Automatically reserve and execute a Hub Evidence Registry run for the concrete canary deployment.",
@@ -374,7 +375,7 @@
     {
       "id": "M10",
       "title": "Security, Privacy und Missbrauchsschutz",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "PDCW-SEC-001",
         "PDCW-SEC-002",
@@ -387,7 +388,7 @@
     {
       "id": "M11",
       "title": "Migration, Betrieb, Observability und Recovery",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "PDCW-OPS-001",
         "PDCW-OPS-002",
@@ -1523,7 +1524,7 @@
     {
       "id": "PDCW-SEC-002",
       "title": "Tenant-, Workspace-, Room- und Artifact-Isolation härten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1540,7 +1541,7 @@
         "Negative Matrix prüft Listen, Threads, Search, Artifacts, Cursors, Export, Bridge und Error Side-Channels.",
         "Multi-Hub-/Multi-Process-CAS und Cache Keys bleiben tenantqualifiziert."
       ],
-      "progress_percent": 95.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SEC-003",
@@ -1712,7 +1713,7 @@
     {
       "id": "PDCW-OPS-005",
       "title": "Deploymentprofile, Kapazitätsgrenzen und HA-Topologie definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "configuration",
@@ -1728,7 +1729,7 @@
         "Teilnehmer-, Event-, Room-, Queue-, Search- und Bridge-Caps stammen nur aus reproduzierbaren Messungen.",
         "Profile komponieren getrennte Durable-, Live- und Bridge-Adapter; optionale SFU-/Buzz-Konfiguration wird nicht in Native-Core-Services importiert."
       ],
-      "progress_percent": 80.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-OPS-006",
@@ -1954,11 +1955,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 0,
       "blocked": 4,
-      "done": 66
+      "done": 68
     },
-    "progress_percent_done": 91.7,
+    "progress_percent_done": 94.4,
     "by_priority": {
       "P0": 34,
       "P1": 33,
@@ -1972,15 +1973,15 @@
     },
     "critical_path": {
       "total": 39,
-      "done": 37,
-      "remaining": 2
+      "done": 38,
+      "remaining": 1
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 4,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 8
+      "done": 10
     }
   },
   "tasks_type_summary": {
@@ -2019,14 +2020,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         },
-        "done": 1,
-        "partial": 1,
+        "done": 2,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 90.0
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 2,
@@ -2061,14 +2062,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 10
+          "done": 11
         },
-        "done": 10,
-        "partial": 1,
+        "done": 11,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 99.5
+        "progress_percent": 100.0
       },
       "test": {
         "total": 8,
@@ -2101,14 +2102,14 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 2,
+    "partial": 0,
     "blocked": 4,
-    "done": 66,
-    "count_based_percent": 91.7,
-    "weighted_percent": 98.6
+    "done": 68,
+    "count_based_percent": 94.4,
+    "weighted_percent": 98.9
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2156,10 +2157,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 118.838,
-    "remaining_weight": 1.662,
+    "done_weight": 119.213,
+    "remaining_weight": 1.287,
     "blocked_weight": 6.0,
-    "weighted_percent": 98.6
+    "weighted_percent": 98.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2237,19 +2238,19 @@
       },
       "M10": {
         "total_tasks": 6,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 83.3,
-        "weighted_percent": 99.2,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M11": {
         "total_tasks": 6,
-        "done": 5,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 83.3,
-        "weighted_percent": 97.4,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M12": {
         "total_tasks": 6,
@@ -2264,10 +2265,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T17:27:18.853428Z",
+    "generated_at": "2026-09-04T17:46:33.041232Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "e6f6271a87bc94ddbab96e6e00a98d25eee87622c2d9c6137f15f34d2660541e",
+    "source_hash": "3d1d12a1c444e8bb642950d3d7d7fdb1d0c6edc09a6f3b4179c6f93bdad37c80",
     "is_stale": false
   },
   "implementation_review": {

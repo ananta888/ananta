@@ -38,6 +38,7 @@ def test_multi_hub_claim_remains_unverified_without_shared_cas_evidence() -> Non
     }
     profile = deployment_profile("multi_hub")
     assert profile.durable_adapter == "postgresql_shared_event_store"
+    assert profile.coordination_adapter == "postgresql_shared_coordination"
     assert profile.reason_code == "multi_hub_split_brain_evidence_required"
 
 
@@ -48,6 +49,7 @@ def test_local_profile_requires_no_optional_bridge_or_sfu() -> None:
         "durable_adapter": "sqlite",
         "live_adapter": "hub_relay",
         "bridge_adapter": "disabled",
+        "coordination_adapter": "process_local",
         "multi_hub": False,
         "state": "ready",
         "reason_code": "local_standalone_ready",

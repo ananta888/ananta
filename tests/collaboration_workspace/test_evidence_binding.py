@@ -107,3 +107,23 @@ def test_registered_immutable_binding_can_create_grounded_projection(tmp_path: P
         "repository_revision": "a" * 40,
         "source_ids": ("SRC_registered",),
     }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("workspace_id", "workspace-client-override"), ("actor_binding_id", "actor-client-override")),
+)
+def test_client_scope_override_is_rejected_before_evidence_lookup(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    registry = Registry(verified=True)
+    workspaces = _service(tmp_path / f"{field}.sqlite3", registry)
+    event = {**_grounded_event(), field: value}
+    with pytest.raises(PermissionError, match="event_binding_invalid"):
+        workspaces.append_event(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            principal_actor_id="human-user-a",
+            event=event,
+        )
+    assert registry.calls == []

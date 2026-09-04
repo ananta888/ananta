@@ -16,7 +16,7 @@ Current controls:
 - outbox delivery uses attempt fencing, expiring leases, bounded backoff and terminal failure states;
 - external inbox replay binds origin, adapter, external ID, mapping version and payload digest;
 - command approval is digest- and policy-revision-bound and always terminates automatically as approved or blocked;
-- resource use requires a Hub assignment, verified offer, exact task binding, expiry, budget and fencing token;
+- resource use requires a Hub assignment, Hub-authority-verified offer, exact task binding, expiry, budget and fencing token; a caller cannot self-attest `verified`;
 - artifact events contain only bounded, scanned digest references; secrets and private reasoning are rejected;
 - prompt sections carry explicit trust classes; external and retrieval instructions remain untrusted data;
 - bridge signing keys are resolved through secret references, can be rotated/revoked, and every use extends a scoped hash-chain audit;
@@ -27,8 +27,8 @@ Current controls:
 - no denial can be bypassed through a human-in-the-loop test or manual approval.
 
 Residual risks do not block the local Native Core lane. They do block broader
-claims: multi-Hub requires a shared persistence/CAS adapter and split-brain
-evidence; SFU/TURN and n>2 production claims require real multi-browser runtime,
+claims: multi-Hub has shared persistence and coordination adapters but still
+requires deployment-level split-brain evidence; SFU/TURN and n>2 production claims require real multi-browser runtime,
 load, soak and revocation evidence; Buzz production release requires a real
 pinned-relay run and registry-verified evidence. Local deterministic tests and
 synthetic signatures never satisfy those external production gates.

@@ -19,12 +19,30 @@ pytestmark = pytest.mark.skipif(not _DATABASE_URL, reason="collaboration_postgre
 
 @pytest.fixture(scope="module")
 def postgres_engine():
+    guard_engine = sa.create_engine(_DATABASE_URL, pool_pre_ping=True)
+    guard = guard_engine.connect()
+    guard.exec_driver_sql("SELECT pg_advisory_lock(2044597617)")
     config = Config("alembic.ini")
     config.attributes["database_url"] = _DATABASE_URL
     command.upgrade(config, "head")
     engine = sa.create_engine(_DATABASE_URL, pool_pre_ping=True)
     yield engine
     engine.dispose()
+    guard.exec_driver_sql("SELECT pg_advisory_unlock(2044597617)")
+    guard.close()
+    guard_engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def clean_repository_rows(postgres_engine):
+    with postgres_engine.begin() as connection:
+        for table in (
+            "collaboration_shared_projection_checkpoints",
+            "collaboration_shared_outbox",
+            "collaboration_durable_events",
+            "collaboration_event_streams",
+        ):
+            connection.execute(sa.text(f"DELETE FROM {table}"))
 
 
 def _event(index: int, *, workspace: str = "workspace-a", room_id: str = "room-main"):
@@ -53,6 +71,10 @@ def test_migration_supports_downgrade_and_upgrade(postgres_engine) -> None:
         "collaboration_durable_events",
         "collaboration_shared_outbox",
         "collaboration_shared_projection_checkpoints",
+        "collaboration_shared_cursors",
+        "collaboration_shared_control_grants",
+        "collaboration_shared_presence",
+        "collaboration_shared_cache",
     }.issubset(sa.inspect(postgres_engine).get_table_names())
 
 

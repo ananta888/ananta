@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import math
-import threading
 import time
 from collections.abc import Callable
 from typing import Any
 
+from agent.services.collaboration_live_state_repository import (
+    CollaborationLiveStateRepository,
+    InMemoryCollaborationLiveStateRepository,
+)
 from agent.services.collaboration_workspace_policy import CollaborationWorkspacePolicy
 from agent.services.collaboration_workspace_store import CollaborationStoreConflict, CollaborationWorkspaceStore
 from ananta_contracts.collaboration_workspace import require_id
@@ -21,14 +24,13 @@ class CollaborationLiveControlService:
         store: CollaborationWorkspaceStore,
         *,
         policy: CollaborationWorkspacePolicy,
+        state: CollaborationLiveStateRepository | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._store = store
         self._policy = policy
+        self._state = state or InMemoryCollaborationLiveStateRepository()
         self._clock = clock
-        self._lock = threading.RLock()
-        self._cursors: dict[tuple[str, str, str, str], dict[str, Any]] = {}
-        self._grants: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     def publish_cursor(
         self,
@@ -74,9 +76,13 @@ class CollaborationLiveControlService:
             "epoch": epoch,
             "expires_at": self._clock() + ttl_seconds,
         }
-        with self._lock:
-            self._cursors[(*keys, actor)] = cursor
-        return dict(cursor)
+        return self._state.put_cursor(
+            tenant_id=keys[0],
+            workspace_id=keys[1],
+            room_id=keys[2],
+            actor_binding_id=actor,
+            cursor=cursor,
+        )
 
     def cursors(
         self, *, tenant_id: str, workspace_id: str, room_id: str, principal_actor_id: str, view_id: str
@@ -85,12 +91,10 @@ class CollaborationLiveControlService:
         keys = self._keys(tenant_id, workspace_id, room_id)
         view = require_id(view_id, "view_id")
         now = self._clock()
-        with self._lock:
-            self._discard_expired(now)
-            items = [
-                dict(cursor) for key, cursor in self._cursors.items() if key[:3] == keys and cursor["view_id"] == view
-            ]
-        return {"items": sorted(items, key=lambda item: item["actor_binding_id"]), "server_time": now}
+        items = self._state.cursors(
+            tenant_id=keys[0], workspace_id=keys[1], room_id=keys[2], view_id=view, now=now
+        )
+        return {"items": items, "server_time": now}
 
     def grant_control(
         self,
@@ -127,51 +131,54 @@ class CollaborationLiveControlService:
         session = require_id(session_id, "session_id")
         controlled = require_id(principal_actor_id, "controlled_actor_binding_id")
         membership = self._store.membership(tenant_id, workspace_id, controlled) or {}
-        grant_key = (tenant_id, workspace_id, controlled)
-        with self._lock:
-            self._discard_expired(self._clock())
-            current = self._grants.get(grant_key)
-            current_revision = int((current or {}).get("revision") or 0)
-            if current_revision != expected_revision:
-                raise CollaborationStoreConflict("collaboration_control_revision_conflict")
-            revision = current_revision + 1
-            grant = {
-                "grant_id": f"control-{controlled}-{revision}",
-                "session_id": session,
-                "room_id": keys[2],
-                "view_id": require_id(view_id, "view_id"),
-                "controller_actor_binding_id": controller,
-                "controlled_actor_binding_id": controlled,
-                "revision": revision,
-                "epoch": epoch,
-                "controlled_membership_revision": int(membership.get("revision") or 0),
-                "expires_at": self._clock() + ttl_seconds,
-            }
-            self._grants[grant_key] = grant
-        return dict(grant)
+        revision = expected_revision + 1
+        now = self._clock()
+        grant = {
+            "grant_id": f"control-{controlled}-{revision}",
+            "session_id": session,
+            "room_id": keys[2],
+            "view_id": require_id(view_id, "view_id"),
+            "controller_actor_binding_id": controller,
+            "controlled_actor_binding_id": controlled,
+            "revision": revision,
+            "epoch": epoch,
+            "controlled_membership_revision": int(membership.get("revision") or 0),
+            "expires_at": now + ttl_seconds,
+        }
+        return self._state.compare_and_set_grant(
+            tenant_id=keys[0],
+            workspace_id=keys[1],
+            controlled_actor_binding_id=controlled,
+            expected_revision=expected_revision,
+            grant=grant,
+            now=now,
+        )
 
     def current_grant(self, *, tenant_id: str, workspace_id: str, principal_actor_id: str) -> dict[str, Any] | None:
         actor = require_id(principal_actor_id, "actor_binding_id")
-        with self._lock:
-            self._discard_expired(self._clock())
-            candidates = [
-                (key, grant)
-                for key, grant in self._grants.items()
-                if key[:2] == (tenant_id, workspace_id)
-                and actor in {grant["controller_actor_binding_id"], grant["controlled_actor_binding_id"]}
-            ]
-            for key, grant in candidates:
-                controlled = grant["controlled_actor_binding_id"]
-                membership = self._store.membership(tenant_id, workspace_id, controlled)
-                if (
-                    not membership
-                    or membership.get("status") != "active"
-                    or membership.get("revision") != grant["controlled_membership_revision"]
-                    or not self._store.room_visible(tenant_id, workspace_id, grant["room_id"], actor)
-                ):
-                    self._grants.pop(key, None)
-                    continue
-                return dict(grant)
+        candidates = self._state.grants_for_actor(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            actor_binding_id=actor,
+            now=self._clock(),
+        )
+        for grant in candidates:
+            controlled = grant["controlled_actor_binding_id"]
+            membership = self._store.membership(tenant_id, workspace_id, controlled)
+            if (
+                not membership
+                or membership.get("status") != "active"
+                or membership.get("revision") != grant["controlled_membership_revision"]
+                or not self._store.room_visible(tenant_id, workspace_id, grant["room_id"], actor)
+            ):
+                self._state.delete_grant(
+                    tenant_id=tenant_id,
+                    workspace_id=workspace_id,
+                    controlled_actor_binding_id=controlled,
+                    expected_revision=grant["revision"],
+                )
+                continue
+            return dict(grant)
         return None
 
     def revoke_control(
@@ -191,9 +198,12 @@ class CollaborationLiveControlService:
             return {"revoked": False, "reason_code": "collaboration_control_grant_absent"}
         if grant["revision"] != expected_revision:
             raise CollaborationStoreConflict("collaboration_control_revision_conflict")
-        key = (tenant_id, workspace_id, grant["controlled_actor_binding_id"])
-        with self._lock:
-            self._grants.pop(key, None)
+        self._state.delete_grant(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            controlled_actor_binding_id=grant["controlled_actor_binding_id"],
+            expected_revision=expected_revision,
+        )
         return {
             "revoked": True,
             "revision": expected_revision,
@@ -212,10 +222,5 @@ class CollaborationLiveControlService:
             require_id(workspace_id, "workspace_id"),
             require_id(room_id, "room_id"),
         )
-
-    def _discard_expired(self, now: float) -> None:
-        self._cursors = {key: value for key, value in self._cursors.items() if value["expires_at"] > now}
-        self._grants = {key: value for key, value in self._grants.items() if value["expires_at"] > now}
-
 
 __all__ = ["CollaborationLiveControlService"]

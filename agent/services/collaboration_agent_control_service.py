@@ -19,6 +19,20 @@ class CollaborationAssignmentAuthority(Protocol):
     def decide(self, *, tenant_id: str, intent: Mapping[str, Any]) -> Mapping[str, Any]: ...
 
 
+class CollaborationResourceAttestationAuthority(Protocol):
+    """Narrow Hub-owned port that may confirm a resource attestation."""
+
+    def verify(self, *, tenant_id: str, offer: Mapping[str, Any]) -> Mapping[str, Any]: ...
+
+
+class RejectingCollaborationResourceAttestationAuthority:
+    """Safe default: callers cannot promote their own resource claims."""
+
+    def verify(self, *, tenant_id: str, offer: Mapping[str, Any]) -> Mapping[str, Any]:
+        del tenant_id, offer
+        return {"verified": False, "reason_code": "hub_resource_attestation_authority_not_configured"}
+
+
 class CollaborationAgentControlService:
     def __init__(
         self,
@@ -26,6 +40,7 @@ class CollaborationAgentControlService:
         *,
         policy: CollaborationWorkspacePolicy,
         assignment_authority: CollaborationAssignmentAuthority,
+        resource_attestation_authority: CollaborationResourceAttestationAuthority | None = None,
         clock: Callable[[], float] = time.time,
         maximum_correlation_intents: int = 16,
         budget: CollaborationBudgetService | None = None,
@@ -35,6 +50,9 @@ class CollaborationAgentControlService:
         self._store = store
         self._policy = policy
         self._authority = assignment_authority
+        self._resource_attestation = (
+            resource_attestation_authority or RejectingCollaborationResourceAttestationAuthority()
+        )
         self._clock = clock
         self._maximum_correlation_intents = maximum_correlation_intents
         self._budget = budget
@@ -52,7 +70,15 @@ class CollaborationAgentControlService:
             raise PermissionError("collaboration_resource_offer_owner_mismatch")
         if parsed.expires_at <= self._clock():
             raise ValueError("collaboration_resource_offer_expired")
-        value, replayed = self._store.put_resource_offer(tenant_id, parsed.to_dict())
+        value = parsed.to_dict()
+        if parsed.attestation_status == "verified":
+            decision = self._validate_attestation_decision(
+                self._resource_attestation.verify(tenant_id=tenant_id, offer=value)
+            )
+            if not decision["verified"]:
+                raise PermissionError(f"collaboration_resource_attestation_denied:{decision['reason_code']}")
+            value["metadata"] = {**value["metadata"], "hub_attestation_reason": decision["reason_code"]}
+        value, replayed = self._store.put_resource_offer(tenant_id, value)
         return {**value, "replayed": replayed, "lease_granted": False}
 
     def list_offers(
@@ -278,5 +304,19 @@ class CollaborationAgentControlService:
         }
         return {"authorized": True, "reason_code": reason, "assignment": normalized}
 
+    @staticmethod
+    def _validate_attestation_decision(value: Mapping[str, Any]) -> dict[str, Any]:
+        if set(value) != {"verified", "reason_code"} or not isinstance(value["verified"], bool):
+            raise ValueError("collaboration_resource_attestation_decision_invalid")
+        return {
+            "verified": value["verified"],
+            "reason_code": require_id(value["reason_code"], "resource_attestation_reason_code"),
+        }
 
-__all__ = ["CollaborationAgentControlService", "CollaborationAssignmentAuthority"]
+
+__all__ = [
+    "CollaborationAgentControlService",
+    "CollaborationAssignmentAuthority",
+    "CollaborationResourceAttestationAuthority",
+    "RejectingCollaborationResourceAttestationAuthority",
+]

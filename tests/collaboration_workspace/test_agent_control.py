@@ -40,7 +40,26 @@ class AssignmentAuthority:
         }
 
 
-def _setup(database: Path, authority: AssignmentAuthority, *, loop_limit: int = 16):
+class ResourceAttestationAuthority:
+    def __init__(self, *, verified: bool = True) -> None:
+        self.verified = verified
+
+    def verify(self, *, tenant_id: str, offer: dict[str, Any]) -> dict[str, Any]:
+        assert tenant_id == "tenant-a"
+        assert offer["workspace_id"] == "workspace-a"
+        return {
+            "verified": self.verified,
+            "reason_code": "hub_resource_attestation_verified" if self.verified else "resource_not_registered",
+        }
+
+
+def _setup(
+    database: Path,
+    authority: AssignmentAuthority,
+    *,
+    loop_limit: int = 16,
+    resource_verified: bool = True,
+):
     workspaces = service(database)
     workspaces.create_workspace(
         tenant_id="tenant-a",
@@ -67,6 +86,7 @@ def _setup(database: Path, authority: AssignmentAuthority, *, loop_limit: int = 
         CollaborationWorkspaceStore(database),
         policy=CollaborationWorkspacePolicy(),
         assignment_authority=authority,
+        resource_attestation_authority=ResourceAttestationAuthority(verified=resource_verified),
         clock=lambda: 100.0,
         maximum_correlation_intents=loop_limit,
     )
@@ -252,6 +272,20 @@ def test_unverified_offer_cannot_grant_production_lease(tmp_path: Path) -> None:
             workspace_id="workspace-a",
             offer_id="offer-a",
             assignment=authority.decide(tenant_id="tenant-a", intent=_intent())["assignment"],
+        )
+
+
+def test_caller_cannot_self_attest_verified_resource(tmp_path: Path) -> None:
+    control = _setup(
+        tmp_path / "state.sqlite3",
+        AssignmentAuthority(),
+        resource_verified=False,
+    )
+    with pytest.raises(PermissionError, match="resource_not_registered"):
+        control.publish_offer(
+            tenant_id="tenant-a",
+            principal_actor_id="human-user-a",
+            offer=_offer(attestation="verified"),
         )
 
 

@@ -104,14 +104,23 @@ def run_migrations_online() -> None:
     )
 
     with _connect_with_retry(connectable) as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            render_as_batch=True,
-        )
+        uses_postgres_lock = connection.dialect.name == "postgresql"
+        if uses_postgres_lock:
+            connection.exec_driver_sql("SELECT pg_advisory_lock(2044597616)")
+            connection.commit()
+        try:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                render_as_batch=True,
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            if uses_postgres_lock:
+                connection.exec_driver_sql("SELECT pg_advisory_unlock(2044597616)")
+                connection.commit()
 
 
 if context.is_offline_mode():
