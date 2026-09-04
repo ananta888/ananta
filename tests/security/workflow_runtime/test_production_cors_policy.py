@@ -67,7 +67,14 @@ def test_strict_workflow_runtime_accepts_explicit_http_origins() -> None:
     )
 
 
-def test_development_mode_retains_backwards_compatible_wildcard_default() -> None:
+def test_development_mode_retains_backwards_compatible_wildcard_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The suite may run inside a shell or worker that has a production CORS
+    # allowlist configured. This test owns the complete environment boundary
+    # for the two settings whose defaults it exercises.
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    monkeypatch.delenv("ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH", raising=False)
     settings = Settings(_env_file=None)
 
     assert settings.cors_origins == "*"
