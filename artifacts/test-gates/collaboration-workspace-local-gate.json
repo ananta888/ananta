@@ -25,6 +25,13 @@
       "local_write_fallback": false
     },
     "hub_resource_attestation_gate": "passed",
+    "registered_python_gate": {
+      "artifact": "artifacts/domain/collaboration-local-hub-evidence.json",
+      "run_id": "RUN_11fcb52d44cbf2dddda8b193e95f9123",
+      "source_id": "SRC_94f0a433cb50a716beda09eb4e3c18b9",
+      "evidence_scope": "local",
+      "verified": true
+    },
     "angular_production_build": "passed",
     "typescript_live_state_tests": {
       "status": "passed",

@@ -94,7 +94,8 @@
         "The native durable workspace, room/thread model, delivery, projections, search, recovery and optional bridge implementation now exist.",
         "A fully headless Chromium run against an isolated real Hub and Angular application covers create, message, reply, cursor, archive/reopen and reconnect.",
         "No test or productive bounded command path waits for a human; policy auto-approves eligible operations or returns a terminal blocked result.",
-        "Shared PostgreSQL event/outbox/checkpoint and tenant-qualified live/presence/cache CAS adapters pass real concurrent database tests without local write fallback."
+        "Shared PostgreSQL event/outbox/checkpoint and tenant-qualified live/presence/cache CAS adapters pass real concurrent database tests without local write fallback.",
+        "The Hub Evidence Registry reserved RUN_11fcb52d44cbf2dddda8b193e95f9123 before the clean local collaboration run; all 136 tests passed without skips under local scope and are bound to SRC_94f0a433cb50a716beda09eb4e3c18b9."
       ],
       "required_unblock_input": {
         "native_core": "Automatically reserve and execute a Hub Evidence Registry run for the concrete canary deployment.",
@@ -1906,7 +1907,7 @@
         "Fehlende, stale oder rote Evidence führt zu no_go; Gate-Report erfindet keine SRC_*-/RUN_*-IDs und ist reproduzierbar."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Der native echte Chromium-/Hub-Lauf und lokale Last-/Recovery-Gates bestehen vollständig headless. Für eine Produktions-/Canary-Freigabe fehlt ein vor Ausführung reservierter, erfolgreicher Hub-Evidence-Run für das konkrete Deployment; ohne ihn bleibt die Lane fail-closed."
+      "blocked_reason": "Der native echte Chromium-/Hub-Lauf und lokale Last-/Recovery-Gates bestehen vollständig headless; RUN_11fcb52d44cbf2dddda8b193e95f9123 ist als erfolgreicher lokaler 136-Test-Lauf registriert. Für eine Produktions-/Canary-Freigabe fehlt weiterhin ein vor Ausführung reservierter erfolgreicher Hub-Evidence-Run des tatsächlichen Canary-Deployments; lokale Evidence darf diese Lane nicht freigeben."
     }
   ],
   "critical_path_tasks": [
@@ -2265,10 +2266,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T17:46:33.041232Z",
+    "generated_at": "2026-09-04T17:55:22.904719Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "3d1d12a1c444e8bb642950d3d7d7fdb1d0c6edc09a6f3b4179c6f93bdad37c80",
+    "source_hash": "e9d70d74a6d72798d0afa1952aa1be3b9bc93c18c9f4ccd3fea20ffcb5b9fc00",
     "is_stale": false
   },
   "implementation_review": {

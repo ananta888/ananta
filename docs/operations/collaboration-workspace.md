@@ -49,6 +49,13 @@ explicit test URL skips only that database-specific gate; it never converts a
 SQLite observation into Multi-Hub evidence. A shared-adapter failure propagates
 as a bounded request failure and never switches writes to process-local state.
 
+The fixed `collaboration-local` Hub-evidence profile binds the collaboration
+sources, repository revision, execution environment and PostgreSQL test URL
+before pytest starts. Its latest committed report is
+`artifacts/domain/collaboration-local-hub-evidence.json`. This report has
+`local` scope only; it cannot satisfy a production canary, target-hardware,
+real-device Live/SFU or pinned Buzz runtime gate.
+
 Do not enable SFU from an `observe_only` or `no_go` state. Do not present a
 successful local test as Live/Buzz production evidence. The three release lanes
 are independent.
