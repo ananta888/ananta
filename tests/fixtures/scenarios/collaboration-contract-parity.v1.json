@@ -1,0 +1,181 @@
+{
+  "schema": "ananta.collaboration-contract-parity-fixture.v1",
+  "contracts": {
+    "workspace": {
+      "schema": "ananta.collaboration-workspace.v1",
+      "tenant_id": "tenant-a",
+      "workspace_id": "workspace-a",
+      "project_id": "project-a",
+      "title": "Parity",
+      "state": "active",
+      "retention": "standard",
+      "revision": 2,
+      "created_by": "actor-a",
+      "created_at": 100.0,
+      "native_core": true,
+      "bridge_required": false,
+      "human_intervention_required": false
+    },
+    "actor": {
+      "schema": "ananta.collaboration-actor-binding.v1",
+      "actor_binding_id": "actor-a",
+      "actor_kind": "human",
+      "authority_kind": "oidc",
+      "authority_subject": "user-a",
+      "display_name": "User A",
+      "capabilities": []
+    },
+    "room": {
+      "schema": "ananta.collaboration-room.v1",
+      "room_id": "room-a",
+      "room_kind": "project",
+      "title": "Project",
+      "binding_kind": "project",
+      "binding_id": "project-a"
+    },
+    "event": {
+      "schema": "ananta.workspace-event.v1",
+      "event_id": "event-a",
+      "workspace_id": "workspace-a",
+      "room_id": "room-a",
+      "thread_id": null,
+      "event_type": "message.posted",
+      "actor_binding_id": "actor-a",
+      "idempotency_key": "event-a",
+      "correlation_id": "correlation-a",
+      "causation_id": null,
+      "visibility": "room",
+      "retention": "standard",
+      "occurred_at": 100.0,
+      "payload": {"text": "safe"},
+      "payload_digest": "935bf81564f8f41837b3b42cdfaf9cd28badf89789c8ea14385f6bc4a794587e",
+      "source_refs": [],
+      "run_refs": []
+    },
+    "membership": {
+      "schema": "ananta.collaboration-membership.v1",
+      "workspace_id": "workspace-a",
+      "actor_binding_id": "actor-a",
+      "role": "owner",
+      "status": "active",
+      "revision": 2,
+      "capabilities": ["event.read"]
+    },
+    "live": {
+      "schema": "ananta.collaboration-live-envelope.v1",
+      "envelope_id": "envelope-a",
+      "workspace_id": "workspace-a",
+      "room_id": "room-a",
+      "publisher_actor_binding_id": "actor-a",
+      "traffic_class": "semantic",
+      "publisher_epoch": 2,
+      "created_at": 100.0,
+      "payload": {"text": "safe"},
+      "payload_digest": "935bf81564f8f41837b3b42cdfaf9cd28badf89789c8ea14385f6bc4a794587e",
+      "durable_event_id": null
+    },
+    "resource": {
+      "schema": "ananta.collaboration-resource-offer.v1",
+      "offer_id": "offer-a",
+      "workspace_id": "workspace-a",
+      "owner_actor_binding_id": "actor-a",
+      "resource_id": "resource-a",
+      "capability_category": "compute",
+      "capacity_class": "small",
+      "scopes": ["compute.run"],
+      "expires_at": 200.0,
+      "sensitivity": "workspace",
+      "attestation_status": "verified",
+      "metadata": {}
+    },
+    "intent": {
+      "schema": "ananta.collaboration-agent-intent.v1",
+      "intent_id": "intent-a",
+      "workspace_id": "workspace-a",
+      "room_id": "room-a",
+      "actor_binding_id": "actor-a",
+      "intent_type": "mention",
+      "target_actor_binding_id": "agent-a",
+      "task_id": null,
+      "correlation_id": "correlation-a",
+      "causation_id": null,
+      "hop_count": 0,
+      "payload": {"request": "help"},
+      "payload_digest": "8b1caf7e0fd877b166d4a7d72ab5200bb8bffad24fb14b1663bb71081f51ea5c"
+    },
+    "bridge_capability": {
+      "schema": "ananta.collaboration-bridge-capability.v1",
+      "state": "disabled",
+      "mapping_versions": [],
+      "supports_outbound": false,
+      "supports_inbound_proposals": false,
+      "supports_command_intents": false,
+      "native_core_available": true
+    }
+  },
+  "negative_cases": [
+    {
+      "id": "unknown-field",
+      "contract": "workspace",
+      "mutation": {"operation": "set", "path": "unexpected", "value": true},
+      "context": {},
+      "expected_reason_code": "collaboration_workspace_fields_invalid"
+    },
+    {
+      "id": "type-confusion",
+      "contract": "workspace",
+      "mutation": {"operation": "set", "path": "revision", "value": true},
+      "context": {},
+      "expected_reason_code": "collaboration_workspace_invalid"
+    },
+    {
+      "id": "oversize",
+      "contract": "event",
+      "mutation": {"operation": "repeat", "path": "payload.text", "value": "x", "count": 65537},
+      "context": {},
+      "expected_reason_code": "collaboration_event_invalid"
+    },
+    {
+      "id": "stale-revision",
+      "contract": "membership",
+      "mutation": {"operation": "set", "path": "revision", "value": 1},
+      "context": {"expected_revision": 2},
+      "expected_reason_code": "collaboration_revision_stale"
+    },
+    {
+      "id": "bad-digest",
+      "contract": "event",
+      "mutation": {"operation": "set", "path": "payload_digest", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "context": {},
+      "expected_reason_code": "collaboration_payload_digest_mismatch"
+    },
+    {
+      "id": "invalid-scope",
+      "contract": "intent",
+      "mutation": {"operation": "set", "path": "workspace_id", "value": "workspace-b"},
+      "context": {"expected_workspace_id": "workspace-a"},
+      "expected_reason_code": "collaboration_workspace_scope_mismatch"
+    },
+    {
+      "id": "workflow-retrigger",
+      "contract": "intent",
+      "mutation": {"operation": "merge", "value": {"intent_type": "propose_task", "origin_event_type": "workflow.projected"}},
+      "context": {},
+      "expected_reason_code": "collaboration_agent_intent_workflow_retrigger_forbidden"
+    },
+    {
+      "id": "live-audience-escalation",
+      "contract": "live",
+      "mutation": {"operation": "set", "path": "payload.receivers", "value": ["actor-b"]},
+      "context": {},
+      "expected_reason_code": "collaboration_live_envelope_invalid"
+    },
+    {
+      "id": "bridge-authority-escalation",
+      "contract": "bridge_capability",
+      "mutation": {"operation": "set", "path": "authority_granted", "value": true},
+      "context": {},
+      "expected_reason_code": "collaboration_bridge_capability_fields_invalid"
+    }
+  ]
+}

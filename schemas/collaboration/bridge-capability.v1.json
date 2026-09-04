@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/bridge-capability.v1.json",
+  "title": "CollaborationBridgeCapabilityV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "mapping_versions", "supports_outbound", "supports_inbound_proposals", "supports_command_intents", "native_core_available"],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-bridge-capability.v1"},
+    "state": {"enum": ["disabled", "disconnected", "connected"]},
+    "mapping_versions": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string"}},
+    "supports_outbound": {"type": "boolean"},
+    "supports_inbound_proposals": {"type": "boolean"},
+    "supports_command_intents": {"type": "boolean"},
+    "native_core_available": {"const": true}
+  }
+}

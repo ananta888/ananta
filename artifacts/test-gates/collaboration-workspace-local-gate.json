@@ -6,13 +6,19 @@
   "native_core": {
     "python_collaboration_tests": {
       "status": "passed",
-      "tests": 109,
+      "tests": 120,
       "parallel_runner": "pytest-xdist"
     },
     "angular_production_build": "passed",
     "typescript_live_state_tests": {
       "status": "passed",
       "tests": 3
+    },
+    "python_typescript_contract_parity": {
+      "status": "passed",
+      "positive_contracts": 9,
+      "negative_cases": 9,
+      "network_required": false
     },
     "chromium_hub_e2e": {
       "status": "passed",

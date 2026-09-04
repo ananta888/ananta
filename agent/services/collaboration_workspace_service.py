@@ -84,6 +84,27 @@ class CollaborationWorkspaceService:
         parsed = CollaborationRoomV1.from_mapping(room)
         return self._store.add_room(tenant_id, workspace_id, parsed.to_dict())
 
+    def reset_budget(
+        self,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        principal_actor_id: str,
+        dimension: str,
+        subject: str,
+        traffic_class: str,
+    ) -> dict[str, Any]:
+        self._authorize(tenant_id, workspace_id, principal_actor_id, "workspace.manage")
+        if self._budget is None:
+            raise RuntimeError("collaboration_budget_unavailable")
+        return self._budget.reset_scope(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            dimension=dimension,
+            subject=subject,
+            traffic_class=traffic_class,
+        )
+
     def put_room_access(
         self,
         *,

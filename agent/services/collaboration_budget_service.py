@@ -82,6 +82,39 @@ class CollaborationBudgetService:
             return decision
         return self._decision(True, "budget_admitted", traffic, counters)
 
+    def reset_scope(
+        self,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        dimension: str,
+        subject: str,
+        traffic_class: str,
+    ) -> dict[str, Any]:
+        if dimension not in self.DIMENSIONS:
+            raise ValueError("collaboration_budget_reset_dimension_invalid")
+        tenant = require_id(tenant_id, "tenant_id")
+        workspace = require_id(workspace_id, "workspace_id")
+        selected_subject = require_id(subject, "budget_subject")
+        if (dimension == "tenant" and selected_subject != tenant) or (
+            dimension == "workspace" and selected_subject != workspace
+        ):
+            raise PermissionError("collaboration_budget_reset_scope_mismatch")
+        traffic = require_id(traffic_class, "traffic_class")
+        removed = self._store.reset_quotas(
+            tenant,
+            workspace,
+            subject=selected_subject,
+            category=f"{traffic}:{dimension}",
+        )
+        return {
+            "reset": True,
+            "dimension": dimension,
+            "traffic_class": traffic,
+            "removed_windows": removed,
+            "content_included": False,
+        }
+
     def _record_denial(
         self,
         dimensions: Mapping[str, str],

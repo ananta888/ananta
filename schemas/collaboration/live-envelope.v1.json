@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/live-envelope.v1.json",
+  "title": "CollaborationLiveEnvelopeV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "envelope_id", "workspace_id", "room_id", "publisher_actor_binding_id", "traffic_class", "publisher_epoch", "created_at", "payload", "payload_digest", "durable_event_id"],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-live-envelope.v1"},
+    "envelope_id": {"type": "string"},
+    "workspace_id": {"type": "string"},
+    "room_id": {"type": "string"},
+    "publisher_actor_binding_id": {"type": "string"},
+    "traffic_class": {"enum": ["revocation", "control", "durable_projection", "semantic", "presence", "bulk_reference"]},
+    "publisher_epoch": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "number"},
+    "payload": {"type": "object"},
+    "payload_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "durable_event_id": {"type": ["string", "null"]}
+  }
+}

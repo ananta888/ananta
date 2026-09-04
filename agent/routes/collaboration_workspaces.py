@@ -391,6 +391,23 @@ def cancel_task(workspace_id: str, task_id: str):
     )
 
 
+@collaboration_workspaces_bp.post("/<workspace_id>/budgets/reset")
+@check_user_auth
+def reset_budget_scope(workspace_id: str):
+    def operation():
+        body = _body()
+        return _service().reset_budget(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            dimension=body.get("dimension"),
+            subject=body.get("subject"),
+            traffic_class=body.get("traffic_class"),
+        )
+
+    return _invoke(operation)
+
+
 @collaboration_workspaces_bp.post("/<workspace_id>/events")
 @check_user_auth
 def append_event(workspace_id: str):

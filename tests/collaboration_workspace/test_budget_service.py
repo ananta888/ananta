@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from agent.services.collaboration_budget_service import CollaborationBudgetService
 from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
 from tests.collaboration_workspace.helpers import actor, room, service
@@ -113,3 +115,58 @@ def test_cancel_and_revocation_can_never_be_blocked_by_abuse_budget(tmp_path: Pa
         )
         assert result["allowed"] is True
         assert result["reason_code"] == "collaboration_critical_signal_exempt"
+
+
+def test_budget_scope_can_be_reset_without_touching_other_subjects(tmp_path: Path) -> None:
+    database = tmp_path / "state.sqlite3"
+    service(database).create_workspace(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        title="Reset",
+        owner=actor(),
+        workspace_id="workspace-a",
+    )
+    budget = _budget(database)
+    dimensions = _dimensions()
+    for _ in range(2):
+        budget.admit(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            traffic_class="search_query",
+            dimensions=dimensions,
+        )
+    assert (
+        budget.admit(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            traffic_class="search_query",
+            dimensions=dimensions,
+        )["allowed"]
+        is False
+    )
+    reset = budget.reset_scope(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        dimension="principal",
+        subject="principal-a",
+        traffic_class="search_query",
+    )
+    assert reset["removed_windows"] == 1
+    # Other exhausted dimensions still fail closed; a scoped reset cannot broaden authority.
+    assert (
+        budget.admit(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            traffic_class="search_query",
+            dimensions=dimensions,
+        )["allowed"]
+        is False
+    )
+    with pytest.raises(PermissionError, match="reset_scope_mismatch"):
+        budget.reset_scope(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            dimension="tenant",
+            subject="tenant-b",
+            traffic_class="search_query",
+        )

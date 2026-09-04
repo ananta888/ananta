@@ -911,6 +911,28 @@ class CollaborationWorkspaceStore:
                 for subject, category, window, maximum in normalized
             ]
 
+    def reset_quotas(
+        self,
+        tenant_id: str,
+        workspace_id: str,
+        *,
+        subject: str,
+        category: str,
+    ) -> int:
+        keys = (
+            require_id(tenant_id, "tenant_id"),
+            require_id(workspace_id, "workspace_id"),
+            require_id(subject, "quota_subject"),
+            require_id(category, "quota_category"),
+        )
+        with self._transaction, self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM collaboration_admission_quotas WHERE tenant_id=? AND workspace_id=? "
+                "AND actor_binding_id=? AND category=?",
+                keys,
+            )
+        return int(cursor.rowcount)
+
     @staticmethod
     def _consume_quota_connection(
         connection: sqlite3.Connection,

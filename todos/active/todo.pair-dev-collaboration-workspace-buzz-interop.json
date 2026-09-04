@@ -1610,7 +1610,7 @@
     {
       "id": "PDCW-SEC-006",
       "title": "Rate-Limits, Abuse Controls und ressourcenbezogenen DoS-Schutz bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
@@ -1626,7 +1626,7 @@
         "Queue-/Storage-/Search-/LLM-/Tool-Amplification wird im Native Core adversarial getestet; aktivierte Live-/Agent-/Bridge-Profile erweitern dieselbe Matrix.",
         "Abuse-Sperren können scoped widerrufen werden und blockieren keine kritischen Revocation-/Cancel-Signale."
       ],
-      "progress_percent": 97.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-OPS-001",
@@ -1755,7 +1755,7 @@
     {
       "id": "PDCW-QA-001",
       "title": "Python-/TypeScript-Contract-Parity und Schema-Gates aufbauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1771,7 +1771,7 @@
         "Unknown Fields, Type Confusion, Oversize, stale Revision, bad Digest und invalid Scope sind abgedeckt.",
         "Schema-/Contract-Gate läuft deterministisch ohne Netzwerk und erzeugt content-freie Ergebnisse."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-QA-002",
@@ -1954,11 +1954,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 8,
+      "partial": 6,
       "blocked": 4,
-      "done": 60
+      "done": 62
     },
-    "progress_percent_done": 83.3,
+    "progress_percent_done": 86.1,
     "by_priority": {
       "P0": 34,
       "P1": 33,
@@ -1972,8 +1972,8 @@
     },
     "critical_path": {
       "total": 39,
-      "done": 34,
-      "remaining": 5
+      "done": 36,
+      "remaining": 3
     },
     "milestones": {
       "total": 12,
@@ -2061,28 +2061,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 1,
           "blocked": 0,
-          "done": 9
+          "done": 10
         },
-        "done": 9,
-        "partial": 2,
+        "done": 10,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 99.3
+        "progress_percent": 99.5
       },
       "test": {
         "total": 8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 4,
-          "done": 3
+          "done": 4
         },
-        "done": 3,
-        "partial": 1,
+        "done": 4,
+        "partial": 0,
         "blocked": 4,
-        "progress_percent": 87.5
+        "progress_percent": 89.4
       },
       "migration": {
         "total": 1,
@@ -2104,11 +2104,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 8,
+    "partial": 6,
     "blocked": 4,
-    "done": 60,
-    "count_based_percent": 83.3,
-    "weighted_percent": 97.8
+    "done": 62,
+    "count_based_percent": 86.1,
+    "weighted_percent": 98.0
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2156,10 +2156,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 117.79,
-    "remaining_weight": 2.71,
+    "done_weight": 118.113,
+    "remaining_weight": 2.387,
     "blocked_weight": 6.0,
-    "weighted_percent": 97.8
+    "weighted_percent": 98.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2237,10 +2237,10 @@
       },
       "M10": {
         "total_tasks": 6,
-        "done": 4,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 66.7,
-        "weighted_percent": 98.6,
+        "count_based_percent": 83.3,
+        "weighted_percent": 99.2,
         "status": "in_progress"
       },
       "M11": {
@@ -2253,10 +2253,10 @@
       },
       "M12": {
         "total_tasks": 6,
-        "done": 2,
+        "done": 3,
         "blocked": 3,
-        "count_based_percent": 33.3,
-        "weighted_percent": 87.0,
+        "count_based_percent": 50.0,
+        "weighted_percent": 89.4,
         "status": "in_progress"
       }
     }
@@ -2264,10 +2264,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T16:38:31.457665Z",
+    "generated_at": "2026-09-04T16:47:53.339747Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "6894c70cc9004d6e5684b5004d8536404864a7c412f547203db765f22c237dbc",
+    "source_hash": "a08982e63ed785fcf1d108f256468840db581d281cb6adb2946c5394a918cbd8",
     "is_stale": false
   },
   "implementation_review": {

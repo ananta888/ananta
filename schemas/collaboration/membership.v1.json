@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/membership.v1.json",
+  "title": "CollaborationMembershipV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "workspace_id", "actor_binding_id", "role", "status", "revision", "capabilities"],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-membership.v1"},
+    "workspace_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "actor_binding_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "role": {"enum": ["owner", "maintainer", "member", "guest", "observer", "editor", "viewer"]},
+    "status": {"enum": ["active", "revoked"]},
+    "revision": {"type": "integer", "minimum": 1},
+    "capabilities": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string"}}
+  }
+}
