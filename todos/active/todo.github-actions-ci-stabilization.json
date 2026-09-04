@@ -603,26 +603,28 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-017",
-          "status": "completed",
+          "status": "in_progress",
           "workflow": "Quality And Docs",
           "workflow_job": "backend-checks",
           "step": "Source file line limit gate",
           "severity": "medium",
-          "risk_assessment": "Mittel: das Gate ist rot, die Behebung ist aber eine breite Umstrukturierung vieler Dateien und bewusst einem eigenen Arbeitsgang vorbehalten.",
-          "observed_error": "Run 31942877103, Job backend-checks: source_file_line_count_audit.v1 meldet bei threshold 1000 ueber 9386 Dateien: failing_source_over_threshold 77, source_over_threshold 131, test_over_threshold 45, over_threshold 274. Exit code 1.",
-          "root_cause": "Historisch gewachsene Dateigroessen oberhalb der 1000-Zeilen-Schwelle.",
+          "risk_assessment": "Mittel: der Gate blockiert aktuelle Commits. Zwei bestehende Baselines wurden ueberschritten; der neue Collaboration-Store verletzt SRP durch die Kopplung mehrerer Persistenzdomaenen.",
+          "observed_error": "Erneut reproduziert auf Commit 1af639e12 in Quality-And-Docs-Run 33913044934, Job 101153774462: source_file_line_count_audit.v1 meldet exakt drei Produktionsfehler. Der gleiche Befund ist in einem sauberen lokalen Git-Archiv von Commit 16cec6674 reproduzierbar: agent/config.py 1218 Zeilen (Baseline 1178), agent/services/model_invocation_service.py 2251 (Baseline 2243), agent/services/collaboration_workspace_store.py 2108 (nicht gelistet).",
+          "root_cause": "Neue produktive Aenderungen ueberschritten zwei bewusst festgeschriebene Baselines. Der Collaboration-Store wurde nach dem Baseline-Snapshot als 2108-zeilige Sammelklasse fuer Workspace, Membership, Ressourcen, Events, Suche, Outbox, Presence, Migration und Backup eingefuehrt.",
           "affected_files_or_subsystems": [
-            "reports/source-files-over-1000-allowlist.json",
-            ".github/workflows/quality-and-docs.yml"
+            "agent/config.py",
+            "agent/services/model_invocation_service.py",
+            "agent/services/collaboration_workspace_store.py"
           ],
-          "proposed_solution": "AUSDRUECKLICH ZURUECKGESTELLT auf Anweisung des Nutzers: wird in einem eigenen Arbeitsgang mit einem separaten Agenten geloest. Nicht im Rahmen der uebrigen CI-Punkte anfassen, insbesondere nicht durch Aufweichen der Schwelle oder Erweitern der Allowlist.",
-          "expected_result": "Offen, bis der separate Arbeitsgang laeuft.",
+          "proposed_solution": "Keine Allowlist-Erweiterung und keine Schwellwertaenderung. Bestehende Baselines durch kleine, fachliche Extraktionen wieder einhalten und Collaboration-Persistenz in fokussierte, intern komponierte Module aufteilen; die oeffentliche Store-API bleibt kompatibel.",
+          "expected_result": "Der Source-file-line-limit-Gate ist ohne neue oder erhoehte Allowlist-Ausnahme gruen; Verhalten und oeffentliche Collaboration-Store-API bleiben unveraendert.",
           "relevant_validations": [
             "Lauf 31969881962 auf 2f64a57a: Quality And Docs komplett gruen, 17 von 17 Jobs, einschliesslich backend-checks.",
             "Befund vor der Entscheidung: der Gate war NICHT unbillig gegenueber Altlasten. agent/services/workflow_runtime/ownership.py hatte am 27.07. 860 Zeilen und heute 3352; agent/services/source_control_api_runtime.py existierte am 27.07. nicht und hat heute 2962. Die 63 nicht gelisteten Dateien sind echter Zuwachs der letzten drei Wochen, kein Altbestand.",
             "Auf ausdrueckliche Entscheidung des Nutzers per Neu-Schnappschuss geloest statt per Refactoring: 131 Eintraege (68 Altlasten uebernommen, 16 Baselines angehoben, 63 neu, 6 entfallen). Die 63 neuen tragen einen eigenen Grund mit Datum statt als 'legacy' gefuehrt zu werden, damit im Protokoll steht, was wann akzeptiert wurde.",
             "OFFEN GEBLIEBEN, bewusst: die Schuld ist damit datiert protokolliert, nicht behoben - 63 Dateien, 29.332 Zeilen ueber der Grenze, weiter unter RFS-015 mit Ablauf 31.12.2026. Der Gate blockiert ab hier jedes weitere Wachstum, was die eigentlich wertvolle Eigenschaft ist, bis die Aufteilung passiert.",
-            "Nicht angefasst: das Audit durchlaeuft den Arbeitsbaum inklusive gitignorierter Build-Ausgabe. Lokal meldet es nach einem Build 36 Geisterfehler aus frontend-angular/out-tsc/; in der CI folgenlos, weil frisch ausgecheckt wird. Das zu korrigieren waere Genauigkeit, keine Aufweichung - aber am Gate sollte nichts geaendert werden."
+            "Nicht angefasst: das Audit durchlaeuft den Arbeitsbaum inklusive gitignorierter Build-Ausgabe. Lokal meldet es nach einem Build Geisterfehler aus frontend-angular/out-tsc/; in der CI folgenlos, weil frisch ausgecheckt wird. Die aktuelle Gegenprobe wurde deshalb gegen ein sauberes git archive des exakten Commits ausgefuehrt.",
+            "AUDIT 2026-09-04: CI-017 wurde wieder geoeffnet, weil die Baseline ihren Zweck erfuellt und drei neue Quellcode-Regressionsfehler blockiert. Die fruehere Entscheidung gegen die breite Altlastenbereinigung bleibt bestehen; bearbeitet werden nur die drei aktuellen Abweichungen."
           ]
         },
         {
@@ -911,10 +913,10 @@
   "meta": {
     "total_items": 26,
     "by_status": {
-      "completed": 25,
+      "completed": 24,
       "partial": 0,
       "open": 0,
-      "in_progress": 0,
+      "in_progress": 1,
       "blocked": 1,
       "blocked_decision": 0,
       "planned": 0,
@@ -934,8 +936,9 @@
       "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab.",
       "ABSCHLUSS 2026-09-01: CI-013 ist durch Coverage-Lauf 33478142971 am Commit d4da32c56 mit 21 von 21 erfolgreichen Jobs abgeschlossen. Damit verbleibt in dieser Datei ausschliesslich CI-018 als extern evidenzgebundener Blocker; es gibt keine nicht blockierte Arbeit mehr.",
       "AUDIT 2026-09-04: Neue, reproduzierbare Fehler aus Python Verification 33882383020, Research Training Gate 33882383257 und Backend Isolated Flows 33908670417 sind als CI-023 bis CI-026 aufgenommen. CI-018 bleibt extern blockiert: seit 2026-06-27 kein neuer Container-Release-Lauf und alle fuenf letzten Dogfood-Laeufe wurden abgebrochen.",
-      "ABSCHLUSS 2026-09-04: CI-023 bis CI-026 sind durch Python Verification 33910210131, Research Training Gate 33910217014 und Backend Isolated Flows 33910210132 auf Commit 7ad0784329fd4998809b89134a76b72670321875 vollständig grün. In diesem Track verbleibt nur CI-018 als echte externe Release-/Dogfood-Evidenzblockade."
+      "ABSCHLUSS 2026-09-04: CI-023 bis CI-026 sind durch Python Verification 33910210131, Research Training Gate 33910217014 und Backend Isolated Flows 33910210132 auf Commit 7ad0784329fd4998809b89134a76b72670321875 vollständig grün.",
+      "REAUDIT 2026-09-04: CI-017 ist wegen drei aktuellen, reproduzierbaren Zeilenlimitverletzungen wieder in Bearbeitung. CI-018 bleibt die einzige externe Release-/Dogfood-Evidenzblockade."
     ],
-    "recommended_order": []
+    "recommended_order": ["CI-017", "CI-018"]
   }
 }
