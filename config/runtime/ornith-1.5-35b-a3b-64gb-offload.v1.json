@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.local-model-runtime-profile.v1",
+  "profile_id": "ornith-1.5-35b-a3b-64gb-offload-v1",
+  "model_profile_id": "local_llamacpp_ornith_1_5_35b_a3b_evaluation",
+  "variant_id": "ornith-1.5-35b-a3b",
+  "artifact_id": "ornith-1.5-35b-a3b-q4-k-m",
+  "artifact_sha256": "42739874cc2ccfdb8523b23fbe52e29b2a7555c8176737ca9ca0b5d59859d41f",
+  "artifact_size_bytes": 21713463040,
+  "vision_projection_artifact_id": "ornith-1.5-35b-a3b-mmproj-bf16",
+  "vision_projection_size_bytes": 902822240,
+  "hardware_class": "rtx3080-10gb-host64gb-offload",
+  "gpu_name": "NVIDIA GeForce RTX 3080",
+  "minimum_total_vram_bytes": 10737418240,
+  "minimum_total_ram_bytes": 64424509440,
+  "minimum_reserve_fraction": 0.15,
+  "maximum_parallel_requests": 1,
+  "requires_no_swap_growth": true,
+  "default_context_tokens": 8192,
+  "contexts": [
+    {"context_tokens": 8192, "estimated_vram_bytes": 7516192768, "estimated_ram_bytes": 28991029248, "state": "candidate"},
+    {"context_tokens": 16384, "estimated_vram_bytes": 9126805504, "estimated_ram_bytes": 31138512896, "state": "candidate"},
+    {"context_tokens": 32768, "estimated_vram_bytes": 11274289152, "estimated_ram_bytes": 35433480192, "state": "stress_only"},
+    {"context_tokens": 262144, "estimated_vram_bytes": 25769803776, "estimated_ram_bytes": 64424509440, "state": "stress_only"}
+  ],
+  "runtimes": [
+    {"runtime_id": "ollama", "protocol": "ollama_native", "minimum_version": null, "reasoning_parser": null, "tool_parser": null, "remote_code_allowed": false, "state": "candidate", "reason_codes": ["runtime_version_not_pinned_upstream"]},
+    {"runtime_id": "lmstudio", "protocol": "openai_compatible", "minimum_version": null, "reasoning_parser": null, "tool_parser": null, "remote_code_allowed": false, "state": "candidate", "reason_codes": ["runtime_version_not_pinned_upstream"]},
+    {"runtime_id": "llamacpp", "protocol": "openai_compatible", "minimum_version": null, "reasoning_parser": null, "tool_parser": null, "remote_code_allowed": false, "state": "candidate", "reason_codes": ["runtime_version_not_pinned_upstream"]},
+    {"runtime_id": "vllm", "protocol": "openai_compatible", "minimum_version": "0.19.1", "reasoning_parser": "qwen3", "tool_parser": "qwen3_xml", "remote_code_allowed": false, "state": "incompatible", "reason_codes": ["upstream_recipe_requires_remote_code", "upstream_reference_hardware_2x80gb"]},
+    {"runtime_id": "sglang", "protocol": "openai_compatible", "minimum_version": "0.5.9", "reasoning_parser": "qwen3", "tool_parser": "qwen3_coder", "remote_code_allowed": false, "state": "optional", "reason_codes": ["upstream_reference_hardware_2x80gb"]}
+  ],
+  "production_default_allowed": false,
+  "hardware_results_state": "not_run"
+}

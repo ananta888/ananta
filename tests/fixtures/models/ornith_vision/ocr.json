@@ -1,0 +1,1 @@
+{"schema":"ananta.synthetic-image-fixture.v1","width":640,"height":240,"background":"#ffffff","elements":[{"kind":"text","x":40,"y":80,"value":"ANANTA 1.5 / BUILD 2048","color":"#111111"}],"expected_terms":["ANANTA","BUILD","2048"]}

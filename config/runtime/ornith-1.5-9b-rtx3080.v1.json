@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.local-model-runtime-profile.v1",
+  "profile_id": "ornith-1.5-9b-rtx3080-v1",
+  "model_profile_id": "local_ollama_ornith_1_5_9b_evaluation",
+  "variant_id": "ornith-1.5-9b",
+  "artifact_id": "ornith-1.5-9b-q4-k-m",
+  "artifact_sha256": "70c112196e0b7023803c9762752e46d29e612a92c83f995bc3ba1ceb07e8fab6",
+  "artifact_size_bytes": 5780090816,
+  "vision_projection_artifact_id": "ornith-1.5-9b-mmproj-bf16",
+  "vision_projection_size_bytes": 921704672,
+  "hardware_class": "rtx3080-10gb",
+  "gpu_name": "NVIDIA GeForce RTX 3080",
+  "minimum_total_vram_bytes": 10737418240,
+  "minimum_total_ram_bytes": 34359738368,
+  "minimum_reserve_fraction": 0.15,
+  "maximum_parallel_requests": 1,
+  "requires_no_swap_growth": true,
+  "default_context_tokens": 8192,
+  "contexts": [
+    {"context_tokens": 8192, "estimated_vram_bytes": 7516192768, "estimated_ram_bytes": 2147483648, "state": "candidate"},
+    {"context_tokens": 16384, "estimated_vram_bytes": 8053063680, "estimated_ram_bytes": 2684354560, "state": "candidate"},
+    {"context_tokens": 32768, "estimated_vram_bytes": 9448928051, "estimated_ram_bytes": 3758096384, "state": "candidate"},
+    {"context_tokens": 262144, "estimated_vram_bytes": 21474836480, "estimated_ram_bytes": 12884901888, "state": "stress_only"}
+  ],
+  "runtimes": [
+    {"runtime_id": "ollama", "protocol": "ollama_native", "minimum_version": null, "reasoning_parser": null, "tool_parser": null, "remote_code_allowed": false, "state": "candidate", "reason_codes": ["runtime_version_not_pinned_upstream"]},
+    {"runtime_id": "lmstudio", "protocol": "openai_compatible", "minimum_version": null, "reasoning_parser": null, "tool_parser": null, "remote_code_allowed": false, "state": "candidate", "reason_codes": ["runtime_version_not_pinned_upstream"]},
+    {"runtime_id": "llamacpp", "protocol": "openai_compatible", "minimum_version": null, "reasoning_parser": null, "tool_parser": null, "remote_code_allowed": false, "state": "candidate", "reason_codes": ["runtime_version_not_pinned_upstream"]},
+    {"runtime_id": "vllm", "protocol": "openai_compatible", "minimum_version": "0.19.1", "reasoning_parser": "qwen3", "tool_parser": "qwen3_xml", "remote_code_allowed": false, "state": "incompatible", "reason_codes": ["upstream_recipe_requires_remote_code"]},
+    {"runtime_id": "sglang", "protocol": "openai_compatible", "minimum_version": "0.5.9", "reasoning_parser": "qwen3", "tool_parser": "qwen3_coder", "remote_code_allowed": false, "state": "optional", "reason_codes": []}
+  ],
+  "production_default_allowed": false,
+  "hardware_results_state": "not_run"
+}

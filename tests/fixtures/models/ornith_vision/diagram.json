@@ -1,0 +1,1 @@
+{"schema":"ananta.synthetic-image-fixture.v1","width":640,"height":320,"background":"#ffffff","elements":[{"kind":"box","x":60,"y":110,"label":"Hub"},{"kind":"arrow","from":"Hub","to":"Worker"},{"kind":"box","x":420,"y":110,"label":"Worker"}],"expected_relation":"Hub delegates to Worker"}

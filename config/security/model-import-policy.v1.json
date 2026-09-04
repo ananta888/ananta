@@ -1,0 +1,18 @@
+{
+  "schema": "ananta.model-import-policy.v1",
+  "policy_id": "immutable-local-model-import",
+  "allowed_publishers": ["ornith-ai"],
+  "allowed_formats": ["gguf", "safetensors", "json", "jinja"],
+  "forbidden_extensions": [".bin", ".ckpt", ".joblib", ".pkl", ".pickle", ".py", ".so"],
+  "maximum_artifact_bytes": 107374182400,
+  "require_revision": true,
+  "require_sha256": true,
+  "require_network_authorization": true,
+  "allow_remote_code": false,
+  "allow_symlinks": false,
+  "allow_path_traversal": false,
+  "publish_read_only": true,
+  "redact_host_paths": true,
+  "redact_credentials": true,
+  "production_requires_license_approved": true
+}

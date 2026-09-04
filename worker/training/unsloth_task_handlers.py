@@ -15,13 +15,12 @@ from ananta_contracts.unsloth_task import (
 )
 from worker.training.model_imports import (
     HuggingFaceSnapshotDownloadAdapter,
+    ImmutableModelImportExecutor,
     ModelImportCommand,
-    UnslothModelImportExecutor,
 )
 from worker.training.storage_cleanup import (
     WorkerStorageCleanupExecutor,
 )
-
 
 UNSLOTH_WORKER_RESULT_SCHEMA = "ananta.unsloth-worker-task-result.v1"
 
@@ -78,7 +77,7 @@ class UnslothModelImportTaskHandler:
         }
     )
 
-    def __init__(self, executor: UnslothModelImportExecutor) -> None:
+    def __init__(self, executor: ImmutableModelImportExecutor) -> None:
         self._executor = executor
 
     def propose(self, **kwargs: Any) -> dict[str, Any]:
@@ -366,7 +365,7 @@ def build_unsloth_model_import_task_handler(
     network_enabled: bool,
 ) -> UnslothModelImportTaskHandler:
     return UnslothModelImportTaskHandler(
-        UnslothModelImportExecutor(
+        ImmutableModelImportExecutor(
             cache_root=cache_root,
             artifact_root=artifact_root,
             downloads=HuggingFaceSnapshotDownloadAdapter(),

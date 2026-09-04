@@ -199,6 +199,46 @@
           "type": ["number", "null"],
           "minimum": 0,
           "description": "Cost in EUR per 1M output tokens for cost estimation"
+        },
+        "aliases": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "input_modalities": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "output_modalities": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "capability_claims": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capability_id", "value", "evidence"],
+            "properties": {
+              "capability_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{0,63}$" },
+              "value": { "enum": ["supported", "unsupported", "unknown"] },
+              "evidence": { "enum": ["declared", "detected", "benchmark", "unknown"] },
+              "source_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+            }
+          }
+        },
+        "nominal_context_tokens": { "type": ["integer", "null"], "minimum": 1 },
+        "verified_context_tokens": { "type": ["integer", "null"], "minimum": 1 },
+        "hardware_class": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 },
+        "artifact_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "release_state": {
+          "enum": ["unavailable", "experimental", "shadow", "opt_in", "preferred", "disabled"]
         }
       },
       "if": {

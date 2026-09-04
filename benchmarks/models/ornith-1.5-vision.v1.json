@@ -1,0 +1,15 @@
+{
+  "schema": "ananta.ornith-vision-benchmark.v1",
+  "benchmark_id": "ornith-1.5-vision-local-v1",
+  "state": "not_run",
+  "fixture_directory": "tests/fixtures/models/ornith_vision",
+  "cases": [
+    {"case_id": "ocr", "fixture": "ocr.json", "formats": ["png"], "maximum_bytes": 1048576},
+    {"case_id": "diagram", "fixture": "diagram.json", "formats": ["png"], "maximum_bytes": 1048576},
+    {"case_id": "screenshot", "fixture": "screenshot.json", "formats": ["png"], "maximum_bytes": 1048576},
+    {"case_id": "description", "fixture": "description.json", "formats": ["png"], "maximum_bytes": 1048576}
+  ],
+  "verification_requires": ["model_sha256", "vision_projection_sha256", "fixture_sha256", "runtime_digest", "hub_run_id"],
+  "text_only_on_missing_projection": true,
+  "production_claim": false
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "ananta.ornith-hardware-results.v1",
+  "result_set_id": "ornith-1.5-local-not-run",
+  "state": "not_run",
+  "reason_codes": ["runtime_not_installed", "artifact_not_materialized", "hub_bound_live_run_missing"],
+  "measurements": [],
+  "verified_context_tokens": null,
+  "routing_recommendation": null,
+  "production_claim": false
+}

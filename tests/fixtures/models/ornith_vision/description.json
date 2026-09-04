@@ -1,0 +1,1 @@
+{"schema":"ananta.synthetic-image-fixture.v1","width":512,"height":512,"background":"#d9ecff","elements":[{"kind":"circle","x":256,"y":256,"radius":90,"color":"#ff8c42"},{"kind":"rectangle","x":60,"y":360,"width":392,"height":40,"color":"#2f855a"}],"expected_objects":["orange circle","green rectangle"]}

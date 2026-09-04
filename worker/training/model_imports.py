@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from fnmatch import fnmatch
 import hashlib
 import os
-from pathlib import Path
 import re
 import shutil
+from dataclasses import dataclass
+from fnmatch import fnmatch
+from pathlib import Path
 from typing import Iterable, Protocol
 from uuid import uuid4
 
@@ -138,8 +138,8 @@ class HuggingFaceSnapshotDownloadAdapter:
         )
 
 
-class UnslothModelImportExecutor:
-    """Materializes a model inside a worker cache with immutable hash fencing."""
+class ImmutableModelImportExecutor:
+    """Materialize an admitted model inside a worker-owned immutable cache."""
 
     _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
     _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -178,6 +178,7 @@ class UnslothModelImportExecutor:
                     "model_cache_hash_mismatch",
                     "An existing immutable cache entry has the wrong digest.",
                 )
+            self._make_read_only(destination)
             return self._result(cache_key, destination, digest, count, size)
 
         self._cache_root.mkdir(parents=True, exist_ok=True)
@@ -209,6 +210,7 @@ class UnslothModelImportExecutor:
                         "model_cache_publish_conflict",
                         "A conflicting immutable cache entry was published.",
                     )
+            self._make_read_only(destination)
             return self._result(cache_key, destination, digest, count, size)
         finally:
             shutil.rmtree(staging, ignore_errors=True)
@@ -421,6 +423,12 @@ class UnslothModelImportExecutor:
             )
         return digest.hexdigest(), count, total
 
+    @staticmethod
+    def _make_read_only(root: Path) -> None:
+        for path in sorted(root.rglob("*"), reverse=True):
+            path.chmod(0o500 if path.is_dir() else 0o400)
+        root.chmod(0o500)
+
     def _result(
         self,
         cache_key: str,
@@ -436,3 +444,7 @@ class UnslothModelImportExecutor:
             file_count=count,
             total_bytes=size,
         )
+
+
+# Compatibility name retained for already shipped Unsloth integrations.
+UnslothModelImportExecutor = ImmutableModelImportExecutor

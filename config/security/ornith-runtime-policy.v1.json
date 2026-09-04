@@ -1,0 +1,12 @@
+{
+  "schema": "ananta.local-model-runtime-security.v1",
+  "policy_id": "ornith-1.5-default-off",
+  "network": {"default": "deny", "allowed_destinations": []},
+  "container": {"privileged": false, "docker_socket": false, "read_only_root": true, "no_new_privileges": true},
+  "telemetry": {"enabled": false},
+  "mounts": {"model_artifacts": "read_only", "workspace": "read_only", "scratch": "bounded_tmpfs"},
+  "limits": {"maximum_parallel_requests": 1, "minimum_memory_reserve_fraction": 0.15, "swap_growth_allowed": false},
+  "response": {"trusted": false, "reasoning_persisted": false, "reasoning_authorizes_actions": false},
+  "tools": {"hub_policy_required": true, "tenant_binding_required": true, "operation_id_required": true},
+  "release": {"default_enabled": false, "production_requires_hub_evidence": true, "critical_cves_block": true, "unknown_license_blocks": true}
+}

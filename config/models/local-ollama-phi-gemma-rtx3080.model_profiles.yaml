@@ -63,3 +63,180 @@ profiles:
     base_url: "http://ollama:11434/v1"
     enabled: true
     notes: "Local QAT Gemma 4 fallback for higher-quality reasoning; no cloud egress."
+
+  - profile_id: local_ollama_ornith_1_5_9b_evaluation
+    provider_id: ollama
+    model: "ornith-1.5:9b"
+    model_role: coder
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: false
+    supports_streaming: false
+    context_tokens: 8192
+    max_context_for_profile: 8192
+    nominal_context_tokens: 262144
+    verified_context_tokens: null
+    max_output_tokens: 4096
+    timeout_seconds: 300
+    temperature: 0.6
+    cost_class: free
+    quality_class: medium
+    estimated_latency_class: local
+    json_reliability_class: unknown
+    tool_calling_mode: none
+    retry_budget: 0
+    fallback_group: local_phi_to_gemma_reasoning
+    fallback_rank: 40
+    base_url: "http://ollama:11434/v1"
+    aliases: [ornith-1.5-9b, ornith-9b]
+    input_modalities: [text, image]
+    output_modalities: [text]
+    hardware_class: rtx3080-10gb
+    artifact_sha256: 70c112196e0b7023803c9762752e46d29e612a92c83f995bc3ba1ceb07e8fab6
+    release_state: experimental
+    response_policy: qwen3_reasoning_safe
+    quantization: q4_k_m
+    capability_claims:
+      - {capability_id: chat, value: supported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: thinking, value: supported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: tools, value: supported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: json, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b"}
+      - {capability_id: vision, value: supported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: embedding, value: unsupported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: streaming, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b"}
+    preferred_for: [coding, reasoning, repo_analysis]
+    avoid_for: [production, high_risk_tools, unverified_vision, long_context]
+    enabled: false
+    notes: "Default-off evaluation profile. Declared capabilities do not permit routing until runtime and benchmark evidence is Hub-bound."
+
+  - profile_id: local_lmstudio_ornith_1_5_9b_evaluation
+    provider_id: lmstudio
+    model: "ornith-ai/Ornith-1.5-9B-GGUF"
+    model_role: coder
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: false
+    supports_streaming: false
+    context_tokens: 8192
+    max_context_for_profile: 8192
+    nominal_context_tokens: 262144
+    verified_context_tokens: null
+    max_output_tokens: 4096
+    timeout_seconds: 300
+    temperature: 0.6
+    cost_class: free
+    quality_class: medium
+    estimated_latency_class: local
+    json_reliability_class: unknown
+    tool_calling_mode: none
+    retry_budget: 0
+    base_url: "http://host.docker.internal:1234/v1"
+    aliases: [ornith-1.5-9b-lmstudio]
+    input_modalities: [text, image]
+    output_modalities: [text]
+    hardware_class: rtx3080-10gb
+    artifact_sha256: 70c112196e0b7023803c9762752e46d29e612a92c83f995bc3ba1ceb07e8fab6
+    release_state: experimental
+    response_policy: qwen3_reasoning_safe
+    quantization: q4_k_m
+    capability_claims:
+      - {capability_id: chat, value: supported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: thinking, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b-lmstudio"}
+      - {capability_id: tools, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b-lmstudio"}
+      - {capability_id: json, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b-lmstudio"}
+      - {capability_id: vision, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b-lmstudio"}
+      - {capability_id: embedding, value: unsupported, evidence: declared, source_id: "hf:ornith-1.5-9b"}
+      - {capability_id: streaming, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-9b-lmstudio"}
+    preferred_for: [coding, reasoning, repo_analysis]
+    avoid_for: [production, high_risk_tools, unverified_vision, long_context]
+    enabled: false
+    notes: "Second local runtime path; parser and vision support stay unknown until observed for the exact LM Studio build."
+
+  - profile_id: local_llamacpp_ornith_1_5_35b_a3b_evaluation
+    provider_id: openai_compatible
+    model: "ornith-ai/Ornith-1.5-35B-A3B-GGUF"
+    model_role: reasoning
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: false
+    supports_streaming: false
+    context_tokens: 8192
+    max_context_for_profile: 8192
+    nominal_context_tokens: 262144
+    verified_context_tokens: null
+    max_output_tokens: 4096
+    timeout_seconds: 900
+    temperature: 0.6
+    cost_class: free
+    quality_class: high
+    estimated_latency_class: local_slow
+    json_reliability_class: unknown
+    tool_calling_mode: none
+    retry_budget: 0
+    base_url: "http://host.docker.internal:12435/v1"
+    aliases: [ornith-1.5-35b-a3b, ornith-35b]
+    input_modalities: [text, image]
+    output_modalities: [text]
+    hardware_class: rtx3080-10gb-host64gb-offload
+    artifact_sha256: 42739874cc2ccfdb8523b23fbe52e29b2a7555c8176737ca9ca0b5d59859d41f
+    release_state: experimental
+    response_policy: qwen3_reasoning_safe
+    quantization: q4_k_m
+    capability_claims:
+      - {capability_id: chat, value: supported, evidence: declared, source_id: "hf:ornith-1.5-35b-a3b"}
+      - {capability_id: thinking, value: supported, evidence: declared, source_id: "hf:ornith-1.5-35b-a3b"}
+      - {capability_id: tools, value: supported, evidence: declared, source_id: "hf:ornith-1.5-35b-a3b"}
+      - {capability_id: json, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-35b-a3b"}
+      - {capability_id: vision, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-35b-a3b"}
+      - {capability_id: embedding, value: unsupported, evidence: declared, source_id: "hf:ornith-1.5-35b-a3b"}
+      - {capability_id: streaming, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-35b-a3b"}
+    preferred_for: [reasoning, coding, repo_analysis]
+    avoid_for: [production, latency_sensitive, high_risk_tools, unverified_vision, long_context]
+    enabled: false
+    notes: "CPU/GPU-offload evaluation only. A3B is compute-active parameters, not resident weight size."
+
+  - profile_id: local_ornith_1_5_397b_unavailable
+    provider_id: openai_compatible
+    model: "ornith-ai/Ornith-1.5-397B"
+    model_role: reasoning
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: false
+    supports_streaming: false
+    context_tokens: 8192
+    max_context_for_profile: 8192
+    nominal_context_tokens: 262144
+    verified_context_tokens: null
+    max_output_tokens: 4096
+    timeout_seconds: 900
+    temperature: 0.6
+    cost_class: free
+    quality_class: high
+    estimated_latency_class: unavailable
+    json_reliability_class: unknown
+    tool_calling_mode: none
+    retry_budget: 0
+    aliases: [ornith-1.5-397b]
+    input_modalities: [text, image]
+    output_modalities: [text]
+    hardware_class: unsupported-local
+    release_state: unavailable
+    capability_claims:
+      - {capability_id: chat, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-397b"}
+      - {capability_id: tools, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-397b"}
+      - {capability_id: vision, value: unknown, evidence: unknown, source_id: "profile:ornith-1.5-397b"}
+    avoid_for: [local_execution, production]
+    enabled: false
+    notes: "Known upstream variant, intentionally unroutable on the 10-GB GPU / 64-GB host target."

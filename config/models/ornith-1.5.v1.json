@@ -1,0 +1,62 @@
+{
+  "schema": "ananta.ornith-model-catalog.v1",
+  "catalog_id": "ornith-1.5-local-evaluation",
+  "source_manifest": "config/models/ornith-1.5-sources.v1.json",
+  "variants": [
+    {
+      "variant_id": "ornith-1.5-9b",
+      "architecture": "qwen3_5",
+      "parameters_total": 9000000000,
+      "parameters_active": 9000000000,
+      "nominal_context_tokens": 262144,
+      "local_state": "evaluation_only",
+      "profiles": ["local_ollama_ornith_1_5_9b_evaluation", "local_lmstudio_ornith_1_5_9b_evaluation"],
+      "capabilities": {
+        "text": {"value": "supported", "evidence": "declared"},
+        "vision": {"value": "supported", "evidence": "declared"},
+        "reasoning": {"value": "supported", "evidence": "declared"},
+        "json": {"value": "unknown", "evidence": "unknown"},
+        "tools": {"value": "supported", "evidence": "declared"},
+        "streaming": {"value": "unknown", "evidence": "unknown"},
+        "embedding": {"value": "unsupported", "evidence": "declared"}
+      }
+    },
+    {
+      "variant_id": "ornith-1.5-35b-a3b",
+      "architecture": "qwen3_5_moe",
+      "parameters_total": 35000000000,
+      "parameters_active": 3000000000,
+      "nominal_context_tokens": 262144,
+      "local_state": "evaluation_only",
+      "profiles": ["local_llamacpp_ornith_1_5_35b_a3b_evaluation"],
+      "capabilities": {
+        "text": {"value": "supported", "evidence": "declared"},
+        "vision": {"value": "unknown", "evidence": "unknown"},
+        "reasoning": {"value": "supported", "evidence": "declared"},
+        "json": {"value": "unknown", "evidence": "unknown"},
+        "tools": {"value": "supported", "evidence": "declared"},
+        "streaming": {"value": "unknown", "evidence": "unknown"},
+        "embedding": {"value": "unsupported", "evidence": "declared"}
+      }
+    },
+    {
+      "variant_id": "ornith-1.5-397b",
+      "architecture": "qwen3_5_moe",
+      "parameters_total": 397000000000,
+      "parameters_active": null,
+      "nominal_context_tokens": 262144,
+      "local_state": "known_but_unavailable",
+      "profiles": ["local_ornith_1_5_397b_unavailable"],
+      "capabilities": {
+        "text": {"value": "unknown", "evidence": "unknown"},
+        "vision": {"value": "unknown", "evidence": "unknown"},
+        "reasoning": {"value": "unknown", "evidence": "unknown"},
+        "json": {"value": "unknown", "evidence": "unknown"},
+        "tools": {"value": "unknown", "evidence": "unknown"},
+        "streaming": {"value": "unknown", "evidence": "unknown"},
+        "embedding": {"value": "unknown", "evidence": "unknown"}
+      }
+    }
+  ],
+  "production_default_allowed": false
+}

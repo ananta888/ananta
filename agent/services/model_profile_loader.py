@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,11 @@ ALLOWED_MODEL_ROLES = frozenset({
 
 ALLOWED_TOOL_CALLING_MODES = frozenset({"native_tools", "prompt_json", "both", "none"})
 ALLOWED_JSON_RELIABILITY_CLASSES = frozenset({"unknown", "experimental", "usable", "strict"})
+ALLOWED_CAPABILITY_VALUES = frozenset({"supported", "unsupported", "unknown"})
+ALLOWED_CAPABILITY_EVIDENCE = frozenset({"declared", "detected", "benchmark", "unknown"})
+ALLOWED_RELEASE_STATES = frozenset({
+    "unavailable", "experimental", "shadow", "opt_in", "preferred", "disabled",
+})
 
 
 @dataclass
@@ -70,6 +76,15 @@ class ModelProfile:
     tokenizer_name: str | None = None
     input_cost_per_1m_tokens: float | None = None
     output_cost_per_1m_tokens: float | None = None
+    aliases: list[str] = field(default_factory=list)
+    input_modalities: list[str] = field(default_factory=list)
+    output_modalities: list[str] = field(default_factory=list)
+    capability_claims: list[dict[str, str]] = field(default_factory=list)
+    nominal_context_tokens: int | None = None
+    verified_context_tokens: int | None = None
+    hardware_class: str | None = None
+    artifact_sha256: str | None = None
+    release_state: str = "experimental"
 
     def is_cloud(self) -> bool:
         return self.cloud or self.provider_id in {"openai", "openrouter"}
@@ -242,6 +257,9 @@ class ModelProfileLoader:
             # T02 — token budget extension fields
             "context_window_tokens", "hard_max_output_tokens", "tokenizer_strategy",
             "tokenizer_name", "input_cost_per_1m_tokens", "output_cost_per_1m_tokens",
+            "aliases", "input_modalities", "output_modalities", "capability_claims",
+            "nominal_context_tokens", "verified_context_tokens", "hardware_class",
+            "artifact_sha256", "release_state",
         }
         extra = {k: v for k, v in raw.items() if k not in known_keys}
         tool_calling_mode = str(
@@ -253,6 +271,9 @@ class ModelProfileLoader:
         json_reliability_class = str(raw.get("json_reliability_class") or "unknown").strip()
         if json_reliability_class not in ALLOWED_JSON_RELIABILITY_CLASSES:
             errors.append(f"profile[{index}]:{pid!r}:invalid_json_reliability_class:{json_reliability_class}")
+        release_state = str(raw.get("release_state") or "experimental").strip()
+        if release_state not in ALLOWED_RELEASE_STATES:
+            errors.append(f"profile[{index}]:{pid!r}:invalid_release_state:{release_state}")
 
         try:
             profile = ModelProfile(
@@ -300,7 +321,26 @@ class ModelProfileLoader:
                 tokenizer_name=str(raw["tokenizer_name"]) if raw.get("tokenizer_name") else None,
                 input_cost_per_1m_tokens=_optional_float(raw.get("input_cost_per_1m_tokens")),
                 output_cost_per_1m_tokens=_optional_float(raw.get("output_cost_per_1m_tokens")),
+                aliases=_bounded_identifier_list(raw.get("aliases"), field_name="aliases"),
+                input_modalities=_bounded_identifier_list(
+                    raw.get("input_modalities"), field_name="input_modalities"
+                ),
+                output_modalities=_bounded_identifier_list(
+                    raw.get("output_modalities"), field_name="output_modalities"
+                ),
+                capability_claims=_capability_claims(raw.get("capability_claims")),
+                nominal_context_tokens=_optional_int(raw.get("nominal_context_tokens")),
+                verified_context_tokens=_optional_int(raw.get("verified_context_tokens")),
+                hardware_class=_optional_bounded_identifier(raw.get("hardware_class")),
+                artifact_sha256=_optional_sha256(raw.get("artifact_sha256")),
+                release_state=release_state,
             )
+            if (
+                profile.nominal_context_tokens is not None
+                and profile.verified_context_tokens is not None
+                and profile.verified_context_tokens > profile.nominal_context_tokens
+            ):
+                raise ValueError("verified_context_tokens exceeds nominal_context_tokens")
         except Exception as exc:
             errors.append(f"profile[{index}]:{pid!r}:field_error:{exc}")
             return ModelProfile(
@@ -341,3 +381,65 @@ def _string_list(value: Any) -> list[str]:
         return [str(item).strip() for item in value if str(item).strip()]
     text = str(value).strip()
     return [text] if text else []
+
+
+def _bounded_identifier_list(value: Any, *, field_name: str) -> list[str]:
+    values = _string_list(value)
+    normalized = list(dict.fromkeys(values))
+    if len(normalized) > 64 or any(
+        re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}", item) is None
+        for item in normalized
+    ):
+        raise ValueError(f"{field_name} contains invalid identifiers")
+    return normalized
+
+
+def _capability_claims(value: Any) -> list[dict[str, str]]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 64:
+        raise ValueError("capability_claims must be a bounded list")
+    claims: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in value:
+        if not isinstance(raw, dict) or set(raw) - {"capability_id", "value", "evidence", "source_id"}:
+            raise ValueError("capability_claim_invalid")
+        capability_id = str(raw.get("capability_id") or "").strip().lower()
+        claim_value = str(raw.get("value") or "unknown").strip().lower()
+        evidence = str(raw.get("evidence") or "unknown").strip().lower()
+        source_id = str(raw.get("source_id") or "").strip()
+        if (
+            re.fullmatch(r"[a-z0-9][a-z0-9_.:-]{0,63}", capability_id) is None
+            or capability_id in seen
+            or claim_value not in ALLOWED_CAPABILITY_VALUES
+            or evidence not in ALLOWED_CAPABILITY_EVIDENCE
+            or source_id
+            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}", source_id) is None
+        ):
+            raise ValueError("capability_claim_invalid")
+        seen.add(capability_id)
+        claims.append({
+            "capability_id": capability_id,
+            "value": claim_value,
+            "evidence": evidence,
+            **({"source_id": source_id} if source_id else {}),
+        })
+    return claims
+
+
+def _optional_bounded_identifier(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    normalized = str(value).strip()
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}", normalized) is None:
+        raise ValueError("bounded identifier invalid")
+    return normalized
+
+
+def _optional_sha256(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    normalized = str(value).strip().lower()
+    if re.fullmatch(r"[0-9a-f]{64}", normalized) is None:
+        raise ValueError("artifact_sha256 invalid")
+    return normalized

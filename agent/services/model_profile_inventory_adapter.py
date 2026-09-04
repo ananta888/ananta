@@ -54,7 +54,7 @@ class ConfiguredProfileModelInventoryAdapter:
         ))
 
     def _descriptor(self, profile, consumers_by_profile) -> ModelInventoryDescriptor:
-        claims = (
+        claims_by_id = {item.capability_id: item for item in (
             ModelCapabilityClaim(
                 capability_id="tools",
                 value="supported" if (
@@ -75,8 +75,52 @@ class ConfiguredProfileModelInventoryAdapter:
                 evidence=ModelMetadataEvidence.DECLARED,
                 source_id=self.source_id,
             ),
-        )
+        )}
+        for raw in profile.capability_claims:
+            claim = ModelCapabilityClaim.model_validate(raw)
+            claims_by_id[claim.capability_id] = claim
+        claims = tuple(claims_by_id[key] for key in sorted(claims_by_id))
         runtime = ModelRuntime.CLOUD if profile.is_cloud() else ModelRuntime.LOCAL
+        unavailable = not profile.enabled or profile.release_state in {"unavailable", "disabled"}
+        facts = [
+            ModelMetadataFact(
+                fact_id="model_role", value=profile.model_role,
+                evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
+            ),
+            ModelMetadataFact(
+                fact_id="quality_class", value=profile.quality_class,
+                evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
+            ),
+            ModelMetadataFact(
+                fact_id="cost_class", value=profile.cost_class,
+                evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
+            ),
+            ModelMetadataFact(
+                fact_id="release_state", value=profile.release_state,
+                evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
+            ),
+        ]
+        for fact_id, value in (
+            ("hardware_class", profile.hardware_class),
+            ("artifact.sha256", profile.artifact_sha256),
+            ("context.nominal_tokens", profile.nominal_context_tokens),
+            ("context.verified_tokens", profile.verified_context_tokens),
+        ):
+            if value is not None:
+                facts.append(ModelMetadataFact(
+                    fact_id=fact_id,
+                    value=str(value),
+                    evidence=(
+                        ModelMetadataEvidence.BENCHMARK
+                        if fact_id == "context.verified_tokens"
+                        else ModelMetadataEvidence.DECLARED
+                    ),
+                    source_id=self.source_id,
+                ))
         return ModelInventoryDescriptor(
             provider_id=profile.provider_id,
             model_id=profile.model,
@@ -86,34 +130,21 @@ class ConfiguredProfileModelInventoryAdapter:
             source_ids=(self.source_id,),
             source_kinds=(self.source_kind,),
             profile_ids=(profile.profile_id,),
-            availability=ModelAvailability.UNKNOWN,
-            health=ModelHealth.UNKNOWN,
+            aliases=tuple(profile.aliases),
+            availability=(ModelAvailability.UNAVAILABLE if unavailable else ModelAvailability.UNKNOWN),
+            health=(ModelHealth.UNAVAILABLE if unavailable else ModelHealth.UNKNOWN),
             configured=True,
             listing_supported=False,
             context_window=profile.context_tokens,
             quantization=(
                 str(profile.extra.get("quantization") or "").strip() or None
             ),
+            input_modalities=tuple(profile.input_modalities),
+            output_modalities=tuple(profile.output_modalities),
             price_input_per_million=profile.price_input_per_million,
             price_output_per_million=profile.price_output_per_million,
             capabilities=claims,
-            metadata_facts=(
-                ModelMetadataFact(
-                    fact_id="model_role", value=profile.model_role,
-                    evidence=ModelMetadataEvidence.DECLARED,
-                    source_id=self.source_id,
-                ),
-                ModelMetadataFact(
-                    fact_id="quality_class", value=profile.quality_class,
-                    evidence=ModelMetadataEvidence.DECLARED,
-                    source_id=self.source_id,
-                ),
-                ModelMetadataFact(
-                    fact_id="cost_class", value=profile.cost_class,
-                    evidence=ModelMetadataEvidence.DECLARED,
-                    source_id=self.source_id,
-                ),
-            ),
+            metadata_facts=tuple(facts),
             used_by_consumers=tuple(sorted(
                 consumers_by_profile.get(profile.profile_id, set())
             )),

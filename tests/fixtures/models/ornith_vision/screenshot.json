@@ -1,0 +1,1 @@
+{"schema":"ananta.synthetic-image-fixture.v1","width":800,"height":450,"background":"#f5f5f5","elements":[{"kind":"panel","title":"Model status"},{"kind":"row","label":"Ornith 9B","value":"unverified"}],"expected_terms":["Model status","Ornith 9B","unverified"]}

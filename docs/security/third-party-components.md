@@ -10,6 +10,22 @@ approval.
 No entry in this document is a `SRC_*` or `RUN_*` claim. Source and run IDs are
 valid only when an authoritative system supplies them to the release gate.
 
+## Ornith 1.5 local evaluation
+
+Baseline date: 2026-09-04. Official 9B, 35B-A3B and 397B repositories and the
+official 9B/35B GGUF repositories are pinned in
+`config/models/ornith-1.5-sources.v1.json`. Model-card metadata declares MIT,
+but the linked repository license text is absent at the audited revisions.
+Ananta therefore records `declared`, not legal approval, and permits only a
+default-off evaluation. The 9B and 35B GGUF/model-projection files are separate
+digest-bound artifacts; the 397B variant is unavailable locally.
+
+Runtime dependencies (Ollama, llama.cpp/LM Studio, optional SGLang) require
+their own immutable version/image digest, SBOM, vulnerability and license gate.
+The upstream vLLM recipe requires remote code and is incompatible with Ananta's
+default policy. No manufacturer benchmark or model-card capability is Ananta
+release evidence.
+
 ## Unsloth integration baseline
 
 Baseline date: 2026-07-28.

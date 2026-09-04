@@ -343,6 +343,9 @@ class ModelProfileResolver:
         master_default_profile: ModelProfile | None = None,
         style_ranking: StyleRankingPort | None = None,
     ):
+        self._profiles_by_id: dict[str, ModelProfile] = {
+            p.profile_id: p for p in profiles
+        }
         self._by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles if p.enabled}
         self._all_enabled: list[ModelProfile] = [p for p in profiles if p.enabled]
         self.security = security_policy or SecurityPolicyChecker()
@@ -386,8 +389,15 @@ class ModelProfileResolver:
                 return None
             prof = self._by_id.get(pid)
             if not prof:
+                reason = (
+                    "profile_disabled"
+                    if pid in self._profiles_by_id
+                    else f"profile_not_found:{pid}"
+                )
+                if reason == "profile_disabled":
+                    blocked.append((pid, reason))
                 decisions.append(
-                    ResolutionDecision(rank, source, pid, False, f"profile_not_found:{pid}")
+                    ResolutionDecision(rank, source, pid, False, reason)
                 )
                 return None
             allowed, reason = self.security.is_allowed_for_context(prof, ctx)
@@ -418,6 +428,12 @@ class ModelProfileResolver:
                 decisions.append(ResolutionDecision(rank, source, None, False, "no_candidate"))
                 return None
             pid = prof.profile_id
+            if not prof.enabled:
+                blocked.append((pid, "profile_disabled"))
+                decisions.append(
+                    ResolutionDecision(rank, source, pid, False, "profile_disabled")
+                )
+                return None
             allowed, reason = self.security.is_allowed_for_context(prof, ctx)
             if not allowed:
                 blocked.append((pid, reason))

@@ -1,7 +1,7 @@
 """Tests for ModelProfileLoader and ModelProfile — AMR-007."""
 import pytest
-from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader, ModelProfileLoadResult
 
+from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 
 MINIMAL_LOCAL = {
     "profiles": [
@@ -214,3 +214,64 @@ def test_hybrid_profile_fields_are_parsed():
     assert profile.price_input_per_million == 0.12
     assert profile.fallback_group == "local_first_cheap"
     assert profile.fallback_rank == 30
+
+
+def test_evidence_aware_profile_fields_are_validated_and_projected():
+    data = {
+        "profiles": [{
+            "profile_id": "local-evidence-aware",
+            "provider_id": "ollama",
+            "model": "model@sha256:abc",
+            "enabled": False,
+            "aliases": ["stable-alias"],
+            "input_modalities": ["text", "image"],
+            "output_modalities": ["text"],
+            "nominal_context_tokens": 262144,
+            "verified_context_tokens": 8192,
+            "hardware_class": "rtx3080-10gb",
+            "artifact_sha256": "a" * 64,
+            "release_state": "experimental",
+            "capability_claims": [{
+                "capability_id": "vision",
+                "value": "unknown",
+                "evidence": "unknown",
+                "source_id": "profile:test",
+            }],
+        }]
+    }
+
+    result = ModelProfileLoader().load_dict(data)
+
+    assert result.ok
+    profile = result.profiles[0]
+    assert profile.verified_context_tokens == 8192
+    assert profile.capability_claims[0]["value"] == "unknown"
+    assert "capability_claims" not in profile.extra
+
+
+@pytest.mark.parametrize(
+    "field,value,error",
+    [
+        ("artifact_sha256", "not-a-digest", "artifact_sha256 invalid"),
+        ("release_state", "production", "invalid_release_state"),
+        (
+            "capability_claims",
+            [{"capability_id": "tools", "value": "yes", "evidence": "declared"}],
+            "capability_claim_invalid",
+        ),
+        ("verified_context_tokens", 300000, "exceeds nominal_context_tokens"),
+    ],
+)
+def test_evidence_aware_profile_fields_fail_closed(field, value, error):
+    profile = {
+        "profile_id": "invalid-evidence-profile",
+        "provider_id": "ollama",
+        "model": "model",
+        "nominal_context_tokens": 262144,
+        field: value,
+    }
+
+    result = ModelProfileLoader().load_dict({"profiles": [profile]})
+
+    assert not result.ok
+    assert error in " ".join(result.errors)
