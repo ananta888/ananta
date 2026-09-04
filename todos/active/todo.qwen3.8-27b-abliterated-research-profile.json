@@ -1,11 +1,11 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-09-03",
+  "updated_at": "2026-09-04",
   "owner": "Peter Stuiber / Ananta",
   "track": "qwen3_8_27b_abliterated_controlled_research_profile",
   "title": "Qwen3.8-27B Abliterated kontrolliert evaluieren und als gesperrtes Research-Profil integrieren",
-  "status": "todo",
+  "status": "partial",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -40,7 +40,7 @@
   "purpose": "Die Community-Variante huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF nicht blind als unzensiertes Standardmodell aufnehmen, sondern Herkunft, konkrete Abliterationsvariante, Qualitätsverlust, lokale Ausführbarkeit und zusätzliche Agentenrisiken reproduzierbar gegen das unveränderte Qwen/Qwen3.8-27B prüfen.",
   "goal": "Ananta kann eine explizit als unsafe_research gekennzeichnete, standardmäßig deaktivierte Abliterated-Variante über vorhandene lokale Provider testen. Das Originalmodell bleibt die Referenz. Freischaltung, Routing, Tool-Zugriff, Geheimnisse, Netz, Dateisystem und öffentliche Nutzung werden durch Ananta kontrolliert; die reduzierte Ablehnungsneigung des Modells wird niemals als Sicherheitsmerkmal oder Qualitätsnachweis behandelt.",
   "research_basis": {
-    "reviewed_at": "2026-09-03",
+    "reviewed_at": "2026-09-04",
     "sources": [
       {
         "url": "https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF",
@@ -69,27 +69,31 @@
       "Die Modellkarte nennt mehrere unterschiedlich stark veränderte Linien; unter anderem UD-DW mit Abliteration der Schichten 23 bis 51 und UD mit Abliteration der Schichten 18 bis 51.",
       "Nach Angabe der Community-Modellkarte wurden MTP- und Vision-Komponenten nicht verändert; diese Aussage muss praktisch geprüft werden.",
       "Die Modellkarte warnt ausdrücklich vor sensiblen oder kontroversen Ausgaben und empfiehlt kontrollierte Forschungs- und Testumgebungen statt unbeaufsichtigter Produktion.",
-      "Colibri listet derzeit Qwen3.8-Flash-Next und Qwen3.6 als unterstützte Qwen-Familien, nicht jedoch Qwen3.8-27B Dense oder dessen GGUF-Abliteration."
+      "Colibri listet Qwen3.6 als unterstützte Qwen-Familie; Qwen3.8-Flash-Next liegt am Auditstichtag nur als geschlossene Feature-Anfrage vor. Qwen3.8-27B Dense und dessen GGUF-Abliteration sind nicht als unterstützt belegt."
     ],
     "candidate_artifacts_snapshot": [
       {
         "name": "Q2_K",
-        "reported_size_gb": 8.42,
-        "initial_assessment": "Passt nominell knapp in 10 GB VRAM, lässt jedoch wenig Laufzeit- und KV-Cache-Reserve und ist als Qualitätsuntergrenze zu behandeln."
+        "reported_size_gb": 10.86,
+        "exact_size_bytes": 10864592160,
+        "initial_assessment": "Überschreitet bereits als Datei 10 GiB VRAM; CPU-Offloading ist zwingend und Q2_K bleibt eine Qualitätsuntergrenze."
       },
       {
         "name": "UD-IQ3_XXS",
-        "reported_size_gb": 11,
+        "reported_size_gb": 11.02,
+        "exact_size_bytes": 11021122464,
         "initial_assessment": "Teilweises CPU-Offloading erforderlich; als Geschwindigkeits-/Qualitätskompromiss messen."
       },
       {
         "name": "UD-IQ4_XS",
         "reported_size_gb": 14.4,
+        "exact_size_bytes": 14403496864,
         "initial_assessment": "Primärer Qualitätskandidat für RTX 3080 plus 64 GB RAM mit GPU-/CPU-Offloading."
       },
       {
         "name": "UD-Q4_K_XL",
-        "reported_size_gb": 17.4,
+        "reported_size_gb": 17.38,
+        "exact_size_bytes": 17378626464,
         "initial_assessment": "Qualitätskandidat mit höherem RAM- und Transferbedarf; nur nach realer Messung empfehlen."
       }
     ],
@@ -175,7 +179,7 @@
     {
       "id": "M0",
       "title": "Provenance, Varianten und Sicherheitsvertrag",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "QABL-001",
         "QABL-002",
@@ -186,7 +190,7 @@
     {
       "id": "M1",
       "title": "Lokale Laufzeit und Hardwareprofil",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "QABL-005",
         "QABL-006"
@@ -195,7 +199,7 @@
     {
       "id": "M2",
       "title": "Qualitäts-, Capability- und Sicherheitsvergleich",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "QABL-007",
         "QABL-008",
@@ -205,7 +209,7 @@
     {
       "id": "M3",
       "title": "Ananta-Integration, Oberfläche und Entscheidung",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "QABL-010",
         "QABL-011",
@@ -219,10 +223,10 @@
       "title": "Upstream-, Lizenz- und Artefakt-Provenance revisionsgebunden erfassen",
       "type": "research",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [],
       "target_files": [
         "docs/research/qwen3.8-27b-abliterated-provenance.md",
@@ -251,10 +255,10 @@
       "title": "Abliterationslinien und Quantisierungen als getrennte Modellidentitäten modellieren",
       "type": "architecture",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "depends_on": [
         "QABL-001"
       ],
@@ -281,10 +285,10 @@
       "title": "Fail-closed Research-Policy und verbotene Einsatzwege definieren",
       "type": "security",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 10,
       "depends_on": [
         "QABL-002"
       ],
@@ -315,10 +319,10 @@
       "title": "Sicheren GGUF-Import und Supply-Chain-Gates implementieren",
       "type": "security",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "depends_on": [
         "QABL-001",
         "QABL-003"
@@ -346,10 +350,10 @@
       "title": "Runtime-Kompatibilität für llama.cpp, Ollama, LM Studio und Colibri prüfen",
       "type": "integration",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "QABL-004"
       ],
@@ -443,10 +447,10 @@
       "title": "Sicherheits- und Prompt-Injection-Red-Team durchführen",
       "type": "security",
       "milestone_id": "M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20,
       "depends_on": [
         "QABL-003",
         "QABL-005",
@@ -475,10 +479,10 @@
       "title": "Isolierte Tool-Sandbox mit minimalen Rechten erzwingen",
       "type": "security",
       "milestone_id": "M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "QABL-003",
         "QABL-008"
@@ -506,10 +510,10 @@
       "title": "Transparente Research-Profil-Oberfläche und Freigabefluss bauen",
       "type": "ui",
       "milestone_id": "M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "depends_on": [
         "QABL-002",
         "QABL-003",
@@ -539,10 +543,10 @@
       "title": "Routing-, Audit- und Regressionstests in Ananta integrieren",
       "type": "testing",
       "milestone_id": "M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "depends_on": [
         "QABL-007",
         "QABL-008",
@@ -673,20 +677,65 @@
       "mitigation": "Exakte Architektur- und Modell-ID-Prüfung, Capability-Probe und default-deny; kein Start mit einem fremden Enginepfad."
     }
   ],
+  "implementation_review": {
+    "reviewed_at": "2026-09-04",
+    "source_revision": "4947ef6b0714f825f807bd01e62352517b70736e",
+    "state": "generic_safety_baseline_found_qwen_profile_not_implemented",
+    "audited_upstream": {
+      "Qwen/Qwen3.8-27B": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+      "huihui-ai/Huihui-Qwen3.8-27B-abliterated": "739e3c5b89849f6c238ce1e5b70008612ae42cdd",
+      "huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF": "6386362d3cc8dbcb895c485a772869bfac5352dc"
+    },
+    "verified_artifact_digests": {
+      "Q2_K": "c4a5e431ede372af5bf8f57129194bb440d3cf7914d81c63323748ff4fee2ad9",
+      "UD-IQ3_XXS": "e86259c841888b06fd84750963a0263947c9aae3c3029b52cbb3faa34a554827",
+      "UD-IQ4_XS": "d83adbbbaace8acdfcfe28004f779326176b9df00b4ec99dc6c24d749723d3b9",
+      "UD-Q4_K_XL": "ebbc66b45cf36bf47dc052d560337ff047a8b4eef851c8919d83d623703b6aa4",
+      "mmproj-bf16": "c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5"
+    },
+    "implemented_baseline": [
+      "Generic immutable model source/import contracts now bind revisions, digests, sizes, formats, licenses and read-only Worker publication.",
+      "Existing local provider discovery, response normalization, model inventory and fail-closed routing can be extended with profiles instead of a second control plane.",
+      "The Hub tool pipeline already validates schemas, operation identities and approval policy independently of model refusals.",
+      "Generic headless resource, reasoning and Hub evidence helpers from the Ornith track are reusable for this dense 27B evaluation."
+    ],
+    "corrections": [
+      "The exact Q2_K artifact is 10,864,592,160 bytes, not 8.42 GB, and cannot fit wholly in 10 GiB VRAM with runtime reserve.",
+      "Colibri does not currently prove Qwen3.8-Flash-Next or dense Qwen3.8-27B execution support; the similar family name cannot select an engine.",
+      "The official base and safetensors community repository contain matching Apache-2.0 license text; the GGUF repository itself exposes only declared card metadata and must retain its derivation binding."
+    ],
+    "remaining_scope": [
+      "Versioned unsafe_research identity, policy, expiring authorization and alias/fallback containment",
+      "Pinned GGUF sources, structural scanner and quarantined import activation",
+      "Default-off profiles, runtime matrix, sandbox, red-team and comparison contracts",
+      "Headless runners, dashboard trust projection, audit events, runbooks and final evidence-bound decision"
+    ],
+    "solid_review": {
+      "preserved": [
+        "Hub policy and orchestration remain separate from Worker materialization and runtime execution.",
+        "Provider-neutral contracts and strategy seams can be extended without Qwen-specific branches in central invocation code."
+      ],
+      "cleanup_required": [
+        "Trust classification is absent from the shared model profile contract and must be added once, not encoded in UI-only labels.",
+        "Research authorization needs a focused policy service rather than expanding the existing resolver into a governance god object."
+      ]
+    }
+  },
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 12,
+      "todo": 3,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 9,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 9,
       "P1": 3,
-      "P2": 0
+      "P2": 0,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -701,8 +750,9 @@
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
+      "partial": 4,
       "blocked": 0,
       "done": 0
     }
@@ -710,24 +760,161 @@
   "tasks_type_summary": {
     "total": 12,
     "by_type": {
-      "research": 1,
-      "architecture": 1,
-      "security": 4,
-      "integration": 1,
-      "benchmark": 1,
-      "evaluation": 1,
-      "ui": 1,
-      "testing": 1,
-      "governance": 1
+      "research": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 50.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 25.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security": {
+        "total": 4,
+        "done": 0,
+        "partial": 4,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 37.5,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 4,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 50.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "benchmark": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "evaluation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "ui": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 40.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "testing": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 35.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "governance": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 12,
+    "state": "partial",
+    "todo_remaining": 3,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 9,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "milestones_done": 0,
+    "milestones_total": 4
   },
   "summary_notes": [
     "Bevorzugter Ausgangspunkt für Peters RTX 3080 mit 10 GB VRAM und 64 GB RAM ist ein gemessener Vergleich von UD-IQ3_XXS und UD-IQ4_XS; Q2_K ist nur die nominell kleinste, nicht automatisch die sinnvollste Variante.",
