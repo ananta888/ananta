@@ -14,22 +14,25 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "scientific_skill_provenance_receipts",
-        sa.Column("receipt_digest", sa.String(64), primary_key=True),
-        sa.Column("tenant_id", sa.String(128), nullable=False),
-        sa.Column("project_id", sa.String(128), nullable=False),
-        sa.Column("task_id", sa.String(128), nullable=False),
-        sa.Column("entry_id", sa.String(80), nullable=False),
-        sa.Column("payload", sa.JSON(), nullable=False),
-        sa.Column("created_at_epoch", sa.Float(), nullable=False),
-    )
+    existing = set(sa.inspect(op.get_bind()).get_table_names())
+    if "scientific_skill_provenance_receipts" not in existing:
+        op.create_table(
+            "scientific_skill_provenance_receipts",
+            sa.Column("receipt_digest", sa.String(64), primary_key=True),
+            sa.Column("tenant_id", sa.String(128), nullable=False),
+            sa.Column("project_id", sa.String(128), nullable=False),
+            sa.Column("task_id", sa.String(128), nullable=False),
+            sa.Column("entry_id", sa.String(80), nullable=False),
+            sa.Column("payload", sa.JSON(), nullable=False),
+            sa.Column("created_at_epoch", sa.Float(), nullable=False),
+        )
     op.create_index(
         "ix_scientific_skill_receipt_scope",
         "scientific_skill_provenance_receipts",
         ["tenant_id", "project_id", "task_id"],
+        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_table("scientific_skill_provenance_receipts")
+    op.drop_table("scientific_skill_provenance_receipts", if_exists=True)
