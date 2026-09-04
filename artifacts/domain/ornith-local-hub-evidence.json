@@ -1,0 +1,32 @@
+{
+  "evidence_scope": "local",
+  "execution": {
+    "counts": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 123
+    },
+    "junit_digest": "9f9817c7a5511a56a4dbe25e8d73de518aefec249711b27786ef83cd2eba434c",
+    "passed": true,
+    "reason_code": "hub_evidence_pytest_gate_passed",
+    "returncode": 0,
+    "stderr_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_digest": "2c4ae732f91cfdda64c8d132fb38b18e5683da6dcf2fdb4bf41b9954db04e640"
+  },
+  "human_intervention_required": false,
+  "passed": true,
+  "profile_digest": "664f13a1174be9ecdf27c5d41be7a7b600e9e8063dc659e68603d838fa24e983",
+  "profile_id": "ornith-local",
+  "reason_code": "verified",
+  "repository_revision": "caf59bcc123ef70bf0ad022799c06ae8c0cbcd52",
+  "result_digest": "1a3ca746ecef57f09bf77db2946997e077849c3cafb4bf4152fbb337b0c13dc4",
+  "run_id": "RUN_183adad590a2327a4cc3cdedab6e53f6",
+  "schema": "ananta.hub-evidence-pytest-gate-result.v1",
+  "source_ids": [
+    "SRC_6b61f8a89c6ae9799b9f92fff21a6442"
+  ],
+  "source_manifest_digest": "d98d4dde85a51c9011b25d57f2855e1fac6a51f806920fa061300f14bffee19c",
+  "task_id": "orn-013",
+  "verified": true
+}

@@ -654,6 +654,21 @@
       "No imported exact model bytes, runtime image digest, SBOM or vulnerability report exists for a production gate.",
       "Vision, quality, 30-minute stability and hardware measurements require those exact runtime artifacts and Hub-reserved live runs."
     ],
+    "local_contract_gate": {
+      "state": "verified",
+      "scope": "local",
+      "repository_revision": "caf59bcc123ef70bf0ad022799c06ae8c0cbcd52",
+      "run_id": "RUN_183adad590a2327a4cc3cdedab6e53f6",
+      "source_ids": [
+        "SRC_6b61f8a89c6ae9799b9f92fff21a6442"
+      ],
+      "tests": 123,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "human_intervention_required": false,
+      "artifact": "artifacts/domain/ornith-local-hub-evidence.json"
+    },
     "environment_observation": {
       "gpu": "NVIDIA GeForce RTX 3080, 10240 MiB",
       "host_ram_bytes": 65782554624,
