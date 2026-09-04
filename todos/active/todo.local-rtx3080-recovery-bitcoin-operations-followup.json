@@ -4,10 +4,10 @@
   "title": "Ananta — verbleibende lokale RTX-3080-, Recovery-, Backup- und Bitcoin-Arbeiten",
   "version": 1,
   "created": "2026-07-26",
-  "updated": "2026-08-31",
+  "updated": "2026-09-04",
   "project": "ananta",
   "owner": "Krusty <stuiber@ananta.de>",
-  "status": "blocked",
+  "status": "in_progress",
   "priority": "P3",
   "tags": [
     "hub-worker",
@@ -78,7 +78,7 @@
         {
           "id": "ARF-CAS-001",
           "title": "Nichtterminale Recovery-CAS-Operationen typisieren",
-          "status": "blocked",
+        "status": "in_progress",
           "priority": "P1",
           "risk": "high",
           "type": "security-hardening",
@@ -90,7 +90,8 @@
             "agent/services/task_recovery_planning_service.py",
             "agent/common/"
           ],
-          "description": "Queue-Claim, Planning-Saga, Child-Release und Recovery-Rollen-Ingress erhalten je eine eng gebundene Hub-Authority. Danach werden candidate-only und generische nichtterminale Recovery-CAS-Mutationen deny-by-default.",
+        "description": "Queue-Claim, Planning-Saga, Child-Release und Recovery-Rollen-Ingress erhalten je eine eng gebundene Hub-Authority. Danach werden candidate-only und generische nichtterminale Recovery-CAS-Mutationen deny-by-default.",
+        "audit_note": "Reaudit 2026-09-04: Der aktuelle Quellstand enthält zwölf fokussierte Recovery-Write-Boundaries, repository-eigene updated_at-Erzeugung, geschlossene Delta-Prüfungen sowie negative Rollen-, Fremdfeld-, Replay- und Parallelitätstests. Es fehlt nur noch die erneute fokussierte und breite Validierung gegen den aktuellen Commit.",
           "acceptance_criteria": [
             "Jede erlaubte Operation bindet Task-, Source-, Goal-, Plan-, Ausgangs-/Zielstatus-, Reason- und vollständige Feld-Deltas.",
             "Repository-eigene Zeit- und History-Felder können nicht vom Caller vorgegeben werden.",
@@ -102,7 +103,7 @@
         {
           "id": "ARF-SOLID-002",
           "title": "Große Recovery-Klassen schrittweise nach Verantwortlichkeiten teilen",
-          "status": "blocked",
+        "status": "in_progress",
           "priority": "P2",
           "risk": "medium",
           "type": "refactor",
@@ -115,7 +116,8 @@
             "agent/services/lifecycle_service.py",
             "agent/services/task_runtime_service.py"
           ],
-          "description": "Bestehende SRP-Schulden ohne Architekturwechsel über kleine Ports, Policies und Adapter abbauen.",
+        "description": "Bestehende SRP-Schulden ohne Architekturwechsel über kleine Ports, Policies und Adapter abbauen.",
+        "audit_note": "Reaudit 2026-09-04: Mehrere reine Recovery-Policies und Write-Boundaries wurden bereits extrahiert. TaskRecoveryPlanningService (3121 Zeilen), RecoveryDispatchGateService (2317) und TaskRepository (2494) bleiben jedoch zu breit; die Aufgabe ist lokal ausführbar und nicht extern blockiert.",
           "acceptance_criteria": [
             "Reine Transition-/Merge-Policies sind repository- und Flask-frei testbar.",
             "Capability-Prüfung, Persistenz, Orchestrierung, Callback-Delivery und Projektion liegen in getrennten Verantwortlichkeiten.",
@@ -132,7 +134,7 @@
         {
           "id": "OPS-SOLID-005",
           "title": "Workflow-Keyring-Bootstrap in fokussierte Komponenten teilen",
-          "status": "blocked",
+        "status": "in_progress",
           "priority": "P2",
           "risk": "medium",
           "type": "refactor",
@@ -142,7 +144,8 @@
             "tests/test_dev_workflow_keyring_bootstrap.py",
             "ananta_contracts/"
           ],
-          "description": "Die derzeit zusammengefasste Entwicklungsschlüssel-Erzeugung ohne Verhaltens- oder Formatbruch in kleine, injizierbare Verantwortlichkeiten zerlegen.",
+        "description": "Die derzeit zusammengefasste Entwicklungsschlüssel-Erzeugung ohne Verhaltens- oder Formatbruch in kleine, injizierbare Verantwortlichkeiten zerlegen.",
+        "audit_note": "Reaudit 2026-09-04: Das 1118-zeilige Skript trennt Ablaufschritte nur als Funktionen, besitzt aber weiterhin direkte globale Filesystem-, Zufalls-, Ownership- und CLI-Kopplung. Die geforderte injizierbare Struktur ist nicht abgeschlossen, aber vollständig lokal implementierbar.",
           "acceptance_criteria": [
             "Erzeugung, Validierung, Transaktions-Recovery, atomare Publikation, Ownership und CLI-Orchestrierung liegen in getrennten, fokussierten Komponenten.",
             "Dateisystem- und Zufallsquellen sind über schmale Ports injizierbar und ohne Root-Rechte unit-testbar.",
@@ -227,10 +230,11 @@
       "name": "backup_restore",
       "label": "Sicherung und Wiederherstellung",
       "items": [
-        {
-          "id": "OPS-BACKUP-004",
+      {
+        "id": "OPS-BACKUP-004",
           "title": "Zwei schnelle, überprüfbare Backup-Wege für WSL2 und Windows bereitstellen",
-          "status": "blocked",
+        "status": "blocked",
+        "blocked_reason": "Die Backup-/Restore-Software und ein realer Drill sind abgeschlossen. Eine dauerhafte verschlüsselte Benutzerkopie und zwei physisch getrennte Offline-Kopien benötigen einen vom Benutzer separat verwalteten Recovery-Public-Key und reale Datenträger; diese Sicherheitsidentität und Medien dürfen nicht automatisch erfunden werden.",
           "priority": "P0",
           "risk": "critical",
           "type": "operations",
@@ -263,10 +267,11 @@
       "name": "bitcoin_pruned_node_wallet",
       "label": "Bitcoin Core Pruned Node und lokale Wallet",
       "items": [
-        {
-          "id": "BTC-NODE-001",
+      {
+        "id": "BTC-NODE-001",
           "title": "Bitcoin Core als isolierten Pruned Node in Compose ergänzen",
-          "status": "blocked",
+        "status": "blocked",
+        "blocked_reason": "Auf ausdrücklichen Nutzerwunsch bleibt die gesamte Bitcoin-Arbeit zugunsten anderer Todos blockiert.",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -285,10 +290,11 @@
             "Health- und Readiness-Prüfungen unterscheiden Prozessstart, Initial Block Download und vollständig aktuellen Zustand."
           ]
         },
-        {
-          "id": "BTC-WALLET-002",
+      {
+        "id": "BTC-WALLET-002",
           "title": "Lokale verschlüsselte Bitcoin-Core-Wallet sicher verwalten und sichern",
-          "status": "blocked",
+        "status": "blocked",
+        "blocked_reason": "Auf ausdrücklichen Nutzerwunsch bleibt die gesamte Bitcoin-Arbeit zugunsten anderer Todos blockiert; zusätzlich darf keine Wallet-Passphrase automatisiert erfunden oder verarbeitet werden.",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -306,10 +312,11 @@
             "Die Dokumentation erklärt, dass Bitcoin nicht im Node liegt, sondern durch private Schlüssel ausgegeben wird."
           ]
         },
-        {
-          "id": "BTC-E2E-003",
+      {
+        "id": "BTC-E2E-003",
           "title": "Pruned-Node- und Wallet-Ablauf vor echtem Kauf testen",
-          "status": "blocked",
+        "status": "blocked",
+        "blocked_reason": "Auf ausdrücklichen Nutzerwunsch bleibt die gesamte Bitcoin-Arbeit zugunsten anderer Todos blockiert.",
           "priority": "P1",
           "risk": "critical",
           "type": "acceptance",
@@ -335,7 +342,7 @@
         {
           "id": "QA-REL-001",
           "title": "Vollständiges Repository- und Docker-E2E-Gate nach Daemon-Reparatur ausführen",
-          "status": "blocked",
+        "status": "in_progress",
           "priority": "P1",
           "risk": "high",
           "type": "quality-gate",
@@ -350,7 +357,8 @@
             "artifacts/test-gates/",
             "docker/compose-next/"
           ],
-          "acceptance_criteria": [
+        "audit_note": "Reaudit 2026-09-04: Der frühere langdetect-Lockfehler besteht weiterhin reproduzierbar; langdetect ist in pyproject.toml deklariert, fehlt aber in requirements.lock. Docker, GPU und die übrigen Voraussetzungen sind vorhanden. Der Gate ist daher lokal bearbeitbar, nicht blockiert.",
+        "acceptance_criteria": [
             "`make check` beziehungsweise das dokumentierte vollständige Backend-Gate ist grün.",
             "Der vollständige Angular-Testlauf und Production-Build sind grün.",
             "Compose startet Hub, Worker, Angular und Ollama gesund und reproduzierbar aus einem leeren Laufzeitziel.",
@@ -367,7 +375,8 @@
       "completed": 3,
       "partial": 0,
       "open": 0,
-      "blocked": 8
+      "in_progress": 4,
+      "blocked": 4
     },
     "notes": [
       "Die Hub-owned Recovery-Implementierung selbst ist nicht Teil dieser offenen Liste; sie wurde in fokussierten und breiten Tests geprüft.",
@@ -381,8 +390,8 @@
       "Bekannte Backup-P2-Grenzen: unsigned OpenPGP authentisiert die Herkunft nicht, das Task-Gate ist kein vollständiger Hub-Drain, allgemeine Unterprozesse besitzen noch keine harten Timeouts/Filesystem-Hard-Quota, reguläre TreePlan-Dateien sind noch nicht vollständig gegen Same-UID-Pfadtausch verankert, SIGKILL/Stromausfall kann private Klartext-Staging-Verzeichnisse hinterlassen, der Restore-Publish ersetzt im Rennen noch ein neu erzeugtes leeres Ziel und ComposeAdapter trägt weiterhin mehrere Infrastrukturverantwortlichkeiten (SRP/DIP).",
       "Bitcoin Core, Wallet-Erstellung und Wallet-Backups sind noch nicht implementiert und dürfen erst nach expliziter Sicherheits- und Restore-Abnahme für Mainnet verwendet werden.",
       "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung.",
-      "Das gesamte verbleibende TODO ist auf ausdrücklichen Nutzerwunsch zugunsten wichtigerer TODO-Dateien blockiert; Recovery-, SOLID-, Backup-, Quality- und Bitcoin-Folgearbeiten werden nicht automatisch eingeplant."
+      "REAUDIT 2026-09-04: Die spätere Nutzeranweisung, lösbare Blockaden weiter abzuarbeiten, hebt die pauschale Blockierung für ARF-CAS-001, ARF-SOLID-002, OPS-SOLID-005 und QA-REL-001 auf. Backup-Key/Offline-Medien sowie alle Bitcoin-Aufgaben bleiben blockiert."
     ],
-    "recommended_order": []
+    "recommended_order": ["ARF-CAS-001", "ARF-SOLID-002", "OPS-SOLID-005", "QA-REL-001"]
   }
 }
