@@ -710,6 +710,19 @@
       "Paired IQ3/IQ4 hardware, quality, vision and red-team measurements require the exact artifacts and Hub-reserved live runs.",
       "A final measured Go/No-Go cannot precede those comparison and containment results."
     ],
+    "local_contract_gate": {
+      "state": "verified",
+      "scope": "local",
+      "repository_revision": "473c11096a982b37ababd24f5b510f63696b3eed",
+      "run_id": "RUN_3bca84895c7f04a6b253d7f8b09ec3ee",
+      "source_ids": ["SRC_d6988be93a2f59296211271c8776744b"],
+      "tests": 96,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "human_intervention_required": false,
+      "artifact": "artifacts/domain/qwen38-abliterated-local-hub-evidence.json"
+    },
     "solid_review": {
       "preserved": [
         "Hub policy and orchestration remain separate from Worker materialization and runtime execution.",
