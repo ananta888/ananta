@@ -7,7 +7,7 @@
   "updated": "2026-09-04",
   "id": "ananta-geomap-catalog",
   "title": "Konfigurierbarer GeoMap-Katalog für Datenanalyse und Dashboards",
-  "status": "todo",
+  "status": "done",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -39,7 +39,7 @@
   "review_basis": {
     "reviewed_commit": "cc6391f9f87f49b4c5142be76806310f132ce135",
     "reviewed_at": "2026-09-04",
-    "grounding_status": "repository_audit_verified_implementation_open",
+    "grounding_status": "repository_implementation_verified",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "reviewed_paths": [
@@ -53,11 +53,11 @@
       "tests/"
     ],
     "findings": [
-      "Es existiert noch kein GeoMap-Registry-, Join-, API-, Web- oder Exportmodul.",
-      "ECharts und Plotly sind noch keine Projektabhaengigkeiten; bestehende SVG-Diagramme sind fachlich nicht als Kartenrenderer wiederverwendbar.",
-      "Spreadsheet Studio ist der vorhandene tabellarische Eingabefluss und bleibt der UI-Integrationspunkt.",
-      "Flask-Blueprints werden zentral in agent/bootstrap/routes.py registriert; GeoMap-Policy und Registry bleiben Hub-Verantwortung.",
-      "Worker-Export- und Hub-Artefaktvertraege werden wiederverwendet; Worker duerfen keine Registry- oder Freigabeentscheidung treffen."
+      "Registry, Offline-Daten, Join-Policy, Hub-API, Web-Renderer und Exportadapter sind getrennt implementiert und gegen die Registry-Vertraege getestet.",
+      "ECharts 6.1.0 ist als exakte Web-Abhaengigkeit eingebunden; Plotly/Kaleido bleiben optionale Python-Exportabhaengigkeiten.",
+      "Spreadsheet Studio verlinkt den eigenstaendigen, lokal gespeicherten GeoMap-Workflow als vorhandenen tabellarischen Integrationspunkt.",
+      "Registry-, Import- und Publishing-Entscheidungen bleiben im Hub; Renderer und Exportadapter konsumieren geschlossene Vertraege.",
+      "Der deterministische Release-Gate-Lauf prueft Offline-Daten, Integritaet, Attribution, Sanitizing, Join und Publikationspolicy ohne Human-in-the-loop."
     ]
   },
   "source_basis": {
@@ -76,8 +76,8 @@
     ]
   },
   "repo_alignment": {
-    "required_discovery": "Abgeschlossen in GM-01 und dokumentiert in docs/architecture/geomap-catalog.md.",
-    "target_todo_path": "todos/active/todo.ananta.geomap-catalog.json",
+    "required_discovery": "Abgeschlossen, in GM-01 nachgewiesen und in docs/architecture/geomap-catalog.md dokumentiert.",
+    "target_todo_path": "todos/archive/todo.ananta.geomap-catalog.json",
     "integration_paths": [
       "config/geomaps/registry.v1.json und schemas/geomaps/registry.v1.json",
       "assets/geomaps/ fuer versionierte Offline-Grenzdaten und Attribution",
@@ -123,9 +123,9 @@
       "type": "implementation",
       "priority": "P1",
       "risk": "high",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Verbindliche Zielpfade sind schemas/geomaps/registry.v1.json, config/geomaps/registry.v1.json und agent/services/geomaps/registry.py.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "schemas/geomaps/registry.v1.json und config/geomaps/registry.v1.json definieren den versionierten Vertrag; agent/services/geomaps/registry.py validiert Struktur, Semantik, Duplikate, Renderer, Grenzen und lizenzierte lokale Quellen. Contract- und Negativtests liegen unter tests/geomaps/.",
       "implementation": [
         "Schema mit id, label, level, format, source, featureIdPath, dataJoinKey, supportedRenderers, bounds, license und attribution definieren.",
         "Eindeutige IDs wie world-countries, world-continents, europe-countries und de-states festlegen.",
@@ -148,9 +148,9 @@
       "type": "data",
       "priority": "P1",
       "risk": "high",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Versionierte Grenzdaten und maschinenlesbare Attribution werden ausschliesslich unter assets/geomaps/ paketiert; Produktlaufzeit bleibt netzwerkfrei.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "assets/geomaps/ enthaelt reproduzierbar erzeugte und gehashte Offline-Daten fuer 177 Weltlaender, 6 Kontinente, 39 Europalaender und 16 Bundeslaender samt attribution.v1.json. scripts/build_geomap_assets.py pinnt beide Upstream-Revisionen; der Release-Gate prueft Anzahl, IDs, Digests, Groessenbudgets und Netzwerkfreiheit.",
       "implementation": [
         "Welt-Länder aus einem gepflegten, lizenzkonformen Datensatz in angemessener Auflösung aufnehmen.",
         "Kontinente aus denselben Ländergrenzen reproduzierbar aggregieren oder eine klar lizenzierte Kontinentdatei verwenden.",
@@ -175,9 +175,9 @@
       "type": "implementation",
       "priority": "P1",
       "risk": "high",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Rendererunabhaengige Join-Policy und Tabellenadapter gehoeren in agent/services/geomaps/; Spreadsheet-Snapshots und JSON-Zeilen sind vorhandene Eingabeformen.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "agent/services/geomaps/join.py und contracts.py implementieren explizite Schluesselnormalisierung, verpflichtende Aggregation und einen rendererunabhaengigen Bericht fuer matched, unmatched, duplicate und missing geometry. Unit- und API-Tests decken ISO-Codes, Bundeslaender, Umlaute, Nullwerte, Duplikate und unbekannte IDs ab.",
       "implementation": [
         "Join-Adapter für DataFrame/CSV/SQL-Resultat nach JSON implementieren.",
         "Normalisierung nur für explizit konfigurierte Schlüsseltypen anbieten: ISO-3166-1 alpha-3, ISO-3166-2, NUTS und benutzerdefinierte IDs.",
@@ -203,9 +203,9 @@
       "type": "implementation",
       "priority": "P1",
       "risk": "medium",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Ein isolierter ECharts-Adapter wird unter frontend-angular/src/app/features/geomaps/ in den bestehenden Spreadsheet-Studio-Fluss eingebunden.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "frontend-angular/src/app/features/geomaps/ enthaelt einen isolierten ECharts-Renderer und eine routbare Studio-Seite mit Registry-Auswahl, Choropleth, Legende, Tooltip, neutralen Fehlwerten, Tastaturauswahl, Zoom/Reset und sichtbarer Attribution. Komponenten- und realer Playwright-E2E-Test pruefen den headless Bedienfluss.",
       "implementation": [
         "GeoJSON und SVG über einen einheitlichen Renderer-Adapter registrieren.",
         "Choropleth-Farbskala, Legende, Tooltip, Auswahl, Reset, Zoom und Tastaturbedienung implementieren.",
@@ -231,9 +231,9 @@
       "type": "implementation",
       "priority": "P2",
       "risk": "medium",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Der Export wird als austauschbarer Port unter agent/services/geomaps/ angelegt und nutzt die vorhandenen Artefaktvertraege statt eines zweiten Speichers.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "agent/services/geomaps/export.py stellt austauschbare Exportports fuer SVG, PNG, PDF und interaktives HTML bereit; der optionale Plotly-Adapter nutzt denselben Join-Vertrag und eine dynamische Geometrieanpassung. Artefakte tragen Registry, Aggregation und Attribution als Metadaten und fuehren keinen zweiten Persistenzpfad ein.",
       "implementation": [
         "Plotly-Adapter für Länderniveau mit ISO-3 sowie Custom-GeoJSON-Adapter für Bundesländer implementieren.",
         "Statisches SVG/PNG/PDF und optional interaktives HTML als Artefakte exportieren.",
@@ -258,9 +258,9 @@
       "type": "ux",
       "priority": "P2",
       "risk": "medium",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Der Workflow wird als eigenstaendige, testbare Angular-Komponente in Spreadsheet Studio integriert; Publishing bleibt eine Hub-Policyentscheidung.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "Die GeoMap-Studio-Seite fuehrt durch Karte, CSV, Schluessel, Kennzahl, Aggregation und Vorschau, zeigt Match-Quote und Fehlerlisten und speichert einen lokalen Entwurf. Die Hub-API blockiert Publikationen unterhalb der Policy-Schwelle; der reale, vollautomatische Playwright-Test prueft CSV, Speichern, Neuladen, Vorschau und automatische Freigabe.",
       "implementation": [
         "Schritte anbieten: Karte wählen, Gebietsschlüssel-Spalte wählen, Kennzahl wählen, Aggregation prüfen, Vorschau prüfen.",
         "Automatische Vorschläge nur bei eindeutiger Übereinstimmung; andernfalls Auswahl verlangen.",
@@ -285,9 +285,9 @@
       "type": "quality",
       "priority": "P2",
       "risk": "high",
-      "status": "todo",
-      "progress_percent": 0,
-      "repo_evidence": "Nicht implementiert. Upload-Validierung, Groessenbudgets, lokale Ressourcenregeln und CI-Gate werden in getrennten Hub-Services und Tests umgesetzt.",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "agent/services/geomaps/geometry.py validiert GeoJSON und sanitisiert SVG gegen Scripts, Event-Handler, Fremdressourcen und CSS-Imports. Die Hub-API bietet einen kontrollierten Validierungspfad; docs/geomap-catalog.md, Beispieldaten und scripts/run_geomap_release_gate.py dokumentieren und pruefen Erweiterung, Budgets, Attribution und Offline-Release deterministisch.",
       "implementation": [
         "Schema für zusätzliche Ebenen und kundeneigene GeoJSON/SVG-Dateien dokumentieren.",
         "Upload-Validierung gegen schädliche oder übergroße SVG/GeoJSON implementieren; SVG niemals mit ausführbarem Inhalt rendern.",
@@ -321,7 +321,7 @@
         "GM-03",
         "GM-04"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -331,7 +331,7 @@
         "GM-06",
         "GM-07"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -339,7 +339,7 @@
       "task_ids": [
         "GM-08"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "release_gates": [
@@ -351,13 +351,13 @@
   "tasks_status_summary": {
     "total": 8,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 1
+      "done": 8
     },
-    "progress_percent_done": 12.5,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 1,
       "P1": 4,
@@ -372,16 +372,16 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 1,
-      "remaining": 6
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -405,78 +405,78 @@
       },
       "implementation": {
         "total": 4,
-        "done": 0,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "todo": 4,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         }
       },
       "data": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "ux": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "quality": {
         "total": 1,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 7,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 1,
-    "milestones_done": 0,
+    "done": 8,
+    "milestones_done": 3,
     "milestones_total": 3
   }
 }

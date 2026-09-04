@@ -23,6 +23,7 @@ describe('route metadata', () => {
       '/projects',
       '/workspace',
       '/spreadsheet-studio',
+      '/geomaps',
       '/chats',
       '/board',
       '/sources',

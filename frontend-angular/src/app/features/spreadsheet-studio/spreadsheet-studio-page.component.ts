@@ -54,6 +54,7 @@ import {
 
     <div class="grid">
       <app-section-card title="Arbeitsmappen" subtitle="XLSX, ODS und CSV werden unverändert archiviert und isoliert analysiert.">
+        <p><a routerLink="/geomaps">Tabellenwerte im GeoMap Studio visualisieren</a></p>
         <label for="spreadsheet-title">Titel</label>
         <input id="spreadsheet-title" [(ngModel)]="title" maxlength="200" placeholder="Titel der Arbeitsmappe" />
         <div class="row">

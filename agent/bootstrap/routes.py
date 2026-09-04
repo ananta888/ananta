@@ -49,6 +49,7 @@ from agent.routes.effective_workflow import effective_workflow_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.freecad_client_surface import freecad_client_surface_bp
 from agent.routes.goal_artifacts import goal_artifacts_bp
+from agent.routes.geomaps import geomaps_bp
 from agent.routes.hrm_experiments import hrm_experiments_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.hub_direct_diagnostics import hub_direct_diagnostics_bp
@@ -141,6 +142,7 @@ from agent.ws_voice import register_ws_voice
 
 def register_blueprints(app: Flask) -> None:
     app.register_blueprint(spreadsheet_studio_bp)
+    app.register_blueprint(geomaps_bp)
     app.register_blueprint(collaboration_workspaces_bp)
     app.register_blueprint(research_training_bp)
     app.register_blueprint(dendritic_memory_bp)

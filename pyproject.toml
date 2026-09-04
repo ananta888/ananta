@@ -60,6 +60,12 @@ dev = [
     "mypy",
     "ruff"
 ]
+geomap = [
+    "plotly>=7.0,<8",
+    "kaleido>=1.4,<2",
+    "pandas>=2.2,<3; python_version < '3.11'",
+    "pandas>=3.0,<4; python_version >= '3.11'",
+]
 # Optional workflow-adapter extras. The core install does NOT pull these
 # in; users opt in explicitly. See docs/setup/langchain-langgraph.md.
 langchain = [

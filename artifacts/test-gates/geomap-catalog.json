@@ -1,0 +1,65 @@
+{
+  "schema": "ananta.geomap-release-gate.v1",
+  "status": "passed",
+  "network_policy": "denied",
+  "human_intervention_required": false,
+  "checks": [
+    {
+      "id": "registry",
+      "status": "passed",
+      "map_count": 4
+    },
+    {
+      "id": "offline-world-countries",
+      "status": "passed",
+      "feature_count": 177,
+      "publication_eligible": true
+    },
+    {
+      "id": "offline-world-continents",
+      "status": "passed",
+      "feature_count": 6,
+      "publication_eligible": true
+    },
+    {
+      "id": "offline-europe-countries",
+      "status": "passed",
+      "feature_count": 39,
+      "publication_eligible": true
+    },
+    {
+      "id": "offline-de-states",
+      "status": "passed",
+      "feature_count": 16,
+      "publication_eligible": true
+    },
+    {
+      "id": "export-svg",
+      "status": "passed",
+      "nonempty": true,
+      "attribution_bound": true
+    },
+    {
+      "id": "export-png",
+      "status": "passed",
+      "nonempty": true,
+      "attribution_bound": true
+    },
+    {
+      "id": "export-pdf",
+      "status": "passed",
+      "nonempty": true,
+      "attribution_bound": true
+    },
+    {
+      "id": "export-html",
+      "status": "passed",
+      "nonempty": true,
+      "attribution_bound": true
+    },
+    {
+      "id": "svg-active-content",
+      "status": "passed"
+    }
+  ]
+}

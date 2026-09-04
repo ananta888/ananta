@@ -39,7 +39,8 @@ the existing bootstrap composition root.
 The Angular feature under `frontend-angular/src/app/features/geomaps/` owns the
 guided workflow and an ECharts adapter. It consumes only Hub projections; it
 does not decide publication eligibility. Python/Plotly export consumes the same
-closed join projection and writes through the existing artifact boundary.
+closed join projection and returns a typed transport artifact that callers may
+persist through the existing artifact boundary; GeoMap introduces no storage.
 
 ## Canonical keys and data policy
 
@@ -52,8 +53,9 @@ name matching is forbidden.
 Duplicate input keys require an explicit aggregation (`sum`, `mean`, `min`,
 `max`, or `count`). Missing, unknown, and geometry-less identifiers are
 reported separately. The Hub blocks publication below the configured match
-threshold and returns a bounded machine-readable result; no interactive human
-step is required by tests or headless production runs.
+threshold, on invalid values, or without data-source attribution and returns a
+bounded machine-readable result. It enforces that decision again on export; no
+interactive human step is required by tests or headless production runs.
 
 ## Offline, provenance, and security
 

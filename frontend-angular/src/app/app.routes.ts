@@ -42,6 +42,7 @@ export const routes: Routes = [
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
       { path: 'collaboration', data: { breadcrumb: 'Collaboration', area: 'Operate' }, loadComponent: () => import('./features/collaboration/collaboration-workspace-page.component').then(m => m.CollaborationWorkspacePageComponent) },
       { path: 'spreadsheet-studio', canActivate: [projectContextGuard], data: routeDataFor('spreadsheet-studio'), loadComponent: () => import('./features/spreadsheet-studio/spreadsheet-studio-page.component').then(m => m.SpreadsheetStudioPageComponent) },
+      { path: 'geomaps', canActivate: [projectContextGuard], data: routeDataFor('geomaps'), loadComponent: () => import('./features/geomaps/geomap-studio-page.component').then(m => m.GeoMapStudioPageComponent) },
       { path: 'classroom', pathMatch: 'full', redirectTo: 'caseflow/classroom' },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       { path: 'effective-workflow', data: { breadcrumb: 'Effective Workflow', area: 'Configure' }, loadComponent: () => import('./components/effective-workflow-explorer.component').then(m => m.EffectiveWorkflowExplorerComponent) },

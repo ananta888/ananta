@@ -1051,7 +1051,10 @@ export async function ensureActiveProjectId(sessionToken?: string): Promise<stri
 export async function gotoProjectScopedRoute(
   page: Page,
   path: string,
-  options: { waitUntil?: 'domcontentloaded' | 'load' | 'networkidle' } = {},
+  options: {
+    waitUntil?: 'domcontentloaded' | 'load' | 'networkidle';
+    settleNetworkIdle?: boolean;
+  } = {},
 ): Promise<void> {
   // Resolve against the session that is actually signed in on the page: a
   // project the browser user is no member of never reaches their catalogue, so
@@ -1117,7 +1120,9 @@ export async function gotoProjectScopedRoute(
   // straight away reports the requested path even when the app is one tick
   // from leaving it -- which is how a correct diagnosis of this very failure
   // was once discarded as refuted. Let the navigation settle first.
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
+  if (options.settleNetworkIdle !== false) {
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
+  }
 
   // Landing somewhere else means the context refused the project — it has to
   // be in the loaded catalogue for the guard to accept it. Saying so here
