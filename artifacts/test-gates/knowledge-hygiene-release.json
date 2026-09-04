@@ -51,7 +51,7 @@
   },
   "source_hashes": {
     "agent/services/knowledge_hygiene/analysis.py": "a5d510d7626ac7be15fd36c48ea805e71bce9df2ac5f66cc885964e92ed39b60",
-    "agent/services/knowledge_hygiene/service.py": "54b1523950aedde547dd0bdb3e8b4702663eacad7925e99bea9e0194fcea0742",
+    "agent/services/knowledge_hygiene/service.py": "5023bfa20b7cc51a92efdcd56b1087542094bbe51bf06a0a47d3c62283d2a4d9",
     "ananta_contracts/knowledge_claim_precedence.py": "b7e450279e2821aafd46e18caea9d9d738748a015b6e943b690839e4d350673e",
     "ananta_contracts/knowledge_hygiene.py": "bbeb97ffa17ee31d0e288233afa103d4dd4b211f0ecf354319e94817ae60c74e",
     "worker/knowledge_hygiene/handlers.py": "edc9ea0d5125fab838618c1755b5c778ecd4dd0236d07c4c0be7e643a5a0fe5c"
