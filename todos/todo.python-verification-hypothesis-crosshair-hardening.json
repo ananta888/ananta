@@ -5,12 +5,12 @@
   "title": "Hypothesis- und CrossHair-Integration belastbar fertigstellen",
   "owner": "ananta",
   "track": "python-verification-hypothesis-crosshair-hardening",
-  "status": "todo",
+  "status": "in_progress",
   "created_at": "2026-09-04",
   "updated_at": "2026-09-04",
   "repository": "ananta888/ananta",
   "branch": "main",
-  "reviewed_commit": "36fa4609af6948c94a1ff3948dffb9bd9353b02e",
+  "reviewed_commit": "7ad0784329fd4998809b89134a76b72670321875",
   "purpose": "Die vorhandene Hypothesis- und CrossHair-Integration von einem erfolgreichen lokalen Pilot zu einer reproduzierbar grünen, produktionsnahen und gehärteten Verification-Fähigkeit weiterentwickeln.",
   "goal": "CI-Abhängigkeiten schließen, Ergebnissemantik und Sicherheitsgrenzen korrigieren, echte Ananta-Produktionsziele prüfen und Abschlussstatus ausschließlich an aktuelle maschinenlesbare Evidenz binden.",
   "status_scale": [
@@ -65,16 +65,23 @@
           "hypothesis_matrix": "failure_on_all_versions",
           "symbolic_targeted": "failure_4_passed_1_failed"
         }
+      },
+      {
+        "run_id": "33910210131",
+        "commit": "7ad0784329fd4998809b89134a76b72670321875",
+        "conclusion": "in_progress",
+        "observed_jobs": {}
       }
     ],
     "primary_findings": [
-      "Der archivierte Ursprungstrack meldet 100 Prozent done, obwohl beide sichtbaren Python-Verification-Workflows rot sind.",
+      "Der archivierte Ursprungstrack meldete 100 Prozent done, obwohl die beiden damaligen Python-Verification-Workflows rot waren; ein aktueller Reparaturlauf ist noch nicht abgeschlossen.",
       "Der isolierte Worker-Lock deckt den tatsächlichen Importgraphen der Tests nicht ab.",
       "Direkte CrossHair-Checks validieren überwiegend synthetische pilot_targets statt produktiver Ananta-Funktionen.",
       "Der Stateful-Lifecycle-Test wählt deterministisch nur den ersten erlaubten Übergang.",
       "Die Gegenbeispielmaterialisierung ist bei verschachtelten Argumenten durch komma-basierte Zerlegung nicht robust.",
       "Target-Symbole sind nicht als strikte backendabhängige Grammatik validiert und können als CLI-Optionen interpretiert werden.",
-      "Property-Verstöße, Collection-Fehler und Toolfehler werden nicht ausreichend getrennt berichtet."
+      "Property-Verstöße, Collection-Fehler und Toolfehler werden nicht ausreichend getrennt berichtet.",
+      "Die Reparatur auf 7ad078432 schließt die bekannten Collection-Abhängigkeiten und verhindert das versehentliche Laden des globalen Hub-conftest in Kindprozessen; die vollständige CI-Matrix bleibt bis zum Abschluss von Run 33910210131 offen."
     ]
   },
   "repo_alignment": {
@@ -139,7 +146,7 @@
         "PHSV-H-001",
         "PHSV-H-002"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "PHSV-H-M2",
@@ -149,7 +156,7 @@
         "PHSV-H-004",
         "PHSV-H-005"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "PHSV-H-M3",
@@ -177,14 +184,16 @@
       "title": "Isolierte Verification-Abhängigkeiten und Python-Matrix reparieren",
       "type": "ci",
       "milestone_id": "PHSV-H-M1",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 80,
       "repo_evidence": [
         "GitHub Actions Run 33882383020: alle hypothesis-matrix-Jobs rot; Collection meldet fehlendes flask und yaml.",
         "docker/compose-next/requirements.verification-worker.in enthält PyYAML und die durch produktive Imports benötigte Abhängigkeitsgrenze nicht vollständig.",
-        "Der allgemeine CI-Track führt denselben Fehler als CI-023; dieser Task ergänzt ausschließlich die Verification-spezifischen Abnahmekriterien."
+        "Der allgemeine CI-Track führt denselben Fehler als CI-023; dieser Task ergänzt ausschließlich die Verification-spezifischen Abnahmekriterien.",
+        "Commit cab7bfb34 verschiebt den Repository-Registry-Import an die tatsächlich persistenzgebundene Policy-Grenze, ergänzt PyYAML im vollständig gehashten Worker-Lock und isoliert Pytest-Kindprozesse über confcutdir.",
+        "Frische lokale Environments: Python 3.10 meldet 40 passed / 5 deselected, Python 3.12 meldet 39 passed / 5 deselected; Real Toolchain 14 passed. GitHub-Run 33910210131 ist noch nicht abgeschlossen."
       ],
       "implementation": [
         "Unnötige Flask-Infrastrukturkopplung beim Import von agent/services/task_dependency_policy.py entfernen oder hinter eine schmale, importseitig leichte Grenze verschieben.",
@@ -310,14 +319,15 @@
       "title": "Property-Fehler, Toolfehler und Suchgrenzen sauber unterscheiden",
       "type": "implementation",
       "milestone_id": "PHSV-H-M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 15,
       "repo_evidence": [
         "PytestHypothesisRunnerAdapter bildet jeden Nicht-Null-Exit derzeit auf TOOL_ERROR/pytest_failed ab.",
         "HypothesisCrossHairBackendAdapter meldet den aktuellen fünften Toolchain-Test nur als tool_error; die eigentliche Ursache ist im strukturierten Report nicht sichtbar.",
-        "cases_executed wird aus dem Budget übernommen und nicht aus tatsächlich beobachteter Ausführung abgeleitet."
+        "cases_executed wird aus dem Budget übernommen und nicht aus tatsächlich beobachteter Ausführung abgeleitet.",
+        "Commit cab7bfb34 behebt einen konkreten Environment-/Collection-Fehler im verschachtelten CrossHair-Backend-Lauf; die geforderte allgemeine Status- und Ergebnissemantik ist weiterhin offen."
       ],
       "implementation": [
         "Testfehler beziehungsweise gefundene Gegenbeispiele, Collection-/Importfehler, Timeout, Unsupported, Parserfehler und interne Toolfehler getrennt klassifizieren.",
@@ -538,13 +548,13 @@
   "tasks_status_summary": {
     "total": 10,
     "by_status": {
-      "todo": 10,
-      "in_progress": 0,
-      "partial": 0,
+      "todo": 8,
+      "in_progress": 1,
+      "partial": 1,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 10,
     "by_priority": {
       "P0": 5,
       "P1": 4,
@@ -563,8 +573,8 @@
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 2,
       "blocked": 0,
       "done": 0
     }
@@ -581,10 +591,10 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 10,
-    "in_progress": 0,
-    "partial": 0,
+    "state": "in_progress",
+    "todo_remaining": 8,
+    "in_progress": 1,
+    "partial": 1,
     "blocked": 0,
     "done": 0
   },
