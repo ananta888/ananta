@@ -601,9 +601,9 @@
         },
         {
           "dependencies": [],
-          "commit_changes": [],
+          "commit_changes": ["5b2294fcd", "ec63300ac", "8c6d98450"],
           "id": "CI-017",
-          "status": "in_progress",
+          "status": "completed",
           "workflow": "Quality And Docs",
           "workflow_job": "backend-checks",
           "step": "Source file line limit gate",
@@ -624,8 +624,13 @@
             "Auf ausdrueckliche Entscheidung des Nutzers per Neu-Schnappschuss geloest statt per Refactoring: 131 Eintraege (68 Altlasten uebernommen, 16 Baselines angehoben, 63 neu, 6 entfallen). Die 63 neuen tragen einen eigenen Grund mit Datum statt als 'legacy' gefuehrt zu werden, damit im Protokoll steht, was wann akzeptiert wurde.",
             "OFFEN GEBLIEBEN, bewusst: die Schuld ist damit datiert protokolliert, nicht behoben - 63 Dateien, 29.332 Zeilen ueber der Grenze, weiter unter RFS-015 mit Ablauf 31.12.2026. Der Gate blockiert ab hier jedes weitere Wachstum, was die eigentlich wertvolle Eigenschaft ist, bis die Aufteilung passiert.",
             "Nicht angefasst: das Audit durchlaeuft den Arbeitsbaum inklusive gitignorierter Build-Ausgabe. Lokal meldet es nach einem Build Geisterfehler aus frontend-angular/out-tsc/; in der CI folgenlos, weil frisch ausgecheckt wird. Die aktuelle Gegenprobe wurde deshalb gegen ein sauberes git archive des exakten Commits ausgefuehrt.",
-            "AUDIT 2026-09-04: CI-017 wurde wieder geoeffnet, weil die Baseline ihren Zweck erfuellt und drei neue Quellcode-Regressionsfehler blockiert. Die fruehere Entscheidung gegen die breite Altlastenbereinigung bleibt bestehen; bearbeitet werden nur die drei aktuellen Abweichungen."
-          ]
+            "AUDIT 2026-09-04: CI-017 wurde wieder geoeffnet, weil die Baseline ihren Zweck erfuellt und drei neue Quellcode-Regressionsfehler blockiert. Die fruehere Entscheidung gegen die breite Altlastenbereinigung bleibt bestehen; bearbeitet wurden nur die drei aktuellen Abweichungen.",
+            "Sauberes git archive von Commit 8c6d98450: source_file_line_count_audit.v1 meldet failing_source_over_threshold=0 und Exit 0, ohne Aenderung an Schwelle oder Allowlist.",
+            "Gezielte Konfigurations-, LLM- und Collaboration-Suite: 186 passed, 7 skipped in 44.95s.",
+            "Standard-Backend-Pipeline: Architekturgrenzen, Importzyklen, Duplikate, Dead-Code-Baseline und Fast-Tests erfolgreich; 37 passed, 1 skipped in 77.66s.",
+            "WFG-028 unveraendert und vollautomatisch erfolgreich in 172.7s; Knowledge-Hygiene-Release-Gate ebenfalls passed. Sein deterministisches, zuvor veraltetes Quell-Digest-Artefakt wurde dabei aktualisiert. Das lokal fehlende, bereits in requirements-dev.lock gesperrte pytest-timeout 2.4.0 wurde nur in der Umgebung nachinstalliert."
+          ],
+          "implemented_solution": "Die zwei ueberschrittenen Baselines wurden durch fachliche Extraktionen statt Zeilenkomprimierung wieder eingehalten: Composite-Risk- und Research-Training-Settings liegen in fokussierten Settings-Bausteinen; die lokale LLM-Antwortpolicy besitzt einen eigenen Projektionsport. Der neue CollaborationWorkspaceStore wurde ohne API-Aenderung von einer 2108-zeiligen Sammelklasse in eine 29-zeilige Fassade und vier nach Persistenzdomaenen getrennte Implementierungstraits (405 bis 658 Zeilen) zerlegt. Keine Allowlist-Ausnahme wurde hinzugefuegt oder erhoeht."
         },
         {
           "dependencies": [],
@@ -913,10 +918,10 @@
   "meta": {
     "total_items": 26,
     "by_status": {
-      "completed": 24,
+      "completed": 25,
       "partial": 0,
       "open": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 1,
       "blocked_decision": 0,
       "planned": 0,
@@ -937,8 +942,8 @@
       "ABSCHLUSS 2026-09-01: CI-013 ist durch Coverage-Lauf 33478142971 am Commit d4da32c56 mit 21 von 21 erfolgreichen Jobs abgeschlossen. Damit verbleibt in dieser Datei ausschliesslich CI-018 als extern evidenzgebundener Blocker; es gibt keine nicht blockierte Arbeit mehr.",
       "AUDIT 2026-09-04: Neue, reproduzierbare Fehler aus Python Verification 33882383020, Research Training Gate 33882383257 und Backend Isolated Flows 33908670417 sind als CI-023 bis CI-026 aufgenommen. CI-018 bleibt extern blockiert: seit 2026-06-27 kein neuer Container-Release-Lauf und alle fuenf letzten Dogfood-Laeufe wurden abgebrochen.",
       "ABSCHLUSS 2026-09-04: CI-023 bis CI-026 sind durch Python Verification 33910210131, Research Training Gate 33910217014 und Backend Isolated Flows 33910210132 auf Commit 7ad0784329fd4998809b89134a76b72670321875 vollständig grün.",
-      "REAUDIT 2026-09-04: CI-017 ist wegen drei aktuellen, reproduzierbaren Zeilenlimitverletzungen wieder in Bearbeitung. CI-018 bleibt die einzige externe Release-/Dogfood-Evidenzblockade."
+      "REAUDIT 2026-09-04: CI-017 wurde wegen drei aktuellen, reproduzierbaren Zeilenlimitverletzungen wieder geoeffnet und ohne Allowlist-Ausweitung abgeschlossen. CI-018 bleibt die einzige externe Release-/Dogfood-Evidenzblockade."
     ],
-    "recommended_order": ["CI-017", "CI-018"]
+    "recommended_order": ["CI-018"]
   }
 }
