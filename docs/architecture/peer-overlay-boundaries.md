@@ -13,6 +13,8 @@ projection they receive; they do not elect routes or broaden capabilities.
 | One browser link | Browser adapter | `PeerLinkSession` focused lifecycle, publication, data and observation ports |
 | Small mesh composition | Browser | `MultiPeerConnectionManager` |
 | Opaque multi-hop forwarding | Browser data plane | `PeerOverlayDataRelay` |
+| Parent-path activation and failover fencing | Browser data plane | `PeerOverlayParentFailover` |
+| Edge-scoped SDP/ICE transport selection | Browser signaling adapter | `PeerOverlayLinkSignaling` |
 | Encoded-frame cryptography | Browser crypto adapter | `MediaFrameCryptoPort` and scoped key leases |
 | Product release | Hub | `PeerOverlayReleaseGate` |
 
@@ -28,3 +30,13 @@ adding adapters instead of modifying the direct/SFU core, ISP through focused
 browser ports, and DIP through injected factories and crypto capabilities.
 Unsupported capabilities return bounded errors; they are never successful
 no-ops.
+
+The data relay authenticates immutable origin fields and keeps the changing
+hop/path envelope inside Hub-leased authenticated links. Destination routes
+map an end peer to an authorized immediate child; a relay cannot add a child.
+Every relay independently enforces the route epoch, hop/path bounds, replay
+budget and queue caps. Parent failover consumes a Hub-validated successor
+command, keeps backup bulk disabled before activation, and restores the primary
+if the bounded switch cannot complete. Link signaling consumes one short-lived
+Hub ticket per offer and automatically uses the Hub rendezvous path when the
+existing DataChannel is absent or races with a partition.

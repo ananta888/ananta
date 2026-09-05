@@ -46,15 +46,55 @@ describe('PeerOverlayDataRelay', () => {
       state: 'rejected', reasonCode: 'peer_overlay_signature_invalid',
     });
   });
+
+  it('relays identical authenticated ciphertext over two bounded hops', async () => {
+    const authentic = verifier();
+    const first = new PeerOverlayDataRelay(lease({
+      localPeerId: 'relay-1', childPeerIds: ['relay-2'], destinationRoutes: { destination: 'relay-2' },
+    }), () => now, authentic);
+    const second = new PeerOverlayDataRelay(lease({
+      localPeerId: 'relay-2', childPeerIds: ['destination'], destinationRoutes: { destination: 'destination' },
+    }), () => now, authentic);
+    const link = port('relay-2');
+    first.bindChild(link);
+    const destination = port('destination');
+    second.bindChild(destination);
+    const packet = await makePacket('message-two-hop', 'destination');
+
+    expect(await first.accept(packet)).toEqual({
+      state: 'queued', reasonCode: 'peer_overlay_queued', childPeerId: 'relay-2',
+    });
+    const forwarded = (link.send as ReturnType<typeof vi.fn>).mock.calls[0][0] as OpaquePeerRelayPacketV1;
+    expect(forwarded.ciphertext_b64).toBe(packet.ciphertext_b64);
+    expect(forwarded.signature_b64).toBe(packet.signature_b64);
+    expect(forwarded.path).toEqual(['origin', 'relay-1']);
+    expect(await second.accept(forwarded)).toEqual({
+      state: 'queued', reasonCode: 'peer_overlay_queued', childPeerId: 'destination',
+    });
+    const final = (destination.send as ReturnType<typeof vi.fn>).mock.calls[0][0] as OpaquePeerRelayPacketV1;
+    expect(final.ciphertext_b64).toBe(packet.ciphertext_b64);
+    expect(final.hop_limit).toBe(0);
+    expect(final.path).toEqual(['origin', 'relay-1', 'relay-2']);
+    expect(await new PeerOverlayDataRelay(lease({
+      localPeerId: 'destination', childPeerIds: [], destinationRoutes: {},
+    }), () => now, authentic).accept(final)).toEqual({
+      state: 'delivered_local', reasonCode: 'peer_overlay_destination_reached',
+    });
+    const verifyCalls = (authentic.verify as ReturnType<typeof vi.fn>).mock.calls;
+    expect(new TextDecoder().decode(verifyCalls[1][1])).toBe(new TextDecoder().decode(verifyCalls[0][1]));
+    expect(new TextDecoder().decode(verifyCalls[2][1])).toBe(new TextDecoder().decode(verifyCalls[0][1]));
+  });
 });
 
-function lease(): AcceptedPeerRouteLease {
+function lease(changes: Partial<AcceptedPeerRouteLease> = {}): AcceptedPeerRouteLease {
   return Object.freeze({
     validation: 'hub-route-lease-accepted-v1', leaseId: 'lease-1', tenantId: 'tenant-1',
     roomId: 'room-1', publicationId: 'publication-1', localPeerId: 'local',
     childPeerIds: Object.freeze(['child-1', 'child-2']), routeEpoch: 2, maxHops: 3,
+    destinationRoutes: Object.freeze({ 'child-1': 'child-1', 'child-2': 'child-2' }),
     expiresAtMs: 1_100_000,
     trafficClasses: Object.freeze(['control', 'rekey', 'event', 'semantic', 'bulk']),
+    ...changes,
   });
 }
 

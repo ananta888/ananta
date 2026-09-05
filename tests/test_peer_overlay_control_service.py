@@ -42,6 +42,11 @@ def candidates() -> list[dict[str, object]]:
             "self_capacity": 80,
             "observed_capacity": 75,
             "delivery_ratio": 0.99,
+            "cpu_load_ratio": 0.2,
+            "rtt_ms": 30,
+            "packet_loss_ratio": 0.001,
+            "send_buffer_bytes": 0,
+            "metered_network": False,
         }
         for peer_id in ("source", "peer-1", "peer-2")
     ]

@@ -39,16 +39,18 @@ one-use at the Hub.
 
 Opaque relay code has no decrypt or key-export port. It accepts only a
 Hub-validated lease projection, enforces scope, route epoch, TTL, chunk bounds,
-digest, path, hop limit, replay budget and per-child/per-class queues.
+digest, path, hop limit, replay budget and per-child/per-class queues. Immutable
+origin content is signature-verified at every hop; the mutable hop/path envelope
+is constrained independently by every authenticated Hub-leased edge.
 
 ## Consequences
 
 - Data overlay is disabled unless `ANANTA_PEER_OVERLAY_DATA_ENABLED=true`.
 - Direct peer modes can expose network metadata to their immediate peers;
   E2EE and mDNS do not justify a contrary privacy claim.
-- Missing browser, NAT, churn, malicious-relay or capacity evidence stays
-  fail-closed. Repository tests are not promoted into invented `SRC_*` or
-  `RUN_*` evidence.
+- Missing NAT, churn or malicious-relay evidence stays fail-closed. Headless
+  browser capacity tests use Hub-issued synthetic test `SRC_*`/`RUN_*`
+  identities and can never satisfy a production release gate.
 - LiveKit and TURN remain independent, supported fallbacks.
 
 ## SOLID check

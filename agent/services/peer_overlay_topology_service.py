@@ -27,6 +27,12 @@ class PeerOverlayCandidate:
     observed_capacity: int
     delivery_ratio: float
     turn_required: bool = False
+    cpu_load_ratio: float = 1.0
+    rtt_ms: int = 120_000
+    packet_loss_ratio: float = 1.0
+    send_buffer_bytes: int = 64 * 1024 * 1024
+    metered_network: bool = True
+    eligible_since_ms: int = 0
 
     def __post_init__(self) -> None:
         require_overlay_id(self.peer_id, "peer_id")
@@ -38,6 +44,12 @@ class PeerOverlayCandidate:
             raise ValueError("peer_overlay_capacity_invalid")
         if not 0.0 <= self.delivery_ratio <= 1.0:
             raise ValueError("peer_overlay_delivery_ratio_invalid")
+        if not 0.0 <= self.cpu_load_ratio <= 1.0 or not 0.0 <= self.packet_loss_ratio <= 1.0:
+            raise ValueError("peer_overlay_resource_ratio_invalid")
+        if not 0 <= self.rtt_ms <= 120_000 or not 0 <= self.send_buffer_bytes <= 64 * 1024 * 1024:
+            raise ValueError("peer_overlay_resource_value_invalid")
+        if self.eligible_since_ms < 0:
+            raise ValueError("peer_overlay_eligibility_time_invalid")
 
     @property
     def eligible_relay(self) -> bool:
@@ -48,6 +60,11 @@ class PeerOverlayCandidate:
             and self.network not in {"unknown", "constrained"}
             and self.effective_capacity >= 25
             and self.delivery_ratio >= 0.95
+            and self.cpu_load_ratio <= 0.8
+            and self.rtt_ms <= 500
+            and self.packet_loss_ratio <= 0.05
+            and self.send_buffer_bytes <= 2 * 1024 * 1024
+            and not self.metered_network
         )
 
     @property
@@ -55,8 +72,15 @@ class PeerOverlayCandidate:
         return min(self.self_capacity, self.observed_capacity)
 
     @property
-    def rank(self) -> tuple[int, int, str]:
-        return (self.effective_capacity, int(self.delivery_ratio * 10_000), self.peer_id)
+    def rank(self) -> tuple[int, int, int, int, int, str]:
+        return (
+            self.effective_capacity,
+            int(self.delivery_ratio * 10_000),
+            -int(self.packet_loss_ratio * 10_000),
+            -self.rtt_ms,
+            -self.send_buffer_bytes,
+            self.peer_id,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +90,7 @@ class PeerOverlayPlan:
     leases: tuple[PeerRouteLease, ...]
     rejected_peer_ids: tuple[str, ...]
     max_children: int
+    destination_routes: tuple[tuple[str, str, str], ...]
     topology: str = "peer_data_dag"
 
     def as_dict(self) -> dict[str, Any]:
@@ -75,6 +100,14 @@ class PeerOverlayPlan:
             "leases": [{**lease.unsigned(), "signature": lease.signature} for lease in self.leases],
             "rejected_peer_ids": list(self.rejected_peer_ids),
             "max_children": self.max_children,
+            "destination_routes": {
+                local_peer_id: {
+                    destination_peer_id: next_peer_id
+                    for route_local, destination_peer_id, next_peer_id in self.destination_routes
+                    if route_local == local_peer_id
+                }
+                for local_peer_id in sorted({route[0] for route in self.destination_routes})
+            },
             "topology": self.topology,
         }
 
@@ -90,18 +123,24 @@ class PeerOverlayTopologyService:
         max_children: int = 2,
         lease_seconds: int = 60,
         max_turn_edges: int = 1,
+        minimum_eligible_ms: int = 15_000,
     ) -> None:
         if len(signing_key) < 32:
             raise ValueError("peer_overlay_signing_key_too_short")
         if not 2 <= max_children <= 3:
             raise ValueError("peer_overlay_max_children_invalid")
-        if not 30 <= lease_seconds <= 300 or not 0 <= max_turn_edges <= 16:
+        if (
+            not 30 <= lease_seconds <= 300
+            or not 0 <= max_turn_edges <= 16
+            or not 0 <= minimum_eligible_ms <= 300_000
+        ):
             raise ValueError("peer_overlay_budget_invalid")
         self._key = bytes(signing_key)
         self._hub_key_id = require_overlay_id(hub_key_id, "hub_key_id")
         self._max_children = max_children
         self._lease_seconds = lease_seconds
         self._max_turn_edges = max_turn_edges
+        self._minimum_eligible_ms = minimum_eligible_ms
 
     def plan(
         self,
@@ -128,11 +167,19 @@ class PeerOverlayTopologyService:
         connected = [source]
         depths = {source: 0}
         children = {item.peer_id: 0 for item in normalized}
-        relay_eligible = {source, *(item.peer_id for item in normalized if item.eligible_relay)}
+        instant = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        now_ms = int(instant.timestamp() * 1_000)
+        relay_eligible = {
+            source,
+            *(
+                item.peer_id
+                for item in normalized
+                if item.eligible_relay and now_ms - item.eligible_since_ms >= self._minimum_eligible_ms
+            ),
+        }
         turn_edges = 0
         rejected: list[str] = []
         leases: list[PeerRouteLease] = []
-        instant = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         for child in ordered:
             parent_options = [
                 peer_id
@@ -190,7 +237,15 @@ class PeerOverlayTopologyService:
             depths[child.peer_id] = depth
             connected.append(child.peer_id)
             turn_edges += int(child.turn_required)
-        return PeerOverlayPlan(publication, source, tuple(leases), tuple(sorted(rejected)), self._max_children)
+        destination_routes = _destination_routes(leases)
+        return PeerOverlayPlan(
+            publication,
+            source,
+            tuple(leases),
+            tuple(sorted(rejected)),
+            self._max_children,
+            destination_routes,
+        )
 
 
 def _candidate(value: PeerOverlayCandidate | Mapping[str, Any]) -> PeerOverlayCandidate:
@@ -199,6 +254,18 @@ def _candidate(value: PeerOverlayCandidate | Mapping[str, Any]) -> PeerOverlayCa
 
 def _iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _destination_routes(leases: Iterable[PeerRouteLease]) -> tuple[tuple[str, str, str], ...]:
+    parent_by_child = {lease.child_peer_id: lease.primary_parent_id for lease in leases}
+    routes: set[tuple[str, str, str]] = set()
+    for destination in parent_by_child:
+        next_peer = destination
+        while next_peer in parent_by_child:
+            local_peer = parent_by_child[next_peer]
+            routes.add((local_peer, destination, next_peer))
+            next_peer = local_peer
+    return tuple(sorted(routes))
 
 
 __all__ = ["PeerOverlayCandidate", "PeerOverlayPlan", "PeerOverlayTopologyService"]

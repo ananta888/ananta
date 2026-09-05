@@ -10,6 +10,7 @@ export interface AcceptedPeerRouteLease {
   readonly publicationId: string;
   readonly localPeerId: string;
   readonly childPeerIds: readonly string[];
+  readonly destinationRoutes: Readonly<Record<string, string>>;
   readonly routeEpoch: number;
   readonly maxHops: number;
   readonly expiresAtMs: number;
@@ -122,7 +123,8 @@ export class PeerOverlayDataRelay {
     if (packet.destination_peer_id === this.lease.localPeerId) {
       return Object.freeze({ state: 'delivered_local', reasonCode: 'peer_overlay_destination_reached' });
     }
-    if (!this.lease.childPeerIds.includes(packet.destination_peer_id)) {
+    const childPeerId = this.resolveChild(packet.destination_peer_id);
+    if (!childPeerId) {
       return this.reject('peer_overlay_destination_not_leased');
     }
     const forwarded = Object.freeze({
@@ -131,10 +133,10 @@ export class PeerOverlayDataRelay {
       path: Object.freeze([...packet.path, this.lease.localPeerId]),
     });
     if (forwarded.hop_limit < 0) return this.reject('peer_overlay_hop_limit_exhausted');
-    const queued = this.enqueue(packet.destination_peer_id, forwarded);
+    const queued = this.enqueue(childPeerId, forwarded);
     if (!queued) return this.reject('peer_overlay_child_queue_overloaded');
-    this.flush(packet.destination_peer_id);
-    return Object.freeze({ state: 'queued', reasonCode: 'peer_overlay_queued', childPeerId: packet.destination_peer_id });
+    this.flush(childPeerId);
+    return Object.freeze({ state: 'queued', reasonCode: 'peer_overlay_queued', childPeerId });
   }
 
   flush(childPeerId: string): number {
@@ -179,6 +181,12 @@ export class PeerOverlayDataRelay {
     return true;
   }
 
+  private resolveChild(destinationPeerId: string): string | undefined {
+    const routed = this.lease.destinationRoutes[destinationPeerId];
+    if (routed && this.lease.childPeerIds.includes(routed)) return routed;
+    return this.lease.childPeerIds.includes(destinationPeerId) ? destinationPeerId : undefined;
+  }
+
   private purgeReplay(now: number): void {
     for (const [key, expiresAt] of this.seenUntil) if (expiresAt <= now) this.seenUntil.delete(key);
   }
@@ -221,7 +229,9 @@ async function parsePacket(
   if (expiresAt <= now || expiresAt > now + 120_000 || lease.expiresAtMs <= now) throw new Error('peer_overlay_packet_expired');
   const hopLimit = exactInteger(value['hop_limit'], 0, lease.maxHops);
   const path = value['path'];
-  if (!Array.isArray(path) || path.some(item => typeof item !== 'string' || !ID_RE.test(item))
+  if (!Array.isArray(path) || path.length < 1 || path.length > lease.maxHops
+      || path[0] !== value['origin_peer_id']
+      || path.some(item => typeof item !== 'string' || !ID_RE.test(item))
       || new Set(path).size !== path.length || path.includes(lease.localPeerId)) throw new Error('peer_overlay_path_invalid');
   const chunkIndex = exactInteger(value['chunk_index'], 0, 255);
   const chunkCount = exactInteger(value['chunk_count'], 1, 256);
@@ -238,7 +248,9 @@ async function parsePacket(
   if (hex !== value['ciphertext_digest']) throw new Error('peer_overlay_ciphertext_digest_mismatch');
   const signature = decodeB64(String(value['signature_b64']));
   if (!signature.byteLength || signature.byteLength > 512) throw new Error('peer_overlay_signature_invalid');
-  const { signature_b64: _signature, ...signedFields } = value;
+  // The origin authenticates immutable content. Hop budget and path are a
+  // lease-bounded transport envelope changed by every authenticated edge.
+  const { signature_b64: _signature, hop_limit: _hopLimit, path: _path, ...signedFields } = value;
   const signedPacket = new TextEncoder().encode(canonicalSecurityJson(signedFields));
   if (!await authenticity.verify(String(value['origin_peer_id']), signedPacket, signature)) {
     throw new Error('peer_overlay_signature_invalid');
@@ -259,10 +271,15 @@ const DENY_UNVERIFIED_PACKETS: PeerOverlayPacketAuthenticityPort = Object.freeze
 });
 
 function validateLease(value: AcceptedPeerRouteLease, now: number): void {
+  const routeEntries = Object.entries(value.destinationRoutes);
   if (value.validation !== 'hub-route-lease-accepted-v1' || value.expiresAtMs <= now
       || value.routeEpoch < 1 || value.maxHops < 1 || value.maxHops > 8
       || new Set(value.childPeerIds).size !== value.childPeerIds.length
-      || value.childPeerIds.includes(value.localPeerId)) throw new Error('peer_overlay_lease_invalid');
+      || value.childPeerIds.includes(value.localPeerId)
+      || routeEntries.length > 1_024
+      || routeEntries.some(([destination, child]) => !ID_RE.test(destination) || !value.childPeerIds.includes(child))) {
+    throw new Error('peer_overlay_lease_invalid');
+  }
 }
 
 function exactInteger(value: unknown, minimum: number, maximum: number): number {

@@ -20,6 +20,7 @@ signatures, ICE data or application payloads into operator logs.
 | expired/stale/forged ticket | reject edge | retry through Hub |
 | single relay complaint | keep primary | degraded observation, no ban |
 | quorum drop/delay complaint | rate-limited backup ticket | switching data parent |
+| backup activation exceeds 3 s | restore primary bulk path | bounded failover error |
 | missing/expired backup lease | keep route closed | Hub replan required |
 | slow child or queue cap | isolate/drop that child's bounded queue | partial data degradation |
 | Hub partition | freeze new publication, route and lease authority | bounded offline grace |
@@ -36,6 +37,21 @@ but can never extend the selected profile. During grace, existing delivery may
 continue; new publications, route changes and peer-side lease renewal remain
 disabled. Membership gaps trigger a Hub snapshot request rather than a peer
 merge or vote.
+
+Relay admission requires explicit consent and visibility, non-critical battery,
+an unmetered non-constrained network, at least 25% observed capacity, at least
+95% delivery, no more than 80% CPU load, 500 ms RTT, 5% loss or 2 MiB queued
+send data. The candidate must remain eligible for 15 seconds before it can
+become a parent. Neighbor-observed capacity caps self-reported capacity; the
+health policy adds a 30-second post-failover cooldown.
+Missing resource fields take conservative ineligible defaults; legacy clients
+remain accepted as leaves but cannot silently acquire relay authority.
+
+After bootstrap, SDP/ICE messages use the existing peer DataChannel when it is
+ready. Every offer is bound to one unexpired Hub-accepted edge ticket and its
+Hub-selected offerer, limited to 64 KiB and rejected if bearer credentials or
+private keys occur. Missing or raced in-band transport falls back automatically
+to the Hub rendezvous path. It never waits for operator input.
 
 ## Headless four-peer browser capacity gate
 

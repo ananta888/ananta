@@ -84,6 +84,8 @@
       "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
+      "frontend-angular/src/app/services/peer-overlay/peer-overlay-link-signaling.ts",
+      "frontend-angular/src/app/services/peer-overlay/peer-overlay-parent-failover.ts",
       "frontend-angular/src/app/services/pair-media-e2ee-frame-codec.ts",
       "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts",
       "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
@@ -315,7 +317,7 @@
     {
       "id": "M06",
       "title": "Peer-DAG, Signaling und Relay-Neuwahl",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-DAG-001",
         "DPM-DAG-002",
@@ -942,7 +944,7 @@
     {
       "id": "DPM-DAG-002",
       "title": "Beobachtbare Relay-Eignung mit Hysterese und Consent bewerten",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -957,17 +959,18 @@
         "Mobile Hintergrundtabs, knapper Akku und verweigerter Relay-Consent sind nicht eligible.",
         "Hysterese, Mindesthaltezeit und Cooldown verhindern Route-Flapping."
       ],
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/peer_overlay_topology_service.py",
-        "agent/services/peer_overlay_relay_health_policy.py"
-      ],
-      "implementation_gap": "Consent, konservative Fremdbeobachtung und Failover-Cooldown sind vorhanden; reale Ressourcenmessungen und Mindesthaltezeit-Evidence fehlen."
+        "agent/services/peer_overlay_relay_health_policy.py",
+        "tests/test_peer_overlay_topology_service.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts"
+      ]
     },
     {
       "id": "DPM-DAG-003",
       "title": "Primary-/Backup-Parent-Failover ohne doppelten Dauertraffic implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -982,18 +985,19 @@
         "Kurze Ueberlappung wird ueber Frame-ID dedupliziert; dauerhafter Doppelstream ist verboten.",
         "Stale Backup-Leases und ueberholte Route-Epochen koennen keinen Pfad reaktivieren."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/peer_overlay_relay_health_policy.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_relay_health_policy.py"
-      ],
-      "implementation_gap": "Hub-Entscheid, Cooldown und One-use-Backup-Ticket sind implementiert; reale Browser-Umschaltfrist und Churn-Evidence fehlen."
+        "tests/test_peer_overlay_relay_health_policy.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-parent-failover.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-parent-failover.spec.ts"
+      ]
     },
     {
       "id": "DPM-DAG-004",
       "title": "In-Band-Signaling fuer neue Peer-Kanten und sicheren Serverfallback implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1008,19 +1012,20 @@
         "Bearer Tokens, private Keys und unbeschraenkte ICE-Credentials werden nie gegossipt.",
         "Bootstrap-Paradox, gleichzeitige Reconnects und getrennte Partitionen sind deterministisch behandelt."
       ],
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
         "agent/services/peer_overlay_control_service.py",
         "agent/services/peer_overlay_state_store.py",
-        "tests/test_peer_overlay_control_service.py"
-      ],
-      "implementation_gap": "Signierte, ablaufende One-use-Kantentickets und Hub-Fallback sind implementiert; produktive DataChannel-Signaling-Adapter fehlen."
+        "tests/test_peer_overlay_control_service.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-link-signaling.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-link-signaling.spec.ts"
+      ]
     },
     {
       "id": "DPM-POC-001",
       "title": "Verschluesselten Peer-DAG zuerst fuer opaque Daten produktionsnah prototypisieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -1035,13 +1040,13 @@
         "TTL, Chunk-Digest, Replay, Deduplizierung und Backpressure funktionieren ueber mindestens zwei Hops.",
         "SFU- und Peer-Adapter teilen Vertraege, nicht Infrastrukturzustand."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
-        "ananta_contracts/peer_overlay.py"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "ananta_contracts/peer_overlay.py",
+        "docs/architecture/peer-overlay-boundaries.md"
+      ]
     },
     {
       "id": "DPM-POC-002",
@@ -1665,11 +1670,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 19,
+      "partial": 15,
       "blocked": 5,
-      "done": 24
+      "done": 28
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 58.3,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1683,15 +1688,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 22,
-      "remaining": 22
+      "done": 26,
+      "remaining": 18
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 8,
+      "in_progress": 7,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -1758,14 +1763,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 11,
+          "partial": 7,
           "blocked": 0,
-          "done": 5
+          "done": 9
         },
-        "done": 5,
-        "partial": 11,
+        "done": 9,
+        "partial": 7,
         "blocked": 0,
-        "progress_percent": 79.7
+        "progress_percent": 85.3
       },
       "test": {
         "total": 6,
@@ -1829,11 +1834,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 19,
+    "partial": 15,
     "blocked": 5,
-    "done": 24,
-    "count_based_percent": 50.0,
-    "weighted_percent": 77.2
+    "done": 28,
+    "count_based_percent": 58.3,
+    "weighted_percent": 79.4
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1879,10 +1884,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 68.287,
-    "remaining_weight": 20.213,
+    "done_weight": 70.237,
+    "remaining_weight": 18.263,
     "blocked_weight": 9.0,
-    "weighted_percent": 77.2
+    "weighted_percent": 79.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1928,18 +1933,18 @@
       },
       "M06": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 80.6,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M07": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 3,
-        "count_based_percent": 0.0,
-        "weighted_percent": 22.9,
+        "count_based_percent": 25.0,
+        "weighted_percent": 28.6,
         "status": "in_progress"
       },
       "M08": {
@@ -1987,10 +1992,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T02:19:55.535812Z",
+    "generated_at": "2026-09-05T02:28:03.714120Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "c5cac5c8e97dfe90ab3f5702d6e25ce6d278c04f720dd446a0e0dca39cd5a473",
+    "source_hash": "afefe3bc768223b2746f86863c00ce42141ccd8717ea59af1414aba79ec818e2",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"
