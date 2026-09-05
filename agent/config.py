@@ -665,6 +665,10 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
         default=False,
         validation_alias="ANANTA_PEER_OVERLAY_DATA_ENABLED",
     )
+    peer_overlay_rollout: str = Field(
+        default="{}",
+        validation_alias="ANANTA_PEER_OVERLAY_ROLLOUT",
+    )
     dspy_optimization_enabled: bool = Field(default=False, validation_alias="ANANTA_DSPY_OPTIMIZATION_ENABLED")
     dspy_optimization_mode: str = Field(default="disabled", validation_alias="ANANTA_DSPY_OPTIMIZATION_MODE")
     dspy_optimization_state: str = Field(

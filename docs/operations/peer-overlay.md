@@ -1,8 +1,16 @@
 # Peer overlay operations and automatic recovery
 
 The peer data overlay is default-off. Enable it only for an explicit canary by
-setting `ANANTA_PEER_OVERLAY_DATA_ENABLED=true` on the Hub. Peer media overlay
-stays no-go; larger group media must use LiveKit E2EE.
+setting `ANANTA_PEER_OVERLAY_DATA_ENABLED=true` on the Hub. For independently
+scoped canaries, prefer `ANANTA_PEER_OVERLAY_ROLLOUT`: its `enabled` and
+`gate_bindings` maps have separate `mesh`, `data_overlay`, `media_overlay`,
+`native_sframe` and `mls` switches, all default-false. Its `allowlists` map may
+restrict `tenant`, `room`, `publication` and `browser` IDs independently. A
+feature is effective only when both its switch and release-gate binding are
+true and every configured scope matches. Peer media overlay stays hard no-go;
+larger group media must use LiveKit E2EE. The current native-SFrame and MLS
+decisions are also hard no-go, so setting their desired-state flags cannot make
+them effective until a future reviewed implementation changes those decisions.
 
 ## Content-free overview
 
@@ -113,7 +121,8 @@ or production release promotion.
 
 ## Rollback
 
-1. Set `ANANTA_PEER_OVERLAY_DATA_ENABLED=false` and restart/reload the Hub.
+1. Set `ANANTA_PEER_OVERLAY_DATA_ENABLED=false`, remove or disable the
+   `data_overlay` entry in `ANANTA_PEER_OVERLAY_ROLLOUT`, and restart/reload the Hub.
 2. Confirm overview reports `data_overlay=disabled`.
 3. Existing membership history may remain; plans and tickets can no longer be
    issued or consumed while disabled.
@@ -122,3 +131,6 @@ or production release promotion.
 
 Rollback requires no data migration. Do not delete the SQLite state during an
 incident; it is the immutable audit trail for revision and ticket replay checks.
+Disabling the policy makes all plan, ticket and forwarding-authority mutations
+inert immediately after reload, so retained history cannot leave a half-open
+route.

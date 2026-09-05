@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from agent.services.peer_overlay_offline_authority_policy import PeerOverlayOfflineAuthorityPolicy
 from agent.services.peer_overlay_quality_policy import PeerOverlayQualityPolicy
 from agent.services.peer_overlay_relay_health_policy import PeerOverlayRelayHealthPolicy
+from agent.services.peer_overlay_rollout_policy import PeerOverlayRolloutPolicy
 from agent.services.peer_overlay_state_store import PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayCandidate, PeerOverlayTopologyService
 from ananta_contracts.peer_overlay import (
@@ -39,6 +40,7 @@ class PeerOverlayControlService:
         relay_health: PeerOverlayRelayHealthPolicy | None = None,
         offline_policy: PeerOverlayOfflineAuthorityPolicy | None = None,
         quality_policy: PeerOverlayQualityPolicy | None = None,
+        rollout_policy: PeerOverlayRolloutPolicy | None = None,
     ) -> None:
         if len(signing_key) < 32:
             raise ValueError("peer_overlay_signing_key_too_short")
@@ -46,10 +48,13 @@ class PeerOverlayControlService:
         self._key = bytes(signing_key)
         self._hub_key_id = require_overlay_id(hub_key_id, "hub_key_id")
         self._topology = topology
-        self._data_enabled = bool(data_enabled)
         self._relay_health = relay_health or PeerOverlayRelayHealthPolicy()
         self._offline_policy = offline_policy or PeerOverlayOfflineAuthorityPolicy()
         self._quality_policy = quality_policy or PeerOverlayQualityPolicy()
+        self._rollout = rollout_policy or PeerOverlayRolloutPolicy.from_mapping(
+            None, legacy_data_enabled=bool(data_enabled)
+        )
+        self._data_enabled = bool(data_enabled or self._rollout.matrix()["data_overlay"]["effective"])
 
     def change_membership(
         self,
@@ -132,8 +137,18 @@ class PeerOverlayControlService:
         source_peer_id: str,
         candidates: list[Mapping[str, Any]],
         expected_revision: int = 0,
+        browser_id: str | None = None,
     ) -> dict[str, Any]:
         self._require_data_enabled()
+        rollout = self._rollout.evaluate(
+            "data_overlay",
+            tenant_id=tenant_id,
+            room_id=room_id,
+            publication_id=publication_id,
+            browser_id=browser_id,
+        )
+        if not rollout.allowed:
+            raise PeerOverlayDenied(rollout.reason_code)
         membership = self._require_membership(tenant_id, room_id)
         candidate_ids = {require_overlay_id(item.get("peer_id"), "peer_id") for item in candidates}
         if not candidate_ids.issubset(set(membership["member_ids"])) or source_peer_id not in candidate_ids:
@@ -373,6 +388,7 @@ class PeerOverlayControlService:
             else "enabled"
             if self._data_enabled
             else "disabled",
+            "rollout_matrix": self._rollout.matrix(),
             "fallback": "livekit_e2ee",
             "human_intervention_required": False,
         }

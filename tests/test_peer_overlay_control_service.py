@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from agent.services.peer_overlay_control_service import PeerOverlayControlService, PeerOverlayDenied
+from agent.services.peer_overlay_rollout_policy import PeerOverlayRolloutPolicy
 from agent.services.peer_overlay_state_store import PeerOverlayStateConflict, PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayTopologyService
 
@@ -76,6 +77,41 @@ def test_hub_membership_plan_and_one_use_link_ticket_are_fully_automatic(tmp_pat
     with pytest.raises(PeerOverlayStateConflict, match="ticket_replayed"):
         control.consume_link_ticket(ticket=ticket, local_peer_id=lease["child_peer_id"])
     assert control.overview(room_id="room-1")["human_intervention_required"] is False
+
+
+def test_publication_plan_obeys_independent_browser_canary_scope(tmp_path) -> None:
+    control = PeerOverlayControlService(
+        PeerOverlayStateStore(tmp_path / "overlay.sqlite3"),
+        signing_key=b"p" * 32,
+        hub_key_id="hub-1",
+        topology=PeerOverlayTopologyService(b"p" * 32, hub_key_id="hub-1"),
+        rollout_policy=PeerOverlayRolloutPolicy(
+            enabled={"data_overlay": True},
+            gate_bindings={"data_overlay": True},
+            allowlists={"browser": ["browser-canary"]},
+        ),
+    )
+    join_members(control)
+    with pytest.raises(PeerOverlayDenied, match="browser_canary_denied"):
+        control.plan_publication(
+            tenant_id="tenant-1",
+            room_id="room-1",
+            publication_id="publication-1",
+            source_peer_id="source",
+            candidates=candidates(),
+            browser_id="browser-other",
+        )
+    assert (
+        control.plan_publication(
+            tenant_id="tenant-1",
+            room_id="room-1",
+            publication_id="publication-1",
+            source_peer_id="source",
+            candidates=candidates(),
+            browser_id="browser-canary",
+        )["revision"]
+        == 1
+    )
 
 
 def test_membership_revocation_rotates_membership_and_key_epochs(tmp_path) -> None:
