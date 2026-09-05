@@ -15,7 +15,7 @@ from agent.services.ml_intern_evaluation_decision_service import (
     evaluate_adapter_metrics,
 )
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
-from agent.services.unsloth_storage_governance_service import StorageReferencePort
+from agent.services.unsloth_storage_contracts import StorageReferencePort
 
 
 class EvaluationStoreError(ValueError):

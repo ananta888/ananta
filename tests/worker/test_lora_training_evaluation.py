@@ -6,7 +6,12 @@ from typing import Any
 import pytest
 
 from worker.training.backends.base import TrainingBackendError
-from worker.training.evaluation import _evaluate_base_and_adapter
+from worker.training.evaluation import (
+    PeftAdapterEvaluator,
+    UnslothAdapterModelLoader,
+    _evaluate_base_and_adapter,
+    evaluator_for_backend,
+)
 
 
 class _AdapterModel:
@@ -74,3 +79,61 @@ def test_base_comparison_fails_closed_without_peft_disable_adapter_support() -> 
         )
 
     assert exc_info.value.code == "evaluation_failed"
+
+
+class _Cuda:
+    @staticmethod
+    def is_available() -> bool:
+        return True
+
+
+class _Torch:
+    cuda = _Cuda()
+
+
+class _FastLanguageModel:
+    calls: list[dict[str, Any]] = []
+    inference_models: list[object] = []
+
+    @classmethod
+    def from_pretrained(cls, **kwargs: Any) -> tuple[object, object]:
+        cls.calls.append(kwargs)
+        return object(), object()
+
+    @classmethod
+    def for_inference(cls, model: object) -> None:
+        cls.inference_models.append(model)
+
+
+def test_unsloth_loader_loads_adapter_directory_through_patched_runtime(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    _FastLanguageModel.calls.clear()
+    _FastLanguageModel.inference_models.clear()
+    adapter_path = tmp_path / "adapter"
+    context = SimpleNamespace(
+        adapter_path=adapter_path,
+        request=SimpleNamespace(
+            configuration=SimpleNamespace(quantization="4bit", max_sequence_length=128),
+        ),
+    )
+
+    model, _tokenizer = UnslothAdapterModelLoader(_FastLanguageModel).load(context, _Torch())
+
+    assert _FastLanguageModel.calls == [{
+        "model_name": str(adapter_path),
+        "max_seq_length": 128,
+        "load_in_4bit": True,
+        "load_in_8bit": False,
+        "load_in_16bit": False,
+        "local_files_only": True,
+        "trust_remote_code": False,
+    }]
+    assert _FastLanguageModel.inference_models == [model]
+
+
+def test_unsloth_backend_selects_its_own_substitutable_model_loader() -> None:
+    evaluator = evaluator_for_backend("unsloth")
+
+    assert isinstance(evaluator, PeftAdapterEvaluator)
+    assert isinstance(evaluator._model_loader, UnslothAdapterModelLoader)

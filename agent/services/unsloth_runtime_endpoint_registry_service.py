@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
 import hashlib
 import hmac
 import json
-from pathlib import Path
 import re
 import sqlite3
 import threading
 import time
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from agent.services.unsloth_storage_governance_service import StorageReferencePort
-
+from agent.services.unsloth_storage_contracts import StorageReferencePort
 
 _OPAQUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")

@@ -379,7 +379,6 @@ def complete_unsloth_release_chain(
             "runtime_load": {"status": "not_run", "reason_code": "promotion_not_completed"},
             "rollback": {"status": "not_run", "reason_code": "runtime_load_not_completed"},
         }
-    from agent.services.integration_registry_service import IntegrationRegistryService
     from agent.services.model_invocation_service import ModelInvocationService
     from agent.services.unsloth_evaluation_promotion_service import (
         EvaluationSnapshot,
@@ -394,6 +393,10 @@ def complete_unsloth_release_chain(
         RuntimeArtifact,
         RuntimeHandoffRequest,
         UnslothRuntimeHandoffService,
+        validate_runtime_promotion_binding,
+    )
+    from ananta_contracts.runtime_endpoint_descriptor import (
+        normalize_runtime_endpoint_descriptor,
     )
 
     promotion_port = _SmokePromotionPort()
@@ -460,7 +463,7 @@ def complete_unsloth_release_chain(
         promotion_plan,
         confirmation_digest=promotion_plan.confirmation_digest,
     )
-    descriptors = IntegrationRegistryService().normalize_runtime_endpoint_descriptor(
+    descriptors = normalize_runtime_endpoint_descriptor(
         provider_descriptor={
             "provider_id": "nvidia-smoke-provider",
             "provider_type": "local-openai-compatible",
@@ -524,13 +527,6 @@ def complete_unsloth_release_chain(
         audit=_SmokeAudit(),
         evidence=evidence_registry,
     )
-    from agent.services.ml_intern_training_repository_port import (
-        MlInternTrainingPrincipal,
-    )
-    from agent.services.unsloth_runtime_handoff_composition import (
-        UnslothRuntimeHandoffMutationExecutor,
-    )
-
     promoted_export_sha256 = snapshot.export_sha256
     resolved_export_sha256 = tampered_sha256(promoted_export_sha256)
 
@@ -565,34 +561,18 @@ def complete_unsloth_release_chain(
                 },
             )()
 
-    class _TamperedPromotionExportService:
-        def resolve_export(self, artifact_id, *, tenant_id, owner_subject):
-            return Path("/unused"), resolved_export_sha256
-
-    tampered_handoff_executor = UnslothRuntimeHandoffMutationExecutor(
-        handoff=handoff_service,
-        endpoints=endpoints,
-        export_service=_TamperedPromotionExportService(),
-        adapter_registry=_TamperedPromotionAdapterRegistry(),
-        integrations=object(),
+    tampered_record = _TamperedPromotionAdapterRegistry().get(
+        snapshot.adapter_id,
+        tenant_id=snapshot.tenant_id,
+        owner_subject="lora-smoke-tamper-probe",
     )
     observed_rejections["promotion_to_runtime"] = observe_rejection(
-        lambda: tampered_handoff_executor.preview_operation(
-            principal=MlInternTrainingPrincipal(
-                tenant_id=snapshot.tenant_id,
-                subject="lora-smoke-tamper-probe",
-            ),
-            resource_id=snapshot.adapter_id,
-            reason="Acceptance tamper probe for promotion binding",
-            operation_payload={
-                "promoted_artifact_id": "export-tamper-probe",
-                "promoted_artifact_sha256": resolved_export_sha256,
-                "source_ids": list(snapshot.source_ids),
-                "run_ids": list(snapshot.run_ids),
-                "provider_descriptor": {},
-                "endpoint_descriptor": {},
-                "expected_endpoint_revision": 0,
-            },
+        lambda: validate_runtime_promotion_binding(
+            record=tampered_record,
+            artifact_sha256=resolved_export_sha256,
+            resolved_sha256=resolved_export_sha256,
+            source_ids=snapshot.source_ids,
+            run_ids=snapshot.run_ids,
         )
     )
     handoff_plan = handoff_service.plan(

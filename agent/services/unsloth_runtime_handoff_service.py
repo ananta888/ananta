@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import hashlib
+import hmac
 import json
 import re
+from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
@@ -19,6 +20,57 @@ class RuntimeHandoffError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+def validate_runtime_promotion_binding(
+    *,
+    record: Any,
+    artifact_sha256: str,
+    resolved_sha256: str,
+    source_ids: tuple[str, ...],
+    run_ids: tuple[str, ...],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate immutable promotion bindings without Hub composition imports."""
+    if not hmac.compare_digest(resolved_sha256, artifact_sha256):
+        raise RuntimeHandoffError(
+            "runtime_handoff_export_hash_mismatch",
+            "The promoted export hash does not match the Hub artifact.",
+        )
+    if sorted(source_ids) != sorted(record.source_ids) or sorted(run_ids) != sorted(record.run_ids):
+        raise RuntimeHandoffError(
+            "runtime_handoff_evidence_binding_mismatch",
+            "Trusted evidence IDs do not match the promoted adapter.",
+        )
+    promotion = dict(record.promotion_history[-1])
+    evidence = dict(promotion.get("evidence") or {})
+    if (
+        promotion.get("schema") != "ananta.adapter-promotion-history.v1"
+        or not str(promotion.get("promotion_id") or "")
+        or not hmac.compare_digest(
+            str(promotion.get("artifact_sha256") or ""),
+            str(record.artifact_sha256 or ""),
+        )
+        or str(evidence.get("adapter_id") or "") != record.adapter_id
+        or not hmac.compare_digest(
+            str(evidence.get("adapter_sha256") or ""),
+            str(record.artifact_sha256 or ""),
+        )
+        or str(evidence.get("base_model_id") or "") != record.base_model
+        or not hmac.compare_digest(str(evidence.get("export_sha256") or ""), artifact_sha256)
+    ):
+        raise RuntimeHandoffError(
+            "runtime_handoff_promotion_binding_mismatch",
+            "Runtime artifact is not bound to immutable promotion history.",
+        )
+    if (
+        sorted(evidence.get("source_ids") or []) != sorted(source_ids)
+        or sorted(evidence.get("run_ids") or []) != sorted(run_ids)
+    ):
+        raise RuntimeHandoffError(
+            "runtime_handoff_promotion_evidence_mismatch",
+            "Runtime evidence does not match immutable promotion history.",
+        )
+    return promotion, evidence
 
 
 @dataclass(frozen=True)

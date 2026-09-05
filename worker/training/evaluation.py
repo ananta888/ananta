@@ -43,6 +43,79 @@ class AdapterEvaluator(Protocol):
     def evaluate_existing_adapter(self, context: AdapterEvaluationContext) -> AdapterEvaluationOutcome: ...
 
 
+class AdapterModelLoader(Protocol):
+    requirements: tuple[str, ...]
+
+    def load(self, context: AdapterEvaluationContext, torch_module: Any) -> tuple[Any, Any]: ...
+
+
+class PeftAdapterModelLoader:
+    requirements = ("peft",)
+
+    def load(self, context: AdapterEvaluationContext, torch_module: Any) -> tuple[Any, Any]:
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+        configuration = context.request.configuration
+        tokenizer = load_local_tokenizer(context.model_path)
+        quantization = None
+        if configuration.quantization in {"4bit", "8bit"}:
+            if not torch_module.cuda.is_available():
+                raise TrainingBackendError(
+                    "resource_unavailable",
+                    f"{configuration.quantization} adapter evaluation requires CUDA",
+                )
+            quantization = BitsAndBytesConfig(
+                load_in_4bit=configuration.quantization == "4bit",
+                load_in_8bit=configuration.quantization == "8bit",
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch_module.bfloat16,
+            )
+        base_model = AutoModelForCausalLM.from_pretrained(
+            str(context.model_path),
+            local_files_only=True,
+            trust_remote_code=False,
+            quantization_config=quantization,
+            torch_dtype=torch_module.bfloat16 if torch_module.cuda.is_available() else torch_module.float32,
+            device_map="auto" if torch_module.cuda.is_available() else None,
+        )
+        return (
+            PeftModel.from_pretrained(base_model, str(context.adapter_path), is_trainable=False),
+            tokenizer,
+        )
+
+
+class UnslothAdapterModelLoader:
+    requirements = ("peft", "unsloth")
+
+    def __init__(self, fast_language_model: Any | None = None) -> None:
+        self._fast_language_model = fast_language_model
+
+    def load(self, context: AdapterEvaluationContext, torch_module: Any) -> tuple[Any, Any]:
+        fast_language_model = self._fast_language_model
+        if fast_language_model is None:
+            from unsloth import FastLanguageModel
+
+            fast_language_model = FastLanguageModel
+        configuration = context.request.configuration
+        if configuration.quantization in {"4bit", "8bit"} and not torch_module.cuda.is_available():
+            raise TrainingBackendError(
+                "resource_unavailable",
+                f"{configuration.quantization} adapter evaluation requires CUDA",
+            )
+        model, tokenizer = fast_language_model.from_pretrained(
+            model_name=str(context.adapter_path),
+            max_seq_length=configuration.max_sequence_length,
+            load_in_4bit=configuration.quantization == "4bit",
+            load_in_8bit=configuration.quantization == "8bit",
+            load_in_16bit=configuration.quantization == "none",
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+        fast_language_model.for_inference(model)
+        return model, tokenizer
+
+
 class MockAdapterEvaluator:
     name = "mock"
 
@@ -96,19 +169,23 @@ class MockAdapterEvaluator:
 
 class PeftAdapterEvaluator:
     name = "peft_trl"
-    _requirements = ("torch", "transformers", "datasets", "peft")
+    _requirements = ("torch", "transformers", "datasets")
+
+    def __init__(self, model_loader: AdapterModelLoader | None = None) -> None:
+        self._model_loader = model_loader or PeftAdapterModelLoader()
 
     def evaluate_existing_adapter(self, context: AdapterEvaluationContext) -> AdapterEvaluationOutcome:
-        missing = [name for name in self._requirements if importlib.util.find_spec(name) is None]
+        missing = [
+            name
+            for name in (*self._requirements, *self._model_loader.requirements)
+            if importlib.util.find_spec(name) is None
+        ]
         if missing:
             raise TrainingBackendError("dependency_unavailable", "missing dependencies: " + ", ".join(missing))
         try:
             import torch
             from datasets import Dataset
-            from peft import PeftModel
             from transformers import (
-                AutoModelForCausalLM,
-                BitsAndBytesConfig,
                 DataCollatorForLanguageModeling,
                 Trainer,
                 TrainingArguments,
@@ -123,7 +200,7 @@ class PeftAdapterEvaluator:
             rows = [rows[index] for index in indices]
         context.emit("phase", {"phase": "loading_model"})
         try:
-            tokenizer = load_local_tokenizer(context.model_path)
+            adapter_model, tokenizer = self._model_loader.load(context, torch)
             if tokenizer.pad_token_id is None:
                 tokenizer.pad_token = tokenizer.eos_token
             texts = [PeftTrlTrainingBackend._render_record(row, tokenizer) for row in rows]
@@ -136,27 +213,6 @@ class PeftAdapterEvaluator:
                 batched=True,
                 remove_columns=["text"],
             )
-            quantization = None
-            if configuration.quantization in {"4bit", "8bit"}:
-                if not torch.cuda.is_available():
-                    raise TrainingBackendError(
-                        "resource_unavailable",
-                        f"{configuration.quantization} adapter evaluation requires CUDA",
-                    )
-                quantization = BitsAndBytesConfig(
-                    load_in_4bit=configuration.quantization == "4bit",
-                    load_in_8bit=configuration.quantization == "8bit",
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.bfloat16,
-                )
-            base_model = AutoModelForCausalLM.from_pretrained(
-                str(context.model_path),
-                local_files_only=True,
-                trust_remote_code=False,
-                quantization_config=quantization,
-                torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-                device_map="auto" if torch.cuda.is_available() else None,
-            )
             arguments = TrainingArguments(
                 output_dir=str(context.artifact_root.parent / "evaluation-scratch"),
                 per_device_eval_batch_size=configuration.batch_size,
@@ -165,8 +221,6 @@ class PeftAdapterEvaluator:
             )
             collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
             context.cancel.raise_if_cancelled()
-            context.emit("phase", {"phase": "loading_adapter"})
-            adapter_model = PeftModel.from_pretrained(base_model, str(context.adapter_path), is_trainable=False)
             context.emit("phase", {"phase": "evaluating_base"})
             base_metrics, adapter_metrics = _evaluate_base_and_adapter(
                 adapter_model=adapter_model,
@@ -245,7 +299,9 @@ def _evaluate_base_and_adapter(
 def evaluator_for_backend(backend_name: str) -> AdapterEvaluator:
     if backend_name == "mock":
         return MockAdapterEvaluator()
-    if backend_name in {"autotrain", "axolotl", "llamafactory", "peft_trl", "torchtune", "unsloth"}:
+    if backend_name == "unsloth":
+        return PeftAdapterEvaluator(UnslothAdapterModelLoader())
+    if backend_name in {"autotrain", "axolotl", "llamafactory", "peft_trl", "torchtune"}:
         return PeftAdapterEvaluator()
     raise TrainingBackendError("backend_unavailable", f"backend {backend_name} cannot evaluate adapters")
 

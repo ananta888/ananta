@@ -25,7 +25,7 @@ from agent.services.unsloth_evidence import (
     EvidenceVerificationError,
     ProvidedEvidenceRegistry,
 )
-from agent.services.unsloth_storage_governance_service import StorageReferencePort
+from agent.services.unsloth_storage_contracts import StorageReferencePort
 
 
 class MlInternEvaluationPromotionFacade:

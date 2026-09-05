@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import hashlib
-import hmac
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -41,8 +40,9 @@ from agent.services.unsloth_runtime_handoff_service import (
     RuntimeHandoffError,
     RuntimeHandoffRequest,
     UnslothRuntimeHandoffService,
+    validate_runtime_promotion_binding,
 )
-from agent.services.unsloth_storage_governance_service import StorageReferencePort
+from agent.services.unsloth_storage_contracts import StorageReferencePort
 
 
 class _RuntimeHandoffAudit:
@@ -384,60 +384,16 @@ class UnslothRuntimeHandoffMutationExecutor:
                 str(exc),
                 status_code=404 if exc.reason_code == "export_not_found" else 409,
             ) from exc
-        if not hmac.compare_digest(resolved_sha256, artifact_sha256):
-            raise UnslothMutationError(
-                "runtime_handoff_export_hash_mismatch",
-                "The promoted export hash does not match the Hub artifact.",
-                status_code=409,
-            )
         source_ids = tuple(operation_payload["source_ids"])
         run_ids = tuple(operation_payload["run_ids"])
-        if sorted(source_ids) != sorted(record.source_ids) or sorted(
-            run_ids
-        ) != sorted(record.run_ids):
-            raise UnslothMutationError(
-                "runtime_handoff_evidence_binding_mismatch",
-                "Trusted evidence IDs do not match the promoted adapter.",
-                status_code=409,
-            )
-        promotion = dict(record.promotion_history[-1])
-        evidence = dict(promotion.get("evidence") or {})
-        if (
-            promotion.get("schema")
-            != "ananta.adapter-promotion-history.v1"
-            or not str(promotion.get("promotion_id") or "")
-            or not hmac.compare_digest(
-                str(promotion.get("artifact_sha256") or ""),
-                str(record.artifact_sha256 or ""),
-            )
-            or str(evidence.get("adapter_id") or "")
-            != record.adapter_id
-            or not hmac.compare_digest(
-                str(evidence.get("adapter_sha256") or ""),
-                str(record.artifact_sha256 or ""),
-            )
-            or str(evidence.get("base_model_id") or "")
-            != record.base_model
-            or not hmac.compare_digest(
-                str(evidence.get("export_sha256") or ""),
-                artifact_sha256,
-            )
-        ):
-            raise UnslothMutationError(
-                "runtime_handoff_promotion_binding_mismatch",
-                "Runtime artifact is not bound to immutable promotion history.",
-                status_code=409,
-            )
-        if (
-            sorted(evidence.get("source_ids") or []) != sorted(source_ids)
-            or sorted(evidence.get("run_ids") or []) != sorted(run_ids)
-        ):
-            raise UnslothMutationError(
-                "runtime_handoff_promotion_evidence_mismatch",
-                "Runtime evidence does not match immutable promotion history.",
-                status_code=409,
-            )
         try:
+            promotion, evidence = validate_runtime_promotion_binding(
+                record=record,
+                artifact_sha256=artifact_sha256,
+                resolved_sha256=resolved_sha256,
+                source_ids=source_ids,
+                run_ids=run_ids,
+            )
             descriptor = self._integrations.normalize_runtime_endpoint_descriptor(
                 provider_descriptor=operation_payload["provider_descriptor"],
                 endpoint_descriptor=operation_payload["endpoint_descriptor"],

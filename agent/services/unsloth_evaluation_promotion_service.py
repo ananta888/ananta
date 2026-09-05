@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
 import json
 import re
+from dataclasses import dataclass
 from typing import Mapping, Protocol
 
 from agent.services.unsloth_evidence import ProvidedEvidenceRegistry
-from agent.services.unsloth_storage_governance_service import StorageReferencePort
+from agent.services.unsloth_storage_contracts import StorageReferencePort
 from agent.services.unsloth_task_port import UnslothAuditPort
 
 
