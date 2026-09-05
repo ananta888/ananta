@@ -125,7 +125,6 @@
       "reason_codes": [
         "browser_nat_and_churn_run_evidence_missing",
         "portable_cross_peer_media_standard_path_no_go",
-        "mls_interoperability_decision_evidence_missing",
         "malicious_relay_runtime_evidence_missing",
         "allowed_run_refs_empty"
       ],
@@ -134,10 +133,11 @@
         "A bounded Multi-PeerConnection manager, signed membership and route contracts, a deterministic publication data DAG, one-use link tickets and an opaque multi-hop relay now exist behind Hub authority and a default-off feature flag.",
         "MediaTopologyPolicy now degrades groups above the safe mesh limit to SFU or relay_control_only instead of misclassifying an ordinary direct pair as group media.",
         "A Hub-reserved synthetic test run now measures four isolated identities in Chromium and Firefox for audio, 720p camera and screenshare without promoting the result to production evidence.",
-        "The remaining partial tasks are locally actionable and must not be hidden behind the six external or standards-bound task blockers.",
+        "DG-02 is closed as reject: MLS remains absent instead of introducing a second partial membership state machine.",
+        "The remaining partial tasks are locally actionable and must not be hidden behind the five external or standards-bound task blockers.",
         "Local and SFU test artifacts are not Peer-DAG RUN evidence and remain non-promotable."
       ],
-      "required_unblock_input": "Only the six explicitly blocked tasks require additional standards decisions or Hub-registered NAT/churn, malicious-relay and hybrid release runs. The remaining partial tasks continue locally; missing production evidence remains no_go."
+      "required_unblock_input": "Only the five explicitly blocked tasks require additional standards decisions or Hub-registered NAT/churn, malicious-relay and hybrid release runs. The remaining partial tasks continue locally; missing production evidence remains no_go."
     }
   },
   "baseline": {
@@ -304,7 +304,7 @@
     {
       "id": "M05",
       "title": "Membership, Rekeying und temporäre Offline-Faehigkeit",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-MEM-001",
         "DPM-MEM-002",
@@ -811,7 +811,7 @@
     {
       "id": "DPM-MEM-001",
       "title": "Signiertes MembershipEventV1-Protokoll definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -826,18 +826,18 @@
         "Peers koennen Ereignisse transportieren, aber weder Felder aendern noch neue Autoritaet ableiten.",
         "Fork, Luecke, Replay, Cross-Tenant und unbekannter Signaturschluessel werden fail-closed behandelt."
       ],
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
         "agent/services/peer_overlay_control_service.py",
         "tests/test_peer_overlay_contracts.py"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MEM-002",
       "title": "Membership- und Route-Ereignisse ueber bestehende DataChannels replizieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -851,17 +851,19 @@
         "Control-Traffic ist priorisiert und kann nicht durch Bulk- oder Medienchunks verdraengt werden.",
         "Partitionen werden ueber Snapshot-Digest und monotone Cursor erkannt statt still zusammengefuehrt."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-control-replication.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-control-replication.spec.ts",
         "frontend-angular/src/app/services/webrtc-session.service.ts",
         "frontend-angular/src/app/services/webrtc-priority-send-queue.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MEM-003",
       "title": "Zeitlich begrenzten Betrieb ohne dauernden Hub-Kontakt spezifizieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -876,18 +878,20 @@
         "Nach Ablauf werden neue Publikationen und Route-Aenderungen gestoppt; keine Lease wird peer-seitig verlaengert.",
         "Rejoin und Partition-Heilung benoetigen eine frische Hub-Entscheidung."
       ],
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/peer_overlay_control_service.py",
+        "agent/services/peer_overlay_offline_authority_policy.py",
+        "tests/test_peer_overlay_offline_authority_policy.py",
         "docs/decisions/ADR-decentralized-peer-overlay.md",
         "docs/operations/peer-overlay.md"
       ],
-      "implementation_gap": "Die harte 120-Sekunden-Grenze ist implementiert; profilbezogene Konfiguration und reale Partition-Evidence fehlen."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MEM-004",
       "title": "MLS-Machbarkeit und Migrationsentscheidung abschliessen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "research",
@@ -902,8 +906,14 @@
         "Konkurrierende Commits besitzen eine Hub-kompatible kanonische Fork-Aufloesung.",
         "DG-02 entscheidet adopt, bounded_pilot oder reject; bei reject bleibt kein halber MLS-Pfad zurueck."
       ],
-      "progress_percent": 0.0,
-      "blocked_reason": "Keine autorisierte MLS-Interoperabilitaets- und Fork-Evidence vorhanden; bestehende Gruppenkey-Autorisierung ist kein MLS-Pfad."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "docs/decisions/ADR-peer-overlay-mls.md",
+        "docs/decisions/ADR-decentralized-peer-overlay.md",
+        "agent/services/webrtc_group_key_authorization_service.py"
+      ],
+      "decision": "reject",
+      "blocked_reason": ""
     },
     {
       "id": "DPM-DAG-001",
@@ -1655,11 +1665,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 22,
-      "blocked": 6,
-      "done": 20
+      "partial": 19,
+      "blocked": 5,
+      "done": 24
     },
-    "progress_percent_done": 41.7,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1673,15 +1683,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 19,
-      "remaining": 25
+      "done": 22,
+      "remaining": 22
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 9,
+      "in_progress": 8,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -1707,13 +1717,13 @@
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 3,
-          "done": 1
+          "blocked": 2,
+          "done": 2
         },
-        "done": 1,
+        "done": 2,
         "partial": 0,
-        "blocked": 3,
-        "progress_percent": 25.0
+        "blocked": 2,
+        "progress_percent": 50.0
       },
       "refactor": {
         "total": 1,
@@ -1734,28 +1744,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 1,
           "blocked": 0,
-          "done": 4
+          "done": 5
         },
-        "done": 4,
-        "partial": 2,
+        "done": 5,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 95.0
+        "progress_percent": 96.7
       },
       "implementation": {
         "total": 16,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 12,
+          "partial": 11,
           "blocked": 0,
-          "done": 4
+          "done": 5
         },
-        "done": 4,
-        "partial": 12,
+        "done": 5,
+        "partial": 11,
         "blocked": 0,
-        "progress_percent": 76.2
+        "progress_percent": 79.7
       },
       "test": {
         "total": 6,
@@ -1776,14 +1786,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
+          "partial": 3,
           "blocked": 0,
-          "done": 5
+          "done": 6
         },
-        "done": 5,
-        "partial": 4,
+        "done": 6,
+        "partial": 3,
         "blocked": 0,
-        "progress_percent": 87.8
+        "progress_percent": 89.4
       },
       "configuration": {
         "total": 1,
@@ -1819,11 +1829,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 22,
-    "blocked": 6,
-    "done": 20,
-    "count_based_percent": 41.7,
-    "weighted_percent": 73.5
+    "partial": 19,
+    "blocked": 5,
+    "done": 24,
+    "count_based_percent": 50.0,
+    "weighted_percent": 77.2
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1834,7 +1844,7 @@
     "operations_and_release": "in_progress"
   },
   "summary_notes": [
-    "Quellcode-Reaudit 2026-09-05: Der Track ist nicht global blockiert. Die partiellen Aufgaben bleiben lokal bearbeitbar; nach dem automatisierten Browser-Kapazitaetsgate sind noch sechs Aufgaben explizit standards- oder produktiver Laufzeitevidenz-gebunden.",
+    "Quellcode-Reaudit 2026-09-05: Der Track ist nicht global blockiert. Die partiellen Aufgaben bleiben lokal bearbeitbar; nach Browser-Kapazitaetsgate und explizitem MLS-Reject sind noch fünf Aufgaben standards- oder produktiver Laufzeitevidenz-gebunden.",
     "Seit dem vorherigen Review wurden der Hub-signierte Daten-DAG, Membership-/Lease-/Ticket-Vertraege, der isolierte Mesh-Manager, begrenzte Relay-Queues, automatische Backup-Umschaltung und das default-off Release-Gate implementiert.",
     "Der Track behandelt Peer-Data-Fanout und Peer-Media-Fanout getrennt; ein erfolgreicher Daten-DAG beweist keine Browser-Medienweiterleitung.",
     "Die aktuelle W3C Encoded-Transform-Spezifikation bindet Frames an ihre Quellpipeline; deshalb ist unveraenderte Cross-PeerConnection-Weiterleitung ein fruehes hartes Decision Gate.",
@@ -1869,10 +1879,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 65.038,
-    "remaining_weight": 23.462,
-    "blocked_weight": 10.5,
-    "weighted_percent": 73.5
+    "done_weight": 68.287,
+    "remaining_weight": 20.213,
+    "blocked_weight": 9.0,
+    "weighted_percent": 77.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1910,11 +1920,11 @@
       },
       "M05": {
         "total_tasks": 4,
-        "done": 0,
-        "blocked": 1,
-        "count_based_percent": 0.0,
-        "weighted_percent": 53.6,
-        "status": "in_progress"
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M06": {
         "total_tasks": 4,
@@ -1977,10 +1987,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T02:16:00.962163Z",
+    "generated_at": "2026-09-05T02:19:55.535812Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "0d18ea643a0b651f5f59829eec3c3358dcd3d779b787a89418be0efaeaf753e0",
+    "source_hash": "c5cac5c8e97dfe90ab3f5702d6e25ce6d278c04f720dd446a0e0dca39cd5a473",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"

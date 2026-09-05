@@ -7,6 +7,7 @@ from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
+from agent.services.peer_overlay_offline_authority_policy import PeerOverlayOfflineAuthorityPolicy
 from agent.services.peer_overlay_relay_health_policy import PeerOverlayRelayHealthPolicy
 from agent.services.peer_overlay_state_store import PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayCandidate, PeerOverlayTopologyService
@@ -35,6 +36,7 @@ class PeerOverlayControlService:
         topology: PeerOverlayTopologyService,
         data_enabled: bool = False,
         relay_health: PeerOverlayRelayHealthPolicy | None = None,
+        offline_policy: PeerOverlayOfflineAuthorityPolicy | None = None,
     ) -> None:
         if len(signing_key) < 32:
             raise ValueError("peer_overlay_signing_key_too_short")
@@ -44,6 +46,7 @@ class PeerOverlayControlService:
         self._topology = topology
         self._data_enabled = bool(data_enabled)
         self._relay_health = relay_health or PeerOverlayRelayHealthPolicy()
+        self._offline_policy = offline_policy or PeerOverlayOfflineAuthorityPolicy()
 
     def change_membership(
         self,
@@ -279,19 +282,28 @@ class PeerOverlayControlService:
         )
         return {**decision, "audit_revision": audit["revision"], "ticket": ticket}
 
-    def offline_authority(self, *, tenant_id: str, room_id: str, grace_seconds: int) -> dict[str, Any]:
+    def offline_authority(
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        security_profile: str = "strict",
+        grace_seconds: int | None = None,
+    ) -> dict[str, Any]:
         tenant = require_overlay_id(tenant_id, "tenant_id")
         room = require_overlay_id(room_id, "room_id")
         membership = self._store.get("membership", _scope_key(tenant, room))
         if not membership:
             raise KeyError("peer_overlay_membership_not_found")
-        bounded = min(max(int(grace_seconds), 0), 120)
+        profile = self._offline_policy.resolve(security_profile, grace_seconds)
         now = datetime.now(timezone.utc)
         return {
             "tenant_id": tenant,
             "room_id": room,
             "epochs": membership["epochs"],
-            "offline_grace_expires_at": _iso(now + timedelta(seconds=bounded)),
+            "security_profile": profile.name,
+            "maximum_grace_seconds": profile.maximum_grace_seconds,
+            "offline_grace_expires_at": _iso(now + timedelta(seconds=profile.maximum_grace_seconds)),
             "new_publications_allowed": False,
             "route_changes_allowed": False,
             "peer_lease_extension_allowed": False,

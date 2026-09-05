@@ -271,12 +271,15 @@ class MembershipEventV1:
         self,
         key: bytes,
         *,
+        expected_hub_key_id: str,
         now: str,
         tenant_id: str,
         room_id: str,
         expected_sequence: int,
         expected_previous_digest: str | None,
     ) -> None:
+        if self.hub_key_id != require_overlay_id(expected_hub_key_id, "hub_key_id"):
+            raise ValueError("peer_overlay_membership_hub_key_unknown")
         if not hmac.compare_digest(_signature(key, self.unsigned()), self.signature):
             raise ValueError("peer_overlay_membership_signature_invalid")
         if (self.tenant_id, self.room_id) != (tenant_id, room_id):

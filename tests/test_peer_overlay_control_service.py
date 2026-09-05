@@ -87,6 +87,8 @@ def test_membership_revocation_rotates_membership_and_key_epochs(tmp_path) -> No
     assert revoked["epochs"]["key"] == 4
     assert "peer-2" not in revoked["member_ids"]
     offline = control.offline_authority(tenant_id="tenant-1", room_id="room-1", grace_seconds=999)
+    assert offline["security_profile"] == "strict"
+    assert offline["maximum_grace_seconds"] == 30
     assert offline["new_publications_allowed"] is False
     assert offline["route_changes_allowed"] is False
     assert offline["peer_lease_extension_allowed"] is False

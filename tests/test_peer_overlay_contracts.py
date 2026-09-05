@@ -77,6 +77,7 @@ def test_device_replacement_event_is_signed_and_rejects_forks() -> None:
     ).sign(key)
     event.verify(
         key,
+        expected_hub_key_id="hub-key-1",
         now="2026-08-29T00:00:30Z",
         tenant_id="tenant-1",
         room_id="room-1",
@@ -86,9 +87,20 @@ def test_device_replacement_event_is_signed_and_rejects_forks() -> None:
     with pytest.raises(ValueError, match="fork_or_gap"):
         event.verify(
             key,
+            expected_hub_key_id="hub-key-1",
             now="2026-08-29T00:00:30Z",
             tenant_id="tenant-1",
             room_id="room-1",
             expected_sequence=3,
             expected_previous_digest=event.event_digest,
+        )
+    with pytest.raises(ValueError, match="hub_key_unknown"):
+        event.verify(
+            key,
+            expected_hub_key_id="retired-hub-key",
+            now="2026-08-29T00:00:30Z",
+            tenant_id="tenant-1",
+            room_id="room-1",
+            expected_sequence=2,
+            expected_previous_digest="a" * 64,
         )

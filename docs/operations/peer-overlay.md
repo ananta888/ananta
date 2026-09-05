@@ -30,6 +30,13 @@ must not pause for human approval. A human may choose configuration, but lack of
 interaction always produces a deterministic safe state rather than a waiting
 workflow.
 
+Offline authority uses closed Hub profiles: `strict` permits at most 30 seconds,
+`balanced` 60 seconds and `availability` 120 seconds. A caller may request less,
+but can never extend the selected profile. During grace, existing delivery may
+continue; new publications, route changes and peer-side lease renewal remain
+disabled. Membership gaps trigger a Hub snapshot request rather than a peer
+merge or vote.
+
 ## Headless four-peer browser capacity gate
 
 Run `python scripts/run_peer_mesh_browser_capacity_gate.py` from the repository
