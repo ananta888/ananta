@@ -26,3 +26,16 @@ def test_extracted_smoke_helpers_trigger_pull_request_and_push_gates() -> None:
 
     assert triggers.count('"scripts/lora_training_smoke_*.py"') == 2
     assert triggers.count('"agent/routes/ml_intern_training*.py"') == 2
+
+
+def test_gpu_job_uses_hub_issued_evidence_and_commit_bound_image() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    job_start = workflow.index("\n  gpu-unsloth-prerelease:")
+    gpu_job = workflow[job_start:]
+
+    assert "scripts/run_hub_evidence_unsloth_gpu_gate.py" in gpu_job
+    assert '--build-arg "SOURCE_REVISION=${GITHUB_SHA}"' in gpu_job
+    assert "src_ids:" not in workflow
+    assert "run_ids:" not in workflow
+    assert "runtime_image_digest:" not in workflow
+    assert "production_release_eligible" in gpu_job

@@ -32,7 +32,7 @@ This gate proves:
 It does not prove that an Unsloth release works with a particular GPU, driver,
 Torch build or model.
 
-## Manual GPU pre-release gate
+## Headless GPU pre-release gate
 
 The `gpu-unsloth-prerelease` job is available only through
 `workflow_dispatch` and targets a self-hosted runner with the labels
@@ -40,29 +40,30 @@ The `gpu-unsloth-prerelease` job is available only through
 its successful evidence artifact is required before claiming that an Unsloth
 version is supported.
 
-The operator must supply:
+The dispatch supplies only:
 
-- one or more existing `SRC_*` source identifiers;
-- one or more existing `RUN_*` execution identifiers;
-- the digest of the image actually executed, in
-  `sha256:<64 lowercase hex>` form;
-- an absolute runner-local path to an approved model snapshot.
+- a runner-local path to the immutable model snapshot;
 - the selected entry from
   `docs/contracts/unsloth-gpu-compatibility-matrix.v1.json`.
 
-The workflow and runner never synthesize source or run identifiers. Missing or
-malformed identifiers keep `unsloth_support_claim.verified` false.
+The workflow builds the NVIDIA worker from the checked-out commit and writes
+that commit to `org.opencontainers.image.revision`. The Hub Evidence Registry
+then admits the repository bundle, model snapshot, and executed image, issues
+their `SRC_*` identities, reserves the assignment-bound `RUN_*` identity, and
+dispatches only the closed assignment projection to the worker. Callers and
+workers never choose evidence identities or an image digest.
 
 ## Evidence semantics
 
-`scripts/run_lora_training_smoke.py --profile unsloth` selects
-`backend=unsloth` in the worker request. A verified support claim requires all
-of the following:
+`scripts/run_hub_evidence_unsloth_gpu_gate.py` owns identity admission and
+reservation and delegates the real execution to
+`scripts/run_lora_training_smoke.py --profile unsloth`. A verified local
+pre-release result requires all of the following:
 
 1. The selected profile is `unsloth`.
 2. The NVIDIA smoke finishes with `status=passed`.
-3. At least one supplied `SRC_*` and one supplied `RUN_*` ID are present.
-4. A runtime image digest was supplied.
+3. Three Hub-issued source identities and one pre-reserved run identity are present.
+4. The executed image digest is observed and its OCI revision equals Git `HEAD`.
 5. The installed Unsloth distribution version was observed.
 
 The report keeps these values distinct:
@@ -75,7 +76,7 @@ The report keeps these values distinct:
   PEFT, bitsandbytes and Safetensors versions;
 - `peak_vram` records PyTorch peak allocated and reserved bytes plus detected
   CUDA/cuDNN versions;
-- `evidence_ids` contains only operator-supplied identifiers.
+- `source_ids` and `run_id` contain only identities issued or reserved by the Hub.
 
 A build-input hash is reproducibility evidence, not an image identity.
 
@@ -91,35 +92,33 @@ pytest -q \
   tests/worker/test_lora_training_contracts.py
 ```
 
-GPU pre-release execution:
+Commit-bound image build and GPU pre-release execution:
 
 ```bash
-python scripts/run_lora_training_smoke.py \
-  --skip-mock \
-  --require-nvidia \
-  --profile unsloth \
-  --nvidia-model /approved/local/model \
-  --runtime-image-digest sha256:<actual-image-digest> \
-  --src-id "$EXISTING_SRC_ID" \
-  --run-id "$EXISTING_RUN_ID" \
-  --compatibility-matrix docs/contracts/unsloth-gpu-compatibility-matrix.v1.json \
-  --matrix-entry "$ANANTA_UNSLOTH_COMPATIBILITY_ENTRY" \
-  --repeat 3 \
-  --out unsloth-gpu-release-evidence.json
+revision=$(git rev-parse HEAD)
+docker build --target nvidia \
+  --build-arg "SOURCE_REVISION=$revision" \
+  --file docker/compose-next/Dockerfile.lora-training-worker \
+  --tag ananta-lora-training-worker:local-nvidia .
+python scripts/run_hub_evidence_unsloth_gpu_gate.py \
+  --image ananta-lora-training-worker:local-nvidia \
+  --model data/gpu-models/tiny-causal-lm \
+  --output artifacts/unsloth-gpu-release-evidence.json
 ```
 
-Placeholders above are documentation only and are not valid release evidence.
+The resulting local evidence is deliberately
+`production_release_eligible=false`; a real GPU run is not silently promoted
+to production evidence.
 
-## Remaining external blockers
+## Remaining production boundaries
 
 The repository cannot provide the following without operator-controlled
 infrastructure:
 
-- a self-hosted NVIDIA runner and compatible driver/runtime;
-- an approved local model snapshot;
-- the digest of the image actually executed;
-- valid source and run identifiers from the release evidence system;
-- approval that the resulting evidence is sufficient for a support claim.
+- an environment registered by Hub policy as production or canary;
+- production tenant/project bindings and release policy;
+- production-managed model/dataset admissions and provider credentials;
+- any required public DNS/TLS/provider endpoints.
 
 ## Complete acceptance chain
 
@@ -132,9 +131,10 @@ Every run also records negative tamper checks for dataset, model, adapter,
 export, evaluation, promotion and endpoint-revision transitions. Missing
 transition evidence is `not_run`; it is never converted to a passing result.
 
-The support claim is verified only when all three runs pass, the selected
-model/driver/CUDA/package matrix entry is exact, the executed image digest is
-present, and all externally supplied evidence bindings are complete.
+The local pre-release result is verified only when all three runs pass, the
+selected model/driver/CUDA/package matrix entry is exact, the commit-bound
+executed image digest is unchanged, and all Hub-issued evidence bindings are
+complete.
 
 Operational interpretation, exact `not_run` behavior, the compatibility matrix
 and rollback procedures are documented in

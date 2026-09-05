@@ -6,6 +6,7 @@ from scripts.run_hub_evidence_unsloth_gpu_gate import (
     UnslothGpuGateError,
     bounded_diagnostic,
     build_container_command,
+    docker_image_revision,
 )
 
 
@@ -91,3 +92,23 @@ def test_container_command_rejects_unreserved_assignment(tmp_path: Path) -> None
             device_paths=[],
             nvidia_smi_path=nvidia_smi,
         )
+
+
+def test_image_revision_requires_a_commit_bound_oci_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    revision = "a" * 40
+    monkeypatch.setattr(
+        "scripts.run_hub_evidence_unsloth_gpu_gate.subprocess.run",
+        lambda *args, **kwargs: type("Result", (), {"returncode": 0, "stdout": revision})(),
+    )
+
+    assert docker_image_revision("worker:gate") == revision
+
+
+def test_image_revision_rejects_an_unbound_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "scripts.run_hub_evidence_unsloth_gpu_gate.subprocess.run",
+        lambda *args, **kwargs: type("Result", (), {"returncode": 0, "stdout": "unbound"})(),
+    )
+
+    with pytest.raises(UnslothGpuGateError, match="unsloth_gate_worker_image_revision_invalid"):
+        docker_image_revision("worker:latest")

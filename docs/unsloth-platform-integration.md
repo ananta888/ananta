@@ -15,7 +15,7 @@ The integration is split into independently gated profiles:
 | Modalities | Vision, audio, and embedding training | Each modality has its own capability and reason code |
 | Studio | Optional read projection and Hub-mediated commands | Disabled until endpoint, network, TLS, and authentication policy all pass |
 | MCP | Allowlisted administrative Studio tools | Disabled, authenticated, role checked, replay protected |
-| Release | CPU contract gate and manual GPU acceptance | No GPU claim without a real attested run |
+| Release | CPU contract gate and headless GPU acceptance | No GPU claim without a real attested run |
 
 Disabling any optional profile must not make the existing PEFT/TRL or mock
 training paths unusable.
@@ -95,7 +95,8 @@ Enabling a feature-specific flag does not implicitly enable network access,
 tunnels, code execution, or MCP. Unknown fields and conflicting combinations
 are rejected with stable reason codes.
 
-No integration component generates a `SRC_*` or `RUN_*` identifier. A missing,
+Workers and callers never generate a `SRC_*` or `RUN_*` identifier. The Hub
+Evidence Registry may issue and reserve them automatically after admission. A missing,
 malformed, or unknown identifier is unverified and blocks any grounded claim.
 
 ## Worker image and hardware policy
@@ -247,7 +248,7 @@ The release workflow has two independent gates:
 | Gate | Trigger | Claim |
 | --- | --- | --- |
 | CPU contract gate | Pull request and push | Contracts, policy, and dry-run behavior only |
-| GPU acceptance | Manual, self-hosted NVIDIA runner | Real local Unsloth smoke result |
+| GPU acceptance | Headless, self-hosted NVIDIA runner | Real local Unsloth smoke result |
 
 The GPU attestation records build digest, runtime image digest, dependency
 versions, CUDA/cuDNN data, peak VRAM, and supplied evidence IDs. Missing

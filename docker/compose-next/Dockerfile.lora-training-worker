@@ -103,5 +103,7 @@ COPY --chmod=0555 docker/compose-next/lora-training-worker-entrypoint.sh /usr/lo
 ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4" \
     ANANTA_UNSLOTH_LLAMA_CPP_SOURCE=/opt/llama.cpp \
     UNSLOTH_LLAMA_CPP_PATH=/tmp/ananta-unsloth/llama.cpp
+ARG SOURCE_REVISION=unbound
+LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
 USER 10005:10005
 ENTRYPOINT ["/usr/local/bin/lora-training-worker-entrypoint"]

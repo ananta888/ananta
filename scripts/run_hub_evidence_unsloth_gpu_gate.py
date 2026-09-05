@@ -45,7 +45,10 @@ SOURCE_PATHS = (
     "agent/services/hub_evidence_gate_service.py",
     "agent/services/hub_evidence_registry_service.py",
     "ananta_contracts/hub_evidence.py",
+    "ananta_contracts/training_backend.py",
     "docker/compose-next/Dockerfile.lora-training-worker",
+    "docker/compose-next/lora-training-worker-entrypoint.sh",
+    "docker/compose-next/requirements.lora-training-runtime.txt",
     "docker/compose-next/requirements.lora-training-nvidia.txt",
     "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json",
     "scripts/lora_training_smoke_live.py",
@@ -54,6 +57,21 @@ SOURCE_PATHS = (
     "scripts/lora_training_smoke_release_chain.py",
     "scripts/run_hub_evidence_unsloth_gpu_gate.py",
     "scripts/run_lora_training_smoke.py",
+    "worker/runtime/lora_training_app.py",
+    "worker/training/backends/unsloth.py",
+    "worker/training/backends/unsloth_checkpoint.py",
+    "worker/training/contracts.py",
+    "worker/training/datasets.py",
+    "worker/training/evaluation.py",
+    "worker/training/exports.py",
+    "worker/training/inference.py",
+    "worker/training/job_process.py",
+    "worker/training/model_imports.py",
+    "worker/training/runtime.py",
+    "worker/training/runtime_artifact_service.py",
+    "worker/training/unsloth_task_handlers.py",
+    "worker/training/unsloth_worker_runtime.py",
+    "worker/training/vram_admission.py",
 )
 _DIGEST = re.compile(r"^sha256:([0-9a-f]{64})$")
 _NVIDIA_LIBRARIES = (
@@ -139,6 +157,26 @@ def docker_image_id(image: str) -> str:
     value = completed.stdout.strip().lower()
     if completed.returncode != 0 or _DIGEST.fullmatch(value) is None:
         raise UnslothGpuGateError("unsloth_gate_worker_image_unavailable")
+    return value
+
+
+def docker_image_revision(image: str) -> str:
+    completed = subprocess.run(
+        (
+            "docker",
+            "image",
+            "inspect",
+            "--format",
+            '{{ index .Config.Labels "org.opencontainers.image.revision" }}',
+            image,
+        ),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    value = completed.stdout.strip().lower()
+    if completed.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        raise UnslothGpuGateError("unsloth_gate_worker_image_revision_invalid")
     return value
 
 
@@ -327,6 +365,8 @@ def execute_gate(
     manifest = repository_manifest()
     model_digest = tree_sha256(model_path)
     image_id = docker_image_id(image)
+    if docker_image_revision(image) != revision:
+        raise UnslothGpuGateError("unsloth_gate_worker_image_revision_mismatch")
     matrix_digest = sha256_file(matrix_path.resolve(strict=True))
     environment = nvidia_environment()
     execution_profile = {
@@ -410,6 +450,7 @@ def execute_gate(
                 tree_sha256(model_path) == model_digest
                 and repository_manifest()["digest"] == manifest["digest"]
                 and docker_image_id(image) == image_id
+                and docker_image_revision(image) == revision
             )
             passed = bool(
                 completed.returncode == 0
