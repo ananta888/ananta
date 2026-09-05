@@ -165,23 +165,19 @@ class PeftAdapterEvaluator:
             )
             collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
             context.cancel.raise_if_cancelled()
-            context.emit("phase", {"phase": "evaluating_base"})
-            base_metrics = Trainer(
-                model=base_model,
-                args=arguments,
-                eval_dataset=tokenized,
-                data_collator=collator,
-            ).evaluate()
-            context.cancel.raise_if_cancelled()
             context.emit("phase", {"phase": "loading_adapter"})
             adapter_model = PeftModel.from_pretrained(base_model, str(context.adapter_path), is_trainable=False)
-            context.emit("phase", {"phase": "evaluating_adapter"})
-            adapter_metrics = Trainer(
-                model=adapter_model,
-                args=arguments,
+            context.emit("phase", {"phase": "evaluating_base"})
+            base_metrics, adapter_metrics = _evaluate_base_and_adapter(
+                adapter_model=adapter_model,
+                trainer_factory=Trainer,
+                trainer_arguments=arguments,
                 eval_dataset=tokenized,
                 data_collator=collator,
-            ).evaluate()
+                before_adapter_evaluation=context.cancel.raise_if_cancelled,
+                emit=context.emit,
+            )
+            context.cancel.raise_if_cancelled()
             samples = _generate_comparisons(
                 context=context,
                 rows=rows,
@@ -213,6 +209,37 @@ class PeftAdapterEvaluator:
                 scorer_name=context.request.configuration.scorer_name,
             ),
         )
+
+
+def _evaluate_base_and_adapter(
+    *,
+    adapter_model: Any,
+    trainer_factory: Any,
+    trainer_arguments: Any,
+    eval_dataset: Any,
+    data_collator: Any,
+    before_adapter_evaluation: Any,
+    emit: ProgressCallback,
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """Evaluate both variants through PEFT so quantized models remain inference-only."""
+    disable_adapter = getattr(adapter_model, "disable_adapter", None)
+    if not callable(disable_adapter):
+        raise TrainingBackendError(
+            "evaluation_failed",
+            "PEFT runtime cannot disable the adapter for a controlled base comparison",
+        )
+    trainer = trainer_factory(
+        model=adapter_model,
+        args=trainer_arguments,
+        eval_dataset=eval_dataset,
+        data_collator=data_collator,
+    )
+    with disable_adapter():
+        base_metrics = trainer.evaluate()
+    before_adapter_evaluation()
+    emit("phase", {"phase": "evaluating_adapter"})
+    adapter_metrics = trainer.evaluate()
+    return base_metrics, adapter_metrics
 
 
 def evaluator_for_backend(backend_name: str) -> AdapterEvaluator:
