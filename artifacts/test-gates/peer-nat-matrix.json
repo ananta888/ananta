@@ -1,0 +1,156 @@
+{
+  "cleanup_verified": true,
+  "command_exit_code": 0,
+  "evidence": {
+    "binding_digest": "193dfa1c923071248caa910013689ad5a470b37c14f5a2e8c487a564b0a70fc7",
+    "issuer": "hub-evidence-registry",
+    "production_release_eligible": false,
+    "production_release_reason": "evidence_run_test_scope_forbidden",
+    "result_digest": "32ad55a9073a41b668f503aeefe1a7ca80f0145156fe3cb2885d9907f81823f4",
+    "run_id": "RUN_193dfa1c923071248caa910013689ad5",
+    "scope": "test",
+    "source_id": "SRC_2f1acf66d5982866d882fc8103ea9b0e",
+    "synthetic": true
+  },
+  "execution_profile": {
+    "blocked_timeout_ms": 6000,
+    "engines": [
+      "chromium",
+      "firefox"
+    ],
+    "headless": true,
+    "production_claim": false,
+    "scenarios": [
+      "direct",
+      "turn_udp",
+      "turn_tcp",
+      "network_switch",
+      "blocked_turn"
+    ],
+    "schema": "ananta.peer-nat-browser-profile.v1"
+  },
+  "host_environment": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13700H",
+    "logical_cpu_count": 20,
+    "memory_bytes": 65782554624,
+    "node": "v22.22.1",
+    "platform": "Linux-7.0.0-30-generic-x86_64-with-glibc2.43",
+    "playwright": "Version 1.60.0",
+    "python": "3.12.14"
+  },
+  "human_intervention_required": false,
+  "measurements": [
+    {
+      "browserVersion": "148.0.7778.96",
+      "engine": "chromium",
+      "humanInterventionRequired": false,
+      "scenarios": {
+        "blockedTurn": {
+          "attempts": 1,
+          "elapsedMs": 6005.699999809265,
+          "outcome": "turn_unreachable_bounded"
+        },
+        "direct": {
+          "candidateType": "host",
+          "pairId": "CP2B5WOPp0_Qv5enN5b",
+          "protocol": "udp",
+          "redactedUrl": "",
+          "relayProtocol": ""
+        },
+        "networkSwitch": {
+          "after": {
+            "candidateType": "relay",
+            "pairId": "CPqwFpk3uN_V4vzUIQr",
+            "protocol": "udp",
+            "redactedUrl": "turn:<redacted>?transport=tcp",
+            "relayProtocol": "tcp"
+          },
+          "before": {
+            "candidateType": "relay",
+            "pairId": "CPBzmIdbWI_8kJTiD7J",
+            "protocol": "udp",
+            "redactedUrl": "turn:<redacted>?transport=udp",
+            "relayProtocol": "udp"
+          },
+          "connectionGenerationAdvance": 1
+        },
+        "turnTcp": {
+          "candidateType": "relay",
+          "pairId": "CPvmGr0Xqu_xP2m/Wj8",
+          "protocol": "udp",
+          "redactedUrl": "turn:<redacted>?transport=tcp",
+          "relayProtocol": "tcp"
+        },
+        "turnUdp": {
+          "candidateType": "relay",
+          "pairId": "CP1oGvFaYu_7vBj2m2V",
+          "protocol": "udp",
+          "redactedUrl": "turn:<redacted>?transport=udp",
+          "relayProtocol": "udp"
+        }
+      }
+    },
+    {
+      "browserVersion": "153.0",
+      "engine": "firefox",
+      "humanInterventionRequired": false,
+      "scenarios": {
+        "blockedTurn": {
+          "attempts": 1,
+          "elapsedMs": 6006,
+          "outcome": "turn_unreachable_bounded"
+        },
+        "direct": {
+          "candidateType": "host",
+          "pairId": "718e2f16",
+          "protocol": "udp",
+          "redactedUrl": "",
+          "relayProtocol": ""
+        },
+        "networkSwitch": {
+          "after": {
+            "candidateType": "relay",
+            "pairId": "2490155a",
+            "protocol": "udp",
+            "redactedUrl": "",
+            "relayProtocol": "tcp"
+          },
+          "before": {
+            "candidateType": "relay",
+            "pairId": "d3c52cc2",
+            "protocol": "udp",
+            "redactedUrl": "",
+            "relayProtocol": "udp"
+          },
+          "connectionGenerationAdvance": 1
+        },
+        "turnTcp": {
+          "candidateType": "relay",
+          "pairId": "e38d19",
+          "protocol": "udp",
+          "redactedUrl": "",
+          "relayProtocol": "tcp"
+        },
+        "turnUdp": {
+          "candidateType": "relay",
+          "pairId": "93725b9d",
+          "protocol": "udp",
+          "redactedUrl": "",
+          "relayProtocol": "udp"
+        }
+      }
+    }
+  ],
+  "pinned_turn_image": "coturn/coturn@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888",
+  "reason_codes": [],
+  "repository_revision": "50cef03add7e711ed907730e5f4dd0c3d6829148",
+  "route_epoch_proof": {
+    "key_epoch_preserved": true,
+    "membership_epoch_preserved": true,
+    "route_epoch_advanced": true,
+    "stale_route_rejected": true
+  },
+  "schema": "ananta.peer-nat-matrix-result.v1",
+  "status": "passed",
+  "turn_image_id": "sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"
+}

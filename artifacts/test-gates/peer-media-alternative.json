@@ -1,0 +1,131 @@
+{
+  "child_cpu_seconds": 3.56735,
+  "command_exit_code": 0,
+  "decision": "bounded_experiment",
+  "evidence": {
+    "binding_digest": "64440c629f7f26d3b536e4b4ca40466e23c9520a0af13d376556701a07155b53",
+    "issuer": "hub-evidence-registry",
+    "production_release_eligible": false,
+    "production_release_reason": "evidence_run_test_scope_forbidden",
+    "result_digest": "3ce913f8f233b641096175c0afc6cf0876c6a76c910c8435efcc759a3d68b3e4",
+    "run_id": "RUN_64440c629f7f26d3b536e4b4ca40466e",
+    "scope": "test",
+    "source_id": "SRC_7bfe1bd9c8023ca19de2601224efd46e",
+    "synthetic": true
+  },
+  "execution_profile": {
+    "duration_seconds": 1,
+    "engines": [
+      "chromium",
+      "firefox"
+    ],
+    "headless": true,
+    "production_claim": false,
+    "schema": "ananta.peer-media-alternative-profile.v1",
+    "transport": {
+      "kind": "rtc_data_channel",
+      "max_retransmits": 0,
+      "ordered": false
+    }
+  },
+  "host_environment": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13700H",
+    "logical_cpu_count": 20,
+    "memory_bytes": 65782554624,
+    "node": "v22.22.1",
+    "platform": "Linux-7.0.0-30-generic-x86_64-with-glibc2.43",
+    "playwright": "Version 1.60.0",
+    "python": "3.12.14"
+  },
+  "human_intervention_required": false,
+  "measurements": [
+    {
+      "browserVersion": "148.0.7778.96",
+      "compatibility": {
+        "audioDecoder": true,
+        "audioEncoder": true,
+        "opus": true,
+        "videoDecoder": true,
+        "videoEncoder": true,
+        "vp8": true
+      },
+      "decision": "bounded_experiment",
+      "engine": "chromium",
+      "humanInterventionRequired": false,
+      "metrics": {
+        "avSyncErrorMs": 33.343,
+        "decodeLossRatio": 0,
+        "decodedAudioFrames": 51,
+        "decodedVideoFrames": 25,
+        "durationMs": 48.09999990463257,
+        "injectedVideoDrops": 5,
+        "keyframeRecovered": true,
+        "keyframeRecoveryMs": 0.20000004768371582,
+        "maximumBufferedAmount": 842,
+        "p95TransportLatencyMs": 0.8000001907348633,
+        "producedAudioFrames": 51,
+        "producedVideoFrames": 30,
+        "sentAudioFrames": 51,
+        "sentVideoFrames": 25,
+        "transportLossRatio": 0
+      },
+      "reasonCodes": [
+        "application_media_congestion_control_unverified",
+        "renderer_parity_unverified"
+      ],
+      "transport": {
+        "kind": "rtc_data_channel",
+        "maxRetransmits": 0,
+        "ordered": false,
+        "protocol": ""
+      }
+    },
+    {
+      "browserVersion": "153.0",
+      "compatibility": {
+        "audioDecoder": true,
+        "audioEncoder": true,
+        "opus": true,
+        "videoDecoder": true,
+        "videoEncoder": true,
+        "vp8": true
+      },
+      "decision": "bounded_experiment",
+      "engine": "firefox",
+      "humanInterventionRequired": false,
+      "metrics": {
+        "avSyncErrorMs": 26.843,
+        "decodeLossRatio": 0,
+        "decodedAudioFrames": 51,
+        "decodedVideoFrames": 25,
+        "durationMs": 41,
+        "injectedVideoDrops": 5,
+        "keyframeRecovered": true,
+        "keyframeRecoveryMs": 1,
+        "maximumBufferedAmount": 325,
+        "p95TransportLatencyMs": 1,
+        "producedAudioFrames": 51,
+        "producedVideoFrames": 30,
+        "sentAudioFrames": 51,
+        "sentVideoFrames": 25,
+        "transportLossRatio": 0
+      },
+      "reasonCodes": [
+        "application_media_congestion_control_unverified",
+        "renderer_parity_unverified"
+      ],
+      "transport": {
+        "kind": "rtc_data_channel",
+        "maxRetransmits": 0,
+        "ordered": false,
+        "protocol": ""
+      }
+    }
+  ],
+  "reason_codes": [
+    "webcodecs_transport_evaluation_bounded"
+  ],
+  "repository_revision": "50cef03add7e711ed907730e5f4dd0c3d6829148",
+  "schema": "ananta.peer-media-alternative-result.v1",
+  "status": "passed"
+}
