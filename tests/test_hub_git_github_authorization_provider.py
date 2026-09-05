@@ -156,6 +156,15 @@ def test_github_oauth_uses_stored_grant_and_least_privilege_scopes():
     assert "oauth-token" not in repr(resolved)
 
 
+def test_github_oauth_only_provider_reports_healthy():
+    provisioner = GitHubAuthorizationProvisioner(
+        api=_Api(),
+        oauth_grants=_OAuthStore(),
+    )
+
+    assert provisioner.health(scope=_scope()).status == "healthy"
+
+
 def test_github_oauth_fails_closed_without_grant_store():
     provisioner = GitHubAuthorizationProvisioner(api=_Api())
 
@@ -225,6 +234,41 @@ def test_factory_stays_unconfigured_without_app_credentials(monkeypatch):
     assert (
         compose_github_authorization_provisioner_from_env(
             secret_resolver=UnavailableHubGitSecretResolver(),
+        )
+        is None
+    )
+
+
+def test_factory_composes_oauth_without_github_app_credentials(monkeypatch):
+    monkeypatch.delenv("HUB_GIT_GITHUB_APP_ID", raising=False)
+    monkeypatch.delenv("HUB_GIT_GITHUB_APP_PRIVATE_KEY_REF", raising=False)
+    monkeypatch.setattr(
+        "agent.services.hub_git_github_authorization_provider."
+        "HttpGitHubAuthorizationApi",
+        _Api,
+    )
+
+    composition = compose_github_authorization_provisioner_from_env(
+        secret_resolver=UnavailableHubGitSecretResolver(),
+        oauth_grants=_OAuthStore(),
+    )
+
+    assert composition is not None
+    provisioner, secrets = composition
+    assert provisioner.health(scope=_scope()).status == "healthy"
+    assert secrets.resolve(
+        "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
+    ) == "oauth-token"
+
+
+def test_factory_rejects_partial_github_app_configuration(monkeypatch):
+    monkeypatch.setenv("HUB_GIT_GITHUB_APP_ID", "42")
+    monkeypatch.delenv("HUB_GIT_GITHUB_APP_PRIVATE_KEY_REF", raising=False)
+
+    assert (
+        compose_github_authorization_provisioner_from_env(
+            secret_resolver=UnavailableHubGitSecretResolver(),
+            oauth_grants=_OAuthStore(),
         )
         is None
     )

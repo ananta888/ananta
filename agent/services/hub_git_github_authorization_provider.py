@@ -317,18 +317,19 @@ class GitHubAuthorizationProvisioner:
 
     def health(self, *, scope: GitSourceScope) -> GitAuthorizationProviderHealth:
         _ = scope
-        if self.jwt_issuer is None:
+        if self.jwt_issuer is None and self.oauth_grants is None:
             return GitAuthorizationProviderHealth(
                 status="unavailable",
                 reason_code="git_authorization_github_app_unconfigured",
             )
-        try:
-            self.jwt_issuer.issue()
-        except Exception:
-            return GitAuthorizationProviderHealth(
-                status="unavailable",
-                reason_code="git_authorization_github_app_credentials_invalid",
-            )
+        if self.jwt_issuer is not None:
+            try:
+                self.jwt_issuer.issue()
+            except Exception:
+                return GitAuthorizationProviderHealth(
+                    status="unavailable",
+                    reason_code="git_authorization_github_app_credentials_invalid",
+                )
         return GitAuthorizationProviderHealth(status="healthy")
 
     def _resolve_app(
@@ -441,7 +442,7 @@ class GitHubAppInstallationSecretResolver:
         self,
         *,
         api: GitHubAuthorizationApiPort,
-        jwt_issuer: GitHubAppJwtIssuerPort,
+        jwt_issuer: GitHubAppJwtIssuerPort | None,
         oauth_grants: GitHubOAuthGrantStorePort | None = None,
     ) -> None:
         self._api = api
@@ -458,6 +459,11 @@ class GitHubAppInstallationSecretResolver:
         value = str(reference or "").strip()
         prefix = "secret://github-app/installation/"
         if value.startswith(prefix):
+            if self._jwt_issuer is None:
+                raise HubGitAuthorizationProvisioningError(
+                    "git_authorization_github_app_unconfigured",
+                    status_code=503,
+                )
             remainder = value.removeprefix(prefix)
             installation_id, separator, encoded_repository = remainder.partition("/repository/")
             repository = unquote(encoded_repository) if separator else ""
@@ -533,16 +539,22 @@ def compose_github_authorization_provisioner_from_env(
     secret_resolver: Any,
     oauth_grants: GitHubOAuthGrantStorePort | None = None,
 ) -> tuple[GitHubAuthorizationProvisioner, Any] | None:
-    """Return the GitHub adapter only when App credentials are already configured."""
+    """Compose independent GitHub App and OAuth authorization paths."""
 
     app_id = str(os.environ.get("HUB_GIT_GITHUB_APP_ID") or "").strip()
     key_ref = str(os.environ.get("HUB_GIT_GITHUB_APP_PRIVATE_KEY_REF") or "").strip()
-    if not app_id or not key_ref:
+    if bool(app_id) != bool(key_ref):
+        return None
+    if not app_id and oauth_grants is None:
         return None
     try:
-        private_key = secret_resolver.resolve(key_ref)
-        issuer = GitHubAppJwtIssuer(app_id=app_id, private_key_pem=private_key)
         api = HttpGitHubAuthorizationApi()
+        issuer = None
+        if app_id:
+            private_key = secret_resolver.resolve(key_ref)
+            issuer = GitHubAppJwtIssuer(
+                app_id=app_id, private_key_pem=private_key
+            )
     except Exception:
         return None
     provisioner = GitHubAuthorizationProvisioner(
