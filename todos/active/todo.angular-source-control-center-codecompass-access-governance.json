@@ -29,8 +29,8 @@
   "repository": {
     "full_name": "ananta888/ananta",
     "branch": "main",
-    "analyzed_commit": "1c8b0762a",
-    "analyzed_at": "2026-08-30",
+    "analyzed_commit": "81835a88c",
+    "analyzed_at": "2026-09-05",
     "previous_baseline": "5e24e95771cd675178696986374883c4b5e0e9af",
     "baseline_state": "locally_verified_external_release_unverified"
   },
@@ -45,8 +45,13 @@
     "Rohinhalte, Prompts, Tokens, Credentials, private Remote-URLs und Dateipfade erscheinen weder in Audit noch in Metriklabels oder Fehlerantworten."
   ],
   "verification_policy": {
-    "source_ids": [],
-    "run_ids": [],
+    "source_ids": [
+      "SRC_c388d150d035b774f25baf23353aeaee",
+      "SRC_778541652f7cd065da8beedcb18dc645"
+    ],
+    "run_ids": [
+      "RUN_216e52bd6d5a2126b03653e0259272c7"
+    ],
     "evidence_refs": [
       "artifacts/test-gates/generic-git-live-verification.json#sha256=6f6fa3a3fc9d510829557602760324a865421b58beaeaef7a164d3235a35fe07",
       "artifacts/test-gates/source-control-alert-delivery-drill.json#sha256=5f085631affccf8b72fdf8a00043acf4ca52335011150b50c28bec8d009e07b0",
@@ -58,11 +63,11 @@
       "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
       "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
     ],
-    "state": "local_gates_passed_production_unverified",
+    "state": "external_github_oauth_gate_passed_production_unverified",
     "rules": [
-      "Nur bereitgestellte gültige SRC_* und RUN_* IDs dürfen Grounding oder Release-Verifikation belegen.",
+      "Nur durch den Hub vor dem Lauf reservierte und anschließend validierte SRC_* und RUN_* IDs dürfen Grounding oder Release-Verifikation belegen.",
       "Lokale Quellcodebefunde rechtfertigen Implementierungsstatus und progress_percent, aber kein verifiziertes Release.",
-      "Fehlende Evidence bleibt unverified; IDs werden niemals erfunden."
+      "Fehlende Evidence bleibt unverified; der Hub stellt Identitäten automatisiert aus, Worker und Aufrufer erfinden sie niemals."
     ],
     "local_gate_state": "passed",
     "production_state": "unverified"
@@ -823,13 +828,16 @@
         "Revision ist an unveränderlichen Commit, Submodule-Policy und optionalen LFS-Zustand gebunden.",
         "Widerruf oder Scope-Verlust setzt betroffene Connections auf authorization_required und blockiert Refresh sowie Indexierung."
       ],
-      "verification_state": "local_verified_external_unverified",
+      "verification_state": "external_oauth_public_repository_verified_private_installation_unverified",
       "evidence_refs": [
+        "RUN_216e52bd6d5a2126b03653e0259272c7",
+        "SRC_c388d150d035b774f25baf23353aeaee",
+        "SRC_778541652f7cd065da8beedcb18dc645",
         "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10",
         "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
         "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Der serverseitige GitHub-App-/OAuth-Adapter ist lokal implementiert und getestet: Installation und Repo werden ohne Token-Rueckgabe aufgeloest, contents:read ist Pflicht, fehlende Grants und fehlende Contents-Permission bleiben fail-closed. Refresh/Index bleiben nach Revoke/Scope-loss authorization_required. Default-Provider bleibt unavailable, bis HUB_GIT_GITHUB_APP_ID und ein Secret-Ref gesetzt sind. Eine reale externe Installation oder ein OAuth-Grant ist weiterhin unverified.",
+      "status_basis": "Der Hub-reservierte externe Lauf RUN_216e52bd6d5a2126b03653e0259272c7 hat den realen GitHub-OAuth-Grant gegen ananta888/ananta serverseitig bis zum unveränderlichen Commit, vollständigen Fetch, Manifest und anschließenden Revoke-/Index-Deny ausgeführt. Token und Rohcredential blieben außerhalb des Reports. Dabei wurden zwei zuvor getrennt unentdeckte Produktionsfehler korrigiert: repository-gebundene %2F-Secret-Referenzen und OAuth-only-Composition. Das Repository ist jedoch öffentlich und der vorhandene klassische Grant enthält zusätzliche gist-, read:org- und workflow-Scopes; damit sind privater Credential-Zwang, GitHub-App-Installation und Least-Privilege eines dafür dedizierten Grants nicht belegt.",
       "acceptance_evidence": {
         "persistent_connector_composition": "passed",
         "server_handle_only_api": "passed",
@@ -838,7 +846,21 @@
         "tests": "148_passed",
         "persistent_registration_count": 0,
         "external_installation": "unverified",
-        "external_oauth_grant": "unverified",
+        "external_oauth_grant": "passed_public_repository_hub_reserved",
+        "external_oauth_run_id": "RUN_216e52bd6d5a2126b03653e0259272c7",
+        "external_oauth_source_ids": [
+          "SRC_c388d150d035b774f25baf23353aeaee",
+          "SRC_778541652f7cd065da8beedcb18dc645"
+        ],
+        "external_oauth_repository": "ananta888/ananta",
+        "external_oauth_visibility": "public",
+        "external_oauth_commit": "81835a88cad1126fb8e23d13d6c3239a5e75ba26",
+        "external_oauth_item_count": 12663,
+        "external_oauth_total_bytes": 119296993,
+        "external_oauth_manifest_digest": "1abfa9ff22d9e33c604d9a60d551e138fabf21095be86113aa7ec466b1cc4d36",
+        "external_oauth_token_exposed": false,
+        "external_oauth_revoke_index_denied": true,
+        "external_oauth_grant_minimal_for_visibility": false,
         "public_remote_validate_create_backend": "passed_167_of_167",
         "public_remote_local_compose": "explicit_opt_in",
         "public_remote_production_default": "disabled",
@@ -852,10 +874,11 @@
         "public_remote_regression_gates": "passed_37_of_37_39_of_39_43_of_43_14_of_14",
         "hub_owned_prepare_index_access": "passed",
         "github_app_oauth_adapter": "implemented_fail_closed_default",
-        "github_app_oauth_unit_tests": "passed_11_of_11",
+        "github_app_oauth_unit_tests": "passed_14_of_14",
+        "github_oauth_gate_tests": "passed_3_of_3",
         "token_returned_to_client": false
       },
-      "blocked_reason": "Der serverseitige GitHub-App-/OAuth-Adapter, Least-Privilege-Prüfungen, Secret-Grenzen sowie Revoke-/Scope-loss-Verhalten sind vollständig implementiert und lokal automatisiert verifiziert. Eine reale private Installation beziehungsweise ein externer OAuth-Grant benötigt vom Betreiber bereitgestellte Providerkonfiguration und gültige externe Evidenz."
+      "blocked_reason": "Der reale externe OAuth-Pfad ist unter RUN_216e52bd6d5a2126b03653e0259272c7 Hub-verifiziert. Offen bleiben ein privates, ohne Credential unzugängliches Repository oder eine reale GitHub-App-Installation sowie ein dafür dedizierter minimaler Grant; das aktuelle Repository ist öffentlich und der vorhandene klassische OAuth-Grant ist breiter als erforderlich."
     },
     {
       "id": "SRCCTRL-N2-004",
@@ -1819,6 +1842,7 @@
       ],
       "verification_state": "local_verified_external_unverified",
       "evidence_refs": [
+        "RUN_216e52bd6d5a2126b03653e0259272c7",
         "artifacts/test-gates/source-control-center-frontend-verification.json#sha256=5dab699565192e722e41c22006dce8da0ba907ae5452d9c513c16d516373ad0e",
         "artifacts/test-gates/source-control-center-operational-verification.json#sha256=25ce044aae0a851c6c3202b33e2cc103284447da8997453ed9e304515474a3d9",
         "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
@@ -1838,6 +1862,7 @@
         "completion_projection_tests": "passed_22_of_22",
         "graph_authorization_whitelist_regression": "passed_1_of_1",
         "graph_and_query_live_readback": "passed_http_200",
+        "real_github_oauth_backend_journey": "passed_public_repository_hub_reserved_RUN_216e52bd6d5a2126b03653e0259272c7",
         "private_github_app_oauth_journey": "external_unverified",
         "claude_cloud_journey": "external_unverified",
         "production_journey": "external_unverified",
@@ -1845,7 +1870,7 @@
         "public_remote_regression_gates": "passed_37_of_37_39_of_39_43_of_43_14_of_14",
         "browser_direct_policy_or_grant_sequence": "absent"
       },
-      "blocked_reason": "Workspace-, Public-Git-, Governance-, Approval- und Rollback-Flows sind lokal vollautomatisch bis zur Aktivierung verifiziert. Private GitHub-App-/OAuth-, Claude-/Cloud- und Produktions-Journeys benötigen externe Accounts, Providerkonfiguration und gültige RUN_*-Evidenz; diese Nachweise dürfen nicht simuliert werden."
+      "blocked_reason": "Workspace-, Public-Git-, Governance-, Approval- und Rollback-Flows sind lokal vollautomatisch bis zur Aktivierung verifiziert; zusätzlich bestand der reale Hub-reservierte GitHub-OAuth-Backendpfad. Offen bleiben die Browserjourney einer privaten GitHub-App-/OAuth-Installation, Claude-/Cloud- und Produktions-Journeys."
     },
     {
       "id": "SRCCTRL-R6-005",
@@ -2189,16 +2214,16 @@
     "Betrieb: Boundary 0 Violations, Container 4/4, Canonical Load 4000 Requests bei 0 Fehlern, p95 66.523 ms und p99 479.934 ms; Replay, Bulk, Recovery und Connection sowie QueuePool-/5xx-Zähler passed beziehungsweise 0.",
     "Generic Git wurde credential-frei live gegen ein öffentliches kleines Repository über Produktions-Composition, SQL-Registry, DNS-IP-Pinning und HubGitTransport verifiziert; immutable HEAD, Inventory, Refresh und Cleanup bestanden.",
     "Lokale Hub-IDs conn_c6... und srev_667... sind ausdrücklich keine Produktions-SRC_*/RUN_*-Evidence und werden nicht in production_verification eingetragen.",
-    "Live GitHub-App/OAuth, Cloud-/Provider-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken und organisatorische Freigabe bleiben extern offen.",
-    "Production-Verifikation bleibt ohne bereitgestellte gültige SRC_* und RUN_* IDs unverified; release_allowed=false.",
+    "Der reale GitHub-OAuth-Pfad gegen das öffentliche Projekt-Repository ist unter RUN_216e52bd6d5a2126b03653e0259272c7 extern Hub-verifiziert; private Credential-Erzwingung, GitHub-App-Installation und dedizierter Least-Privilege-Grant bleiben offen.",
+    "Production-Verifikation bleibt ohne einen eigenen vorab reservierten Produktionslauf unverified; release_allowed=false.",
     "Recovery-Drill: 14 serielle restricted-inference Scopes am selben unerreichbaren Endpoint wurden durch Endpoint-Circuit-Breaker und Fail-fast sicher beendet; 22/22 Tests und Ruff passed, Tasks blieben failed/retryable/durable, 14 Outbox-Zeilen blieben als 1 worker_unavailable plus 13 worker_circuit_open erhalten. Startup sank von 168.7424 s auf 22.3307 s, Cleanup von 167.1531 s auf 20.7195 s; Container-Start bis Health betrug 30.837 s und Hub Health war ok.",
     "Alarm-Drill: Die lokale Loopback-Kette firing, delivered, resolved und healthy bestand mit firing=0 und resolved=1; 9/9 Tests und Ruff passed. Produktive Rules-, Config- und Alertmanager-Anbindung sind implementiert, ein realer Produktionsreceiver beziehungsweise Paging wurde nicht kontaktiert.",
-    "GitHub-Onboarding: Persistente Git-Connector-Composition und server-handle-only Provisioning/List/Detail/Revoke/Scope-loss/Health sind mit admin/project_owner plus Scope, SQL-Idempotenz/CAS, immutable History, Audit und fail-closed Provider-/Secret-Auflösung implementiert; 148 Tests, Ruff und Bootstrap bestanden. Persistente GitHub-App-/OAuth-Registration count=0 sowie externe Installation und Grant bleiben offen.",
+    "GitHub-Onboarding: Persistente Git-Connector-Composition und server-handle-only Provisioning/List/Detail/Revoke/Scope-loss/Health sind implementiert. RUN_216e52bd6d5a2126b03653e0259272c7 belegt den echten externen OAuth-Fetch des öffentlichen Projekt-Repositories mit 12.663 Einträgen, 119.296.993 Byte, immutable Commit, Secret-Grenze und Revoke-Deny; private Installation und minimaler dedizierter Grant bleiben offen.",
     "Aktueller UX-Delta: Backend 136/136, 37/37, 39/39, 43/43 und 14/14; Frontend initial 32/32, final 6/6 sowie App-/Spec-Typecheck; Public-Git- und Workspace-Snapshot-Chromium jeweils 1/1 ohne Retry bis zur Aktivierung.",
     "Public Git/GitHub und Workspace-Snapshot sind lokal ueber das sichtbare Hauptmenue Quellen & Indexierung, den Projekt-CTA Git oder Ordner hinzufügen, den Project-Binding-Hinweis und die vier Quellkarten bis zur Aktivierung verifiziert. Beide nutzten genau den Hub-owned Prepare-Index-Access-Aggregatpfad; Worker orchestrierten keine Worker und der Browser keine Policy-/Grant-Sequenz.",
-    "Private GitHub-App-/OAuth-Installation und Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken, bereitgestellte gueltige SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern offen. Es wurden keine Source- oder Run-IDs erfunden.",
+    "Private GitHub-App-/OAuth-Installation, dedizierter Least-Privilege-Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken und organisatorische Freigabe bleiben extern offen. Die GitHub-OAuth-Evidence wurde vor Ausführung durch den Hub reserviert; Worker oder Aufrufer haben keine IDs erzeugt.",
     "Prepare-Index-Access ist fail-closed auf local_container mit lokaler Datenresidenz sowie local/redacted/one_time beschraenkt; Confirmation, OCC, Idempotenz und negative Auswahlfaelle sind lokal verifiziert.",
-    "2026-08-17: Built-in GitHub App/OAuth provisioner added. Default bleibt unavailable. Adapter loest github-installation:<id> und gespeicherte github-oauth-Grants serverseitig, fordert contents:read, persistiert keine Tokens und gibt keine Tokens an Angular. Live-Installation und OAuth-Grant bleiben extern unverified.",
+    "2026-09-05: OAuth-only-Composition und repository-gebundene percent-encoded Secret-Referenzen wurden korrigiert. Der externe Hub-Lauf RUN_216e52bd6d5a2126b03653e0259272c7 bestand gegen ananta888/ananta; das öffentliche Repository und der breite vorhandene Grant belegen noch keinen privaten Least-Privilege-Pfad.",
     "2026-08-30 Audit: Der aktuelle Quellstand bestaetigt die Hub-owned Source-, Index-, Policy-, GitHub-App/OAuth-, Observability-, E2E- und Release-Gate-Pfade. Die vier partial Tasks besitzen keine lokal offene Source-Luecke; offen bleiben ausschliesslich reale private GitHub-/Cloud- und Produktionsbetriebsnachweise sowie bereitgestellte gueltige SRC_*/RUN_*-IDs. Der veraltete zentrale Live-Browser-Evidence-Hash wurde auf den tatsaechlichen stabilen Artefaktdigest korrigiert.",
     "2026-08-30 Verifikation: 430 fokussierte Backend-Tests und 122 Angular-Tests liefen vollautomatisch fehlerfrei. Das Release-Gate bestaetigt alle 11 lokalen Gates als passed und verweigert die Freigabe erwartungsgemaess fail-closed, solange Produktionsnachweise und gueltige SRC_*/RUN_*-IDs fehlen."
   ],
@@ -2221,7 +2246,7 @@
       "items": [
         "Angular zeigt reale Hub-Zustände und kann weder Sicherheitsmetadaten behaupten noch Fehler als erfolgreiche Fallbackpolicy darstellen.",
         "Contract-, Security-, Migration-, Backend-, Angular-, E2E-, Accessibility-, Container-, Load-/Recovery- und Keine-Bypass-Gates wurden lokal erfolgreich ausgeführt und SHA-256-belegt.",
-        "Das GitHub-Onboarding ist bis zur externen Providergrenze persistent, server-handle-only, RBAC-/Scope-gebunden, CAS- und auditgesichert; eine reale GitHub-App-/OAuth-Registration, Installation und Grant bleiben externe Voraussetzungen.",
+        "Das GitHub-Onboarding ist persistent, server-handle-only, RBAC-/Scope-gebunden, CAS- und auditgesichert; ein realer externer OAuth-Fetch des öffentlichen Projekt-Repositories ist Hub-verifiziert, während private Installation und dedizierter Least-Privilege-Grant offen bleiben.",
         "Ein Release wird erst mit gültiger externer Evidence und organisatorischer Freigabe verifiziert; bis dahin bleibt release_allowed=false.",
         "Ein berechtigter Nutzer kann registrierte Workspaces, erlaubte relative Verzeichnisse, GitHub, registriertes Git, Direct Text, Notebook, Wiki und bestehende Quellen als SourceConnection anlegen.",
         "Hub-Worker-Grenze, Tenant-/Projektisolation, OCC, Audit, Retention, Rollback und sichere Purge-Semantik besitzen reproduzierbare Testdefinitionen.",
@@ -2229,7 +2254,7 @@
         "Jede Datenbewegung wird gegen reale SourceRevision, Worker, Runtime, Provider, Modell, Standort, Operation und Transformation serverseitig entschieden.",
         "Lokaler Recovery- und Alarm-Delivery-Drill belegen Circuit-Breaker, Fail-fast, retryable/durable Tasks, vollständigen Outbox-Erhalt sowie firing-to-resolved-to-healthy. Reale Produktionsreceiver, Paging und Produktionsmetriken bleiben externe Release-Voraussetzungen.",
         "Die Capability-Matrix trennt Backend-Implementierung, Angular-Bedienbarkeit und externe private Provider-Konfiguration; historische Evidence wird nicht als Beleg fuer nicht ausgefuehrte neue Tests verwendet.",
-        "Workspace-Snapshot und credential-freies Public Git/GitHub sind durch aktuelle sichtbare Chromium-Journeys jeweils 1/1 ohne Retry bis zur Aktivierung verifiziert; die lokale Einmalfreigabe wird ausschliesslich durch den Hub aggregiert. Offen bleiben die explizit externen privaten Provider-, Cloud-, Produktions- und Organisationsnachweise."
+        "Workspace-Snapshot und credential-freies Public Git/GitHub sind durch aktuelle sichtbare Chromium-Journeys jeweils 1/1 ohne Retry bis zur Aktivierung verifiziert; der reale OAuth-Backendpfad ist zusätzlich extern Hub-verifiziert. Offen bleiben private Provider-, Cloud-, Produktions- und Organisationsnachweise."
       ]
     }
   ],
@@ -2237,10 +2262,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-31T15:35:31.055407Z",
+    "generated_at": "2026-09-05T19:22:49.377510Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "06909a68b076ebc09fb62ec7cb1adb28d60e9fe1a920db69e01ff886c1240f08",
+    "source_hash": "1aa78b7e767cb491c5fb46464f432a3ec82d6f0e324a9fe7b63a66e9f158f7a6",
     "is_stale": false
   },
   "milestone_progress_summary": {
@@ -2385,8 +2410,21 @@
       "coverage": "visible_project_journey_snapshot_connection_refresh_scan_hub_aggregate_run_worker_projection_activation_ui_readback",
       "worker_claim_lease_seconds": 900
     },
+    "github_oauth_external_gate": {
+      "status": "passed_public_repository",
+      "run_id": "RUN_216e52bd6d5a2126b03653e0259272c7",
+      "source_ids": [
+        "SRC_c388d150d035b774f25baf23353aeaee",
+        "SRC_778541652f7cd065da8beedcb18dc645"
+      ],
+      "repository": "ananta888/ananta",
+      "commit": "81835a88cad1126fb8e23d13d6c3239a5e75ba26",
+      "token_exposed": false,
+      "private_repository": false,
+      "least_privilege_grant": false
+    },
     "private_github_app_oauth": "external_unverified",
-    "production_source_run_ids": "not_provided",
+    "production_source_run_ids": "not_applicable_external_oauth_run_is_not_production",
     "angular_focused_contracts": "32/32 initial passed; 6/6 final passed",
     "angular_typecheck": "passed",
     "angular_production_image_build": "passed",
