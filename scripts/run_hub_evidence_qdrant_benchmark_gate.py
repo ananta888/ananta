@@ -286,6 +286,7 @@ def execute_gate(
     selected_profile = dict(profile_document["profiles"][profile])
     execution_profile = {
         "schema": "ananta.qdrant-benchmark-gate-profile.v1",
+        "host_classification": "local_reference_host",
         "profile": profile,
         "profile_document_sha256": sha256_file(ROOT / PROFILE_PATH),
         "qdrant_url": qdrant_url,
@@ -324,8 +325,8 @@ def execute_gate(
         ),
         execution_profile_digest=canonical_evidence_digest(execution_profile),
         environment_digest=canonical_evidence_digest(environment),
-        evidence_scope="local_reference_host",
-        required_scope="local_reference_host",
+        evidence_scope="local",
+        required_scope="local",
         idempotency_key=f"qdrant-benchmark:{revision}:{profile}:{nonce}",
         sources=(
             EvidenceGateSourceAdmission(
@@ -427,7 +428,8 @@ def execute_gate(
         "source_ids": list(outcome.source_ids),
         "run_id": outcome.run_id,
         "result_digest": outcome.result_digest,
-        "evidence_scope": "local_reference_host",
+        "evidence_scope": "local",
+        "host_classification": "local_reference_host",
         "verified": outcome.verified,
         "execution_profile": execution_profile,
         "environment": environment,
