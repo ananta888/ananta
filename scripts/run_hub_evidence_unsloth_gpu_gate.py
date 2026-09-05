@@ -379,6 +379,26 @@ def build_container_command(
     return command
 
 
+def prepare_dataset_result_mount(result_path: Path) -> Path:
+    """Expose only a validated recipe directory to the unprivileged container."""
+    if result_path.is_symlink():
+        raise UnslothGpuGateError("unsloth_gate_dataset_result_invalid")
+    try:
+        resolved = result_path.resolve(strict=True)
+        recipe_root = resolved.parent
+        if (
+            resolved.name != "result.json"
+            or re.fullmatch(r"[0-9a-f]{64}", recipe_root.name) is None
+            or recipe_root.is_symlink()
+            or any(candidate.is_symlink() or not candidate.is_file() for candidate in recipe_root.iterdir())
+        ):
+            raise UnslothGpuGateError("unsloth_gate_dataset_result_invalid")
+        recipe_root.chmod(0o755)
+    except OSError as exc:
+        raise UnslothGpuGateError("unsloth_gate_dataset_result_invalid") from exc
+    return resolved
+
+
 def execute_gate(
     *,
     image: str,
@@ -510,7 +530,7 @@ def execute_gate(
                     run_id=str(assignment["run_id"]),
                     attempt_id=attempt_id,
                 )
-                dataset_result_path = Path(dataset_admission_report["result_path"])
+                dataset_result_path = prepare_dataset_result_mount(Path(dataset_admission_report["result_path"]))
             command = build_container_command(
                 image=image_id,
                 image_id=image_id,

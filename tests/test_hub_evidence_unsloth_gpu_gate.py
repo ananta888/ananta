@@ -14,6 +14,7 @@ from scripts.run_hub_evidence_unsloth_gpu_gate import (
     bounded_diagnostic,
     build_container_command,
     docker_image_revision,
+    prepare_dataset_result_mount,
 )
 from scripts.unsloth_ollama_runtime_probe import build_ollama_container_command
 
@@ -187,6 +188,29 @@ def test_admitted_dataset_loader_rejects_result_symlink(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="nvidia_smoke_dataset_result_invalid"):
         load_admitted_nvidia_dataset(result)
+
+
+def test_dataset_result_mount_is_traversable_but_not_worker_writable(tmp_path: Path) -> None:
+    recipe = tmp_path / ("a" * 64)
+    recipe.mkdir(mode=0o700)
+    result = recipe / "result.json"
+    result.write_text("{}", encoding="utf-8")
+
+    assert prepare_dataset_result_mount(result) == result.resolve()
+    assert recipe.stat().st_mode & 0o777 == 0o755
+
+
+def test_dataset_result_mount_rejects_nested_symlink(tmp_path: Path) -> None:
+    recipe = tmp_path / ("a" * 64)
+    recipe.mkdir()
+    target = tmp_path / "target.jsonl"
+    target.write_text("{}\n", encoding="utf-8")
+    (recipe / "train.jsonl").symlink_to(target)
+    result = recipe / "result.json"
+    result.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(UnslothGpuGateError, match="unsloth_gate_dataset_result_invalid"):
+        prepare_dataset_result_mount(result)
 
 
 def test_runtime_gguf_is_materialized_atomically_with_verified_digest(tmp_path: Path) -> None:
