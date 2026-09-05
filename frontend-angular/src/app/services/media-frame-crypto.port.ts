@@ -24,6 +24,7 @@ export interface MediaFrameKeyLease {
 }
 
 export interface MediaFrameCryptoPort {
+  readonly format: 'legacy_anme_v1' | 'sframe_rfc9605';
   encryptStream(
     context: Readonly<MediaE2eeFrameContext>,
     lease: MediaFrameKeyLease,
@@ -68,6 +69,7 @@ export class ScopedMediaFrameKeyLease implements MediaFrameKeyLease {
 /** Compatibility adapter for the existing ANME frame codec. */
 @Injectable({ providedIn: 'root' })
 export class AnmeMediaFrameCryptoAdapter implements MediaFrameCryptoPort {
+  readonly format = 'legacy_anme_v1' as const;
   private readonly codec = inject(MediaE2eeTransformService);
 
   encryptStream(

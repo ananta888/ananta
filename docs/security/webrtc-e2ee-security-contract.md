@@ -39,6 +39,23 @@ Offer, Answer, Algorithmen, Payloadklassen und Epoch fließen in den finalen
 Contract-Digest ein; Normalisierungs- oder Flag-Manipulation ändert den Digest
 und verhindert die Aktivierung.
 
+## Medienformat, Ableitung und Rotation
+
+Das bestehende `ANME`-Frameformat ist ausschließlich der explizite
+`legacy_anme_v1`-Compatibility-Adapter. Es ist keine RFC-9605-SFrame-
+Implementierung. `sframe_rfc9605` darf nur gewählt werden, wenn ein eigener
+nativer Adapter die Capability meldet; unbekannte Formate und ein Wechsel vom
+ausgehandelten SFrame-Pfad zu ANME werden fail-closed abgelehnt. Für
+Cross-PeerConnection-Medienrelay bleibt der portable Browserpfad weiterhin
+`no_go`.
+
+Gruppenmedien-Schlüssel werden mit HKDF-SHA-256 nach Tenant, Room, Publication,
+Sender, Audio/Kamera/Screenshare/Daten und Key-Epoch getrennt. Die resultierenden
+AES-GCM-Schlüssel sind non-extractable. Eine Rotation aktiviert zuerst die neue
+Epoch, sperrt die alte Sender-Epoch sofort und fordert für Video einen Keyframe
+an. Eine alte Receiver-Epoch darf nur in einem begrenzten Receive-only-Fenster
+weiterleben; bei `revoke` ist dieses Fenster immer null.
+
 ## Gate
 
 `python scripts/run_webrtc_crypto_gate.py` führt dieselbe versionierte

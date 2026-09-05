@@ -293,7 +293,7 @@
     {
       "id": "M04",
       "title": "SFrame, Schluessel und Senderauthentizitaet",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-CRYPTO-001",
         "DPM-CRYPTO-002",
@@ -704,7 +704,7 @@
     {
       "id": "DPM-CRYPTO-001",
       "title": "Eigenes ANME-Frameformat gegen RFC-9605-SFrame migrieren oder kapseln",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -719,17 +719,20 @@
         "Legacy-ANME wird nur ueber einen expliziten Compatibility Adapter akzeptiert.",
         "Unbekannte Formate, Cipher Suites oder Downgradeversuche werden fail-closed abgelehnt."
       ],
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
+        "frontend-angular/src/app/services/media-frame-format-policy.ts",
+        "frontend-angular/src/app/services/media-frame-format-policy.spec.ts",
+        "frontend-angular/src/app/services/media-frame-crypto.port.ts",
         "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
         "docs/security/webrtc-e2ee-security-contract.md"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CRYPTO-002",
       "title": "Echtes Sliding Replay Window fuer Medienframes implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -743,18 +746,18 @@
         "Ein nach Set-Eviction sehr alter bislang ungesehener Counter wird nicht akzeptiert.",
         "Speicherverbrauch bleibt je Sender, Publication und Epoch strikt begrenzt."
       ],
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
         "frontend-angular/src/app/services/media-e2ee-transform.service.spec.ts",
         "frontend-angular/src/app/services/webrtc-replay-window.service.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CRYPTO-003",
       "title": "Sender- und publikationsspezifische Schluesselableitung einfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -769,17 +772,19 @@
         "Audio, Kamera, Screenshare und Daten verwenden getrennte Ableitungsdomains.",
         "Known-answer-, Cross-context- und falsche-KID-Tests sichern die Ableitung."
       ],
-      "progress_percent": 65.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
+        "frontend-angular/src/app/services/group-media-key-derivation.service.ts",
+        "frontend-angular/src/app/services/group-media-key-derivation.service.spec.ts",
         "frontend-angular/src/app/services/pair-media-e2ee-frame-codec.ts",
         "frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CRYPTO-004",
       "title": "Key-Rotation mit Keyframe- und Grace-Window-Policy integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -794,12 +799,14 @@
         "Ein begrenztes Receive-only Grace Window ist explizit und kann Revokes nicht verlaengern.",
         "Audio, Video und Daten besitzen passende, getrennte Rotations- und Recoverytests."
       ],
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/webrtc_group_key_authorization_service.py",
-        "frontend-angular/src/app/services/webrtc-group-key.service.ts"
+        "frontend-angular/src/app/services/webrtc-group-key.service.ts",
+        "frontend-angular/src/app/services/media-key-rotation-coordinator.ts",
+        "frontend-angular/src/app/services/media-key-rotation-coordinator.spec.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MEM-001",
@@ -1648,11 +1655,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 26,
+      "partial": 22,
       "blocked": 6,
-      "done": 16
+      "done": 20
     },
-    "progress_percent_done": 33.3,
+    "progress_percent_done": 41.7,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1666,15 +1673,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 15,
-      "remaining": 29
+      "done": 19,
+      "remaining": 25
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 10,
+      "in_progress": 9,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -1741,14 +1748,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 13,
+          "partial": 12,
           "blocked": 0,
-          "done": 3
+          "done": 4
         },
-        "done": 3,
-        "partial": 13,
+        "done": 4,
+        "partial": 12,
         "blocked": 0,
-        "progress_percent": 73.4
+        "progress_percent": 76.2
       },
       "test": {
         "total": 6,
@@ -1769,14 +1776,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 7,
+          "partial": 4,
           "blocked": 0,
-          "done": 2
+          "done": 5
         },
-        "done": 2,
-        "partial": 7,
+        "done": 5,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 87.8
       },
       "configuration": {
         "total": 1,
@@ -1812,11 +1819,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 26,
+    "partial": 22,
     "blocked": 6,
-    "done": 16,
-    "count_based_percent": 33.3,
-    "weighted_percent": 70.3
+    "done": 20,
+    "count_based_percent": 41.7,
+    "weighted_percent": 73.5
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1862,10 +1869,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 62.188,
-    "remaining_weight": 26.312,
+    "done_weight": 65.038,
+    "remaining_weight": 23.462,
     "blocked_weight": 10.5,
-    "weighted_percent": 70.3
+    "weighted_percent": 73.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1895,11 +1902,11 @@
       },
       "M04": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 59.3,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M05": {
         "total_tasks": 4,
@@ -1970,10 +1977,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T02:12:16.617441Z",
+    "generated_at": "2026-09-05T02:16:00.962163Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "365e886e66148c71fa73adc3cfe148cc1292c67db28b9e5b1654f37bae331846",
+    "source_hash": "0d18ea643a0b651f5f59829eec3c3358dcd3d779b787a89418be0efaeaf753e0",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"

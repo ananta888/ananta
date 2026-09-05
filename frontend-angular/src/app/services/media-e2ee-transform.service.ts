@@ -17,7 +17,7 @@ export interface MediaEncodedFrame {
 
 interface MediaReplayWindow {
   highest: bigint;
-  readonly accepted: Set<bigint>;
+  bitmap: bigint;
   readonly pending: Set<bigint>;
 }
 
@@ -26,6 +26,7 @@ const HEADER_BYTES = 32;
 const MAX_FRAME_BYTES = 8 * 1024 * 1024;
 const MAX_COUNTER = 0xffff_ffff_ffff_ffffn;
 const REPLAY_WINDOW = 2_048;
+const REPLAY_MASK = (1n << BigInt(REPLAY_WINDOW)) - 1n;
 
 /**
  * Codec-frame AEAD for browsers exposing RTCRtpScriptTransform or encoded
@@ -117,11 +118,12 @@ export class MediaE2eeTransformService {
     const binding = contextKey(context);
     const replay = this.received.get(binding) ?? {
       highest: 0n,
-      accepted: new Set<bigint>(),
+      bitmap: 0n,
       pending: new Set<bigint>(),
     };
     if (outsideReplayWindow(counter, replay.highest)) throw new Error('media_e2ee_replay_too_old');
-    if (replay.accepted.has(counter) || replay.pending.has(counter)) throw new Error('media_e2ee_replay');
+    if (replayContains(replay, counter) || replay.pending.has(counter)) throw new Error('media_e2ee_replay');
+    if (replay.pending.size >= REPLAY_WINDOW) throw new Error('media_e2ee_replay_budget_exceeded');
     replay.pending.add(counter);
     this.received.set(binding, replay);
     let plaintext: ArrayBuffer;
@@ -134,7 +136,7 @@ export class MediaE2eeTransformService {
       );
     } catch (error) {
       replay.pending.delete(counter);
-      if (replay.highest === 0n && replay.accepted.size === 0 && replay.pending.size === 0) {
+      if (replay.highest === 0n && replay.bitmap === 0n && replay.pending.size === 0) {
         this.received.delete(binding);
       }
       if (error instanceof Error && error.message.startsWith('media_e2ee_')) throw error;
@@ -142,11 +144,7 @@ export class MediaE2eeTransformService {
     }
     replay.pending.delete(counter);
     if (outsideReplayWindow(counter, replay.highest)) throw new Error('media_e2ee_replay_too_old');
-    replay.highest = counter > replay.highest ? counter : replay.highest;
-    replay.accepted.add(counter);
-    for (const acceptedCounter of replay.accepted) {
-      if (outsideReplayWindow(acceptedCounter, replay.highest)) replay.accepted.delete(acceptedCounter);
-    }
+    commitReplayCounter(replay, counter);
     return plaintext;
   }
 
@@ -158,6 +156,22 @@ export class MediaE2eeTransformService {
 
 function outsideReplayWindow(counter: bigint, highest: bigint): boolean {
   return highest > 0n && counter + BigInt(REPLAY_WINDOW) <= highest;
+}
+
+function replayContains(window: MediaReplayWindow, counter: bigint): boolean {
+  if (counter > window.highest || outsideReplayWindow(counter, window.highest)) return false;
+  return (window.bitmap & (1n << (window.highest - counter))) !== 0n;
+}
+
+function commitReplayCounter(window: MediaReplayWindow, counter: bigint): void {
+  if (counter > window.highest) {
+    const shift = counter - window.highest;
+    window.bitmap = shift >= BigInt(REPLAY_WINDOW)
+      ? 0n
+      : (window.bitmap << shift) & REPLAY_MASK;
+    window.highest = counter;
+  }
+  window.bitmap |= 1n << (window.highest - counter);
 }
 
 function arrayBufferBackedBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
