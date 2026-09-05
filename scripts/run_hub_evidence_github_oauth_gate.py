@@ -435,7 +435,17 @@ def execute_gate(
                 "reason_code": "github_oauth_live_gate_failed",
                 "assignment_bound": (
                     assignment.get("task_id") == TASK_ID
-                    and assignment.get("repository_revision") == revision
+                    and assignment.get("evidence_scope") == "external"
+                    and len(assignment.get("source_ids") or ()) == 2
+                    and re.fullmatch(
+                        r"RUN_[0-9a-f]{32}",
+                        str(assignment.get("run_id") or ""),
+                    )
+                    is not None
+                    and _DIGEST.fullmatch(
+                        str(assignment.get("binding_digest") or "")
+                    )
+                    is not None
                 ),
                 "authorization_kind": record.authorization_kind,
                 "granted_scopes": sorted(record.granted_scopes),

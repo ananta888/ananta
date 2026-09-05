@@ -8,6 +8,7 @@ from scripts.run_hub_evidence_github_oauth_gate import (
 
 def _execution() -> dict:
     return {
+        "assignment_bound": True,
         "refresh_status": "ok",
         "immutable_ref": "git-commit:" + "a" * 40,
         "item_count": 12,
