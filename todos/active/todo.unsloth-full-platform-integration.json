@@ -32,10 +32,14 @@
       "SRC_9e453fce2703bb5d29e8363ce14c1559",
       "SRC_9f0342cf851a802a884a1ff2d888273a",
       "SRC_50290f3cca900abcc309fbd780f87394",
-      "SRC_8c7bb1ab808c2d1df42181ba652c3640"
+      "SRC_8c7bb1ab808c2d1df42181ba652c3640",
+      "SRC_2a44d26da3e4a8628a5926697333a8c8",
+      "SRC_879761a78756b5b888b8e34f03b8fc35",
+      "SRC_8a7c2765e0b6fa3c1a8570ce2602d1d7"
     ],
     "provided_run_ids": [
-      "RUN_d6b041ba2a574a96019632f182a6fdf4"
+      "RUN_d6b041ba2a574a96019632f182a6fdf4",
+      "RUN_492dc1479781ea7edb3ce4213bff682f"
     ],
     "automated_tests": "passed",
     "local_builds": "passed",
@@ -181,10 +185,10 @@
       ],
       "status": "blocked",
       "implementation_state": "code_complete",
-      "verification_state": "nvidia_image_attested_real_dataset_and_resilience_gates_pending",
-      "done_tasks": 3,
-      "partial_tasks": 3,
-      "acceptance_progress_percent": 50
+      "verification_state": "real_nvidia_training_and_resilience_verified_real_dataset_quality_gates_pending",
+      "done_tasks": 4,
+      "partial_tasks": 2,
+      "acceptance_progress_percent": 67
     },
     {
       "id": "M3",
@@ -689,10 +693,9 @@
       "title": "Unsloth-Core-Backend für Text-LoRA/QLoRA vervollständigen",
       "type": "backend",
       "milestone_id": "M2",
-      "status": "blocked",
-      "progress_percent": 90,
-      "blocked_reason": "Real Unsloth GPU training passed three times. Final acceptance still requires an automated GPU crash/resume, cancellation, fencing and resource-release scenario under a separately Hub-reserved RUN_* identity.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "hub_reserved_real_rtx3080_training_crash_resume_fence_cancel_and_release_verified",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -721,22 +724,27 @@
       "implementation_state": "code_complete",
       "implementation_notes": [
         "Training und Resume sind an Tenant, Job, Attempt, Backend, Dataset, Modell und Konfiguration gebunden.",
-        "Checkpoint-Publikation ist atomar, symlink-frei und lehnt veraltete oder manipulierte Resume-Zustaende fail-closed ab."
+        "Checkpoint-Publikation ist atomar, symlink-frei und lehnt veraltete oder manipulierte Resume-Zustaende fail-closed ab.",
+        "Beschleunigte Trainer werden ueber einen separaten Checkpoint-Observer an stabile abgeschlossene Saves gebunden; der Wiederanlauf rekonstruiert nur vollstaendig validierte versiegelte Checkpoints."
       ],
       "acceptance_verification": {
-        "state": "local_subset_verified_external_evidence_pending",
+        "state": "verified_local_prerelease",
         "automated_tests": "passed",
-        "builds": "passed_local_targets_only",
-        "runtime_checks": "external_or_gpu_runtime_pending",
-        "provided_source_ids": [],
-        "provided_run_ids": []
+        "builds": "passed_local_nvidia_image",
+        "runtime_checks": "passed_real_rtx3080_hard_crash_resume_stale_fence_forced_cancel_and_resource_release",
+        "provided_source_ids": [
+          "SRC_2a44d26da3e4a8628a5926697333a8c8",
+          "SRC_879761a78756b5b888b8e34f03b8fc35",
+          "SRC_8a7c2765e0b6fa3c1a8570ce2602d1d7"
+        ],
+        "provided_run_ids": [
+          "RUN_492dc1479781ea7edb3ce4213bff682f"
+        ]
       },
-      "remaining_verification": [
-        "Training, atomarer Checkpoint und fail-closed Resume muessen mit einem echten Unsloth-GPU-Job und einem freigegebenen Modell/Dataset ausgefuehrt werden.",
-        "Ein GPU-Lauf muss Crash/Resume, Fence, Cancellation und Ressourcenfreigabe mit bereitgestellter RUN_* Evidenz belegen."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
-        "Checkpoint-, Resume-, Binding-, Fence-, Crash-, Cancellation- und Runtime/App-Pfade sind lokal in Worker- und targeted Runtime-Gates gruen."
+        "Checkpoint-, Resume-, Binding-, Fence-, Crash-, Cancellation- und Runtime/App-Pfade sind lokal in Worker- und targeted Runtime-Gates gruen.",
+        "RUN_492dc1479781ea7edb3ce4213bff682f belegt einen echten Container-SIGKILL mit Exit 137 nach checkpoint-1, automatischen Resume bis Schritt 100 unter Fence 2, Ablehnung von Fence 1, Forced-Cancel eines GPU-residenten Prozesses und vollstaendige Ressourcenfreigabe."
       ]
     },
     {
