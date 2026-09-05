@@ -39,7 +39,7 @@
   },
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
-    "reviewed_commit": "52d7eb9ff1d8cfed4349df232c2c201b18f4be48",
+    "reviewed_commit": "f34e43ae6cac7e0106c5288a5fea9ee876121afe",
     "reviewed_at": "2026-09-05",
     "reviewed_paths": [
       "AGENTS.md",
@@ -69,6 +69,8 @@
       "agent/services/webrtc_turn_credential_service.py",
       "ananta_contracts/webrtc_security.py",
       "ananta_contracts/peer_overlay.py",
+      "artifacts/test-gates/peer-media-alternative.json",
+      "artifacts/test-gates/peer-nat-matrix.json",
       "docs/architecture/webrtc-sfu-broadcast-boundaries.md",
       "docs/decisions/ADR-semantic-media-sfu.md",
       "docs/operations/sfu-broadcast-capacity-policy.md",
@@ -100,6 +102,13 @@
       "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
       "frontend-angular/src/app/services/webrtc-replay-window.service.ts",
       "frontend-angular/src/app/services/webrtc-session.service.ts",
+      "frontend-angular/playwright.peer-media-alternative.config.ts",
+      "frontend-angular/playwright.peer-nat-matrix.config.ts",
+      "frontend-angular/tests/peer-media-alternative.spec.ts",
+      "frontend-angular/tests/peer-nat-matrix.spec.ts",
+      "scripts/hub_browser_test_evidence.py",
+      "scripts/run_peer_media_alternative_gate.py",
+      "scripts/run_peer_nat_matrix_gate.py",
       "tests/fuzz/test_sfu_broadcast_contract_fuzz.py",
       "tests/security/test_webrtc_crypto_conformance.py",
       "tests/security/test_webrtc_replay_protection.py",
@@ -112,7 +121,9 @@
       "tests/test_peer_overlay_release_gate.py",
       "tests/test_peer_overlay_rollout_policy.py",
       "tests/test_peer_overlay_property_gates.py",
-      "tests/test_peer_overlay_topology_service.py"
+      "tests/test_peer_overlay_topology_service.py",
+      "tests/test_peer_media_alternative_gate.py",
+      "tests/test_peer_nat_matrix_gate.py"
     ],
     "standards": [
       "https://www.w3.org/TR/webrtc-encoded-transform/",
@@ -122,30 +133,30 @@
       "https://datatracker.ietf.org/doc/html/rfc9420",
       "https://datatracker.ietf.org/doc/html/rfc8828"
     ],
-    "evidence_policy": "Repository paths and primary standards are audit inputs, not invented SRC_*/RUN_* evidence. Productive browser, capacity, NAT, malicious-relay and release claims remain unverified and fail-closed.",
+    "evidence_policy": "Repository paths and primary standards are audit inputs, not invented SRC_*/RUN_* evidence. The Hub now reserves and registers synthetic test-scoped browser runs before execution; they close test tasks but remain ineligible for production release claims.",
     "decision_gates": {
       "DG-01": "no_go for portable cross-RTCPeerConnection encoded RTP forwarding: W3C Encoded Transform owner rules reject moving frames between streams; LiveKit E2EE remains fallback.",
-      "DG-02": "undecided_pending_authorized_mls_evidence",
-      "DG-03": "LiveKit_only for audio/video; bounded data-overlay experiment remains eligible."
+      "DG-02": "reject_no_go: existing Hub-authorized key leases remain authoritative and no second MLS membership state machine is introduced.",
+      "DG-03": "LiveKit_only for every Peer-DAG audio/video class; encrypted opaque data is canary_only under explicit Hub policy and non-production evidence."
     },
     "blocked_audit": {
       "status": "in_progress",
       "reason_codes": [
-        "browser_nat_and_churn_run_evidence_missing",
-        "portable_cross_peer_media_standard_path_no_go",
         "malicious_relay_runtime_evidence_missing",
-        "allowed_run_refs_empty"
+        "production_capacity_run_evidence_missing"
       ],
       "verified_local_findings": [
         "Direct pair and SFU E2EE paths, replay windows, group key authorization, priority queues and TURN controls exist.",
         "A bounded Multi-PeerConnection manager, signed membership and route contracts, a deterministic publication data DAG, one-use link tickets and an opaque multi-hop relay now exist behind Hub authority and a default-off feature flag.",
         "MediaTopologyPolicy now degrades groups above the safe mesh limit to SFU or relay_control_only instead of misclassifying an ordinary direct pair as group media.",
         "A Hub-reserved synthetic test run now measures four isolated identities in Chromium and Firefox for audio, 720p camera and screenshare without promoting the result to production evidence.",
+        "Hub-reserved Chromium and Firefox runs now measure WebCodecs/DataChannel feasibility and a real pinned-coturn direct/UDP/TCP/network-switch/unreachable-TURN matrix without promoting test evidence.",
+        "DG-01 is closed as a standards no-go and DG-03 keeps all Peer-DAG media classes LiveKit_only while opaque encrypted data remains canary_only.",
         "DG-02 is closed as reject: MLS remains absent instead of introducing a second partial membership state machine.",
-        "The remaining partial tasks are locally actionable and must not be hidden behind the five external or standards-bound task blockers.",
+        "The remaining partial tasks and the combined browser-churn gate are locally actionable and must not be hidden behind production release evidence.",
         "Local and SFU test artifacts are not Peer-DAG RUN evidence and remain non-promotable."
       ],
-      "required_unblock_input": "Only the five explicitly blocked tasks require additional standards decisions or Hub-registered NAT/churn, malicious-relay and hybrid release runs. The remaining partial tasks continue locally; missing production evidence remains no_go."
+      "required_unblock_input": "The remaining combined browser-churn task can be closed with Hub-reserved synthetic test evidence, but every production capacity or media release claim remains no_go until a compatible non-synthetic Hub run exists."
     }
   },
   "baseline": {
@@ -159,11 +170,11 @@
     ],
     "primary_gaps": [
       "Der isolierte n-zu-n PeerConnection-Manager ist lokal implementiert, aber noch nicht durch einen Hub-registrierten Multi-Browser-Lauf belegt.",
-      "Der default-off Peer-Daten-DAG besitzt Parent-Leases, produktives DataChannel-Signaling und automatische Backup-Neuwahl; reale Browser-Churn- und NAT-Evidence fehlen.",
-      "Keine browserseitig belegte Moeglichkeit, eingehende codierte Medienframes unveraendert in einen anderen RTCRtpSender einzuspeisen.",
+      "Der default-off Peer-Daten-DAG besitzt Parent-Leases, produktives DataChannel-Signaling und automatische Backup-Neuwahl; ein gemeinsamer realer Browser-Churn-Lauf fehlt noch.",
+      "Der aktuelle WebRTC-Standardpfad verbietet die portable Verschiebung codierter Frames zwischen Streams; DG-01 ist deshalb bewusst no_go.",
       "Der allgemeine Medien-Frame-Transform verwendet ein eigenes ANME-Format statt RFC-9605-SFrame.",
       "Signierte Membership-Ereignisse, ACK-/Cursor-Replikation und geschlossene Offline-Grace-Profile existieren; reale Browser-Partition-/Rejoin-Evidence fehlt.",
-      "Kein gemeinsames Churn-, NAT-, Netzwechsel-, Byzantine-Relay- und Multi-Browser-Gate fuer Peer-Fanout."
+      "Kein gemeinsames Churn-, Byzantine-Relay- und Multi-Browser-Gate fuer den groesseren Peer-Daten-Fanout."
     ]
   },
   "architecture_invariants": [
@@ -336,7 +347,7 @@
     {
       "id": "M07",
       "title": "Ciphertext-Fanout-Prototypen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-POC-001",
         "DPM-POC-002",
@@ -1059,7 +1070,7 @@
     {
       "id": "DPM-POC-002",
       "title": "RTCRtp-/SFrame-Cross-PeerConnection-Prototyp ohne Decode/Re-encode ausfuehren",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "research",
@@ -1075,13 +1086,19 @@
         "Zwei Kinder empfangen authentifizierbaren Ciphertext derselben Senderpublication.",
         "Scheitert der Standardpfad, wird DG-01 no_go dokumentiert statt eine Klartextweiterleitung umzudeuten."
       ],
-      "progress_percent": 0.0,
-      "blocked_reason": "Der Standardpfad ist aufgrund der Encoded-Frame-Owner-Bindung als portable Produktionsbasis no_go; kein registrierter Browser-Prototyplauf vorhanden."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "docs/decisions/ADR-decentralized-peer-overlay.md",
+        "docs/status/decentralized-peer-media-overlay-baseline.md",
+        "https://www.w3.org/TR/webrtc-encoded-transform/#abstract-opdef-writeencodeddata",
+        "https://www.rfc-editor.org/rfc/rfc9605.html"
+      ],
+      "implementation_gap": "DG-01 ist gemaess dem expliziten No-Go-Akzeptanzzweig abgeschlossen; es existiert und wird kein Cross-PeerConnection-Medienrelay behauptet."
     },
     {
       "id": "DPM-POC-003",
       "title": "WebCodecs plus unreliable DataChannel/WebTransport als alternative Medienpipeline bewerten",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "research",
@@ -1096,13 +1113,20 @@
         "Head-of-line-blocking wird durch geeignete unordered/unreliable Kanaele vermieden.",
         "Fehlende Congestion-Control- oder Renderingfaehigkeit fuehrt zu bounded_experiment oder no_go."
       ],
-      "progress_percent": 0.0,
-      "blocked_reason": "Keine registrierte WebCodecs/WebTransport-Browsermessung zu Synchronitaet, Latenz und Recovery vorhanden."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "frontend-angular/tests/peer-media-alternative.spec.ts",
+        "frontend-angular/playwright.peer-media-alternative.config.ts",
+        "scripts/run_peer_media_alternative_gate.py",
+        "artifacts/test-gates/peer-media-alternative.json",
+        "tests/test_peer_media_alternative_gate.py"
+      ],
+      "implementation_gap": "Die vollautomatische Hub-reservierte Testmessung endet bewusst als bounded_experiment; produktive Congestion-Control- und Renderer-Paritaet werden nicht behauptet."
     },
     {
       "id": "DPM-POC-004",
       "title": "Publikationsspezifischen Peer-DAG-gegen-LiveKit-Entscheid treffen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "architecture",
@@ -1118,8 +1142,13 @@
         "Viele-zu-viele-Video wird nicht aus einem erfolgreichen Ein-Publisher-Broadcast abgeleitet.",
         "DG-03 liefert pro Publication-Klasse go, canary_only oder LiveKit_only."
       ],
-      "progress_percent": 0.0,
-      "blocked_reason": "Entscheidung bleibt je Publikationsklasse auf LiveKit_only, bis die abhaengigen registrierten Messgates existieren."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "docs/decisions/ADR-decentralized-peer-overlay.md",
+        "artifacts/test-gates/peer-media-alternative.json",
+        "artifacts/test-gates/peer-mesh-browser-capacity.json"
+      ],
+      "implementation_gap": "DG-03 ist fail-closed entschieden: alle Peer-DAG-Medienklassen sind LiveKit_only; nur opaque verschluesselte Daten sind canary_only und nicht produktionsfreigegeben."
     },
     {
       "id": "DPM-QOS-001",
@@ -1394,7 +1423,7 @@
     {
       "id": "DPM-NET-003",
       "title": "NAT-, Firewall- und Netzwechsel-Matrix automatisieren",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1408,8 +1437,15 @@
         "Netzwechsel fuehrt weder zu stale Routeaktivierung noch Key-/Membership-Downgrade.",
         "Unzugaengliches TURN degradiert sichtbar und bounded statt in Endlosschleifen."
       ],
-      "progress_percent": 0.0,
-      "blocked_reason": "Keine assignment-bound NAT-/Firewall-/Netzwechsel-Matrix fuer Peer-Overlay-Kanten vorhanden."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "frontend-angular/tests/peer-nat-matrix.spec.ts",
+        "frontend-angular/playwright.peer-nat-matrix.config.ts",
+        "scripts/run_peer_nat_matrix_gate.py",
+        "artifacts/test-gates/peer-nat-matrix.json",
+        "tests/test_peer_nat_matrix_gate.py"
+      ],
+      "implementation_gap": "Die reale Browser-/coturn-Matrix ist als synthetische Test-Evidenz abgeschlossen. Sie ist keine Produktions-NAT- oder Kapazitaetsfreigabe."
     },
     {
       "id": "DPM-NET-004",
@@ -1705,10 +1741,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 3,
-      "blocked": 5,
-      "done": 40
+      "blocked": 1,
+      "done": 44
     },
-    "progress_percent_done": 83.3,
+    "progress_percent_done": 91.7,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1722,15 +1758,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 38,
-      "remaining": 6
+      "done": 42,
+      "remaining": 2
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 4,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 8
+      "done": 9
     }
   },
   "tasks_type_summary": {
@@ -1742,13 +1778,13 @@
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 1,
-          "done": 2
+          "blocked": 0,
+          "done": 3
         },
-        "done": 2,
+        "done": 3,
         "partial": 0,
-        "blocked": 1,
-        "progress_percent": 66.7
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "research": {
         "total": 4,
@@ -1756,13 +1792,13 @@
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 2,
-          "done": 2
+          "blocked": 0,
+          "done": 4
         },
-        "done": 2,
+        "done": 4,
         "partial": 0,
-        "blocked": 2,
-        "progress_percent": 50.0
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "refactor": {
         "total": 1,
@@ -1812,13 +1848,13 @@
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 2,
-          "done": 4
+          "blocked": 1,
+          "done": 5
         },
-        "done": 4,
+        "done": 5,
         "partial": 0,
-        "blocked": 2,
-        "progress_percent": 66.7
+        "blocked": 1,
+        "progress_percent": 83.3
       },
       "security": {
         "total": 9,
@@ -1869,10 +1905,10 @@
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 3,
-    "blocked": 5,
-    "done": 40,
-    "count_based_percent": 83.3,
-    "weighted_percent": 87.7
+    "blocked": 1,
+    "done": 44,
+    "count_based_percent": 91.7,
+    "weighted_percent": 95.8
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1918,10 +1954,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 77.575,
-    "remaining_weight": 10.925,
-    "blocked_weight": 9.0,
-    "weighted_percent": 87.7
+    "done_weight": 84.825,
+    "remaining_weight": 3.675,
+    "blocked_weight": 1.75,
+    "weighted_percent": 95.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1975,11 +2011,11 @@
       },
       "M07": {
         "total_tasks": 4,
-        "done": 1,
-        "blocked": 3,
-        "count_based_percent": 25.0,
-        "weighted_percent": 28.6,
-        "status": "in_progress"
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M08": {
         "total_tasks": 4,
@@ -1999,10 +2035,10 @@
       },
       "M10": {
         "total_tasks": 4,
-        "done": 2,
-        "blocked": 1,
-        "count_based_percent": 50.0,
-        "weighted_percent": 64.5,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 75.0,
+        "weighted_percent": 93.5,
         "status": "in_progress"
       },
       "M11": {
@@ -2026,10 +2062,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T05:04:22.158466Z",
+    "generated_at": "2026-09-05T06:08:00.020794Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "835451bfac35d978e775a3456273bdf6af8042d67b433d24e8c7cbec3b6bfae5",
+    "source_hash": "e81eccc43c0bc5f394b4279402f3eaf74590f31f3fe78a5bda245bae48c97a22",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"
