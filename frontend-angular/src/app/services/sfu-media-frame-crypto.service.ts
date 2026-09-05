@@ -7,6 +7,7 @@ export interface SfuMediaFrameContext {
   readonly senderId: string;
   readonly receiverScope: string;
   readonly codec: string;
+  readonly layerId: string;
   readonly keyEpoch: number;
 }
 
@@ -17,6 +18,7 @@ export interface SfuEncryptedMediaFrame {
   readonly sender_id: string;
   readonly receiver_scope: string;
   readonly codec: string;
+  readonly layer_id: string;
   readonly key_epoch: number;
   readonly counter: number;
   readonly nonce_b64: string;
@@ -72,7 +74,7 @@ export class SfuMediaFrameCryptoService {
     const counter = (this.counters.get(scope) ?? 0) + 1;
     if (!Number.isSafeInteger(counter)) throw new SfuMediaCryptoError('sfu_media_counter_exhausted');
     this.counters.set(scope, counter);
-    const nonce = frameNonce(context.keyEpoch, counter);
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
     const metadata = frameMetadata(context, counter, nonce);
     const ciphertext = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv: arrayBuffer(nonce), additionalData: arrayBuffer(aad(metadata)), tagLength: 128 },
@@ -91,8 +93,7 @@ export class SfuMediaFrameCryptoService {
     const scope = contextKey(expected);
     if (!this.acceptCounter(scope, envelope.counter)) throw new SfuMediaCryptoError('sfu_media_frame_replayed');
     const nonce = decodeB64(envelope.nonce_b64);
-    const expectedNonce = frameNonce(envelope.key_epoch, envelope.counter);
-    if (!constantTimeEqual(nonce, expectedNonce)) {
+    if (nonce.byteLength !== 12) {
       this.forgetCounter(scope, envelope.counter);
       throw new SfuMediaCryptoError('sfu_media_nonce_invalid');
     }
@@ -140,6 +141,7 @@ function validateContext(value: SfuMediaFrameContext): void {
   validateId(value.publicationId, 'sfu_media_publication_invalid');
   validateId(value.senderId, 'sfu_media_sender_invalid');
   validateId(value.receiverScope, 'sfu_media_receiver_invalid');
+  validateId(value.layerId, 'sfu_media_layer_invalid');
   if (!/^[A-Za-z0-9][A-Za-z0-9._+-]{0,31}$/.test(value.codec)) throw new SfuMediaCryptoError('sfu_media_codec_invalid');
   if (!Number.isSafeInteger(value.keyEpoch) || value.keyEpoch < 1) throw new SfuMediaCryptoError('sfu_media_key_epoch_invalid');
 }
@@ -147,7 +149,8 @@ function validateContext(value: SfuMediaFrameContext): void {
 function validateEnvelope(expected: SfuMediaFrameContext, value: SfuEncryptedMediaFrame): void {
   if (value.version !== 1 || value.room_id !== expected.roomId || value.publication_id !== expected.publicationId
       || value.sender_id !== expected.senderId || value.receiver_scope !== expected.receiverScope
-      || value.codec !== expected.codec || value.key_epoch !== expected.keyEpoch) {
+      || value.codec !== expected.codec || value.layer_id !== expected.layerId
+      || value.key_epoch !== expected.keyEpoch) {
     throw new SfuMediaCryptoError('sfu_media_frame_context_mismatch');
   }
   if (!Number.isSafeInteger(value.counter) || value.counter < 1) throw new SfuMediaCryptoError('sfu_media_counter_invalid');
@@ -158,22 +161,17 @@ function validateId(value: string, reason: string): void {
 }
 
 function contextKey(value: SfuMediaFrameContext): string {
-  return [value.roomId, value.publicationId, value.senderId, value.receiverScope, value.codec, value.keyEpoch].join('\x1f');
-}
-
-function frameNonce(epoch: number, counter: number): Uint8Array {
-  const buffer = new ArrayBuffer(12);
-  const view = new DataView(buffer);
-  view.setUint32(0, epoch, false);
-  view.setBigUint64(4, BigInt(counter), false);
-  return new Uint8Array(buffer);
+  return [
+    value.roomId, value.publicationId, value.senderId, value.receiverScope,
+    value.codec, value.layerId, value.keyEpoch,
+  ].join('\x1f');
 }
 
 function frameMetadata(context: SfuMediaFrameContext, counter: number, nonce: Uint8Array) {
   return {
     version: 1 as const, room_id: context.roomId, publication_id: context.publicationId,
     sender_id: context.senderId, receiver_scope: context.receiverScope, codec: context.codec,
-    key_epoch: context.keyEpoch, counter, nonce_b64: encodeB64(nonce),
+    layer_id: context.layerId, key_epoch: context.keyEpoch, counter, nonce_b64: encodeB64(nonce),
   };
 }
 
@@ -183,11 +181,4 @@ function aad(metadata: Omit<SfuEncryptedMediaFrame, 'ciphertext_b64'>): Uint8Arr
 
 function arrayBuffer(value: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(value.byteLength); copy.set(value); return copy.buffer;
-}
-
-function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.byteLength !== right.byteLength) return false;
-  let difference = 0;
-  for (let index = 0; index < left.byteLength; index += 1) difference |= left[index] ^ right[index];
-  return difference === 0;
 }

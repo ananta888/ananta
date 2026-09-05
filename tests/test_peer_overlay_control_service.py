@@ -203,3 +203,40 @@ def test_automatic_failover_requires_complaint_quorum_and_issues_backup_ticket(t
         observations=observations,
     )
     assert repeated["reason_code"] == "peer_overlay_failover_cooldown"
+
+
+def test_quality_aggregation_is_hub_scoped_ephemeral_and_quorum_protected(tmp_path) -> None:
+    control = service(tmp_path)
+    join_members(control)
+    plan = control.plan_publication(
+        tenant_id="tenant-1",
+        room_id="room-1",
+        publication_id="publication-1",
+        source_peer_id="source",
+        candidates=candidates(),
+    )
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1_000)
+    observations = [
+        {
+            "observer_peer_id": observer,
+            "relay_peer_id": "source",
+            "route_epoch": plan["epochs"]["route"],
+            "observed_at_ms": now_ms,
+            "sample_count": 10,
+            "link_state": "good",
+            "relay_delivery_ratio": 0.7,
+            "end_to_end_delay_ms": 2_000,
+        }
+        for observer in ("peer-1", "peer-2")
+    ]
+    result = control.aggregate_quality(
+        tenant_id="tenant-1",
+        room_id="room-1",
+        publication_id="publication-1",
+        relay_peer_id="source",
+        route_epoch=plan["epochs"]["route"],
+        observations=observations,
+    )
+    assert result["relay_state"] == "degraded"
+    assert result["end_to_end_state"] == "degraded"
+    assert result["contains_pii"] is False

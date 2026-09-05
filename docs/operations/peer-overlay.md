@@ -53,6 +53,28 @@ Hub-selected offerer, limited to 64 KiB and rejected if bearer credentials or
 private keys occur. Missing or raced in-band transport falls back automatically
 to the Hub rendezvous path. It never waits for operator input.
 
+## QoS and quality feedback
+
+The peer data DAG has five closed traffic classes. `control` and `rekey` use
+separate reliable, ordered, fail-closed capacity; `event`, `semantic` and
+`bulk` use separately bounded drop-newest lanes. The fixed drain order is
+control, rekey, event, semantic, bulk. Unknown classes are rejected. Audio and
+video classes are also rejected on this data path because DG-01 forbids peer
+media relay; media remains on direct mesh or LiveKit E2EE.
+
+Direct/LiveKit layer selection consumes only metadata from ciphertext that an
+authentication adapter has already accepted. Publication, exact receiver,
+key epoch and the Hub layer corridor must match. The layer ID participates in
+AEAD authentication and counter scope; every seal receives a fresh 96-bit
+nonce so parallel layer counters cannot reuse a nonce under the room key.
+
+`POST /api/peer-overlay/quality` accepts only the closed, admin-authenticated
+Hub intake contract. It validates membership and the current route epoch,
+keeps only the newest bounded observation per peer, and requires at least two
+distinct observers. Output contains coarse link, relay and end-to-end states
+and buckets only. It stores no IP address, payload, observer list or persistent
+behavioral profile, and one peer alone produces `insufficient_quorum`.
+
 ## Headless four-peer browser capacity gate
 
 Run `python scripts/run_peer_mesh_browser_capacity_gate.py` from the repository

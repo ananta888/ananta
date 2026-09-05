@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from agent.bootstrap.peer_overlay import initialize_peer_overlay
 
 
@@ -70,6 +72,33 @@ def test_peer_overlay_api_completes_a_headless_authorized_flow(app, client, admi
         json={"ticket": ticket, "local_peer_id": "peer-1"},
     )
     assert consumed.status_code == 200
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1_000)
+    quality = client.post(
+        "/api/peer-overlay/quality",
+        headers=admin_auth_header,
+        json={
+            "tenant_id": "tenant-1",
+            "room_id": "room-1",
+            "publication_id": "publication-1",
+            "relay_peer_id": "source",
+            "route_epoch": plan["epochs"]["route"],
+            "observations": [
+                {
+                    "observer_peer_id": observer,
+                    "relay_peer_id": "source",
+                    "route_epoch": plan["epochs"]["route"],
+                    "observed_at_ms": now_ms,
+                    "sample_count": 10,
+                    "link_state": "good",
+                    "relay_delivery_ratio": 0.99,
+                    "end_to_end_delay_ms": 100,
+                }
+                for observer in ("source", "peer-1")
+            ],
+        },
+    )
+    assert quality.status_code == 200
+    assert quality.get_json()["data"]["reason_code"] == "peer_quality_good"
     replay = client.post(
         "/api/peer-overlay/tickets/consume",
         headers=admin_auth_header,

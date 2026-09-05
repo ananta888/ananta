@@ -8,7 +8,7 @@ import { decodeB64, encodeB64 } from './webrtc-secure-envelope';
 
 const context: SfuMediaFrameContext = {
   roomId: 'sfu-0123456789abcdef0123456789abcdef', publicationId: 'camera-alice',
-  senderId: 'alice', receiverScope: 'room-members', codec: 'vp8', keyEpoch: 7,
+  senderId: 'alice', receiverScope: 'room-members', codec: 'vp8', layerId: 'spatial-0-temporal-0', keyEpoch: 7,
 };
 const key = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
 
@@ -25,6 +25,7 @@ describe('SfuMediaFrameCryptoService', () => {
 
   it.each([
     ['publicationId', 'camera-eve'], ['senderId', 'eve'], ['receiverScope', 'private-eve'], ['codec', 'h264'],
+    ['layerId', 'spatial-1-temporal-0'],
   ] as const)('rejects a changed %s context', async (field, changed) => {
     const sender = new SfuMediaFrameCryptoService(); const receiver = new SfuMediaFrameCryptoService();
     await sender.activateKey(context.roomId, 7, key); await receiver.activateKey(context.roomId, 7, key);
@@ -54,6 +55,20 @@ describe('SfuMediaFrameCryptoService', () => {
       .rejects.toMatchObject({ reasonCode: 'sfu_media_key_epoch_stale' });
     await expect(service.activateKey(context.roomId, 7, key))
       .rejects.toMatchObject({ reasonCode: 'sfu_media_key_epoch_stale' });
+  });
+
+  it('creates independent authenticated ciphertext and nonces for every layer', async () => {
+    const sender = new SfuMediaFrameCryptoService();
+    const receiver = new SfuMediaFrameCryptoService();
+    await sender.activateKey(context.roomId, 7, key);
+    await receiver.activateKey(context.roomId, 7, key);
+    const low = await sender.seal(context, new Uint8Array([1, 2, 3]));
+    const highContext = { ...context, layerId: 'spatial-1-temporal-0' };
+    const high = await sender.seal(highContext, new Uint8Array([1, 2, 3]));
+    expect(high.nonce_b64).not.toBe(low.nonce_b64);
+    expect(high.ciphertext_b64).not.toBe(low.ciphertext_b64);
+    expect(await receiver.open(context, low)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(await receiver.open(highContext, high)).toEqual(new Uint8Array([1, 2, 3]));
   });
 
   it('deletes active keys immediately on revocation', async () => {

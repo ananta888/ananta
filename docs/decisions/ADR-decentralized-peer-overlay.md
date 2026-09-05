@@ -21,6 +21,11 @@ The transport choices remain independent:
 | Opaque encrypted data | default-off, bounded Hub-issued peer DAG | Hub/control path |
 | Cross-PeerConnection encoded media relay | no-go | LiveKit E2EE |
 
+QoS does not weaken this split. Peer-DAG queues accept only control, rekey,
+event, semantic and bulk ciphertext. Authenticated simulcast/SVC layer
+narrowing is available solely to direct-mesh and LiveKit E2EE adapters; it is
+not an authorization to forward encoded media across PeerConnections.
+
 The media-relay no-go follows the current Encoded Transform ownership model:
 an encoded frame belongs to its producing stream and cannot be moved to another
 stream. Ananta therefore does not claim portable RTP ciphertext fanout without

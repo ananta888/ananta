@@ -1,6 +1,13 @@
 import { canonicalSecurityJson, decodeB64 } from '../webrtc-secure-envelope';
+import {
+  PEER_OVERLAY_DATA_CLASSES,
+  PEER_OVERLAY_PRIORITY,
+  PEER_OVERLAY_TRAFFIC_PROFILES,
+  PeerOverlayDataClass,
+  requirePeerOverlayDataClass,
+} from './peer-overlay-traffic-policy';
 
-export type PeerOverlayDataClass = 'control' | 'rekey' | 'event' | 'semantic' | 'bulk';
+export type { PeerOverlayDataClass } from './peer-overlay-traffic-policy';
 
 export interface AcceptedPeerRouteLease {
   readonly validation: 'hub-route-lease-accepted-v1';
@@ -61,15 +68,6 @@ interface QueuedPacket {
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$/;
 const DIGEST_RE = /^[a-f0-9]{64}$/;
-const CLASSES: readonly PeerOverlayDataClass[] = ['control', 'rekey', 'event', 'semantic', 'bulk'];
-const PRIORITY: readonly PeerOverlayDataClass[] = ['control', 'rekey', 'event', 'semantic', 'bulk'];
-const CAPS: Readonly<Record<PeerOverlayDataClass, { messages: number; bytes: number }>> = Object.freeze({
-  control: { messages: 128, bytes: 512 * 1024 },
-  rekey: { messages: 64, bytes: 256 * 1024 },
-  event: { messages: 128, bytes: 2 * 1024 * 1024 },
-  semantic: { messages: 64, bytes: 4 * 1024 * 1024 },
-  bulk: { messages: 32, bytes: 8 * 1024 * 1024 },
-});
 const MAX_REPLAY_ENTRIES = 4_096;
 const MAX_CIPHERTEXT_BYTES = 256 * 1024;
 const HIGH_WATER_BYTES = 2 * 1024 * 1024;
@@ -92,7 +90,7 @@ export class PeerOverlayDataRelay {
   bindChild(port: PeerOverlayChildDataPort): void {
     if (!this.lease.childPeerIds.includes(port.childPeerId)) throw new Error('peer_overlay_child_not_leased');
     this.children.set(port.childPeerId, port);
-    this.queues.set(port.childPeerId, new Map(CLASSES.map(value => [value, []])));
+    this.queues.set(port.childPeerId, new Map(PEER_OVERLAY_DATA_CLASSES.map(value => [value, []])));
     this.flush(port.childPeerId);
   }
 
@@ -144,7 +142,7 @@ export class PeerOverlayDataRelay {
     const lanes = this.queues.get(childPeerId);
     if (!port || !lanes || port.readyState !== 'open') return 0;
     let sent = 0;
-    for (const trafficClass of PRIORITY) {
+    for (const trafficClass of PEER_OVERLAY_PRIORITY) {
       const queue = lanes.get(trafficClass)!;
       while (queue.length && port.bufferedAmount <= HIGH_WATER_BYTES) {
         const item = queue.shift()!;
@@ -158,7 +156,7 @@ export class PeerOverlayDataRelay {
   snapshot(): Readonly<Record<string, unknown>> {
     const queueDepths: Record<string, Record<string, number>> = {};
     for (const [child, lanes] of this.queues) {
-      queueDepths[child] = Object.fromEntries(CLASSES.map(value => [value, lanes.get(value)!.length]));
+      queueDepths[child] = Object.fromEntries(PEER_OVERLAY_DATA_CLASSES.map(value => [value, lanes.get(value)!.length]));
     }
     return Object.freeze({
       publicationId: this.lease.publicationId,
@@ -175,8 +173,9 @@ export class PeerOverlayDataRelay {
     if (!lanes) return false;
     const queue = lanes.get(packet.traffic_class)!;
     const bytes = decodeB64(packet.ciphertext_b64).byteLength;
-    const cap = CAPS[packet.traffic_class];
-    if (queue.length >= cap.messages || queue.reduce((sum, item) => sum + item.bytes, 0) + bytes > cap.bytes) return false;
+    const profile = PEER_OVERLAY_TRAFFIC_PROFILES[packet.traffic_class];
+    if (queue.length >= profile.queueMessages
+        || queue.reduce((sum, item) => sum + item.bytes, 0) + bytes > profile.queueBytes) return false;
     queue.push({ packet, bytes });
     return true;
   }
@@ -222,7 +221,8 @@ async function parsePacket(
       || value['publication_id'] !== lease.publicationId || value['route_epoch'] !== lease.routeEpoch) {
     throw new Error('peer_overlay_packet_scope_invalid');
   }
-  if (!lease.trafficClasses.includes(value['traffic_class'] as PeerOverlayDataClass)) {
+  const trafficClass = requirePeerOverlayDataClass(value['traffic_class']);
+  if (!lease.trafficClasses.includes(trafficClass)) {
     throw new Error('peer_overlay_traffic_class_denied');
   }
   const expiresAt = exactInteger(value['expires_at_ms'], 1, Number.MAX_SAFE_INTEGER);
@@ -257,7 +257,7 @@ async function parsePacket(
   }
   return Object.freeze({
     ...(value as unknown as OpaquePeerRelayPacketV1),
-    traffic_class: value['traffic_class'] as PeerOverlayDataClass,
+    traffic_class: trafficClass,
     expires_at_ms: expiresAt,
     hop_limit: hopLimit,
     path: Object.freeze([...path] as string[]),
@@ -276,6 +276,7 @@ function validateLease(value: AcceptedPeerRouteLease, now: number): void {
       || value.routeEpoch < 1 || value.maxHops < 1 || value.maxHops > 8
       || new Set(value.childPeerIds).size !== value.childPeerIds.length
       || value.childPeerIds.includes(value.localPeerId)
+      || value.trafficClasses.some(item => !PEER_OVERLAY_DATA_CLASSES.includes(item))
       || routeEntries.length > 1_024
       || routeEntries.some(([destination, child]) => !ID_RE.test(destination) || !value.childPeerIds.includes(child))) {
     throw new Error('peer_overlay_lease_invalid');

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from agent.services.peer_overlay_offline_authority_policy import PeerOverlayOfflineAuthorityPolicy
+from agent.services.peer_overlay_quality_policy import PeerOverlayQualityPolicy
 from agent.services.peer_overlay_relay_health_policy import PeerOverlayRelayHealthPolicy
 from agent.services.peer_overlay_state_store import PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayCandidate, PeerOverlayTopologyService
@@ -37,6 +38,7 @@ class PeerOverlayControlService:
         data_enabled: bool = False,
         relay_health: PeerOverlayRelayHealthPolicy | None = None,
         offline_policy: PeerOverlayOfflineAuthorityPolicy | None = None,
+        quality_policy: PeerOverlayQualityPolicy | None = None,
     ) -> None:
         if len(signing_key) < 32:
             raise ValueError("peer_overlay_signing_key_too_short")
@@ -47,6 +49,7 @@ class PeerOverlayControlService:
         self._data_enabled = bool(data_enabled)
         self._relay_health = relay_health or PeerOverlayRelayHealthPolicy()
         self._offline_policy = offline_policy or PeerOverlayOfflineAuthorityPolicy()
+        self._quality_policy = quality_policy or PeerOverlayQualityPolicy()
 
     def change_membership(
         self,
@@ -281,6 +284,45 @@ class PeerOverlayControlService:
             parent_kind="backup",
         )
         return {**decision, "audit_revision": audit["revision"], "ticket": ticket}
+
+    def aggregate_quality(
+        self,
+        *,
+        tenant_id: str,
+        room_id: str,
+        publication_id: str,
+        relay_peer_id: str,
+        route_epoch: int,
+        observations: list[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        self._require_data_enabled()
+        membership = self._require_membership(tenant_id, room_id)
+        plan = self._require_plan(tenant_id, room_id, publication_id)
+        members = set(membership["member_ids"])
+        relay = require_overlay_id(relay_peer_id, "relay_peer_id")
+        if relay not in members or route_epoch != int(plan["epochs"]["route"]):
+            raise PeerOverlayDenied("peer_quality_scope_mismatch")
+        allowed = {
+            "observer_peer_id",
+            "relay_peer_id",
+            "route_epoch",
+            "observed_at_ms",
+            "sample_count",
+            "link_state",
+            "relay_delivery_ratio",
+            "end_to_end_delay_ms",
+        }
+        accepted: list[dict[str, Any]] = []
+        for raw in observations:
+            if set(raw) != allowed or raw.get("observer_peer_id") not in members:
+                raise PeerOverlayDenied("peer_quality_observation_scope_mismatch")
+            accepted.append({**dict(raw), "validation": "hub-quality-observation-accepted-v1"})
+        return self._quality_policy.aggregate(
+            relay_peer_id=relay,
+            route_epoch=route_epoch,
+            observations=accepted,
+            now_ms=int(datetime.now(timezone.utc).timestamp() * 1_000),
+        )
 
     def offline_authority(
         self,

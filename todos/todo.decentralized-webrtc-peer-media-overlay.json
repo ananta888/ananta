@@ -46,6 +46,7 @@
       "agent/bootstrap/peer_overlay.py",
       "agent/routes/peer_overlay.py",
       "agent/services/peer_overlay_control_service.py",
+      "agent/services/peer_overlay_quality_policy.py",
       "agent/services/peer_overlay_relay_health_policy.py",
       "agent/services/peer_overlay_release_gate.py",
       "agent/services/peer_overlay_state_store.py",
@@ -81,11 +82,13 @@
       "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
       "frontend-angular/src/app/services/network-profile.service.ts",
       "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.ts",
+      "frontend-angular/src/app/services/peer-overlay/authenticated-layer-selection.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-overlay-link-signaling.ts",
       "frontend-angular/src/app/services/peer-overlay/peer-overlay-parent-failover.ts",
+      "frontend-angular/src/app/services/peer-overlay/peer-overlay-traffic-policy.ts",
       "frontend-angular/src/app/services/pair-media-e2ee-frame-codec.ts",
       "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts",
       "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
@@ -339,7 +342,7 @@
     {
       "id": "M08",
       "title": "QoS, Backpressure und Qualitaetsstufen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-QOS-001",
         "DPM-QOS-002",
@@ -1116,7 +1119,7 @@
     {
       "id": "DPM-QOS-001",
       "title": "Traffic-Klassen und Prioritaeten fuer Control, Audio, Video und Bulk definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -1131,17 +1134,18 @@
         "Control und Rekey haben reservierte Kapazitaet und fail-closed Ueberlastverhalten.",
         "Unbekannte oder falsch deklarierte Klassen werden abgelehnt."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
-        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-traffic-policy.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-traffic-policy.spec.ts"
+      ]
     },
     {
       "id": "DPM-QOS-002",
       "title": "Relay-Backpressure und begrenzte Queueing-Strategie implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -1156,17 +1160,17 @@
         "Audio, Keyframes und Control werden vor Deltaframes und Bulk priorisiert.",
         "Ueberlast erzeugt beobachtbare Reason Codes statt unbeschraenktem Speicherwachstum."
       ],
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
-        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-traffic-policy.ts"
+      ]
     },
     {
       "id": "DPM-QOS-003",
-      "title": "Simulcast-/SVC-Layer als getrennte SFrame-Ciphertexte behandeln",
-      "status": "partial",
+      "title": "Simulcast-/SVC-Layer als getrennte authentifizierte E2EE-Ciphertexte behandeln",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1175,23 +1179,27 @@
         "DPM-CRYPTO-001",
         "DPM-QOS-002"
       ],
-      "description": "Relays duerfen autorisierte Layer anhand sichtbarer, authentifizierter Metadaten auswaehlen, ohne Medieninhalt zu entschluesseln.",
+      "description": "Direct-Mesh- und LiveKit-Adapter duerfen autorisierte Layer anhand sichtbarer, authentifizierter Metadaten auswaehlen, ohne Medieninhalt zu entschluesseln; der Peer-DAG-Medienrelay bleibt no_go.",
       "acceptance_criteria": [
         "Jeder selektiv droppbare Layer besitzt einen unabhaengig authentifizierbaren Ciphertext.",
         "Layer-Metadaten werden erst nach Authentisierung sicherheitsrelevant verwendet.",
         "Empfaenger koennen Qualitaet wechseln, ohne unnoetigen Vollstream oder Cross-Receiver-Leak."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts",
-        "agent/services/sfu_receiver_layer_policy.py"
+        "frontend-angular/src/app/services/sfu-media-frame-crypto.service.spec.ts",
+        "frontend-angular/src/app/services/peer-overlay/authenticated-layer-selection.ts",
+        "frontend-angular/src/app/services/peer-overlay/authenticated-layer-selection.spec.ts",
+        "agent/services/sfu_receiver_layer_policy.py",
+        "docs/decisions/ADR-decentralized-peer-overlay.md"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "decision": "direct_mesh_or_livekit_only"
     },
     {
       "id": "DPM-QOS-004",
       "title": "Ende-zu-Ende-Qualitaetsfeedback ueber mehrere Hops aggregieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1206,12 +1214,15 @@
         "Ein einzelner Peer kann globale Qualitaet nicht allein durch Selbstmeldung faelschen.",
         "PII, IPs, Medieninhalt und hochgranulare dauerhafte Verhaltensprofile werden nicht zentral gespeichert."
       ],
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/sfu_receiver_quality_ingestion_service.py",
-        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
+        "agent/services/peer_overlay_quality_policy.py",
+        "agent/services/peer_overlay_control_service.py",
+        "agent/routes/peer_overlay.py",
+        "tests/test_peer_overlay_quality_policy.py"
+      ]
     },
     {
       "id": "DPM-SEC-001",
@@ -1670,11 +1681,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 15,
+      "partial": 11,
       "blocked": 5,
-      "done": 28
+      "done": 32
     },
-    "progress_percent_done": 58.3,
+    "progress_percent_done": 66.7,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1688,15 +1699,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 26,
-      "remaining": 18
+      "done": 30,
+      "remaining": 14
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 7,
+      "in_progress": 6,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -1749,28 +1760,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 5
+          "done": 6
         },
-        "done": 5,
-        "partial": 1,
+        "done": 6,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 96.7
+        "progress_percent": 100.0
       },
       "implementation": {
         "total": 16,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 7,
+          "partial": 4,
           "blocked": 0,
-          "done": 9
+          "done": 12
         },
-        "done": 9,
-        "partial": 7,
+        "done": 12,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 85.3
+        "progress_percent": 92.5
       },
       "test": {
         "total": 6,
@@ -1834,11 +1845,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 15,
+    "partial": 11,
     "blocked": 5,
-    "done": 28,
-    "count_based_percent": 58.3,
-    "weighted_percent": 79.4
+    "done": 32,
+    "count_based_percent": 66.7,
+    "weighted_percent": 82.9
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1884,10 +1895,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 70.237,
-    "remaining_weight": 18.263,
+    "done_weight": 73.362,
+    "remaining_weight": 15.138,
     "blocked_weight": 9.0,
-    "weighted_percent": 79.4
+    "weighted_percent": 82.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1949,11 +1960,11 @@
       },
       "M08": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 63.2,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M09": {
         "total_tasks": 4,
@@ -1992,10 +2003,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T02:28:03.714120Z",
+    "generated_at": "2026-09-05T02:41:27.243146Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "afefe3bc768223b2746f86863c00ce42141ccd8717ea59af1414aba79ec818e2",
+    "source_hash": "da6786c5da39ce7c78203c441d431d8b323c4eb2539b5a613ee429660a05a1c9",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"

@@ -86,6 +86,12 @@ def request_automatic_failover():
     return _invoke(_service().request_automatic_failover)
 
 
+@peer_overlay_bp.post("/quality")
+@admin_required
+def aggregate_quality():
+    return _invoke(_service().aggregate_quality)
+
+
 @peer_overlay_bp.post("/offline-authority")
 @admin_required
 def offline_authority():

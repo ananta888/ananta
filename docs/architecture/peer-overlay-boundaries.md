@@ -13,6 +13,9 @@ projection they receive; they do not elect routes or broaden capabilities.
 | One browser link | Browser adapter | `PeerLinkSession` focused lifecycle, publication, data and observation ports |
 | Small mesh composition | Browser | `MultiPeerConnectionManager` |
 | Opaque multi-hop forwarding | Browser data plane | `PeerOverlayDataRelay` |
+| Data-class budgets and priority | Browser data policy | `peer-overlay-traffic-policy` |
+| Authenticated media-layer narrowing | Direct/LiveKit media adapter | `AuthenticatedLayerSelection` |
+| Content-free multi-observer quality | Hub policy | `PeerOverlayQualityPolicy` |
 | Parent-path activation and failover fencing | Browser data plane | `PeerOverlayParentFailover` |
 | Edge-scoped SDP/ICE transport selection | Browser signaling adapter | `PeerOverlayLinkSignaling` |
 | Encoded-frame cryptography | Browser crypto adapter | `MediaFrameCryptoPort` and scoped key leases |
