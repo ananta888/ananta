@@ -39,7 +39,7 @@
   },
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
-    "reviewed_commit": "0f295fa64287bc7829a77d2b732d733eb16e8533",
+    "reviewed_commit": "52d7eb9ff1d8cfed4349df232c2c201b18f4be48",
     "reviewed_at": "2026-09-05",
     "reviewed_paths": [
       "AGENTS.md",
@@ -49,6 +49,7 @@
       "agent/services/peer_overlay_quality_policy.py",
       "agent/services/peer_overlay_relay_health_policy.py",
       "agent/services/peer_overlay_release_gate.py",
+      "agent/services/peer_overlay_rollout_policy.py",
       "agent/services/peer_overlay_state_store.py",
       "agent/services/peer_overlay_topology_service.py",
       "agent/services/media_topology_policy.py",
@@ -109,6 +110,8 @@
       "tests/test_peer_overlay_control_service.py",
       "tests/test_peer_overlay_relay_health_policy.py",
       "tests/test_peer_overlay_release_gate.py",
+      "tests/test_peer_overlay_rollout_policy.py",
+      "tests/test_peer_overlay_property_gates.py",
       "tests/test_peer_overlay_topology_service.py"
     ],
     "standards": [
@@ -156,10 +159,10 @@
     ],
     "primary_gaps": [
       "Der isolierte n-zu-n PeerConnection-Manager ist lokal implementiert, aber noch nicht durch einen Hub-registrierten Multi-Browser-Lauf belegt.",
-      "Der default-off Peer-Daten-DAG besitzt Parent-Leases und automatische Backup-Neuwahl; produktives DataChannel-Signaling, Browser-Churn und NAT-Evidence fehlen.",
+      "Der default-off Peer-Daten-DAG besitzt Parent-Leases, produktives DataChannel-Signaling und automatische Backup-Neuwahl; reale Browser-Churn- und NAT-Evidence fehlen.",
       "Keine browserseitig belegte Moeglichkeit, eingehende codierte Medienframes unveraendert in einen anderen RTCRtpSender einzuspeisen.",
       "Der allgemeine Medien-Frame-Transform verwendet ein eigenes ANME-Format statt RFC-9605-SFrame.",
-      "Signierte Membership-Ereignisse und kurze Offline-Grace existieren; ACK-/Cursor-Replikation ueber DataChannels und profilbezogene Lease-Konfiguration fehlen.",
+      "Signierte Membership-Ereignisse, ACK-/Cursor-Replikation und geschlossene Offline-Grace-Profile existieren; reale Browser-Partition-/Rejoin-Evidence fehlt.",
       "Kein gemeinsames Churn-, NAT-, Netzwechsel-, Byzantine-Relay- und Multi-Browser-Gate fuer Peer-Fanout."
     ]
   },
@@ -231,15 +234,17 @@
     }
   ],
   "feature_flags": [
-    "ANANTA_GROUP_MESH_ENABLED",
-    "ANANTA_GROUP_MESH_DYNAMIC_LIMIT_ENABLED",
     "ANANTA_PEER_OVERLAY_DATA_ENABLED",
-    "ANANTA_PEER_OVERLAY_MEDIA_EXPERIMENTAL",
-    "ANANTA_SFRAME_NATIVE_ENABLED",
-    "ANANTA_MLS_GROUP_KEYS_EXPERIMENTAL",
-    "ANANTA_PEER_RELAY_ELECTION_ENABLED",
-    "ANANTA_PEER_SIGNALING_OVER_DATA_CHANNEL",
-    "ANANTA_PEER_OVERLAY_CANARY"
+    "ANANTA_PEER_OVERLAY_ROLLOUT.enabled.mesh",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.enabled.data_overlay",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.enabled.media_overlay",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.enabled.native_sframe",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.enabled.mls",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.gate_bindings.*",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.allowlists.tenant",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.allowlists.room",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.allowlists.publication",
+    "ANANTA_PEER_OVERLAY_ROLLOUT.allowlists.browser"
   ],
   "decision_gates": [
     {
@@ -287,7 +292,7 @@
     {
       "id": "M03",
       "title": "Ressourcenadaptives Kleingruppen-Mesh",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-MESH-001",
         "DPM-MESH-002",
@@ -625,7 +630,7 @@
     {
       "id": "DPM-MESH-002",
       "title": "Dynamische Mesh-Obergrenze aus realen Ressourcen ableiten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -639,13 +644,13 @@
         "Audio-only, Kamera und Screenshare besitzen getrennte Profile und Hysterese.",
         "Fehlende oder unzuverlaessige Stats reduzieren die Obergrenze konservativ."
       ],
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.spec.ts",
         "artifacts/test-gates/peer-mesh-browser-capacity.json"
       ],
-      "implementation_gap": "Die Policy bewertet Profile, Sichtbarkeit, CPU-/Batteriegrenzen, Uplink, RTT, Verlust, Sendepuffer und Hysterese konservativ. Die Browsermessung ist test-skopiert; produktive Telemetrieanbindung und Freigabeevidenz bleiben getrennt."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MESH-003",
@@ -1434,7 +1439,7 @@
     {
       "id": "DPM-OPS-001",
       "title": "Feature-Flag- und stufenweise Migrationsmatrix implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "configuration",
@@ -1449,13 +1454,17 @@
         "Rollbacks benoetigen keine Datenmigration und lassen keine halboffenen Peer-Routen zurueck.",
         "Tenant-, Room-, Publication- und Browser-Allowlist koennen getrennt canarygeschaltet werden."
       ],
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/config.py",
-        "agent/services/peer_overlay_release_gate.py",
+        "agent/bootstrap/peer_overlay.py",
+        "agent/services/peer_overlay_rollout_policy.py",
+        "agent/services/peer_overlay_control_service.py",
+        "tests/test_peer_overlay_rollout_policy.py",
+        "tests/test_peer_overlay_bootstrap.py",
         "docs/operations/peer-overlay.md"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-OPS-002",
@@ -1538,7 +1547,7 @@
     {
       "id": "DPM-QA-001",
       "title": "Contract-, Property- und Fuzz-Gates fuer Epochen, Routes und Frames aufbauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1554,13 +1563,16 @@
         "Seeds, Corpus und minimierte Fehler sind reproduzierbar und frei von Secrets.",
         "Python- und TypeScript-Vertraege bestehen Parity-Tests."
       ],
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "tests/test_peer_overlay_contracts.py",
+        "tests/test_peer_overlay_property_gates.py",
         "tests/test_peer_overlay_topology_service.py",
-        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
+        "frontend-angular/src/app/services/e2e-nonce-policy.spec.ts",
+        "frontend-angular/src/app/services/sfu-media-frame-crypto.service.spec.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-QA-002",
@@ -1587,7 +1599,7 @@
     {
       "id": "DPM-QA-003",
       "title": "Boesartige-Peer- und E2EE-Negativmatrix bestehen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1603,13 +1615,15 @@
         "Forgery, Replay, stale Epoch, falsche KID und Cross-Publication-Ciphertext werden abgelehnt.",
         "Drop und Zensur werden bounded erkannt und umgangen, ohne Unverhinderbarkeit kryptographisch falsch darzustellen."
       ],
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "tests/test_peer_overlay_contracts.py",
+        "tests/test_peer_overlay_property_gates.py",
         "tests/test_peer_overlay_relay_health_policy.py",
-        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
+        "frontend-angular/src/app/services/peer-overlay/authenticated-layer-selection.spec.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-QA-004",
@@ -1690,11 +1704,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 7,
+      "partial": 3,
       "blocked": 5,
-      "done": 36
+      "done": 40
     },
-    "progress_percent_done": 75.0,
+    "progress_percent_done": 83.3,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1708,15 +1722,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 34,
-      "remaining": 10
+      "done": 38,
+      "remaining": 6
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 5,
+      "in_progress": 4,
       "blocked": 0,
-      "done": 7
+      "done": 8
     }
   },
   "tasks_type_summary": {
@@ -1783,28 +1797,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 2,
           "blocked": 0,
-          "done": 13
+          "done": 14
         },
-        "done": 13,
-        "partial": 3,
+        "done": 14,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 94.1
+        "progress_percent": 94.7
       },
       "test": {
         "total": 6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 0,
           "blocked": 2,
-          "done": 2
+          "done": 4
         },
-        "done": 2,
-        "partial": 2,
+        "done": 4,
+        "partial": 0,
         "blocked": 2,
-        "progress_percent": 57.5
+        "progress_percent": 66.7
       },
       "security": {
         "total": 9,
@@ -1825,14 +1839,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 70.0
+        "progress_percent": 100.0
       },
       "operations": {
         "total": 2,
@@ -1854,11 +1868,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 7,
+    "partial": 3,
     "blocked": 5,
-    "done": 36,
-    "count_based_percent": 75.0,
-    "weighted_percent": 85.8
+    "done": 40,
+    "count_based_percent": 83.3,
+    "weighted_percent": 87.7
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1904,10 +1918,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 75.962,
-    "remaining_weight": 12.538,
+    "done_weight": 77.575,
+    "remaining_weight": 10.925,
     "blocked_weight": 9.0,
-    "weighted_percent": 85.8
+    "weighted_percent": 87.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1929,11 +1943,11 @@
       },
       "M03": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 97.4,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M04": {
         "total_tasks": 4,
@@ -1993,18 +2007,18 @@
       },
       "M11": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 75.0,
+        "count_based_percent": 50.0,
+        "weighted_percent": 81.0,
         "status": "in_progress"
       },
       "M12": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 3,
         "blocked": 1,
-        "count_based_percent": 25.0,
-        "weighted_percent": 61.2,
+        "count_based_percent": 75.0,
+        "weighted_percent": 75.0,
         "status": "in_progress"
       }
     }
@@ -2012,10 +2026,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T04:46:37.588490Z",
+    "generated_at": "2026-09-05T05:04:22.158466Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d85e012d84a5a1c005510adc9f5527906f2703ea2363643ae596985c81f3aa71",
+    "source_hash": "835451bfac35d978e775a3456273bdf6af8042d67b433d24e8c7cbec3b6bfae5",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"
