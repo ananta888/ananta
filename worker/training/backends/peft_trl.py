@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from worker.training.backends.base import TrainingBackendError, TrainingContext, TrainingOutcome
+from worker.training.backends.trl_compat import sequence_length_options
 from worker.training.datasets import iter_jsonl
 from worker.training.local_transformers_tokenizer import load_local_tokenizer
 
@@ -146,8 +147,8 @@ class PeftTrlTrainingBackend:
                 greater_is_better=False,
                 seed=config.seed,
                 data_seed=config.seed,
-                max_seq_length=config.max_sequence_length,
                 report_to=[],
+                **sequence_length_options(SFTConfig, config.max_sequence_length),
             )
             callbacks: list[Any] = [callback]
             if config.early_stopping_patience:
@@ -162,6 +163,8 @@ class PeftTrlTrainingBackend:
                 callbacks=callbacks,
             )
             result = trainer.train(resume_from_checkpoint=str(context.resume_path) if context.resume_path else None)
+        except TrainingBackendError:
+            raise
         except ImportError as exc:
             raise TrainingBackendError("dependency_unavailable", str(exc)) from exc
         except Exception as exc:

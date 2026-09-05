@@ -125,7 +125,16 @@ _MOCK_CAPABILITY_EVIDENCE = {
         "tests/worker/test_unsloth_platform_backends.py",
     ),
 }
-_PACKAGE_NAMES = ("torch", "transformers", "datasets", "peft", "trl", "safetensors", "bitsandbytes")
+_PACKAGE_NAMES = (
+    "torch",
+    "torchao",
+    "transformers",
+    "datasets",
+    "peft",
+    "trl",
+    "safetensors",
+    "bitsandbytes",
+)
 _SAFE_MODEL_BASENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 _MOCK_GATE_SUITE_ORDER = (
@@ -378,6 +387,7 @@ def _installed_runtime_versions() -> dict[str, Any]:
         "unsloth",
         "unsloth-zoo",
         "torch",
+        "torchao",
         "transformers",
         "trl",
         "peft",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -264,6 +265,7 @@ def _install_trainer_modules(
     *,
     constructor_error: BaseException | None = None,
     train_error: BaseException | None = None,
+    sequence_length_parameter: str = "max_seq_length",
 ) -> dict[str, Any]:
     calls: dict[str, Any] = {}
 
@@ -278,6 +280,10 @@ def _install_trainer_modules(
         def __init__(self, **kwargs: Any) -> None:
             self.kwargs = kwargs
             calls["configuration"] = kwargs
+
+    SFTConfig.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
+        [inspect.Parameter(sequence_length_parameter, inspect.Parameter.KEYWORD_ONLY)]
+    )
 
     class SFTTrainer:
         def __init__(self, **kwargs: Any) -> None:
@@ -441,6 +447,52 @@ def test_trainer_receives_schedule_splits_seed_resume_early_stopping_and_best_ch
         "tokenizer.json",
         "evaluation.json",
     }
+
+
+def test_trainer_uses_current_trl_sequence_length_keyword(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _events = _context(tmp_path)
+    backend = PeftTrlTrainingBackend()
+    calls = _install_trainer_modules(monkeypatch, sequence_length_parameter="max_length")
+
+    backend.train(
+        context,
+        {
+            "model": _FakeModel(),
+            "tokenizer": _FakeTokenizer(),
+            "peft_config": object(),
+            "train_dataset": object(),
+            "validation_dataset": object(),
+        },
+    )
+
+    assert calls["configuration"]["max_length"] == 384
+    assert "max_seq_length" not in calls["configuration"]
+
+
+def test_trainer_rejects_unknown_trl_sequence_length_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context, _events = _context(tmp_path)
+    backend = PeftTrlTrainingBackend()
+    _install_trainer_modules(monkeypatch, sequence_length_parameter="unrelated_option")
+
+    with pytest.raises(TrainingBackendError) as error:
+        backend.train(
+            context,
+            {
+                "model": object(),
+                "tokenizer": object(),
+                "peft_config": object(),
+                "train_dataset": object(),
+                "validation_dataset": object(),
+            },
+        )
+
+    assert error.value.code == "dependency_incompatible"
 
 
 @pytest.mark.parametrize("backend", [PeftTrlTrainingBackend(), UnslothTrainingBackend()])

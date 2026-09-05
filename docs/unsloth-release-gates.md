@@ -71,8 +71,8 @@ The report keeps these values distinct:
   into the worker image;
 - `image_attestation.runtime_image_digest` identifies the image actually
   executed and is never inferred from source files;
-- `versions` records installed Unsloth, Torch, Transformers, TRL, PEFT,
-  bitsandbytes and Safetensors versions;
+- `versions` records installed Unsloth, Torch, TorchAO, Transformers, TRL,
+  PEFT, bitsandbytes and Safetensors versions;
 - `peak_vram` records PyTorch peak allocated and reserved bytes plus detected
   CUDA/cuDNN versions;
 - `evidence_ids` contains only operator-supplied identifiers.

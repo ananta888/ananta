@@ -10,6 +10,7 @@ peft==0.18.0
 safetensors==0.6.2
 sentence-transformers==5.1.2
 torch==2.6.0+cu124
+torchao==0.13.0
 torchaudio==2.6.0+cu124
 torchvision==0.21.0+cu124
 transformers==4.57.3

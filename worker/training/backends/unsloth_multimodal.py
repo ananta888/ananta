@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 from worker.training.backends.base import TrainingBackendError, TrainingContext, TrainingOutcome
 from worker.training.backends.peft_trl import PeftTrlTrainingBackend
+from worker.training.backends.trl_compat import sequence_length_options
 from worker.training.backends.unsloth_checkpoint import UnslothCheckpointLifecycle
 from worker.training.datasets import iter_jsonl
 
@@ -105,7 +106,11 @@ class UnslothMultimodalEngine:
         except ImportError as exc:
             raise TrainingBackendError("dependency_unavailable", str(exc)) from exc
         except MemoryError as exc:
-            raise TrainingBackendError("out_of_memory", "multimodal model preparation exhausted memory", retryable=True) from exc
+            raise TrainingBackendError(
+                "out_of_memory",
+                "multimodal model preparation exhausted memory",
+                retryable=True,
+            ) from exc
         except Exception as exc:
             if "out of memory" in str(exc).lower():
                 raise TrainingBackendError(
@@ -142,11 +147,11 @@ class UnslothMultimodalEngine:
                 logging_steps=1,
                 seed=config.seed,
                 data_seed=config.seed,
-                max_seq_length=config.max_sequence_length,
                 remove_unused_columns=False,
                 dataset_text_field="",
                 dataset_kwargs={"skip_prepare_dataset": True},
                 report_to=[],
+                **sequence_length_options(SFTConfig, config.max_sequence_length),
             )
             trainer = SFTTrainer(
                 model=prepared["model"],
@@ -159,11 +164,17 @@ class UnslothMultimodalEngine:
             )
             result = trainer.train(resume_from_checkpoint=str(context.resume_path) if context.resume_path else None)
             return {"trainer": trainer, "train_metrics": dict(result.metrics)}
+        except TrainingBackendError:
+            raise
         except Exception as exc:
             if context.cancel.cancelled:
                 context.cancel.raise_if_cancelled()
             if isinstance(exc, MemoryError) or "out of memory" in str(exc).lower():
-                raise TrainingBackendError("out_of_memory", "multimodal training exhausted memory", retryable=True) from exc
+                raise TrainingBackendError(
+                    "out_of_memory",
+                    "multimodal training exhausted memory",
+                    retryable=True,
+                ) from exc
             raise TrainingBackendError("training_failed", f"multimodal training failed: {exc}") from exc
 
     def evaluate(

@@ -18,7 +18,7 @@ external deployment responsibility.
 
 | Matrix entry | Python | CUDA | Minimum NVIDIA driver | Torch | Unsloth | Approved model basename | Required runs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `unsloth-2026.7.5-cu124-torch260-tiny-causal-lm` | `3.11.15` | `12.4` | `550.54.14` | `2.6.0+cu124` | `2026.7.5` | `tiny-causal-lm` | `3` |
+| `unsloth-2026.7.5-cu124-torch260-tiny-causal-lm` | `3.11.15` | `12.4` | `550.54.14` | `2.6.0+cu124` + `torchao 0.13.0` | `2026.7.5` | `tiny-causal-lm` | `3` |
 
 The JSON matrix is authoritative for every pinned package and export format.
 Changing a dependency, CUDA runtime, model basename, minimum driver, image
