@@ -112,10 +112,11 @@ def materialize_runtime_gguf(
         raise ValueError("nvidia_smoke_runtime_gguf_ambiguous")
     if destination.is_symlink() or destination.exists():
         raise ValueError("nvidia_smoke_runtime_export_destination_invalid")
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.parent.mkdir(parents=True, exist_ok=True, mode=0o777)
     if destination.parent.is_symlink():
         raise ValueError("nvidia_smoke_runtime_export_destination_invalid")
-    destination.mkdir(mode=0o750)
+    destination.parent.chmod(0o777)
+    destination.mkdir(mode=0o777)
     source, metadata = runtime.artifact(job_id, candidates[0])
     expected_sha256 = str(metadata.get("sha256") or "")
     expected_size = int(metadata.get("size_bytes") or 0)
