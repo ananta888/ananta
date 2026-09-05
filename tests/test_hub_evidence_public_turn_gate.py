@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from scripts.run_hub_evidence_public_turn_gate import (
+    failed_probe_projection,
     project_probe_report,
     projection_passed,
 )
@@ -57,3 +58,15 @@ def test_projection_rejects_direct_candidate_or_missing_transport() -> None:
     projection["results"].pop()
 
     assert not projection_passed(projection, host="webrtc.ananta.de")
+
+
+def test_failed_probe_projects_only_bounded_reason_code() -> None:
+    projection = failed_probe_projection(
+        'secret-bearing noise\n{"status":"failed","reason_code":'
+        '"public_turn_probe_chromium_udp_ice_gathering_timeout"}\n'
+    )
+
+    assert projection["reason_code"] == (
+        "public_turn_probe_chromium_udp_ice_gathering_timeout"
+    )
+    assert "secret-bearing" not in str(projection)

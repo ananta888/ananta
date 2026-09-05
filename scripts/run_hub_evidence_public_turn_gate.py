@@ -225,6 +225,31 @@ def project_probe_report(report: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def failed_probe_projection(stderr: str) -> dict[str, Any]:
+    reason_code = "public_turn_probe_execution_failed"
+    for line in reversed(str(stderr or "").splitlines()):
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        candidate = str(value.get("reason_code") or "") if isinstance(value, Mapping) else ""
+        if re.fullmatch(r"public_turn_probe_[a-z0-9_]{1,160}", candidate):
+            reason_code = candidate
+            break
+    return {
+        "schema": "ananta.public-turn-relay-probe.v1",
+        "status": "failed",
+        "reason_code": reason_code,
+        "public_host": None,
+        "credential_ttl_seconds": 600,
+        "engines": [],
+        "transports": [],
+        "results": [],
+        "human_intervention_required": False,
+        "production_capacity": False,
+    }
+
+
 def projection_passed(projection: Mapping[str, Any], *, host: str) -> bool:
     rows = projection.get("results")
     if not isinstance(rows, list):
@@ -390,17 +415,21 @@ def execute_gate(
                 check=False,
                 timeout=timeout_seconds * 8,
             )
-            try:
-                loaded = json.loads(raw_report.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise PublicTurnEvidenceGateError(
-                    "public_turn_gate_report_unavailable"
-                ) from exc
-            if not isinstance(loaded, Mapping):
-                raise PublicTurnEvidenceGateError(
-                    "public_turn_gate_report_invalid"
-                )
-            projection = project_probe_report(loaded)
+            if raw_report.is_file():
+                try:
+                    loaded = json.loads(raw_report.read_text(encoding="utf-8"))
+                except json.JSONDecodeError as exc:
+                    raise PublicTurnEvidenceGateError(
+                        "public_turn_gate_report_invalid"
+                    ) from exc
+                if not isinstance(loaded, Mapping):
+                    raise PublicTurnEvidenceGateError(
+                        "public_turn_gate_report_invalid"
+                    )
+                projection = project_probe_report(loaded)
+            else:
+                projection = failed_probe_projection(completed.stderr)
+                projection["public_host"] = host
             assignment_bound = bool(
                 assignment.get("task_id") == TASK_ID
                 and assignment.get("evidence_scope") == "external"
