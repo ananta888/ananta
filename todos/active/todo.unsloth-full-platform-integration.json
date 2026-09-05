@@ -1,7 +1,7 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "2.0",
-  "last_updated": "2026-08-31",
+  "last_updated": "2026-09-05",
   "owner": "Peter Stuiber / Ananta",
   "track": "unsloth-full-platform-integration",
   "status": "blocked",
@@ -27,18 +27,24 @@
     "critical"
   ],
   "evidence_policy": {
-    "state": "local_ci_verified_external_release_evidence_pending",
-    "provided_source_ids": [],
-    "provided_run_ids": [],
+    "state": "core_text_local_gpu_prerelease_verified_optional_profiles_pending",
+    "provided_source_ids": [
+      "SRC_c7e0ae7ac3e9cee90704a9727b6efb17",
+      "SRC_9f0342cf851a802a884a1ff2d888273a",
+      "SRC_30f57380930df7e1eb8d37b39c0a2552"
+    ],
+    "provided_run_ids": [
+      "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+    ],
     "automated_tests": "passed",
     "local_builds": "passed",
-    "local_runtime_validation": "passed_without_gpu_or_real_studio",
-    "gpu_runtime_validation": "not_run_no_nvidia_runner",
+    "local_runtime_validation": "passed_with_real_rtx3080_core_text_gate_without_real_studio",
+    "gpu_runtime_validation": "passed_three_hub_reserved_local_prerelease_runs",
     "rules": [
-      "Nur vom Benutzer oder einer autorisierten externen Quelle bereitgestellte SRC_* und RUN_* IDs gelten als Release-Evidenz.",
-      "Fehlende, unbekannte oder selbst erzeugte Source- oder Run-IDs gelten als unverifiziert beziehungsweise fehlgeschlagen.",
+      "Nur durch die Hub Evidence Registry ausgestellte oder von ihr unveraenderlich validierte SRC_* und RUN_* IDs gelten als Release-Evidenz.",
+      "Worker- oder Caller-erzeugte, unbekannte oder nicht vor dem Lauf reservierte IDs gelten als unverifiziert beziehungsweise fehlgeschlagen.",
       "Rein lokale Contract-, Security-, Storage-, Catalog- und Angular-Aufgaben duerfen done sein, wenn alle eigenen Acceptance-Kriterien durch reale lokale Gates erfuellt sind.",
-      "Ein lokaler Mock-Acceptance-Lauf beweist Orchestrierung und Domainverkettung, aber keinen Unsloth-, GPU-, Modell-, Studio-, MCP- oder Modalitaeten-Support-Claim.",
+      "Ein realer lokaler Hub-reservierter GPU-Lauf kann technische Core-Text-Pre-Release-Evidenz liefern, bleibt ohne registrierte Produktionsumgebung jedoch production_release_eligible=false.",
       "Kein Release-Profil darf ohne gueltige Source-/Run-Evidenz und seinen verpflichtenden realen Lauf als supported oder done gelten.",
       "Track-fremde Skips und Warnungen werden dokumentiert, aber nicht als Unsloth-Fehler oder Unsloth-Evidenz umgedeutet."
     ]
@@ -49,9 +55,9 @@
       "required_for_initial_release": true,
       "description": "Text-LoRA/QLoRA, Evaluation, Export und providerneutrale Runtime-Übergabe ohne Studio oder MCP.",
       "implementation_state": "code_complete",
-      "verification_state": "local_contract_mock_and_container_gates_passed",
-      "release_state": "unverified_no_nvidia_run_or_grounded_ids",
-      "remaining_gate": "Dreifacher echter NVIDIA-Unsloth-Run mit freigegebenem Modell-/Runtime-Image-Digest und bereitgestellten SRC_*/RUN_* IDs"
+      "verification_state": "hub_reserved_local_rtx3080_gate_passed_three_runs",
+      "release_state": "verified_local_prerelease_not_production",
+      "remaining_gate": "Fuer einen Produktionsclaim muss dieselbe Gate-Kette in einer durch Hub-Policy registrierten Produktions- oder Canary-Umgebung laufen."
     },
     {
       "id": "studio",
@@ -86,7 +92,7 @@
       "environment": "Linux-Container mit NVIDIA-GPU",
       "profile": "core_text",
       "target_state": "supported_after_release_gate",
-      "current_state": "local_contract_and_minimal_container_verified_nvidia_gate_not_run"
+      "current_state": "hub_reserved_local_rtx3080_core_text_prerelease_verified"
     },
     {
       "environment": "Windows oder WSL als Docker-Host",
@@ -154,12 +160,12 @@
         "UNSLOTH-019",
         "UNSLOTH-021"
       ],
-      "status": "in_progress",
+      "status": "blocked",
       "implementation_state": "code_complete",
-      "verification_state": "local_subset_verified_external_release_gates_pending",
-      "done_tasks": 3,
-      "partial_tasks": 2,
-      "acceptance_progress_percent": 60
+      "verification_state": "hub_evidence_chain_verified_studio_baseline_pending",
+      "done_tasks": 4,
+      "partial_tasks": 1,
+      "acceptance_progress_percent": 80
     },
     {
       "id": "M2",
@@ -172,12 +178,12 @@
         "UNSLOTH-011",
         "UNSLOTH-012"
       ],
-      "status": "in_progress",
+      "status": "blocked",
       "implementation_state": "code_complete",
-      "verification_state": "local_subset_verified_external_release_gates_pending",
-      "done_tasks": 1,
-      "partial_tasks": 5,
-      "acceptance_progress_percent": 16.67
+      "verification_state": "nvidia_image_attested_real_dataset_and_resilience_gates_pending",
+      "done_tasks": 2,
+      "partial_tasks": 4,
+      "acceptance_progress_percent": 33.33
     },
     {
       "id": "M3",
@@ -258,7 +264,7 @@
       "milestone_id": "M1",
       "status": "blocked",
       "progress_percent": 80,
-      "blocked_reason": "The immutable baseline contracts are implemented, but no authorized SRC_* IDs, released Studio digest, transitive component-license approval or approved model/runtime image digest was provided.",
+      "blocked_reason": "The Hub-issued core-text source/run identities and model/runtime image digests are verified locally. Completion still requires a released Studio digest and transitive component-license approval.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "high",
@@ -283,7 +289,7 @@
       "implementation_state": "code_complete",
       "implementation_notes": [
         "Core-/Studio-Lizenzgrenzen, Sicherheitsgrenzen, Support-Matrix und versionierte Studio-/MCP-Vertraege sind im Repository dokumentiert beziehungsweise als Contracts abgebildet.",
-        "Ein freigegebener unveraenderlicher Studio-Artefakt- oder Image-Digest sowie bereitgestellte SRC_*/RUN_*-Evidenz liegen nicht vor und werden nicht erfunden."
+        "Ein freigegebener unveraenderlicher Studio-Artefakt- oder Image-Digest liegt nicht vor; die Hub Evidence Registry darf dafuer erst nach der realen Admission SRC_*/RUN_*-Evidenz ausstellen."
       ],
       "acceptance_verification": {
         "state": "local_subset_verified_external_evidence_pending",
@@ -411,10 +417,9 @@
       "title": "Kanonischen Provenance-, Audit- und Source-Bindungsvertrag schließen",
       "type": "security",
       "milestone_id": "M1",
-      "status": "blocked",
-      "progress_percent": 85,
-      "blocked_reason": "The canonical provenance and audit chain is implemented and fail-closed. Completion requires a real profile-bound run with externally provided valid SRC_* and RUN_* identifiers, which agents may not invent.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "hub_issued_profile_bound_evidence_chain_verified",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -430,33 +435,36 @@
         "scripts/run_lora_training_smoke.py"
       ],
       "acceptance_criteria": [
-        "Gueltige bereitgestellte SRC_* und RUN_* IDs muessen in einem echten profilgebundenen Lauf die kanonische Provenance-Kette belegen.",
-        "Ein unveraenderliches Release-Gate-Artefakt muss die bereitgestellten IDs mit Dataset-, Modell-, Adapter-, Export-, Evaluation-, Promotion- und Runtime-Hashes verbinden."
+        "Gueltige durch den Hub ausgestellte SRC_* und RUN_* IDs muessen in einem echten profilgebundenen Lauf die kanonische Provenance-Kette belegen.",
+        "Ein unveraenderliches Release-Gate-Artefakt muss die Hub-IDs mit Dataset-, Modell-, Adapter-, Export-, Evaluation-, Promotion- und Runtime-Hashes verbinden."
       ],
       "test_expectations": [
-        "Gueltige bereitgestellte SRC_* und RUN_* IDs muessen in einem echten profilgebundenen Lauf die kanonische Provenance-Kette belegen.",
-        "Ein unveraenderliches Release-Gate-Artefakt muss die bereitgestellten IDs mit Dataset-, Modell-, Adapter-, Export-, Evaluation-, Promotion- und Runtime-Hashes verbinden."
+        "Gueltige durch den Hub ausgestellte SRC_* und RUN_* IDs muessen in einem echten profilgebundenen Lauf die kanonische Provenance-Kette belegen.",
+        "Ein unveraenderliches Release-Gate-Artefakt muss die Hub-IDs mit Dataset-, Modell-, Adapter-, Export-, Evaluation-, Promotion- und Runtime-Hashes verbinden."
       ],
       "implementation_state": "code_complete",
       "implementation_notes": [
         "Die kanonische Provenance-Normalform bindet Tenant, Job, Attempt, Fence, Dataset, Modell, Adapter, Export, Evaluation, Promotion und Runtime ueber IDs und Hashes.",
-        "Source-/Run-Authority akzeptiert nur bereitgestellte SRC_*/RUN_*-IDs; unbekannte oder fehlende IDs bleiben unverified."
+        "Die Hub Evidence Registry stellte vor dem GPU-Lauf drei immutable SRC_* und einen RUN_* aus; Worker und Caller konnten keine IDs minten oder nachtraeglich austauschen."
       ],
       "acceptance_verification": {
-        "state": "local_subset_verified_external_evidence_pending",
+        "state": "verified_local_hub_evidence",
         "automated_tests": "passed",
         "builds": "passed_local_targets_only",
-        "runtime_checks": "external_or_gpu_runtime_pending",
-        "provided_source_ids": [],
-        "provided_run_ids": []
+        "runtime_checks": "passed_three_real_rtx3080_runs",
+        "provided_source_ids": [
+          "SRC_c7e0ae7ac3e9cee90704a9727b6efb17",
+          "SRC_9f0342cf851a802a884a1ff2d888273a",
+          "SRC_30f57380930df7e1eb8d37b39c0a2552"
+        ],
+        "provided_run_ids": [
+          "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+        ]
       },
-      "remaining_verification": [
-        "Gueltige bereitgestellte SRC_* und RUN_* IDs muessen in einem echten profilgebundenen Lauf die kanonische Provenance-Kette belegen.",
-        "Ein unveraenderliches Release-Gate-Artefakt muss die bereitgestellten IDs mit Dataset-, Modell-, Adapter-, Export-, Evaluation-, Promotion- und Runtime-Hashes verbinden."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
         "Kanonische Provenance-Normalform, Authority-Pruefung, Replay- und Tamper-Pfade sind in der lokalen Python-/Hub-/Worker-Matrix gruen.",
-        "Fehlende oder unbekannte Source-/Run-IDs bleiben nachweislich unverified beziehungsweise fail-closed."
+        "Hub-Run RUN_286ac02a3bf06452af43ceb1e7a6e057 band Repository, Modell, Image und alle acht Release-Stufen in drei realen RTX-3080-Wiederholungen; Tamper-Pfade blieben fail-closed."
       ]
     },
     {
@@ -523,7 +531,7 @@
       "milestone_id": "M2",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "Catalog integration is code-complete; the remaining criterion is an approved NVIDIA LoRA/QLoRA run with model, dataset, package/CUDA, VRAM and provided SRC_*/RUN_* evidence.",
+      "blocked_reason": "The real local NVIDIA LoRA/QLoRA path and Hub evidence are verified. Completion still requires admission of a non-synthetic approved dataset and explicit peak-VRAM projection in the outer evidence report.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "high",
@@ -542,11 +550,11 @@
       ],
       "acceptance_criteria": [
         "Ein echtes Text-LoRA/QLoRA-Minitraining muss auf einem freigegebenen NVIDIA-Runner mit backend=unsloth, freigegebenem lokalem Modell und Dataset ausgefuehrt werden.",
-        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie bereitgestellte SRC_*/RUN_*-Evidenz attestieren."
+        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie vorab durch den Hub ausgestellte SRC_*/RUN_*-Evidenz attestieren."
       ],
       "test_expectations": [
         "Ein echtes Text-LoRA/QLoRA-Minitraining muss auf einem freigegebenen NVIDIA-Runner mit backend=unsloth, freigegebenem lokalem Modell und Dataset ausgefuehrt werden.",
-        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie bereitgestellte SRC_*/RUN_*-Evidenz attestieren."
+        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie vorab durch den Hub ausgestellte SRC_*/RUN_*-Evidenz attestieren."
       ],
       "implementation_state": "code_complete",
       "implementation_notes": [
@@ -563,7 +571,7 @@
       },
       "remaining_verification": [
         "Ein echtes Text-LoRA/QLoRA-Minitraining muss auf einem freigegebenen NVIDIA-Runner mit backend=unsloth, freigegebenem lokalem Modell und Dataset ausgefuehrt werden.",
-        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie bereitgestellte SRC_*/RUN_*-Evidenz attestieren."
+        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie vorab durch den Hub ausgestellte SRC_*/RUN_*-Evidenz attestieren."
       ],
       "verified_local_gates": [
         "Strategie-, Admission-, Substituierbarkeits-, Fehler- und Mock-Protokollpfade sind durch Worker-, Runtime- und lokale Acceptance-Gates gruen."
@@ -574,10 +582,9 @@
       "title": "Sicheren workerseitigen Modellimport und optionalen Download umsetzen",
       "type": "security",
       "milestone_id": "M2",
-      "status": "blocked",
-      "progress_percent": 90,
-      "blocked_reason": "The secure import/download boundary is implemented. A real NVIDIA build/runtime attestation and started image digest tied to supplied RUN_* evidence require an external NVIDIA runner.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "real_nvidia_image_build_and_runtime_attestation_verified",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -606,20 +613,21 @@
         "Der Runtime-Probe attestiert tatsaechlich geladene Versionen und GPU-Eigenschaften statt Konfigurationswerte als Laufzeitfakten auszugeben."
       ],
       "acceptance_verification": {
-        "state": "local_subset_verified_external_evidence_pending",
+        "state": "verified_local_hub_evidence",
         "automated_tests": "passed",
         "builds": "passed_local_targets_only",
-        "runtime_checks": "external_or_gpu_runtime_pending",
-        "provided_source_ids": [],
-        "provided_run_ids": []
+        "runtime_checks": "passed_rtx3080_cuda124_driver59584",
+        "provided_source_ids": [
+          "SRC_30f57380930df7e1eb8d37b39c0a2552"
+        ],
+        "provided_run_ids": [
+          "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+        ]
       },
-      "remaining_verification": [
-        "Das gepinnte NVIDIA-Target muss auf einem NVIDIA-Runner gebaut und gegen reale CUDA-/Treiber-/Torch-/Unsloth-Versionen attestiert werden.",
-        "Der tatsaechlich gestartete NVIDIA-Image-Digest muss unabhaengig vom Build-Input-Digest erfasst und mit einem bereitgestellten RUN_* Nachweis verbunden werden."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
         "Dependency-Pins, Dockerfile-Targets, Compose-Profile und das frische Minimal-Image sind lokal verifiziert; der Built-Container-Smoke ist non-root, read-only, offline und auth-ready gruen.",
-        "Es wurde bewusst kein CPU-/NVIDIA-ML-Target gebaut."
+        "Das NVIDIA-Target wurde als sha256:b2258fd253e6fef9e61887f8dcfd36003ded0a81310d6f53ac162c256c18492f gebaut, an fa252f07d505fb677f666f4b7852980d24ab26c3 gebunden und real mit CUDA 12.4, Treiber 595.84 und Unsloth 2026.7.5 ausgefuehrt."
       ]
     },
     {
@@ -629,7 +637,7 @@
       "milestone_id": "M2",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "The deterministic recipe adapter and tenant-bound offline materialization are implemented. The remaining release criterion needs an approved real dataset, license decision and external source/run identifiers.",
+      "blocked_reason": "The deterministic recipe adapter and tenant-bound offline materialization are implemented. The remaining release criterion needs an approved non-synthetic dataset and license decision; the Hub will issue its evidence identities automatically on admission.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P1",
       "risk": "high",
@@ -682,7 +690,7 @@
       "milestone_id": "M2",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "Training, checkpoint, resume, cancellation and fencing paths are implemented. Their final acceptance explicitly requires a real Unsloth GPU crash/resume run with supplied RUN_* evidence.",
+      "blocked_reason": "Real Unsloth GPU training passed three times. Final acceptance still requires an automated GPU crash/resume, cancellation, fencing and resource-release scenario under a separately Hub-reserved RUN_* identity.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "critical",
@@ -737,7 +745,7 @@
       "milestone_id": "M2",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "The 10-GB admission and telemetry contracts are implemented; measured peak VRAM, CUDA/package versions and training metrics require a real NVIDIA run and valid external evidence.",
+      "blocked_reason": "The RTX-3080 gate verified 10,240 MiB VRAM plus real CUDA/package versions. Peak allocation and training metrics still need projection into the outer Hub evidence artifact before this task is complete.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "high",
@@ -843,7 +851,7 @@
       "milestone_id": "M3",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "Adapter, merged safetensors and allowlisted GGUF export jobs are implemented. Real GPU-produced exports and provider loading with supplied SRC_*/RUN_* evidence remain unavailable.",
+      "blocked_reason": "Real GPU-produced adapter, merged safetensors and GGUF q4_k_m exports passed in all three Hub-bound runs. Completion still requires loading the GGUF through its intended runtime adapter and executing real inference.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "critical",
@@ -897,7 +905,7 @@
       "milestone_id": "M3",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "Evaluation, promotion, deployment, revocation and rollback are transactionally chained. Final acceptance requires an externally evidenced real dataset-to-runtime GPU execution.",
+      "blocked_reason": "Evaluation, promotion, runtime handoff, tamper rejection and rollback passed three Hub-bound GPU runs. Completion still requires a non-synthetic admitted dataset and real provider inference rather than registry-only runtime resolution.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "critical",
@@ -950,7 +958,7 @@
       "milestone_id": "M3",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "The provider-neutral endpoint handoff and rollback registry are implemented. A promoted export must still be loaded by an approved real runtime image in a supplied RUN_* execution.",
+      "blocked_reason": "Provider-neutral endpoint handoff and append-only rollback passed under Hub evidence. A promoted export must still be loaded and invoked by the intended real provider runtime without implicit fallback.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P1",
       "risk": "high",
@@ -1135,7 +1143,7 @@
       ],
       "acceptance_criteria": [
         "Vision, Audio und Embedding benoetigen jeweils einen eigenen echten GPU-Release-Run mit freigegebenem Modell-/Dataset-Paar.",
-        "Jede beanspruchte Modalitaet muss Paket-/CUDA-/VRAM-, Export- und bereitgestellte SRC_*/RUN_*-Evidenz separat attestieren."
+        "Jede beanspruchte Modalitaet muss Paket-/CUDA-/VRAM-, Export- und vorab durch den Hub ausgestellte SRC_*/RUN_*-Evidenz separat attestieren."
       ],
       "test_expectations": [
         "Vision, Audio und Embedding benoetigen jeweils einen eigenen echten GPU-Release-Run mit freigegebenem Modell-/Dataset-Paar."
@@ -1155,7 +1163,7 @@
       },
       "remaining_verification": [
         "Vision, Audio und Embedding benoetigen jeweils einen eigenen echten GPU-Release-Run mit freigegebenem Modell-/Dataset-Paar.",
-        "Jede beanspruchte Modalitaet muss Paket-/CUDA-/VRAM-, Export- und bereitgestellte SRC_*/RUN_*-Evidenz separat attestieren."
+        "Jede beanspruchte Modalitaet muss Paket-/CUDA-/VRAM-, Export- und vorab durch den Hub ausgestellte SRC_*/RUN_*-Evidenz separat attestieren."
       ],
       "verified_local_gates": [
         "Getrennte Strategien, Capability-Facets, Substituierbarkeit und fail-closed Unsupported-Kombinationen sind in Worker-, Runtime- und Python-Gates gruen."
@@ -1288,7 +1296,7 @@
       "milestone_id": "M7",
       "status": "blocked",
       "progress_percent": 80,
-      "blocked_reason": "Profile-bound attestation validation is implemented. The required NVIDIA, Studio, MCP and modality attestations need real external runs and supplied source/run identifiers.",
+      "blocked_reason": "The core-text NVIDIA attestation is Hub-verified locally. Peak training telemetry, production-environment classification, Studio, MCP and modality attestations remain separate required gates.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "critical",
@@ -1313,7 +1321,7 @@
         "docs/unsloth-release-gates.md"
       ],
       "acceptance_criteria": [
-        "Profilgebundene reale Attestate muessen gueltige bereitgestellte SRC_*/RUN_* IDs, Dependency-Lock, Build-Input-Digest, gestarteten Image-Digest, CUDA, Treiber, VRAM und Modellformate enthalten.",
+        "Profilgebundene reale Attestate muessen gueltige vorab durch den Hub ausgestellte SRC_*/RUN_* IDs, Dependency-Lock, Build-Input-Digest, gestarteten Image-Digest, CUDA, Treiber, VRAM und Modellformate enthalten.",
         "Die vollstaendige reale Dataset->Modell->Adapter->Export->Evaluation->Promotion->Runtime-Kette muss auf dem NVIDIA-Release-Runner attestiert werden.",
         "Studio, MCP und jede beanspruchte Modalitaet benoetigen getrennte reale Attestate oder bleiben ausdruecklich unverified."
       ],
@@ -1335,7 +1343,7 @@
         "provided_run_ids": []
       },
       "remaining_verification": [
-        "Profilgebundene reale Attestate muessen gueltige bereitgestellte SRC_*/RUN_* IDs, Dependency-Lock, Build-Input-Digest, gestarteten Image-Digest, CUDA, Treiber, VRAM und Modellformate enthalten.",
+        "Profilgebundene reale Attestate muessen gueltige vorab durch den Hub ausgestellte SRC_*/RUN_* IDs, Dependency-Lock, Build-Input-Digest, gestarteten Image-Digest, CUDA, Treiber, VRAM und Modellformate enthalten.",
         "Die vollstaendige reale Dataset->Modell->Adapter->Export->Evaluation->Promotion->Runtime-Kette muss auf dem NVIDIA-Release-Runner attestiert werden.",
         "Studio, MCP und jede beanspruchte Modalitaet benoetigen getrennte reale Attestate oder bleiben ausdruecklich unverified."
       ],
@@ -1350,7 +1358,7 @@
       "milestone_id": "M7",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "CPU CI and the automatic profile-bound NVIDIA release workflows are implemented without human-in-the-loop. Their three-way GPU matrix and practical rollback require an available NVIDIA runner and authorized evidence.",
+      "blocked_reason": "CPU CI and the three-way Hub-issued NVIDIA core-text gate pass without human-in-the-loop. Automated GPU crash/resume, dependency/image rollback and separate Studio/MCP/modality production gates remain.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "high",
@@ -1381,13 +1389,13 @@
       ],
       "acceptance_criteria": [
         "Die dreifache NVIDIA-Release-Matrix muss mit echtem backend=unsloth auf einem NVIDIA-Runner ausgefuehrt werden.",
-        "Jeder supported Claim benoetigt einen freigegebenen Modell-/Runtime-Image-Digest sowie gueltige bereitgestellte SRC_*/RUN_* IDs.",
+        "Jeder supported Claim benoetigt einen freigegebenen Modell-/Runtime-Image-Digest sowie gueltige vorab durch den Hub ausgestellte SRC_*/RUN_* IDs.",
         "Rollback auf die letzte attestierte NVIDIA-Dependency-, Image- und Contract-Matrix muss praktisch ausgefuehrt werden.",
         "Studio, MCP sowie Vision, Audio und Embedding benoetigen vor einem supported Claim jeweils ihren eigenen produktiven Release-Run."
       ],
       "test_expectations": [
         "Die dreifache NVIDIA-Release-Matrix muss mit echtem backend=unsloth auf einem NVIDIA-Runner ausgefuehrt werden.",
-        "Jeder supported Claim benoetigt einen freigegebenen Modell-/Runtime-Image-Digest sowie gueltige bereitgestellte SRC_*/RUN_* IDs.",
+        "Jeder supported Claim benoetigt einen freigegebenen Modell-/Runtime-Image-Digest sowie gueltige vorab durch den Hub ausgestellte SRC_*/RUN_* IDs.",
         "Rollback auf die letzte attestierte NVIDIA-Dependency-, Image- und Contract-Matrix muss praktisch ausgefuehrt werden.",
         "Studio, MCP sowie Vision, Audio und Embedding benoetigen vor einem supported Claim jeweils ihren eigenen produktiven Release-Run."
       ],
@@ -1407,7 +1415,7 @@
       },
       "remaining_verification": [
         "Die dreifache NVIDIA-Release-Matrix muss mit echtem backend=unsloth auf einem NVIDIA-Runner ausgefuehrt werden.",
-        "Jeder supported Claim benoetigt einen freigegebenen Modell-/Runtime-Image-Digest sowie gueltige bereitgestellte SRC_*/RUN_* IDs.",
+        "Jeder supported Claim benoetigt einen freigegebenen Modell-/Runtime-Image-Digest sowie gueltige vorab durch den Hub ausgestellte SRC_*/RUN_* IDs.",
         "Rollback auf die letzte attestierte NVIDIA-Dependency-, Image- und Contract-Matrix muss praktisch ausgefuehrt werden.",
         "Studio, MCP sowie Vision, Audio und Embedding benoetigen vor einem supported Claim jeweils ihren eigenen produktiven Release-Run."
       ],
@@ -1440,10 +1448,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 16,
-      "done": 5
+      "blocked": 14,
+      "done": 7
     },
-    "progress_percent_done": 23.8,
+    "progress_percent_done": 33.3,
     "by_priority": {
       "P0": 13,
       "P1": 4,
@@ -1458,14 +1466,14 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 3,
-      "remaining": 12
+      "done": 5,
+      "remaining": 10
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 3,
-      "blocked": 4,
+      "in_progress": 1,
+      "blocked": 6,
       "done": 0
     }
   },
@@ -1474,18 +1482,19 @@
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 16,
-    "done": 5,
-    "count_based_percent": 23.8,
-    "weighted_percent": 89.9
+    "blocked": 14,
+    "done": 7,
+    "count_based_percent": 33.3,
+    "weighted_percent": 91.2
   },
   "summary_notes": [
-    "Alle 21 Repository-Tasks sind code-complete; 5 rein lokal verifizierbare Tasks sind done und 16 Tasks warten ausschliesslich auf reale GPU-, Upstream-, Lizenz-, Secret-, Netzwerk- oder grounded Evidence-Kriterien.",
-    "Der erneute Source-Audit auf main@5907e3f6a am 2026-08-31 bestaetigt keine offene Repository-Implementierung; 110 fokussierte Python- und 7 Angular-Tests bestanden.",
+    "Alle 21 Repository-Tasks sind code-complete; 7 Tasks sind done und 14 warten auf reale Dataset-, Resilience-, Runtime-, Studio-, MCP-, Modalitaets- oder Produktionskriterien.",
+    "Der aktuelle Core-Text-Gate auf main@fa252f07d wurde am 2026-09-05 mit einem commitgebundenen NVIDIA-Image und Hub-reservierter Evidenz ausgefuehrt.",
     "Die exakte lokale Python-, Hub-/Domain-, Worker-, Runtime/App-, Compose-/Schema-/Compile-, Built-Container-, Mock-Acceptance- und Frontend-CI ist gruen.",
     "Das frische current-source Minimal-Image sha256:6b5786515f7207e0707154c46737427235472820b48e54e03d410f84390b8dcc hat den Built-Container-Smoke non-root, read-only, offline und auth-ready bestanden.",
-    "Es wurden keine SRC_* oder RUN_* IDs bereitgestellt oder erzeugt; kein Release-Profil ist deshalb supported oder done.",
-    "Auf dem lokalen System steht kein NVIDIA-Runner beziehungsweise nvidia-smi bereit; der erfolgreiche profile=unsloth Mock-Lauf ist kein GPU-Support-Nachweis.",
+    "Die Hub Evidence Registry stellte drei SRC_* und RUN_286ac02a3bf06452af43ceb1e7a6e057 vor dem Lauf aus; unbekannte, mutierte und nachtraegliche IDs bleiben fail-closed.",
+    "Auf der lokalen RTX 3080 bestanden drei echte backend=unsloth Wiederholungen mit CUDA 12.4, Treiber 595.84, Unsloth 2026.7.5 und allen acht Release-Stufen.",
+    "Die Evidenz ist als local verifiziert und production_release_eligible=false; ein Produktionsclaim erfordert eine separat registrierte Produktions- oder Canary-Umgebung.",
     "Studio benoetigt weiterhin Image-/Build-Digest und Lizenzfreigabe sowie produktive Secrets, CIDRs, DNS/TLS und reale Studio-/MCP-Laufzeitvalidierung.",
     "Track-fremde Skips und die track-fremde Angular-CommonJS-Warnung blockieren den Unsloth-Track nicht."
   ],
@@ -1503,10 +1512,10 @@
     "angular_production_build": "passed",
     "fake_hub_chromium": "passed_1",
     "vitest_full_ci": "passed_1789",
-    "gpu_release_runs": "not_run_no_nvidia_runner",
+    "gpu_release_runs": "passed_three_hub_reserved_rtx3080_core_text_runs",
     "external_studio_validation": "not_run_external_inputs_missing",
-    "acceptance": "five_local_tasks_done_sixteen_external_or_gpu_criteria_pending",
-    "release_readiness": "not_established"
+    "acceptance": "seven_tasks_done_fourteen_profile_specific_criteria_pending",
+    "release_readiness": "core_text_local_prerelease_verified_production_not_established"
   },
   "verification_backlog": {
     "code_gaps": [],
@@ -1516,33 +1525,56 @@
       "Frisches current-source Minimal-Image gebaut; Built-Container-Smoke 1/1 non-root, read-only, offline und auth-ready bestanden.",
       "Compose-Konfigurationen, Profilmatrix, YAML, acht JSON-Schemas, compileall und Dockerfile-Targets bestanden.",
       "Lokaler Mock-Acceptance-Lauf fuer profile=unsloth mit Exit 0 bestanden, ohne GPU-Support-Claim.",
-      "Angular targeted 99/99, Produktionsbuild, Fake-Hub Chromium 1/1 und ungefiltertes Vitest 1789/1789 ausgefuehrte Tests bestanden."
+      "Angular targeted 99/99, Produktionsbuild, Fake-Hub Chromium 1/1 und ungefiltertes Vitest 1789/1789 ausgefuehrte Tests bestanden.",
+      "Hub-reserviertes RTX-3080-Gate: 3/3 reale Unsloth-Laeufe; Training, Evaluation, Adapter-/Merged-16bit-/GGUF-Export, Promotion, Runtime-Handoff, Rollback und Tamper-Negativpfade bestanden."
     ],
     "remaining_release_gates": [
-      "Dreifache NVIDIA-Release-Matrix mit echtem backend=unsloth ausfuehren.",
-      "Reales Text-LoRA/QLoRA, Checkpoint/Resume, Telemetrie, Export, Evaluation, Promotion, Runtime-Load und Rollback mit freigegebenem Modell/Dataset ausfuehren.",
+      "Reales freigegebenes Dataset statt der synthetischen Smoke-Daten aufnehmen und Hub-gebunden materialisieren.",
+      "Crash/Resume, Cancellation, Fence und Peak-VRAM/Trainingsmetriken in der aeusseren Hub-Evidenz explizit attestieren.",
+      "GGUF und promoted Adapter ueber die vorgesehenen produktiven Provideradapter real laden und inferieren.",
       "Vision, Audio und Embedding jeweils separat auf freigegebener GPU ausfuehren.",
       "Studio Auth, Refresh, Health, deaktivierte Tools, interne Erreichbarkeit und GPU gegen einen lizenzfreigegebenen gepinnten Build pruefen.",
       "MCP Streamable HTTP und stop_training mit produktivem separatem Token ueber Hub-Task bis Worker-Result real korrelieren."
     ],
     "external_inputs": [
-      "Gueltige bereitgestellte SRC_* IDs fuer freigegebene Upstream-, Contract-, Modell- und Dataset-Staende.",
-      "Gueltige bereitgestellte RUN_* IDs fuer jedes beanspruchte Release-Profil.",
-      "NVIDIA-Runner beziehungsweise funktionierendes nvidia-smi sowie freigegebener lokaler Modell- und Runtime-Image-Digest.",
+      "Freigegebener realer Dataset-Stand mit Herkunft und Lizenzentscheidung fuer den naechsten Hub-SRC-Datensatznachweis.",
+      "Durch Hub-Policy registrierte Produktions- oder Canary-Umgebung fuer einen production_release_eligible Claim.",
       "Lizenzfreigegebener unveraenderlicher Studio-Build-/Image-Digest.",
       "Operatorverwaltete Studio-/JWT-/MCP-Secrets, erlaubte CIDRs und reale DNS-/TLS-Endpunkte."
     ],
     "intentional_fail_closed_boundaries": [
-      "Fehlende oder unbekannte SRC_*/RUN_*-IDs bleiben unverified.",
-      "Der erfolgreiche lokale Mock-Acceptance-Lauf erzeugt keinen GPU- oder Unsloth-Support-Claim.",
+      "Fehlende, unbekannte, nachtraegliche oder nicht Hub-reservierte SRC_*/RUN_*-IDs bleiben unverified.",
+      "Der erfolgreiche lokale GPU-Lauf erzeugt technische Pre-Release-Evidenz, aber keinen Produktionsclaim.",
       "Studio, MCP und einzelne Modalitaeten bleiben unverified, bis ihre eigenen realen Gates bestanden sind.",
       "Manipulierte oder nicht sicher rekonstruierbare Cleanup-Reservations werden nicht automatisch dispatcht oder freigegeben."
     ]
   },
   "local_verification_evidence": {
-    "verified_at": "2026-07-29",
-    "source_ids": [],
-    "run_ids": [],
+    "verified_at": "2026-09-05",
+    "source_ids": [
+      "SRC_c7e0ae7ac3e9cee90704a9727b6efb17",
+      "SRC_9f0342cf851a802a884a1ff2d888273a",
+      "SRC_30f57380930df7e1eb8d37b39c0a2552"
+    ],
+    "run_ids": [
+      "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+    ],
+    "nvidia_core_text_gate": {
+      "state": "passed",
+      "evidence_scope": "local",
+      "production_release_eligible": false,
+      "repository_revision": "fa252f07d505fb677f666f4b7852980d24ab26c3",
+      "runtime_image_digest": "sha256:b2258fd253e6fef9e61887f8dcfd36003ded0a81310d6f53ac162c256c18492f",
+      "model_snapshot_sha256": "593a33abfa09eb4e8b24371db37ca11e1a61ae87884007fe766654d5b7ae1da0",
+      "gpu": "NVIDIA GeForce RTX 3080",
+      "gpu_memory_mib": 10240,
+      "driver": "595.84",
+      "cuda_runtime": "12.4",
+      "unsloth": "2026.7.5",
+      "deterministic_runs": 3,
+      "all_eight_stages_passed": true,
+      "human_intervention_required": false
+    },
     "python_ci_matrix": {
       "state": "passed",
       "tests_passed": 569,
