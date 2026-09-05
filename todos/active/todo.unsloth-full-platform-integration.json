@@ -35,16 +35,20 @@
       "SRC_8c7bb1ab808c2d1df42181ba652c3640",
       "SRC_2a44d26da3e4a8628a5926697333a8c8",
       "SRC_879761a78756b5b888b8e34f03b8fc35",
-      "SRC_8a7c2765e0b6fa3c1a8570ce2602d1d7"
+      "SRC_8a7c2765e0b6fa3c1a8570ce2602d1d7",
+      "SRC_201dc88d0e19556ac9a8b58e4b170c46",
+      "SRC_44a64227754dca2c9dcb2addd4e72bc7",
+      "SRC_0b12ec07e6b2ab59671688b74a7e989c"
     ],
     "provided_run_ids": [
       "RUN_d6b041ba2a574a96019632f182a6fdf4",
-      "RUN_492dc1479781ea7edb3ce4213bff682f"
+      "RUN_492dc1479781ea7edb3ce4213bff682f",
+      "RUN_f84ff0426392ec416ea1b8c97b226ce0"
     ],
     "automated_tests": "passed",
     "local_builds": "passed",
-    "local_runtime_validation": "passed_with_real_rtx3080_core_text_gate_without_real_studio",
-    "gpu_runtime_validation": "passed_three_hub_reserved_local_prerelease_runs",
+    "local_runtime_validation": "passed_with_real_rtx3080_core_text_and_non_synthetic_dataset_gate_without_real_studio",
+    "gpu_runtime_validation": "passed_three_hub_reserved_local_prerelease_runs_with_non_synthetic_dataset",
     "rules": [
       "Nur durch die Hub Evidence Registry ausgestellte oder von ihr unveraenderlich validierte SRC_* und RUN_* IDs gelten als Release-Evidenz.",
       "Worker- oder Caller-erzeugte, unbekannte oder nicht vor dem Lauf reservierte IDs gelten als unverifiziert beziehungsweise fehlgeschlagen.",
@@ -60,7 +64,7 @@
       "required_for_initial_release": true,
       "description": "Text-LoRA/QLoRA, Evaluation, Export und providerneutrale Runtime-Übergabe ohne Studio oder MCP.",
       "implementation_state": "code_complete",
-      "verification_state": "hub_reserved_local_rtx3080_gate_passed_three_runs",
+      "verification_state": "hub_reserved_local_rtx3080_gate_passed_three_runs_with_non_synthetic_dataset",
       "release_state": "verified_local_prerelease_not_production",
       "remaining_gate": "Fuer einen Produktionsclaim muss dieselbe Gate-Kette in einer durch Hub-Policy registrierten Produktions- oder Canary-Umgebung laufen."
     },
@@ -165,7 +169,7 @@
         "UNSLOTH-019",
         "UNSLOTH-021"
       ],
-      "status": "blocked",
+      "status": "in_progress",
       "implementation_state": "code_complete",
       "verification_state": "hub_evidence_chain_verified_studio_baseline_pending",
       "done_tasks": 4,
@@ -183,12 +187,12 @@
         "UNSLOTH-011",
         "UNSLOTH-012"
       ],
-      "status": "blocked",
+      "status": "done",
       "implementation_state": "code_complete",
-      "verification_state": "real_nvidia_training_and_resilience_verified_real_dataset_quality_gates_pending",
-      "done_tasks": 4,
-      "partial_tasks": 2,
-      "acceptance_progress_percent": 67
+      "verification_state": "real_nvidia_training_resilience_and_non_synthetic_dataset_verified",
+      "done_tasks": 6,
+      "partial_tasks": 0,
+      "acceptance_progress_percent": 100
     },
     {
       "id": "M3",
@@ -198,12 +202,12 @@
         "UNSLOTH-022",
         "UNSLOTH-014"
       ],
-      "status": "blocked",
+      "status": "done",
       "implementation_state": "code_complete",
-      "verification_state": "real_gpu_export_and_provider_runtime_verified_non_synthetic_dataset_pending",
-      "done_tasks": 2,
-      "partial_tasks": 1,
-      "acceptance_progress_percent": 67
+      "verification_state": "real_non_synthetic_gpu_export_evaluation_promotion_and_provider_runtime_verified",
+      "done_tasks": 3,
+      "partial_tasks": 0,
+      "acceptance_progress_percent": 100
     },
     {
       "id": "M4",
@@ -534,10 +538,9 @@
       "title": "Unsloth-Quellen in bestehende Modell- und Adapterkataloge integrieren",
       "type": "backend",
       "milestone_id": "M2",
-      "status": "blocked",
-      "progress_percent": 90,
-      "blocked_reason": "The real local NVIDIA LoRA/QLoRA path, Hub evidence and outer peak-VRAM projection are verified. Completion still requires admission of a non-synthetic approved dataset.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "hub_reserved_real_rtx3080_training_with_approved_non_synthetic_dataset_verified",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -564,22 +567,29 @@
       "implementation_state": "code_complete",
       "implementation_notes": [
         "Unsloth ist als austauschbare Worker-Strategie neben PEFT/TRL implementiert; der Hub orchestriert und der Worker fuehrt aus.",
-        "Admission, Backend-Auswahl und Fehlercodes sind explizit und fail-closed."
+        "Admission, Backend-Auswahl und Fehlercodes sind explizit und fail-closed.",
+        "Der gepinnte Databricks-Dolly-15k-Stand wurde als reales CC-BY-SA-3.0-Dataset aufgenommen, gescannt, deterministisch partitioniert und in drei echten RTX-3080-Laeufen verwendet."
       ],
       "acceptance_verification": {
-        "state": "local_subset_verified_external_evidence_pending",
+        "state": "verified_local_prerelease",
         "automated_tests": "passed",
-        "builds": "passed_local_targets_only",
-        "runtime_checks": "external_or_gpu_runtime_pending",
-        "provided_source_ids": [],
-        "provided_run_ids": []
+        "builds": "passed_local_nvidia_and_provider_images",
+        "runtime_checks": "passed_three_real_rtx3080_unsloth_runs_with_non_synthetic_dataset",
+        "provided_source_ids": [
+          "SRC_201dc88d0e19556ac9a8b58e4b170c46",
+          "SRC_9f0342cf851a802a884a1ff2d888273a",
+          "SRC_44a64227754dca2c9dcb2addd4e72bc7",
+          "SRC_8c7bb1ab808c2d1df42181ba652c3640",
+          "SRC_0b12ec07e6b2ab59671688b74a7e989c"
+        ],
+        "provided_run_ids": [
+          "RUN_f84ff0426392ec416ea1b8c97b226ce0"
+        ]
       },
-      "remaining_verification": [
-        "Ein echtes Text-LoRA/QLoRA-Minitraining muss auf einem freigegebenen NVIDIA-Runner mit backend=unsloth, freigegebenem lokalem Modell und Dataset ausgefuehrt werden.",
-        "Der Lauf muss Peak-VRAM, tatsaechliche Paket-/CUDA-Versionen sowie vorab durch den Hub ausgestellte SRC_*/RUN_*-Evidenz attestieren."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
-        "Strategie-, Admission-, Substituierbarkeits-, Fehler- und Mock-Protokollpfade sind durch Worker-, Runtime- und lokale Acceptance-Gates gruen."
+        "Strategie-, Admission-, Substituierbarkeits-, Fehler- und Mock-Protokollpfade sind durch Worker-, Runtime- und lokale Acceptance-Gates gruen.",
+        "RUN_f84ff0426392ec416ea1b8c97b226ce0 belegt drei echte backend=unsloth RTX-3080-Laeufe mit dem nicht-synthetischen Dataset SRC_0b12ec07e6b2ab59671688b74a7e989c, Peak-VRAM und attestierter CUDA-/Paketmatrix."
       ]
     },
     {
@@ -640,10 +650,9 @@
       "title": "Deterministischen Data-Recipe-Adapter auf dem bestehenden Dataset-Layer ergänzen",
       "type": "backend",
       "milestone_id": "M2",
-      "status": "blocked",
-      "progress_percent": 90,
-      "blocked_reason": "The deterministic recipe adapter and tenant-bound offline materialization are implemented. The remaining release criterion needs an approved non-synthetic dataset and license decision; the Hub will issue its evidence identities automatically on admission.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "hub_bound_real_dataset_recipe_and_offline_materialization_verified",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -670,22 +679,25 @@
       "implementation_state": "code_complete",
       "implementation_notes": [
         "Data Recipe v2 bindet Source und Run, root-relative Dataset-Referenz, Partition-Hash, Owner, Validierung und Lizenzstatus.",
-        "Materialisierung bleibt ein Hub-initiierter Worker-Task in einem separaten Offline-Profil ohne Worker-Polling oder Worker-zu-Worker-Orchestrierung."
+        "Materialisierung bleibt ein Hub-initiierter Worker-Task in einem separaten Offline-Profil ohne Worker-Polling oder Worker-zu-Worker-Orchestrierung.",
+        "Die reale Dolly-Recipe bindet Upstream-SHA, Lizenzscope, Dataset-/Partitionshash, Tenant, Hub-Source und vorreservierten Hub-Run unveraenderlich."
       ],
       "acceptance_verification": {
-        "state": "local_subset_verified_external_evidence_pending",
+        "state": "verified_local_prerelease",
         "automated_tests": "passed",
-        "builds": "passed_local_targets_only",
-        "runtime_checks": "external_or_gpu_runtime_pending",
-        "provided_source_ids": [],
-        "provided_run_ids": []
+        "builds": "passed_local_nvidia_image",
+        "runtime_checks": "passed_real_hub_bound_offline_recipe_materialization",
+        "provided_source_ids": [
+          "SRC_0b12ec07e6b2ab59671688b74a7e989c"
+        ],
+        "provided_run_ids": [
+          "RUN_f84ff0426392ec416ea1b8c97b226ce0"
+        ]
       },
-      "remaining_verification": [
-        "Eine freigegebene reale Data Recipe muss mit gueltigen bereitgestellten Source-/Run-IDs, Lizenzstatus und unveraenderlichem Dataset-/Partitionshash materialisiert werden.",
-        "Der reale Materialisierungslauf muss die tenantgebundene Offline-Worker-Grenze und das resultierende Dataset-Manifest attestieren."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
-        "Data-Recipe-v2-Vertrag, Offline-Materialisierung, Traversal-, Tenant-, Hash-, Lizenz- und Worker-Task-Pfade sind in der lokalen Python-/Worker-Matrix gruen."
+        "Data-Recipe-v2-Vertrag, Offline-Materialisierung, Traversal-, Tenant-, Hash-, Lizenz- und Worker-Task-Pfade sind in der lokalen Python-/Worker-Matrix gruen.",
+        "RUN_f84ff0426392ec416ea1b8c97b226ce0 materialisierte 64 gescannte reale Dolly-Datensaetze in eine immutable Recipe mit 53 Trainings- und 11 Validierungsrecords unter exakt derselben Hub-Run-Bindung."
       ]
     },
     {
@@ -919,10 +931,9 @@
       "title": "Evaluation, Promotion und Deployment-Freigabe verbindlich verketten",
       "type": "governance",
       "milestone_id": "M3",
-      "status": "blocked",
-      "progress_percent": 95,
-      "blocked_reason": "Evaluation, promotion, real provider inference, tamper rejection and rollback passed in Hub-bound GPU evidence. Completion still requires a non-synthetic admitted dataset through the same end-to-end chain.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "hub_reserved_non_synthetic_gpu_evaluation_promotion_runtime_and_rollback_chain_verified",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -952,26 +963,26 @@
         "Expected revision, Idempotenz, Widerruf, Rollback und stabile Mismatch-Codes werden ueber eine Hub-Fassade komponiert."
       ],
       "acceptance_verification": {
-        "state": "real_gpu_provider_chain_verified_non_synthetic_dataset_pending",
+        "state": "verified_local_prerelease",
         "automated_tests": "passed",
         "builds": "passed_local_nvidia_and_provider_images",
-        "runtime_checks": "passed_real_rtx3080_training_evaluation_promotion_provider_inference_and_rollback",
+        "runtime_checks": "passed_real_non_synthetic_rtx3080_training_evaluation_promotion_provider_inference_and_rollback",
         "provided_source_ids": [
-          "SRC_9e453fce2703bb5d29e8363ce14c1559",
+          "SRC_201dc88d0e19556ac9a8b58e4b170c46",
           "SRC_9f0342cf851a802a884a1ff2d888273a",
-          "SRC_50290f3cca900abcc309fbd780f87394",
-          "SRC_8c7bb1ab808c2d1df42181ba652c3640"
+          "SRC_44a64227754dca2c9dcb2addd4e72bc7",
+          "SRC_8c7bb1ab808c2d1df42181ba652c3640",
+          "SRC_0b12ec07e6b2ab59671688b74a7e989c"
         ],
         "provided_run_ids": [
-          "RUN_d6b041ba2a574a96019632f182a6fdf4"
+          "RUN_f84ff0426392ec416ea1b8c97b226ce0"
         ]
       },
-      "remaining_verification": [
-        "Ein nicht-synthetisches aufgenommenes Dataset muss mit echtem Unsloth-Training, Export, Evaluation, Promotion und Runtime-Handoff unter Hub-Evidenz verkettet werden."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
         "Promotion-, Revision-, Replay-, Mismatch-, Widerruf-, Rollback- und vier reale Domain-Tamper-Validatoren sind in Hub-/Domain- und lokalem Mock-Acceptance-Gate gruen.",
-        "Der Hub-reservierte RTX-3080-Lauf RUN_d6b041ba2a574a96019632f182a6fdf4 belegte Training, Evaluation, Promotion, unveraenderten GGUF-Handoff, echte Ollama-Inferenz und append-only Rollback ohne Fallback."
+        "Der Hub-reservierte RTX-3080-Lauf RUN_d6b041ba2a574a96019632f182a6fdf4 belegte Training, Evaluation, Promotion, unveraenderten GGUF-Handoff, echte Ollama-Inferenz und append-only Rollback ohne Fallback.",
+        "RUN_f84ff0426392ec416ea1b8c97b226ce0 wiederholte die gesamte Kette mit dem realen Dataset SRC_0b12ec07e6b2ab59671688b74a7e989c; Dataset-Provenance, GGUF-Handoff, GPU-residente Ollama-Inferenz und Rollback wurden unter derselben Hub-Reservierung verifiziert."
       ]
     },
     {
@@ -1475,10 +1486,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 13,
-      "done": 8
+      "blocked": 7,
+      "done": 14
     },
-    "progress_percent_done": 38.1,
+    "progress_percent_done": 66.7,
     "by_priority": {
       "P0": 13,
       "P1": 4,
@@ -1493,15 +1504,15 @@
     },
     "critical_path": {
       "total": 15,
-      "done": 5,
-      "remaining": 10
+      "done": 11,
+      "remaining": 4
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 1,
-      "blocked": 6,
-      "done": 0
+      "in_progress": 2,
+      "blocked": 3,
+      "done": 2
     }
   },
   "progress_summary": {
@@ -1509,18 +1520,18 @@
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 13,
-    "done": 8,
-    "count_based_percent": 38.1,
-    "weighted_percent": 91.4
+    "blocked": 7,
+    "done": 14,
+    "count_based_percent": 66.7,
+    "weighted_percent": 94.6
   },
   "summary_notes": [
-    "Alle 21 Repository-Tasks sind code-complete; 8 Tasks sind done und 13 warten auf reale Dataset-, Resilience-, Runtime-, Studio-, MCP-, Modalitaets- oder Produktionskriterien.",
-    "Der aktuelle Core-Text-Gate auf main@dbb5bca8f wurde am 2026-09-05 mit einem commitgebundenen NVIDIA-Image und Hub-reservierter Evidenz ausgefuehrt.",
+    "Alle 21 Repository-Tasks sind code-complete; 14 Tasks sind done und 7 warten auf reale Studio-, MCP-, Modalitaets- oder Produktionskriterien.",
+    "Der aktuelle Core-Text-Gate auf main@50c418596 wurde am 2026-09-05 mit einem commitgebundenen NVIDIA-Image, einem realen freigegebenen Dataset und Hub-reservierter Evidenz ausgefuehrt.",
     "Die exakte lokale Python-, Hub-/Domain-, Worker-, Runtime/App-, Compose-/Schema-/Compile-, Built-Container-, Mock-Acceptance- und Frontend-CI ist gruen.",
     "Das frische current-source Minimal-Image sha256:6b5786515f7207e0707154c46737427235472820b48e54e03d410f84390b8dcc hat den Built-Container-Smoke non-root, read-only, offline und auth-ready bestanden.",
-    "Die Hub Evidence Registry stellte drei SRC_* und RUN_860bb22060599fca9a8eae0264a1b0b6 vor dem Lauf aus; unbekannte, mutierte und nachtraegliche IDs bleiben fail-closed.",
-    "Auf der lokalen RTX 3080 bestanden drei echte backend=unsloth Wiederholungen mit CUDA 12.4, Treiber 595.84, Unsloth 2026.7.5 und allen acht Release-Stufen.",
+    "Die Hub Evidence Registry stellte fuenf SRC_* und RUN_f84ff0426392ec416ea1b8c97b226ce0 vor dem Lauf aus; unbekannte, mutierte und nachtraegliche IDs bleiben fail-closed.",
+    "Auf der lokalen RTX 3080 bestanden drei echte backend=unsloth Wiederholungen mit dem gescannten Databricks-Dolly-15k-Subset, CUDA 12.4, Treiber 595.84, Unsloth 2026.7.5 und allen acht Release-Stufen.",
     "Die Evidenz ist als local verifiziert und production_release_eligible=false; ein Produktionsclaim erfordert eine separat registrierte Produktions- oder Canary-Umgebung.",
     "Studio benoetigt weiterhin Image-/Build-Digest und Lizenzfreigabe sowie produktive Secrets, CIDRs, DNS/TLS und reale Studio-/MCP-Laufzeitvalidierung.",
     "Track-fremde Skips und die track-fremde Angular-CommonJS-Warnung blockieren den Unsloth-Track nicht."
@@ -1539,10 +1550,10 @@
     "angular_production_build": "passed",
     "fake_hub_chromium": "passed_1",
     "vitest_full_ci": "passed_1789",
-    "gpu_release_runs": "passed_three_hub_reserved_rtx3080_core_text_runs",
+    "gpu_release_runs": "passed_three_hub_reserved_rtx3080_core_text_runs_with_non_synthetic_dataset",
     "external_studio_validation": "not_run_external_inputs_missing",
-    "acceptance": "eight_tasks_done_thirteen_profile_specific_criteria_pending",
-    "release_readiness": "core_text_local_prerelease_verified_production_not_established"
+    "acceptance": "fourteen_tasks_done_seven_profile_specific_criteria_pending",
+    "release_readiness": "core_text_non_synthetic_local_prerelease_verified_production_not_established"
   },
   "verification_backlog": {
     "code_gaps": [],
@@ -1553,18 +1564,16 @@
       "Compose-Konfigurationen, Profilmatrix, YAML, acht JSON-Schemas, compileall und Dockerfile-Targets bestanden.",
       "Lokaler Mock-Acceptance-Lauf fuer profile=unsloth mit Exit 0 bestanden, ohne GPU-Support-Claim.",
       "Angular targeted 99/99, Produktionsbuild, Fake-Hub Chromium 1/1 und ungefiltertes Vitest 1789/1789 ausgefuehrte Tests bestanden.",
-      "Hub-reserviertes RTX-3080-Gate: 3/3 reale Unsloth-Laeufe; Training, Evaluation, Adapter-/Merged-16bit-/GGUF-Export, Promotion, Runtime-Handoff, Rollback und Tamper-Negativpfade bestanden."
+      "Hub-reserviertes RTX-3080-Gate: 3/3 reale Unsloth-Laeufe; Training, Evaluation, Adapter-/Merged-16bit-/GGUF-Export, Promotion, Runtime-Handoff, Rollback und Tamper-Negativpfade bestanden.",
+      "RUN_f84ff0426392ec416ea1b8c97b226ce0: Gepinntes Databricks-Dolly-15k-Dataset aufgenommen, 256 Kandidaten gescannt, 2 sensible Kandidaten ausgeschlossen, 64 saubere Records Hub-gebunden materialisiert und durch dieselbe reale GPU-/Provider-Kette gefuehrt.",
+      "RUN_492dc1479781ea7edb3ce4213bff682f: Echter Exit-137-Crash, Checkpoint-Resume, stale Fence, Forced-Cancel und vollstaendige GPU-Ressourcenfreigabe bestanden."
     ],
     "remaining_release_gates": [
-      "Reales freigegebenes Dataset statt der synthetischen Smoke-Daten aufnehmen und Hub-gebunden materialisieren.",
-      "Crash/Resume, Cancellation, Fence und Ressourcenfreigabe in einem separaten Hub-reservierten GPU-Szenario attestieren.",
-      "GGUF und promoted Adapter ueber die vorgesehenen produktiven Provideradapter real laden und inferieren.",
       "Vision, Audio und Embedding jeweils separat auf freigegebener GPU ausfuehren.",
       "Studio Auth, Refresh, Health, deaktivierte Tools, interne Erreichbarkeit und GPU gegen einen lizenzfreigegebenen gepinnten Build pruefen.",
       "MCP Streamable HTTP und stop_training mit produktivem separatem Token ueber Hub-Task bis Worker-Result real korrelieren."
     ],
     "external_inputs": [
-      "Freigegebener realer Dataset-Stand mit Herkunft und Lizenzentscheidung fuer den naechsten Hub-SRC-Datensatznachweis.",
       "Durch Hub-Policy registrierte Produktions- oder Canary-Umgebung fuer einen production_release_eligible Claim.",
       "Lizenzfreigegebener unveraenderlicher Studio-Build-/Image-Digest.",
       "Operatorverwaltete Studio-/JWT-/MCP-Secrets, erlaubte CIDRs und reale DNS-/TLS-Endpunkte."
@@ -1579,20 +1588,23 @@
   "local_verification_evidence": {
     "verified_at": "2026-09-05",
     "source_ids": [
-      "SRC_7dd96da6eeeec3431d9f40273a8097e8",
+      "SRC_201dc88d0e19556ac9a8b58e4b170c46",
       "SRC_9f0342cf851a802a884a1ff2d888273a",
-      "SRC_99bb8f9e2a3266d87981fedc22d16652"
+      "SRC_44a64227754dca2c9dcb2addd4e72bc7",
+      "SRC_8c7bb1ab808c2d1df42181ba652c3640",
+      "SRC_0b12ec07e6b2ab59671688b74a7e989c"
     ],
     "run_ids": [
-      "RUN_860bb22060599fca9a8eae0264a1b0b6"
+      "RUN_f84ff0426392ec416ea1b8c97b226ce0",
+      "RUN_492dc1479781ea7edb3ce4213bff682f"
     ],
     "nvidia_core_text_gate": {
       "state": "passed",
       "evidence_scope": "local",
       "production_release_eligible": false,
-      "repository_revision": "dbb5bca8fd6b0d48300a52ceecf364ee0dd48017",
-      "runtime_image_digest": "sha256:8d5592c7e64b3d97e73979832c80675cdfbee06e2b5a93d04154ce265c08e3e7",
-      "model_snapshot_sha256": "254d61ebf6a94b8e74b825b856aad01ce5a67767be06bbe4dfed0186ab2ec94b",
+      "repository_revision": "50c4185968a7fcb9b9ddfee1db0b6865e19336be",
+      "runtime_image_digest": "sha256:bc21258c8625912051e93ed3eb8966c0ab74a2f5959a6fb55688978c49d1ed88",
+      "model_snapshot_sha256": "593a33abfa09eb4e8b24371db37ca11e1a61ae87884007fe766654d5b7ae1da0",
       "gpu": "NVIDIA GeForce RTX 3080",
       "gpu_memory_mib": 10240,
       "driver": "595.84",
@@ -1601,8 +1613,32 @@
       "deterministic_runs": 3,
       "all_eight_stages_passed": true,
       "telemetry_attestation": "passed",
-      "max_memory_allocated_bytes": 500954112,
-      "max_memory_reserved_bytes": 629145600,
+      "max_memory_allocated_bytes": 501281792,
+      "max_memory_reserved_bytes": 631242752,
+      "dataset": {
+        "dataset_id": "databricks-dolly-15k",
+        "source_id": "SRC_0b12ec07e6b2ab59671688b74a7e989c",
+        "source_sha256": "2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec",
+        "partition_sha256": "3503f59244e1361e96a86b36a954d77a3abda90bc7ef943188699ed402f34f8e",
+        "synthetic": false,
+        "license": "CC-BY-SA-3.0",
+        "admitted_records": 64,
+        "train_records": 53,
+        "validation_records": 11,
+        "pii_findings": 0,
+        "secret_findings": 0,
+        "excluded_sensitive_candidates": 2
+      },
+      "provider_runtime": {
+        "provider": "ollama",
+        "version": "0.32.4",
+        "gguf_sha256": "d4064ff718a023e0e60639dae502f6945dd54fc4c9a9c13cac22abd201e6eee7",
+        "gguf_size_bytes": 105453888,
+        "gpu_resident": true,
+        "implicit_fallback": false,
+        "rollback": "passed",
+        "gpu_resources_released": true
+      },
       "job_attempt_fence_binding": "passed",
       "human_intervention_required": false
     },
