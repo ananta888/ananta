@@ -11,6 +11,7 @@ import hmac
 import json
 import re
 import shutil
+import string
 import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -24,6 +25,17 @@ from scripts.lora_training_smoke_files import (
 from scripts.lora_training_smoke_files import (
     tree_sha256 as _tree_sha256,
 )
+
+_DIAGNOSTIC_LIMIT = 512
+
+
+def bounded_worker_diagnostic(value: object) -> str:
+    """Return an actionable diagnostic without worker paths or credentials."""
+    message = "".join(character for character in str(value or "") if character in string.printable)
+    message = re.sub(r"(?i)bearer\s+\S+", "Bearer <redacted>", message)
+    message = re.sub(r"https?://\S+", "<url>", message)
+    message = re.sub(r"(?<![\w.-])/(?:[^\s/:]+/)*[^\s:]*", "<path>", message)
+    return message[-_DIAGNOSTIC_LIMIT:]
 
 
 def terminal_runtime_status(
@@ -330,11 +342,13 @@ def complete_unsloth_release_chain(
         timeout_seconds=timeout_seconds,
     )
     if evaluation_status.get("status") != "succeeded":
+        evaluation_error = dict(evaluation_status.get("error") or {})
         failed = {
             "status": "failed",
             "reason_code": str(
-                dict(evaluation_status.get("error") or {}).get("code") or "standalone_adapter_evaluation_failed"
+                evaluation_error.get("code") or "standalone_adapter_evaluation_failed"
             ),
+            "diagnostic": bounded_worker_diagnostic(evaluation_error.get("message")),
         }
         return {
             **base,

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 import scripts.run_lora_training_smoke as smoke_gate
+from scripts.lora_training_smoke_release_chain import bounded_worker_diagnostic
 from scripts.run_lora_training_smoke import (
     _nvidia_probe,
     _tree_sha256,
@@ -314,6 +315,7 @@ def test_unsloth_stage_failure_is_a_failed_run_with_diagnostics() -> None:
     run["platform_stage_coverage"]["adapter_evaluation"] = {
         "status": "failed",
         "reason_code": "adapter_load_failed",
+        "diagnostic": "adapter shape mismatch",
     }
 
     failed = smoke_gate._aggregate_nvidia_runs(
@@ -328,7 +330,20 @@ def test_unsloth_stage_failure_is_a_failed_run_with_diagnostics() -> None:
     assert failed["runs"][0]["stage_results"]["adapter_evaluation"] == {
         "status": "failed",
         "reason_code": "adapter_load_failed",
+        "diagnostic": "adapter shape mismatch",
     }
+
+
+def test_worker_diagnostic_is_bounded_and_redacts_transport_and_paths() -> None:
+    diagnostic = bounded_worker_diagnostic(
+        "Bearer top-secret failed at /models/private/model with https://worker.internal/error "
+        + "x" * 600
+    )
+
+    assert len(diagnostic) <= 512
+    assert "top-secret" not in diagnostic
+    assert "/models/private/model" not in diagnostic
+    assert "worker.internal" not in diagnostic
 
 
 def test_every_release_transition_has_a_tamper_denial() -> None:

@@ -164,6 +164,7 @@ def aggregate_nvidia_runs(
                     stage: {
                         "status": dict(coverage.get(stage) or {}).get("status", "missing"),
                         "reason_code": dict(coverage.get(stage) or {}).get("reason_code"),
+                        "diagnostic": dict(coverage.get(stage) or {}).get("diagnostic"),
                     }
                     for stage in required_stages
                 },
