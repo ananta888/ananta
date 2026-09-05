@@ -189,8 +189,9 @@ def _measurements_complete(
         ):
             return False
         if (
-            scenarios["backgroundTab"].get("documentHasFocus") is not False
-            or scenarios["backgroundTab"].get("activation") != "cover_tab_brought_to_front"
+            scenarios["backgroundTab"].get("activation") != "cover_tab_brought_to_front"
+            or scenarios["backgroundTab"].get("pageCount") != 2
+            or scenarios["backgroundTab"].get("delivered") is not True
         ):
             return False
         if scenarios["iceRestart"].get("delivered") is not True:

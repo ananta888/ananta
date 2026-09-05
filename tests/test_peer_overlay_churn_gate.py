@@ -22,8 +22,9 @@ def test_churn_validator_requires_real_engines_identities_and_bounded_recovery()
             "processIsolation": True,
             "scenarios": {
                 "backgroundTab": {
-                    "documentHasFocus": False,
                     "activation": "cover_tab_brought_to_front",
+                    "pageCount": 2,
+                    "delivered": True,
                     "recoveryMs": 100,
                 },
                 "relayFailure": {"recoveryMs": 100},

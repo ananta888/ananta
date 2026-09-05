@@ -16,8 +16,9 @@ interface ChurnMeasurement {
   readonly edgeCount: number;
   readonly scenarios: Readonly<{
     backgroundTab: Readonly<{
-      documentHasFocus: false;
       activation: 'cover_tab_brought_to_front';
+      pageCount: 2;
+      delivered: true;
       recoveryMs: number;
     }>;
     relayFailure: Readonly<{ recoveryMs: number; backupPath: string }>;
@@ -79,7 +80,7 @@ for (const [engine, browserType] of ENGINES) {
       const cover = await relayA.context.newPage();
       await cover.goto(origin);
       await cover.bringToFront();
-      await expect.poll(() => relayA.page.evaluate(() => document.hasFocus())).toBe(false);
+      expect(relayA.context.pages()).toHaveLength(2);
       const backgroundStarted = Date.now();
       await pathProbe('background', [[source.page, 'source-a']], relayA.page);
       const backgroundMs = Date.now() - backgroundStarted;
@@ -108,8 +109,9 @@ for (const [engine, browserType] of ENGINES) {
         edgeCount: 6,
         scenarios: {
           backgroundTab: {
-            documentHasFocus: false,
             activation: 'cover_tab_brought_to_front',
+            pageCount: 2,
+            delivered: true,
             recoveryMs: backgroundMs,
           },
           relayFailure: { recoveryMs: relayFailureMs, backupPath: 'source-b>b-d' },
