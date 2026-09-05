@@ -1,24 +1,28 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "1.1",
-  "updated_at": "2026-09-02",
+  "updated_at": "2026-09-05",
   "owner": "Peter Stuiber / Ananta",
   "track": "qdrant_vector_store_integration",
   "status": "blocked",
   "purpose": "Qdrant als optionales, lokal betreibbares Vector-Store-Backend fuer CodeCompass und Wiki-RAG integrieren, ohne den bestehenden JSON-Store als deterministischen Offline-, Kompatibilitaets- und Test-Fallback zu verlieren.",
   "goal": "Ananta erhaelt capability-orientierte Ports fuer Dense-Vector-Persistenz und -Suche mit austauschbaren JSON- und Qdrant-Adaptern. JSON bleibt Default. Qdrant ergaenzt persistente ANN-Suche, serverseitige Scope-Filter, inkrementelle Upserts und Loeschungen. Hub-gesteuerte Index- und Migrationsauftraege bleiben von der reinen Suche getrennt.",
   "source_review": {
-    "reviewed_at": "2026-09-02",
+    "reviewed_at": "2026-09-05",
     "grounding_status": "local_hub_verified",
     "source_ids": [
-      "SRC_7f21ca8a6386edff6e11881141585659"
+      "SRC_7f21ca8a6386edff6e11881141585659",
+      "SRC_1f5a83d0112d644c50bf0d153feaa95c",
+      "SRC_b3e789352d931fb89b8f7e932a075568",
+      "SRC_0e3b184a1cc7624f68f609a2c8c69282"
     ],
     "run_ids": [
-      "RUN_2a9f0114383b46b11e9360a4a280284f"
+      "RUN_2a9f0114383b46b11e9360a4a280284f",
+      "RUN_ef3bbc799c15c4a3ff9a073693c2fe13"
     ],
-    "commit_sha": "f7813642a43bc12f1dc99d1807dfb8a726461590",
-    "note": "Die lokale Source-Baseline und der echte TLS-Qdrant-Lauf wurden vor Ausfuehrung durch die Hub Evidence Registry unveraenderlich gebunden und nach Result-Ingress erfolgreich verifiziert.",
-    "status_note": "Der Hub-verifizierte Lauf gegen den digestgebundenen Qdrant-Server 1.18.3 mit qdrant-client 1.18.0 bestand alle sechs marker-selektierten Integrations- und Transporttests ohne Skip und mit vollstaendigem Cleanup. Das redigierte Ergebnis liegt unter artifacts/domain/qdrant-hub-evidence.json. Ein vollstaendiges BenchmarkRunArtifact eines freigegebenen Referenzhosts fehlt weiterhin und wird nicht als bestanden behauptet."
+    "commit_sha": "24c67a8eff8452f3fc899456a9bfa5a32c759b7f",
+    "note": "Die lokale Source-Baseline, der echte TLS-Qdrant-Integrationslauf und die Small-Referenzhost-Benchmarkstufe wurden jeweils vor Ausfuehrung durch die Hub Evidence Registry unveraenderlich gebunden und nach Result-Ingress erfolgreich verifiziert.",
+    "status_note": "Der Hub-verifizierte Integrationslauf gegen den digestgebundenen Qdrant-Server 1.18.3 bestand alle sechs marker-selektierten Tests. Zusaetzlich bestand RUN_ef3bbc799c15c4a3ff9a073693c2fe13 die reale Small-Benchmarkstufe mit 10.000 Vektoren, 100 Queries, zwei Warmups, fuenf Messlaeufen, vollstaendigem Recall@10/@50 und gebundenen Hardware-/Runtime-/Speichermetriken. Medium und Large bleiben separat offen; Large fordert laut Profil mindestens 128 GiB RAM und kann auf dem vorhandenen 61,3-GiB-Host nicht freigegeben werden."
   },
   "status_scale": [
     "todo",
@@ -54,7 +58,8 @@
       "Endpoint-, TLS-, Secret- und Rollout-Policies sind fail-closed. trusted_private_origins hebt fuer exakt allowlistete Origins ausschliesslich das external_calls_allowed-Opt-in auf; jeder Nicht-Loopback-REST-/gRPC-Endpunkt benoetigt weiterhin HTTPS beziehungsweise GRPCS mit aktiver Zertifikatspruefung. Das Compose-Profil verwendet natives Qdrant-TLS und eine scoped CA-Secret-Referenz.",
       "Read-only JSON-Fallback, bounded Observer-/Prometheus-Metriken, Migration, Benchmark-Runner, Compose-Profile und Betriebsdokumentation sind produktiv komponiert und durch fokussierte Positiv- und Negativtests abgedeckt.",
       "Der Hub-verifizierte TLS-Lauf gegen Qdrant 1.18.3 und qdrant-client 1.18.0 hat unter RUN_2a9f0114383b46b11e9360a4a280284f alle sechs marker-selektierten Integrations- und Transporttests ohne Skips bestanden und danach Aliase, Collections, Container, Volumes, Netzwerke, Zertifikate und API-Key entfernt.",
-      "Das versionierte Benchmarkprofil und seine fail-closed inconclusive-Gates sind implementiert. Der vollstaendige small/medium/large-Lauf auf einem freigegebenen Referenzhost wurde nicht ausgefuehrt.",
+      "Das versionierte Benchmarkprofil und seine fail-closed inconclusive-Gates sind implementiert. Die Small-Stufe wurde auf dem freigegebenen lokalen Referenzhost vollstaendig ausgefuehrt; Medium und Large wurden noch nicht ausgefuehrt.",
+      "RUN_ef3bbc799c15c4a3ff9a073693c2fe13 verifiziert die reale Small-Stufe auf Revision 24c67a8eff8452f3fc899456a9bfa5a32c759b7f: Recall@10/@50 war gefiltert und ungefiltert 1,0, Qdrant Search-p95 lag zwischen 188,6 und 240,7 ms bei 250-ms-Budget, Build-p95 bei 13,03 s, Refresh-p95 bei 3,00 s, Client-Peak bei 433.135.616 Byte und Qdrant-Peak bei 319.815.680 Byte. Medium und Large sind damit nicht vorweggenommen.",
       "Qdrant ersetzt ausschliesslich Dense-Vector-Persistenz und -Suche. Lexical-, Symbol-, Graph-, Domain- und Ranking-Logik bleiben unveraendert.",
       "Die Struktur wahrt SRP, ISP und DIP durch getrennte Ports, Adapter, Composition Roots, Input-Loader, Observer, Command-/Query-/Dispatch-Services und Memory-Sampler; Worker-zu-Worker-Orchestrierung wurde nicht eingefuehrt.",
       "Der track-spezifische Source-Line-Gate ist sauber. Der globale Repository-Gate meldet weiterhin 13 nicht-Qdrant-bezogene Legacy-/Concurrent-Dateien; deshalb wird kein Claim abgegeben, dass saemtliche GitHub-Workflows bereits gruen sind."
@@ -143,10 +148,10 @@
       "config/benchmarks/qdrant-vector-store.v1.json",
       ".github/workflows/quality-and-docs.yml"
     ],
-    "main_architecture_gap": "Keine bekannte Source-Luecke im implementierten Hub-owned Mutation- und expliziten Hub-as-worker-Read-Vertrag. Formale Source-Grounding-Evidence fehlt weiterhin.",
-    "operations_gap": "Der digestgebundene, TLS-gesicherte CI-Job ist auf Qdrant 1.18.3 aktualisiert und der Hub-verifizierte lokale Lauf bestand sechs von sechs. Offen ist ein vollstaendiges freigegebenes Referenzhost-BenchmarkRunArtifact.",
-    "security_gap": "Keine bekannte Source-Policy-Luecke im geprueften Stand: trusted_private_origins ist keine Klartext-HTTP-Ausnahme, sondern kann nur fuer exakt allowlistete Origins external_calls_allowed ersetzen. Jeder Nicht-Loopback-Endpunkt bleibt TLS- und zertifikatspruefungspflichtig; formale RUN_* Evidence fehlt.",
-    "migration_gap": "Keine bekannte Source-Luecke: Dry-run, digestgebundener Input, scope-/idempotency-gebundener Checkpoint, Resume, Alias-Aktivierung und Source-Erhalt sind durch lokale Tests und den realen TLS-Qdrant-Lauf abgedeckt; RUN_* Grounding fehlt."
+    "main_architecture_gap": "Keine bekannte Source-Luecke im implementierten Hub-owned Mutation- und expliziten Hub-as-worker-Read-Vertrag. Integration und Small-Benchmark sind formal Hub-gebunden; die offenen Medium-/Large-Profile sind eine Kapazitaets-, keine Architekturgrenze.",
+    "operations_gap": "Der digestgebundene, TLS-gesicherte CI-Job ist auf Qdrant 1.18.3 aktualisiert, der Hub-verifizierte lokale Integrationslauf bestand sechs von sechs und die reale Small-Referenzstufe ist bestanden. Offen sind Medium und Large; das Large-Profil fordert mindestens 128 GiB RAM und uebersteigt den vorhandenen 61,3-GiB-Host.",
+    "security_gap": "Keine bekannte Source-Policy-Luecke im geprueften Stand: trusted_private_origins ist keine Klartext-HTTP-Ausnahme, sondern kann nur fuer exakt allowlistete Origins external_calls_allowed ersetzen. Jeder Nicht-Loopback-Endpunkt bleibt TLS- und zertifikatspruefungspflichtig; Integrations- und Small-Benchmark-Runs sind Hub-verifiziert und secretfrei projiziert.",
+    "migration_gap": "Keine bekannte Source-Luecke: Dry-run, digestgebundener Input, scope-/idempotency-gebundener Checkpoint, Resume, Alias-Aktivierung und Source-Erhalt sind durch lokale Tests und den realen Hub-verifizierten TLS-Qdrant-Lauf abgedeckt."
   },
   "architecture_principles": [
     "Qdrant ist optional; Ananta bleibt ohne qdrant-client und ohne Qdrant-Service start- und testbar.",
@@ -468,7 +473,7 @@
         "QVS-023",
         "QVS-022"
       ],
-      "status": "blocked"
+      "status": "in_progress"
     }
   ],
   "critical_path_tasks": [
@@ -1187,11 +1192,15 @@
         "config/benchmarks/qdrant-vector-store.v1.json",
         "scripts/benchmark/qdrant_vector_store.py",
         "scripts/benchmark/qdrant_vector_store_memory.py",
+        "scripts/run_hub_evidence_qdrant_benchmark_gate.py",
+        "worker/retrieval/json_vector_search.py",
         "tests/benchmarks/codecompass_worker/test_qdrant_vector_store_benchmark.py",
+        "tests/test_hub_evidence_qdrant_benchmark_gate.py",
+        "tests/worker/test_json_vector_search.py",
         "docs/worker/qdrant-vector-store.md"
       ],
       "description": "JSON und Qdrant mit festen Seeds, versionierten Profilen und strukturierten BenchmarkRunArtifact-Ergebnissen vergleichen.",
-      "status_note": "Profil v1, Seed und exakt definierte small/medium/large-Lasten, Warmups/Messlaeufe, Build/Refresh/Search-Latenzen, gefiltertes und ungefiltertes Recall, Client-/Container-RSS, Budgets, verifizierter 40- bis 64-stelliger Hex-Source-Commit und fail-closed Artifact-Gates sind implementiert und getestet. Ein vollstaendiges nicht-inconclusive BenchmarkRunArtifact eines freigegebenen Referenzhosts fehlt.",
+      "status_note": "Profil v1, Hub-reservierter Runner, Build/Refresh/Search-Latenzen, gefiltertes und ungefiltertes Recall, Client-/Container-RSS, Budgets und fail-closed Artifact-Gates sind implementiert. RUN_ef3bbc799c15c4a3ff9a073693c2fe13 bestand die reale Small-Stufe vollstaendig und empfiehlt auf dieser Stufe Qdrant. Medium und Large bleiben offen; Large ist wegen der Profilanforderung von mindestens 128 GiB RAM auf dem vorhandenen 61,3-GiB-Host inconclusive.",
       "acceptance_criteria": [
         "Profil v1 verwendet Seed 424242 und deklariert exakt: small=10000 Records/100 Queries/384 Dimensionen/512 Byte Payload, medium=100000/500/768/1024 Byte und large=1000000/1000/1536/2048 Byte.",
         "Der Runner fuehrt pro Profil zwei Warmup-Laeufe und fuenf Messlaeufe aus und misst Build, Refresh sowie Search p50/p95.",
@@ -1203,7 +1212,27 @@
         "Die Dokumentation leitet eine JSON-/Qdrant-Empfehlung nur aus einem vollstaendigen, nicht inconclusive Artefakt ab."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Profil, Runner, Recall-/Latenz-/RSS-Messung, Budgets und fail-closed Artifact-Gates sind vollständig implementiert. Ein vollständiges nicht-inconclusive BenchmarkRunArtifact benötigt einen freigegebenen Referenzhost mit ausreichenden Ressourcen und gültige externe Run-Evidenz."
+      "blocked_reason": "Die Small-Stufe ist unter RUN_ef3bbc799c15c4a3ff9a073693c2fe13 auf dem freigegebenen lokalen Referenzhost Hub-verifiziert bestanden. Offen sind Medium und Large; das Large-Profil verlangt mindestens 128 GiB RAM, waehrend der vorhandene Host 65.782.554.624 Byte besitzt. Ein anderer ausreichend grosser Referenzhost oder eine explizite, neu versionierte Profilentscheidung ist erforderlich; die bestandene Small-Stufe wird nicht auf groessere Lasten extrapoliert.",
+      "verification_evidence": {
+        "profile": "small",
+        "source_ids": [
+          "SRC_1f5a83d0112d644c50bf0d153feaa95c",
+          "SRC_b3e789352d931fb89b8f7e932a075568",
+          "SRC_0e3b184a1cc7624f68f609a2c8c69282"
+        ],
+        "run_id": "RUN_ef3bbc799c15c4a3ff9a073693c2fe13",
+        "revision": "24c67a8eff8452f3fc899456a9bfa5a32c759b7f",
+        "status": "passed",
+        "production_release_eligible": false,
+        "duration_seconds": 1177.9704282931052,
+        "minimum_recall_at_10": 1.0,
+        "minimum_recall_at_50": 1.0,
+        "qdrant_search_p95_ms_max": 240.72568815900004,
+        "qdrant_build_p95_seconds": 13.03212766139768,
+        "qdrant_refresh_p95_seconds": 3.0021680747158825,
+        "client_peak_rss_bytes": 433135616,
+        "qdrant_peak_rss_bytes": 319815680
+      }
     },
     {
       "id": "QVS-021",
@@ -1372,7 +1401,8 @@
   ],
   "summary_notes": [
     "Source-realistischer Stand 2026-08-30: Alle lokal implementierbaren Qdrant-, JSON-, Taskflow-, Wiki-, Rollout-, Compose-, Security-, Migrations-, Observer- und Dokumentationskriterien sind umgesetzt; die Qdrant-bezogenen Hub-Taskverantwortungen wurden in source-line-konforme SRP-Module getrennt.",
-    "Der digestgebundene Integrationsjob und das Wiki-Gate sind Hub-verifiziert abgeschlossen. Formal offen bleiben ein vollstaendiges BenchmarkRunArtifact eines freigegebenen Referenzhosts und die davon abhaengigen Release-Gates fuer Rollout und Dokumentation.",
+    "Der digestgebundene Integrationsjob und das Wiki-Gate sind Hub-verifiziert abgeschlossen. Die reale Small-Benchmarkstufe ist ebenfalls Hub-verifiziert bestanden; formal offen bleiben Medium und Large sowie die davon abhaengigen Release-Gates fuer Rollout und Dokumentation.",
+    "RUN_ef3bbc799c15c4a3ff9a073693c2fe13 bestand auf Revision 24c67a8eff8452f3fc899456a9bfa5a32c759b7f die Small-Stufe mit allen Recall-, Latenz- und RSS-Budgets. Der vorhandene Host erfuellt mit 61,3 GiB RAM nicht die 128-GiB-Mindestanforderung des Large-Profils; der Track bleibt deshalb ohne Extrapolation blockiert.",
     "Der Hub-verifizierte TLS-Lauf auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 gegen Qdrant 1.18.3 mit qdrant-client 1.18.0 bestand unter RUN_2a9f0114383b46b11e9360a4a280284f sechs von sechs marker-selektierte Szenarien ohne Skip und mit vollstaendigem Cleanup.",
     "Der offizielle Upstream-Abgleich vom 2026-08-30 zeigt Qdrant 1.19.0 als aktuelle Minor-Version. Der konservative Patch-Bump innerhalb der verwendeten 1.18-Linie auf 1.18.3 ist umgesetzt und lokal getestet; der Minor-Bump auf 1.19.0 bleibt ausserhalb dieses Wartungsschritts.",
     "Die breite Qdrant-/Vector-/Wiki-Regression bestand lokal mit 883 Tests und 3 erwarteten Skips; Standard-Pipeline, Workflow-Gates und fokussierte Security-/Auth-Matrizen bestanden ebenfalls.",
@@ -1381,7 +1411,7 @@
     "Die lokale Source- und Run-Bindung ist unter SRC_7f21ca8a6386edff6e11881141585659 und RUN_2a9f0114383b46b11e9360a4a280284f verifiziert; weitergehende externe Benchmark-Claims bleiben ohne eigenen Lauf unverified.",
     "QVS-018 wurde entfernt; seine Unit-Testkriterien sind tasknah in QVS-005, QVS-007, QVS-008, QVS-010, QVS-011, QVS-014 und QVS-015 enthalten.",
     "QVS-024 ist lokal abgeschlossen: Qdrant-Mutationen bleiben Hub-owned, signiert, online zugelassen, replaygeschuetzt und zentral autorisiert; Worker fuehren nur delegierte Auftraege aus.",
-    "QVS-019 und QVS-021 sind abgeschlossen. QVS-020 bleibt wegen des fehlenden Referenzhosts blockiert; QVS-023 und QVS-022 warten ausschliesslich auf dieses Benchmark- und Rollout-Gate."
+    "QVS-019 und QVS-021 sind abgeschlossen. QVS-020 besitzt reale bestandene Small-Evidenz, bleibt aber wegen der offenen Medium-/Large-Stufen blockiert; QVS-023 und QVS-022 warten auf dieses vollstaendige Benchmark- und Rollout-Gate."
   ],
   "non_goals": [
     "Qdrant ersetzt nicht den EmbeddingProvider.",
@@ -1422,9 +1452,8 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 0,
-      "partial": 0,
-      "blocked": 1,
+      "in_progress": 1,
+      "blocked": 0,
       "done": 4
     }
   },
@@ -1433,317 +1462,279 @@
     "by_type": {
       "architecture": {
         "total": 2,
-        "done": 2,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
-        }
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "refactoring": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "configuration": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "security": {
         "total": 2,
-        "done": 2,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
-        }
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "integration": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "dependency": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "schema": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "validation": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "retrieval": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "indexing": {
         "total": 3,
-        "done": 3,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 3
-        }
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "resilience": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "orchestration": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "migration": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "operations": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "observability": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "testing": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "benchmark": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 90.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 90.0
       },
       "rollout": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 95.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 95.0
       },
       "documentation": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 90.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 90.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 44.5,
-    "done_weight": 43.6,
-    "remaining_weight": 0.9,
-    "blocked_weight": 11.5,
-    "weighted_percent": 98.0
+    "done_weight": 43.975,
+    "remaining_weight": 0.525,
+    "blocked_weight": 6.5,
+    "weighted_percent": 98.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1773,19 +1764,19 @@
       },
       "M4": {
         "total_tasks": 3,
-        "done": 2,
-        "blocked": 1,
-        "count_based_percent": 66.7,
-        "weighted_percent": 95.8,
-        "status": "in_progress"
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M5": {
         "total_tasks": 4,
-        "done": 0,
-        "blocked": 4,
-        "count_based_percent": 0.0,
-        "weighted_percent": 92.8,
-        "status": "blocked"
+        "done": 1,
+        "blocked": 3,
+        "count_based_percent": 25.0,
+        "weighted_percent": 94.2,
+        "status": "in_progress"
       }
     }
   },
@@ -1796,16 +1787,16 @@
     "partial": 0,
     "blocked": 3,
     "done": 20,
-    "milestones_done": 4,
-    "milestones_total": 5
+    "count_based_percent": 87.0,
+    "weighted_percent": 98.8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-31T16:33:49.082798Z",
+    "generated_at": "2026-09-05T20:37:59.498323Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "73ef86b967407d9a05117ac20d32978072a00272531d49e125b248a7d1d959bd",
+    "source_hash": "aff07b3cf01db4f1c8fc7f01cc191e7e18e1467f490658aa3e147be6c431bb96",
     "is_stale": false
   }
 }
