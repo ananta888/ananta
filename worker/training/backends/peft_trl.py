@@ -17,6 +17,7 @@ from worker.training.backends.base import TrainingBackendError, TrainingContext,
 from worker.training.backends.trl_compat import sequence_length_options
 from worker.training.datasets import iter_jsonl
 from worker.training.local_transformers_tokenizer import load_local_tokenizer
+from worker.training.trainer_checkpoint_observer import TrainerCheckpointObserver
 
 
 class PeftTrlTrainingBackend:
@@ -162,7 +163,16 @@ class PeftTrlTrainingBackend:
                 peft_config=prepared["peft_config"],
                 callbacks=callbacks,
             )
-            result = trainer.train(resume_from_checkpoint=str(context.resume_path) if context.resume_path else None)
+            checkpoint_observer = TrainerCheckpointObserver(
+                root=context.checkpoint_root,
+                emit=context.emit,
+            )
+            checkpoint_observer.start()
+            try:
+                result = trainer.train(resume_from_checkpoint=str(context.resume_path) if context.resume_path else None)
+            finally:
+                checkpoint_observer.stop()
+            checkpoint_observer.raise_if_failed()
         except TrainingBackendError:
             raise
         except ImportError as exc:
@@ -269,11 +279,7 @@ class PeftTrlTrainingBackend:
                     "eval_loss": values.get("eval_loss"),
                     "learning_rate": values.get("learning_rate"),
                 }
-                if (
-                    isinstance(observed_tokens, int)
-                    and observed_tokens >= sample["tokens"]
-                    and now > sample["time"]
-                ):
+                if isinstance(observed_tokens, int) and observed_tokens >= sample["tokens"] and now > sample["time"]:
                     payload["tokens_per_second"] = (observed_tokens - sample["tokens"]) / (now - sample["time"])
                     sample["tokens"] = observed_tokens
                     sample["time"] = now
@@ -282,19 +288,13 @@ class PeftTrlTrainingBackend:
 
                     cuda = getattr(torch, "cuda", None)
                     if cuda is not None and callable(getattr(cuda, "is_available", None)) and cuda.is_available():
-                        payload["vram_used_bytes"] = int(
-                            cuda.memory_allocated()
-                        )
+                        payload["vram_used_bytes"] = int(cuda.memory_allocated())
                         utilization = getattr(cuda, "utilization", None)
                         if callable(utilization):
                             payload["gpu_utilization_percent"] = float(utilization())
                 except (ImportError, RuntimeError, TypeError, ValueError):
                     pass
                 context.emit("progress", {key: value for key, value in payload.items() if value is not None})
-                return control
-
-            def on_save(self, args: Any, state: Any, control: Any, **kwargs: Any) -> Any:
-                context.emit("checkpoint", {"step": int(state.global_step), "name": f"checkpoint-{state.global_step}"})
                 return control
 
         return WorkerCallback()

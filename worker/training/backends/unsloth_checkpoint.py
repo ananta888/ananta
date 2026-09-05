@@ -17,6 +17,7 @@ from worker.training.backends.base import (
     TrainingContext,
     TrainingOutcome,
 )
+from worker.training.process_control import CancellationToken
 
 CHECKPOINT_MANIFEST_NAME = "ananta-checkpoint-manifest.json"
 CHECKPOINT_MANIFEST_SCHEMA = "ananta.unsloth-checkpoint-manifest.v1"
@@ -69,6 +70,73 @@ class UnslothCheckpointLifecycle:
             manager=manager,
         )
 
+    def recover_latest(
+        self,
+        *,
+        request: Any,
+        state_root: Path,
+        checkpoint_root: Path,
+    ) -> dict[str, Any] | None:
+        """Recover the newest valid checkpoint sealed before a hard crash."""
+
+        if request.backend != self._backend_name:
+            return None
+        state = _absolute(state_root)
+        root = _absolute(checkpoint_root)
+        _assert_contained_symlink_free(state, root, require_directory=True)
+        cancel = CancellationToken()
+        recovered: list[tuple[int, Path, str]] = []
+        for checkpoint in root.iterdir():
+            match = re.fullmatch(r"checkpoint-([1-9][0-9]*)", checkpoint.name)
+            if match is None:
+                continue
+            try:
+                _assert_contained_symlink_free(root, checkpoint, require_directory=True)
+                _validate_checkpoint_tree(checkpoint, cancel)
+                manifest = _load_manifest(checkpoint)
+                expected = {
+                    "schema": CHECKPOINT_MANIFEST_SCHEMA,
+                    "tenant_scope_digest": request.tenant_scope_digest,
+                    "job_id": request.job_id,
+                    "attempt_id": request.attempt_id,
+                    "backend": self._backend_name,
+                    "dataset_hash": request.dataset.identity_hash,
+                    "base_model_hash": request.base_model.snapshot_hash,
+                    "configuration_hash": request.configuration.identity_hash,
+                    "checkpoint_name": checkpoint.name,
+                    "fencing_token": request.fencing_token,
+                }
+                _assert_manifest_binding(manifest, expected)
+                payload_digest = _checkpoint_tree_sha256(
+                    checkpoint,
+                    cancel=cancel,
+                    include_manifest=False,
+                )
+                if manifest["checkpoint_payload_sha256"] != payload_digest:
+                    continue
+                complete_digest = _checkpoint_tree_sha256(
+                    checkpoint,
+                    cancel=cancel,
+                    include_manifest=True,
+                )
+            except (OSError, TrainingBackendError):
+                continue
+            recovered.append((int(match.group(1)), checkpoint, complete_digest))
+        if not recovered:
+            return None
+        _step, checkpoint, complete_digest = max(recovered, key=lambda item: item[0])
+        return {
+            "relative_path": checkpoint.relative_to(state).as_posix(),
+            "binding": {
+                "job_id": request.job_id,
+                "source_attempt_id": request.attempt_id,
+                "base_model_hash": request.base_model.snapshot_hash,
+                "dataset_hash": request.dataset.identity_hash,
+                "configuration_hash": request.configuration.identity_hash,
+                "checkpoint_sha256": complete_digest,
+            },
+        }
+
 
 @dataclass(frozen=True)
 class _CheckpointSession:
@@ -86,9 +154,7 @@ class UnslothCheckpointManager:
     def __init__(self, *, context: TrainingContext, backend_name: str) -> None:
         self._context = context
         self._backend_name = str(backend_name)
-        self._state_root = _absolute(
-            context.checkpoint_state_root or context.checkpoint_root.parent
-        )
+        self._state_root = _absolute(context.checkpoint_state_root or context.checkpoint_root.parent)
         self._checkpoint_root = _absolute(context.checkpoint_root)
         _assert_contained_symlink_free(
             self._state_root,
@@ -124,7 +190,7 @@ class UnslothCheckpointManager:
             path,
             require_directory=True,
         )
-        _validate_checkpoint_tree(path, self._context)
+        _validate_checkpoint_tree(path, self._context.cancel)
         manifest = _load_manifest(path)
         binding = resume.binding
         expected = self._expected_manifest(
@@ -133,16 +199,14 @@ class UnslothCheckpointManager:
             checkpoint_name=path.name,
         )
         _assert_manifest_binding(manifest, expected)
-        if not isinstance(manifest.get("fencing_token"), int) or int(
-            manifest["fencing_token"]
-        ) < 1:
+        if not isinstance(manifest.get("fencing_token"), int) or int(manifest["fencing_token"]) < 1:
             raise TrainingBackendError(
                 "checkpoint_manifest_invalid",
                 "checkpoint manifest has no valid source fencing token",
             )
         payload_digest = _checkpoint_tree_sha256(
             path,
-            context=self._context,
+            cancel=self._context.cancel,
             include_manifest=False,
         )
         if manifest["checkpoint_payload_sha256"] != payload_digest:
@@ -152,7 +216,7 @@ class UnslothCheckpointManager:
             )
         complete_digest = _checkpoint_tree_sha256(
             path,
-            context=self._context,
+            cancel=self._context.cancel,
             include_manifest=True,
         )
         if binding.checkpoint_sha256 != complete_digest:
@@ -164,12 +228,7 @@ class UnslothCheckpointManager:
 
     def seal_named(self, name: str) -> Path:
         raw = Path(str(name or ""))
-        if (
-            not str(name)
-            or raw.is_absolute()
-            or len(raw.parts) != 1
-            or raw.name in {".", ".."}
-        ):
+        if not str(name) or raw.is_absolute() or len(raw.parts) != 1 or raw.name in {".", ".."}:
             raise TrainingBackendError(
                 "checkpoint_boundary_violation",
                 "checkpoint event name must identify one direct child directory",
@@ -196,10 +255,10 @@ class UnslothCheckpointManager:
                 "checkpoint_boundary_violation",
                 "checkpoint must be a direct child of its attempt root",
             )
-        _validate_checkpoint_tree(path, self._context)
+        _validate_checkpoint_tree(path, self._context.cancel)
         payload_digest = _checkpoint_tree_sha256(
             path,
-            context=self._context,
+            cancel=self._context.cancel,
             include_manifest=False,
         )
         expected = self._expected_manifest(
@@ -266,9 +325,7 @@ def _write_manifest_atomic(
             "checkpoint_manifest_invalid",
             "checkpoint manifest exceeds its byte limit",
         )
-    temporary = manifest_path.parent / (
-        f".{CHECKPOINT_MANIFEST_NAME}.{uuid.uuid4().hex}.tmp"
-    )
+    temporary = manifest_path.parent / (f".{CHECKPOINT_MANIFEST_NAME}.{uuid.uuid4().hex}.tmp")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -308,11 +365,7 @@ def _write_manifest_atomic(
 
 def _load_manifest(checkpoint: Path) -> dict[str, Any]:
     manifest_path = checkpoint / CHECKPOINT_MANIFEST_NAME
-    if (
-        not manifest_path.is_file()
-        or manifest_path.is_symlink()
-        or manifest_path.stat().st_size > _MAX_MANIFEST_BYTES
-    ):
+    if not manifest_path.is_file() or manifest_path.is_symlink() or manifest_path.stat().st_size > _MAX_MANIFEST_BYTES:
         raise TrainingBackendError(
             "checkpoint_manifest_missing",
             "checkpoint has no bounded regular atomic manifest",
@@ -338,9 +391,7 @@ def _load_manifest(checkpoint: Path) -> dict[str, Any]:
         or not _SHA256_RE.fullmatch(str(raw.get("dataset_hash") or ""))
         or not _SHA256_RE.fullmatch(str(raw.get("base_model_hash") or ""))
         or not _SHA256_RE.fullmatch(str(raw.get("configuration_hash") or ""))
-        or not _SHA256_RE.fullmatch(
-            str(raw.get("checkpoint_payload_sha256") or "")
-        )
+        or not _SHA256_RE.fullmatch(str(raw.get("checkpoint_payload_sha256") or ""))
     ):
         raise TrainingBackendError(
             "checkpoint_manifest_invalid",
@@ -362,7 +413,7 @@ def _assert_manifest_binding(
 
 def _validate_checkpoint_tree(
     checkpoint: Path,
-    context: TrainingContext,
+    cancel: CancellationToken,
 ) -> None:
     entries = list(checkpoint.rglob("*"))
     if not entries:
@@ -371,7 +422,7 @@ def _validate_checkpoint_tree(
             "checkpoint directory is empty",
         )
     for entry in entries:
-        context.cancel.raise_if_cancelled()
+        cancel.raise_if_cancelled()
         if entry.is_symlink():
             raise TrainingBackendError(
                 "checkpoint_symlink_forbidden",
@@ -387,18 +438,14 @@ def _validate_checkpoint_tree(
 def _checkpoint_tree_sha256(
     checkpoint: Path,
     *,
-    context: TrainingContext,
+    cancel: CancellationToken,
     include_manifest: bool,
 ) -> str:
     children = sorted(
         entry
         for entry in checkpoint.rglob("*")
         if entry.is_file()
-        and (
-            include_manifest
-            or entry.relative_to(checkpoint).as_posix()
-            != CHECKPOINT_MANIFEST_NAME
-        )
+        and (include_manifest or entry.relative_to(checkpoint).as_posix() != CHECKPOINT_MANIFEST_NAME)
     )
     if not children:
         raise TrainingBackendError(
@@ -407,7 +454,7 @@ def _checkpoint_tree_sha256(
         )
     digest = hashlib.sha256()
     for child in children:
-        context.cancel.raise_if_cancelled()
+        cancel.raise_if_cancelled()
         if child.is_symlink():
             raise TrainingBackendError(
                 "checkpoint_symlink_forbidden",
@@ -415,17 +462,17 @@ def _checkpoint_tree_sha256(
             )
         digest.update(child.relative_to(checkpoint).as_posix().encode("utf-8"))
         digest.update(b"\x00")
-        digest.update(_file_sha256(child, context).encode("ascii"))
+        digest.update(_file_sha256(child, cancel).encode("ascii"))
         digest.update(b"\x00")
     return digest.hexdigest()
 
 
-def _file_sha256(path: Path, context: TrainingContext) -> str:
+def _file_sha256(path: Path, cancel: CancellationToken) -> str:
     digest = hashlib.sha256()
     try:
         with path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                context.cancel.raise_if_cancelled()
+                cancel.raise_if_cancelled()
                 digest.update(chunk)
     except OSError as exc:
         raise TrainingBackendError(

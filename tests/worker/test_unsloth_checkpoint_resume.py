@@ -35,9 +35,7 @@ _CONFIG_HASH = "d" * 64
 class _CheckpointBackend:
     def __init__(self, name: str) -> None:
         self.name = name
-        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(
-            backend_name=name
-        )
+        self.checkpoint_lifecycle = UnslothCheckpointLifecycle(backend_name=name)
         self.prepare_calls = 0
 
     def availability(self):
@@ -107,14 +105,7 @@ def _context(
     request: Any,
     resume_path: Path | None = None,
 ):
-    checkpoint_root = (
-        state
-        / "jobs"
-        / request.job_id
-        / "attempts"
-        / request.attempt_id
-        / "checkpoints"
-    )
+    checkpoint_root = state / "jobs" / request.job_id / "attempts" / request.attempt_id / "checkpoints"
     checkpoint_root.mkdir(parents=True, exist_ok=True)
     artifact_root = checkpoint_root.parent / "artifacts"
     events: list[tuple[str, Mapping[str, Any]]] = []
@@ -225,6 +216,34 @@ def test_checkpoint_manifest_is_atomic_bound_and_resume_admitted(
     target_backend = _CheckpointBackend(backend_name)
     run_backend(target_backend, target_context)
     assert target_backend.prepare_calls == 1
+
+
+def test_latest_sealed_checkpoint_is_recovered_after_hard_restart(tmp_path: Path) -> None:
+    checkpoint, relative, binding, _events = _source_checkpoint(tmp_path, "unsloth")
+    request = _request(
+        backend="unsloth",
+        job_id="job-source",
+        attempt_id="attempt-source",
+    )
+    lifecycle = UnslothCheckpointLifecycle(backend_name="unsloth")
+
+    recovered = lifecycle.recover_latest(
+        request=request,
+        state_root=tmp_path,
+        checkpoint_root=checkpoint.parent,
+    )
+
+    assert recovered == {
+        "relative_path": relative,
+        "binding": {
+            "job_id": binding.job_id,
+            "source_attempt_id": binding.source_attempt_id,
+            "base_model_hash": binding.base_model_hash,
+            "dataset_hash": binding.dataset_hash,
+            "configuration_hash": binding.configuration_hash,
+            "checkpoint_sha256": binding.checkpoint_sha256,
+        },
+    }
 
 
 @pytest.mark.parametrize(

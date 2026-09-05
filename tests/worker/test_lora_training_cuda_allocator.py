@@ -104,6 +104,9 @@ def test_child_environment_passes_allocator_limit_but_not_worker_bearer(monkeypa
     environment = _child_environment()
 
     assert environment[CUDA_MEMORY_FRACTION_ENV] == "0.75"
+    assert environment["HF_HOME"] == "/tmp/huggingface"
+    assert environment["HOME"] == "/tmp"
+    assert environment["XDG_CACHE_HOME"] == "/tmp/cache"
     assert "ANANTA_LORA_TRAINING_TOKEN" not in environment
 
 

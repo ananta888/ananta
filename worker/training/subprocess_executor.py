@@ -67,9 +67,7 @@ class IsolatedBackendExecutor:
                 "checkpoint_root": str(context.checkpoint_root),
                 "resume_path": str(context.resume_path) if context.resume_path else None,
                 "checkpoint_state_root": (
-                    str(context.checkpoint_state_root)
-                    if context.checkpoint_state_root
-                    else None
+                    str(context.checkpoint_state_root) if context.checkpoint_state_root else None
                 ),
             }
         else:
@@ -201,24 +199,35 @@ def _child_environment() -> dict[str, str]:
     names = {
         CUDA_MEMORY_FRACTION_ENV,
         "CUDA_VISIBLE_DEVICES",
+        "CUDA_CACHE_PATH",
         "HF_DATASETS_OFFLINE",
         "HF_HOME",
         "HF_HUB_DISABLE_TELEMETRY",
         "HF_HUB_OFFLINE",
+        "HOME",
         "LANG",
         "LC_ALL",
         "LD_LIBRARY_PATH",
+        "NUMBA_CACHE_DIR",
         "NVIDIA_DRIVER_CAPABILITIES",
         "NVIDIA_VISIBLE_DEVICES",
         "PATH",
         "PYTHONPATH",
         "TMPDIR",
         "TRANSFORMERS_OFFLINE",
+        "TRITON_CACHE_DIR",
+        "UNSLOTH_COMPILE_LOCATION",
+        "XDG_CACHE_HOME",
     }
     environment = {name: value for name in names if (value := os.getenv(name)) is not None}
     environment.setdefault("HF_DATASETS_OFFLINE", "1")
+    environment.setdefault("HF_HOME", "/tmp/huggingface")
     environment.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
     environment.setdefault("HF_HUB_OFFLINE", "1")
+    # Never inherit the container account's non-writable home into the
+    # isolated job. Caches are ephemeral and contained by the worker tmpfs.
+    environment["HOME"] = "/tmp"
+    environment.setdefault("XDG_CACHE_HOME", "/tmp/cache")
     environment.setdefault("TRANSFORMERS_OFFLINE", "1")
     environment.setdefault("PYTHONUNBUFFERED", "1")
     return environment

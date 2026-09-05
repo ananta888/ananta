@@ -202,16 +202,9 @@ class TrainingWorkerRuntime(TrainingRuntimeArtifactMixin):
                 cached_at, cached = self._capability_cache
                 if time.monotonic() - cached_at < 30.0:
                     return json.loads(json.dumps(cached))
-            backend_availability = {
-                name: backend.availability()
-                for name, backend in self._backends.items()
-            }
-            default_gpu_profile = (
-                "none" if self._config.resource_profile in {"mock", "cpu"} else "generic-safe"
-            )
-            active_gpu_profile = str(
-                os.getenv("ANANTA_LORA_TRAINING_GPU_PROFILE", default_gpu_profile)
-            ).strip().lower()
+            backend_availability = {name: backend.availability() for name, backend in self._backends.items()}
+            default_gpu_profile = "none" if self._config.resource_profile in {"mock", "cpu"} else "generic-safe"
+            active_gpu_profile = str(os.getenv("ANANTA_LORA_TRAINING_GPU_PROFILE", default_gpu_profile)).strip().lower()
             probe = compose_worker_capability_probe(
                 contract_version=CONTRACT_VERSION,
                 resource_profile=self._config.resource_profile,
@@ -389,10 +382,7 @@ class TrainingWorkerRuntime(TrainingRuntimeArtifactMixin):
                 self._config.workspace_root, job.request.workspace_ref, "workspace_missing"
             )
             expected_workspace = self._workspace_relative(job)
-            if (
-                job.request.workspace_ref.startswith("tenants/")
-                and job.request.workspace_ref != expected_workspace
-            ):
+            if job.request.workspace_ref.startswith("tenants/") and job.request.workspace_ref != expected_workspace:
                 raise TrainingContractError(
                     "workspace_scope_binding_mismatch",
                     "workspace_ref is not bound to the current tenant and attempt",
@@ -603,11 +593,7 @@ class TrainingWorkerRuntime(TrainingRuntimeArtifactMixin):
             if event_type == "resource_admission":
                 clean = _safe_resource_admission_payload(payload)
             elif event_type == "progress":
-                clean = {
-                    key: _safe_scalar(value)
-                    for key, value in payload.items()
-                    if key != "telemetry"
-                }
+                clean = {key: _safe_scalar(value) for key, value in payload.items() if key != "telemetry"}
                 clean["telemetry"] = progress_telemetry(clean)
             else:
                 clean = {key: _safe_scalar(value) for key, value in payload.items()}
@@ -745,12 +731,21 @@ class TrainingWorkerRuntime(TrainingRuntimeArtifactMixin):
                     error=payload.get("error"),
                     resume_checkpoint=payload.get("resume_checkpoint"),
                     cancel_mode=(
-                        str(payload["cancel_mode"])
-                        if payload.get("cancel_mode") in {"graceful", "forced"}
-                        else None
+                        str(payload["cancel_mode"]) if payload.get("cancel_mode") in {"graceful", "forced"} else None
                     ),
                 )
                 if job.status in ACTIVE_STATUSES:
+                    backend = self._backends.get(request.backend)
+                    lifecycle = getattr(backend, "checkpoint_lifecycle", None)
+                    recover_latest = getattr(lifecycle, "recover_latest", None)
+                    if isinstance(request, TrainingJobRequest) and callable(recover_latest):
+                        recovered = recover_latest(
+                            request=request,
+                            state_root=self._config.state_root,
+                            checkpoint_root=self._checkpoint_root(job),
+                        )
+                        if recovered is not None:
+                            job.resume_checkpoint = recovered
                     job.error = {
                         "code": "worker_restarted",
                         "message": "worker restarted before the attempt reached a terminal state",
