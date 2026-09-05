@@ -360,6 +360,13 @@ test('feature flags recover after a real login replaces a rejected identity', as
     ]));
   }, { hubUrl: HUB_URL, token: rejectedToken });
 
+  // Keep this identity-transition scenario self-contained. The dashboard starts
+  // several unrelated data requests after navigation; letting those reach the
+  // real E2E Hub would reject the synthetic JWT and trigger a refresh/logout
+  // race that is unrelated to feature-flag recovery. More specific routes
+  // registered below take precedence over this deterministic fallback.
+  await page.route(`${HUB_URL}/**`, route => json(route, {}));
+
   await page.route('**/me', route => {
     const authorization = route.request().headers()['authorization'] ?? '';
     if (authorization.includes(rejectedToken)) {
