@@ -39,6 +39,7 @@ EXPECTED_SERVER_VERSION = "1.13.1"
 EXPECTED_CLIENT_VERSION = "2.20.1"
 EXPECTED_IMAGE_DIGEST = "sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3"
 EXPECTED_IMAGE_REFERENCE = f"livekit/livekit-server@{EXPECTED_IMAGE_DIGEST}"
+EXPECTED_ROOM_PARTICIPANT_CEILING = 250
 RUNTIME_CONTROL_MODE = "livekit_control_api"
 PLACEMENT_OWNER = "livekit_native"
 ROOM_NAME = "ananta-spike-chromium"
@@ -115,6 +116,17 @@ def _load_json(path: Path) -> Mapping[str, Any]:
     return value
 
 
+def _client_stream_policy_bound(adapter_text: str) -> bool:
+    """Recognize the supported adaptive/manual policy without executing TS."""
+
+    adaptive_stream = re.search(
+        r"adaptiveStream\s*:\s*options\.layerControlMode\s*===\s*['\"]adaptive_stream['\"]",
+        adapter_text,
+    )
+    dynacast = re.search(r"dynacast\s*:\s*true\b", adapter_text)
+    return adaptive_stream is not None and dynacast is not None
+
+
 def collect_static_bindings(root: Path = ROOT) -> StaticBindings:
     paths = {
         "compose": root / COMPOSE_RELATIVE,
@@ -153,9 +165,12 @@ def collect_static_bindings(root: Path = ROOT) -> StaticBindings:
         reasons.append("client_lock_binding_invalid")
     if "--config" not in compose_text or "/etc/livekit/livekit.yaml" not in compose_text:
         reasons.append("server_config_mount_binding_missing")
-    if "max_participants: 8" not in config_text:
+    if not re.search(
+        rf"(?m)^\s*max_participants:\s*{EXPECTED_ROOM_PARTICIPANT_CEILING}\s*$",
+        config_text,
+    ):
         reasons.append("four_peer_room_capacity_not_bound")
-    if "adaptiveStream: true" not in adapter_text or "dynacast: true" not in adapter_text:
+    if not _client_stream_policy_bound(adapter_text):
         reasons.append("client_stream_policy_binding_missing")
     return StaticBindings(
         image_reference=image_reference,
@@ -216,7 +231,7 @@ def _capability_matrix(bindings: StaticBindings, runtime: RuntimeObservation | N
         },
         {
             "capability": "adaptive_stream_dynacast",
-            "status": "documented" if "adaptiveStream: true" in bindings.adapter_text and "dynacast: true" in bindings.adapter_text else "unsupported",
+            "status": "documented" if _client_stream_policy_bound(bindings.adapter_text) else "unsupported",
             "required_for_feasibility": False,
             "evidence": [_evidence("repository_file", ADAPTER_RELATIVE.as_posix(), bindings.source_digests["adapter"])],
         },

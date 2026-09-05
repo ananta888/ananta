@@ -38,6 +38,23 @@ def test_static_probe_fails_closed_without_runtime_evidence() -> None:
     assert capabilities["browser_e2ee"]["status"] != "available"
 
 
+def test_current_static_bindings_accept_hub_capacity_and_layer_policy() -> None:
+    bindings = probe_module.collect_static_bindings(ROOT)
+
+    assert "four_peer_room_capacity_not_bound" not in bindings.reason_codes
+    assert "client_stream_policy_binding_missing" not in bindings.reason_codes
+    assert probe_module._client_stream_policy_bound(bindings.adapter_text) is True
+
+
+def test_static_layer_policy_rejects_unconditional_or_disabled_dynacast() -> None:
+    assert probe_module._client_stream_policy_bound(
+        "adaptiveStream: true, dynacast: true"
+    ) is False
+    assert probe_module._client_stream_policy_bound(
+        "adaptiveStream: options.layerControlMode === 'adaptive_stream', dynacast: false"
+    ) is False
+
+
 def test_mock_only_runtime_claim_cannot_mark_capability_available() -> None:
     bindings = probe_module.collect_static_bindings(ROOT)
     forged = probe_module.RuntimeObservation(
