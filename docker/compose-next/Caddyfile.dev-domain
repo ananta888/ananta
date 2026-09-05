@@ -42,8 +42,28 @@ https://webrtc.ananta.de {
 	# Compose mounts the operator-provided files read-only after an automated preflight.
 	tls /run/secrets/webrtc_tls_certificate /run/secrets/webrtc_tls_private_key
 	encode zstd gzip
+
+	@unsupported_webrtc_methods {
+		not method GET HEAD POST PUT PATCH DELETE OPTIONS
+	}
+	respond @unsupported_webrtc_methods 405
+
+	request_body {
+		max_size 256KB
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=()"
+	}
+
 	reverse_proxy webrtc-room-server:8080 {
 		lb_try_duration 5s
+		header_up -X-Original-URL
+		header_up -X-Rewrite-URL
+		header_up X-Forwarded-Host webrtc.ananta.de
 		transport http {
 			dial_timeout 5s
 			response_header_timeout 10s
