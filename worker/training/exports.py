@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from enum import Enum
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
@@ -93,8 +93,11 @@ class UnslothExportExecutor:
                 "The immutable export destination already exists.",
             )
         staging.mkdir(parents=False, exist_ok=False)
+        gguf_staging = staging.with_name(f"{staging.name}_gguf")
         try:
             self._write_export(model, tokenizer, request, staging)
+            if request.format is ExportFormat.GGUF:
+                self._normalize_gguf_export(staging, gguf_staging)
             digest, file_count, total_bytes = self._digest_tree(staging)
             manifest = {
                 "schema_version": 1,
@@ -123,6 +126,7 @@ class UnslothExportExecutor:
             )
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)
+            shutil.rmtree(gguf_staging, ignore_errors=True)
             raise
 
     def _validate(self, request: ExportRequest) -> Path:
@@ -201,6 +205,42 @@ class UnslothExportExecutor:
             tokenizer,
             quantization_method=request.quantization_method or "",
         )
+
+    @staticmethod
+    def _normalize_gguf_export(staging: Path, gguf_staging: Path) -> None:
+        """Publish only GGUF output despite Unsloth's sibling-directory API."""
+        for root in (staging, gguf_staging):
+            if root.is_symlink():
+                raise ExportError("export_symlink_forbidden", "GGUF export directories cannot be symlinks.")
+            if not root.exists():
+                continue
+            if any(candidate.is_symlink() for candidate in root.rglob("*")):
+                raise ExportError("export_symlink_forbidden", "GGUF exports cannot contain symlinks.")
+
+        if gguf_staging.is_dir():
+            for source in sorted(gguf_staging.rglob("*")):
+                if not source.is_file() or source.suffix.lower() != ".gguf":
+                    continue
+                relative = source.relative_to(gguf_staging)
+                target = staging / relative
+                if target.exists():
+                    raise ExportError("export_gguf_collision", "GGUF export paths collided during publication.")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(source, target)
+            shutil.rmtree(gguf_staging)
+
+        gguf_files = [
+            candidate
+            for candidate in staging.rglob("*")
+            if candidate.is_file() and candidate.suffix.lower() == ".gguf"
+        ]
+        if not gguf_files:
+            raise ExportError("export_gguf_missing", "Unsloth did not produce a GGUF model file.")
+        for candidate in sorted(staging.rglob("*"), reverse=True):
+            if candidate.is_file() and candidate.suffix.lower() != ".gguf":
+                candidate.unlink()
+            elif candidate.is_dir() and not any(candidate.iterdir()):
+                candidate.rmdir()
 
     @staticmethod
     def _digest_tree(root: Path) -> tuple[str, int, int]:

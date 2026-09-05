@@ -40,6 +40,10 @@ def test_compose_is_internal_non_root_read_only_and_profile_scoped() -> None:
     assert services["lora-training-worker-nvidia"]["environment"][
         "ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION"
     ] == "${ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION:-0.90}"
+    assert any(
+        value.startswith("/tmp:") and ",exec," in value
+        for value in services["lora-training-worker-nvidia"]["tmpfs"]
+    )
     assert "ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION" not in services["lora-training-worker-cpu"]["environment"]
     assert "ANANTA_LORA_TRAINING_CUDA_MEMORY_FRACTION" not in services["lora-training-worker-mock"]["environment"]
     assert "deploy" not in services["ai-agent-hub"] or "devices" not in str(services["ai-agent-hub"].get("deploy"))
@@ -55,6 +59,13 @@ def test_worker_image_excludes_hub_and_separates_cpu_from_nvidia() -> None:
     assert "FROM base AS nvidia" in dockerfile
     assert "FROM cpu AS nvidia" not in dockerfile
     assert "apt-get install --yes --no-install-recommends gcc libc6-dev" in dockerfile
+    assert "FROM python:3.11.15-slim-bookworm@sha256:" in dockerfile
+    assert "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/refs/tags/v0.4.0" in dockerfile
+    assert "--checksum=sha256:9c2948aa9c79c92dd0e4c98e11ff5cf76dfdcaebdeb18e3e93409e9a98aefdab" in dockerfile
+    assert "ANANTA_UNSLOTH_LLAMA_CPP_SOURCE=/opt/llama.cpp" in dockerfile
+    assert "UNSLOTH_LLAMA_CPP_PATH=/tmp/ananta-unsloth/llama.cpp" in dockerfile
+    assert "COPY --from=llama-cpp-builder --chown=10005:10005 /opt/llama.cpp /opt/llama.cpp" in dockerfile
+    assert 'ENTRYPOINT ["/usr/local/bin/lora-training-worker-entrypoint"]' in dockerfile
     assert "runtime_configured" in dockerfile and "auth_configured" in dockerfile
     assert "Authorization" in dockerfile and "ANANTA_LORA_TRAINING_TOKEN" in dockerfile
 

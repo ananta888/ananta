@@ -170,6 +170,12 @@ services:
       ANANTA_LORA_TRAINING_RESOURCE_PROFILE: nvidia
     cpus: ${ANANTA_LORA_TRAINING_NVIDIA_CPUS:-8.0}
     mem_limit: ${ANANTA_LORA_TRAINING_NVIDIA_MEMORY:-48g}
+    # Triton loads generated shared objects and llama.cpp runs its pinned
+    # quantizer from this isolated tmpfs. nosuid/nodev, dropped capabilities,
+    # no-new-privileges and the internal-only network remain enforced.
+    tmpfs:
+      - /tmp:size=4294967296,mode=1770,uid=10005,gid=10005,exec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10005,gid=10005,noexec,nosuid,nodev
     deploy:
       resources:
         limits:

@@ -41,6 +41,21 @@ class FakeTokenizer:
         Path(path, "tokenizer.json").write_text("{}", encoding="utf-8")
 
 
+class SiblingGgufModel(FakeModel):
+    def save_pretrained_gguf(
+        self,
+        path: str,
+        tokenizer: object,
+        *,
+        quantization_method: str,
+    ) -> None:
+        destination = Path(path)
+        (destination / "model.safetensors").write_bytes(b"merged")
+        sibling = destination.with_name(f"{destination.name}_gguf")
+        sibling.mkdir()
+        (sibling / "model.Q4_K_M.gguf").write_bytes(quantization_method.encode())
+
+
 def request(destination: str, format: ExportFormat) -> ExportRequest:
     return ExportRequest(
         tenant_id="tenant-a",
@@ -83,3 +98,40 @@ def test_export_rejects_artifact_root_escape(tmp_path: Path) -> None:
         )
 
     assert error.value.code == "export_destination_invalid"
+
+
+def test_gguf_export_collects_unsloth_sibling_output_and_drops_merged_intermediate(
+    tmp_path: Path,
+) -> None:
+    result = UnslothExportExecutor(artifact_root=tmp_path).execute(
+        model=SiblingGgufModel(),
+        tokenizer=FakeTokenizer(),
+        request=request("artifact-gguf", ExportFormat.GGUF),
+    )
+
+    destination = tmp_path / result.destination
+    assert (destination / "model.Q4_K_M.gguf").read_bytes() == b"q4_k_m"
+    assert not (destination / "model.safetensors").exists()
+    assert not any(path.name.endswith("_gguf") for path in tmp_path.iterdir())
+
+
+def test_gguf_export_fails_closed_when_backend_only_writes_merged_weights(tmp_path: Path) -> None:
+    class MissingGgufModel(FakeModel):
+        def save_pretrained_gguf(
+            self,
+            path: str,
+            tokenizer: object,
+            *,
+            quantization_method: str,
+        ) -> None:
+            Path(path, "model.safetensors").write_bytes(b"merged")
+
+    with pytest.raises(ExportError) as error:
+        UnslothExportExecutor(artifact_root=tmp_path).execute(
+            model=MissingGgufModel(),
+            tokenizer=FakeTokenizer(),
+            request=request("artifact-gguf", ExportFormat.GGUF),
+        )
+
+    assert error.value.code == "export_gguf_missing"
+    assert list(tmp_path.iterdir()) == []
