@@ -93,6 +93,7 @@ SOURCE_PATHS = (
     "worker/training/inference.py",
     "worker/training/job_process.py",
     "worker/training/model_imports.py",
+    "worker/training/prompt_rendering.py",
     "worker/training/runtime.py",
     "worker/training/runtime_artifact_service.py",
     "worker/training/subprocess_executor.py",

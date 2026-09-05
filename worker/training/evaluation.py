@@ -18,6 +18,7 @@ from worker.training.contracts import AdapterEvaluationJobRequest
 from worker.training.datasets import VerifiedValidationDataset, iter_jsonl
 from worker.training.local_transformers_tokenizer import load_local_tokenizer
 from worker.training.process_control import CancellationToken
+from worker.training.prompt_rendering import render_chat_messages
 
 
 @dataclass(frozen=True)
@@ -419,12 +420,7 @@ def _prompt_text(row: Mapping[str, Any], tokenizer: Any) -> str:
             for message in row["messages"]
             if isinstance(message, Mapping) and str(message.get("role") or "") != "assistant"
         ]
-        apply_template = getattr(tokenizer, "apply_chat_template", None)
-        if callable(apply_template):
-            return str(apply_template(messages, tokenize=False, add_generation_prompt=True))[:8000]
-        return "\n".join(
-            f"{str(message.get('role') or 'user')}: {str(message.get('content') or '')}" for message in messages
-        )[:8000]
+        return render_chat_messages(messages, tokenizer, add_generation_prompt=True)[:8000]
     instruction = str(row.get("instruction") or row.get("prompt") or "")
     input_text = str(row.get("input") or "")
     return (f"{instruction}\n{input_text}" if input_text else instruction)[:8000]

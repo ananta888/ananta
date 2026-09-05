@@ -17,6 +17,7 @@ from worker.training.backends.base import TrainingBackendError, TrainingContext,
 from worker.training.backends.trl_compat import sequence_length_options
 from worker.training.datasets import iter_jsonl
 from worker.training.local_transformers_tokenizer import load_local_tokenizer
+from worker.training.prompt_rendering import render_chat_messages
 from worker.training.trainer_checkpoint_observer import TrainerCheckpointObserver
 
 
@@ -245,10 +246,7 @@ class PeftTrlTrainingBackend:
         if isinstance(record.get("text"), str):
             return str(record["text"])
         if isinstance(record.get("messages"), list):
-            apply_template = getattr(tokenizer, "apply_chat_template", None)
-            if callable(apply_template):
-                return str(apply_template(record["messages"], tokenize=False, add_generation_prompt=False))
-            return "\n".join(f"{item['role']}: {item['content']}" for item in record["messages"])
+            return render_chat_messages(record["messages"], tokenizer, add_generation_prompt=False)
         instruction = str(record.get("instruction") or "")
         response = str(record.get("output") or "")
         input_text = str(record.get("input") or "")
