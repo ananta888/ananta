@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import replace
 
 import pytest
@@ -139,3 +140,31 @@ def test_query_compatibility_reuses_scope_manifest_for_shape_validation() -> Non
     assert report.compatible is True
     assert client.calls["retrieve"] - retrieve_before == 1
     assert client.calls["collection_info"] - info_before == 1
+
+
+def test_query_compatibility_reads_manifest_and_physical_shape_concurrently() -> None:
+    client, manager, collection = _manager()
+    barrier = threading.Barrier(2)
+    original_retrieve = client.retrieve
+    original_collection_info = client.collection_info
+
+    def retrieve(*args, **kwargs):
+        barrier.wait(timeout=1)
+        return original_retrieve(*args, **kwargs)
+
+    def collection_info(*args, **kwargs):
+        barrier.wait(timeout=1)
+        return original_collection_info(*args, **kwargs)
+
+    client.retrieve = retrieve
+    client.collection_info = collection_info
+
+    report = manager.query_compatibility(
+        collection,
+        scope=_scope(),
+        expected=_compatibility(),
+        dimensions=3,
+        distance="cosine",
+    )
+
+    assert report.compatible is True

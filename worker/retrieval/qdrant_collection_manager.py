@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable
 
-from worker.retrieval.qdrant_client_port import QdrantClientError, QdrantClientPort
+from worker.retrieval.qdrant_client_port import (
+    ClientCollectionInfo,
+    QdrantClientError,
+    QdrantClientPort,
+)
 from worker.retrieval.qdrant_collection_schema import (
     QDRANT_BACKEND_SCHEMA_VERSION,
     RECORD_TYPE_KEY,
@@ -181,25 +186,44 @@ class QdrantCollectionManager:
             return {}
         return payload
 
+    def _query_collection_state(
+        self,
+        collection_name: str,
+    ) -> tuple[dict, ClientCollectionInfo | None]:
+        """Read independent manifest and physical shape in one bounded snapshot."""
+
+        with ThreadPoolExecutor(
+            max_workers=2,
+            thread_name_prefix="qdrant-query-state",
+        ) as executor:
+            manifest = executor.submit(self._manifest_payload, collection_name)
+            collection_info = executor.submit(
+                self._client.collection_info,
+                collection_name,
+            )
+            return manifest.result(), collection_info.result()
+
     def compatibility(
         self,
         collection_name: str,
         expected: CompatibilitySpec,
     ) -> CompatibilityReport:
         payload = self._manifest_payload(collection_name)
-        return self._compatibility_from_manifest(
+        return self._compatibility_from_state(
             collection_name,
             expected,
             payload,
+            self._client.collection_info(collection_name),
         )
 
-    def _compatibility_from_manifest(
+    def _compatibility_from_state(
         self,
         collection_name: str,
         expected: CompatibilitySpec,
         payload: dict,
+        info: ClientCollectionInfo | None,
     ) -> CompatibilityReport:
-        """Validate one already-read manifest against physical collection state."""
+        """Validate one already-read manifest and physical collection state."""
 
         found = dict(payload.get("compatibility") or {})
         found_backend_schema = str(
@@ -220,7 +244,6 @@ class QdrantCollectionManager:
                 expected_payload,
                 found_payload,
             )
-        info = self._client.collection_info(collection_name)
         if info is None:
             return CompatibilityReport(
                 False,
@@ -261,7 +284,7 @@ class QdrantCollectionManager:
     ) -> CompatibilityReport:
         """Compare an independent expected state with collection metadata."""
 
-        payload = self._manifest_payload(collection_name)
+        payload, info = self._query_collection_state(collection_name)
         found = dict(payload.get("compatibility") or {})
         manifest_scope = dict(payload.get("scope") or {})
         if not scope_matches_payload(scope, manifest_scope):
@@ -306,10 +329,11 @@ class QdrantCollectionManager:
         # Reuse the manifest already fetched for the scope check. Calling the
         # public compatibility method here used to retrieve the same immutable
         # manifest a second time for every search request.
-        return self._compatibility_from_manifest(
+        return self._compatibility_from_state(
             collection_name,
             expected,
             payload,
+            info,
         )
 
     def manifest_scope_matches(self, collection_name: str, scope: VectorScope) -> bool:
