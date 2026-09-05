@@ -678,11 +678,6 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
         consumption_id = stable_row_id("wfrr", intent.tenant_id, intent.run_id, intent.retry_id)
         existing_consumption = self._transition_retry_consumption_row(session, intent, lock=True)
         if existing_consumption is not None:
-            # The observation already rejected a retry consumption without an
-            # exact receipt. Seeing one only on this later read therefore means
-            # a concurrent reservation changed the snapshot. Roll back this
-            # attempt so the public boundary can re-read the committed winner;
-            # a genuinely partial commit remains a hard evidence conflict there.
             raise OptimisticConcurrencyError("workflow_transition_ownership_retry_snapshot_changed")
         session.add(
             WorkflowRetryConsumptionDB(
