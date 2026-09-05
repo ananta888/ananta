@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from agent.services.peer_overlay_control_service import PeerOverlayControlService
+from agent.services.peer_overlay_control_service import PeerOverlayControlService, PeerOverlayDenied
 from agent.services.peer_overlay_state_store import PeerOverlayStateConflict, PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayTopologyService
 
@@ -90,6 +90,33 @@ def test_membership_revocation_rotates_membership_and_key_epochs(tmp_path) -> No
     assert offline["new_publications_allowed"] is False
     assert offline["route_changes_allowed"] is False
     assert offline["peer_lease_extension_allowed"] is False
+
+
+def test_device_replacement_is_atomic_and_rotates_security_epochs(tmp_path) -> None:
+    control = service(tmp_path)
+    join_members(control)
+    replaced = control.change_membership(
+        tenant_id="tenant-1",
+        room_id="room-1",
+        action="device_replace",
+        subject_peer_id="peer-2",
+        replacement_peer_id="peer-2-new",
+        expected_revision=3,
+    )
+    assert replaced["replacement_peer_id"] == "peer-2-new"
+    assert replaced["member_ids"] == ["peer-1", "peer-2-new", "source"]
+    assert replaced["epochs"]["membership"] == 4
+    assert replaced["epochs"]["key"] == 4
+    assert replaced["epochs"]["route"] == 1
+    with pytest.raises(PeerOverlayDenied, match="replacement_already_active"):
+        control.change_membership(
+            tenant_id="tenant-1",
+            room_id="room-1",
+            action="device_replace",
+            subject_peer_id="peer-1",
+            replacement_peer_id="peer-2-new",
+            expected_revision=4,
+        )
 
 
 def test_tenant_room_and_publication_identifiers_are_scoped_independently(tmp_path) -> None:

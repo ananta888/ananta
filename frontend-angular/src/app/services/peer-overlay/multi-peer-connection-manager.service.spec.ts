@@ -58,10 +58,12 @@ class FakeFactory implements PeerLinkSessionFactory {
       },
       publications: { setTrack: vi.fn(async () => undefined), setMuted: vi.fn(async () => undefined) },
       data: { bufferedAmount: 0, sendOpaque: vi.fn() },
-      observations: { observe: vi.fn(async () => ({
+      subscriptions: { setPublicationSubscribed: vi.fn(async () => undefined) },
+      stats: { observe: vi.fn(async () => ({
         observedAtMs: 1, roundTripTimeMs: 10, availableOutgoingBitrate: 1_000_000,
         packetsLost: 0, framesDropped: 0, qualityLimitationReason: null,
       })) },
+      events: { onStateChanged: vi.fn(() => () => undefined) },
     };
     this.sessions.set(value.remotePeerId, session);
     return session;

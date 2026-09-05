@@ -53,6 +53,7 @@ class PeerOverlayControlService:
         action: str,
         subject_peer_id: str,
         expected_revision: int,
+        replacement_peer_id: str | None = None,
     ) -> dict[str, Any]:
         tenant = require_overlay_id(tenant_id, "tenant_id")
         room = require_overlay_id(room_id, "room_id")
@@ -61,6 +62,8 @@ class PeerOverlayControlService:
         current = self._store.get("membership", membership_key)
         if (int(current.get("revision") or 0) if current else 0) != int(expected_revision):
             raise PeerOverlayDenied("peer_overlay_membership_revision_stale")
+        if action != "device_replace" and replacement_peer_id is not None:
+            raise ValueError("peer_overlay_membership_replacement_unexpected")
         members = set(current.get("member_ids") or []) if current else set()
         if action == "join":
             members.add(subject)
@@ -68,6 +71,14 @@ class PeerOverlayControlService:
             if subject not in members:
                 raise PeerOverlayDenied("peer_overlay_member_not_active")
             members.remove(subject)
+        elif action == "device_replace":
+            replacement = require_overlay_id(replacement_peer_id, "replacement_peer_id")
+            if subject not in members:
+                raise PeerOverlayDenied("peer_overlay_member_not_active")
+            if replacement in members:
+                raise PeerOverlayDenied("peer_overlay_replacement_already_active")
+            members.remove(subject)
+            members.add(replacement)
         elif action != "snapshot":
             raise ValueError("peer_overlay_membership_action_invalid")
         previous_epochs = _epochs(current.get("epochs")) if current else None
@@ -96,6 +107,7 @@ class PeerOverlayControlService:
             issued_at=_iso(now),
             expires_at=_iso(now + timedelta(minutes=10)),
             hub_key_id=self._hub_key_id,
+            replacement_peer_id=replacement_peer_id if action == "device_replace" else None,
         ).sign(self._key)
         payload = {
             **event.unsigned(),

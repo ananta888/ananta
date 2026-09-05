@@ -49,11 +49,21 @@ export interface PeerLinkObservationPort {
   observe(): Promise<PeerLinkObservation>;
 }
 
+export interface PeerLinkSubscriptionPort {
+  setPublicationSubscribed(publicationId: string, subscribed: boolean): Promise<void>;
+}
+
+export interface PeerLinkEventPort {
+  onStateChanged(callback: (state: PeerLinkState) => void): () => void;
+}
+
 export interface PeerLinkSession {
   readonly lifecycle: PeerLinkLifecyclePort;
   readonly publications: PeerLinkPublicationPort;
   readonly data: PeerLinkDataPort;
-  readonly observations: PeerLinkObservationPort;
+  readonly subscriptions: PeerLinkSubscriptionPort;
+  readonly stats: PeerLinkObservationPort;
+  readonly events: PeerLinkEventPort;
 }
 
 export interface PeerLinkSessionFactory {

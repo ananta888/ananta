@@ -5,7 +5,7 @@
   "version": "1.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "decentralized-webrtc-peer-media-overlay",
-  "status": "in_progress",
+  "status": "partial",
   "created_at": "2026-08-09",
   "updated_at": "2026-09-05",
   "parents": [
@@ -259,7 +259,7 @@
     {
       "id": "M01",
       "title": "Architektur, Ist-Audit und Machbarkeitsgrenzen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-ARCH-001",
         "DPM-ARCH-002",
@@ -270,7 +270,7 @@
     {
       "id": "M02",
       "title": "Kanonische Ports, Vertraege und Epochen",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "DPM-CON-001",
         "DPM-CON-002",
@@ -457,7 +457,7 @@
     {
       "id": "DPM-ARCH-004",
       "title": "Bestehende SRP- und Kopplungsschulden im WebRTC-Service begrenzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "refactor",
@@ -471,18 +471,22 @@
         "Bestehende 1:1-APIs bleiben ueber Compatibility Adapter stabil.",
         "Conformance-Tests sichern SRP, DIP, ISP und LSP fuer neue Adaptergrenzen."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
+        "docs/architecture/peer-overlay-boundaries.md",
+        "tests/test_peer_overlay_architecture.py",
+        "frontend-angular/src/app/services/media-fanout-contract.ts",
+        "frontend-angular/src/app/services/media-fanout-contract.spec.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
         "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.ts",
         "agent/services/peer_overlay_topology_service.py"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CON-001",
       "title": "MediaFanoutPort und kleine topologiespezifische Adapter definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -497,17 +501,19 @@
         "Unsupported Capabilities schlagen fail-closed statt als erfolgreicher No-op fehl.",
         "LiveKit- und Peer-Adapter bestehen dieselben relevanten Contracttests."
       ],
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
+        "frontend-angular/src/app/services/media-fanout-contract.ts",
+        "frontend-angular/src/app/services/media-fanout-contract.spec.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
         "frontend-angular/src/app/services/sfu-room-session.ports.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CON-002",
       "title": "MediaFrameCryptoPort von LiveKit-Schluesselmaterial entkoppeln",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -522,17 +528,20 @@
         "Keymaterial bleibt non-extractable, soweit der Zieladapter keine kontrollierte Owned-Copy verlangt.",
         "Release, Ablauf und Zeroization-Verhalten sind explizit und testbar."
       ],
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
+        "frontend-angular/src/app/services/media-frame-crypto.port.ts",
+        "frontend-angular/src/app/services/media-frame-crypto.port.spec.ts",
         "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
+        "frontend-angular/src/app/services/sfu-broadcast-group-key.port.ts",
         "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CON-003",
       "title": "Membership-, Key-, Route- und Topology-Epochen verbindlich modellieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -546,13 +555,14 @@
         "Parentwechsel und Netzwechsel koennen Route-Epoch erhoehen, ohne unnoetig Content-Keys zu rotieren.",
         "Stale, uebersprungene oder widerspruechliche Epochenkombinationen werden fail-closed abgelehnt."
       ],
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_contracts.py"
+        "tests/test_peer_overlay_contracts.py",
+        "tests/test_peer_overlay_control_service.py"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-CON-004",
@@ -1621,11 +1631,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 32,
+      "partial": 28,
       "blocked": 7,
-      "done": 9
+      "done": 13
     },
-    "progress_percent_done": 18.8,
+    "progress_percent_done": 27.1,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1639,15 +1649,15 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 9,
-      "remaining": 35
+      "done": 13,
+      "remaining": 31
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 12,
+      "in_progress": 10,
       "blocked": 0,
-      "done": 0
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -1686,28 +1696,28 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 80.0
+        "progress_percent": 100.0
       },
       "contract": {
         "total": 6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 5,
+          "partial": 2,
           "blocked": 0,
-          "done": 1
+          "done": 4
         },
-        "done": 1,
-        "partial": 5,
+        "done": 4,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 84.2
+        "progress_percent": 95.0
       },
       "implementation": {
         "total": 16,
@@ -1785,11 +1795,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 32,
+    "partial": 28,
     "blocked": 7,
-    "done": 9,
-    "count_based_percent": 18.8,
-    "weighted_percent": 64.9
+    "done": 13,
+    "count_based_percent": 27.1,
+    "weighted_percent": 66.6
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1835,28 +1845,28 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 57.438,
-    "remaining_weight": 31.062,
+    "done_weight": 58.938,
+    "remaining_weight": 29.562,
     "blocked_weight": 12.75,
-    "weighted_percent": 64.9
+    "weighted_percent": 66.6
   },
   "milestone_progress_summary": {
     "milestones": {
       "M01": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 94.3,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M02": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 84.3,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M03": {
         "total_tasks": 4,
@@ -1943,10 +1953,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-29T13:29:43.126678Z",
+    "generated_at": "2026-09-05T01:59:00.215652Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a10bfbf10aae2ec852a2f9058a1995e595be99c57b0eca18e705829071852636",
+    "source_hash": "10ac91ee724b45016c3098e0ee97a1350c096ca6d664ecdfcc64e8d62f3f55eb",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"

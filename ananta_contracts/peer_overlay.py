@@ -229,6 +229,7 @@ class MembershipEventV1:
     issued_at: str
     expires_at: str
     hub_key_id: str
+    replacement_peer_id: str | None = None
     signature: str = ""
 
     def __post_init__(self) -> None:
@@ -238,8 +239,14 @@ class MembershipEventV1:
             raise ValueError("peer_overlay_membership_version_unsupported")
         for field in ("event_id", "tenant_id", "room_id", "subject_peer_id", "hub_key_id"):
             require_overlay_id(getattr(self, field), field)
-        if self.action not in {"join", "leave", "revoke", "snapshot"}:
+        if self.action not in {"join", "leave", "revoke", "device_replace", "snapshot"}:
             raise ValueError("peer_overlay_membership_action_invalid")
+        if self.action == "device_replace":
+            require_overlay_id(self.replacement_peer_id, "replacement_peer_id")
+            if self.replacement_peer_id == self.subject_peer_id:
+                raise ValueError("peer_overlay_membership_replacement_invalid")
+        elif self.replacement_peer_id is not None:
+            raise ValueError("peer_overlay_membership_replacement_unexpected")
         if self.sequence < 1 or len(set(self.member_ids)) != len(self.member_ids):
             raise ValueError("peer_overlay_membership_sequence_invalid")
         for member_id in self.member_ids:
