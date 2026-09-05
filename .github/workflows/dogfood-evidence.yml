@@ -15,12 +15,17 @@ permissions:
 
 jobs:
   dogfood-evidence:
+    name: Dogfood evidence shard ${{ matrix.shard }}/4
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       E2E_BROWSERS: ${{ inputs.browsers }}
       E2E_REPORTER_MODE: compact
-      E2E_RETAIN_EVIDENCE_ARTIFACTS: "1"
+      E2E_RETAIN_EVIDENCE_ARTIFACTS: "0"
       E2E_TEST_TIMEOUT_MS: "90000"
       E2E_EXPECT_TIMEOUT_MS: "20000"
       E2E_WEBSERVER_TIMEOUT_MS: "150000"
@@ -47,17 +52,19 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run dogfood E2E
         working-directory: frontend-angular
+        env:
+          TEST_GREP: ${{ inputs.test_grep }}
         run: |
-          if [ -n "${{ inputs.test_grep }}" ]; then
-            npx playwright test --grep "${{ inputs.test_grep }}"
+          if [ -n "$TEST_GREP" ]; then
+            npx playwright test --shard=${{ matrix.shard }}/4 --grep "$TEST_GREP"
           else
-            npx playwright test
+            npx playwright test --shard=${{ matrix.shard }}/4
           fi
       - name: Upload dogfood evidence artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ananta-dogfood-e2e-evidence
+          name: ananta-dogfood-e2e-evidence-shard-${{ matrix.shard }}
           path: |
             frontend-angular/test-results/**
             frontend-angular/playwright-report/**
