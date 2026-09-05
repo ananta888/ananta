@@ -28,12 +28,10 @@ real database.
 """
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
-
+from sqlmodel import SQLModel, create_engine
 
 # ---------------------------------------------------------------------------
 # in-memory world fixture
@@ -195,6 +193,61 @@ def test_pipeline_grant_redispatches_and_unblocks(pipeline_world) -> None:
         goal_id="goal-e2e-1",
     )
     assert again is None
+
+
+def test_recovery_plan_can_be_headlessly_granted_by_explicit_hub_policy(
+    pipeline_world,
+) -> None:
+    """A closed recovery scope is grantable without a human round-trip."""
+    from agent.services.approval_auto_grant_policy import (
+        RECOVERY_MATERIALIZE_TOOL,
+    )
+
+    svc, _task_repo, audit_log = pipeline_world
+    request = svc.create_pending_request(
+        task_id="task-recovery-auto",
+        goal_id="goal-recovery-auto",
+        tool_name=RECOVERY_MATERIALIZE_TOOL,
+        arguments={
+            "goal_id": "goal-recovery-auto",
+            "plan_id": "plan-recovery-auto",
+            "plan_digest": "a" * 64,
+            "policy_hash": "b" * 64,
+            "recovery_key": "recovery-auto",
+            "source_task_id": "task-recovery-auto",
+        },
+        target_fingerprint="a" * 64,
+        risk_class="task_materialization",
+        governance_mode="balanced",
+        scope={
+            "approval_class": "task_materialization",
+            "source": "model_context_recovery",
+            "plan_id": "plan-recovery-auto",
+            "source_task_id": "task-recovery-auto",
+            "recovery_key": "recovery-auto",
+        },
+        agent_cfg={
+            "approval_lifecycle": {
+                "auto_approval_policy": {
+                    "balanced": {
+                        "recovery_plan_materialization": True,
+                    }
+                }
+            }
+        },
+    )
+
+    assert request.status == "granted"
+    assert request.decided_by == "auto_policy"
+    assert request.decision_reason == (
+        "auto_approved:recovery_plan_materialization"
+    )
+    created = next(
+        details
+        for action, details in audit_log
+        if action == "approval_request_created"
+    )
+    assert created["auto_granted"] is True
 
 
 # ---------------------------------------------------------------------------

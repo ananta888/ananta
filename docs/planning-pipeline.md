@@ -29,7 +29,7 @@ reviewable task plan when the effective model-routing policy enables
 Control flow:
 
 Worker model attempts -> bounded exhaustion signal -> Hub policy validation ->
-persisted recovery plan -> exact human approval -> Hub task queue
+persisted recovery plan -> exact Hub approval decision -> Hub task queue
 
 Operational rules:
 
@@ -56,6 +56,13 @@ Operational rules:
   recovery plan.
 - The Hub stores the plan as `pending_approval` and binds approval to its exact
   digest, goal, source task, recovery key, and approval request.
+- Recovery materialization is manual by default. A productive unattended run
+  may explicitly enable
+  `approval_lifecycle.auto_approval_policy.<governance_mode>.recovery_plan_materialization`.
+  The Hub then records a digest-bound `auto_policy` grant and reconciles it
+  through the same durable approval outbox. The policy applies only to the
+  closed `planning.recovery_plan.materialize` request scope; incomplete scopes
+  and tools listed in `human_required_tools` remain blocked.
 - Operators inspect a specific plan with
   `GET /goals/<goal_id>/plans/<plan_id>` and may edit an unmaterialized node
   with the admin-only

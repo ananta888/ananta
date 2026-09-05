@@ -237,7 +237,7 @@ def _deterministic_child_id(
         "coordinator-failure",
     ],
 )
-def test_worker_exhaustion_flows_through_hub_tick_and_admin_approval(
+def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
     client,
     app,
     admin_auth_header,
@@ -256,6 +256,10 @@ def test_worker_exhaustion_flows_through_hub_tick_and_admin_approval(
         get_approval_request_service,
     )
     from agent.services.repository_registry import get_repository_registry
+
+    expect_auto_approval = bool(
+        expect_plan and expect_compaction and expect_segmented_plan
+    )
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_can_be_worker", False)
@@ -335,6 +339,20 @@ def test_worker_exhaustion_flows_through_hub_tick_and_admin_approval(
             )
 
         agent_config = dict(app.config.get("AGENT_CONFIG") or {})
+        approval_lifecycle = dict(
+            agent_config.get("approval_lifecycle") or {}
+        )
+        auto_approval_policy = dict(
+            approval_lifecycle.get("auto_approval_policy") or {}
+        )
+        balanced_auto_approval = dict(
+            auto_approval_policy.get("balanced") or {}
+        )
+        balanced_auto_approval["recovery_plan_materialization"] = (
+            expect_auto_approval
+        )
+        auto_approval_policy["balanced"] = balanced_auto_approval
+        approval_lifecycle["auto_approval_policy"] = auto_approval_policy
         agent_config.update(
             {
                 "adaptive_model_routing_enabled": False,
@@ -349,6 +367,7 @@ def test_worker_exhaustion_flows_through_hub_tick_and_admin_approval(
                     "allow_human_review": True,
                     "on_all_strategies_declined": "needs_review",
                 },
+                "approval_lifecycle": approval_lifecycle,
             }
         )
         app.config["AGENT_CONFIG"] = agent_config
@@ -483,21 +502,37 @@ def test_worker_exhaustion_flows_through_hub_tick_and_admin_approval(
         ) is expect_compaction
         approval = get_approval_request_service().get_request(approval_id)
         assert approval.tool_name == RECOVERY_MATERIALIZE_TOOL
-        assert approval.status == "pending"
+        assert approval.status == (
+            "granted" if expect_auto_approval else "pending"
+        )
+        if expect_auto_approval:
+            assert approval.decided_by == "auto_policy"
+            assert approval.decision_reason == (
+                "auto_approved:recovery_plan_materialization"
+            )
 
-    decision = client.post(
-        f"/api/approvals/{approval_id}/decision",
-        headers={
-            "Authorization": "Bearer "
-            + str(resolve_configured_agent_token(app.config) or "")
-        },
-        json={
-            "decision": "granted",
-            "reason": "approved deterministic recovery plan",
-        },
-    )
+    if expect_auto_approval:
+        with app.app_context():
+            reconciliation = (
+                get_approval_request_service()
+                .reconcile_granted_domain_actions()
+            )
+        assert reconciliation["completed"] == 1
+        assert reconciliation["failed"] == 0
+    else:
+        decision = client.post(
+            f"/api/approvals/{approval_id}/decision",
+            headers={
+                "Authorization": "Bearer "
+                + str(resolve_configured_agent_token(app.config) or "")
+            },
+            json={
+                "decision": "granted",
+                "reason": "approved deterministic recovery plan",
+            },
+        )
 
-    assert decision.status_code == 200, decision.get_json()
+        assert decision.status_code == 200, decision.get_json()
     with app.app_context():
         repositories = get_repository_registry(app)
         nodes = repositories.plan_node_repo.get_by_plan_id(plan_id)

@@ -67,9 +67,24 @@ def approval_lifecycle_defaults() -> dict:
         "default_ttl_seconds": 3600,
         "grant_one_shot": True,
         "auto_approval_policy": {
-            "safe": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
-            "balanced": {"read_only": True, "controlled_workspace_writes": True, "test_run": True},
-            "strict": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
+            "safe": {
+                "read_only": True,
+                "controlled_workspace_writes": False,
+                "test_run": False,
+                "recovery_plan_materialization": False,
+            },
+            "balanced": {
+                "read_only": True,
+                "controlled_workspace_writes": True,
+                "test_run": True,
+                "recovery_plan_materialization": False,
+            },
+            "strict": {
+                "read_only": True,
+                "controlled_workspace_writes": False,
+                "test_run": False,
+                "recovery_plan_materialization": False,
+            },
         },
         "human_required_tools": [
             "git.push",

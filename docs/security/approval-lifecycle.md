@@ -53,6 +53,15 @@ mit `request_id`, `digest_prefix`, `scope_summary`, `reason_code` —
   governance_mode.balanced read_only = true, controlled_workspace_writes = true, test_run = true
   governance_mode.strict   (none — alle Writes brauchen explizite Approval)
 
+`recovery_plan_materialization` ist in allen Modi standardmäßig `false`. Für
+einen produktiven Headless-Recovery-Lauf kann es in genau dem verwendeten
+Governance-Modus explizit auf `true` gesetzt werden. Die Policy gilt nur für
+`planning.recovery_plan.materialize` mit geschlossenem
+`model_context_recovery`-Scope und vorhandener Plan-, Source-Task- und
+Recovery-Key-Bindung. Der Hub protokolliert die Entscheidung als
+`auto_policy`; Digestprüfung, langlebiger Approval-Outbox und
+Einmal-Materialisierung bleiben identisch zum manuellen Pfad.
+
 `approval_lifecycle.human_required_tools` ist eine harte
 Default-Deny-Liste (nie automatisch freigegeben):
 
@@ -106,7 +115,7 @@ sequenceDiagram
     participant T as Tool-Policy-Gate
     participant A as ApprovalRequestService
     participant DB as ApprovalRequestDB
-    participant O as Operator / UI
+    participant O as Operator / Hub Auto-Policy
     W->>T: tool_call(repo.write_file, path, content)
     T->>A: resolve_grant_for_call(tool_name, arguments_digest)
     A->>DB: SELECT granted AND digest=?

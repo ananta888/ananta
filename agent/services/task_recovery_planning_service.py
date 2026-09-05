@@ -2,7 +2,7 @@
 
 Workers only report ``model_recovery_signal.v1`` facts.  This service is the
 control-plane boundary that may turn those facts into a persisted draft plan,
-request an exact human approval, and materialize the reviewed nodes once.
+request an exact Hub policy decision, and materialize the approved nodes once.
 """
 
 from __future__ import annotations
@@ -16,6 +16,9 @@ import time
 from typing import Any, Callable
 
 from agent.config import settings
+from agent.services.approval_auto_grant_policy import (
+    RECOVERY_MATERIALIZE_TOOL,
+)
 from agent.services.recovery_plan_contract import (
     build_recovery_dependency_binding,
     calculate_recovery_materialization_inputs_digest,
@@ -34,7 +37,6 @@ from agent.services.task_recovery_planning_values import (
 
 log = logging.getLogger(__name__)
 
-RECOVERY_MATERIALIZE_TOOL = "planning.recovery_plan.materialize"
 RECOVERY_STATE_SCHEMA = "ananta.task_recovery_state.v1"
 RECOVERY_SIGNAL_SCHEMA = "model_recovery_signal.v1"
 _RECOVERY_ACTIONS = {

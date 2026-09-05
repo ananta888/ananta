@@ -31,6 +31,7 @@ from sqlmodel import Session, select
 
 from agent.config import settings
 from agent.db_models import ApprovalRequestDB, GoalDB, TaskDB
+from agent.services.approval_auto_grant_policy import ApprovalAutoGrantPolicy
 
 log = logging.getLogger(__name__)
 
@@ -157,6 +158,13 @@ def canonical_approval_intent_key(
 
 class ApprovalRequestService:
     """Lifecycle of digest-bound ApprovalRequests (hub side)."""
+
+    def __init__(
+        self,
+        *,
+        auto_grant_policy: ApprovalAutoGrantPolicy | None = None,
+    ) -> None:
+        self._auto_grant_policy = auto_grant_policy or ApprovalAutoGrantPolicy()
 
     # --- payload store (ALWA-DD-007) -----------------------------------------
 
@@ -368,23 +376,22 @@ class ApprovalRequestService:
         )
         return request
 
-    @staticmethod
     def _auto_approval_reason(
-        *, cfg: dict[str, Any], tool_name: str, scope: dict[str, Any], governance_mode: str
+        self,
+        *,
+        cfg: dict[str, Any],
+        tool_name: str,
+        scope: dict[str, Any],
+        governance_mode: str,
     ) -> str | None:
-        """ALWA-011: policy-driven auto approval; never for human_required tools."""
-        name = str(tool_name or "").strip()
-        if name in set(cfg.get("human_required_tools") or []):
-            return None
-        mode_policy = dict((cfg.get("auto_approval_policy") or {}).get(str(governance_mode or "balanced")) or {})
-        approval_class = str(scope.get("approval_class") or "").strip()
-        if approval_class == "read_only" and bool(mode_policy.get("read_only")):
-            return "auto_approved:read_only"
-        if approval_class == "controlled_workspace_writes" and bool(mode_policy.get("controlled_workspace_writes")):
-            return "auto_approved:controlled_workspace_writes"
-        if name == "test.run" and bool(mode_policy.get("test_run")):
-            return "auto_approved:test_run"
-        return None
+        """Delegate automatic approval to the Hub-owned policy."""
+        return self._auto_grant_policy.reason(
+            policy_by_mode=dict(cfg.get("auto_approval_policy") or {}),
+            human_required_tools=list(cfg.get("human_required_tools") or []),
+            tool_name=tool_name,
+            scope=scope,
+            governance_mode=governance_mode,
+        )
 
     def get_request(self, request_id: str) -> ApprovalRequestDB | None:
         with Session(_engine()) as session:
