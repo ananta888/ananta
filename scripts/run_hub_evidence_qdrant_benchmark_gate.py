@@ -55,6 +55,7 @@ SOURCE_PATHS = (
     BENCHMARK_PATH,
     "scripts/benchmark/qdrant_vector_store_memory.py",
     "scripts/run_hub_evidence_qdrant_benchmark_gate.py",
+    "worker/retrieval/json_vector_search.py",
     "worker/retrieval/qdrant_vector_store.py",
     "worker/retrieval/qdrant_collection_manager.py",
 )

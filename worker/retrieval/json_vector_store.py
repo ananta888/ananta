@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
+from worker.retrieval.json_vector_search import (
+    CosineSearchIndexPort,
+    create_cosine_search_index,
+)
 from worker.retrieval.vector_encoding import VectorEncoder, VectorEncodingProfile
 from worker.retrieval.vector_store_contract import (
     CompatibilitySpec,
@@ -26,15 +29,6 @@ from worker.retrieval.vector_store_contract import (
 _BACKEND_VERSION = "json-vector-store.v1"
 
 
-def _cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
-    numerator = sum(float(a) * float(b) for a, b in zip(left, right, strict=True))
-    left_norm = math.sqrt(sum(float(value) * float(value) for value in left))
-    right_norm = math.sqrt(sum(float(value) * float(value) for value in right))
-    if left_norm <= 1e-9 or right_norm <= 1e-9:
-        return 0.0
-    return float(numerator / (left_norm * right_norm))
-
-
 class JsonVectorStore:
     """Deterministic reference backend over already prepared vector points."""
 
@@ -43,12 +37,20 @@ class JsonVectorStore:
         *,
         index_path: str | Path,
         legacy_scope: VectorScope | None = None,
+        search_index_factory: Callable[
+            [Sequence[Sequence[float]]], CosineSearchIndexPort
+        ] = create_cosine_search_index,
     ) -> None:
         self._index_path = Path(index_path)
         self._legacy_scope = legacy_scope
         self._closed = False
         self._cached_signature: tuple[int, int, int, int] | None = None
         self._cached_payload: dict[str, Any] | None = None
+        self._search_index_factory = search_index_factory
+        self._cached_search_key: tuple[
+            tuple[int, int, int, int] | None, str
+        ] | None = None
+        self._cached_search_index: CosineSearchIndexPort | None = None
         self._last_diagnostic = VectorStoreDiagnostic(
             status="degraded",
             reason="not_loaded",
@@ -77,6 +79,7 @@ class JsonVectorStore:
         if signature is None:
             self._cached_signature = None
             self._cached_payload = None
+            self._invalidate_search_index()
             self._last_diagnostic = VectorStoreDiagnostic(
                 status="degraded",
                 reason="missing_index",
@@ -101,6 +104,7 @@ class JsonVectorStore:
                 raise VectorStoreError("invalid_index")
             self._cached_signature = signature
             self._cached_payload = payload
+            self._invalidate_search_index()
         state = dict(payload.get("state") or {})
         entries = [item for item in list(payload.get("entries") or []) if isinstance(item, dict)]
         schema = str(state.get("schema") or "")
@@ -142,6 +146,7 @@ class JsonVectorStore:
             temporary_path = None
             self._cached_payload = payload
             self._cached_signature = self._index_signature()
+            self._invalidate_search_index()
             try:
                 directory_fd = os.open(self._index_path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
                 try:
@@ -418,14 +423,26 @@ class JsonVectorStore:
             self._set_dimensions_mismatch(expected, len(query.query_vector))
         profile_data = dict(state.get("vector_encoding_profile") or {})
         encoder = vector_encoder or VectorEncoder(VectorEncodingProfile.from_config(profile_data))
-        hits: list[VectorSearchHit] = []
-        for entry in entries:
-            if not self._matches(entry, query):
-                continue
-            vector = self._entry_vector(entry, encoder)
+        vectors = [self._entry_vector(entry, encoder) for entry in entries]
+        for vector in vectors:
             point_expected = expected or len(query.query_vector)
             if len(vector) != point_expected:
                 self._set_dimensions_mismatch(point_expected, len(vector))
+        search_key = (self._cached_signature, encoder.profile.config_hash())
+        if self._cached_search_key != search_key or self._cached_search_index is None:
+            self._cached_search_index = self._search_index_factory(vectors)
+            self._cached_search_key = search_key
+        candidate_indices = [
+            index for index, entry in enumerate(entries) if self._matches(entry, query)
+        ]
+        ranked = self._cached_search_index.rank(
+            query.query_vector,
+            candidate_indices=candidate_indices,
+            top_k=query.top_k,
+        )
+        hits: list[VectorSearchHit] = []
+        for index, score in ranked:
+            entry = entries[index]
             metadata = dict(entry.get("metadata") or {})
             metadata["vector_encoding_mode"] = encoder.profile.mode
             if encoder.profile.experimental:
@@ -437,11 +454,10 @@ class JsonVectorStore:
             hits.append(
                 VectorSearchHit(
                     record_id=str(entry.get("record_id") or ""),
-                    score=_cosine_similarity(query.query_vector, vector),
+                    score=score,
                     payload=payload,
                 )
             )
-        hits.sort(key=lambda hit: hit.score, reverse=True)
         diagnostics = self._state_diagnostics(state, entry_count=len(entries))
         diagnostics.update({"matched_entries": len(hits), "top_k": query.top_k})
         return VectorSearchResult(
@@ -467,6 +483,11 @@ class JsonVectorStore:
 
     def close(self) -> None:
         self._closed = True
+        self._invalidate_search_index()
+
+    def _invalidate_search_index(self) -> None:
+        self._cached_search_key = None
+        self._cached_search_index = None
 
     def _set_dimensions_mismatch(self, expected: int, actual: int) -> None:
         self._last_diagnostic = VectorStoreDiagnostic(
