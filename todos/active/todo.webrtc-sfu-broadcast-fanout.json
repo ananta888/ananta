@@ -72,6 +72,8 @@
     ]
   },
   "revision_notes": [
+    "Aktueller Hub-gebundener Multi-Node-Lauf 2026-09-05 auf main@7fa734f08: RUN_1d842ebcb57f57763cc1e7f4717a1e65 bestand mit fuenf vorab registrierten immutable SRC_*-Quellen, zwei realen LiveKit-1.13.1-Nodes, Redis 7.4.2 mit TLS/ACL, Coturn sowie Chromium 148 und Firefox 153. Drain von Node A reduzierte die registrierte Fleet von zwei auf einen Node; der E2EE-Fanout mit Wrong-Key-Negativprobe lief ueber Node B weiter, Node A trat anschliessend wieder bei und der Cleanup entfernte alle eigenen Container. Die Evidenz ist ehrlich auf local_single_host, public_network_path_verified=false, independent_failure_domains_verified=false und production_release_eligible=false begrenzt.",
+    "Externer Public-TURN-Nachweis 2026-09-05 auf GitHub Actions main@7fa734f08: RUN_2e3db0fd5182aa02cde058c3a62aa83d band Repository und oeffentlichen Endpoint als SRC_2c50246e0140dbe6c0e0e53eb101d838 und SRC_d8f9f90b70fbdd5c82ef72ca3a837c8c. DNS loeste webrtc.ananta.de auf 89.168.123.128 auf, TLS 1.3 auf Port 5349 und reale Chromium-/Firefox-Binaries wurden attestiert; die erste relay-only Chromium-UDP-Verbindung endete jedoch bounded mit public_turn_probe_chromium_udp_data_channel_open_timeout. Das lokal vorhandene Shared Secret gehoert nicht nachweislich zur oeffentlichen Coturn-Instanz und wurde deshalb wieder aus dem GitHub-Environment entfernt. Der Lauf bleibt failed/unverified, belegt aber den vollautomatischen externen Ausfuehrungsweg und praezisiert den Blocker auf fehlenden Zugriff zur tatsaechlichen oeffentlichen Credential Authority; TURNS wird vom oeffentlichen /info-Endpunkt derzeit zudem nicht beworben.",
     "Hub-gebundener Multi-Node-Abschluss 2026-09-05 auf main@f7467fbb6: RUN_de03c89eb17bc147971ca766a58c7531 wurde vor dem Lauf durch die Hub Evidence Registry reserviert und bindet fuenf immutable SRC_*-Quellen fuer Repository, LiveKit-, Redis- und Coturn-Images sowie Chromium-/Firefox-Runtimes. Zwei reale LiveKit-1.13.1-Prozesse registrierten sich an einem realen mTLS-/ACL-geschuetzten Redis 7.4.2. Nach dem Drain von Node A fiel die registrierte Fleet von zwei auf einen Node; Chromium und Firefox bestanden ueber Node B den E2EE-Fanout mit zwei Receivern und Wrong-Key-Negativprobe. Node A trat anschliessend wieder bei, die Fleet erreichte erneut zwei Nodes und alle eigenen Container wurden entfernt. SFB-OPS-016 ist damit done. Die Evidenz bleibt local_single_host, production_release_eligible=false, public_network_path_verified=false und independent_failure_domains_verified=false; Multi-Hub-/Split-Brain-, Public-Network-, Scale-, Soak- und Produktionsgates bleiben separat offen.",
     "Hub-gebundener Real-Relay-Abschluss 2026-09-05 auf main@86b4233cc: RUN_0be3c152c9ea14b5d29d29b9564f7896 wurde vor dem Lauf durch die Hub Evidence Registry reserviert und bindet vier immutable SRC_*-Quellen fuer Repository, LiveKit-Image, Coturn-Image sowie Chromium-/Firefox-Runtimes. Der gepinnte LiveKit-Server 1.13.1, livekit-client 2.20.1, Chromium 148 und Firefox 153 bestanden mit einem Publisher, drei Receivern, erzwungenen Relay-Candidate-Pairs, E2EE, Wrong-Key-Negativprobe und vollstaendigem Cleanup. Die Evidenz ist local, production_release_eligible=false und public_network_path_verified=false; oeffentliche NAT-/DNS-/TLS-, Accounting-, Scale-, Soak- und Chaosgates bleiben separat offen.",
     "Realer Runtime-Abschluss 2026-09-05 auf main@10f05cf9a: Der digest-gepinnte LiveKit-Server 1.13.1 und livekit-client 2.20.1 bestanden den vollautomatischen Chromium-Smoke mit einem Publisher, drei Receivern, genau einer Publikation, drei dekodierenden MediaStreams, E2EE, UpdateSubscriptions, SendData, Participant-Permissions und vollstaendigem Cleanup. Der zuvor veraltete Probe erwartete noch max_participants 8 und ein bedingungslos aktiviertes adaptiveStream; beide statischen Bindungen wurden an die bestehende Hub-Admission-Obergrenze 250 und den produktiven adaptive/manual Layer-Modus angepasst und durch 10/10 Integrationstests abgesichert. SFB-BASE-006 ist damit done; Parent-Readiness und weitergehende Scale-/Soak-/TURN-Gates bleiben getrennt fail-closed.",
@@ -3443,7 +3445,7 @@
       "milestone_id": "SFB-M6",
       "status": "blocked",
       "progress_percent": 70,
-      "blocked_reason": "LiveKit-/Browser-Konfiguration und TURN-only-Policy sind implementiert. RUN_0be3c152c9ea14b5d29d29b9564f7896 belegt echte relay-only Chromium-/Firefox-Medien ueber gepinntes LiveKit und Coturn mit E2EE und Cleanup. Offen bleiben Coturn-Accounting, UDP/TCP/TLS-Matrix, DNS-/TLS-/Rotation-/Poolwechsel-Fehler und ein oeffentlicher NAT-Pfad; der lokale Lauf behauptet diese Grenzen nicht.",
+      "blocked_reason": "LiveKit-/Browser-Konfiguration und TURN-only-Policy sind implementiert. RUN_0be3c152c9ea14b5d29d29b9564f7896 belegt echte lokale relay-only Chromium-/Firefox-Medien; der externe GitHub-Lauf RUN_2e3db0fd5182aa02cde058c3a62aa83d attestierte DNS, TLS und Browser, scheiterte aber bounded bereits bei Chromium/UDP, weil das lokale Shared Secret nicht als Credential der oeffentlichen Coturn-Instanz belegt ist. Der vollautomatische Public-TURN-Gatepfad ist vorhanden; offen sind Zugriff auf die tatsaechliche oeffentliche Credential Authority, die erfolgreiche UDP/TCP/TLS-Matrix, Coturn-Accounting, Rotation/Poolwechsel und ein belegter oeffentlicher Relaypfad. TURNS wird vom oeffentlichen /info-Endpunkt derzeit nicht beworben.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3460,7 +3462,12 @@
         "agent/services/semantic_sfu_admission_service.py",
         "frontend-angular/src/app/services/network-profile.service.ts",
         "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+        ".github/workflows/public-turn-external-evidence.yml",
+        "scripts/e2e/public_turn_relay_probe.mjs",
+        "scripts/run_hub_evidence_public_turn_gate.py",
         "tests/integration/test_livekit_external_turn_path.py",
+        "tests/test_hub_evidence_public_turn_gate.py",
+        "scripts/e2e/public_turn_relay_probe.test.mjs",
         "frontend-angular/tests/sfu-broadcast-turn-path.spec.ts"
       ],
       "acceptance_criteria": [
@@ -3920,7 +3927,7 @@
       "milestone_id": "SFB-M8",
       "status": "blocked",
       "progress_percent": 0,
-      "blocked_reason": "Der vollautomatische zweistündige Churn-/Rekey-/Slow-Receiver-/Amplification-Soakrunner mit Budgets und Cleanup ist implementiert. Ein gültiger Abschluss benötigt zwei Stunden reale gepinnte Media-Runtime und externe RUN_*-Evidenz.",
+      "blocked_reason": "Profil, Messvertrag, externer Prozessadapter und fail-closed Evidence-Validator sind implementiert; scripts/load/sfu_broadcast_churn_soak.py startet selbst jedoch keine Media-Runtime, sondern validiert nur das Ergebnis eines explizit konfigurierten externen Producers. Offen sind ein produktionsnaher, protokolltreuer Runtime-Producer fuer die geforderten Browser-/SFU-/TURN-/Fault-Szenarien sowie danach der mindestens zweistuendige Hub-reservierte Lauf. Der Blocker ist damit eine konkrete Implementierungsluecke und nicht lediglich eine fehlende externe RUN_*-ID.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4012,7 +4019,7 @@
       "milestone_id": "SFB-M8",
       "status": "blocked",
       "progress_percent": 0,
-      "blocked_reason": "Der vollautomatische Fanout-Benchmarkrunner für 10/25/50/100/250 Receiver, Messverträge, SLO-/Ressourcenbudgets und Evidence-Verifikation sind implementiert. Reproduzierbare echte SFU-Direct- und All-TURN-Messungen benötigen einen freigegebenen Referenzhost und externe RUN_*-Evidenz.",
+      "blocked_reason": "Scale-Profil, Messvertrag, externer Prozessadapter und fail-closed Evidence-Validator sind implementiert; scripts/benchmark/webrtc_sfu_broadcast_fanout.py startet selbst jedoch keine SFU-/Browser-/TURN-Last, sondern validiert nur ein extern erzeugtes Ergebnis. Offen sind ein protokolltreuer Runtime-Producer fuer 10/25/50/100/250 Receiver mit mindestens drei Browser-Sentinels, Direct-/All-TURN-Pfaden und Ressourcenbeobachtung sowie danach reproduzierbare Hub-reservierte Referenzlaeufe. Der Blocker ist damit zuerst eine konkrete Implementierungsluecke, nicht nur ein fehlender Referenzhost oder eine RUN_*-ID.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
