@@ -53,11 +53,19 @@ def test_worker_image_excludes_hub_and_separates_cpu_from_nvidia() -> None:
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
 
     assert "COPY --chown=10005:10005 agent/" not in dockerfile
-    assert "COPY --chown=10005:10005 ananta_contracts /app/ananta_contracts" in dockerfile
+    assert "FROM scratch AS worker-source" in dockerfile
+    assert "COPY ananta_contracts /app/ananta_contracts" in dockerfile
+    assert dockerfile.count("COPY --from=worker-source --chown=10005:10005 /app /app") == 3
     assert "USER 10005:10005" in dockerfile
-    assert "FROM base AS cpu" in dockerfile
-    assert "FROM base AS nvidia" in dockerfile
+    assert "FROM runtime-dependencies AS cpu-dependencies" in dockerfile
+    assert "FROM cpu-dependencies AS cpu" in dockerfile
+    assert "FROM runtime-dependencies AS nvidia-dependencies" in dockerfile
+    assert "FROM nvidia-dependencies AS nvidia" in dockerfile
     assert "FROM cpu AS nvidia" not in dockerfile
+    assert dockerfile.index("FROM runtime-dependencies AS nvidia-dependencies") < dockerfile.index(
+        "COPY --from=worker-source --chown=10005:10005 /app /app",
+        dockerfile.index("FROM nvidia-dependencies AS nvidia"),
+    )
     assert "apt-get install --yes --no-install-recommends gcc libc6-dev" in dockerfile
     assert "FROM python:3.11.15-slim-bookworm@sha256:" in dockerfile
     assert "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/refs/tags/v0.4.0" in dockerfile

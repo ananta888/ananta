@@ -1,4 +1,4 @@
-FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS base
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS runtime-dependencies
 
 ENV HF_DATASETS_OFFLINE=1 \
     HF_HUB_DISABLE_TELEMETRY=1 \
@@ -25,13 +25,21 @@ COPY docker/compose-next/requirements.lora-training-runtime.txt /tmp/requirement
 RUN pip install --no-cache-dir --requirement /tmp/requirements.lora-training-runtime.txt \
     && rm /tmp/requirements.lora-training-runtime.txt /tmp/requirements.runtime-http.txt
 
+
+FROM scratch AS worker-source
+
 # This image intentionally contains no Hub package, database repository,
 # routing code, task queue, frontend, or provider credentials.
-COPY --chown=10005:10005 ananta_contracts /app/ananta_contracts
-COPY --chown=10005:10005 worker/__init__.py /app/worker/__init__.py
-COPY --chown=10005:10005 worker/runtime/__init__.py /app/worker/runtime/__init__.py
-COPY --chown=10005:10005 worker/runtime/lora_training_app.py /app/worker/runtime/lora_training_app.py
-COPY --chown=10005:10005 worker/training /app/worker/training
+COPY ananta_contracts /app/ananta_contracts
+COPY worker/__init__.py /app/worker/__init__.py
+COPY worker/runtime/__init__.py /app/worker/runtime/__init__.py
+COPY worker/runtime/lora_training_app.py /app/worker/runtime/lora_training_app.py
+COPY worker/training /app/worker/training
+
+
+FROM runtime-dependencies AS base
+
+COPY --from=worker-source --chown=10005:10005 /app /app
 
 USER 10005:10005
 EXPOSE 8095
@@ -47,13 +55,24 @@ CMD ["python", "-m", "worker.runtime.lora_training_app"]
 FROM base AS minimal
 
 
-FROM base AS cpu
+FROM runtime-dependencies AS cpu-dependencies
 
 USER root
 COPY docker/compose-next/requirements.lora-training-cpu.txt /tmp/requirements.lora-training-cpu.txt
 RUN pip install --no-cache-dir --requirement /tmp/requirements.lora-training-cpu.txt \
     && rm /tmp/requirements.lora-training-cpu.txt
+
+
+FROM cpu-dependencies AS cpu
+
+COPY --from=worker-source --chown=10005:10005 /app /app
 USER 10005:10005
+EXPOSE 8095
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
+    CMD ["python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8095/health',headers={'Authorization':'Bearer '+os.environ['ANANTA_LORA_TRAINING_TOKEN']}); p=json.load(urllib.request.urlopen(r,timeout=3)); raise SystemExit(0 if p.get('status')=='ready' and p.get('auth_configured') is True and p.get('runtime_configured') is True else 1)"]
+
+CMD ["python", "-m", "worker.runtime.lora_training_app"]
 
 
 # GGUF export is deliberately assembled at image-build time. Runtime workers
@@ -88,8 +107,9 @@ RUN mkdir /tmp/llama-cpp-source \
         > /opt/llama.cpp/UNSLOTH_PREBUILT_INFO.json
 
 
-# NVIDIA is a sibling of the CPU target, preventing CPU torch wheel leakage.
-FROM base AS nvidia
+# NVIDIA dependencies do not inherit worker sources. Source-only edits can
+# therefore reuse the immutable CUDA/Unsloth layer.
+FROM runtime-dependencies AS nvidia-dependencies
 
 USER root
 COPY docker/compose-next/requirements.lora-training-nvidia.txt /tmp/requirements.lora-training-nvidia.txt
@@ -103,7 +123,18 @@ COPY --chmod=0555 docker/compose-next/lora-training-worker-entrypoint.sh /usr/lo
 ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4" \
     ANANTA_UNSLOTH_LLAMA_CPP_SOURCE=/opt/llama.cpp \
     UNSLOTH_LLAMA_CPP_PATH=/tmp/ananta-unsloth/llama.cpp
+
+
+FROM nvidia-dependencies AS nvidia
+
+COPY --from=worker-source --chown=10005:10005 /app /app
 ARG SOURCE_REVISION=unbound
 LABEL org.opencontainers.image.revision="${SOURCE_REVISION}"
 USER 10005:10005
+EXPOSE 8095
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
+    CMD ["python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8095/health',headers={'Authorization':'Bearer '+os.environ['ANANTA_LORA_TRAINING_TOKEN']}); p=json.load(urllib.request.urlopen(r,timeout=3)); raise SystemExit(0 if p.get('status')=='ready' and p.get('auth_configured') is True and p.get('runtime_configured') is True else 1)"]
+
 ENTRYPOINT ["/usr/local/bin/lora-training-worker-entrypoint"]
+CMD ["python", "-m", "worker.runtime.lora_training_app"]
