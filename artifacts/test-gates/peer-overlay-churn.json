@@ -1,0 +1,140 @@
+{
+  "capacity_claims": {
+    "five_peer_overlay": {
+      "evidence_scope": "test",
+      "participant_count": 5,
+      "production_release_eligible": false,
+      "run_id": "RUN_1e8c8df3d02b29b9f76cb32ccf89a557",
+      "source_id": "SRC_cde3b315e94055b7da911d5b3952d96b"
+    },
+    "four_peer_mesh": {
+      "production_release_eligible": false,
+      "repository_revision": "4193b7539ced64696ceb7400c038019e1eb69aeb",
+      "run_id": "RUN_5e7147139b0a463c83a3fcb49a4d7278",
+      "source_id": "SRC_92dc0166d6a2447db5c8d23e31f98a56",
+      "valid_test_evidence": true
+    },
+    "nat_turn_matrix": {
+      "production_release_eligible": false,
+      "repository_revision": "50cef03add7e711ed907730e5f4dd0c3d6829148",
+      "run_id": "RUN_193dfa1c923071248caa910013689ad5",
+      "source_id": "SRC_2f1acf66d5982866d882fc8103ea9b0e",
+      "valid_test_evidence": true
+    }
+  },
+  "command_exit_code": 0,
+  "decision": "test_gate_passed_production_no_go",
+  "evidence": {
+    "binding_digest": "1e8c8df3d02b29b9f76cb32ccf89a5570425c139bae89cb11eed534516ce5edf",
+    "issuer": "hub-evidence-registry",
+    "production_release_eligible": false,
+    "production_release_reason": "evidence_run_test_scope_forbidden",
+    "result_digest": "55d6062d4246c30fe73f67888dba7fb59d0bc0341782f6d7d3725298ed804cfc",
+    "run_id": "RUN_1e8c8df3d02b29b9f76cb32ccf89a557",
+    "scope": "test",
+    "source_id": "SRC_cde3b315e94055b7da911d5b3952d96b",
+    "synthetic": true
+  },
+  "execution_profile": {
+    "device_processes_per_engine": 5,
+    "edges": 6,
+    "engines": [
+      "chromium",
+      "firefox"
+    ],
+    "headless": true,
+    "production_claim": false,
+    "recovery_bounds_ms": {
+      "background_tab": 2000,
+      "browser_crash": 2000,
+      "ice_restart": 5000,
+      "relay_failure": 2000
+    },
+    "schema": "ananta.peer-overlay-churn-browser-profile.v1"
+  },
+  "host_environment": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13700H",
+    "logical_cpu_count": 20,
+    "memory_bytes": 65782554624,
+    "node": "v22.22.1",
+    "platform": "Linux-7.0.0-30-generic-x86_64-with-glibc2.43",
+    "playwright": "Version 1.60.0",
+    "python": "3.12.14"
+  },
+  "human_intervention_required": false,
+  "measurements": [
+    {
+      "browserVersion": "148.0.7778.96",
+      "deviceIdentities": [
+        "source-device",
+        "relay-a-device",
+        "relay-b-device",
+        "leaf-c-device",
+        "leaf-d-device"
+      ],
+      "edgeCount": 6,
+      "engine": "chromium",
+      "humanInterventionRequired": false,
+      "processIsolation": true,
+      "scenarios": {
+        "backgroundTab": {
+          "activation": "cover_tab_brought_to_front",
+          "delivered": true,
+          "pageCount": 2,
+          "recoveryMs": 7
+        },
+        "browserCrash": {
+          "backupPath": "source-b>b-c",
+          "recoveryMs": 56
+        },
+        "iceRestart": {
+          "delivered": true,
+          "recoveryMs": 16
+        },
+        "relayFailure": {
+          "backupPath": "source-b>b-d",
+          "recoveryMs": 23
+        }
+      }
+    },
+    {
+      "browserVersion": "153.0",
+      "deviceIdentities": [
+        "source-device",
+        "relay-a-device",
+        "relay-b-device",
+        "leaf-c-device",
+        "leaf-d-device"
+      ],
+      "edgeCount": 6,
+      "engine": "firefox",
+      "humanInterventionRequired": false,
+      "processIsolation": true,
+      "scenarios": {
+        "backgroundTab": {
+          "activation": "cover_tab_brought_to_front",
+          "delivered": true,
+          "pageCount": 2,
+          "recoveryMs": 9
+        },
+        "browserCrash": {
+          "backupPath": "source-b>b-c",
+          "recoveryMs": 309
+        },
+        "iceRestart": {
+          "delivered": true,
+          "recoveryMs": 25
+        },
+        "relayFailure": {
+          "backupPath": "source-b>b-d",
+          "recoveryMs": 13
+        }
+      }
+    }
+  ],
+  "production_release_eligible": false,
+  "reason_codes": [],
+  "repository_revision": "e06b49eb92860664d3ea42b1b64e00b3d7bfd856",
+  "schema": "ananta.peer-overlay-churn-result.v1",
+  "status": "passed"
+}
