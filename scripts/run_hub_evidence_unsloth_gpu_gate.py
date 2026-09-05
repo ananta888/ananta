@@ -229,7 +229,7 @@ def build_container_command(
         "--memory",
         "48g",
         "--tmpfs",
-        "/tmp:rw,nosuid,nodev,size=4294967296,uid=10005,gid=10005",
+        "/tmp:rw,exec,nosuid,nodev,size=4294967296,uid=10005,gid=10005",
     ]
     devices = device_paths or tuple(
         Path(value)
