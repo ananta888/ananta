@@ -1,0 +1,56 @@
+name: Public TURN External Evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-turn-external-evidence
+  cancel-in-progress: false
+
+jobs:
+  public-turn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: e2e-live
+    env:
+      ANANTA_PUBLIC_TURN_E2E_SHARED_SECRET: ${{ secrets.ANANTA_PUBLIC_TURN_E2E_SHARED_SECRET }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend-angular/package-lock.json
+      - name: Require external TURN credential authority
+        shell: bash
+        run: test -n "$ANANTA_PUBLIC_TURN_E2E_SHARED_SECRET"
+      - name: Install backend gate dependencies
+        run: pip install -r requirements.txt
+      - name: Install browser dependencies
+        working-directory: frontend-angular
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium firefox
+      - name: Run Hub-reserved public TURN gate
+        shell: bash
+        run: |
+          printf '%s' "$ANANTA_PUBLIC_TURN_E2E_SHARED_SECRET" | python scripts/run_hub_evidence_public_turn_gate.py \
+            --host webrtc.ananta.de \
+            --timeout-seconds 45 \
+            --output artifacts/public-turn-external-evidence.json \
+            --database-url sqlite:////tmp/ananta-public-turn-evidence.sqlite3
+      - name: Upload Hub evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: public-turn-external-evidence
+          path: artifacts/public-turn-external-evidence.json
+          if-no-files-found: error
+          retention-days: 14
