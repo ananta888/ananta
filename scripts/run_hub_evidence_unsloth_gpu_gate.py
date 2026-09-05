@@ -483,6 +483,7 @@ def execute_gate(
                         "stage_results": row.get("stage_results"),
                         "peak_vram": row.get("peak_vram"),
                         "training_metrics": row.get("training_metrics"),
+                        "job_identity": row.get("job_identity"),
                         "dataset_sha256": row.get("dataset_sha256"),
                         "configuration_sha256": row.get("configuration_sha256"),
                         "model_snapshot_sha256": row.get("model_snapshot_sha256"),

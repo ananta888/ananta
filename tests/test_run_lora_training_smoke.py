@@ -237,6 +237,12 @@ def _passed_unsloth_smoke_run(index: int) -> dict[str, object]:
             "cuda_runtime": "12.4",
         },
         "training_metrics": {"adapter": {"eval_loss": 0.5}, "train": {"train_loss": 0.6}},
+        "job_identity": {
+            "job_id": "nvidia-live-smoke",
+            "attempt_id": "nvidia-live-smoke-attempt-1",
+            "fencing_token": 1,
+            "correlation_id": "nvidia-live-smoke-correlation",
+        },
         "artifacts": {"evaluation.json": {"sha256": "f" * 64, "size_bytes": 128}},
         "platform_stage_coverage": stages,
     }
@@ -328,6 +334,19 @@ def test_unsloth_release_rejects_missing_run_telemetry() -> None:
     assert result["status"] == "failed"
     assert result["telemetry_attestation"]["status"] == "failed"
     assert "run_2_training_metrics_missing" in result["telemetry_attestation"]["reason_codes"]
+
+
+def test_unsloth_release_rejects_unbound_job_identity() -> None:
+    runs = [_passed_unsloth_smoke_run(index) for index in range(1, 4)]
+    runs[0]["job_identity"] = {"job_id": "nvidia-live-smoke"}
+
+    result = smoke_gate._aggregate_nvidia_runs(
+        runs,
+        compatibility_attestation={"status": "passed"},
+    )
+
+    assert result["status"] == "failed"
+    assert "run_1_job_identity_invalid" in result["telemetry_attestation"]["reason_codes"]
 
 
 def test_unsloth_run_attestation_preserves_bounded_reason_code() -> None:

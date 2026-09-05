@@ -129,6 +129,7 @@ def aggregate_run_telemetry(runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         peak = dict(run.get("peak_vram") or {})
         metrics = dict(run.get("training_metrics") or {})
         artifacts = dict(run.get("artifacts") or {})
+        job_identity = dict(run.get("job_identity") or {})
         gpu_fingerprint = str(run.get("gpu_fingerprint_sha256") or "")
         library_fingerprint = str(run.get("library_fingerprint_sha256") or "")
         if (
@@ -141,6 +142,15 @@ def aggregate_run_telemetry(runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]
             reason_codes.append(f"run_{index}_peak_vram_missing")
         if not metrics:
             reason_codes.append(f"run_{index}_training_metrics_missing")
+        if (
+            not str(job_identity.get("job_id") or "")
+            or not str(job_identity.get("attempt_id") or "")
+            or not str(job_identity.get("correlation_id") or "")
+            or isinstance(job_identity.get("fencing_token"), bool)
+            or not isinstance(job_identity.get("fencing_token"), int)
+            or int(job_identity["fencing_token"]) < 1
+        ):
+            reason_codes.append(f"run_{index}_job_identity_invalid")
         if not artifacts or any(
             not isinstance(item, Mapping)
             or _SHA256.fullmatch(str(item.get("sha256") or "")) is None
@@ -167,6 +177,7 @@ def aggregate_run_telemetry(runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]
                 "run_index": index,
                 "peak_vram": peak,
                 "training_metrics": metrics,
+                "job_identity": job_identity,
                 "dataset_sha256": run.get("dataset_sha256"),
                 "configuration_sha256": run.get("configuration_sha256"),
                 "model_snapshot_sha256": run.get("model_snapshot_sha256"),

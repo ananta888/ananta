@@ -300,6 +300,12 @@ def run_nvidia_live_smoke(
                 "peak_vram": peak_vram(),
                 "training_metrics": training_metrics,
                 "backend": backend,
+                "job_identity": {
+                    "job_id": envelope["job_id"],
+                    "attempt_id": envelope["attempt_id"],
+                    "fencing_token": envelope["fencing_token"],
+                    "correlation_id": envelope["correlation_id"],
+                },
                 "model_snapshot_sha256": probe["model_snapshot_sha256"],
                 "dataset_sha256": hashlib.sha256(f"{train_sha}:{validation_sha}".encode()).hexdigest(),
                 "configuration_sha256": hashlib.sha256(
