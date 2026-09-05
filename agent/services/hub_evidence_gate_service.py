@@ -129,6 +129,19 @@ class HubEvidenceGateService:
         )
         try:
             execution = self._execution_result(executor(projection))
+        except (KeyboardInterrupt, SystemExit) as exc:
+            cancellation = {
+                "passed": False,
+                "reason_code": "evidence_gate_executor_cancelled",
+                "error_type": type(exc).__name__,
+            }
+            self._record(
+                request,
+                run.run_id,
+                "cancelled",
+                canonical_evidence_digest(cancellation),
+            )
+            raise
         except Exception as exc:
             failure = {
                 "passed": False,
@@ -168,7 +181,7 @@ class HubEvidenceGateService:
         self,
         request: EvidenceGateRequest,
         run_id: str,
-        terminal_state: Literal["succeeded", "failed"],
+        terminal_state: Literal["succeeded", "failed", "cancelled"],
         result_digest: str,
     ) -> None:
         self._registry.record_result(

@@ -121,6 +121,21 @@ def test_executor_exception_terminalizes_reservation_without_leaking_message(gat
     assert row.result_digest is not None
 
 
+def test_executor_interrupt_terminalizes_reservation_as_cancelled(gate_runtime) -> None:
+    gate, database = gate_runtime
+
+    def interrupt(_projection):
+        raise KeyboardInterrupt("operator interrupt detail")
+
+    with pytest.raises(KeyboardInterrupt, match="operator interrupt detail"):
+        gate.execute(_request(), interrupt)
+
+    with Session(database) as session:
+        row = session.exec(select(HubRunEvidenceIdentityDB)).one()
+    assert row.state == "cancelled"
+    assert row.result_digest is not None
+
+
 def test_gate_rejects_non_boolean_or_non_json_execution_results(gate_runtime) -> None:
     gate, _database = gate_runtime
 
