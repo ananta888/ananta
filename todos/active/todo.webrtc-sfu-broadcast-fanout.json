@@ -72,7 +72,8 @@
     ]
   },
   "revision_notes": [
-    "Hub-gebundener Real-Relay-Abschluss 2026-09-05 auf main@86b4233cc: RUN_0be3c152c9ea14b5d29d29b9564f7896 wurde vor dem Lauf durch die Hub Evidence Registry reserviert und bindet vier immutable SRC_*-Quellen fuer Repository, LiveKit-Image, Coturn-Image sowie Chromium-/Firefox-Runtimes. Der gepinnte LiveKit-Server 1.13.1, livekit-client 2.20.1, Chromium 148 und Firefox 153 bestanden mit einem Publisher, drei Receivern, erzwungenen Relay-Candidate-Pairs, E2EE, Wrong-Key-Negativprobe und vollstaendigem Cleanup. Die Evidenz ist local, production_release_eligible=false und public_network_path_verified=false; oeffentliche NAT-/DNS-/TLS-, Accounting-, Multi-Node-, Scale-, Soak- und Chaosgates bleiben separat offen.",
+    "Hub-gebundener Multi-Node-Abschluss 2026-09-05 auf main@f7467fbb6: RUN_de03c89eb17bc147971ca766a58c7531 wurde vor dem Lauf durch die Hub Evidence Registry reserviert und bindet fuenf immutable SRC_*-Quellen fuer Repository, LiveKit-, Redis- und Coturn-Images sowie Chromium-/Firefox-Runtimes. Zwei reale LiveKit-1.13.1-Prozesse registrierten sich an einem realen mTLS-/ACL-geschuetzten Redis 7.4.2. Nach dem Drain von Node A fiel die registrierte Fleet von zwei auf einen Node; Chromium und Firefox bestanden ueber Node B den E2EE-Fanout mit zwei Receivern und Wrong-Key-Negativprobe. Node A trat anschliessend wieder bei, die Fleet erreichte erneut zwei Nodes und alle eigenen Container wurden entfernt. SFB-OPS-016 ist damit done. Die Evidenz bleibt local_single_host, production_release_eligible=false, public_network_path_verified=false und independent_failure_domains_verified=false; Multi-Hub-/Split-Brain-, Public-Network-, Scale-, Soak- und Produktionsgates bleiben separat offen.",
+    "Hub-gebundener Real-Relay-Abschluss 2026-09-05 auf main@86b4233cc: RUN_0be3c152c9ea14b5d29d29b9564f7896 wurde vor dem Lauf durch die Hub Evidence Registry reserviert und bindet vier immutable SRC_*-Quellen fuer Repository, LiveKit-Image, Coturn-Image sowie Chromium-/Firefox-Runtimes. Der gepinnte LiveKit-Server 1.13.1, livekit-client 2.20.1, Chromium 148 und Firefox 153 bestanden mit einem Publisher, drei Receivern, erzwungenen Relay-Candidate-Pairs, E2EE, Wrong-Key-Negativprobe und vollstaendigem Cleanup. Die Evidenz ist local, production_release_eligible=false und public_network_path_verified=false; oeffentliche NAT-/DNS-/TLS-, Accounting-, Scale-, Soak- und Chaosgates bleiben separat offen.",
     "Realer Runtime-Abschluss 2026-09-05 auf main@10f05cf9a: Der digest-gepinnte LiveKit-Server 1.13.1 und livekit-client 2.20.1 bestanden den vollautomatischen Chromium-Smoke mit einem Publisher, drei Receivern, genau einer Publikation, drei dekodierenden MediaStreams, E2EE, UpdateSubscriptions, SendData, Participant-Permissions und vollstaendigem Cleanup. Der zuvor veraltete Probe erwartete noch max_participants 8 und ein bedingungslos aktiviertes adaptiveStream; beide statischen Bindungen wurden an die bestehende Hub-Admission-Obergrenze 250 und den produktiven adaptive/manual Layer-Modus angepasst und durch 10/10 Integrationstests abgesichert. SFB-BASE-006 ist damit done; Parent-Readiness und weitergehende Scale-/Soak-/TURN-Gates bleiben getrennt fail-closed.",
     "Der fruehere lokale Real-Relay-Diagnoselauf vom 2026-07-23 wurde am 2026-09-05 durch den formalen Hub-reservierten Lauf RUN_0be3c152c9ea14b5d29d29b9564f7896 ersetzt. Der neue Lauf behaelt dieselbe fail-closed Grenze bei: lokale echte Runtime-Evidenz ist kein Produktions-, Kapazitaets- oder oeffentlicher Netzwerkclaim.",
     "Die Direct-SFU-Diagnose erreichte 100/100 Receiver ueber drei Chromium-Prozesse. Wegen des diagnostischen Profils, der fehlenden formalen Nightly-Artefaktbindung und der fehlenden vergleichbaren All-TURN-/Soak-/Chaos-Messung wird daraus weder ein freigegebener Receivercap noch ein Abschluss von Scale-, Soak- oder Capacity-Tasks abgeleitet.",
@@ -83,7 +84,7 @@
     "SFB-GATE-002 ist done: scripts/run_sfu_broadcast_fuzz_gate.py erzeugte artifacts/test-gates/sfu-broadcast-fuzz.json mit status passed, 3 Seeds und 64 Cases je Seed. Die Coverage umfasst die geforderten Queue- und Port-Angriffe; das Artefakt bindet source-, config- und corpus-sha256 sowie started_at, ended_at, CPU-, RSS- und Timeoutwerte. known_blockers und reason_codes sind leer, minimized_failure ist null und real_media_plane_claimed ist false. Die GATE-002-Entscheidung stuetzt sich auf dieses Fuzz-Gate-Artefakt, nicht auf Contract-Parity.",
     "Stand 2026-07-22 (finaler konservativer DoD-Audit): 69 Tasks sind done, 34 partial, 0 todo, 0 in_progress und 0 blocked; der reine Done-Anteil betraegt 66.99 %. Alle nicht-done Tasks bleiben im JSON partial; external-blocked ist eine analytische Teilmenge und kein eigener Statuswert.",
     "Finale lokale Nachweise: finaler breiter Python-Rerun 612 passed, 44 skipped und 0 failed in 371.90s bei 136 Dateien und 656 Tests; Ed25519-Raw-Key-Regression deterministisch abgedeckt; ein frueherer Ed25519-Fokuslauf 7/7; OBS-007 11/11; TURN-Accounting 10/10; Frontend 1719 passed/1 skipped in 313 Dateien; Build passed; Lint 0 Fehler und 27 Warnungen; Alembic besitzt genau Head e68df4c5b7a9 und der Migrationstest ist 2/2; lokale Security 26/26; Fuzz-Gate passed; Contract-Parity fuer die Contract-Tasks 31 Python plus 7 TypeScript; PR-Matrix 8/8. Diese Nachweise schliessen lokale DoDs, ersetzen aber keine explizit geforderte externe Runtime-Evidence.",
-    "Blocked-Teilmenge (33 Tasks): SFB-GATE-001, SFB-GATE-003, SFB-GATE-004, SFB-GATE-005, SFB-GATE-006, SFB-GATE-007, SFB-GATE-008, SFB-GATE-009, SFB-GATE-010, SFB-GATE-011, SFB-GATE-012, SFB-GATE-013, SFB-GATE-014, SFB-GATE-015, SFB-GRP-010, SFB-GRP-013, SFB-OPS-010, SFB-OPS-011, SFB-OPS-012, SFB-OPS-014, SFB-OPS-016, SFB-QOS-010, SFB-QOS-011, SFB-QOS-012, SFB-QOS-013, SFB-QOS-014, SFB-QOS-016, SFB-QOS-017, SFB-QOS-018, SFB-QOS-019, SFB-TURN-007, SFB-TURN-010, SFB-TURN-011. Der lokale LiveKit-/Coturn-/Chromium-/Firefox-Unterbau ist Hub-verifiziert; es fehlen weiterhin jeweils task-spezifische Produktadapter-, Accounting-, Public-Network-, Packet-Capture-, Multi-Node-, Chaos-, Soak-, Scale- oder Game-Day-Nachweise.",
+    "Blocked-Teilmenge (32 Tasks): SFB-GATE-001, SFB-GATE-003, SFB-GATE-004, SFB-GATE-005, SFB-GATE-006, SFB-GATE-007, SFB-GATE-008, SFB-GATE-009, SFB-GATE-010, SFB-GATE-011, SFB-GATE-012, SFB-GATE-013, SFB-GATE-014, SFB-GATE-015, SFB-GRP-010, SFB-GRP-013, SFB-OPS-010, SFB-OPS-011, SFB-OPS-012, SFB-OPS-014, SFB-QOS-010, SFB-QOS-011, SFB-QOS-012, SFB-QOS-013, SFB-QOS-014, SFB-QOS-016, SFB-QOS-017, SFB-QOS-018, SFB-QOS-019, SFB-TURN-007, SFB-TURN-010, SFB-TURN-011. Der lokale LiveKit-/Redis-/Coturn-/Chromium-/Firefox-Unterbau und der lokale Zwei-Node-Drain-/Rejoin-Pfad sind Hub-verifiziert; es fehlen weiterhin jeweils task-spezifische Produktadapter-, Accounting-, Public-Network-, Packet-Capture-, Multi-Hub-/Failure-Domain-, Chaos-, Soak-, Scale- oder Game-Day-Nachweise.",
     "Parent-Readiness und Rollout bleiben unveraendert no_go/observe_only. Das Parent-Artefakt ist vorhanden und liefert korrekt fail-closed; deshalb ist SFB-BASE-003 als Pruefer done, waehrend Aktivierung und Gesamtfreigabe blockiert bleiben. Semantic-intern sind 5/5 gruen, das Gesamtartefakt bleibt wegen stale Capture und Load-Drops fail. Es wird keine SRC_*/RUN_*-Evidence erfunden.",
     "Version 2.2 schliesst den Release-DAG fuer Retention/Purge und behandelt wegen des nur programmweiten Parent-Gates alle 34 real referenzierten Parent-Voraussetzungen ehrlich als aktivierungsrelevant.",
     "Stock-LiveKit und authenticated Runtime Extension besitzen getrennte Identity-, ACK-, Observation-, Placement- und Failoverkriterien; im livekit_native-Modus werden weder vorab bekannte Node-IDs noch Node-Signaturen erfunden.",
@@ -760,8 +761,8 @@
         "todo": 0,
         "in_progress": 0,
         "partial": 0,
-        "blocked": 6,
-        "done": 16
+        "blocked": 5,
+        "done": 17
       },
       "S5_observability_ui": {
         "order": 5,
@@ -2926,9 +2927,8 @@
       "description": "Die in SFB-BASE-006 gewaehlte Placement-Grenze wird reproduzierbar mit mindestens zwei Runtimezielen verdrahtet: LiveKits Redis-basiertes natives Node-Routing oder zwei Hub-auswaehlbare Clusterziele ohne Hub-interne Nodewahl.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "Verteilte Runtime-, Placement-, Fencing-, Failover- und Version-Skew-Pfade sind implementiert und durch deterministische Chaos-/Repositorytests geprüft. Der echte Multi-Node-/Multi-Hub-Nachweis benötigt eine externe verteilte Laufumgebung.",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2945,7 +2945,11 @@
         "config/sfu_broadcast_cluster_directory.json",
         ".env.example",
         "scripts/verify_sfu_distributed_runtime.py",
+        "scripts/e2e/sfu_broadcast_local_multinode_e2e.py",
+        "scripts/run_hub_evidence_sfu_multinode_gate.py",
         "tests/integration/test_sfu_distributed_runtime.py",
+        "tests/test_sfu_broadcast_local_multinode_e2e.py",
+        "tests/test_hub_evidence_sfu_multinode_gate.py",
         "docs/operations/sfu-distributed-runtime.md"
       ],
       "acceptance_criteria": [
@@ -4256,10 +4260,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 33,
-      "done": 70
+      "blocked": 32,
+      "done": 71
     },
-    "progress_percent_done": 68.0,
+    "progress_percent_done": 68.9,
     "by_priority": {
       "P0": 47,
       "P1": 56,
@@ -4434,18 +4438,18 @@
       },
       "infrastructure": {
         "total": 11,
-        "done": 3,
+        "done": 4,
         "partial": 0,
-        "blocked": 8,
+        "blocked": 7,
         "todo": 0,
         "in_progress": 0,
-      "progress_percent": 56.4,
+      "progress_percent": 65.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 8,
-          "done": 3
+          "blocked": 7,
+          "done": 4
         }
       },
       "integration": {
@@ -4551,8 +4555,8 @@
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 33,
-    "done": 70,
+    "blocked": 32,
+    "done": 71,
     "milestones_done": 3,
     "milestones_total": 8
   }
