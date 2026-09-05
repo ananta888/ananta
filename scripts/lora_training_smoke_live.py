@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import tempfile
 import time
@@ -17,6 +18,8 @@ from scripts.lora_training_smoke_release_chain import (
 )
 
 _GPU_BACKENDS = frozenset({"peft_trl", "unsloth"})
+_MAX_METRIC_DEPTH = 4
+_MAX_METRIC_FIELDS = 64
 
 
 def normalize_gpu_backend(value: str) -> str:
@@ -55,6 +58,29 @@ def peak_vram() -> dict[str, Any]:
         }
     except (ImportError, RuntimeError):
         return {"available": False}
+
+
+def bounded_numeric_metrics(value: object, *, depth: int = 0) -> dict[str, Any]:
+    """Project controlled numeric metrics without leaking records or unbounded output."""
+    if not isinstance(value, Mapping) or depth >= _MAX_METRIC_DEPTH:
+        return {}
+    projected: dict[str, Any] = {}
+    for raw_key in sorted(value, key=str)[:_MAX_METRIC_FIELDS]:
+        key = str(raw_key)[:96]
+        item = value[raw_key]
+        if item is None:
+            projected[key] = None
+        elif isinstance(item, bool):
+            continue
+        elif isinstance(item, int):
+            projected[key] = item
+        elif isinstance(item, float) and math.isfinite(item):
+            projected[key] = item
+        elif isinstance(item, Mapping):
+            nested = bounded_numeric_metrics(item, depth=depth + 1)
+            if nested:
+                projected[key] = nested
+    return projected
 
 
 def nvidia_runtime_backend(backend: str) -> Any:
@@ -186,6 +212,9 @@ def run_nvidia_live_smoke(
                     "reason_code": str(reason.get("code") or "nvidia_smoke_timeout"),
                     "retryable": bool(reason.get("retryable", False)),
                 }
+            training_metrics = bounded_numeric_metrics(status.get("metrics"))
+            if not training_metrics:
+                return {"status": "failed", "reason_code": "nvidia_smoke_training_metrics_missing"}
             expected = {"adapter_model.safetensors", "evaluation.json", "training_manifest.json"}
             export_manifests: dict[str, tuple[str, str | None]] = {}
             if backend == "unsloth":
@@ -269,6 +298,7 @@ def run_nvidia_live_smoke(
                 "image_attestation": dict(probe.get("image_attestation") or {}),
                 "versions": dict(probe.get("versions") or {}),
                 "peak_vram": peak_vram(),
+                "training_metrics": training_metrics,
                 "backend": backend,
                 "model_snapshot_sha256": probe["model_snapshot_sha256"],
                 "dataset_sha256": hashlib.sha256(f"{train_sha}:{validation_sha}".encode()).hexdigest(),

@@ -446,6 +446,9 @@ def _support_claim(
             or attestation.get("status") != "passed"
         ):
             reasons.append("unsloth_compatibility_profile_not_attested")
+        telemetry = nvidia_result.get("telemetry_attestation")
+        if not isinstance(telemetry, Mapping) or telemetry.get("status") != "passed":
+            reasons.append("unsloth_gpu_telemetry_not_attested")
         if int(nvidia_result.get("deterministic_run_count") or 0) != (
             _REQUIRED_UNSLOTH_RUNS
         ):

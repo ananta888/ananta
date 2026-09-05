@@ -84,6 +84,7 @@ def test_support_claim_requires_compatibility_and_three_runs() -> None:
         "status": "passed",
         "platform_stage_coverage": _release_stage_coverage(),
         "compatibility_attestation": {"status": "passed"},
+        "telemetry_attestation": {"status": "passed"},
         "deterministic_run_count": 3,
     }
 
@@ -127,4 +128,5 @@ def test_support_claim_rejects_incomplete_matrix_run_attestation() -> None:
 
     assert claim["verified"] is False
     assert "unsloth_compatibility_profile_not_attested" in claim["reason_codes"]
+    assert "unsloth_gpu_telemetry_not_attested" in claim["reason_codes"]
     assert "unsloth_deterministic_runs_incomplete" in claim["reason_codes"]

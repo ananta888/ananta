@@ -224,7 +224,20 @@ def _passed_unsloth_smoke_run(index: int) -> dict[str, object]:
     return {
         "status": "passed",
         "dataset_sha256": "d" * 64,
-        "base_model_sha256": "b" * 64,
+        "configuration_sha256": "c" * 64,
+        "model_snapshot_sha256": "b" * 64,
+        "gpu_fingerprint_sha256": "a" * 64,
+        "library_fingerprint_sha256": "e" * 64,
+        "gpu": [{"name": "RTX", "driver": "test", "memory_mib": 10240}],
+        "packages": {"unsloth": "test"},
+        "peak_vram": {
+            "available": True,
+            "max_memory_allocated_bytes": 1024 + index,
+            "max_memory_reserved_bytes": 2048 + index,
+            "cuda_runtime": "12.4",
+        },
+        "training_metrics": {"adapter": {"eval_loss": 0.5}, "train": {"train_loss": 0.6}},
+        "artifacts": {"evaluation.json": {"sha256": "f" * 64, "size_bytes": 128}},
         "platform_stage_coverage": stages,
     }
 
@@ -297,8 +310,24 @@ def test_unsloth_release_requires_three_independent_passed_runs() -> None:
     assert incomplete["reason_code"] == "deterministic_run_count_incomplete"
     assert complete["status"] == "passed"
     assert complete["deterministic_run_count"] == 3
+    assert complete["telemetry_attestation"]["status"] == "passed"
     assert len(complete["runs"]) == 3
     assert all(run["attestation_sha256"] for run in complete["runs"])
+    assert complete["runs"][0]["peak_vram"]["max_memory_allocated_bytes"] == 1025
+
+
+def test_unsloth_release_rejects_missing_run_telemetry() -> None:
+    runs = [_passed_unsloth_smoke_run(index) for index in range(1, 4)]
+    runs[1].pop("training_metrics")
+
+    result = smoke_gate._aggregate_nvidia_runs(
+        runs,
+        compatibility_attestation={"status": "passed"},
+    )
+
+    assert result["status"] == "failed"
+    assert result["telemetry_attestation"]["status"] == "failed"
+    assert "run_2_training_metrics_missing" in result["telemetry_attestation"]["reason_codes"]
 
 
 def test_unsloth_run_attestation_preserves_bounded_reason_code() -> None:

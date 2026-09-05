@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts.lora_training_smoke_live import bounded_numeric_metrics
 from scripts.run_hub_evidence_unsloth_gpu_gate import (
     UnslothGpuGateError,
     bounded_diagnostic,
@@ -16,6 +17,19 @@ def test_bounded_diagnostic_keeps_only_a_printable_tail() -> None:
     assert len(diagnostic) == 2000
     assert diagnostic.endswith("failure")
     assert "\x00" not in diagnostic
+
+
+def test_training_metric_projection_is_numeric_bounded_and_record_free() -> None:
+    metrics = bounded_numeric_metrics(
+        {
+            "train": {"loss": 0.25, "steps": 1, "label": "secret"},
+            "samples": ["raw-record"],
+            "valid": True,
+            "non_finite": float("nan"),
+        }
+    )
+
+    assert metrics == {"train": {"loss": 0.25, "steps": 1}}
 
 
 def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp_path: Path) -> None:

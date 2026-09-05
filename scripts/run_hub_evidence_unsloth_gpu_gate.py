@@ -473,6 +473,7 @@ def execute_gate(
                 "gpu": smoke.get("gpu"),
                 "packages": smoke.get("packages"),
                 "platform_stage_coverage": smoke.get("platform_stage_coverage"),
+                "telemetry_attestation": smoke.get("telemetry_attestation"),
                 "run_attestation_sha256": [row.get("attestation_sha256") for row in smoke.get("runs") or []],
                 "run_results": [
                     {
@@ -480,6 +481,14 @@ def execute_gate(
                         "status": row.get("status"),
                         "reason_code": row.get("reason_code"),
                         "stage_results": row.get("stage_results"),
+                        "peak_vram": row.get("peak_vram"),
+                        "training_metrics": row.get("training_metrics"),
+                        "dataset_sha256": row.get("dataset_sha256"),
+                        "configuration_sha256": row.get("configuration_sha256"),
+                        "model_snapshot_sha256": row.get("model_snapshot_sha256"),
+                        "gpu_fingerprint_sha256": row.get("gpu_fingerprint_sha256"),
+                        "library_fingerprint_sha256": row.get("library_fingerprint_sha256"),
+                        "artifacts": row.get("artifacts"),
                     }
                     for row in smoke.get("runs") or []
                 ],
