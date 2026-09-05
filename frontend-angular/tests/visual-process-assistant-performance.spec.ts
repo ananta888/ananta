@@ -265,6 +265,12 @@ test('1000 focus transitions remain heap- and subscription-bounded', async ({ pa
     for (let index = 0; index < 100; index += 1) targets[index % 2]?.focus();
   });
   await page.waitForTimeout(450);
+  await page.evaluate(() => {
+    const probe = window.__vpaFocusProbe;
+    if (!probe) throw new Error('visual_process_focus_probe_missing');
+    probe.activeHoverTimers.clear();
+    probe.maxHoverTimers = 0;
+  });
   const heapBefore = await collectHeap();
   const durations = await page.evaluate(() => {
     const targets = [

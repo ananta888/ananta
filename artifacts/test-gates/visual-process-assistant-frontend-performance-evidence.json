@@ -15,7 +15,7 @@
     "frontend-angular/src/app/features/visual-process/vp-editor-config.ts": "b07bb796ada48f5a41612b1f058d9816ac4b630835eaccecf0702f3fffb34f6c",
     "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts": "057e2f1ccac656865f83d5af3ab396e4bcbb7c217e779544d8ac53c4f020ac73",
     "frontend-angular/src/app/features/visual-process/vp-node-palette.component.ts": "94de7df33552b26300a99af2032efdb57cf6a45533924aba0f349958d24b6ed9",
-    "frontend-angular/tests/visual-process-assistant-performance.spec.ts": "0f9eef4569dd53bd412b855950716a8be5282b5d29e72f7e8c4430ca68ab63a9"
+    "frontend-angular/tests/visual-process-assistant-performance.spec.ts": "9cf8870e6da393f28b0eeba1f9029f9dc9553b5e2096b4498530526199014629"
   },
   "environment": {
     "browser": "Chromium 148.0.7778.96",
@@ -29,9 +29,9 @@
     "warmup_iterations": 100,
     "p50_ms": 0,
     "p95_ms": 0.1,
-    "heap_before_mib": 10.938046,
-    "heap_after_mib": 10.949669,
-    "heap_growth_mib": 0.011623,
+    "heap_before_mib": 29.968201,
+    "heap_after_mib": 29.357437,
+    "heap_growth_mib": 0,
     "hover_subscriptions_per_editor": 0,
     "active_hover_timers_after_stabilization": 0,
     "conversation_subscriptions_per_editor": 1,
