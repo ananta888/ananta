@@ -37,9 +37,7 @@ services:
   sfu-broadcast-redis:
     <<: *redis-runtime-limits
     profiles: ["livekit_native_distributed"]
-    # This tag must be replaced with an approved digest before release evidence
-    # can be recorded. The release verifier therefore keeps capability false.
-    image: redis:7.4.2-alpine
+    image: redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
     command: ["redis-server", "/etc/redis/sfu-broadcast.conf"]
     user: "999:999"
     read_only: true
