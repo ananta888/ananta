@@ -479,6 +479,7 @@ def execute_gate(
                         "run_index": row.get("run_index"),
                         "status": row.get("status"),
                         "reason_code": row.get("reason_code"),
+                        "stage_results": row.get("stage_results"),
                     }
                     for row in smoke.get("runs") or []
                 ],

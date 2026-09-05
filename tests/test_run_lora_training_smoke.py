@@ -309,6 +309,28 @@ def test_unsloth_run_attestation_preserves_bounded_reason_code() -> None:
     assert failed["runs"][0]["reason_code"] == "training_dependency_failed"
 
 
+def test_unsloth_stage_failure_is_a_failed_run_with_diagnostics() -> None:
+    run = _passed_unsloth_smoke_run(1)
+    run["platform_stage_coverage"]["adapter_evaluation"] = {
+        "status": "failed",
+        "reason_code": "adapter_load_failed",
+    }
+
+    failed = smoke_gate._aggregate_nvidia_runs(
+        [run],
+        compatibility_attestation={"status": "passed"},
+    )
+
+    assert failed["status"] == "failed"
+    assert failed["platform_stage_coverage"]["adapter_evaluation"]["run_reason_codes"] == [
+        "adapter_load_failed"
+    ]
+    assert failed["runs"][0]["stage_results"]["adapter_evaluation"] == {
+        "status": "failed",
+        "reason_code": "adapter_load_failed",
+    }
+
+
 def test_every_release_transition_has_a_tamper_denial() -> None:
     transitions = {
         "dataset_to_training": "1" * 64,

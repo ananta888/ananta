@@ -141,6 +141,7 @@ def aggregate_nvidia_runs(
         stage_coverage[stage] = {
             "status": "passed" if passed else "failed",
             "run_statuses": [result.get("status", "missing") for result in stage_results],
+            "run_reason_codes": [result.get("reason_code") for result in stage_results],
         }
     for index, run in enumerate(runs, start=1):
         coverage = dict(run.get("platform_stage_coverage") or {})
@@ -159,6 +160,13 @@ def aggregate_nvidia_runs(
                 "status": run.get("status", "failed"),
                 "reason_code": run.get("reason_code"),
                 "chain_sha256": coverage.get("chain_sha256"),
+                "stage_results": {
+                    stage: {
+                        "status": dict(coverage.get(stage) or {}).get("status", "missing"),
+                        "reason_code": dict(coverage.get(stage) or {}).get("reason_code"),
+                    }
+                    for stage in required_stages
+                },
                 "attestation_sha256": hashlib.sha256(
                     json.dumps(
                         digest_payload,
@@ -177,7 +185,9 @@ def aggregate_nvidia_runs(
         and compatibility_attestation.get("status") == "passed"
         and all(stage.get("status") == "passed" for stage in stage_coverage.values())
     )
-    any_failed = any(run.get("status") == "failed" for run in runs)
+    any_failed = any(run.get("status") == "failed" for run in runs) or any(
+        stage.get("status") == "failed" for stage in stage_coverage.values()
+    )
     status = "passed" if all_passed else ("failed" if any_failed else "not_run")
     result: dict[str, Any] = {
         "status": status,
