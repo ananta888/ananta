@@ -29,12 +29,12 @@
   "evidence_policy": {
     "state": "core_text_local_gpu_prerelease_verified_optional_profiles_pending",
     "provided_source_ids": [
-      "SRC_c7e0ae7ac3e9cee90704a9727b6efb17",
+      "SRC_7dd96da6eeeec3431d9f40273a8097e8",
       "SRC_9f0342cf851a802a884a1ff2d888273a",
-      "SRC_30f57380930df7e1eb8d37b39c0a2552"
+      "SRC_99bb8f9e2a3266d87981fedc22d16652"
     ],
     "provided_run_ids": [
-      "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+      "RUN_860bb22060599fca9a8eae0264a1b0b6"
     ],
     "automated_tests": "passed",
     "local_builds": "passed",
@@ -181,9 +181,9 @@
       "status": "blocked",
       "implementation_state": "code_complete",
       "verification_state": "nvidia_image_attested_real_dataset_and_resilience_gates_pending",
-      "done_tasks": 2,
-      "partial_tasks": 4,
-      "acceptance_progress_percent": 33.33
+      "done_tasks": 3,
+      "partial_tasks": 3,
+      "acceptance_progress_percent": 50
     },
     {
       "id": "M3",
@@ -453,18 +453,18 @@
         "builds": "passed_local_targets_only",
         "runtime_checks": "passed_three_real_rtx3080_runs",
         "provided_source_ids": [
-          "SRC_c7e0ae7ac3e9cee90704a9727b6efb17",
+          "SRC_7dd96da6eeeec3431d9f40273a8097e8",
           "SRC_9f0342cf851a802a884a1ff2d888273a",
-          "SRC_30f57380930df7e1eb8d37b39c0a2552"
+          "SRC_99bb8f9e2a3266d87981fedc22d16652"
         ],
         "provided_run_ids": [
-          "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+          "RUN_860bb22060599fca9a8eae0264a1b0b6"
         ]
       },
       "remaining_verification": [],
       "verified_local_gates": [
         "Kanonische Provenance-Normalform, Authority-Pruefung, Replay- und Tamper-Pfade sind in der lokalen Python-/Hub-/Worker-Matrix gruen.",
-        "Hub-Run RUN_286ac02a3bf06452af43ceb1e7a6e057 band Repository, Modell, Image und alle acht Release-Stufen in drei realen RTX-3080-Wiederholungen; Tamper-Pfade blieben fail-closed."
+        "Hub-Run RUN_860bb22060599fca9a8eae0264a1b0b6 band Repository, Modell, Image, Job-/Attempt-/Fence-Identitaet, Telemetrie und alle acht Release-Stufen in drei realen RTX-3080-Wiederholungen; Tamper-Pfade blieben fail-closed."
       ]
     },
     {
@@ -531,7 +531,7 @@
       "milestone_id": "M2",
       "status": "blocked",
       "progress_percent": 90,
-      "blocked_reason": "The real local NVIDIA LoRA/QLoRA path and Hub evidence are verified. Completion still requires admission of a non-synthetic approved dataset and explicit peak-VRAM projection in the outer evidence report.",
+      "blocked_reason": "The real local NVIDIA LoRA/QLoRA path, Hub evidence and outer peak-VRAM projection are verified. Completion still requires admission of a non-synthetic approved dataset.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "high",
@@ -618,16 +618,16 @@
         "builds": "passed_local_targets_only",
         "runtime_checks": "passed_rtx3080_cuda124_driver59584",
         "provided_source_ids": [
-          "SRC_30f57380930df7e1eb8d37b39c0a2552"
+          "SRC_99bb8f9e2a3266d87981fedc22d16652"
         ],
         "provided_run_ids": [
-          "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+          "RUN_860bb22060599fca9a8eae0264a1b0b6"
         ]
       },
       "remaining_verification": [],
       "verified_local_gates": [
         "Dependency-Pins, Dockerfile-Targets, Compose-Profile und das frische Minimal-Image sind lokal verifiziert; der Built-Container-Smoke ist non-root, read-only, offline und auth-ready gruen.",
-        "Das NVIDIA-Target wurde als sha256:b2258fd253e6fef9e61887f8dcfd36003ded0a81310d6f53ac162c256c18492f gebaut, an fa252f07d505fb677f666f4b7852980d24ab26c3 gebunden und real mit CUDA 12.4, Treiber 595.84 und Unsloth 2026.7.5 ausgefuehrt."
+        "Das NVIDIA-Target wurde als sha256:8d5592c7e64b3d97e73979832c80675cdfbee06e2b5a93d04154ce265c08e3e7 gebaut, an dbb5bca8fd6b0d48300a52ceecf364ee0dd48017 gebunden und real mit CUDA 12.4, Treiber 595.84 und Unsloth 2026.7.5 ausgefuehrt."
       ]
     },
     {
@@ -743,10 +743,9 @@
       "title": "Messbares 10-GB-VRAM-Profil und Admission implementieren",
       "type": "backend",
       "milestone_id": "M2",
-      "status": "blocked",
-      "progress_percent": 90,
-      "blocked_reason": "The RTX-3080 gate verified 10,240 MiB VRAM plus real CUDA/package versions. Peak allocation and training metrics still need projection into the outer Hub evidence artifact before this task is complete.",
-      "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
+      "status": "done",
+      "progress_percent": 100,
+      "status_basis": "hub_bound_rtx3080_telemetry_attestation_verified",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -762,7 +761,7 @@
       ],
       "acceptance_criteria": [
         "Ein echter NVIDIA-Training-Run muss Peak-VRAM, geladene Paket-/CUDA-Versionen und tatsaechliche Trainingsmetriken liefern.",
-        "Die GPU-Telemetrie muss mit bereitgestellter RUN_* Evidenz und der unveraenderlichen Job-/Attempt-Provenance verknuepft werden."
+        "Die GPU-Telemetrie muss mit vorab durch den Hub ausgestellter RUN_* Evidenz und der unveraenderlichen Job-/Attempt-Provenance verknuepft werden."
       ],
       "test_expectations": [
         "Ein echter NVIDIA-Training-Run muss Peak-VRAM, geladene Paket-/CUDA-Versionen und tatsaechliche Trainingsmetriken liefern."
@@ -773,19 +772,23 @@
         "Nicht messbare Werte werden als unavailable mit stabilem reason_code ausgewiesen und nicht erfunden."
       ],
       "acceptance_verification": {
-        "state": "local_subset_verified_external_evidence_pending",
+        "state": "verified_local_hub_evidence",
         "automated_tests": "passed",
-        "builds": "passed_local_targets_only",
-        "runtime_checks": "external_or_gpu_runtime_pending",
-        "provided_source_ids": [],
-        "provided_run_ids": []
+        "builds": "passed_commit_bound_nvidia_image",
+        "runtime_checks": "passed_three_rtx3080_runs_with_bounded_telemetry",
+        "provided_source_ids": [
+          "SRC_7dd96da6eeeec3431d9f40273a8097e8",
+          "SRC_9f0342cf851a802a884a1ff2d888273a",
+          "SRC_99bb8f9e2a3266d87981fedc22d16652"
+        ],
+        "provided_run_ids": [
+          "RUN_860bb22060599fca9a8eae0264a1b0b6"
+        ]
       },
-      "remaining_verification": [
-        "Ein echter NVIDIA-Training-Run muss Peak-VRAM, geladene Paket-/CUDA-Versionen und tatsaechliche Trainingsmetriken liefern.",
-        "Die GPU-Telemetrie muss mit bereitgestellter RUN_* Evidenz und der unveraenderlichen Job-/Attempt-Provenance verknuepft werden."
-      ],
+      "remaining_verification": [],
       "verified_local_gates": [
-        "Bounded Metrikprojektion, Redaction, Payload-Limits, unavailable-Zustaende und Readmodels sind in den lokalen Python-, Worker- und Frontend-Gates gruen."
+        "Bounded Metrikprojektion, Redaction, Payload-Limits, unavailable-Zustaende und Readmodels sind in den lokalen Python-, Worker- und Frontend-Gates gruen.",
+        "RUN_860bb22060599fca9a8eae0264a1b0b6 attestiert drei reale RTX-3080-Laeufe mit 10,240 MiB Geraetespeicher, maximal 500,954,112 Byte Allokation, maximal 629,145,600 Byte Reservierung, echten Loss-/Throughput-Metriken sowie direkter Job-/Attempt-/Fence-Bindung."
       ]
     },
     {
@@ -1296,7 +1299,7 @@
       "milestone_id": "M7",
       "status": "blocked",
       "progress_percent": 80,
-      "blocked_reason": "The core-text NVIDIA attestation is Hub-verified locally. Peak training telemetry, production-environment classification, Studio, MCP and modality attestations remain separate required gates.",
+      "blocked_reason": "The core-text NVIDIA attestation and bounded peak training telemetry are Hub-verified locally. Production-environment classification, Studio, MCP and modality attestations remain separate required gates.",
       "status_basis": "local_implementation_and_ci_verified_external_release_acceptance_pending",
       "priority": "P0",
       "risk": "critical",
@@ -1448,10 +1451,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 14,
-      "done": 7
+      "blocked": 13,
+      "done": 8
     },
-    "progress_percent_done": 33.3,
+    "progress_percent_done": 38.1,
     "by_priority": {
       "P0": 13,
       "P1": 4,
@@ -1482,17 +1485,17 @@
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 14,
-    "done": 7,
-    "count_based_percent": 33.3,
-    "weighted_percent": 91.2
+    "blocked": 13,
+    "done": 8,
+    "count_based_percent": 38.1,
+    "weighted_percent": 91.4
   },
   "summary_notes": [
-    "Alle 21 Repository-Tasks sind code-complete; 7 Tasks sind done und 14 warten auf reale Dataset-, Resilience-, Runtime-, Studio-, MCP-, Modalitaets- oder Produktionskriterien.",
-    "Der aktuelle Core-Text-Gate auf main@fa252f07d wurde am 2026-09-05 mit einem commitgebundenen NVIDIA-Image und Hub-reservierter Evidenz ausgefuehrt.",
+    "Alle 21 Repository-Tasks sind code-complete; 8 Tasks sind done und 13 warten auf reale Dataset-, Resilience-, Runtime-, Studio-, MCP-, Modalitaets- oder Produktionskriterien.",
+    "Der aktuelle Core-Text-Gate auf main@dbb5bca8f wurde am 2026-09-05 mit einem commitgebundenen NVIDIA-Image und Hub-reservierter Evidenz ausgefuehrt.",
     "Die exakte lokale Python-, Hub-/Domain-, Worker-, Runtime/App-, Compose-/Schema-/Compile-, Built-Container-, Mock-Acceptance- und Frontend-CI ist gruen.",
     "Das frische current-source Minimal-Image sha256:6b5786515f7207e0707154c46737427235472820b48e54e03d410f84390b8dcc hat den Built-Container-Smoke non-root, read-only, offline und auth-ready bestanden.",
-    "Die Hub Evidence Registry stellte drei SRC_* und RUN_286ac02a3bf06452af43ceb1e7a6e057 vor dem Lauf aus; unbekannte, mutierte und nachtraegliche IDs bleiben fail-closed.",
+    "Die Hub Evidence Registry stellte drei SRC_* und RUN_860bb22060599fca9a8eae0264a1b0b6 vor dem Lauf aus; unbekannte, mutierte und nachtraegliche IDs bleiben fail-closed.",
     "Auf der lokalen RTX 3080 bestanden drei echte backend=unsloth Wiederholungen mit CUDA 12.4, Treiber 595.84, Unsloth 2026.7.5 und allen acht Release-Stufen.",
     "Die Evidenz ist als local verifiziert und production_release_eligible=false; ein Produktionsclaim erfordert eine separat registrierte Produktions- oder Canary-Umgebung.",
     "Studio benoetigt weiterhin Image-/Build-Digest und Lizenzfreigabe sowie produktive Secrets, CIDRs, DNS/TLS und reale Studio-/MCP-Laufzeitvalidierung.",
@@ -1514,7 +1517,7 @@
     "vitest_full_ci": "passed_1789",
     "gpu_release_runs": "passed_three_hub_reserved_rtx3080_core_text_runs",
     "external_studio_validation": "not_run_external_inputs_missing",
-    "acceptance": "seven_tasks_done_fourteen_profile_specific_criteria_pending",
+    "acceptance": "eight_tasks_done_thirteen_profile_specific_criteria_pending",
     "release_readiness": "core_text_local_prerelease_verified_production_not_established"
   },
   "verification_backlog": {
@@ -1530,7 +1533,7 @@
     ],
     "remaining_release_gates": [
       "Reales freigegebenes Dataset statt der synthetischen Smoke-Daten aufnehmen und Hub-gebunden materialisieren.",
-      "Crash/Resume, Cancellation, Fence und Peak-VRAM/Trainingsmetriken in der aeusseren Hub-Evidenz explizit attestieren.",
+      "Crash/Resume, Cancellation, Fence und Ressourcenfreigabe in einem separaten Hub-reservierten GPU-Szenario attestieren.",
       "GGUF und promoted Adapter ueber die vorgesehenen produktiven Provideradapter real laden und inferieren.",
       "Vision, Audio und Embedding jeweils separat auf freigegebener GPU ausfuehren.",
       "Studio Auth, Refresh, Health, deaktivierte Tools, interne Erreichbarkeit und GPU gegen einen lizenzfreigegebenen gepinnten Build pruefen.",
@@ -1552,20 +1555,20 @@
   "local_verification_evidence": {
     "verified_at": "2026-09-05",
     "source_ids": [
-      "SRC_c7e0ae7ac3e9cee90704a9727b6efb17",
+      "SRC_7dd96da6eeeec3431d9f40273a8097e8",
       "SRC_9f0342cf851a802a884a1ff2d888273a",
-      "SRC_30f57380930df7e1eb8d37b39c0a2552"
+      "SRC_99bb8f9e2a3266d87981fedc22d16652"
     ],
     "run_ids": [
-      "RUN_286ac02a3bf06452af43ceb1e7a6e057"
+      "RUN_860bb22060599fca9a8eae0264a1b0b6"
     ],
     "nvidia_core_text_gate": {
       "state": "passed",
       "evidence_scope": "local",
       "production_release_eligible": false,
-      "repository_revision": "fa252f07d505fb677f666f4b7852980d24ab26c3",
-      "runtime_image_digest": "sha256:b2258fd253e6fef9e61887f8dcfd36003ded0a81310d6f53ac162c256c18492f",
-      "model_snapshot_sha256": "593a33abfa09eb4e8b24371db37ca11e1a61ae87884007fe766654d5b7ae1da0",
+      "repository_revision": "dbb5bca8fd6b0d48300a52ceecf364ee0dd48017",
+      "runtime_image_digest": "sha256:8d5592c7e64b3d97e73979832c80675cdfbee06e2b5a93d04154ce265c08e3e7",
+      "model_snapshot_sha256": "254d61ebf6a94b8e74b825b856aad01ce5a67767be06bbe4dfed0186ab2ec94b",
       "gpu": "NVIDIA GeForce RTX 3080",
       "gpu_memory_mib": 10240,
       "driver": "595.84",
@@ -1573,6 +1576,10 @@
       "unsloth": "2026.7.5",
       "deterministic_runs": 3,
       "all_eight_stages_passed": true,
+      "telemetry_attestation": "passed",
+      "max_memory_allocated_bytes": 500954112,
+      "max_memory_reserved_bytes": 629145600,
+      "job_attempt_fence_binding": "passed",
       "human_intervention_required": false
     },
     "python_ci_matrix": {
