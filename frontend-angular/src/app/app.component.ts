@@ -313,6 +313,10 @@ import { PairRemoteSnakeOverlayComponent } from './components/pair-remote-snake-
         position: absolute; top: 100%; left: 0; right: 0;
         background: var(--header-bg); border-bottom: 1px solid var(--border);
         padding: 6px 12px; gap: 4px; z-index: 300;
+        max-height: calc(100vh - 96px);
+        max-height: calc(100dvh - 96px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
       }
       .app-nav.nav-open .nav-menu-group { position: static; }
       .app-nav.nav-open .nav-menu-panel { position: static; margin-top: 4px; box-shadow: none; min-width: 0; }

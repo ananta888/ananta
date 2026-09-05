@@ -20,6 +20,7 @@
   --warning: #b45309;
   --tone-warning: #f59e0b;
   --danger-bg: #fef2f2;
+  --danger-fg: #7f1d1d;
   --tone-error: #ef4444;
   --tone-error-text: #dc2626;
   --tone-technical: #64748b;
@@ -215,6 +216,10 @@ button.btn-large, .btn-large {
 .state-banner.error {
   border-color: #ef4444;
   background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.state-banner.error .muted {
+  color: var(--danger-fg);
 }
 .state-banner.warning {
   border-color: #f59e0b;
