@@ -4,8 +4,17 @@ import pytest
 
 from scripts.run_hub_evidence_unsloth_gpu_gate import (
     UnslothGpuGateError,
+    bounded_diagnostic,
     build_container_command,
 )
+
+
+def test_bounded_diagnostic_keeps_only_a_printable_tail() -> None:
+    diagnostic = bounded_diagnostic("prefix\x00" + "x" * 2100 + "failure")
+
+    assert len(diagnostic) == 2000
+    assert diagnostic.endswith("failure")
+    assert "\x00" not in diagnostic
 
 
 def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp_path: Path) -> None:

@@ -59,10 +59,20 @@ _NVIDIA_LIBRARIES = (
     "libnvidia-ml.so.1",
     "libnvidia-ptxjitcompiler.so.1",
 )
+_DIAGNOSTIC_LIMIT = 2000
 
 
 class UnslothGpuGateError(ValueError):
     """Bounded configuration or environment failure."""
+
+
+def bounded_diagnostic(value: object) -> str:
+    """Keep worker failures actionable without persisting unbounded process output."""
+    normalized = "".join(
+        character if character in "\n\t" or character.isprintable() else "?"
+        for character in str(value or "")
+    )
+    return normalized[-_DIAGNOSTIC_LIMIT:]
 
 
 def sha256_file(path: Path) -> str:
@@ -374,6 +384,7 @@ def execute_gate(
                     "reason_code": "unsloth_gpu_container_timeout",
                     "stdout_digest": hashlib.sha256(str(exc.stdout or "").encode()).hexdigest(),
                     "stderr_digest": hashlib.sha256(str(exc.stderr or "").encode()).hexdigest(),
+                    "stderr_tail": bounded_diagnostic(exc.stderr),
                 }
             report_file = output_dir / "unsloth-gpu-smoke.json"
             report = json.loads(report_file.read_text(encoding="utf-8")) if report_file.is_file() else {}
@@ -410,6 +421,7 @@ def execute_gate(
                 "immutable_inputs_unchanged": immutable_inputs_unchanged,
                 "stdout_digest": hashlib.sha256(completed.stdout.encode()).hexdigest(),
                 "stderr_digest": hashlib.sha256(completed.stderr.encode()).hexdigest(),
+                "stderr_tail": bounded_diagnostic(completed.stderr),
             }
 
     outcome = HubEvidenceGateService(registry).execute(request, worker)
