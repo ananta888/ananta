@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import platform
+import resource
 import subprocess
 import tempfile
 import uuid
@@ -45,14 +46,8 @@ def main() -> int:
     revision = _git_revision()
     source_digest = _files_digest(SOURCE_PATHS)
     policy_digest = _files_digest((Path("AGENTS.md"), Path("docs/decisions/ADR-decentralized-peer-overlay.md")))
-    environment_digest = _digest(
-        {
-            "platform": platform.platform(),
-            "python": platform.python_version(),
-            "node": _command_output(("node", "--version")),
-            "playwright": _command_output(("npx", "playwright", "--version"), cwd=FRONTEND),
-        }
-    )
+    environment = _environment()
+    environment_digest = _digest(environment)
     execution_profile_digest = _digest(
         {
             "schema": "ananta.peer-mesh-browser-profile.v1",
@@ -102,6 +97,7 @@ def main() -> int:
         env = os.environ.copy()
         env["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"] = json.dumps(assignment, sort_keys=True)
         env["ANANTA_PEER_MESH_MEASUREMENT_DIR"] = measurement_dir
+        cpu_before = resource.getrusage(resource.RUSAGE_CHILDREN)
         completed = subprocess.run(
             ("npx", "playwright", "test", "--config", "playwright.peer-mesh-capacity.config.ts"),
             cwd=FRONTEND,
@@ -110,12 +106,18 @@ def main() -> int:
             text=True,
             timeout=180,
         )
+        cpu_after = resource.getrusage(resource.RUSAGE_CHILDREN)
         measurements = _measurements(Path(measurement_dir))
     succeeded = completed.returncode == 0 and len(measurements) == 6
     result_payload = {
         "schema": "ananta.peer-mesh-browser-capacity-result.v1",
         "repository_revision": revision,
         "measurements": measurements,
+        "host_environment": environment,
+        "child_cpu_seconds": round(
+            cpu_after.ru_utime + cpu_after.ru_stime - cpu_before.ru_utime - cpu_before.ru_stime,
+            6,
+        ),
         "expected_measurement_count": 6,
         "command_exit_code": completed.returncode,
     }
@@ -171,6 +173,31 @@ def _registry(path: Path) -> HubEvidenceRegistryService:
 
 def _measurements(directory: Path) -> list[dict[str, Any]]:
     return [json.loads(path.read_text(encoding="utf-8")) for path in sorted(directory.glob("*.json"))]
+
+
+def _environment() -> dict[str, Any]:
+    cpu_model = "unknown"
+    cpuinfo = Path("/proc/cpuinfo")
+    if cpuinfo.exists():
+        cpu_model = next(
+            (
+                line.split(":", 1)[1].strip()
+                for line in cpuinfo.read_text(encoding="utf-8", errors="replace").splitlines()
+                if line.startswith("model name") and ":" in line
+            ),
+            "unknown",
+        )
+    pages = os.sysconf("SC_PHYS_PAGES") if hasattr(os, "sysconf") else 0
+    page_size = os.sysconf("SC_PAGE_SIZE") if hasattr(os, "sysconf") else 0
+    return {
+        "platform": platform.platform(),
+        "cpu_model": cpu_model,
+        "logical_cpu_count": os.cpu_count(),
+        "memory_bytes": pages * page_size,
+        "python": platform.python_version(),
+        "node": _command_output(("node", "--version")),
+        "playwright": _command_output(("npx", "playwright", "--version"), cwd=FRONTEND),
+    }
 
 
 def _files_digest(paths: tuple[Path, ...]) -> str:

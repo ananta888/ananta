@@ -5,6 +5,7 @@ type Profile = 'audio_only' | 'camera_720p' | 'screenshare';
 
 interface BrowserMeasurement {
   readonly engine: string;
+  readonly browserVersion: string;
   readonly profile: Profile;
   readonly participantCount: number;
   readonly connectionCount: number;
@@ -42,6 +43,7 @@ for (const [engine, browserType] of ENGINES) {
       expect(assignment.evidence_scope).toBe('test');
       const browser = await browserType.launch({ headless: true });
       try {
+        const browserVersion = browser.version();
         const pages = await Promise.all(Array.from({ length: 4 }, async (_, index) => {
           const context = await browser.newContext();
           const page = await context.newPage();
@@ -72,7 +74,7 @@ for (const [engine, browserType] of ENGINES) {
         await pages[0].waitForTimeout(1_500);
         const stats = await Promise.all(pages.map(readStats));
         const elapsedMs = Date.now() - startedAt;
-        const measurement = summarize(engine, profile, elapsedMs, stats);
+        const measurement = summarize(engine, browserVersion, profile, elapsedMs, stats);
         expect(measurement.connectionCount).toBe(12);
         expect(measurement.bytesSent).toBeGreaterThan(0);
         expect(measurement.packetsSent).toBeGreaterThan(0);
@@ -233,6 +235,7 @@ async function readStats(page: Page): Promise<PageStats> {
 
 function summarize(
   engine: string,
+  browserVersion: string,
   profile: Profile,
   elapsedMs: number,
   stats: readonly PageStats[],
@@ -242,6 +245,7 @@ function summarize(
   const framesEncoded = sum(value => value.framesEncoded);
   return Object.freeze({
     engine,
+    browserVersion,
     profile,
     participantCount: stats.length,
     connectionCount: sum(value => value.connectionCount),
