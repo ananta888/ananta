@@ -21,7 +21,11 @@ def test_churn_validator_requires_real_engines_identities_and_bounded_recovery()
             "deviceIdentities": [f"device-{index}" for index in range(5)],
             "processIsolation": True,
             "scenarios": {
-                "backgroundTab": {"visibility": "hidden", "recoveryMs": 100},
+                "backgroundTab": {
+                    "documentHasFocus": False,
+                    "activation": "cover_tab_brought_to_front",
+                    "recoveryMs": 100,
+                },
                 "relayFailure": {"recoveryMs": 100},
                 "browserCrash": {"recoveryMs": 100},
                 "iceRestart": {"recoveryMs": 100, "delivered": True},

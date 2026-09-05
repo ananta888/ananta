@@ -188,7 +188,10 @@ def _measurements_complete(
             for name, bound in checks.items()
         ):
             return False
-        if scenarios["backgroundTab"].get("visibility") != "hidden":
+        if (
+            scenarios["backgroundTab"].get("documentHasFocus") is not False
+            or scenarios["backgroundTab"].get("activation") != "cover_tab_brought_to_front"
+        ):
             return False
         if scenarios["iceRestart"].get("delivered") is not True:
             return False

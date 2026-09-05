@@ -15,7 +15,11 @@ interface ChurnMeasurement {
   readonly processIsolation: true;
   readonly edgeCount: number;
   readonly scenarios: Readonly<{
-    backgroundTab: Readonly<{ visibility: string; recoveryMs: number }>;
+    backgroundTab: Readonly<{
+      documentHasFocus: false;
+      activation: 'cover_tab_brought_to_front';
+      recoveryMs: number;
+    }>;
     relayFailure: Readonly<{ recoveryMs: number; backupPath: string }>;
     browserCrash: Readonly<{ recoveryMs: number; backupPath: string }>;
     iceRestart: Readonly<{ recoveryMs: number; delivered: true }>;
@@ -75,7 +79,7 @@ for (const [engine, browserType] of ENGINES) {
       const cover = await relayA.context.newPage();
       await cover.goto(origin);
       await cover.bringToFront();
-      await expect.poll(() => relayA.page.evaluate(() => document.visibilityState)).toBe('hidden');
+      await expect.poll(() => relayA.page.evaluate(() => document.hasFocus())).toBe(false);
       const backgroundStarted = Date.now();
       await pathProbe('background', [[source.page, 'source-a']], relayA.page);
       const backgroundMs = Date.now() - backgroundStarted;
@@ -103,7 +107,11 @@ for (const [engine, browserType] of ENGINES) {
         processIsolation: true,
         edgeCount: 6,
         scenarios: {
-          backgroundTab: { visibility: 'hidden', recoveryMs: backgroundMs },
+          backgroundTab: {
+            documentHasFocus: false,
+            activation: 'cover_tab_brought_to_front',
+            recoveryMs: backgroundMs,
+          },
           relayFailure: { recoveryMs: relayFailureMs, backupPath: 'source-b>b-d' },
           browserCrash: { recoveryMs: browserCrashMs, backupPath: 'source-b>b-c' },
           iceRestart: { recoveryMs: iceRestartMs, delivered: true },
