@@ -123,7 +123,7 @@
     "blocked_audit": {
       "status": "in_progress",
       "reason_codes": [
-        "browser_resource_nat_and_churn_run_evidence_missing",
+        "browser_nat_and_churn_run_evidence_missing",
         "portable_cross_peer_media_standard_path_no_go",
         "mls_interoperability_decision_evidence_missing",
         "malicious_relay_runtime_evidence_missing",
@@ -133,10 +133,11 @@
         "Direct pair and SFU E2EE paths, replay windows, group key authorization, priority queues and TURN controls exist.",
         "A bounded Multi-PeerConnection manager, signed membership and route contracts, a deterministic publication data DAG, one-use link tickets and an opaque multi-hop relay now exist behind Hub authority and a default-off feature flag.",
         "MediaTopologyPolicy now degrades groups above the safe mesh limit to SFU or relay_control_only instead of misclassifying an ordinary direct pair as group media.",
-        "The remaining partial tasks are locally actionable and must not be hidden behind the seven external or standards-bound task blockers.",
+        "A Hub-reserved synthetic test run now measures four isolated identities in Chromium and Firefox for audio, 720p camera and screenshare without promoting the result to production evidence.",
+        "The remaining partial tasks are locally actionable and must not be hidden behind the six external or standards-bound task blockers.",
         "Local and SFU test artifacts are not Peer-DAG RUN evidence and remain non-promotable."
       ],
-      "required_unblock_input": "Only the seven explicitly blocked tasks require additional standards decisions or Hub-registered Chromium/Firefox capacity, NAT/churn, malicious-relay and hybrid release runs. The remaining partial tasks continue locally; missing production evidence remains no_go."
+      "required_unblock_input": "Only the six explicitly blocked tasks require additional standards decisions or Hub-registered NAT/churn, malicious-relay and hybrid release runs. The remaining partial tasks continue locally; missing production evidence remains no_go."
     }
   },
   "baseline": {
@@ -592,7 +593,7 @@
     {
       "id": "DPM-MESH-001",
       "title": "Multi-PeerConnection-Manager fuer kleine Gruppen implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -607,12 +608,14 @@
         "Track add, replace, mute, screen-share und disconnect wirken idempotent pro Peer.",
         "Ein fehlerhafter Peer reisst keine gesunden PeerConnections mit ab."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.ts",
-        "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.spec.ts"
+        "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.spec.ts",
+        "frontend-angular/tests/peer-mesh-browser-capacity.spec.ts",
+        "artifacts/test-gates/peer-mesh-browser-capacity.json"
       ],
-      "implementation_gap": "Der isolierte, idempotente Manager ist lokal getestet; assignment-bound reale Multi-Browser-Evidence fehlt."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MESH-002",
@@ -631,17 +634,18 @@
         "Audio-only, Kamera und Screenshare besitzen getrennte Profile und Hysterese.",
         "Fehlende oder unzuverlaessige Stats reduzieren die Obergrenze konservativ."
       ],
-      "progress_percent": 75.0,
+      "progress_percent": 90.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts",
-        "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.spec.ts"
+        "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.spec.ts",
+        "artifacts/test-gates/peer-mesh-browser-capacity.json"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": "Die Policy bewertet Profile, Sichtbarkeit, CPU-/Batteriegrenzen, Uplink, RTT, Verlust, Sendepuffer und Hysterese konservativ. Die Browsermessung ist test-skopiert; produktive Telemetrieanbindung und Freigabeevidenz bleiben getrennt."
     },
     {
       "id": "DPM-MESH-003",
       "title": "Mesh-zu-SFU- und Mesh-zu-control_only-Uebergaenge haerten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -656,18 +660,20 @@
         "Uebergaenge haben Cooldown, Fencing, Abbruch und Rollback ohne doppelten Bulk-Pfad.",
         "Strict-E2EE verhindert jeden Fallback auf einen unverschluesselten Medienpfad."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/media_topology_policy.py",
         "tests/test_media_topology_policy.py",
-        "tests/chaos/test_semantic_sfu_failover.py"
+        "tests/chaos/test_semantic_sfu_failover.py",
+        "frontend-angular/src/app/services/peer-overlay/media-topology-transition-coordinator.ts",
+        "frontend-angular/src/app/services/peer-overlay/media-topology-transition-coordinator.spec.ts"
       ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+      "implementation_gap": ""
     },
     {
       "id": "DPM-MESH-004",
       "title": "Mesh-Simulcast-, Encoder- und Uplink-Kosten messen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -681,8 +687,19 @@
         "CPU, Batterieproxy, Uplink, FramesDropped und qualityLimitationReason werden pro Teilnehmerzahl erfasst.",
         "Die Hub-Policy-Grenzwerte stammen aus versionierter Evidence statt festen Annahmen."
       ],
-      "progress_percent": 0.0,
-      "blocked_reason": "Keine assignment-bound Chromium-/Firefox-Ressourcenmessung auf Referenzhardware vorhanden."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "frontend-angular/playwright.peer-mesh-capacity.config.ts",
+        "frontend-angular/tests/peer-mesh-browser-capacity.spec.ts",
+        "scripts/run_peer_mesh_browser_capacity_gate.py",
+        "artifacts/test-gates/peer-mesh-browser-capacity.json"
+      ],
+      "evidence_refs": [
+        "SRC_92dc0166d6a2447db5c8d23e31f98a56",
+        "RUN_5e7147139b0a463c83a3fcb49a4d7278"
+      ],
+      "evidence_classification": "Hub-registered synthetic test evidence from real headless Chromium and Firefox on the recorded local reference hardware; deliberately ineligible for production release promotion.",
+      "blocked_reason": ""
     },
     {
       "id": "DPM-CRYPTO-001",
@@ -1631,11 +1648,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 28,
-      "blocked": 7,
-      "done": 13
+      "partial": 26,
+      "blocked": 6,
+      "done": 16
     },
-    "progress_percent_done": 27.1,
+    "progress_percent_done": 33.3,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1649,8 +1666,8 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 13,
-      "remaining": 31
+      "done": 15,
+      "remaining": 29
     },
     "milestones": {
       "total": 12,
@@ -1724,14 +1741,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 15,
+          "partial": 13,
           "blocked": 0,
-          "done": 1
+          "done": 3
         },
-        "done": 1,
-        "partial": 15,
+        "done": 3,
+        "partial": 13,
         "blocked": 0,
-        "progress_percent": 70.0
+        "progress_percent": 73.4
       },
       "test": {
         "total": 6,
@@ -1739,13 +1756,13 @@
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
-          "blocked": 3,
-          "done": 1
+          "blocked": 2,
+          "done": 2
         },
-        "done": 1,
+        "done": 2,
         "partial": 2,
-        "blocked": 3,
-        "progress_percent": 40.8
+        "blocked": 2,
+        "progress_percent": 57.5
       },
       "security": {
         "total": 9,
@@ -1795,11 +1812,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 28,
-    "blocked": 7,
-    "done": 13,
-    "count_based_percent": 27.1,
-    "weighted_percent": 66.6
+    "partial": 26,
+    "blocked": 6,
+    "done": 16,
+    "count_based_percent": 33.3,
+    "weighted_percent": 70.3
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -1810,7 +1827,7 @@
     "operations_and_release": "in_progress"
   },
   "summary_notes": [
-    "Quellcode-Reaudit 2026-09-05: Der Track ist nicht global blockiert. 32 partielle Aufgaben bleiben lokal bearbeitbar; nur sieben Aufgaben sind explizit standards- oder produktiver Laufzeitevidenz-gebunden.",
+    "Quellcode-Reaudit 2026-09-05: Der Track ist nicht global blockiert. Die partiellen Aufgaben bleiben lokal bearbeitbar; nach dem automatisierten Browser-Kapazitaetsgate sind noch sechs Aufgaben explizit standards- oder produktiver Laufzeitevidenz-gebunden.",
     "Seit dem vorherigen Review wurden der Hub-signierte Daten-DAG, Membership-/Lease-/Ticket-Vertraege, der isolierte Mesh-Manager, begrenzte Relay-Queues, automatische Backup-Umschaltung und das default-off Release-Gate implementiert.",
     "Der Track behandelt Peer-Data-Fanout und Peer-Media-Fanout getrennt; ein erfolgreicher Daten-DAG beweist keine Browser-Medienweiterleitung.",
     "Die aktuelle W3C Encoded-Transform-Spezifikation bindet Frames an ihre Quellpipeline; deshalb ist unveraenderte Cross-PeerConnection-Weiterleitung ein fruehes hartes Decision Gate.",
@@ -1845,10 +1862,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 58.938,
-    "remaining_weight": 29.562,
-    "blocked_weight": 12.75,
-    "weighted_percent": 66.6
+    "done_weight": 62.188,
+    "remaining_weight": 26.312,
+    "blocked_weight": 10.5,
+    "weighted_percent": 70.3
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1870,10 +1887,10 @@
       },
       "M03": {
         "total_tasks": 4,
-        "done": 0,
-        "blocked": 1,
-        "count_based_percent": 0.0,
-        "weighted_percent": 55.5,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 75.0,
+        "weighted_percent": 97.4,
         "status": "in_progress"
       },
       "M04": {
@@ -1953,10 +1970,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-05T01:59:00.215652Z",
+    "generated_at": "2026-09-05T02:12:16.617441Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "10ac91ee724b45016c3098e0ee97a1350c096ca6d664ecdfcc64e8d62f3f55eb",
+    "source_hash": "365e886e66148c71fa73adc3cfe148cc1292c67db28b9e5b1654f37bae331846",
     "is_stale": false
   },
   "last_reviewed": "2026-09-05"

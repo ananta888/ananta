@@ -1,0 +1,130 @@
+{
+  "child_cpu_seconds": 12.506769,
+  "command_exit_code": 0,
+  "evidence": {
+    "binding_digest": "5e7147139b0a463c83a3fcb49a4d72786c4e3a479dba7a2feba7c32107ceaab5",
+    "issuer": "hub-evidence-registry",
+    "production_release_eligible": false,
+    "production_release_reason": "evidence_run_test_scope_forbidden",
+    "result_digest": "38485e8303ae1cdb43cf176ce1082fe66fd34c510d620a2de865f16bd02d3c37",
+    "run_id": "RUN_5e7147139b0a463c83a3fcb49a4d7278",
+    "scope": "test",
+    "source_id": "SRC_92dc0166d6a2447db5c8d23e31f98a56",
+    "synthetic": true
+  },
+  "expected_measurement_count": 6,
+  "host_environment": {
+    "cpu_model": "13th Gen Intel(R) Core(TM) i7-13700H",
+    "logical_cpu_count": 20,
+    "memory_bytes": 65782554624,
+    "node": "v22.22.1",
+    "platform": "Linux-7.0.0-30-generic-x86_64-with-glibc2.43",
+    "playwright": "Version 1.60.0",
+    "python": "3.12.14"
+  },
+  "measurements": [
+    {
+      "batteryUplinkBytesPerSecondProxy": 17450.54945054945,
+      "browserVersion": "148.0.7778.96",
+      "bytesSent": 46052,
+      "connectionCount": 12,
+      "elapsedMs": 2639,
+      "encoderFramesPerSecondProxy": 0,
+      "engine": "chromium",
+      "framesDropped": 0,
+      "framesEncoded": 0,
+      "maximumRoundTripTimeMs": 2,
+      "packetsSent": 580,
+      "participantCount": 4,
+      "profile": "audio_only",
+      "qualityLimitationReasons": []
+    },
+    {
+      "batteryUplinkBytesPerSecondProxy": 25170.890658942793,
+      "browserVersion": "148.0.7778.96",
+      "bytesSent": 69522,
+      "connectionCount": 12,
+      "elapsedMs": 2762,
+      "encoderFramesPerSecondProxy": 77.4800868935554,
+      "engine": "chromium",
+      "framesDropped": 0,
+      "framesEncoded": 214,
+      "maximumRoundTripTimeMs": 4,
+      "packetsSent": 391,
+      "participantCount": 4,
+      "profile": "camera_720p",
+      "qualityLimitationReasons": [
+        "bandwidth"
+      ]
+    },
+    {
+      "batteryUplinkBytesPerSecondProxy": 31563.293434893,
+      "browserVersion": "148.0.7778.96",
+      "bytesSent": 87020,
+      "connectionCount": 12,
+      "elapsedMs": 2757,
+      "encoderFramesPerSecondProxy": 79.79688066739209,
+      "engine": "chromium",
+      "framesDropped": 0,
+      "framesEncoded": 220,
+      "maximumRoundTripTimeMs": 2,
+      "packetsSent": 393,
+      "participantCount": 4,
+      "profile": "screenshare",
+      "qualityLimitationReasons": [
+        "bandwidth"
+      ]
+    },
+    {
+      "batteryUplinkBytesPerSecondProxy": 44718.78579610538,
+      "browserVersion": "153.0",
+      "bytesSent": 78079,
+      "connectionCount": 12,
+      "elapsedMs": 1746,
+      "encoderFramesPerSecondProxy": 0,
+      "engine": "firefox",
+      "framesDropped": 0,
+      "framesEncoded": 0,
+      "maximumRoundTripTimeMs": 0,
+      "packetsSent": 620,
+      "participantCount": 4,
+      "profile": "audio_only",
+      "qualityLimitationReasons": []
+    },
+    {
+      "batteryUplinkBytesPerSecondProxy": 54411.036036036036,
+      "browserVersion": "153.0",
+      "bytesSent": 96634,
+      "connectionCount": 12,
+      "elapsedMs": 1776,
+      "encoderFramesPerSecondProxy": 72.63513513513513,
+      "engine": "firefox",
+      "framesDropped": 0,
+      "framesEncoded": 129,
+      "maximumRoundTripTimeMs": 0,
+      "packetsSent": 268,
+      "participantCount": 4,
+      "profile": "camera_720p",
+      "qualityLimitationReasons": []
+    },
+    {
+      "batteryUplinkBytesPerSecondProxy": 34961.5595826469,
+      "browserVersion": "153.0",
+      "bytesSent": 63665,
+      "connectionCount": 12,
+      "elapsedMs": 1821,
+      "encoderFramesPerSecondProxy": 69.74190005491488,
+      "engine": "firefox",
+      "framesDropped": 0,
+      "framesEncoded": 127,
+      "maximumRoundTripTimeMs": 0,
+      "packetsSent": 223,
+      "participantCount": 4,
+      "profile": "screenshare",
+      "qualityLimitationReasons": []
+    }
+  ],
+  "repository_revision": "4193b7539ced64696ceb7400c038019e1eb69aeb",
+  "schema": "ananta.peer-mesh-browser-capacity-result.v1",
+  "status": "passed"
+}
