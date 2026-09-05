@@ -82,6 +82,7 @@ const browserProjects = browsers.map((browser) => {
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: ['codecompass-graph-visualization-performance.spec.ts'],
   outputDir: resultsDir,
   timeout: testTimeoutMs,
   expect: { timeout: expectTimeoutMs },

@@ -39,6 +39,7 @@ const REPOSITORY_ROOT = fs.existsSync(path.resolve(process.cwd(), 'config/codeco
   : path.resolve(process.cwd(), '..');
 const BUDGET_PATH = path.join(REPOSITORY_ROOT, 'config/codecompass/graph_visualization_budgets.v1.json');
 const SOURCE_PATHS = [
+  '.github/workflows/dogfood-evidence.yml',
   'config/codecompass/graph_visualization_budgets.v1.json',
   'frontend-angular/playwright.ccgv-graph.config.ts',
   'frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts',

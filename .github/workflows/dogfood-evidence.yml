@@ -70,3 +70,36 @@ jobs:
             frontend-angular/playwright-report/**
           if-no-files-found: warn
           retention-days: 14
+
+  codecompass-graph-performance:
+    name: CodeCompass graph performance (isolated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.18.0"
+          cache: npm
+          cache-dependency-path: frontend-angular/package-lock.json
+      - name: Install frontend deps
+        working-directory: frontend-angular
+        run: npm ci
+      - name: Install Playwright browser
+        working-directory: frontend-angular
+        run: npx playwright install --with-deps chromium
+      - name: Run isolated graph performance gate
+        working-directory: frontend-angular
+        run: >
+          npx playwright test
+          --config playwright.ccgv-graph.config.ts
+          --project ccgv-performance
+          tests/codecompass-graph-visualization-performance.spec.ts
+      - name: Upload graph performance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ananta-codecompass-graph-performance-evidence
+          path: /tmp/ananta-ccgv-graph-results/**
+          if-no-files-found: warn
+          retention-days: 14

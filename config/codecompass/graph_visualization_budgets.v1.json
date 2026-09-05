@@ -24,6 +24,7 @@
     "profile_update": 120
   },
   "evidence_source_paths": [
+    ".github/workflows/dogfood-evidence.yml",
     "config/codecompass/graph_visualization_budgets.v1.json",
     "frontend-angular/playwright.ccgv-graph.config.ts",
     "frontend-angular/src/app/features/codecompass-graph/components/graph-2d-view/graph-2d-view.component.ts",
