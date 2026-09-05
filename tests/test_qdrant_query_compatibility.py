@@ -121,3 +121,21 @@ def test_query_compatibility_checks_scope_and_physical_collection_shape() -> Non
     assert compatible.compatible is True
     assert scope_mismatch.reason == "vector_scope_conflict"
     assert physical_mismatch.reason == "dimensions_mismatch"
+
+
+def test_query_compatibility_reuses_scope_manifest_for_shape_validation() -> None:
+    client, manager, collection = _manager()
+    retrieve_before = client.calls["retrieve"]
+    info_before = client.calls["collection_info"]
+
+    report = manager.query_compatibility(
+        collection,
+        scope=_scope(),
+        expected=_compatibility(),
+        dimensions=3,
+        distance="cosine",
+    )
+
+    assert report.compatible is True
+    assert client.calls["retrieve"] - retrieve_before == 1
+    assert client.calls["collection_info"] - info_before == 1

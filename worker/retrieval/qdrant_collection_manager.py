@@ -187,6 +187,20 @@ class QdrantCollectionManager:
         expected: CompatibilitySpec,
     ) -> CompatibilityReport:
         payload = self._manifest_payload(collection_name)
+        return self._compatibility_from_manifest(
+            collection_name,
+            expected,
+            payload,
+        )
+
+    def _compatibility_from_manifest(
+        self,
+        collection_name: str,
+        expected: CompatibilitySpec,
+        payload: dict,
+    ) -> CompatibilityReport:
+        """Validate one already-read manifest against physical collection state."""
+
         found = dict(payload.get("compatibility") or {})
         found_backend_schema = str(
             payload.get("backend_schema_version") or ""
@@ -289,7 +303,14 @@ class QdrantCollectionManager:
                 expected_payload,
                 {"distance": str(distance).lower()},
             )
-        return self.compatibility(collection_name, expected)
+        # Reuse the manifest already fetched for the scope check. Calling the
+        # public compatibility method here used to retrieve the same immutable
+        # manifest a second time for every search request.
+        return self._compatibility_from_manifest(
+            collection_name,
+            expected,
+            payload,
+        )
 
     def manifest_scope_matches(self, collection_name: str, scope: VectorScope) -> bool:
         payload = self._manifest_payload(collection_name)
