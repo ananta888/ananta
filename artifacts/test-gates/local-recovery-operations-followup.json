@@ -1,0 +1,93 @@
+{
+  "schema": "ananta.local_recovery_operations_gate.v1",
+  "gate_id": "local-rtx3080-recovery-operations-followup",
+  "status": "passed",
+  "implementation_revision": "93db3d33070f72ff0a7855aca2aa4c68d4cb542f",
+  "results": {
+    "backend": {
+      "status": "passed",
+      "command": "scripts/check_pipeline.py --mode standard --skip-style --skip-types",
+      "tests_passed": 37,
+      "tests_skipped": 1,
+      "architecture_checks": [
+        "boundaries",
+        "cycles",
+        "dead-code-regression",
+        "duplicates"
+      ]
+    },
+    "angular": {
+      "status": "passed",
+      "test_files_passed": 500,
+      "test_files_skipped": 1,
+      "tests_passed": 3441,
+      "tests_skipped": 1,
+      "production_build": "passed"
+    },
+    "compose": {
+      "status": "passed",
+      "profile": "compose.dev.ollama.yml plus compose.dev.ollama-cpu.yml",
+      "empty_postgres_target_initialized": true,
+      "headless_keyring_bootstrap": "passed",
+      "model_bootstrap": "passed",
+      "healthy_endpoints": [
+        "hub",
+        "worker-alpha",
+        "worker-beta",
+        "angular",
+        "ollama",
+        "postgres",
+        "redis"
+      ],
+      "ollama_storage": "explicit_host_bind_mount",
+      "models": [
+        "ananta-gemma4-reasoning-8k:latest",
+        "ananta-phi4-mini-32k:latest",
+        "gemma4:e4b-it-qat",
+        "phi4-mini:latest"
+      ],
+      "environment_deviation": {
+        "code": "nvidia_container_cdi_unavailable",
+        "effect": "This acceptance run used the explicit CPU overlay. The default compose profile remains GPU-first and the previously completed RTX acceptance is not replaced by this run.",
+        "interactive_requirement": false
+      }
+    },
+    "recovery_chain": {
+      "status": "passed",
+      "tests_passed": 6,
+      "properties": {
+        "hub_plan_created": true,
+        "policy_approval_recorded": true,
+        "child_tasks_materialized": true,
+        "dispatch_lease_accepted_once": true,
+        "hub_run_evidence_pre_reserved": true,
+        "hub_artifact_ingress_verified": true,
+        "grounding_reverified_by_hub": true,
+        "final_callback_projected": true
+      },
+      "approval_mode": "explicit_hub_auto_policy",
+      "human_interaction_required": false,
+      "evidence_classification": "synthetic_test",
+      "production_grounding_released": false,
+      "production_grounding_reason": "Synthetic test evidence validates the policy path but cannot satisfy a production release claim."
+    },
+    "approval_and_recovery_regression": {
+      "status": "passed",
+      "tests_passed": 146
+    },
+    "repository_regression": {
+      "status": "passed",
+      "tests_passed": 24807,
+      "tests_skipped": 300,
+      "tests_xfailed": 2,
+      "duration_seconds": 3416.98
+    }
+  },
+  "evidence_identity": {
+    "source_ids_serialized": [],
+    "run_ids_serialized": [],
+    "identifiers_synthesized_by_report": false,
+    "note": "The Recovery Hub service issued and validated synthetic test identities inside the isolated test run. This stable report does not copy or promote them."
+  },
+  "secrets_included": false
+}

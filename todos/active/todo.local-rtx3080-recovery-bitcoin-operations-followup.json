@@ -4,10 +4,10 @@
   "title": "Ananta — verbleibende lokale RTX-3080-, Recovery-, Backup- und Bitcoin-Arbeiten",
   "version": 1,
   "created": "2026-07-26",
-  "updated": "2026-09-04",
+  "updated": "2026-09-05",
   "project": "ananta",
   "owner": "Krusty <stuiber@ananta.de>",
-  "status": "in_progress",
+  "status": "blocked",
   "priority": "P3",
   "tags": [
     "hub-worker",
@@ -24,8 +24,8 @@
     "wallet"
   ],
   "review_basis": {
-    "reviewed_commit_range": "origin/main@f887f240669a plus the local Docker, model-routing, Visual Process and encrypted backup/restore working tree reviewed and accepted on 2026-07-26",
-    "review_goal": "Abgeschlossene Docker-/GPU-/Live-Reload-Arbeiten mit Laufzeitnachweisen markieren und nur die nach der verschlüsselten Backup-/Restore-Abnahme verbleibenden Betriebs-, Bitcoin- und Quality-Gate-Arbeiten offen halten.",
+    "reviewed_commit_range": "origin/main@74ab55f2d through implementation commit 93db3d330 plus the isolated Compose and Recovery acceptance run on 2026-09-05",
+    "review_goal": "Alle lokal lösbaren Recovery-, SOLID- und Quality-Gate-Arbeiten abschließen und ausschließlich die real externen Backup-/Medien- sowie nutzerseitig zurückgestellten Bitcoin-Punkte blockiert halten.",
     "reviewed_paths": [
       "agent/repositories/tasks.py",
       "agent/services/recovery_dispatch_gate_service.py",
@@ -47,13 +47,13 @@
     ],
     "runtime_evidence": {
       "frontend_http": "Angular auf Port 4200 und der Hub auf Port 5000 antworteten nach den Compose-Recreates; alle Hauptdienste liefen getrennt und der Hub war healthy.",
-      "docker_daemon": "Der doppelte WSL-Systemd-Startpfad wurde deaktiviert; nativer systemd PID 1 betreibt Docker 29.1.3 und containerd stabil, ohne Volumes oder Bind-Mount-Daten zu löschen.",
+      "docker_daemon": "Nativer systemd PID 1 betreibt Docker 29.7.2 und containerd stabil. Ein abgebrochener paralleler BuildKit-Export verzögerte neue Snapshot-Importe, erforderte aber keinen Daemon-Neustart und löschte keine fremden Volumes oder Bind-Mount-Daten.",
       "gpu": "Die externe RTX 3080 war in WSL2/Ollama mit 10240 MiB VRAM sichtbar. Phi-4-mini lief mit num_ctx=32768 bei ungefähr 7414 MiB GPU-Belegung; Gemma lief mit num_ctx=8192 bei ungefähr 5038 MiB.",
       "fallback": "Ein erzwungener Lauf belegte exakt drei fehlgeschlagene Phi-Aufrufe und einen erfolgreichen Gemma-Aufruf im vierten Versuch. 80 fokussierte Recovery-/Planungsprüfungen bestanden.",
       "live_reload": "Python- und Angular-Live-Reload wurden ohne Image-Rebuild abgenommen. Änderungen in gemeinsam gemounteten Python-Quellen werden erwartungsgemäß von Hub, Alpha und Beta erkannt; die Services bleiben getrennte Container, besitzen aber keine reloader-selektive Dateibaum-Isolation. Ein echter Chromium-Roundtrip speicherte local_phi_to_gemma_reasoning, propose_task_plan und require_approval über die Hub-API und lud sie nach Browser-Reload korrekt.",
       "backup_restore": "50 Backup-Prüfungen bestanden; ein externer GPG/zstd-Test blieb nur im minimalen Test-Image übersprungen. Der aktuelle Host-E2E erzeugte zwei identische verschlüsselte Pakete mit 732530 Bytes und SHA-256 6f01c7e9129db8ef90a3a984c0b147e1db69babaf4a22ede218e846c036b8c14. Der Restore aus der Windows-/OneDrive-Kopie nutzte für Preflight und Vollprüfung denselben privaten, erneut gehashten WSL-Ciphertext-Snapshot und bestand pg_restore, PostgreSQL-Katalogabfrage, beide SQLite-Integritätsprüfungen sowie die kryptografische Workflow-Credential-Bindung. Testpakete, entschlüsseltes Ziel, Testschlüssel und ephemerer PostgreSQL-Container wurden danach entfernt.",
       "ollama_backup_scope": "Die realen Ollama-Manifeste und alle referenzierten Blobs im ungefähr 8,1-GB-Modellbaum bestanden Hash- und Größenprüfung. Der Host-E2E nutzte für die schnelle Routineabnahme bewusst das getrennte State-Paket ohne Modellblobs.",
-      "focused_recovery_review": "Kein offener P0/P1-Befund nach unabhängiger Reproduktion; der verbleibende nichtterminale CAS-Punkt ist Defense-in-Depth-Hardening.",
+      "focused_recovery_review": "Kein offener P0/P1-Befund nach fokussierter und breiter Reproduktion. Recovery-CAS, Policy-Extraktion, SQL-Reservierungsrennen und vollständig automatisierbare Hub-Approval sind abgeschlossen.",
       "bitcoin": "Im aktuellen Arbeitsbaum wurde noch kein Bitcoin-Core-Pruned-Node und keine Wallet-Backup-Automation implementiert."
     }
   },
@@ -78,7 +78,7 @@
         {
           "id": "ARF-CAS-001",
           "title": "Nichtterminale Recovery-CAS-Operationen typisieren",
-        "status": "in_progress",
+        "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "security-hardening",
@@ -91,7 +91,12 @@
             "agent/common/"
           ],
         "description": "Queue-Claim, Planning-Saga, Child-Release und Recovery-Rollen-Ingress erhalten je eine eng gebundene Hub-Authority. Danach werden candidate-only und generische nichtterminale Recovery-CAS-Mutationen deny-by-default.",
-        "audit_note": "Reaudit 2026-09-04: Der aktuelle Quellstand enthält zwölf fokussierte Recovery-Write-Boundaries, repository-eigene updated_at-Erzeugung, geschlossene Delta-Prüfungen sowie negative Rollen-, Fremdfeld-, Replay- und Parallelitätstests. Es fehlt nur noch die erneute fokussierte und breite Validierung gegen den aktuellen Commit.",
+        "audit_note": "Abschluss 2026-09-05: Die typisierten Write-Boundaries, geschlossenen Delta-Prüfungen und Hub-Authorities wurden gegen den aktuellen Quellstand validiert. Ein zusätzlich gefundener SQL-Reservierungs-Wettlauf liest nach Rollback den exakten Gewinner erneut und konvergiert reproduzierbar.",
+          "completion_evidence": [
+            "Die fokussierte Recovery-Suite bestand mit 185 von 185 Tests.",
+            "Der wiederholte SQL-Reservierungs-Wettlauftest bestand in zwölf aufeinanderfolgenden Läufen; die vollständige betroffene Datei bestand mit 127 von 127 Tests.",
+            "Der breite Repository-Lauf bestand mit 24807 Tests, 300 Skips und zwei erwarteten Xfails."
+          ],
           "acceptance_criteria": [
             "Jede erlaubte Operation bindet Task-, Source-, Goal-, Plan-, Ausgangs-/Zielstatus-, Reason- und vollständige Feld-Deltas.",
             "Repository-eigene Zeit- und History-Felder können nicht vom Caller vorgegeben werden.",
@@ -103,7 +108,7 @@
         {
           "id": "ARF-SOLID-002",
           "title": "Große Recovery-Klassen schrittweise nach Verantwortlichkeiten teilen",
-        "status": "in_progress",
+        "status": "completed",
           "priority": "P2",
           "risk": "medium",
           "type": "refactor",
@@ -117,7 +122,12 @@
             "agent/services/task_runtime_service.py"
           ],
         "description": "Bestehende SRP-Schulden ohne Architekturwechsel über kleine Ports, Policies und Adapter abbauen.",
-        "audit_note": "Reaudit 2026-09-04: Mehrere reine Recovery-Policies und Write-Boundaries wurden bereits extrahiert. TaskRecoveryPlanningService (3121 Zeilen), RecoveryDispatchGateService (2317) und TaskRepository (2494) bleiben jedoch zu breit; die Aufgabe ist lokal ausführbar und nicht extern blockiert.",
+        "audit_note": "Abschluss 2026-09-05: Repository-Merge, Write-Validierung und Dispatch-Verträge liegen in getrennten reinen Policy-Modulen. Die öffentlichen Services bleiben als kompatible Orchestrierungsfassaden erhalten; weitere Größenreduktion ist inkrementelle Wartung und kein offener Akzeptanzpunkt dieses Tracks.",
+          "completion_evidence": [
+            "TaskRepository wurde um 1289 Zeilen reduziert; Recovery-Merge und Write-Validierung wurden in fokussierte Module extrahiert.",
+            "RecoveryDispatchGateService delegiert geschlossene Vertragslogik an recovery_dispatch_contract.",
+            "Der Modulgrenzentest, der Service-Boundary-Check und die Import-Zyklusanalyse sind grün."
+          ],
           "acceptance_criteria": [
             "Reine Transition-/Merge-Policies sind repository- und Flask-frei testbar.",
             "Capability-Prüfung, Persistenz, Orchestrierung, Callback-Delivery und Projektion liegen in getrennten Verantwortlichkeiten.",
@@ -134,7 +144,7 @@
         {
           "id": "OPS-SOLID-005",
           "title": "Workflow-Keyring-Bootstrap in fokussierte Komponenten teilen",
-        "status": "in_progress",
+        "status": "completed",
           "priority": "P2",
           "risk": "medium",
           "type": "refactor",
@@ -145,7 +155,12 @@
             "ananta_contracts/"
           ],
         "description": "Die derzeit zusammengefasste Entwicklungsschlüssel-Erzeugung ohne Verhaltens- oder Formatbruch in kleine, injizierbare Verantwortlichkeiten zerlegen.",
-        "audit_note": "Reaudit 2026-09-04: Das 1118-zeilige Skript trennt Ablaufschritte nur als Funktionen, besitzt aber weiterhin direkte globale Filesystem-, Zufalls-, Ownership- und CLI-Kopplung. Die geforderte injizierbare Struktur ist nicht abgeschlossen, aber vollständig lokal implementierbar.",
+        "audit_note": "Abschluss 2026-09-05: Das CLI-Skript ist eine schmale Fassade; Material, Validierung, Filesystem, Transaktion, Ports und Orchestrierung sind getrennt und injizierbar. Dateiformate, restriktive Modi, Recovery und Compose-Reihenfolge blieben kompatibel.",
+          "completion_evidence": [
+            "Sieben fokussierte Komponenten ersetzen die frühere 1118-zeilige Mehrfachverantwortung des CLI-Skripts.",
+            "18 Keyring-, Crash-Recovery-, Symlink-, Hardlink-, Legacy- und Port-Tests bestanden.",
+            "Der reale isolierte Compose-Start erzeugte die getrennten Hub-/Worker-Keyrings vollständig headless."
+          ],
           "acceptance_criteria": [
             "Erzeugung, Validierung, Transaktions-Recovery, atomare Publikation, Ownership und CLI-Orchestrierung liegen in getrennten, fokussierten Komponenten.",
             "Dateisystem- und Zufallsquellen sind über schmale Ports injizierbar und ohne Root-Rechte unit-testbar.",
@@ -342,7 +357,7 @@
         {
           "id": "QA-REL-001",
           "title": "Vollständiges Repository- und Docker-E2E-Gate nach Daemon-Reparatur ausführen",
-        "status": "in_progress",
+        "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "quality-gate",
@@ -357,7 +372,15 @@
             "artifacts/test-gates/",
             "docker/compose-next/"
           ],
-        "audit_note": "Reaudit 2026-09-04: Der frühere langdetect-Lockfehler besteht weiterhin reproduzierbar; langdetect ist in pyproject.toml deklariert, fehlt aber in requirements.lock. Docker, GPU und die übrigen Voraussetzungen sind vorhanden. Der Gate ist daher lokal bearbeitbar, nicht blockiert.",
+        "audit_note": "Abschluss 2026-09-05: langdetect ist gelockt, Backend- und Angular-Gates sind grün, und ein isolierter Compose-Stack startete aus leerem PostgreSQL-Ziel mit automatischem Keyring- und Modell-Bootstrap. Mangels Host-CDI lief dieser aktuelle Gate über den neuen expliziten CPU-Overlay; die frühere RTX-Abnahme bleibt davon unberührt.",
+        "completion_evidence": [
+          "Der dokumentierte Backend-Pfad bestand mit 37 Tests und einem Skip; Architektur-, Zyklus-, Duplikat- und Dead-Code-Regressionsprüfungen waren grün.",
+          "Angular bestand mit 500 Testdateien, 3441 Tests und erfolgreichem Production-Build.",
+          "Der breite Repository-Lauf bestand mit 24807 Tests, 300 Skips und zwei erwarteten Xfails in 3416,98 Sekunden.",
+          "Der isolierte CPU-Fallback-Stack lieferte erfolgreiche Health-Antworten von Hub, Alpha, Beta und Angular; Ollama, PostgreSQL und Redis waren healthy, beide Modellaliase waren vorhanden.",
+          "Die sechsstufige Recovery-Kette bestand Plan, Hub-Auto-Approval, Task-Materialisierung, Lease, Hub-Run-Evidence, Hub-Artefakt-Ingress, Grounding und finalen Callback ohne menschliche Interaktion.",
+          "Der stabile secrets-freie Bericht liegt unter artifacts/test-gates/local-recovery-operations-followup.json."
+        ],
         "acceptance_criteria": [
             "`make check` beziehungsweise das dokumentierte vollständige Backend-Gate ist grün.",
             "Der vollständige Angular-Testlauf und Production-Build sind grün.",
@@ -372,26 +395,26 @@
   "meta": {
     "total_items": 11,
     "by_status": {
-      "completed": 3,
+      "completed": 7,
       "partial": 0,
       "open": 0,
-      "in_progress": 4,
+      "in_progress": 0,
       "blocked": 4
     },
     "notes": [
-      "Die Hub-owned Recovery-Implementierung selbst ist nicht Teil dieser offenen Liste; sie wurde in fokussierten und breiten Tests geprüft.",
+      "Die Hub-owned Recovery-Implementierung wurde in fokussierten und breiten Tests geprüft; alle lokal ausführbaren Folgearbeiten dieses Tracks sind abgeschlossen.",
       "Docker/WSL2, GPU/Fallback und Live-Reload sind live abgenommen; der erwartete 404 für die deaktivierte Visual-Process-Registry wird durch die vorhandene Offline-Registry abgefangen.",
-      "ARF-CAS-001 ist laut unabhängigem Review kein aktueller P2-Blocker, weil kein API-Pfad beliebige interne CAS-Felder durchreicht; es bleibt Defense-in-Depth-Hardening.",
-      "OPS-SOLID-005 erfasst die bestehende SRP-Schuld des lokalen Credential-Bootstraps; sie blockiert den Development-Stack nicht.",
+      "ARF-CAS-001 und ARF-SOLID-002 sind abgeschlossen; die verbleibenden großen Recovery-Orchestrierungsfassaden werden aus Kompatibilitätsgründen nur inkrementell weiter verkleinert.",
+      "OPS-SOLID-005 ist abgeschlossen; der Credential-Bootstrap besitzt getrennte, injizierbare Verantwortlichkeiten und einen schmalen CLI-Einstieg.",
       "Die Drei-Versuche-Grenze wird zur Laufzeit durch das Profil-Retry-Budget erzwungen; repeated_failure_count im Routing-Dokument ist derzeit nur ausgerichtete Metadaten. Diese doppelte Policy-Darstellung bleibt eine kleine SOLID-/Single-Source-of-Truth-Schuld.",
-      "QA-REL-001 bleibt teilweise offen: pip check meldet die bereits bestehende Lockfile-Abweichung, dass das in pyproject.toml deklarierte langdetect in requirements.lock fehlt. Vitest benötigt außerdem einen schreibbaren Vite-Temp-Pfad und läuft deshalb gegen den read-only Development-Stack in einem gehärteten ephemeren Testcontainer; Angular-Watch und Production-Build sind grün.",
+      "QA-REL-001 ist abgeschlossen. Der aktuelle Host besitzt keine NVIDIA-Container-Toolkit/CDI-Integration; der reproduzierbare Compose-Gate lief deshalb über den expliziten CPU-Overlay. Der GPU-first-Standard und die frühere RTX-Abnahme bleiben unverändert.",
       "OPS-BACKUP-004 bleibt teilweise offen: Der Drill-Schlüssel und alle Acceptance-Artefakte wurden absichtlich entfernt. Für die dauerhafte WSL-/Desktop-Sicherung muss der Benutzer einen separat wiederherstellbaren OpenPGP-Public-Key bereitstellen und danach zwei physisch getrennte Offline-Kopien erzeugen.",
       "Das Routine-State-Backup umfasst Konfiguration, PostgreSQL, Hub-/Worker-Volumes, Workflow-Secrets und Workspaces. Ollama-Modelle sind ein optionales getrenntes Paket; Bitcoin-Core- und Wallet-Daten sind noch nicht Teil dieses Stacks.",
       "Bekannte Backup-P2-Grenzen: unsigned OpenPGP authentisiert die Herkunft nicht, das Task-Gate ist kein vollständiger Hub-Drain, allgemeine Unterprozesse besitzen noch keine harten Timeouts/Filesystem-Hard-Quota, reguläre TreePlan-Dateien sind noch nicht vollständig gegen Same-UID-Pfadtausch verankert, SIGKILL/Stromausfall kann private Klartext-Staging-Verzeichnisse hinterlassen, der Restore-Publish ersetzt im Rennen noch ein neu erzeugtes leeres Ziel und ComposeAdapter trägt weiterhin mehrere Infrastrukturverantwortlichkeiten (SRP/DIP).",
       "Bitcoin Core, Wallet-Erstellung und Wallet-Backups sind noch nicht implementiert und dürfen erst nach expliziter Sicherheits- und Restore-Abnahme für Mainnet verwendet werden.",
       "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung.",
-      "REAUDIT 2026-09-04: Die spätere Nutzeranweisung, lösbare Blockaden weiter abzuarbeiten, hebt die pauschale Blockierung für ARF-CAS-001, ARF-SOLID-002, OPS-SOLID-005 und QA-REL-001 auf. Backup-Key/Offline-Medien sowie alle Bitcoin-Aufgaben bleiben blockiert."
+      "ABSCHLUSS 2026-09-05: ARF-CAS-001, ARF-SOLID-002, OPS-SOLID-005 und QA-REL-001 sind erledigt. Backup-Key/Offline-Medien sowie alle Bitcoin-Aufgaben bleiben aus den dokumentierten externen beziehungsweise nutzerseitigen Gründen blockiert."
     ],
-    "recommended_order": ["ARF-CAS-001", "ARF-SOLID-002", "OPS-SOLID-005", "QA-REL-001"]
+    "recommended_order": []
   }
 }
