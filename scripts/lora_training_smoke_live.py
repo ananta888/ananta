@@ -10,6 +10,7 @@ import re
 import shutil
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -22,6 +23,111 @@ from scripts.lora_training_smoke_release_chain import (
 _GPU_BACKENDS = frozenset({"peft_trl", "unsloth"})
 _MAX_METRIC_DEPTH = 4
 _MAX_METRIC_FIELDS = 64
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True, slots=True)
+class AdmittedNvidiaDataset:
+    dataset_id: str
+    dataset_hash: str
+    dataset_partition_sha256: str
+    recipe_id: str
+    source_id: str
+    run_id: str
+    train_path: Path
+    train_sha256: str
+    train_rows: int
+    validation_path: Path
+    validation_sha256: str
+    validation_rows: int
+
+
+def _verified_recipe_path(root: Path, reference: object) -> Path:
+    if not isinstance(reference, str) or not reference:
+        raise ValueError("nvidia_smoke_dataset_result_invalid")
+    unresolved = root / reference
+    current = root
+    for part in Path(reference).parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("nvidia_smoke_dataset_path_invalid")
+    try:
+        resolved = unresolved.resolve(strict=True)
+        resolved.relative_to(root)
+    except (OSError, ValueError) as exc:
+        raise ValueError("nvidia_smoke_dataset_path_invalid") from exc
+    if not resolved.is_file():
+        raise ValueError("nvidia_smoke_dataset_path_invalid")
+    return resolved
+
+
+def _jsonl_binding(path: Path) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    rows = 0
+    with path.open("rb") as handle:
+        for line in handle:
+            digest.update(line)
+            if line.strip():
+                rows += 1
+    return digest.hexdigest(), rows
+
+
+def load_admitted_nvidia_dataset(result_path: Path) -> AdmittedNvidiaDataset:
+    """Load one immutable recipe result without trusting caller-provided paths."""
+    try:
+        if result_path.is_symlink():
+            raise ValueError("nvidia_smoke_dataset_result_invalid")
+        resolved_result = result_path.resolve(strict=True)
+        value = json.loads(resolved_result.read_text(encoding="utf-8"))
+        train_rows = value.get("train_rows") if isinstance(value, Mapping) else None
+        validation_rows = value.get("validation_rows") if isinstance(value, Mapping) else None
+        if (
+            isinstance(train_rows, bool)
+            or not isinstance(train_rows, int)
+            or isinstance(validation_rows, bool)
+            or not isinstance(validation_rows, int)
+        ):
+            raise ValueError("nvidia_smoke_dataset_binding_invalid")
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("nvidia_smoke_dataset_result_invalid") from exc
+    if not isinstance(value, Mapping):
+        raise ValueError("nvidia_smoke_dataset_result_invalid")
+    root = resolved_result.parent.parent.resolve(strict=True)
+    recipe_id = str(value.get("recipe_id") or "")
+    train = _verified_recipe_path(root, value.get("train_ref"))
+    validation = _verified_recipe_path(root, value.get("validation_ref"))
+    train_binding = _jsonl_binding(train)
+    validation_binding = _jsonl_binding(validation)
+    if (
+        value.get("schema") != "ananta.unsloth-data-recipe-result.v1"
+        or resolved_result.parent.name != recipe_id
+        or _SHA256.fullmatch(recipe_id) is None
+        or _SHA256.fullmatch(str(value.get("dataset_hash") or "")) is None
+        or _SHA256.fullmatch(str(value.get("dataset_partition_sha256") or "")) is None
+        or not str(value.get("dataset_id") or "")
+        or not str(value.get("source_id") or "").startswith("SRC_")
+        or not str(value.get("run_id") or "").startswith("RUN_")
+        or train_binding != (str(value.get("train_sha256") or ""), train_rows)
+        or validation_binding != (str(value.get("validation_sha256") or ""), validation_rows)
+        or train_binding[1] < 1
+        or validation_binding[1] < 1
+        or train == validation
+    ):
+        raise ValueError("nvidia_smoke_dataset_binding_invalid")
+    return AdmittedNvidiaDataset(
+        dataset_id=str(value["dataset_id"]),
+        dataset_hash=str(value["dataset_hash"]),
+        dataset_partition_sha256=str(value["dataset_partition_sha256"]),
+        recipe_id=recipe_id,
+        source_id=str(value["source_id"]),
+        run_id=str(value["run_id"]),
+        train_path=train,
+        train_sha256=train_binding[0],
+        train_rows=train_binding[1],
+        validation_path=validation,
+        validation_sha256=validation_binding[0],
+        validation_rows=validation_binding[1],
+    )
 
 
 def normalize_gpu_backend(value: str) -> str:
@@ -104,9 +210,7 @@ def materialize_runtime_gguf(
 ) -> dict[str, Any]:
     """Atomically copy the single verified GGUF export across the worker boundary."""
     candidates = sorted(
-        name
-        for name in artifacts
-        if name.startswith("export-gguf-q4-k-m/") and name.lower().endswith(".gguf")
+        name for name in artifacts if name.startswith("export-gguf-q4-k-m/") and name.lower().endswith(".gguf")
     )
     if len(candidates) != 1:
         raise ValueError("nvidia_smoke_runtime_gguf_ambiguous")
@@ -154,11 +258,20 @@ def run_nvidia_live_smoke(
     target_modules: Sequence[str],
     timeout_seconds: float,
     runtime_export_dir: Path | None = None,
+    dataset_result: Path | None = None,
 ) -> dict[str, Any]:
     backend = normalize_gpu_backend(backend)
     reset_peak_vram()
     from worker.training.runtime import RuntimeConfiguration, TrainingWorkerRuntime
 
+    try:
+        admitted_dataset = load_admitted_nvidia_dataset(dataset_result) if dataset_result is not None else None
+    except (OSError, ValueError):
+        return {
+            "status": "failed",
+            "reason_code": "nvidia_smoke_dataset_admission_invalid",
+            "retryable": False,
+        }
     fixed_train = (
         {"instruction": "Return the token alpha.", "output": "alpha"},
         {"instruction": "Return the token beta.", "output": "beta"},
@@ -176,8 +289,16 @@ def run_nvidia_live_smoke(
         state_root = root / "state"
         (workspace_root / "smoke").mkdir(parents=True)
         state_root.mkdir(parents=True)
-        train_sha, train_count = write_jsonl(dataset_root / "train.jsonl", fixed_train)
-        validation_sha, validation_count = write_jsonl(dataset_root / "validation.jsonl", fixed_validation)
+        if admitted_dataset is None:
+            train_sha, train_count = write_jsonl(dataset_root / "train.jsonl", fixed_train)
+            validation_sha, validation_count = write_jsonl(dataset_root / "validation.jsonl", fixed_validation)
+        else:
+            dataset_root.mkdir()
+            shutil.copyfile(admitted_dataset.train_path, dataset_root / "train.jsonl")
+            shutil.copyfile(admitted_dataset.validation_path, dataset_root / "validation.jsonl")
+            train_sha, train_count = admitted_dataset.train_sha256, admitted_dataset.train_rows
+            validation_sha = admitted_dataset.validation_sha256
+            validation_count = admitted_dataset.validation_rows
         envelope = {
             "contract_version": "ananta.lora-training.v1",
             "job_id": "nvidia-live-smoke",
@@ -196,8 +317,8 @@ def run_nvidia_live_smoke(
                 "snapshot_hash": probe["model_snapshot_sha256"],
             },
             "dataset": {
-                "dataset_id": "nvidia-smoke-dataset",
-                "dataset_version": "v1",
+                "dataset_id": admitted_dataset.dataset_id if admitted_dataset else "nvidia-smoke-dataset",
+                "dataset_version": admitted_dataset.recipe_id if admitted_dataset else "v1",
                 "train": {
                     "relative_path": "train.jsonl",
                     "sha256": train_sha,
@@ -370,6 +491,19 @@ def run_nvidia_live_smoke(
                 },
                 "model_snapshot_sha256": probe["model_snapshot_sha256"],
                 "dataset_sha256": hashlib.sha256(f"{train_sha}:{validation_sha}".encode()).hexdigest(),
+                "dataset_provenance": (
+                    {
+                        "synthetic": False,
+                        "dataset_id": admitted_dataset.dataset_id,
+                        "dataset_hash": admitted_dataset.dataset_hash,
+                        "dataset_partition_sha256": admitted_dataset.dataset_partition_sha256,
+                        "recipe_id": admitted_dataset.recipe_id,
+                        "source_id": admitted_dataset.source_id,
+                        "run_id": admitted_dataset.run_id,
+                    }
+                    if admitted_dataset
+                    else {"synthetic": True}
+                ),
                 "configuration_sha256": hashlib.sha256(
                     json.dumps(envelope["configuration"], sort_keys=True, separators=(",", ":")).encode()
                 ).hexdigest(),

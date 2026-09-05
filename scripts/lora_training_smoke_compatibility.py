@@ -130,6 +130,7 @@ def aggregate_run_telemetry(runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         metrics = dict(run.get("training_metrics") or {})
         artifacts = dict(run.get("artifacts") or {})
         job_identity = dict(run.get("job_identity") or {})
+        dataset_provenance = dict(run.get("dataset_provenance") or {})
         gpu_fingerprint = str(run.get("gpu_fingerprint_sha256") or "")
         library_fingerprint = str(run.get("library_fingerprint_sha256") or "")
         if (
@@ -168,6 +169,14 @@ def aggregate_run_telemetry(runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         ):
             if _SHA256.fullmatch(str(value or "")) is None:
                 reason_codes.append(f"run_{index}_{name}_digest_invalid")
+        if dataset_provenance.get("synthetic") is False and (
+            _SHA256.fullmatch(str(dataset_provenance.get("dataset_hash") or "")) is None
+            or _SHA256.fullmatch(str(dataset_provenance.get("dataset_partition_sha256") or "")) is None
+            or _SHA256.fullmatch(str(dataset_provenance.get("recipe_id") or "")) is None
+            or not str(dataset_provenance.get("source_id") or "").startswith("SRC_")
+            or not str(dataset_provenance.get("run_id") or "").startswith("RUN_")
+        ):
+            reason_codes.append(f"run_{index}_dataset_provenance_invalid")
         if _SHA256.fullmatch(gpu_fingerprint):
             gpu_fingerprints.add(gpu_fingerprint)
         if _SHA256.fullmatch(library_fingerprint):
@@ -179,6 +188,7 @@ def aggregate_run_telemetry(runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]
                 "training_metrics": metrics,
                 "job_identity": job_identity,
                 "dataset_sha256": run.get("dataset_sha256"),
+                "dataset_provenance": dataset_provenance,
                 "configuration_sha256": run.get("configuration_sha256"),
                 "model_snapshot_sha256": run.get("model_snapshot_sha256"),
                 "gpu_fingerprint_sha256": gpu_fingerprint or None,
@@ -272,9 +282,11 @@ def aggregate_nvidia_runs(
         and telemetry_attestation.get("status") == "passed"
         and all(stage.get("status") == "passed" for stage in stage_coverage.values())
     )
-    any_failed = any(run.get("status") == "failed" for run in runs) or any(
-        stage.get("status") == "failed" for stage in stage_coverage.values()
-    ) or telemetry_attestation.get("status") == "failed"
+    any_failed = (
+        any(run.get("status") == "failed" for run in runs)
+        or any(stage.get("status") == "failed" for stage in stage_coverage.values())
+        or telemetry_attestation.get("status") == "failed"
+    )
     status = "passed" if all_passed else ("failed" if any_failed else "not_run")
     result: dict[str, Any] = {
         "status": status,

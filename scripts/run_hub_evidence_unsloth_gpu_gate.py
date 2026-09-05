@@ -35,6 +35,9 @@ from agent.services.hub_evidence_gate_service import (  # noqa: E402
     canonical_evidence_digest,
 )
 from agent.services.hub_evidence_registry_service import HubEvidenceRegistryService  # noqa: E402
+from scripts.unsloth_dataset_admission import (  # noqa: E402
+    materialize_admitted_dolly_recipe,
+)
 from scripts.unsloth_ollama_runtime_probe import (  # noqa: E402
     run_ollama_runtime_probe,
 )
@@ -44,20 +47,22 @@ from scripts.unsloth_ollama_runtime_probe import (  # noqa: E402
 
 TASK_ID = "UNSLOTH-GPU-RELEASE-GATE"
 DEFAULT_IMAGE = "ananta-lora-training-worker:local-nvidia"
-DEFAULT_OLLAMA_IMAGE = (
-    "ollama/ollama@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80"
-)
+DEFAULT_OLLAMA_IMAGE = "ollama/ollama@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80"
 DEFAULT_MODEL = ROOT / "data/gpu-models/tiny-causal-lm"
 DEFAULT_MATRIX = ROOT / "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
 DEFAULT_MATRIX_ENTRY = "unsloth-2026.7.5-cu124-torch260-tiny-causal-lm"
+DEFAULT_DATASET_CONTRACT = ROOT / "docs/contracts/unsloth-dolly-15k-local-evaluation.v1.json"
 SOURCE_PATHS = (
     "agent/services/hub_evidence_gate_service.py",
     "agent/services/hub_evidence_registry_service.py",
     "agent/services/integration_registry_service.py",
+    "agent/services/ml_intern_dataset_catalog_service.py",
+    "agent/services/ml_intern_dataset_validation_service.py",
     "agent/services/model_invocation_service.py",
     "agent/services/runtime_handoff_invocation_service.py",
     "agent/services/unsloth_runtime_endpoint_registry_service.py",
     "agent/services/unsloth_runtime_handoff_service.py",
+    "agent/services/unsloth_data_recipe_adapter.py",
     "ananta_contracts/hub_evidence.py",
     "ananta_contracts/runtime_endpoint_descriptor.py",
     "ananta_contracts/training_backend.py",
@@ -66,6 +71,7 @@ SOURCE_PATHS = (
     "docker/compose-next/requirements.lora-training-runtime.txt",
     "docker/compose-next/requirements.lora-training-nvidia.txt",
     "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json",
+    "docs/contracts/unsloth-dolly-15k-local-evaluation.v1.json",
     "scripts/lora_training_smoke_live.py",
     "scripts/lora_training_resilience_live.py",
     "scripts/lora_training_smoke_compatibility.py",
@@ -75,11 +81,13 @@ SOURCE_PATHS = (
     "scripts/run_hub_evidence_unsloth_gpu_resilience_gate.py",
     "scripts/unsloth_ollama_runtime_probe.py",
     "scripts/run_lora_training_smoke.py",
+    "scripts/unsloth_dataset_admission.py",
     "worker/runtime/lora_training_app.py",
     "worker/training/backends/unsloth.py",
     "worker/training/backends/unsloth_checkpoint.py",
     "worker/training/contracts.py",
     "worker/training/datasets.py",
+    "worker/training/data_recipe_materializer.py",
     "worker/training/evaluation.py",
     "worker/training/exports.py",
     "worker/training/inference.py",
@@ -110,8 +118,7 @@ class UnslothGpuGateError(ValueError):
 def bounded_diagnostic(value: object) -> str:
     """Keep worker failures actionable without persisting unbounded process output."""
     normalized = "".join(
-        character if character in "\n\t" or character.isprintable() else "?"
-        for character in str(value or "")
+        character if character in "\n\t" or character.isprintable() else "?" for character in str(value or "")
     )
     return normalized[-_DIAGNOSTIC_LIMIT:]
 
@@ -145,23 +152,16 @@ def tree_sha256(path: Path) -> str:
 
 
 def repository_manifest(root: Path = ROOT) -> dict[str, Any]:
-    entries = [
-        {"path": value, "sha256": sha256_file((root / value).resolve(strict=True))}
-        for value in SOURCE_PATHS
-    ]
+    entries = [{"path": value, "sha256": sha256_file((root / value).resolve(strict=True))} for value in SOURCE_PATHS]
     return {"entries": entries, "digest": canonical_evidence_digest(entries)}
 
 
 def repository_revision(root: Path = ROOT) -> str:
-    completed = subprocess.run(
-        ("git", "rev-parse", "HEAD"), cwd=root, capture_output=True, text=True, check=False
-    )
+    completed = subprocess.run(("git", "rev-parse", "HEAD"), cwd=root, capture_output=True, text=True, check=False)
     revision = completed.stdout.strip().lower()
     if completed.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
         raise UnslothGpuGateError("unsloth_gate_repository_revision_invalid")
-    changed = subprocess.run(
-        ("git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS), cwd=root, check=False
-    )
+    changed = subprocess.run(("git", "diff", "--quiet", "HEAD", "--", *SOURCE_PATHS), cwd=root, check=False)
     if changed.returncode != 0:
         raise UnslothGpuGateError("unsloth_gate_bound_sources_dirty")
     return revision
@@ -264,6 +264,7 @@ def build_container_command(
     libraries: Mapping[str, Path] | None = None,
     device_paths: Sequence[Path] | None = None,
     nvidia_smi_path: Path | None = None,
+    dataset_result_path: Path | None = None,
 ) -> list[str]:
     source_ids = assignment.get("source_ids")
     run_id = str(assignment.get("run_id") or "")
@@ -311,6 +312,10 @@ def build_container_command(
         command.extend(("--volume", f"{path}:/host-nvidia/{name}:ro"))
         for alias in _NVIDIA_LINKER_ALIASES.get(name, ()):
             command.extend(("--volume", f"{path}:/host-nvidia/{alias}:ro"))
+    dataset_root = None
+    if dataset_result_path is not None:
+        dataset_root = dataset_result_path.resolve(strict=True).parent.parent
+        command.extend(("--volume", f"{dataset_root}:/admitted-dataset:ro"))
     command.extend(
         (
             "--volume",
@@ -368,6 +373,9 @@ def build_container_command(
             "/output/runtime-exports",
         )
     )
+    if dataset_root is not None and dataset_result_path is not None:
+        relative_result = dataset_result_path.resolve(strict=True).relative_to(dataset_root)
+        command.extend(("--nvidia-dataset-result", f"/admitted-dataset/{relative_result.as_posix()}"))
     return command
 
 
@@ -381,9 +389,13 @@ def execute_gate(
     database_url: str,
     timeout_seconds: int,
     ollama_image: str = DEFAULT_OLLAMA_IMAGE,
+    dataset_source_path: Path | None = None,
+    dataset_contract_path: Path = DEFAULT_DATASET_CONTRACT,
 ) -> tuple[dict[str, Any], int]:
     if matrix_path.resolve(strict=True) != DEFAULT_MATRIX.resolve(strict=True):
         raise UnslothGpuGateError("unsloth_gate_matrix_path_invalid")
+    if dataset_contract_path.resolve(strict=True) != DEFAULT_DATASET_CONTRACT.resolve(strict=True):
+        raise UnslothGpuGateError("unsloth_gate_dataset_contract_path_invalid")
     revision = repository_revision()
     manifest = repository_manifest()
     model_digest = tree_sha256(model_path)
@@ -392,6 +404,13 @@ def execute_gate(
     if docker_image_revision(image) != revision:
         raise UnslothGpuGateError("unsloth_gate_worker_image_revision_mismatch")
     matrix_digest = sha256_file(matrix_path.resolve(strict=True))
+    dataset_contract_digest = sha256_file(dataset_contract_path.resolve(strict=True))
+    dataset_contract = json.loads(dataset_contract_path.read_text(encoding="utf-8"))
+    dataset_source_digest = (
+        sha256_file(dataset_source_path.resolve(strict=True)) if dataset_source_path is not None else None
+    )
+    if dataset_source_digest is not None and dataset_source_digest != dataset_contract.get("source_sha256"):
+        raise UnslothGpuGateError("unsloth_gate_dataset_source_mismatch")
     environment = nvidia_environment()
     execution_profile = {
         "schema": "ananta.unsloth-gpu-gate-profile.v1",
@@ -401,6 +420,8 @@ def execute_gate(
         "model_digest": model_digest,
         "repeat": 3,
         "timeout_seconds": timeout_seconds,
+        "dataset_source_digest": dataset_source_digest,
+        "dataset_contract_digest": dataset_contract_digest if dataset_source_digest else None,
     }
     nonce = uuid.uuid4().hex
     engine = create_engine(database_url)
@@ -409,6 +430,30 @@ def execute_gate(
         tables=[HubSourceEvidenceIdentityDB.__table__, HubRunEvidenceIdentityDB.__table__],
     )
     registry = HubEvidenceRegistryService(SqlEvidenceIdentityRepository(engine))
+    dataset_admission = None
+    dataset_source_id = None
+    if dataset_source_digest is not None:
+        dataset_admission = EvidenceGateSourceAdmission(
+            "dataset_snapshot",
+            canonical_evidence_digest(
+                {
+                    "origin": dataset_contract.get("origin"),
+                    "upstream_revision": dataset_contract.get("upstream_revision"),
+                }
+            ),
+            dataset_source_digest,
+            dataset_contract_digest,
+        )
+        dataset_source_id = registry.register_source(
+            tenant_id="ananta-local",
+            project_id="unsloth-gpu-release",
+            origin_type=dataset_admission.origin_type,
+            origin_digest=dataset_admission.origin_digest,
+            content_digest=dataset_admission.content_digest,
+            policy_digest=dataset_admission.policy_digest,
+            evidence_scope="local",
+            synthetic=False,
+        ).source_id
     request = EvidenceGateRequest(
         tenant_id="ananta-local",
         project_id="unsloth-gpu-release",
@@ -422,6 +467,7 @@ def execute_gate(
                 "model": model_digest,
                 "worker_image": image_id,
                 "provider_image": ollama_image_id,
+                "dataset": dataset_source_digest,
             }
         ),
         execution_profile_digest=canonical_evidence_digest(execution_profile),
@@ -444,6 +490,7 @@ def execute_gate(
                 ollama_image_id.removeprefix("sha256:"),
                 matrix_digest,
             ),
+            *((dataset_admission,) if dataset_admission is not None else ()),
         ),
     )
 
@@ -451,6 +498,19 @@ def execute_gate(
         with tempfile.TemporaryDirectory(prefix="ananta-unsloth-gpu-") as temporary:
             output_dir = Path(temporary)
             output_dir.chmod(0o777)
+            dataset_admission_report = None
+            dataset_result_path = None
+            if dataset_source_path is not None and dataset_source_id is not None:
+                attempt_id = "unsloth-" + hashlib.sha256(str(assignment["run_id"]).encode()).hexdigest()[:32]
+                dataset_admission_report = materialize_admitted_dolly_recipe(
+                    source_path=dataset_source_path,
+                    contract_path=dataset_contract_path,
+                    output_root=output_dir / "dataset-admission",
+                    source_id=dataset_source_id,
+                    run_id=str(assignment["run_id"]),
+                    attempt_id=attempt_id,
+                )
+                dataset_result_path = Path(dataset_admission_report["result_path"])
             command = build_container_command(
                 image=image_id,
                 image_id=image_id,
@@ -459,6 +519,7 @@ def execute_gate(
                 assignment=assignment,
                 matrix_entry=matrix_entry,
                 timeout_seconds=timeout_seconds,
+                dataset_result_path=dataset_result_path,
             )
             try:
                 completed = subprocess.run(
@@ -485,11 +546,7 @@ def execute_gate(
             provider_error = None
             final_export = output_dir / "runtime-exports" / "run-3" / "model.Q4_K_M.gguf"
             final_run = (smoke.get("runs") or [{}])[-1]
-            runtime_export = (
-                dict(final_run.get("runtime_export") or {})
-                if isinstance(final_run, Mapping)
-                else {}
-            )
+            runtime_export = dict(final_run.get("runtime_export") or {}) if isinstance(final_run, Mapping) else {}
             try:
                 export_matches = bool(
                     final_export.is_file()
@@ -536,6 +593,20 @@ def execute_gate(
                 and repository_manifest()["digest"] == manifest["digest"]
                 and docker_image_id(image) == image_id
                 and docker_image_revision(image) == revision
+                and (dataset_source_path is None or sha256_file(dataset_source_path) == dataset_source_digest)
+            )
+            dataset_provenance_valid = (
+                all(
+                    isinstance(row, Mapping)
+                    and isinstance(row.get("dataset_provenance"), Mapping)
+                    and row["dataset_provenance"].get("synthetic") is False
+                    and row["dataset_provenance"].get("source_id") == dataset_source_id
+                    and row["dataset_provenance"].get("run_id") == assignment["run_id"]
+                    and row["dataset_provenance"].get("dataset_hash") == dataset_source_digest
+                    for row in smoke.get("runs") or ()
+                )
+                if dataset_source_id is not None
+                else True
             )
             passed = bool(
                 completed.returncode == 0
@@ -548,6 +619,7 @@ def execute_gate(
                 and provider_runtime.get("status") == "passed"
                 and immutable_inputs_unchanged
                 and docker_image_id(ollama_image) == ollama_image_id
+                and dataset_provenance_valid
             )
             return {
                 "passed": passed,
@@ -562,6 +634,23 @@ def execute_gate(
                 "platform_stage_coverage": smoke.get("platform_stage_coverage"),
                 "provider_runtime": provider_runtime,
                 "telemetry_attestation": smoke.get("telemetry_attestation"),
+                "dataset_admission": (
+                    {
+                        "contract_sha256": dataset_admission_report["contract_sha256"],
+                        "selection_sha256": dataset_admission_report["selection_sha256"],
+                        "candidate_count": dataset_admission_report["candidate_count"],
+                        "excluded_sensitive_candidates": dataset_admission_report["excluded_sensitive_candidates"],
+                        "validation": dataset_admission_report["validation"],
+                        "manifest": dataset_admission_report["manifest"],
+                        "result": dataset_admission_report["result"],
+                    }
+                    if dataset_admission_report is not None
+                    else {
+                        "status": "not_run",
+                        "reason_code": "non_synthetic_dataset_not_configured",
+                    }
+                ),
+                "dataset_provenance_valid": dataset_provenance_valid,
                 "run_attestation_sha256": [row.get("attestation_sha256") for row in smoke.get("runs") or []],
                 "run_results": [
                     {
@@ -573,6 +662,7 @@ def execute_gate(
                         "training_metrics": row.get("training_metrics"),
                         "job_identity": row.get("job_identity"),
                         "dataset_sha256": row.get("dataset_sha256"),
+                        "dataset_provenance": row.get("dataset_provenance"),
                         "configuration_sha256": row.get("configuration_sha256"),
                         "model_snapshot_sha256": row.get("model_snapshot_sha256"),
                         "gpu_fingerprint_sha256": row.get("gpu_fingerprint_sha256"),
@@ -620,6 +710,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=int, default=1800)
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/unsloth-gpu-release-evidence.json")
     parser.add_argument("--database-url", default=f"sqlite:///{ROOT / 'data/hub-evidence-unsloth.sqlite3'}")
+    parser.add_argument("--dataset-source", type=Path)
+    parser.add_argument("--dataset-contract", type=Path, default=DEFAULT_DATASET_CONTRACT)
     return parser.parse_args()
 
 
@@ -636,6 +728,8 @@ def main() -> int:
         database_url=args.database_url,
         timeout_seconds=args.timeout_seconds,
         ollama_image=args.ollama_image,
+        dataset_source_path=args.dataset_source,
+        dataset_contract_path=args.dataset_contract,
     )
     print(json.dumps({"status": report["status"], "run_id": report["run_id"]}, sort_keys=True))
     return returncode

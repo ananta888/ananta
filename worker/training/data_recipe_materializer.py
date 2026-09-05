@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
 import shutil
 import tempfile
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
 from ananta_contracts.unsloth_task import (
@@ -68,11 +68,7 @@ class FilesystemDatasetRecipeMaterializer:
     ) -> None:
         self._dataset_root = dataset_root.resolve()
         self._output_root = attempt_output_root.resolve()
-        self._expected_attempt_id = (
-            str(expected_attempt_id).strip()
-            if expected_attempt_id is not None
-            else None
-        )
+        self._expected_attempt_id = str(expected_attempt_id).strip() if expected_attempt_id is not None else None
         self._max_dataset_bytes = int(max_dataset_bytes)
         self._max_output_bytes = int(max_output_bytes)
         self._max_records = int(max_records)
@@ -81,20 +77,12 @@ class FilesystemDatasetRecipeMaterializer:
             or self._dataset_root.is_symlink()
             or not self._output_root.is_dir()
             or self._output_root.is_symlink()
-            or (
-                self._expected_attempt_id is not None
-                and self._ATTEMPT_ID.fullmatch(
-                    self._expected_attempt_id
-                )
-                is None
-            )
+            or (self._expected_attempt_id is not None and self._ATTEMPT_ID.fullmatch(self._expected_attempt_id) is None)
             or not 0 < self._max_dataset_bytes <= 100 * 1024**3
             or not 0 < self._max_output_bytes <= 200 * 1024**3
             or not 0 < self._max_records <= 10_000_000
         ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_materializer_config_invalid"
-            )
+            raise DataRecipeMaterializationError("data_recipe_materializer_config_invalid")
 
     def materialize(
         self,
@@ -149,39 +137,23 @@ class FilesystemDatasetRecipeMaterializer:
         manifest = dict(value)
         if (
             set(manifest) != self._MANIFEST_FIELDS
-            or manifest.get("normalization_version")
-            != "unsloth-recipe-v2"
-            or self._ATTEMPT_ID.fullmatch(
-                str(attempt_id or "")
-            )
-            is None
-            or (
-                self._expected_attempt_id is not None
-                and attempt_id
-                != self._expected_attempt_id
-            )
+            or manifest.get("normalization_version") != "unsloth-recipe-v2"
+            or self._ATTEMPT_ID.fullmatch(str(attempt_id or "")) is None
+            or (self._expected_attempt_id is not None and attempt_id != self._expected_attempt_id)
         ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_manifest_binding_invalid"
-            )
+            raise DataRecipeMaterializationError("data_recipe_manifest_binding_invalid")
         recipe_id = str(manifest.get("recipe_id") or "")
         unsigned = dict(manifest)
         unsigned.pop("recipe_id", None)
         try:
             expected = unsloth_payload_sha256(unsigned)
         except (TypeError, ValueError) as exc:
-            raise DataRecipeMaterializationError(
-                "data_recipe_manifest_binding_invalid"
-            ) from exc
+            raise DataRecipeMaterializationError("data_recipe_manifest_binding_invalid") from exc
         dataset_hash = manifest.get("dataset_hash")
-        partition_sha256 = str(
-            manifest.get("dataset_partition_sha256") or ""
-        )
+        partition_sha256 = str(manifest.get("dataset_partition_sha256") or "")
         row_count = manifest.get("row_count")
         seed = manifest.get("seed")
-        validation_fraction = manifest.get(
-            "validation_fraction"
-        )
+        validation_fraction = manifest.get("validation_fraction")
         objective = manifest.get("objective")
         media_field = manifest.get("media_field")
         bounded_text_fields = (
@@ -197,8 +169,7 @@ class FilesystemDatasetRecipeMaterializer:
             or self._SHA256.fullmatch(recipe_id) is None
             or not isinstance(dataset_hash, str)
             or self._SHA256.fullmatch(dataset_hash) is None
-            or self._SHA256.fullmatch(partition_sha256)
-            is None
+            or self._SHA256.fullmatch(partition_sha256) is None
             or any(
                 not self._bounded_text(
                     manifest.get(field),
@@ -239,17 +210,10 @@ class FilesystemDatasetRecipeMaterializer:
             )
             or not 0.0 < float(validation_fraction) < 0.5
         ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_manifest_binding_invalid"
-            )
+            raise DataRecipeMaterializationError("data_recipe_manifest_binding_invalid")
         dataset_ref = manifest.get("dataset_ref")
-        if (
-            not isinstance(dataset_ref, str)
-            or len(dataset_ref) > 1024
-        ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_manifest_binding_invalid"
-            )
+        if not isinstance(dataset_ref, str) or len(dataset_ref) > 1024:
+            raise DataRecipeMaterializationError("data_recipe_manifest_binding_invalid")
         self._safe_relative(dataset_ref)
         return manifest
 
@@ -262,28 +226,18 @@ class FilesystemDatasetRecipeMaterializer:
         return (
             isinstance(value, str)
             and 0 < len(value) <= maximum
-            and not any(
-                ord(character) < 32
-                or ord(character) == 127
-                for character in value
-            )
+            and not any(ord(character) < 32 or ord(character) == 127 for character in value)
         )
 
     def _resolve_dataset(self, reference: str) -> Path:
         relative = self._safe_relative(reference)
         try:
-            source = (
-                self._dataset_root / relative
-            ).resolve(strict=True)
+            source = (self._dataset_root / relative).resolve(strict=True)
             source.relative_to(self._dataset_root)
         except (OSError, ValueError) as exc:
-            raise DataRecipeMaterializationError(
-                "data_recipe_dataset_unavailable"
-            ) from exc
+            raise DataRecipeMaterializationError("data_recipe_dataset_unavailable") from exc
         if not source.is_file() or source.is_symlink():
-            raise DataRecipeMaterializationError(
-                "data_recipe_dataset_unavailable"
-            )
+            raise DataRecipeMaterializationError("data_recipe_dataset_unavailable")
         return source
 
     def _write_recipe(
@@ -317,34 +271,22 @@ class FilesystemDatasetRecipeMaterializer:
             for raw_line in source_handle:
                 source_bytes += len(raw_line)
                 if source_bytes > self._max_dataset_bytes:
-                    raise DataRecipeMaterializationError(
-                        "data_recipe_dataset_size_exceeded"
-                    )
+                    raise DataRecipeMaterializationError("data_recipe_dataset_size_exceeded")
                 source_digest.update(raw_line)
                 if not raw_line.strip():
-                    raise DataRecipeMaterializationError(
-                        "data_recipe_dataset_record_invalid"
-                    )
+                    raise DataRecipeMaterializationError("data_recipe_dataset_record_invalid")
                 try:
-                    record = json.loads(
-                        raw_line.decode("utf-8")
-                    )
+                    record = json.loads(raw_line.decode("utf-8"))
                 except (
                     UnicodeError,
                     json.JSONDecodeError,
                 ) as exc:
-                    raise DataRecipeMaterializationError(
-                        "data_recipe_dataset_record_invalid"
-                    ) from exc
+                    raise DataRecipeMaterializationError("data_recipe_dataset_record_invalid") from exc
                 if not isinstance(record, Mapping):
-                    raise DataRecipeMaterializationError(
-                        "data_recipe_dataset_record_invalid"
-                    )
+                    raise DataRecipeMaterializationError("data_recipe_dataset_record_invalid")
                 total_rows += 1
                 if total_rows > self._max_records:
-                    raise DataRecipeMaterializationError(
-                        "data_recipe_dataset_record_limit_exceeded"
-                    )
+                    raise DataRecipeMaterializationError("data_recipe_dataset_record_limit_exceeded")
                 normalized = self._normalize_record(
                     record,
                     manifest,
@@ -361,9 +303,7 @@ class FilesystemDatasetRecipeMaterializer:
                 ).encode("utf-8")
                 output_bytes += len(encoded)
                 if output_bytes > self._max_output_bytes:
-                    raise DataRecipeMaterializationError(
-                        "data_recipe_output_size_exceeded"
-                    )
+                    raise DataRecipeMaterializationError("data_recipe_output_size_exceeded")
                 split = self._split(
                     manifest,
                     total_rows - 1,
@@ -374,35 +314,26 @@ class FilesystemDatasetRecipeMaterializer:
             for handle in targets.values():
                 handle.flush()
                 os.fsync(handle.fileno())
-        if (
-            source_digest.hexdigest()
-            != str(manifest["dataset_partition_sha256"])
-            or total_rows != int(manifest["row_count"])
+        if source_digest.hexdigest() != str(manifest["dataset_partition_sha256"]) or total_rows != int(
+            manifest["row_count"]
         ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_dataset_binding_mismatch"
-            )
+            raise DataRecipeMaterializationError("data_recipe_dataset_binding_mismatch")
         recipe_id = str(manifest["recipe_id"])
         return {
             "schema": "ananta.unsloth-data-recipe-result.v1",
             "recipe_id": recipe_id,
             "attempt_id": attempt_id,
+            "dataset_id": str(manifest["dataset_id"]),
             "dataset_hash": str(manifest["dataset_hash"]),
-            "dataset_partition_sha256": (
-                source_digest.hexdigest()
-            ),
+            "dataset_partition_sha256": (source_digest.hexdigest()),
+            "source_id": str(manifest["source_id"]),
+            "run_id": str(manifest["run_id"]),
             "output_ref": recipe_id,
             "train_ref": f"{recipe_id}/train.jsonl",
-            "train_sha256": output_digests[
-                "train"
-            ].hexdigest(),
+            "train_sha256": output_digests["train"].hexdigest(),
             "train_rows": output_rows["train"],
-            "validation_ref": (
-                f"{recipe_id}/validation.jsonl"
-            ),
-            "validation_sha256": output_digests[
-                "validation"
-            ].hexdigest(),
+            "validation_ref": (f"{recipe_id}/validation.jsonl"),
+            "validation_sha256": output_digests["validation"].hexdigest(),
             "validation_rows": output_rows["validation"],
             "total_rows": total_rows,
         }
@@ -413,16 +344,12 @@ class FilesystemDatasetRecipeMaterializer:
         manifest: Mapping[str, Any],
     ) -> dict[str, Any]:
         prompt = record.get(str(manifest["prompt_field"]))
-        response = record.get(
-            str(manifest["response_field"])
-        )
+        response = record.get(str(manifest["response_field"]))
         if not isinstance(prompt, str) or not isinstance(
             response,
             str,
         ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_dataset_mapping_invalid"
-            )
+            raise DataRecipeMaterializationError("data_recipe_dataset_mapping_invalid")
         objective = str(manifest["objective"])
         if objective == "causal_lm":
             return {
@@ -439,16 +366,10 @@ class FilesystemDatasetRecipeMaterializer:
                 "anchor": prompt,
                 "positive": response,
             }
-        media = record.get(
-            str(manifest.get("media_field") or "")
-        )
+        media = record.get(str(manifest.get("media_field") or ""))
         if not isinstance(media, str):
-            raise DataRecipeMaterializationError(
-                "data_recipe_dataset_mapping_invalid"
-            )
-        FilesystemDatasetRecipeMaterializer._safe_relative(
-            media
-        )
+            raise DataRecipeMaterializationError("data_recipe_dataset_mapping_invalid")
+        FilesystemDatasetRecipeMaterializer._safe_relative(media)
         return {
             "media": media,
             "prompt": prompt,
@@ -460,35 +381,18 @@ class FilesystemDatasetRecipeMaterializer:
         manifest: Mapping[str, Any],
         index: int,
     ) -> str:
-        token = hashlib.sha256(
-            (
-                f"{manifest['recipe_id']}\0"
-                f"{manifest['seed']}\0{index}"
-            ).encode("utf-8")
-        ).digest()
+        token = hashlib.sha256((f"{manifest['recipe_id']}\0{manifest['seed']}\0{index}").encode("utf-8")).digest()
         bucket = int.from_bytes(
             token[:8],
             "big",
         ) / float(2**64)
-        return (
-            "validation"
-            if bucket
-            < float(manifest["validation_fraction"])
-            else "train"
-        )
+        return "validation" if bucket < float(manifest["validation_fraction"]) else "train"
 
     @staticmethod
     def _safe_relative(value: str) -> PurePosixPath:
         path = PurePosixPath(value)
-        if (
-            not value
-            or path.is_absolute()
-            or ".." in path.parts
-            or value != path.as_posix()
-        ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_relative_path_invalid"
-            )
+        if not value or path.is_absolute() or ".." in path.parts or value != path.as_posix():
+            raise DataRecipeMaterializationError("data_recipe_relative_path_invalid")
         return path
 
     @staticmethod
@@ -516,26 +420,16 @@ class FilesystemDatasetRecipeMaterializer:
         attempt_id: str,
     ) -> dict[str, Any]:
         try:
-            raw = json.loads(
-                (destination / "result.json").read_text(
-                    encoding="utf-8"
-                )
-            )
+            raw = json.loads((destination / "result.json").read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise DataRecipeMaterializationError(
-                "data_recipe_output_conflict"
-            ) from exc
+            raise DataRecipeMaterializationError("data_recipe_output_conflict") from exc
         if (
             not isinstance(raw, Mapping)
-            or raw.get("recipe_id")
-            != manifest.get("recipe_id")
+            or raw.get("recipe_id") != manifest.get("recipe_id")
             or raw.get("attempt_id") != attempt_id
-            or raw.get("dataset_hash")
-            != manifest.get("dataset_hash")
+            or raw.get("dataset_hash") != manifest.get("dataset_hash")
         ):
-            raise DataRecipeMaterializationError(
-                "data_recipe_output_conflict"
-            )
+            raise DataRecipeMaterializationError("data_recipe_output_conflict")
         return dict(raw)
 
 

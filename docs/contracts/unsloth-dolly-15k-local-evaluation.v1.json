@@ -1,0 +1,24 @@
+{
+  "schema": "ananta.unsloth-dataset-admission.v1",
+  "dataset_id": "databricks-dolly-15k",
+  "origin": "https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a/databricks-dolly-15k.jsonl",
+  "upstream_revision": "bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a",
+  "source_sha256": "2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec",
+  "source_record_count": 15011,
+  "license": {
+    "spdx": "CC-BY-SA-3.0",
+    "approved_scope": "local_nonproduction_evaluation",
+    "attribution_required": true,
+    "share_alike_required": true
+  },
+  "selection": {
+    "candidate_limit": 256,
+    "record_count": 64,
+    "allowed_categories": [
+      "brainstorming",
+      "classification",
+      "open_qa"
+    ],
+    "require_empty_context": true
+  }
+}

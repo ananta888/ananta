@@ -1,10 +1,12 @@
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
 
 from scripts.lora_training_smoke_live import (
     bounded_numeric_metrics,
+    load_admitted_nvidia_dataset,
     materialize_runtime_gguf,
 )
 from scripts.run_hub_evidence_unsloth_gpu_gate import (
@@ -86,6 +88,105 @@ def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp
     assert f"{model}:/models/tiny-causal-lm:ro" in command
     assert "--repeat" in command and command[command.index("--repeat") + 1] == "3"
     assert command[command.index("--runtime-export-dir") + 1] == "/output/runtime-exports"
+
+
+def test_container_command_mounts_admitted_dataset_read_only(tmp_path: Path) -> None:
+    model = tmp_path / "model"
+    model.mkdir()
+    output = tmp_path / "output"
+    output.mkdir()
+    root = tmp_path / "repo"
+    root.mkdir()
+    dataset_root = tmp_path / "dataset"
+    recipe = dataset_root / ("a" * 64)
+    recipe.mkdir(parents=True)
+    result = recipe / "result.json"
+    result.write_text("{}", encoding="utf-8")
+    nvidia_smi = tmp_path / "nvidia-smi"
+    nvidia_smi.write_text("", encoding="utf-8")
+
+    command = build_container_command(
+        image="worker:gate",
+        image_id="sha256:" + "b" * 64,
+        model_path=model,
+        output_dir=output,
+        assignment={"run_id": "RUN_bound", "source_ids": ["SRC_dataset"]},
+        matrix_entry="entry",
+        timeout_seconds=600,
+        root=root,
+        libraries={},
+        device_paths=[],
+        nvidia_smi_path=nvidia_smi,
+        dataset_result_path=result,
+    )
+
+    assert f"{dataset_root}:/admitted-dataset:ro" in command
+    assert command[command.index("--nvidia-dataset-result") + 1] == (f"/admitted-dataset/{'a' * 64}/result.json")
+
+
+def test_admitted_dataset_loader_rejects_tampered_split(tmp_path: Path) -> None:
+    recipe_id = "a" * 64
+    recipe = tmp_path / recipe_id
+    recipe.mkdir()
+    train = recipe / "train.jsonl"
+    validation = recipe / "validation.jsonl"
+    train.write_text('{"messages":[{"role":"user","content":"a"}]}\n', encoding="utf-8")
+    validation.write_text('{"messages":[{"role":"user","content":"b"}]}\n', encoding="utf-8")
+    payload = {
+        "schema": "ananta.unsloth-data-recipe-result.v1",
+        "recipe_id": recipe_id,
+        "dataset_id": "dataset",
+        "dataset_hash": "b" * 64,
+        "dataset_partition_sha256": "c" * 64,
+        "source_id": "SRC_dataset",
+        "run_id": "RUN_dataset",
+        "train_ref": f"{recipe_id}/train.jsonl",
+        "train_sha256": hashlib.sha256(train.read_bytes()).hexdigest(),
+        "train_rows": 1,
+        "validation_ref": f"{recipe_id}/validation.jsonl",
+        "validation_sha256": hashlib.sha256(validation.read_bytes()).hexdigest(),
+        "validation_rows": 1,
+    }
+    result = recipe / "result.json"
+    result.write_text(json.dumps(payload), encoding="utf-8")
+    train.write_text("tampered\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="nvidia_smoke_dataset_binding_invalid"):
+        load_admitted_nvidia_dataset(result)
+
+
+def test_admitted_dataset_loader_rejects_non_integer_row_binding(tmp_path: Path) -> None:
+    recipe_id = "a" * 64
+    recipe = tmp_path / recipe_id
+    recipe.mkdir()
+    result = recipe / "result.json"
+    result.write_text(
+        json.dumps(
+            {
+                "schema": "ananta.unsloth-data-recipe-result.v1",
+                "recipe_id": recipe_id,
+                "train_rows": {"untrusted": True},
+                "validation_rows": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="nvidia_smoke_dataset_binding_invalid"):
+        load_admitted_nvidia_dataset(result)
+
+
+def test_admitted_dataset_loader_rejects_result_symlink(tmp_path: Path) -> None:
+    recipe_id = "a" * 64
+    recipe = tmp_path / recipe_id
+    recipe.mkdir()
+    target = recipe / "target.json"
+    target.write_text("{}", encoding="utf-8")
+    result = recipe / "result.json"
+    result.symlink_to(target)
+
+    with pytest.raises(ValueError, match="nvidia_smoke_dataset_result_invalid"):
+        load_admitted_nvidia_dataset(result)
 
 
 def test_runtime_gguf_is_materialized_atomically_with_verified_digest(tmp_path: Path) -> None:

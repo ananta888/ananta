@@ -57,9 +57,7 @@ from scripts.lora_training_smoke_release_chain import (
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = "artifacts/lora-training-control-center-gate.json"
-DEFAULT_COMPATIBILITY_MATRIX = (
-    "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
-)
+DEFAULT_COMPATIBILITY_MATRIX = "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
 _GPU_BACKENDS = frozenset({"peft_trl", "unsloth"})
 _REQUIRED_UNSLOTH_RUNS = 3
 _RUNTIME_IMAGE_DIGEST_PATTERN = re.compile(r"^(?:sha256:)?([0-9a-f]{64})$")
@@ -332,11 +330,7 @@ def _normalize_evidence_ids(
     run_ids: Sequence[str] = (),
 ) -> dict[str, Any]:
     def expand(values: Sequence[str]) -> list[str]:
-        return [
-            candidate.strip()
-            for raw in values
-            for candidate in raw.split(",")
-        ]
+        return [candidate.strip() for raw in values for candidate in raw.split(",")]
 
     try:
         sources = list(normalize_source_ids(expand(src_ids)))
@@ -347,11 +341,7 @@ def _normalize_evidence_ids(
             f"invalid evidence identifier: {exc}",
             status_code=exc.status_code,
         ) from exc
-    missing = [
-        name
-        for name, values in (("src_ids", sources), ("run_ids", runs))
-        if not values
-    ]
+    missing = [name for name, values in (("src_ids", sources), ("run_ids", runs)) if not values]
     return {
         "src_ids": sources,
         "run_ids": runs,
@@ -371,9 +361,7 @@ def _runtime_image_digest(value: str | None) -> str | None:
 
 
 def _worker_image_attestation(runtime_image_digest: str | None = None) -> dict[str, Any]:
-    runtime_digest = _runtime_image_digest(
-        runtime_image_digest or os.environ.get("ANANTA_LORA_WORKER_IMAGE_SHA256")
-    )
+    runtime_digest = _runtime_image_digest(runtime_image_digest or os.environ.get("ANANTA_LORA_WORKER_IMAGE_SHA256"))
     return {
         "build_input_sha256": _suite_sha256(_worker_image_build_input_paths()),
         "runtime_image_digest": runtime_digest,
@@ -441,17 +429,12 @@ def _support_claim(
             if not isinstance(stage_result, Mapping) or stage_result.get("status") != "passed":
                 reasons.append(reason_code)
         attestation = nvidia_result.get("compatibility_attestation")
-        if (
-            not isinstance(attestation, Mapping)
-            or attestation.get("status") != "passed"
-        ):
+        if not isinstance(attestation, Mapping) or attestation.get("status") != "passed":
             reasons.append("unsloth_compatibility_profile_not_attested")
         telemetry = nvidia_result.get("telemetry_attestation")
         if not isinstance(telemetry, Mapping) or telemetry.get("status") != "passed":
             reasons.append("unsloth_gpu_telemetry_not_attested")
-        if int(nvidia_result.get("deterministic_run_count") or 0) != (
-            _REQUIRED_UNSLOTH_RUNS
-        ):
+        if int(nvidia_result.get("deterministic_run_count") or 0) != (_REQUIRED_UNSLOTH_RUNS):
             reasons.append("unsloth_deterministic_runs_incomplete")
     return {
         "schema": "ananta.unsloth-support-claim.v1",
@@ -541,6 +524,7 @@ def _run_gate_legacy(
     target_modules: Sequence[str] = ("q_proj", "k_proj", "v_proj", "o_proj"),
     timeout_seconds: float = 1800.0,
     runtime_export_dir: Path | None = None,
+    nvidia_dataset_result: Path | None = None,
     runner: CommandRunner = _default_runner,
 ) -> dict[str, Any]:
     gpu_backend = _normalize_gpu_backend(gpu_backend)
@@ -565,6 +549,7 @@ def _run_gate_legacy(
             target_modules=target_modules,
             timeout_seconds=timeout_seconds,
             runtime_export_dir=runtime_export_dir,
+            dataset_result=nvidia_dataset_result,
         )
     mock_ok = mock["status"] in {"passed", "not_run"} and (not run_mock or mock["status"] == "passed")
     nvidia_required = require_nvidia or not run_mock
@@ -589,7 +574,7 @@ def _run_gate_legacy(
         "nvidia_live_smoke": nvidia,
         "nvidia_live_proof": nvidia["status"] == "passed",
         "privacy": {
-            "synthetic_dataset_only": True,
+            "synthetic_dataset_only": nvidia_dataset_result is None,
             "raw_training_records_in_report": False,
             "credentials_in_report": False,
         },
@@ -617,6 +602,7 @@ def run_gate(
     target_modules: Sequence[str] = ("q_proj", "k_proj", "v_proj", "o_proj"),
     timeout_seconds: float = 1800.0,
     runtime_export_dir: Path | None = None,
+    nvidia_dataset_result: Path | None = None,
     runner: CommandRunner = _default_runner,
 ) -> dict[str, Any]:
     gpu_backend = _normalize_gpu_backend(gpu_backend)
@@ -632,6 +618,7 @@ def run_gate(
             target_modules=target_modules,
             timeout_seconds=timeout_seconds,
             runtime_export_dir=runtime_export_dir,
+            nvidia_dataset_result=nvidia_dataset_result,
             runner=runner,
         )
 
@@ -682,10 +669,9 @@ def run_gate(
                 target_modules=target_modules,
                 timeout_seconds=timeout_seconds,
                 runtime_export_dir=(
-                    runtime_export_dir / f"run-{run_index + 1}"
-                    if runtime_export_dir is not None
-                    else None
+                    runtime_export_dir / f"run-{run_index + 1}" if runtime_export_dir is not None else None
                 ),
+                nvidia_dataset_result=nvidia_dataset_result,
                 runner=runner,
             )
             if base_report is None:
@@ -702,6 +688,7 @@ def run_gate(
             runtime_image_digest=runtime_image_digest,
             target_modules=target_modules,
             timeout_seconds=timeout_seconds,
+            nvidia_dataset_result=nvidia_dataset_result,
             runner=runner,
         )
 
@@ -727,15 +714,9 @@ def run_gate(
             if evidence_ids.get("complete") is not True
             else str(probe.get("reason_code") or "")
             if admitted_model is None
-            else str(
-                compatibility_attestation.get("reason_code")
-                or "compatibility_profile_not_attested"
-            )
+            else str(compatibility_attestation.get("reason_code") or "compatibility_profile_not_attested")
         )
-        prerequisite_failed = (
-            selection.get("status") == "failed"
-            or compatibility_attestation.get("status") == "failed"
-        )
+        prerequisite_failed = selection.get("status") == "failed" or compatibility_attestation.get("status") == "failed"
         nvidia = {
             **probe,
             "status": "failed" if prerequisite_failed else "not_run",
@@ -761,15 +742,9 @@ def run_gate(
 
     assert base_report is not None
     mock = base_report["mock_cpu_gate"]
-    mock_ok = (
-        mock["status"] in {"passed", "not_run"}
-        and (not run_mock or mock["status"] == "passed")
-    )
+    mock_ok = mock["status"] in {"passed", "not_run"} and (not run_mock or mock["status"] == "passed")
     nvidia_required = require_nvidia or not run_mock
-    nvidia_ok = (
-        nvidia["status"] == "passed"
-        or (not nvidia_required and nvidia["status"] == "not_run")
-    )
+    nvidia_ok = nvidia["status"] == "passed" or (not nvidia_required and nvidia["status"] == "not_run")
     support_claim = _support_claim(
         backend=gpu_backend,
         nvidia_result=nvidia,
@@ -780,11 +755,7 @@ def run_gate(
     base_report.update(
         {
             "schema": "ananta.lora-training-smoke.v2",
-            "ok": bool(
-                mock_ok
-                and nvidia_ok
-                and (mock["status"] == "passed" or nvidia["status"] == "passed")
-            ),
+            "ok": bool(mock_ok and nvidia_ok and (mock["status"] == "passed" or nvidia["status"] == "passed")),
             "nvidia_probe": probe,
             "nvidia_live_smoke": nvidia,
             "nvidia_live_proof": nvidia["status"] == "passed",
@@ -818,17 +789,13 @@ def main() -> int:
     parser.add_argument(
         "--src-id",
         action="append",
-        default=[os.environ["ANANTA_UNSLOTH_SRC_IDS"]]
-        if os.environ.get("ANANTA_UNSLOTH_SRC_IDS")
-        else [],
+        default=[os.environ["ANANTA_UNSLOTH_SRC_IDS"]] if os.environ.get("ANANTA_UNSLOTH_SRC_IDS") else [],
         help="Externally supplied SRC_* evidence ID; repeat or provide comma-separated IDs.",
     )
     parser.add_argument(
         "--run-id",
         action="append",
-        default=[os.environ["ANANTA_UNSLOTH_RUN_IDS"]]
-        if os.environ.get("ANANTA_UNSLOTH_RUN_IDS")
-        else [],
+        default=[os.environ["ANANTA_UNSLOTH_RUN_IDS"]] if os.environ.get("ANANTA_UNSLOTH_RUN_IDS") else [],
         help="Externally supplied RUN_* evidence ID; repeat or provide comma-separated IDs.",
     )
     parser.add_argument(
@@ -862,6 +829,11 @@ def main() -> int:
         type=Path,
         help="Optional worker output directory for one verified GGUF per deterministic run.",
     )
+    parser.add_argument(
+        "--nvidia-dataset-result",
+        type=Path,
+        help="Immutable Hub-admitted Unsloth recipe result for the NVIDIA runs.",
+    )
     args = parser.parse_args()
     modules = tuple(item.strip() for item in args.target_modules.split(",") if item.strip())
     if not modules:
@@ -878,14 +850,13 @@ def main() -> int:
         src_ids=args.src_id,
         run_ids=args.run_id,
         runtime_image_digest=args.runtime_image_digest,
-        compatibility_matrix=Path(args.compatibility_matrix)
-        if args.compatibility_matrix
-        else None,
+        compatibility_matrix=Path(args.compatibility_matrix) if args.compatibility_matrix else None,
         compatibility_entry=args.matrix_entry,
         repeat_count=args.repeat,
         target_modules=modules,
         timeout_seconds=args.timeout_seconds,
         runtime_export_dir=args.runtime_export_dir,
+        nvidia_dataset_result=args.nvidia_dataset_result,
     )
     output = Path(args.out)
     if not output.is_absolute():
@@ -897,10 +868,7 @@ def main() -> int:
     if report["nvidia_live_smoke"].get("reason_code"):
         print(f"nvidia_reason={report['nvidia_live_smoke']['reason_code']}")
     print(f"nvidia_live_proof={str(report['nvidia_live_proof']).lower()}")
-    print(
-        "unsloth_support_claim_verified="
-        f"{str(report['unsloth_support_claim']['verified']).lower()}"
-    )
+    print(f"unsloth_support_claim_verified={str(report['unsloth_support_claim']['verified']).lower()}")
     print(f"report={output}")
     return 0 if report["ok"] else 1
 
