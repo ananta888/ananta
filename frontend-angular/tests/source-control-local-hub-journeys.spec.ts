@@ -162,14 +162,24 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
     }
     await page.getByRole('button', { name: /Rollback/i }).click();
 
+    await expect
+      .poll(() =>
+        hub.operations
+          .filter(
+            (operation) =>
+              operation.method === 'POST' &&
+              operation.path.includes('/context-policies/policy-primary/'),
+          )
+          .map((operation) => operation.path),
+      )
+      .toEqual([
+        '/api/source-control/v1/context-policies/policy-primary/versions/2/activate',
+        '/api/source-control/v1/context-policies/policy-primary/rollback',
+      ]);
     const transitions = hub.operations.filter(
       (operation) =>
         operation.method === 'POST' && operation.path.includes('/context-policies/policy-primary/'),
     );
-    expect(transitions.map((operation) => operation.path)).toEqual([
-      '/api/source-control/v1/context-policies/policy-primary/versions/2/activate',
-      '/api/source-control/v1/context-policies/policy-primary/rollback',
-    ]);
     for (const operation of transitions) {
       expect(operation.headers['if-match']).toBeTruthy();
       expect(operation.headers['idempotency-key']).toBeTruthy();

@@ -161,12 +161,12 @@ export function authoritativeProjectIdFromRoute(snapshot: ActivatedRouteSnapshot
             <div class="lifecycle-actions">
               <button
                 type="button"
-                [disabled]="facade.mutationLoading()"
+                [disabled]="!facade.managementAuthorized() || facade.mutationLoading()"
                 (click)="facade.activateSelected()"
               >Aktivieren</button>
               <button
                 type="button"
-                [disabled]="facade.mutationLoading()"
+                [disabled]="!facade.managementAuthorized() || facade.mutationLoading()"
                 (click)="facade.revokeSelected()"
               >Widerrufen</button>
               <label>
@@ -180,7 +180,7 @@ export function authoritativeProjectIdFromRoute(snapshot: ActivatedRouteSnapshot
               </label>
               <button
                 type="button"
-                [disabled]="facade.mutationLoading()"
+                [disabled]="!facade.managementAuthorized() || facade.mutationLoading()"
                 (click)="facade.rollbackSelected(rollbackVersion())"
               >Rollback als neuen Draft erstellen</button>
             </div>

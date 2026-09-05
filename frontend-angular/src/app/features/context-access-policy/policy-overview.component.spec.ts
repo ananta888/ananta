@@ -43,7 +43,7 @@ describe('PolicyOverviewComponent', () => {
     }]);
   const facade = {
     policies,
-    selectedPolicy: signal(null),
+    selectedPolicy: signal<any>(null),
     validation: signal(null),
     matrixRows: signal([{
       policyId: 'policy-server',
@@ -111,6 +111,9 @@ describe('PolicyOverviewComponent', () => {
     }]);
     facade.listLoading.set(false);
     facade.listConfirmed.set(true);
+    facade.managementAuthorized.set(true);
+    facade.mutationLoading.set(false);
+    facade.selectedPolicy.set(null);
     await TestBed.configureTestingModule({
       imports: [PolicyOverviewComponent],
       providers: [
@@ -211,6 +214,27 @@ describe('PolicyOverviewComponent', () => {
     for (const flow of ['presets', 'destinations', 'grant']) {
       const card = fixture.nativeElement.querySelector(`[data-flow="${flow}"]`) as HTMLElement;
       expect(card.textContent).toContain('Nicht verfügbar');
+    }
+  });
+
+  it('disables lifecycle mutations while Hub authorization is being refreshed', () => {
+    facade.selectedPolicy.set({
+      policy_id: 'policy-server',
+      version: 2,
+      scope: 'project',
+      policy: { rules: [] },
+    });
+    facade.managementAuthorized.set(false);
+    fixture.detectChanges();
+
+    const labels = ['Aktivieren', 'Widerrufen', 'Rollback als neuen Draft erstellen'];
+    for (const label of labels) {
+      const button = Array.from(
+        fixture.nativeElement.querySelectorAll(
+          '.lifecycle-actions button',
+        ) as NodeListOf<HTMLButtonElement>,
+      ).find((candidate) => candidate.textContent?.trim() === label);
+      expect(button?.disabled).toBe(true);
     }
   });
 });
