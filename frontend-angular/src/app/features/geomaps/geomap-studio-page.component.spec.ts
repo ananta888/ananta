@@ -10,7 +10,7 @@ import { GeoMapDraftStore } from './geomap-draft.store';
 import { GeoMapStudioPageComponent } from './geomap-studio-page.component';
 
 describe('GeoMapStudioPageComponent', () => {
-  function component(api: Record<string, ReturnType<typeof vi.fn>>) {
+  function component(api: Record<string, ReturnType<typeof vi.fn>>, markForCheck = vi.fn()) {
     TestBed.configureTestingModule({
       providers: [
         { provide: GeoMapApiService, useValue: api },
@@ -18,11 +18,27 @@ describe('GeoMapStudioPageComponent', () => {
         { provide: GeoMapDownloadService, useValue: { download: vi.fn() } },
         { provide: GeoMapDraftStore, useValue: { load: () => null, save: vi.fn(), clear: vi.fn() } },
         { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub.test' }] } },
-        { provide: ChangeDetectorRef, useValue: { markForCheck: vi.fn() } },
+        { provide: ChangeDetectorRef, useValue: { markForCheck } },
       ],
     });
     return TestBed.runInInjectionContext(() => new GeoMapStudioPageComponent());
   }
+
+  it('marks the zoneless view when the async map catalog arrives', () => {
+    const catalog = new Subject<never>();
+    const markForCheck = vi.fn();
+    const page = component({ catalog: vi.fn().mockReturnValue(catalog) }, markForCheck);
+
+    page.ngOnInit();
+    catalog.next({
+      schema: 'ananta.geomap-registry.v1',
+      version: 1,
+      maps: [{ id: 'de-states', label: 'States' }],
+    } as never);
+
+    expect(page.mapId).toBe('de-states');
+    expect(markForCheck).toHaveBeenCalledOnce();
+  });
 
   it('loads geometry and projection together and honors the Hub publication decision', async () => {
     const projection = {

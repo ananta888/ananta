@@ -141,6 +141,7 @@ export class GeoMapStudioPageComponent implements OnInit {
         const draft = this.drafts.load();
         this.mapId = draft?.mapId || catalog.maps[0]?.id || '';
         if (draft) this.applyDraft(draft);
+        this.changeDetector.markForCheck();
       },
       error: error => this.fail(error),
     });
