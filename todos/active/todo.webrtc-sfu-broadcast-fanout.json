@@ -7,7 +7,7 @@
   "track": "webrtc-sfu-broadcast-fanout",
   "status": "blocked",
   "created_at": "2026-07-18",
-  "updated_at": "2026-07-23",
+  "updated_at": "2026-09-05",
   "parents": [
     "todos/archiv/todo.ai-snake-semantic-media-speech-program.json"
   ],
@@ -44,9 +44,7 @@
     "parent_rollout_stage": "observe_only",
     "reason_codes": [
       "parent_release_no_go",
-      "parent_rollout_observe_only",
-      "livekit_runtime_boundary_unselected",
-      "participant_cap_migration_missing"
+      "parent_rollout_observe_only"
     ],
     "implementation_policy": "Audit, Contracts, Feasibility und Implementierung hinter default-false Flags duerfen fortgesetzt werden; Canary, Capacity-Aktivierung und Release bleiben bis zu einem gruenen Parent-Readiness-Entscheid fail-closed."
   },
@@ -54,7 +52,7 @@
     "repository_facts": [
       "frontend-angular/package.json pinnt livekit-client 2.20.1.",
       "docker-compose.semantic-media.yml pinnt ein LiveKit-Server-Image per Digest.",
-      "config/livekit.semantic-media.yaml begrenzt max_participants derzeit auf 8.",
+      "config/livekit.semantic-media.yaml setzt die administrative Obergrenze auf 250; der Hub bleibt die Admission-Autoritaet fuer kleinere evidenzgebundene Caps.",
       "Mehrere Hub- und Angular-Komponenten begrenzen Receiver derzeit auf 7 beziehungsweise Gruppenmitglieder auf 8.",
       "Die produktive LiveKit-E2EE-Strecke verwendet BaseKeyProvider im LivekitSfuRoomAdapter; media-e2ee-transform.service.ts und sfu-media-frame-crypto.service.ts sind derzeit nicht als produktive Consumerstrecke belegt."
     ],
@@ -74,6 +72,7 @@
     ]
   },
   "revision_notes": [
+    "Realer Runtime-Abschluss 2026-09-05 auf main@10f05cf9a: Der digest-gepinnte LiveKit-Server 1.13.1 und livekit-client 2.20.1 bestanden den vollautomatischen Chromium-Smoke mit einem Publisher, drei Receivern, genau einer Publikation, drei dekodierenden MediaStreams, E2EE, UpdateSubscriptions, SendData, Participant-Permissions und vollstaendigem Cleanup. Der zuvor veraltete Probe erwartete noch max_participants 8 und ein bedingungslos aktiviertes adaptiveStream; beide statischen Bindungen wurden an die bestehende Hub-Admission-Obergrenze 250 und den produktiven adaptive/manual Layer-Modus angepasst und durch 10/10 Integrationstests abgesichert. SFB-BASE-006 ist damit done; Parent-Readiness und weitergehende Scale-/Soak-/TURN-Gates bleiben getrennt fail-closed.",
     "Lokaler Real-Relay-Fortschritt 2026-07-23, ausdruecklich keine formale Gate- oder Nightly-Evidence: Der gehaertete finale Host-Network-Coturn-Lauf /tmp/ananta-sfu-broadcast-hardened-host-turn-relay.json endete nach 19.84s mit Exit 0 und release_evidence:false. Ausschliesslich Relay-basierte ausgewaehlte lokale Candidate-Pairs wurden akzeptiert; der Publisher besass exakt 1 PeerConnection und 1 LiveKit-Publikation, Chromium und Firefox jeweils 3 Receiver, und der Wrong-Key-Peer dekodierte 0 Frames. Die Haertungsvalidierung ergab 15 passed und 8 marker-skipped; die eigens gestarteten Ressourcen wurden vollstaendig bereinigt.",
     "Die Direct-SFU-Diagnose erreichte 100/100 Receiver ueber drei Chromium-Prozesse. Wegen des diagnostischen Profils, der fehlenden formalen Nightly-Artefaktbindung und der fehlenden vergleichbaren All-TURN-/Soak-/Chaos-Messung wird daraus weder ein freigegebener Receivercap noch ein Abschluss von Scale-, Soak- oder Capacity-Tasks abgeleitet.",
     "Ein Supply-Chain-Produzent fuer Child-SBOM, Scans und Container-Controls wurde mit 4 fokussierten Tests implementiert. Der reale Vollscan wurde abgebrochen und erzeugte keine verwertbare Evidence; SFB-GATE-012 bleibt deshalb partial. CLI-Entry-Points der E2E-Werkzeuge wurden korrigiert und mit 9 fokussierten Tests abgesichert, ohne daraus Runtime- oder Release-Evidence abzuleiten.",
@@ -405,7 +404,7 @@
     {
       "id": "SFB-M0",
       "title": "Abgrenzung, Readiness und messbare Betriebsziele",
-      "status": "blocked",
+      "status": "done",
       "task_ids": [
         "SFB-BASE-001",
         "SFB-BASE-002",
@@ -635,8 +634,8 @@
         "todo": 0,
         "in_progress": 0,
         "partial": 0,
-        "blocked": 1,
-        "done": 4
+        "blocked": 0,
+        "done": 5
       },
       "S1_contracts_config_flags": {
         "order": 1,
@@ -1061,9 +1060,9 @@
       "description": "Ein frueher versionsgebundener Spike prueft den gepinnten LiveKit-Server und livekit-client gegen die benoetigten Control-, Subscription-, Layer-, Data-, E2EE-, Metrics-, TURN-, Drain- und Placement-Faehigkeiten, bevor Adapter oder SFU-interne Hooks geplant werden.",
       "type": "architecture",
       "milestone_id": "SFB-M0",
-      "status": "blocked",
-      "progress_percent": 60,
-      "blocked_reason": "Probe, ADR und fail-closed Runtime-Auswahl sind implementiert und automatisiert geprüft. Der verbleibende Akzeptanznachweis benötigt einen gepinnten realen LiveKit-Server sowie einen Publisher und drei echte Receiver mit gültiger externer Runtime-Evidenz; ohne diesen Nachweis bleibt effective_mode absichtlich unsupported.",
+      "status": "done",
+      "progress_percent": 100,
+      "completion_note": "Der reale revisionsgebundene Container-/Chromium-Lauf auf main@10f05cf9a belegt die Pflichtfaehigkeiten mit einem Publisher, drei Receivern, E2EE und vollstaendigem Cleanup; artifacts/sfu-livekit-runtime-probe.json enthaelt den fluechtigen Laufbericht.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -4256,10 +4255,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 34,
-      "done": 69
+      "blocked": 33,
+      "done": 70
     },
-    "progress_percent_done": 67.0,
+    "progress_percent_done": 68.0,
     "by_priority": {
       "P0": 47,
       "P1": 56,
@@ -4282,8 +4281,8 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 6,
-      "done": 2
+      "blocked": 5,
+      "done": 3
     }
   },
   "definition_of_done": [
@@ -4306,18 +4305,18 @@
     "by_type": {
       "architecture": {
         "total": 4,
-        "done": 2,
+        "done": 3,
         "partial": 0,
-        "blocked": 2,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 78.8,
+        "progress_percent": 88.8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 2,
-          "done": 2
+          "blocked": 1,
+          "done": 3
         }
       },
       "release_gate": {
@@ -4551,9 +4550,9 @@
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 34,
-    "done": 69,
-    "milestones_done": 2,
+    "blocked": 33,
+    "done": 70,
+    "milestones_done": 3,
     "milestones_total": 8
   }
 }
