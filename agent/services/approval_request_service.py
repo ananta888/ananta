@@ -359,8 +359,12 @@ class ApprovalRequestService:
                 expires_at=now + ttl,
             )
 
-            auto_reason = self._auto_approval_reason(
-                cfg=cfg, tool_name=tool_name, scope=clean_scope, governance_mode=governance_mode
+            auto_reason = self._auto_grant_policy.reason(
+                policy_by_mode=dict(cfg.get("auto_approval_policy") or {}),
+                human_required_tools=list(cfg.get("human_required_tools") or []),
+                tool_name=tool_name,
+                scope=clean_scope,
+                governance_mode=governance_mode,
             )
             if auto_reason:
                 request.status = "granted"
@@ -375,23 +379,6 @@ class ApprovalRequestService:
             AUDIT_APPROVAL_REQUEST_CREATED, request, {"auto_granted": bool(request.decided_by == "auto_policy")}
         )
         return request
-
-    def _auto_approval_reason(
-        self,
-        *,
-        cfg: dict[str, Any],
-        tool_name: str,
-        scope: dict[str, Any],
-        governance_mode: str,
-    ) -> str | None:
-        """Delegate automatic approval to the Hub-owned policy."""
-        return self._auto_grant_policy.reason(
-            policy_by_mode=dict(cfg.get("auto_approval_policy") or {}),
-            human_required_tools=list(cfg.get("human_required_tools") or []),
-            tool_name=tool_name,
-            scope=scope,
-            governance_mode=governance_mode,
-        )
 
     def get_request(self, request_id: str) -> ApprovalRequestDB | None:
         with Session(_engine()) as session:
