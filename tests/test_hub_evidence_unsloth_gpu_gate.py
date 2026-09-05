@@ -1,14 +1,19 @@
+import hashlib
 from pathlib import Path
 
 import pytest
 
-from scripts.lora_training_smoke_live import bounded_numeric_metrics
+from scripts.lora_training_smoke_live import (
+    bounded_numeric_metrics,
+    materialize_runtime_gguf,
+)
 from scripts.run_hub_evidence_unsloth_gpu_gate import (
     UnslothGpuGateError,
     bounded_diagnostic,
     build_container_command,
     docker_image_revision,
 )
+from scripts.unsloth_ollama_runtime_probe import build_ollama_container_command
 
 
 def test_bounded_diagnostic_keeps_only_a_printable_tail() -> None:
@@ -80,6 +85,62 @@ def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp
     assert "none" in command
     assert f"{model}:/models/tiny-causal-lm:ro" in command
     assert "--repeat" in command and command[command.index("--repeat") + 1] == "3"
+    assert command[command.index("--runtime-export-dir") + 1] == "/output/runtime-exports"
+
+
+def test_runtime_gguf_is_materialized_atomically_with_verified_digest(tmp_path: Path) -> None:
+    source = tmp_path / "source.gguf"
+    source.write_bytes(b"real-gguf-payload")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    class Runtime:
+        def artifact(self, job_id, name):  # noqa: ANN001
+            assert job_id == "gpu-job"
+            assert name == "export-gguf-q4-k-m/model.gguf"
+            return source, {"sha256": digest, "size_bytes": source.stat().st_size}
+
+    destination = tmp_path / "provider-export"
+    result = materialize_runtime_gguf(
+        runtime=Runtime(),
+        job_id="gpu-job",
+        artifacts={
+            "export-gguf-q4-k-m/model.gguf": {
+                "sha256": digest,
+                "size_bytes": source.stat().st_size,
+            }
+        },
+        destination=destination,
+    )
+
+    assert result["sha256"] == digest
+    assert (destination / "model.Q4_K_M.gguf").read_bytes() == source.read_bytes()
+    assert not (destination / ".model.Q4_K_M.gguf.partial").exists()
+
+
+def test_ollama_command_is_gpu_bound_local_only_and_cloud_disabled(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    state.mkdir()
+    nvidia_smi = tmp_path / "nvidia-smi"
+    nvidia_smi.write_text("", encoding="utf-8")
+    device = tmp_path / "nvidia0"
+    device.write_text("", encoding="utf-8")
+    cuda = tmp_path / "libcuda.so.1"
+    cuda.write_text("", encoding="utf-8")
+
+    command = build_ollama_container_command(
+        image="ollama/ollama@sha256:" + "a" * 64,
+        container_name="ananta-unsloth-ollama-0123456789abcdef",
+        state_dir=state,
+        libraries={"libcuda.so.1": cuda},
+        device_paths=(device,),
+        nvidia_smi_path=nvidia_smi,
+    )
+
+    assert "127.0.0.1::11434" in command
+    assert "OLLAMA_NO_CLOUD=true" in command
+    assert "NVIDIA_VISIBLE_DEVICES=0" in command
+    assert "ALL" in command
+    assert f"{cuda}:/host-nvidia/libcuda.so:ro" in command
 
 
 def test_container_command_rejects_unreserved_assignment(tmp_path: Path) -> None:

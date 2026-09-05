@@ -5,12 +5,16 @@ import hashlib
 import pytest
 
 from agent.services.integration_registry_service import IntegrationRegistryService
+from agent.services.model_invocation_errors import ModelRoutingConfigurationError
 from agent.services.model_invocation_service import ModelInvocationService
+from agent.services.model_profile_loader import ModelProfile
+from agent.services.runtime_handoff_invocation_service import (
+    RuntimeHandoffInvocationService,
+)
 from agent.services.unsloth_runtime_endpoint_registry_service import (
     RuntimeEndpointRegistryError,
     SqliteRuntimeEndpointRegistry,
 )
-
 
 HASH_A = "a" * 64
 HASH_B = "b" * 64
@@ -107,6 +111,57 @@ def test_endpoint_handoff_is_revision_fenced_and_capability_gated(tmp_path) -> N
             endpoint_registry=registry,
         )
     assert blocked.value.reason_code == "runtime_endpoint_capability_unavailable"
+
+
+def test_resolved_runtime_endpoint_invokes_exact_profile_without_fallback(tmp_path) -> None:
+    registry = SqliteRuntimeEndpointRegistry(tmp_path / "endpoints.sqlite3")
+    registry.apply_handoff(
+        tenant_id="tenant-a",
+        endpoint_id="endpoint-a",
+        expected_revision=0,
+        task_id="task-a",
+        idempotency_key="idempotency-a",
+        manifest=_manifest("endpoint-a", 0, HASH_A),
+    )
+    endpoint = ModelInvocationService.resolve_runtime_handoff_endpoint(
+        tenant_id="tenant-a",
+        endpoint_id="endpoint-a",
+        required_capability="openai_chat",
+        endpoint_registry=registry,
+    )
+    profile = ModelProfile(
+        profile_id="runtime-handoff",
+        provider_id="local-provider",
+        model="model-a",
+        base_url="http://localhost:11434/v1",
+        context_tokens=8192,
+        max_output_tokens=2048,
+    )
+    captured = {}
+
+    class Provider:
+        def invoke(self, **kwargs):  # noqa: ANN003
+            captured.update(kwargs)
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    service = RuntimeHandoffInvocationService(Provider())
+
+    result = service.invoke_result(
+        "hello",
+        endpoint=endpoint,
+        profile=profile,
+    )
+
+    assert result["choices"][0]["message"]["content"] == "ok"
+    assert captured["model_id"] == "model-a"
+    assert captured["resolution_info"]["endpoint_revision"] == 1
+
+    with pytest.raises(ModelRoutingConfigurationError, match="runtime_handoff_invocation_binding_invalid"):
+        service.invoke_result(
+            "hello",
+            endpoint={**endpoint, "fallback": {"provider_id": "other"}},
+            profile=profile,
+        )
 
 
 def test_rollback_appends_previous_immutable_revision(tmp_path) -> None:

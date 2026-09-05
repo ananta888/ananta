@@ -244,6 +244,13 @@ def _passed_unsloth_smoke_run(index: int) -> dict[str, object]:
             "correlation_id": "nvidia-live-smoke-correlation",
         },
         "artifacts": {"evaluation.json": {"sha256": "f" * 64, "size_bytes": 128}},
+        "runtime_export": {
+            "format": "gguf",
+            "quantization_method": "q4_k_m",
+            "filename": "model.Q4_K_M.gguf",
+            "sha256": f"{index:x}".rjust(64, "0"),
+            "size_bytes": 1024 + index,
+        },
         "platform_stage_coverage": stages,
     }
 
@@ -320,6 +327,7 @@ def test_unsloth_release_requires_three_independent_passed_runs() -> None:
     assert len(complete["runs"]) == 3
     assert all(run["attestation_sha256"] for run in complete["runs"])
     assert complete["runs"][0]["peak_vram"]["max_memory_allocated_bytes"] == 1025
+    assert complete["runs"][2]["runtime_export"]["format"] == "gguf"
 
 
 def test_unsloth_release_rejects_missing_run_telemetry() -> None:

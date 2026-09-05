@@ -227,12 +227,14 @@ def aggregate_nvidia_runs(
         }
     for index, run in enumerate(runs, start=1):
         coverage = dict(run.get("platform_stage_coverage") or {})
+        runtime_export = dict(run.get("runtime_export") or {})
         telemetry = telemetry_rows[index - 1]
         digest_payload = {
             "run_index": index,
             "status": run.get("status"),
             "reason_code": run.get("reason_code"),
             "platform_stage_coverage": coverage,
+            "runtime_export": runtime_export,
             "telemetry": telemetry,
         }
         run_attestations.append(
@@ -249,6 +251,7 @@ def aggregate_nvidia_runs(
                     }
                     for stage in required_stages
                 },
+                "runtime_export": runtime_export or None,
                 **{key: value for key, value in telemetry.items() if key != "run_index"},
                 "attestation_sha256": hashlib.sha256(
                     json.dumps(

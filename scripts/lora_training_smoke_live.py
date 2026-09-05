@@ -5,13 +5,15 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
+import shutil
 import tempfile
 import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from scripts.lora_training_smoke_files import canonical_sha256
+from scripts.lora_training_smoke_files import canonical_sha256, file_sha256
 from scripts.lora_training_smoke_release_chain import (
     complete_unsloth_release_chain,
     write_jsonl,
@@ -93,6 +95,51 @@ def nvidia_runtime_backend(backend: str) -> Any:
     return PeftTrlTrainingBackend()
 
 
+def materialize_runtime_gguf(
+    *,
+    runtime: Any,
+    job_id: str,
+    artifacts: Mapping[str, Mapping[str, Any]],
+    destination: Path,
+) -> dict[str, Any]:
+    """Atomically copy the single verified GGUF export across the worker boundary."""
+    candidates = sorted(
+        name
+        for name in artifacts
+        if name.startswith("export-gguf-q4-k-m/") and name.lower().endswith(".gguf")
+    )
+    if len(candidates) != 1:
+        raise ValueError("nvidia_smoke_runtime_gguf_ambiguous")
+    if destination.is_symlink() or destination.exists():
+        raise ValueError("nvidia_smoke_runtime_export_destination_invalid")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.parent.is_symlink():
+        raise ValueError("nvidia_smoke_runtime_export_destination_invalid")
+    destination.mkdir(mode=0o750)
+    source, metadata = runtime.artifact(job_id, candidates[0])
+    expected_sha256 = str(metadata.get("sha256") or "")
+    expected_size = int(metadata.get("size_bytes") or 0)
+    target = destination / "model.Q4_K_M.gguf"
+    partial = destination / ".model.Q4_K_M.gguf.partial"
+    try:
+        with source.open("rb") as source_handle, partial.open("xb") as target_handle:
+            shutil.copyfileobj(source_handle, target_handle, length=1024 * 1024)
+            target_handle.flush()
+            os.fsync(target_handle.fileno())
+        if partial.stat().st_size != expected_size or file_sha256(partial) != expected_sha256:
+            raise ValueError("nvidia_smoke_runtime_gguf_hash_mismatch")
+        os.replace(partial, target)
+    finally:
+        partial.unlink(missing_ok=True)
+    return {
+        "format": "gguf",
+        "quantization_method": "q4_k_m",
+        "filename": target.name,
+        "sha256": expected_sha256,
+        "size_bytes": expected_size,
+    }
+
+
 def run_nvidia_live_smoke(
     model_path: Path,
     probe: Mapping[str, Any],
@@ -100,6 +147,7 @@ def run_nvidia_live_smoke(
     backend: str = "peft_trl",
     target_modules: Sequence[str],
     timeout_seconds: float,
+    runtime_export_dir: Path | None = None,
 ) -> dict[str, Any]:
     backend = normalize_gpu_backend(backend)
     reset_peak_vram()
@@ -290,6 +338,14 @@ def run_nvidia_live_smoke(
                     "reason_code": "unsloth_export_profile_not_selected",
                 }
             )
+            runtime_export = None
+            if backend == "unsloth" and runtime_export_dir is not None:
+                runtime_export = materialize_runtime_gguf(
+                    runtime=runtime,
+                    job_id=str(envelope["job_id"]),
+                    artifacts=metadata,
+                    destination=runtime_export_dir,
+                )
             return {
                 "status": "passed",
                 "job_status": status["status"],
@@ -317,6 +373,7 @@ def run_nvidia_live_smoke(
                 "packages": probe["packages"],
                 "artifacts": evidence,
                 "requested_exports": requested_exports,
+                "runtime_export": runtime_export,
                 "platform_stage_coverage": complete_unsloth_release_chain(
                     runtime=runtime,
                     training_envelope=envelope,

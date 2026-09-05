@@ -540,6 +540,7 @@ def _run_gate_legacy(
     runtime_image_digest: str | None = None,
     target_modules: Sequence[str] = ("q_proj", "k_proj", "v_proj", "o_proj"),
     timeout_seconds: float = 1800.0,
+    runtime_export_dir: Path | None = None,
     runner: CommandRunner = _default_runner,
 ) -> dict[str, Any]:
     gpu_backend = _normalize_gpu_backend(gpu_backend)
@@ -563,6 +564,7 @@ def _run_gate_legacy(
             backend=gpu_backend,
             target_modules=target_modules,
             timeout_seconds=timeout_seconds,
+            runtime_export_dir=runtime_export_dir,
         )
     mock_ok = mock["status"] in {"passed", "not_run"} and (not run_mock or mock["status"] == "passed")
     nvidia_required = require_nvidia or not run_mock
@@ -614,6 +616,7 @@ def run_gate(
     repeat_count: int = 1,
     target_modules: Sequence[str] = ("q_proj", "k_proj", "v_proj", "o_proj"),
     timeout_seconds: float = 1800.0,
+    runtime_export_dir: Path | None = None,
     runner: CommandRunner = _default_runner,
 ) -> dict[str, Any]:
     gpu_backend = _normalize_gpu_backend(gpu_backend)
@@ -628,6 +631,7 @@ def run_gate(
             runtime_image_digest=runtime_image_digest,
             target_modules=target_modules,
             timeout_seconds=timeout_seconds,
+            runtime_export_dir=runtime_export_dir,
             runner=runner,
         )
 
@@ -677,6 +681,11 @@ def run_gate(
                 runtime_image_digest=runtime_image_digest,
                 target_modules=target_modules,
                 timeout_seconds=timeout_seconds,
+                runtime_export_dir=(
+                    runtime_export_dir / f"run-{run_index + 1}"
+                    if runtime_export_dir is not None
+                    else None
+                ),
                 runner=runner,
             )
             if base_report is None:
@@ -848,6 +857,11 @@ def main() -> int:
     )
     parser.add_argument("--target-modules", default="q_proj,k_proj,v_proj,o_proj")
     parser.add_argument("--timeout-seconds", type=float, default=1800.0)
+    parser.add_argument(
+        "--runtime-export-dir",
+        type=Path,
+        help="Optional worker output directory for one verified GGUF per deterministic run.",
+    )
     args = parser.parse_args()
     modules = tuple(item.strip() for item in args.target_modules.split(",") if item.strip())
     if not modules:
@@ -871,6 +885,7 @@ def main() -> int:
         repeat_count=args.repeat,
         target_modules=modules,
         timeout_seconds=args.timeout_seconds,
+        runtime_export_dir=args.runtime_export_dir,
     )
     output = Path(args.out)
     if not output.is_absolute():

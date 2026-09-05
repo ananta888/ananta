@@ -35,16 +35,31 @@ from agent.services.hub_evidence_gate_service import (  # noqa: E402
     canonical_evidence_digest,
 )
 from agent.services.hub_evidence_registry_service import HubEvidenceRegistryService  # noqa: E402
+from scripts.unsloth_ollama_runtime_probe import (  # noqa: E402
+    run_ollama_runtime_probe,
+)
+from scripts.unsloth_ollama_runtime_probe import (  # noqa: E402
+    sha256_file as provider_sha256_file,
+)
 
 TASK_ID = "UNSLOTH-GPU-RELEASE-GATE"
 DEFAULT_IMAGE = "ananta-lora-training-worker:local-nvidia"
+DEFAULT_OLLAMA_IMAGE = (
+    "ollama/ollama@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80"
+)
 DEFAULT_MODEL = ROOT / "data/gpu-models/tiny-causal-lm"
 DEFAULT_MATRIX = ROOT / "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
 DEFAULT_MATRIX_ENTRY = "unsloth-2026.7.5-cu124-torch260-tiny-causal-lm"
 SOURCE_PATHS = (
     "agent/services/hub_evidence_gate_service.py",
     "agent/services/hub_evidence_registry_service.py",
+    "agent/services/integration_registry_service.py",
+    "agent/services/model_invocation_service.py",
+    "agent/services/runtime_handoff_invocation_service.py",
+    "agent/services/unsloth_runtime_endpoint_registry_service.py",
+    "agent/services/unsloth_runtime_handoff_service.py",
     "ananta_contracts/hub_evidence.py",
+    "ananta_contracts/runtime_endpoint_descriptor.py",
     "ananta_contracts/training_backend.py",
     "docker/compose-next/Dockerfile.lora-training-worker",
     "docker/compose-next/lora-training-worker-entrypoint.sh",
@@ -56,6 +71,7 @@ SOURCE_PATHS = (
     "scripts/lora_training_smoke_files.py",
     "scripts/lora_training_smoke_release_chain.py",
     "scripts/run_hub_evidence_unsloth_gpu_gate.py",
+    "scripts/unsloth_ollama_runtime_probe.py",
     "scripts/run_lora_training_smoke.py",
     "worker/runtime/lora_training_app.py",
     "worker/training/backends/unsloth.py",
@@ -344,6 +360,8 @@ def build_container_command(
             str(timeout_seconds),
             "--out",
             "/output/unsloth-gpu-smoke.json",
+            "--runtime-export-dir",
+            "/output/runtime-exports",
         )
     )
     return command
@@ -358,6 +376,7 @@ def execute_gate(
     output_path: Path,
     database_url: str,
     timeout_seconds: int,
+    ollama_image: str = DEFAULT_OLLAMA_IMAGE,
 ) -> tuple[dict[str, Any], int]:
     if matrix_path.resolve(strict=True) != DEFAULT_MATRIX.resolve(strict=True):
         raise UnslothGpuGateError("unsloth_gate_matrix_path_invalid")
@@ -365,6 +384,7 @@ def execute_gate(
     manifest = repository_manifest()
     model_digest = tree_sha256(model_path)
     image_id = docker_image_id(image)
+    ollama_image_id = docker_image_id(ollama_image)
     if docker_image_revision(image) != revision:
         raise UnslothGpuGateError("unsloth_gate_worker_image_revision_mismatch")
     matrix_digest = sha256_file(matrix_path.resolve(strict=True))
@@ -372,6 +392,7 @@ def execute_gate(
     execution_profile = {
         "schema": "ananta.unsloth-gpu-gate-profile.v1",
         "image_id": image_id,
+        "ollama_image_id": ollama_image_id,
         "matrix_entry": matrix_entry,
         "model_digest": model_digest,
         "repeat": 3,
@@ -392,7 +413,12 @@ def execute_gate(
         dispatch_lease_id=f"unsloth-lease-{nonce}",
         repository_revision=revision,
         input_digest=canonical_evidence_digest(
-            {"repository": manifest["digest"], "model": model_digest, "image": image_id}
+            {
+                "repository": manifest["digest"],
+                "model": model_digest,
+                "worker_image": image_id,
+                "provider_image": ollama_image_id,
+            }
         ),
         execution_profile_digest=canonical_evidence_digest(execution_profile),
         environment_digest=canonical_evidence_digest(environment),
@@ -406,6 +432,12 @@ def execute_gate(
                 "worker_image",
                 image_id.removeprefix("sha256:"),
                 image_id.removeprefix("sha256:"),
+                matrix_digest,
+            ),
+            EvidenceGateSourceAdmission(
+                "provider_image",
+                ollama_image_id.removeprefix("sha256:"),
+                ollama_image_id.removeprefix("sha256:"),
                 matrix_digest,
             ),
         ),
@@ -445,6 +477,55 @@ def execute_gate(
             report = json.loads(report_file.read_text(encoding="utf-8")) if report_file.is_file() else {}
             smoke = dict(report.get("nvidia_live_smoke") or {})
             claim = dict(report.get("unsloth_support_claim") or {})
+            provider_runtime: dict[str, Any]
+            provider_error = None
+            final_export = output_dir / "runtime-exports" / "run-3" / "model.Q4_K_M.gguf"
+            final_run = (smoke.get("runs") or [{}])[-1]
+            runtime_export = (
+                dict(final_run.get("runtime_export") or {})
+                if isinstance(final_run, Mapping)
+                else {}
+            )
+            try:
+                export_matches = bool(
+                    final_export.is_file()
+                    and runtime_export.get("format") == "gguf"
+                    and runtime_export.get("quantization_method") == "q4_k_m"
+                    and runtime_export.get("filename") == final_export.name
+                    and runtime_export.get("sha256") == provider_sha256_file(final_export)
+                    and runtime_export.get("size_bytes") == final_export.stat().st_size
+                )
+                if not export_matches:
+                    raise UnslothGpuGateError("unsloth_gate_runtime_export_invalid")
+                provider_state = output_dir / "ollama-state"
+                provider_state.mkdir(mode=0o700)
+                provider_runtime = run_ollama_runtime_probe(
+                    gguf_path=final_export,
+                    base_model_sha256=model_digest,
+                    ollama_image=ollama_image,
+                    ollama_image_id=ollama_image_id,
+                    assignment=assignment,
+                    state_dir=provider_state,
+                    endpoint_database=output_dir / "runtime-provider-endpoints.sqlite3",
+                    libraries=resolve_nvidia_libraries(),
+                    device_paths=tuple(
+                        Path(value)
+                        for value in (
+                            "/dev/nvidia0",
+                            "/dev/nvidiactl",
+                            "/dev/nvidia-uvm",
+                            "/dev/nvidia-uvm-tools",
+                        )
+                    ),
+                    nvidia_smi_path=Path(shutil.which("nvidia-smi") or ""),
+                )
+            except Exception as exc:  # noqa: BLE001 - bounded gate observation
+                provider_error = type(exc).__name__
+                provider_runtime = {
+                    "status": "failed",
+                    "reason_code": str(exc)[:160],
+                    "error_type": provider_error,
+                }
             expected_sources = sorted(str(value) for value in assignment["source_ids"])
             immutable_inputs_unchanged = bool(
                 tree_sha256(model_path) == model_digest
@@ -460,7 +541,9 @@ def execute_gate(
                 and claim.get("verified") is True
                 and sorted(claim.get("src_ids") or []) == expected_sources
                 and claim.get("run_ids") == [assignment["run_id"]]
+                and provider_runtime.get("status") == "passed"
                 and immutable_inputs_unchanged
+                and docker_image_id(ollama_image) == ollama_image_id
             )
             return {
                 "passed": passed,
@@ -473,6 +556,7 @@ def execute_gate(
                 "gpu": smoke.get("gpu"),
                 "packages": smoke.get("packages"),
                 "platform_stage_coverage": smoke.get("platform_stage_coverage"),
+                "provider_runtime": provider_runtime,
                 "telemetry_attestation": smoke.get("telemetry_attestation"),
                 "run_attestation_sha256": [row.get("attestation_sha256") for row in smoke.get("runs") or []],
                 "run_results": [
@@ -490,6 +574,7 @@ def execute_gate(
                         "gpu_fingerprint_sha256": row.get("gpu_fingerprint_sha256"),
                         "library_fingerprint_sha256": row.get("library_fingerprint_sha256"),
                         "artifacts": row.get("artifacts"),
+                        "runtime_export": row.get("runtime_export"),
                     }
                     for row in smoke.get("runs") or []
                 ],
@@ -524,6 +609,7 @@ def execute_gate(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", default=DEFAULT_IMAGE)
+    parser.add_argument("--ollama-image", default=DEFAULT_OLLAMA_IMAGE)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     parser.add_argument("--matrix-entry", default=DEFAULT_MATRIX_ENTRY)
@@ -545,6 +631,7 @@ def main() -> int:
         output_path=args.output,
         database_url=args.database_url,
         timeout_seconds=args.timeout_seconds,
+        ollama_image=args.ollama_image,
     )
     print(json.dumps({"status": report["status"], "run_id": report["run_id"]}, sort_keys=True))
     return returncode
