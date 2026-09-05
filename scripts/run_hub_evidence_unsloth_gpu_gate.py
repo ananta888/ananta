@@ -259,6 +259,8 @@ def build_container_command(
             "--env",
             "LD_LIBRARY_PATH=/host-nvidia",
             "--env",
+            "NVIDIA_VISIBLE_DEVICES=0",
+            "--env",
             "PYTHONPATH=/gate:/app",
             "--env",
             "HF_DATASETS_OFFLINE=1",

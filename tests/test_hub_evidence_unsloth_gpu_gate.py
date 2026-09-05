@@ -54,6 +54,7 @@ def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp
     assert "ANANTA_UNSLOTH_SRC_IDS=SRC_repo,SRC_model" in command
     assert "ANANTA_UNSLOTH_RUN_IDS=RUN_bound" in command
     assert "ANANTA_LORA_WORKER_IMAGE_SHA256=sha256:" + "b" * 64 in command
+    assert "NVIDIA_VISIBLE_DEVICES=0" in command
     assert "PYTHONPATH=/gate:/app" in command
     assert "none" in command
     assert f"{model}:/models/tiny-causal-lm:ro" in command
