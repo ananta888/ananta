@@ -678,6 +678,8 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend-angular/package-lock.json
       - run: npm ci
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
       - name: Run frontend lint
         run: npm run lint
       - name: Run frontend unit tests

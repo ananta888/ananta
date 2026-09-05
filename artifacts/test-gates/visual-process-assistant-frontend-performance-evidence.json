@@ -1,7 +1,7 @@
 {
   "schema": "ananta.visual-process-assistant-frontend-performance-evidence.v1",
   "source_hashes": {
-    "frontend-angular/package.json": "13b4209b9c50249fa10be9c7a19a075c347846129dc20584618f9f365baa535f",
+    "frontend-angular/package.json": "9e530dd63c02bbe5fabcabf23e57f41b8b2c759fb59934fe86744460752304ed",
     "frontend-angular/playwright.vpa-performance.config.ts": "613a2e4ca4f2d5243a8de6e721af9265c3372e89beae041de8a396d59796eb27",
     "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts": "2d8357f3d205bc7c266eb59e45e80aa74ba6f8a91f594fa81cbc2eaa2a1a75ec",
     "frontend-angular/src/app/features/visual-process/visual-process-canvas.component.ts": "b3d87f019593b8dd20459c544fbe81bf41c3111cfb9e1dd7811414a02ba667aa",
@@ -19,7 +19,7 @@
   },
   "environment": {
     "browser": "Chromium 148.0.7778.96",
-    "build": "ananta-angular-0.7.0-angular-21.2.17",
+    "build": "ananta-angular-0.7.0-angular-21.2.22",
     "hardware_class": "local-cpu-20-logical-memory-61-gib",
     "warmup_iterations": 100,
     "repetitions": 1000
@@ -29,9 +29,9 @@
     "warmup_iterations": 100,
     "p50_ms": 0,
     "p95_ms": 0.1,
-    "heap_before_mib": 10.874149,
-    "heap_after_mib": 10.927906,
-    "heap_growth_mib": 0.053757,
+    "heap_before_mib": 10.938046,
+    "heap_after_mib": 10.949669,
+    "heap_growth_mib": 0.011623,
     "hover_subscriptions_per_editor": 0,
     "active_hover_timers_after_stabilization": 0,
     "conversation_subscriptions_per_editor": 1,

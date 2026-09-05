@@ -38,16 +38,13 @@ describe('SnakeEventsService', () => {
       post: vi.fn(() => of({ stream_token: 'scoped-stream-token' })),
     };
 
-    globalThis.EventSource = vi.fn((url: string) => {
-      const mock = {
-        url,
-        onopen: null as ((ev?: Event) => void) | null,
-        onmessage: null as ((ev: MessageEvent<string>) => void) | null,
-        onerror: null as ((ev?: Event) => void) | null,
-        close: vi.fn(),
-      };
-      eventSourceMocks.push(mock);
-      return mock;
+    globalThis.EventSource = vi.fn(class {
+      onopen: ((ev?: Event) => void) | null = null;
+      onmessage: ((ev: MessageEvent<string>) => void) | null = null;
+      onerror: ((ev?: Event) => void) | null = null;
+      close = vi.fn();
+
+      constructor(readonly url: string) { eventSourceMocks.push(this); }
     }) as unknown as typeof EventSource;
 
     TestBed.configureTestingModule({
