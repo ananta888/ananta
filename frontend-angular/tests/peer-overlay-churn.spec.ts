@@ -45,12 +45,14 @@ const ENGINES: ReadonlyArray<readonly [string, BrowserType]> = [
   ['firefox', firefox],
 ];
 const DEVICE_IDS = ['source-device', 'relay-a-device', 'relay-b-device', 'leaf-c-device', 'leaf-d-device'];
+const EVIDENCE_ASSIGNMENT = process.env['ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON'];
 
 test.describe.configure({ mode: 'serial' });
 
 for (const [engine, browserType] of ENGINES) {
   test(`${engine} recovers a five-device overlay without interaction`, async () => {
-    const assignment = JSON.parse(process.env['ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON'] ?? '{}') as {
+    test.skip(!EVIDENCE_ASSIGNMENT, 'run through scripts/run_peer_overlay_churn_gate.py');
+    const assignment = JSON.parse(EVIDENCE_ASSIGNMENT ?? '{}') as {
       run_id?: string; task_id?: string; evidence_scope?: string;
     };
     expect(assignment.run_id).toMatch(/^RUN_/);

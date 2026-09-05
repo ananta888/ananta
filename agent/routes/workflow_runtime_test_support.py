@@ -20,6 +20,10 @@ from agent.services.identity_validation import (
     IdentityValidationError,
     require_canonical_identity,
 )
+from agent.services.workflow_runtime_compose_e2e_support import (
+    COMPOSE_E2E_PROJECT_ID,
+    compose_e2e_test_support_enabled,
+)
 from agent.services.workflow_runtime_rollout_persistence import (
     SQLAlchemyWorkflowRolloutPolicyStore,
     WorkflowRolloutPersistenceError,
@@ -37,8 +41,6 @@ workflow_runtime_test_support_bp = Blueprint(
 )
 
 _ALLOWED_FIELDS = frozenset({"project_id"})
-COMPOSE_E2E_PROJECT_ID = "compose-e2e-chat-process"
-COMPOSE_E2E_RUNTIME_CONTEXT = "compose-e2e"
 _NATIVE_CAPABILITIES = (
     "audit",
     "authorization",
@@ -51,14 +53,6 @@ def _rollout_store() -> SQLAlchemyWorkflowRolloutPolicyStore:
     from agent.database import engine
 
     return SQLAlchemyWorkflowRolloutPolicyStore(engine)
-
-
-def compose_e2e_test_support_enabled() -> bool:
-    return bool(
-        settings.role == "hub"
-        and settings.auth_test_endpoints_enabled
-        and settings.workflow_runtime_test_context == COMPOSE_E2E_RUNTIME_CONTEXT
-    )
 
 
 def register_workflow_runtime_test_support(app: Flask) -> bool:
@@ -74,6 +68,28 @@ def register_workflow_runtime_test_support(app: Flask) -> bool:
 def _fail_closed_outside_compose_e2e() -> None:
     if not compose_e2e_test_support_enabled():
         abort(404)
+
+
+@workflow_runtime_test_support_bp.get("/native-health")
+def native_test_runtime_health():
+    """Expose a bounded health observation for the in-process Native bridge.
+
+    Production selection intentionally requires observed runtime health.  The
+    isolated Compose-E2E Hub owns its Native bridge itself, so it cannot rely
+    on a separately registered worker heartbeat.  This test-context-only
+    endpoint gives the regular health adapter a real HTTP observation without
+    weakening the production fail-closed default.
+    """
+
+    return jsonify(
+        {
+            "schema": "ananta.workflow_runtime_test_health.v1",
+            "runtime_id": "ananta-native",
+            "runtime_version": "1.0.0",
+            "status": "ready",
+            "ready": True,
+        }
+    )
 
 
 def _admin_identity() -> tuple[str, str] | None:

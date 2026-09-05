@@ -1,9 +1,28 @@
 import { ChildProcess, spawn, spawnSync } from "child_process";
+import { randomBytes } from "crypto";
 import dns from "dns/promises";
 import fs from "fs";
 import path from "path";
 
 type ProcInfo = { name: string; port: number; pid: number };
+
+function writeWorkflowSigningKeyring(dataRoot: string): string {
+  const keyringPath = path.join(dataRoot, "workflow-auth-signing-keyring.json");
+  fs.writeFileSync(
+    keyringPath,
+    JSON.stringify({
+      schema: "ananta.workflow-auth-signing-keyring.v1",
+      algorithm: "ed25519",
+      active_key_id: "e2e-workflow-runtime",
+      private_keys: {
+        "e2e-workflow-runtime": randomBytes(32).toString("base64"),
+      },
+    }),
+    { encoding: "utf-8", mode: 0o600 },
+  );
+  fs.chmodSync(keyringPath, 0o600);
+  return keyringPath;
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -255,6 +274,8 @@ async function startService(
   const serviceDatabaseUrl =
     process.env.E2E_DATABASE_URL?.trim() ||
     `sqlite:///${path.join(dataDir, "ananta.db")}`;
+  const workflowSigningKeyring =
+    svc.name === "hub" ? writeWorkflowSigningKeyring(dataDir) : undefined;
   const env = {
     ...envBase,
     ...svc.env,
@@ -265,6 +286,7 @@ async function startService(
     ...(svc.name === "hub" ? {
       ANANTA_COLLABORATION_WORKSPACE_ENABLED: "true",
       ANANTA_COLLABORATION_WORKSPACE_STATE: path.join(dataDir, "collaboration-workspace.sqlite3"),
+      ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE: workflowSigningKeyring,
     } : {}),
   };
 
@@ -377,6 +399,8 @@ export default async function globalSetup() {
         CORS_ORIGINS: frontendBaseUrl,
         INITIAL_ADMIN_USER: adminUser,
         INITIAL_ADMIN_PASSWORD: adminPassword,
+        ANANTA_WORKFLOW_RUNTIME_TEST_CONTEXT: "compose-e2e",
+        ANANTA_NATIVE_WORKER_HEALTH_URL: `${hubUrl}/test/workflow-runtime/native-health`,
         ANANTA_SEMANTIC_SPEECH_RUNTIME_ENABLED: "true",
         ANANTA_SEMANTIC_MEDIA_BACKGROUND_OPERATIONS_ENABLED: "true",
         ANANTA_PEER_EVIDENCE_SYNC_ENABLED: "true",
@@ -396,6 +420,7 @@ export default async function globalSetup() {
         AGENT_TOKEN: "secret1",
         PORT: String(alpha.port),
         HUB_URL: hubUrl,
+        CORS_ORIGINS: frontendBaseUrl,
         INITIAL_ADMIN_USER: adminUser,
         INITIAL_ADMIN_PASSWORD: adminPassword,
       },
@@ -409,6 +434,7 @@ export default async function globalSetup() {
         AGENT_TOKEN: "secret2",
         PORT: String(beta.port),
         HUB_URL: hubUrl,
+        CORS_ORIGINS: frontendBaseUrl,
         INITIAL_ADMIN_USER: adminUser,
         INITIAL_ADMIN_PASSWORD: adminPassword,
       },

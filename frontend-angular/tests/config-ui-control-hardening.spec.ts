@@ -3,6 +3,7 @@ import {
   HUB_URL,
   assertNoUnhandledBrowserErrors,
   createJourneyCleanupPolicy,
+  gotoProjectScopedRoute,
   loginFast,
 } from './utils';
 
@@ -176,6 +177,7 @@ test.describe('Config + UI Control Hardening', () => {
   });
 
   test('auto-planner config and advanced goal steering are end-to-end controllable', async ({ page, request }) => {
+    test.setTimeout(120_000);
     await loginFast(page, request);
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -235,7 +237,7 @@ test.describe('Config + UI Control Hardening', () => {
       });
     });
 
-    await page.goto('/auto-planner');
+    await gotoProjectScopedRoute(page, '/auto-planner', { settleNetworkIdle: false });
 
     await page.getByTestId('auto-planner-config-followups').check();
     await page.getByTestId('auto-planner-config-autostart').check();

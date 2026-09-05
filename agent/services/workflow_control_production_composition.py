@@ -35,6 +35,13 @@ from agent.services.workflow_runtime_selection_service import (
 def production_release_admission(
     backend: WorkflowBackend,
 ) -> WorkflowRuntimeReleaseAdmissionPort:
+    from agent.services.workflow_runtime_compose_e2e_support import (
+        ComposeE2ERuntimeReleaseAdmission,
+        compose_e2e_test_support_enabled,
+    )
+
+    if compose_e2e_test_support_enabled():
+        return ComposeE2ERuntimeReleaseAdmission()
     try:
         from agent.services.workflow_runtime.release_gate import (
             WorkflowRuntimeReleaseAdmission,

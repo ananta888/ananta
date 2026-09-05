@@ -30,12 +30,14 @@ const ENGINES: ReadonlyArray<readonly [string, BrowserType]> = [
   ['chromium', chromium],
   ['firefox', firefox],
 ];
+const EVIDENCE_ASSIGNMENT = process.env['ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON'];
 
 test.describe.configure({ mode: 'serial' });
 
 for (const [engine, browserType] of ENGINES) {
   test(`${engine} records direct, TURN, network-switch and blocked relay outcomes`, async () => {
-    const assignment = JSON.parse(process.env['ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON'] ?? '{}') as {
+    test.skip(!EVIDENCE_ASSIGNMENT, 'run through scripts/run_peer_nat_matrix_gate.py');
+    const assignment = JSON.parse(EVIDENCE_ASSIGNMENT ?? '{}') as {
       run_id?: string; task_id?: string; evidence_scope?: string;
     };
     expect(assignment.run_id).toMatch(/^RUN_/);

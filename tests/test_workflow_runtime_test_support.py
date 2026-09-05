@@ -10,6 +10,10 @@ from agent.routes.workflow_runtime_test_support import (
     workflow_runtime_test_support_bp,
 )
 from agent.services.user_session_tokens import issue_user_access_token
+from agent.services.workflow_runtime.execution_plan import ExecutionPlan
+from agent.services.workflow_runtime_compose_e2e_support import (
+    ComposeE2ERuntimeReleaseAdmission,
+)
 from agent.services.workflow_runtime_rollout_service import (
     InMemoryWorkflowRolloutPolicyStore,
     WorkflowRolloutScope,
@@ -45,6 +49,73 @@ def test_native_rollout_support_is_not_found_when_test_endpoints_are_disabled(
         json={"project_id": COMPOSE_E2E_PROJECT_ID},
     )
     assert response.status_code == 404
+
+
+def test_native_health_support_is_bounded_to_exact_compose_context(
+    client,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(settings, "auth_test_endpoints_enabled", False)
+    monkeypatch.setattr(settings, "workflow_runtime_test_context", "")
+    assert client.get("/test/workflow-runtime/native-health").status_code == 404
+
+    _enable_compose_e2e(monkeypatch)
+    response = client.get("/test/workflow-runtime/native-health")
+    assert response.status_code == 200
+    assert response.json == {
+        "schema": "ananta.workflow_runtime_test_health.v1",
+        "runtime_id": "ananta-native",
+        "runtime_version": "1.0.0",
+        "status": "ready",
+        "ready": True,
+    }
+
+
+def test_compose_release_admission_is_synthetic_and_exactly_scoped(monkeypatch) -> None:
+    _enable_compose_e2e(monkeypatch)
+    admission = ComposeE2ERuntimeReleaseAdmission()
+    plan = ExecutionPlan.from_mapping(
+        {
+            "tenant_id": "admin",
+            "plan_id": "chat-test-plan",
+            "workflow_id": "chat-test",
+            "policy_version": "compose-e2e-native-v1",
+            "nodes": [{"id": "one"}],
+            "capabilities": [],
+            "metadata": {
+                "workflow_rollout_scope": {
+                    "project_id": COMPOSE_E2E_PROJECT_ID,
+                }
+            },
+        }
+    )
+
+    assert admission.evaluate(
+        plan=plan,
+        runtime_id="ananta-native",
+        runtime_version="1.0.0",
+        required_capabilities=frozenset({"audit", "authorization"}),
+    ) == (True, "runtime_release_compose_e2e_test_fixture")
+    assert admission.evaluate(
+        plan=plan,
+        runtime_id="temporal",
+        runtime_version="1.0.0",
+        required_capabilities=frozenset({"audit"}),
+    ) == (False, "runtime_release_compose_e2e_scope_denied")
+    assert admission.evaluate(
+        plan=plan,
+        runtime_id="ananta-native",
+        runtime_version="1.0.0",
+        required_capabilities=frozenset({"audit", "tool_execution"}),
+    ) == (False, "runtime_release_compose_e2e_scope_denied")
+
+    monkeypatch.setattr(settings, "workflow_runtime_test_context", "")
+    assert admission.evaluate(
+        plan=plan,
+        runtime_id="ananta-native",
+        runtime_version="1.0.0",
+        required_capabilities=frozenset({"audit"}),
+    ) == (False, "runtime_release_compose_e2e_scope_denied")
 
 
 def test_native_rollout_support_is_not_registered_without_exact_context(monkeypatch) -> None:
