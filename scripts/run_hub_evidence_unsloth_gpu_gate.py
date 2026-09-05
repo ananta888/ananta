@@ -49,6 +49,8 @@ SOURCE_PATHS = (
     "docker/compose-next/requirements.lora-training-nvidia.txt",
     "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json",
     "scripts/lora_training_smoke_live.py",
+    "scripts/lora_training_smoke_compatibility.py",
+    "scripts/lora_training_smoke_files.py",
     "scripts/lora_training_smoke_release_chain.py",
     "scripts/run_hub_evidence_unsloth_gpu_gate.py",
     "scripts/run_lora_training_smoke.py",
@@ -261,7 +263,7 @@ def build_container_command(
             "--env",
             "NVIDIA_VISIBLE_DEVICES=0",
             "--env",
-            "PYTHONPATH=/gate:/app",
+            "PYTHONPATH=/app:/gate",
             "--env",
             "HF_DATASETS_OFFLINE=1",
             "--env",
@@ -420,6 +422,14 @@ def execute_gate(
                 "packages": smoke.get("packages"),
                 "platform_stage_coverage": smoke.get("platform_stage_coverage"),
                 "run_attestation_sha256": [row.get("attestation_sha256") for row in smoke.get("runs") or []],
+                "run_results": [
+                    {
+                        "run_index": row.get("run_index"),
+                        "status": row.get("status"),
+                        "reason_code": row.get("reason_code"),
+                    }
+                    for row in smoke.get("runs") or []
+                ],
                 "immutable_inputs_unchanged": immutable_inputs_unchanged,
                 "stdout_digest": hashlib.sha256(completed.stdout.encode()).hexdigest(),
                 "stderr_digest": hashlib.sha256(completed.stderr.encode()).hexdigest(),

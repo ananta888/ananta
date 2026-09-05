@@ -300,6 +300,15 @@ def test_unsloth_release_requires_three_independent_passed_runs() -> None:
     assert all(run["attestation_sha256"] for run in complete["runs"])
 
 
+def test_unsloth_run_attestation_preserves_bounded_reason_code() -> None:
+    failed = smoke_gate._aggregate_nvidia_runs(
+        [{"status": "failed", "reason_code": "training_dependency_failed"}],
+        compatibility_attestation={"status": "passed"},
+    )
+
+    assert failed["runs"][0]["reason_code"] == "training_dependency_failed"
+
+
 def test_every_release_transition_has_a_tamper_denial() -> None:
     transitions = {
         "dataset_to_training": "1" * 64,

@@ -147,6 +147,7 @@ def aggregate_nvidia_runs(
         digest_payload = {
             "run_index": index,
             "status": run.get("status"),
+            "reason_code": run.get("reason_code"),
             "platform_stage_coverage": coverage,
             "dataset_sha256": run.get("dataset_sha256"),
             "base_model_sha256": run.get("base_model_sha256"),
@@ -156,6 +157,7 @@ def aggregate_nvidia_runs(
             {
                 "run_index": index,
                 "status": run.get("status", "failed"),
+                "reason_code": run.get("reason_code"),
                 "chain_sha256": coverage.get("chain_sha256"),
                 "attestation_sha256": hashlib.sha256(
                     json.dumps(
