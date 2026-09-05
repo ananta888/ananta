@@ -4,8 +4,8 @@
       "evidence_scope": "test",
       "participant_count": 5,
       "production_release_eligible": false,
-      "run_id": "RUN_1e8c8df3d02b29b9f76cb32ccf89a557",
-      "source_id": "SRC_cde3b315e94055b7da911d5b3952d96b"
+      "run_id": "RUN_32c9a6f587c549edd496f0decc268b11",
+      "source_id": "SRC_7d4612118b80e8cb65d8d08d4540ed68"
     },
     "four_peer_mesh": {
       "production_release_eligible": false,
@@ -16,23 +16,23 @@
     },
     "nat_turn_matrix": {
       "production_release_eligible": false,
-      "repository_revision": "50cef03add7e711ed907730e5f4dd0c3d6829148",
-      "run_id": "RUN_193dfa1c923071248caa910013689ad5",
-      "source_id": "SRC_2f1acf66d5982866d882fc8103ea9b0e",
+      "repository_revision": "984e2c00d9678ec1a04b0c750b7fbbd967f54e93",
+      "run_id": "RUN_5fe31921d6e801083715856a4aa0392b",
+      "source_id": "SRC_674178da7065a1733e71b8261059e5d4",
       "valid_test_evidence": true
     }
   },
   "command_exit_code": 0,
   "decision": "test_gate_passed_production_no_go",
   "evidence": {
-    "binding_digest": "1e8c8df3d02b29b9f76cb32ccf89a5570425c139bae89cb11eed534516ce5edf",
+    "binding_digest": "32c9a6f587c549edd496f0decc268b114667cc9fce8b64c057fd974fee5491f9",
     "issuer": "hub-evidence-registry",
     "production_release_eligible": false,
     "production_release_reason": "evidence_run_test_scope_forbidden",
-    "result_digest": "55d6062d4246c30fe73f67888dba7fb59d0bc0341782f6d7d3725298ed804cfc",
-    "run_id": "RUN_1e8c8df3d02b29b9f76cb32ccf89a557",
+    "result_digest": "5e9e8debd887fb0dd3c6995f529d79a61496bfd6d2a6b3754ea57935c284259a",
+    "run_id": "RUN_32c9a6f587c549edd496f0decc268b11",
     "scope": "test",
-    "source_id": "SRC_cde3b315e94055b7da911d5b3952d96b",
+    "source_id": "SRC_7d4612118b80e8cb65d8d08d4540ed68",
     "synthetic": true
   },
   "execution_profile": {
@@ -81,19 +81,19 @@
           "activation": "cover_tab_brought_to_front",
           "delivered": true,
           "pageCount": 2,
-          "recoveryMs": 7
+          "recoveryMs": 6
         },
         "browserCrash": {
           "backupPath": "source-b>b-c",
-          "recoveryMs": 56
+          "recoveryMs": 25
         },
         "iceRestart": {
           "delivered": true,
-          "recoveryMs": 16
+          "recoveryMs": 14
         },
         "relayFailure": {
           "backupPath": "source-b>b-d",
-          "recoveryMs": 23
+          "recoveryMs": 14
         }
       }
     },
@@ -115,26 +115,26 @@
           "activation": "cover_tab_brought_to_front",
           "delivered": true,
           "pageCount": 2,
-          "recoveryMs": 9
+          "recoveryMs": 5
         },
         "browserCrash": {
           "backupPath": "source-b>b-c",
-          "recoveryMs": 309
+          "recoveryMs": 302
         },
         "iceRestart": {
           "delivered": true,
-          "recoveryMs": 25
+          "recoveryMs": 15
         },
         "relayFailure": {
           "backupPath": "source-b>b-d",
-          "recoveryMs": 13
+          "recoveryMs": 11
         }
       }
     }
   ],
   "production_release_eligible": false,
   "reason_codes": [],
-  "repository_revision": "e06b49eb92860664d3ea42b1b64e00b3d7bfd856",
+  "repository_revision": "984e2c00d9678ec1a04b0c750b7fbbd967f54e93",
   "schema": "ananta.peer-overlay-churn-result.v1",
   "status": "passed"
 }
