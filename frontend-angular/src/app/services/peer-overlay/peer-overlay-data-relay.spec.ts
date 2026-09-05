@@ -84,6 +84,45 @@ describe('PeerOverlayDataRelay', () => {
     expect(new TextDecoder().decode(verifyCalls[1][1])).toBe(new TextDecoder().decode(verifyCalls[0][1]));
     expect(new TextDecoder().decode(verifyCalls[2][1])).toBe(new TextDecoder().decode(verifyCalls[0][1]));
   });
+
+  it.each([
+    ['cross-publication', (packet: OpaquePeerRelayPacketV1) => ({ ...packet, publication_id: 'publication-forged' }),
+      'peer_overlay_packet_scope_invalid'],
+    ['stale-route', (packet: OpaquePeerRelayPacketV1) => ({ ...packet, route_epoch: 1 }),
+      'peer_overlay_packet_scope_invalid'],
+    ['ciphertext-substitution', (packet: OpaquePeerRelayPacketV1) => ({ ...packet, ciphertext_digest: '0'.repeat(64) }),
+      'peer_overlay_ciphertext_digest_mismatch'],
+    ['route-poisoning', (packet: OpaquePeerRelayPacketV1) => ({ ...packet, destination_peer_id: 'not-leased' }),
+      'peer_overlay_destination_not_leased'],
+    ['loop-injection', (packet: OpaquePeerRelayPacketV1) => ({ ...packet, path: ['origin', 'local'] }),
+      'peer_overlay_path_invalid'],
+    ['chunk-confusion', (packet: OpaquePeerRelayPacketV1) => ({ ...packet, chunk_index: 2, chunk_count: 2 }),
+      'peer_overlay_chunk_invalid'],
+  ] as const)('rejects the deterministic adversarial corpus: %s', async (_name, mutate, reasonCode) => {
+    const relay = new PeerOverlayDataRelay(lease(), () => now, verifier());
+    relay.bindChild(port('child-1'));
+    expect(await relay.accept(mutate(await makePacket()))).toEqual({ state: 'rejected', reasonCode });
+  });
+
+  it('keeps adversarial load bounded and exposes no content-key or decrypt surface', async () => {
+    const relay = new PeerOverlayDataRelay(lease(), () => now, verifier());
+    relay.bindChild(port('child-1'));
+    const prototypeSurface = Object.getOwnPropertyNames(Object.getPrototypeOf(relay));
+    expect(prototypeSurface).not.toContain('decrypt');
+    expect(prototypeSurface).not.toContain('open');
+    expect(prototypeSurface).not.toContain('exportKey');
+
+    for (let seed = 0; seed < 128; seed += 1) {
+      const packet = await makePacket(`attack-${seed}`);
+      expect((await relay.accept({ ...packet, ciphertext_digest: 'f'.repeat(64) })).state).toBe('rejected');
+    }
+    const snapshot = relay.snapshot();
+    expect(snapshot['replayEntries']).toBe(0);
+    expect((snapshot['drops'] as Record<string, number>)['peer_overlay_ciphertext_digest_mismatch']).toBe(128);
+    expect(snapshot).not.toHaveProperty('ciphertext');
+    expect(snapshot).not.toHaveProperty('contentKey');
+    expect(snapshot).not.toHaveProperty('cleartext');
+  });
 });
 
 function lease(changes: Partial<AcceptedPeerRouteLease> = {}): AcceptedPeerRouteLease {

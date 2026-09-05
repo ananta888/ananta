@@ -128,6 +128,7 @@ class PeerRouteLease:
         self,
         key: bytes,
         *,
+        expected_hub_key_id: str,
         now: str,
         tenant_id: str,
         room_id: str,
@@ -135,6 +136,8 @@ class PeerRouteLease:
         child_peer_id: str,
         minimum_epochs: OverlayEpochs,
     ) -> None:
+        if self.hub_key_id != require_overlay_id(expected_hub_key_id, "hub_key_id"):
+            raise ValueError("peer_overlay_lease_hub_key_unknown")
         if not hmac.compare_digest(_signature(key, self.unsigned()), self.signature):
             raise ValueError("peer_overlay_lease_signature_invalid")
         if (self.tenant_id, self.room_id, self.publication_id, self.child_peer_id) != (

@@ -38,6 +38,7 @@ def test_route_lease_is_scope_bound_expiring_and_tamper_evident() -> None:
     ).sign(key)
     lease.verify(
         key,
+        expected_hub_key_id="hub-key-1",
         now="2026-08-29T00:00:30Z",
         tenant_id="tenant-1",
         room_id="room-1",
@@ -48,6 +49,18 @@ def test_route_lease_is_scope_bound_expiring_and_tamper_evident() -> None:
     with pytest.raises(ValueError, match="signature_invalid"):
         replace(lease, max_hops=3).verify(
             key,
+            expected_hub_key_id="hub-key-1",
+            now="2026-08-29T00:00:30Z",
+            tenant_id="tenant-1",
+            room_id="room-1",
+            publication_id="publication-1",
+            child_peer_id="child-1",
+            minimum_epochs=OverlayEpochs(1, 1, 2, 2),
+        )
+    with pytest.raises(ValueError, match="hub_key_unknown"):
+        lease.verify(
+            key,
+            expected_hub_key_id="retired-hub-key",
             now="2026-08-29T00:00:30Z",
             tenant_id="tenant-1",
             room_id="room-1",

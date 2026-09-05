@@ -27,6 +27,22 @@ describe('AuthenticatedLayerSelection', () => {
       lease({ transport: 'peer_data_dag' as never }), [ciphertext('low', 0, 0)],
     )).toThrow('media_layer_selection_lease_invalid');
   });
+
+  it.each([
+    ['stale key epoch', { keyEpoch: 3 }],
+    ['cross publication', { publicationId: 'publication-other' }],
+    ['cross receiver', { receiverScope: 'subscriber-other' }],
+  ] as const)('rejects authenticated metadata outside the exact lease: %s', (_name, changes) => {
+    expect(() => new AuthenticatedLayerSelection(() => 1_000).select(
+      lease(), [ciphertext('adversarial', 0, 0, changes)],
+    )).toThrow('media_layer_scope_mismatch');
+  });
+
+  it('rejects an unknown Hub lease marker before selecting any ciphertext', () => {
+    expect(() => new AuthenticatedLayerSelection(() => 1_000).select(
+      lease({ validation: 'unknown-hub-kid' as never }), [ciphertext('adversarial', 0, 0)],
+    )).toThrow('media_layer_selection_lease_invalid');
+  });
 });
 
 function lease(changes: Partial<AcceptedLayerSelectionLease> = {}): AcceptedLayerSelectionLease {
