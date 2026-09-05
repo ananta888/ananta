@@ -18,6 +18,9 @@ projection they receive; they do not elect routes or broaden capabilities.
 | Content-free multi-observer quality | Hub policy | `PeerOverlayQualityPolicy` |
 | Parent-path activation and failover fencing | Browser data plane | `PeerOverlayParentFailover` |
 | Edge-scoped SDP/ICE transport selection | Browser signaling adapter | `PeerOverlayLinkSignaling` |
+| Edge-scoped ICE/TURN configuration | Browser network policy | `PeerEdgeNetworkPolicy` |
+| Scoped relay participation consent | Browser consent policy | `PeerRelayConsentPolicy` |
+| User-selected IP privacy mode | Browser preference/UI | `PeerOverlayPrivacyPreferenceService` and settings component |
 | Encoded-frame cryptography | Browser crypto adapter | `MediaFrameCryptoPort` and scoped key leases |
 | Product release | Hub | `PeerOverlayReleaseGate` |
 
@@ -43,3 +46,11 @@ command, keeps backup bulk disabled before activation, and restores the primary
 if the bounded switch cannot complete. Link signaling consumes one short-lived
 Hub ticket per offer and automatically uses the Hub rendezvous path when the
 existing DataChannel is absent or races with a partition.
+
+`PeerEdgeNetworkPolicy` builds a fresh `RTCConfiguration` for one exact edge;
+it never mutates a room-wide ICE policy. Relay-only accepts only an exact
+Hub-validated, short-lived TURN projection and enforces `iceTransportPolicy =
+relay`. ICE restart requires a new ticket for the same tenant, room,
+publication and peer pair without membership/key changes or route downgrade.
+Relay participation is a separate, scoped, expiring and revocable consent
+check; a privacy transport preference cannot grant relay authority.

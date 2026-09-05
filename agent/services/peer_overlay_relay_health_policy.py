@@ -7,6 +7,8 @@ from typing import Any, Iterable, Mapping
 
 from ananta_contracts.peer_overlay import PeerRouteLease, require_overlay_id
 
+_TRAFFIC_CLASSES = frozenset({"control", "rekey", "event", "semantic", "bulk"})
+
 
 @dataclass(frozen=True, slots=True)
 class RelayDeliveryObservation:
@@ -17,6 +19,7 @@ class RelayDeliveryObservation:
     delay_ms: int
     sample_count: int
     observed_at_ms: int
+    traffic_class: str = "event"
 
     def __post_init__(self) -> None:
         require_overlay_id(self.observer_peer_id, "observer_peer_id")
@@ -27,6 +30,8 @@ class RelayDeliveryObservation:
             raise ValueError("peer_overlay_observation_value_invalid")
         if self.observed_at_ms < 1:
             raise ValueError("peer_overlay_observation_time_invalid")
+        if self.traffic_class not in _TRAFFIC_CLASSES:
+            raise ValueError("peer_overlay_observation_traffic_class_invalid")
 
 
 class PeerOverlayRelayHealthPolicy:
@@ -53,7 +58,7 @@ class PeerOverlayRelayHealthPolicy:
                 self._cooldown_ms - (now_ms - last_failover_at_ms),
                 (),
             )
-        latest: dict[str, RelayDeliveryObservation] = {}
+        latest: dict[tuple[str, str], RelayDeliveryObservation] = {}
         for raw in observations:
             value = raw if isinstance(raw, RelayDeliveryObservation) else RelayDeliveryObservation(**dict(raw))
             if (
@@ -63,32 +68,50 @@ class PeerOverlayRelayHealthPolicy:
                 or now_ms - value.observed_at_ms > self._window_ms
             ):
                 continue
-            current = latest.get(value.observer_peer_id)
+            key = (value.observer_peer_id, value.traffic_class)
+            current = latest.get(key)
             if current is None or value.observed_at_ms > current.observed_at_ms:
-                latest[value.observer_peer_id] = value
-        complaints = tuple(
-            sorted(
+                latest[key] = value
+        affected_classes: list[str] = []
+        complaining_peers: set[str] = set()
+        for traffic_class in sorted(_TRAFFIC_CLASSES):
+            class_values = {
+                observer: value
+                for (observer, observed_class), value in latest.items()
+                if observed_class == traffic_class
+            }
+            complaints = {
                 observer
-                for observer, value in latest.items()
+                for observer, value in class_values.items()
                 if value.sample_count >= 5 and (value.delivery_ratio < 0.8 or value.delay_ms > 3_000)
-            )
-        )
-        quorum = len(complaints) >= 2 and len(complaints) * 2 >= len(latest)
+            }
+            if len(complaints) >= 2 and len(complaints) * 2 >= len(class_values):
+                affected_classes.append(traffic_class)
+                complaining_peers.update(complaints)
+        quorum = bool(affected_classes)
         return _decision(
             quorum,
             "peer_overlay_failover_quorum_reached" if quorum else "peer_overlay_failover_quorum_missing",
             0,
-            complaints,
+            tuple(sorted(complaining_peers)),
+            tuple(affected_classes),
         )
 
 
-def _decision(switch: bool, reason_code: str, retry_after_ms: int, complaints: tuple[str, ...]) -> dict[str, Any]:
+def _decision(
+    switch: bool,
+    reason_code: str,
+    retry_after_ms: int,
+    complaints: tuple[str, ...],
+    affected_classes: tuple[str, ...] = (),
+) -> dict[str, Any]:
     return {
         "switch_to_backup": switch,
         "reason_code": reason_code,
         "retry_after_ms": retry_after_ms,
         "complaint_count": len(complaints),
         "complaining_peer_ids": list(complaints),
+        "affected_traffic_classes": list(affected_classes),
         "permanent_double_traffic_allowed": False,
         "human_intervention_required": False,
     }

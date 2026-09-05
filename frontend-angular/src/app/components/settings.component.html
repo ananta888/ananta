@@ -15,6 +15,7 @@
       <button data-testid="settings-section-models" class="button-outline" [class.active-toggle]="selectedSection==='models'" (click)="setSection('models')">Modelle</button>
       <button data-testid="settings-section-quality" class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='voice'" (click)="setSection('voice')" data-testid="settings-section-voice">Voice &amp; Fusion</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='network'" (click)="setSection('network')" data-testid="settings-section-network">Verbindung &amp; Datenschutz</button>
       <button data-testid="settings-section-system" class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='erweitert'" (click)="setSection('erweitert')">Erweitert</button>
     </div>
@@ -24,6 +25,7 @@
     @if (selectedSection === 'quality') { <app-settings-quality [state]="this" /> }
     @if (selectedSection === 'system') { <app-settings-system [state]="this" /> }
     @if (selectedSection === 'voice' && hub) { <app-settings-voice [hubUrl]="hub.url" /> }
+    @if (selectedSection === 'network') { <app-peer-overlay-privacy-settings /> }
     
     @if (selectedSection === 'account') {
       <div class="grid cols-2">

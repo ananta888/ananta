@@ -96,6 +96,8 @@ export class PeerOverlayDataRelay {
 
   unbindChild(childPeerId: string): void {
     this.children.delete(childPeerId);
+    const lanes = this.queues.get(childPeerId);
+    if (lanes) for (const queue of lanes.values()) queue.length = 0;
     this.queues.delete(childPeerId);
   }
 

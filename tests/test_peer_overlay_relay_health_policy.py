@@ -87,3 +87,38 @@ def test_failover_requires_a_signed_backup_candidate() -> None:
         last_failover_at_ms=None,
     )
     assert result["switch_to_backup"] is False
+
+
+def test_selective_forwarding_is_detected_per_class_without_multiplying_votes() -> None:
+    policy = PeerOverlayRelayHealthPolicy()
+    now = 10_000_000
+    observations = []
+    for observer in ("observer-1", "observer-2"):
+        observations.extend(
+            [
+                {**_observation(observer, now), "traffic_class": "control"},
+                {
+                    **_observation(observer, now),
+                    "traffic_class": "bulk",
+                    "delivery_ratio": 1.0,
+                    "delay_ms": 20,
+                },
+            ]
+        )
+    decision = policy.evaluate(
+        lease=_lease(), observations=observations, now_ms=now, last_failover_at_ms=None
+    )
+    assert decision["switch_to_backup"] is True
+    assert decision["affected_traffic_classes"] == ["control"]
+    assert decision["complaining_peer_ids"] == ["observer-1", "observer-2"]
+
+    one_observer = policy.evaluate(
+        lease=_lease(),
+        observations=[
+            {**_observation("observer-1", now), "traffic_class": traffic_class}
+            for traffic_class in ("control", "rekey", "event", "semantic", "bulk")
+        ],
+        now_ms=now,
+        last_failover_at_ms=None,
+    )
+    assert one_observer["switch_to_backup"] is False

@@ -273,6 +273,7 @@ class PeerOverlayControlService:
                 "to_peer_id": lease.backup_parent_id,
                 "failover_at_ms": now_ms,
                 "reason_code": decision["reason_code"],
+                "affected_traffic_classes": decision["affected_traffic_classes"],
             },
             expected_revision=int(previous.get("revision") or 0) if previous else 0,
         )

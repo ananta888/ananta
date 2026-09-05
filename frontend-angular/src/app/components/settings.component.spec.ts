@@ -200,6 +200,7 @@ describe('SettingsComponent (benchmark config)', () => {
 
   it('accepts the Voice settings deep link and rejects unknown sections', () => {
     expect(settingsSectionFromQuery('voice')).toBe('voice');
+    expect(settingsSectionFromQuery('network')).toBe('network');
     expect(settingsSectionFromQuery('unknown')).toBeNull();
   });
 

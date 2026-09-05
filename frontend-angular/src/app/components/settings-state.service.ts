@@ -18,10 +18,10 @@ import {
   type ProjectModelRoutingRecommendation,
 } from './settings-config.helpers';
 
-export type SettingsSection = 'account' | 'llm' | 'models' | 'quality' | 'voice' | 'system' | 'erweitert';
+export type SettingsSection = 'account' | 'llm' | 'models' | 'quality' | 'voice' | 'network' | 'system' | 'erweitert';
 
 export function settingsSectionFromQuery(value: string | null): SettingsSection | null {
-  const sections: SettingsSection[] = ['account', 'llm', 'models', 'quality', 'voice', 'system', 'erweitert'];
+  const sections: SettingsSection[] = ['account', 'llm', 'models', 'quality', 'voice', 'network', 'system', 'erweitert'];
   return sections.includes(value as SettingsSection) ? value as SettingsSection : null;
 }
 

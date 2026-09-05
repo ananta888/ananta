@@ -47,11 +47,32 @@ health policy adds a 30-second post-failover cooldown.
 Missing resource fields take conservative ineligible defaults; legacy clients
 remain accepted as leaves but cannot silently acquire relay authority.
 
+Drop and delay observations are evaluated separately for `control`, `rekey`,
+`event`, `semantic` and `bulk`. A selective-forwarding failure therefore trips
+when two active members reach quorum for the same class. Reporting multiple
+classes never gives one member multiple votes. The failover audit records only
+the affected class names, logical peers and epochs, never payloads or network
+addresses.
+
 After bootstrap, SDP/ICE messages use the existing peer DataChannel when it is
 ready. Every offer is bound to one unexpired Hub-accepted edge ticket and its
 Hub-selected offerer, limited to 64 KiB and rejected if bearer credentials or
 private keys occur. Missing or raced in-band transport falls back automatically
 to the Hub rendezvous path. It never waits for operator input.
+
+Each peer edge receives an independent ICE configuration. `direct_preferred`
+and `automatic` permit direct candidates and truthfully warn that the connected
+neighbor can see connection metadata including the selected IP; mDNS and E2EE
+do not change that fact. `relay_only` requires a matching short-lived TURN
+credential and enforces the browser relay transport policy for that edge only.
+TURN on one edge never forces sibling edges through TURN. A network change may
+restart ICE only with a fresh exact-edge Hub ticket retaining membership and
+key epochs and without route downgrade. Separately, becoming a peer relay
+requires an unexpired room/peer consent that can be revoked at any time.
+
+The frontend quality workflow runs `npm audit --audit-level=high` after the
+reproducible install. High or critical production and build dependency
+advisories block the build.
 
 ## QoS and quality feedback
 

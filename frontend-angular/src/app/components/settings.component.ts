@@ -8,6 +8,7 @@ import { SettingsSystemComponent } from './settings-system.component';
 import { SettingsVoiceComponent } from './settings-voice.component';
 import { SettingsSection, SettingsState } from './settings-state.service';
 import { ModelDashboardComponent } from '../features/system/model-dashboard/model-dashboard.component';
+import { PeerOverlayPrivacySettingsComponent } from '../services/peer-overlay/peer-overlay-privacy-settings.component';
 export {
   buildOllamaModelStrategyRowsValue, buildProjectModelRoutingRecommendationValue,
   findMatchingCatalogModelId, normalizeArtifactFlowConfigValue,
@@ -26,7 +27,7 @@ export {
   imports: [
     ChangePasswordComponent, UserManagementComponent, MfaSetupComponent,
     SettingsLlmComponent, SettingsQualityComponent, SettingsSystemComponent, SettingsVoiceComponent,
-    ModelDashboardComponent,
+    ModelDashboardComponent, PeerOverlayPrivacySettingsComponent,
   ],
   templateUrl: './settings.component.html',
 })
