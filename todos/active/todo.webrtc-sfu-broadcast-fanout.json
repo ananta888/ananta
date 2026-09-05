@@ -72,8 +72,9 @@
     ]
   },
   "revision_notes": [
+    "Hub-gebundener Real-Relay-Abschluss 2026-09-05 auf main@86b4233cc: RUN_0be3c152c9ea14b5d29d29b9564f7896 wurde vor dem Lauf durch die Hub Evidence Registry reserviert und bindet vier immutable SRC_*-Quellen fuer Repository, LiveKit-Image, Coturn-Image sowie Chromium-/Firefox-Runtimes. Der gepinnte LiveKit-Server 1.13.1, livekit-client 2.20.1, Chromium 148 und Firefox 153 bestanden mit einem Publisher, drei Receivern, erzwungenen Relay-Candidate-Pairs, E2EE, Wrong-Key-Negativprobe und vollstaendigem Cleanup. Die Evidenz ist local, production_release_eligible=false und public_network_path_verified=false; oeffentliche NAT-/DNS-/TLS-, Accounting-, Multi-Node-, Scale-, Soak- und Chaosgates bleiben separat offen.",
     "Realer Runtime-Abschluss 2026-09-05 auf main@10f05cf9a: Der digest-gepinnte LiveKit-Server 1.13.1 und livekit-client 2.20.1 bestanden den vollautomatischen Chromium-Smoke mit einem Publisher, drei Receivern, genau einer Publikation, drei dekodierenden MediaStreams, E2EE, UpdateSubscriptions, SendData, Participant-Permissions und vollstaendigem Cleanup. Der zuvor veraltete Probe erwartete noch max_participants 8 und ein bedingungslos aktiviertes adaptiveStream; beide statischen Bindungen wurden an die bestehende Hub-Admission-Obergrenze 250 und den produktiven adaptive/manual Layer-Modus angepasst und durch 10/10 Integrationstests abgesichert. SFB-BASE-006 ist damit done; Parent-Readiness und weitergehende Scale-/Soak-/TURN-Gates bleiben getrennt fail-closed.",
-    "Lokaler Real-Relay-Fortschritt 2026-07-23, ausdruecklich keine formale Gate- oder Nightly-Evidence: Der gehaertete finale Host-Network-Coturn-Lauf /tmp/ananta-sfu-broadcast-hardened-host-turn-relay.json endete nach 19.84s mit Exit 0 und release_evidence:false. Ausschliesslich Relay-basierte ausgewaehlte lokale Candidate-Pairs wurden akzeptiert; der Publisher besass exakt 1 PeerConnection und 1 LiveKit-Publikation, Chromium und Firefox jeweils 3 Receiver, und der Wrong-Key-Peer dekodierte 0 Frames. Die Haertungsvalidierung ergab 15 passed und 8 marker-skipped; die eigens gestarteten Ressourcen wurden vollstaendig bereinigt.",
+    "Der fruehere lokale Real-Relay-Diagnoselauf vom 2026-07-23 wurde am 2026-09-05 durch den formalen Hub-reservierten Lauf RUN_0be3c152c9ea14b5d29d29b9564f7896 ersetzt. Der neue Lauf behaelt dieselbe fail-closed Grenze bei: lokale echte Runtime-Evidenz ist kein Produktions-, Kapazitaets- oder oeffentlicher Netzwerkclaim.",
     "Die Direct-SFU-Diagnose erreichte 100/100 Receiver ueber drei Chromium-Prozesse. Wegen des diagnostischen Profils, der fehlenden formalen Nightly-Artefaktbindung und der fehlenden vergleichbaren All-TURN-/Soak-/Chaos-Messung wird daraus weder ein freigegebener Receivercap noch ein Abschluss von Scale-, Soak- oder Capacity-Tasks abgeleitet.",
     "Ein Supply-Chain-Produzent fuer Child-SBOM, Scans und Container-Controls wurde mit 4 fokussierten Tests implementiert. Der reale Vollscan wurde abgebrochen und erzeugte keine verwertbare Evidence; SFB-GATE-012 bleibt deshalb partial. CLI-Entry-Points der E2E-Werkzeuge wurden korrigiert und mit 9 fokussierten Tests abgesichert, ohne daraus Runtime- oder Release-Evidence abzuleiten.",
     "Harte Infrastrukturblocker am 2026-07-23: Das produktionsnahe Fleetprofil benoetigt weiterhin fehlende Runtime-/Capability-Digests, das exakte Redis-Image, Runtime-Agent-Image und -Konfiguration sowie Redis-TLS-Material. Das produktive TURN-Profil benoetigt weiterhin die vorgesehene Coturn-/Observer-Laufzeit, externe IP-/Identity-/Versions-/URL-/State-Konfiguration, zehn externe Secrets und einen aktiven Swarm; TURNS auf 5349 ist im lokal ausgefuehrten Profil nicht erreichbar. Formale Accessibility-, zweistuendige Soak-, vergleichbare All-TURN-Scale-, Chaos- und Game-Day-Nachweise fehlen weiterhin.",
@@ -82,7 +83,7 @@
     "SFB-GATE-002 ist done: scripts/run_sfu_broadcast_fuzz_gate.py erzeugte artifacts/test-gates/sfu-broadcast-fuzz.json mit status passed, 3 Seeds und 64 Cases je Seed. Die Coverage umfasst die geforderten Queue- und Port-Angriffe; das Artefakt bindet source-, config- und corpus-sha256 sowie started_at, ended_at, CPU-, RSS- und Timeoutwerte. known_blockers und reason_codes sind leer, minimized_failure ist null und real_media_plane_claimed ist false. Die GATE-002-Entscheidung stuetzt sich auf dieses Fuzz-Gate-Artefakt, nicht auf Contract-Parity.",
     "Stand 2026-07-22 (finaler konservativer DoD-Audit): 69 Tasks sind done, 34 partial, 0 todo, 0 in_progress und 0 blocked; der reine Done-Anteil betraegt 66.99 %. Alle nicht-done Tasks bleiben im JSON partial; external-blocked ist eine analytische Teilmenge und kein eigener Statuswert.",
     "Finale lokale Nachweise: finaler breiter Python-Rerun 612 passed, 44 skipped und 0 failed in 371.90s bei 136 Dateien und 656 Tests; Ed25519-Raw-Key-Regression deterministisch abgedeckt; ein frueherer Ed25519-Fokuslauf 7/7; OBS-007 11/11; TURN-Accounting 10/10; Frontend 1719 passed/1 skipped in 313 Dateien; Build passed; Lint 0 Fehler und 27 Warnungen; Alembic besitzt genau Head e68df4c5b7a9 und der Migrationstest ist 2/2; lokale Security 26/26; Fuzz-Gate passed; Contract-Parity fuer die Contract-Tasks 31 Python plus 7 TypeScript; PR-Matrix 8/8. Diese Nachweise schliessen lokale DoDs, ersetzen aber keine explizit geforderte externe Runtime-Evidence.",
-    "External-blocked-Teilmenge (34 Tasks): SFB-BASE-006, SFB-GATE-001, SFB-GATE-003, SFB-GATE-004, SFB-GATE-005, SFB-GATE-006, SFB-GATE-007, SFB-GATE-008, SFB-GATE-009, SFB-GATE-010, SFB-GATE-011, SFB-GATE-012, SFB-GATE-013, SFB-GATE-014, SFB-GATE-015, SFB-GRP-010, SFB-GRP-013, SFB-OPS-010, SFB-OPS-011, SFB-OPS-012, SFB-OPS-014, SFB-OPS-016, SFB-QOS-010, SFB-QOS-011, SFB-QOS-012, SFB-QOS-013, SFB-QOS-014, SFB-QOS-016, SFB-QOS-017, SFB-QOS-018, SFB-QOS-019, SFB-TURN-007, SFB-TURN-010, SFB-TURN-011. Fuer diese Tasks fehlen beziehungsweise scheitern weiterhin task-spezifische reale Runtime-, Browser-, Packet-Capture-, Container-, Chaos-, Soak-, Scale- oder Game-Day-Nachweise; andere Matrixstufen sind nur geplant.",
+    "Blocked-Teilmenge (33 Tasks): SFB-GATE-001, SFB-GATE-003, SFB-GATE-004, SFB-GATE-005, SFB-GATE-006, SFB-GATE-007, SFB-GATE-008, SFB-GATE-009, SFB-GATE-010, SFB-GATE-011, SFB-GATE-012, SFB-GATE-013, SFB-GATE-014, SFB-GATE-015, SFB-GRP-010, SFB-GRP-013, SFB-OPS-010, SFB-OPS-011, SFB-OPS-012, SFB-OPS-014, SFB-OPS-016, SFB-QOS-010, SFB-QOS-011, SFB-QOS-012, SFB-QOS-013, SFB-QOS-014, SFB-QOS-016, SFB-QOS-017, SFB-QOS-018, SFB-QOS-019, SFB-TURN-007, SFB-TURN-010, SFB-TURN-011. Der lokale LiveKit-/Coturn-/Chromium-/Firefox-Unterbau ist Hub-verifiziert; es fehlen weiterhin jeweils task-spezifische Produktadapter-, Accounting-, Public-Network-, Packet-Capture-, Multi-Node-, Chaos-, Soak-, Scale- oder Game-Day-Nachweise.",
     "Parent-Readiness und Rollout bleiben unveraendert no_go/observe_only. Das Parent-Artefakt ist vorhanden und liefert korrekt fail-closed; deshalb ist SFB-BASE-003 als Pruefer done, waehrend Aktivierung und Gesamtfreigabe blockiert bleiben. Semantic-intern sind 5/5 gruen, das Gesamtartefakt bleibt wegen stale Capture und Load-Drops fail. Es wird keine SRC_*/RUN_*-Evidence erfunden.",
     "Version 2.2 schliesst den Release-DAG fuer Retention/Purge und behandelt wegen des nur programmweiten Parent-Gates alle 34 real referenzierten Parent-Voraussetzungen ehrlich als aktivierungsrelevant.",
     "Stock-LiveKit und authenticated Runtime Extension besitzen getrennte Identity-, ACK-, Observation-, Placement- und Failoverkriterien; im livekit_native-Modus werden weder vorab bekannte Node-IDs noch Node-Signaturen erfunden.",
@@ -1823,8 +1824,8 @@
       "type": "infrastructure",
       "milestone_id": "SFB-M2",
       "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "Der Hub-seitige LiveKit-Control-Adapter, Capability-Grenzen und fail-closed Fallbacks sind implementiert und lokal automatisiert geprüft. Ein positiv attestierter Real-Container-Lauf ist durch SFB-BASE-006 blockiert; ohne ihn darf der Adapter keine Runtime-Fähigkeit als available behaupten.",
+      "progress_percent": 70,
+      "blocked_reason": "Der Hub-seitige LiveKit-Control-Adapter, Capability-Grenzen und fail-closed Fallbacks sind implementiert; der Hub-attestierte Real-Container-Lauf aus SFB-BASE-006 belegt die oeffentlichen RoomService-Grundoperationen. Offen bleibt der task-spezifische Produktadapter-Korpus fuer Restart, Partial Apply, stale Intent, Retry/Reconciliation und Revoke.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1945,8 +1946,8 @@
       "type": "architecture",
       "milestone_id": "SFB-M3",
       "status": "blocked",
-      "progress_percent": 55,
-      "blocked_reason": "Die Room-Session-Verantwortungen sind in kleine Ports und eine Composition Factory zerlegt; Backend- und Angular-Vertragstests sind grün. Die verbleibende Substituierbarkeits-Evidenz gegen die reale gepinnte LiveKit-Runtime hängt von SFB-BASE-006 ab.",
+      "progress_percent": 70,
+      "blocked_reason": "Die Room-Session-Verantwortungen sind in kleine Ports und eine Composition Factory zerlegt; Backend- und Angular-Vertragstests sind gruen und die gepinnte LiveKit-Runtime ist Hub-attestiert. Offen bleibt ein realer Lauf durch genau diese produktive Angular-Session-/Legacy-Fassade, der doppelte Listener, Worker, Tracks und Timer ausschliesst.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2215,8 +2216,8 @@
       "type": "integration",
       "milestone_id": "SFB-M3",
       "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "Signierte Layer-Projektion, API-Client, Validator, CAS-/Epoch-Grenzen und sichere Fallbacks sind implementiert und lokal geprüft. Der verbleibende End-to-End-Nachweis auf realer SFU- und Browser-Runtime hängt von SFB-BASE-006 und SFB-GATE-004 ab.",
+      "progress_percent": 65,
+      "blocked_reason": "Signierte Layer-Projektion, API-Client, Validator, CAS-/Epoch-Grenzen und sichere Fallbacks sind implementiert und die reale SFU-/Browser-Basis ist Hub-attestiert. Offen bleibt der produktive End-to-End-Lauf des Angular-Clients mit Initial-/Update-Projektionen, Receipts, Reconnect, Revoke und Cleanup aus SFB-GATE-004.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2785,8 +2786,8 @@
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
       "status": "blocked",
-      "progress_percent": 45,
-      "blocked_reason": "Die geschlossene Runtime-Control-Grenze für öffentliche LiveKit-APIs und optional attestierte Extensions ist implementiert und fail-closed getestet. Eine Runtime darf erst nach dem externen gepinnten Capability-Smoke aus SFB-BASE-006 als wirksam ausgewählt werden.",
+      "progress_percent": 70,
+      "blocked_reason": "Die geschlossene Runtime-Control-Grenze fuer oeffentliche LiveKit-APIs ist implementiert, fail-closed getestet und ihre gepinnte reale Basis aus SFB-BASE-006 Hub-attestiert. Offen bleibt der task-spezifische Produktlauf fuer Rotation, Restart, Version-Skew, Oversize, Rate-Limit und die gegenseitig exklusive Mode-Matrix.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3264,8 +3265,8 @@
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
       "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "Der optionale Coturn-Pool, isolierte Compose-Profile, Secret-/Port-Grenzen und Healthchecks sind implementiert. Produktionsnahes Deployment, öffentliche Relay-Adressen und Zertifikate erfordern extern bereitgestellte Infrastruktur.",
+      "progress_percent": 60,
+      "blocked_reason": "Der optionale Coturn-Pool, isolierte Compose-Profile, Secret-/Port-Grenzen und Healthchecks sind implementiert; ein digestgepinntes, non-root, read-only Coturn relayte im Hub-Lauf RUN_0be3c152c9ea14b5d29d29b9564f7896 reale Chromium-/Firefox-Medien. Offen bleiben das produktive Poolprofil mit TCP/TLS, oeffentlicher Relay-Adresse, Zertifikaten, Ablauf-/Rotation-/Restartfaellen und Quoten.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3366,8 +3367,8 @@
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
       "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "Health-, Accounting-, Kosten- und content-free Observation-Pfade sind implementiert und fail-closed getestet. Reale Coturn-Accountingdaten und Ausfallmessungen benötigen einen laufenden externen TURN-Pool.",
+      "progress_percent": 50,
+      "blocked_reason": "Health-, Accounting-, Kosten- und content-free Observation-Pfade sind implementiert und fail-closed getestet; ein realer Coturn-Prozess und reale Testallocations sind nun Hub-attestiert. Der Lauf projiziert jedoch Browser-WebRTC-Stats statt den produktiven Coturn-Collector; Counterkorrelation, Exportausfall, Countergap, Poolrestart und Observer-Cleanup bleiben offen.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3437,8 +3438,8 @@
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
       "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "LiveKit-/Browser-Konfiguration, TURN-only-Policy und lokaler Relay-Harness sind implementiert und automatisiert geprüft. Der produktive externe Relay-Pfad mit echten Browsern, DNS/TLS und öffentlichem Netzwerk benötigt externe Infrastruktur und RUN_*-Evidenz.",
+      "progress_percent": 70,
+      "blocked_reason": "LiveKit-/Browser-Konfiguration und TURN-only-Policy sind implementiert. RUN_0be3c152c9ea14b5d29d29b9564f7896 belegt echte relay-only Chromium-/Firefox-Medien ueber gepinntes LiveKit und Coturn mit E2EE und Cleanup. Offen bleiben Coturn-Accounting, UDP/TCP/TLS-Matrix, DNS-/TLS-/Rotation-/Poolwechsel-Fehler und ein oeffentlicher NAT-Pfad; der lokale Lauf behauptet diese Grenzen nicht.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3746,8 +3747,8 @@
       "type": "testing",
       "milestone_id": "SFB-M8",
       "status": "blocked",
-      "progress_percent": 0,
-      "blocked_reason": "Der Semantic-Media-Harness enthält Broadcast-Fixtures, deterministische Szenarien und fail-closed Auswertung. Vollständige reale Harness-Evidenz ist durch die fehlende gepinnte LiveKit-/Browser-/TURN-Laufumgebung blockiert.",
+      "progress_percent": 65,
+      "blocked_reason": "Der Semantic-Media-Harness enthaelt Broadcast-Fixtures und fail-closed Auswertung; gepinnte LiveKit-, Coturn-, Chromium- und Firefox-Runtimes liefen unter Hub-Evidenz real. Offen bleiben der integrierte Hub-/Datenbank-Stack, die vollstaendige seedbare Fault-Matrix und deren gemeinsamer Cleanup-/Lease-Nachweis.",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -4310,7 +4311,7 @@
         "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 88.8,
+      "progress_percent": 92.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4319,14 +4320,14 @@
           "done": 3
         }
       },
-      "release_gate": {
+    "release_gate": {
         "total": 7,
         "done": 2,
         "partial": 0,
         "blocked": 5,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 28.6,
+      "progress_percent": 28.6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4399,14 +4400,14 @@
           "done": 8
         }
       },
-      "testing": {
+    "testing": {
         "total": 7,
         "done": 2,
         "partial": 0,
         "blocked": 5,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 28.6,
+      "progress_percent": 37.9,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4438,7 +4439,7 @@
         "blocked": 8,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 31.4,
+      "progress_percent": 56.4,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
@@ -4454,7 +4455,7 @@
         "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+      "progress_percent": 65.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
