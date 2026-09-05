@@ -115,6 +115,7 @@ def test_runtime_gguf_is_materialized_atomically_with_verified_digest(tmp_path: 
     assert result["sha256"] == digest
     assert (destination / "model.Q4_K_M.gguf").read_bytes() == source.read_bytes()
     assert not (destination / ".model.Q4_K_M.gguf.partial").exists()
+    assert destination.stat().st_mode & 0o777 == 0o777
 
 
 def test_ollama_command_is_gpu_bound_local_only_and_cloud_disabled(tmp_path: Path) -> None:

@@ -117,6 +117,11 @@ def materialize_runtime_gguf(
         raise ValueError("nvidia_smoke_runtime_export_destination_invalid")
     destination.parent.chmod(0o777)
     destination.mkdir(mode=0o777)
+    # The export crosses from the unprivileged container UID to the host-side
+    # evidence gate.  mkdir applies the worker umask, so make the boundary
+    # contract explicit after creation; otherwise the host can validate the
+    # GGUF but cannot remove the worker-owned directory deterministically.
+    destination.chmod(0o777)
     source, metadata = runtime.artifact(job_id, candidates[0])
     expected_sha256 = str(metadata.get("sha256") or "")
     expected_size = int(metadata.get("size_bytes") or 0)
