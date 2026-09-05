@@ -278,6 +278,8 @@ def build_container_command(
             "--env",
             "NUMBA_CACHE_DIR=/tmp/numba-cache",
             "--env",
+            "UNSLOTH_COMPILE_LOCATION=/tmp/unsloth-compiled-cache",
+            "--env",
             "TRANSFORMERS_OFFLINE=1",
             "--env",
             f"ANANTA_UNSLOTH_SRC_IDS={','.join(str(value) for value in source_ids)}",
