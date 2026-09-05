@@ -32,7 +32,23 @@ python scripts/verify_sfu_distributed_runtime.py
 
 It keeps `multi_node`, `distributed_capacity` and `rolling_drain` false until both a supplied `SRC_*` and `RUN_*` identifier validate and every structural check passes. A real gate must additionally prove startup, rolling drain, partition, Redis or control outage, runtime loss, rejoin and incompatible image/config digest behavior.
 
-The Redis image is intentionally reported as unpinned until an approved registry digest is supplied. No release claim may bypass that reason code.
+The Redis 7.4.2 image is pinned to its immutable OCI index digest. Changing the
+tag or digest requires a fresh source admission and runtime gate.
+
+For a bounded, real-process local proof, run:
+
+```bash
+python scripts/e2e/sfu_broadcast_local_multinode_e2e.py \
+  --output /tmp/ananta-sfu-broadcast-local-multinode.json
+```
+
+The harness starts two pinned LiveKit containers, pinned Redis with mTLS and an
+ephemeral ACL, and pinned coturn. Chromium and Firefox verify media after one
+node is drained; the node is then restarted and must rejoin the Redis-backed
+fleet. It owns and removes every runtime resource. The result is deliberately
+classified `local_single_host`: it proves the native two-node boundary, drain
+and reconnection, but not independent hosts, public routing or production
+capacity.
 
 ## Rollout and rollback
 

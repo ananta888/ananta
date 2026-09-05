@@ -11,7 +11,13 @@ redis:
   username: livekit
   password: UNCONFIGURED_FAIL_CLOSED
   db: 7
-  use_tls: true
+  tls:
+    enabled: true
+    insecure: false
+    server_name: sfu-broadcast-redis
+    ca_cert_file: /run/sfu-redis-tls/ca.crt
+    client_cert_file: /run/sfu-redis-tls/client.crt
+    client_key_file: /run/sfu-redis-tls/client.key
 logging:
   level: info
 room:
