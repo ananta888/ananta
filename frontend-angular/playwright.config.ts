@@ -71,7 +71,13 @@ const browserProjects = browsers.map((browser) => {
   if (browser === 'webkit') {
     return { name: 'webkit', use: { ...devices['Desktop Safari'] } };
   }
-  return { name: 'chromium', use: { ...devices['Desktop Chrome'] } };
+  return {
+    name: 'chromium',
+    use: {
+      ...devices['Desktop Chrome'],
+      launchOptions: { args: ['--js-flags=--expose-gc'] },
+    },
+  };
 });
 
 export default defineConfig({

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mockJson } from './helpers/mock-http';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 
 test.describe('Auto-Planner', () => {
   test.beforeEach(async ({ page, request }) => {
@@ -61,23 +61,27 @@ test.describe('Auto-Planner', () => {
     await expect(page.getByTestId('goal-advanced-fields')).toBeVisible();
   });
 
-  test('renders goal detail drilldown panels', async ({ page, request }) => {
+  test('renders goal detail drilldown panels', async ({ page }) => {
     await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
     await mockJson(page, '**/teams*', []);
-    const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
-    const createRes = await request.post(`${HUB_URL}/goals/test/provision`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-      data: {
-        goal: 'Ship release',
-        summary: 'Ship release',
-        status: 'planned',
-        context: 'E2E drilldown test',
-      },
+    const goalId = 'goal-e2e-drilldown';
+    await page.route(/\/goals(?:\?.*)?$/, async route => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{
+          id: goalId,
+          goal: 'Ship release',
+          summary: 'Ship release',
+          status: 'planned',
+          context: 'E2E drilldown test',
+        }]),
+      });
     });
-    expect(createRes.ok()).toBeTruthy();
-    const createPayload = await createRes.json() as any;
-    const goalId = createPayload?.data?.id || createPayload?.id || createPayload?.data?.goal?.id;
-    expect(goalId).toBeTruthy();
 
     await page.route(`**/goals/${goalId}/detail**`, async route => {
       await route.fulfill({
@@ -107,7 +111,7 @@ test.describe('Auto-Planner', () => {
       });
     });
 
-    await page.goto('/auto-planner');
+    await gotoProjectScopedRoute(page, '/auto-planner', { settleNetworkIdle: false });
     await expect(page.getByTestId('goal-list')).toContainText('Ship release');
     await page.getByTestId('goal-list').getByText('Ship release').first().click();
     await expect(page.getByTestId('goal-detail-panel')).toBeVisible();

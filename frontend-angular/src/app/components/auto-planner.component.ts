@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, effect, inject, signal, untracked } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 
@@ -349,6 +349,7 @@ export class AutoPlannerComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
+  private observedProjectId = this.projectContext.selectedProjectId();
 
   hub = this.dir.list().find((a) => a.role === 'hub');
   status: any = null;
@@ -382,6 +383,21 @@ export class AutoPlannerComponent implements OnInit {
   selectedGoalDetail: any = null;
   editingNodeId = '';
   editingNode: any = { title: '', priority: 'Medium' };
+
+  constructor() {
+    effect(() => {
+      const projectId = this.projectContext.selectedProjectId();
+      if (projectId === this.observedProjectId) return;
+      this.observedProjectId = projectId;
+      if (!projectId) {
+        this.goals.set([]);
+        this.selectedGoalId = '';
+        this.selectedGoalDetail = null;
+        return;
+      }
+      untracked(() => this.loadGoals());
+    });
+  }
 
   ngOnInit() {
     const user = this.auth.decodeTokenPayload(this.auth.token);
