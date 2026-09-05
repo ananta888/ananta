@@ -30,6 +30,21 @@ must not pause for human approval. A human may choose configuration, but lack of
 interaction always produces a deterministic safe state rather than a waiting
 workflow.
 
+## Headless four-peer browser capacity gate
+
+Run `python scripts/run_peer_mesh_browser_capacity_gate.py` from the repository
+root. The Hub runner admits the versioned harness as synthetic test source,
+reserves a bound `RUN_*` identity before execution, passes only that assignment
+projection to Playwright and records the terminal result. Chromium and Firefox
+each execute four isolated identities for audio-only, 720p camera and synthetic
+screenshare profiles. The report is written to
+`artifacts/test-gates/peer-mesh-browser-capacity.json`.
+
+The gate is fully headless. Its real browser measurements are useful for local
+resource policy calibration, but its source and run are deliberately classified
+as synthetic test evidence. The Hub therefore rejects them for local, external
+or production release promotion.
+
 ## Rollback
 
 1. Set `ANANTA_PEER_OVERLAY_DATA_ENABLED=false` and restart/reload the Hub.
