@@ -12,8 +12,10 @@ import pytest
 
 from scripts.benchmark import qdrant_vector_store as benchmark
 from scripts.benchmark.qdrant_vector_store import (
+    QDRANT_BENCHMARK_REQUEST_TIMEOUT_SECONDS,
     QDRANT_IMAGE_DIGEST,
     QDRANT_IMAGE_REFERENCE,
+    BenchmarkRuntimeError,
     _artifact,
     _dataset,
     _evaluate_metrics,
@@ -37,31 +39,15 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_qdrant_benchmark_profiles_are_fixed_and_monotonic() -> None:
-    payload = json.loads(
-        (ROOT / "config/benchmarks/qdrant-vector-store.v1.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    payload = json.loads((ROOT / "config/benchmarks/qdrant-vector-store.v1.json").read_text(encoding="utf-8"))
     assert payload["schema"] == "qdrant_vector_store_benchmark.v1"
     assert payload["profile_version"] == 1
     assert payload["seed"] == 424242
-    sizes = [
-        payload["profiles"][name]["records"]
-        for name in ("small", "medium", "large")
-    ]
+    sizes = [payload["profiles"][name]["records"] for name in ("small", "medium", "large")]
     assert sizes == [10_000, 100_000, 1_000_000]
-    assert [
-        payload["profiles"][name]["queries"]
-        for name in ("small", "medium", "large")
-    ] == [100, 500, 1_000]
-    assert [
-        payload["profiles"][name]["dimensions"]
-        for name in ("small", "medium", "large")
-    ] == [384, 768, 1536]
-    assert [
-        payload["profiles"][name]["payload_bytes"]
-        for name in ("small", "medium", "large")
-    ] == [512, 1024, 2048]
+    assert [payload["profiles"][name]["queries"] for name in ("small", "medium", "large")] == [100, 500, 1_000]
+    assert [payload["profiles"][name]["dimensions"] for name in ("small", "medium", "large")] == [384, 768, 1536]
+    assert [payload["profiles"][name]["payload_bytes"] for name in ("small", "medium", "large")] == [512, 1024, 2048]
     assert payload["warmup_runs"] == 2
     assert payload["measurement_runs"] == 5
     assert payload["top_k"] == [10, 50]
@@ -100,10 +86,7 @@ def test_exact_cosine_baseline_and_filter_are_deterministic() -> None:
     unfiltered = _exact_ids(first, first[3].vector, top_k=5, filtered=False)
     filtered = _exact_ids(first, first[3].vector, top_k=5, filtered=True)
     assert unfiltered[0] == first[3].record_id
-    assert all(
-        int(record_id.rsplit("-", 1)[-1]) % 2 == 0
-        for record_id in filtered
-    )
+    assert all(int(record_id.rsplit("-", 1)[-1]) % 2 == 0 for record_id in filtered)
 
 
 def test_large_profile_payload_is_exact_and_schema_bounded() -> None:
@@ -142,9 +125,7 @@ def test_percentiles_memory_units_and_evidence_schema() -> None:
             profile="small",
             qdrant_url="http://127.0.0.1:6333",
             _observed_qdrant_server="1.18.3",
-            _observed_qdrant_digest=(
-                "sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
-            ),
+            _observed_qdrant_digest=("sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"),
         ),
         started_at="2026-07-25T00:00:00+00:00",
         duration_seconds=0.5,
@@ -153,11 +134,7 @@ def test_percentiles_memory_units_and_evidence_schema() -> None:
         reason_code="container_memory_unavailable",
         warnings=("container_memory_unavailable",),
     )
-    schema = json.loads(
-        (ROOT / "docs/schemas/benchmark_run_artifact.v1.schema.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    schema = json.loads((ROOT / "docs/schemas/benchmark_run_artifact.v1.schema.json").read_text(encoding="utf-8"))
     assert artifact["schema"] == schema["properties"]["schema"]["const"]
     assert set(schema["required"]).issubset(artifact)
     assert artifact["env_sanitized"]["ANANTA_QDRANT_API_KEY"] == "[REDACTED]"
@@ -166,11 +143,7 @@ def test_percentiles_memory_units_and_evidence_schema() -> None:
 
 
 def test_missing_reference_host_approval_is_inconclusive_preflight() -> None:
-    payload = json.loads(
-        (ROOT / "config/benchmarks/qdrant-vector-store.v1.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    payload = json.loads((ROOT / "config/benchmarks/qdrant-vector-store.v1.json").read_text(encoding="utf-8"))
     reason, observation = _preflight(
         argparse.Namespace(reference_host_approved=False),
         payload["profiles"]["small"],
@@ -193,6 +166,37 @@ def test_server_and_exact_digest_reference_are_observed_not_assumed() -> None:
     assert _verified_image_digest(QDRANT_IMAGE_REFERENCE) == QDRANT_IMAGE_DIGEST
     assert _verified_image_digest(f"mirror/{QDRANT_IMAGE_REFERENCE}") == ""
     assert _verified_image_digest("qdrant/qdrant:v1.18.3") == ""
+    assert QDRANT_BENCHMARK_REQUEST_TIMEOUT_SECONDS == 300.0
+
+
+def test_runtime_phase_error_is_bounded_and_secret_free(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    output = tmp_path / "benchmark-failed.json"
+    args = argparse.Namespace(
+        config=str(ROOT / "config/benchmarks/qdrant-vector-store.v1.json"),
+        profile="small",
+        qdrant_url="https://localhost:6333",
+        allow_remote=False,
+        reference_host_approved=True,
+        container="qdrant",
+        tls_ca_cert_file=None,
+        output=output,
+    )
+    monkeypatch.setattr(benchmark, "parse_args", lambda: args)
+    monkeypatch.setattr(
+        benchmark,
+        "run",
+        lambda _args: (_ for _ in ()).throw(BenchmarkRuntimeError("benchmark_qdrant_build_failed")),
+    )
+
+    exit_code = benchmark.main()
+    artifact = json.loads(output.read_text(encoding="utf-8"))
+
+    assert exit_code == 1
+    assert artifact["reason_code"] == "benchmark_qdrant_build_failed"
+    assert artifact["warnings"] == ["benchmark_qdrant_build_failed"]
 
 
 def test_completed_artifact_requires_verified_source_commit(
@@ -280,10 +284,7 @@ def test_artifact_redacts_invalid_origin_and_untrusted_command_values() -> None:
         args=argparse.Namespace(
             config=f"/tmp/{secret}.json",
             profile="small",
-            qdrant_url=(
-                f"https://user:{secret}@qdrant.example.test:6333/"
-                f"?api_key={secret}"
-            ),
+            qdrant_url=(f"https://user:{secret}@qdrant.example.test:6333/?api_key={secret}"),
             allow_remote=True,
             reference_host_approved=True,
             container=secret,
@@ -300,14 +301,8 @@ def test_artifact_redacts_invalid_origin_and_untrusted_command_values() -> None:
 
     serialized = json.dumps(artifact, sort_keys=True)
     assert secret not in serialized
-    assert (
-        artifact["env_sanitized"]["ANANTA_QDRANT_URL"]
-        == "[REDACTED_INVALID_ORIGIN]"
-    )
-    assert (
-        artifact["env_sanitized"]["ANANTA_QDRANT_TLS_CA_FILE"]
-        == "[CONFIGURED]"
-    )
+    assert artifact["env_sanitized"]["ANANTA_QDRANT_URL"] == "[REDACTED_INVALID_ORIGIN]"
+    assert artifact["env_sanitized"]["ANANTA_QDRANT_TLS_CA_FILE"] == "[CONFIGURED]"
     assert "[REDACTED_PATH]" in artifact["command"]
     assert "[REDACTED_CONTAINER]" in artifact["command"]
 
@@ -341,9 +336,7 @@ def test_memory_recorder_samples_start_periodically_and_end_with_fake_sources() 
     assert phases[0] == "qdrant_build:start"
     assert phases[-1] == "qdrant_build:end"
     assert "qdrant_build:periodic" in phases
-    assert report["client"]["peak_bytes"] == max(
-        sample["client_rss_bytes"] for sample in report["samples"]
-    )
+    assert report["client"]["peak_bytes"] == max(sample["client_rss_bytes"] for sample in report["samples"])
     assert report["qdrant_container"]["available"] is True
 
 
@@ -364,10 +357,7 @@ def test_memory_phase_stops_sampler_and_records_end_on_operation_error() -> None
 
     phases = [sample["phase"] for sample in recorder.report()["samples"]]
     assert phases == ["qdrant_refresh:start", "qdrant_refresh:end"]
-    assert not any(
-        thread.name == "qdrant-benchmark-memory-qdrant_refresh"
-        for thread in threading.enumerate()
-    )
+    assert not any(thread.name == "qdrant-benchmark-memory-qdrant_refresh" for thread in threading.enumerate())
 
 
 def test_recall_budget_uses_worst_query_not_mean() -> None:
@@ -383,11 +373,7 @@ def test_recall_budget_uses_worst_query_not_mean() -> None:
                 "build": {"p95": 1.0, "samples": 5},
                 "refresh": {"p95": 1.0, "samples": 5},
                 "search": {
-                    mode: {
-                        str(top_k): dict(search_result)
-                        for top_k in (10, 50)
-                    }
-                    for mode in ("unfiltered", "filtered")
+                    mode: {str(top_k): dict(search_result) for top_k in (10, 50)} for mode in ("unfiltered", "filtered")
                 },
             }
         },

@@ -4,6 +4,7 @@ import json
 import math
 import os
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -46,6 +47,8 @@ class JsonVectorStore:
         self._index_path = Path(index_path)
         self._legacy_scope = legacy_scope
         self._closed = False
+        self._cached_signature: tuple[int, int, int, int] | None = None
+        self._cached_payload: dict[str, Any] | None = None
         self._last_diagnostic = VectorStoreDiagnostic(
             status="degraded",
             reason="not_loaded",
@@ -61,9 +64,19 @@ class JsonVectorStore:
         if self._closed:
             raise VectorStoreClosedError()
 
-    def load(self) -> dict[str, Any]:
+    def _index_signature(self) -> tuple[int, int, int, int] | None:
+        try:
+            stat = self._index_path.stat()
+        except FileNotFoundError:
+            return None
+        return (stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+    def _load_snapshot(self) -> dict[str, Any]:
         self._ensure_open()
-        if not self._index_path.exists():
+        signature = self._index_signature()
+        if signature is None:
+            self._cached_signature = None
+            self._cached_payload = None
             self._last_diagnostic = VectorStoreDiagnostic(
                 status="degraded",
                 reason="missing_index",
@@ -71,20 +84,25 @@ class JsonVectorStore:
                 backend_version=_BACKEND_VERSION,
             )
             return {"state": {}, "entries": []}
-        try:
-            payload = json.loads(self._index_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-            self._last_diagnostic = VectorStoreDiagnostic(
-                status="degraded",
-                reason="invalid_index",
-                provider="json",
-                backend_version=_BACKEND_VERSION,
-            )
-            raise VectorStoreError("invalid_index") from exc
-        if not isinstance(payload, dict):
-            raise VectorStoreError("invalid_index")
+        if signature == self._cached_signature and self._cached_payload is not None:
+            payload = self._cached_payload
+        else:
+            try:
+                payload = json.loads(self._index_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+                self._last_diagnostic = VectorStoreDiagnostic(
+                    status="degraded",
+                    reason="invalid_index",
+                    provider="json",
+                    backend_version=_BACKEND_VERSION,
+                )
+                raise VectorStoreError("invalid_index") from exc
+            if not isinstance(payload, dict):
+                raise VectorStoreError("invalid_index")
+            self._cached_signature = signature
+            self._cached_payload = payload
         state = dict(payload.get("state") or {})
-        entries = [dict(item) for item in list(payload.get("entries") or []) if isinstance(item, dict)]
+        entries = [item for item in list(payload.get("entries") or []) if isinstance(item, dict)]
         schema = str(state.get("schema") or "")
         reason = "ok" if schema else "migration_required"
         status = "ready" if schema else "degraded"
@@ -96,6 +114,11 @@ class JsonVectorStore:
             details=self._state_diagnostics(state, entry_count=len(entries)),
         )
         return {"state": state, "entries": entries}
+
+    def load(self) -> dict[str, Any]:
+        """Load an isolated caller-owned copy of the current persisted index."""
+
+        return deepcopy(self._load_snapshot())
 
     def save(self, *, state: Mapping[str, Any], entries: Sequence[Mapping[str, Any]]) -> None:
         self._ensure_open()
@@ -117,6 +140,8 @@ class JsonVectorStore:
                 os.fsync(handle.fileno())
             os.replace(temporary_path, self._index_path)
             temporary_path = None
+            self._cached_payload = payload
+            self._cached_signature = self._index_signature()
             try:
                 directory_fd = os.open(self._index_path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
                 try:
@@ -222,19 +247,14 @@ class JsonVectorStore:
                 entry["vector"] = list(point.vector)
                 entry["encoded_vector"] = encoded.as_dict()
             entries.append(entry)
-        compression_ratio = (
-            round(float(original_bytes) / float(max(1, encoded_bytes)), 4)
-            if original_bytes
-            else 1.0
-        )
+        compression_ratio = round(float(original_bytes) / float(max(1, encoded_bytes)), 4) if original_bytes else 1.0
         next_state = {
             **dict(state or {}),
             "entry_count": len(entries),
             "embedding_dimensions": expected,
             "vector_encoding_profile": encoder.profile.as_dict(),
             "vector_encoding_config_hash": str(
-                dict(state or {}).get("vector_encoding_config_hash")
-                or encoder.profile.config_hash()
+                dict(state or {}).get("vector_encoding_config_hash") or encoder.profile.config_hash()
             ),
             "vector_encoding_compression_ratio": compression_ratio,
             "vector_encoding_max_abs_error": max_abs_error,
@@ -258,14 +278,10 @@ class JsonVectorStore:
         batch_size: int = 128,
     ) -> IndexWriteResult:
         self._ensure_open()
-        if (
-            isinstance(batch_size, bool)
-            or not isinstance(batch_size, int)
-            or not 1 <= batch_size <= 1000
-        ):
+        if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 1000:
             raise VectorStoreError("vector_batch_size_invalid")
         point_list = list(points)
-        loaded = self.load()
+        loaded = self._load_snapshot()
         state = dict(loaded.get("state") or {})
         entries = [dict(item) for item in list(loaded.get("entries") or [])]
         expected = int(state.get("embedding_dimensions") or (len(point_list[0].vector) if point_list else 0))
@@ -371,9 +387,9 @@ class JsonVectorStore:
                 effective_provider="json",
                 reason="vector_scope_required",
             )
-        loaded = self.load()
+        loaded = self._load_snapshot()
         state = dict(loaded.get("state") or {})
-        entries = [dict(item) for item in list(loaded.get("entries") or [])]
+        entries = list(loaded.get("entries") or [])
         expected_compatibility = getattr(query, "compatibility", None)
         if expected_compatibility is not None:
             compatibility_reason = self._compatibility_reason(
@@ -381,11 +397,7 @@ class JsonVectorStore:
                 expected_compatibility,
             )
             if compatibility_reason != "unchanged":
-                reason = (
-                    "missing_index"
-                    if compatibility_reason == "missing_index"
-                    else "fallback_state_incompatible"
-                )
+                reason = "missing_index" if compatibility_reason == "missing_index" else "fallback_state_incompatible"
                 diagnostics = self._state_diagnostics(state, entry_count=len(entries))
                 diagnostics.update(
                     {
@@ -419,9 +431,7 @@ class JsonVectorStore:
             if encoder.profile.experimental:
                 metadata["vector_encoding_experimental"] = "true"
             payload = {
-                key: value
-                for key, value in entry.items()
-                if key not in {"vector", "encoded_vector", "_point_id"}
+                key: value for key, value in entry.items() if key not in {"vector", "encoded_vector", "_point_id"}
             }
             payload["metadata"] = metadata
             hits.append(
@@ -450,9 +460,7 @@ class JsonVectorStore:
         state = dict(loaded.get("state") or {})
         if not state:
             return "missing_index"
-        stored_distance = str(
-            state.get("distance") or "cosine"
-        ).strip().lower()
+        stored_distance = str(state.get("distance") or "cosine").strip().lower()
         if compatibility.distance != "cosine" or stored_distance != "cosine":
             return "fallback_state_incompatible"
         return self._compatibility_reason(state, compatibility)

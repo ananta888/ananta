@@ -47,11 +47,18 @@ from worker.retrieval.vector_store_endpoint_policy import (  # noqa: E402
 )
 
 DEFAULT_CONFIG = ROOT / "config/benchmarks/qdrant-vector-store.v1.json"
-QDRANT_IMAGE_DIGEST = (
-    "sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
-)
+QDRANT_IMAGE_DIGEST = "sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
 QDRANT_SERVER_VERSION = "1.18.3"
 QDRANT_IMAGE_REFERENCE = f"qdrant/qdrant:v{QDRANT_SERVER_VERSION}@{QDRANT_IMAGE_DIGEST}"
+QDRANT_BENCHMARK_REQUEST_TIMEOUT_SECONDS = 300.0
+
+
+class BenchmarkRuntimeError(RuntimeError):
+    """Expose a bounded benchmark phase without leaking provider diagnostics."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = str(reason)
+        super().__init__(self.reason)
 
 
 def _utc_now() -> str:
@@ -91,9 +98,7 @@ def _profile_hash(config: Mapping[str, Any], profile_name: str) -> str:
             "warmup_runs": config["warmup_runs"],
             "measurement_runs": config["measurement_runs"],
             "top_k": config["top_k"],
-            "reference_host_approval_required": config[
-                "reference_host_approval_required"
-            ],
+            "reference_host_approval_required": config["reference_host_approval_required"],
             "inconclusive_when": config["inconclusive_when"],
             "profile_name": profile_name,
             "profile": config["profiles"][profile_name],
@@ -121,10 +126,7 @@ def _source_commit() -> str:
 
 def _source_commit_verified(value: object) -> bool:
     candidate = str(value or "").strip().lower()
-    return (
-        40 <= len(candidate) <= 64
-        and all(character in "0123456789abcdef" for character in candidate)
-    )
+    return 40 <= len(candidate) <= 64 and all(character in "0123456789abcdef" for character in candidate)
 
 
 def _dataset(
@@ -140,10 +142,7 @@ def _dataset(
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
     matrix = matrix / np.maximum(norms, np.float32(1e-12))
     payload_size = max(0, int(payload_bytes))
-    bounded_blob_chunks = [
-        "x" * min(1024, payload_size - offset)
-        for offset in range(0, payload_size, 1024)
-    ]
+    bounded_blob_chunks = ["x" * min(1024, payload_size - offset) for offset in range(0, payload_size, 1024)]
     return tuple(
         PreparedVectorPoint(
             record_id=f"record-{index:08d}",
@@ -183,11 +182,7 @@ def _exact_ids(
     filtered: bool,
 ) -> tuple[str, ...]:
     indices = np.fromiter(
-        (
-            index
-            for index, point in enumerate(points)
-            if not filtered or str(point.payload.get("kind")) == "even"
-        ),
+        (index for index, point in enumerate(points) if not filtered or str(point.payload.get("kind")) == "even"),
         dtype=np.int64,
     )
     matrix = np.asarray(
@@ -212,11 +207,7 @@ def _ground_truth(
 ) -> dict[int, tuple[tuple[str, ...], ...]]:
     maximum = max(int(value) for value in top_k_values)
     indices = np.fromiter(
-        (
-            index
-            for index, point in enumerate(points)
-            if not filtered or str(point.payload.get("kind")) == "even"
-        ),
+        (index for index, point in enumerate(points) if not filtered or str(point.payload.get("kind")) == "even"),
         dtype=np.int64,
     )
     matrix = np.asarray(
@@ -229,13 +220,8 @@ def _ground_truth(
         scores = matrix @ np.asarray(query, dtype=np.float32)
         selected = np.argpartition(scores, -count)[-count:]
         ordered = selected[np.argsort(scores[selected])[::-1]]
-        maximum_hits.append(
-            tuple(points[int(indices[index])].record_id for index in ordered)
-        )
-    return {
-        int(top_k): tuple(hits[: int(top_k)] for hits in maximum_hits)
-        for top_k in top_k_values
-    }
+        maximum_hits.append(tuple(points[int(indices[index])].record_id for index in ordered))
+    return {int(top_k): tuple(hits[: int(top_k)] for hits in maximum_hits) for top_k in top_k_values}
 
 
 def _recall(expected: Sequence[str], actual: Sequence[str]) -> float:
@@ -332,9 +318,7 @@ def _cleanup(client: object, prefix: str) -> None:
         if alias_name.startswith(prefix):
             client.update_collection_aliases(
                 change_aliases_operations=[
-                    models.DeleteAliasOperation(
-                        delete_alias=models.DeleteAlias(alias_name=alias_name)
-                    )
+                    models.DeleteAliasOperation(delete_alias=models.DeleteAlias(alias_name=alias_name))
                 ]
             )
     for item in client.get_collections().collections:
@@ -360,12 +344,8 @@ def _software_fingerprint(args: argparse.Namespace | None = None) -> dict[str, A
         client_version = "not-installed"
     return {
         "commit": _source_commit(),
-        "qdrant_server": str(
-            getattr(args, "_observed_qdrant_server", "") or "unverified"
-        ),
-        "qdrant_image_digest": str(
-            getattr(args, "_observed_qdrant_digest", "") or "unverified"
-        ),
+        "qdrant_server": str(getattr(args, "_observed_qdrant_server", "") or "unverified"),
+        "qdrant_image_digest": str(getattr(args, "_observed_qdrant_digest", "") or "unverified"),
         "qdrant_client": client_version,
         "python": platform.python_version(),
         "os": platform.platform(),
@@ -416,10 +396,7 @@ def _artifact(
     hardware = _hardware_fingerprint()
     software = _software_fingerprint(args)
     warning_values = list(warnings)
-    if (
-        status == "completed"
-        and not _source_commit_verified(software["commit"])
-    ):
+    if status == "completed" and not _source_commit_verified(software["commit"]):
         status = "inconclusive"
         reason_code = "source_commit_unverified"
         warning_values.append("source_commit_unverified")
@@ -435,14 +412,10 @@ def _artifact(
         "command": _sanitized_command(args),
         "cwd": str(ROOT),
         "env_sanitized": {
-            "ANANTA_QDRANT_URL": _sanitized_qdrant_origin(
-                str(args.qdrant_url)
-            ),
+            "ANANTA_QDRANT_URL": _sanitized_qdrant_origin(str(args.qdrant_url)),
             "ANANTA_QDRANT_API_KEY": "[REDACTED]",
             "ANANTA_QDRANT_TLS_CA_FILE": (
-                "[CONFIGURED]"
-                if getattr(args, "tls_ca_cert_file", None)
-                else "[NOT_CONFIGURED]"
+                "[CONFIGURED]" if getattr(args, "tls_ca_cert_file", None) else "[NOT_CONFIGURED]"
             ),
         },
         "started_at": started_at,
@@ -467,12 +440,8 @@ def _preflight(
     memory = psutil.virtual_memory()
     cpu_count = int(psutil.cpu_count(logical=True) or 0)
     estimated_bytes = (
-        int(profile["records"])
-        * int(profile["dimensions"])
-        * 40
-        + int(profile["records"])
-        * int(profile["payload_bytes"])
-        * 2
+        int(profile["records"]) * int(profile["dimensions"]) * 40
+        + int(profile["records"]) * int(profile["payload_bytes"]) * 2
     )
     observation = {
         "reference_host_approved": bool(args.reference_host_approved),
@@ -512,11 +481,7 @@ def _container_image_reference(container: str | None) -> str | None:
 def _verified_image_digest(image_reference: str | None) -> str:
     """Return the pinned digest only for the exact tested image reference."""
 
-    return (
-        QDRANT_IMAGE_DIGEST
-        if str(image_reference or "").strip() == QDRANT_IMAGE_REFERENCE
-        else ""
-    )
+    return QDRANT_IMAGE_DIGEST if str(image_reference or "").strip() == QDRANT_IMAGE_REFERENCE else ""
 
 
 def _evaluation(
@@ -665,30 +630,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": "qdrant_benchmark_payload.v1",
     }
     prefix = f"ananta-bench-{uuid4().hex[:12]}"
-    tls_ca_path = (
-        Path(args.tls_ca_cert_file).resolve(strict=True)
-        if getattr(args, "tls_ca_cert_file", None)
-        else None
-    )
+    tls_ca_path = Path(args.tls_ca_cert_file).resolve(strict=True) if getattr(args, "tls_ca_cert_file", None) else None
     resolver = EnvFileSecretResolver(
         environ={"ANANTA_QDRANT_API_KEY": api_key},
-        allowed_file_roots=(
-            (tls_ca_path.parent,)
-            if tls_ca_path is not None
-            else (Path("/run/secrets"),)
-        ),
+        allowed_file_roots=((tls_ca_path.parent,) if tls_ca_path is not None else (Path("/run/secrets"),)),
     )
     qdrant_config = QdrantVectorStoreConfig(
         endpoint=QdrantEndpointConfig(
             rest_url=args.qdrant_url,
             api_key_ref="env://ANANTA_QDRANT_API_KEY",
-            tls_ca_cert_ref=(
-                f"secretfile://{tls_ca_path}"
-                if tls_ca_path is not None
-                else None
-            ),
+            tls_ca_cert_ref=(f"secretfile://{tls_ca_path}" if tls_ca_path is not None else None),
             allowed_origins=(args.qdrant_url,),
             external_calls_allowed=bool(args.allow_remote),
+            timeout_seconds=QDRANT_BENCHMARK_REQUEST_TIMEOUT_SECONDS,
         ),
         collection_prefix=prefix,
     )
@@ -777,6 +731,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             latency: dict[str, Any] = {"json": {}, "qdrant": {}}
             final_compatibility: dict[str, CompatibilitySpec] = {}
             for backend_name, store in (("json", json_store), ("qdrant", qdrant)):
+
                 def build(run_index: int, *, name: str = backend_name, target: Any = store):
                     compatibility = CompatibilitySpec(
                         **base_compatibility,
@@ -785,43 +740,52 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     final_compatibility[name] = compatibility
                     return target.rebuild(points, compatibility=compatibility)
 
-                with memory.phase(f"{backend_name}_build"):
-                    latency[backend_name]["build"] = _timed_operation_runs(
-                        build,
-                        warmup_runs=warmup_runs,
-                        measurement_runs=measurement_runs,
-                    )
-                compatibility = final_compatibility[backend_name]
-                with memory.phase(f"{backend_name}_refresh"):
-                    latency[backend_name]["refresh"] = _timed_operation_runs(
-                        lambda run_index, target=store, spec=compatibility: target.refresh(
-                            points,
-                            compatibility=spec,
-                        ),
-                        warmup_runs=warmup_runs,
-                        measurement_runs=measurement_runs,
-                    )
-                with memory.phase(f"{backend_name}_search"):
-                    latency[backend_name]["search"] = {
-                        mode: {
-                            str(top_k): _measure_search(
-                                store,
-                                queries,
-                                expected[filtered][top_k],
-                                scope=scope,
-                                top_k=top_k,
-                                warmup_runs=warmup_runs,
-                                measurement_runs=measurement_runs,
-                                filtered=filtered,
-                                compatibility=compatibility,
-                            )
-                            for top_k in top_k_values
-                        }
-                        for mode, filtered in (
-                            ("unfiltered", False),
-                            ("filtered", True),
+                try:
+                    with memory.phase(f"{backend_name}_build"):
+                        latency[backend_name]["build"] = _timed_operation_runs(
+                            build,
+                            warmup_runs=warmup_runs,
+                            measurement_runs=measurement_runs,
                         )
-                    }
+                except Exception as exc:
+                    raise BenchmarkRuntimeError(f"benchmark_{backend_name}_build_failed") from exc
+                compatibility = final_compatibility[backend_name]
+                try:
+                    with memory.phase(f"{backend_name}_refresh"):
+                        latency[backend_name]["refresh"] = _timed_operation_runs(
+                            lambda run_index, target=store, spec=compatibility: target.refresh(
+                                points,
+                                compatibility=spec,
+                            ),
+                            warmup_runs=warmup_runs,
+                            measurement_runs=measurement_runs,
+                        )
+                except Exception as exc:
+                    raise BenchmarkRuntimeError(f"benchmark_{backend_name}_refresh_failed") from exc
+                try:
+                    with memory.phase(f"{backend_name}_search"):
+                        latency[backend_name]["search"] = {
+                            mode: {
+                                str(top_k): _measure_search(
+                                    store,
+                                    queries,
+                                    expected[filtered][top_k],
+                                    scope=scope,
+                                    top_k=top_k,
+                                    warmup_runs=warmup_runs,
+                                    measurement_runs=measurement_runs,
+                                    filtered=filtered,
+                                    compatibility=compatibility,
+                                )
+                                for top_k in top_k_values
+                            }
+                            for mode, filtered in (
+                                ("unfiltered", False),
+                                ("filtered", True),
+                            )
+                        }
+                except Exception as exc:
+                    raise BenchmarkRuntimeError(f"benchmark_{backend_name}_search_failed") from exc
             memory_report = memory.report()
             if not memory_report["qdrant_container"]["available"]:
                 warnings.append("container_memory_unavailable")
@@ -859,12 +823,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     for mode in ("unfiltered", "filtered")
                     for top_k in top_k_values
                 )
-                metrics["custom"]["backend_recommendation"] = (
-                    "qdrant" if qdrant_p95 <= json_p95 else "json"
-                )
-                metrics["custom"]["recommendation_basis"] = (
-                    "complete_non_inconclusive_profile"
-                )
+                metrics["custom"]["backend_recommendation"] = "qdrant" if qdrant_p95 <= json_p95 else "json"
+                metrics["custom"]["recommendation_basis"] = "complete_non_inconclusive_profile"
             else:
                 metrics["custom"]["backend_recommendation"] = None
                 metrics["custom"]["recommendation_basis"] = "not_permitted"
@@ -923,6 +883,16 @@ def main() -> int:
             status="inconclusive",
             reason_code="profile_aborted",
             warnings=("profile_aborted",),
+        )
+    except BenchmarkRuntimeError as exc:
+        artifact = _artifact(
+            args=args,
+            started_at=_utc_now(),
+            duration_seconds=0.0,
+            metrics={"custom": {"backend_recommendation": None}},
+            status="failed",
+            reason_code=exc.reason,
+            warnings=(exc.reason,),
         )
     except Exception:
         artifact = _artifact(
