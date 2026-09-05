@@ -73,7 +73,7 @@ const WIZARD_STEPS: WizardStep[] = [
                 </select>
               </app-form-field>
               <app-form-field label="Basismodell" [required]="true">
-                <select [(ngModel)]="baseModelId" (ngModelChange)="ensureRuntimeCompatibility()">
+                <select data-testid="training-wizard-base-model" [(ngModel)]="baseModelId" (ngModelChange)="ensureRuntimeCompatibility()">
                   <option value="">Bitte wählen</option>
                   @for (model of facade.capabilities()?.base_models || []; track model.id) {
                     <option [value]="model.id" [disabled]="model.available === false">{{ model.label || model.id }}{{ model.local ? ' · lokal' : '' }}</option>
@@ -81,7 +81,7 @@ const WIZARD_STEPS: WizardStep[] = [
                 </select>
               </app-form-field>
               <app-form-field label="Backend" [required]="true">
-                <select [(ngModel)]="backend">
+                <select data-testid="training-wizard-backend" [(ngModel)]="backend">
                   <option value="">Bitte wählen</option>
                   @for (item of facade.capabilities()?.backends || []; track item.id) {
                     <option [value]="item.id" [disabled]="!item.available">{{ item.id }}{{ item.available ? '' : ' · ' + (item.reason_code || 'nicht verfügbar') }}</option>
@@ -103,7 +103,7 @@ const WIZARD_STEPS: WizardStep[] = [
                 }
               </div>
               <app-form-field label="GPU-Profil" [required]="true">
-                <select [(ngModel)]="gpuProfile" (ngModelChange)="onGpuProfileChange()">
+                <select data-testid="training-wizard-gpu-profile" [(ngModel)]="gpuProfile" (ngModelChange)="onGpuProfileChange()">
                   <option value="">Bitte wählen</option>
                   @for (profile of facade.capabilities()?.gpu_profiles || []; track profile.id) {
                     <option [value]="profile.id" [disabled]="mode === 'live' && !profile.available">{{ profile.label || profile.id }}{{ profile.available ? '' : ' · nicht verfügbar' }}</option>

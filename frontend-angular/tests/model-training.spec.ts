@@ -66,6 +66,28 @@ async function installTrainingMock(page: Page) {
         human_intervention_required: false,
       },
     });
+    if (path === '/unsloth/storage' && method === 'GET') return json(route, {
+      status: 'success',
+      data: {
+        usage: {
+          schema: 'ananta.unsloth-storage-usage.v1',
+          catalog_revision: 0,
+          usage: {},
+          tenant_total_bytes: 0,
+          quotas: {
+            dataset_bytes: 1_000_000,
+            model_bytes: 1_000_000,
+            checkpoint_bytes: 1_000_000,
+            export_bytes: 1_000_000,
+            tenant_total_bytes: 4_000_000,
+            retention_seconds: 86_400,
+            max_cleanup_items: 100,
+          },
+          paths_exposed: false,
+        },
+        items: [],
+      },
+    });
     if (path === '/dendritic-memory/dry-run' && method === 'POST') return json(route, {
       admissible: true, reason_codes: [], spec_digest: 'a'.repeat(64),
       model_download_performed: false, worker_call_performed: false, human_intervention_required: false,
@@ -289,9 +311,9 @@ test.describe('Model training control center', () => {
     await page.getByRole('tab', { name: 'Training starten' }).click();
     await page.getByTestId('training-wizard-dataset').selectOption(dataset.id);
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByLabel('Basismodell').selectOption('local-model');
-    await page.getByLabel('Backend').selectOption('mock');
-    await page.getByLabel('GPU-Profil').selectOption('none');
+    await page.getByTestId('training-wizard-base-model').selectOption('local-model');
+    await page.getByTestId('training-wizard-backend').selectOption('mock');
+    await page.getByTestId('training-wizard-gpu-profile').selectOption('none');
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await expect(page.getByText('Sicherer Standard')).toBeVisible();

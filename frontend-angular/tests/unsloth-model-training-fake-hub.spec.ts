@@ -274,7 +274,7 @@ test.describe('Unsloth model-training Fake-Hub contract', () => {
     await page.getByRole('tab', { name: 'Training starten' }).click();
     await page.getByTestId('training-wizard-dataset').selectOption(dataset.id);
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await expect(page.getByLabel('Backend').locator('option[value="unsloth"]')).toHaveText(/Unsloth/i);
+    await expect(page.getByTestId('training-wizard-backend').locator('option[value="unsloth"]')).toHaveText(/Unsloth/i);
 
     const capability = await page.evaluate(async () => {
       const response = await fetch('/api/ml-intern-training/capabilities');

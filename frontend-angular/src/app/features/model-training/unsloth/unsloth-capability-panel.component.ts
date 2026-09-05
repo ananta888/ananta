@@ -385,9 +385,9 @@ export function buildUnslothMutationSummary(
             <span>Revision <strong>{{ currentStorage.usage.catalog_revision }}</strong></span>
             <span>Retention <strong>{{ currentStorage.usage.quotas.retention_seconds }} s</strong></span>
           </div>
-          <div class="storage-kinds" aria-label="Storage-Nutzung nach Artefaktart">
+          <div class="storage-kinds" role="list" aria-label="Storage-Nutzung nach Artefaktart">
             @for (entry of storageKindUsage(); track entry.kind) {
-              <span>{{ entry.kind }} · {{ bytes(entry.bytes) }} · {{ entry.artifacts }} Artefakte</span>
+              <span role="listitem">{{ entry.kind }} · {{ bytes(entry.bytes) }} · {{ entry.artifacts }} Artefakte</span>
             }
           </div>
           @if (currentStorage.items.length) {
