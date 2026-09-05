@@ -6,7 +6,7 @@ import {
   startSourceControlLocalHub,
 } from './helpers/source-control-local-hub';
 import type { SourceControlLocalHub } from './helpers/source-control-local-hub';
-import { loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 
 test.describe('Source Control v1 against the deterministic local Hub', () => {
   let hub: SourceControlLocalHub;
@@ -26,9 +26,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   test('declares deterministic evidence without claiming production capability', async ({
     request,
   }) => {
-    const response = await request.get(
-      `${hub.origin}/api/source-control/v1/__test-support`,
-    );
+    const response = await request.get(`${hub.origin}/api/source-control/v1/__test-support`);
     expect(response.ok()).toBeTruthy();
     const payload = await response.json();
     expect(payload.data).toEqual({
@@ -39,13 +37,13 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   });
 
   test('admits DirectText and Notebook through validate-then-create', async ({ page }) => {
-    await page.goto('/sources/add?projectId=project-alpha');
+    await gotoProjectScopedRoute(page, '/sources/add');
     await page.getByTestId('direct-display-name').fill('Architecture notes');
     await page.getByTestId('direct-content').fill('# Hub-owned source');
     await page.getByTestId('submit-source').click();
     await expect(page.getByTestId('content-admission-success')).toBeVisible();
 
-    await page.goto('/sources/add?projectId=project-alpha');
+    await gotoProjectScopedRoute(page, '/sources/add');
     await page.getByRole('button', { name: /Notebook/ }).click();
     await page.getByTestId('notebook-display-name').fill('Runbook');
     await page.getByTestId('notebook-json').fill(
@@ -76,7 +74,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   });
 
   test('binds a registered workspace without browser identity material', async ({ page }) => {
-    await page.goto('/sources/add?projectId=project-alpha');
+    await gotoProjectScopedRoute(page, '/sources/add');
     await page.getByRole('button', { name: /Registrierter Workspace/ }).click();
     await page.getByTestId('workspace-display-name').fill('Primary workspace');
     await page.getByTestId('workspace-catalog').selectOption('workspace-primary');
@@ -85,10 +83,9 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
 
     const requests = hub.operations.filter(
       (operation) =>
-        operation.method === 'POST' &&
-        operation.path === '/api/source-control/v1/connections/validate' ||
         (operation.method === 'POST' &&
-          operation.path === '/api/source-control/v1/connections'),
+          operation.path === '/api/source-control/v1/connections/validate') ||
+        (operation.method === 'POST' && operation.path === '/api/source-control/v1/connections'),
     );
     expect(requests).toHaveLength(2);
     expect(requests[0].body).toMatchObject({
@@ -105,9 +102,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   test('executes index and grant lifecycle with Hub IDs, ETags and idempotency', async ({
     page,
   }) => {
-    await page.goto(
-      `/sources/${LOCAL_SOURCE_CONTROL_IDS.connectionId}?projectId=project-alpha`,
-    );
+    await gotoProjectScopedRoute(page, `/sources/${LOCAL_SOURCE_CONTROL_IDS.connectionId}`);
     await page.getByRole('tab', { name: 'Runs' }).click();
     await page.getByTestId('index-profile').selectOption('profile-default');
     await page.getByTestId('index-start').click();
@@ -145,7 +140,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   test('activates and rolls back Context Access Policy versions through Angular', async ({
     page,
   }) => {
-    await page.goto('/context-access-policy?projectId=project-alpha');
+    await gotoProjectScopedRoute(page, '/context-access-policy');
     const policyRow = page.locator('tr').filter({ hasText: 'policy-primary' }).first();
     await expect(policyRow).toBeVisible();
     await policyRow.getByRole('button').first().click();
@@ -169,8 +164,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
 
     const transitions = hub.operations.filter(
       (operation) =>
-        operation.method === 'POST' &&
-        operation.path.includes('/context-policies/policy-primary/'),
+        operation.method === 'POST' && operation.path.includes('/context-policies/policy-primary/'),
     );
     expect(transitions.map((operation) => operation.path)).toEqual([
       '/api/source-control/v1/context-policies/policy-primary/versions/2/activate',
@@ -184,7 +178,7 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
   });
 
   test('meets the source-control keyboard, focus and automated axe gate', async ({ page }) => {
-    await page.goto('/sources/add?projectId=project-alpha');
+    await gotoProjectScopedRoute(page, '/sources/add');
     const directText = page.getByRole('button', { name: /Direkttext/ });
     const notebook = page.getByRole('button', { name: /Notebook/ });
     await expect(directText).toBeVisible();
@@ -207,21 +201,14 @@ test.describe('Source Control v1 against the deterministic local Hub', () => {
       const luminance = (rgb: number[]): number => {
         const linear = rgb.map((channel) => {
           const normalized = channel / 255;
-          return normalized <= 0.03928
-            ? normalized / 12.92
-            : ((normalized + 0.055) / 1.055) ** 2.4;
+          return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
         });
-        return (
-          0.2126 * (linear[0] ?? 0) +
-          0.7152 * (linear[1] ?? 0) +
-          0.0722 * (linear[2] ?? 0)
-        );
+        return 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
       };
       const style = getComputedStyle(element);
       const foreground = luminance(channels(style.color));
       const background = luminance(channels(style.backgroundColor));
-      return (Math.max(foreground, background) + 0.05) /
-        (Math.min(foreground, background) + 0.05);
+      return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
     });
     expect(contrastRatio).toBeGreaterThanOrEqual(4.5);
   });

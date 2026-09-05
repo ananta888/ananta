@@ -56,13 +56,16 @@ async function requestBody(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function connection(body: Record<string, unknown> = {}): Record<string, unknown> {
+function connection(
+  body: Record<string, unknown> = {},
+  projectId = 'project-alpha',
+): Record<string, unknown> {
   return {
     schema: 'ananta.source-control.source-connection.v1',
     authority: 'hub',
     connection_id: CONNECTION_ID,
     tenant_id: 'tenant-local-e2e',
-    project_id: 'project-alpha',
+    project_id: projectId,
     owner_id: 'user-local-e2e',
     connector_type: body['connector_type'] ?? 'direct_text',
     connection_identity_digest: 'a'.repeat(64),
@@ -108,8 +111,8 @@ function grantRecord(state = 'active'): Record<string, unknown> {
   };
 }
 
-function projection(): Record<string, unknown> {
-  const projectionConnection = connection();
+function projection(projectId: string): Record<string, unknown> {
+  const projectionConnection = connection({}, projectId);
   delete projectionConnection['tenant_id'];
   return {
     schema: 'ananta.source-control.projection.v1',
@@ -139,12 +142,13 @@ function projection(): Record<string, unknown> {
 function policyVersion(
   version: number,
   state: 'draft' | 'active' | 'superseded' | 'revoked',
+  projectId = 'project-alpha',
 ): Record<string, unknown> {
   return {
     policy_id: 'policy-primary',
     version,
     tenant_id: 'tenant-local-e2e',
-    project_id: 'project-alpha',
+    project_id: projectId,
     state,
     document: {
       schema: 'ananta.context-access-policy.v1',
@@ -174,8 +178,17 @@ async function handle(
 ): Promise<void> {
   const method = request.method ?? 'GET';
   const requestUrl = new URL(request.url ?? '/', 'http://local-hub.invalid');
+  const projectId =
+    requestUrl.searchParams.get('project_id') ??
+    requestUrl.searchParams.get('projectId') ??
+    'project-alpha';
   const body = await requestBody(request);
-  operations.push({ method, path: requestUrl.pathname, body, headers: request.headers });
+  operations.push({
+    method,
+    path: requestUrl.pathname,
+    body,
+    headers: request.headers,
+  });
   const recordBody =
     body && typeof body === 'object' && !Array.isArray(body)
       ? (body as Record<string, unknown>)
@@ -206,10 +219,7 @@ async function handle(
     return;
   }
 
-  if (
-    method === 'GET' &&
-    requestUrl.pathname === '/api/source-control/v1/registered-remotes'
-  ) {
+  if (method === 'GET' && requestUrl.pathname === '/api/source-control/v1/registered-remotes') {
     json(response, 200, {
       items: [
         {
@@ -259,12 +269,9 @@ async function handle(
     return;
   }
 
-  if (
-    method === 'POST' &&
-    requestUrl.pathname === '/api/source-control/v1/content-admissions'
-  ) {
+  if (method === 'POST' && requestUrl.pathname === '/api/source-control/v1/content-admissions') {
     json(response, 201, {
-      connection: connection(recordBody),
+      connection: connection(recordBody, projectId),
       revision: {
         schema: 'ananta.source-control.source-revision.v1',
         source_revision_id: REVISION_ID,
@@ -283,16 +290,19 @@ async function handle(
     return;
   }
 
-  if (
-    method === 'POST' &&
-    requestUrl.pathname === '/api/source-control/v1/connections/validate'
-  ) {
-    json(response, 200, { valid: true, connection: connection(recordBody) });
+  if (method === 'POST' && requestUrl.pathname === '/api/source-control/v1/connections/validate') {
+    json(response, 200, {
+      valid: true,
+      connection: connection(recordBody, projectId),
+    });
     return;
   }
 
   if (method === 'POST' && requestUrl.pathname === '/api/source-control/v1/connections') {
-    json(response, 201, { connection: connection(recordBody), version: 1 });
+    json(response, 201, {
+      connection: connection(recordBody, projectId),
+      version: 1,
+    });
     return;
   }
 
@@ -300,7 +310,10 @@ async function handle(
     method === 'GET' &&
     requestUrl.pathname === `/api/source-control/v1/connections/${CONNECTION_ID}`
   ) {
-    json(response, 200, projection(), { etag: '9'.repeat(64) });
+    json(response, 200, projection(projectId), {
+      etag: '9'.repeat(64),
+      'access-control-expose-headers': 'ETag',
+    });
     return;
   }
 
@@ -405,7 +418,10 @@ async function handle(
         grant: grantRecord('active'),
         capabilities: { revoke: true },
       },
-      { etag: '7'.repeat(64) },
+      {
+        etag: '7'.repeat(64),
+        'access-control-expose-headers': 'ETag',
+      },
     );
     return;
   }
@@ -422,7 +438,10 @@ async function handle(
         grant: grantRecord('revoked'),
         capabilities: { revoke: false },
       },
-      { etag: '6'.repeat(64) },
+      {
+        etag: '6'.repeat(64),
+        'access-control-expose-headers': 'ETag',
+      },
     );
     return;
   }
@@ -436,25 +455,30 @@ async function handle(
     return;
   }
 
-  if (
-    method === 'GET' &&
-    requestUrl.pathname === '/api/source-control/v1/context-policies'
-  ) {
+  if (method === 'GET' && requestUrl.pathname === '/api/source-control/v1/context-policies') {
     const latestState =
       state.policyLatestVersion === state.policyActiveVersion ? 'active' : 'draft';
-    const latest = policyVersion(state.policyLatestVersion, latestState);
-    json(response, 200, {
-      items: [
-        {
-          policy_id: latest['policy_id'],
-          latest_version: latest['version'],
-          state: latest['state'],
-          etag: latest['etag'],
-          policy_digest: latest['policy_digest'],
-        },
-      ],
-      next_cursor: null,
-    });
+    const latest = policyVersion(state.policyLatestVersion, latestState, projectId);
+    json(
+      response,
+      200,
+      {
+        items: [
+          {
+            policy_id: latest['policy_id'],
+            latest_version: latest['version'],
+            state: latest['state'],
+            etag: latest['etag'],
+            policy_digest: latest['policy_digest'],
+          },
+        ],
+        next_cursor: null,
+      },
+      {
+        etag: String(latest['etag']),
+        'access-control-expose-headers': 'ETag',
+      },
+    );
     return;
   }
 
@@ -466,12 +490,10 @@ async function handle(
       policyVersion(
         state.policyLatestVersion,
         state.policyLatestVersion === state.policyActiveVersion ? 'active' : 'draft',
+        projectId,
       ),
-      ...(state.policyLatestVersion > 2 ? [policyVersion(2, 'superseded')] : []),
-      policyVersion(
-        1,
-        state.policyActiveVersion === 1 ? 'active' : 'superseded',
-      ),
+      ...(state.policyLatestVersion > 2 ? [policyVersion(2, 'superseded', projectId)] : []),
+      policyVersion(1, state.policyActiveVersion === 1 ? 'active' : 'superseded', projectId),
     ];
     json(response, 200, { items: versions, next_cursor: null });
     return;
@@ -488,18 +510,23 @@ async function handle(
         : version === state.policyLatestVersion
           ? 'draft'
           : 'superseded';
-    const item = policyVersion(version, versionState);
-    json(response, 200, item, { etag: String(item['etag']) });
+    const item = policyVersion(version, versionState, projectId);
+    json(response, 200, item, {
+      etag: String(item['etag']),
+      'access-control-expose-headers': 'ETag',
+    });
     return;
   }
 
   if (
     method === 'GET' &&
-    requestUrl.pathname ===
-      '/api/source-control/v1/context-policies/policy-primary/active'
+    requestUrl.pathname === '/api/source-control/v1/context-policies/policy-primary/active'
   ) {
-    const item = policyVersion(state.policyActiveVersion, 'active');
-    json(response, 200, item, { etag: String(item['etag']) });
+    const item = policyVersion(state.policyActiveVersion, 'active', projectId);
+    json(response, 200, item, {
+      etag: String(item['etag']),
+      'access-control-expose-headers': 'ETag',
+    });
     return;
   }
 
@@ -509,23 +536,28 @@ async function handle(
   if (method === 'POST' && activateMatch) {
     const version = Number(activateMatch[1]);
     state.policyActiveVersion = version;
-    const item = policyVersion(version, 'active');
-    json(response, 200, item, { etag: String(item['etag']) });
+    const item = policyVersion(version, 'active', projectId);
+    json(response, 200, item, {
+      etag: String(item['etag']),
+      'access-control-expose-headers': 'ETag',
+    });
     return;
   }
 
   if (
     method === 'POST' &&
-    requestUrl.pathname ===
-      '/api/source-control/v1/context-policies/policy-primary/rollback'
+    requestUrl.pathname === '/api/source-control/v1/context-policies/policy-primary/rollback'
   ) {
     const targetVersion = Number(recordBody['target_version']);
     state.policyLatestVersion += 1;
     const item = {
-      ...policyVersion(state.policyLatestVersion, 'draft'),
-      document: policyVersion(targetVersion, 'superseded')['document'],
+      ...policyVersion(state.policyLatestVersion, 'draft', projectId),
+      document: policyVersion(targetVersion, 'superseded', projectId)['document'],
     };
-    json(response, 201, item, { etag: String(item['etag']) });
+    json(response, 201, item, {
+      etag: String(item['etag']),
+      'access-control-expose-headers': 'ETag',
+    });
     return;
   }
 
@@ -565,6 +597,17 @@ export async function startSourceControlLocalHub(): Promise<SourceControlLocalHu
       await page.route('**/api/source-control/v1/**', async (route) => {
         const incoming = route.request();
         const target = new URL(incoming.url());
+        const activeProjectId = new URL(page.url()).searchParams.get('projectId');
+        if (
+          activeProjectId &&
+          !target.searchParams.has('project_id') &&
+          !target.searchParams.has('projectId')
+        ) {
+          // The real Hub reads the persisted project binding from the
+          // connection. This deterministic in-memory Hub derives that binding
+          // from the project-scoped page that owns the intercepted request.
+          target.searchParams.set('projectId', activeProjectId);
+        }
         const forwarded = await fetch(`${origin}${target.pathname}${target.search}`, {
           method: incoming.method(),
           headers: {
@@ -575,7 +618,7 @@ export async function startSourceControlLocalHub(): Promise<SourceControlLocalHu
           body:
             incoming.method() === 'GET' || incoming.method() === 'HEAD'
               ? undefined
-              : incoming.postData() ?? undefined,
+              : (incoming.postData() ?? undefined),
         });
         await route.fulfill({
           status: forwarded.status,

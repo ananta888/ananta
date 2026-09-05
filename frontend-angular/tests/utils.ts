@@ -270,8 +270,10 @@ export async function prepareLoginPage(page: Page) {
     hubHealthWarningLogged = true;
     console.warn(`Hub healthcheck still failing for ${HUB_URL}; continuing with login page setup.`);
   }
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
-  await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
+  const seed = randomUUID();
+  await page.addInitScript(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, seed }) => {
+    const locationUrl = new URL(globalThis.location.href);
+    if (locationUrl.searchParams.get('__ananta_e2e_seed') !== seed) return;
     localStorage.clear();
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
       { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
@@ -279,8 +281,18 @@ export async function prepareLoginPage(page: Page) {
       { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
     ]));
     localStorage.setItem('ananta.shell.mode', 'advanced');
-  }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-  await page.reload({ waitUntil: 'domcontentloaded' });
+    locationUrl.searchParams.delete('__ananta_e2e_seed');
+    history.replaceState(null, '', `${locationUrl.pathname}${locationUrl.search}${locationUrl.hash}`);
+  }, {
+    hubUrl: HUB_URL,
+    alphaUrl: ALPHA_URL,
+    betaUrl: BETA_URL,
+    hubToken: HUB_AGENT_TOKEN,
+    alphaToken: ALPHA_AGENT_TOKEN,
+    betaToken: BETA_AGENT_TOKEN,
+    seed,
+  });
+  await page.goto(`/login?__ananta_e2e_seed=${seed}`, { waitUntil: 'domcontentloaded' });
 }
 
 export async function openTeamsAdminStudio(page: Page) {
@@ -1135,4 +1147,5 @@ export async function gotoProjectScopedRoute(
       `the project context did not accept that project (${items.length} project(s) listed)`,
     );
   }
+  await expect(page.locator('#global-project-select')).toHaveValue(projectId);
 }
