@@ -11,7 +11,7 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 | `todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json` | `codecompass_sira_corpus_discriminative_retrieval` | SIRA implementation is nearly complete and awaits authoritative source and run evidence |
 | `todos/active/todo.free-coding-agent-cli-provider-integrations.json` | `free-coding-agent-cli-provider-integrations` | Headless coding-agent integrations are implemented; remaining external runtime evidence stays active |
 | `todos/active/todo.mlintern-multi-training-backends-axolotl-llamafactory-autotrain-torchtune.json` | `mlintern_multi_training_backends` | Optional training backends are code-complete or partial and await real GPU and release evidence |
-| `todos/todo.decentralized-webrtc-peer-media-overlay.json` | `decentralized-webrtc-peer-media-overlay` | Active backlog for decentralized WebRTC group topology and the experimental encrypted peer-media overlay |
+| `todos/archive/todo.decentralized-webrtc-peer-media-overlay.json` | `decentralized-webrtc-peer-media-overlay` | Completed decentralized WebRTC topology track; peer-media remains a documented standards no-go while the data overlay is gated |
 | `todos/active/todo.pair-dev-collaboration-workspace-buzz-interop.json` | `pair-dev-collaboration-workspace-buzz-interop` | Repository implementation is complete; real multi-process and external Buzz evidence remain fail-closed |
 
 ## Deferred KRITIS / Enterprise-related scope
