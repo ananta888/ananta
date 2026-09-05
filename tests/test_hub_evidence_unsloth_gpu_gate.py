@@ -56,6 +56,9 @@ def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp
     assert "ANANTA_LORA_WORKER_IMAGE_SHA256=sha256:" + "b" * 64 in command
     assert "NVIDIA_VISIBLE_DEVICES=0" in command
     assert "PYTHONPATH=/app:/gate" in command
+    assert "TRITON_CACHE_DIR=/tmp/triton-cache" in command
+    assert "CUDA_CACHE_PATH=/tmp/cuda-cache" in command
+    assert "NUMBA_CACHE_DIR=/tmp/numba-cache" in command
     assert "none" in command
     assert f"{model}:/models/tiny-causal-lm:ro" in command
     assert "--repeat" in command and command[command.index("--repeat") + 1] == "3"
