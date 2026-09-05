@@ -11,6 +11,8 @@ from flask import Flask
 
 from agent.config import settings
 from agent.services.peer_overlay_control_service import PeerOverlayControlService
+from agent.services.peer_overlay_cost_admission_policy import PeerOverlayCostAdmissionPolicy
+from agent.services.peer_overlay_observability_service import PeerOverlayObservabilityService
 from agent.services.peer_overlay_rollout_policy import PeerOverlayRolloutPolicy
 from agent.services.peer_overlay_state_store import PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayTopologyService
@@ -40,6 +42,15 @@ def initialize_peer_overlay(app: Flask) -> PeerOverlayWiringStatus:
                 _rollout_mapping(app.config.get("ANANTA_PEER_OVERLAY_ROLLOUT", settings.peer_overlay_rollout)),
                 legacy_data_enabled=legacy_data_enabled,
             )
+            cost_budgets_path = Path(
+                str(
+                    app.config.get("ANANTA_PEER_OVERLAY_COST_BUDGETS_PATH")
+                    or settings.peer_overlay_cost_budgets_path
+                )
+            )
+            cost_policy = PeerOverlayCostAdmissionPolicy.from_mapping(
+                json.loads(cost_budgets_path.read_text(encoding="utf-8"))
+            )
             control = PeerOverlayControlService(
                 state,
                 signing_key=key,
@@ -47,6 +58,8 @@ def initialize_peer_overlay(app: Flask) -> PeerOverlayWiringStatus:
                 topology=topology,
                 data_enabled=legacy_data_enabled,
                 rollout_policy=rollout,
+                cost_policy=cost_policy,
+                observability=PeerOverlayObservabilityService(key),
             )
         except (OSError, RuntimeError, ValueError):
             status = PeerOverlayWiringStatus(False, "no_go", "peer_overlay_configuration_invalid")

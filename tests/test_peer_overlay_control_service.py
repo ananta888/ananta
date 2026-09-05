@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
 from agent.services.peer_overlay_control_service import PeerOverlayControlService, PeerOverlayDenied
+from agent.services.peer_overlay_cost_admission_policy import PeerOverlayCostAdmissionPolicy
 from agent.services.peer_overlay_rollout_policy import PeerOverlayRolloutPolicy
 from agent.services.peer_overlay_state_store import PeerOverlayStateConflict, PeerOverlayStateStore
 from agent.services.peer_overlay_topology_service import PeerOverlayTopologyService
@@ -51,6 +54,12 @@ def candidates() -> list[dict[str, object]]:
         }
         for peer_id in ("source", "peer-1", "peer-2")
     ]
+
+
+def cost_policy() -> PeerOverlayCostAdmissionPolicy:
+    value = json.loads(Path("config/peer_overlay_cost_budgets.default.json").read_text(encoding="utf-8"))
+    value["tenant_profiles"] = {"tenant-1": "local-browser-test-v1"}
+    return PeerOverlayCostAdmissionPolicy.from_mapping(value)
 
 
 def test_hub_membership_plan_and_one_use_link_ticket_are_fully_automatic(tmp_path) -> None:
@@ -172,7 +181,9 @@ def test_tenant_room_and_publication_identifiers_are_scoped_independently(tmp_pa
             subject_peer_id="source",
             expected_revision=0,
         )
-    assert len(control.overview(room_id="shared-room")["memberships"]) == 2
+    global_view = control.overview(room_id="shared-room")
+    assert global_view["memberships"] == []
+    assert global_view["aggregate"]["membership_count"] == 2
     assert len(control.overview(tenant_id="tenant-1")["memberships"]) == 1
 
 
@@ -196,6 +207,63 @@ def test_replanning_monotonically_advances_route_and_topology_epochs(tmp_path) -
     )
     assert second["epochs"]["route"] == first["epochs"]["route"] + 1
     assert second["epochs"]["topology"] == first["epochs"]["topology"] + 1
+
+
+def test_publication_plan_applies_tenant_cost_admission_after_security_gates(tmp_path) -> None:
+    key = b"p" * 32
+    control = PeerOverlayControlService(
+        PeerOverlayStateStore(tmp_path / "overlay.sqlite3"),
+        signing_key=key,
+        hub_key_id="hub-1",
+        topology=PeerOverlayTopologyService(key, hub_key_id="hub-1"),
+        data_enabled=True,
+        cost_policy=cost_policy(),
+    )
+    peer_ids = ("source", "peer-1", "peer-2", "peer-3", "peer-4")
+    for revision, peer_id in enumerate(peer_ids):
+        control.change_membership(
+            tenant_id="tenant-1",
+            room_id="room-1",
+            action="join",
+            subject_peer_id=peer_id,
+            expected_revision=revision,
+        )
+    expanded = [
+        {**candidates()[0], "peer_id": peer_id, "eligible_since_ms": 1}
+        for peer_id in peer_ids
+    ]
+    now_seconds = int(datetime.now(timezone.utc).timestamp())
+    plan = control.plan_publication(
+        tenant_id="tenant-1",
+        room_id="room-1",
+        publication_id="publication-1",
+        source_peer_id="source",
+        candidates=expanded,
+        cost_observation={
+            "tenant_id": "tenant-1",
+            "window_started_at_seconds": now_seconds,
+            "turn_egress_bytes": 0,
+            "peer_relay_egress_bytes": 0,
+        },
+    )
+
+    assert plan["cost_admission"]["allowed"] is True
+    assert plan["cost_admission"]["peer_relay_edges"] == 2
+    with pytest.raises(PeerOverlayDenied, match="strict_e2ee_required"):
+        control.plan_publication(
+            tenant_id="tenant-1",
+            room_id="room-1",
+            publication_id="publication-2",
+            source_peer_id="source",
+            candidates=expanded,
+            cost_observation={
+                "tenant_id": "tenant-1",
+                "window_started_at_seconds": now_seconds,
+                "turn_egress_bytes": 0,
+                "peer_relay_egress_bytes": 0,
+            },
+            strict_e2ee_ready=False,
+        )
 
 
 def test_automatic_failover_requires_complaint_quorum_and_issues_backup_ticket(tmp_path) -> None:

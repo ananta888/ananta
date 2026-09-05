@@ -45,7 +45,7 @@ def _invoke(operation: Callable[..., dict[str, Any]], payload: dict[str, Any] | 
 
 
 @peer_overlay_bp.get("/overview")
-@check_auth
+@admin_required
 def overview():
     return _invoke(
         _service().overview,

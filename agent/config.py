@@ -669,6 +669,10 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
         default="{}",
         validation_alias="ANANTA_PEER_OVERLAY_ROLLOUT",
     )
+    peer_overlay_cost_budgets_path: str = Field(
+        default="config/peer_overlay_cost_budgets.default.json",
+        validation_alias="ANANTA_PEER_OVERLAY_COST_BUDGETS_PATH",
+    )
     dspy_optimization_enabled: bool = Field(default=False, validation_alias="ANANTA_DSPY_OPTIMIZATION_ENABLED")
     dspy_optimization_mode: str = Field(default="disabled", validation_alias="ANANTA_DSPY_OPTIMIZATION_MODE")
     dspy_optimization_state: str = Field(

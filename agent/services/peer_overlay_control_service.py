@@ -7,6 +7,8 @@ from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
+from agent.services.peer_overlay_cost_admission_policy import PeerOverlayCostAdmissionPolicy, PeerOverlayCostBudget
+from agent.services.peer_overlay_observability_service import PeerOverlayObservabilityService
 from agent.services.peer_overlay_offline_authority_policy import PeerOverlayOfflineAuthorityPolicy
 from agent.services.peer_overlay_quality_policy import PeerOverlayQualityPolicy
 from agent.services.peer_overlay_relay_health_policy import PeerOverlayRelayHealthPolicy
@@ -41,6 +43,8 @@ class PeerOverlayControlService:
         offline_policy: PeerOverlayOfflineAuthorityPolicy | None = None,
         quality_policy: PeerOverlayQualityPolicy | None = None,
         rollout_policy: PeerOverlayRolloutPolicy | None = None,
+        cost_policy: PeerOverlayCostAdmissionPolicy | None = None,
+        observability: PeerOverlayObservabilityService | None = None,
     ) -> None:
         if len(signing_key) < 32:
             raise ValueError("peer_overlay_signing_key_too_short")
@@ -55,6 +59,8 @@ class PeerOverlayControlService:
             None, legacy_data_enabled=bool(data_enabled)
         )
         self._data_enabled = bool(data_enabled or self._rollout.matrix()["data_overlay"]["effective"])
+        self._cost_policy = cost_policy or _conservative_cost_policy()
+        self._observability = observability or PeerOverlayObservabilityService(self._key)
 
     def change_membership(
         self,
@@ -138,6 +144,8 @@ class PeerOverlayControlService:
         candidates: list[Mapping[str, Any]],
         expected_revision: int = 0,
         browser_id: str | None = None,
+        cost_observation: Mapping[str, Any] | None = None,
+        strict_e2ee_ready: bool = True,
     ) -> dict[str, Any]:
         self._require_data_enabled()
         rollout = self._rollout.evaluate(
@@ -173,6 +181,25 @@ class PeerOverlayControlService:
             candidates=[PeerOverlayCandidate(**dict(item)) for item in candidates],
             epochs=epochs,
         )
+        candidate_by_id = {
+            str(item["peer_id"]): PeerOverlayCandidate(**dict(item)) for item in candidates
+        }
+        turn_edges = sum(
+            "turn" in {str(capability) for capability in lease.capabilities} for lease in plan.leases
+        )
+        relay_leases = [lease for lease in plan.leases if lease.primary_parent_id != source_peer_id]
+        relay_parents = [candidate_by_id[lease.primary_parent_id] for lease in relay_leases]
+        cost_decision = self._cost_policy.evaluate(
+            tenant_id=tenant_id,
+            turn_edges=turn_edges,
+            peer_relay_edges=len(relay_leases),
+            observation=cost_observation,
+            strict_e2ee_ready=strict_e2ee_ready,
+            relay_consent_complete=all(candidate.relay_consent for candidate in relay_parents),
+            minimum_quality_met=all(candidate.eligible_relay for candidate in relay_parents),
+        )
+        if not cost_decision.allowed:
+            raise PeerOverlayDenied(cost_decision.reason_code)
         payload = {
             **plan.as_dict(),
             "tenant_id": tenant_id,
@@ -181,6 +208,7 @@ class PeerOverlayControlService:
             "media_forwarding_allowed": False,
             "fallback": "livekit_e2ee",
             "created_at": utc_now(),
+            "cost_admission": cost_decision.as_dict(),
         }
         payload["plan_digest"] = canonical_overlay_digest(payload)
         return self._store.append("publication_plan", plan_key, payload, expected_revision=expected_revision)
@@ -369,22 +397,17 @@ class PeerOverlayControlService:
         }
 
     def overview(self, *, tenant_id: str | None = None, room_id: str | None = None) -> dict[str, Any]:
-        plans = self._store.list("publication_plan")
-        memberships = self._store.list("membership")
-        if tenant_id:
-            tenant = require_overlay_id(tenant_id, "tenant_id")
-            plans = [item for item in plans if item.get("tenant_id") == tenant]
-            memberships = [item for item in memberships if item.get("tenant_id") == tenant]
-        if room_id:
-            room = require_overlay_id(room_id, "room_id")
-            plans = [item for item in plans if item.get("room_id") == room]
-            memberships = [item for item in memberships if item.get("room_id") == room]
+        projection = self._observability.project(
+            plans=self._store.list("publication_plan"),
+            memberships=self._store.list("membership"),
+            tenant_id=tenant_id,
+            room_id=room_id,
+        )
         return {
-            "memberships": memberships,
-            "plans": plans,
+            **projection,
             "media_peer_dag": "no_go",
             "data_overlay": "available"
-            if self._data_enabled and plans
+            if self._data_enabled and projection["aggregate"]["retained_publication_count"]
             else "enabled"
             if self._data_enabled
             else "disabled",
@@ -449,6 +472,28 @@ def _iso(value: datetime) -> str:
 
 def _scope_key(*parts: str) -> str:
     return ":".join(require_overlay_id(part, "scope") for part in parts)
+
+
+def _conservative_cost_policy() -> PeerOverlayCostAdmissionPolicy:
+    return PeerOverlayCostAdmissionPolicy(
+        default_budget=PeerOverlayCostBudget(
+            profile_id="conservative-unverified-v1",
+            version="1.0.0",
+            evidence_revision="unverified-v1",
+            evidence_scope="unverified",
+            browser="unknown",
+            hardware_class="unknown",
+            network_profile="unknown",
+            measurement_duration_seconds=0,
+            window_seconds=60,
+            max_turn_edges=0,
+            max_peer_relay_edges=0,
+            max_turn_egress_bytes=0,
+            max_peer_relay_egress_bytes=0,
+            reserved_turn_egress_bytes_per_edge=1_048_576,
+            reserved_peer_relay_egress_bytes_per_edge=1_048_576,
+        )
+    )
 
 
 __all__ = ["PeerOverlayControlService", "PeerOverlayDenied"]

@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.peer-overlay-cost-budgets.v1",
+  "default_profile": "conservative-unknown-v1",
+  "profiles": {
+    "conservative-unknown-v1": {
+      "version": "1.0.0",
+      "evidence_revision": "unverified-v1",
+      "evidence_scope": "unverified",
+      "browser": "unknown",
+      "hardware_class": "unknown",
+      "network_profile": "unknown",
+      "measurement_duration_seconds": 0,
+      "window_seconds": 60,
+      "max_turn_edges": 0,
+      "max_peer_relay_edges": 0,
+      "max_turn_egress_bytes": 0,
+      "max_peer_relay_egress_bytes": 0,
+      "reserved_turn_egress_bytes_per_edge": 1048576,
+      "reserved_peer_relay_egress_bytes_per_edge": 1048576
+    },
+    "local-browser-test-v1": {
+      "version": "1.0.0",
+      "evidence_revision": "peer-nat-matrix-v1",
+      "evidence_scope": "test",
+      "browser": "chromium148-firefox153",
+      "hardware_class": "i7-13700h-20cpu-64gb",
+      "network_profile": "local-direct-turn-udp-tcp",
+      "measurement_duration_seconds": 6,
+      "window_seconds": 60,
+      "max_turn_edges": 1,
+      "max_peer_relay_edges": 4,
+      "max_turn_egress_bytes": 16777216,
+      "max_peer_relay_egress_bytes": 33554432,
+      "reserved_turn_egress_bytes_per_edge": 8388608,
+      "reserved_peer_relay_egress_bytes_per_edge": 4194304
+    }
+  },
+  "tenant_profiles": {}
+}
