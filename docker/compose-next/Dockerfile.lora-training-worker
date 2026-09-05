@@ -61,7 +61,10 @@ FROM base AS nvidia
 
 USER root
 COPY docker/compose-next/requirements.lora-training-nvidia.txt /tmp/requirements.lora-training-nvidia.txt
-RUN pip install --no-cache-dir --requirement /tmp/requirements.lora-training-nvidia.txt \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends gcc libc6-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --requirement /tmp/requirements.lora-training-nvidia.txt \
     && rm /tmp/requirements.lora-training-nvidia.txt
 ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4"
 USER 10005:10005

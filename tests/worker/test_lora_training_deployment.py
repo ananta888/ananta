@@ -54,6 +54,7 @@ def test_worker_image_excludes_hub_and_separates_cpu_from_nvidia() -> None:
     assert "FROM base AS cpu" in dockerfile
     assert "FROM base AS nvidia" in dockerfile
     assert "FROM cpu AS nvidia" not in dockerfile
+    assert "apt-get install --yes --no-install-recommends gcc libc6-dev" in dockerfile
     assert "runtime_configured" in dockerfile and "auth_configured" in dockerfile
     assert "Authorization" in dockerfile and "ANANTA_LORA_TRAINING_TOKEN" in dockerfile
 
