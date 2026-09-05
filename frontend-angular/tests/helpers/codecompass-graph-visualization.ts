@@ -159,7 +159,7 @@ export function createFunctionalGraphArtifact(): GraphArtifact {
       unresolved_edge_count: 1,
       internal_edge_count: edges.length,
       edge_capped: false,
-      max_edges: 2_000,
+      max_edges: 400,
       semantic_budget: {
         truncated: true,
         record_limit: 30,
@@ -255,9 +255,9 @@ function hasExpectedConnectionQuery(url: URL): boolean {
 }
 
 function hasExpectedGraphQuery(url: URL): boolean {
-  return url.searchParams.get('limit') === '500'
+  return url.searchParams.get('limit') === '100'
     && url.searchParams.get('view') === 'topology'
-    && url.searchParams.get('max_edges') === '2000'
+    && url.searchParams.get('max_edges') === '400'
     && url.searchParams.get('project_id') === GRAPH_PROJECT_ID;
 }
 
@@ -391,7 +391,12 @@ export async function openGraphInternals(page: Page): Promise<void> {
     waitUntil: 'domcontentloaded',
   });
   await expect(page.locator('#global-project-select')).toHaveValue(GRAPH_PROJECT_ID);
-  await page.locator('ch-shell a[href="/codehug/internals"]').click();
+  // Stay inside the running Angular application. A document-level reload
+  // resets ProjectContextService and lets the Internals component issue its
+  // first project-bound request before the catalog has restored the route
+  // selection.
+  await page.locator('.codehug-shell-nav a[href="/codehug/internals"]').click();
+  await expect(page).toHaveURL(/\/codehug\/internals(?:\?|$)/);
   await expect(page.getByTestId('codecompass-graph-viewer')).toBeVisible();
   await expect(page.locator('app-simple-graph-view')).toBeVisible();
 }

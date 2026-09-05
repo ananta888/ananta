@@ -180,9 +180,9 @@ test.describe('CodeCompass graph visualization functional gate', () => {
     )).toBe(true);
     expect(bootstrapUrls.some(url =>
       url.pathname === `/api/source-control/v1/connections/${GRAPH_CONNECTION_ID}/graph`
-      && url.searchParams.get('limit') === '500'
+      && url.searchParams.get('limit') === '100'
       && url.searchParams.get('view') === 'topology'
-      && url.searchParams.get('max_edges') === '2000'
+      && url.searchParams.get('max_edges') === '400'
       && url.searchParams.get('project_id') === GRAPH_PROJECT_ID,
     )).toBe(true);
     expect(bootstrapUrls.filter(url =>
@@ -213,7 +213,7 @@ test.describe('CodeCompass graph visualization functional gate', () => {
     await expect(windowWarning).toContainText('8 weitere Knoten');
     await expect(windowWarning).toContainText(/1\s+Relation(?:en)? des Indexes/);
     await expect(windowWarning).toContainText(
-      'Domain-, Relations- und Tiefenfilter arbeiten innerhalb des geladenen Fensters.',
+      'Der Domainbaum bestimmt den Serverscope; Relations- und Tiefenfilter arbeiten im geladenen Fenster.',
     );
 
     const localInteractionMark = requests.mark();

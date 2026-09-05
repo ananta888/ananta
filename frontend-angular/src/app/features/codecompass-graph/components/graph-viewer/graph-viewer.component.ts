@@ -192,9 +192,9 @@ import {
   `,
   styles: [`
     :host { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .gv-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; }
+    .gv-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-control); overflow-x: hidden; overflow-y: auto; }
     .gv-visual-controls { display: flex; justify-content: flex-end; align-items: center; gap: .35rem; padding: .25rem .55rem; background: var(--surface-soft); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    .gv-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+    .gv-body { display: flex; flex: 1 0 18rem; min-height: 18rem; overflow: hidden; }
     .gv-renderer { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     .gv-detail { width: 320px; border-left: 1px solid var(--border); overflow-y: auto; background: var(--surface-soft); flex-shrink: 0; }
     .gv-diff3 { width: 480px; border-left: 1px solid #30363d; flex-shrink: 0; overflow: hidden; display: flex; flex-direction: column; }

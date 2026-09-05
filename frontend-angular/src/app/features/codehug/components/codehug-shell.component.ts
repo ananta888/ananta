@@ -348,8 +348,10 @@ export class CodeHugShellComponent implements OnDestroy {
 
   private detectViewport(): void {
     const w = window.innerWidth;
-    if (w >= 1024) this.viewport.set('desktop');
-    else if (w >= 768) this.viewport.set('tablet');
-    else this.viewport.set('handy');
+    const nextViewport = w >= 1024 ? 'desktop' : w >= 768 ? 'tablet' : 'handy';
+    if (nextViewport !== this.viewport()) {
+      this.rightCollapsed.set(nextViewport !== 'desktop');
+      this.viewport.set(nextViewport);
+    }
   }
 }
