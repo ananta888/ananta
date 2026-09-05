@@ -154,6 +154,24 @@ INITIAL_ADMIN_PASSWORD=... POSTGRES_PASSWORD=... \
 docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
 
+Der Standardpfad fordert die NVIDIA-GPU explizit an. Auf Entwicklungs- oder
+Acceptance-Hosts ohne installierte NVIDIA-Container-Toolkit/CDI-Integration
+kann derselbe Stack vollständig headless auf der CPU gestartet werden:
+
+```bash
+INITIAL_ADMIN_PASSWORD=... POSTGRES_PASSWORD=... \
+docker compose --env-file .env \
+  -f docker/compose-next/compose.dev.ollama.yml \
+  -f docker/compose-next/compose.dev.ollama-cpu.yml \
+  up -d --build
+```
+
+Der Overlay entfernt ausschließlich die GPU-Geräteanforderung des
+Ollama-Service. Modellprofile, Bind-Mount, Hub-/Worker-Grenzen und
+Startreihenfolge bleiben identisch; Inferenz ist auf der CPU entsprechend
+langsamer. Für die RTX-Abnahme ist weiterhin der Standardpfad ohne Overlay zu
+verwenden.
+
 Der Ollama-Stack lädt beim ersten Start `phi4-mini` sowie
 `gemma4:e4b-it-qat` und erzeugt die lokalen Aliase
 `ananta-phi4-mini-32k` und `ananta-gemma4-reasoning-8k`. Mit

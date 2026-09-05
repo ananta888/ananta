@@ -69,6 +69,21 @@ POSTGRES_PASSWORD=... \
 docker compose --env-file .env -f docker/compose-next/compose.dev.ollama.yml up -d --build
 ```
 
+Wenn der Host keine NVIDIA-Container-Toolkit/CDI-Integration bereitstellt,
+kann derselbe Entwicklungs- und Acceptance-Stack ohne interaktive Schritte
+über den CPU-Overlay gestartet werden:
+
+```bash
+POSTGRES_PASSWORD=... \
+docker compose --env-file .env \
+  -f docker/compose-next/compose.dev.ollama.yml \
+  -f docker/compose-next/compose.dev.ollama-cpu.yml \
+  up -d --build
+```
+
+Der Overlay ist kein Ersatz für eine GPU-Abnahme; er stellt den vollständig
+automatisierbaren Funktionspfad auf Hosts ohne NVIDIA-CDI bereit.
+
 Cleanup:
 ```bash
 docker compose --env-file .env -f docker/compose-next/compose.stack.quickstart.yml down -v --remove-orphans

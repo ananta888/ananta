@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -9,14 +10,44 @@ from agent.services.model_profile_loader import ModelProfileLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_PATH = ROOT / "docker/compose-next/compose.dev.ollama.yml"
+CPU_OVERLAY_PATH = (
+    ROOT / "docker/compose-next/compose.dev.ollama-cpu.yml"
+)
 PROFILE_PATH = (
     ROOT
     / "config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
 )
 
 
-def _compose() -> dict:
-    return yaml.safe_load(COMPOSE_PATH.read_text(encoding="utf-8"))
+def _compose() -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        yaml.safe_load(COMPOSE_PATH.read_text(encoding="utf-8")),
+    )
+
+
+class _ComposeLoader(yaml.SafeLoader):
+    """Parse Compose reset tags as their effective replacement value."""
+
+
+def _construct_reset_sequence(
+    loader: yaml.SafeLoader,
+    node: yaml.SequenceNode,
+) -> list[object]:
+    return cast(list[object], loader.construct_sequence(node))
+
+
+_ComposeLoader.add_constructor("!reset", _construct_reset_sequence)
+
+
+def _cpu_overlay() -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        yaml.load(
+            CPU_OVERLAY_PATH.read_text(encoding="utf-8"),
+            Loader=_ComposeLoader,
+        ),
+    )
 
 
 def test_ollama_uses_backupable_wsl_bind_mount_and_single_model_gpu_limits():
@@ -53,6 +84,16 @@ def test_ollama_uses_backupable_wsl_bind_mount_and_single_model_gpu_limits():
         ollama["environment"]["OLLAMA_MAX_LOADED_MODELS"]
         == "${OLLAMA_MAX_LOADED_MODELS:-1}"
     )
+
+
+def test_cpu_overlay_removes_only_the_nvidia_device_request():
+    overlay = _cpu_overlay()
+
+    assert set(overlay) == {"services"}
+    assert set(overlay["services"]) == {"ollama"}
+    ollama = overlay["services"]["ollama"]
+    assert ollama["gpus"] == []
+    assert ollama["environment"] == {"NVIDIA_VISIBLE_DEVICES": "void"}
 
 
 def test_python_and_angular_services_mount_only_live_sources():

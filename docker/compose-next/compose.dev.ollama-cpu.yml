@@ -1,0 +1,8 @@
+services:
+  ollama:
+    # Explicit headless fallback for development and acceptance hosts without
+    # NVIDIA Container Toolkit/CDI support. The primary Ollama compose file
+    # remains GPU-first; this overlay only removes its device request.
+    gpus: !reset []
+    environment:
+      NVIDIA_VISIBLE_DEVICES: void
