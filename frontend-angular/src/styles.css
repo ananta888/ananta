@@ -46,6 +46,7 @@ body.dark-mode {
   --surface-soft: #0b1222;
   --tone-technical-bg: #111827;
   --tone-success-text: #34d399;
+  --tone-error-text: #fca5a5;
 }
 
 html, body {
@@ -199,7 +200,7 @@ button.btn-large, .btn-large {
 .grid.cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
 .muted { color: var(--muted); }
-.danger { color: #f87171; }
+.danger { color: var(--tone-error-text); }
 .success { color: var(--tone-success-text); }
 .warning { color: var(--warning); }
 .bg-danger { background-color: #f87171 !important; }
