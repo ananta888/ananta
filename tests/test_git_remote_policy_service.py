@@ -104,6 +104,42 @@ class _RevokedCredentialStatus:
         return "revoked"
 
 
+class _ActiveCredentialStatus:
+    def status(self, _credential_ref: str) -> str:
+        return "active"
+
+
+def test_policy_accepts_repository_bound_percent_encoded_secret_reference() -> None:
+    reference = (
+        "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
+    )
+
+    authorized = _policy(
+        credential_status=_ActiveCredentialStatus()
+    ).authorize(_request(credential_ref=reference))
+
+    assert authorized.credential_ref == reference
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "secret://github-oauth/grant/user-1/repository/owner%repository",
+        "secret://github-oauth/grant/user-1/repository/owner%2Grepository",
+        "secret://" + "a" * 504,
+    ],
+)
+def test_policy_rejects_malformed_or_oversized_secret_reference(
+    reference: str,
+) -> None:
+    with pytest.raises(
+        GitRemotePolicyError, match="git_credential_reference_invalid"
+    ):
+        _policy(credential_status=_ActiveCredentialStatus()).authorize(
+            _request(credential_ref=reference)
+        )
+
+
 def test_policy_denies_revoked_vault_credential_reference() -> None:
     policy = _policy(credential_status=_RevokedCredentialStatus())
 

@@ -14,8 +14,10 @@ from typing import Callable, Iterable, Protocol
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 _CREDENTIAL_REFERENCE = re.compile(
-    r"^(?:vault|secret)://[A-Za-z0-9][A-Za-z0-9._/-]{2,255}$"
+    r"^(?:vault|secret)://[A-Za-z0-9]"
+    r"(?:[A-Za-z0-9._/-]|%[0-9A-Fa-f]{2}){2,511}$"
 )
+_MAX_CREDENTIAL_REFERENCE_LENGTH = 512
 _SCP_REMOTE = re.compile(
     r"^(?P<user>[A-Za-z0-9._-]+)@(?P<host>[A-Za-z0-9.-]+):(?P<path>[^?#]+)$"
 )
@@ -489,7 +491,10 @@ class GitRemoteAccessPolicy:
         credential_ref = str(value or "").strip() or None
         if credential_ref is None:
             return None
-        if _CREDENTIAL_REFERENCE.fullmatch(credential_ref) is None:
+        if (
+            len(credential_ref) > _MAX_CREDENTIAL_REFERENCE_LENGTH
+            or _CREDENTIAL_REFERENCE.fullmatch(credential_ref) is None
+        ):
             raise GitRemotePolicyError("git_credential_reference_invalid")
         if self._credential_status is None:
             raise GitRemotePolicyError("git_credential_status_unavailable")

@@ -24,8 +24,10 @@ from agent.services.hub_git_authorization_registry import (
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
-
-_OPAQUE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+=-]{0,511}$")
+_OPAQUE_IDENTIFIER = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9_.:/@+=-]|%[0-9A-Fa-f]{2}){0,511}$"
+)
+_MAX_OPAQUE_IDENTIFIER_LENGTH = 512
 _SAFE_AUDIT_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _AUTHORIZATION_STATES = frozenset({"active", "revoked", "scope_loss"})
 
@@ -394,7 +396,10 @@ class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):
 
 def _validate_persistable(record: RegisteredGitAuthorization) -> None:
     credential_ref = str(record.credential_ref or "").strip()
-    if credential_ref and _OPAQUE_IDENTIFIER.fullmatch(credential_ref) is None:
+    if credential_ref and (
+        len(credential_ref) > _MAX_OPAQUE_IDENTIFIER_LENGTH
+        or _OPAQUE_IDENTIFIER.fullmatch(credential_ref) is None
+    ):
         raise HubGitAuthorizationPersistenceError(
             "git_credential_reference_invalid"
         )

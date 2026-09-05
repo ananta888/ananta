@@ -22,7 +22,6 @@ from agent.sources.hub_git_persistent_composition import (
     compose_persistent_hub_git_source_connectors,
 )
 
-
 SCOPE = GitSourceScope(
     tenant_id="tenant-1",
     project_id="project-1",
@@ -141,6 +140,25 @@ def test_github_oauth_registration_uses_the_same_scoped_contract() -> None:
         authorization_ref="github-oauth:user-1",
         repository="owner/repository",
     ) == oauth
+
+
+def test_provider_generated_repository_bound_reference_is_persistable() -> None:
+    _, factory = _session_factory()
+    repository = SQLHubGitAuthorizationRepository(session_factory=factory)
+    oauth = replace(
+        _github(),
+        connection_ref="github-oauth:user-1",
+        authorization_kind="github_oauth",
+        credential_ref=(
+            "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
+        ),
+    )
+
+    assert repository.register(
+        oauth,
+        actor_id="operator-1",
+        reason_code="oauth_connected",
+    ) == 1
 
 
 def test_exact_registration_is_idempotent_but_changed_snapshot_conflicts() -> None:
