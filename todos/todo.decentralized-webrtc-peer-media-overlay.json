@@ -2,12 +2,12 @@
   "$schema": "todo.track.schema.json",
   "id": "todo.decentralized-webrtc-peer-media-overlay",
   "title": "Dezentrale WebRTC-Gruppentopologie und verschluesseltes Peer-Media-Overlay",
-  "version": "1.1",
+  "version": "1.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "decentralized-webrtc-peer-media-overlay",
-  "status": "blocked",
+  "status": "in_progress",
   "created_at": "2026-08-09",
-  "updated_at": "2026-08-29",
+  "updated_at": "2026-09-05",
   "parents": [
     "todos/todo.pair-dev-collaboration-workspace-buzz-interop.json",
     "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
@@ -39,10 +39,17 @@
   },
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
-    "reviewed_commit": "7617afa2e9e2d3589f6ba9a5881214150b865c18",
-    "reviewed_at": "2026-08-29",
+    "reviewed_commit": "0f295fa64287bc7829a77d2b732d733eb16e8533",
+    "reviewed_at": "2026-09-05",
     "reviewed_paths": [
       "AGENTS.md",
+      "agent/bootstrap/peer_overlay.py",
+      "agent/routes/peer_overlay.py",
+      "agent/services/peer_overlay_control_service.py",
+      "agent/services/peer_overlay_relay_health_policy.py",
+      "agent/services/peer_overlay_release_gate.py",
+      "agent/services/peer_overlay_state_store.py",
+      "agent/services/peer_overlay_topology_service.py",
       "agent/services/media_topology_policy.py",
       "agent/services/sfu_all_turn_capacity_gate.py",
       "agent/services/sfu_broadcast_capacity_profile_resolver.py",
@@ -59,6 +66,7 @@
       "agent/services/webrtc_group_key_authorization_service.py",
       "agent/services/webrtc_turn_credential_service.py",
       "ananta_contracts/webrtc_security.py",
+      "ananta_contracts/peer_overlay.py",
       "docs/architecture/webrtc-sfu-broadcast-boundaries.md",
       "docs/decisions/ADR-semantic-media-sfu.md",
       "docs/operations/sfu-broadcast-capacity-policy.md",
@@ -72,6 +80,10 @@
       "frontend-angular/src/app/services/media-e2ee-transform.service.spec.ts",
       "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
       "frontend-angular/src/app/services/network-profile.service.ts",
+      "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.ts",
+      "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
+      "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts",
+      "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
       "frontend-angular/src/app/services/pair-media-e2ee-frame-codec.ts",
       "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts",
       "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
@@ -86,7 +98,13 @@
       "tests/security/test_webrtc_crypto_conformance.py",
       "tests/security/test_webrtc_replay_protection.py",
       "tests/security/test_webrtc_security_downgrade.py",
-      "tests/test_media_topology_policy.py"
+      "tests/test_media_topology_policy.py",
+      "tests/test_peer_overlay_api.py",
+      "tests/test_peer_overlay_contracts.py",
+      "tests/test_peer_overlay_control_service.py",
+      "tests/test_peer_overlay_relay_health_policy.py",
+      "tests/test_peer_overlay_release_gate.py",
+      "tests/test_peer_overlay_topology_service.py"
     ],
     "standards": [
       "https://www.w3.org/TR/webrtc-encoded-transform/",
@@ -103,20 +121,22 @@
       "DG-03": "LiveKit_only for audio/video; bounded data-overlay experiment remains eligible."
     },
     "blocked_audit": {
-      "status": "blocked",
+      "status": "in_progress",
       "reason_codes": [
-        "multi_peer_and_peer_dag_implementation_absent",
         "browser_resource_nat_and_churn_run_evidence_missing",
+        "portable_cross_peer_media_standard_path_no_go",
+        "mls_interoperability_decision_evidence_missing",
         "malicious_relay_runtime_evidence_missing",
         "allowed_run_refs_empty"
       ],
       "verified_local_findings": [
         "Direct pair and SFU E2EE paths, replay windows, group key authorization, priority queues and TURN controls exist.",
-        "No Multi-PeerConnection manager, signed peer route lease, publication DAG or two-hop client relay implementation exists.",
-        "MediaTopologyPolicy can misclassify a group above the mesh limit as ordinary_direct when no SFU is ready.",
+        "A bounded Multi-PeerConnection manager, signed membership and route contracts, a deterministic publication data DAG, one-use link tickets and an opaque multi-hop relay now exist behind Hub authority and a default-off feature flag.",
+        "MediaTopologyPolicy now degrades groups above the safe mesh limit to SFU or relay_control_only instead of misclassifying an ordinary direct pair as group media.",
+        "The remaining partial tasks are locally actionable and must not be hidden behind the seven external or standards-bound task blockers.",
         "Local and SFU test artifacts are not Peer-DAG RUN evidence and remain non-promotable."
       ],
-      "required_unblock_input": "Assignment-bound RUN_* refs for Chromium/Firefox capacity, NAT/churn, malicious-relay negatives and global hybrid release gates; missing evidence remains no_go."
+      "required_unblock_input": "Only the seven explicitly blocked tasks require additional standards decisions or Hub-registered Chromium/Firefox capacity, NAT/churn, malicious-relay and hybrid release runs. The remaining partial tasks continue locally; missing production evidence remains no_go."
     }
   },
   "baseline": {
@@ -129,11 +149,11 @@
       "Ein allgemeiner AES-GCM-Frame-Transform ist implementiert und getestet, aber nicht produktiv an RTCRtpSender oder RTCRtpReceiver angeschlossen."
     ],
     "primary_gaps": [
-      "Kein produktiver n-zu-n PeerConnection-Manager fuer kleine Gruppen.",
-      "Keine Peer-DAG-/Gossip-Topologie, keine Parent-Leases und keine Relay-Neuwahl.",
+      "Der isolierte n-zu-n PeerConnection-Manager ist lokal implementiert, aber noch nicht durch einen Hub-registrierten Multi-Browser-Lauf belegt.",
+      "Der default-off Peer-Daten-DAG besitzt Parent-Leases und automatische Backup-Neuwahl; produktives DataChannel-Signaling, Browser-Churn und NAT-Evidence fehlen.",
       "Keine browserseitig belegte Moeglichkeit, eingehende codierte Medienframes unveraendert in einen anderen RTCRtpSender einzuspeisen.",
       "Der allgemeine Medien-Frame-Transform verwendet ein eigenes ANME-Format statt RFC-9605-SFrame.",
-      "Membership und Gruppenschluesselverteilung benoetigen fuer wesentliche Schritte dauernden Hub-Kontakt.",
+      "Signierte Membership-Ereignisse und kurze Offline-Grace existieren; ACK-/Cursor-Replikation ueber DataChannels und profilbezogene Lease-Konfiguration fehlen.",
       "Kein gemeinsames Churn-, NAT-, Netzwechsel-, Byzantine-Relay- und Multi-Browser-Gate fuer Peer-Fanout."
     ]
   },
@@ -1772,14 +1792,16 @@
     "weighted_percent": 64.9
   },
   "execution_stage_summary": {
-    "architecture_and_contracts": "todo",
-    "small_group_mesh": "todo",
-    "sframe_and_membership": "todo",
-    "peer_dag_and_poc": "todo",
-    "qos_security_network": "todo",
-    "operations_and_release": "todo"
+    "architecture_and_contracts": "in_progress",
+    "small_group_mesh": "in_progress",
+    "sframe_and_membership": "in_progress",
+    "peer_dag_and_poc": "in_progress_media_no_go",
+    "qos_security_network": "in_progress",
+    "operations_and_release": "in_progress"
   },
   "summary_notes": [
+    "Quellcode-Reaudit 2026-09-05: Der Track ist nicht global blockiert. 32 partielle Aufgaben bleiben lokal bearbeitbar; nur sieben Aufgaben sind explizit standards- oder produktiver Laufzeitevidenz-gebunden.",
+    "Seit dem vorherigen Review wurden der Hub-signierte Daten-DAG, Membership-/Lease-/Ticket-Vertraege, der isolierte Mesh-Manager, begrenzte Relay-Queues, automatische Backup-Umschaltung und das default-off Release-Gate implementiert.",
     "Der Track behandelt Peer-Data-Fanout und Peer-Media-Fanout getrennt; ein erfolgreicher Daten-DAG beweist keine Browser-Medienweiterleitung.",
     "Die aktuelle W3C Encoded-Transform-Spezifikation bindet Frames an ihre Quellpipeline; deshalb ist unveraenderte Cross-PeerConnection-Weiterleitung ein fruehes hartes Decision Gate.",
     "SFrame schuetzt Medieninhalt und Integritaet, aber nicht automatisch gegen Sender-Impersonation durch berechtigte Gruppenmitglieder oder absichtliches Dropping durch Relays.",
@@ -1927,5 +1949,5 @@
     "source_hash": "a10bfbf10aae2ec852a2f9058a1995e595be99c57b0eca18e705829071852636",
     "is_stale": false
   },
-  "last_reviewed": "2026-08-29"
+  "last_reviewed": "2026-09-05"
 }
