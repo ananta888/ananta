@@ -59,6 +59,7 @@ def test_container_command_receives_only_hub_assignment_and_immutable_inputs(tmp
     assert "TRITON_CACHE_DIR=/tmp/triton-cache" in command
     assert "CUDA_CACHE_PATH=/tmp/cuda-cache" in command
     assert "NUMBA_CACHE_DIR=/tmp/numba-cache" in command
+    assert f"{libraries['libcuda.so.1']}:/host-nvidia/libcuda.so:ro" in command
     assert "none" in command
     assert f"{model}:/models/tiny-causal-lm:ro" in command
     assert "--repeat" in command and command[command.index("--repeat") + 1] == "3"

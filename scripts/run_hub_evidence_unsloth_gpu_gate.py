@@ -61,6 +61,7 @@ _NVIDIA_LIBRARIES = (
     "libnvidia-ml.so.1",
     "libnvidia-ptxjitcompiler.so.1",
 )
+_NVIDIA_LINKER_ALIASES = {"libcuda.so.1": ("libcuda.so",)}
 _DIAGNOSTIC_LIMIT = 2000
 
 
@@ -250,6 +251,8 @@ def build_container_command(
     command.extend(("--volume", f"{nvidia_smi}:/usr/bin/nvidia-smi:ro"))
     for name, path in (libraries or resolve_nvidia_libraries()).items():
         command.extend(("--volume", f"{path}:/host-nvidia/{name}:ro"))
+        for alias in _NVIDIA_LINKER_ALIASES.get(name, ()):
+            command.extend(("--volume", f"{path}:/host-nvidia/{alias}:ro"))
     command.extend(
         (
             "--volume",
