@@ -434,6 +434,10 @@ def _success_document(checks: Mapping[str, bool]) -> dict[str, Any]:
 
 
 def _execute_live(output: Path) -> dict[str, Any]:
+    # A fresh reference host may not have the immutable image yet.  Pull it as
+    # an explicit bounded preflight so the subsequent attestation observes the
+    # image that will actually run instead of permanently recording a miss.
+    _docker(("pull", POSTGRES_IMAGE), timeout=600)
     inspect = _docker(("image", "inspect", POSTGRES_IMAGE, "--format", "{{.Id}}"))
     exact_image = inspect.stdout.strip() == POSTGRES_IMAGE_ID
     container = f"ananta-relay-gate-{uuid.uuid4().hex[:12]}"

@@ -53,5 +53,5 @@
     "migrations/versions/e9f0a1b2c3d4_add_semantic_relay_wire_metadata.py",
     "scripts/e2e/semantic_relay_multi_hub_e2e.py"
   ],
-  "source_sha256": "9fdabb749daaf87676706324c51d06c55f3e52b7446ee818424c128a3e18ca51"
+  "source_sha256": "6d49a6cdf3026f8f8cf1d3351de0726a5a9c35276429a36e2f7932ebd0257fb9"
 }
