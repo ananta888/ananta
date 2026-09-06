@@ -14,18 +14,36 @@ from worker.meet_media.speech import speech
 def run(turn):
     with tempfile.TemporaryDirectory(prefix="meet-turn-") as temporary:
         directory = Path(temporary)
+        lease = None
+        if "persona_image" in turn:
+            from worker.meet_media.lease_guard import HubLeaseGuard
+
+            lease = HubLeaseGuard(turn["task_id"], turn["lease_id"])
+            lease.require()
         generated = generate(turn["text"], **turn["response_limits"]) if "response_limits" in turn else None
         reply = generated.text if generated else answer(turn["text"])
         wav = directory / "speech.wav"
         samples, rate, duration = speech(reply, wav)
-        video = avatar(wav, samples, rate, duration, directory)
+        if lease is not None:
+            from worker.meet_media.persona_video import persona_video
+
+            video = persona_video(turn, wav, duration, directory, require_current=lease.require)
+        else:
+            video = avatar(wav, samples, rate, duration, directory)
         result = {
             "text": reply,
             "audio": {"mime": "audio/wav", "base64": base64.b64encode(wav.read_bytes()).decode()},
             "video": {"mime": "video/mp4", "base64": base64.b64encode(video.read_bytes()).decode()},
             "duration_seconds": round(duration, 3),
-            "engines": {"llm": "ollama", "speech": "piper-cuda", "video": "procedural-avatar-h264_nvenc"},
+            "engines": {
+                "llm": "ollama",
+                "speech": "piper-cuda",
+                "video": "persona-image-h264_nvenc" if lease is not None else "procedural-avatar-h264_nvenc",
+            },
         }
+        if lease is not None:
+            lease.require()
+            result["persona_image"] = turn["persona_image"]["reference"]
         if generated:
             result["usage"] = {"input_tokens": generated.input_tokens, "output_tokens": generated.output_tokens}
         if "meeting" in turn:

@@ -6,7 +6,7 @@ import json
 import re
 
 SCHEMA = "ananta.meet-turn.v1"
-MAX_REQUEST_BYTES = 12_000
+MAX_REQUEST_BYTES = 7 * 1024 * 1024
 MAX_RESULT_BYTES = 8_000_000
 MAX_SECONDS = 120
 FIELDS = {"schema", "task_id", "lease_id", "tenant_id", "project_id", "deadline", "text"}
@@ -23,7 +23,7 @@ def signature(key, body):
 def validate_turn(value, now):
     if (
         not isinstance(value, dict)
-        or set(value) - {"meeting", "binding_task_id", "response_limits"} != FIELDS
+        or set(value) - {"meeting", "binding_task_id", "response_limits", "persona_image"} != FIELDS
         or value["schema"] != SCHEMA
     ):
         raise ValueError("meet_turn_contract_invalid")
@@ -43,6 +43,10 @@ def validate_turn(value, now):
         raise ValueError("meet_turn_text_invalid")
     if "response_limits" in value:
         validate_response_limits(value["response_limits"])
+    if "persona_image" in value:
+        from ananta_contracts.meet_persona_image import decode_assignment
+
+        decode_assignment(value["persona_image"], tenant_id=value["tenant_id"], project_id=value["project_id"])
     if "meeting" in value:
         from urllib.parse import urlsplit
 

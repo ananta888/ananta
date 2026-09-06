@@ -3,14 +3,13 @@
 import hmac
 import json
 import os
-import socket
-import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, MAX_RESULT_BYTES
 from worker.meet_media.contract import encode, load_key
+from worker.meet_media.http_server import BoundedWorkerServer
 from worker.meet_media.persona_executor import PersonaImageExecutor
 from worker.meet_media.persona_http import read_bounded, request_signature, result_signature
 from worker.meet_media.persona_lease import PersonaLeaseGuard
@@ -55,45 +54,7 @@ def create_server(address, key, executor):
             self.end_headers()
             self.wfile.write(output)
 
-    class BoundedServer(ThreadingHTTPServer):
-        daemon_threads = True
-
-        def __init__(self, *args):
-            self.slots = threading.BoundedSemaphore(4)
-            super().__init__(*args)
-
-        def process_request(self, connection, client_address):
-            if not self.slots.acquire(blocking=False):
-                connection.close()
-                return
-            try:
-                super().process_request(connection, client_address)
-            except Exception:
-                self.slots.release()
-                raise
-
-        def process_request_thread(self, connection, client_address):
-            def expire():
-                try:
-                    connection.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
-
-            # Includes request headers, body, execution and response; malformed
-            # slow clients cannot keep a semaphore slot indefinitely.
-            timer = threading.Timer(25, expire)
-            timer.daemon = True
-            timer.start()
-            try:
-                super().process_request_thread(connection, client_address)
-            finally:
-                timer.cancel()
-                self.slots.release()
-
-        def handle_error(self, *_args):
-            pass  # No HTTP payload, key or image data is logged on disconnect.
-
-    return BoundedServer(address, Handler)
+    return BoundedWorkerServer(address, Handler, slots=4, connection_seconds=25, read_seconds=3)
 
 
 if __name__ == "__main__":

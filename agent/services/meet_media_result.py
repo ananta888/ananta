@@ -10,7 +10,7 @@ def validate_result(result):
     fields = {"schema", "task_id", "lease_id", "text", "audio", "video", "duration_seconds", "engines"}
     if (
         not isinstance(result, dict)
-        or set(result) - {"meeting", "usage"} != fields
+        or set(result) - {"meeting", "usage", "persona_image"} != fields
         or result["schema"] != "ananta.meet-turn-result.v1"
     ):
         raise MeetError("meet_worker_result_invalid", 502)
@@ -46,9 +46,16 @@ def validate_result(result):
     if result["engines"] != {
         "llm": "ollama",
         "speech": "piper-cuda",
-        "video": "procedural-avatar-h264_nvenc",
+        "video": "persona-image-h264_nvenc" if "persona_image" in result else "procedural-avatar-h264_nvenc",
     }:
         raise MeetError("meet_worker_engines_invalid", 502)
+    if "persona_image" in result:
+        from ananta_contracts.meet_persona_image import validate_reference
+
+        try:
+            validate_reference(result["persona_image"])
+        except ValueError:
+            raise MeetError("meet_worker_persona_invalid", 502) from None
     if "meeting" in result:
         import re
 
@@ -66,6 +73,10 @@ def validate_result(result):
 
 
 def validate_response_budget(turn, result):
+    if ("persona_image" in turn) != ("persona_image" in result) or (
+        "persona_image" in turn and turn["persona_image"]["reference"] != result["persona_image"]
+    ):
+        raise MeetError("meet_worker_persona_mismatch", 502)
     if ("response_limits" in turn) != ("usage" in result):
         raise MeetError("meet_worker_usage_mismatch", 502)
     if "response_limits" in turn and (

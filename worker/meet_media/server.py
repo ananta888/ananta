@@ -9,7 +9,7 @@ import sys
 import tempfile
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from worker.meet_media.contract import (
@@ -21,6 +21,7 @@ from worker.meet_media.contract import (
     signature,
     validate_turn,
 )
+from worker.meet_media.http_server import BoundedWorkerServer
 
 
 class TurnExecutor:
@@ -89,7 +90,9 @@ def create_server(address, key, executor):
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= MAX_REQUEST_BYTES:
                     raise ValueError("meet_turn_request_invalid")
-                body = self.rfile.read(length)
+                from worker.meet_media.persona_http import read_bounded
+
+                body = read_bounded(self.rfile, maximum=MAX_REQUEST_BYTES, length=length, deadline=time.monotonic() + 5)
                 authenticate(key, body, self.headers.get("X-Ananta-Task-Signature", ""))
                 turn = validate_turn(json.loads(body), time.time())
                 result, status = executor.execute(turn), 200
@@ -112,26 +115,7 @@ def create_server(address, key, executor):
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
-    class BoundedServer(ThreadingHTTPServer):
-        slots = threading.BoundedSemaphore(8)
-
-        def process_request(self, connection, client_address):
-            if not self.slots.acquire(blocking=False):
-                connection.close()
-                return
-            try:
-                super().process_request(connection, client_address)
-            except Exception:
-                self.slots.release()
-                raise
-
-        def process_request_thread(self, connection, client_address):
-            try:
-                super().process_request_thread(connection, client_address)
-            finally:
-                self.slots.release()
-
-    return BoundedServer(address, Handler)
+    return BoundedWorkerServer(address, Handler, slots=8, connection_seconds=130)
 
 
 if __name__ == "__main__":

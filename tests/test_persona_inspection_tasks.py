@@ -378,6 +378,14 @@ def _assert_real_policy_catalog_lifecycle(runtime, app, tmp_path):
         license_binding=managed.license.source_id,
     )
     assert service.read_image(principal, "project", asset.image.artifact_id) == runtime.image.preview
+    from agent.services.meet_persona_images import MeetPersonaImages
+
+    meet_images = MeetPersonaImages(service)
+    assert meet_images.prepare(principal, "project", asset.image.artifact_id, "preview")[
+        "reference"
+    ] == asset.image.model_dump(mode="json")
+    with pytest.raises(ValueError, match="denied_or_unavailable"):
+        meet_images.prepare(principal, "project", asset.image.artifact_id, "publish")
     with pytest.raises(PermissionError, match="use_denied"):
         service.read_image(principal, "project", asset.image.artifact_id, purpose="publish")
     policy.revoke_policy(principal, "project", managed.source.source_id, expected_revision=1)

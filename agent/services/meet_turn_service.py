@@ -17,14 +17,27 @@ class MediaTaskPort(Protocol):
     def finish(self, turn: dict, status: str) -> bool: ...
 
 
+class PersonaImagePort(Protocol):
+    def prepare(self, principal, project: str, artifact_id: str, purpose: str) -> dict: ...
+    def require_current(self, principal, project: str, reference: dict, purpose: str) -> None: ...
+
+
 class MeetTurnService:
     def __init__(
-        self, binding, worker: MediaWorkerPort, tasks: MediaTaskPort, allowed_scopes, clock=time.time, grant_issuer=None
+        self,
+        binding,
+        worker: MediaWorkerPort,
+        tasks: MediaTaskPort,
+        allowed_scopes,
+        clock=time.time,
+        grant_issuer=None,
+        persona_images: PersonaImagePort | None = None,
     ):
         self.binding, self.worker, self.tasks = binding, worker, tasks
         self.allowed_scopes = frozenset(allowed_scopes)
         self.clock = clock
         self.grant_issuer = grant_issuer
+        self.persona_images = persona_images
 
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.
@@ -33,7 +46,7 @@ class MeetTurnService:
             raise MeetError("meet_media_policy_denied", 403)
         if (
             not isinstance(payload, dict)
-            or set(payload) not in ({"text"}, {"text", "publish_to_meet"})
+            or set(payload) - {"publish_to_meet", "persona_image_id"} != {"text"}
             or type(payload.get("publish_to_meet", False)) is not bool
         ):
             raise MeetError("meet_turn_payload_invalid")
@@ -48,6 +61,19 @@ class MeetTurnService:
         }
         if task:
             turn["binding_task_id"] = task
+        image_purpose = "publish" if payload.get("publish_to_meet") else "preview"
+        if "persona_image_id" in payload:
+            import re
+
+            if (
+                self.persona_images is None
+                or not isinstance(payload["persona_image_id"], str)
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", payload["persona_image_id"])
+            ):
+                raise MeetError("meet_persona_image_unavailable", 403)
+            turn["persona_image"] = self.persona_images.prepare(
+                principal, project, payload["persona_image_id"], image_purpose
+            )
         if payload.get("publish_to_meet"):
             if self.grant_issuer is None:
                 raise MeetError("meet_machine_publication_disabled", 403)
@@ -67,6 +93,12 @@ class MeetTurnService:
                 raise MeetError("meet_turn_result_stale", 409)
             # Recheck project access before disclosing generated media.
             self.binding.require_write_access(principal, project, task)
+            if "persona_image" in turn:
+                self.persona_images.require_current(
+                    principal, project, turn["persona_image"]["reference"], image_purpose
+                )
+                if result.get("persona_image") != turn["persona_image"]["reference"]:
+                    raise MeetError("meet_persona_result_mismatch", 409)
             if not self.tasks.finish(turn, "completed"):
                 raise MeetError("meet_turn_cancelled", 409)
             return result
@@ -100,6 +132,12 @@ class MeetTurnService:
         )
         try:
             self.binding.require_write_access(principal, task.project_id, context.get("binding_task_id", ""))
+            if "persona_image" in context:
+                if self.persona_images is None:
+                    return False
+                self.persona_images.require_current(
+                    principal, task.project_id, context["persona_image"], context["persona_purpose"]
+                )
         except Exception:
             return False
         return True
@@ -134,6 +172,14 @@ class HubMediaTasks:
                         "binding_task_id": turn.get("binding_task_id", ""),
                         **({"chat_reply": turn["hub_chat_binding"]} if "hub_chat_binding" in turn else {}),
                         **({"response_limits": turn["response_limits"]} if "response_limits" in turn else {}),
+                        **(
+                            {
+                                "persona_image": turn["persona_image"]["reference"],
+                                "persona_purpose": "publish" if "meeting" in turn else "preview",
+                            }
+                            if "persona_image" in turn
+                            else {}
+                        ),
                     }
                 },
             },
