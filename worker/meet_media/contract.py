@@ -23,7 +23,7 @@ def signature(key, body):
 def validate_turn(value, now):
     if (
         not isinstance(value, dict)
-        or set(value) - {"meeting", "binding_task_id"} != FIELDS
+        or set(value) - {"meeting", "binding_task_id", "response_limits"} != FIELDS
         or value["schema"] != SCHEMA
     ):
         raise ValueError("meet_turn_contract_invalid")
@@ -41,6 +41,8 @@ def validate_turn(value, now):
         raise ValueError("meet_binding_task_invalid")
     if not isinstance(text, str) or not 1 <= len(text.strip()) <= 2000 or "\x00" in text:
         raise ValueError("meet_turn_text_invalid")
+    if "response_limits" in value:
+        validate_response_limits(value["response_limits"])
     if "meeting" in value:
         from urllib.parse import urlsplit
 
@@ -60,6 +62,15 @@ def validate_turn(value, now):
             or len(meeting["grant"]) > 4096
         ):
             raise ValueError("meet_publication_contract_invalid")
+    return value
+
+
+def validate_response_limits(value):
+    if not isinstance(value, dict) or set(value) != {"max_output_tokens", "max_reply_chars"}:
+        raise ValueError("meet_response_limits_invalid")
+    for field, maximum in (("max_output_tokens", 128), ("max_reply_chars", 450)):
+        if type(value[field]) is not int or not 1 <= value[field] <= maximum:
+            raise ValueError("meet_response_limits_invalid")
     return value
 
 

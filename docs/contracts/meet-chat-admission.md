@@ -1,7 +1,7 @@
 # Hub Chat Admission – MDS-Abstimmungsvorschlag
 
-Status: **implementierte, headless getestete Hub-Grundlage; noch kein produktiver
-Chatempfang oder automatisch ausgeführter Antworttask**. Bezug: MAP-02/03/26/27,
+Status: **implementierte, headless getestete Hub-Admission und einmalige
+Antwort-Task-Ausführung; noch kein produktiver Chatempfang oder Antworttransport**. Bezug: MAP-02/03/26/27,
 Meet MDS-01/02/04. Ausgangsstände: Ananta `a36b99dc6`, Meet-Plan `057ead0`.
 
 ## Zuständigkeiten und Aktivierungsgrenze
@@ -114,11 +114,10 @@ Leases plus Replayfenster erfolgen; es gibt kein automatisches frühes Löschen.
 1. MDS-01/02/04 verifizieren, Draft und gemeinsame Fixtures abgleichen.
 2. Authentifizierten, empfangsberechtigten Event-Adapter und Hub-Autoritätsport
    implementieren; niemals die obige Schnittstelle mit Browserangaben befüllen.
-3. Reservierung in der bestehenden Hub Task Queue idempotent materialisieren.
-   Reply-Korrelation, Task-ID und Intent binden; Session-/Turn-Generation vor
-   tatsächlicher Veröffentlichung sowie in der Worker-Lease-Abfrage revalidieren.
-   Nicht einfach `MeetTurnService.execute(..., publish_to_meet=True)` aufrufen:
-   dessen bisherige Lease prüft noch keine neue Dialog-Generation.
+3. Den unten beschriebenen Antwort-Task-Adapter mit dem echten Autoritätsport
+   komponieren. Session-/Turn-Generation vor tatsächlicher Veröffentlichung
+   sowie in einer neuen MDS-Worker-Lease-Abfrage revalidieren. Der alte
+   `MeetTurnService` verweigert absichtlich Publikationsleases für Chat-Tasks.
 4. Reales empfangenes Chatereignis bis zur korrelierten LLM-/Chat-/TTS-Ausgabe
    einschließlich Widerruf testen. Audio-ASR, Barge-in, Browserstream, erneuerbare
    Meet-Sitzungen und Soak bleiben separate noch offene MAP-/MDS-Kriterien.
@@ -135,3 +134,50 @@ Referenzlauf mit `tests/test_meet_chat_admission.py`, `tests/test_meet_media.py`
 und `tests/test_meet_integration.py`: **177 bestanden in 41,50 Sekunden**, davon
 80 neue Chat-Admission-Fälle. Ruff und TODO-Konsistenzprüfung erfolgreich.
 Kein neuer GPU-, öffentlicher Meet-, PostgreSQL- oder Soak-Lauf in diesem Slice.
+
+## Folgeetappe: wirkliche Hub-Tasks und reservierte LLM-Grenzen
+
+`MeetChatReplyService` konsumiert eine zugelassene Reservierung durch
+`SqlChatDispatches` genau einmal und erstellt einen normalen `meet_media_turn`
+über den bestehenden `HubMediaTasks`-/TaskQueue-Port. Ein konkurrierender oder
+erneuter Aufruf darf keinen zweiten Task erzeugen. Der Dispatch-Receipt bindet
+die bestehende Reservation einschließlich Tenant, Projekt, Runtime, Task,
+Sitzung, Generation, Policy-Revision, Sender und Message-ID. Weder Eingangs-
+noch Antworttext und keine Medien werden in diesen Receipts oder Tasks abgelegt.
+
+Die optionalen geschlossenen `response_limits` des Worker-Vertrags begrenzen
+`max_output_tokens` und `max_reply_chars`. Ollama erhält das tatsächliche
+Tokenlimit; der lokale Adapter begrenzt den Text vor TTS und Videoerzeugung.
+Seine `usage` mit Eingabe-/Ausgabetokens wird im Hub erneut validiert. Fehlende,
+ungültige oder überhöhte Angaben sind ein Fehler, kein Erfolg mit späterem
+Abschneiden. Das bestehende manuelle v1-Responseformat bleibt unverändert.
+Ein alter Worker, der die optionalen Requestfelder nicht kennt, muss zunächst
+aktualisiert werden und darf keine Dialog-Capability behaupten.
+
+Aktuelle Projektberechtigung und der exakte Autoritäts-Snapshot werden vor
+Claim, Task-Erzeugung, Dispatch und vor Rückgabe erneut geprüft. Ein Abbruch
+verhindert die Ergebnisausgabe; verlorene oder fehlgeschlagene Reservierungen
+werden nicht automatisch wiederholt. Während der begrenzten GPU-Erzeugung
+gibt es noch keinen vorzeitigen Session-Cancel des Modellprozesses; das harte
+Worker-Deadline-Budget bleibt wirksam. Sofortige Publikations-/Empfangsstopps
+gehören zum noch offenen MDS-Lifecycle.
+
+Die Task-Metadaten kennzeichnen `chat_reply` und die Antwortgrenzen. Solche
+Tasks erhalten **keine** Freigabe über den alten v1-Publikations-Lease-Endpunkt.
+Das Ergebnis ist ein korreliertes `ananta.meet-chat-reply.v1` mit
+`published: false`, niemals eine Behauptung über erfolgreichen Raumempfang.
+Bis zum echten MDS-Autoritätsadapter bleibt auch diese Ausführung ausschließlich
+intern komponierbar; kein neuer HTTP-Ingress oder Default-Trust ist aktiviert.
+
+Der GPU-Test `test_real_gpu_chat_reply_obeys_reserved_budget` hat diese Kette
+mit echter Hub Task Queue und lokaler RTX 3080 geprüft: höchstens 32 generierte
+Tokens und 80 Antwortzeichen, echte Piper-CUDA-Sprache und NVENC-Video. Zusammen
+mit dem bisherigen GPU-Task-Test: zwei bestandene Tests in 15,18 Sekunden.
+Testautorität und Chatquelle sind synthetisch; keine Produktions-Release-Evidenz.
+Gemeinsame Regression nach dieser Etappe: 228 bestandene Tests in 47,44 Sekunden
+für Admission, Task-Ausführung, Antwortbudgets und bestehende Meet-Anbindung.
+
+Ergebnisvalidierung liegt jetzt transportneutral in `meet_media_result.py`;
+die bisherigen Imports aus `meet_media_transport.py` bleiben kompatibel.
+Dadurch hängt die neue Hub-Ausführung nicht von HTTP-Implementierungsdetails ab
+(DIP/SRP). Die ältere direkte Worker-Contract-Abhängigkeit bleibt vorerst bestehen.

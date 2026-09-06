@@ -7,14 +7,15 @@ import tempfile
 from pathlib import Path
 
 from worker.meet_media.avatar import avatar
-from worker.meet_media.llm import answer
+from worker.meet_media.llm import answer, generate
 from worker.meet_media.speech import speech
 
 
 def run(turn):
     with tempfile.TemporaryDirectory(prefix="meet-turn-") as temporary:
         directory = Path(temporary)
-        reply = answer(turn["text"])
+        generated = generate(turn["text"], **turn["response_limits"]) if "response_limits" in turn else None
+        reply = generated.text if generated else answer(turn["text"])
         wav = directory / "speech.wav"
         samples, rate, duration = speech(reply, wav)
         video = avatar(wav, samples, rate, duration, directory)
@@ -25,6 +26,8 @@ def run(turn):
             "duration_seconds": round(duration, 3),
             "engines": {"llm": "ollama", "speech": "piper-cuda", "video": "procedural-avatar-h264_nvenc"},
         }
+        if generated:
+            result["usage"] = {"input_tokens": generated.input_tokens, "output_tokens": generated.output_tokens}
         if "meeting" in turn:
             from worker.meet_media.lease_guard import HubLeaseGuard
             from worker.meet_media.publisher import publish

@@ -83,6 +83,10 @@ class MeetTurnService:
         if task is None or task.task_kind != "meet_media_turn" or task.status != "in_progress":
             return False
         context = (task.worker_execution_context or {}).get("meet_media", {})
+        if "chat_reply" in context:
+            # The v1 publisher does not implement dialog generation/key fencing.
+            # A generated chat reply needs the separate MDS publication path.
+            return False
         if (
             context.get("lease_id") != lease_id
             or context.get("deadline", 0) <= self.clock()
@@ -129,6 +133,8 @@ class HubMediaTasks:
                         "deadline": turn["deadline"],
                         "owner_subject": actor,
                         "binding_task_id": turn.get("binding_task_id", ""),
+                        **({"chat_reply": turn["hub_chat_binding"]} if "hub_chat_binding" in turn else {}),
+                        **({"response_limits": turn["response_limits"]} if "response_limits" in turn else {}),
                     }
                 },
             },

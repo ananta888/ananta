@@ -43,6 +43,14 @@ def _digest(parts):
     return hashlib.sha256(json.dumps(parts, separators=(",", ":")).encode()).hexdigest()
 
 
+def room_scope_key(scope):
+    return _digest([scope.origin, scope.tenant_id, scope.project_id, scope.room_id])
+
+
+def chat_event_key(epoch, sender, message):
+    return _digest([epoch, sender, message])
+
+
 class SqlChatReservations:
     def __init__(self, engine):
         self.engine = engine
@@ -55,10 +63,10 @@ class SqlChatReservations:
         rejection = session.policy.rejection(event, scope, now_ms)
         if rejection:
             return ChatAdmission(rejection)
-        room_key = _digest([scope.origin, scope.tenant_id, scope.project_id, scope.room_id])
+        room_key = room_scope_key(scope)
         # A renewal generation cannot replay the same room event. Different
         # publishers cannot consume each other's message IDs either.
-        event_key = _digest([event.membership_epoch, event.sender_peer_id, event.message_id])
+        event_key = chat_event_key(event.membership_epoch, event.sender_peer_id, event.message_id)
         try:
             with self.engine.begin() as connection:
                 self._lock_room(connection, room_key, now_ms)
