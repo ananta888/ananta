@@ -3,7 +3,7 @@
 Knowledge-index payload and Worker-output artifacts are capability-bound
 transport records.  They remain available through their dedicated internal
 routes, but must never appear in generic artifact browsers or context builders.
-Persona images and previews likewise require their separate scoped policy path.
+Persona images, clips and previews likewise require their separate scoped policy path.
 """
 
 from __future__ import annotations
@@ -17,7 +17,9 @@ SYSTEM_MANAGED_KNOWLEDGE_INDEX_ARTIFACT_KINDS = frozenset(
         "knowledge_index_worker_output",
     }
 )
-SYSTEM_MANAGED_PERSONA_ARTIFACT_KINDS = frozenset({"persona_media_image", "persona_media_preview"})
+SYSTEM_MANAGED_PERSONA_ARTIFACT_KINDS = frozenset(
+    {"persona_media_image", "persona_media_preview", "persona_media_video"}
+)
 
 
 def artifact_metadata(artifact: object) -> Mapping[str, Any] | None:

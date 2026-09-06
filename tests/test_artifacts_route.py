@@ -73,6 +73,7 @@ def test_public_artifact_content_route_still_serves_uploaded_bytes(
         "knowledge_index_worker_output",
         "persona_media_image",
         "persona_media_preview",
+        "persona_media_video",
     ],
 )
 def test_system_managed_artifacts_are_hidden_from_generic_routes(
@@ -222,7 +223,10 @@ def test_artifact_extract_html_document_uses_text_extracted_mode(client, admin_a
 
 
 def test_artifact_extract_pdf_document_uses_text_when_extractor_succeeds(client, admin_auth_header, monkeypatch):
-    monkeypatch.setattr("agent.services.extraction_service.extraction_service._pdf_text", lambda path: ("PDF body text", "pdf_text_extracted"))
+    monkeypatch.setattr(
+        "agent.services.extraction_service.extraction_service._pdf_text",
+        lambda path: ("PDF body text", "pdf_text_extracted"),
+    )
     upload_res = client.post(
         "/artifacts/upload",
         headers=admin_auth_header,

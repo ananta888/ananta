@@ -10,7 +10,13 @@ from agent.services.artifact_visibility_policy import (
 
 @pytest.mark.parametrize(
     "artifact_kind",
-    ["knowledge_index_job_payload", "knowledge_index_worker_output", "persona_media_image", "persona_media_preview"],
+    [
+        "knowledge_index_job_payload",
+        "knowledge_index_worker_output",
+        "persona_media_image",
+        "persona_media_preview",
+        "persona_media_video",
+    ],
 )
 def test_system_managed_artifacts_are_not_generic(
     artifact_kind: str,
