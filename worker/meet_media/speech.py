@@ -1,28 +1,43 @@
-"""German Piper CUDA adapter; refuses silent CPU fallback."""
+"""Compatibility WAV consumer for bounded, pull-based local speech output."""
 
-import os
 import wave
+from pathlib import Path
 
 import numpy as np
 
+from worker.meet_media.audio_output import SAMPLE_RATE, speech_frames
+from worker.meet_media.piper_speech import PiperSpeechSource
 
-def speech(text, target):
-    import onnxruntime as ort
-    from piper import PiperVoice
 
-    ort.preload_dlls(directory="")
-    if "CUDAExecutionProvider" not in ort.get_available_providers():
-        raise ValueError("meet_piper_cuda_unavailable")
-    voice = PiperVoice.load(os.environ.get("MEET_PIPER_MODEL", "/models/de_DE-thorsten-medium.onnx"), use_cuda=True)
-    if "CUDAExecutionProvider" not in voice.session.get_providers():
-        raise ValueError("meet_piper_cuda_fallback_forbidden")
-    with wave.open(str(target), "wb") as output:
-        voice.synthesize_wav(text, output)
-    with wave.open(str(target), "rb") as source:
-        if source.getnchannels() != 1 or source.getsampwidth() != 2:
-            raise ValueError("meet_audio_format_invalid")
-        duration = source.getnframes() / source.getframerate()
-        if not 0 < duration <= 40:
-            raise ValueError("meet_audio_duration_exceeded")
-        samples = np.frombuffer(source.readframes(source.getnframes()), dtype=np.int16).astype(np.float32) / 32768
-        return samples, source.getframerate(), duration
+def speech(text, target, *, source=None, max_seconds=40, require_current=lambda: None):
+    target = Path(target)
+    frames = speech_frames(
+        text,
+        source if source is not None else PiperSpeechSource(),
+        max_seconds=max_seconds,
+        require_current=require_current,
+    )
+    # Only a new task-local output is owned by this call. Never overwrite or
+    # erase an existing file when generation fails.
+    owned = False
+    try:
+        with target.open("xb") as raw:
+            owned = True
+            with wave.open(raw, "wb") as output:
+                output.setnchannels(1)
+                output.setsampwidth(2)
+                output.setframerate(SAMPLE_RATE)
+                for frame in frames:
+                    output.writeframesraw(frame.pcm_s16le)
+        require_current()
+        with wave.open(str(target), "rb") as wav:
+            count = wav.getnframes()
+            samples = np.frombuffer(wav.readframes(count), dtype="<i2").astype(np.float32) / 32768
+        require_current()
+        return samples, SAMPLE_RATE, count / SAMPLE_RATE
+    except BaseException:
+        if owned:
+            target.unlink(missing_ok=True)
+        raise
+    finally:
+        frames.close()

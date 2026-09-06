@@ -4,6 +4,7 @@ import base64
 import json
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from worker.meet_media.avatar import avatar
@@ -23,7 +24,14 @@ def run(turn):
         generated = generate(turn["text"], **turn["response_limits"]) if "response_limits" in turn else None
         reply = generated.text if generated else answer(turn["text"])
         wav = directory / "speech.wav"
-        samples, rate, duration = speech(reply, wav)
+
+        def require_speech_current():
+            if time.time() >= turn["deadline"]:
+                raise ValueError("meet_turn_expired")
+            if lease is not None:
+                lease.require()
+
+        samples, rate, duration = speech(reply, wav, require_current=require_speech_current)
         if lease is not None:
             from worker.meet_media.persona_video import persona_video
 

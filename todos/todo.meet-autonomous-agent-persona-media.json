@@ -703,7 +703,7 @@
         "Metadaten und abgeleitete Vorschaubilder dürfen keine fremden Tenant-/Projektinhalte oder vertrauliche Dateipfade enthalten.",
         "Widerruf oder Löschung invalidiert betroffene Profile und aktive Veröffentlichungen; synthetische/test-only Assets bleiben sichtbar klassifiziert."
       ],
-      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess implementiert. Ergänzt um tenant-/projektgebundenen SQL-Assetkatalog, vorhandenen immutable ArtifactStore, atomare pending/active/revoked-Zustände mit Akteur-Audit, versteckte Bild-/Vorschau-Artefakte und Hub-Lifecycle-Service mit separaten Policy-/Task-Ports und erneuter Freigabeprüfung bei Lesezugriffen. 104 Persona-/Artefakt-/Ingestion-Tests bestanden; Container c3cd863991e83a6e383c537c8d387b211d2d2d590785e02057efbbd5a26cf394 besteht Bild-Unterprozessprobe und 3 GPU-Tests. Konkrete Projekt-Policy mit Registry-gepinnten Herkunfts-/Lizenz-/Einwilligungsnachweisen, expliziten Nutzern/Zwecken, Ablaufzeit und revisionsverbrauchendem Widerruf ergänzt; 56 Policy-/Registry-/Katalogtests bestanden. Hub-Inspection-Task-/Receipt-Adapter mit vorab reservierten Registry-Läufen und erneuter Asset-Laufprüfung implementiert (69a34bb8c). Ergänzt um geschlossenen HTTP-Worker, signierte aktuelle Hub-Lease, persistente Replay-Sperre, headless Policy-/Upload-/Preview-/Revocation-API und getrennte optionale CPU-Worker-/Hub-Compose-Overlays; keine öffentliche Instanz aktiviert. 210 kombinierte Persona-/Registry-/Meet-Tests bestanden, einschließlich realer HTTP-/Unterprozess-/Projektmitgliedschaft-/Policy-/Artefaktkette. Eigenständiger 256-MiB-Read-only-Container besteht Bildprobe; Paketkopplung an fremde Vertragsabhängigkeiten mit kompatibler Lazy-Fassade behoben (95 Vertragstests). Explizite wiederaufnehmbare physische Löschung widerrufener Bildbündel samt SQL-Schreib-/Löschfencing ergänzt (16d6a097b; 54 Tests). Image-Auswahl und fortlaufende Asset-Freigabeprüfung für den begrenzten Meet-Videoturn angebunden. Noch offen: automatische Retention, erweiterte Session-/Publisher-Wechsel sowie Audio-/Videoasset-Profile und Profil-/UI-Anbindung. Keine Produktionsfreigabe aus synthetischen Tests. docs/contracts/persona-image-inspection.md."
+      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess implementiert. Ergänzt um tenant-/projektgebundenen SQL-Assetkatalog, vorhandenen immutable ArtifactStore, atomare pending/active/revoked-Zustände mit Akteur-Audit, versteckte Bild-/Vorschau-Artefakte und Hub-Lifecycle-Service mit separaten Policy-/Task-Ports und erneuter Freigabeprüfung bei Lesezugriffen. 104 Persona-/Artefakt-/Ingestion-Tests bestanden; Container c3cd863991e83a6e383c537c8d387b211d2d2d590785e02057efbbd5a26cf394 besteht Bild-Unterprozessprobe und 3 GPU-Tests. Konkrete Projekt-Policy mit Registry-gepinnten Herkunfts-/Lizenz-/Einwilligungsnachweisen, expliziten Nutzern/Zwecken, Ablaufzeit und revisionsverbrauchendem Widerruf ergänzt; 56 Policy-/Registry-/Katalogtests bestanden. Hub-Inspection-Task-/Receipt-Adapter mit vorab reservierten Registry-Läufen und erneuter Asset-Laufprüfung implementiert (69a34bb8c). Ergänzt um geschlossenen HTTP-Worker, signierte aktuelle Hub-Lease, persistente Replay-Sperre, headless Policy-/Upload-/Preview-/Revocation-API und getrennte optionale CPU-Worker-/Hub-Compose-Overlays; keine öffentliche Instanz aktiviert. 210 kombinierte Persona-/Registry-/Meet-Tests bestanden, einschließlich realer HTTP-/Unterprozess-/Projektmitgliedschaft-/Policy-/Artefaktkette. Eigenständiger 256-MiB-Read-only-Container besteht Bildprobe; Paketkopplung an fremde Vertragsabhängigkeiten mit kompatibler Lazy-Fassade behoben (95 Vertragstests). Explizite wiederaufnehmbare physische Löschung widerrufener Bildbündel samt SQL-Schreib-/Löschfencing ergänzt (16d6a097b; 54 Tests). Image-Auswahl und fortlaufende Asset-Freigabeprüfung für den begrenzten Meet-Videoturn angebunden. Noch offen: automatische Retention, erweiterte Session-/Publisher-Wechsel sowie Audio-/Videoasset-Profile. Statische Profil-/UI-Anbindung und berechtigungsgefilterter Bild-Picker inzwischen implementiert (MAP-19/20). Keine Produktionsfreigabe aus synthetischen Tests. docs/contracts/persona-image-inspection.md."
     },
     {
       "id": "MAP-19",
@@ -770,7 +770,7 @@
         "Bildwechsel, Größenanpassung und Stop/Revocation ohne alte Frames nach dem Wechsel testen; kein menschlicher Webcam-Zugriff.",
         "Avatarvideo und Browserpräsentation sind getrennte Quellen und können im selben Teilnehmer gleichzeitig oder unabhängig aktiv sein."
       ],
-      "implementation_note": "Optionale persona_image_id im vorhandenen Hub-Medienturn implementiert: immutable tenant-/projektgebundene Bildreferenz, unabhängige Preview-/Publish-Policy, Hash-/Formatprüfung, inhaltsfreier Taskkontext und erneute Asset-Freigabe über die bestehende Lease. Statischer 256x256-/12-FPS-Frame mit sichtbarer KI-Kennzeichnung, NVENC und unverändertem neutralem Avatar ohne Bildauswahl. 251 Meet-/Persona-/Chat-/Wire-Tests sowie 4 lokale GPU-Gates bestanden (ASR, Medienantwort, Chat, Persona-NVENC). docs/contracts/meet-persona-image-turns.md. Noch offen: Profilauflösung und Bildwechsel über Sessiongenerationen (MAP-20), unabhängige Avatar-/Browserquellen und öffentliche Live-Abnahme. Kein Nachweis generativer Talking-Head-Qualität oder produktiver Freigabe."
+      "implementation_note": "Optionale persona_image_id im vorhandenen Hub-Medienturn implementiert: immutable tenant-/projektgebundene Bildreferenz, unabhängige Preview-/Publish-Policy, Hash-/Formatprüfung, inhaltsfreier Taskkontext und erneute Asset-Freigabe über die bestehende Lease. Statischer 256x256-/12-FPS-Frame mit sichtbarer KI-Kennzeichnung, NVENC und unverändertem neutralem Avatar ohne Bildauswahl. 251 Meet-/Persona-/Chat-/Wire-Tests sowie 4 lokale GPU-Gates bestanden (ASR, Medienantwort, Chat, Persona-NVENC). docs/contracts/meet-persona-image-turns.md. Noch offen: Bildwechsel über Sessiongenerationen (MAP-20; Profilauflösung für begrenzte Turns bereits implementiert), unabhängige Avatar-/Browserquellen und öffentliche Live-Abnahme. Kein Nachweis generativer Talking-Head-Qualität oder produktiver Freigabe."
     },
     {
       "id": "MAP-22",
@@ -781,7 +781,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 60,
+      "progress_percent": 75,
       "depends_on": [
         "MAP-10",
         "MAP-18",
@@ -793,7 +793,7 @@
         "PCM-/Audiochunks über einen eigenen MediaSource-Port publizieren; feste Sample-Rate-/Resampling-Verträge, monotone Zeitstempel und bounded Puffer.",
         "Mindestens einen realen zulässigen TTS-Pfad nachweisen; Dummy-Audio beweist nur Transport. Provider-Ausfall oder Ressourcenmangel erzeugt bounded Fehler ohne unautorisierten Cloud-Fallback."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Realer lokaler Piper-CUDA-Pfad in schmalen SpeechSourcePort, Modelladapter, pull-basierte PCM-Aufteilung und kompatiblen WAV-Consumer getrennt (SRP/DIP/ISP). Mono PCM16LE 22050 Hz, 441 Samples/20 ms, lückenlose absolute Sample-Zeitstempel über Satzgrenzen, maximal 40 Sekunden und kein unbeschränktes Output-Queueing. Format-/NaN-/Dauerprüfung vor Chunk-Ausgabe, Checkpoints und Provider-Close bei Abbruch; unvollständige eigene WAV-Dateien werden entfernt, bestehende Dateien nicht überschrieben. Bestehende ASR-/Korrektur-/Consent-Bausteine geprüft und von TTS-Stimmfreigaben getrennt. 119 gezielte Regressionstests sowie 49 weitere Checks inklusive sieben tatsächlicher GPU-/Browser-Gates bestanden. Echte Piper-Probe: 106 Chunks/2,101 Sekunden, erster Chunk inklusive Modellladen 1377 ms, lokaler Checkpoint-Abbruch 19 ms. docs/contracts/meet-speech-output.md. Noch offen: Hub-gebundene dynamische Stimm-/Sprach-/Persona-Auswahl und eigenständiger MDS-Live-Audiotransport; kein Live-Empfänger- oder Produktionsfreigabe-Claim."
     },
     {
       "id": "MAP-23",
@@ -827,7 +827,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 25,
+      "progress_percent": 35,
       "depends_on": [
         "MAP-12",
         "MAP-21",
@@ -840,7 +840,7 @@
         "Hub setzt Session-/Modell-/GPU-/Bandbreitenbudgets und faire Admission bei mehreren Agenten; Worker meldet Auslastung, entscheidet aber nicht über neue Aufträge.",
         "Messbare Latenz-, Drift- und Stop-Schwellen vor Abnahme in einem Hardwareprofil festlegen; Grenzwertverletzung liefert degraded/failed statt pauschalem Qualitätserfolg."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Begrenzte TTS-Ausgabe besitzt jetzt einen samplegenauen monotonen PCM-Zeitstrahl, Pull-Backpressure, Dauerbudget und Abbruchprüfung vor jedem Chunk; Provider und ausstehende Ausgabe werden bei Stop geschlossen/verworfen. Bestehende Persona-Hub-Lease und originales Turn-Deadline-Budget in WAV-Pfad angebunden. Reale CUDA-Probe und Headless-Negativtests bestanden, docs/contracts/meet-speech-output.md. Dies ist lokale Generator-Unterbrechung, keine gemessene Hub-/Netzwerk-/Empfänger-Barge-in-Latenz. Gemeinsame Live-A/V-Zeitbasis, unabhängige Publikationsgenerationen, fairer Mehragenten-GPU-Admission und MDS-Reconnect-/Queue-Fencing bleiben offen."
     },
     {
       "id": "MAP-25",
@@ -986,7 +986,7 @@
         "Keine fremden laufenden Räume, GPU-Jobs oder Host-Eingabegeräte übernehmen; eigenes Testdeployment ist von einer Abnahme der bestehenden laufenden Instanz getrennt.",
         "Fehler direkt beheben und betroffene Gates wiederholen; Rohdumps bleiben Runtime-Daten, strukturierte sekretfreie Berichte dürfen versioniert werden."
       ],
-      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:0dfe784c83456e42e0b91c48a8416c4512ad6b183cc9dc02b98bf7217201a053 aktualisiert, keine öffentlichen Dienste verändert. 5 Hardware-Gates in 23,68 Sekunden bestanden: lokales ASR, Medienantwort, budgetierter Chat, Persona-NVENC und vollständiger profilgebundener GPU-Turn mit regulärem Hub-Task/realer Profil-SQL/anfragegebundener HTTP-Lease. Zusätzlicher Einzel-Profil-Gate bestand zuvor in 13,11 Sekunden. Bildzulassungs-Policies sind ausdrücklich synthetische Fixtures; keine öffentliche Meet-Publikation oder produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md. Browserstream, Mehragenten-Gegenstellen, Soak-/Recovery-/TURN-Abnahme bleiben offen."
+      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:ba1e63b273bd47970c6fc7997984bcef70c263969880de04ceb1474a0f215a85 aktualisiert; keine öffentlichen Dienste verändert. 49 Checks in 58,45 Sekunden bestanden, davon sieben echte private Hardware-/Browser-Gates: CUDA-ASR, Medienantwort, budgetierter Chat, Persona-NVENC, profilgebundener GPU-Turn mit realer Hub-HTTP-Lease, isolierter kontinuierlicher Chromium-CDP-Bildstrom und Piper-PCM-Chunks/Abbruch. Zusätzlich 119 gezielte Regressionstests in 81,56 Sekunden bestanden. Bild-/Chat-Autoritätsfixtures bleiben ausdrücklich synthetisch, keine produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md, docs/contracts/meet-browser-source-baseline.md und docs/contracts/meet-speech-output.md. Öffentliche Browserstream-/Mehragenten-Gegenstellen, A/V-Drift, Soak-/Recovery-/TURN-Abnahme bleiben offen; lokal gelesener Meet-Stand 16b25af führt MDS-01 bis MDS-09 weiterhin als todo."
     },
     {
       "id": "MAP-31",
@@ -1157,7 +1157,7 @@
         "blocked": 0,
         "todo": 3,
         "in_progress": 0,
-        "progress_percent": 39.1,
+        "progress_percent": 40.6,
         "by_status": {
           "todo": 3,
           "in_progress": 0,
