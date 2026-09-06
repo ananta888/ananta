@@ -71,6 +71,18 @@ Replies are sent only to a delivered, still-current input; an uncertain send is
 never retried as a new answer. LLM work runs concurrently with the browser's
 lease monitoring, not as Worker-to-Worker orchestration.
 
+Both typed-chat and audio-derived replies now use one injected
+`MeetDialogReplies` composition with the existing Hub SQL media-capacity gate
+and exact configured speech profile. Production bootstrap refuses an enabled
+dialog without these budgets. Waiting/revoked/uncertain execution follows the
+same bounded media admission rules as other turns; capacity denial never
+silently dispatches or retries. The low-level ASR capture child remains separate
+from this media-reply capacity pool; host-wide shared GPU/ASR scheduling is not
+claimed by this wiring change. The combined dialog/reply/capacity/speech tests
+passed 69 tests in 50.70 seconds, including actual SQL admission with a synthetic
+worker result and negative bootstrap/dispatch checks. This extraction preserves
+SRP/DIP by sharing one reply composition across both input sources.
+
 Audio requires separate `audio_mode` activation as well as `audio.receive`,
 `chat.send` and the publisher's current source grant. The Hub reserves one
 source-bound `meet_audio_receive` child at a time through parent-task CAS, with

@@ -7,9 +7,10 @@ from agent.services.meet_contract import MeetError, MeetProfile
 
 def _task_access(principal, project, task_id):
     from flask import current_app
+
     from agent.services.organization_membership_service import OrganizationMembershipService
-    from agent.services.task_read_access_service import TaskReadAccessContext, get_task_read_access_service
     from agent.services.repository_registry import get_repository_registry
+    from agent.services.task_read_access_service import TaskReadAccessContext, get_task_read_access_service
 
     task = get_repository_registry().task_repo.get_by_id(task_id)
     if (
@@ -21,10 +22,13 @@ def _task_access(principal, project, task_id):
         raise MeetError("meet_task_not_found", 404)
     # Internal HMAC callbacks have no human HTTP bearer. Revalidate the owner
     # carried by the current Hub task, never an unrelated request principal.
-    TaskReadAccessContext(principal=principal,
+    TaskReadAccessContext(
+        principal=principal,
         project_access=current_app.extensions.get("project_access_authority"),
-        organization_membership=current_app.extensions.get("organization_membership_service") or OrganizationMembershipService(),
-        service=current_app.extensions.get("task_read_access_service") or get_task_read_access_service()).require(task.model_dump())
+        organization_membership=current_app.extensions.get("organization_membership_service")
+        or OrganizationMembershipService(),
+        service=current_app.extensions.get("task_read_access_service") or get_task_read_access_service(),
+    ).require(task.model_dump())
 
 
 def configure_meet(app):
@@ -93,6 +97,7 @@ def configure_meet_media(app):
         from agent.services.meet_persona_profiles import MeetPersonaProfiles
 
         profiles = MeetPersonaProfiles(app.extensions["persona_profiles"], images)
+    voice = speech_profile(max_seconds=int(os.environ.get("ANANTA_MEET_SPEECH_MAX_SECONDS", "40")))
     app.extensions["meet_turn_service"] = MeetTurnService(
         app.extensions["meet_binding_service"],
         worker,
@@ -101,34 +106,42 @@ def configure_meet_media(app):
         grant_issuer=issuer,
         persona_images=images,
         persona_profiles=profiles,
-        speech_profile=speech_profile(max_seconds=int(os.environ.get("ANANTA_MEET_SPEECH_MAX_SECONDS", "40"))),
+        speech_profile=voice,
         capacity=capacity,
     )
-    configure_meet_dialog(app, worker, issuer)
+    configure_meet_dialog(app, worker, issuer, capacity=capacity, speech_profile=voice)
 
 
-def configure_meet_dialog(app, worker, issuer):
+def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=None):
     """Separate opt-in: old publish-only scope grants never grant receive rights."""
     import json
+
     if os.environ.get("ANANTA_MEET_DIALOG_ENABLED") != "1":
         return
     if issuer is None or app.config.get("ROLE") != "hub":
         raise ValueError("meet_dialog_machine_hub_required")
+    if capacity is None or speech_profile is None:
+        raise ValueError("meet_dialog_media_budgets_required")
     from agent.database import engine
-    from agent.repositories.meet_chat_reservations import SqlChatReservations
     from agent.repositories.meet_chat_dispatches import SqlChatDispatches
-    from agent.services.meet_dialog_authority import MeetDialogAuthority
-    from agent.services.meet_dialog_tasks import HubDialogTasks
-    from agent.services.meet_dialog_service import MeetDialogService
+    from agent.repositories.meet_chat_reservations import SqlChatReservations
     from agent.services.meet_authorization_client import MeetAuthorizationClient
+    from agent.services.meet_dialog_authority import MeetDialogAuthority
+    from agent.services.meet_dialog_replies import MeetDialogReplies
+    from agent.services.meet_dialog_service import MeetDialogService
+    from agent.services.meet_dialog_tasks import HubDialogTasks
+    from agent.services.meet_turn_service import HubMediaTasks
 
     rows = json.loads(os.environ.get("ANANTA_MEET_DIALOG_POLICIES", "[]"))
     policies = {}
     if not isinstance(rows, list):
         raise ValueError("meet_dialog_policy_invalid")
     for row in rows:
-        if (not isinstance(row, dict) or set(row) != {"tenant_id", "project_id", "capabilities"}
-                or not all(isinstance(row[k], str) and row[k] for k in ("tenant_id", "project_id"))):
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"tenant_id", "project_id", "capabilities"}
+            or not all(isinstance(row[k], str) and row[k] for k in ("tenant_id", "project_id"))
+        ):
             raise ValueError("meet_dialog_policy_invalid")
         scope = row["tenant_id"], row["project_id"]
         if scope in policies:
@@ -137,9 +150,29 @@ def configure_meet_dialog(app, worker, issuer):
     tasks = HubDialogTasks()
     authority = MeetDialogAuthority(tasks, app.extensions["meet_binding_service"], policies)
     reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
-    reservations.initialize(); dispatches.initialize()
-    app.extensions["meet_dialog_service"] = MeetDialogService(authority, tasks,
-        MeetAuthorizationClient(authority, issuer), issuer, worker, worker, reservations, dispatches)
+    reservations.initialize()
+    dispatches.initialize()
+    media_tasks = HubMediaTasks()
+    replies = MeetDialogReplies(
+        app.extensions["meet_binding_service"],
+        worker,
+        media_tasks,
+        dispatches,
+        capacity=capacity,
+        speech_profile=speech_profile,
+    )
+    app.extensions["meet_dialog_service"] = MeetDialogService(
+        authority,
+        tasks,
+        MeetAuthorizationClient(authority, issuer),
+        issuer,
+        worker,
+        worker,
+        reservations,
+        dispatches,
+        media_tasks=media_tasks,
+        replies=replies,
+    )
 
 
 def _persona_images(app):

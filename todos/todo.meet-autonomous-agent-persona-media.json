@@ -1088,6 +1088,7 @@
     }
   },
   "summary_notes": [
+    "Integrationskorrektur nach Parallel-Commit fd7627c88: Text- und ASR-Dialogantworten verwenden jetzt dieselbe injizierte Hub-Medienkapazität und das exakt konfigurierte Sprachprofil. Produktive Dialogkomposition ohne diese Budgets abgelehnt; kein Worker-Aufruf oder Retry bei Kapazitätsablehnung. 69 kombinierte Dialog-/Reply-/Kapazitäts-/Sprachtests in 50,70 Sekunden bestanden. Gemeinsame ASR-/Medien-GPU-Ressourcensteuerung und reale Zwei-Repository-Abnahme bleiben offen. Der dafür erforderliche Meet-Testhelfer ist im hier verfügbaren lokalen und Remote-Stand 16b25af noch nicht vorhanden.",
     "Hub-/Worker-Komposition jetzt implementiert: separate opt-in Dialogpolicy, v2-Signer mit aktueller Meet-TLS-Autorisierungsabfrage, requestgebundene private HMAC-Callbacks, TaskQueue-Lifecycle, lokaler Chatantworttransport und source-/epochgebundene ASR-Kindtasks. Eigene Offline-CDP-Ansicht am MDS-Canvas-Port, keine freien Tabs/Host-Capture. Kurztests: 13 Dialog/Source-Checks, 8 Audio-Mapping/Policy-Checks, 62 inkl. bestehender Meet-Integration sowie ein echter isolierter TaskQueue-CAS-Test (8.73s) bestanden. Tests sind synthetische technische Beobachtungen, keine Registry-Release-Evidenz. Generische Browser-Workspace-/Navigationsadmission, eigenstaendige Source-Kontrollen, laufende Sprache/Avatar-Koordination und gemeinsame reale Integrationsabnahme bleiben offen. SRP-Schuld des wachsenden Worker-Kompositionsloops vor weiteren Lifecycle-Policies durch getrennte Source-Pumps abbauen; kein Deploy/Trust-Bypass.",
     "Vollausbauauftrag 2026-09-06: MAP-09/25/26 bearbeiten reale MDS-Hub-/Worker-Verbindung, Task-/Runtime-/Lease-Fencing und getrennte Quellenrevisionen. Eigener Browserstream folgt, grosse gemeinsame Abnahme erst nach den Implementierungen; kleine Task-Tests sofort. Keine neue produktive Trust-/Projektfreigabe und keine selbst ausgestellten Release-Evidence-IDs.",
     "MAP-26 Chat-Admission-Slice 2026-09-06: Parser, Policy und persistente at-most-once Budgetreservierung lokal getestet. draft1 ist ein Abstimmungsvorschlag für Meet, kein freigegebener Wire-Vertrag. Kein neuer Task-Scheduler, keine produktive Empfangsfreigabe und keine Aussage über vollständigen Chat-/ASR-/Screen-Dialog. Siehe docs/contracts/meet-chat-admission.md und tests/test_meet_chat_admission.py.",
@@ -1291,10 +1292,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-06T23:21:25.124868Z",
+    "generated_at": "2026-09-06T23:28:27.090248Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "176c29088e2a3800d30283ea4ece25e293b71e153a0dfd74fc64eb4c4a570747",
+    "source_hash": "b482a1cc57d67bafcc51dd95f11ce3a46db9383e855223d354280d043fda9f95",
     "is_stale": false
   }
 }
