@@ -1,79 +1,26 @@
-"""Normal Hub tasks and pre-reserved Registry runs for delegated image inspection."""
+"""Normal Hub tasks and pre-reserved Registry runs for delegated media inspection."""
 
 import hashlib
-import json
 import re
 import time
 import uuid
+from dataclasses import asdict
 from typing import Protocol
 
-from agent.services.persona_asset_service import PersonaInspectionResult
+from agent.services.persona_inspection_contracts import admission_digest, source_ids
+from agent.services.persona_inspection_contracts import image_receipt as image_receipt
+from agent.services.persona_inspection_contracts import receipt_digest as receipt_digest
+from agent.services.persona_inspection_contracts import task_context as task_context
+from agent.services.persona_inspection_formats import PersonaImageInspectionFormat
 
 
-def admission_digest(admission):
-    return hashlib.sha256(admission.model_dump_json().encode()).hexdigest()
-
-
-def source_ids(admission):
-    return tuple(
-        sorted(
-            value for value in (admission.origin_binding, admission.license_binding, admission.consent_binding) if value
-        )
-    )
-
-
-def image_receipt(image, expected_source):
-    if (
-        image.source_sha256 != expected_source
-        or not isinstance(image.png, bytes)
-        or not isinstance(image.preview, bytes)
-        or not 0 < len(image.png) <= 5 * 1024 * 1024
-        or not 0 < len(image.preview) <= 350_000
-        or hashlib.sha256(image.png).hexdigest() != image.image_sha256
-        or hashlib.sha256(image.preview).hexdigest() != image.preview_sha256
-    ):
-        raise ValueError("persona_inspection_result_invalid")
-    return receipt_digest(
-        source_sha256=expected_source,
-        image_sha256=image.image_sha256,
-        preview_sha256=image.preview_sha256,
-        image_size=len(image.png),
-        preview_size=len(image.preview),
-    )
-
-
-def receipt_digest(*, source_sha256, image_sha256, preview_sha256, image_size, preview_size):
-    payload = {
-        "schema": "ananta.persona-inspection-receipt.v1",
-        "source_sha256": source_sha256,
-        "image_sha256": image_sha256,
-        "preview_sha256": preview_sha256,
-        "image_size": image_size,
-        "preview_size": preview_size,
-    }
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-
-
-def task_context(assignment):
-    return {
-        key: assignment[key]
-        for key in (
-            "lease_id",
-            "assignment_id",
-            "run_id",
-            "run_binding_digest",
-            "admission_digest",
-            "owner_subject",
-            "source_sha256",
-            "deadline",
-        )
-    }
-
-
-class PersonaImageWorkerPort(Protocol):
+class PersonaInspectionWorkerPort(Protocol):
     def execute(self, assignment: dict, content: bytes, media_type: str):
         """Execute only the closed Hub assignment in the isolated worker."""
         ...
+
+
+PersonaImageWorkerPort = PersonaInspectionWorkerPort  # Existing import compatibility.
 
 
 class HubPersonaInspectionTasks:
@@ -81,13 +28,14 @@ class HubPersonaInspectionTasks:
         self,
         *,
         policy,
-        worker: PersonaImageWorkerPort,
+        worker: PersonaInspectionWorkerPort,
         state,
         registry,
         repository_revision,
         execution_profile_digest,
         environment_digest,
         clock=time.time,
+        format=None,
     ):
         if not isinstance(repository_revision, str) or not re.fullmatch(
             r"(?:[a-f0-9]{40}|[a-f0-9]{64})", repository_revision
@@ -105,16 +53,22 @@ class HubPersonaInspectionTasks:
             environment_digest,
         )
         self.clock = clock
+        self.format = format if format is not None else PersonaImageInspectionFormat()
 
     def execute(self, principal, admission, content, media_type):
+        kind_check = getattr(self.policy, "require_media_kind", None)
+        if kind_check is not None:
+            kind_check(self.format.kind)
+        elif self.format.kind != "image":
+            raise PermissionError("persona_video_policy_kind_required")
         self.policy.require_current(principal, admission, "inspect")
         if (
             not isinstance(content, bytes)
-            or not 0 < len(content) <= 5 * 1024 * 1024
+            or not 0 < len(content) <= self.format.maximum
             or hashlib.sha256(content).hexdigest() != admission.source_sha256
         ):
             raise ValueError("persona_inspection_input_mismatch")
-        if media_type not in ("image/png", "image/jpeg"):
+        if media_type not in self.format.media_types:
             raise ValueError("persona_inspection_media_type_invalid")
         task_id, assignment_id, lease_id = (str(uuid.uuid4()) for _ in range(3))
         test_only = admission.classification == "test_only"
@@ -131,10 +85,10 @@ class HubPersonaInspectionTasks:
             source_ids=source_ids(admission),
             evidence_scope="test" if test_only else "local",
             synthetic=test_only,
-            idempotency_key=f"persona-image-{task_id}",
+            idempotency_key=f"persona-{self.format.kind}-{task_id}",
         )
         assignment = {
-            "schema": "ananta.persona-image-task.v1",
+            "schema": f"ananta.persona-{self.format.kind}-task.v1",
             "task_id": task_id,
             "assignment_id": assignment_id,
             "lease_id": lease_id,
@@ -159,8 +113,8 @@ class HubPersonaInspectionTasks:
             )
             self.state.start(assignment, principal.subject_id, admission=admission)
             self.policy.require_current(principal, admission, "inspect")
-            image = self.worker.execute(assignment, content, media_type)
-            digest = image_receipt(image, admission.source_sha256)
+            inspected = self.worker.execute(assignment, content, media_type)
+            digest = self.format.receipt(inspected, admission.source_sha256)
             self.policy.require_current(principal, admission, "inspect")
             if not self.state.finish(assignment, "completed", receipt_digest=digest):
                 raise ValueError("persona_inspection_task_cancelled")
@@ -175,7 +129,7 @@ class HubPersonaInspectionTasks:
             )
             recorded = True
             self.policy.require_current(principal, admission, "inspect")
-            return PersonaInspectionResult(task_id, lease_id, image, run.run_id, assignment_id, run.binding_digest)
+            return self.format.result(task_id, lease_id, inspected, run, assignment_id)
         except Exception:
             try:
                 self.state.finish(assignment, "failed")
@@ -197,8 +151,9 @@ class HubPersonaInspectionTasks:
 
 
 class HubPersonaInspectionReceipts:
-    def __init__(self, *, state, registry):
+    def __init__(self, *, state, registry, format=None):
         self.state, self.registry = state, registry
+        self.format = format if format is not None else PersonaImageInspectionFormat()
 
     @staticmethod
     def _require_classification(run, classification):
@@ -210,36 +165,20 @@ class HubPersonaInspectionReceipts:
     def require_asset(self, principal, asset):
         # Immutable catalog metadata remains verifiable after normal Task archival.
         # Policy/current membership and stored-byte hashes are checked by their own ports.
-        if principal.tenant_id != asset.image.tenant_id or not asset.inspection_run_id:
+        pin = self.format.asset_receipt(asset)
+        if principal.tenant_id != pin.tenant_id or not pin.run_id:
             raise ValueError("persona_inspection_asset_unverified")
-        run = self.registry.require_run_result(
-            tenant_id=asset.image.tenant_id,
-            project_id=asset.image.project_id,
-            run_id=asset.inspection_run_id,
-            task_id=asset.inspection_task_id,
-            assignment_id=asset.inspection_assignment_id,
-            dispatch_lease_id=asset.inspection_lease_id,
-            input_digest=asset.source_sha256,
-            source_ids=source_ids(asset),
-            result_digest=receipt_digest(
-                source_sha256=asset.source_sha256,
-                image_sha256=asset.image.sha256,
-                preview_sha256=asset.preview.sha256,
-                image_size=asset.image_size,
-                preview_size=asset.preview_size,
-            ),
-            expected_binding_digest=asset.inspection_run_binding_digest,
-        )
-        self._require_classification(run, asset.image.classification)
+        run = self.registry.require_run_result(**asdict(pin))
+        self._require_classification(run, self.format.classification(asset))
 
     def require_completed(self, principal, admission, result):
         task = self.state.get(result.task_id)
-        context = (task.worker_execution_context or {}).get("persona_image", {}) if task else {}
-        digest = image_receipt(result.image, admission.source_sha256)
+        context = (task.worker_execution_context or {}).get(f"persona_{self.format.kind}", {}) if task else {}
+        digest = self.format.receipt(self.format.payload(result), admission.source_sha256)
         if (
             task is None
             or task.status != "completed"
-            or task.task_kind != "persona_image_inspection"
+            or task.task_kind != f"persona_{self.format.kind}_inspection"
             or principal.tenant_id != admission.tenant_id
             or context.get("owner_subject") != principal.subject_id
             or (task.tenant_id, task.project_id) != (admission.tenant_id, admission.project_id)

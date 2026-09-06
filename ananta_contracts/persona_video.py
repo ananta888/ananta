@@ -5,12 +5,19 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 
+from ananta_contracts.persona_assignment import validate_persona_assignment
 from ananta_contracts.persona_image import png_dimensions
 
 MAX_INPUT_BYTES = 3_500_000
 MAX_VIDEO_BYTES = 1_500_000
 MAX_PREVIEW_BYTES = 350_000
+MAX_REQUEST_BYTES = 4_700_000
+MAX_RESULT_BYTES = 2_500_000
 PROFILE = "ananta.persona-clip.h264-256-12.v1"
+
+
+def validate_assignment(value, now):
+    return validate_persona_assignment(value, now, schema="ananta.persona-video-task.v1")
 
 
 @dataclass(frozen=True)

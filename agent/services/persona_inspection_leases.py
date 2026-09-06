@@ -8,17 +8,22 @@ from agent.services.source_control_access_policy import HubSourcePrincipal
 
 
 class HubPersonaInspectionLeases:
-    def __init__(self, *, state, policy, registry, clock=time.time):
+    def __init__(self, *, state, policy, registry, clock=time.time, kind="image"):
+        if kind not in ("image", "video"):
+            raise ValueError("persona_inspection_kind_invalid")
         self.state, self.policy, self.registry, self.clock = state, policy, registry, clock
+        self.kind = kind
 
     def require(self, assignment):
+        if assignment["schema"] != f"ananta.persona-{self.kind}-task.v1":
+            raise PermissionError("persona_inspection_kind_mismatch")
         task = self.state.get(assignment["task_id"])
         if (
             task is None
             or task.status != "in_progress"
-            or task.task_kind != "persona_image_inspection"
+            or task.task_kind != f"persona_{self.kind}_inspection"
             or (task.tenant_id, task.project_id) != (assignment["tenant_id"], assignment["project_id"])
-            or task.worker_execution_context != {"persona_image": task_context(assignment)}
+            or task.worker_execution_context != {f"persona_{self.kind}": task_context(assignment)}
             or self.clock() >= assignment["deadline"]
         ):
             raise PermissionError("persona_inspection_lease_revoked")

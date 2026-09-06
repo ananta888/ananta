@@ -32,6 +32,13 @@ class PersonaAssetPolicyService:
         self.inspection_receipts, self.clock = inspection_receipts, clock
         self.domain = domain if domain is not None else PersonaImagePolicyDomain()
 
+    def require_media_kind(self, kind):
+        from agent.models.persona_asset_policy import PersonaImagePolicy, PersonaVideoPolicy
+
+        expected = {"image": PersonaImagePolicy, "video": PersonaVideoPolicy}
+        if type(kind) is not str or expected.get(kind) is not self.domain.policy_type:
+            raise PermissionError("persona_policy_media_kind_mismatch")
+
     def _project(self, principal, project, capability):
         if principal.roles & {"worker", "service"}:
             raise PermissionError("persona_user_policy_authority_required")
