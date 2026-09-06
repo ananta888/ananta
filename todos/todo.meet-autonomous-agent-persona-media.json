@@ -339,7 +339,7 @@
         "Die bestehende Meet-Zuordnung bleibt meet_ui_then_attach; ein bestandener Browser-Preflight beweist weder autonomen Join noch Browserstream, TTS oder Avatarvideo.",
         "Vorhandene, fehlende und lediglich geplante Schnittstellen inklusive Tests und Betriebszuständigkeit benennen. Quellpfade nicht als registrierte Evidenzidentitäten ausgeben."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Separater CPU-Clip-Inspektionsadapter mit geschlossenem Byte-/Hash-Ergebnis, maximal 3,5 MB MP4/H.264, 10 Sekunden, 1280x720/30 FPS und optionalem AAC-Eingang ergänzt. Normalisierung auf stummes 256x256/12-FPS-Video plus RGBA-Vorschau; feste Prozess-/Ausgabegrenzen und erneute Autoritätsprüfung an jeder Grenze. 50 Unit-Tests bestanden; echter privater Container dekodiert ein bewegtes synthetisches Motiv mit Eingangs-Audio, entfernt Audio und bestätigt unterschiedliche erste/letzte Frames (13 Frames, 0,43 Sekunden Laufzeit). docs/contracts/persona-video-inspection.md. Noch offen: explizite Video-Rechte, vorab gebundene Hub-Inspektionsaufträge/-Receipts, versionierter Video-Katalog/Lifecycle, Profil-/Publisher-Anbindung und passende generierte Sprachsequenz. Keine Produktions-/Live- oder generative Qualitätsfreigabe aus dieser lokalen Probe. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-02",
