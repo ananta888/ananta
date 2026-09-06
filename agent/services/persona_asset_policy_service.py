@@ -1,10 +1,10 @@
-"""Hub image permissions from project authority and pinned registered evidence."""
+"""Hub persona permissions from project authority and pinned registered evidence."""
 
 import time
 from typing import Protocol
 
-from agent.models.persona_asset_policy import PersonaImagePolicy
 from agent.models.persona_assets import PersonaAssetAdmission
+from agent.services.persona_policy_domains import PersonaImagePolicyDomain, PersonaPolicyDomain
 from agent.services.project_access_authority import ProjectCapability
 
 
@@ -26,9 +26,11 @@ class PersonaAssetPolicyService:
         sources: PinnedPersonaSourcePort,
         inspection_receipts: PersonaInspectionReceiptPort,
         clock=time.time,
+        domain: PersonaPolicyDomain | None = None,
     ):
         self.access, self.policies, self.sources = access, policies, sources
         self.inspection_receipts, self.clock = inspection_receipts, clock
+        self.domain = domain if domain is not None else PersonaImagePolicyDomain()
 
     def _project(self, principal, project, capability):
         if principal.roles & {"worker", "service"}:
@@ -48,6 +50,8 @@ class PersonaAssetPolicyService:
         )
 
     def _proofs(self, policy):
+        if type(policy) is not self.domain.policy_type:
+            raise PermissionError("persona_policy_media_kind_mismatch")
         pins = {"source": policy.source, "license": policy.license}
         if policy.consent:
             pins["consent"] = policy.consent
@@ -67,9 +71,14 @@ class PersonaAssetPolicyService:
             ):
                 raise PermissionError("persona_proof_kind_mismatch")
             proofs[kind] = proof
+        if (
+            self.domain.source_origin_type is not None
+            and proofs["source"].origin_type != self.domain.source_origin_type
+        ):
+            raise PermissionError("persona_source_media_kind_mismatch")
         return proofs
 
-    def install(self, principal, policy: PersonaImagePolicy, *, expected_revision):
+    def install(self, principal, policy, *, expected_revision):
         if principal.tenant_id != policy.tenant_id:
             raise PermissionError("persona_policy_tenant_mismatch")
         self._project(principal, policy.project_id, ProjectCapability.MANAGE)
@@ -145,18 +154,7 @@ class PersonaAssetPolicyService:
         self._project(principal, project, ProjectCapability.READ)
 
     def require_asset(self, principal, asset, purpose):
-        admission = PersonaAssetAdmission(
-            tenant_id=asset.image.tenant_id,
-            project_id=asset.image.project_id,
-            source_sha256=asset.source_sha256,
-            origin_kind=asset.origin_kind,
-            origin_binding=asset.origin_binding,
-            license_binding=asset.license_binding,
-            consent_binding=asset.consent_binding,
-            policy_binding=asset.policy_binding,
-            policy_revision=asset.policy_revision,
-            classification=asset.image.classification,
-        )
+        admission = self.domain.asset_admission(asset)
         self.require_current(principal, admission, purpose)
         self.inspection_receipts.require_asset(principal, asset)
 

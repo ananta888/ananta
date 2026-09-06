@@ -1,6 +1,6 @@
-"""Explicit project-managed image permissions pinned to registered source facts."""
+"""Pinned media permissions with compatible images and deliberate video scope."""
 
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field, StrictBool, StrictInt, model_validator
 
@@ -12,7 +12,8 @@ class PersonaSourcePin(ClosedModel):
     binding_digest: Digest
 
 
-class PersonaImagePolicy(ClosedModel):
+class PersonaMediaPolicyTerms(ClosedModel):
+    generated_error: ClassVar[str] = "persona_generated_media_must_be_labelled_synthetic"
     tenant_id: Identifier
     project_id: Identifier
     policy_binding: Identifier
@@ -36,8 +37,21 @@ class PersonaImagePolicy(ClosedModel):
         if (self.personal_likeness or self.origin_kind == "upload") and self.consent is None:
             raise ValueError("persona_policy_consent_required")
         if self.classification == "production" and self.origin_kind == "generated":
-            raise ValueError("persona_generated_image_must_be_labelled_synthetic")
+            raise ValueError(self.generated_error)
         pins = (self.source.source_id, self.license.source_id) + ((self.consent.source_id,) if self.consent else ())
         if len(set(pins)) != len(pins):
             raise ValueError("persona_policy_proofs_must_be_separate")
         return self
+
+
+class PersonaImagePolicy(PersonaMediaPolicyTerms):
+    """Existing image wire shape and diagnostic remain unchanged."""
+
+    generated_error: ClassVar[str] = "persona_generated_image_must_be_labelled_synthetic"
+
+
+class PersonaVideoPolicy(PersonaMediaPolicyTerms):
+    """Explicit video scope cannot be inferred from an image-only policy body."""
+
+    media_kind: Literal["video"]
+    generated_error: ClassVar[str] = "persona_generated_video_must_be_labelled_synthetic"
