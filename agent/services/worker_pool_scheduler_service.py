@@ -89,7 +89,9 @@ class WorkerPoolSchedulerService:
                             "policy_decision_hash": policy_decision_hash,
                         },
                     ))
-                    return WorkerSlotDecision(status="rejected", reason_code="worker_queue_full", slot_lease_id=lease.id)
+                    return WorkerSlotDecision(
+                        status="rejected", reason_code="worker_queue_full", slot_lease_id=lease.id
+                    )
 
                 queue_position = len(queue_for_worker) + 1
                 lease = worker_slot_lease_repo.save(WorkerSlotLeaseDB(
@@ -210,12 +212,14 @@ class WorkerPoolSchedulerService:
         if not slot_lease_id:
             return
         lease = worker_slot_lease_repo.get_by_id(slot_lease_id)
-        if lease is None:
+        if lease is None or lease.lease_type not in {"worker", "combined"}:
             return
         metadata = dict(lease.lease_metadata or {})
         ollama_lease_id = metadata.get("ollama_lease_id")
         if lease.ollama_endpoint and lease.ollama_model and ollama_lease_id:
-            self._ollama.release_slot(endpoint=lease.ollama_endpoint, model=lease.ollama_model, lease_id=str(ollama_lease_id))
+            self._ollama.release_slot(
+                endpoint=lease.ollama_endpoint, model=lease.ollama_model, lease_id=str(ollama_lease_id)
+            )
         worker_slot_lease_repo.release(slot_lease_id)
         try:
             request_autopilot_wake(
@@ -231,11 +235,15 @@ class WorkerPoolSchedulerService:
         stale = worker_slot_lease_repo.list_expired()
         cleaned = 0
         for lease in stale:
+            if lease.lease_type not in {"worker", "combined"}:
+                continue  # Other domain slot policies own their expiry/CAS.
             if lease.ollama_endpoint and lease.ollama_model:
                 metadata = dict(lease.lease_metadata or {})
                 ollama_lease_id = metadata.get("ollama_lease_id")
                 if ollama_lease_id:
-                    self._ollama.release_slot(endpoint=lease.ollama_endpoint, model=lease.ollama_model, lease_id=str(ollama_lease_id))
+                    self._ollama.release_slot(
+                        endpoint=lease.ollama_endpoint, model=lease.ollama_model, lease_id=str(ollama_lease_id)
+                    )
             worker_slot_lease_repo.release(lease.id, status="stale_released")
             cleaned += 1
         return cleaned
@@ -253,6 +261,10 @@ class WorkerPoolSchedulerService:
         lease = worker_slot_lease_repo.get_by_id(slot_lease_id)
         if lease is None:
             return WorkerSlotDecision(status="rejected", reason_code="unknown_slot_lease", slot_lease_id=slot_lease_id)
+        if lease.lease_type not in {"worker", "combined"}:
+            return WorkerSlotDecision(
+                status="rejected", reason_code="slot_lease_not_owned", slot_lease_id=slot_lease_id
+            )
         if lease.status != "queued":
             return WorkerSlotDecision(status=lease.status, reason_code="lease_not_queued", slot_lease_id=slot_lease_id)
 
@@ -271,17 +283,27 @@ class WorkerPoolSchedulerService:
                 "new_decision_ref": policy_decision_ref,
             }
             worker_slot_lease_repo.save(lease)
-            return WorkerSlotDecision(status="rejected", reason_code="stale_policy_decision", slot_lease_id=slot_lease_id)
+            return WorkerSlotDecision(
+                status="rejected", reason_code="stale_policy_decision", slot_lease_id=slot_lease_id
+            )
         if not policy_allowed:
             lease.status = "rejected"
             lease.reason_code = "policy_denied_on_revalidation"
             lease.released_at = time.time()
             worker_slot_lease_repo.save(lease)
-            return WorkerSlotDecision(status="rejected", reason_code="policy_denied_on_revalidation", slot_lease_id=slot_lease_id)
+            return WorkerSlotDecision(
+                status="rejected", reason_code="policy_denied_on_revalidation", slot_lease_id=slot_lease_id
+            )
         if not worker_online:
-            return WorkerSlotDecision(status="queued", reason_code="worker_offline_requeue", slot_lease_id=slot_lease_id, queue_position=lease.queue_position)
+            return WorkerSlotDecision(
+                status="queued", reason_code="worker_offline_requeue", slot_lease_id=slot_lease_id,
+                queue_position=lease.queue_position,
+            )
         if not capacity_available:
-            return WorkerSlotDecision(status="queued", reason_code="capacity_not_available_requeue", slot_lease_id=slot_lease_id, queue_position=lease.queue_position)
+            return WorkerSlotDecision(
+                status="queued", reason_code="capacity_not_available_requeue", slot_lease_id=slot_lease_id,
+                queue_position=lease.queue_position,
+            )
 
         lease.status = "active"
         lease.reason_code = "queued_revalidated_and_started"

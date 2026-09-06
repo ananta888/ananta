@@ -64,6 +64,15 @@ def configure_meet_media(app):
     key = load_key(os.environ["ANANTA_MEET_MEDIA_KEY_FILE"])
     app.extensions["meet_media_worker_key"] = key
     worker = HttpMediaWorker(os.environ["ANANTA_MEET_MEDIA_WORKER_URL"], key)
+    from agent.database import engine
+    from agent.repositories.meet_capacity import SqlMeetCapacity
+    from agent.services.meet_capacity_admission import MeetCapacityAdmission
+
+    tasks = HubMediaTasks()
+    slots = SqlMeetCapacity(engine, os.environ.get("ANANTA_MEET_MEDIA_CAPACITY_POOL", "local-meet-media"))
+    slots.initialize()
+    capacity = MeetCapacityAdmission(slots, tasks)
+    app.extensions["meet_media_capacity"] = capacity
     issuer = None
     if os.environ.get("ANANTA_MEET_MACHINE_ENABLED") == "1":
         from agent.services.meet_machine_grant import MeetMachineGrantIssuer
@@ -80,12 +89,13 @@ def configure_meet_media(app):
     app.extensions["meet_turn_service"] = MeetTurnService(
         app.extensions["meet_binding_service"],
         worker,
-        HubMediaTasks(),
+        tasks,
         map(tuple, scopes),
         grant_issuer=issuer,
         persona_images=images,
         persona_profiles=profiles,
         speech_profile=speech_profile(max_seconds=int(os.environ.get("ANANTA_MEET_SPEECH_MAX_SECONDS", "40"))),
+        capacity=capacity,
     )
 
 

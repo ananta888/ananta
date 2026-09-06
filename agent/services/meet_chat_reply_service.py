@@ -4,6 +4,7 @@ import time
 import uuid
 from typing import Protocol
 
+from agent.services.meet_capacity_admission import MediaCapacityPort
 from agent.services.meet_chat_admission import ChatAdmission, ChatAuthorityPort
 from agent.services.meet_contract import MeetError
 from agent.services.meet_media_result import validate_response_budget, validate_result
@@ -27,10 +28,12 @@ class MeetChatReplyService:
         tasks: MediaTaskPort,
         clock=time.time,
         speech_profile=None,
+        capacity: MediaCapacityPort | None = None,
     ):
         self.authority, self.dispatches, self.binding = authority, dispatches, binding
         self.worker, self.tasks, self.clock = worker, tasks, clock
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
+        self.capacity = capacity
 
     def _require_current(self, principal, reservation):
         scope = reservation.scope
@@ -87,7 +90,13 @@ class MeetChatReplyService:
             self.tasks.start(task_turn, principal.subject_id)
             started = True
             self._require_current(principal, reservation)
-            result = self.worker.execute(turn)
+            result = (
+                self.capacity.run(
+                    task_turn, lambda: self.worker.execute(turn), lambda: self._require_current(principal, reservation)
+                )
+                if self.capacity is not None
+                else self.worker.execute(turn)
+            )
             validate_result(result)
             validate_response_budget(turn, result)
             if (

@@ -4,6 +4,7 @@ import time
 import uuid
 from typing import Protocol
 
+from agent.services.meet_capacity_admission import MediaCapacityPort
 from agent.services.meet_contract import MeetError
 from agent.services.meet_speech_result import validate_speech_binding
 from ananta_contracts.meet_speech import validate_speech_profile
@@ -41,6 +42,7 @@ class MeetTurnService:
         persona_images: PersonaImagePort | None = None,
         persona_profiles: PersonaProfilePort | None = None,
         speech_profile=None,
+        capacity: MediaCapacityPort | None = None,
     ):
         self.binding, self.worker, self.tasks = binding, worker, tasks
         self.allowed_scopes = frozenset(allowed_scopes)
@@ -49,6 +51,7 @@ class MeetTurnService:
         self.persona_images = persona_images
         self.persona_profiles = persona_profiles
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
+        self.capacity = capacity
 
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.
@@ -108,7 +111,23 @@ class MeetTurnService:
         hub_turn = turn | ({"hub_persona_profile": profile_binding} if profile_binding else {})
         self.tasks.start(hub_turn, principal.subject_id)
         try:
-            result = self.worker.execute(turn)
+
+            def require_dispatch():
+                self.binding.require_write_access(principal, project, task)
+                if profile_binding is not None:
+                    self.persona_profiles.require_current(
+                        principal, project, profile_binding, turn["persona_image"]["reference"]
+                    )
+                if "persona_image" in turn:
+                    self.persona_images.require_current(
+                        principal, project, turn["persona_image"]["reference"], image_purpose
+                    )
+
+            result = (
+                self.capacity.run(hub_turn, lambda: self.worker.execute(turn), require_dispatch)
+                if self.capacity is not None
+                else self.worker.execute(turn)
+            )
             validate_speech_binding(turn, result)
             if (
                 self.clock() >= turn["deadline"]
@@ -181,6 +200,32 @@ class MeetTurnService:
 
 class HubMediaTasks:
     """Existing Hub queue, content-free events and lease-fenced terminal CAS."""
+
+    def require_current(self, turn):
+        from agent.services.repository_registry import get_repository_registry
+
+        task = get_repository_registry().task_repo.get_by_id(turn["task_id"])
+        context = (task.worker_execution_context or {}).get("meet_media", {}) if task is not None else {}
+        expected = {
+            "lease_id": turn["lease_id"],
+            "deadline": turn["deadline"],
+            "binding_task_id": turn.get("binding_task_id", ""),
+            "speech_profile": turn.get("speech_profile"),
+            "persona_profile": turn.get("hub_persona_profile"),
+            "persona_image": turn.get("persona_image", {}).get("reference"),
+            "persona_purpose": ("publish" if "meeting" in turn else "preview") if "persona_image" in turn else None,
+            "chat_reply": turn.get("hub_chat_binding"),
+            "response_limits": turn.get("response_limits"),
+        }
+        if (
+            task is None
+            or task.task_kind != "meet_media_turn"
+            or task.status != "in_progress"
+            or task.tenant_id != turn["tenant_id"]
+            or task.project_id != turn["project_id"]
+            or any(context.get(key) != value for key, value in expected.items())
+        ):
+            raise MeetError("meet_capacity_task_changed", 409)
 
     def start(self, turn, actor):
         from agent.services.task_queue_service import get_task_queue_service

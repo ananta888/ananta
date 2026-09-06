@@ -9,7 +9,9 @@ from flask import Flask
 from flask import request as flask_request
 from werkzeug.serving import make_server
 
+from agent.repositories.meet_capacity import SqlMeetCapacity
 from agent.routes.meet import meet_bp
+from agent.services.meet_capacity_admission import MeetCapacityAdmission
 from agent.services.meet_media_transport import HttpMediaWorker
 from agent.services.meet_turn_service import HubMediaTasks
 from agent.services.repository_registry import get_repository_registry
@@ -27,10 +29,15 @@ from worker.meet_media.contract import load_key
 )
 @pytest.mark.timeout(150)
 def test_gpu_persona_turn_uses_real_profile_task_and_request_bound_hub_lease(app, request):
+    from agent.database import engine
+
     request.getfixturevalue("runtime")
     fixture = request.getfixturevalue("bound")
     service, _, _ = turn_service(fixture, HubMediaTasks())
     service.speech_profile = speech_profile(max_seconds=10)
+    capacity = SqlMeetCapacity(engine, "synthetic-profile-gpu")
+    capacity.initialize()
+    service.capacity = MeetCapacityAdmission(capacity, service.tasks)
     key = load_key(os.environ["MEET_MEDIA_GPU_KEY_FILE"])
     service.worker = HttpMediaWorker(os.environ["MEET_MEDIA_GPU_ENDPOINT"], key)
     callback = Flask("meet-profile-gpu-callback")

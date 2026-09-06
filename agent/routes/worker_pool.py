@@ -8,7 +8,6 @@ from agent.common.errors import api_response
 from agent.repository import worker_slot_lease_repo
 from agent.services.worker_pool_scheduler_service import get_worker_pool_scheduler_service
 
-
 worker_pool_bp = Blueprint("worker_pool", __name__)
 
 
@@ -23,14 +22,20 @@ def worker_pool_status():
 @check_auth
 def worker_pool_leases():
     leases = worker_slot_lease_repo.list_all()
-    return api_response(data={"items": [lease.model_dump(mode="json") for lease in leases]})
+    return api_response(data={"items": _public_leases(leases)})
 
 
 @worker_pool_bp.route("/worker-pool/queues", methods=["GET"])
 @check_auth
 def worker_pool_queues():
     queued = worker_slot_lease_repo.list_queued()
-    return api_response(data={"items": [lease.model_dump(mode="json") for lease in queued]})
+    return api_response(data={"items": _public_leases(queued)})
+
+
+def _public_leases(leases):
+    # These legacy routes are not project-scoped. Media task/tenant/dispatch
+    # bindings must not become globally readable through the shared table.
+    return [lease.model_dump(mode="json") for lease in leases if lease.lease_type != "meet_media"]
 
 
 @worker_pool_bp.route("/worker-pool/ollama-models", methods=["GET"])
