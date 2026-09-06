@@ -10,22 +10,20 @@ from voice_runtime.preprocessing.audio_decode import BoundedSubprocessRunner
 from worker.meet_media.persona_video_inspector import PersonaVideoInspector
 
 
-def run():
-    started = time.monotonic()
-    runner = BoundedSubprocessRunner()
+def command(argv, content=b"", maximum=MAX_INPUT_BYTES):
+    result = BoundedSubprocessRunner().run(
+        ["/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", *argv],
+        input_payload=content,
+        max_stdout_bytes=maximum,
+        timeout_seconds=5,
+        cwd=Path(__file__).resolve().parent,
+    )
+    if result.returncode:
+        raise ValueError("persona_video_probe_command_failed")
+    return result.stdout
 
-    def command(argv, content=b"", maximum=MAX_INPUT_BYTES):
-        result = runner.run(
-            ["/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", *argv],
-            input_payload=content,
-            max_stdout_bytes=maximum,
-            timeout_seconds=5,
-            cwd=Path(__file__).resolve().parent,
-        )
-        if result.returncode:
-            raise ValueError("persona_video_probe_command_failed")
-        return result.stdout
 
+def synthetic_clip():
     # Built-in synthetic generators only; no camera, microphone or external URL.
     source = command(
         [
@@ -58,9 +56,14 @@ def run():
             "pipe:1",
         ]
     )
-    value = PersonaVideoInspector(require_current=lambda: None, deadline_monotonic=time.monotonic() + 25).inspect(
-        source, "video/mp4"
-    )
+    return source, PersonaVideoInspector(
+        require_current=lambda: None, deadline_monotonic=time.monotonic() + 25
+    ).inspect(source, "video/mp4")
+
+
+def run():
+    started = time.monotonic()
+    source, value = synthetic_clip()
     raw = command(
         [
             "-protocol_whitelist",
