@@ -136,6 +136,9 @@ def test_frame_encoder_checks_authority_and_never_encodes_after_revocation(pictu
 def test_frame_encoder_has_fixed_fps_codec_and_frame_budget(picture, tmp_path, monkeypatch):
     frame = static_frame(picture[4], tenant_id="tenant", project_id="project")
     encoder = Mock()
+    (tmp_path / "avatar.mp4").write_bytes(b"0000ftyp-synthetic-encoder-output")
+    verifier = Mock()
+    monkeypatch.setattr("worker.meet_media.video_frames.verify_encoded_media", verifier)
     monkeypatch.setattr("worker.meet_media.video_frames.subprocess.run", encoder)
     encode_frames(tmp_path / "audio.wav", 0.2, tmp_path, frame_source=lambda _: frame, require_current=Mock())
     assert (tmp_path / "frames.rgb").stat().st_size == 3 * 256 * 256 * 3
@@ -143,3 +146,4 @@ def test_frame_encoder_has_fixed_fps_codec_and_frame_budget(picture, tmp_path, m
     assert args[args.index("-c:v") + 1] == "h264_nvenc"
     assert args[args.index("-framerate") + 1] == "12"
     assert encoder.call_args.kwargs["timeout"] == 30
+    assert verifier.call_args.kwargs["expected_samples"] == 4410

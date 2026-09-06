@@ -3,6 +3,8 @@
 import math
 import subprocess
 
+from worker.meet_media.av_quality import MAX_VIDEO_BYTES, verify_encoded_media
+
 
 def encode_frames(audio, duration, directory, *, frame_source, require_current):
     if type(duration) not in (int, float) or not math.isfinite(duration) or not 0 < duration <= 40:
@@ -58,4 +60,10 @@ def encode_frames(audio, duration, directory, *, frame_source, require_current):
         capture_output=True,
     )
     require_current()
+    with video_path.open("rb") as output:
+        verify_encoded_media(
+            output.read(MAX_VIDEO_BYTES + 1),
+            expected_samples=round(duration * 22050),
+            require_current=require_current,
+        )
     return video_path
