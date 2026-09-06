@@ -161,13 +161,30 @@ class PersonaProfileService:
             ).model_dump(mode="json"),
         }
 
-    def for_execution(self, principal, project, selection: PersonaProfileSelection):
+    def for_execution(self, principal, project, selection: PersonaProfileSelection, *, required_outputs=("image",)):
+        if (
+            not isinstance(required_outputs, tuple)
+            or not required_outputs
+            or any(kind not in ("image", "voice", "video", "style") for kind in required_outputs)
+            or len(set(required_outputs)) != len(required_outputs)
+        ):
+            raise ValueError("persona_execution_outputs_invalid")
         scope = (principal, project, selection.organization_id, selection.owner_kind, selection.owner_id)
         self._authorize(*scope, mutable=False)
         self.owners.require_runtime(principal.tenant_id, *scope[1:])
         result = self.effective(*scope)
         if result["selection"] != selection.model_dump(mode="json"):
             raise PermissionError("persona_execution_profile_changed")
+        outputs = {item["kind"]: item for item in result["media"]}
+        for kind in required_outputs:
+            item = outputs.get(kind)
+            if item is None or item["state"] == "disabled":
+                raise PermissionError("persona_execution_output_disabled")
+            # The installed execution adapter supports image assets only.
+            # Missing voice/video selections may use its independently allowed
+            # fixed generator, but never silently replace an explicit asset.
+            if kind != "image" and item["state"] != "missing":
+                raise PermissionError("persona_execution_output_unsupported")
         image = result["media"][0]
         if image["kind"] != "image" or not image["preview_allowed"] or image["asset"] is None:
             raise PermissionError("persona_execution_image_unavailable")

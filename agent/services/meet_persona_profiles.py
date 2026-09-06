@@ -6,13 +6,17 @@ from agent.services.project_access_authority import ProjectAccessError
 
 
 class MeetPersonaProfiles:
+    # The legacy MP4 turn cannot independently omit speech or video. Declaring
+    # the complete output set prevents it ignoring a resolved disabled state.
+    _OUTPUTS = ("image", "voice", "video")
+
     def __init__(self, profiles, images):
         self.profiles, self.images = profiles, images
 
     def prepare(self, principal, project, selection, purpose):
         try:
             selection = PersonaProfileSelection.model_validate(selection)
-            reference = self.profiles.for_execution(principal, project, selection)
+            reference = self.profiles.for_execution(principal, project, selection, required_outputs=self._OUTPUTS)
             assignment = self.images.prepare(principal, project, reference["artifact_id"], purpose)
             if assignment["reference"] != reference:
                 raise PermissionError("persona_execution_reference_changed")
@@ -24,7 +28,9 @@ class MeetPersonaProfiles:
 
     def require_current(self, principal, project, binding, reference):
         try:
-            selected = self.profiles.for_execution(principal, project, PersonaProfileSelection.model_validate(binding))
+            selected = self.profiles.for_execution(
+                principal, project, PersonaProfileSelection.model_validate(binding), required_outputs=self._OUTPUTS
+            )
             if selected != reference:
                 raise PermissionError("persona_execution_reference_changed")
         except (ValueError, PermissionError, ProjectAccessError):

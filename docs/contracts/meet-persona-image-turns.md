@@ -77,9 +77,10 @@ Hub `SRC_*`/`RUN_*`. These are technical observations, not production evidence,
 proof of a live image-backed public call or generative talking-head quality.
 The public Hub/Meet/Caddy deployment was not changed.
 
-This implements per-turn image selection, not MAP-20's organization/team/agent
-profile dispatch or hot-switch lifecycle. Independent avatar/browser sources,
-multi-generation sessions and public receive/chat/screen gates still depend on
-the Meet companion track. Read-only source inspection at Meet `1c1d5b2` still
-finds MDS-01 through MDS-09 open; unrelated Broadcast work is not substituted for
-those contracts.
+This slice implements per-turn image selection. Organization/team/agent profile
+dispatch has since been added; see [profile-bound turns](meet-persona-profile-turns.md)
+for its exact scope and output-disablement behavior. Live hot-switch lifecycle,
+independent avatar/browser sources, multi-generation sessions and public
+receive/chat/screen gates still depend on the Meet companion track. Read-only
+source inspection at Meet `16b25af` still finds MDS-01 through MDS-09 open;
+unrelated Broadcast work is not substituted for those contracts.
