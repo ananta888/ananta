@@ -38,8 +38,19 @@
       "Meet besitzt POST /api/rooms, GET /api/rooms, PATCH /api/rooms/:id und POST /api/sessions; Join erfordert OIDC, P-256-Geraetenachweis und ein kurzlebiges WebSocket-Ticket.",
       "Meet-Invites verwenden /?room=room-<18 hex>&mode=room. Ein Invite ist eine Bearer-Capability, keine Benutzeridentitaet.",
       "Anantas Pair-Signaling verwendet HTTP-Polling und eigene Security-Epochen; das ist kein Meet-WebSocket-Adapter.",
-      "Vorhandene lokale Compose-/Caddy-Aenderungen und frontend-angular/data gehoeren nicht zu diesem Track und werden nicht mitgestaged."
-    ]
+      "Vorhandene lokale Compose-/Caddy-Aenderungen und frontend-angular/data gehoeren nicht zu diesem Track und werden nicht mitgestaged.",
+      "Lokale Backend-Abnahme auf sauberem Commit-Worktree 875bf3c58 unter vorab Hub-reserviertem Lauf verifiziert; diese Evidenz deckt keine positive Meet-Mediensitzung ab."
+    ],
+    "local_backend_gate": {
+      "repository_revision": "875bf3c58c146f8ec6eada7a176b21ecfa66eba2",
+      "source_ids": [
+        "SRC_c68f14b6510e9ad64b638d5b7c2a79ad"
+      ],
+      "run_id": "RUN_17e6836259c2c7a40f61484d96933de0",
+      "evidence_scope": "local",
+      "verified": true,
+      "tests": 60
+    }
   },
   "non_goals": [
     "Kein Ersetzen von Pair-Dev, Artefaktaustausch oder LiveKit durch blosses Umschreiben von URLs.",
@@ -393,7 +404,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 70,
+      "progress_percent": 90,
       "depends_on": [
         "AMI-14",
         "AMI-15",
@@ -404,7 +415,7 @@
         "Produktionsclaims nur unter vorab Hub-reservierter Run-Identitaet; synthetische Medien-/Testidentitaeten bleiben als Testevidenz klassifiziert.",
         "Ausgefuehrte Tests, Laufzeiten, Fehler und echte Restblockaden dokumentiert; kein gruener Status fuer nicht ausgefuehrte Gates."
       ],
-      "progress_note": "60 Backend-/Projekt-/Proxy-Tests, 27 UI-Tests, 9 Meet-Securitytests und Angular-Development-Build bestanden. Hub-reservierter lokaler Regressionstest und finale Medienpfad-Regression werden noch abgeschlossen; positive Live-Gates fehlen."
+      "progress_note": "Lokale Hub-Abnahme RUN_17e6836259c2c7a40f61484d96933de0 verifiziert: 60 Tests ohne Fehler/Skip (43.80 s). Zusaetzlich 99 Frontend-/Pair-/LiveKit-Tests, 9 Meet-Securitytests und Angular-Build bestanden. Positive Live-Gates fehlen weiterhin; technische Preflights sind keine Produktionsfreigabe."
     },
     {
       "id": "AMI-18",
@@ -412,7 +423,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 60,
+      "progress_percent": 85,
       "depends_on": [
         "AMI-17"
       ],
@@ -421,7 +432,7 @@
         "Quellcode, Tests und Dokumentation gezielt committet und gepusht; fremde Worktree-Aenderungen unveraendert.",
         "Track nur bei erfuellten Akzeptanzkriterien archivieren, andernfalls konkrete Restarbeit im aktiven Track erhalten."
       ],
-      "progress_note": "Initiale Todo als 11a6418a0 gepusht. Implementierungscommits und finale Statusdokumentation folgen; Track wegen fehlender Live-Abnahme nicht archivieren."
+      "progress_note": "Initiale Todo 11a6418a0, Backend f7f5cc6c1 und UI/Live-Gate 875bf3c58 committet und gepusht. Abschlussbericht und Status werden im Folgecommit gesichert. Track bleibt wegen fehlender positiver Live-Abnahme offen."
     }
   ],
   "tasks_status_summary": {
@@ -458,5 +469,6 @@
     "Implementierter Version-1-Ablauf: Meet-UI erstellen, Invite explizit im Hub zuordnen; kein automatischer Cross-Origin-Token-Handoff.",
     "Keine Freigabe fuer Produktionsclaims: lokale Tests und synthetische Browser-Preflights sind getrennt von noch fehlender positiver Live-Abnahme.",
     "Bestehende lokale Compose-/Caddy- und frontend-angular/data-Aenderungen bleiben unveraendert."
-  ]
+  ],
+  "verification_report": "artifacts/domain/meet-integration-review.json"
 }

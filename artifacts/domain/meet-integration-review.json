@@ -1,0 +1,102 @@
+{
+  "schema": "ananta.meet-integration-review.v1",
+  "implementation_revision": "875bf3c58c146f8ec6eada7a176b21ecfa66eba2",
+  "implementation_mode": "meet_ui_then_attach",
+  "local_backend_gate": {
+    "evidence_scope": "local",
+    "execution": {
+      "counts": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 60
+      },
+      "junit_digest": "19f3ad87f753f544c8ee7e5d2bc21e9eb384d464b8d23a4594b21046b4bf1df3",
+      "passed": true,
+      "reason_code": "hub_evidence_pytest_gate_passed",
+      "returncode": 0,
+      "stderr_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_digest": "3fd9f396b6a3d106032b4379db9be8bfcc0fdffc7a7a610d72686dedac5a6895"
+    },
+    "human_intervention_required": false,
+    "passed": true,
+    "profile_digest": "aaadd2bcc54eb1849c0eb3b3640f4304cbd317819ef5d7beda4928095926d967",
+    "profile_id": "meet-integration-local",
+    "reason_code": "verified",
+    "repository_revision": "875bf3c58c146f8ec6eada7a176b21ecfa66eba2",
+    "result_digest": "a9b8693a935aa5a484ea2b5fc2dfe1ec606af3df8854b471b777a153a134524a",
+    "run_id": "RUN_17e6836259c2c7a40f61484d96933de0",
+    "schema": "ananta.hub-evidence-pytest-gate-result.v1",
+    "source_ids": [
+      "SRC_c68f14b6510e9ad64b638d5b7c2a79ad"
+    ],
+    "source_manifest_digest": "21f27e94a6a9f26d04619551c2fed989a59c861e05ae1b85479d485d9560a312",
+    "task_id": "ami-local-regression",
+    "verified": true
+  },
+  "additional_technical_observations": {
+    "classification": "unverified_for_production_release",
+    "frontend": {
+      "tests": 99,
+      "failed": 0,
+      "files": 6,
+      "duration_seconds": 1.96,
+      "includes": [
+        "Meet UI",
+        "project management",
+        "task detail",
+        "Pair control plane",
+        "LiveKit room adapter"
+      ]
+    },
+    "meet_security": {
+      "revision": "5391deecf89eac09f2dcf9f36a77ae4eba388122",
+      "tests": 9,
+      "failed": 0,
+      "includes": [
+        "OIDC verifier",
+        "device proof",
+        "session tickets",
+        "room directory"
+      ]
+    },
+    "angular_development_build": {
+      "status": "passed",
+      "duration_seconds": 18.087,
+      "unrelated_warning": "NG8113 unused RouterLink in KnowledgeHygienePageComponent"
+    },
+    "live_preflight": {
+      "local_caddy": "passed",
+      "public_hostname": "passed",
+      "automatic_capture_calls_on_load": 0,
+      "unauthenticated_room_creation_status": 401,
+      "public_rendezvous_service": "ananta-rendezvous"
+    },
+    "full_live_gate": {
+      "status": "blocked",
+      "exit_code": 2,
+      "reason": "meet_live_test_credentials_missing",
+      "login_media": "not_run",
+      "hub_binding": "not_run",
+      "turn": "unverified",
+      "independent_external_nat": false
+    },
+    "running_hub": {
+      "instance": "old_way-ai-agent-hub-1",
+      "meet_enabled": "unset_default_off",
+      "restarted": false
+    }
+  },
+  "production_release_verified": false,
+  "remaining": [
+    "Freigegebene mode-0600 Secret-Datei mit zwei verschiedenen Meet-Testaccounts, Hub-User-Token und unbenutztem Testprojekt bereitstellen.",
+    "Hub-Integration ueber additive Compose-Konfiguration aktivieren und die gepruefte UI bereitstellen, ohne laufende Arbeit zu unterbrechen.",
+    "Positiven lokalen und oeffentlichen Gate ausfuehren; gefundene Fehler korrigieren, Gate erneut ausfuehren und Track erst danach abschliessen."
+  ],
+  "preserved_user_changes": [
+    "docker/compose-next/Caddyfile.dev-domain",
+    "docker/compose-next/compose.dev-domain.yml",
+    "frontend-angular/data/mail/",
+    "frontend-angular/data/state_ownership_matrix.json"
+  ]
+}
