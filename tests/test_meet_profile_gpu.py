@@ -13,6 +13,7 @@ from agent.routes.meet import meet_bp
 from agent.services.meet_media_transport import HttpMediaWorker
 from agent.services.meet_turn_service import HubMediaTasks
 from agent.services.repository_registry import get_repository_registry
+from ananta_contracts.meet_speech import speech_profile
 from tests.test_meet_persona_profiles import bound as bound
 from tests.test_meet_persona_profiles import selection, turn_service
 from tests.test_persona_assets import setup as setup
@@ -29,6 +30,7 @@ def test_gpu_persona_turn_uses_real_profile_task_and_request_bound_hub_lease(app
     request.getfixturevalue("runtime")
     fixture = request.getfixturevalue("bound")
     service, _, _ = turn_service(fixture, HubMediaTasks())
+    service.speech_profile = speech_profile(max_seconds=10)
     key = load_key(os.environ["MEET_MEDIA_GPU_KEY_FILE"])
     service.worker = HttpMediaWorker(os.environ["MEET_MEDIA_GPU_ENDPOINT"], key)
     callback = Flask("meet-profile-gpu-callback")
@@ -70,6 +72,9 @@ def test_gpu_persona_turn_uses_real_profile_task_and_request_bound_hub_lease(app
         assert task.worker_execution_context["meet_media"]["persona_profile"] == selection(fixture)
         assert result["persona_image"] == fixture.asset.image.model_dump(mode="json")
         assert result["engines"]["speech"] == "piper-cuda"
+        assert result["speech"]["profile"] == speech_profile(max_seconds=10)
+        assert 0 < result["speech"]["samples"] <= 220500
+        assert task.worker_execution_context["meet_media"]["speech_profile"] == result["speech"]["profile"]
         assert result["engines"]["video"] == "persona-image-h264_nvenc"
         assert base64.b64decode(result["audio"]["base64"])[8:12] == b"WAVE"
         assert len(base64.b64decode(result["video"]["base64"])) > 1000

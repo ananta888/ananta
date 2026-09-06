@@ -4,13 +4,14 @@ import base64
 import math
 
 from agent.services.meet_contract import MeetError
+from agent.services.meet_speech_result import validate_speech_binding, validate_speech_receipt
 
 
 def validate_result(result):
     fields = {"schema", "task_id", "lease_id", "text", "audio", "video", "duration_seconds", "engines"}
     if (
         not isinstance(result, dict)
-        or set(result) - {"meeting", "usage", "persona_image"} != fields
+        or set(result) - {"meeting", "usage", "persona_image", "speech"} != fields
         or result["schema"] != "ananta.meet-turn-result.v1"
     ):
         raise MeetError("meet_worker_result_invalid", 502)
@@ -69,10 +70,12 @@ def validate_result(result):
             or not re.fullmatch(r"room-[a-f0-9]{18}", meeting["room_id"])
         ):
             raise MeetError("meet_worker_publication_invalid", 502)
+    validate_speech_receipt(result)
     return result
 
 
 def validate_response_budget(turn, result):
+    validate_speech_binding(turn, result)
     if ("persona_image" in turn) != ("persona_image" in result) or (
         "persona_image" in turn and turn["persona_image"]["reference"] != result["persona_image"]
     ):

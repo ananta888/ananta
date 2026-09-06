@@ -5,6 +5,8 @@ import uuid
 from typing import Protocol
 
 from agent.services.meet_contract import MeetError
+from agent.services.meet_speech_result import validate_speech_binding
+from ananta_contracts.meet_speech import validate_speech_profile
 from worker.meet_media.contract import SCHEMA, validate_turn
 
 
@@ -38,6 +40,7 @@ class MeetTurnService:
         grant_issuer=None,
         persona_images: PersonaImagePort | None = None,
         persona_profiles: PersonaProfilePort | None = None,
+        speech_profile=None,
     ):
         self.binding, self.worker, self.tasks = binding, worker, tasks
         self.allowed_scopes = frozenset(allowed_scopes)
@@ -45,6 +48,7 @@ class MeetTurnService:
         self.grant_issuer = grant_issuer
         self.persona_images = persona_images
         self.persona_profiles = persona_profiles
+        self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
 
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.
@@ -69,6 +73,8 @@ class MeetTurnService:
         }
         if task:
             turn["binding_task_id"] = task
+        if self.speech_profile is not None:
+            turn["speech_profile"] = dict(self.speech_profile)
         image_purpose = "publish" if payload.get("publish_to_meet") else "preview"
         profile_binding = None
         if "persona_profile" in payload:
@@ -103,6 +109,7 @@ class MeetTurnService:
         self.tasks.start(hub_turn, principal.subject_id)
         try:
             result = self.worker.execute(turn)
+            validate_speech_binding(turn, result)
             if (
                 self.clock() >= turn["deadline"]
                 or result.get("task_id") != turn["task_id"]
@@ -145,6 +152,7 @@ class MeetTurnService:
             context.get("lease_id") != lease_id
             or context.get("deadline", 0) <= self.clock()
             or (task.tenant_id, task.project_id) not in self.allowed_scopes
+            or context.get("speech_profile") != self.speech_profile
         ):
             return False
         # Publication requires explicit project membership even for an admin who
@@ -200,6 +208,7 @@ class HubMediaTasks:
                         "binding_task_id": turn.get("binding_task_id", ""),
                         **({"chat_reply": turn["hub_chat_binding"]} if "hub_chat_binding" in turn else {}),
                         **({"response_limits": turn["response_limits"]} if "response_limits" in turn else {}),
+                        **({"speech_profile": turn["speech_profile"]} if "speech_profile" in turn else {}),
                         **({"persona_profile": turn["hub_persona_profile"]} if "hub_persona_profile" in turn else {}),
                         **(
                             {
@@ -226,6 +235,8 @@ class HubMediaTasks:
                 and task.tenant_id == turn["tenant_id"]
                 and task.project_id == turn["project_id"]
                 and (task.worker_execution_context or {}).get("meet_media", {}).get("lease_id") == turn["lease_id"]
+                and (task.worker_execution_context or {}).get("meet_media", {}).get("speech_profile")
+                == turn.get("speech_profile")
             ),
             event_type=f"meet_media_{status}",
             event_actor="hub",

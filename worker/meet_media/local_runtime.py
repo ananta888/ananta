@@ -7,8 +7,10 @@ import tempfile
 import time
 from pathlib import Path
 
+from ananta_contracts.meet_speech import speech_profile
 from worker.meet_media.avatar import avatar
 from worker.meet_media.llm import answer, generate
+from worker.meet_media.piper_speech import PiperSpeechSource
 from worker.meet_media.speech import speech
 
 
@@ -31,7 +33,14 @@ def run(turn):
             if lease is not None:
                 lease.require()
 
-        samples, rate, duration = speech(reply, wav, require_current=require_speech_current)
+        voice_profile = turn.get("speech_profile", speech_profile())
+        samples, rate, duration = speech(
+            reply,
+            wav,
+            source=PiperSpeechSource(profile=voice_profile),
+            max_seconds=voice_profile["max_seconds"],
+            require_current=require_speech_current,
+        )
         if lease is not None:
             from worker.meet_media.persona_video import persona_video
 
@@ -54,6 +63,8 @@ def run(turn):
             result["persona_image"] = turn["persona_image"]["reference"]
         if generated:
             result["usage"] = {"input_tokens": generated.input_tokens, "output_tokens": generated.output_tokens}
+        if "speech_profile" in turn:
+            result["speech"] = {"profile": voice_profile, "samples": len(samples)}
         if "meeting" in turn:
             from worker.meet_media.lease_guard import HubLeaseGuard
             from worker.meet_media.publisher import publish

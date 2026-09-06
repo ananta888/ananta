@@ -8,6 +8,7 @@ from agent.services.meet_chat_admission import ChatAdmission, ChatAuthorityPort
 from agent.services.meet_contract import MeetError
 from agent.services.meet_media_result import validate_response_budget, validate_result
 from agent.services.meet_turn_service import MediaTaskPort, MediaWorkerPort
+from ananta_contracts.meet_speech import validate_speech_profile
 from worker.meet_media.contract import SCHEMA, validate_turn
 
 
@@ -25,9 +26,11 @@ class MeetChatReplyService:
         worker: MediaWorkerPort,
         tasks: MediaTaskPort,
         clock=time.time,
+        speech_profile=None,
     ):
         self.authority, self.dispatches, self.binding = authority, dispatches, binding
         self.worker, self.tasks, self.clock = worker, tasks, clock
+        self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
 
     def _require_current(self, principal, reservation):
         scope = reservation.scope
@@ -66,6 +69,8 @@ class MeetChatReplyService:
             },
         }
         # No meeting grant: generation does not silently publish through v1.
+        if self.speech_profile is not None:
+            turn["speech_profile"] = dict(self.speech_profile)
         validate_turn(turn, self.clock())
         self.dispatches.claim(reservation, turn["task_id"], turn["lease_id"])
         task_turn = turn | {

@@ -52,6 +52,7 @@ def configure_meet_media(app):
         return
     from agent.services.meet_media_transport import HttpMediaWorker
     from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
+    from ananta_contracts.meet_speech import speech_profile
     from worker.meet_media.contract import load_key
 
     scopes = json.loads(os.environ.get("ANANTA_MEET_MEDIA_ALLOWED_SCOPES", "[]"))
@@ -84,6 +85,7 @@ def configure_meet_media(app):
         grant_issuer=issuer,
         persona_images=images,
         persona_profiles=profiles,
+        speech_profile=speech_profile(max_seconds=int(os.environ.get("ANANTA_MEET_SPEECH_MAX_SECONDS", "40"))),
     )
 
 

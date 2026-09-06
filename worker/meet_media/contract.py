@@ -23,7 +23,7 @@ def signature(key, body):
 def validate_turn(value, now):
     if (
         not isinstance(value, dict)
-        or set(value) - {"meeting", "binding_task_id", "response_limits", "persona_image"} != FIELDS
+        or set(value) - {"meeting", "binding_task_id", "response_limits", "persona_image", "speech_profile"} != FIELDS
         or value["schema"] != SCHEMA
     ):
         raise ValueError("meet_turn_contract_invalid")
@@ -43,6 +43,10 @@ def validate_turn(value, now):
         raise ValueError("meet_turn_text_invalid")
     if "response_limits" in value:
         validate_response_limits(value["response_limits"])
+    if "speech_profile" in value:
+        from ananta_contracts.meet_speech import validate_speech_profile
+
+        validate_speech_profile(value["speech_profile"])
     if "persona_image" in value:
         from ananta_contracts.meet_persona_image import decode_assignment
 

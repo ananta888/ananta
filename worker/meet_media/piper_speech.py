@@ -1,30 +1,47 @@
 """Local Piper sentence adapter; fixed PCM format and no cloud/CPU fallback."""
 
-import os
+import json
 
 import numpy as np
 
 from worker.meet_media.audio_output import SAMPLE_RATE
+from worker.meet_media.piper_assets import load_pinned_assets
 
 
-def load_cuda_voice():
+def load_cuda_voice(profile=None):
     import onnxruntime as ort
     from piper import PiperVoice
+    from piper.config import PiperConfig
 
+    model, config = load_pinned_assets(profile)
     ort.preload_dlls(directory="")
     if "CUDAExecutionProvider" not in ort.get_available_providers():
         raise ValueError("meet_piper_cuda_unavailable")
-    voice = PiperVoice.load(os.environ.get("MEET_PIPER_MODEL", "/models/de_DE-thorsten-medium.onnx"), use_cuda=True)
+    voice = PiperVoice(
+        config=PiperConfig.from_dict(json.loads(config)),
+        session=ort.InferenceSession(
+            model,
+            sess_options=ort.SessionOptions(),
+            providers=[
+                ("CUDAExecutionProvider", {"cudnn_conv_algo_search": "HEURISTIC"}),
+            ],
+        ),
+        use_tashkeel=False,
+    )
     if "CUDAExecutionProvider" not in voice.session.get_providers():
         raise ValueError("meet_piper_cuda_fallback_forbidden")
+    voice.session.disable_fallback()
     if voice.config.sample_rate != SAMPLE_RATE:
         raise ValueError("meet_speech_sample_rate_unsupported")
     return voice
 
 
 class PiperSpeechSource:
-    def __init__(self, *, loader=load_cuda_voice):
-        self.loader = loader
+    def __init__(self, *, loader=None, profile=None):
+        from ananta_contracts.meet_speech import speech_profile, validate_speech_profile
+
+        self.profile = validate_speech_profile(profile if profile is not None else speech_profile())
+        self.loader = loader if loader is not None else lambda: load_cuda_voice(self.profile)
 
     def synthesize(self, text, *, max_samples, require_current):
         require_current()
@@ -52,7 +69,7 @@ class PiperSpeechSource:
                 ):
                     raise ValueError("meet_audio_format_invalid")
                 produced += samples.size
-                if produced > max_samples:
+                if produced > min(max_samples, self.profile["max_seconds"] * SAMPLE_RATE):
                     raise ValueError("meet_audio_duration_exceeded")
                 if not np.isfinite(samples).all() or np.any(np.abs(samples) > 1):
                     raise ValueError("meet_audio_samples_invalid")

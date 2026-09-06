@@ -781,7 +781,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 75,
+      "progress_percent": 80,
       "depends_on": [
         "MAP-10",
         "MAP-18",
@@ -793,7 +793,7 @@
         "PCM-/Audiochunks über einen eigenen MediaSource-Port publizieren; feste Sample-Rate-/Resampling-Verträge, monotone Zeitstempel und bounded Puffer.",
         "Mindestens einen realen zulässigen TTS-Pfad nachweisen; Dummy-Audio beweist nur Transport. Provider-Ausfall oder Ressourcenmangel erzeugt bounded Fehler ohne unautorisierten Cloud-Fallback."
       ],
-      "implementation_note": "Realer lokaler Piper-CUDA-Pfad in schmalen SpeechSourcePort, Modelladapter, pull-basierte PCM-Aufteilung und kompatiblen WAV-Consumer getrennt (SRP/DIP/ISP). Mono PCM16LE 22050 Hz, 441 Samples/20 ms, lückenlose absolute Sample-Zeitstempel über Satzgrenzen, maximal 40 Sekunden und kein unbeschränktes Output-Queueing. Format-/NaN-/Dauerprüfung vor Chunk-Ausgabe, Checkpoints und Provider-Close bei Abbruch; unvollständige eigene WAV-Dateien werden entfernt, bestehende Dateien nicht überschrieben. Bestehende ASR-/Korrektur-/Consent-Bausteine geprüft und von TTS-Stimmfreigaben getrennt. 119 gezielte Regressionstests sowie 49 weitere Checks inklusive sieben tatsächlicher GPU-/Browser-Gates bestanden. Echte Piper-Probe: 106 Chunks/2,101 Sekunden, erster Chunk inklusive Modellladen 1377 ms, lokaler Checkpoint-Abbruch 19 ms. docs/contracts/meet-speech-output.md. Noch offen: Hub-gebundene dynamische Stimm-/Sprach-/Persona-Auswahl und eigenständiger MDS-Live-Audiotransport; kein Live-Empfänger- oder Produktionsfreigabe-Claim."
+      "implementation_note": "Realer lokaler Piper-CUDA-Pfad in schmalen SpeechSourcePort, Modelladapter, pull-basierte PCM-Aufteilung und kompatiblen WAV-Consumer getrennt (SRP/DIP/ISP). Mono PCM16LE 22050 Hz, 441 Samples/20 ms, lückenlose absolute Sample-Zeitstempel über Satzgrenzen, maximal 40 Sekunden und kein unbeschränktes Output-Queueing. Format-/NaN-/Dauerprüfung vor Chunk-Ausgabe, Checkpoints und Provider-Close bei Abbruch; unvollständige eigene WAV-Dateien werden entfernt, bestehende Dateien nicht überschrieben. Bestehende ASR-/Korrektur-/Consent-Bausteine geprüft und von TTS-Stimmfreigaben getrennt. 119 gezielte Regressionstests sowie 49 weitere Checks inklusive sieben tatsächlicher GPU-/Browser-Gates bestanden. Echte Piper-Probe: 106 Chunks/2,101 Sekunden, erster Chunk inklusive Modellladen 1377 ms, lokaler Checkpoint-Abbruch 19 ms. docs/contracts/meet-speech-output.md. Hub-gepinntes lokales Sprachprofil ergänzt: feste Stimme/Sprache, Modell-/Config-Hashes, PCM-Format und reduzierbares Audiobudget im Auftrag/Task; Profil und reale WAV-Samples werden im Hub gegengeprüft. Worker lädt ausschließlich begrenzt eingelesene, hashgeprüfte Byte-Snapshots und deaktiviert ONNX-Session-Fallback sowie dynamische Diakritisierungs-Downloads. 217 Regressionstests und 45 weitere Checks inklusive sieben echter GPU-/Browser-Gates bestanden; docs/contracts/meet-speech-profile.md. Noch offen: dynamische Voice-Asset-/Sprach-/Persona-Auswahl und eigenständiger MDS-Live-Audiotransport; kein Live-Empfänger- oder Produktionsfreigabe-Claim."
     },
     {
       "id": "MAP-23",
@@ -986,7 +986,7 @@
         "Keine fremden laufenden Räume, GPU-Jobs oder Host-Eingabegeräte übernehmen; eigenes Testdeployment ist von einer Abnahme der bestehenden laufenden Instanz getrennt.",
         "Fehler direkt beheben und betroffene Gates wiederholen; Rohdumps bleiben Runtime-Daten, strukturierte sekretfreie Berichte dürfen versioniert werden."
       ],
-      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:ba1e63b273bd47970c6fc7997984bcef70c263969880de04ceb1474a0f215a85 aktualisiert; keine öffentlichen Dienste verändert. 49 Checks in 58,45 Sekunden bestanden, davon sieben echte private Hardware-/Browser-Gates: CUDA-ASR, Medienantwort, budgetierter Chat, Persona-NVENC, profilgebundener GPU-Turn mit realer Hub-HTTP-Lease, isolierter kontinuierlicher Chromium-CDP-Bildstrom und Piper-PCM-Chunks/Abbruch. Zusätzlich 119 gezielte Regressionstests in 81,56 Sekunden bestanden. Bild-/Chat-Autoritätsfixtures bleiben ausdrücklich synthetisch, keine produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md, docs/contracts/meet-browser-source-baseline.md und docs/contracts/meet-speech-output.md. Öffentliche Browserstream-/Mehragenten-Gegenstellen, A/V-Drift, Soak-/Recovery-/TURN-Abnahme bleiben offen; lokal gelesener Meet-Stand 16b25af führt MDS-01 bis MDS-09 weiterhin als todo."
+      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:df416aee88cb3ff3799ff7772d94d4cafc026f37ced75a278ff6e47b1876ea49 aktualisiert; keine öffentlichen Dienste verändert. 45 Checks in 57,14 Sekunden bestanden, davon sieben echte private Hardware-/Browser-Gates: CUDA-ASR, Medienantwort, budgetierter Chat, Persona-NVENC, profilgebundener GPU-Turn mit realer Hub-HTTP-Lease, isolierter kontinuierlicher Chromium-CDP-Bildstrom und Piper-PCM-Chunks/Abbruch. Zusätzlich 217 gezielte Regressionstests in 141,88 Sekunden bestanden. Profil-GPU-Turn bindet jetzt auch die exakte Stimme/Modellhashes und ein Zehn-Sekunden-Audiobudget; tatsächliche WAV-Samples gegengeprüft. Bild-/Chat-Autoritätsfixtures bleiben ausdrücklich synthetisch, keine produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md, docs/contracts/meet-browser-source-baseline.md und docs/contracts/meet-speech-output.md. Öffentliche Browserstream-/Mehragenten-Gegenstellen, A/V-Drift, Soak-/Recovery-/TURN-Abnahme bleiben offen; lokal gelesener Meet-Stand 16b25af führt MDS-01 bis MDS-09 weiterhin als todo."
     },
     {
       "id": "MAP-31",
@@ -1157,7 +1157,7 @@
         "blocked": 0,
         "todo": 3,
         "in_progress": 0,
-        "progress_percent": 40.6,
+        "progress_percent": 40.9,
         "by_status": {
           "todo": 3,
           "in_progress": 0,
