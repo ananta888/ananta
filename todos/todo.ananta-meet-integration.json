@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "owner": "Ananta maintainers",
+  "track": "ananta-meet-integration",
+  "status": "todo",
+  "purpose": "ANANTA Meet als eigenstaendigen Kommunikationsdienst aus Anantas Projekt- und Task-Oberflaechen sicher nutzbar machen; doppelte Meeting-Implementierungen vermeiden.",
+  "goal": "Autorisierte Benutzer koennen Meetings einem Projekt oder Task zuordnen, Meet oeffnen und dessen Zustand nachvollziehen. Anantas Hub besitzt Task-/Projekt-Policy; Meet besitzt technische Room-Membership und Medien. Lokale und oeffentliche Integration werden vollautomatisch und ohne Sicherheits-Bypass geprueft.",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P1"],
+  "risk_scale": ["high"],
+  "source_alignment": {
+    "classification": "technical_observation_unverified_for_production_release",
+    "ananta_revision": "aa934eb097feb81cbfdc7bc23fd7ba0719632e0a",
+    "meet_revision": "5391deecf89eac09f2dcf9f36a77ae4eba388122",
+    "source_ids": [],
+    "run_ids": [],
+    "inspected_paths": [
+      "public-rendezvous/caddy/Caddyfile",
+      "docs/operations/webrtc-room-edge.md",
+      "frontend-angular/src/app/services/pair-session-control-plane.service.ts",
+      "agent/routes/projects.py",
+      "agent/routes/tasks/task_read_access.py",
+      "webrtc-minimize-server/src/server.js",
+      "webrtc-minimize-server/docs/ananta-webrtc-adoption.md"
+    ],
+    "observations": [
+      "Oeffentlich liefern /info den Ananta-Rendezvous-Dienst und /config sowie /healthz den separaten Meet-Dienst.",
+      "Meet besitzt POST /api/rooms, GET /api/rooms, PATCH /api/rooms/:id und POST /api/sessions; Join erfordert OIDC, P-256-Geraetenachweis und ein kurzlebiges WebSocket-Ticket.",
+      "Meet-Invites verwenden /?room=room-<18 hex>&mode=room. Ein Invite ist eine Bearer-Capability, keine Benutzeridentitaet.",
+      "Anantas Pair-Signaling verwendet HTTP-Polling und eigene Security-Epochen; das ist kein Meet-WebSocket-Adapter.",
+      "Vorhandene lokale Compose-/Caddy-Aenderungen und frontend-angular/data gehoeren nicht zu diesem Track und werden nicht mitgestaged."
+    ]
+  },
+  "non_goals": [
+    "Kein Ersetzen von Pair-Dev, Artefaktaustausch oder LiveKit durch blosses Umschreiben von URLs.",
+    "Keine Uebersetzung von SFrame-/LiveKit-Schluesseln und kein Medien-Gateway mit Klartextzugriff.",
+    "Keine implizite Freigabe von Mikrofon, Kamera oder Bildschirm durch Task-Start oder Raumbeitritt.",
+    "Keine Weitergabe von Hub-Service-Tokens an Meet und keine erfundenen OIDC-Identitaeten.",
+    "Keine Aenderung fremder Meetings, kein globales Auth-Abschalten und kein unkontrollierter Neustart laufender Dienste."
+  ],
+  "architecture_decisions": [
+    "Hub-eigene Zuordnungen sind von Meet-eigener Room-Membership getrennt. Eine Zuordnung ist niemals selbst ein Meet-Join-Grant.",
+    "Ein kleiner Meeting-Port und ein expliziter Meet-Adapter schuetzen DIP/OCP; Transport, Persistenz, Berechtigungen und UI bleiben getrennt (SRP/ISP).",
+    "Browser verwenden Meet-eigene OIDC-/Geraetebindung. Hub-Authentifizierung und gleiche Keycloak-Realm-Namen berechtigen nicht automatisch zu Meet.",
+    "Integrationsprofile sind operatorseitig festgelegt; keine beliebigen Upstream-URLs, Redirects oder Client-gelieferten Auth-Header.",
+    "Live-Gates haben Budgets, Abbruchdiagnosen, synthetische Testmedien und auf eigene Ressourcen begrenztes Cleanup. Fehlende Freigaben bleiben maschinenlesbar blocked."
+  ],
+  "milestones": [
+    {"id": "M1", "title": "Baseline und Vertrauensgrenzen", "task_ids": ["AMI-01", "AMI-02", "AMI-03"], "status": "todo"},
+    {"id": "M2", "title": "Hub-Domain und API", "task_ids": ["AMI-04", "AMI-05", "AMI-06", "AMI-07"], "status": "todo"},
+    {"id": "M3", "title": "Meet-Anbindung und Oberflaeche", "task_ids": ["AMI-08", "AMI-09", "AMI-10", "AMI-11"], "status": "todo"},
+    {"id": "M4", "title": "Automatisierte Verifikation", "task_ids": ["AMI-12", "AMI-13", "AMI-14", "AMI-15"], "status": "todo"},
+    {"id": "M5", "title": "Betrieb und Abschluss", "task_ids": ["AMI-16", "AMI-17", "AMI-18"], "status": "todo"}
+  ],
+  "tasks": [
+    {"id": "AMI-01", "title": "Beide Code- und Laufzeitstaende inventarisieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": [], "acceptance_criteria": ["Ananta-/Meet-Revisionen, Docker-Image, Routing und API-Vertraege dokumentiert; laufendes Image nicht mit Worktree gleichgesetzt.", "Vorhandene Integrations- und Testpfade identifiziert; technische Beobachtungen von Release-Evidenz getrennt."]},
+    {"id": "AMI-02", "title": "Versionierten Meeting-Port und Capability-Matrix definieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-01"], "acceptance_criteria": ["Create/open/attach/status/unlink und deren Berechtigungen explizit abgegrenzt.", "Nicht unterstuetzte Funktionen werden als unavailable ausgewiesen; LiveKit-/Pair-Kompatibilitaet nicht behauptet.", "Room-Code und Invite-URL werden als sensible Capabilities behandelt."]},
+    {"id": "AMI-03", "title": "Konfiguration, Feature-Flag und URL-Vertrauensgrenze implementieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-02"], "acceptance_criteria": ["Integration default-aus und operatorseitig explizit aktivierbar.", "Nur konfigurierter HTTPS-Origin; Userinfo, unerlaubte Pfade, fremde Hosts, Redirects und SSRF-Eingaben werden abgewiesen.", "Keine Secrets im Frontend-Profil oder Diagnoseergebnis."]},
+    {"id": "AMI-04", "title": "Persistente Projekt-/Task-Meeting-Zuordnung erstellen", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-02"], "acceptance_criteria": ["Tenant, Projekt, optional Task und Provider-/Room-Bindung werden dauerhaft und atomar gespeichert.", "Gleiche Zuordnung ist idempotent; konkurrierende oder veraltete Aenderungen verlieren keine Daten.", "Unlink loescht nur die Hub-Zuordnung und niemals einen fremden Meet-Raum."]},
+    {"id": "AMI-05", "title": "Hub-eigene Zugriffspruefung und Lifecycle implementieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-04"], "acceptance_criteria": ["Jeder Read/Write prueft aktuelle Tenant-/Projekt-Mitgliedschaft und Task-Projekt-Bindung.", "Worker-Credentials koennen keine Meeting-Policy oder Benutzerberechtigungen erweitern.", "Archivierung oder entzogene Rechte verhindern neue Zugriffe; Metadaten verraten keine fremden Raum-Codes."]},
+    {"id": "AMI-06", "title": "Additive authentisierte Hub-API integrieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-03", "AMI-05"], "acceptance_criteria": ["Versionierte Responses fuer Profil, Zuordnung, Oeffnen und Unlink; geschlossene Eingabefelder und Groessenlimits.", "Hub-Bootstrap registriert Service und Routen; Worker wird nicht zum zweiten Control Plane.", "Fehler sind bounded und maschinenlesbar, Responses no-store, Logs ohne Invite-/Token-Inhalte."]},
+    {"id": "AMI-07", "title": "Provider-Status sicher und begrenzt abfragen", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-03", "AMI-06"], "acceptance_criteria": ["Health und oeffentliche Capability-Konfiguration mit TLS-Pruefung, Byte-/Zeitbudget und ohne Redirect-Follow abfragen.", "Service-Erreichbarkeit wird nicht als Raumexistenz, Mitgliedschaft oder Medienerfolg ausgegeben.", "Timeout und inkompatibler Contract liefern einen definierten degraded-Zustand ohne Interna."]},
+    {"id": "AMI-08", "title": "Meet-Raumerstellung und autorisierten Beitritt anbinden", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-06"], "acceptance_criteria": ["Vorhandener Meet-Create-/Invite-Flow wiederverwendet; Rueckzuordnung zum Ananta-Projekt/Task besitzt einen expliziten, validierten Ablauf.", "Meet prueft OIDC-Audience und Geraetenachweis weiterhin selbst; Hub-Tokens werden niemals als Meet-Tokens verwendet.", "Falls ein neuer Cross-App-Handoff erforderlich ist, ist er kurzlebig, einmalig, origin- und kontextgebunden; keine Tokens in URLs oder localStorage.", "Raumbeitritt erzeugt keinen automatischen Kamera-/Mikrofon-/Screen-Capture."]},
+    {"id": "AMI-09", "title": "Projekt-/Task-UI fuer Meetings integrieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-06", "AMI-08"], "acceptance_criteria": ["Bestehende Shared-UI-Primitives wiederverwendet; Projekt- und Task-Kontext sichtbar.", "Erstellen/Zuordnen, Oeffnen und Entfernen mit Loading-, Denied-, Disabled- und Fehlerzustaenden bedienbar.", "Externe Navigation ist origin-validiert und nutzt noopener/noreferrer; keine unsicheren iframes."]},
+    {"id": "AMI-10", "title": "SSO- und Berechtigungsgrenzen pruefen", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-08"], "acceptance_criteria": ["Gleicher Keycloak-Realm und getrennte Clients/Audiences dokumentiert und getestet.", "Abgelaufene/falsche Tokens, wiederverwendete Tickets, fremde Origins und falsche Geraetebeweise werden abgewiesen.", "Fehlende automatisierbare Testidentitaet fuehrt zu bounded blocked statt interaktivem Login-Warten."]},
+    {"id": "AMI-11", "title": "Rueckwaertskompatibilitaet der Medienpfade absichern", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-09"], "acceptance_criteria": ["Bestehendes Pair-Dev, HTTP-Signaling, Artefakttransfer und LiveKit bleiben unveraendert bedienbar.", "Proxy-Vertraege fuer /rendezvous, /webrtc, /signaling und Meets /signal bleiben getrennt.", "Keine Umschaltung vorhandener Sessions oder Aenderung von Medien-/Key-Vertraegen."]},
+    {"id": "AMI-12", "title": "Deterministische Backend-Security- und Persistenztests", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-07"], "acceptance_criteria": ["Positive und negative Tenant-/Projekt-/Task-Autorisierung, Worker-Denial, Feature-Flag, URL-Validierung und Input-Contract getestet.", "Persistenz ueber Neustart, Idempotenz, Konflikte, Unlink und Provider-Timeouts getestet.", "Tests benoetigen weder Mensch noch produktive Secrets oder Netzwerk."]},
+    {"id": "AMI-13", "title": "Frontend- und Browser-Contracttests", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-09", "AMI-10"], "acceptance_criteria": ["UI-Aktionen, Fehlerzustaende und sichere Navigation getestet.", "Falscher Origin, Cross-Context-Handoff und manipulierte Invites werden fail-closed abgewiesen.", "Keine Capture-Permission beim Laden; Test-Login und Medien sind vollautomatisch."]},
+    {"id": "AMI-14", "title": "Lokalen Live-Gate mit zwei Browseridentitaeten ausfuehren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-12", "AMI-13"], "acceptance_criteria": ["Laufende lokale Meet-Instanz und tatsaechlich bereitgestellte Ananta-Integration werden geprueft; Source-only-Test ist kein Deployment-Nachweis.", "Eigener Testraum, zwei getrennte Identitaeten/Geraete, Room-Join, synthetische Audio-/DataChannel-Uebertragung und Leave/Cleanup nachgewiesen.", "Keine existierenden Nutzer oder Raumdaten veraendert; Gesamtbudget und Fehlerartefakte ohne Secrets."]},
+    {"id": "AMI-15", "title": "Oeffentlichen Live-Gate ueber webrtc.ananta.de ausfuehren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-14"], "acceptance_criteria": ["Echtes HTTPS/WSS-Routing, Meet-Login, Invite/Join und Medien-/Datenuebertragung ueber den oeffentlichen Host geprueft.", "Rendezvous-Endpunkte parallel weiterhin erreichbar; lokales Hairpin-Ergebnis nicht als unabhängiger externer NAT-Nachweis dargestellt.", "TURN-Relay gesondert erzwungen/geprueft oder explizit unverified; kein TURN-Erfolg allein aus Healthcheck abgeleitet."]},
+    {"id": "AMI-16", "title": "Deployment, Datenschutz, Rollback und Betreiberanleitung", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-11", "AMI-12"], "acceptance_criteria": ["Feature-Aktivierung, erlaubter Origin, persistenter Hub-Store und Testidentitaeten dokumentiert.", "Rollback deaktiviert nur Integration, laesst Meet, bestehende Medienpfade und Raumzuordnungen intakt.", "Invite-Capability, gemeinsame Projektleserechte und Grenzen des Raumwiderrufs explizit erklaert."]},
+    {"id": "AMI-17", "title": "Evidenz und gebuendelte Regression abschliessen", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-14", "AMI-15", "AMI-16"], "acceptance_criteria": ["Gezielte Backend-/Frontend-/Proxy-Regression einmal gebuendelt; gefundene Fehler korrigiert und erneut getestet.", "Produktionsclaims nur unter vorab Hub-reservierter Run-Identitaet; synthetische Medien-/Testidentitaeten bleiben als Testevidenz klassifiziert.", "Ausgefuehrte Tests, Laufzeiten, Fehler und echte Restblockaden dokumentiert; kein gruener Status fuer nicht ausgefuehrte Gates."]},
+    {"id": "AMI-18", "title": "Todo, Commits und Uebergabe finalisieren", "status": "todo", "priority": "P1", "risk": "high", "progress_percent": 0, "depends_on": ["AMI-17"], "acceptance_criteria": ["Taskstatus und Summaries aus tasks[] berechnet; Schema und Konsistenzvalidator bestanden.", "Quellcode, Tests und Dokumentation gezielt committet und gepusht; fremde Worktree-Aenderungen unveraendert.", "Track nur bei erfuellten Akzeptanzkriterien archivieren, andernfalls konkrete Restarbeit im aktiven Track erhalten."]}
+  ],
+  "tasks_status_summary": {
+    "total": 18,
+    "by_status": {"todo": 18, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "by_priority": {"P1": 18},
+    "by_risk": {"high": 18},
+    "progress_percent_done": 0,
+    "critical_path": {"total": 0, "done": 0, "remaining": 0},
+    "milestones": {"total": 5, "todo": 5, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
+  "summary_notes": ["Initialer, quellcodegepruefter Arbeitsplan; noch keine Implementierung oder Live-Abnahme dieses Tracks behauptet."]
+}
