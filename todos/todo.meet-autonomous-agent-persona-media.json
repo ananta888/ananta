@@ -692,7 +692,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 55,
+      "progress_percent": 65,
       "depends_on": [
         "MAP-17"
       ],
@@ -702,7 +702,7 @@
         "Metadaten und abgeleitete Vorschaubilder dürfen keine fremden Tenant-/Projektinhalte oder vertrauliche Dateipfade enthalten.",
         "Widerruf oder Löschung invalidiert betroffene Profile und aktive Veröffentlichungen; synthetische/test-only Assets bleiben sichtbar klassifiziert."
       ],
-      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess implementiert. Ergänzt um tenant-/projektgebundenen SQL-Assetkatalog, vorhandenen immutable ArtifactStore, atomare pending/active/revoked-Zustände mit Akteur-Audit, versteckte Bild-/Vorschau-Artefakte und Hub-Lifecycle-Service mit separaten Policy-/Task-Ports und erneuter Freigabeprüfung bei Lesezugriffen. 104 Persona-/Artefakt-/Ingestion-Tests bestanden; Container c3cd863991e83a6e383c537c8d387b211d2d2d590785e02057efbbd5a26cf394 besteht Bild-Unterprozessprobe und 3 GPU-Tests. Konkrete Projekt-Policy mit Registry-gepinnten Herkunfts-/Lizenz-/Einwilligungsnachweisen, expliziten Nutzern/Zwecken, Ablaufzeit und revisionsverbrauchendem Widerruf ergänzt; 56 Policy-/Registry-/Katalogtests bestanden. Noch offen: konkrete Hub-Inspection-Task-/Receipt-Adapter, API-Aktivierung, physische Löschung/Retention, aktive Publisher-Widerrufe sowie Audio-/Videoasset-Profile. Keine Produktionsfreigabe aus synthetischen Tests. docs/contracts/persona-image-inspection.md."
+      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess implementiert. Ergänzt um tenant-/projektgebundenen SQL-Assetkatalog, vorhandenen immutable ArtifactStore, atomare pending/active/revoked-Zustände mit Akteur-Audit, versteckte Bild-/Vorschau-Artefakte und Hub-Lifecycle-Service mit separaten Policy-/Task-Ports und erneuter Freigabeprüfung bei Lesezugriffen. 104 Persona-/Artefakt-/Ingestion-Tests bestanden; Container c3cd863991e83a6e383c537c8d387b211d2d2d590785e02057efbbd5a26cf394 besteht Bild-Unterprozessprobe und 3 GPU-Tests. Konkrete Projekt-Policy mit Registry-gepinnten Herkunfts-/Lizenz-/Einwilligungsnachweisen, expliziten Nutzern/Zwecken, Ablaufzeit und revisionsverbrauchendem Widerruf ergänzt; 56 Policy-/Registry-/Katalogtests bestanden. Hub-Inspection-Task-/Receipt-Adapter mit vorab reservierten Registry-Läufen und erneuter Asset-Laufprüfung implementiert (69a34bb8c). Ergänzt um geschlossenen HTTP-Worker, signierte aktuelle Hub-Lease, persistente Replay-Sperre, headless Policy-/Upload-/Preview-/Revocation-API und getrennte optionale CPU-Worker-/Hub-Compose-Overlays; keine öffentliche Instanz aktiviert. 210 kombinierte Persona-/Registry-/Meet-Tests bestanden, einschließlich realer HTTP-/Unterprozess-/Projektmitgliedschaft-/Policy-/Artefaktkette. Eigenständiger 256-MiB-Read-only-Container besteht Bildprobe; Paketkopplung an fremde Vertragsabhängigkeiten mit kompatibler Lazy-Fassade behoben (95 Vertragstests). Noch offen: physische Löschung/Retention, aktive Publisher-Widerrufe sowie Audio-/Videoasset-Profile und Profil-/UI-Anbindung. Keine Produktionsfreigabe aus synthetischen Tests. docs/contracts/persona-image-inspection.md."
     },
     {
       "id": "MAP-19",

@@ -1,0 +1,26 @@
+# Dedicated CPU image inspection only. No host ports, models or publish credentials.
+services:
+  persona-image-worker:
+    build:
+      context: .
+      dockerfile: docker/persona-image/Dockerfile
+    init: true
+    user: "${PERSONA_IMAGE_UID:-1000}:${PERSONA_IMAGE_GID:-1000}"
+    read_only: true
+    environment:
+      PERSONA_IMAGE_WORKER_KEY_FILE: /run/secrets/persona-image-key
+      PERSONA_IMAGE_HUB_LEASE_URL: http://persona-authorizing-hub:5000/api/persona-media/v1/internal/image-lease
+    volumes:
+      - ${PERSONA_IMAGE_STATE_DIR:?Set an absolute private image state directory}/worker-key:/run/secrets/persona-image-key:ro
+      - ${PERSONA_IMAGE_STATE_DIR:?Set an absolute private image state directory}/worker-state:/state
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    mem_limit: 256m
+    cpus: 1
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [persona-images]
+networks:
+  persona-images:
+    internal: true

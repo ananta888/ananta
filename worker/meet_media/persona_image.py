@@ -2,23 +2,13 @@
 
 import hashlib
 import io
-from dataclasses import dataclass, field
 
 from PIL import Image, ImageOps
 
+from ananta_contracts.persona_image import SanitizedPersonaImage as SanitizedPersonaImage
+
 MAX_INPUT_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 2048 * 2048
-
-
-@dataclass(frozen=True)
-class SanitizedPersonaImage:
-    source_sha256: str
-    image_sha256: str
-    preview_sha256: str
-    width: int
-    height: int
-    png: bytes = field(repr=False)
-    preview: bytes = field(repr=False)
 
 
 def _encode(image, maximum):

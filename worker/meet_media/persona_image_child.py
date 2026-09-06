@@ -4,6 +4,7 @@ import base64
 import json
 import sys
 
+from ananta_contracts.persona_image import encode_image
 from worker.meet_media.persona_image import sanitize_image
 
 
@@ -12,16 +13,7 @@ def inspect(payload):
         raise ValueError("persona_image_request_invalid")
     content = base64.b64decode(payload["content"], validate=True)
     result = sanitize_image(content, payload["media_type"])
-    return {
-        "schema": "ananta.persona-image-inspection.v1",
-        "source_sha256": result.source_sha256,
-        "image_sha256": result.image_sha256,
-        "preview_sha256": result.preview_sha256,
-        "width": result.width,
-        "height": result.height,
-        "png": base64.b64encode(result.png).decode(),
-        "preview": base64.b64encode(result.preview).decode(),
-    }
+    return encode_image(result)
 
 
 if __name__ == "__main__":

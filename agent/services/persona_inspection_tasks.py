@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import time
 import uuid
 from typing import Protocol
@@ -63,6 +64,7 @@ def task_context(assignment):
             "run_binding_digest",
             "admission_digest",
             "owner_subject",
+            "source_sha256",
             "deadline",
         )
     }
@@ -87,6 +89,15 @@ class HubPersonaInspectionTasks:
         environment_digest,
         clock=time.time,
     ):
+        if not isinstance(repository_revision, str) or not re.fullmatch(
+            r"(?:[a-f0-9]{40}|[a-f0-9]{64})", repository_revision
+        ):
+            raise ValueError("persona_inspection_repository_revision_required")
+        if any(
+            not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+            for value in (execution_profile_digest, environment_digest)
+        ):
+            raise ValueError("persona_inspection_execution_binding_required")
         self.policy, self.worker, self.state, self.registry = policy, worker, state, registry
         self.repository_revision, self.profile_digest, self.environment_digest = (
             repository_revision,
@@ -146,7 +157,7 @@ class HubPersonaInspectionTasks:
                 assignment_id=assignment_id,
                 dispatch_lease_id=lease_id,
             )
-            self.state.start(assignment, principal.subject_id)
+            self.state.start(assignment, principal.subject_id, admission=admission)
             self.policy.require_current(principal, admission, "inspect")
             image = self.worker.execute(assignment, content, media_type)
             digest = image_receipt(image, admission.source_sha256)

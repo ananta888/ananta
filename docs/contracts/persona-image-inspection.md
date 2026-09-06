@@ -32,8 +32,8 @@ metadata removal, deterministic output, animation/MIME/dimension rejection, a
 real supervised child and authority revocation. These tests require no person,
 network, model or live image fixtures.
 
-Still required before public activation: configure the worker transport and
-assignment-bound lease endpoint; configure explicit origin/license/consent policy;
+Still required before public activation: deploy the optional worker/Hub overlay
+with a separate key and explicit origin/license/consent policy;
 separately authorized image selection/publication. Audio,
 voice-model and video asset admission are separate profiles, not implicitly
 accepted by this image-only port.
@@ -55,7 +55,9 @@ compare-and-swap prevents a cancelled/expired task accepting a late result.
 result. Stored asset receipts are rechecked against their pinned immutable run
 on every read, without requiring the execution task to remain unarchived.
 Legacy metadata without that registered run is unverified, not auto-promoted.
-The concrete HTTP worker transport and public activation route remain open.
+The concrete transport, signed read-only lease and headless image API are
+implemented; deployment is opt-in, and enabling transport grants no project use.
+See [persona-image-api.md](persona-image-api.md).
 
 The combined task/catalog/policy/Registry regression has **58 passing tests in
 21.65 seconds**. It uses real Hub tasks and Hub-issued test identities with an
@@ -95,3 +97,11 @@ includes the image-inspection port and finite ASR deadline validation at
 **19.00 seconds**, plus a synthetic in-memory image through the real supervised
 child in that container. Neither observation is production release evidence or
 proof of live Meet publishing/receive authorization.
+
+The dedicated CPU image `sha256:90c3e1e56e2560e05b55e561a7fe5f52ca4633ae6c8c77a8d57971d0a718b725`
+also passed the supervised image child with no network, a read-only root,
+non-root UID, dropped capabilities and a 256 MiB memory cap. The first container
+probe found an eager package import of unrelated `jsonschema` contracts; the
+lazy compatibility facade fixes that dependency while preserving every existing
+root export. **95 contract regressions passed**. This is a synthetic technical
+container observation, not a Registry-backed production release claim.

@@ -1,0 +1,19 @@
+# Optional overlay for the existing Hub. Enabling transport grants no asset rights.
+services:
+  ai-agent-hub:
+    environment:
+      ANANTA_PERSONA_IMAGES_ENABLED: ${ANANTA_PERSONA_IMAGES_ENABLED:-0}
+      ANANTA_PERSONA_IMAGE_WORKER_URL: http://persona-image-worker:8095/v1/persona-images
+      ANANTA_PERSONA_IMAGE_KEY_FILE: /run/secrets/persona-image-key
+      ANANTA_PERSONA_IMAGE_REPOSITORY_REVISION: ${ANANTA_PERSONA_IMAGE_REPOSITORY_REVISION:-}
+      ANANTA_PERSONA_IMAGE_EXECUTION_PROFILE_DIGEST: ${ANANTA_PERSONA_IMAGE_EXECUTION_PROFILE_DIGEST:-}
+      ANANTA_PERSONA_IMAGE_ENVIRONMENT_DIGEST: ${ANANTA_PERSONA_IMAGE_ENVIRONMENT_DIGEST:-}
+    volumes:
+      - ${PERSONA_IMAGE_STATE_DIR:?Set an absolute private image state directory}/worker-key:/run/secrets/persona-image-key:ro
+    networks:
+      persona-images:
+        aliases: [persona-authorizing-hub]
+networks:
+  persona-images:
+    external: true
+    name: ${PERSONA_IMAGE_NETWORK:-ananta-persona-images_persona-images}

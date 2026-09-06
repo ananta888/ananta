@@ -4,19 +4,12 @@ import base64
 import hashlib
 import json
 import math
-import struct
 import sys
 import time
 from pathlib import Path
 
+from ananta_contracts.persona_image import MAX_INPUT_BYTES, decode_image
 from voice_runtime.preprocessing.audio_decode import BoundedSubprocessRunner
-from worker.meet_media.persona_image import MAX_INPUT_BYTES, SanitizedPersonaImage
-
-
-def _png_dimensions(content):
-    if len(content) < 33 or content[:16] != b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR" or content[24:26] != b"\x08\x06":
-        raise ValueError("persona_image_header_invalid")
-    return struct.unpack(">II", content[16:24])
 
 
 class PersonaImageInspector:
@@ -56,48 +49,10 @@ class PersonaImageInspector:
             )
             if response.returncode != 0:
                 raise ValueError("invalid")
-            result = json.loads(response.stdout)
-            if not isinstance(result, dict) or set(result) != {
-                "schema",
-                "source_sha256",
-                "image_sha256",
-                "preview_sha256",
-                "width",
-                "height",
-                "png",
-                "preview",
-            }:
-                raise ValueError("invalid")
-            if (
-                result["schema"] != "ananta.persona-image-inspection.v1"
-                or result["source_sha256"] != hashlib.sha256(content).hexdigest()
-            ):
-                raise ValueError("invalid")
-            png = base64.b64decode(result["png"], validate=True)
-            preview = base64.b64decode(result["preview"], validate=True)
-            if (
-                not 0 < len(png) <= MAX_INPUT_BYTES
-                or not 0 < len(preview) <= 350_000
-                or hashlib.sha256(png).hexdigest() != result["image_sha256"]
-                or hashlib.sha256(preview).hexdigest() != result["preview_sha256"]
-                or any(type(result[key]) is not int or not 0 < result[key] <= 1024 for key in ("width", "height"))
-            ):
-                raise ValueError("invalid")
-            if _png_dimensions(png) != (result["width"], result["height"]) or any(
-                not 0 < dimension <= 256 for dimension in _png_dimensions(preview)
-            ):
-                raise ValueError("invalid")
+            result = decode_image(json.loads(response.stdout), hashlib.sha256(content).hexdigest())
             self.require_current()
             if time.monotonic() >= self.deadline:
                 raise ValueError("expired")
-            return SanitizedPersonaImage(
-                source_sha256=result["source_sha256"],
-                image_sha256=result["image_sha256"],
-                preview_sha256=result["preview_sha256"],
-                width=result["width"],
-                height=result["height"],
-                png=png,
-                preview=preview,
-            )
+            return result
         except Exception:
             raise ValueError("persona_image_inspection_failed_or_revoked") from None

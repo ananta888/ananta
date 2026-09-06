@@ -9,7 +9,7 @@ class HubPersonaTaskState:
     def __init__(self, *, clock=time.time):
         self.clock = clock
 
-    def start(self, assignment, actor):
+    def start(self, assignment, actor, *, admission):
         from agent.services.task_queue_service import get_task_queue_service
 
         get_task_queue_service().ingest_task(
@@ -27,6 +27,7 @@ class HubPersonaTaskState:
                 "project_id": assignment["project_id"],
                 "required_capabilities": ["persona_image_inspection"],
                 "worker_execution_context": {"persona_image": task_context(assignment)},
+                "verification_spec": {"persona_admission": admission.model_dump(mode="json")},
             },
         )
 
