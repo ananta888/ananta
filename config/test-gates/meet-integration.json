@@ -1,0 +1,33 @@
+{
+  "schema": "ananta.hub-evidence-pytest-gate.v1",
+  "profile_id": "meet-integration-local",
+  "task_id": "ami-local-regression",
+  "tenant_id": "ananta-test",
+  "project_id": "meet-integration",
+  "evidence_scope": "local",
+  "required_scope": "local",
+  "timeout_seconds": 180,
+  "source_paths": [
+    "agent/bootstrap/meet.py",
+    "agent/bootstrap/routes.py",
+    "agent/repositories/meet_bindings.py",
+    "agent/routes/meet.py",
+    "agent/services/meet_contract.py",
+    "agent/services/meet_binding_service.py",
+    "agent/services/meet_health_probe.py",
+    "tests/test_meet_integration.py",
+    "tests/test_project_lifecycle_service.py",
+    "tests/contracts/test_public_rendezvous_compose.py",
+    "public-rendezvous/caddy/Caddyfile",
+    "docker-compose.meet.yml"
+  ],
+  "pytest_args": [
+    "tests/test_meet_integration.py",
+    "tests/test_project_lifecycle_service.py",
+    "tests/contracts/test_public_rendezvous_compose.py",
+    "-q", "-p", "no:cacheprovider", "--maxfail=1"
+  ],
+  "environment": {"ANANTA_MEET_ENABLED": "0"},
+  "minimum_tests": 60,
+  "forbid_skips": true
+}

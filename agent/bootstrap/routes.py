@@ -4,6 +4,7 @@ import os
 from flask import Flask
 
 from agent.bootstrap.project_lifecycle import configure_project_lifecycle
+from agent.bootstrap.meet import configure_meet
 from agent.bootstrap.route_aliases import register_route_aliases
 from agent.bootstrap.source_control_api import register_source_control_api
 from agent.config import settings
@@ -148,6 +149,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(dendritic_memory_bp)
     app.register_blueprint(dspy_optimization_bp)
     configure_project_lifecycle(app)
+    configure_meet(app)
     app.register_blueprint(system_bp, url_prefix="/api/system")
     app.register_blueprint(demo_bp)
     register_config_blueprints(app)
