@@ -42,3 +42,16 @@ def test_partial_source_setup_always_closes_its_owned_workspace(failure):
     with pytest.raises(ValueError, match="setup failed"):
         OwnedDialogScreen(browser, "hub-session")
     context.close.assert_called_once()
+
+
+def test_activity_view_contains_only_closed_execution_states_not_conversation_content():
+    s, page, context = source()
+    state = {"chat": True, "reply": False, "audio": "asr"}
+    s.render_activity(state)
+    assert page.evaluate.call_args.args[1] == state
+    assert "textContent" in page.evaluate.call_args.args[0]
+    with pytest.raises(ValueError, match="activity_invalid"):
+        s.render_activity(state | {"text": "SYNTHETIC_PRIVATE_TEXT"})
+    assert s.revoked
+    with pytest.raises(ValueError): s.take()
+    context.close.assert_called_once()

@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import selectors
 import subprocess
@@ -45,6 +46,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     from worker.meet_media.dialog_runtime import run
     from worker.meet_media.dialog_chat import DialogChatPump
     from worker.meet_media.dialog_screen import OwnedDialogScreen
+    from worker.meet_media.dialog_screen_pump import DialogScreenPump
     from worker.meet_media.server import create_server
     from tests.test_meet_media import result
 
@@ -110,6 +112,19 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             return take_frame(source)
         monkeypatch.setattr(OwnedDialogScreen, "take", source_with_test_mutation)
         generations = set()
+        screen_debug = {}; next_screen_debug = 0
+        tick_screen = DialogScreenPump.tick
+        def observe_screen_tick(pump):
+            nonlocal next_screen_debug
+            tick_screen(pump)
+            if time.monotonic() >= next_screen_debug:
+                next_screen_debug = time.monotonic() + 1
+                screen_debug.update(failed=pump.failed, source=pump.source is not None,
+                    source_lease=pump.lease is not None, sequence=pump.sequence)
+                try:
+                    screen_debug.update(pump.page.evaluate("({screen: window.anantaMachine.screen.status(), e2ee: window.anantaMachine.status().e2ee})"))
+                except Exception: screen_debug["page_unavailable"] = True
+        monkeypatch.setattr(DialogScreenPump, "tick", observe_screen_tick)
         update_chat = DialogChatPump.update
         def observe_chat_ready(pump, *args):
             result = update_chat(pump, *args)
@@ -120,7 +135,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         def execute_runtime(assignment):
             client = HubDialogClient(assignment)
             try: run(assignment, client)
-            except Exception as error: failures.append(str(error)[:120] if isinstance(error, ValueError) else type(error).__name__)
+            except Exception as error:
+                codes = re.findall(r"\bmeet_[a-z_]{1,64}\b", str(error))
+                failures.append(codes[0] if codes else type(error).__name__)
             finally:
                 try: client.call("finish", status="failed")
                 except ValueError: pass
@@ -181,7 +198,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
                 if time.monotonic() >= started_at + SOAK_SECONDS - 5: break
                 screen_state = command("screen")
                 assert screen_state == {"moving_screen": True}, {"screen": screen_state, "runtime_errors": failures,
-                    "generations": len(generations), "completed": completed.is_set()}
+                    "generations": len(generations), "completed": completed.is_set(), "source": screen_debug}
                 children = [process, *process.children(recursive=True)]
                 rss = 0
                 for child in children:
