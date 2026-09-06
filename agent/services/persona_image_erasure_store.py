@@ -1,10 +1,13 @@
 """Descriptor-confined removal of exactly one immutable v1 persona PNG."""
 
+import errno
 import hashlib
 import os
 import re
 import stat
 from pathlib import Path
+
+from agent.services.persona_asset_errors import PersonaStorageRetryableError
 
 
 class PersonaImageErasureStore:
@@ -39,6 +42,7 @@ class PersonaImageErasureStore:
                 descriptor = os.open(filename, file_flags, dir_fd=directory)
             except FileNotFoundError:
                 checkpoint()
+                os.fsync(directory)
                 return
             observed = os.fstat(descriptor)
             if not stat.S_ISREG(observed.st_mode) or observed.st_size != expected_size or observed.st_nlink != 1:
@@ -65,7 +69,9 @@ class PersonaImageErasureStore:
                 raise ValueError("persona_erasure_file_changed")
             os.unlink(filename, dir_fd=directory)
             os.fsync(directory)
-        except OSError:
+        except OSError as error:
+            if error.errno in {errno.EIO, errno.ENOSPC, errno.EDQUOT, errno.EBUSY, errno.EINTR, errno.ETIMEDOUT}:
+                raise PersonaStorageRetryableError("persona_erasure_storage_retryable") from None
             raise ValueError("persona_erasure_storage_unavailable") from None
         finally:
             for handle in (descriptor, directory, base):

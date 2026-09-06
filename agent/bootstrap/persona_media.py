@@ -16,6 +16,7 @@ def configure_persona_media(app):
     from agent.repositories.persona_assets import SqlPersonaAssets
     from agent.repositories.persona_image_cursors import SqlPersonaImageCursors
     from agent.repositories.persona_media import SqlPersonaProfiles
+    from agent.repositories.persona_retention import SqlPersonaRetention
     from agent.services.artifact_store import ArtifactStore
     from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
     from agent.services.organization_membership_service import OrganizationMembershipService
@@ -32,6 +33,9 @@ def configure_persona_media(app):
     from agent.services.persona_profile_images import PersonaProfileImages
     from agent.services.persona_profile_owners import SqlPersonaProfileOwners
     from agent.services.persona_profile_service import PersonaProfileService
+    from agent.services.persona_retention_runner import PersonaRetentionRunner
+    from agent.services.persona_retention_service import PersonaRetentionService
+    from agent.services.persona_retention_tasks import HubPersonaRetentionTasks
     from worker.meet_media.contract import load_key
 
     key = load_key(os.environ["ANANTA_PERSONA_IMAGE_KEY_FILE"])
@@ -73,7 +77,17 @@ def configure_persona_media(app):
     images = PersonaProfileImages(app.extensions["persona_assets"])
     cursors = SqlPersonaImageCursors(engine)
     cursors.initialize()
+    retention = SqlPersonaRetention(engine)
+    retention.initialize()
     app.extensions.update(
+        persona_retention=PersonaRetentionService(policy=policy, catalog=catalog, store=retention),
+        persona_retention_runner=PersonaRetentionRunner(
+            policy=policy,
+            catalog=catalog,
+            store=retention,
+            erasure=app.extensions["persona_asset_erasure"],
+            tasks=HubPersonaRetentionTasks(),
+        ),
         persona_profile_images=images,
         persona_image_query=PersonaImageQuery(policy=policy, catalog=catalog, images=images, cursors=cursors),
         persona_profiles=PersonaProfileService(

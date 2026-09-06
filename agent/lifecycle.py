@@ -16,6 +16,7 @@ BACKGROUND_SERVICE_NAMES = (
     "speech_adaptation_dispatcher",
     "speech_evidence_retention_reconciler",
     "agent_safety_retention_reconciler",
+    "persona_retention_reconciler",
     "semantic_media_audit_reconciler",
     "mail_polling_scheduler",
     "sfu_broadcast_reconciler_scheduler",
@@ -75,6 +76,7 @@ class BackgroundServiceManager:
             "agent_safety_retention_reconciler",
             self._start_agent_safety_retention_reconciler,
         )
+        self._start_service("persona_retention_reconciler", self._start_persona_retention)
         self._start_service(
             "semantic_media_audit_reconciler",
             self._start_semantic_media_audit_reconciler,
@@ -135,6 +137,7 @@ class BackgroundServiceManager:
             ("sfu_broadcast_reconciler_scheduler", self._stop_sfu_broadcast_reconciler_scheduler),
             ("speech_evidence_retention_reconciler", self._stop_speech_evidence_retention_reconciler),
             ("agent_safety_retention_reconciler", self._stop_agent_safety_retention_reconciler),
+            ("persona_retention_reconciler", self._stop_persona_retention),
         ):
             try:
                 stopper()
@@ -258,6 +261,16 @@ class BackgroundServiceManager:
         )
 
         start_speech_evidence_retention_reconciler_thread(self.app)
+
+    def _start_persona_retention(self):
+        from agent.services.background.persona_retention import start_persona_retention
+
+        start_persona_retention(self.app)
+
+    def _stop_persona_retention(self):
+        from agent.services.background.persona_retention import stop_persona_retention
+
+        stop_persona_retention(self.app)
 
     def _start_agent_safety_retention_reconciler(self):
         from agent.services.background.agent_safety_retention_reconciler import (

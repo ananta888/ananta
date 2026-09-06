@@ -11,11 +11,15 @@ from flask import Blueprint, Response, current_app, jsonify, request
 from agent.auth import check_user_auth, get_authenticated_source_control_principal
 from agent.models.persona_asset_policy import PersonaImagePolicy
 from agent.models.persona_media import PersonaMediaProfile
+from agent.routes.persona_media_http import payload as _payload
+from agent.routes.persona_media_http import service as _service
+from agent.routes.persona_retention import persona_retention_bp
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignment
 from worker.meet_media.persona_http import request_signature, result_signature
 
 persona_media_bp = Blueprint("persona_media", __name__, url_prefix="/api/persona-media/v1")
+persona_media_bp.register_blueprint(persona_retention_bp)
 
 
 @persona_media_bp.before_request
@@ -48,24 +52,6 @@ def denied(_error):
 @persona_media_bp.errorhandler(ProjectAccessError)
 def project_denied(error):
     return jsonify({"error": {"code": error.reason_code}}), error.public_status
-
-
-def _service(name):
-    if current_app.config.get("ROLE") != "hub":
-        raise PermissionError("persona_hub_required")
-    service = current_app.extensions.get(name)
-    if service is None:
-        raise ValueError("persona_disabled")
-    return service
-
-
-def _payload(fields, *, maximum=16384):
-    if request.content_length is None or not 0 < request.content_length <= maximum:
-        raise ValueError("persona_payload_invalid")
-    value = request.get_json(silent=True)
-    if not isinstance(value, dict) or set(value) != set(fields):
-        raise ValueError("persona_payload_invalid")
-    return value
 
 
 def _revision(value, *, allow_zero=False):

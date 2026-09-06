@@ -16,7 +16,8 @@ class PersonaAssetErasureService:
         _, revision, state = self.catalog.get_retired(principal.tenant_id, project, artifact_id)
         return {"revision": revision, "state": state}
 
-    def purge(self, principal, project, artifact_id, *, expected_revision):
+    def purge(self, principal, project, artifact_id, *, expected_revision, require_current=lambda: None):
+        require_current()
         self.policy.require_revoke(principal, project, artifact_id)
         asset, revision, state = self.catalog.get_retired(principal.tenant_id, project, artifact_id)
         if type(expected_revision) is not int or expected_revision != revision:
@@ -34,6 +35,7 @@ class PersonaAssetErasureService:
             )
 
         def checkpoint():
+            require_current()
             self.policy.require_revoke(principal, project, artifact_id)
             if self.catalog.get_retired(principal.tenant_id, project, artifact_id) != (asset, revision, "purging"):
                 raise ValueError("persona_asset_purge_changed")
