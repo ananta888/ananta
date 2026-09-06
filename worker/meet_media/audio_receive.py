@@ -8,6 +8,7 @@ from typing import Protocol
 
 from voice_runtime.context import VoiceRecognitionContext
 from voice_runtime.streaming import PCM_S16LE_MEDIA_TYPE, BufferedPipelineRecognizer, StreamSession
+from ananta_contracts.meet_dialog_audio import PUBLICATION_ID
 
 
 @dataclass(frozen=True)
@@ -37,11 +38,12 @@ class ReceiveBinding:
             "session_id",
             "peer_id",
             "own_peer_id",
-            "publication_id",
         ):
             value = getattr(self, name)
             if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", value):
                 raise ValueError("meet_receive_binding_invalid")
+        if not isinstance(self.publication_id, str) or not PUBLICATION_ID.fullmatch(self.publication_id):
+            raise ValueError("meet_receive_binding_invalid")
         for name in ("generation", "publication_epoch", "membership_epoch"):
             value = getattr(self, name)
             if type(value) is not int or not 1 <= value < 2**53:

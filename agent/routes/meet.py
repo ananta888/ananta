@@ -131,3 +131,75 @@ def media_lease():
     response.headers["X-Ananta-Lease-Protocol"] = "ananta.meet-lease.v2"
     response.headers["X-Ananta-Lease-Signature"] = lease_response_signature(key, raw, response.get_data())
     return response
+
+
+def _dialog():
+    _runtime()
+    service = current_app.extensions.get("meet_dialog_service")
+    if service is None:
+        raise MeetError("meet_dialog_disabled", 404)
+    return service
+
+
+@meet_bp.post("/projects/<project>/dialogs")
+@meet_bp.post("/projects/<project>/tasks/<task>/dialogs")
+@check_user_auth
+def dialog_start(project, task=""):
+    from ananta_contracts.meet_dialog import parse
+    service = _dialog()
+    if request.args or request.headers.get("Transfer-Encoding") or request.content_length is None or not 0 < request.content_length <= 2048:
+        raise MeetError("meet_dialog_payload_invalid")
+    try:
+        payload = parse(request.get_data(cache=False))
+    except ValueError:
+        raise MeetError("meet_dialog_payload_invalid") from None
+    return jsonify(service.start(get_authenticated_source_control_principal(), project, payload, task)), 202
+
+
+@meet_bp.get("/projects/<project>/dialogs")
+@check_user_auth
+def dialog_list(project):
+    cursor = request.args.get("cursor", "0")
+    if set(request.args) - {"cursor"} or len(request.args.getlist("cursor")) > 1 or not re.fullmatch(r"[0-9]{1,6}", cursor):
+        raise MeetError("meet_dialog_cursor_invalid")
+    return jsonify(_dialog().list(get_authenticated_source_control_principal(), project, int(cursor)))
+
+
+@meet_bp.route("/projects/<project>/dialogs/<task_id>", methods=["GET", "DELETE", "PATCH"])
+@check_user_auth
+def dialog_status(project, task_id):
+    if request.method == "PATCH":
+        from ananta_contracts.meet_dialog import parse
+        if request.args or request.headers.get("Transfer-Encoding") or request.content_length is None or not 0 < request.content_length <= 1024:
+            raise MeetError("meet_dialog_payload_invalid")
+        try:
+            value = parse(request.get_data(cache=False))
+        except ValueError:
+            raise MeetError("meet_dialog_payload_invalid") from None
+        return jsonify(_dialog().control(get_authenticated_source_control_principal(), project, task_id, value))
+    if request.args or request.headers.get("Transfer-Encoding") or request.content_length not in (None, 0):
+        raise MeetError("meet_dialog_payload_invalid")
+    return jsonify(_dialog().inspect(get_authenticated_source_control_principal(), project, task_id,
+                                    stop=request.method == "DELETE"))
+
+
+@meet_bp.post("/internal/dialog")
+def dialog_callback():
+    import hmac
+    import time
+    from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_callback
+    service = _dialog()
+    key = current_app.extensions.get("meet_media_worker_key")
+    if (key is None or request.headers.get("Authorization") or request.args or request.headers.get("Transfer-Encoding")
+            or request.content_length is None or not 0 < request.content_length <= 16384):
+        raise MeetError("meet_dialog_callback_invalid", 403)
+    raw = request.get_data(cache=False)
+    if not hmac.compare_digest(request_signature(key, raw), request.headers.get("X-Ananta-Dialog-Signature", "")):
+        raise MeetError("meet_dialog_callback_unauthorized", 401)
+    try:
+        payload = validate_callback(parse(raw), time.time())
+    except ValueError:
+        raise MeetError("meet_dialog_callback_invalid") from None
+    response = jsonify(getattr(service, payload["action"])(payload))
+    response.headers["X-Ananta-Dialog-Signature"] = response_signature(key, raw, response.get_data())
+    return response

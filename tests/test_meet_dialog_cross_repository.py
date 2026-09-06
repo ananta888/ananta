@@ -1,0 +1,226 @@
+"""Real Hub/Worker/Meet wires and browsers; synthetic policy and model result.
+
+This proves neither GPU inference nor production trust/NAT. Opt in with
+MEET_CROSS_REPOSITORY_GATE=1 and build the adjacent Meet repository first.
+"""
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import selectors
+import subprocess
+import threading
+import time
+from unittest.mock import Mock
+
+import pytest
+
+SOAK_SECONDS = int(os.environ.get("MEET_DIALOG_SOAK_SECONDS", "0"))
+if SOAK_SECONDS != 0 and not 300 <= SOAK_SECONDS <= 7200:
+    raise ValueError("test_soak_seconds_must_be_zero_or_300_to_7200")
+
+pytestmark = [pytest.mark.timeout(180 + SOAK_SECONDS), pytest.mark.skipif(
+    os.environ.get("MEET_CROSS_REPOSITORY_GATE") != "1", reason="opt-in cross-repository browser gate; not GPU/TURN evidence")]
+
+
+def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(app, tmp_path, monkeypatch):
+    from cryptography import x509
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat, NoEncryption
+    from playwright.sync_api import BrowserType
+    from werkzeug.serving import make_server, WSGIRequestHandler
+    from agent.database import engine
+    from agent.repositories.meet_chat_reservations import SqlChatReservations
+    from agent.repositories.meet_chat_dispatches import SqlChatDispatches
+    from agent.services.meet_authorization_client import MeetAuthorizationClient
+    from agent.services.meet_contract import MeetError, MeetProfile
+    from agent.services.meet_dialog_authority import MeetDialogAuthority
+    from agent.services.meet_dialog_service import MeetDialogService
+    from agent.services.meet_dialog_tasks import HubDialogTasks
+    from agent.services.meet_machine_grant import MeetMachineGrantIssuer
+    from agent.services.meet_media_transport import HttpMediaWorker
+    from agent.services.source_control_access_policy import HubSourcePrincipal
+    from worker.meet_media.dialog_client import HubDialogClient
+    from worker.meet_media.dialog_runtime import run
+    from worker.meet_media.dialog_chat import DialogChatPump
+    from worker.meet_media.dialog_screen import OwnedDialogScreen
+    from worker.meet_media.server import create_server
+    from tests.test_meet_media import result
+
+    meet = Path(__file__).resolve().parents[2] / "webrtc-minimize-server"
+    assert (meet / "dist/browser/index.html").is_file(), "Build the adjacent Meet repository first"
+    key = Ed25519PrivateKey.generate(); private = tmp_path / "hub.pem"; public = tmp_path / "hub-public.pem"
+    private.write_bytes(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())); private.chmod(0o600)
+    public.write_bytes(key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo))
+    hmac_key = b"synthetic-private-dialog-test-key-32"; key_path = tmp_path / "worker-key"
+    key_path.write_bytes(hmac_key); key_path.chmod(0o600)
+    monkeypatch.setenv("MEET_WORKER_KEY_FILE", str(key_path))
+    bridge = subprocess.Popen(["node", "test/helpers/machine-hub-bridge.mjs"], cwd=meet,
+        env=os.environ | {"MEET_TEST_HUB_PUBLIC_KEY": str(public)}, text=True,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
+    def receive():
+        with selectors.DefaultSelector() as selector:
+            selector.register(bridge.stdout, selectors.EVENT_READ)
+            assert selector.select(20), "bounded Meet bridge response missing"
+            line = bridge.stdout.readline(8193)
+        assert line and len(line) <= 8192, "Meet bridge exited or exceeded response budget"
+        return json.loads(line)
+    def command(name):
+        bridge.stdin.write(name + "\n"); bridge.stdin.flush(); return receive()
+    hub = worker = None; runtime_thread = None; service = None; started = None
+    principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
+    try:
+        ready = receive()
+        assert set(ready) == {"origin", "room_id", "certificate"}, ready
+        monkeypatch.setenv("SSL_CERT_FILE", ready["certificate"])
+        cert = x509.load_pem_x509_certificate(Path(ready["certificate"]).read_bytes())
+        spki = base64.b64encode(hashlib.sha256(cert.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)).digest()).decode()
+        launch = BrowserType.launch
+        def trusted_fixture_launch(browser_type, *args, **kwargs):
+            assert kwargs.get("chromium_sandbox") is True
+            return launch(browser_type, *args, **(kwargs | {"args": [*kwargs.get("args", []), "--ignore-certificate-errors-spki-list=" + spki]}))
+        monkeypatch.setattr(BrowserType, "launch", trusted_fixture_launch)
+        # Only the private-container network boundary is substituted for local
+        # loopback in this test. Production pinning has its own negative tests.
+        monkeypatch.setattr("agent.services.meet_media_transport.pin_private_container_address", lambda *_: "127.0.0.1")
+        class Binding:
+            profile = MeetProfile(ready["origin"])
+            def require_write_access(self, actor, project, task=""):
+                if actor != principal or project != "synthetic": raise MeetError("test_scope_denied", 403)
+            def read(self, actor, project, task=""):
+                self.require_write_access(actor, project, task)
+                return {"invite_url": self.profile.invite(ready["room_id"])}
+        binding = Binding(); tasks = HubDialogTasks()
+        authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): ["chat.read", "chat.send", "screen.publish"]})
+        issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
+        reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
+        reservations.initialize(); dispatches.initialize()
+        completed = threading.Event(); chat_ready = threading.Event(); failures = []
+        inject_private_frame = threading.Event()
+        take_frame = OwnedDialogScreen.take
+        def source_with_test_mutation(source):
+            if inject_private_frame.is_set():
+                inject_private_frame.clear()
+                # Synthetic marker only. Mutate in the source-owning thread;
+                # unknown input/content must stop before any frame is published.
+                source.page.evaluate("""() => { document.body.replaceChildren(document.createElement('input'));
+                  document.body.style.background = '#ff00ff'; document.body.style.height = '100vh';
+                  document.querySelector('input').value = 'SYNTHETIC_PRIVATE_MARKER'; }""")
+            return take_frame(source)
+        monkeypatch.setattr(OwnedDialogScreen, "take", source_with_test_mutation)
+        generations = set()
+        update_chat = DialogChatPump.update
+        def observe_chat_ready(pump, *args):
+            result = update_chat(pump, *args)
+            generations.add(args[0]["lease"]["generation"])
+            if pump.opened is not None: chat_ready.set()
+            return result
+        monkeypatch.setattr(DialogChatPump, "update", observe_chat_ready)
+        def execute_runtime(assignment):
+            client = HubDialogClient(assignment)
+            try: run(assignment, client)
+            except Exception as error: failures.append(str(error)[:120] if isinstance(error, ValueError) else type(error).__name__)
+            finally:
+                try: client.call("finish", status="failed")
+                except ValueError: pass
+                completed.set()
+        class DialogExecution:
+            def start(self, assignment):
+                nonlocal runtime_thread
+                runtime_thread = threading.Thread(target=execute_runtime, args=(assignment,), daemon=True); runtime_thread.start()
+                return {"schema": "ananta.meet-dialog-accepted.v1", **{k: assignment[k] for k in ("task_id", "lease_id", "runtime_id")}, "status": "accepted"}
+        # Contract fixture, NOT a claim that the declared CUDA engines executed.
+        media = Mock(); media.execute.side_effect = lambda turn: result() | {
+            "task_id": turn["task_id"], "lease_id": turn["lease_id"], "text": "Synthetic Hub answer",
+            "usage": {"input_tokens": 20, "output_tokens": 8}}
+        worker = create_server(("127.0.0.1", 0), hmac_key, media, DialogExecution())
+        threading.Thread(target=worker.serve_forever, daemon=True).start()
+        transport = HttpMediaWorker(f"http://127.0.0.1:{worker.server_port}/v1/turns", hmac_key)
+        service = MeetDialogService(authority, tasks, MeetAuthorizationClient(authority, issuer), issuer,
+                                    transport, transport, reservations, dispatches)
+        app.config["ROLE"] = "hub"
+        app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
+        class Quiet(WSGIRequestHandler):
+            def log(self, *_args, **_kwargs): pass
+        hub = make_server("127.0.0.1", 0, app, threaded=True, request_handler=Quiet)
+        monkeypatch.setenv("MEET_HUB_DIALOG_URL", f"http://127.0.0.1:{hub.server_port}/api/meet/v1/internal/dialog")
+        threading.Thread(target=hub.serve_forever, daemon=True).start()
+        with app.app_context():
+            started = service.start(principal, "synthetic", {"capabilities": ["chat.read", "chat.send", "screen.publish"],
+                "duration_seconds": SOAK_SECONDS or 90, "chat_mode": "mention"})
+        started_at = time.monotonic()
+        assert command("consent") == {"consent": True}
+        # Wait for one fresh Hub-authorized queue activation; no old chat replay.
+        assert command("screen") == {"moving_screen": True}
+        assert chat_ready.wait(8), failures
+        with app.app_context():
+            state = service.control(principal, "synthetic", started["task_id"],
+                {"expected_revision": 1, "chat": True, "audio": False, "screen": False})
+            assert state["controls"]["screen"]["enabled"] is False
+            assert state["controls"]["chat"]["revision"] == 1
+        assert command("screen_absent") == {"screen_absent": True}
+        ask = command("ask")
+        assert ask == {"sent": True}, {"ask": ask, "runtime_errors": failures, "exited": completed.is_set()}
+        answer = command("answer")
+        assert answer == {"received": True}, {"answer": answer, "media_calls": media.execute.call_count, "runtime_errors": failures}
+        media.execute.assert_called_once()
+        with app.app_context():
+            service.control(principal, "synthetic", started["task_id"],
+                {"expected_revision": 2, "chat": True, "audio": False, "screen": True})
+        assert command("screen") == {"moving_screen": True}
+        if SOAK_SECONDS:
+            # Real clocks, real browser/Hub lease renewals; no accelerated timers
+            # or synthetic GPU claims. The final five seconds reserve stop budget.
+            import psutil
+            process = psutil.Process(); peaks = {"rss_bytes": 0, "processes": 0}; observations = 0
+            next_question = started_at + 240
+            while time.monotonic() < started_at + SOAK_SECONDS - 5:
+                remaining = started_at + SOAK_SECONDS - 5 - time.monotonic()
+                assert not completed.wait(min(45, remaining)), {"runtime_exited": True, "codes": failures}
+                if time.monotonic() >= started_at + SOAK_SECONDS - 5: break
+                screen_state = command("screen")
+                assert screen_state == {"moving_screen": True}, {"screen": screen_state, "runtime_errors": failures,
+                    "generations": len(generations), "completed": completed.is_set()}
+                children = [process, *process.children(recursive=True)]
+                rss = 0
+                for child in children:
+                    try: rss += child.memory_info().rss
+                    except psutil.NoSuchProcess: pass
+                peaks["rss_bytes"] = max(peaks["rss_bytes"], rss)
+                peaks["processes"] = max(peaks["processes"], len(children))
+                assert rss < 3 * 1024**3 and len(children) < 80, peaks
+                observations += 1
+                if time.monotonic() >= next_question:
+                    # Explicit synthetic publisher consent, never an automatic
+                    # production extension. Stay within the 40-reply Hub budget.
+                    assert command("consent") == {"consent": True}
+                    assert not completed.wait(3), failures
+                    assert command("ask") == {"sent": True}
+                    assert command("answer") == {"received": True}
+                    next_question = time.monotonic() + 240
+                print(json.dumps({"synthetic_dialog_soak": "running", "seconds": int(time.monotonic() - started_at),
+                    "generations": len(generations), "observations": observations, **peaks}), flush=True)
+            assert len(generations) >= 4 and observations >= 4
+            print(json.dumps({"synthetic_dialog_soak": "measured", "task_seconds": SOAK_SECONDS,
+                "observed_seconds": int(time.monotonic() - started_at), "generations": len(generations), **peaks}), flush=True)
+        inject_private_frame.set()
+        assert command("private_frame_absent") == {"private_frame_absent": True}
+        with app.app_context():
+            state = service.inspect(principal, "synthetic", started["task_id"], stop=True)
+            assert state["status"] == "cancelled"
+        assert completed.wait(10), "Worker did not stop after Hub task cancellation"
+        assert command("alone") == {"alone": True}
+    finally:
+        if service is not None and started is not None:
+            with app.app_context(): service.inspect(principal, "synthetic", started["task_id"], stop=True)
+        if runtime_thread is not None: runtime_thread.join(timeout=10)
+        for server in (hub, worker):
+            if server is not None: server.shutdown(); server.server_close()
+        if bridge.poll() is None:
+            bridge.stdin.write("stop\n"); bridge.stdin.flush()
+            try: bridge.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                import signal
+                os.killpg(bridge.pid, signal.SIGKILL); bridge.wait(timeout=5)
+        bridge.stdin.close(); bridge.stdout.close()

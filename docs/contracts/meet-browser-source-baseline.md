@@ -63,6 +63,8 @@ production release evidence and not decoded Meet reception. Hub-owned workspace
 admission, exact page/navigation epochs, privacy fencing/secret-marker receiver
 tests, publication controls and the MDS-05 source transport still need integration.
 No `live_view` request can currently activate that unimplemented production path.
-The separate Meet MDS companion still lists MDS-01 through MDS-09 as todo in the
-locally inspected repository; ongoing Broadcast changes are not a substitute for
-those dialog/receive/source/renewal endpoints.
+The Meet MDS companion now has active dialog, receive, source and renewal
+endpoints. Its isolated canvas source has a real direct-browser decoded-pixel
+test; Ananta's assignment-owned CDP task view and separate source controls are
+connected. Arbitrary Browser-Use/Camofox page admission is still not implied.
+See `meet-dialog-runtime.md` for the separate cross-repository composition gate.
