@@ -3,6 +3,9 @@
 import base64
 import time
 
+from worker.meet_media.av_quality import MAX_VIDEO_BYTES
+from worker.meet_media.publication_session import PublicationSession
+
 
 def publish(meeting, text, video_path, deadline, lease):
     from playwright.sync_api import sync_playwright
@@ -21,32 +24,19 @@ def publish(meeting, text, video_path, deadline, lease):
               navigator.mediaDevices[name] = () => Promise.reject(new Error('human_capture_forbidden'));
             }""")
             page = context.new_page()
-            page.set_default_timeout(min(20_000, max(1, int((deadline - time.time()) * 1000))))
-            page.goto(meeting["origin"] + "/machine", wait_until="domcontentloaded")
-            if page.url != meeting["origin"] + "/machine":
-                raise ValueError("meet_machine_navigation_denied")
-            page.wait_for_function("Boolean(window.anantaMachine)")
-            page.evaluate(
-                "([room, grant]) => window.anantaMachine.join(room, grant)", [meeting["room_id"], meeting["grant"]]
-            )
+            page.set_default_timeout(min(5000, max(1, int((deadline - time.time()) * 1000))))
+            url = meeting["origin"] + "/machine"
+            session = PublicationSession(page, lease, url=url, deadline=deadline)
             lease.require()
-            page.evaluate(
-                """([text, video]) => {
-              window.publicationOutcome = 'pending';
-              void window.anantaMachine.publish(text, video).then(
-                () => { window.publicationOutcome = 'done'; },
-                () => { window.publicationOutcome = 'failed'; });
-            }""",
-                [text, base64.b64encode(video_path.read_bytes()).decode()],
-            )
-            while page.evaluate("window.publicationOutcome") == "pending":
-                lease.require()
-                if time.time() >= deadline:
-                    raise ValueError("meet_publication_expired")
-                page.wait_for_timeout(500)
-            if page.evaluate("window.publicationOutcome") != "done":
-                raise ValueError("meet_publication_failed")
-            page.evaluate("window.anantaMachine.leave()")
+            page.goto(url, wait_until="domcontentloaded")
+            session.ready()
+            with video_path.open("rb") as source:
+                video = source.read(MAX_VIDEO_BYTES + 1)
+            if not 16 <= len(video) <= MAX_VIDEO_BYTES or video[4:8] != b"ftyp":
+                raise ValueError("meet_publication_media_invalid")
+            session.call("join", [meeting["room_id"], meeting["grant"]])
+            session.call("publish", [text, base64.b64encode(video).decode()])
+            session.call("leave", [])
         finally:
             browser.close()
     return {"status": "published", "room_id": meeting["room_id"], "delivery_verified": False}
