@@ -2,6 +2,7 @@
 
 import base64
 import json
+import math
 import sys
 import sysconfig
 import threading
@@ -15,6 +16,13 @@ from worker.meet_media.asr_model import REVISION
 
 class MeetAsrPipeline:
     def __init__(self, binding, lease, *, deadline_monotonic, runner=None):
+        now = time.monotonic()
+        if (
+            type(deadline_monotonic) not in (int, float)
+            or not math.isfinite(deadline_monotonic)
+            or not now < deadline_monotonic <= now + 30
+        ):
+            raise ValueError("meet_asr_deadline_invalid")
         self.binding, self.lease, self.deadline = binding, lease, deadline_monotonic
         self._cancelled = threading.Event()
         self.runner = runner or BoundedSubprocessRunner(

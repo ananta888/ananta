@@ -275,3 +275,9 @@ def test_cancel_terminates_active_transcription_before_waiting_for_stream_lock()
 def test_gpu_library_configuration_is_operator_bound_and_closed(paths):
     with pytest.raises(ValueError, match="library_paths_invalid"):
         BoundedSubprocessRunner(library_paths=paths)
+
+
+@pytest.mark.parametrize("deadline", [float("nan"), float("inf"), True, 0, "later"])
+def test_asr_deadline_must_be_a_finite_bounded_assignment_value(deadline):
+    with pytest.raises(ValueError, match="deadline_invalid"):
+        MeetAsrPipeline(binding(), Mock(), deadline_monotonic=deadline)
