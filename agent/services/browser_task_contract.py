@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ananta_contracts.browser_live import BrowserLiveViewRequest
 
 _ALLOWED_DOWNLOAD_POLICY = {"deny", "whitelist", "bounded_output_dir"}
 _ALLOWED_AUTH_POLICY = {"none", "explicit_opt_in"}
@@ -30,6 +31,7 @@ class BrowserTaskContract:
     output_dir: str | None
     persist_session: bool
     blocked_domains: tuple[str, ...]
+    live_view: BrowserLiveViewRequest | None = None
 
     @staticmethod
     def from_payload(payload: dict[str, Any] | None) -> "BrowserTaskContract":
@@ -40,7 +42,9 @@ class BrowserTaskContract:
         download_policy = str(data.get("download_policy") or "deny").strip().lower()
         auth_policy = str(data.get("auth_policy") or "none").strip().lower()
         screenshot_policy = str(data.get("screenshot_policy") or "none").strip().lower()
-        download_allowlist = tuple(str(x).strip().lower() for x in list(data.get("download_allowlist") or []) if str(x).strip())
+        download_allowlist = tuple(
+            str(x).strip().lower() for x in list(data.get("download_allowlist") or []) if str(x).strip()
+        )
         output_dir = str(data.get("output_dir") or "").strip() or None
         persist_session = bool(data.get("persist_session", False))
 
@@ -60,6 +64,16 @@ class BrowserTaskContract:
             raise ValueError("browser_contract_invalid_auth_policy")
         if screenshot_policy not in _ALLOWED_SCREENSHOT_POLICY:
             raise ValueError("browser_contract_invalid_screenshot_policy")
+        live_view = (
+            BrowserLiveViewRequest.from_payload(data["live_view"]) if data.get("live_view") is not None else None
+        )
+        if live_view is not None and (
+            persist_session
+            or download_policy != "deny"
+            or live_view.max_seconds > timeout_seconds
+            or (live_view.capture_authenticated and auth_policy != "explicit_opt_in")
+        ):
+            raise ValueError("browser_live_policy_conflict")
 
         return BrowserTaskContract(
             allowed_domains=domains,
@@ -72,4 +86,5 @@ class BrowserTaskContract:
             output_dir=output_dir,
             persist_session=persist_session,
             blocked_domains=blocked_domains,
+            live_view=live_view,
         )

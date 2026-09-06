@@ -51,6 +51,10 @@ class BrowserUseExecutionAdapter:
         contract: BrowserTaskContract,
         action_executor: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     ) -> BrowserAdapterResult:
+        if contract.live_view is not None:
+            # Command availability or a synthetic action runner is not a
+            # lease-bound continuous source. Never report it as live-ready.
+            return BrowserAdapterResult("blocked", "browser_live_source_unsupported", 0, [], {})
         policy = get_browser_policy_service()
         allow_domain = policy.enforce_domain(url=start_url, contract=contract)
         if not allow_domain.allow:

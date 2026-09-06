@@ -269,7 +269,7 @@
     {
       "id": "MAP-M4",
       "title": "Eigener Browser als freigegebene Medienquelle",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-13",
         "MAP-14",
@@ -583,10 +583,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "depends_on": [
         "MAP-10"
       ],
@@ -596,7 +596,8 @@
         "Domain-/Navigations-/Download-Policy bleibt beim Steuern und beim Teilen wirksam; authentisierte Inhalte benötigen gesonderte opt-in Freigabe.",
         "Vor Implementierung des Renderpfads eine Capability-/Kostenprobe des tatsächlich vorhandenen Browsers erstellen; alternative Adapter deklarieren ihre Grenzen ehrlich.",
         "Ananta erzeugt den Bildschirmstream ausschließlich aus seinem isolierten Browser-/virtuellen Display-Workspace und übergibt ihn dem MDS-05-Source-Port. Meet übernimmt Transport und Darstellung; persönliche Host-Displays, Profile, Mikrofone und Kameras bleiben unzugänglich."
-      ]
+      ],
+      "implementation_note": "BrowserTaskContract und vorhandene Adapter geprüft. Additiver geschlossener Live-View-Anfragevertrag mit festen Budgetgrenzen, deny_unknown, deaktivierter Persistenz/Downloads und getrenntem Auth-Opt-in implementiert; dieser erteilt keine Capture-/Publikationsrechte. Camofox-Screenshot- und synthetischer Browser-Use-Pfad lehnen Live-Aufträge vor Ausführung ab. Tatsächliche Capability-/Kostenprobe im privaten Chromium-Container: Sandbox aktiv, 17 kontinuierliche decodierte CDP-Frames 640x360 in 2012 ms, beide bewegten Testfarbzustände, keine Seiten-Netzwerkanfragen oder menschlichen Geräte. 75 Browserregressionen und 12 kombinierte Browser-/GPU-Checks bestanden. docs/contracts/meet-browser-source-baseline.md. Noch offen: Hub-Workspace-/Seitenadmission, Navigationsepochen, Datenschutzfencing und MDS-05-Transport; keine Meet-Gegenstellen- oder Produktionsfreigabe behauptet."
     },
     {
       "id": "MAP-14",
@@ -1055,9 +1056,9 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 6,
+      "todo": 5,
       "in_progress": 0,
-      "partial": 23,
+      "partial": 24,
       "blocked": 0,
       "done": 3
     },
@@ -1081,9 +1082,9 @@
     },
     "milestones": {
       "total": 8,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 7,
+      "partial": 8,
       "blocked": 0,
       "done": 0
     }
@@ -1152,15 +1153,15 @@
       "feature": {
         "total": 16,
         "done": 1,
-        "partial": 11,
+        "partial": 12,
         "blocked": 0,
-        "todo": 4,
+        "todo": 3,
         "in_progress": 0,
-        "progress_percent": 36.9,
+        "progress_percent": 38.4,
         "by_status": {
-          "todo": 4,
+          "todo": 3,
           "in_progress": 0,
-          "partial": 11,
+          "partial": 12,
           "blocked": 0,
           "done": 1
         }
@@ -1217,9 +1218,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 6,
+    "todo_remaining": 5,
     "in_progress": 0,
-    "partial": 23,
+    "partial": 24,
     "blocked": 0,
     "done": 3,
     "milestones_done": 0,

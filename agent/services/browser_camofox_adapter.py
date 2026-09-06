@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -58,6 +57,8 @@ class BrowserCamofoxAdapter:
 
     def create_session(self, *, contract: BrowserTaskContract) -> str:
         """Eröffnet eine neue Browser-Session. Gibt session_id zurück."""
+        if contract.live_view is not None:
+            raise ValueError("browser_live_source_unsupported")
         payload: dict[str, Any] = {
             "persist": contract.persist_session,
             "timeout_seconds": contract.timeout_seconds,
