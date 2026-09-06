@@ -119,3 +119,14 @@ def test_background_is_opt_in_hub_only_and_stops_automatically(monkeypatch):
         stop_persona_retention(app)
         thread.join(2)
     assert not thread.is_alive()
+
+
+def test_hub_overlay_exposes_retention_without_enabling_it_by_default():
+    from pathlib import Path
+
+    import yaml
+
+    path = Path(__file__).resolve().parents[1] / "docker-compose.persona-images-hub.yml"
+    config = yaml.safe_load(path.read_text())
+    environment = config["services"]["ai-agent-hub"]["environment"]
+    assert environment["ANANTA_PERSONA_RETENTION_ENABLED"] == "${ANANTA_PERSONA_RETENTION_ENABLED:-0}"
