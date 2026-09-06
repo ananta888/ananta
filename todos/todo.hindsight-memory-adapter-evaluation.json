@@ -1,0 +1,343 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "hindsight-memory-adapter-evaluation",
+  "created": "2026-09-06",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Hindsight als optionalen Erfahrungsspeicher für Ananta gezielt evaluieren und nur bei nachgewiesenem Mehrwert integrieren.",
+  "goal": "Aufgabenergebnisse, Fehlversuche und Retrospektiven mit zeitlichen Änderungen und Widersprüchen nachvollziehbar auswerten; vorhandenen MemoryTree, CodeCompass und Hub-Governance wiederverwenden.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "source_review": {
+    "kind": "Vorläufige Codeprüfung, kein Laufzeitbenchmark",
+    "references": [
+      "https://hindsight.vectorize.io/",
+      "https://github.com/vectorize-io/hindsight"
+    ],
+    "observed_files": [
+      "agent/db_models/memory.py",
+      "agent/repositories/memory.py",
+      "agent/services/result_memory_service.py",
+      "agent/services/memory_tree_summary_service.py",
+      "agent/services/memory_tree_retrieval_service.py",
+      "worker/core/memory_stores.py",
+      "docs/architecture/codecompass-sira-retrieval.md"
+    ],
+    "findings": [
+      "MemoryTree mit Quellenreferenzen vorhanden; geprüfte Summary-Methoden erzeugen deterministische Labels und Listen, llm_enabled wird dort nicht verwendet.",
+      "Geprüftes MemoryTree-Retrieval verwendet Worttreffer; CodeCompass hat daneben hybride Retrieval-Bausteine.",
+      "Hindsight-Vorteile bei Widerspruchskonsolidierung und zeitlichem Wissen sind gegen Anantas Gesamtimplementierung praktisch zu prüfen."
+    ]
+  },
+  "non_goals": [
+    "Kein Ersatz von CodeCompass oder zentraler Hub-Orchestrierung.",
+    "Kein unkontrollierter zweiter Langzeit-Wahrheitsspeicher.",
+    "Keine Modellgewichtsanpassung oder ungeprüfte Komplettübernahme von Hindsight."
+  ],
+  "milestones": [
+    {
+      "id": "HSM-M1",
+      "title": "Bestand und Messplan",
+      "status": "todo",
+      "task_ids": [
+        "HSM-001",
+        "HSM-002",
+        "HSM-003"
+      ]
+    },
+    {
+      "id": "HSM-M2",
+      "title": "Optionaler Adapter",
+      "status": "todo",
+      "task_ids": [
+        "HSM-004",
+        "HSM-005",
+        "HSM-006",
+        "HSM-007"
+      ]
+    },
+    {
+      "id": "HSM-M3",
+      "title": "Verifikation und Vergleich",
+      "status": "todo",
+      "task_ids": [
+        "HSM-008",
+        "HSM-009",
+        "HSM-010"
+      ]
+    },
+    {
+      "id": "HSM-M4",
+      "title": "Entscheidung und Dokumentation",
+      "status": "todo",
+      "task_ids": [
+        "HSM-011",
+        "HSM-012"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "HSM-001",
+      "title": "Bestand und Überschneidungen verifizieren",
+      "milestone": "HSM-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Aktuellen Commit und tatsächliche Aufrufpfade von ResultMemory, MemoryTree, ContextBundler und CodeCompass dokumentieren; implementiert, aktiviert und praktisch verifiziert getrennt ausweisen.",
+        "Befund zum ungenutzten llm_enabled erneut prüfen; vorhandene Graphiti-, zeitliche Graph- und Memory-Vorhaben auf Überschneidungen prüfen und verlinken.",
+        "Dokumentationsaussagen nicht als Implementierungsbeleg verwenden; vorhandene Services vor neuen Abstraktionen auf Wiederverwendung prüfen."
+      ]
+    },
+    {
+      "id": "HSM-002",
+      "title": "Hindsight-Version, Betrieb und Modellbedarf prüfen",
+      "milestone": "HSM-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "HSM-001"
+      ],
+      "acceptance_criteria": [
+        "Upstream-Commit oder Release, Lizenzdateien, API-Verträge und benötigte Datenbank-Erweiterungen nachvollziehbar festhalten.",
+        "LLM-, Embedding- und Reranking-Aufgaben getrennt erfassen; lokale Providerfähigkeit und Ressourcenbedarf praktisch prüfen, nicht aus OpenAI-Kompatibilität ableiten.",
+        "Zusätzliche Token-, Speicher- und Laufzeitkosten für retain, recall, reflect und Hintergrundkonsolidierung erfassen."
+      ]
+    },
+    {
+      "id": "HSM-003",
+      "title": "Vergleichsdatensatz und Entscheidungskriterien festlegen",
+      "milestone": "HSM-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": [
+        "HSM-001"
+      ],
+      "acceptance_criteria": [
+        "Mindestens 30 feste deutschsprachige Fälle mit Quellen und erwarteten Antworten: Fehlversuche, Architekturänderungen, Retrospektiven, Zeitintervalle, Widersprüche, Duplikate und unbeantwortbare Fragen.",
+        "Baseline Ananta, gezielte native Erweiterung und Ananta mit Hindsight bei gleichen Eingaben, Antwortmodellen und Kontextbudgets vergleichen; abweichende interne Modellaufrufe separat ausweisen.",
+        "Vor Messbeginn Qualitätsziel, maximal erlaubte Latenz und Kosten festlegen; Quellenrichtigkeit, zeitliche Korrektheit, ungestützte Aussagen und Enthaltungen bewerten."
+      ]
+    },
+    {
+      "id": "HSM-004",
+      "title": "Adapter-Vertrag und Verantwortlichkeiten definieren",
+      "milestone": "HSM-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "HSM-001",
+        "HSM-002"
+      ],
+      "acceptance_criteria": [
+        "Kleine getrennte Ports für Schreiben, Retrieval und Reflexion; native Implementierung und Hindsight-Adapter per Dependency Injection austauschbar.",
+        "Hub besitzt Zulassung, Scope, Jobs und Freigabe; Worker führen nur delegierte Operationen aus, ohne eigene Worker-Orchestrierung.",
+        "Antwortvertrag enthält Originalreferenzen, Gültigkeitszeit, Erfassungszeit, Status, belegte Ableitung und Provider-Metadaten; Hindsight-IDs ersetzen keine Hub-Evidence-IDs.",
+        "SOLID-Review dokumentiert SRP, DIP, LSP sowie bestehende Singleton-Kopplung; keine zusätzliche globale Service-Instanz einführen."
+      ]
+    },
+    {
+      "id": "HSM-005",
+      "title": "Isolierten optionalen Hindsight-Dienst bereitstellen",
+      "milestone": "HSM-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "HSM-002",
+        "HSM-004"
+      ],
+      "acceptance_criteria": [
+        "Versioniertes Container-Profil mit persistenten Volumes, Healthcheck, Authentifizierung und reproduzierbarer Konfiguration bereitstellen.",
+        "Feature standardmäßig deaktiviert; kein automatischer Cloud-Fallback und keine unzulässige Übertragung an externe Modelle.",
+        "Timeouts, begrenzte Wiederholungen, Circuit Breaker und maschinenlesbare Fehler; Ausfall lässt vorhandenes Ananta-Memory weiter funktionieren."
+      ]
+    },
+    {
+      "id": "HSM-006",
+      "title": "Aufgabenergebnisse kontrolliert übernehmen",
+      "milestone": "HSM-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "HSM-004",
+        "HSM-005"
+      ],
+      "acceptance_criteria": [
+        "Nur vom Hub zugelassene Ergebnisse, Fehlversuche und Retrospektiven übernehmen; Projekt-, Mandanten-, Sensitivitäts- und memory_write-Prüfung vor retain.",
+        "Langzeitvorschläge bleiben bis zur gültigen Hub-Freigabe von freigegebenem Retrieval getrennt; explizite Hub-Autoapproval-Policy für headless Betrieb unterstützen.",
+        "Idempotenz und Retry-Deduplizierung über unveränderliche Quellversionen; Herkunft, Task, Run und Ableitung prüfbar halten.",
+        "Nur durch Hub ausgestellte oder validierte SRC_*/RUN_*-Identitäten verwenden; Rohdaten nicht durch generierte Erkenntnisse überschreiben."
+      ]
+    },
+    {
+      "id": "HSM-007",
+      "title": "Recall und Reflect in vorhandenen Kontextfluss integrieren",
+      "milestone": "HSM-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "HSM-006"
+      ],
+      "acceptance_criteria": [
+        "Recall-Kandidaten über bestehende Policy-, Ranking-, Deduplizierungs- und Kontextbudgets einspeisen; CodeCompass bleibt zuständig für Repository-Struktur und Codequellen.",
+        "Reflect ist eine separat budgetierte delegierte Operation; Schlussfolgerungen als Ableitungen mit Originalbelegen kennzeichnen.",
+        "Freigabe und Sensitivität auch bei Zusammenfassungen, Graphnachbarn, Caches und abgeleiteten Antworten prüfen; keine Aufwertung zu Instruktionen oder Berechtigungen.",
+        "Bei fehlenden oder widersprüchlichen Belegen Unsicherheit beziehungsweise Enthaltung zurückgeben."
+      ]
+    },
+    {
+      "id": "HSM-008",
+      "title": "Widersprüche, Aktualisierung und Löschung absichern",
+      "milestone": "HSM-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "HSM-007"
+      ],
+      "acceptance_criteria": [
+        "Fälle früher/heute, verspätet eingegangene Ereignisse und widersprüchliche Belege mit getrennten Ereignis- und Erfassungszeiten nachweisen.",
+        "Neue Erkenntnisse müssen belegbare Historie behalten; veraltete Verdichtungen bis zur Neubewertung als stale behandeln.",
+        "TTL, Widerruf und Löschung bis in Fakten, Observations, Zusammenfassungen, Indizes und Caches propagieren; unvollständige Bereinigung sichtbar blockieren.",
+        "Mandantenübergreifende Abfragen und Memory-Poisoning mit negativen Tests abdecken."
+      ]
+    },
+    {
+      "id": "HSM-009",
+      "title": "Headless Vertrags- und Integrationstests ergänzen",
+      "milestone": "HSM-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "HSM-008"
+      ],
+      "acceptance_criteria": [
+        "Deterministische Testdoubles für Policy und Provider; keine interaktiven Freigaben, unbegrenzten Wartezeiten oder bezahlten API-Abhängigkeiten in Standardtests.",
+        "Realer Container-Integrationstest deckt Neustart/Persistenz, Wiederholung, Timeout, Ausfall, Scopetrennung und Löschkaskade ab.",
+        "Feature aus erhält bisherigen Kontextfluss; automatisierte Tests prüfen substituierbare Adapterverträge und Quellenbindung.",
+        "Synthetische Evidenz eindeutig markieren; sie erfüllt keine produktive Freigabe."
+      ]
+    },
+    {
+      "id": "HSM-010",
+      "title": "Reproduzierbaren Qualitäts- und Kostenvergleich durchführen",
+      "milestone": "HSM-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "HSM-003",
+        "HSM-009"
+      ],
+      "acceptance_criteria": [
+        "Alle Vergleichsvarianten auf demselben eingefrorenen Datensatz ausführen, Modell-/Versionsdaten und Parameter festhalten; keine erfundenen Messwerte.",
+        "Antwort- und Quellenqualität, Zeitkorrektheit, Abstention, p50/p95-Latenz, Token, Kosten und Ressourcen inklusive Hintergrundjobs ausweisen.",
+        "Mehrere Läufe bei stochastischen Modellen, Streuung und Fehlerbeispiele berichten; Fixture-Erfolg nicht als bewiesenen Produktionsnutzen darstellen."
+      ]
+    },
+    {
+      "id": "HSM-011",
+      "title": "Integrationsentscheidung und begrenzten Rollout festhalten",
+      "milestone": "HSM-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "HSM-010"
+      ],
+      "acceptance_criteria": [
+        "ADR entscheidet anhand vorher festgelegter Kriterien zwischen optionalem Hindsight, nativer Verbesserung oder begründetem Verzicht.",
+        "Keine Aktivierung ohne eingehaltene Isolation, Quellenbindung und Kostenbudgets; begrenzter Projekt-Rollout nur bei belegtem Mehrwert.",
+        "Abschalten, Export und Rückkehr zur nativen Variante dokumentieren und prüfen; keine automatische vollständige Migration."
+      ]
+    },
+    {
+      "id": "HSM-012",
+      "title": "Deutsche Betriebsdokumentation und Abschluss erstellen",
+      "milestone": "HSM-M4",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "depends_on": [
+        "HSM-011"
+      ],
+      "acceptance_criteria": [
+        "Konfiguration, lokale Modellwahl, Datenfluss, Grenzen, Fehlerdiagnose und Rollback auf Deutsch beschreiben.",
+        "Ergebnis nennt konkret, was Ananta zusätzlich kann, welche Fälle weiterhin scheitern und welche laufenden Kosten entstehen.",
+        "Tasks erst nach ihren Nachweisen abschließen; bei negativem Evaluationsergebnis Umsetzung begründet zurückstellen und offene Arbeit transparent ausweisen."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "HSM-001",
+    "HSM-002",
+    "HSM-003",
+    "HSM-004",
+    "HSM-005",
+    "HSM-006",
+    "HSM-007",
+    "HSM-008",
+    "HSM-009",
+    "HSM-010",
+    "HSM-011",
+    "HSM-012"
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P1": 11,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 3,
+      "medium": 6,
+      "high": 3
+    },
+    "critical_path": {
+      "total": 12,
+      "done": 0,
+      "remaining": 12
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  }
+}

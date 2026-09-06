@@ -1,0 +1,287 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "created": "2026-09-06",
+  "goal": "Projektentscheidungen und Agentenerfahrungen mit zeitlicher Gültigkeit, nachvollziehbarer Herkunft und historischen Abfragen nutzbar machen; vorhandenes Memory und CodeCompass wiederverwenden.",
+  "milestones": [
+    {
+      "id": "GTM-M1",
+      "status": "todo",
+      "task_ids": [
+        "GTM-001",
+        "GTM-002",
+        "GTM-003"
+      ],
+      "title": "Bestand und Vergleich"
+    },
+    {
+      "id": "GTM-M2",
+      "status": "todo",
+      "task_ids": [
+        "GTM-004",
+        "GTM-005",
+        "GTM-006",
+        "GTM-007"
+      ],
+      "title": "Optionaler Adapter"
+    },
+    {
+      "id": "GTM-M3",
+      "status": "todo",
+      "task_ids": [
+        "GTM-008",
+        "GTM-009",
+        "GTM-010"
+      ],
+      "title": "Verifikation und Entscheidung"
+    }
+  ],
+  "owner": "Peter Stuiber / Ananta",
+  "priority": "P1",
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "purpose": "Graphiti gezielt als optionalen zeitlichen Wissensgraphen für Ananta evaluieren und bei nachgewiesenem Mehrwert integrieren.",
+  "related_todos": [
+    "todos/todo.hindsight-memory-adapter-evaluation.json",
+    "todos/archiv/todo.openhuman-inspired-ananta-memory-routing.json",
+    "todos/kritis/todo.zero-trust-agent-memory-and-hidden-state.json"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "source_review": {
+    "findings": [
+      "GitHub-Codeindex lieferte keine Graphiti-Treffer; aktuelle Baumprüfung fand keine explizit benannte Graphiti-Datei. Dies ist kein vollständiger Audit aller Branches und Deployments.",
+      "MemoryTree-Retrieval mit Quellenreferenzen und Sensitivitätsfilter vorhanden.",
+      "Hindsight-Evaluation bereits als Todo vorhanden; gemeinsame Verträge und Benchmarks abstimmen."
+    ],
+    "kind": "Vorläufige statische Prüfung; keine Laufzeitverifikation",
+    "observed_files": [
+      "agent/services/memory_tree_retrieval_service.py",
+      "pyproject.toml",
+      "requirements.txt",
+      "rag-helper/requirements.txt",
+      "todos/archiv/todo.openhuman-inspired-ananta-memory-routing.json",
+      "todos/todo.hindsight-memory-adapter-evaluation.json"
+    ],
+    "references": [
+      "https://github.com/getzep/graphiti",
+      "https://github.com/getzep/graphiti/blob/main/LICENSE"
+    ],
+    "repository_tree_commit": "546f16dc78f403a4d9e4b770f48f49ac8e7f92eb"
+  },
+  "status": "todo",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "tasks": [
+    {
+      "acceptance_criteria": [
+        "Aktuellen Commit und Aufrufpfade von MemoryTree, ResultMemory, ContextBundler und CodeCompass erfassen; implementiert, aktiviert und laufzeitgeprüft getrennt bewerten.",
+        "Mit todos/todo.hindsight-memory-adapter-evaluation.json gemeinsame Adapterverträge, Testdaten und Entscheidungskriterien abstimmen; keine zweite unabhängige Memory-Plattform voraussetzen.",
+        "Zeitliche Faktenverwaltung, Quellenbindung und Widerspruchsbehandlung im Bestand prüfen; nur belegte Lücken als Implementierungsbedarf aufnehmen."
+      ],
+      "depends_on": [],
+      "id": "GTM-001",
+      "milestone_id": "GTM-M1",
+      "priority": "P1",
+      "risk": "low",
+      "status": "todo",
+      "title": "Bestand und Hindsight-Abgrenzung prüfen"
+    },
+    {
+      "acceptance_criteria": [
+        "Upstream-Release oder Commit, Lizenz, Graphdatenbank-Kompatibilität und MCP-/Python-Verträge festhalten; vorhandene Infrastruktur gegen Neo4j und FalkorDB abwägen.",
+        "Extraktion, Embeddings und Reranking getrennt konfigurieren; Ollama und LM Studio mit strukturierten Ausgaben praktisch prüfen, API-Kompatibilität allein genügt nicht.",
+        "Versionierte Abhängigkeiten und Ressourcenbedarf erfassen; Datenbanksuche-Latenz getrennt von Ingestion und vollständiger Antwortlatenz ausweisen."
+      ],
+      "depends_on": [
+        "GTM-001"
+      ],
+      "id": "GTM-002",
+      "milestone_id": "GTM-M1",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Graphiti-Version und Betriebsoptionen bewerten"
+    },
+    {
+      "acceptance_criteria": [
+        "Mindestens 30 feste deutsche Fälle zu Architekturentscheidungen, Modellwechseln, Retrospektiven, historischen Fragen, verspäteten Ereignissen, Duplikaten, Widersprüchen und fehlenden Belegen erstellen.",
+        "Ananta-Baseline, gezielte native zeitliche Erweiterung und Graphiti vergleichen; Hindsight bei Verfügbarkeit auf denselben Fällen mitmessen, andernfalls ausdrücklich als nicht gemessen ausweisen.",
+        "Vor Messbeginn Mindestverbesserung, maximalen Kosten- und Latenzrahmen festlegen; identische Quellen, Antwortmodelle und Kontextbudgets verwenden."
+      ],
+      "depends_on": [
+        "GTM-001"
+      ],
+      "id": "GTM-003",
+      "milestone_id": "GTM-M1",
+      "priority": "P1",
+      "risk": "low",
+      "status": "todo",
+      "title": "Gemeinsamen Vergleich und Erfolgskriterien definieren"
+    },
+    {
+      "acceptance_criteria": [
+        "Vorhandene Ports wiederverwenden oder kleine getrennte Ports für Ingestion, Retrieval und Lifecycle per Dependency Injection definieren; keine zentrale God-Class oder neue globale Service-Instanz.",
+        "Faktvertrag umfasst Entitäten, Beziehung, Gültigkeitsintervall, Erfassungszeit, Status, Originalquellversion und Ableitungsreferenz; Ereigniszeit und Wissensstand getrennt abfragen können.",
+        "Graphiti-UUIDs auf unveränderliche Hub-Quellenbindungen abbilden; SRC_*/RUN_*-Identitäten ausschließlich durch Hub ausstellen oder validieren lassen.",
+        "Hub bleibt Eigentümer von Policy, Jobs und Task Queue; Extraktion und Graphoperationen erfolgen als delegierte Arbeit über explizite Containergrenzen. SOLID und Substituierbarkeit dokumentieren."
+      ],
+      "depends_on": [
+        "GTM-001",
+        "GTM-002"
+      ],
+      "id": "GTM-004",
+      "milestone_id": "GTM-M2",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Zeitlichen Adaptervertrag und Quellenmodell entwerfen"
+    },
+    {
+      "acceptance_criteria": [
+        "Reproduzierbares Container-Profil mit ausgewähltem Graphbackend, persistenten Volumes, Healthcheck, Authentifizierung und geschützten Secrets bereitstellen.",
+        "Feature standardmäßig deaktiviert; keine Pflichtabhängigkeit im Kern und keine automatische vollständige Datenmigration.",
+        "Begrenzte Timeouts, Retries und Lastgrenzen; bei Ausfall explizit markierter nativer Fallback nur innerhalb gleicher Policy und ohne vorgetäuschte historische Abfragefähigkeit.",
+        "Lokale und externe Modelle über bestehende Providerwahl konfigurieren; Cloud-Verbot und Budgets vor jedem Modellaufruf durchsetzen."
+      ],
+      "depends_on": [
+        "GTM-004"
+      ],
+      "id": "GTM-005",
+      "milestone_id": "GTM-M2",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Optionalen isolierten Graphiti-Dienst bereitstellen"
+    },
+    {
+      "acceptance_criteria": [
+        "Nur vom Hub zugelassene Quellversionen aus Ergebnissen, Entscheidungen und Retrospektiven übernehmen; Projekt, Mandant, Sensitivität und Schreibrechte vor Verarbeitung prüfen.",
+        "Idempotenzschlüssel, Wiederholungen, Teilfehler und nebenläufige Updates absichern; Episoden bleiben nachvollziehbare Eingaben, LLM-Ableitungen ersetzen keine Originalbelege.",
+        "Neue widersprüchliche Aussagen nicht allein wegen späterer Ankunft als Wahrheit behandeln; Quellenautorität, verspätete Ereignisse und ungelöste Konflikte explizit abbilden.",
+        "Historische Ungültigkeit und physische Löschung unterscheiden; Zeitpunkt der Gültigkeit und Zeitpunkt der Kenntnisnahme auch bei rückwirkenden Korrekturen erhalten."
+      ],
+      "depends_on": [
+        "GTM-005"
+      ],
+      "id": "GTM-006",
+      "milestone_id": "GTM-M2",
+      "priority": "P1",
+      "risk": "high",
+      "status": "todo",
+      "title": "Episoden und zeitliche Fakten kontrolliert übernehmen"
+    },
+    {
+      "acceptance_criteria": [
+        "Abfragen für aktuellen Stand, Gültigkeit zu Zeitpunkt X und damaligen Wissensstand unterstützen; fehlende Backend-Semantik ausdrücklich als unsupported melden.",
+        "Treffer über bestehende Ranking-, Deduplizierungs- und Kontextbudgetpfade einspeisen; CodeCompass bleibt zuständig für deterministische Codestruktur und Repository-Belege.",
+        "Mandanten-/Projektfilter und Sensitivität vor Suche und bei Graphnachbarn, Zusammenfassungen und Ergebnissen durchsetzen; group_id allein nicht als Zugriffsprüfung behandeln.",
+        "Fakten, Ableitungen, Historie und Unsicherheit sichtbar unterscheiden; gespeicherte Inhalte verleihen weder Instruktionsautorität noch Rechte."
+      ],
+      "depends_on": [
+        "GTM-006"
+      ],
+      "id": "GTM-007",
+      "milestone_id": "GTM-M2",
+      "priority": "P1",
+      "risk": "high",
+      "status": "todo",
+      "title": "Zeitbezogenes Retrieval in bestehenden Kontextfluss integrieren"
+    },
+    {
+      "acceptance_criteria": [
+        "TTL, Quellenwiderruf und Löschung in Episoden, Fakten, Embeddings, Zusammenfassungen und Caches propagieren; verbleibende berechtigte Quellen bei Mehrfachbelegen berücksichtigen.",
+        "Unvollständige Bereinigung sperrt betroffene Treffer; verspätete Jobs dürfen gelöschte Daten nicht erneut einbringen. Backup-Retention und Wiederherstellung mit Löschmarkern dokumentieren.",
+        "Headless Tests für Scopetrennung, Memory-Poisoning, widersprüchliche Quellen, Zeitgrenzen, Retry-Duplikate und konkurrierende Updates ergänzen.",
+        "Realer Container-Test prüft Neustart/Persistenz, Ausfall und Löschkaskade; Standardtests nutzen deterministische Provider-Doubles ohne bezahlte API oder interaktive Freigaben. Synthetische Evidenz getrennt kennzeichnen."
+      ],
+      "depends_on": [
+        "GTM-007"
+      ],
+      "id": "GTM-008",
+      "milestone_id": "GTM-M3",
+      "priority": "P1",
+      "risk": "high",
+      "status": "todo",
+      "title": "Löschung, Widerruf und negative Vertragsfälle absichern"
+    },
+    {
+      "acceptance_criteria": [
+        "Vergleich auf eingefrorenen Daten mit dokumentierten Versionen durchführen; Quellenrichtigkeit, Zeitkorrektheit, unbelegte Aussagen und korrekte Enthaltung bewerten.",
+        "p50/p95 für Ingestion, Suche und Gesamtantwort sowie Token, RAM, Speicher und Modellkosten inklusive Hintergrundarbeit erfassen; stochastische Läufe wiederholen und Streuung berichten.",
+        "Fehlerbeispiele und tatsächliche Mehrwerte gegenüber MemoryTree und verfügbarer Hindsight-Variante dokumentieren; keine erfundenen Messwerte oder Produktionsfreigabe aus synthetischen Tests."
+      ],
+      "depends_on": [
+        "GTM-003",
+        "GTM-008"
+      ],
+      "id": "GTM-009",
+      "milestone_id": "GTM-M3",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Qualität, Kosten und Betriebsaufwand messen"
+    },
+    {
+      "acceptance_criteria": [
+        "ADR entscheidet anhand vorher festgelegter Kriterien zwischen optionalem Graphiti, nativer Erweiterung, Hindsight oder begründetem Verzicht; Kombination nur bei gemessenem zusätzlichem Nutzen.",
+        "Nur bei erfüllten Kriterien begrenzten Projekt-Rollout vorsehen; Abschalten, Export, Rückkehr zum nativen Speicher und Upgrade-/Rollback-Verhalten prüfen.",
+        "Deutsche Anleitung erklärt lokale Modellwahl, Konfiguration, historische Abfragen, Quellenanzeige, Grenzen und Kosten.",
+        "Abschluss benennt konkret neue Fähigkeiten und offene Lücken. Alle Tasks bleiben bis zu ihren Nachweisen offen; negative Evaluation und zurückgestellte Umsetzung transparent dokumentieren."
+      ],
+      "depends_on": [
+        "GTM-009"
+      ],
+      "id": "GTM-010",
+      "milestone_id": "GTM-M3",
+      "priority": "P2",
+      "risk": "low",
+      "status": "todo",
+      "title": "Entscheidung, Rollout und deutsche Anleitung abschließen"
+    }
+  ],
+  "tasks_status_summary": {
+    "by_priority": {
+      "P1": 9,
+      "P2": 1
+    },
+    "by_risk": {
+      "high": 3,
+      "low": 3,
+      "medium": 4
+    },
+    "by_status": {
+      "blocked": 0,
+      "done": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "todo": 10
+    },
+    "critical_path": {
+      "done": 0,
+      "remaining": 0,
+      "total": 0
+    },
+    "milestones": {
+      "blocked": 0,
+      "done": 0,
+      "in_progress": 0,
+      "todo": 3,
+      "total": 3
+    },
+    "progress_percent_done": 0,
+    "total": 10
+  },
+  "track": "graphiti-temporal-memory-adapter-evaluation",
+  "version": "1.0"
+}

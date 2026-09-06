@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "PI",
+  "purpose": "Pi als optionale, Hub-gesteuerte Coding-Agent-Laufzeit evaluieren und bei belegter Eignung additiv integrieren.",
+  "goal": "Ananta kann delegierte Coding-Aufträge über Pi ausführen, mit zentraler Modellwahl, CodeCompass-Kontext und bestehenden Sicherheits- und Audit-Verträgen.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "sources": [
+    {
+      "url": "https://pi.dev/",
+      "note": "Offizielle Übersicht; konkrete Version und Schnittstellen vor Implementierung verifizieren."
+    }
+  ],
+  "architecture_constraints": [
+    "AGENTS.md und docs/planning-pipeline.md einhalten.",
+    "CodingAgentProvider und vorhandene Prozess-/Target-Ports wiederverwenden; SRP/OCP/DIP durch kleine Adapter erhalten.",
+    "Kein Austausch der Hub-Worker-Architektur, kein unabhängiger Agenten-Scheduler, keine neue globale Modellkonfiguration.",
+    "Passives Todo; Erstellung aktiviert keine Provider und materialisiert keine Laufzeit-Tasks."
+  ],
+  "milestones": [
+    {
+      "id": "PI-M1",
+      "title": "Eignung und Integrationsentscheidung",
+      "task_ids": [
+        "PI-T01"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PI-M2",
+      "title": "Optionale Integration und Verifikation",
+      "task_ids": [
+        "PI-T02",
+        "PI-T03",
+        "PI-T04",
+        "PI-T05",
+        "PI-T06"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PI-T01",
+      "title": "Pi-Vertrag und Überschneidungen prüfen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "milestone_id": "PI-M1",
+      "acceptance_criteria": [
+        "Aktuelle offizielle Pi-Dokumentation, Paketname, Version, Lizenz, JSON-Ausgabe, RPC/SDK und Authentifizierung mit Quellen dokumentieren.",
+        "Bestehende Pi-/OMP-Todos und CodingAgentProvider-Implementierungen prüfen; Überschneidungen referenzieren und Doppelimplementierungen vermeiden.",
+        "CLI/JSON, RPC und SDK nach Integrationsaufwand vergleichen; schmalsten ausreichenden Transport wählen und Entscheidung begründen."
+      ]
+    },
+    {
+      "id": "PI-T02",
+      "title": "Optionalen Provider über bestehende Ports ergänzen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PI-T01"
+      ],
+      "milestone_id": "PI-M2",
+      "acceptance_criteria": [
+        "Pi unter agent/cli_backends als standardmäßig deaktiviertes Backend hinter CodingAgentProvider einfügen; bestehende Provider unverändert nutzbar.",
+        "BoundedCodingAgentProcess für geeignete Subprozesspfade wiederverwenden; RPC nur bei nachgewiesenem Bedarf über kleinen separaten Transportadapter.",
+        "Absolute Binary-Pfade und Argumentlisten, begrenzte Ausgaben, Timeout, Abbruch und Beendigung aller Kindprozesse gewährleisten; Node-Abhängigkeiten versioniert im Worker bereitstellen."
+      ]
+    },
+    {
+      "id": "PI-T03",
+      "title": "Hub-Policies und isolierte Ausführung durchsetzen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PI-T01",
+        "PI-T02"
+      ],
+      "milestone_id": "PI-M2",
+      "acceptance_criteria": [
+        "Hub bleibt alleiniger Eigentümer von Task Queue, Routing, Modellwahl, Budget, Delegation und Berechtigungen; Pi orchestriert keine weiteren Worker.",
+        "Tools, Dateipfade, Netzwerk und Extensions anhand Hub-Policy begrenzen; fehlende Pi-Berechtigungsdialoge gelten niemals als Freigabe. Read-only technisch testen, andernfalls Capability ablehnen.",
+        "Projekt-/Benutzer-Konfiguration, AGENTS.md, Skills und Extensions als Eingaben ohne zusätzliche Autorität behandeln; automatische fremde Extension-Ladung/Installation und Selbständerung außerhalb des Auftrags verhindern.",
+        "Jeder Worker bleibt in eigenem Container mit auftragsgebundenem Workspace; fehlende Autorisierung liefert begrenztes maschinenlesbares blocked/failed."
+      ]
+    },
+    {
+      "id": "PI-T04",
+      "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PI-T02",
+        "PI-T03"
+      ],
+      "milestone_id": "PI-M2",
+      "acceptance_criteria": [
+        "CLI-Client, Inferenzanbieter und Modell getrennt über vorhandene Hub-Konfiguration führen; Ollama, LM Studio und OpenRouter mit jeweils offiziell unterstützter Konfiguration prüfen.",
+        "Fallbacks und Modellwechsel nur über Hub-Policy; Credentials auftragsbezogen erlauben, niemals aus fremden Credential-Dateien auslesen oder protokollieren.",
+        "CodeCompass-Kontext nur aus freigegebenem ContextBundle zuführen; bestehende Tool-/MCP-Brücke wiederverwenden, soweit Pi sie sicher unterstützt, sonst Capability als unsupported ausweisen.",
+        "Status, Auth-Bereitschaft, Version und Fähigkeiten in vorhandener API/UI-Projektion abbilden; Client als open_source_byok führen, Inferenzkosten separat darstellen."
+      ]
+    },
+    {
+      "id": "PI-T05",
+      "title": "Sitzungen, Events und Ergebnisbindung integrieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PI-T03",
+        "PI-T04"
+      ],
+      "milestone_id": "PI-M2",
+      "acceptance_criteria": [
+        "Pi-Ereignisse auf vorhandene Provider-Events abbilden; Teilresultate, Fehler und widersprüchliche Abschlussereignisse deterministisch behandeln.",
+        "Resume und Sitzungszweige strikt an Tenant, Projekt, Task, Assignment und Dispatch Lease binden; keine automatische öffentliche Freigabe oder Gist-Uploads.",
+        "Hub reserviert RUN-Identität vor Ausführung und registriert Quellen; Pi übernimmt ausschließlich zugewiesene Identitäten und kann keine Evidenz selbst ausstellen.",
+        "Artefakte und Resultate über vorhandenen verifizierten Hub-Ingress liefern; Wiederholung idempotent, abgelaufene Leases und verspätete Resultate ablehnen."
+      ]
+    },
+    {
+      "id": "PI-T06",
+      "title": "Headless-Verifikation und Einführung dokumentieren",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PI-T05"
+      ],
+      "milestone_id": "PI-M2",
+      "acceptance_criteria": [
+        "Deterministische Tests mit injizierten Prozess-/Transport-Ports für Erfolg, kaputte JSON-Events, Timeout, Abbruch, Output-Overflow und Secret-Redaktion ausführen.",
+        "Negative Tests für Schreibversuch im Read-only-Modus, fremde Session, unerlaubte Extension, Modellwechsel und stale Lease ausführen; keine menschlichen Eingaben erforderlich.",
+        "Optionalen explizit aktivierten Live-Smoke für einen lokalen und einen externen Modellendpunkt vorsehen; ohne Opt-in überspringen, mit Opt-in bei fehlender Auth/Binary begrenzt fehlschlagen.",
+        "Deutsche Dokumentation mit Einrichtung, Grenzen, CodeCompass-Ablauf, Abschalten/Rollback und Transportentscheidung ergänzen; bestehende Provider-Vertragstests und relevante Repository-Gates ausführen."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PI-T01",
+    "PI-T02",
+    "PI-T03",
+    "PI-T04",
+    "PI-T05",
+    "PI-T06"
+  ],
+  "tasks_status_summary": {
+    "total": 6,
+    "by_status": {
+      "todo": 6,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P2": 6
+    },
+    "by_risk": {
+      "medium": 4,
+      "high": 2
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 0,
+      "remaining": 6
+    },
+    "milestones": {
+      "total": 2,
+      "todo": 2,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "Alle Tasks sind offen; dieser Track behauptet keine implementierte Pi-Unterstützung.",
+    "PI-T02 bis PI-T06 nur nach positiver dokumentierter Eignungsentscheidung durchführen; bei Ablehnung Ergebnis und Gründe dokumentieren."
+  ]
+}
