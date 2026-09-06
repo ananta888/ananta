@@ -1,0 +1,45 @@
+# Optional local GPU execution; no public ports or changes to existing Meet.
+# Use a separate Compose project. Provision the key and model before startup.
+services:
+  meet-ollama:
+    image: ollama/ollama@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80
+    gpus: all
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_CONTEXT_LENGTH: "2048"
+      OLLAMA_NO_CLOUD: "true"
+    volumes:
+      - meet-models:/root/.ollama
+    networks: [meet-compute]
+  meet-media-worker:
+    build:
+      context: .
+      dockerfile: docker/meet-media/Dockerfile
+    gpus: all
+    init: true
+    user: "${MEET_MEDIA_UID:-1000}:${MEET_MEDIA_GID:-1000}"
+    environment:
+      MEET_WORKER_KEY_FILE: /run/secrets/meet-worker-key
+      MEET_OLLAMA_URL: http://meet-ollama:11434
+      MEET_LLM_MODEL: qwen2.5:1.5b
+      MEET_HUB_LEASE_URL: ${MEET_HUB_LEASE_URL:-}
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+    volumes:
+      - ${MEET_MEDIA_STATE_DIR:?Set an absolute private runtime directory}/models:/models:ro
+      - ${MEET_MEDIA_STATE_DIR:?Set an absolute private runtime directory}/worker-key:/run/secrets/meet-worker-key:ro
+      - ${MEET_MEDIA_STATE_DIR:?Set an absolute private runtime directory}/worker-state:/state
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    mem_limit: 4g
+    pids_limit: 256
+    shm_size: 256m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:./docker/meet-media/chromium-seccomp.json
+    networks: [meet-compute]
+networks:
+  meet-compute: {}
+volumes:
+  meet-models: {}

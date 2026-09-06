@@ -1,0 +1,24 @@
+# Add to the existing Ananta Hub deployment, not the standalone media project.
+# Operator chooses exact tenant/project pairs; an empty list authorizes nothing.
+services:
+  ai-agent-hub:
+    environment:
+      ANANTA_MEET_ENABLED: ${ANANTA_MEET_ENABLED:-0}
+      ANANTA_MEET_ORIGIN: ${ANANTA_MEET_ORIGIN:-https://webrtc.ananta.de}
+      ANANTA_MEET_MEDIA_ENABLED: ${ANANTA_MEET_MEDIA_ENABLED:-0}
+      ANANTA_MEET_MEDIA_ALLOWED_SCOPES: ${ANANTA_MEET_MEDIA_ALLOWED_SCOPES:-[]}
+      ANANTA_MEET_MEDIA_WORKER_URL: http://meet-media-worker:8094/v1/turns
+      ANANTA_MEET_MEDIA_KEY_FILE: /run/secrets/meet-worker-key
+      ANANTA_MEET_MACHINE_ENABLED: ${ANANTA_MEET_MACHINE_ENABLED:-0}
+      ANANTA_MEET_MACHINE_ISSUER: ${ANANTA_MEET_MACHINE_ISSUER:-}
+      ANANTA_MEET_MACHINE_KEY_FILE: /run/secrets/meet-machine-private.pem
+    volumes:
+      - ${MEET_MEDIA_STATE_DIR:?Set private runtime directory}/worker-key:/run/secrets/meet-worker-key:ro
+      - ${MEET_MEDIA_STATE_DIR:?Set private runtime directory}/machine-private.pem:/run/secrets/meet-machine-private.pem:ro
+    networks:
+      meet-compute:
+        aliases: [meet-authorizing-hub]
+networks:
+  meet-compute:
+    external: true
+    name: ${MEET_MEDIA_NETWORK:-ananta-meet-media_meet-compute}
