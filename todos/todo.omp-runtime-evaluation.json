@@ -1,0 +1,179 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": 1,
+  "created": "2026-09-06",
+  "updated": "2026-09-06",
+  "project": "Ananta",
+  "review_basis": {
+    "reviewed_commit_range": "Kein Commit-Diff geprüft; Repository-Dokumentation von main am 2026-09-06 gelesen.",
+    "review_goal": "Oh My Pi als optionale Coding-Agent-Laufzeit prüfen und bei nachgewiesenem Nutzen architekturkonform integrieren.",
+    "sources": [
+      "https://omp.sh/",
+      "https://github.com/can1357/oh-my-pi",
+      "AGENTS.md",
+      "docs/planning-pipeline.md",
+      "docs/cli-backends-architecture.md",
+      "docs/coding-agent-providers.md"
+    ],
+    "limitations": [
+      "Dies ist ein passives Evaluations-/Umsetzungsvorhaben; OMP wurde weder installiert noch als integriert oder getestet bestätigt.",
+      "Upstream-Funktionen beruhen auf der gelesenen Projektbeschreibung und müssen am gepinnten Stand verifiziert werden."
+    ]
+  },
+  "categories": [
+    {
+      "name": "omp-runtime",
+      "label": "Oh My Pi: Evaluation und optionaler Runtime-Adapter",
+      "items": [
+        {
+          "id": "OMP-01",
+          "title": "Bestand und Überschneidungen prüfen",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [],
+          "description": "Vorhandene Coding-Agent-Provider, Pi-, Herdr- und Memory-Vorhaben sowie CLI-, Tool-, Modell- und CodeCompass-Verträge im aktuellen Repository erfassen. OMP-Upstream-Version und Commit für alle weiteren Prüfungen festhalten.",
+          "acceptance_criteria": [
+            "Ist-Matrix mit belegten Dateipfaden und wiederverwendbaren Komponenten liegt vor.",
+            "Offene Fragen und Upstream-Werbeaussagen sind als ungeprüft markiert; vorhandene Funktionen werden nicht erneut geplant."
+          ]
+        },
+        {
+          "id": "OMP-02",
+          "title": "Integrationsentscheidung und Architekturgrenzen festlegen",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-01"
+          ],
+          "description": "OMP als optionalen ausführenden Provider gegen Pi, OpenCode und Claude Code anhand identischer Anforderungen vergleichen. RPC/JSONL, ACP und SDK erst am gepinnten Stand auf Eignung prüfen. Entscheidung für Adapter, gezielte Konzeptübernahme oder begründetes Nichtintegrieren dokumentieren.",
+          "acceptance_criteria": [
+            "Hub behält Queue, Routing, Planung, Governance und Budgets; Worker delegieren nicht weiter.",
+            "OMP-task, autonome Subagenten, Advisor-Hintergrundaufrufe und eigene Orchestrierungsregeln werden deaktiviert oder technisch nachweisbar dem Hub unterstellt; reine Prompt-Anweisungen reichen nicht.",
+            "ADR benennt Protokoll, Wartungsaufwand, Lizenz-/Notice-Prüfung und Go/No-Go; bei No-Go werden Implementierungsaufgaben begründet zurückgestellt."
+          ]
+        },
+        {
+          "id": "OMP-03",
+          "title": "Begrenzten Provider-Prototyp entwickeln",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-02"
+          ],
+          "description": "Nur bei positivem Integrationsentscheid: kleinen Adapter unter agent/cli_backends/ auf dem vorhandenen coding_agent_contract und BoundedCodingAgentProcess aufbauen. Bestehende Ports nutzen; Prozesssteuerung, Event-Parsing und Modellauflösung getrennt halten.",
+          "acceptance_criteria": [
+            "Feature-Flag standardmäßig aus; bestehende Provider bleiben kompatibel.",
+            "Gepinnte Worker-lokale Bereitstellung, Capability-Handshake und strukturierte Events/Ergebnisse funktionieren ohne TUI.",
+            "Timeout, Abbruch, Prozessgruppen-Beendigung, Ausgabelimits, Secret-Redaktion und ungültige Protokollnachrichten sind begrenzt behandelt.",
+            "Keine direkten agent.services-Imports außerhalb der bestehenden Kontextgrenze; SRP/OCP/LSP/ISP/DIP am Adapter geprüft."
+          ]
+        },
+        {
+          "id": "OMP-04",
+          "title": "Modellrouting und Berechtigungen anbinden",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-03"
+          ],
+          "description": "Hub-Auftrag projiziert freigegebene Modelle, Inferenzziele, Credentials, Tool-Allowlist, Arbeitsverzeichnis und Limits in OMP. Lokale Ziele über Ollama/LM Studio sowie einen konfigurierten Cloud-Anbieter prüfen; interne Fallbacks und Rollen dürfen Hub-Freigaben nicht erweitern.",
+          "acceptance_criteria": [
+            "Keine unbemerkten Anbieterwechsel, zusätzlichen Modellaufrufe oder Budgetüberschreitungen.",
+            "Worker läuft im eigenen Container mit begrenztem Workspace und Netzwerkzugriff; globale Benutzerkonfiguration erweitert keine Rechte.",
+            "Policy-verweigerte Aktionen liefern einen maschinenlesbaren blocked-Status ohne interaktives Warten.",
+            "Web UI, CLI und API verwenden vorhandene Provider-/Profilkonfigurationen und zeigen fehlende Fähigkeiten verständlich an."
+          ]
+        },
+        {
+          "id": "OMP-05",
+          "title": "CodeCompass und Entwicklungswerkzeuge evaluieren",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-03"
+          ],
+          "description": "Gezielt LSP, DAP, Hashline-Edits und persistente Python/JavaScript-Ausführung testen. CodeCompass liefert nur Hub-freigegebenen Kontext; OMP-Erweiterungen und MCP-Anbindungen bleiben capability-gebunden.",
+          "acceptance_criteria": [
+            "Refactoring mit Importanpassung, Debugger-Fehleranalyse und Edit bei veraltetem Dateiinhalt sind reproduzierbar geprüft.",
+            "Dateizugriff und Änderungen bleiben innerhalb des Auftrags; Hashline gilt nicht als Berechtigungsgrenze.",
+            "Persistente Kernel werden zwischen getrennten Aufträgen/Mandanten isoliert oder zurückgesetzt.",
+            "Nur nachgewiesen nützliche Fähigkeiten werden aktiviert; keine pauschale Übernahme aller OMP-Werkzeuge."
+          ]
+        },
+        {
+          "id": "OMP-06",
+          "title": "Memory und Evidenz an vorhandene Dienste koppeln",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-04"
+          ],
+          "description": "OMP-Memory und Skills mit bestehenden Ananta-Diensten und gegebenenfalls vorhandenem Hindsight-Vorhaben abgleichen. Gedächtnis standardmäßig deaktivieren, bis Projekt-/Mandantengrenzen, Löschung, Herkunft und Synchronisation definiert sind.",
+          "acceptance_criteria": [
+            "Keine unabhängige zweite Wissensquelle mit stillen automatischen Rückschreibungen.",
+            "Memory-Inhalte verleihen weder Rechte noch Release-Evidenz; Quellenzulassung und SRC-/RUN-Identitäten stammen ausschließlich aus dem Hub Evidence Registry.",
+            "Runs sind vor Ausführung an Auftrag, Dispatch-Lease, Revision und Eingaben gebunden; unbekannte oder synthetische Evidenz bleibt für Produktionsfreigaben ungültig.",
+            "Löschung und projektübergreifender Zugriff werden mit automatischen Negativfällen geprüft."
+          ]
+        },
+        {
+          "id": "OMP-07",
+          "title": "Vergleich und Headless-Abnahme durchführen",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-04",
+            "OMP-05",
+            "OMP-06"
+          ],
+          "description": "OMP, Pi, OpenCode und Claude Code auf denselben Repository-Revisionen und Aufgaben vergleichen: Bugfix, Refactoring, Testergänzung und Codeverständnis. Gemeinsame Modelle verwenden, soweit unterstützt; abweichende Modelle, Preise und Fähigkeiten offen ausweisen.",
+          "acceptance_criteria": [
+            "Erfolg anhand versteckter oder unabhängiger Abnahmekriterien, Laufzeit, Tokens, Kosten und Wiederholungen messen; nicht nur Selbstauskunft des Agenten.",
+            "Abbruch, Restart, doppelte Events, fehlende Credentials, Policy-Verweigerung und Scope-Ausbruch sind vollständig headless geprüft.",
+            "Doppelte oder veraltete Resultate werden unter exakter Assignment-/Lease-Bindung abgelehnt; Worker können keine weiteren Tasks starten.",
+            "Ergebnisse als technische Beobachtungen bzw. Hub-registrierte Evidenz korrekt klassifiziert; keine Hersteller-Benchmarks als eigene Messungen ausgegeben."
+          ]
+        },
+        {
+          "id": "OMP-08",
+          "title": "Entscheidung, Dokumentation und optionalen Rollout abschließen",
+          "status": "open",
+          "priority": "medium",
+          "depends_on": [
+            "OMP-07"
+          ],
+          "description": "Ergebnisse mit Nutzen, Kosten und Grenzen auf Deutsch dokumentieren. Bei Nutzen begrenzten opt-in Rollout über vorhandene Hub-/Provider-Oberflächen durchführen; andernfalls Adapter deaktiviert lassen oder nur ausgewählte Erkenntnisse übernehmen.",
+          "acceptance_criteria": [
+            "Kurzanleitung für Einrichtung, Modellwahl, unterstützte Fähigkeiten, Fehlerdiagnose und Deaktivierung vorhanden.",
+            "Rollback auf bestehende Provider ohne Task-/Datenverlust beschrieben und überprüft.",
+            "Keine OMP-eigene Control Plane; keine ungeprüften Aussagen über bereits implementierte Ananta-Fähigkeiten.",
+            "Weitere Erweiterungen als separate kleine Aufgaben mit eigener Begründung festhalten."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 8,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 8
+    },
+    "notes": [
+      "Hub bleibt alleinige Control Plane. OMP wird ausschließlich als ausführender Provider erwogen.",
+      "Vorhandenen Herdr-Plan und etwaige Pi-/Hindsight-Planungen vor Umsetzung abgleichen.",
+      "Diese JSON-Datei erzeugt keine Runtime-Tasks und erteilt keine Tool- oder Ausführungsrechte."
+    ],
+    "recommended_order": [
+      "OMP-01",
+      "OMP-02",
+      "OMP-03",
+      "OMP-04",
+      "OMP-05",
+      "OMP-06",
+      "OMP-07",
+      "OMP-08"
+    ]
+  }
+}
