@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import update
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine
 
 from agent.db_models.evidence_identity import (
     HubRunEvidenceIdentityDB,
@@ -26,6 +27,49 @@ _B = "b" * 64
 _C = "c" * 64
 _D = "d" * 64
 _REVISION = "1" * 40
+
+
+def test_pinned_source_lookup_preserves_test_classification_and_does_not_issue(service):
+    source = _source(service, scope="test", synthetic=True)
+    verified = service.require_source_identity(
+        tenant_id=source.tenant_id,
+        project_id=source.project_id,
+        source_id=source.source_id,
+        expected_binding_digest=source.binding_digest,
+    )
+    assert verified == source and verified.synthetic and verified.evidence_scope == "test"
+    with pytest.raises(HubEvidenceRegistryError, match="mutated"):
+        service.require_source_identity(
+            tenant_id=source.tenant_id,
+            project_id=source.project_id,
+            source_id=source.source_id,
+            expected_binding_digest="f" * 64,
+        )
+
+
+def test_pinned_source_lookup_rejects_changed_persisted_content(service):
+    source = _source(service)
+    with Session(service._repository._database) as session:
+        session.exec(update(HubSourceEvidenceIdentityDB).values(content_digest="f" * 64))
+        session.commit()
+    with pytest.raises(HubEvidenceRegistryError, match="mutated"):
+        service.require_source_identity(
+            tenant_id=source.tenant_id,
+            project_id=source.project_id,
+            source_id=source.source_id,
+            expected_binding_digest=source.binding_digest,
+        )
+
+
+def test_pinned_source_lookup_rejects_unknown_or_cross_project_identity(service):
+    source = _source(service)
+    with pytest.raises(HubEvidenceRegistryError, match="unavailable"):
+        service.require_source_identity(
+            tenant_id=source.tenant_id,
+            project_id="foreign",
+            source_id=source.source_id,
+            expected_binding_digest=source.binding_digest,
+        )
 
 
 @pytest.fixture()

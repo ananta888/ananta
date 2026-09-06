@@ -124,6 +124,51 @@ class HubEvidenceRegistryService:
         )
         return self._repository.register_source(identity)
 
+    def require_source_identity(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        source_id: str,
+        expected_binding_digest: str,
+    ) -> SourceEvidenceIdentity:
+        """Verify an already pinned immutable source, without issuing or promoting it.
+
+        Consumers must separately check evidence scope and domain permissions.
+        A registered license document, for example, is not a publication grant.
+        """
+        expected = self._digest(expected_binding_digest, "evidence_source_binding_digest_invalid")
+        if not isinstance(source_id, str) or _SOURCE_ID.fullmatch(source_id) is None:
+            raise HubEvidenceRegistryError("evidence_source_identifier_invalid")
+        source = self._repository.get_source(tenant_id=tenant_id, project_id=project_id, source_id=source_id)
+        if source is None or source.state != "admitted":
+            raise HubEvidenceRegistryError("evidence_source_identity_unavailable")
+        binding = {
+            "schema": "ananta.hub-source-evidence-binding.v1",
+            **{
+                name: getattr(source, name)
+                for name in (
+                    "tenant_id",
+                    "project_id",
+                    "origin_type",
+                    "origin_digest",
+                    "content_digest",
+                    "policy_digest",
+                    "evidence_scope",
+                    "synthetic",
+                    "issuer",
+                )
+            },
+        }
+        if (
+            (source.tenant_id, source.project_id, source.source_id) != (tenant_id, project_id, source_id)
+            or source.binding_digest != expected
+            or _canonical_digest(binding) != expected
+            or (source.issuer == _HUB_ISSUER and source_id != f"SRC_{expected[:32]}")
+        ):
+            raise HubEvidenceRegistryError("evidence_source_identity_mutated")
+        return source
+
     def reserve_run(
         self,
         *,
