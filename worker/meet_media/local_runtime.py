@@ -18,7 +18,7 @@ def run(turn):
         if "persona_image" in turn:
             from worker.meet_media.lease_guard import HubLeaseGuard
 
-            lease = HubLeaseGuard(turn["task_id"], turn["lease_id"])
+            lease = HubLeaseGuard(turn["task_id"], turn["lease_id"], deadline=turn["deadline"])
             lease.require()
         generated = generate(turn["text"], **turn["response_limits"]) if "response_limits" in turn else None
         reply = generated.text if generated else answer(turn["text"])
@@ -51,7 +51,11 @@ def run(turn):
             from worker.meet_media.publisher import publish
 
             result["meeting"] = publish(
-                turn["meeting"], reply, video, turn["deadline"], HubLeaseGuard(turn["task_id"], turn["lease_id"])
+                turn["meeting"],
+                reply,
+                video,
+                turn["deadline"],
+                HubLeaseGuard(turn["task_id"], turn["lease_id"], deadline=turn["deadline"]),
             )
         return result
 

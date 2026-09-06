@@ -227,7 +227,7 @@ def test_turn_endpoint_uses_user_authority_and_separate_worker_lease_auth(meet_c
     assert client.post(path, headers=headers, json={"text": "hello"}).status_code == 200
     assert client.post(path + "?approve=true", headers=headers, json={"text": "hello"}).status_code == 400
     lease_path = "/api/meet/v1/internal/lease"
-    body = encode({"task_id": "task", "lease_id": "lease"})
+    body = encode({"task_id": "task", "lease_id": "lease", "nonce": "a" * 32})
     assert client.post(lease_path, headers=headers, data=body).status_code == 401
     lease = client.post(lease_path, data=body, headers={"X-Ananta-Task-Signature": signature(b"k" * 32, body)})
     assert lease.status_code == 200 and lease.json == {"allowed": True}

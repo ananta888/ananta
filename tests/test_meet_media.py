@@ -323,6 +323,7 @@ def test_worker_cannot_refresh_or_broaden_lease(monkeypatch, tmp_path, body):
     from unittest.mock import MagicMock
 
     import worker.meet_media.lease_guard as guard_module
+    from ananta_contracts.meet_lease import lease_response_signature
     from worker.meet_media.lease_guard import HubLeaseGuard
 
     path = tmp_path / "key"
@@ -332,10 +333,15 @@ def test_worker_cannot_refresh_or_broaden_lease(monkeypatch, tmp_path, body):
     monkeypatch.setenv("MEET_WORKER_KEY_FILE", str(path))
     response = MagicMock()
     response.__enter__.return_value = response
-    response.read.return_value = body
-    response.headers = {"X-Ananta-Lease-Signature": signature(b"k" * 32, b"lease-v1\0" + body)}
+    response.read1.side_effect = [body, b""]
+    response.headers = {"X-Ananta-Lease-Protocol": "ananta.meet-lease.v2"}
     opener = Mock()
-    opener.open.return_value = response
+
+    def respond(request, **_kwargs):
+        response.headers["X-Ananta-Lease-Signature"] = lease_response_signature(b"k" * 32, request.data, body)
+        return response
+
+    opener.open.side_effect = respond
     monkeypatch.setattr(guard_module.urllib.request, "build_opener", lambda *_: opener)
     if body == b'{"allowed":true}':
         HubLeaseGuard("task", "lease").require()

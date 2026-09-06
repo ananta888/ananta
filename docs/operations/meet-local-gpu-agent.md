@@ -130,6 +130,23 @@ ANANTA_MEET_MACHINE_ISSUER=https://ECHTER-HUB-HOST
 
 Der GPU-Worker erhält als feste Rückrufadresse
 `MEET_HUB_LEASE_URL=http://meet-authorizing-hub:5000/api/meet/v1/internal/lease`.
+
+Der private Callback verlangt jetzt [anfragegebundene Lease V2](../contracts/meet-lease-v2.md).
+Hub und Worker gemeinsam aktualisieren; ältere Zwei-Feld-Anfragen erhalten eine
+maschinenlesbare Upgrade-Meldung, keine wiederverwendbare Freigabe.
+
+Das zusätzliche Opt-in-Gate `tests/test_meet_profile_gpu.py` führt einen echten
+lokalen LLM-/Piper-CUDA-/Persona-NVENC-Turn mit realer Profil-SQL, regulärem
+Hub-Task und anfragegebundenem HTTP-Callback aus. Seine Bildzulassungs-Policies
+sind ausdrücklich synthetische Test-Fixtures; es veröffentlicht weder in Meet
+noch liefert es produktive Release-Evidenz. Die Callback-URL des privaten Workers
+auf einen freien Port seines Docker-Gateways konfigurieren und pytest
+`MEET_PROFILE_GPU_GATE=1`, `MEET_PROFILE_GPU_CALLBACK_HOST`,
+`MEET_PROFILE_GPU_CALLBACK_PORT`, `MEET_MEDIA_GPU_ENDPOINT` und
+`MEET_MEDIA_GPU_KEY_FILE` übergeben. Der Test startet und schließt den privaten,
+auf die Lease-Route beschränkten Callback automatisch. Der öffentliche Hub oder
+Meet-Server wird weder verändert noch neu gestartet.
+
 Der Hub-Overlay mountet nur den Worker-Schlüssel und den privaten
 Maschinenschlüssel. An Meet wird **nur** `machine-public.pem` read-only
 weitergegeben; dort müssen `MACHINE_HUB_PUBLIC_KEY_FILE` und

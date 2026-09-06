@@ -98,25 +98,36 @@ def media_lease():
     """Read-only worker capability endpoint; never accepts a user/service JWT."""
     import json
 
-    from worker.meet_media.contract import authenticate, signature
+    from ananta_contracts.meet_lease import lease_response_signature, validate_lease_request
+    from worker.meet_media.contract import authenticate
 
     _runtime()
     runtime = current_app.extensions.get("meet_turn_service")
     key = current_app.extensions.get("meet_media_worker_key")
     if runtime is None or key is None:
         raise MeetError("meet_media_disabled", 404)
-    if request.args or request.content_length is None or not 0 < request.content_length <= 512:
+    if (
+        request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 512
+    ):
         raise MeetError("meet_lease_invalid")
     raw = request.get_data(cache=False)
     try:
         authenticate(key, raw, request.headers.get("X-Ananta-Task-Signature", ""))
         payload = json.loads(raw)
-        if not isinstance(payload, dict) or set(payload) != {"task_id", "lease_id"}:
-            raise ValueError()
-        if any(not isinstance(v, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", v) for v in payload.values()):
-            raise ValueError()
     except (ValueError, TypeError):
         raise MeetError("meet_lease_unauthorized", 401) from None
+    if isinstance(payload, dict) and set(payload) == {"task_id", "lease_id"}:
+        # V1 signed only {allowed:true}; a recorded result could authorize a
+        # different/revoked lease. Never silently downgrade to that protocol.
+        raise MeetError("meet_lease_protocol_upgrade_required", 409)
+    try:
+        validate_lease_request(payload)
+    except ValueError:
+        raise MeetError("meet_lease_unauthorized", 401) from None
     response = jsonify({"allowed": runtime.lease_allowed(payload["task_id"], payload["lease_id"])})
-    response.headers["X-Ananta-Lease-Signature"] = signature(key, b"lease-v1\0" + response.get_data())
+    response.headers["X-Ananta-Lease-Protocol"] = "ananta.meet-lease.v2"
+    response.headers["X-Ananta-Lease-Signature"] = lease_response_signature(key, raw, response.get_data())
     return response

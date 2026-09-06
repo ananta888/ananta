@@ -541,7 +541,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 40,
+      "progress_percent": 45,
       "depends_on": [
         "MAP-09",
         "MAP-10"
@@ -554,7 +554,7 @@
         "Dauerhaftes Zuhören besteht aus kurzlebigen, vom Hub neu autorisierten Sitzungs-Leases mit Gesamtbudget, nicht aus einem unbegrenzt gültigen Grant. Erneuerung revalidiert Projekt-, Task- und Receive-/Publish-Policy und wartet auf Meets Bestätigung; maximale Überlappung und Stop-Frist sind festgelegt.",
         "Mindestens drei Lease-Wechsel, doppelte/verspätete Renewal-Antworten und Hub-/Worker-Ausfall testen: keine Doppelantwort, kein Wiederbeleben entzogener Rechte und keine Übernahme alter Transkripte in eine neue Sitzung."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Begrenzter Turn mit aktueller Task-/Bild-/Profilfreigabe. Replay-Lücke im bisherigen Callback geschlossen: frische Nonce pro Poll, V2-Antwortsignatur über exakte Anfrage und Ergebnis, kein Downgrade; alte Worker erhalten upgrade-required statt unsicherer Freigabe. Originales Turn-Zeitbudget und begrenzter Body-Reader angebunden. 122 Medien-/Lease-/Profiltests einschließlich echter HTTP-Widerrufe bestanden. Privates Worker-Image erneuert; 5 GPU-Gates bestanden, darunter echter profilgebundener LLM-/Piper-CUDA-/NVENC-Turn mit Hub-HTTP-Lease. docs/contracts/meet-lease-v2.md. Noch offen: langlebige MDS-Renewals, Generationenwechsel und Wiederaufnahme über den neuen Meet-Transport."
     },
     {
       "id": "MAP-12",
@@ -974,7 +974,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40,
+      "progress_percent": 50,
       "depends_on": [
         "MAP-29"
       ],
@@ -985,7 +985,7 @@
         "Keine fremden laufenden Räume, GPU-Jobs oder Host-Eingabegeräte übernehmen; eigenes Testdeployment ist von einer Abnahme der bestehenden laufenden Instanz getrennt.",
         "Fehler direkt beheben und betroffene Gates wiederholen; Rohdumps bleiben Runtime-Daten, strukturierte sekretfreie Berichte dürfen versioniert werden."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:0dfe784c83456e42e0b91c48a8416c4512ad6b183cc9dc02b98bf7217201a053 aktualisiert, keine öffentlichen Dienste verändert. 5 Hardware-Gates in 23,68 Sekunden bestanden: lokales ASR, Medienantwort, budgetierter Chat, Persona-NVENC und vollständiger profilgebundener GPU-Turn mit regulärem Hub-Task/realer Profil-SQL/anfragegebundener HTTP-Lease. Zusätzlicher Einzel-Profil-Gate bestand zuvor in 13,11 Sekunden. Bildzulassungs-Policies sind ausdrücklich synthetische Fixtures; keine öffentliche Meet-Publikation oder produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md. Browserstream, Mehragenten-Gegenstellen, Soak-/Recovery-/TURN-Abnahme bleiben offen."
     },
     {
       "id": "MAP-31",
@@ -1156,7 +1156,7 @@
         "blocked": 0,
         "todo": 4,
         "in_progress": 0,
-        "progress_percent": 36.6,
+        "progress_percent": 36.9,
         "by_status": {
           "todo": 4,
           "in_progress": 0,
@@ -1188,7 +1188,7 @@
         "blocked": 0,
         "todo": 1,
         "in_progress": 0,
-        "progress_percent": 28.3,
+        "progress_percent": 31.7,
         "by_status": {
           "todo": 1,
           "in_progress": 0,
