@@ -40,6 +40,29 @@ def test_screen_failure_needs_new_source_consent_and_does_not_reopen_on_tick():
     pump.update({"enabled": False, "revision": 3}); assert pump.source is None
 
 
+def test_screen_activation_expiry_between_status_and_push_waits_for_fresh_hub_update():
+    page = Mock(); source = Mock(source_id="screen:session"); source.take.return_value = "jpeg"
+    factory = Mock(return_value=source)
+    pump = DialogScreenPump(page, Mock(), assignment() | {"capabilities": ["screen.publish"]}, factory)
+    opened = False
+    def evaluate(expression, *args):
+        nonlocal opened
+        if "screen.push" in expression:
+            opened = False; return "stale"
+        if "status" in expression: return opened
+        if "screen.open" in expression:
+            opened = True; return {"generation": 1}
+        if "screen.close" in expression: opened = False
+    page.evaluate.side_effect = evaluate
+    control = {"enabled": True, "revision": 1}
+    pump.update(control); pump.tick()
+    assert not pump.failed and pump.source is source and pump.lease is None
+    pump.tick(); assert pump.lease is None
+    pump.update(control)
+    assert pump.lease == {"generation": 1} and factory.call_count == 1
+    pump.close()
+
+
 def test_failed_watchdog_start_kills_child_releases_slot_and_keeps_replay_fence(tmp_path, monkeypatch):
     executor = DialogExecutor(tmp_path / "leases.db", slots=1)
     process = Mock(pid=123456); spawn = Mock(return_value=process)

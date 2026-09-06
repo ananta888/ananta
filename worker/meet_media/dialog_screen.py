@@ -26,13 +26,29 @@ class OwnedDialogScreen:
           <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
           <style>body{margin:0;background:#101828;color:white;font:24px sans-serif;padding:30px}
           #pulse{height:100px;width:100px;background:#00bd85;border-radius:20px;position:relative}</style></head>
-          <body><h1>Ananta · KI-Arbeitsansicht</h1><p>Isolierter Hub-Auftrag aktiv</p><div id="pulse"></div>
+          <body><h1>Ananta · KI-Arbeitsansicht</h1><p id="activity">Warte auf aktuelle Hub-Freigabe</p><div id="pulse"></div>
           <p id="tick">0</p><script>let n=0;setInterval(()=>{n++;document.getElementById('tick').textContent='Laufzeit: '+(n/5).toFixed(1)+' s';
           document.getElementById('pulse').style.left=(n*9%470)+'px'},200)</script></body></html>""")
         self.page.on("framenavigated", lambda _frame: self._revoke())
         self.cdp = self.context.new_cdp_session(self.page)
         self.cdp.on("Page.screencastFrame", self._receive)
         self.cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 70, "maxWidth": 640, "maxHeight": 360, "everyNthFrame": 1})
+
+    def render_activity(self, value):
+        # Only bounded local execution states. Never mirror prompts, replies,
+        # tokens, room identifiers or arbitrary HTML into the shared workspace.
+        if (not isinstance(value, dict) or set(value) != {"chat", "reply", "audio"}
+                or type(value["chat"]) is not bool or type(value["reply"]) is not bool
+                or not isinstance(value["audio"], str) or value["audio"] not in {"off", "receive", "asr", "reply"}):
+            self._revoke(); raise ValueError("meet_screen_activity_invalid")
+        if self.closed or self.revoked:
+            raise ValueError("meet_screen_workspace_revoked")
+        self.page.evaluate("""state => {
+          const audio = {off:'aus', receive:'Empfang', asr:'Erkennung', reply:'Antwort'};
+          document.getElementById('activity').textContent =
+            'Chat: ' + (state.chat ? 'Empfang freigegeben' : 'aus') +
+            ' · Antwort: ' + (state.reply ? 'in Bearbeitung' : 'bereit') + ' · Audio: ' + audio[state.audio];
+        }""", value)
 
     def _deny(self, route):
         self._revoke(); route.abort()

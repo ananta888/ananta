@@ -4,6 +4,13 @@ This work is not deployed or production-accepted. Local tests are synthetic
 technical observations, not Hub Evidence Registry release records. The combined
 browser/ASR/Direct/SFU/TURN/long-session gate is still required.
 
+Work paused at the user's request on 2026-09-07. The short cross-repository
+composition gate passed; the five-minute soak did **not** finish successfully.
+It observed moving remote pixels through 236 seconds and four lease generations,
+then a browser runtime failure. The two-hour gate has not run. A subsequent
+Meet expiry-timer fix still needs long-session verification. Do not promote
+these observations to production readiness or resume rollout automatically.
+
 ## Authority and composition
 
 The Hub creates an ordinary `meet_dialog_session` TaskQueue task. Its immutable
@@ -109,6 +116,8 @@ and ACK requirements remain unchanged.
 
 This adapter currently shows a trusted task-owned activity view, **not arbitrary
 web navigation, human tabs, a host desktop or authenticated web content**.
+Its displayed activity is restricted to actual local chat/reply/audio execution
+states; prompts, replies, tokens and room identifiers are not rendered.
 Network access, navigation, extra pages, downloads and unknown embedded content
 revoke the source; a heuristic secret mask is not treated as authority. Existing
 Camofox/Browser-Use live-view requests remain unsupported until exact owned-page
@@ -147,3 +156,10 @@ sysctl, existing container, production trust or certificate is changed. Its
 model-result and project-policy ports remain explicitly synthetic; this is not
 a GPU/ASR or production-release claim. The local image used by the TCP forwarder
 can be selected with `MEET_TEST_PROXY_IMAGE` and is resolved to an immutable ID.
+
+`MEET_DIALOG_SOAK_SECONDS=300` (or 7200 for the full bounded run) extends this
+opt-in gate and its own proxy lifetime only. It checks real lease renewals,
+repeated decoded screen movement, periodic newly consented chat replies and
+process-tree limits (less than 3 GiB RSS and 80 processes). Startup and a five-
+second stop reserve are explicitly outside the active observation window.
+The requested duration alone is never evidence of successful completion.

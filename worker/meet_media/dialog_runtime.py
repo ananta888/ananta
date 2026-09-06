@@ -80,7 +80,9 @@ def run(assignment, hub):
                     audio.refresh(receipt, state["audio_job"])
                 else:
                     audio = start_audio(page, hub, assignment, state, meet_session)
-                chat.update(receipt, controls["chat"]); screen.update(controls["screen"])
+                chat.update(receipt, controls["chat"])
+                screen.update(controls["screen"], {"chat": chat.opened is not None, "reply": chat.pending is not None,
+                    "audio": audio.stage if audio is not None and not audio.closed else "off"})
                 next_exchange = time.monotonic() + 2
             chat.tick(); screen.tick()
             if audio is not None:

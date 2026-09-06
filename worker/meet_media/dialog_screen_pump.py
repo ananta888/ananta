@@ -10,7 +10,7 @@ class DialogScreenPump:
         self.source = None; self.lease = None; self.sequence = 0; self.revision = 0
         self.next_frame = 0; self.failed = False
 
-    def update(self, control):
+    def update(self, control, activity=None):
         if control["revision"] != self.revision:
             self.close(); self.failed = False
         self.revision = control["revision"]
@@ -21,6 +21,8 @@ class DialogScreenPump:
         try:
             if self.source is None:
                 self.source = self.source_factory(self.browser, self.assignment["session_id"])
+            if activity is not None:
+                self.source.render_activity(activity)
             if not self.page.evaluate("window.anantaMachine.screen.status().open"):
                 self.lease = self.page.evaluate("id => window.anantaMachine.screen.open(id)", self.source.source_id)
                 self.sequence = 0
@@ -39,8 +41,21 @@ class DialogScreenPump:
             frame = self.source.take()
             if frame is not None:
                 self.sequence += 1
-                self.page.evaluate("([gen, seq, jpeg]) => window.anantaMachine.screen.push(gen, seq, jpeg)",
-                                   [self.lease["generation"], self.sequence, frame])
+                outcome = self.page.evaluate("""async ([gen, seq, jpeg]) => {
+                  try { await window.anantaMachine.screen.push(gen, seq, jpeg); return 'pushed'; }
+                  catch (error) {
+                    if (error?.message === 'meet_screen_authority_changed' && !window.anantaMachine.screen.status().open) return 'stale';
+                    return 'failed';
+                  }
+                }""", [self.lease["generation"], self.sequence, frame])
+                if outcome == "stale":
+                    # A thirty-second activation can expire between status()
+                    # and push(). Keep the owned source but require the NEXT
+                    # fresh Hub exchange to authorize another activation.
+                    self.lease = None
+                    return
+                if outcome != "pushed":
+                    raise ValueError("meet_screen_frame_rejected")
             self.next_frame = time.monotonic() + 0.2
         except Exception:
             self.failed = True
