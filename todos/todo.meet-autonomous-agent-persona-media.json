@@ -280,7 +280,7 @@
     {
       "id": "MAP-M5",
       "title": "Organisations-, Team- und Agenten-Personas",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-17",
         "MAP-18",
@@ -689,10 +689,10 @@
       "repository": "ananta",
       "type": "security",
       "milestone_id": "MAP-M5",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 15,
       "depends_on": [
         "MAP-17"
       ],
@@ -701,7 +701,8 @@
         "Rechte-/Einwilligungs- und Provenienzmetadaten für Nutzung, Veröffentlichung und gegebenenfalls Stimm-/Gesichtsnachbildung getrennt führen; fremde personenbezogene Vorlagen nicht automatisch übernehmen.",
         "Metadaten und abgeleitete Vorschaubilder dürfen keine fremden Tenant-/Projektinhalte oder vertrauliche Dateipfade enthalten.",
         "Widerruf oder Löschung invalidiert betroffene Profile und aktive Veröffentlichungen; synthetische/test-only Assets bleiben sichtbar klassifiziert."
-      ]
+      ],
+      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess: 5-MiB-/Pixel-/Zeitlimits, MIME-/Animationsprüfung, Metadatenentfernung, getrennte Hashes für Original/normalisiertes Bild/Vorschau, Autoritätsprüfung vor Rückgabe. 22 gezielte Bildtests einschließlich echtem CPU-Unterprozess bestanden (zusammen mit Audio-Grenzfällen 76 Tests). docs/contracts/persona-image-inspection.md. Noch keine Asset-Zulassung: Hub-Task-/Artefaktintegration, autoritative Herkunft/Lizenz/Einwilligung, Widerruf sowie Audio-/Videoasset-Profile bleiben offen."
     },
     {
       "id": "MAP-19",
@@ -1052,9 +1053,9 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 9,
+      "todo": 8,
       "in_progress": 0,
-      "partial": 20,
+      "partial": 21,
       "blocked": 0,
       "done": 3
     },
@@ -1078,9 +1079,9 @@
     },
     "milestones": {
       "total": 8,
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
-      "partial": 6,
+      "partial": 7,
       "blocked": 0,
       "done": 0
     }
@@ -1133,15 +1134,15 @@
       "security": {
         "total": 8,
         "done": 0,
-        "partial": 6,
+        "partial": 7,
         "blocked": 0,
-        "todo": 2,
+        "todo": 1,
         "in_progress": 0,
-        "progress_percent": 31.2,
+        "progress_percent": 33.1,
         "by_status": {
-          "todo": 2,
+          "todo": 1,
           "in_progress": 0,
-          "partial": 6,
+          "partial": 7,
           "blocked": 0,
           "done": 0
         }
@@ -1214,9 +1215,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 9,
+    "todo_remaining": 8,
     "in_progress": 0,
-    "partial": 20,
+    "partial": 21,
     "blocked": 0,
     "done": 3,
     "milestones_done": 0,
