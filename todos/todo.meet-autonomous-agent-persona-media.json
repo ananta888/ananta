@@ -2,7 +2,7 @@
   "version": "1.0",
   "owner": "Ananta maintainers",
   "track": "meet-autonomous-agent-persona-media",
-  "status": "todo",
+  "status": "partial",
   "purpose": "Ananta als autonom verwalteten, klar erkennbaren KI-Teilnehmer in ANANTA Meet integrieren: eigener Browserstream, Organisations-/Team-/Agentenbilder, synthetische Stimme und Video sowie separat erlaubtes Zuhören und Gesprächsteilnahme.",
   "goal": "Ein vom Hub autorisierter Agent kann ohne laufende Benutzerinteraktion Meet betreten, ausschließlich eigene freigegebene Quellen publizieren, Quellen unabhängig verwalten und sicher verlassen. Persona-Medien sind versionsgebundene Assets, keine Identität oder Berechtigung.",
   "status_scale": [
@@ -26,19 +26,21 @@
   "scope": {
     "kind": "repository_development_track",
     "runtime_goal_created": false,
-    "implementation_started": false,
+    "implementation_started": true,
     "note": "Dieser Track plant eine Produktfähigkeit; er materialisiert weder Organisations-Goals noch Worker-Aufgaben. Laufzeitgebundene Organisationsarbeit verwendet weiterhin Category-Promotion, Track-Adoption und Hub-Dispatch."
   },
   "repositories": {
     "ananta": {
       "baseline_revision": "439380dc68a22b140eb2a3e4fb42bc40b05d0da5",
-      "responsibility": "Hub-Policy, Taskmodell, Worker, Persona-Domain und Ananta-Oberfläche"
+      "responsibility": "Hub-Policy, Taskmodell, Worker, Persona-Domain und Ananta-Oberfläche",
+      "implementation_base_revision": "914c7d92b"
     },
     "ananta_meet": {
       "local_repository": "../webrtc-minimize-server",
       "baseline_revision": "52cd7665f7072045dd2fb105ebdab27b538c5ca2",
       "responsibility": "Additive Maschinenaufnahme und Quellpublikation, Membership/E2EE sowie Meet-Oberfläche",
-      "companion_track_status": "required_before_meet_code_changes"
+      "companion_track_status": "implemented_local_slice",
+      "companion_track": "todos/archive/todo.ananta-machine-participant.json"
     }
   },
   "source_alignment": {
@@ -56,7 +58,11 @@
       "agent/db_models/voice_governance.py",
       "agent/services/semantic_media_permission_service.py",
       "worker/semantic_media/handler.py",
-      "todos/todo.ananta-meet-integration.json"
+      "todos/todo.ananta-meet-integration.json",
+      "agent/services/meet_turn_service.py",
+      "agent/services/meet_machine_grant.py",
+      "worker/meet_media/",
+      "docs/operations/meet-local-gpu-agent.md"
     ],
     "inspected_meet_paths": [
       "AGENTS.md",
@@ -68,7 +74,8 @@
       "BrowserTaskContract und Camofox-Screenshot-Pfad sind mögliche Ausgangspunkte, kein nachgewiesener Live-Stream.",
       "VoiceConsent/VoicePersonalization betreffen Einwilligung und Feedback; daraus folgt keine fertige Persona-TTS-/Videoerzeugung.",
       "Meet fordert derzeit sichtbaren lokalen Benutzerstart menschlicher Capture-APIs. Der neue Maschinenpfad muss diese Regel ausdrücklich ergänzen, nicht umgehen.",
-      "Die ältere Meet-Basisintegration hat weiterhin offene positive Live-Gates. Dieser Track erklärt diese nicht nachträglich für erledigt."
+      "Die ältere Meet-Basisintegration hat weiterhin offene positive Live-Gates. Dieser Track erklärt diese nicht nachträglich für erledigt.",
+      "Lokaler Qwen/Piper-CUDA/NVENC-Auftrag und zweiter realer Meet-Browser mit erforderlichem SFrame geprüft. Technische synthetische Beobachtung, keine öffentliche Produktionsfreigabe."
     ]
   },
   "related_tracks": [
@@ -121,6 +128,12 @@
   },
   "delivery_slices": [
     {
+      "id": "S0-local-gpu",
+      "title": "Lokale RTX-3080-Basis: LLM-Chat, deutsche Piper-Stimme und animiertes NVENC-Avatarvideo",
+      "status": "done",
+      "note": "Expliziter Nutzerauftrag: kleine Open-Source-Modelle lokal ausführen. Ein begrenzter Hub-Task erzeugt denselben Antworttext für Chat und Sprache. Video ist zunächst ein einfacher synthetischer Avatar, kein fotorealistisches Videomodell. Diese Basis ersetzt weder Maschinenaufnahme noch die noch offenen öffentlichen E2EE-Live-Gates."
+    },
+    {
       "id": "S1",
       "title": "Stummer KI-Teilnehmer mit eigenem Browserstream",
       "exit_tasks": [
@@ -168,7 +181,7 @@
     {
       "id": "MAP-M1",
       "title": "Quellabgleich, Architektur und Sicherheitsvertrag",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-01",
         "MAP-02",
@@ -179,7 +192,7 @@
     {
       "id": "MAP-M2",
       "title": "Maschinenidentität und Meet-Aufnahme",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-05",
         "MAP-06",
@@ -190,7 +203,7 @@
     {
       "id": "MAP-M3",
       "title": "Hub-gesteuerter Teilnehmer-Lebenszyklus",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-09",
         "MAP-10",
@@ -223,7 +236,7 @@
     {
       "id": "MAP-M6",
       "title": "Bild-, Sprach- und Videoausgabe",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-21",
         "MAP-22",
@@ -234,7 +247,7 @@
     {
       "id": "MAP-M7",
       "title": "Zuhören und kontrollierte Gesprächsteilnahme",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-25",
         "MAP-26",
@@ -245,7 +258,7 @@
     {
       "id": "MAP-M8",
       "title": "Headless-Verifikation, Live-Abnahme und Rollout",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "MAP-29",
         "MAP-30",
@@ -261,16 +274,17 @@
       "repository": "ananta",
       "type": "governance",
       "milestone_id": "MAP-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "acceptance_criteria": [
         "Ananta- und Meet-Commit, Container-Images, aktive Konfiguration und vorhandene Browser-/Sprach-/Medienbausteine getrennt inventarisieren; Worktree nicht mit laufendem Image gleichsetzen.",
         "Die bestehende Meet-Zuordnung bleibt meet_ui_then_attach; ein bestandener Browser-Preflight beweist weder autonomen Join noch Browserstream, TTS oder Avatarvideo.",
         "Vorhandene, fehlende und lediglich geplante Schnittstellen inklusive Tests und Betriebszuständigkeit benennen. Quellpfade nicht als registrierte Evidenzidentitäten ausgeben."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-02",
@@ -278,10 +292,10 @@
       "repository": "both",
       "type": "architecture",
       "milestone_id": "MAP-M1",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 45,
       "depends_on": [
         "MAP-01"
       ],
@@ -290,7 +304,8 @@
         "Kleine getrennte Ports für Teilnehmeraufnahme, Lifecycle, MediaSource, Publikation, Subscription, Persona-Auflösung und Audio/Video-Erzeugung definieren.",
         "Browser-Worker und Medien-Worker kommunizieren nicht zur Auftragsvergabe miteinander; getrennte Worker werden ausschließlich durch Hub-Tasks mit geschlossenen Artefakt-/Stream-Zuweisungen verbunden.",
         "Signaling-Server und vorhandene Blind-Media-Agenten bleiben frei von Mediengenerierung, Persona-Entscheidungen und entschlüsselten Inhalten."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-03",
@@ -298,10 +313,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M1",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "depends_on": [
         "MAP-02"
       ],
@@ -310,7 +325,8 @@
         "Agenteneigene Quellen dürfen unter expliziter Hub-Policy headless laufen. Menschlicher Desktop, Kamera, Mikrofon, fremde Browserprofile und Cookies bleiben ohne passende separate Freigabe unzugänglich.",
         "Lesen/Zuhören, Senden, Aufzeichnen, Modelltraining und Werkzeugausführung sind getrennte Rechte; ein Raumbeitritt oder Persona-Bild erweitert keines davon.",
         "Cross-Tenant-Lecks, URL-/SSRF-Missbrauch, Prompt-Injection aus Medien, kompromittierte Teilnehmer, Replay und Schlüsselverlust als konkrete Negativfälle festhalten."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-04",
@@ -318,10 +334,10 @@
       "repository": "ananta_meet",
       "type": "governance",
       "milestone_id": "MAP-M1",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "MAP-03"
       ],
@@ -330,7 +346,8 @@
         "Die heutige AGENTS.md-Regel zum sichtbaren Benutzerklick bleibt für menschliche Aufnahmequellen erhalten. Einen ausdrücklich autorisierten, getrennten Pfad für agenteneigene Quellen samt headless Tests dokumentieren.",
         "Neue Actor-/Source-Contracts und Protokollversionen additiv einführen; unbekannte Versionen oder fehlende Fähigkeiten führen zu maschinenlesbarem blocked statt stiller Abschwächung.",
         "Kein Auth-Abschalten, keine automatische Freigabe aller Geräte und kein pauschales Akzeptieren bestehender Hub- oder Worker-Bearer-Tokens."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-05",
@@ -338,10 +355,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "depends_on": [
         "MAP-04"
       ],
@@ -350,7 +367,8 @@
         "Ein versioniertes Trust-Profil entscheidet über Issuer, Audience, Algorithmen, Schlüsselrotation und zugelassene Hub-/Projekt-Scope-Bindungen; Meet validiert dieses Profil selbst.",
         "Provisionierung, Erneuerung und Widerruf sind nach expliziter Betreiber-Vorautorisierung per API/Automation möglich, ohne E-Mail-Klick, CAPTCHA, TOTP-Eingabe oder wiederkehrenden menschlichen Login im Ausführungspfad.",
         "Kein menschliches Konto nachahmen und keine privaten Ausstellerschlüssel an Worker übertragen; Secrets nur über scoped Secret-Referenzen und schmale Credentials."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-06",
@@ -358,10 +376,10 @@
       "repository": "ananta_meet",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "depends_on": [
         "MAP-05"
       ],
@@ -370,7 +388,8 @@
         "Besitznachweis, Origin-/Client-Profil, TTL und Replay-Schutz müssen auch für headless Clients erhalten bleiben; keine Wiederverwendung eines human browser ticket als permanente Maschinenberechtigung.",
         "Einmalige Join-Credentials werden nach gültiger Admission automatisch ausgestellt. Falsche Audience, fremder Tenant, falscher Raum oder wiederholte Verwendung werden abgewiesen.",
         "Bestehende Human-OIDC-/P-256-Flows, 20-Teilnehmer-Raumgrenze und Pair-Grenzen bleiben unverändert; der Agent zählt als normaler kapazitätsrelevanter Teilnehmer."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-07",
@@ -378,10 +397,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 20,
       "depends_on": [
         "MAP-06"
       ],
@@ -390,7 +409,8 @@
         "Create/Join/Leave über den Meeting-Port anbinden und gespeicherte Projekt-/Task-Zuordnungen wiederverwenden; der bisherige manuelle Invite-Ablauf bleibt kompatibel.",
         "Erster minimaler Agent erscheint als klar gekennzeichneter KI-Teilnehmer zunächst ohne Audio, Video oder Bildschirm; keine Quelle wird implizit beim Join aktiviert.",
         "Keine Menschen-Kennung und kein Avatar darf Moderations- oder Raumverwaltungsrechte verleihen."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-08",
@@ -398,10 +418,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "depends_on": [
         "MAP-06"
       ],
@@ -410,7 +430,8 @@
         "Meets aktuelles SFrame-/Codec-Envelope-, Key-ACK- und Membership-Epoch-Verhalten für den gewählten Client vollständig implementieren und negativ testen.",
         "Unbekannter Codec, fehlendes ACK, Replay, Revocation oder unsupported Encoded-Transform-Fähigkeit stoppen die betroffene Quelle ohne Klartext-Fallback.",
         "Keys bleiben in der autorisierten Teilnehmer-Runtime; Hub-Orchestrierung, Signaling und blinde Relays bekommen keine zusätzliche Entschlüsselungsfähigkeit."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-09",
@@ -418,10 +439,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "MAP-07"
       ],
@@ -430,7 +451,8 @@
         "Zustände queued, admitted, connecting, joined, publishing, stopping und terminale Ergebnisse mit erlaubten Übergängen, persistenter Revision und bounded Retry-Modell festlegen.",
         "Organisations-/Team-/Role-Assignment-Zustand unmittelbar vor Dispatch und bei policyrelevanten Änderungen prüfen; abgesagte oder archivierte Ziele können keine Sitzung wiederbeleben.",
         "Keine automatische Teilnahme allein durch Anzeige eines Projekts, Existenz einer Persona oder Laden einer UI."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-10",
@@ -438,10 +460,10 @@
       "repository": "ananta",
       "type": "infrastructure",
       "milestone_id": "MAP-M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "depends_on": [
         "MAP-08",
         "MAP-09"
@@ -451,7 +473,8 @@
         "Separates Browserprofil, begrenzte CPU/RAM/GPU-/Netzwerkrechte, scoped Downloads und temporäre Arbeitsverzeichnisse; kein Mount menschlicher Browserprofile, Host-Display-Sockets oder Docker-Socket.",
         "Medienquellen werden über eng begrenzte Ports eingebunden; fehlende GPU oder nicht unterstützter Codec liefert deterministischen Fallback nur soweit die Policy ihn erlaubt.",
         "Authentisierung, Quellgenerierung und Senden sind getrennt testbar; kein monolithischer Publisher mit eingebauter Hub-Policy."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-11",
@@ -459,10 +482,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "depends_on": [
         "MAP-09",
         "MAP-10"
@@ -472,7 +495,8 @@
         "Doppelter Dispatch, Hub-Neustart und Worker-Crash erzeugen weder doppelte Teilnehmer noch doppelte Audioausgabe; nur die aktuelle Generation darf publizieren.",
         "Lease-Verlust stoppt lokale Quellen und Veröffentlichungen innerhalb des vorab definierten Stop-Budgets auch bei abgerissener Hub-Verbindung.",
         "Worker darf seinen Auftrag weder verlängern noch eine andere Persona, Quelle, Zielgruppe oder einen anderen Raum selbst auswählen."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-12",
@@ -480,10 +504,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M3",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "depends_on": [
         "MAP-11"
       ],
@@ -492,7 +516,8 @@
         "Hub-Not-Aus und zulässiger Meet-seitiger Raumwiderruf beenden Tracks, Puffer, Decoder und Key-Material; ein reconnect darf einen Widerruf nicht rückgängig machen.",
         "Status/Fehler, Lease-/Policy-Revision, Stop-Grund und Ressourcenmetriken ohne Tokens, SDP, Raum-Invites oder Medieninhalte auditieren.",
         "UI zeigt Quelle, Eigentümer, KI-Kennzeichnung, Status und Widerrufsmöglichkeit; eine sichtbare Bedienoberfläche ist keine Voraussetzung für den automatischen Lauf."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-13",
@@ -666,10 +691,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M6",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 45,
       "depends_on": [
         "MAP-08",
         "MAP-18",
@@ -680,7 +705,8 @@
         "Anzeige von Name/Organisation/Team ist von Identität und Room-Rolle getrennt; unsichere Texte/Bilder werden vor Rendern validiert.",
         "Bildwechsel, Größenanpassung und Stop/Revocation ohne alte Frames nach dem Wechsel testen; kein menschlicher Webcam-Zugriff.",
         "Avatarvideo und Browserpräsentation sind getrennte Quellen und können im selben Teilnehmer gleichzeitig oder unabhängig aktiv sein."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-22",
@@ -688,10 +714,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M6",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "depends_on": [
         "MAP-10",
         "MAP-18",
@@ -702,7 +728,8 @@
         "Kleinen TTS-Port mit austauschbaren lokalen/erlaubten Provider-Adaptern definieren; Text, Stimme, Sprache, Persona-Version und Budget werden vom Hub gebunden.",
         "PCM-/Audiochunks über einen eigenen MediaSource-Port publizieren; feste Sample-Rate-/Resampling-Verträge, monotone Zeitstempel und bounded Puffer.",
         "Mindestens einen realen zulässigen TTS-Pfad nachweisen; Dummy-Audio beweist nur Transport. Provider-Ausfall oder Ressourcenmangel erzeugt bounded Fehler ohne unautorisierten Cloud-Fallback."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-23",
@@ -710,10 +737,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M6",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "depends_on": [
         "MAP-18",
         "MAP-21",
@@ -724,7 +751,8 @@
         "Importierte Clips und generierte Frames werden eindeutig gekennzeichnet; reale Personen nur im Rahmen der hinterlegten Nutzungsfreigabe verwenden.",
         "Codec-/Framerate-/GPU-Speichergrenzen und Capability-Fehler explizit behandeln; bei fehlender Animation ist Bild+Sprache ein erlaubter, ehrlich deklarierter Profilmodus.",
         "Realer Renderer/Clip-Decoder wird mindestens mit einem bewegten Motiv und einer passenden Audiosequenz geprüft; Testbild-Loop ist kein Nachweis generativer Videoqualität."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-24",
@@ -732,10 +760,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M6",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "depends_on": [
         "MAP-12",
         "MAP-21",
@@ -747,7 +775,8 @@
         "Stopp oder Unterbrechung verwirft ausstehende TTS-/Videochunks und widerruft zugehörige Publikationsgenerationen; alte Sprache darf nach Reconnect nicht erneut abgespielt werden.",
         "Hub setzt Session-/Modell-/GPU-/Bandbreitenbudgets und faire Admission bei mehreren Agenten; Worker meldet Auslastung, entscheidet aber nicht über neue Aufträge.",
         "Messbare Latenz-, Drift- und Stop-Schwellen vor Abnahme in einem Hardwareprofil festlegen; Grenzwertverletzung liefert degraded/failed statt pauschalem Qualitätserfolg."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-25",
@@ -777,10 +806,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 20,
       "depends_on": [
         "MAP-22",
         "MAP-25"
@@ -790,7 +819,8 @@
         "Eigene TTS-Ausgabe darf nicht als neuer Fremdauftrag zurücklaufen; Echo-/Self-Input- und Mehrfachantwortschutz auf Teilnehmer-/Publikations-/Turn-Bindung testen.",
         "Unverständliche oder fehlende Eingabe führt zu begrenzter Rückfrage/Abbruch innerhalb der Policy, niemals zu unbegrenztem Warten auf menschliche Freigabe.",
         "Gesprächsbeiträge allein aktivieren keine Tools, Rollenänderungen oder externen Aktionen; solche Entscheidungen bleiben im bestehenden Hub-Policy-System."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-27",
@@ -798,10 +828,10 @@
       "repository": "ananta",
       "type": "security",
       "milestone_id": "MAP-M7",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "depends_on": [
         "MAP-25",
         "MAP-26"
@@ -811,7 +841,8 @@
         "Aufgaben-/Kontextzugriff bleibt tenant-, projekt-, organisations- und sessionsgebunden; gesprochene Aufforderungen dürfen diese Grenzen nicht verändern.",
         "Profile, Prompt-Kontext und Tool-Zugriff werden beim Rollen-/Raumwechsel neu geprüft; fremde Gesprächsdaten nicht in neue Sessions übernehmen.",
         "Automatisierte Angriffssequenzen testen Datenabfluss, falsche Sprecheridentität, Tool-Eskalation, Callback-Manipulation und persistierte Prompt-Injection."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-28",
@@ -842,10 +873,10 @@
       "repository": "both",
       "type": "test",
       "milestone_id": "MAP-M8",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 45,
       "depends_on": [
         "MAP-12",
         "MAP-16",
@@ -860,7 +891,8 @@
         "Tests prüfen den tatsächlichen Empfang von Bild-/Browser-/Audio-/Videoinhalten sowie Stop/Maskierung; allein grüne API-Responses genügen nicht.",
         "Alle Tests besitzen End-to-End-Zeitbudgets, sekretfreie Fehlerartefakte und auf eigene Ressourcen begrenztes Cleanup. Fehlende verpflichtende Infrastruktur ergibt blocked/failed, nicht stillschweigendes passed.",
         "Kompatibilitätsregression für bisherigen Meet-Human-Join, Pair-Dev, Artefaktaustausch, LiveKit, Room-Caps und bestehende Invite-Zuordnungen ausführen."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-30",
@@ -868,10 +900,10 @@
       "repository": "both",
       "type": "test",
       "milestone_id": "MAP-M8",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "depends_on": [
         "MAP-29"
       ],
@@ -881,7 +913,8 @@
         "CPU, RAM/VRAM, Framedrops, decodierte Audio-/Videoframes, A/V-Drift, Join-/Stop-Latenzen sowie bounded Soak- und Recoveryläufe gegen vorab festgelegte Profile prüfen.",
         "Keine fremden laufenden Räume, GPU-Jobs oder Host-Eingabegeräte übernehmen; eigenes Testdeployment ist von einer Abnahme der bestehenden laufenden Instanz getrennt.",
         "Fehler direkt beheben und betroffene Gates wiederholen; Rohdumps bleiben Runtime-Daten, strukturierte sekretfreie Berichte dürfen versioniert werden."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
     {
       "id": "MAP-31",
@@ -910,10 +943,10 @@
       "repository": "both",
       "type": "operations",
       "milestone_id": "MAP-M8",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "depends_on": [
         "MAP-30",
         "MAP-31"
@@ -924,7 +957,8 @@
         "Feature-Flags stufenweise aktivieren: stummer Agent und Browserstream, Bild+TTS, Video, Receive/Dialog, Mehragentenbetrieb; Rücknahme stoppt Maschinenquellen ohne Human-Meet oder bestehende Ananta-Medienpfade zu beschädigen.",
         "Gezielte größere Regression gebündelt an Meilenstein-Grenzen statt vollständiger Suite nach jeder Einzelaufgabe; Anzahl, Dauer, Fehlerbehebung und verbleibende reale Grenzen berichten.",
         "Beide Repository-Revisionen, Contract-Kompatibilität und Build-/Image-Stände festhalten. Task-/Milestone-Summaries aus tasks[] berechnen, validieren und gezielt committen/pushen; erst nach allen erfüllten Kriterien archivieren."
-      ]
+      ],
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     }
   ],
   "critical_path_tasks": [
@@ -948,16 +982,18 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 32,
+      "todo": 11,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 19,
       "blocked": 0,
-      "done": 0
+      "done": 2
     },
+    "progress_percent_done": 6.2,
     "by_priority": {
       "P0": 12,
       "P1": 17,
-      "P2": 3
+      "P2": 3,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -965,25 +1001,153 @@
       "high": 18,
       "critical": 13
     },
-    "progress_percent_done": 0,
     "critical_path": {
       "total": 16,
-      "done": 0,
-      "remaining": 16
+      "done": 2,
+      "remaining": 14
     },
     "milestones": {
       "total": 8,
-      "todo": 8,
+      "todo": 2,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 6,
       "blocked": 0,
       "done": 0
     }
   },
   "summary_notes": [
-    "Alle Implementierungsaufgaben stehen initial auf todo/0; die Erstellung und Validierung des Plans ist kein Implementierungsfortschritt.",
-    "Geplante Funktionen und Prüfprofile sind Anforderungen, keine vorhandenen Produktionsfähigkeiten.",
-    "Normale Entwicklung und deterministische Tests können ohne öffentliche Credentials beginnen; Live-Trust, GPU/Modelle und echte öffentliche Medienpfade müssen vor der jeweiligen Abnahme erneut geprüft werden.",
-    "Nur dieser neue Ananta-Track wird in diesem Planungsschritt geändert; keine Runtime, Secret-Datei, fremde lokale Compose-Änderung oder Meet-Regel wird automatisch verändert."
-  ]
+    "Lokale erste Ausbaustufe implementiert: Qwen2.5-1.5B, deutsche Piper-CUDA-Stimme, amplitudenanimierter NVENC-Avatar, Hub-Tasks und optionale begrenzte Meet-Publikation.",
+    "Ananta-Medienvorschau und ein einzelner vorautorisierter Antwortauftrag sind kein dauerhaft zuhörender Dialogagent. Fremde Chatnachrichten starten noch keine automatischen Antworten.",
+    "Lokale GPU-Erzeugung, Sandbox-Start im Worker und zwei isolierte Meet-Browser mit dekodierten Medien/Chat und erforderlichem SFrame geprüft. Keine menschlichen Capture-Freigaben in den Tests.",
+    "Öffentliche Meet-/Hub-Instanzen bleiben unverändert und die neuen Feature-Flags sind standardmäßig deaktiviert. Betreiber-Trust und exakte Projektvorautorisierung müssen bewusst konfiguriert werden.",
+    "Eigener Browser-Bildschirmstream, Persona-/Consent-/Assetwechsel, Mehragentenbetrieb, öffentliche TURN-/Multi-Host-/Soak-Gates und Registry-Produktionsnachweise bleiben offen. Kein pauschaler Abschluss der 32 Tasks.",
+    "Vorhandene lokale Caddy-/Compose-Dateiänderungen und ungetrackte Frontend-Runtime-Daten wurden nicht übernommen."
+  ],
+  "tasks_type_summary": {
+    "total": 32,
+    "by_type": {
+      "governance": {
+        "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 45.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security": {
+        "total": 8,
+        "done": 0,
+        "partial": 6,
+        "blocked": 0,
+        "todo": 2,
+        "in_progress": 0,
+        "progress_percent": 31.2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 6,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "feature": {
+        "total": 16,
+        "done": 0,
+        "partial": 8,
+        "blocked": 0,
+        "todo": 8,
+        "in_progress": 0,
+        "progress_percent": 18.4,
+        "by_status": {
+          "todo": 8,
+          "in_progress": 0,
+          "partial": 8,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "infrastructure": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 60.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "test": {
+        "total": 3,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 28.3,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "operations": {
+        "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 30.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "partial",
+    "todo_remaining": 11,
+    "in_progress": 0,
+    "partial": 19,
+    "blocked": 0,
+    "done": 2,
+    "milestones_done": 0,
+    "milestones_total": 8
+  }
 }

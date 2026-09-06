@@ -1,0 +1,57 @@
+{
+  "schema": "ananta.meet-local-gpu-review.v1",
+  "classification": "synthetic_local_technical_observation",
+  "source_ids": [],
+  "run_ids": [],
+  "production_release_evidence": false,
+  "ananta_implementation_commit": "5c300821de83b2057afd4953294cc692142239a7",
+  "meet_implementation_commit": "c1e05b1ad7edb7701ed12ea4718af59fc9b79eda",
+  "public_instance_updated": false,
+  "hardware": {"gpu": "NVIDIA GeForce RTX 3080", "vram_mib": 10240, "driver": "595.84"},
+  "models": {
+    "llm": "qwen2.5:1.5b",
+    "llm_manifest_sha256": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+    "speech": "Piper 1.4.2 / de_DE-thorsten-medium / CUDAExecutionProvider",
+    "video": "procedural amplitude animation / h264_nvenc"
+  },
+  "checks": {
+    "ananta_backend_including_real_gpu_task": {"passed": 98, "failed": 0, "elapsed_seconds": 31.58},
+    "ananta_meet_ui": {"passed": 26, "failed": 0},
+    "ananta_angular_development_build": "passed",
+    "meet_project_check": {
+      "status": "passed",
+      "frontend_tests_passed": 341,
+      "node_tests_passed": 343,
+      "node_tests_skipped": 1,
+      "external_infrastructure_gates": "explicitly skipped; not claimed as successful live checks"
+    },
+    "meet_final_targeted_machine_tests": {"passed": 14, "failed": 0},
+    "meet_production_build": "passed with existing-size budget warning",
+    "worker_non_root_chromium_sandbox": "passed",
+    "browser_media": {
+      "isolated_contexts": 2,
+      "human_capture_calls": 0,
+      "chat_received": true,
+      "decoded_video_frames_received": true,
+      "audio_samples_received": true,
+      "sframe_required_and_active": true,
+      "leave_clears_chat": true
+    },
+    "warm_generation_observation": {"elapsed_seconds": 2.3, "media_duration_seconds": 3.82, "benchmark": false}
+  },
+  "resolved_findings": [
+    "Missing NVIDIA Toolkit/CDI: isolated explicit GPU-device and read-only driver bindings, no host daemon change.",
+    "Private key unreadable under root with all capabilities dropped: worker runs under the runtime directory owner UID.",
+    "NVENC dependency libnvcuvid.so.1 was missing from the first local overlay; current generator includes it.",
+    "Chromium sandbox required explicit user-namespace and inner-chroot seccomp allowances, without added host capabilities.",
+    "Task-bound generation/publication retains the task meeting context instead of selecting the project room.",
+    "Worker results and Hub lease responses are integrity-bound; revoked tasks cannot authorize continued publication."
+  ],
+  "remaining": [
+    "Public Hub/Meet deployment and exact project preauthorization are not activated.",
+    "The complete GPU-worker publisher with production TLS/Hub callbacks on the public instance has not been accepted as a single live run.",
+    "Continuous incoming-chat dialogue, speech recognition, own browser screen share, persona assets and multi-agent lifecycle remain in the parent track.",
+    "Public TURN, independent-host connectivity, soak, drift and release-evidence gates remain open.",
+    "First broad Meet check had two non-persistent Node failures; the repeated complete check and final targeted checks passed. No root cause is claimed for the initial failures."
+  ]
+}
