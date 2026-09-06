@@ -162,6 +162,22 @@ class BoundedSubprocessRunner:
     _THREAD_JOIN_SECONDS = 1.0
     _WAIT_POLL_SECONDS = 0.05
 
+    def __init__(self, *, library_paths: tuple[str, ...] = ()) -> None:
+        # Operator-owned GPU library directories only. Do not inherit service
+        # credentials or accept arbitrary environment variables from audio jobs.
+        if len(library_paths) > 16 or any(
+            not isinstance(path, str)
+            or not Path(path).is_absolute()
+            or len(path) > 512
+            or ":" in path
+            or "\x00" in path
+            for path in library_paths
+        ):
+            raise ValueError("bounded_process_library_paths_invalid")
+        self._environment = {"LANG": "C", "LC_ALL": "C", "TZ": "UTC"}
+        if library_paths:
+            self._environment["LD_LIBRARY_PATH"] = ":".join(library_paths)
+
     def run(
         self,
         argv: list[str],
@@ -180,7 +196,7 @@ class BoundedSubprocessRunner:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=str(cwd),
-            env={"LANG": "C", "LC_ALL": "C", "TZ": "UTC"},
+            env=self._environment,
             shell=False,
             close_fds=True,
             bufsize=0,

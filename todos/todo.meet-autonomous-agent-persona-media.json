@@ -667,10 +667,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M5",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "MAP-02",
         "MAP-03"
@@ -680,7 +680,8 @@
         "Organisation und Team können eigene Präsentationsbilder und Standardmedien haben; Agenten erhalten deterministisch aufgelöste Overrides. Fehlend, explizit deaktiviert und geerbt sind unterschiedliche Zustände.",
         "Auflösung tenantgebunden, revisionsfest und mit nachvollziehbarer Herkunft; Team-/Rollenwechsel oder Projektgrenzen dürfen keine fremden Assets freigeben.",
         "Profil enthält Referenzen für Bild, Stimme, optionales Video und Darstellungsstil sowie Nutzungsklassen; keine eingebetteten großen Binärdaten oder Model-/Provider-Secrets."
-      ]
+      ],
+      "implementation_note": "Versionierter geschlossener Modellvertrag, deterministische Auflösung Agent > Team > Organisation und immutable SQL-Revisionen mit Hashprüfung und atomarem Compare-and-Swap implementiert (0d81b63d9). 31 headless Tests bestanden. docs/contracts/persona-media.md. Dies schließt den Modellbaustein ab, nicht die separaten MAP-18/19/20-Kriterien für Asset-Autorisierung, UI und aktive Sitzungsanbindung."
     },
     {
       "id": "MAP-18",
@@ -843,10 +844,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "depends_on": [
         "MAP-08",
         "MAP-09",
@@ -860,7 +861,8 @@
         "Den MDS-03-Empfangsport für separat freigegebenen Mikrofon- und Bildschirmton anbinden: Publikations-/Sender-/Epoch-Bindung und monotone Audiozeitstempel bis zur ASR erhalten. Eigene TTS-Ausgabe ausschließen; VAD, Segmentabschluss, Sprache und ASR-Modell über begrenzte austauschbare Worker-Ports konfigurieren.",
         "ASR-/Modellprovider müssen für diese Inhalte ausdrücklich freigegeben sein; lokaler Betrieb ist kein impliziter Cloud-Fallback. Keine Weitergabe an nicht zugelassene Provider, keine Speicherung von Rohmedien oder Transkripten ohne eigene Policy.",
         "Kontinuierlichen Empfang innerhalb erneuerbarer Leases mit bounded Puffern, Backpressure, Abbruch und Löschung des flüchtigen Kontexts prüfen. Der Hub erhält nur für die Aufgabe freigegebene strukturierte Ergebnisse, niemals SFrame-Schlüssel oder einen neuen Rohmedien-Relay-Pfad."
-      ]
+      ],
+      "implementation_note": "Begrenzter PCM-Empfang mit exakter Publikations-/Epoch-/Lease-Bindung, eigener Quellenausschluss, Sample-Zeitfolge und sofortiger Abbruch/Wipe implementiert. Vorhandene Voice-Streaming-/Decoder-/FasterWhisper-Bausteine wiederverwendet; gepinnter lokaler CUDA-ASR-Unterprozess ohne Cloud-/CPU-Fallback. 343 kombinierte Meet-/Voice-Tests bestanden. Echter GPU-ASR-Probelauf noch ausstehend. MDS-03-Wire-Adapter, produktive Receive-Autorität, Hub-ASR-Taskanbindung, erneuerbarer Dauerempfang und visuelle Analyse bleiben offen; kein Live-Receive-/Release-Claim. docs/operations/meet-local-audio-receive.md."
     },
     {
       "id": "MAP-26",
@@ -1050,13 +1052,13 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 11,
+      "todo": 9,
       "in_progress": 0,
-      "partial": 19,
+      "partial": 20,
       "blocked": 0,
-      "done": 2
+      "done": 3
     },
-    "progress_percent_done": 6.2,
+    "progress_percent_done": 9.4,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1146,18 +1148,18 @@
       },
       "feature": {
         "total": 16,
-        "done": 0,
-        "partial": 8,
+        "done": 1,
+        "partial": 9,
         "blocked": 0,
-        "todo": 8,
+        "todo": 6,
         "in_progress": 0,
-        "progress_percent": 20.3,
+        "progress_percent": 28.4,
         "by_status": {
-          "todo": 8,
+          "todo": 6,
           "in_progress": 0,
-          "partial": 8,
+          "partial": 9,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "infrastructure": {
@@ -1212,11 +1214,11 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 11,
+    "todo_remaining": 9,
     "in_progress": 0,
-    "partial": 19,
+    "partial": 20,
     "blocked": 0,
-    "done": 2,
+    "done": 3,
     "milestones_done": 0,
     "milestones_total": 8
   }

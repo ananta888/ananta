@@ -11,5 +11,6 @@ RUN pip install --no-cache-dir playwright==1.58.0 \
     && python -m playwright install --with-deps chromium \
     && chmod -R a+rX /opt/meet-browser
 COPY worker/meet_media /app/worker/meet_media
+COPY voice_runtime /app/voice_runtime
 ENV PYTHONUNBUFFERED=1 NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
 CMD ["python", "-m", "worker.meet_media.server"]

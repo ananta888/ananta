@@ -2,3 +2,5 @@ piper-tts==1.4.2
 onnxruntime-gpu[cuda,cudnn]==1.22.0
 Pillow==11.3.0
 numpy==2.2.6
+faster-whisper==1.2.1
+ctranslate2==4.6.0
