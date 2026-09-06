@@ -80,6 +80,61 @@
   },
   "related_tracks": [
     {
+      "repository": "webrtc-minimize-server",
+      "path": "todos/active/todo.ananta-machine-dialog-screen.json",
+      "relationship": "Ausführbarer Meet-Companion für Receive-/Chat-/Screen-Verträge, Schlüssel-/Raumrechte, Sessionerneuerung, Angular-Kontrolle und Meet-Live-Gates. Ananta implementiert Hub-Policy, ASR/Dialog und isolierte Quellen in diesem bestehenden MAP-Track; keine zweite Task-Queue.",
+      "task_mapping": {
+        "MDS-01": [
+          "MAP-02",
+          "MAP-03",
+          "MAP-06",
+          "MAP-08"
+        ],
+        "MDS-02": [
+          "MAP-05",
+          "MAP-06",
+          "MAP-12",
+          "MAP-25"
+        ],
+        "MDS-03": [
+          "MAP-25",
+          "MAP-27"
+        ],
+        "MDS-04": [
+          "MAP-26",
+          "MAP-27"
+        ],
+        "MDS-05": [
+          "MAP-13",
+          "MAP-14",
+          "MAP-15",
+          "MAP-16",
+          "MAP-24"
+        ],
+        "MDS-06": [
+          "MAP-09",
+          "MAP-11",
+          "MAP-12"
+        ],
+        "MDS-07": [
+          "MAP-12",
+          "MAP-25",
+          "MAP-32"
+        ],
+        "MDS-08": [
+          "MAP-29",
+          "MAP-30",
+          "MAP-31"
+        ],
+        "MDS-09": [
+          "MAP-05",
+          "MAP-31",
+          "MAP-32"
+        ]
+      },
+      "completion_policy": "MAP behält die Gesamtakzeptanz und Historie; MDS ist Source of Truth für die Meet-Teilimplementierung. Kein automatischer Abschluss über Repository-Grenzen."
+    },
+    {
       "path": "todos/todo.ananta-meet-integration.json",
       "relationship": "Reuse und additive Weiterentwicklung der Hub-Raumzuordnung; offene Human-Live-Gates separat beibehalten.",
       "task_refs": [
@@ -366,7 +421,8 @@
         "Explizit registrierter Aussteller und überprüfbarer machine participant principal mit Tenant-/Organisations-/Agentenbindung; Displayname oder Raumcode genügen niemals als Identität.",
         "Ein versioniertes Trust-Profil entscheidet über Issuer, Audience, Algorithmen, Schlüsselrotation und zugelassene Hub-/Projekt-Scope-Bindungen; Meet validiert dieses Profil selbst.",
         "Provisionierung, Erneuerung und Widerruf sind nach expliziter Betreiber-Vorautorisierung per API/Automation möglich, ohne E-Mail-Klick, CAPTCHA, TOTP-Eingabe oder wiederkehrenden menschlichen Login im Ausführungspfad.",
-        "Kein menschliches Konto nachahmen und keine privaten Ausstellerschlüssel an Worker übertragen; Secrets nur über scoped Secret-Referenzen und schmale Credentials."
+        "Kein menschliches Konto nachahmen und keine privaten Ausstellerschlüssel an Worker übertragen; Secrets nur über scoped Secret-Referenzen und schmale Credentials.",
+        "Ananta provisioniert den privaten Hub-Signierer und eine explizite tenant-/projekt-/raum-/taskgebundene Vorautorisierung. Meet erhält ausschließlich öffentlichen Trust und exakten Issuer. Der Plan selbst ist keine Runtime-Freigabe; fehlende Freigaben liefern maschinenlesbares blocked."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
@@ -494,7 +550,9 @@
         "Automatischer Reconnect, Refresh, Backoff und Wiederaufnahme sind zeitlich und zahlenmäßig begrenzt und an aktuelle Assignment-/Dispatch-Lease und Room-Membership-Epoch gebunden.",
         "Doppelter Dispatch, Hub-Neustart und Worker-Crash erzeugen weder doppelte Teilnehmer noch doppelte Audioausgabe; nur die aktuelle Generation darf publizieren.",
         "Lease-Verlust stoppt lokale Quellen und Veröffentlichungen innerhalb des vorab definierten Stop-Budgets auch bei abgerissener Hub-Verbindung.",
-        "Worker darf seinen Auftrag weder verlängern noch eine andere Persona, Quelle, Zielgruppe oder einen anderen Raum selbst auswählen."
+        "Worker darf seinen Auftrag weder verlängern noch eine andere Persona, Quelle, Zielgruppe oder einen anderen Raum selbst auswählen.",
+        "Dauerhaftes Zuhören besteht aus kurzlebigen, vom Hub neu autorisierten Sitzungs-Leases mit Gesamtbudget, nicht aus einem unbegrenzt gültigen Grant. Erneuerung revalidiert Projekt-, Task- und Receive-/Publish-Policy und wartet auf Meets Bestätigung; maximale Überlappung und Stop-Frist sind festgelegt.",
+        "Mindestens drei Lease-Wechsel, doppelte/verspätete Renewal-Antworten und Hub-/Worker-Ausfall testen: keine Doppelantwort, kein Wiederbeleben entzogener Rechte und keine Übernahme alter Transkripte in eine neue Sitzung."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
@@ -536,7 +594,8 @@
         "BrowserTaskContract und vorhandene Browser-Adapter prüfen und um additive Live-Quellfähigkeiten ergänzen; ein Screenshot-Endpunkt wird nicht als fertiger kontinuierlicher Stream ausgegeben.",
         "Quellbindung umfasst genau einen vom Hub gestarteten Browser-Workspace und die erlaubte Seite/Ansicht; kein Zugriff auf persönliche Tabs oder den gesamten Host-Desktop.",
         "Domain-/Navigations-/Download-Policy bleibt beim Steuern und beim Teilen wirksam; authentisierte Inhalte benötigen gesonderte opt-in Freigabe.",
-        "Vor Implementierung des Renderpfads eine Capability-/Kostenprobe des tatsächlich vorhandenen Browsers erstellen; alternative Adapter deklarieren ihre Grenzen ehrlich."
+        "Vor Implementierung des Renderpfads eine Capability-/Kostenprobe des tatsächlich vorhandenen Browsers erstellen; alternative Adapter deklarieren ihre Grenzen ehrlich.",
+        "Ananta erzeugt den Bildschirmstream ausschließlich aus seinem isolierten Browser-/virtuellen Display-Workspace und übergibt ihn dem MDS-05-Source-Port. Meet übernimmt Transport und Darstellung; persönliche Host-Displays, Profile, Mikrofone und Kameras bleiben unzugänglich."
       ]
     },
     {
@@ -797,7 +856,10 @@
         "Zuhören und visuelle Wahrnehmung verlangen explizite session-/room-/publikationsgebundene Receive-Rechte und sind default-aus; Senden allein autorisiert keinen Empfang.",
         "ASR-/Bild-/Videoanalyse über vorhandene geeignete Worker-Pfade und Hub-Tasks anbinden; Inhalte und Schlüssel nur an hierfür freigegebene Ausführungsprofile geben.",
         "Temporäre Puffer, Aufnahme, Transkriptpersistenz, Artefaktbildung und Training sind getrennte Policies; standardmäßig keine dauerhafte Speicherung empfangener Medien.",
-        "Klar kennzeichnen, dass ein zur Analyse autorisierter KI-Teilnehmer Inhalte entschlüsseln kann; der Blind-Relay-Sicherheitsbegriff gilt nicht für diesen Endpunkt."
+        "Klar kennzeichnen, dass ein zur Analyse autorisierter KI-Teilnehmer Inhalte entschlüsseln kann; der Blind-Relay-Sicherheitsbegriff gilt nicht für diesen Endpunkt.",
+        "Den MDS-03-Empfangsport für separat freigegebenen Mikrofon- und Bildschirmton anbinden: Publikations-/Sender-/Epoch-Bindung und monotone Audiozeitstempel bis zur ASR erhalten. Eigene TTS-Ausgabe ausschließen; VAD, Segmentabschluss, Sprache und ASR-Modell über begrenzte austauschbare Worker-Ports konfigurieren.",
+        "ASR-/Modellprovider müssen für diese Inhalte ausdrücklich freigegeben sein; lokaler Betrieb ist kein impliziter Cloud-Fallback. Keine Weitergabe an nicht zugelassene Provider, keine Speicherung von Rohmedien oder Transkripten ohne eigene Policy.",
+        "Kontinuierlichen Empfang innerhalb erneuerbarer Leases mit bounded Puffern, Backpressure, Abbruch und Löschung des flüchtigen Kontexts prüfen. Der Hub erhält nur für die Aufgabe freigegebene strukturierte Ergebnisse, niemals SFrame-Schlüssel oder einen neuen Rohmedien-Relay-Pfad."
       ]
     },
     {
@@ -818,7 +880,10 @@
         "Hub steuert wer sprechen darf, Prioritäten, Turn-Taking, Unterbrechung, Stille-Timeout und maximalen Redeumfang; kein Worker-zu-Worker-Orchestrierungsloop.",
         "Eigene TTS-Ausgabe darf nicht als neuer Fremdauftrag zurücklaufen; Echo-/Self-Input- und Mehrfachantwortschutz auf Teilnehmer-/Publikations-/Turn-Bindung testen.",
         "Unverständliche oder fehlende Eingabe führt zu begrenzter Rückfrage/Abbruch innerhalb der Policy, niemals zu unbegrenztem Warten auf menschliche Freigabe.",
-        "Gesprächsbeiträge allein aktivieren keine Tools, Rollenänderungen oder externen Aktionen; solche Entscheidungen bleiben im bestehenden Hub-Policy-System."
+        "Gesprächsbeiträge allein aktivieren keine Tools, Rollenänderungen oder externen Aktionen; solche Entscheidungen bleiben im bestehenden Hub-Policy-System.",
+        "Automatische Raumchatantworten über den MDS-04-Event-Port ergänzen: default-aus; konfigurierbare Modi aus, nur Erwähnung, nur direkte Frage oder freigegebene Raumbeiträge. Ein Chatereignis wird erst nach aktueller Hub-Policy zu einem idempotenten Antworttask, niemals direkt durch einen Worker-Scheduler.",
+        "Event-/Message-ID, Sessiongeneration, Sender und Antwortkorrelation binden; Deduplikation, per-Raum-/Sender-Rate-Limit, Cooldown, maximale Antwortlänge und LLM-/Token-/Kostenbudget testen. Eigene KI-Nachrichten und KI-zu-KI-Schleifen ohne explizite Hub-Policy ignorieren.",
+        "LLM-Antwort aus begrenztem zulässigem Kontext erzeugen und über vorhandene Chat-/TTS-/Avatar-Ports publizieren. Zwischen Generierung und Ausgabe Rechte und Turn-Generation erneut prüfen; Abbruch, Barge-in und Widerruf verwerfen veraltete Ergebnisse."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
@@ -890,7 +955,8 @@
         "Positive und negative Issuer-/Audience-/PoP-/Replay-/Lease-/Tenant-/Room-/Source-/Persona-/E2EE-Fälle, CAS-Rennen, Crash-Recovery und Widerruf durchtesten.",
         "Tests prüfen den tatsächlichen Empfang von Bild-/Browser-/Audio-/Videoinhalten sowie Stop/Maskierung; allein grüne API-Responses genügen nicht.",
         "Alle Tests besitzen End-to-End-Zeitbudgets, sekretfreie Fehlerartefakte und auf eigene Ressourcen begrenztes Cleanup. Fehlende verpflichtende Infrastruktur ergibt blocked/failed, nicht stillschweigendes passed.",
-        "Kompatibilitätsregression für bisherigen Meet-Human-Join, Pair-Dev, Artefaktaustausch, LiveKit, Room-Caps und bestehende Invite-Zuordnungen ausführen."
+        "Kompatibilitätsregression für bisherigen Meet-Human-Join, Pair-Dev, Artefaktaustausch, LiveKit, Room-Caps und bestehende Invite-Zuordnungen ausführen.",
+        "Companion-Contract-Fixtures mit MDS-01 abstimmen und Audioempfang, automatischen Chatturn sowie bewegten agenteneigenen Bildschirm Ende zu Ende testen. Negativfälle umfassen doppelte Events, Self-Echo, Prompt-Injection, fremde Publikationen, Schlüsselentzug und missbrauchte Renewal-Generationen."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     },
@@ -934,7 +1000,8 @@
         "Ein ausdrücklich autorisierter Maschinenprincipal erstellt/joint den eigenen Testraum ohne Benutzeraktion und publiziert Browserbild, Persona-Video und Audio an eine getrennte reale Gegenstelle; Receive-Pfad separat prüfen.",
         "TLS/WSS, SFrame, Token-/Lease-Rotation und Revocation über den öffentlichen Host testen. Einen TURN-Relay-Pfad erzwingen und anhand ausgewählter ICE-Paare und empfangener Nutzdaten nachweisen.",
         "Lokales Hairpin, zwei Browser auf einem PC und eine unabhängige externe Gegenstelle getrennt ausweisen; keine Multi-Host-/NAT-Behauptung aus einem Single-Host-Lauf.",
-        "Öffentliche Rendezvous-/Meet-Pfadtrennung, bestehende Teilnehmer und Human-Capture-Schutz unverändert lassen; nur eigene Ressourcen bereinigen."
+        "Öffentliche Rendezvous-/Meet-Pfadtrennung, bestehende Teilnehmer und Human-Capture-Schutz unverändert lassen; nur eigene Ressourcen bereinigen.",
+        "Mindestens zweistündiger begrenzter Dialog-/Screen-Soak mit mehreren Lease-Erneuerungen sowie gezieltem Hub-Ausfall und Projekt-/Raumwiderruf. Vorher Ressourcen-, Stop- und Latenzbudgets festlegen; bestehende fremde GPU-Jobs und Meetings nicht belasten."
       ]
     },
     {
@@ -956,7 +1023,8 @@
         "Deployment-/Trust-/Policy-/Persona-Konfiguration, Credential-Rotation, Ressourcenprofile, Datenschutz, Not-Aus, Fehlerdiagnosen und Rollback nachvollziehbar dokumentieren.",
         "Feature-Flags stufenweise aktivieren: stummer Agent und Browserstream, Bild+TTS, Video, Receive/Dialog, Mehragentenbetrieb; Rücknahme stoppt Maschinenquellen ohne Human-Meet oder bestehende Ananta-Medienpfade zu beschädigen.",
         "Gezielte größere Regression gebündelt an Meilenstein-Grenzen statt vollständiger Suite nach jeder Einzelaufgabe; Anzahl, Dauer, Fehlerbehebung und verbleibende reale Grenzen berichten.",
-        "Beide Repository-Revisionen, Contract-Kompatibilität und Build-/Image-Stände festhalten. Task-/Milestone-Summaries aus tasks[] berechnen, validieren und gezielt committen/pushen; erst nach allen erfüllten Kriterien archivieren."
+        "Beide Repository-Revisionen, Contract-Kompatibilität und Build-/Image-Stände festhalten. Task-/Milestone-Summaries aus tasks[] berechnen, validieren und gezielt committen/pushen; erst nach allen erfüllten Kriterien archivieren.",
+        "Readiness trennt laufende Version, Meet-Hub-Trust und Ananta-Projektvorautorisierung. Automatisierte Provisionierung nach expliziter Betreiberpolicy, Key-Rotation, Not-Aus und Rollback dokumentieren; weder manuelles wiederkehrendes Login noch Sicherheitsbypass als Dauerlösung einbauen."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
     }
@@ -1016,6 +1084,7 @@
     }
   },
   "summary_notes": [
+    "Planungsergänzung 2026-09-06: Ananta-Verantwortung für dauerhaften autorisierten Empfang/ASR, automatische Chatantworten, isolierte Bildschirmquelle und Hub-Lease-/Projektpolicy konkretisiert; neuer Meet-Companion enthält ausschließlich dessen Teilaufgaben. Keine Implementierungsprozente, historischen Abschlüsse oder Runtime-Freigaben durch diese Planänderung angehoben.",
     "Lokale erste Ausbaustufe implementiert: Qwen2.5-1.5B, deutsche Piper-CUDA-Stimme, amplitudenanimierter NVENC-Avatar, Hub-Tasks und optionale begrenzte Meet-Publikation.",
     "Ananta-Medienvorschau und ein einzelner vorautorisierter Antwortauftrag sind kein dauerhaft zuhörender Dialogagent. Fremde Chatnachrichten starten noch keine automatischen Antworten.",
     "Lokale GPU-Erzeugung, Sandbox-Start im Worker und zwei isolierte Meet-Browser mit dekodierten Medien/Chat und erforderlichem SFrame geprüft. Keine menschlichen Capture-Freigaben in den Tests.",
