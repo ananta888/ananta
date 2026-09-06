@@ -49,6 +49,10 @@ passed 139 tests in 98.65 seconds; no public or real user files were changed.
 
 Still required before productive upload/use: video-scoped permission policy,
 real Hub task/receipt/worker transport integration, orchestration of admission
-and revocation, exact video physical erasure/retention, profile/publisher/UI
+and revocation, automatic video retention, profile/publisher/UI
 integration. Existing image retention must never be applied to MP4 files by
 pretending they are image assets.
+
+Exact resumable physical erasure is now provided by the separate composition
+described in [persona-video-erasure.md](persona-video-erasure.md); it does not
+automatically activate deletion or a retention schedule.

@@ -1,15 +1,23 @@
-"""Explicit, resumable erasure of already-retired image bundles; no broad sweep."""
+"""Explicit, resumable erasure of exact retired persona bundles; no broad sweep."""
 
 from typing import Protocol
 
 
-class PersonaImageErasurePort(Protocol):
+class PersonaPartErasurePort(Protocol):
     def erase(self, reference, expected_size, *, checkpoint) -> None: ...
 
 
+PersonaImageErasurePort = PersonaPartErasurePort  # Existing image-only import compatibility.
+
+
 class PersonaAssetErasureService:
-    def __init__(self, *, policy, catalog, eraser: PersonaImageErasurePort):
+    def __init__(self, *, policy, catalog, eraser: PersonaPartErasurePort, parts=None):
         self.policy, self.catalog, self.eraser = policy, catalog, eraser
+        self.parts = parts if parts is not None else self._image_parts
+
+    @staticmethod
+    def _image_parts(asset):
+        return ((asset.image, asset.image_size), (asset.preview, asset.preview_size))
 
     def status(self, principal, project, artifact_id):
         self.policy.require_revoke(principal, project, artifact_id)
@@ -46,7 +54,7 @@ class PersonaAssetErasureService:
         with self.catalog.storage_guard(
             principal.tenant_id, project, artifact_id, expected_revision=revision, state="purging"
         ):
-            for reference, size in ((asset.image, asset.image_size), (asset.preview, asset.preview_size)):
+            for reference, size in self.parts(asset):
                 checkpoint()
                 self.eraser.erase(reference, size, checkpoint=checkpoint)
         checkpoint()
