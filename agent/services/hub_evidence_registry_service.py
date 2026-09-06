@@ -307,6 +307,60 @@ class HubEvidenceRegistryService:
             updated_at_epoch=float(self._clock()),
         )
 
+    def require_run_result(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        run_id: str,
+        task_id: str,
+        assignment_id: str,
+        dispatch_lease_id: str,
+        input_digest: str,
+        source_ids: Sequence[str],
+        result_digest: str,
+        expected_binding_digest: str,
+    ) -> RunEvidenceIdentity:
+        """Verify a pinned completed technical run, not a production release gate."""
+        expected = self._digest(expected_binding_digest, "evidence_run_binding_digest_invalid")
+        run = self._repository.get_run(tenant_id=tenant_id, project_id=project_id, run_id=run_id)
+        if run is None or run.state != "succeeded":
+            raise HubEvidenceRegistryError("evidence_run_result_unavailable")
+        binding = {
+            "schema": "ananta.hub-run-evidence-binding.v1",
+            **{
+                name: getattr(run, name)
+                for name in (
+                    "tenant_id",
+                    "project_id",
+                    "task_id",
+                    "assignment_id",
+                    "dispatch_lease_id",
+                    "repository_revision",
+                    "input_digest",
+                    "execution_profile_digest",
+                    "environment_digest",
+                    "evidence_scope",
+                    "synthetic",
+                    "issuer",
+                    "reservation_key_digest",
+                )
+            },
+            "source_ids": list(run.source_ids),
+        }
+        if (
+            (run.tenant_id, run.project_id, run.run_id, run.task_id, run.assignment_id, run.dispatch_lease_id)
+            != (tenant_id, project_id, run_id, task_id, assignment_id, dispatch_lease_id)
+            or run.input_digest != input_digest
+            or run.source_ids != self._source_ids(source_ids)
+            or run.result_digest != result_digest
+            or run.binding_digest != expected
+            or _canonical_digest(binding) != expected
+            or (run.issuer == _HUB_ISSUER and run_id != f"RUN_{expected[:32]}")
+        ):
+            raise HubEvidenceRegistryError("evidence_run_result_binding_mismatch")
+        return run
+
     def assignment_projection(
         self,
         *,

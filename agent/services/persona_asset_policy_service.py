@@ -14,6 +14,7 @@ class PinnedPersonaSourcePort(Protocol):
 
 class PersonaInspectionReceiptPort(Protocol):
     def require_completed(self, principal, admission, result) -> None: ...
+    def require_asset(self, principal, asset) -> None: ...
 
 
 class PersonaAssetPolicyService:
@@ -154,6 +155,7 @@ class PersonaAssetPolicyService:
             classification=asset.image.classification,
         )
         self.require_current(principal, admission, purpose)
+        self.inspection_receipts.require_asset(principal, asset)
 
     def require_revoke(self, principal, project, artifact_id):
         self._project(principal, project, ProjectCapability.MANAGE)

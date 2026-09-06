@@ -35,11 +35,17 @@ class PersonaImageAsset(ClosedModel):
     policy_revision: Revision
     inspection_task_id: Identifier
     inspection_lease_id: Identifier
+    inspection_run_id: Annotated[str, Field(pattern=r"^RUN_[A-Za-z0-9_.:-]{1,156}$")] | None = None
+    inspection_assignment_id: Identifier | None = None
+    inspection_run_binding_digest: Digest | None = None
     image_size: Annotated[StrictInt, Field(gt=0, le=5 * 1024 * 1024)]
     preview_size: Annotated[StrictInt, Field(gt=0, le=350_000)]
 
     @model_validator(mode="after")
     def validate_bundle(self):
+        identities = (self.inspection_run_id, self.inspection_assignment_id, self.inspection_run_binding_digest)
+        if any(value is not None for value in identities) and not all(value is not None for value in identities):
+            raise ValueError("persona_asset_inspection_binding_incomplete")
         if (
             self.image.kind != "image"
             or self.preview.kind != "image"

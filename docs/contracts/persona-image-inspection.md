@@ -32,8 +32,8 @@ metadata removal, deterministic output, animation/MIME/dimension rejection, a
 real supervised child and authority revocation. These tests require no person,
 network, model or live image fixtures.
 
-Still required before public activation: dispatch through a normal Hub artifact
-inspection task and its receipt verifier; configure explicit origin/license/consent policy;
+Still required before public activation: configure the worker transport and
+assignment-bound lease endpoint; configure explicit origin/license/consent policy;
 separately authorized image selection/publication. Audio,
 voice-model and video asset admission are separate profiles, not implicitly
 accepted by this image-only port.
@@ -47,7 +47,19 @@ references are not trusted merely because a caller supplies strings. A productio
 policy adapter must validate their authoritative records, and the task adapter
 must create/delegate/verify a normal Hub task under its exact dispatch lease.
 The concrete policy adapter is described in [persona-image-policy.md](persona-image-policy.md).
-The concrete task/receipt adapter and public activation route remain open.
+`HubPersonaInspectionTasks` delegates through the existing Hub queue and reserves
+a Registry run before worker execution. Its content-free task context binds the
+actor, admission digest, task, assignment, lease, run and deadline. Terminal
+compare-and-swap prevents a cancelled/expired task accepting a late result.
+`HubPersonaInspectionReceipts` verifies the exact completed task and Registry
+result. Stored asset receipts are rechecked against their pinned immutable run
+on every read, without requiring the execution task to remain unarchived.
+Legacy metadata without that registered run is unverified, not auto-promoted.
+The concrete HTTP worker transport and public activation route remain open.
+
+The combined task/catalog/policy/Registry regression has **58 passing tests in
+21.65 seconds**. It uses real Hub tasks and Hub-issued test identities with an
+explicit synthetic worker double; this is not live deployment or release evidence.
 
 The implemented application service rechecks authority before inspection, before
 and during storage, and after activation. It uses `PersonaAssetStorage` around

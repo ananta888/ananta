@@ -16,6 +16,9 @@ class PersonaInspectionResult:
     task_id: str
     lease_id: str
     image: InspectedPersonaImagePort = field(repr=False)
+    run_id: str | None = None
+    assignment_id: str | None = None
+    run_binding_digest: str | None = None
 
 
 class PersonaAssetPolicyPort(Protocol):
@@ -101,6 +104,9 @@ class PersonaAssetService:
             policy_revision=admission.policy_revision,
             inspection_task_id=result.task_id,
             inspection_lease_id=result.lease_id,
+            inspection_run_id=result.run_id,
+            inspection_assignment_id=result.assignment_id,
+            inspection_run_binding_digest=result.run_binding_digest,
             image_size=len(result.image.png),
             preview_size=len(result.image.preview),
         )
