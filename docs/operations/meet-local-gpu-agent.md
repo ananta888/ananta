@@ -1,5 +1,10 @@
 # Lokaler Meet-KI-Assistent (erste Ausbaustufe)
 
+Die nachfolgende Dialog-Ausbaustufe beginnt mit der separat getesteten
+[Hub-Chat-Admission-Grundlage](../contracts/meet-chat-admission.md). Sie ist
+noch nicht an produktive Meet-Events oder die Antwort-Task-Ausführung angebunden;
+die unten beschriebenen Grenzen der ersten Ausbaustufe bleiben bestehen.
+
 ## Geliefert und bewusst begrenzt
 
 Ein explizit vorautorisierter Projektbenutzer kann über

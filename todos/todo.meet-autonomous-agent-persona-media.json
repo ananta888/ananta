@@ -871,7 +871,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 20,
+      "progress_percent": 35,
       "depends_on": [
         "MAP-22",
         "MAP-25"
@@ -885,7 +885,7 @@
         "Event-/Message-ID, Sessiongeneration, Sender und Antwortkorrelation binden; Deduplikation, per-Raum-/Sender-Rate-Limit, Cooldown, maximale Antwortlänge und LLM-/Token-/Kostenbudget testen. Eigene KI-Nachrichten und KI-zu-KI-Schleifen ohne explizite Hub-Policy ignorieren.",
         "LLM-Antwort aus begrenztem zulässigem Kontext erzeugen und über vorhandene Chat-/TTS-/Avatar-Ports publizieren. Zwischen Generierung und Ausgabe Rechte und Turn-Generation erneut prüfen; Abbruch, Barge-in und Widerruf verwerfen veraltete Ergebnisse."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Hub-seitige Chat-Admission-Grundlage implementiert: geschlossener Draft-Eventvertrag, default-aus Antwortpolicy, Self-/Machine-Input-Schutz, SQL-atomare Deduplikation, Raum-/Sender-/Sitzungsbudgets und erneute Autoritätsprüfung. Vertrag und gemeinsame synthetische Fixtures: docs/contracts/meet-chat-admission.md. Reservierungen sind keine erstellten Tasks. MDS-01/02/04-Abstimmung, echter Autoritätsadapter, Task-Materialisierung und generationsgebundene Publikation bleiben offen; kein produktiver Chat-Ingress oder Runtime-Trust aktiviert. Lokaler GPU-/Maschinen-Slice bleibt docs/operations/meet-local-gpu-agent.md."
     },
     {
       "id": "MAP-27",
@@ -1084,6 +1084,7 @@
     }
   },
   "summary_notes": [
+    "MAP-26 Chat-Admission-Slice 2026-09-06: Parser, Policy und persistente at-most-once Budgetreservierung lokal getestet. draft1 ist ein Abstimmungsvorschlag für Meet, kein freigegebener Wire-Vertrag. Kein neuer Task-Scheduler, keine produktive Empfangsfreigabe und keine Aussage über vollständigen Chat-/ASR-/Screen-Dialog. Siehe docs/contracts/meet-chat-admission.md und tests/test_meet_chat_admission.py.",
     "Planungsergänzung 2026-09-06: Ananta-Verantwortung für dauerhaften autorisierten Empfang/ASR, automatische Chatantworten, isolierte Bildschirmquelle und Hub-Lease-/Projektpolicy konkretisiert; neuer Meet-Companion enthält ausschließlich dessen Teilaufgaben. Keine Implementierungsprozente, historischen Abschlüsse oder Runtime-Freigaben durch diese Planänderung angehoben.",
     "Lokale erste Ausbaustufe implementiert: Qwen2.5-1.5B, deutsche Piper-CUDA-Stimme, amplitudenanimierter NVENC-Avatar, Hub-Tasks und optionale begrenzte Meet-Publikation.",
     "Ananta-Medienvorschau und ein einzelner vorautorisierter Antwortauftrag sind kein dauerhaft zuhörender Dialogagent. Fremde Chatnachrichten starten noch keine automatischen Antworten.",
@@ -1150,7 +1151,7 @@
         "blocked": 0,
         "todo": 8,
         "in_progress": 0,
-        "progress_percent": 18.4,
+        "progress_percent": 19.4,
         "by_status": {
           "todo": 8,
           "in_progress": 0,
