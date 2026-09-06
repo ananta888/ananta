@@ -8,12 +8,66 @@ from agent.db_models import (
     OrganizationRoleSlotDB,
     OrganizationTeamLinkDB,
     OrganizationUnitDB,
+    TeamDB,
 )
 
 
 class SqlPersonaProfileOwners:
     def __init__(self, session_factory):
         self.session_factory = session_factory
+
+    def require_runtime(self, tenant, project, organization, kind, owner):
+        layers, _ = self.lineage(tenant, project, organization, kind, owner)
+        with self.session_factory() as session:
+            org = session.exec(
+                select(OrganizationInstanceDB).where(
+                    OrganizationInstanceDB.tenant_id == tenant,
+                    OrganizationInstanceDB.project_id == project,
+                    OrganizationInstanceDB.organization_id == organization,
+                )
+            ).one_or_none()
+            if org is None or org.lifecycle != "active" or org.archived_at is not None:
+                raise PermissionError("persona_runtime_organization_inactive")
+            for layer_kind, layer_owner in layers:
+                if layer_kind == "team":
+                    row = session.exec(
+                        select(OrganizationTeamLinkDB, TeamDB)
+                        .join(
+                            TeamDB,
+                            OrganizationTeamLinkDB.team_id == TeamDB.id,
+                        )
+                        .where(
+                            OrganizationTeamLinkDB.tenant_id == tenant,
+                            OrganizationTeamLinkDB.project_id == project,
+                            OrganizationTeamLinkDB.organization_id == organization,
+                            OrganizationTeamLinkDB.team_id == layer_owner,
+                        )
+                    ).one_or_none()
+                    if row is None or row[0].lifecycle != "active" or not row[1].is_active:
+                        raise PermissionError("persona_runtime_team_inactive")
+                    self._require_unit(session, tenant, project, organization, row[0].unit_id, active=True)
+                if layer_kind == "agent":
+                    assignment = session.exec(
+                        select(OrganizationRoleAssignmentDB).where(
+                            OrganizationRoleAssignmentDB.tenant_id == tenant,
+                            OrganizationRoleAssignmentDB.project_id == project,
+                            OrganizationRoleAssignmentDB.organization_id == organization,
+                            OrganizationRoleAssignmentDB.id == layer_owner,
+                        )
+                    ).one_or_none()
+                    if assignment is None or assignment.lifecycle != "active" or assignment.ended_at is not None:
+                        raise PermissionError("persona_runtime_assignment_inactive")
+                    slot = session.exec(
+                        select(OrganizationRoleSlotDB).where(
+                            OrganizationRoleSlotDB.tenant_id == tenant,
+                            OrganizationRoleSlotDB.project_id == project,
+                            OrganizationRoleSlotDB.organization_id == organization,
+                            OrganizationRoleSlotDB.id == assignment.role_slot_id,
+                        )
+                    ).one_or_none()
+                    if slot is None or slot.lifecycle != "active":
+                        raise PermissionError("persona_runtime_slot_inactive")
+                    self._require_unit(session, tenant, project, organization, slot.unit_id, active=True)
 
     def lineage(self, tenant, project, organization, kind, owner):
         """Preview ancestry and a change token, never a worker/run assignment."""
@@ -121,7 +175,7 @@ class SqlPersonaProfileOwners:
         raise PermissionError("persona_owner_unavailable")
 
     @staticmethod
-    def _require_unit(session, tenant, project, organization, unit_id):
+    def _require_unit(session, tenant, project, organization, unit_id, *, active=False):
         unit = session.exec(
             select(OrganizationUnitDB).where(
                 OrganizationUnitDB.tenant_id == tenant,
@@ -130,5 +184,5 @@ class SqlPersonaProfileOwners:
                 OrganizationUnitDB.id == unit_id,
             )
         ).one_or_none()
-        if unit is None or unit.lifecycle == "archived":
+        if unit is None or unit.lifecycle == "archived" or (active and unit.lifecycle != "active"):
             raise PermissionError("persona_lineage_unavailable")

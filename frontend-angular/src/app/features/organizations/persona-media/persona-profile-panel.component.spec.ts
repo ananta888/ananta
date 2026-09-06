@@ -107,7 +107,8 @@ describe('Persona profile panel', () => {
   it('shows effective inheritance provenance without overwriting the explicit selection', () => {
     const { fixture, facade, api } = setup();
     facade.selectImageState('inherit');
-    facade.effective.set({ purpose: 'preview', runtime_bound: false, topology_revision: 3, media: [{
+    facade.effective.set({ purpose: 'preview', runtime_bound: false, topology_revision: 3,
+      selection: { organization_id: 'org', owner_kind: 'organization', owner_id: 'org', selection_digest: 'a'.repeat(64) }, media: [{
       kind: 'image', state: 'asset', asset: image, available: true, preview_allowed: true, publication_checked: false,
       origins: [{ owner_kind: 'organization', owner_id: 'org', persona_id: 'org-presentation', profile_revision: 5, selection_state: 'asset' }],
     }] });

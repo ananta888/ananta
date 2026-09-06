@@ -1,8 +1,10 @@
 """Authorized profile metadata; saving never grants media publication rights."""
 
+import hashlib
+import json
 from typing import Protocol
 
-from agent.models.persona_media import PersonaMediaProfile
+from agent.models.persona_media import PersonaMediaProfile, PersonaProfileSelection
 from agent.services.organization_membership_service import OrganizationAccessPrincipal
 from agent.services.persona_media_resolution import resolve_profile_layers
 from agent.services.project_access_authority import ProjectAccessError, ProjectCapability
@@ -11,6 +13,7 @@ from agent.services.project_access_authority import ProjectAccessError, ProjectC
 class PersonaProfileOwners(Protocol):
     def require(self, tenant, project, organization, kind, owner, *, mutable): ...
     def lineage(self, tenant, project, organization, kind, owner): ...
+    def require_runtime(self, tenant, project, organization, kind, owner): ...
 
 
 class PersonaProfileImagePort(Protocol):
@@ -136,7 +139,40 @@ class PersonaProfileService:
             "topology_revision": stamp[0],
             "purpose": "preview",
             "runtime_bound": False,
+            "selection": PersonaProfileSelection(
+                organization_id=organization,
+                owner_kind=kind,
+                owner_id=owner,
+                selection_digest=hashlib.sha256(
+                    json.dumps(
+                        {
+                            "tenant": principal.tenant_id,
+                            "project": project,
+                            "organization": organization,
+                            "kind": kind,
+                            "owner": owner,
+                            "lineage": lineage,
+                            "profiles": [p.content_hash() if p else None for p in profiles],
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode()
+                ).hexdigest(),
+            ).model_dump(mode="json"),
         }
+
+    def for_execution(self, principal, project, selection: PersonaProfileSelection):
+        scope = (principal, project, selection.organization_id, selection.owner_kind, selection.owner_id)
+        self._authorize(*scope, mutable=False)
+        self.owners.require_runtime(principal.tenant_id, *scope[1:])
+        result = self.effective(*scope)
+        if result["selection"] != selection.model_dump(mode="json"):
+            raise PermissionError("persona_execution_profile_changed")
+        image = result["media"][0]
+        if image["kind"] != "image" or not image["preview_allowed"] or image["asset"] is None:
+            raise PermissionError("persona_execution_image_unavailable")
+        self.owners.require_runtime(principal.tenant_id, *scope[1:])
+        return image["asset"]
 
     def _preview_selection(self, principal, selection):
         available = selection.state != "missing"

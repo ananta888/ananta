@@ -732,10 +732,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M5",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "depends_on": [
         "MAP-11",
         "MAP-18"
@@ -745,7 +745,8 @@
         "Asset-/Stimm-/Videowechsel während der Sitzung ist ein eigener Hub-Befehl mit Revisionsprüfung; kein Worker darf eigenmächtig das Erscheinungsbild oder die Stimme ändern.",
         "Entzug von Organisationsrolle oder Nutzungsfreigabe leert ausstehende Medien und widerruft Veröffentlichung; Rückfall auf neutrales KI-Profil nur unter expliziter Policy.",
         "Gleiche Persona kann mehrere zulässige Sessions besitzen, ohne Media-Puffer, Schlüssel, Credentials oder Gesprächskontext zu teilen."
-      ]
+      ],
+      "implementation_note": "Additive persona_profile-Auswahl für neue begrenzte Medienturns implementiert. Hub-Konfigurationsdigest bindet Scope, tatsächliche Abstammung, Topologiestand und immutable Profilhashes; kein Evidenz-Identifier oder Grant. Aktive Organisation/Team/Einheit/Rollenplatz/Besetzung erforderlich. Worker erhält nur konkrete geschlossene Bildprojektion; Profilbindung bleibt im Hub-Task und wird nach Erzeugung sowie über die bestehende Publikations-Lease erneut geprüft. Profilwechsel, Rechte-/Bildentzug, Pausierung und fehlende/deaktivierte Bilder sperren Ergebnisse ohne stillen neutralen Fallback. 174 kombinierte Medien-/Chat-/Profiltests in 116,47 Sekunden und 10 UI-/HTTP-Tests bestanden; Angular-Build erfolgreich. docs/contracts/meet-persona-profile-turns.md. Noch offen: langlebige MDS-Sessiongenerationen, separater Hub-Wechselbefehl und Queue-Invalidierung über den neuen Meet-Transport. Keine öffentliche Produktionsfreigabe oder laufende Sitzung behauptet."
     },
     {
       "id": "MAP-21",
@@ -1054,9 +1055,9 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 7,
+      "todo": 6,
       "in_progress": 0,
-      "partial": 22,
+      "partial": 23,
       "blocked": 0,
       "done": 3
     },
@@ -1151,15 +1152,15 @@
       "feature": {
         "total": 16,
         "done": 1,
-        "partial": 10,
+        "partial": 11,
         "blocked": 0,
-        "todo": 5,
+        "todo": 4,
         "in_progress": 0,
-        "progress_percent": 34.1,
+        "progress_percent": 36.6,
         "by_status": {
-          "todo": 5,
+          "todo": 4,
           "in_progress": 0,
-          "partial": 10,
+          "partial": 11,
           "blocked": 0,
           "done": 1
         }
@@ -1216,9 +1217,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 7,
+    "todo_remaining": 6,
     "in_progress": 0,
-    "partial": 22,
+    "partial": 23,
     "blocked": 0,
     "done": 3,
     "milestones_done": 0,

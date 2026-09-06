@@ -70,13 +70,20 @@ def configure_meet_media(app):
         issuer = MeetMachineGrantIssuer(
             os.environ["ANANTA_MEET_MACHINE_ISSUER"], os.environ["ANANTA_MEET_MACHINE_KEY_FILE"]
         )
+    images = _persona_images(app)
+    profiles = None
+    if images is not None and app.extensions.get("persona_profiles") is not None:
+        from agent.services.meet_persona_profiles import MeetPersonaProfiles
+
+        profiles = MeetPersonaProfiles(app.extensions["persona_profiles"], images)
     app.extensions["meet_turn_service"] = MeetTurnService(
         app.extensions["meet_binding_service"],
         worker,
         HubMediaTasks(),
         map(tuple, scopes),
         grant_issuer=issuer,
-        persona_images=_persona_images(app),
+        persona_images=images,
+        persona_profiles=profiles,
     )
 
 

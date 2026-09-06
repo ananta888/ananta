@@ -22,6 +22,11 @@ class PersonaImagePort(Protocol):
     def require_current(self, principal, project: str, reference: dict, purpose: str) -> None: ...
 
 
+class PersonaProfilePort(Protocol):
+    def prepare(self, principal, project: str, selection: dict, purpose: str) -> tuple[dict, dict]: ...
+    def require_current(self, principal, project: str, binding: dict, reference: dict) -> None: ...
+
+
 class MeetTurnService:
     def __init__(
         self,
@@ -32,12 +37,14 @@ class MeetTurnService:
         clock=time.time,
         grant_issuer=None,
         persona_images: PersonaImagePort | None = None,
+        persona_profiles: PersonaProfilePort | None = None,
     ):
         self.binding, self.worker, self.tasks = binding, worker, tasks
         self.allowed_scopes = frozenset(allowed_scopes)
         self.clock = clock
         self.grant_issuer = grant_issuer
         self.persona_images = persona_images
+        self.persona_profiles = persona_profiles
 
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.
@@ -46,8 +53,9 @@ class MeetTurnService:
             raise MeetError("meet_media_policy_denied", 403)
         if (
             not isinstance(payload, dict)
-            or set(payload) - {"publish_to_meet", "persona_image_id"} != {"text"}
+            or set(payload) - {"publish_to_meet", "persona_image_id", "persona_profile"} != {"text"}
             or type(payload.get("publish_to_meet", False)) is not bool
+            or {"persona_image_id", "persona_profile"} <= set(payload)
         ):
             raise MeetError("meet_turn_payload_invalid")
         turn = {
@@ -62,6 +70,13 @@ class MeetTurnService:
         if task:
             turn["binding_task_id"] = task
         image_purpose = "publish" if payload.get("publish_to_meet") else "preview"
+        profile_binding = None
+        if "persona_profile" in payload:
+            if self.persona_profiles is None or self.persona_images is None:
+                raise MeetError("meet_persona_profile_unavailable", 403)
+            turn["persona_image"], profile_binding = self.persona_profiles.prepare(
+                principal, project, payload["persona_profile"], image_purpose
+            )
         if "persona_image_id" in payload:
             import re
 
@@ -82,7 +97,10 @@ class MeetTurnService:
             validate_turn(turn, self.clock())
         except ValueError as exc:
             raise MeetError(str(exc)) from None
-        self.tasks.start(turn, principal.subject_id)
+        # Only exact admitted image bytes/reference go to the worker. Profile
+        # ancestry and configuration pins stay in the authoritative Hub task.
+        hub_turn = turn | ({"hub_persona_profile": profile_binding} if profile_binding else {})
+        self.tasks.start(hub_turn, principal.subject_id)
         try:
             result = self.worker.execute(turn)
             if (
@@ -93,6 +111,10 @@ class MeetTurnService:
                 raise MeetError("meet_turn_result_stale", 409)
             # Recheck project access before disclosing generated media.
             self.binding.require_write_access(principal, project, task)
+            if profile_binding is not None:
+                self.persona_profiles.require_current(
+                    principal, project, profile_binding, turn["persona_image"]["reference"]
+                )
             if "persona_image" in turn:
                 self.persona_images.require_current(
                     principal, project, turn["persona_image"]["reference"], image_purpose
@@ -132,6 +154,12 @@ class MeetTurnService:
         )
         try:
             self.binding.require_write_access(principal, task.project_id, context.get("binding_task_id", ""))
+            if "persona_profile" in context:
+                if self.persona_profiles is None or "persona_image" not in context:
+                    return False
+                self.persona_profiles.require_current(
+                    principal, task.project_id, context["persona_profile"], context["persona_image"]
+                )
             if "persona_image" in context:
                 if self.persona_images is None:
                     return False
@@ -172,6 +200,7 @@ class HubMediaTasks:
                         "binding_task_id": turn.get("binding_task_id", ""),
                         **({"chat_reply": turn["hub_chat_binding"]} if "hub_chat_binding" in turn else {}),
                         **({"response_limits": turn["response_limits"]} if "response_limits" in turn else {}),
+                        **({"persona_profile": turn["hub_persona_profile"]} if "hub_persona_profile" in turn else {}),
                         **(
                             {
                                 "persona_image": turn["persona_image"]["reference"],

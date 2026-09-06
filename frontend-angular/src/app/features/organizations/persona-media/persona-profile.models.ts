@@ -45,6 +45,7 @@ export interface PersonaEffectiveProfile {
   purpose: 'preview';
   runtime_bound: false;
   topology_revision: number;
+  selection: { organization_id: string; owner_kind: PersonaOwnerKind; owner_id: string; selection_digest: string };
   media: readonly {
     kind: 'image' | 'voice' | 'video' | 'style';
     state: PersonaSelectionState;

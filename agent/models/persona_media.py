@@ -84,6 +84,15 @@ class PersonaMembership(ClosedModel):
     membership_revision: Revision
 
 
+class PersonaProfileSelection(ClosedModel):
+    """Configuration pin, not evidence identity, permission or runtime lease."""
+
+    organization_id: Identifier
+    owner_kind: OwnerKind
+    owner_id: Identifier
+    selection_digest: Digest
+
+
 class SelectionOrigin(ClosedModel):
     owner_kind: OwnerKind
     owner_id: Identifier

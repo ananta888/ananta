@@ -77,6 +77,12 @@ fallback. Disabled stops inheritance. `publication_checked: false` and
 `runtime_bound: false` explicitly distinguish this read model from room
 publication authority and an actual dispatched execution.
 
+The response also includes a closed `selection` configuration pin. A caller may
+pass it to the separately authorized [profile-bound bounded Meet turn](meet-persona-profile-turns.md)
+path. The pin grants no access and is not an evidence identity. Active runtime
+lifecycle and image/publication policies are checked again at dispatch and lease
+checkpoints; a metadata preview alone cannot authorize execution.
+
 The editor displays the selected revision, explicit fallback state and persisted
 effective profile with origin, classification and preview availability. Unsaved
 form changes do not pretend to be the stored effective profile. An inherited
