@@ -1,123 +1,273 @@
-"""Small versioned wire contracts shared between isolated Ananta services."""
+"""Small versioned contracts; importing one domain does not initialize the others."""
 
-from .file_type_classifier import (
-    FileTypeClassification,
-    FileTypeClassifier,
-    FileTypeMatchKind,
-)
-from .file_type_coverage import CoverageOutcome, FileCoverageRecord, FileTypeCoverageReport
-from .file_type_migration import (
-    FileTypeMigrationPlan,
-    affected_paths,
-    compare_file_type_registries,
-    file_type_descriptor_hashes,
-)
-from .file_type_rollout import FileTypeRolloutPolicy, FileTypeRolloutPolicyError
-from .file_type_support import (
-    CapabilityDeclaration,
-    CapabilityDimension,
-    CapabilityImplementation,
-    FileTypeDescriptor,
-    FileTypeSelectors,
-    FileTypeSupportContractError,
-    FileTypeSupportRegistry,
-    PipelineSupport,
-    load_file_type_support_registry,
-)
-from .langgraph_checkpoint import (
-    LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
-    LANGGRAPH_CHECKPOINT_RESPONSE_SCHEMA,
-    LANGGRAPH_CHECKPOINT_SNAPSHOT_SCHEMA,
-    LangGraphCheckpointBinding,
-    LangGraphCheckpointContractError,
-    LangGraphCheckpointSnapshot,
-)
-from .model_capability import ModelCapability, ModelStatus
-from .model_catalog import (
-    ModelAvailability,
-    ModelCatalog,
-    ModelDefaultSelection,
-    ModelDefaultSelectionCommand,
-    ModelHealth,
-    ModelRuntime,
-    ModelSummary,
-    ProviderCatalogFailure,
-)
-from .model_intelligence import (
-    ANALYSIS_JOB_SCHEMA,
-    ARTIFACT_REF_SCHEMA,
-    CAPABILITY_DESCRIPTOR_SCHEMA,
-    ERROR_ENVELOPE_SCHEMA,
-    MODEL_IDENTITY_SCHEMA,
-    AnalysisJob,
-    ArtifactRef,
-    CapabilityDescriptor,
-    CapabilityEvidence,
-    CapabilityReasonCode,
-    CapabilityState,
-    ErrorEnvelope,
-    ModelIdentity,
-    ModelIntelligenceContractError,
-    ModelIntelligenceReasonCode,
-    build_error_envelope,
-    canonical_model_coordinates,
-    derive_model_id,
-    parse_model_intelligence_contract,
-    sanitize_error_details,
-)
-from .source_control import (
-    DELEGATED_SOURCE_MANIFEST_REF_SCHEMA,
-    DESTINATION_DESCRIPTOR_SCHEMA,
-    SOURCE_ACCESS_GRANT_SCHEMA,
-    SOURCE_CONNECTION_SCHEMA,
-    SOURCE_REF_MAPPING_SCHEMA,
-    SOURCE_REVISION_SCHEMA,
-    AdmissionState,
-    ConnectionState,
-    ConnectorType,
-    DelegatedSourceManifestRef,
-    DestinationDescriptor,
-    GrantOperation,
-    GrantState,
-    GrantTransformation,
-    ProviderLocation,
-    Sensitivity,
-    SourceAccessGrant,
-    SourceConnection,
-    SourceControlContractError,
-    SourceControlReasonCode,
-    SourceRefMapping,
-    SourceRevision,
-    derive_destination_id,
-    derive_source_access_grant_id,
-    derive_source_connection_id,
-    derive_source_ref_id,
-    derive_source_revision_id,
-    parse_source_control_contract,
-)
-from .temporal_workflow import (
-    ActivityClass,
-    AnantaWorkflowInput,
-    ArtifactReference,
-    AuthorizationEnvelopeRef,
-    ProbeRequest,
-    StepActivityInput,
-    StepActivityResult,
-    TemporalContractError,
-    TemporalWorkflowStep,
-    WorkflowCommand,
-    WorkflowCommandResult,
-    WorkflowCommandType,
-    WorkflowPhase,
-    WorkflowStatus,
-)
-from .voice_judge import (
-    GenerativeJudgeRequest,
-    LocalGenerativeJudge,
-    LocalGenerativeJudgePolicy,
-    StrictChoiceJudge,
-    StrictChoiceRequest,
-)
+from importlib import import_module
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .file_type_classifier import (
+        FileTypeClassification,
+        FileTypeClassifier,
+        FileTypeMatchKind,
+    )
+    from .file_type_coverage import CoverageOutcome, FileCoverageRecord, FileTypeCoverageReport
+    from .file_type_migration import (
+        FileTypeMigrationPlan,
+        affected_paths,
+        compare_file_type_registries,
+        file_type_descriptor_hashes,
+    )
+    from .file_type_rollout import FileTypeRolloutPolicy, FileTypeRolloutPolicyError
+    from .file_type_support import (
+        CapabilityDeclaration,
+        CapabilityDimension,
+        CapabilityImplementation,
+        FileTypeDescriptor,
+        FileTypeSelectors,
+        FileTypeSupportContractError,
+        FileTypeSupportRegistry,
+        PipelineSupport,
+        load_file_type_support_registry,
+    )
+    from .langgraph_checkpoint import (
+        LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA,
+        LANGGRAPH_CHECKPOINT_RESPONSE_SCHEMA,
+        LANGGRAPH_CHECKPOINT_SNAPSHOT_SCHEMA,
+        LangGraphCheckpointBinding,
+        LangGraphCheckpointContractError,
+        LangGraphCheckpointSnapshot,
+    )
+    from .model_capability import ModelCapability, ModelStatus
+    from .model_catalog import (
+        ModelAvailability,
+        ModelCatalog,
+        ModelDefaultSelection,
+        ModelDefaultSelectionCommand,
+        ModelHealth,
+        ModelRuntime,
+        ModelSummary,
+        ProviderCatalogFailure,
+    )
+    from .model_intelligence import (
+        ANALYSIS_JOB_SCHEMA,
+        ARTIFACT_REF_SCHEMA,
+        CAPABILITY_DESCRIPTOR_SCHEMA,
+        ERROR_ENVELOPE_SCHEMA,
+        MODEL_IDENTITY_SCHEMA,
+        AnalysisJob,
+        ArtifactRef,
+        CapabilityDescriptor,
+        CapabilityEvidence,
+        CapabilityReasonCode,
+        CapabilityState,
+        ErrorEnvelope,
+        ModelIdentity,
+        ModelIntelligenceContractError,
+        ModelIntelligenceReasonCode,
+        build_error_envelope,
+        canonical_model_coordinates,
+        derive_model_id,
+        parse_model_intelligence_contract,
+        sanitize_error_details,
+    )
+    from .source_control import (
+        DELEGATED_SOURCE_MANIFEST_REF_SCHEMA,
+        DESTINATION_DESCRIPTOR_SCHEMA,
+        SOURCE_ACCESS_GRANT_SCHEMA,
+        SOURCE_CONNECTION_SCHEMA,
+        SOURCE_REF_MAPPING_SCHEMA,
+        SOURCE_REVISION_SCHEMA,
+        AdmissionState,
+        ConnectionState,
+        ConnectorType,
+        DelegatedSourceManifestRef,
+        DestinationDescriptor,
+        GrantOperation,
+        GrantState,
+        GrantTransformation,
+        ProviderLocation,
+        Sensitivity,
+        SourceAccessGrant,
+        SourceConnection,
+        SourceControlContractError,
+        SourceControlReasonCode,
+        SourceRefMapping,
+        SourceRevision,
+        derive_destination_id,
+        derive_source_access_grant_id,
+        derive_source_connection_id,
+        derive_source_ref_id,
+        derive_source_revision_id,
+        parse_source_control_contract,
+    )
+    from .temporal_workflow import (
+        ActivityClass,
+        AnantaWorkflowInput,
+        ArtifactReference,
+        AuthorizationEnvelopeRef,
+        ProbeRequest,
+        StepActivityInput,
+        StepActivityResult,
+        TemporalContractError,
+        TemporalWorkflowStep,
+        WorkflowCommand,
+        WorkflowCommandResult,
+        WorkflowCommandType,
+        WorkflowPhase,
+        WorkflowStatus,
+    )
+    from .voice_judge import (
+        GenerativeJudgeRequest,
+        LocalGenerativeJudge,
+        LocalGenerativeJudgePolicy,
+        StrictChoiceJudge,
+        StrictChoiceRequest,
+    )
+
+_MODULE_EXPORTS = {
+    "file_type_classifier": (
+        "FileTypeClassification",
+        "FileTypeClassifier",
+        "FileTypeMatchKind",
+    ),
+    "file_type_coverage": (
+        "CoverageOutcome",
+        "FileCoverageRecord",
+        "FileTypeCoverageReport",
+    ),
+    "file_type_migration": (
+        "FileTypeMigrationPlan",
+        "affected_paths",
+        "compare_file_type_registries",
+        "file_type_descriptor_hashes",
+    ),
+    "file_type_rollout": (
+        "FileTypeRolloutPolicy",
+        "FileTypeRolloutPolicyError",
+    ),
+    "file_type_support": (
+        "CapabilityDeclaration",
+        "CapabilityDimension",
+        "CapabilityImplementation",
+        "FileTypeDescriptor",
+        "FileTypeSelectors",
+        "FileTypeSupportContractError",
+        "FileTypeSupportRegistry",
+        "PipelineSupport",
+        "load_file_type_support_registry",
+    ),
+    "langgraph_checkpoint": (
+        "LANGGRAPH_CHECKPOINT_COMMAND_SCHEMA",
+        "LANGGRAPH_CHECKPOINT_RESPONSE_SCHEMA",
+        "LANGGRAPH_CHECKPOINT_SNAPSHOT_SCHEMA",
+        "LangGraphCheckpointBinding",
+        "LangGraphCheckpointContractError",
+        "LangGraphCheckpointSnapshot",
+    ),
+    "model_capability": (
+        "ModelCapability",
+        "ModelStatus",
+    ),
+    "model_catalog": (
+        "ModelAvailability",
+        "ModelCatalog",
+        "ModelDefaultSelection",
+        "ModelDefaultSelectionCommand",
+        "ModelHealth",
+        "ModelRuntime",
+        "ModelSummary",
+        "ProviderCatalogFailure",
+    ),
+    "model_intelligence": (
+        "ANALYSIS_JOB_SCHEMA",
+        "ARTIFACT_REF_SCHEMA",
+        "CAPABILITY_DESCRIPTOR_SCHEMA",
+        "ERROR_ENVELOPE_SCHEMA",
+        "MODEL_IDENTITY_SCHEMA",
+        "AnalysisJob",
+        "ArtifactRef",
+        "CapabilityDescriptor",
+        "CapabilityEvidence",
+        "CapabilityReasonCode",
+        "CapabilityState",
+        "ErrorEnvelope",
+        "ModelIdentity",
+        "ModelIntelligenceContractError",
+        "ModelIntelligenceReasonCode",
+        "build_error_envelope",
+        "canonical_model_coordinates",
+        "derive_model_id",
+        "parse_model_intelligence_contract",
+        "sanitize_error_details",
+    ),
+    "source_control": (
+        "DELEGATED_SOURCE_MANIFEST_REF_SCHEMA",
+        "DESTINATION_DESCRIPTOR_SCHEMA",
+        "SOURCE_ACCESS_GRANT_SCHEMA",
+        "SOURCE_CONNECTION_SCHEMA",
+        "SOURCE_REF_MAPPING_SCHEMA",
+        "SOURCE_REVISION_SCHEMA",
+        "AdmissionState",
+        "ConnectionState",
+        "ConnectorType",
+        "DelegatedSourceManifestRef",
+        "DestinationDescriptor",
+        "GrantOperation",
+        "GrantState",
+        "GrantTransformation",
+        "ProviderLocation",
+        "Sensitivity",
+        "SourceAccessGrant",
+        "SourceConnection",
+        "SourceControlContractError",
+        "SourceControlReasonCode",
+        "SourceRefMapping",
+        "SourceRevision",
+        "derive_destination_id",
+        "derive_source_access_grant_id",
+        "derive_source_connection_id",
+        "derive_source_ref_id",
+        "derive_source_revision_id",
+        "parse_source_control_contract",
+    ),
+    "temporal_workflow": (
+        "ActivityClass",
+        "AnantaWorkflowInput",
+        "ArtifactReference",
+        "AuthorizationEnvelopeRef",
+        "ProbeRequest",
+        "StepActivityInput",
+        "StepActivityResult",
+        "TemporalContractError",
+        "TemporalWorkflowStep",
+        "WorkflowCommand",
+        "WorkflowCommandResult",
+        "WorkflowCommandType",
+        "WorkflowPhase",
+        "WorkflowStatus",
+    ),
+    "voice_judge": (
+        "GenerativeJudgeRequest",
+        "LocalGenerativeJudge",
+        "LocalGenerativeJudgePolicy",
+        "StrictChoiceJudge",
+        "StrictChoiceRequest",
+    ),
+}
+_EXPORT_MODULE = {name: module for module, names in _MODULE_EXPORTS.items() for name in names}
+
+
+def __getattr__(name):
+    module = _EXPORT_MODULE.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f".{module}", __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
     "GenerativeJudgeRequest",
