@@ -63,11 +63,27 @@ not enumerate unrelated artifacts or silently create origin/license/consent
 evidence. Private Blob URLs are revoked on selection/context changes and teardown;
 old requests are cancelled and stale results cannot enter a different scope.
 
-The editor displays the selected revision and explicit fallback state. It does
-not yet show the computed inherited effective profile or alter active sessions.
+GET the profile route with `/effective` appended returns the computed inherited
+media, origin profiles/revisions, topology revision and current preview
+availability. The Hub derives ancestry through the exact role assignment,
+role slot, organization unit and team link. Archived, ambiguous and cross-scope
+parents fail closed. Parent revisions and ancestry are rechecked before output;
+a concurrent change returns a bounded error instead of a mixed profile.
+
+The existing pure resolver is shared with complete membership projections; no
+invented team/agent/assignment IDs are used for organization-only previews. A
+revoked selected asset is redacted and unavailable, not replaced by an implicit
+fallback. Disabled stops inheritance. `publication_checked: false` and
+`runtime_bound: false` explicitly distinguish this read model from room
+publication authority and an actual dispatched execution.
+
+The editor displays the selected revision, explicit fallback state and persisted
+effective profile with origin, classification and preview availability. Unsaved
+form changes do not pretend to be the stored effective profile. An inherited
+image may be previewed without turning it into a local explicit override.
 Saving does not join a room, open a camera/microphone, share a screen, publish an
 asset or switch an existing renderer. Voice/video/style admission, effective
-profile preview and runtime generation-bound switching remain separate work.
+asset listing and runtime generation-bound switching remain separate work.
 
 Tests use synthetic authorization/asset inputs and do not constitute grounded
 production release evidence. No public Hub or Meet deployment is enabled by this

@@ -23,6 +23,22 @@ import { PersonaOwnerKind } from './persona-profile.models';
         <button type="button" (click)="facade.load()" [disabled]="facade.busy()">Profil neu laden</button>
         @if (facade.snapshot(); as snapshot) {
           <p>Revision {{ snapshot.revision }} · Vererbung: Agentenbesetzung → Team → Organisation.</p>
+          @if (facade.effective(); as effective) {
+            <section aria-label="Gespeicherte effektive Darstellung">
+              <h3>Gespeicherte effektive Darstellung</h3>
+              <small>Topologierevision {{ effective.topology_revision }} · Nur Vorschau geprüft, keine Veröffentlichungsfreigabe und keine aktive Sitzung.</small>
+              @for (medium of effective.media; track medium.kind) {
+                <p>{{ medium.kind }}: {{ medium.state }} · {{ medium.preview_allowed ? 'Vorschau zulässig' : medium.available ? 'deaktiviert' : 'nicht verfügbar' }}</p>
+                @for (origin of medium.origins; track origin.owner_kind) {
+                  <small>{{ origin.owner_kind }} · {{ origin.persona_id }} · Revision {{ origin.profile_revision }} · {{ origin.selection_state }}</small>
+                }
+                @if (medium.asset) { <small>{{ medium.asset.classification }} · {{ medium.asset.artifact_id }}</small> }
+                @if (medium.kind === 'image' && medium.preview_allowed) {
+                  <button type="button" (click)="facade.previewEffective()" [disabled]="facade.busy()">Geerbtes / effektives Bild ansehen</button>
+                }
+              }
+            </section>
+          }
           <label>Persona-Kennung
             <input [ngModel]="facade.personaId()" (ngModelChange)="facade.personaId.set($event)" maxlength="160" [disabled]="facade.busy()" autocomplete="off" />
           </label>
@@ -41,8 +57,8 @@ import { PersonaOwnerKind } from './persona-profile.models';
             <button type="button" (click)="facade.inspectImage()" [disabled]="facade.busy() || !facade.imageId()">Bild prüfen & Vorschau laden</button>
             <small>Nur über die Hub-Bild-API zugelassene Bilder. Keine Dateipfade oder externen URLs.</small>
             @if (facade.image(); as image) { <p>{{ image.classification }} · Bildrevision {{ image.revision }}</p> }
-            @if (facade.previewUrl()) { <img [src]="facade.previewUrl()" alt="Private Vorschau des ausgewählten Persona-Bilds" width="256" height="256" /> }
           }
+          @if (facade.previewUrl()) { <img [src]="facade.previewUrl()" alt="Private Vorschau des ausgewählten oder effektiven Persona-Bilds" width="256" height="256" /> }
           <button type="button" (click)="facade.save()" [disabled]="facade.busy() || !facade.personaId().trim()">Profil speichern</button>
           <small>Speichern benötigt Projektverwaltung und einen Organisationsgrant. Stimme, Animation und laufende Meet-Sitzungen werden hier noch nicht konfiguriert.</small>
         }

@@ -12,7 +12,9 @@ from agent.db_models import (
     OrganizationInstanceDB,
     OrganizationMembershipDB,
     OrganizationRoleAssignmentDB,
+    OrganizationRoleSlotDB,
     OrganizationTeamLinkDB,
+    OrganizationUnitDB,
     ProjectDB,
     ProjectMembershipDB,
 )
@@ -36,7 +38,9 @@ def system(tmp_path):
         ProjectMembershipDB,
         OrganizationInstanceDB,
         OrganizationTeamLinkDB,
+        OrganizationUnitDB,
         OrganizationRoleAssignmentDB,
+        OrganizationRoleSlotDB,
         OrganizationMembershipDB,
         OrganizationAdminGrantDB,
     )
@@ -97,6 +101,29 @@ def system(tmp_path):
                 id="agent",
                 role_slot_id="slot",
                 agent_url="http://synthetic-worker",
+            )
+        )
+        session.add(
+            OrganizationRoleSlotDB(
+                tenant_id="tenant",
+                project_id="project",
+                organization_id="org",
+                id="slot",
+                unit_id="unit",
+                slot_key="synthetic-role",
+                role_template_key="synthetic-role",
+                role_template_version=1,
+            )
+        )
+        session.add(
+            OrganizationUnitDB(
+                tenant_id="tenant",
+                project_id="project",
+                organization_id="org",
+                id="unit",
+                unit_key="synthetic-unit",
+                name="Synthetic unit",
+                unit_kind="team",
             )
         )
         session.commit()
@@ -239,3 +266,78 @@ def test_unsupported_media_selection_is_not_silently_accepted(system):
     value = profile(voice=MediaSelection(state="asset", asset=asset(kind="voice")))
     with pytest.raises(ValueError, match="not_supported"):
         save(system, value)
+
+
+def test_effective_agent_preview_resolves_real_topology_without_granting_publication(system):
+    from agent.models.persona_media import MediaSelection
+
+    save(system, profile(image=MediaSelection(state="asset", asset=asset())))
+    save(system, profile("team", image=MediaSelection(state="inherit")))
+    save(system, profile("agent", image=MediaSelection(state="inherit")))
+    result = system.service.effective(system.principal, "project", "org", "agent", "agent")
+    selected = result["media"][0]
+    assert selected["asset"] == asset().model_dump(mode="json")
+    assert [item["owner_kind"] for item in selected["origins"]] == ["agent", "team", "organization"]
+    assert selected["preview_allowed"] and not selected["publication_checked"]
+    assert result["purpose"] == "preview" and not result["runtime_bound"]
+    save(system, profile("team", revision=2, image=MediaSelection(state="disabled")), expected=1)
+    selected = system.service.effective(system.principal, "project", "org", "agent", "agent")["media"][0]
+    assert selected["state"] == "disabled" and selected["asset"] is None and not selected["preview_allowed"]
+    assert len(selected["origins"]) == 2
+
+
+def test_effective_revoked_image_does_not_fall_back_to_another_image(system):
+    from agent.models.persona_media import MediaSelection
+
+    save(system, profile(image=MediaSelection(state="asset", asset=asset())))
+    save(system, profile("team", image=MediaSelection(state="asset", asset=asset(artifact_id="team-image"))))
+    system.images.require_reference.side_effect = PermissionError("revoked")
+    selected = system.service.effective(system.principal, "project", "org", "team", "team")["media"][0]
+    assert selected["state"] == "asset" and selected["asset"] is None
+    assert not selected["available"] and not selected["preview_allowed"]
+    assert [origin["owner_kind"] for origin in selected["origins"]] == ["team"]
+
+
+@pytest.mark.parametrize(
+    "model,changes",
+    [
+        (OrganizationRoleSlotDB, {"lifecycle": "archived"}),
+        (OrganizationRoleSlotDB, {"project_id": "foreign"}),
+        (OrganizationTeamLinkDB, {"lifecycle": "archived"}),
+        (OrganizationRoleAssignmentDB, {"ended_at": 1}),
+        (OrganizationUnitDB, {"lifecycle": "archived"}),
+    ],
+)
+def test_effective_lineage_cannot_use_retired_or_foreign_parents(system, model, changes):
+    with system.engine.begin() as connection:
+        connection.execute(update(model).values(**changes))
+    with pytest.raises(PermissionError):
+        system.service.effective(system.principal, "project", "org", "agent", "agent")
+
+
+def test_effective_profile_rejects_a_concurrent_profile_update(system):
+    save(system)
+    original = system.repository.current
+    calls = 0
+
+    def read(**scope):
+        nonlocal calls
+        value = original(**scope)
+        calls += 1
+        if calls == 1:
+            system.repository.append(profile(revision=2), expected_revision=1, actor="actor")
+        return value
+
+    system.repository.current = read
+    with pytest.raises(ValueError, match="revision_changed"):
+        system.service.effective(system.principal, "project", "org", "organization", "org")
+
+
+def test_headless_http_effective_preview_marks_its_non_runtime_scope(system, request):
+    http, app = request.getfixturevalue("client")
+    app.extensions["persona_profiles"] = system.service
+    url = "/api/persona-media/v1/projects/project/organizations/org/profiles/agent/agent/effective"
+    assert http.get(url).status_code == 401
+    response = http.get(url, headers=HEADERS)
+    assert response.status_code == 200 and response.json["runtime_bound"] is False
+    assert all(item["state"] == "missing" for item in response.json["media"])

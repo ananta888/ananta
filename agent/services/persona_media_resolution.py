@@ -20,12 +20,22 @@ def resolve_media(membership: PersonaMembership, profiles: tuple[PersonaMediaPro
         "team": membership.team_id,
         "agent": membership.agent_id,
     }
+    return PersonaMediaResolution(
+        membership=membership,
+        media=resolve_profile_layers(membership.tenant_id, membership.project_id, owners, profiles),
+    )
+
+
+def resolve_profile_layers(tenant_id, project_id, owners, profiles):
+    """Resolve a Hub-validated partial lineage (also organization/team previews)."""
+    if not owners or not set(owners) <= {"organization", "team", "agent"}:
+        raise ValueError("persona_profile_membership_mismatch")
     layers = {}
     for profile in profiles:
         if (
-            profile.tenant_id != membership.tenant_id
-            or profile.project_id != membership.project_id
-            or profile.owner_id != owners[profile.owner_kind]
+            profile.tenant_id != tenant_id
+            or profile.project_id != project_id
+            or profile.owner_id != owners.get(profile.owner_kind)
             or profile.owner_kind in layers
         ):
             raise ValueError("persona_profile_membership_mismatch")
@@ -52,4 +62,4 @@ def resolve_media(membership: PersonaMembership, profiles: tuple[PersonaMediaPro
                 asset, state = selection.asset, selection.state
                 break
         resolved.append(ResolvedMedia(kind=kind, state=state, asset=asset, origins=tuple(origins)))
-    return PersonaMediaResolution(membership=membership, media=tuple(resolved))
+    return tuple(resolved)

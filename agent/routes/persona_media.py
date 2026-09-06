@@ -237,3 +237,13 @@ def save_profile(project, organization, kind, owner):
         expected_revision=_revision(payload["expected_revision"], allow_zero=True),
     )
     return jsonify({"revision": profile.revision, "content_hash": digest})
+
+
+@persona_media_bp.get("/projects/<project>/organizations/<organization>/profiles/<kind>/<owner>/effective")
+@check_user_auth
+def effective_profile(project, organization, kind, owner):
+    return jsonify(
+        _service("persona_profiles").effective(
+            get_authenticated_source_control_principal(), project, organization, kind, owner
+        )
+    )

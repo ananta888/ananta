@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, effect, inject, signal, untracked } from '@angu
 import { Observable, Subscription } from 'rxjs';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { PersonaProfileApiClient } from './persona-profile-api.client';
-import { PersonaImageReference, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState } from './persona-profile.models';
+import { PersonaEffectiveProfile, PersonaImageReference, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState } from './persona-profile.models';
 
 @Injectable()
 export class PersonaProfileFacade {
@@ -13,6 +13,7 @@ export class PersonaProfileFacade {
   private sequence = 0;
   private scope: PersonaProfileScope | null = null;
   readonly snapshot = signal<PersonaProfileSnapshot | null>(null);
+  readonly effective = signal<PersonaEffectiveProfile | null>(null);
   readonly kind = signal<PersonaOwnerKind>('organization');
   readonly owner = signal('');
   readonly personaId = signal('');
@@ -50,6 +51,7 @@ export class PersonaProfileFacade {
   load(): void {
     this.cancel();
     this.snapshot.set(null);
+    this.effective.set(null);
     this.image.set(null);
     this.imageId.set('');
     this.personaId.set('');
@@ -57,7 +59,8 @@ export class PersonaProfileFacade {
     this.message.set('');
     this.error.set('');
     if (!this.scope) return;
-    this.run(this.api.current(this.scope), snapshot => {
+    const scope = this.scope;
+    this.run(this.api.current(scope), snapshot => {
       this.snapshot.set(snapshot);
       const profile = snapshot.profile;
       this.personaId.set(profile?.persona_id ?? '');
@@ -65,6 +68,7 @@ export class PersonaProfileFacade {
       this.image.set(profile?.image.asset ?? null);
       this.imageId.set(profile?.image.asset?.artifact_id ?? '');
       if (!snapshot.media_available) this.message.set('Das bisherige Medium ist nicht verfügbar. Das Profil kann ersetzt oder deaktiviert werden.');
+      this.run(this.api.effective(scope), effective => this.effective.set(effective));
     });
   }
 
@@ -89,6 +93,13 @@ export class PersonaProfileFacade {
       this.image.set(reference);
       this.run(this.api.preview(scope, reference.artifact_id), blob => this.previewUrl.set(URL.createObjectURL(blob)));
     });
+  }
+
+  previewEffective(): void {
+    const selected = this.effective()?.media.find(item => item.kind === 'image');
+    if (!this.scope || !this.scopeCurrent() || this.busy() || !selected?.preview_allowed || !selected.asset) return;
+    this.cancel();
+    this.run(this.api.preview(this.scope, selected.asset.artifact_id), blob => this.previewUrl.set(URL.createObjectURL(blob)));
   }
 
   save(): void {

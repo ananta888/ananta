@@ -1,12 +1,16 @@
 import { Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { ApiBaseService } from '../../../services/api-base.service';
-import { PersonaImageReference, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot } from './persona-profile.models';
+import { PersonaEffectiveProfile, PersonaImageReference, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot } from './persona-profile.models';
 
 @Injectable({ providedIn: 'root' })
 export class PersonaProfileApiClient extends ApiBaseService {
   current(scope: PersonaProfileScope) {
     return this.core.get<PersonaProfileSnapshot>(this.profileUrl(scope), scope.hub, undefined, false);
+  }
+
+  effective(scope: PersonaProfileScope) {
+    return this.core.get<PersonaEffectiveProfile>(`${this.profileUrl(scope)}/effective`, scope.hub, undefined, false);
   }
 
   save(scope: PersonaProfileScope, profile: PersonaProfile, expectedRevision: number) {

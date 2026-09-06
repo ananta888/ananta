@@ -18,7 +18,7 @@ function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blan
       { kind: 'assignment', assignment_id: 'assignment', label: 'Agent A' },
     ] }),
   };
-  const api = { current: vi.fn(current), save: vi.fn(() => of({ revision: 1, content_hash: 'b'.repeat(64) })),
+  const api = { current: vi.fn(current), effective: vi.fn(() => of({ purpose: 'preview', runtime_bound: false, topology_revision: 1, media: [] })), save: vi.fn(() => of({ revision: 1, content_hash: 'b'.repeat(64) })),
     image: vi.fn(() => of(image)), preview: vi.fn(() => of(new Blob(['synthetic-png'], { type: 'image/png' }))),
   };
   TestBed.configureTestingModule({ providers: [
@@ -102,5 +102,25 @@ describe('Persona profile panel', () => {
     facade.save();
     expect(api.save).not.toHaveBeenCalled();
     expect(facade.error()).toContain('zuerst die Bild-ID prüfen');
+  });
+
+  it('shows effective inheritance provenance without overwriting the explicit selection', () => {
+    const { fixture, facade, api } = setup();
+    facade.selectImageState('inherit');
+    facade.effective.set({ purpose: 'preview', runtime_bound: false, topology_revision: 3, media: [{
+      kind: 'image', state: 'asset', asset: image, available: true, preview_allowed: true, publication_checked: false,
+      origins: [{ owner_kind: 'organization', owner_id: 'org', persona_id: 'org-presentation', profile_revision: 5, selection_state: 'asset' }],
+    }] });
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:synthetic-inherited' });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('org-presentation');
+    expect(fixture.nativeElement.textContent).toContain('Revision 5');
+    expect(fixture.nativeElement.textContent).toContain('test_only');
+    facade.previewEffective();
+    expect(api.preview).toHaveBeenCalledOnce();
+    expect(facade.imageState()).toBe('inherit');
+    expect(facade.image()).toBeNull();
+    expect(api.save).not.toHaveBeenCalled();
   });
 });

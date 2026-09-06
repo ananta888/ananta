@@ -41,3 +41,17 @@ export interface PersonaProfileScope {
   kind: PersonaOwnerKind;
   owner: string;
 }
+export interface PersonaEffectiveProfile {
+  purpose: 'preview';
+  runtime_bound: false;
+  topology_revision: number;
+  media: readonly {
+    kind: 'image' | 'voice' | 'video' | 'style';
+    state: PersonaSelectionState;
+    asset: PersonaImageReference | null;
+    available: boolean;
+    preview_allowed: boolean;
+    publication_checked: false;
+    origins: readonly { owner_kind: PersonaOwnerKind; owner_id: string; persona_id: string; profile_revision: number; selection_state: PersonaSelectionState }[];
+  }[];
+}
