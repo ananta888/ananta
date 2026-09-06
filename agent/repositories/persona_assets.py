@@ -2,6 +2,7 @@
 
 import hashlib
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 from sqlalchemy import BigInteger, Column, MetaData, String, Table, Text, insert, select, update
@@ -143,14 +144,44 @@ class SqlPersonaAssets:
             raise ValueError("persona_asset_not_active")
         return value, row["revision"]
 
+    def get_retired(self, tenant, project, artifact):
+        with self.engine.connect() as connection:
+            row, value = self._read(connection, tenant, project, artifact)
+        if row["state"] not in ("failed", "revoked", "purging", "purged"):
+            raise ValueError("persona_asset_not_retired")
+        return value, row["revision"], row["state"]
+
+    @contextmanager
+    def storage_guard(self, tenant, project, artifact, *, expected_revision, state):
+        """Fence immutable writes against erasure across Hub processes, not just threads."""
+        if state not in ("pending", "purging") or type(expected_revision) is not int or expected_revision < 1:
+            raise ValueError("persona_asset_storage_guard_invalid")
+        with self.engine.begin() as connection:
+            changed = connection.execute(
+                update(assets)
+                .where(
+                    *_where(tenant, project, artifact), assets.c.revision == expected_revision, assets.c.state == state
+                )
+                .values(revision=expected_revision)
+            )
+            if changed.rowcount != 1:
+                raise ValueError("persona_asset_storage_guard_conflict")
+            self._read(connection, tenant, project, artifact)
+            yield
+
     def transition(self, tenant, project, artifact, *, expected_revision, state, actor, stored_paths=None):
-        if type(expected_revision) is not int or expected_revision < 1 or state not in ("active", "failed", "revoked"):
+        predecessors = {
+            "active": ("pending",),
+            "failed": ("pending",),
+            "revoked": ("pending", "active"),
+            "purging": ("failed", "revoked"),
+            "purged": ("purging",),
+        }
+        if type(expected_revision) is not int or not 1 <= expected_revision < 2**53 - 1 or state not in predecessors:
             raise ValueError("persona_asset_transition_invalid")
         with self.engine.begin() as connection:
             row, asset = self._read(connection, tenant, project, artifact)
-            if row["revision"] != expected_revision or row["state"] not in (
-                ("pending",) if state != "revoked" else ("pending", "active")
-            ):
+            if row["revision"] != expected_revision or row["state"] not in predecessors[state]:
                 raise ValueError("persona_asset_transition_conflict")
             references = (asset.image.artifact_id, asset.preview.artifact_id)
             if state == "active" and (

@@ -81,9 +81,11 @@ The service checks lookup access before revealing catalog state, then checks
 asset-specific permission and the current catalog revision before and after
 loading bytes. Preview and publication are separate policy purposes. A revoked
 license/consent cannot release bytes already loaded into memory. No preview
-starts a meeting or grants publication. Retention/deletion of already written,
-revoked bytes and fencing already-running publishers remain later integration
-work; a tombstone denies access but does not physically erase files.
+starts a meeting or grants publication. A separate explicit purge now removes
+retired image/preview files with a durable resumable tombstone and a storage
+fence; see [persona-image-api.md](persona-image-api.md). Automatic retention
+scheduling and fencing already-running publishers remain later integration work.
+Revocation alone still does not physically erase files.
 
 `tests/test_persona_assets.py` exercises real isolated SQL/catalog and immutable
 storage with explicit synthetic policy/task fixtures. Combined persona,

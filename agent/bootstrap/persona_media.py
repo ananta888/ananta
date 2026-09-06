@@ -14,9 +14,11 @@ def configure_persona_media(app):
     from agent.repositories.persona_assets import SqlPersonaAssets
     from agent.services.artifact_store import ArtifactStore
     from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
+    from agent.services.persona_asset_erasure import PersonaAssetErasureService
     from agent.services.persona_asset_policy_service import PersonaAssetPolicyService
     from agent.services.persona_asset_service import PersonaAssetService
     from agent.services.persona_asset_storage import PersonaAssetStorage
+    from agent.services.persona_image_erasure_store import PersonaImageErasureStore
     from agent.services.persona_image_transport import HttpPersonaImageWorker
     from agent.services.persona_inspection_leases import HubPersonaInspectionLeases
     from agent.services.persona_inspection_task_state import HubPersonaTaskState
@@ -45,11 +47,15 @@ def configure_persona_media(app):
         execution_profile_digest=os.environ["ANANTA_PERSONA_IMAGE_EXECUTION_PROFILE_DIGEST"],
         environment_digest=os.environ["ANANTA_PERSONA_IMAGE_ENVIRONMENT_DIGEST"],
     )
+    storage = ArtifactStore()
     app.extensions.update(
         persona_image_policy=policy,
         persona_image_worker_key=key,
         persona_image_leases=HubPersonaInspectionLeases(state=state, policy=policy, registry=registry),
         persona_assets=PersonaAssetService(
-            policy=policy, tasks=tasks, catalog=catalog, storage=PersonaAssetStorage(ArtifactStore())
+            policy=policy, tasks=tasks, catalog=catalog, storage=PersonaAssetStorage(storage)
+        ),
+        persona_asset_erasure=PersonaAssetErasureService(
+            policy=policy, catalog=catalog, eraser=PersonaImageErasureStore(storage.base_dir)
         ),
     )

@@ -113,7 +113,10 @@ class PersonaAssetService:
         self.catalog.reserve(asset, actor=principal.subject_id)
         revision = 1
         try:
-            paths = self.storage.write(asset, result.image, checkpoint=checkpoint)
+            with self.catalog.storage_guard(
+                principal.tenant_id, project, asset.image.artifact_id, expected_revision=revision, state="pending"
+            ):
+                paths = self.storage.write(asset, result.image, checkpoint=checkpoint)
             checkpoint()
             revision = self.catalog.transition(
                 principal.tenant_id,

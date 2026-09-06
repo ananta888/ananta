@@ -45,6 +45,8 @@ not user-policy authority. JSON fields are closed; query overrides are rejected.
 | `POST /projects/{project}/images` | `content` (base64), `media_type`, `origin_binding`, `license_binding`, `consent_binding` (explicit null allowed) | Verified active image/preview metadata, catalog revision 2 |
 | `GET /projects/{project}/images/{artifact_id}/preview` | No body | Private normalized PNG; never publication |
 | `DELETE /projects/{project}/images/{artifact_id}` | `expected_revision` | Terminal catalog revocation; requires MANAGE |
+| `GET /projects/{project}/images/{artifact_id}/purge` | No body | Retired bundle state/revision for headless resumption; requires MANAGE |
+| `POST /projects/{project}/images/{artifact_id}/purge` | `expected_revision` | Explicit removal of retired image/preview files; requires MANAGE |
 | `POST /internal/image-lease` | Signed `assignment` and fresh `nonce` | Request-bound signed boolean; no JWT substitution |
 
 Policy source/license/consent pins must already resolve to immutable Registry
@@ -86,6 +88,34 @@ preview-vs-publish denial, policy revocation, durable replay fencing and negativ
 wire-contract cases. Inputs and evidence are explicitly test-classified. No
 human is required and no production release gate is claimed.
 
-Physical purge/retention of revoked bytes, fencing of already-running publishers,
-profile/UI selection and audio/video asset profiles are still separate unfinished
-work. Revocation currently denies reads durably; it is not physical erasure.
+Fencing of already-running publishers, profile/UI selection and audio/video
+asset profiles are still separate unfinished work. Automatic retention scheduling
+must be a Hub-owned workflow with explicit policy, not an independent worker loop.
+
+## Explicit physical purge
+
+`DELETE` remains revocation only. The separate `POST .../purge` accepts only a
+retired (`revoked`/`failed`) bundle and its exact catalog revision. It durably
+transitions to `purging` before filesystem operations and to `purged` only after
+both files are absent. A partial failure leaves `purging`; an authorized client
+can read the revision and retry automatically. Tombstones, evidence references
+and content-free audit events remain. There is no broad filesystem sweep.
+
+`PersonaImageErasureStore` opens the private base and exact artifact directory
+through no-follow descriptors, checks regular-file type, size, digest and inode,
+rejects hardlinks and symlinks, and removes only `v0001__image.png`. Missing files
+are retry-safe. Changed bytes are preserved and reported as an error. Directory
+entries are fsynced. This is live-store file removal, not secure device wiping or
+deletion from backups, snapshots or independently copied artifacts; the API
+explicitly returns `secure_device_erasure=false`.
+
+Immutable storage writes and purge share a database-backed per-asset fence,
+held across filesystem I/O. A stale uploader cannot recreate files after a
+completed purge, including when the Hub runs in multiple processes. The erasure
+service owns lifecycle/authorization; the filesystem adapter owns only confined
+removal (SRP/DIP). Permissions are rechecked throughout. No real deployment assets
+were deleted while implementing this feature.
+
+The lifecycle/HTTP/erasure regression passed **54 tests in 22.41 seconds**,
+including link substitution, partial failure/resume, stale revisions, denied
+authority, active-asset protection and a concurrent storage/revocation fence.

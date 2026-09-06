@@ -114,3 +114,16 @@ def test_disabled_and_non_hub_instances_do_not_execute(client):
     app.config["ROLE"] = "hub"
     app.extensions.pop("persona_assets")
     assert http.post(BASE, json=payload(), headers=HEADERS).status_code == 409
+
+
+def test_purge_is_an_explicit_separate_action_with_a_headless_resume_status(client):
+    http, app = client
+    erasure = app.extensions["persona_asset_erasure"] = Mock()
+    erasure.status.return_value = {"revision": 4, "state": "purging"}
+    erasure.purge.return_value = 5
+    assert http.get(BASE + "/image/purge", headers=HEADERS).json == {"revision": 4, "state": "purging"}
+    response = http.post(BASE + "/image/purge", headers=HEADERS, json={"expected_revision": 4})
+    assert response.json == {"revision": 5, "state": "purged", "secure_device_erasure": False}
+    assert erasure.purge.call_args.kwargs == {"expected_revision": 4}
+    assert http.post(BASE + "/image/purge", json={"expected_revision": 4}).status_code == 401
+    erasure.purge.assert_called_once()

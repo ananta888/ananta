@@ -178,3 +178,25 @@ def image_lease():
         key, b"persona-lease-v1", raw, response.get_data()
     )
     return response
+
+
+@persona_media_bp.post("/projects/<project>/images/<artifact_id>/purge")
+@check_user_auth
+def purge_image(project, artifact_id):
+    service = _service("persona_asset_erasure")
+    payload = _payload({"expected_revision"})
+    revision = service.purge(
+        get_authenticated_source_control_principal(),
+        project,
+        artifact_id,
+        expected_revision=_revision(payload["expected_revision"]),
+    )
+    return jsonify({"revision": revision, "state": "purged", "secure_device_erasure": False})
+
+
+@persona_media_bp.get("/projects/<project>/images/<artifact_id>/purge")
+@check_user_auth
+def purge_status(project, artifact_id):
+    return jsonify(
+        _service("persona_asset_erasure").status(get_authenticated_source_control_principal(), project, artifact_id)
+    )
