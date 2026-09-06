@@ -6,6 +6,9 @@ import { vi } from 'vitest';
 
 import { ProjectContextService } from '../../services/project-context.service';
 import { ProjectManagementComponent } from './project-management.component';
+import { MeetApiService } from '../meet/meet-api.service';
+import { throwError } from 'rxjs';
+import { UserAuthService } from '../../services/user-auth.service';
 
 describe('ProjectManagementComponent', () => {
   let fixture: ComponentFixture<ProjectManagementComponent>;
@@ -33,6 +36,8 @@ describe('ProjectManagementComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ProjectManagementComponent],
       providers: [
+        { provide: MeetApiService, useValue: { binding: () => throwError(() => ({ status: 404 })) } },
+        { provide: UserAuthService, useValue: { user$: of(null) } },
         { provide: ProjectContextService, useValue: context },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
         { provide: Router, useValue: router },

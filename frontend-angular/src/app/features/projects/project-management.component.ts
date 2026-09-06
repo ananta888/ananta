@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { ProjectContextService } from '../../services/project-context.service';
+import { MeetPanelComponent } from '../meet/meet-panel.component';
 
 @Component({
   selector: 'app-project-management',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MeetPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="projects" aria-labelledby="projects-title">
@@ -78,6 +79,9 @@ import { ProjectContextService } from '../../services/project-context.service';
         }
       </section>
 
+      @if (context.selectedProjectId(); as projectId) {
+        <app-meet-panel [projectId]="projectId" />
+      }
       @if (context.error()) {
         <p class="error" role="alert">{{ context.error() }}</p>
       }

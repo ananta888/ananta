@@ -15,6 +15,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 import { decisionExplanation, safetyBoundaryExplanation, userFacingTerm } from '../models/user-facing-language';
 import { DecisionExplanationComponent, NextStepAction, NextStepsComponent } from '../shared/ui/display';
 import { RunControlPanelComponent } from '../features/run-control/run-control-panel.component';
+import { MeetPanelComponent } from '../features/meet/meet-panel.component';
 
 @Component({
   standalone: true,
@@ -29,6 +30,7 @@ import { RunControlPanelComponent } from '../features/run-control/run-control-pa
     DecisionExplanationComponent,
     NextStepsComponent,
     RunControlPanelComponent,
+    MeetPanelComponent,
   ],
   styleUrls: ['./task-detail.component.css'],
   templateUrl: './task-detail.component.html'

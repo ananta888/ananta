@@ -24,6 +24,9 @@
     </div>
 
     @if (activeTab === 'details' && task) {
+      @if (task.project_id) {
+        <app-meet-panel [projectId]="task.project_id" [taskId]="tid" />
+      }
       <div class="card grid">
         <div class="grid cols-2">
           <label>Status

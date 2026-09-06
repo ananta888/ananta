@@ -1,0 +1,56 @@
+import { Injectable, inject } from '@angular/core';
+import { map, throwError } from 'rxjs';
+import { AgentDirectoryService } from '../../services/agent-directory.service';
+import { HubApiCoreService } from '../../services/hub-api-core.service';
+
+export interface MeetBinding {
+  schema: 'ananta.meet-binding.v1';
+  project_id: string;
+  task_id: string | null;
+  revision: number;
+  invite_url: string | null;
+  room_verified: false;
+  membership_granted: false;
+  profile: { origin: string; create_url: string; creation_mode: 'meet_ui_then_attach' };
+}
+
+export function validateMeetBinding(value: MeetBinding, project: string, task: string): MeetBinding {
+  if (!value || value.schema !== 'ananta.meet-binding.v1'
+      || value.project_id !== project || value.task_id !== (task || null)
+      || !Number.isSafeInteger(value.revision) || value.revision < 0
+      || value.room_verified !== false || value.membership_granted !== false) {
+    throw new Error('meet_contract_invalid');
+  }
+  const origin = new URL(value.profile.origin);
+  if (origin.protocol !== 'https:' || origin.origin !== value.profile.origin
+      || origin.username || origin.password || origin.port
+      || value.profile.creation_mode !== 'meet_ui_then_attach'
+      || value.profile.create_url !== `${origin.origin}/`) {
+    throw new Error('meet_origin_invalid');
+  }
+  if (value.invite_url !== null) {
+    const invite = new URL(value.invite_url);
+    const room = invite.searchParams.get('room');
+    if (!room || !/^room-[a-f0-9]{18}$/.test(room)
+        || value.invite_url !== `${origin.origin}/?room=${room}&mode=room`) {
+      throw new Error('meet_invite_invalid');
+    }
+  }
+  return value;
+}
+
+@Injectable({ providedIn: 'root' })
+export class MeetApiService {
+  private readonly core = inject(HubApiCoreService);
+  private readonly directory = inject(AgentDirectoryService);
+
+  binding(project: string, task = '', method: 'GET' | 'PUT' | 'DELETE' = 'GET', body?: unknown) {
+    const hub = this.directory.list().find(agent => agent.role === 'hub')?.url;
+    if (!hub) return throwError(() => new Error('meet_hub_unavailable'));
+    const root = `${hub.replace(/\/$/, '')}/api/meet/v1/projects/${encodeURIComponent(project)}`;
+    const path = task ? `/tasks/${encodeURIComponent(task)}/binding` : '/binding';
+    return this.core.request<MeetBinding>(method, root + path, hub, { body }).pipe(
+      map(value => validateMeetBinding(value, project, task)),
+    );
+  }
+}
