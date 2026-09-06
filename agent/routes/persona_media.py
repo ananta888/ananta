@@ -10,6 +10,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from agent.auth import check_user_auth, get_authenticated_source_control_principal
 from agent.models.persona_asset_policy import PersonaImagePolicy
+from agent.models.persona_media import PersonaMediaProfile
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignment
 from worker.meet_media.persona_http import request_signature, result_signature
@@ -200,3 +201,39 @@ def purge_status(project, artifact_id):
     return jsonify(
         _service("persona_asset_erasure").status(get_authenticated_source_control_principal(), project, artifact_id)
     )
+
+
+@persona_media_bp.get("/projects/<project>/images/<artifact_id>/reference")
+@check_user_auth
+def image_reference(project, artifact_id):
+    reference = _service("persona_profile_images").reference(
+        get_authenticated_source_control_principal(), project, artifact_id
+    )
+    return jsonify({"reference": reference.model_dump(mode="json")})
+
+
+@persona_media_bp.get("/projects/<project>/organizations/<organization>/profiles/<kind>/<owner>")
+@check_user_auth
+def current_profile(project, organization, kind, owner):
+    return jsonify(
+        _service("persona_profiles").current(
+            get_authenticated_source_control_principal(), project, organization, kind, owner
+        )
+    )
+
+
+@persona_media_bp.put("/projects/<project>/organizations/<organization>/profiles/<kind>/<owner>")
+@check_user_auth
+def save_profile(project, organization, kind, owner):
+    payload = _payload({"profile", "expected_revision"})
+    profile = PersonaMediaProfile.model_validate(payload["profile"])
+    digest = _service("persona_profiles").save(
+        get_authenticated_source_control_principal(),
+        project,
+        organization,
+        kind,
+        owner,
+        profile,
+        expected_revision=_revision(payload["expected_revision"], allow_zero=True),
+    )
+    return jsonify({"revision": profile.revision, "content_hash": digest})

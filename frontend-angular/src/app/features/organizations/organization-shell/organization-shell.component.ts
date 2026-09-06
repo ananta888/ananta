@@ -7,6 +7,7 @@ import { OrganizationGraphComponent } from '../components/organization-graph/org
 import { OrganizationHierarchyComponent } from '../components/organization-hierarchy/organization-hierarchy.component';
 import { OrganizationInspectorComponent } from '../inspector/organization-inspector.component';
 import { OrganizationPlanningHierarchyComponent } from '../planning-hierarchy/organization-planning-hierarchy.component';
+import { PersonaProfilePanelComponent } from '../persona-media/persona-profile-panel.component';
 import { OrganizationRoleActivationComponent } from '../role-activation/organization-role-activation.component';
 import { RoleSlotEditorComponent } from '../role-slot-editor/role-slot-editor.component';
 import { OrganizationRuntimeOverlayComponent } from '../runtime-overlay/organization-runtime-overlay.component';
@@ -16,7 +17,7 @@ import { OrganizationTopologyEditorComponent } from '../topology-editor/organiza
 import { OrganizationGraph3dComponent } from '../visualization/organization-graph-3d.component';
 import { OrganizationVisualProfileService } from '../visualization/organization-visual-profile.service';
 
-type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'activation' | 'planning' | 'bundles';
+type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'activation' | 'planning' | 'bundles' | 'persona';
 
 @Component({
   selector: 'app-organization-shell',
@@ -35,6 +36,7 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'activation
     OrganizationSetupComponent,
     OrganizationTopologyEditorComponent,
     RoleSlotEditorComponent,
+    PersonaProfilePanelComponent,
   ],
   providers: [OrganizationTopologyStateService, OrganizationVisualProfileService],
   template: `
@@ -114,6 +116,7 @@ type OrganizationSection = 'topology' | 'setup' | 'edit' | 'roles' | 'activation
       @if (section() === 'activation') { <app-organization-role-activation /> }
       @if (section() === 'planning') { <app-organization-planning-hierarchy /> }
       @if (section() === 'bundles') { <app-organization-bundle-workbench /> }
+      @if (section() === 'persona') { <app-persona-profile-panel /> }
 
       @if (state.loading() && !state.loaded()) { <p class="loading" role="status">Organisationsmanagement wird geladen …</p> }
     </main>
@@ -156,6 +159,7 @@ export class OrganizationShellComponent implements OnInit {
     { id: 'activation', label: 'Aktivierung & Übergaben' },
     { id: 'planning', label: 'Planung & Proposals' },
     { id: 'bundles', label: 'Import / Export' },
+    { id: 'persona', label: 'Persona & Medien' },
   ];
   readonly edgeNamespaceOptions = ['hierarchy', 'organization', 'runtime'] as const;
 

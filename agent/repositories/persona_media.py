@@ -30,6 +30,14 @@ heads = Table(
     *_scope_columns(),
     Column("revision", BigInteger, nullable=False),
 )
+events = Table(
+    "persona_media_profile_events",
+    _metadata,
+    *_scope_columns(),
+    Column("revision", BigInteger, primary_key=True),
+    Column("actor", String(191), nullable=True),
+    Column("content_hash", String(64), nullable=False),
+)
 
 
 def _scope(profile):
@@ -47,7 +55,7 @@ class SqlPersonaProfiles:
     def initialize(self):
         _metadata.create_all(self.engine)
 
-    def append(self, profile: PersonaMediaProfile, *, expected_revision: int):
+    def append(self, profile: PersonaMediaProfile, *, expected_revision: int, actor=None):
         if type(expected_revision) is not int or expected_revision < 0 or profile.revision != expected_revision + 1:
             raise ValueError("persona_revision_invalid")
         payload = profile.model_dump_json()
@@ -74,9 +82,43 @@ class SqlPersonaProfiles:
                         payload=payload,
                     )
                 )
+                connection.execute(
+                    insert(events).values(
+                        **scope, revision=profile.revision, actor=actor, content_hash=profile.content_hash()
+                    )
+                )
         except IntegrityError:
             raise ValueError("persona_revision_conflict") from None
         return profile.content_hash()
+
+    def current(self, *, tenant_id, project_id, owner_kind, owner_id):
+        scope = dict(tenant_id=tenant_id, project_id=project_id, owner_kind=owner_kind, owner_id=owner_id)
+        with self.engine.connect() as connection:
+            row = (
+                connection.execute(
+                    select(heads.c.revision, profiles.c.content_hash)
+                    .select_from(
+                        heads.outerjoin(
+                            profiles,
+                            (
+                                (heads.c.revision == profiles.c.revision)
+                                & (heads.c.tenant_id == profiles.c.tenant_id)
+                                & (heads.c.project_id == profiles.c.project_id)
+                                & (heads.c.owner_kind == profiles.c.owner_kind)
+                                & (heads.c.owner_id == profiles.c.owner_id)
+                            ),
+                        )
+                    )
+                    .where(*_where(heads, scope))
+                )
+                .mappings()
+                .first()
+            )
+        if row is None:
+            return None
+        if row["content_hash"] is None:
+            raise ValueError("persona_profile_integrity_failed")
+        return self.get(**scope, revision=row["revision"], content_hash=row["content_hash"])
 
     def get(self, *, tenant_id, project_id, owner_kind, owner_id, revision, content_hash):
         scope = dict(tenant_id=tenant_id, project_id=project_id, owner_kind=owner_kind, owner_id=owner_id)

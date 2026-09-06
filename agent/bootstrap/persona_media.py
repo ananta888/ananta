@@ -9,11 +9,15 @@ def configure_persona_media(app):
     app.register_blueprint(persona_media_bp)
     if app.config.get("ROLE") != "hub" or os.environ.get("ANANTA_PERSONA_IMAGES_ENABLED") != "1":
         return
+    from sqlmodel import Session
+
     from agent.database import engine
     from agent.repositories.persona_asset_policy import SqlPersonaImagePolicies
     from agent.repositories.persona_assets import SqlPersonaAssets
+    from agent.repositories.persona_media import SqlPersonaProfiles
     from agent.services.artifact_store import ArtifactStore
     from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
+    from agent.services.organization_membership_service import OrganizationMembershipService
     from agent.services.persona_asset_erasure import PersonaAssetErasureService
     from agent.services.persona_asset_policy_service import PersonaAssetPolicyService
     from agent.services.persona_asset_service import PersonaAssetService
@@ -23,6 +27,9 @@ def configure_persona_media(app):
     from agent.services.persona_inspection_leases import HubPersonaInspectionLeases
     from agent.services.persona_inspection_task_state import HubPersonaTaskState
     from agent.services.persona_inspection_tasks import HubPersonaInspectionReceipts, HubPersonaInspectionTasks
+    from agent.services.persona_profile_images import PersonaProfileImages
+    from agent.services.persona_profile_owners import SqlPersonaProfileOwners
+    from agent.services.persona_profile_service import PersonaProfileService
     from worker.meet_media.contract import load_key
 
     key = load_key(os.environ["ANANTA_PERSONA_IMAGE_KEY_FILE"])
@@ -57,5 +64,18 @@ def configure_persona_media(app):
         ),
         persona_asset_erasure=PersonaAssetErasureService(
             policy=policy, catalog=catalog, eraser=PersonaImageErasureStore(storage.base_dir)
+        ),
+    )
+    profiles = SqlPersonaProfiles(engine)
+    profiles.initialize()
+    images = PersonaProfileImages(app.extensions["persona_assets"])
+    app.extensions.update(
+        persona_profile_images=images,
+        persona_profiles=PersonaProfileService(
+            access=app.extensions["project_access_authority"],
+            memberships=OrganizationMembershipService(session_factory=lambda: Session(engine)),
+            owners=SqlPersonaProfileOwners(lambda: Session(engine)),
+            profiles=profiles,
+            images=images,
         ),
     )

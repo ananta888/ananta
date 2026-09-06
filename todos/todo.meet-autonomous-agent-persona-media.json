@@ -710,10 +710,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M5",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 55,
       "depends_on": [
         "MAP-17",
         "MAP-18"
@@ -723,7 +723,8 @@
         "Effektives Profil mit Version, Quelle, Nutzungsfreigabe und optionalen Overrides anzeigen; Bearbeitungsrechte serverseitig prüfen.",
         "Eine Vorschau startet weder eine Meet-Sitzung noch Kamera/Mikrofon und veröffentlicht keine Daten; 'Vorschau' und 'In Raum publizieren' bleiben getrennte Aktionen.",
         "KI-/synthetische Darstellung kenntlich machen; Metadatenpflege ist per API ebenso möglich und benötigt keinen interaktiven UI-Schritt."
-      ]
+      ],
+      "implementation_note": "Headless Profil-API mit realer Projekt-/Organisationsautorität, expliziten Admin-Grants, logisch rollenbesetzungsgebundenen Agentenprofilen, immutable SQL-CAS und Akteur-Audit implementiert. Mehrdeutige organisationsübergreifende Teamprofile werden abgelehnt. Widerrufene Medien bleiben ohne manuellen Datenbankeingriff ersetzbar. Organisations-Shell um kleinen Persona-Editor mit geladenen Topologieinhabern, Bildreferenzprüfung, privater PNG-Vorschau, Vererben/Deaktivieren und Kontextwechsel-Abbruch ergänzt. 66 gezielte Python-Tests und 10 UI-/HTTP-Tests bestanden; Angular-Development-Build erfolgreich (bestehende fachfremde RouterLink-Warnung). docs/contracts/persona-profile-api.md. Noch offen: berechnetes effektives Profil samt Herkunft und Nutzungsfreigabe, komfortable Asset-Auswahlliste sowie erweiterte Voice-/Video-Eingaben. Keine aktive Sitzung oder öffentliche Instanz verändert."
     },
     {
       "id": "MAP-20",
@@ -1053,9 +1054,9 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 8,
+      "todo": 7,
       "in_progress": 0,
-      "partial": 21,
+      "partial": 22,
       "blocked": 0,
       "done": 3
     },
@@ -1150,15 +1151,15 @@
       "feature": {
         "total": 16,
         "done": 1,
-        "partial": 9,
+        "partial": 10,
         "blocked": 0,
-        "todo": 6,
+        "todo": 5,
         "in_progress": 0,
-        "progress_percent": 29.1,
+        "progress_percent": 32.5,
         "by_status": {
-          "todo": 6,
+          "todo": 5,
           "in_progress": 0,
-          "partial": 9,
+          "partial": 10,
           "blocked": 0,
           "done": 1
         }
@@ -1215,9 +1216,9 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 8,
+    "todo_remaining": 7,
     "in_progress": 0,
-    "partial": 21,
+    "partial": 22,
     "blocked": 0,
     "done": 3,
     "milestones_done": 0,
