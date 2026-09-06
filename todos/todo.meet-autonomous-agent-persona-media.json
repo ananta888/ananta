@@ -1,0 +1,989 @@
+{
+  "version": "1.0",
+  "owner": "Ananta maintainers",
+  "track": "meet-autonomous-agent-persona-media",
+  "status": "todo",
+  "purpose": "Ananta als autonom verwalteten, klar erkennbaren KI-Teilnehmer in ANANTA Meet integrieren: eigener Browserstream, Organisations-/Team-/Agentenbilder, synthetische Stimme und Video sowie separat erlaubtes Zuhören und Gesprächsteilnahme.",
+  "goal": "Ein vom Hub autorisierter Agent kann ohne laufende Benutzerinteraktion Meet betreten, ausschließlich eigene freigegebene Quellen publizieren, Quellen unabhängig verwalten und sicher verlassen. Persona-Medien sind versionsgebundene Assets, keine Identität oder Berechtigung.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "scope": {
+    "kind": "repository_development_track",
+    "runtime_goal_created": false,
+    "implementation_started": false,
+    "note": "Dieser Track plant eine Produktfähigkeit; er materialisiert weder Organisations-Goals noch Worker-Aufgaben. Laufzeitgebundene Organisationsarbeit verwendet weiterhin Category-Promotion, Track-Adoption und Hub-Dispatch."
+  },
+  "repositories": {
+    "ananta": {
+      "baseline_revision": "439380dc68a22b140eb2a3e4fb42bc40b05d0da5",
+      "responsibility": "Hub-Policy, Taskmodell, Worker, Persona-Domain und Ananta-Oberfläche"
+    },
+    "ananta_meet": {
+      "local_repository": "../webrtc-minimize-server",
+      "baseline_revision": "52cd7665f7072045dd2fb105ebdab27b538c5ca2",
+      "responsibility": "Additive Maschinenaufnahme und Quellpublikation, Membership/E2EE sowie Meet-Oberfläche",
+      "companion_track_status": "required_before_meet_code_changes"
+    }
+  },
+  "source_alignment": {
+    "classification": "technical_inspection_unverified_for_production_release",
+    "source_ids": [],
+    "run_ids": [],
+    "inspected_ananta_paths": [
+      "AGENTS.md",
+      "docs/planning-pipeline.md",
+      "agent/services/meet_contract.py",
+      "agent/services/meet_binding_service.py",
+      "agent/services/browser_task_contract.py",
+      "agent/services/browser_camofox_adapter.py",
+      "agent/models/organization_models.py",
+      "agent/db_models/voice_governance.py",
+      "agent/services/semantic_media_permission_service.py",
+      "worker/semantic_media/handler.py",
+      "todos/todo.ananta-meet-integration.json"
+    ],
+    "inspected_meet_paths": [
+      "AGENTS.md",
+      "frontend/src/app/webrtc/media-publication.service.ts",
+      "frontend/src/app/webrtc/room-session.service.ts"
+    ],
+    "findings": [
+      "Meet-Zuordnung ist noch keine autonome Media-Publisher-Runtime; der bestehende Adapter deklariert media_bridge_supported=false.",
+      "BrowserTaskContract und Camofox-Screenshot-Pfad sind mögliche Ausgangspunkte, kein nachgewiesener Live-Stream.",
+      "VoiceConsent/VoicePersonalization betreffen Einwilligung und Feedback; daraus folgt keine fertige Persona-TTS-/Videoerzeugung.",
+      "Meet fordert derzeit sichtbaren lokalen Benutzerstart menschlicher Capture-APIs. Der neue Maschinenpfad muss diese Regel ausdrücklich ergänzen, nicht umgehen.",
+      "Die ältere Meet-Basisintegration hat weiterhin offene positive Live-Gates. Dieser Track erklärt diese nicht nachträglich für erledigt."
+    ]
+  },
+  "related_tracks": [
+    {
+      "path": "todos/todo.ananta-meet-integration.json",
+      "relationship": "Reuse und additive Weiterentwicklung der Hub-Raumzuordnung; offene Human-Live-Gates separat beibehalten.",
+      "task_refs": [
+        "AMI-08",
+        "AMI-14",
+        "AMI-15"
+      ],
+      "blocking_scope": "Bestehende Deployment-/Auth-Grenzen vor Live-Abnahme erneut prüfen; lokale Contract-/Worker-Arbeit nicht pauschal blockieren."
+    },
+    {
+      "path": "todos/archiv/todo.browser-camofox-adapter.json",
+      "relationship": "Vorhandenen Browseradapter prüfen; Archivstatus nicht als Streaming-Nachweis übernehmen."
+    },
+    {
+      "path": "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
+      "relationship": "Bestehende Sprach-/Medien-/Consent-Ports prüfen, ohne eine neue Persona-Laufzeit daraus abzuleiten."
+    }
+  ],
+  "non_goals": [
+    "Kein Zugriff auf menschlichen Desktop, Kamera, Mikrofon, persönliche Browserprofile oder Cookies ohne eigenständige explizite Freigabe.",
+    "Keine neue Worker-Orchestrierung, kein Peer-zu-Peer-Taskaustausch und kein zweiter autonomer Scheduler.",
+    "Keine Ablösung von Meet-Human-OIDC, Pair-Dev, LiveKit, Artefaktaustausch oder bestehenden manuellen Raumzuordnungen.",
+    "Keine Klartext-Medienbrücke im Hub/Signaling und kein Absenken der E2EE-Policy zur Erleichterung der Tests.",
+    "Keine automatische Aufzeichnung, Transkriptpersistenz oder Trainingsdatennutzung allein aufgrund der Raumteilnahme.",
+    "Keine ungeprüfte Personenimitation; Name, Portrait und Stimme eines Agenten verleihen keine menschliche Identität oder Rolle."
+  ],
+  "architecture_decisions": [
+    "Task-/Organisationsautorität bleibt beim Hub, Room-/Membershipautorität bei Meet; beide Entscheidungen müssen für eine Sitzung erfüllt sein.",
+    "Eine eigene Maschinenidentität ersetzt menschliche Interaktion im Automationspfad, nicht die Authentisierung. Zulassung braucht eine explizite Trust- und Betreiberpolicy.",
+    "Eigene Quellen werden über separate MediaSource-Adapter angebunden; generierte Medien sind kein Sonderfall im menschlichen getUserMedia/getDisplayMedia-Pfad.",
+    "Persona-Auflösung, Assetverwaltung, Sprach-/Videoerzeugung, Media-Transport und Lebenszyklus bleiben getrennte fachliche Verantwortlichkeiten.",
+    "Ein blinder Media-Agent routet verschlüsselte Medien. Der hier geplante KI-Teilnehmer ist ein berechtigter Medienendpunkt und kein blinder Relay."
+  ],
+  "solid_review": {
+    "srp": "Kein Ausbau der bestehenden zentralen Meet-server.js oder Ananta-Bootstrap-Dateien zum Persona-/TTS-/Policy-Monolithen; neue Domain-/Adaptermodule werden nur komponiert.",
+    "ocp": "Bestehende Human- und Pair-Verträge durch versionierte Maschinen-/Source-Adapter ergänzen.",
+    "lsp": "Browser-/native Publisher und TTS-/Video-Adapter deklarieren geprüfte Capabilities und einheitliche Fehler-/Stop-Semantik; fehlende Funktionen dürfen nicht als Erfolg maskiert werden.",
+    "isp": "Getrennte Interfaces für Identity/Admission, Lifecycle, Source, Publication, Subscription, Persona und Medienerzeugung.",
+    "dip": "Hub-Domain hängt nicht von einem konkreten Browser-, Codec-, TTS-, Avatar- oder SFU-SDK ab.",
+    "preserved_debt": "Vorhandene umfangreiche Composition-/Signaling-Dateien bleiben Bestand; neue Fachlogik wird dort nicht eingebaut. Weitere konkrete Altlasten sind vor Implementierung unter MAP-01/02 zu erfassen."
+  },
+  "headless_policy": {
+    "tests": "Tests provisionieren automatisch ephemere synthetische Identitäten und Quellen und enden innerhalb fester Budgets; kein Mensch darf einen Test entsperren müssen.",
+    "productive_runs": "Nach expliziter Vorautorisierung vollautomatischer Start, Join, Publish, Receive nach Policy und Leave; fehlende Zulassung führt zu bounded blocked/failed.",
+    "credential_boundary": "Öffentliches Betreiber-Trust und echte Secrets dürfen nicht erfunden werden. Fehlende Voraussetzungen per automatisiertem Preflight konkret melden; keine dauerhaften Menschen-Testaccounts als Architekturvoraussetzung."
+  },
+  "delivery_slices": [
+    {
+      "id": "S1",
+      "title": "Stummer KI-Teilnehmer mit eigenem Browserstream",
+      "exit_tasks": [
+        "MAP-07",
+        "MAP-08",
+        "MAP-12",
+        "MAP-16"
+      ],
+      "note": "Zuerst lokalen vertikalen Slice mit synthetischem Trust und realem Frame-Empfang prüfen; keine Produktionsfreigabe daraus ableiten."
+    },
+    {
+      "id": "S2",
+      "title": "Organisations-/Team-Persona mit Bild und Stimme",
+      "exit_tasks": [
+        "MAP-19",
+        "MAP-20",
+        "MAP-21",
+        "MAP-22"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Video, Zuhören, Gesprächsführung und mehrere Agenten",
+      "exit_tasks": [
+        "MAP-23",
+        "MAP-24",
+        "MAP-25",
+        "MAP-26",
+        "MAP-27",
+        "MAP-28"
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Lokale und öffentliche Gesamtabnahme",
+      "exit_tasks": [
+        "MAP-29",
+        "MAP-30",
+        "MAP-31",
+        "MAP-32"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "MAP-M1",
+      "title": "Quellabgleich, Architektur und Sicherheitsvertrag",
+      "status": "todo",
+      "task_ids": [
+        "MAP-01",
+        "MAP-02",
+        "MAP-03",
+        "MAP-04"
+      ]
+    },
+    {
+      "id": "MAP-M2",
+      "title": "Maschinenidentität und Meet-Aufnahme",
+      "status": "todo",
+      "task_ids": [
+        "MAP-05",
+        "MAP-06",
+        "MAP-07",
+        "MAP-08"
+      ]
+    },
+    {
+      "id": "MAP-M3",
+      "title": "Hub-gesteuerter Teilnehmer-Lebenszyklus",
+      "status": "todo",
+      "task_ids": [
+        "MAP-09",
+        "MAP-10",
+        "MAP-11",
+        "MAP-12"
+      ]
+    },
+    {
+      "id": "MAP-M4",
+      "title": "Eigener Browser als freigegebene Medienquelle",
+      "status": "todo",
+      "task_ids": [
+        "MAP-13",
+        "MAP-14",
+        "MAP-15",
+        "MAP-16"
+      ]
+    },
+    {
+      "id": "MAP-M5",
+      "title": "Organisations-, Team- und Agenten-Personas",
+      "status": "todo",
+      "task_ids": [
+        "MAP-17",
+        "MAP-18",
+        "MAP-19",
+        "MAP-20"
+      ]
+    },
+    {
+      "id": "MAP-M6",
+      "title": "Bild-, Sprach- und Videoausgabe",
+      "status": "todo",
+      "task_ids": [
+        "MAP-21",
+        "MAP-22",
+        "MAP-23",
+        "MAP-24"
+      ]
+    },
+    {
+      "id": "MAP-M7",
+      "title": "Zuhören und kontrollierte Gesprächsteilnahme",
+      "status": "todo",
+      "task_ids": [
+        "MAP-25",
+        "MAP-26",
+        "MAP-27",
+        "MAP-28"
+      ]
+    },
+    {
+      "id": "MAP-M8",
+      "title": "Headless-Verifikation, Live-Abnahme und Rollout",
+      "status": "todo",
+      "task_ids": [
+        "MAP-29",
+        "MAP-30",
+        "MAP-31",
+        "MAP-32"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MAP-01",
+      "title": "Baseline beider Repositories und Laufzeitprofile erneut prüfen",
+      "repository": "ananta",
+      "type": "governance",
+      "milestone_id": "MAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Ananta- und Meet-Commit, Container-Images, aktive Konfiguration und vorhandene Browser-/Sprach-/Medienbausteine getrennt inventarisieren; Worktree nicht mit laufendem Image gleichsetzen.",
+        "Die bestehende Meet-Zuordnung bleibt meet_ui_then_attach; ein bestandener Browser-Preflight beweist weder autonomen Join noch Browserstream, TTS oder Avatarvideo.",
+        "Vorhandene, fehlende und lediglich geplante Schnittstellen inklusive Tests und Betriebszuständigkeit benennen. Quellpfade nicht als registrierte Evidenzidentitäten ausgeben."
+      ]
+    },
+    {
+      "id": "MAP-02",
+      "title": "Verantwortlichkeiten und additive Medien-Ports spezifizieren",
+      "repository": "both",
+      "type": "architecture",
+      "milestone_id": "MAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-01"
+      ],
+      "acceptance_criteria": [
+        "Hub besitzt Aufgaben, Delegation, Medienabsicht und Organisationsrechte; Meet prüft eigenständig Raumaufnahme, Membership und Publikationsrechte; Worker führt nur die gebundene Zuweisung aus.",
+        "Kleine getrennte Ports für Teilnehmeraufnahme, Lifecycle, MediaSource, Publikation, Subscription, Persona-Auflösung und Audio/Video-Erzeugung definieren.",
+        "Browser-Worker und Medien-Worker kommunizieren nicht zur Auftragsvergabe miteinander; getrennte Worker werden ausschließlich durch Hub-Tasks mit geschlossenen Artefakt-/Stream-Zuweisungen verbunden.",
+        "Signaling-Server und vorhandene Blind-Media-Agenten bleiben frei von Mediengenerierung, Persona-Entscheidungen und entschlüsselten Inhalten."
+      ]
+    },
+    {
+      "id": "MAP-03",
+      "title": "Bedrohungsmodell und getrennte Rechte für eigene und menschliche Quellen festlegen",
+      "repository": "both",
+      "type": "security",
+      "milestone_id": "MAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-02"
+      ],
+      "acceptance_criteria": [
+        "Quellklassen agent_browser, generated_audio, generated_video, persona_image und human_device_capture explizit unterscheiden; Klassifikation wird vom vertrauenswürdigen Ausführungsprofil gebunden, nicht vom Worker frei gesetzt.",
+        "Agenteneigene Quellen dürfen unter expliziter Hub-Policy headless laufen. Menschlicher Desktop, Kamera, Mikrofon, fremde Browserprofile und Cookies bleiben ohne passende separate Freigabe unzugänglich.",
+        "Lesen/Zuhören, Senden, Aufzeichnen, Modelltraining und Werkzeugausführung sind getrennte Rechte; ein Raumbeitritt oder Persona-Bild erweitert keines davon.",
+        "Cross-Tenant-Lecks, URL-/SSRF-Missbrauch, Prompt-Injection aus Medien, kompromittierte Teilnehmer, Replay und Schlüsselverlust als konkrete Negativfälle festhalten."
+      ]
+    },
+    {
+      "id": "MAP-04",
+      "title": "Meet-Regeln für Maschinenpublikation additiv abstimmen und versionieren",
+      "repository": "ananta_meet",
+      "type": "governance",
+      "milestone_id": "MAP-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-03"
+      ],
+      "acceptance_criteria": [
+        "Vor Implementierung einen korrespondierenden aktiven Track im Meet-Repository nach dessen Regeln anlegen; exakte Verknüpfung und Verantwortlichkeiten in beiden Tracks dokumentieren.",
+        "Die heutige AGENTS.md-Regel zum sichtbaren Benutzerklick bleibt für menschliche Aufnahmequellen erhalten. Einen ausdrücklich autorisierten, getrennten Pfad für agenteneigene Quellen samt headless Tests dokumentieren.",
+        "Neue Actor-/Source-Contracts und Protokollversionen additiv einführen; unbekannte Versionen oder fehlende Fähigkeiten führen zu maschinenlesbarem blocked statt stiller Abschwächung.",
+        "Kein Auth-Abschalten, keine automatische Freigabe aller Geräte und kein pauschales Akzeptieren bestehender Hub- oder Worker-Bearer-Tokens."
+      ]
+    },
+    {
+      "id": "MAP-05",
+      "title": "Maschinenidentität, Trust-Profil und automatisierte Provisionierung implementieren",
+      "repository": "both",
+      "type": "security",
+      "milestone_id": "MAP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-04"
+      ],
+      "acceptance_criteria": [
+        "Explizit registrierter Aussteller und überprüfbarer machine participant principal mit Tenant-/Organisations-/Agentenbindung; Displayname oder Raumcode genügen niemals als Identität.",
+        "Ein versioniertes Trust-Profil entscheidet über Issuer, Audience, Algorithmen, Schlüsselrotation und zugelassene Hub-/Projekt-Scope-Bindungen; Meet validiert dieses Profil selbst.",
+        "Provisionierung, Erneuerung und Widerruf sind nach expliziter Betreiber-Vorautorisierung per API/Automation möglich, ohne E-Mail-Klick, CAPTCHA, TOTP-Eingabe oder wiederkehrenden menschlichen Login im Ausführungspfad.",
+        "Kein menschliches Konto nachahmen und keine privaten Ausstellerschlüssel an Worker übertragen; Secrets nur über scoped Secret-Referenzen und schmale Credentials."
+      ]
+    },
+    {
+      "id": "MAP-06",
+      "title": "Maschinengebundene Join-Admission und Besitznachweis ergänzen",
+      "repository": "ananta_meet",
+      "type": "security",
+      "milestone_id": "MAP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-05"
+      ],
+      "acceptance_criteria": [
+        "Maschinen-Join bindet Principal, Room, Task-/Assignment-Referenz, erlaubte Quellen, Ablaufzeit, Nonce und Geräte-/Runtime-Schlüssel an eine von Meet geprüfte Admission.",
+        "Besitznachweis, Origin-/Client-Profil, TTL und Replay-Schutz müssen auch für headless Clients erhalten bleiben; keine Wiederverwendung eines human browser ticket als permanente Maschinenberechtigung.",
+        "Einmalige Join-Credentials werden nach gültiger Admission automatisch ausgestellt. Falsche Audience, fremder Tenant, falscher Raum oder wiederholte Verwendung werden abgewiesen.",
+        "Bestehende Human-OIDC-/P-256-Flows, 20-Teilnehmer-Raumgrenze und Pair-Grenzen bleiben unverändert; der Agent zählt als normaler kapazitätsrelevanter Teilnehmer."
+      ]
+    },
+    {
+      "id": "MAP-07",
+      "title": "Automatische Raumzuordnung und minimalen Maschinen-Teilnehmer umsetzen",
+      "repository": "both",
+      "type": "feature",
+      "milestone_id": "MAP-M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-06"
+      ],
+      "acceptance_criteria": [
+        "Hub kann unter expliziter Room-Create-/Join-Policy einen eigenen Testraum/Arbeitsraum erstellen oder einem erlaubten bestehenden Raum beitreten; ein beliebiger Invite ist keine Verwaltungsberechtigung.",
+        "Create/Join/Leave über den Meeting-Port anbinden und gespeicherte Projekt-/Task-Zuordnungen wiederverwenden; der bisherige manuelle Invite-Ablauf bleibt kompatibel.",
+        "Erster minimaler Agent erscheint als klar gekennzeichneter KI-Teilnehmer zunächst ohne Audio, Video oder Bildschirm; keine Quelle wird implizit beim Join aktiviert.",
+        "Keine Menschen-Kennung und kein Avatar darf Moderations- oder Raumverwaltungsrechte verleihen."
+      ]
+    },
+    {
+      "id": "MAP-08",
+      "title": "Maschinen-Client mit erforderlicher Medienverschlüsselung verbinden",
+      "repository": "both",
+      "type": "security",
+      "milestone_id": "MAP-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-06"
+      ],
+      "acceptance_criteria": [
+        "Capability-Probe entscheidet nachvollziehbar zwischen isoliertem Browser-Publisher und einem nachgewiesen kompatiblen nativen Adapter; keine implizite LiveKit-zu-Meet-Protokollübersetzung.",
+        "Meets aktuelles SFrame-/Codec-Envelope-, Key-ACK- und Membership-Epoch-Verhalten für den gewählten Client vollständig implementieren und negativ testen.",
+        "Unbekannter Codec, fehlendes ACK, Replay, Revocation oder unsupported Encoded-Transform-Fähigkeit stoppen die betroffene Quelle ohne Klartext-Fallback.",
+        "Keys bleiben in der autorisierten Teilnehmer-Runtime; Hub-Orchestrierung, Signaling und blinde Relays bekommen keine zusätzliche Entschlüsselungsfähigkeit."
+      ]
+    },
+    {
+      "id": "MAP-09",
+      "title": "Hub-Taskmodell für Meet-Agenten-Sitzungen integrieren",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-07"
+      ],
+      "acceptance_criteria": [
+        "Start, Join, Quelle publizieren, Quelle stoppen und Leave laufen durch bestehende Hub-Tasks mit idempotenten Befehlen; kein zweiter Scheduler im Medienclient.",
+        "Zustände queued, admitted, connecting, joined, publishing, stopping und terminale Ergebnisse mit erlaubten Übergängen, persistenter Revision und bounded Retry-Modell festlegen.",
+        "Organisations-/Team-/Role-Assignment-Zustand unmittelbar vor Dispatch und bei policyrelevanten Änderungen prüfen; abgesagte oder archivierte Ziele können keine Sitzung wiederbeleben.",
+        "Keine automatische Teilnahme allein durch Anzeige eines Projekts, Existenz einer Persona oder Laden einer UI."
+      ]
+    },
+    {
+      "id": "MAP-10",
+      "title": "Isolierten Publisher-Worker und Browser-Workspace bereitstellen",
+      "repository": "ananta",
+      "type": "infrastructure",
+      "milestone_id": "MAP-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-08",
+        "MAP-09"
+      ],
+      "acceptance_criteria": [
+        "Jede Publisher-Worker-Instanz bleibt im eigenen Docker-Container und führt ausschließlich Hub-Zuweisungen aus; reproduzierbare gepinnte Runtime und Healthchecks.",
+        "Separates Browserprofil, begrenzte CPU/RAM/GPU-/Netzwerkrechte, scoped Downloads und temporäre Arbeitsverzeichnisse; kein Mount menschlicher Browserprofile, Host-Display-Sockets oder Docker-Socket.",
+        "Medienquellen werden über eng begrenzte Ports eingebunden; fehlende GPU oder nicht unterstützter Codec liefert deterministischen Fallback nur soweit die Policy ihn erlaubt.",
+        "Authentisierung, Quellgenerierung und Senden sind getrennt testbar; kein monolithischer Publisher mit eingebauter Hub-Policy."
+      ]
+    },
+    {
+      "id": "MAP-11",
+      "title": "Selbstverwaltung unter Dispatch-Lease und Hub-Fencing umsetzen",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-09",
+        "MAP-10"
+      ],
+      "acceptance_criteria": [
+        "Automatischer Reconnect, Refresh, Backoff und Wiederaufnahme sind zeitlich und zahlenmäßig begrenzt und an aktuelle Assignment-/Dispatch-Lease und Room-Membership-Epoch gebunden.",
+        "Doppelter Dispatch, Hub-Neustart und Worker-Crash erzeugen weder doppelte Teilnehmer noch doppelte Audioausgabe; nur die aktuelle Generation darf publizieren.",
+        "Lease-Verlust stoppt lokale Quellen und Veröffentlichungen innerhalb des vorab definierten Stop-Budgets auch bei abgerissener Hub-Verbindung.",
+        "Worker darf seinen Auftrag weder verlängern noch eine andere Persona, Quelle, Zielgruppe oder einen anderen Raum selbst auswählen."
+      ]
+    },
+    {
+      "id": "MAP-12",
+      "title": "Unabhängige Quellenkontrolle, Not-Aus und auditierbare Beendigung integrieren",
+      "repository": "both",
+      "type": "security",
+      "milestone_id": "MAP-M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-11"
+      ],
+      "acceptance_criteria": [
+        "Audio, Avatarvideo und Browserstream lassen sich einzeln starten, stummschalten, ersetzen und idempotent stoppen; Empfangsrechte bleiben getrennt.",
+        "Hub-Not-Aus und zulässiger Meet-seitiger Raumwiderruf beenden Tracks, Puffer, Decoder und Key-Material; ein reconnect darf einen Widerruf nicht rückgängig machen.",
+        "Status/Fehler, Lease-/Policy-Revision, Stop-Grund und Ressourcenmetriken ohne Tokens, SDP, Raum-Invites oder Medieninhalte auditieren.",
+        "UI zeigt Quelle, Eigentümer, KI-Kennzeichnung, Status und Widerrufsmöglichkeit; eine sichtbare Bedienoberfläche ist keine Voraussetzung für den automatischen Lauf."
+      ]
+    },
+    {
+      "id": "MAP-13",
+      "title": "Browser-Auftrag und Live-Ansicht sicher an eine Sitzung binden",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-10"
+      ],
+      "acceptance_criteria": [
+        "BrowserTaskContract und vorhandene Browser-Adapter prüfen und um additive Live-Quellfähigkeiten ergänzen; ein Screenshot-Endpunkt wird nicht als fertiger kontinuierlicher Stream ausgegeben.",
+        "Quellbindung umfasst genau einen vom Hub gestarteten Browser-Workspace und die erlaubte Seite/Ansicht; kein Zugriff auf persönliche Tabs oder den gesamten Host-Desktop.",
+        "Domain-/Navigations-/Download-Policy bleibt beim Steuern und beim Teilen wirksam; authentisierte Inhalte benötigen gesonderte opt-in Freigabe.",
+        "Vor Implementierung des Renderpfads eine Capability-/Kostenprobe des tatsächlich vorhandenen Browsers erstellen; alternative Adapter deklarieren ihre Grenzen ehrlich."
+      ]
+    },
+    {
+      "id": "MAP-14",
+      "title": "Browserbild in einen begrenzten Meet-Videostream umwandeln",
+      "repository": "both",
+      "type": "feature",
+      "milestone_id": "MAP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-08",
+        "MAP-13"
+      ],
+      "acceptance_criteria": [
+        "Einen expliziten agent_browser MediaSource-Adapter bereitstellen, z. B. aus isoliertem virtuellen Display oder autorisiertem Browser-Frame-Pfad; nicht produktiv über ein simuliertes menschliches getDisplayMedia-Picker-OK lösen.",
+        "Framerate, Auflösung, Codec, Warteschlange und Bandbreite sind begrenzt; bei Backpressure ältere Frames verwerfen statt unbeschränkt zu puffern.",
+        "Die im anderen Meet-Teilnehmer tatsächlich decodierten Frames enthalten den erwarteten bewegten Testseiteninhalt; eine lokale Screenshot-Datei reicht nicht als Verifikation.",
+        "Automatischer Start/Stop ohne menschlichen Dialog wird positiv getestet, während der menschliche Bildschirmfreigabepfad weiterhin geschützt bleibt."
+      ]
+    },
+    {
+      "id": "MAP-15",
+      "title": "Datenschutzfilter und Navigationswechsel vor Veröffentlichung absichern",
+      "repository": "ananta",
+      "type": "security",
+      "milestone_id": "MAP-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-13",
+        "MAP-14"
+      ],
+      "acceptance_criteria": [
+        "Secret-Eingaben, Login-/Authentisierungsseiten, nicht freigegebene Navigationen und vertrauliche Ansichten stoppen oder verdecken die Quelle vor dem nächsten sichtbaren Frame.",
+        "Feste Ausgangsauflösung, Größenwechsel, neue Tabs, Downloads und Browserabsturz dürfen keine unbereinigten Frames oder vorherige sensible Puffer offenlegen.",
+        "DOM-basierte Maskierung allein gilt nicht als Schutz für unbekannte Canvas-/Video-/Cross-Origin-Inhalte; für diese Quellen explizite Freigabe oder fail-closed Pause verlangen.",
+        "Negativtests mit eindeutig erkennbaren Secret-Markern prüfen den empfangenen Stream, nicht nur lokale Policy-Rückgaben; keine Secret-Bilder als normale Audit-Artefakte speichern."
+      ]
+    },
+    {
+      "id": "MAP-16",
+      "title": "Browserpräsentation und Browsersteuerung getrennt integrieren",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M4",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-12",
+        "MAP-15"
+      ],
+      "acceptance_criteria": [
+        "Hub kann eine erlaubte Browseraktivität zeigen, pausieren, wechseln und beenden; diese Steuerung benutzt die bestehende Task-/Tool-Policy.",
+        "Meet-Zuschauer dürfen den Browser nicht allein durch Raumteilnahme fernsteuern; Maus-/Tastatur-/Navigationsaktionen benötigen eigene Autorisierung.",
+        "Ein browserbedienender Worker delegiert keine Medienaufträge an andere Worker; der Hub bindet gegebenenfalls beide Tasks und den freigegebenen Quellkanal.",
+        "Ende des Browser-Tasks entfernt die Veröffentlichung deterministisch; andere Audio-/Videoquellen dürfen nur unter weiterhin gültiger eigener Lease fortfahren."
+      ]
+    },
+    {
+      "id": "MAP-17",
+      "title": "Versioniertes Persona-Medienmodell für Organisation, Team und Agent definieren",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-02",
+        "MAP-03"
+      ],
+      "acceptance_criteria": [
+        "Persona-ID und Medienprofil-Revision von technischer Agentenidentität, Role-Slot, Role-Assignment und Berechtigungen trennen.",
+        "Organisation und Team können eigene Präsentationsbilder und Standardmedien haben; Agenten erhalten deterministisch aufgelöste Overrides. Fehlend, explizit deaktiviert und geerbt sind unterschiedliche Zustände.",
+        "Auflösung tenantgebunden, revisionsfest und mit nachvollziehbarer Herkunft; Team-/Rollenwechsel oder Projektgrenzen dürfen keine fremden Assets freigeben.",
+        "Profil enthält Referenzen für Bild, Stimme, optionales Video und Darstellungsstil sowie Nutzungsklassen; keine eingebetteten großen Binärdaten oder Model-/Provider-Secrets."
+      ]
+    },
+    {
+      "id": "MAP-18",
+      "title": "Persona-Assets mit Herkunft, Lizenz und Widerruf verwalten",
+      "repository": "ananta",
+      "type": "security",
+      "milestone_id": "MAP-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-17"
+      ],
+      "acceptance_criteria": [
+        "Upload, Generierung und Auswahl von Bildern/Audio/Video über bestehende Hub-Artefaktpfade integrieren; MIME, Größe, Decoder-Ressourcen, Hash und zulässige Origins prüfen.",
+        "Rechte-/Einwilligungs- und Provenienzmetadaten für Nutzung, Veröffentlichung und gegebenenfalls Stimm-/Gesichtsnachbildung getrennt führen; fremde personenbezogene Vorlagen nicht automatisch übernehmen.",
+        "Metadaten und abgeleitete Vorschaubilder dürfen keine fremden Tenant-/Projektinhalte oder vertrauliche Dateipfade enthalten.",
+        "Widerruf oder Löschung invalidiert betroffene Profile und aktive Veröffentlichungen; synthetische/test-only Assets bleiben sichtbar klassifiziert."
+      ]
+    },
+    {
+      "id": "MAP-19",
+      "title": "Organisations- und Team-UI für Persona-Medien ergänzen",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M5",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-17",
+        "MAP-18"
+      ],
+      "acceptance_criteria": [
+        "Bestehende Organisations-/Team-/Agenten-Oberflächen und Shared-UI-Primitives wiederverwenden; kleine fachliche Komponenten für Asset-Auswahl, Vorschau und geerbte Werte.",
+        "Effektives Profil mit Version, Quelle, Nutzungsfreigabe und optionalen Overrides anzeigen; Bearbeitungsrechte serverseitig prüfen.",
+        "Eine Vorschau startet weder eine Meet-Sitzung noch Kamera/Mikrofon und veröffentlicht keine Daten; 'Vorschau' und 'In Raum publizieren' bleiben getrennte Aktionen.",
+        "KI-/synthetische Darstellung kenntlich machen; Metadatenpflege ist per API ebenso möglich und benötigt keinen interaktiven UI-Schritt."
+      ]
+    },
+    {
+      "id": "MAP-20",
+      "title": "Persona-Auflösung an aktive Sitzung und sichere Profilwechsel binden",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M5",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-11",
+        "MAP-18"
+      ],
+      "acceptance_criteria": [
+        "Hub löst das zulässige Profil vor Dispatch auf und übergibt eine geschlossene, versionsgebundene Projektion samt genau erlaubten Asset-Referenzen.",
+        "Asset-/Stimm-/Videowechsel während der Sitzung ist ein eigener Hub-Befehl mit Revisionsprüfung; kein Worker darf eigenmächtig das Erscheinungsbild oder die Stimme ändern.",
+        "Entzug von Organisationsrolle oder Nutzungsfreigabe leert ausstehende Medien und widerruft Veröffentlichung; Rückfall auf neutrales KI-Profil nur unter expliziter Policy.",
+        "Gleiche Persona kann mehrere zulässige Sessions besitzen, ohne Media-Puffer, Schlüssel, Credentials oder Gesprächskontext zu teilen."
+      ]
+    },
+    {
+      "id": "MAP-21",
+      "title": "Statisches Persona-Bild als sichtbaren Agenten-Videotrack publizieren",
+      "repository": "both",
+      "type": "feature",
+      "milestone_id": "MAP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-08",
+        "MAP-18",
+        "MAP-20"
+      ],
+      "acceptance_criteria": [
+        "Ein genehmigtes Bild oder neutrales KI-Symbol wird als eigener begrenzter Videotrack gerendert; nicht als vorgetäuschte menschliche Kameraaufnahme deklarieren.",
+        "Anzeige von Name/Organisation/Team ist von Identität und Room-Rolle getrennt; unsichere Texte/Bilder werden vor Rendern validiert.",
+        "Bildwechsel, Größenanpassung und Stop/Revocation ohne alte Frames nach dem Wechsel testen; kein menschlicher Webcam-Zugriff.",
+        "Avatarvideo und Browserpräsentation sind getrennte Quellen und können im selben Teilnehmer gleichzeitig oder unabhängig aktiv sein."
+      ]
+    },
+    {
+      "id": "MAP-22",
+      "title": "TTS-Port und streamfähige synthetische Audioausgabe implementieren",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-10",
+        "MAP-18",
+        "MAP-20"
+      ],
+      "acceptance_criteria": [
+        "Vorhandene Sprach-/Consent-/Personalisierungsdienste auf Wiederverwendung prüfen; Korrektur-/Feedbackprofile nicht mit einer bereits vorhandenen TTS-Stimme gleichsetzen.",
+        "Kleinen TTS-Port mit austauschbaren lokalen/erlaubten Provider-Adaptern definieren; Text, Stimme, Sprache, Persona-Version und Budget werden vom Hub gebunden.",
+        "PCM-/Audiochunks über einen eigenen MediaSource-Port publizieren; feste Sample-Rate-/Resampling-Verträge, monotone Zeitstempel und bounded Puffer.",
+        "Mindestens einen realen zulässigen TTS-Pfad nachweisen; Dummy-Audio beweist nur Transport. Provider-Ausfall oder Ressourcenmangel erzeugt bounded Fehler ohne unautorisierten Cloud-Fallback."
+      ]
+    },
+    {
+      "id": "MAP-23",
+      "title": "Gespeicherte Videos und optionale animierte Persona-Ausgabe ergänzen",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M6",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-18",
+        "MAP-21",
+        "MAP-22"
+      ],
+      "acceptance_criteria": [
+        "Versionierte Video-Assets und optionaler Animations-/Avatar-Renderer laufen hinter getrennten Adaptern; ein fertiges Talking-Head-Modell wird nicht vorausgesetzt.",
+        "Importierte Clips und generierte Frames werden eindeutig gekennzeichnet; reale Personen nur im Rahmen der hinterlegten Nutzungsfreigabe verwenden.",
+        "Codec-/Framerate-/GPU-Speichergrenzen und Capability-Fehler explizit behandeln; bei fehlender Animation ist Bild+Sprache ein erlaubter, ehrlich deklarierter Profilmodus.",
+        "Realer Renderer/Clip-Decoder wird mindestens mit einem bewegten Motiv und einer passenden Audiosequenz geprüft; Testbild-Loop ist kein Nachweis generativer Videoqualität."
+      ]
+    },
+    {
+      "id": "MAP-24",
+      "title": "Audio/Video-Zeitbasis, Sprachunterbrechung und Ressourcenbudgets koordinieren",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M6",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-12",
+        "MAP-21",
+        "MAP-22",
+        "MAP-23"
+      ],
+      "acceptance_criteria": [
+        "Audio, Avatarvideo und Browserstream behalten getrennte Lebenszyklen; gemeinsame Zeitbasis und Medienzeitstempel verhindern unkontrollierten A/V-Drift.",
+        "Stopp oder Unterbrechung verwirft ausstehende TTS-/Videochunks und widerruft zugehörige Publikationsgenerationen; alte Sprache darf nach Reconnect nicht erneut abgespielt werden.",
+        "Hub setzt Session-/Modell-/GPU-/Bandbreitenbudgets und faire Admission bei mehreren Agenten; Worker meldet Auslastung, entscheidet aber nicht über neue Aufträge.",
+        "Messbare Latenz-, Drift- und Stop-Schwellen vor Abnahme in einem Hardwareprofil festlegen; Grenzwertverletzung liefert degraded/failed statt pauschalem Qualitätserfolg."
+      ]
+    },
+    {
+      "id": "MAP-25",
+      "title": "Separat autorisierten Audio-/Videoempfang und Medienverstehen anbinden",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-08",
+        "MAP-09",
+        "MAP-20"
+      ],
+      "acceptance_criteria": [
+        "Zuhören und visuelle Wahrnehmung verlangen explizite session-/room-/publikationsgebundene Receive-Rechte und sind default-aus; Senden allein autorisiert keinen Empfang.",
+        "ASR-/Bild-/Videoanalyse über vorhandene geeignete Worker-Pfade und Hub-Tasks anbinden; Inhalte und Schlüssel nur an hierfür freigegebene Ausführungsprofile geben.",
+        "Temporäre Puffer, Aufnahme, Transkriptpersistenz, Artefaktbildung und Training sind getrennte Policies; standardmäßig keine dauerhafte Speicherung empfangener Medien.",
+        "Klar kennzeichnen, dass ein zur Analyse autorisierter KI-Teilnehmer Inhalte entschlüsseln kann; der Blind-Relay-Sicherheitsbegriff gilt nicht für diesen Endpunkt."
+      ]
+    },
+    {
+      "id": "MAP-26",
+      "title": "Hub-gesteuerte Sprecherwahl und Gesprächsführung implementieren",
+      "repository": "ananta",
+      "type": "feature",
+      "milestone_id": "MAP-M7",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-22",
+        "MAP-25"
+      ],
+      "acceptance_criteria": [
+        "Hub steuert wer sprechen darf, Prioritäten, Turn-Taking, Unterbrechung, Stille-Timeout und maximalen Redeumfang; kein Worker-zu-Worker-Orchestrierungsloop.",
+        "Eigene TTS-Ausgabe darf nicht als neuer Fremdauftrag zurücklaufen; Echo-/Self-Input- und Mehrfachantwortschutz auf Teilnehmer-/Publikations-/Turn-Bindung testen.",
+        "Unverständliche oder fehlende Eingabe führt zu begrenzter Rückfrage/Abbruch innerhalb der Policy, niemals zu unbegrenztem Warten auf menschliche Freigabe.",
+        "Gesprächsbeiträge allein aktivieren keine Tools, Rollenänderungen oder externen Aktionen; solche Entscheidungen bleiben im bestehenden Hub-Policy-System."
+      ]
+    },
+    {
+      "id": "MAP-27",
+      "title": "Raum-, Tenant- und Persona-Kontext gegen Injection isolieren",
+      "repository": "ananta",
+      "type": "security",
+      "milestone_id": "MAP-M7",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-25",
+        "MAP-26"
+      ],
+      "acceptance_criteria": [
+        "Transkripte, Bildtext, Browserinhalt und DataChannel-Nachrichten sind untrusted Eingangsdaten, keine Systeminstruktionen oder Beweise neuer Berechtigungen.",
+        "Aufgaben-/Kontextzugriff bleibt tenant-, projekt-, organisations- und sessionsgebunden; gesprochene Aufforderungen dürfen diese Grenzen nicht verändern.",
+        "Profile, Prompt-Kontext und Tool-Zugriff werden beim Rollen-/Raumwechsel neu geprüft; fremde Gesprächsdaten nicht in neue Sessions übernehmen.",
+        "Automatisierte Angriffssequenzen testen Datenabfluss, falsche Sprecheridentität, Tool-Eskalation, Callback-Manipulation und persistierte Prompt-Injection."
+      ]
+    },
+    {
+      "id": "MAP-28",
+      "title": "Mehrere Agenten und Personas ohne Identitätsvermischung betreiben",
+      "repository": "both",
+      "type": "feature",
+      "milestone_id": "MAP-M7",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-12",
+        "MAP-24",
+        "MAP-26",
+        "MAP-27"
+      ],
+      "acceptance_criteria": [
+        "Mehrere KI-Teilnehmer können in einem erlaubten Raum erscheinen, jeweils mit eigener Identität, Persona-Revision, Quellen, Schlüsseln und Widerruf.",
+        "Hub koordiniert Teamsitzungen über bestehende Role-Assignments und Task-Queue; Meet erzwingt weiterhin seine Teilnehmer-/Raumrechte.",
+        "Kein Agent darf eine zweite Persona durch bloßen Displayname-Wechsel vortäuschen oder fremde Audio-/Videostreams als eigene publizieren.",
+        "Mindestens zwei verschiedene Agenten plus Gegenstelle mit gleichzeitigem Browser-/Audiobetrieb testen; eine Mehrcontainer-Prüfung auf einem PC bleibt als Single-Host-Test bezeichnet."
+      ]
+    },
+    {
+      "id": "MAP-29",
+      "title": "Deterministische Headless-Vertrags-, Sicherheits- und Lifecycle-Matrix implementieren",
+      "repository": "both",
+      "type": "test",
+      "milestone_id": "MAP-M8",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-12",
+        "MAP-16",
+        "MAP-20",
+        "MAP-24",
+        "MAP-27",
+        "MAP-28"
+      ],
+      "acceptance_criteria": [
+        "Selbstenthaltende Testumgebung provisioniert eigene ephemere Test-Aussteller, Maschinenidentitäten, Policies, Räume und Medien automatisch; kein Personenlogin, E-Mail-Klick, UI-Freigabe oder produktives Secret als Unit-/Integrationstest-Voraussetzung.",
+        "Positive und negative Issuer-/Audience-/PoP-/Replay-/Lease-/Tenant-/Room-/Source-/Persona-/E2EE-Fälle, CAS-Rennen, Crash-Recovery und Widerruf durchtesten.",
+        "Tests prüfen den tatsächlichen Empfang von Bild-/Browser-/Audio-/Videoinhalten sowie Stop/Maskierung; allein grüne API-Responses genügen nicht.",
+        "Alle Tests besitzen End-to-End-Zeitbudgets, sekretfreie Fehlerartefakte und auf eigene Ressourcen begrenztes Cleanup. Fehlende verpflichtende Infrastruktur ergibt blocked/failed, nicht stillschweigendes passed.",
+        "Kompatibilitätsregression für bisherigen Meet-Human-Join, Pair-Dev, Artefaktaustausch, LiveKit, Room-Caps und bestehende Invite-Zuordnungen ausführen."
+      ]
+    },
+    {
+      "id": "MAP-30",
+      "title": "Lokale Container-/RTX3080-Referenzläufe und Fehlerbehebung abschließen",
+      "repository": "both",
+      "type": "test",
+      "milestone_id": "MAP-M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-29"
+      ],
+      "acceptance_criteria": [
+        "Reale GPU, verfügbarer VRAM, Treiber, Containerzugriff, Modelle und deren Lizenzen vor dem Lauf ermitteln; Hardware nicht allein aus einer historischen Angabe als bereit erklären.",
+        "Eigener Browserstream, reales TTS, gewählter Videopfad und Mehragentenbetrieb auf dem PC mit echter Gegenstelle messen; synthetische Medien-/Testidentitäten klar klassifizieren.",
+        "CPU, RAM/VRAM, Framedrops, decodierte Audio-/Videoframes, A/V-Drift, Join-/Stop-Latenzen sowie bounded Soak- und Recoveryläufe gegen vorab festgelegte Profile prüfen.",
+        "Keine fremden laufenden Räume, GPU-Jobs oder Host-Eingabegeräte übernehmen; eigenes Testdeployment ist von einer Abnahme der bestehenden laufenden Instanz getrennt.",
+        "Fehler direkt beheben und betroffene Gates wiederholen; Rohdumps bleiben Runtime-Daten, strukturierte sekretfreie Berichte dürfen versioniert werden."
+      ]
+    },
+    {
+      "id": "MAP-31",
+      "title": "Öffentliche Meet-Maschinenintegration und erzwungenen TURN-Pfad prüfen",
+      "repository": "both",
+      "type": "test",
+      "milestone_id": "MAP-M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-30"
+      ],
+      "acceptance_criteria": [
+        "Zuerst die tatsächliche laufende Instanz und das auf webrtc.ananta.de aktivierte Trust-/Machine-Profil mit automatisiertem Readiness-Check bestimmen; fehlende Betreiberfreigabe wird konkret benannt.",
+        "Ein ausdrücklich autorisierter Maschinenprincipal erstellt/joint den eigenen Testraum ohne Benutzeraktion und publiziert Browserbild, Persona-Video und Audio an eine getrennte reale Gegenstelle; Receive-Pfad separat prüfen.",
+        "TLS/WSS, SFrame, Token-/Lease-Rotation und Revocation über den öffentlichen Host testen. Einen TURN-Relay-Pfad erzwingen und anhand ausgewählter ICE-Paare und empfangener Nutzdaten nachweisen.",
+        "Lokales Hairpin, zwei Browser auf einem PC und eine unabhängige externe Gegenstelle getrennt ausweisen; keine Multi-Host-/NAT-Behauptung aus einem Single-Host-Lauf.",
+        "Öffentliche Rendezvous-/Meet-Pfadtrennung, bestehende Teilnehmer und Human-Capture-Schutz unverändert lassen; nur eigene Ressourcen bereinigen."
+      ]
+    },
+    {
+      "id": "MAP-32",
+      "title": "Observability, Evidenz, Rollout und abschließende Todo-Pflege liefern",
+      "repository": "both",
+      "type": "operations",
+      "milestone_id": "MAP-M8",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "MAP-30",
+        "MAP-31"
+      ],
+      "acceptance_criteria": [
+        "Vor evidenzrelevanten Läufen unveränderliche Sources zulassen und Runs vom Hub reservieren; Test-/synthetische Evidenz darf niemals eine Produktionsfreigabe erfüllen.",
+        "Deployment-/Trust-/Policy-/Persona-Konfiguration, Credential-Rotation, Ressourcenprofile, Datenschutz, Not-Aus, Fehlerdiagnosen und Rollback nachvollziehbar dokumentieren.",
+        "Feature-Flags stufenweise aktivieren: stummer Agent und Browserstream, Bild+TTS, Video, Receive/Dialog, Mehragentenbetrieb; Rücknahme stoppt Maschinenquellen ohne Human-Meet oder bestehende Ananta-Medienpfade zu beschädigen.",
+        "Gezielte größere Regression gebündelt an Meilenstein-Grenzen statt vollständiger Suite nach jeder Einzelaufgabe; Anzahl, Dauer, Fehlerbehebung und verbleibende reale Grenzen berichten.",
+        "Beide Repository-Revisionen, Contract-Kompatibilität und Build-/Image-Stände festhalten. Task-/Milestone-Summaries aus tasks[] berechnen, validieren und gezielt committen/pushen; erst nach allen erfüllten Kriterien archivieren."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "MAP-01",
+    "MAP-02",
+    "MAP-03",
+    "MAP-04",
+    "MAP-05",
+    "MAP-06",
+    "MAP-08",
+    "MAP-10",
+    "MAP-13",
+    "MAP-14",
+    "MAP-15",
+    "MAP-16",
+    "MAP-29",
+    "MAP-30",
+    "MAP-31",
+    "MAP-32"
+  ],
+  "tasks_status_summary": {
+    "total": 32,
+    "by_status": {
+      "todo": 32,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "by_priority": {
+      "P0": 12,
+      "P1": 17,
+      "P2": 3
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 1,
+      "high": 18,
+      "critical": 13
+    },
+    "progress_percent_done": 0,
+    "critical_path": {
+      "total": 16,
+      "done": 0,
+      "remaining": 16
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 8,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "Alle Implementierungsaufgaben stehen initial auf todo/0; die Erstellung und Validierung des Plans ist kein Implementierungsfortschritt.",
+    "Geplante Funktionen und Prüfprofile sind Anforderungen, keine vorhandenen Produktionsfähigkeiten.",
+    "Normale Entwicklung und deterministische Tests können ohne öffentliche Credentials beginnen; Live-Trust, GPU/Modelle und echte öffentliche Medienpfade müssen vor der jeweiligen Abnahme erneut geprüft werden.",
+    "Nur dieser neue Ananta-Track wird in diesem Planungsschritt geändert; keine Runtime, Secret-Datei, fremde lokale Compose-Änderung oder Meet-Regel wird automatisch verändert."
+  ]
+}
