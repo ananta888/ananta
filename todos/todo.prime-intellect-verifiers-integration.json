@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "owner": "ananta",
+  "track": "PRIME",
+  "purpose": "Prime Intellect gezielt über Verifiers-Evaluation und optionales Prime-RL-Training in Ananta integrieren.",
+  "goal": "Agenten auf nachvollziehbaren Aufgaben vergleichen und nach erfolgreichem Pilot eigene Modelle kontrolliert verbessern.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "sources": [
+    {
+      "url": "https://github.com/PrimeIntellect-ai/verifiers",
+      "note": "MIT; konkrete Revision und Laufzeitverträge vor Implementierung erneut prüfen."
+    },
+    {
+      "url": "https://github.com/PrimeIntellect-ai/prime-rl",
+      "note": "Apache-2.0; NVIDIA-GPU erforderlich, konkrete Fähigkeiten versionsgebunden prüfen."
+    }
+  ],
+  "integration_points": [
+    "agent/services/research_training_ports.py",
+    "agent/services/research_training_evaluation_service.py",
+    "worker/training/backends/base.py",
+    "worker/training/backend_registry.py",
+    "ananta_contracts/training_backend.py"
+  ],
+  "related_todos": [
+    "todos/active/todo.mlintern-multi-training-backends-axolotl-llamafactory-autotrain-torchtune.json"
+  ],
+  "architecture_constraints": [
+    "AGENTS.md und docs/planning-pipeline.md einhalten; Hub bleibt alleinige Control Plane.",
+    "Passive Planung: Diese Datei aktiviert keine Dienste, bucht keine GPUs und materialisiert keine Laufzeit-Tasks.",
+    "Worker in eigenen Containern, kein impliziter gemeinsamer Zustand und keine unabhängige Orchestrierung anderer Worker.",
+    "Ports und Adapter additiv halten; keine automatische Übernahme des gesamten Prime-Stacks.",
+    "Tests vollständig headless; fehlende Pflichtautorisierung liefert begrenzte maschinenlesbare Ablehnung statt unendlichem Warten."
+  ],
+  "milestones": [
+    {
+      "id": "PRIME-M1",
+      "title": "Verifiers-Pilot und belastbare Agentenbewertung",
+      "task_ids": [
+        "PRIME-T01",
+        "PRIME-T02",
+        "PRIME-T03",
+        "PRIME-T04",
+        "PRIME-T05",
+        "PRIME-T06"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PRIME-M2",
+      "title": "Optionales Prime-RL-Training",
+      "task_ids": [
+        "PRIME-T07",
+        "PRIME-T08"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PRIME-T01",
+      "title": "Bestand, Versionen und Integrationsentscheidung prüfen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [],
+      "milestone_id": "PRIME-M1",
+      "acceptance_criteria": [
+        "Bestehende Research-Training-, ML-Intern-, Benchmark-, DSPy-/GEPA- und Trainingsbackend-Pfade sowie zugehörige Todos auf Überschneidungen prüfen; vorhandene Fähigkeiten wiederverwenden.",
+        "Verifiers (MIT) und Prime-RL (Apache-2.0) anhand konkreter Tags/Commits, Python-/CUDA-Abhängigkeiten und Lizenzdateien dokumentieren; gehostete Dienste getrennt von Open-Source-Laufzeiten ausweisen.",
+        "Verifiers-Evaluation und optionales Prime-RL-Training getrennt bewerten; Architekturentscheidung mit messbaren Erfolgskriterien, Versions-Pins und Integrationsgrenzen festhalten."
+      ]
+    },
+    {
+      "id": "PRIME-T02",
+      "title": "Schmale Evaluations- und Reward-Verträge definieren",
+      "type": "design",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T01"
+      ],
+      "milestone_id": "PRIME-M1",
+      "acceptance_criteria": [
+        "Vorhandenen ResearchStageExecutorPort und Trainingsverträge auf Wiederverwendbarkeit prüfen; kleine injizierbare Ports für Evaluation, Reward-Auswertung und Ergebnisnormalisierung definieren.",
+        "Versionierten Vertrag für Aufgabenerfolg, Reward-Komponenten, Tool-Fehler, Laufzeit, Tokenverbrauch und Ressourcen mit Einheiten, Wertebereichen und Fehlerzuständen definieren.",
+        "ResearchTrainingEvaluationService akzeptiert aktuell exakt loss, accuracy, latency_ms, throughput_tokens_s und peak_memory_bytes: Erweiterung additiv und rückwärtskompatibel gestalten; Rewards niemals als Loss oder Accuracy umdeuten.",
+        "SRP/OCP/DIP erhalten: Hub-Governance, Anbietertransport, Rubriken und Persistenz getrennt halten; vorhandene Kopplungsprobleme im betroffenen Pfad dokumentieren."
+      ]
+    },
+    {
+      "id": "PRIME-T03",
+      "title": "Versionierte Ananta-Aufgaben und Bewertungsregeln erstellen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T02"
+      ],
+      "milestone_id": "PRIME-M1",
+      "acceptance_criteria": [
+        "Drei kleine Aufgabensätze für CodeCompass-Quellensuche, Codekorrektur mit unabhängigen Tests und überprüfbare Tool-Aufrufsequenzen erstellen.",
+        "Trainings-, Entwicklungs- und zurückgehaltene Testaufgaben getrennt versionieren; Repository-Revision, Aufgaben- und Rubrik-Digests sowie Seeds speichern.",
+        "Belohnungen aus unabhängigen Prüfungen ableiten: manipulierte Tests, erfundene Quellen, leere Antworten und unzulässige Tool-Aufrufe dürfen keinen Erfolg erhalten; Reward-Hacking-Negativfälle vorsehen.",
+        "CodeCompass erhält ausschließlich den Hub-freigegebenen ContextBundle; Hypothesis/CrossHair nur bei vorhandener, fachlich geeigneter Schnittstelle als optionale Prüfer einbeziehen."
+      ]
+    },
+    {
+      "id": "PRIME-T04",
+      "title": "Verifiers als optionalen Evaluationsadapter anbinden",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T03"
+      ],
+      "milestone_id": "PRIME-M1",
+      "acceptance_criteria": [
+        "Verifiers versioniert in separatem Worker-Container über die vereinbarten Ports betreiben; standardmäßig deaktiviert und vom Hub auftragsbezogen aktivierbar.",
+        "Vorhandene zentrale Modell-/Provider-Konfiguration nutzen; Ollama und LM Studio auf tatsächlich benötigte API-/Tool-Fähigkeiten prüfen und unsupported maschinenlesbar melden.",
+        "Mindestens einen lokalen Evaluationsweg ohne Prime-Konto und ohne gehostete Sandboxes verifizieren; Cloud-SDK-Abhängigkeit nicht mit zwingender Cloud-Ausführung verwechseln.",
+        "Hub bleibt Eigentümer von Task Queue, Routing, Budgets und Delegation. Interne Rollout-Ausführung bleibt auf den zugewiesenen Job begrenzt und erzeugt keine Ananta-Worker-Aufträge.",
+        "Timeout, Abbruch, Parallelitäts-/Tokenlimits, begrenzte Ausgabe, Secret-Redaktion und Aufräumen sämtlicher Kindprozesse technisch durchsetzen."
+      ]
+    },
+    {
+      "id": "PRIME-T05",
+      "title": "Ergebnisse, Evidenz und Vergleich im Hub integrieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T04"
+      ],
+      "milestone_id": "PRIME-M1",
+      "acceptance_criteria": [
+        "Ergebnisse über vorhandenen assignment-/lease-gebundenen Hub-Ingress speichern; Duplikate idempotent behandeln und verspätete oder fremde Resultate ablehnen.",
+        "Hub registriert immutable Quellen und reserviert RUN-Identitäten vor Ausführung; Worker übernehmen ausschließlich zugewiesene Identitäten. Synthetische Testdaten erfüllen keine Produktionsfreigabe.",
+        "Baseline und Kandidat auf identischem zurückgehaltenem Aufgabensatz und Ausführungsbudget vergleichen; Erfolgsquote, Reward-Verteilung, Fehler, Laufzeit und Ressourcen getrennt anzeigen.",
+        "Vorhandene Benchmark-/ML-Intern-Oberflächen und Exportpfade additiv erweitern; Auswertung allein darf kein Modell automatisch trainieren, veröffentlichen oder zum Standard befördern."
+      ]
+    },
+    {
+      "id": "PRIME-T06",
+      "title": "Verifiers-Pilot headless prüfen und dokumentieren",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T05"
+      ],
+      "milestone_id": "PRIME-M1",
+      "acceptance_criteria": [
+        "Deterministische Vertragstests für gültige/ungültige Rewards, unbekannte Versionen, Timeout, Abbruch, Duplikate, stale Leases, Tenant-Trennung und gesperrte Netzwerk-/Dateizugriffe ausführen.",
+        "Mindestens je einen Erfolg und fachlichen Fehler pro Aufgabensatz nachweisen; Netzwerkzugriff und fremde Credentials im lokalen Modus ausschließen.",
+        "Explizit aktivierbaren Live-Pilot mit einem lokalen Modell bereitstellen; Mock-Tests klar von realen Modellmessungen trennen und keine Hardware-Eignung aus Mocks ableiten.",
+        "Deutsche Anleitung mit Einrichtung, Rubriken, Modellwahl, Ergebnissen, Grenzen und Abschalten/Rollback liefern; Pilotentscheidung anhand vorher festgelegter Kriterien festhalten."
+      ]
+    },
+    {
+      "id": "PRIME-T07",
+      "title": "Optionales Prime-RL-Backend mit Ressourcenprüfung ergänzen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T06"
+      ],
+      "milestone_id": "PRIME-M2",
+      "acceptance_criteria": [
+        "Nur nach positiver Pilotentscheidung und explizit aktivierter Hub-Trainingspolicy beginnen; Verifiers bleibt unabhängig nutzbar.",
+        "Prime-RL über TrainingBackend oder einen begründet gewählten ResearchStageExecutor-Adapter einbinden; BACKEND_IDS, Capability-Vertrag, Registry, Lizenzregister und vorhandene Image-/Egress-Gates konsistent ergänzen.",
+        "Unterstützte Modelle, SFT/RL/LoRA-Fähigkeiten, Checkpoints, Export und Resume für die gepinnte Version durch reale Probeläufe belegen; fehlende Fähigkeiten ehrlich als unsupported ausweisen.",
+        "NVIDIA-/CUDA-/VRAM-Preflight und Budgetlimits vor Start erzwingen; RTX 3080 10 GB ohne Messnachweis nicht als unterstütztes Trainingsprofil deklarieren.",
+        "Prime-RL-interne Trainer-/Inference-/Rollout-Komponenten bleiben im Hub-zugewiesenen Job und Ressourcenrahmen; keine eigenständige Cloud-Buchung, neue Task Queue oder Worker-zu-Worker-Delegation.",
+        "Dataset- und Modellnutzungsrechte sowie Redaktion prüfen; Uploads nur nach bestehender Hub-Egress-Policy."
+      ]
+    },
+    {
+      "id": "PRIME-T08",
+      "title": "RL-Verbesserung und Rückkehr zum Basismodell nachweisen",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P3",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "PRIME-T07"
+      ],
+      "milestone_id": "PRIME-M2",
+      "acceptance_criteria": [
+        "Kleinen budgetbegrenzten echten Trainingslauf auf bestätigter Hardware ausführen und Basis/SFT/RL mit getrennten, unveränderten Testaufgaben vergleichen.",
+        "Aufgabenerfolg, Reward-Hacking-Fälle, allgemeine Regressionen, Laufzeit und Ressourcen prüfen; bessere Trainings-Rewards allein gelten nicht als Qualitätsnachweis.",
+        "Checkpoint-Digests, Datensatz-/Rubrik-/Versionsbindung, Wiederaufnahme und Abbruch testen; Modellpromotion nur über bestehende Hub-Gates und registrierte Evidenz.",
+        "Deutsche Betriebsdokumentation einschließlich Modell-/Adapterexport, Abschalten, Rollback und Kosten-/Hardwaremessung ergänzen; deaktiviertes Prime-RL darf bestehende Backends nicht beeinflussen."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PRIME-T01",
+    "PRIME-T02",
+    "PRIME-T03",
+    "PRIME-T04",
+    "PRIME-T05",
+    "PRIME-T06",
+    "PRIME-T07",
+    "PRIME-T08"
+  ],
+  "tasks_status_summary": {
+    "total": 8,
+    "by_status": {
+      "todo": 8,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P2": 6,
+      "P3": 2
+    },
+    "by_risk": {
+      "medium": 4,
+      "high": 4
+    },
+    "critical_path": {
+      "total": 8,
+      "done": 0,
+      "remaining": 8
+    },
+    "milestones": {
+      "total": 2,
+      "todo": 2,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "summary_notes": [
+    "Alle acht Aufgaben sind offen; die Datei behauptet keine implementierte Integration.",
+    "PRIME-T07 und PRIME-T08 sind optionale zweite Stufe und nur nach dokumentierter positiver Pilotentscheidung auszuführen.",
+    "Repository-Pfade sind geprüfte Ansatzpunkte, keine Zusage unveränderter Schnittstellen; vor Umsetzung aktuellen Stand abgleichen."
+  ]
+}
