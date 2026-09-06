@@ -212,6 +212,20 @@ def image_reference(project, artifact_id):
     return jsonify({"reference": reference.model_dump(mode="json")})
 
 
+@persona_media_bp.post("/projects/<project>/images/query")
+@check_user_auth
+def image_query(project):
+    payload = _payload({"cursor", "limit"}, maximum=512)
+    return jsonify(
+        _service("persona_image_query").query(
+            get_authenticated_source_control_principal(),
+            project,
+            cursor=payload["cursor"],
+            limit=payload["limit"],
+        )
+    )
+
+
 @persona_media_bp.get("/projects/<project>/organizations/<organization>/profiles/<kind>/<owner>")
 @check_user_auth
 def current_profile(project, organization, kind, owner):

@@ -87,9 +87,11 @@ The editor displays the selected revision, explicit fallback state and persisted
 effective profile with origin, classification and preview availability. Unsaved
 form changes do not pretend to be the stored effective profile. An inherited
 image may be previewed without turning it into a local explicit override.
+The [image picker](persona-image-query.md) also lists currently previewable
+admitted images with opaque, scoped pagination; direct ID entry remains optional.
 Saving does not join a room, open a camera/microphone, share a screen, publish an
-asset or switch an existing renderer. Voice/video/style admission, effective
-asset listing and runtime generation-bound switching remain separate work.
+asset or switch an existing renderer. Voice/video/style admission and runtime
+generation-bound switching remain separate work.
 
 Tests use synthetic authorization/asset inputs and do not constitute grounded
 production release evidence. No public Hub or Meet deployment is enabled by this

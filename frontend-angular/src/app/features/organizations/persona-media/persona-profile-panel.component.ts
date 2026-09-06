@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { PersonaProfileFacade } from './persona-profile.facade';
 import { PersonaOwnerKind } from './persona-profile.models';
+import { PersonaImagePickerComponent } from './persona-image-picker.component';
 
 @Component({
   selector: 'app-persona-profile-panel',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PersonaImagePickerComponent],
   providers: [PersonaProfileFacade],
   template: `
     <section aria-labelledby="persona-title">
@@ -51,12 +52,7 @@ import { PersonaOwnerKind } from './persona-profile.models';
             </select>
           </label>
           @if (facade.imageState() === 'asset') {
-            <label>Zugelassene Bild-ID
-              <input [ngModel]="facade.imageId()" (ngModelChange)="facade.changeImageId($event)" maxlength="160" [disabled]="facade.busy()" autocomplete="off" />
-            </label>
-            <button type="button" (click)="facade.inspectImage()" [disabled]="facade.busy() || !facade.imageId()">Bild prüfen & Vorschau laden</button>
-            <small>Nur über die Hub-Bild-API zugelassene Bilder. Keine Dateipfade oder externen URLs.</small>
-            @if (facade.image(); as image) { <p>{{ image.classification }} · Bildrevision {{ image.revision }}</p> }
+            <app-persona-image-picker />
           }
           @if (facade.previewUrl()) { <img [src]="facade.previewUrl()" alt="Private Vorschau des ausgewählten oder effektiven Persona-Bilds" width="256" height="256" /> }
           <button type="button" (click)="facade.save()" [disabled]="facade.busy() || !facade.personaId().trim()">Profil speichern</button>

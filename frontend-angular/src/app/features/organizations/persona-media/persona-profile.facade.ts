@@ -20,6 +20,9 @@ export class PersonaProfileFacade {
   readonly imageState = signal<PersonaSelectionState>('missing');
   readonly imageId = signal('');
   readonly image = signal<PersonaImageReference | null>(null);
+  readonly imageOptions = signal<readonly PersonaImageReference[]>([]);
+  readonly imageCursor = signal<string | null>(null);
+  readonly imagesLoaded = signal(false);
   readonly previewUrl = signal('');
   readonly busy = signal(false);
   readonly message = signal('');
@@ -53,6 +56,9 @@ export class PersonaProfileFacade {
     this.snapshot.set(null);
     this.effective.set(null);
     this.image.set(null);
+    this.imageOptions.set([]);
+    this.imageCursor.set(null);
+    this.imagesLoaded.set(false);
     this.imageId.set('');
     this.personaId.set('');
     this.imageState.set('missing');
@@ -93,6 +99,29 @@ export class PersonaProfileFacade {
       this.image.set(reference);
       this.run(this.api.preview(scope, reference.artifact_id), blob => this.previewUrl.set(URL.createObjectURL(blob)));
     });
+  }
+
+  listImages(next = false): void {
+    if (!this.scope || !this.scopeCurrent() || this.busy() || (next && !this.imageCursor())) return;
+    this.cancel();
+    const cursor = next ? this.imageCursor() : null;
+    this.imageOptions.set([]);
+    this.imagesLoaded.set(false);
+    this.imageCursor.set(null);
+    this.run(this.api.images(this.scope, cursor), page => {
+      // Replace pages instead of accumulating private references indefinitely.
+      this.imageOptions.set(page.items.slice(0, 20));
+      this.imageCursor.set(page.next_cursor);
+      this.imagesLoaded.set(true);
+    });
+  }
+
+  chooseListedImage(artifactId: string): void {
+    if (!this.scopeCurrent() || this.busy()) return;
+    if (!this.imageOptions().some(item => item.artifact_id === artifactId)) return;
+    this.imageState.set('asset');
+    this.changeImageId(artifactId);
+    this.inspectImage();
   }
 
   previewEffective(): void {

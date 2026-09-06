@@ -20,6 +20,7 @@ function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blan
   };
   const api = { current: vi.fn(current), effective: vi.fn(() => of({ purpose: 'preview', runtime_bound: false, topology_revision: 1, media: [] })), save: vi.fn(() => of({ revision: 1, content_hash: 'b'.repeat(64) })),
     image: vi.fn(() => of(image)), preview: vi.fn(() => of(new Blob(['synthetic-png'], { type: 'image/png' }))),
+    images: vi.fn(() => of({ items: [image], next_cursor: null as string | null, purpose: 'preview' })),
   };
   TestBed.configureTestingModule({ providers: [
     { provide: OrganizationTopologyStateService, useValue: state }, { provide: PersonaProfileApiClient, useValue: api },
@@ -123,5 +124,35 @@ describe('Persona profile panel', () => {
     expect(facade.imageState()).toBe('inherit');
     expect(facade.image()).toBeNull();
     expect(api.save).not.toHaveBeenCalled();
+  });
+
+  it('lists permitted images and rechecks selection without publishing', () => {
+    const { fixture, facade, api } = setup();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:synthetic-listed' });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    facade.selectImageState('asset');
+    facade.listImages();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Für deine Vorschau freigegebene Bilder');
+    expect(facade.imageOptions()).toEqual([image]);
+    facade.chooseListedImage('unlisted');
+    expect(api.image).not.toHaveBeenCalled();
+    facade.chooseListedImage('image');
+    expect(api.image).toHaveBeenCalledOnce();
+    expect(api.preview).toHaveBeenCalledOnce();
+    expect(api.save).not.toHaveBeenCalled();
+  });
+
+  it('replaces result pages and clears private list/cursor state on project change', () => {
+    const { fixture, facade, api, state } = setup();
+    api.images.mockImplementation(() => of({ items: [image], next_cursor: 'opaque-next', purpose: 'preview' }));
+    facade.listImages();
+    facade.listImages(true);
+    expect(api.images).toHaveBeenLastCalledWith(expect.objectContaining({ project: 'project' }), 'opaque-next');
+    expect(facade.imageOptions()).toHaveLength(1);
+    state.projectId.set('other');
+    fixture.detectChanges();
+    expect(facade.imageOptions()).toEqual([]);
+    expect(facade.imageCursor()).toBeNull();
   });
 });

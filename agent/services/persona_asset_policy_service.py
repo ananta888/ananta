@@ -141,6 +141,9 @@ class PersonaAssetPolicyService:
     def require_lookup(self, principal, project, artifact_id, purpose):
         self._project(principal, project, ProjectCapability.READ if purpose == "preview" else ProjectCapability.WRITE)
 
+    def require_list(self, principal, project):
+        self._project(principal, project, ProjectCapability.READ)
+
     def require_asset(self, principal, asset, purpose):
         admission = PersonaAssetAdmission(
             tenant_id=asset.image.tenant_id,

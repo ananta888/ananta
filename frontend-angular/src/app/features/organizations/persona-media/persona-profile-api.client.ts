@@ -25,6 +25,12 @@ export class PersonaProfileApiClient extends ApiBaseService {
     ).pipe(map(result => result.reference));
   }
 
+  images(scope: PersonaProfileScope, cursor: string | null) {
+    return this.core.request<{ items: readonly PersonaImageReference[]; next_cursor: string | null; purpose: 'preview' }>(
+      'POST', `${this.base(scope)}/images/query`, scope.hub, { body: { cursor, limit: 20 } },
+    );
+  }
+
   preview(scope: PersonaProfileScope, artifactId: string) {
     return this.core.requestBlob(`${this.base(scope)}/images/${encodeURIComponent(artifactId)}/preview`, scope.hub).pipe(
       map(response => {

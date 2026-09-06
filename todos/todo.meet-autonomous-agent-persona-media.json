@@ -714,7 +714,7 @@
       "status": "partial",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 80,
+      "progress_percent": 90,
       "depends_on": [
         "MAP-17",
         "MAP-18"
@@ -725,7 +725,7 @@
         "Eine Vorschau startet weder eine Meet-Sitzung noch Kamera/Mikrofon und veröffentlicht keine Daten; 'Vorschau' und 'In Raum publizieren' bleiben getrennte Aktionen.",
         "KI-/synthetische Darstellung kenntlich machen; Metadatenpflege ist per API ebenso möglich und benötigt keinen interaktiven UI-Schritt."
       ],
-      "implementation_note": "Headless Profil-API mit realer Projekt-/Organisationsautorität, expliziten Admin-Grants, logisch rollenbesetzungsgebundenen Agentenprofilen, immutable SQL-CAS und Akteur-Audit implementiert (c02959ad2). Mehrdeutige organisationsübergreifende Teamprofile werden abgelehnt. Widerrufene Medien bleiben ohne manuellen Datenbankeingriff ersetzbar. Organisations-Shell mit Bildreferenzprüfung, privater PNG-Vorschau, Vererben/Deaktivieren und Kontextwechsel-Abbruch ergänzt. Effektive Vererbung jetzt aus tatsächlicher Rollenbesetzung, Rollenplatz, Organisationseinheit und Teamlink aufgelöst; Herkunft, Revision und aktuelle Vorschaufreigabe werden angezeigt. Widerrufene Bilder werden redigiert und nicht still ersetzt; parallele Profil-/Topologieänderungen werden erkannt. 192 kombinierte Backend-Tests in 130,25 Sekunden und 11 UI-/HTTP-Tests bestanden; Angular-Development-Build erfolgreich (bestehende fachfremde RouterLink-Warnung). docs/contracts/persona-profile-api.md. Noch offen: komfortable Asset-Auswahlliste sowie erweiterte Voice-/Video-Eingaben. Keine aktive Sitzung oder öffentliche Instanz verändert."
+      "implementation_note": "Headless Profil-API mit realer Projekt-/Organisationsautorität, expliziten Admin-Grants, logisch rollenbesetzungsgebundenen Agentenprofilen, immutable SQL-CAS und Akteur-Audit implementiert (c02959ad2). Mehrdeutige organisationsübergreifende Teamprofile werden abgelehnt. Widerrufene Medien bleiben ohne manuellen Datenbankeingriff ersetzbar. Organisations-Shell mit Bildreferenzprüfung, privater PNG-Vorschau, Vererben/Deaktivieren und Kontextwechsel-Abbruch ergänzt. Effektive Vererbung jetzt aus tatsächlicher Rollenbesetzung, Rollenplatz, Organisationseinheit und Teamlink aufgelöst; Herkunft, Revision und aktuelle Vorschaufreigabe werden angezeigt. Widerrufene Bilder werden redigiert und nicht still ersetzt; parallele Profil-/Topologieänderungen werden erkannt. 192 kombinierte Backend-Tests in 130,25 Sekunden und 11 UI-/HTTP-Tests bestanden; Angular-Development-Build erfolgreich (bestehende fachfremde RouterLink-Warnung). docs/contracts/persona-profile-api.md. Berechtigungsgefilterte, begrenzte Bildliste und eigenständiger UI-Picker ergänzt; kurzlebige opaque SQL-Cursor sind nutzer-/tenant-/projektgebunden, pro Leser quotiert und keine Grants. Auswahl prüft Referenz und private Vorschau erneut. 89 zugehörige Backend-Tests sowie 14 UI-/HTTP-Tests bestanden, ESLint und Angular-Build erfolgreich. docs/contracts/persona-image-query.md. Noch offen: erweiterte Voice-/Video-Eingaben. Keine aktive Sitzung oder öffentliche Instanz verändert."
     },
     {
       "id": "MAP-20",
@@ -1157,7 +1157,7 @@
         "blocked": 0,
         "todo": 3,
         "in_progress": 0,
-        "progress_percent": 38.4,
+        "progress_percent": 39.1,
         "by_status": {
           "todo": 3,
           "in_progress": 0,

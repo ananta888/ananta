@@ -80,6 +80,16 @@ def admit(service, principal, policy):
     )
 
 
+def test_image_listing_requires_user_project_read_and_cannot_substitute_a_worker(configured):
+    service, principal, _, _ = configured
+    service.require_list(principal, "project")
+    assert service.access.require.call_args.kwargs["capability"] == ProjectCapability.READ
+    with pytest.raises(PermissionError):
+        service.require_list(replace(principal, roles=frozenset({"worker"})), "project")
+    with pytest.raises(PermissionError):
+        service.require_list(principal, "foreign")
+
+
 def test_managed_install_and_registered_proofs_do_not_grant_implicit_publication(configured):
     service, principal, policy, _ = configured
     service.install(principal, policy, expected_revision=0)

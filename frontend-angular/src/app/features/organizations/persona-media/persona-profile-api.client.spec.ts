@@ -45,4 +45,12 @@ describe('Persona profile HTTP client', () => {
       .flush(new Blob(['synthetic-html'], { type: 'text/html' }));
     expect(failed).toHaveBeenCalledOnce();
   });
+
+  it('queries bounded image pages without moving the opaque cursor into a URL', () => {
+    api.images(scope, 'opaque-progress').subscribe();
+    const request = http.expectOne('https://hub.test/api/persona-media/v1/projects/project/images/query');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ cursor: 'opaque-progress', limit: 20 });
+    request.flush({ items: [], next_cursor: null, purpose: 'preview' });
+  });
 });

@@ -14,6 +14,7 @@ def configure_persona_media(app):
     from agent.database import engine
     from agent.repositories.persona_asset_policy import SqlPersonaImagePolicies
     from agent.repositories.persona_assets import SqlPersonaAssets
+    from agent.repositories.persona_image_cursors import SqlPersonaImageCursors
     from agent.repositories.persona_media import SqlPersonaProfiles
     from agent.services.artifact_store import ArtifactStore
     from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
@@ -23,6 +24,7 @@ def configure_persona_media(app):
     from agent.services.persona_asset_service import PersonaAssetService
     from agent.services.persona_asset_storage import PersonaAssetStorage
     from agent.services.persona_image_erasure_store import PersonaImageErasureStore
+    from agent.services.persona_image_query import PersonaImageQuery
     from agent.services.persona_image_transport import HttpPersonaImageWorker
     from agent.services.persona_inspection_leases import HubPersonaInspectionLeases
     from agent.services.persona_inspection_task_state import HubPersonaTaskState
@@ -69,8 +71,11 @@ def configure_persona_media(app):
     profiles = SqlPersonaProfiles(engine)
     profiles.initialize()
     images = PersonaProfileImages(app.extensions["persona_assets"])
+    cursors = SqlPersonaImageCursors(engine)
+    cursors.initialize()
     app.extensions.update(
         persona_profile_images=images,
+        persona_image_query=PersonaImageQuery(policy=policy, catalog=catalog, images=images, cursors=cursors),
         persona_profiles=PersonaProfileService(
             access=app.extensions["project_access_authority"],
             memberships=OrganizationMembershipService(session_factory=lambda: Session(engine)),

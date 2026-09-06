@@ -65,6 +65,24 @@ class SqlPersonaAssets:
     def initialize(self):
         _metadata.create_all(self.engine)
 
+    def scan_active_ids(self, tenant, project, *, after, limit):
+        if type(limit) is not int or not 1 <= limit <= 65:
+            raise ValueError("persona_image_scan_limit_invalid")
+        with self.engine.connect() as connection:
+            return tuple(
+                connection.execute(
+                    select(assets.c.artifact_id)
+                    .where(
+                        assets.c.tenant_id == tenant,
+                        assets.c.project_id == project,
+                        assets.c.state == "active",
+                        assets.c.artifact_id > after,
+                    )
+                    .order_by(assets.c.artifact_id)
+                    .limit(limit)
+                ).scalars()
+            )
+
     def reserve(self, asset: PersonaImageAsset, *, actor: str):
         payload = asset.model_dump_json()
         if len(payload.encode()) > 16_384:
