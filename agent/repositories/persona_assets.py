@@ -4,7 +4,7 @@ import hashlib
 import uuid
 from pathlib import Path
 
-from sqlalchemy import Column, Integer, MetaData, String, Table, Text, insert, select, update
+from sqlalchemy import BigInteger, Column, MetaData, String, Table, Text, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from agent.db_models import ArtifactDB, ArtifactVersionDB
@@ -17,7 +17,7 @@ assets = Table(
     Column("tenant_id", String(160), primary_key=True),
     Column("project_id", String(160), primary_key=True),
     Column("artifact_id", String(160), primary_key=True),
-    Column("revision", Integer, nullable=False),
+    Column("revision", BigInteger, nullable=False),
     Column("state", String(16), nullable=False),
     Column("payload", Text, nullable=False),
     Column("payload_sha256", String(64), nullable=False),
@@ -28,7 +28,7 @@ events = Table(
     Column("tenant_id", String(160), primary_key=True),
     Column("project_id", String(160), primary_key=True),
     Column("artifact_id", String(160), primary_key=True),
-    Column("revision", Integer, primary_key=True),
+    Column("revision", BigInteger, primary_key=True),
     Column("actor", String(255), nullable=False),
     Column("state", String(16), nullable=False),
 )

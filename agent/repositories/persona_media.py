@@ -2,7 +2,7 @@
 
 import json
 
-from sqlalchemy import Column, Integer, MetaData, String, Table, Text, insert, select, update
+from sqlalchemy import BigInteger, Column, MetaData, String, Table, Text, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from agent.models.persona_media import PersonaMediaProfile
@@ -20,7 +20,7 @@ profiles = Table(
     "persona_media_profiles",
     _metadata,
     *_scope_columns(),
-    Column("revision", Integer, primary_key=True),
+    Column("revision", BigInteger, primary_key=True),
     Column("content_hash", String(64), nullable=False),
     Column("payload", Text, nullable=False),
 )
@@ -28,7 +28,7 @@ heads = Table(
     "persona_media_heads",
     _metadata,
     *_scope_columns(),
-    Column("revision", Integer, nullable=False),
+    Column("revision", BigInteger, nullable=False),
 )
 
 

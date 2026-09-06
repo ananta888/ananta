@@ -33,7 +33,7 @@ real supervised child and authority revocation. These tests require no person,
 network, model or live image fixtures.
 
 Still required before public activation: dispatch through a normal Hub artifact
-inspection task; origin/license/consent admission from authoritative Hub policy;
+inspection task and its receipt verifier; configure explicit origin/license/consent policy;
 separately authorized image selection/publication. Audio,
 voice-model and video asset admission are separate profiles, not implicitly
 accepted by this image-only port.
@@ -46,7 +46,8 @@ origin/license/consent references, classification and policy revision. These
 references are not trusted merely because a caller supplies strings. A production
 policy adapter must validate their authoritative records, and the task adapter
 must create/delegate/verify a normal Hub task under its exact dispatch lease.
-Neither concrete adapter nor a public activation route is supplied in this slice.
+The concrete policy adapter is described in [persona-image-policy.md](persona-image-policy.md).
+The concrete task/receipt adapter and public activation route remain open.
 
 The implemented application service rechecks authority before inspection, before
 and during storage, and after activation. It uses `PersonaAssetStorage` around
