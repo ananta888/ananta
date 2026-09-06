@@ -692,7 +692,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 15,
+      "progress_percent": 40,
       "depends_on": [
         "MAP-17"
       ],
@@ -702,7 +702,7 @@
         "Metadaten und abgeleitete Vorschaubilder dürfen keine fremden Tenant-/Projektinhalte oder vertrauliche Dateipfade enthalten.",
         "Widerruf oder Löschung invalidiert betroffene Profile und aktive Veröffentlichungen; synthetische/test-only Assets bleiben sichtbar klassifiziert."
       ],
-      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess: 5-MiB-/Pixel-/Zeitlimits, MIME-/Animationsprüfung, Metadatenentfernung, getrennte Hashes für Original/normalisiertes Bild/Vorschau, Autoritätsprüfung vor Rückgabe. 22 gezielte Bildtests einschließlich echtem CPU-Unterprozess bestanden (zusammen mit Audio-Grenzfällen 76 Tests). docs/contracts/persona-image-inspection.md. Noch keine Asset-Zulassung: Hub-Task-/Artefaktintegration, autoritative Herkunft/Lizenz/Einwilligung, Widerruf sowie Audio-/Videoasset-Profile bleiben offen."
+      "implementation_note": "Statischer PNG/JPEG-Inspektionsport im beaufsichtigten Worker-Unterprozess implementiert. Ergänzt um tenant-/projektgebundenen SQL-Assetkatalog, vorhandenen immutable ArtifactStore, atomare pending/active/revoked-Zustände mit Akteur-Audit, versteckte Bild-/Vorschau-Artefakte und Hub-Lifecycle-Service mit separaten Policy-/Task-Ports und erneuter Freigabeprüfung bei Lesezugriffen. 104 Persona-/Artefakt-/Ingestion-Tests bestanden; Container c3cd863991e83a6e383c537c8d387b211d2d2d590785e02057efbbd5a26cf394 besteht Bild-Unterprozessprobe und 3 GPU-Tests. Noch offen: konkrete autoritative Herkunft/Lizenz/Einwilligungs- und Hub-Inspection-Task-Adapter, API-Aktivierung, physische Löschung/Retention, aktive Publisher-Widerrufe sowie Audio-/Videoasset-Profile. Keine Produktionsfreigabe aus synthetischen Tests. docs/contracts/persona-image-inspection.md."
     },
     {
       "id": "MAP-19",
@@ -1138,7 +1138,7 @@
         "blocked": 0,
         "todo": 1,
         "in_progress": 0,
-        "progress_percent": 33.1,
+        "progress_percent": 36.2,
         "by_status": {
           "todo": 1,
           "in_progress": 0,

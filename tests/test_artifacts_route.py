@@ -71,9 +71,11 @@ def test_public_artifact_content_route_still_serves_uploaded_bytes(
     [
         "knowledge_index_job_payload",
         "knowledge_index_worker_output",
+        "persona_media_image",
+        "persona_media_preview",
     ],
 )
-def test_system_managed_knowledge_index_artifacts_are_hidden_from_generic_routes(
+def test_system_managed_artifacts_are_hidden_from_generic_routes(
     client,
     app,
     admin_auth_header,

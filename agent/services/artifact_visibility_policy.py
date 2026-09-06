@@ -3,6 +3,7 @@
 Knowledge-index payload and Worker-output artifacts are capability-bound
 transport records.  They remain available through their dedicated internal
 routes, but must never appear in generic artifact browsers or context builders.
+Persona images and previews likewise require their separate scoped policy path.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ SYSTEM_MANAGED_KNOWLEDGE_INDEX_ARTIFACT_KINDS = frozenset(
         "knowledge_index_worker_output",
     }
 )
+SYSTEM_MANAGED_PERSONA_ARTIFACT_KINDS = frozenset({"persona_media_image", "persona_media_preview"})
 
 
 def artifact_metadata(artifact: object) -> Mapping[str, Any] | None:
@@ -45,7 +47,7 @@ def is_artifact_visible_on_generic_surfaces(artifact: object | None) -> bool:
     if metadata is None:
         return False
     artifact_kind = str(metadata.get("system_artifact_kind") or "").strip()
-    return artifact_kind not in SYSTEM_MANAGED_KNOWLEDGE_INDEX_ARTIFACT_KINDS
+    return artifact_kind not in (SYSTEM_MANAGED_KNOWLEDGE_INDEX_ARTIFACT_KINDS | SYSTEM_MANAGED_PERSONA_ARTIFACT_KINDS)
 
 
 def repository_artifact_reference_candidates(artifact_ref: object) -> tuple[str, ...]:
