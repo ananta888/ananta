@@ -35,6 +35,35 @@ class HttpMediaWorker:
             raise ValueError("meet_worker_endpoint_invalid")
         self.endpoint, self.key = endpoint, key
 
+    def start_dialog(self, assignment):
+        from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_assignment
+        from worker.meet_media.persona_http import read_bounded
+
+        validate_assignment(assignment, time.time())
+        parsed = urlsplit(self.endpoint)
+        address = pin_private_container_address(parsed.hostname, parsed.port)
+        host = f"[{address}]" if ":" in address else address
+        body = encode(assignment)
+        request = urllib.request.Request(f"http://{host}:{parsed.port}/v1/dialogs", body,
+            {"Content-Type": "application/json", "Host": parsed.netloc,
+             "X-Ananta-Dialog-Signature": request_signature(self.key, body)})
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        deadline = time.monotonic() + 3
+        try:
+            with opener.open(request, timeout=3) as response:
+                raw = read_bounded(response, maximum=1024, deadline=deadline)
+                signed = response.headers.get("X-Ananta-Dialog-Signature", "")
+            if not hmac.compare_digest(response_signature(self.key, body, raw), signed):
+                raise ValueError()
+            result = parse(raw)
+            expected = {"schema": "ananta.meet-dialog-accepted.v1", "task_id": assignment["task_id"],
+                        "lease_id": assignment["lease_id"], "runtime_id": assignment["runtime_id"], "status": "accepted"}
+            if result != expected:
+                raise ValueError()
+            return result
+        except (OSError, ValueError, urllib.error.URLError):
+            raise MeetError("meet_dialog_worker_unavailable", 503) from None
+
     def execute(self, turn):
         # Pin DNS after rejecting public, loopback, metadata and mixed resolutions.
         parsed = urlsplit(self.endpoint)

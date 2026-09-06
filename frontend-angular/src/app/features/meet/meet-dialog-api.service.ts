@@ -1,0 +1,64 @@
+import { Injectable, inject } from '@angular/core';
+import { map, throwError, timeout } from 'rxjs';
+import { AgentDirectoryService } from '../../services/agent-directory.service';
+import { HubApiCoreService } from '../../services/hub-api-core.service';
+
+export interface SourceControl { enabled: boolean; revision: number; since: number }
+export interface DialogControls { revision: number; chat: SourceControl; audio: SourceControl; screen: SourceControl }
+export interface MeetDialog {
+  schema: 'ananta.meet-dialog-status.v1'; task_id: string; status: string; deadline: number;
+  controls: DialogControls; capabilities: string[];
+}
+const capabilities = ['chat.read', 'chat.send', 'audio.receive', 'screen.publish', 'avatar.publish', 'speech.publish'];
+export function validateDialog(value: MeetDialog): MeetDialog {
+  if (!value || Object.keys(value).sort().join() !== 'capabilities,controls,deadline,schema,status,task_id'
+    || value.schema !== 'ananta.meet-dialog-status.v1' || typeof value.task_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,160}$/.test(value.task_id)
+    || !['in_progress', 'completed', 'failed', 'cancelled'].includes(value.status)
+    || !Number.isSafeInteger(value.deadline) || value.deadline <= 0 || !Array.isArray(value.capabilities)
+    || value.capabilities.some(v => !capabilities.includes(v)) || new Set(value.capabilities).size !== value.capabilities.length) {
+    throw new Error('meet_dialog_contract_invalid');
+  }
+  const controls = value.controls;
+  if (!controls || Object.keys(controls).sort().join() !== 'audio,chat,revision,screen'
+    || !Number.isSafeInteger(controls.revision) || controls.revision < 1 || controls.revision > 1023) throw new Error('meet_dialog_contract_invalid');
+  for (const name of ['chat', 'audio', 'screen'] as const) {
+    const source = controls[name];
+    if (!source || Object.keys(source).sort().join() !== 'enabled,revision,since' || typeof source.enabled !== 'boolean'
+      || !Number.isSafeInteger(source.revision) || source.revision < 1 || source.revision > controls.revision
+      || !Number.isSafeInteger(source.since) || source.since < 1) throw new Error('meet_dialog_contract_invalid');
+  }
+  return value;
+}
+
+@Injectable({ providedIn: 'root' })
+export class MeetDialogApiService {
+  private readonly core = inject(HubApiCoreService);
+  private readonly directory = inject(AgentDirectoryService);
+  private request<T>(project: string, path: string, method: 'GET' | 'POST' | 'DELETE' | 'PATCH', body?: unknown) {
+    const hub = this.directory.list().find(agent => agent.role === 'hub')?.url;
+    if (!hub) return throwError(() => new Error('meet_hub_unavailable'));
+    const root = `${hub.replace(/\/$/, '')}/api/meet/v1/projects/${encodeURIComponent(project)}`;
+    return this.core.request<T>(method, root + path, hub, { body }).pipe(timeout(10_000));
+  }
+  list(project: string, cursor = 0) {
+    return this.request<{schema: string; items: MeetDialog[]; next_cursor: number | null}>(project, `/dialogs?cursor=${cursor}`, 'GET').pipe(map(value => {
+      if (!value || Object.keys(value).sort().join() !== 'items,next_cursor,schema' || value.schema !== 'ananta.meet-dialog-list.v1'
+        || !Array.isArray(value.items) || value.items.length > 50 || value.next_cursor !== null
+        && (!Number.isSafeInteger(value.next_cursor) || value.next_cursor !== cursor + 50)) throw new Error('meet_dialog_contract_invalid');
+      value.items.forEach(validateDialog); return value;
+    }));
+  }
+  start(project: string, task: string, body: unknown) {
+    return this.request<{schema: string; task_id: string; session_id: string; status: string}>(project,
+      (task ? `/tasks/${encodeURIComponent(task)}` : '') + '/dialogs', 'POST', body).pipe(map(value => {
+      if (!value || Object.keys(value).sort().join() !== 'schema,session_id,status,task_id'
+        || value.schema !== 'ananta.meet-dialog-start.v1' || value.status !== 'connecting'
+        || ![value.task_id, value.session_id].every(id => typeof id === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(id))) throw new Error('meet_dialog_contract_invalid');
+      return value;
+    }));
+  }
+  stop(project: string, task: string) { return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}`, 'DELETE').pipe(map(validateDialog)); }
+  control(project: string, task: string, body: unknown) {
+    return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}`, 'PATCH', body).pipe(map(validateDialog));
+  }
+}

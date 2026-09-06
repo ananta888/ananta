@@ -5,10 +5,11 @@ import { UserAuthService } from '../../services/user-auth.service';
 import { SummaryPanelComponent } from '../../shared/ui/display/summary-panel.component';
 import { MeetApiService, MeetBinding } from './meet-api.service';
 import { MeetAgentComponent } from './meet-agent.component';
+import { MeetDialogComponent } from './meet-dialog.component';
 
 @Component({
   selector: 'app-meet-panel', standalone: true,
-  imports: [FormsModule, SummaryPanelComponent, MeetAgentComponent],
+  imports: [FormsModule, SummaryPanelComponent, MeetAgentComponent, MeetDialogComponent],
   template: `
     <app-summary-panel title="ANANTA Meet" summary="Separater Meeting-Dienst für diesen Projekt- oder Task-Kontext.">
       @if (busy()) { <p role="status">Meeting-Zuordnung wird geladen …</p> }
@@ -29,6 +30,7 @@ import { MeetAgentComponent } from './meet-agent.component';
         <button type="button" [disabled]="busy() || !invite()" (click)="attach()">Raum zuordnen</button>
         <p>Die Zuordnung bestätigt weder Raumexistenz noch Medienverbindung. Kamera und Mikrofon bleiben in Meet steuerbar.</p>
         <app-meet-agent [projectId]="projectId" [taskId]="taskId" />
+        @if (current.invite_url) { <app-meet-dialog [projectId]="projectId" [taskId]="taskId" /> }
       }
       <button type="button" [disabled]="busy()" (click)="reload()">Aktualisieren</button>
     </app-summary-panel>

@@ -22,7 +22,7 @@ describe('Local Meet media assistant', () => {
       { provide: UserAuthService, useValue: { user$: identity } },
     ] });
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { TestBed.resetTestingModule(); vi.unstubAllGlobals(); });
 
   function setup() {
     const fixture = TestBed.createComponent(MeetAgentComponent);

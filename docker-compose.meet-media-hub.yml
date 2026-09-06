@@ -14,6 +14,8 @@ services:
       ANANTA_MEET_MACHINE_ENABLED: ${ANANTA_MEET_MACHINE_ENABLED:-0}
       ANANTA_MEET_MACHINE_ISSUER: ${ANANTA_MEET_MACHINE_ISSUER:-}
       ANANTA_MEET_MACHINE_KEY_FILE: /run/secrets/meet-machine-private.pem
+      ANANTA_MEET_DIALOG_ENABLED: ${ANANTA_MEET_DIALOG_ENABLED:-0}
+      ANANTA_MEET_DIALOG_POLICIES: ${ANANTA_MEET_DIALOG_POLICIES:-[]}
     volumes:
       - ${MEET_MEDIA_STATE_DIR:?Set private runtime directory}/worker-key:/run/secrets/meet-worker-key:ro
       - ${MEET_MEDIA_STATE_DIR:?Set private runtime directory}/machine-private.pem:/run/secrets/meet-machine-private.pem:ro

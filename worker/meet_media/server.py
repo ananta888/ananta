@@ -77,25 +77,37 @@ class TurnExecutor:
             }
 
 
-def create_server(address, key, executor):
+def create_server(address, key, executor, dialog_executor=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
             pass
 
         def do_POST(self):
             self.connection.settimeout(5)
+            body = b""
+            dialog = self.path == "/v1/dialogs"
             try:
-                if self.path != "/v1/turns" or self.headers.get("Transfer-Encoding"):
+                if self.path not in {"/v1/turns", "/v1/dialogs"} or self.headers.get("Transfer-Encoding"):
                     raise ValueError("meet_turn_request_invalid")
                 length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= MAX_REQUEST_BYTES:
+                maximum = 16384 if dialog else MAX_REQUEST_BYTES
+                if not 0 < length <= maximum:
                     raise ValueError("meet_turn_request_invalid")
                 from worker.meet_media.persona_http import read_bounded
 
-                body = read_bounded(self.rfile, maximum=MAX_REQUEST_BYTES, length=length, deadline=time.monotonic() + 5)
-                authenticate(key, body, self.headers.get("X-Ananta-Task-Signature", ""))
-                turn = validate_turn(json.loads(body), time.time())
-                result, status = executor.execute(turn), 200
+                body = read_bounded(self.rfile, maximum=maximum, length=length, deadline=time.monotonic() + 5)
+                if dialog:
+                    import hmac
+                    from ananta_contracts.meet_dialog import parse, request_signature, validate_assignment
+                    if dialog_executor is None:
+                        raise ValueError("meet_dialog_disabled")
+                    if not hmac.compare_digest(request_signature(key, body), self.headers.get("X-Ananta-Dialog-Signature", "")):
+                        raise ValueError("meet_dialog_unauthorized")
+                    result, status = dialog_executor.start(validate_assignment(parse(body), time.time())), 200
+                else:
+                    authenticate(key, body, self.headers.get("X-Ananta-Task-Signature", ""))
+                    turn = validate_turn(json.loads(body), time.time())
+                    result, status = executor.execute(turn), 200
             except (ValueError, TimeoutError) as exc:
                 reason = str(exc)
                 if not reason.startswith("meet_") or len(reason) > 90:
@@ -109,6 +121,9 @@ def create_server(address, key, executor):
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(raw)))
             self.send_header("X-Ananta-Result-Signature", signature(key, b"result-v1\0" + raw))
+            if dialog:
+                from ananta_contracts.meet_dialog import response_signature
+                self.send_header("X-Ananta-Dialog-Signature", response_signature(key, body, raw))
             self.end_headers()
             try:
                 self.wfile.write(raw)
@@ -121,4 +136,8 @@ def create_server(address, key, executor):
 if __name__ == "__main__":
     key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
     Path("/state").mkdir(exist_ok=True)
-    create_server(("0.0.0.0", 8094), key, TurnExecutor("/state/leases.sqlite")).serve_forever()
+    dialog = None
+    if os.environ.get("MEET_DIALOG_ENABLED") == "1":
+        from worker.meet_media.dialog_executor import DialogExecutor
+        dialog = DialogExecutor("/state/dialog-leases.sqlite")
+    create_server(("0.0.0.0", 8094), key, TurnExecutor("/state/leases.sqlite"), dialog).serve_forever()

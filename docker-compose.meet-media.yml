@@ -24,6 +24,8 @@ services:
       MEET_OLLAMA_URL: http://meet-ollama:11434
       MEET_LLM_MODEL: qwen2.5:1.5b
       MEET_HUB_LEASE_URL: ${MEET_HUB_LEASE_URL:-}
+      MEET_DIALOG_ENABLED: ${MEET_DIALOG_ENABLED:-0}
+      MEET_HUB_DIALOG_URL: ${MEET_HUB_DIALOG_URL:-}
       NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
     volumes:
       - ${MEET_MEDIA_STATE_DIR:?Set an absolute private runtime directory}/models:/models:ro

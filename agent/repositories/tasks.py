@@ -1192,6 +1192,7 @@ class TaskRepository:
         until: float = None,
         tenant_id: str | None = None,
         project_id: str | None = None,
+        task_kind: str | None = None,
     ):
         with Session(_engine()) as session:
             statement = select(TaskDB)
@@ -1209,6 +1210,8 @@ class TaskRepository:
                 statement = statement.where(TaskDB.tenant_id == tenant_id)
             if project_id is not None:
                 statement = statement.where(TaskDB.project_id == project_id)
+            if task_kind is not None:
+                statement = statement.where(TaskDB.task_kind == task_kind)
 
             statement = (
                 statement.order_by(

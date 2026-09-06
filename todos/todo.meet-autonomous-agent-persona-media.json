@@ -236,7 +236,7 @@
     {
       "id": "MAP-M1",
       "title": "Quellabgleich, Architektur und Sicherheitsvertrag",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-01",
         "MAP-02",
@@ -247,7 +247,7 @@
     {
       "id": "MAP-M2",
       "title": "Maschinenidentität und Meet-Aufnahme",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-05",
         "MAP-06",
@@ -258,7 +258,7 @@
     {
       "id": "MAP-M3",
       "title": "Hub-gesteuerter Teilnehmer-Lebenszyklus",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-09",
         "MAP-10",
@@ -269,7 +269,7 @@
     {
       "id": "MAP-M4",
       "title": "Eigener Browser als freigegebene Medienquelle",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-13",
         "MAP-14",
@@ -280,7 +280,7 @@
     {
       "id": "MAP-M5",
       "title": "Organisations-, Team- und Agenten-Personas",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-17",
         "MAP-18",
@@ -291,7 +291,7 @@
     {
       "id": "MAP-M6",
       "title": "Bild-, Sprach- und Videoausgabe",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-21",
         "MAP-22",
@@ -302,7 +302,7 @@
     {
       "id": "MAP-M7",
       "title": "Zuhören und kontrollierte Gesprächsteilnahme",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-25",
         "MAP-26",
@@ -313,7 +313,7 @@
     {
       "id": "MAP-M8",
       "title": "Headless-Verifikation, Live-Abnahme und Rollout",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "MAP-29",
         "MAP-30",
@@ -332,7 +332,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [],
       "acceptance_criteria": [
         "Ananta- und Meet-Commit, Container-Images, aktive Konfiguration und vorhandene Browser-/Sprach-/Medienbausteine getrennt inventarisieren; Worktree nicht mit laufendem Image gleichsetzen.",
@@ -350,7 +350,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 45,
+      "progress_percent": 45.0,
       "depends_on": [
         "MAP-01"
       ],
@@ -371,7 +371,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 30,
+      "progress_percent": 30.0,
       "depends_on": [
         "MAP-02"
       ],
@@ -392,7 +392,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-03"
       ],
@@ -413,7 +413,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 35,
+      "progress_percent": 35.0,
       "depends_on": [
         "MAP-04"
       ],
@@ -435,7 +435,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60,
+      "progress_percent": 60.0,
       "depends_on": [
         "MAP-05"
       ],
@@ -456,7 +456,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 20,
+      "progress_percent": 20.0,
       "depends_on": [
         "MAP-06"
       ],
@@ -477,7 +477,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60,
+      "progress_percent": 60.0,
       "depends_on": [
         "MAP-06"
       ],
@@ -495,10 +495,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M3",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 65.0,
       "depends_on": [
         "MAP-07"
       ],
@@ -519,7 +519,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 60,
+      "progress_percent": 60.0,
       "depends_on": [
         "MAP-08",
         "MAP-09"
@@ -541,7 +541,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 45,
+      "progress_percent": 45.0,
       "depends_on": [
         "MAP-09",
         "MAP-10"
@@ -562,10 +562,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M3",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 40,
+      "progress_percent": 40.0,
       "depends_on": [
         "MAP-11"
       ],
@@ -583,10 +583,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 25,
+      "progress_percent": 40.0,
       "depends_on": [
         "MAP-10"
       ],
@@ -605,10 +605,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 40.0,
       "depends_on": [
         "MAP-08",
         "MAP-13"
@@ -626,10 +626,10 @@
       "repository": "ananta",
       "type": "security",
       "milestone_id": "MAP-M4",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "depends_on": [
         "MAP-13",
         "MAP-14"
@@ -647,10 +647,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 5.0,
       "depends_on": [
         "MAP-12",
         "MAP-15"
@@ -671,7 +671,7 @@
       "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 100,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-02",
         "MAP-03"
@@ -693,7 +693,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 75,
+      "progress_percent": 75.0,
       "depends_on": [
         "MAP-17"
       ],
@@ -714,7 +714,7 @@
       "status": "partial",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 90,
+      "progress_percent": 90.0,
       "depends_on": [
         "MAP-17",
         "MAP-18"
@@ -736,7 +736,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40,
+      "progress_percent": 40.0,
       "depends_on": [
         "MAP-11",
         "MAP-18"
@@ -758,7 +758,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 55,
+      "progress_percent": 55.0,
       "depends_on": [
         "MAP-08",
         "MAP-18",
@@ -781,7 +781,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 80,
+      "progress_percent": 80.0,
       "depends_on": [
         "MAP-10",
         "MAP-18",
@@ -804,7 +804,7 @@
       "status": "partial",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 35.0,
       "depends_on": [
         "MAP-18",
         "MAP-21",
@@ -827,7 +827,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 50.0,
       "depends_on": [
         "MAP-12",
         "MAP-21",
@@ -848,10 +848,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 30,
+      "progress_percent": 55.0,
       "depends_on": [
         "MAP-08",
         "MAP-09",
@@ -874,10 +874,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 65.0,
       "depends_on": [
         "MAP-22",
         "MAP-25"
@@ -902,7 +902,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25,
+      "progress_percent": 25.0,
       "depends_on": [
         "MAP-25",
         "MAP-26"
@@ -924,7 +924,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "MAP-12",
         "MAP-24",
@@ -944,10 +944,10 @@
       "repository": "both",
       "type": "test",
       "milestone_id": "MAP-M8",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 45,
+      "progress_percent": 55.0,
       "depends_on": [
         "MAP-12",
         "MAP-16",
@@ -975,7 +975,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 50.0,
       "depends_on": [
         "MAP-29"
       ],
@@ -997,7 +997,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "MAP-30"
       ],
@@ -1019,7 +1019,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 30,
+      "progress_percent": 30.0,
       "depends_on": [
         "MAP-30",
         "MAP-31"
@@ -1056,9 +1056,9 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 5,
-      "in_progress": 0,
-      "partial": 24,
+      "todo": 2,
+      "in_progress": 9,
+      "partial": 18,
       "blocked": 0,
       "done": 3
     },
@@ -1066,8 +1066,7 @@
     "by_priority": {
       "P0": 12,
       "P1": 17,
-      "P2": 3,
-      "P3": 0
+      "P2": 3
     },
     "by_risk": {
       "low": 0,
@@ -1083,13 +1082,14 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 0,
-      "partial": 8,
+      "in_progress": 8,
       "blocked": 0,
       "done": 0
     }
   },
   "summary_notes": [
+    "Hub-/Worker-Komposition jetzt implementiert: separate opt-in Dialogpolicy, v2-Signer mit aktueller Meet-TLS-Autorisierungsabfrage, requestgebundene private HMAC-Callbacks, TaskQueue-Lifecycle, lokaler Chatantworttransport und source-/epochgebundene ASR-Kindtasks. Eigene Offline-CDP-Ansicht am MDS-Canvas-Port, keine freien Tabs/Host-Capture. Kurztests: 13 Dialog/Source-Checks, 8 Audio-Mapping/Policy-Checks, 62 inkl. bestehender Meet-Integration sowie ein echter isolierter TaskQueue-CAS-Test (8.73s) bestanden. Tests sind synthetische technische Beobachtungen, keine Registry-Release-Evidenz. Generische Browser-Workspace-/Navigationsadmission, eigenstaendige Source-Kontrollen, laufende Sprache/Avatar-Koordination und gemeinsame reale Integrationsabnahme bleiben offen. SRP-Schuld des wachsenden Worker-Kompositionsloops vor weiteren Lifecycle-Policies durch getrennte Source-Pumps abbauen; kein Deploy/Trust-Bypass.",
+    "Vollausbauauftrag 2026-09-06: MAP-09/25/26 bearbeiten reale MDS-Hub-/Worker-Verbindung, Task-/Runtime-/Lease-Fencing und getrennte Quellenrevisionen. Eigener Browserstream folgt, grosse gemeinsame Abnahme erst nach den Implementierungen; kleine Task-Tests sofort. Keine neue produktive Trust-/Projektfreigabe und keine selbst ausgestellten Release-Evidence-IDs.",
     "MAP-26 Chat-Admission-Slice 2026-09-06: Parser, Policy und persistente at-most-once Budgetreservierung lokal getestet. draft1 ist ein Abstimmungsvorschlag für Meet, kein freigegebener Wire-Vertrag. Kein neuer Task-Scheduler, keine produktive Empfangsfreigabe und keine Aussage über vollständigen Chat-/ASR-/Screen-Dialog. Siehe docs/contracts/meet-chat-admission.md und tests/test_meet_chat_admission.py.",
     "Planungsergänzung 2026-09-06: Ananta-Verantwortung für dauerhaften autorisierten Empfang/ASR, automatische Chatantworten, isolierte Bildschirmquelle und Hub-Lease-/Projektpolicy konkretisiert; neuer Meet-Companion enthält ausschließlich dessen Teilaufgaben. Keine Implementierungsprozente, historischen Abschlüsse oder Runtime-Freigaben durch diese Planänderung angehoben.",
     "Lokale erste Ausbaustufe implementiert: Qwen2.5-1.5B, deutsche Piper-CUDA-Stimme, amplitudenanimierter NVENC-Avatar, Hub-Tasks und optionale begrenzte Meet-Publikation.",
@@ -1104,126 +1104,197 @@
     "by_type": {
       "governance": {
         "total": 2,
-        "done": 2,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
-        }
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "architecture": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 45.0
       },
       "security": {
         "total": 8,
-        "done": 0,
-        "partial": 7,
-        "blocked": 0,
-        "todo": 1,
-        "in_progress": 0,
-        "progress_percent": 40.6,
         "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 7,
+          "todo": 0,
+          "in_progress": 2,
+          "partial": 6,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 6,
+        "blocked": 0,
+        "progress_percent": 43.1
       },
       "feature": {
         "total": 16,
-        "done": 1,
-        "partial": 12,
-        "blocked": 0,
-        "todo": 3,
-        "in_progress": 0,
-        "progress_percent": 40.9,
         "by_status": {
-          "todo": 3,
-          "in_progress": 0,
-          "partial": 12,
+          "todo": 1,
+          "in_progress": 6,
+          "partial": 8,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 8,
+        "blocked": 0,
+        "progress_percent": 49.1
       },
       "infrastructure": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 60.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 60.0
       },
       "test": {
         "total": 3,
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "todo": 1,
-        "in_progress": 0,
-        "progress_percent": 31.7,
         "by_status": {
           "todo": 1,
-          "in_progress": 0,
-          "partial": 2,
+          "in_progress": 1,
+          "partial": 1,
           "blocked": 0,
           "done": 0
-        }
-      },
-      "operations": {
-        "total": 1,
+        },
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 30.0,
+        "progress_percent": 35.0
+      },
+      "operations": {
+        "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 30.0
       }
     }
   },
   "progress_summary": {
-    "state": "partial",
-    "todo_remaining": 5,
-    "in_progress": 0,
-    "partial": 24,
+    "state": "in_progress",
+    "todo_remaining": 2,
+    "in_progress": 9,
+    "partial": 18,
     "blocked": 0,
     "done": 3,
-    "milestones_done": 0,
-    "milestones_total": 8
+    "count_based_percent": 9.4,
+    "weighted_percent": 48.3
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 58.25,
+    "done_weight": 28.163,
+    "remaining_weight": 30.087,
+    "blocked_weight": 0.0,
+    "weighted_percent": 48.3
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "MAP-M1": {
+        "total_tasks": 4,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 50.0,
+        "weighted_percent": 69.3,
+        "status": "in_progress"
+      },
+      "MAP-M2": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 41.9,
+        "status": "in_progress"
+      },
+      "MAP-M3": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 56.2,
+        "status": "in_progress"
+      },
+      "MAP-M4": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 26.9,
+        "status": "in_progress"
+      },
+      "MAP-M5": {
+        "total_tasks": 4,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 25.0,
+        "weighted_percent": 74.2,
+        "status": "in_progress"
+      },
+      "MAP-M6": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 56.3,
+        "status": "in_progress"
+      },
+      "MAP-M7": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 39.6,
+        "status": "in_progress"
+      },
+      "MAP-M8": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 33.4,
+        "status": "in_progress"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-09-06T23:21:25.124868Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "176c29088e2a3800d30283ea4ece25e293b71e153a0dfd74fc64eb4c4a570747",
+    "is_stale": false
   }
 }
