@@ -3,6 +3,7 @@
 import base64
 import json
 import time
+import uuid
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -263,7 +264,6 @@ def test_lease_fails_closed_on_task_cancellation_policy_and_access(monkeypatch):
         status="in_progress",
         tenant_id="tenant",
         project_id="project",
-        archived=False,
         worker_execution_context={
             "meet_media": {"lease_id": "lease", "deadline": request["deadline"], "owner_subject": "actor"}
         },
@@ -280,6 +280,17 @@ def test_lease_fails_closed_on_task_cancellation_policy_and_access(monkeypatch):
     task.status = "in_progress"
     binding.require_write_access.side_effect = PermissionError()
     assert runtime.lease_allowed("task", "lease") is False
+
+
+def test_publication_lease_uses_the_actual_active_task_model(app):
+    runtime, _, _, _ = service()
+    request = turn() | {"task_id": str(uuid.uuid4()), "lease_id": str(uuid.uuid4())}
+    tasks = HubMediaTasks()
+    with app.app_context():
+        tasks.start(request, "actor")
+        assert runtime.lease_allowed(request["task_id"], request["lease_id"]) is True
+        assert tasks.finish(request, "completed") is True
+        assert runtime.lease_allowed(request["task_id"], request["lease_id"]) is False
 
 
 @pytest.mark.parametrize("signed", [True, False])

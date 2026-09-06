@@ -91,7 +91,6 @@ class MeetTurnService:
             context.get("lease_id") != lease_id
             or context.get("deadline", 0) <= self.clock()
             or (task.tenant_id, task.project_id) not in self.allowed_scopes
-            or task.archived
         ):
             return False
         # Publication requires explicit project membership even for an admin who
