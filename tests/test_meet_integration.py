@@ -211,6 +211,30 @@ def test_bootstrap_default_off_has_no_store(monkeypatch):
     assert "meet_binding_service" not in app.extensions
 
 
+def test_turn_endpoint_uses_user_authority_and_separate_worker_lease_auth(meet_client):
+    from worker.meet_media.contract import encode, signature
+
+    client, app = meet_client
+    path = "/api/meet/v1/projects/project-a/turns"
+    headers = {"Authorization": "Bearer test-user"}
+    assert client.post(path, json={"text": "hello"}).status_code == 401
+    assert client.post(path, headers=headers, json={"text": "hello"}).status_code == 404
+    runtime = Mock()
+    runtime.execute.return_value = {"text": "synthetic answer"}
+    runtime.lease_allowed.return_value = True
+    app.extensions["meet_turn_service"] = runtime
+    app.extensions["meet_media_worker_key"] = b"k" * 32
+    assert client.post(path, headers=headers, json={"text": "hello"}).status_code == 200
+    assert client.post(path + "?approve=true", headers=headers, json={"text": "hello"}).status_code == 400
+    lease_path = "/api/meet/v1/internal/lease"
+    body = encode({"task_id": "task", "lease_id": "lease"})
+    assert client.post(lease_path, headers=headers, data=body).status_code == 401
+    lease = client.post(lease_path, data=body, headers={"X-Ananta-Task-Signature": signature(b"k" * 32, body)})
+    assert lease.status_code == 200 and lease.json == {"allowed": True}
+    assert lease.headers["Cache-Control"] == "no-store"
+    runtime.lease_allowed.assert_called_once_with("task", "lease")
+
+
 @pytest.mark.parametrize(
     "status,body,expected",
     [

@@ -76,3 +76,47 @@ def health(project):
         raise MeetError("meet_query_invalid")
     runtime.read(get_authenticated_source_control_principal(), project)
     return jsonify(current_app.extensions["meet_health_probe"].inspect())
+
+
+@meet_bp.post("/projects/<project>/turns")
+@meet_bp.post("/projects/<project>/tasks/<task>/turns")
+@check_user_auth
+def media_turn(project, task=""):
+    _runtime()
+    runtime = current_app.extensions.get("meet_turn_service")
+    if runtime is None:
+        raise MeetError("meet_media_disabled", 404)
+    if request.args or request.content_length is None or request.content_length > 10_000:
+        raise MeetError("meet_turn_payload_invalid")
+    return jsonify(
+        runtime.execute(get_authenticated_source_control_principal(), project, request.get_json(silent=True), task=task)
+    )
+
+
+@meet_bp.post("/internal/lease")
+def media_lease():
+    """Read-only worker capability endpoint; never accepts a user/service JWT."""
+    import json
+
+    from worker.meet_media.contract import authenticate, signature
+
+    _runtime()
+    runtime = current_app.extensions.get("meet_turn_service")
+    key = current_app.extensions.get("meet_media_worker_key")
+    if runtime is None or key is None:
+        raise MeetError("meet_media_disabled", 404)
+    if request.args or request.content_length is None or not 0 < request.content_length <= 512:
+        raise MeetError("meet_lease_invalid")
+    raw = request.get_data(cache=False)
+    try:
+        authenticate(key, raw, request.headers.get("X-Ananta-Task-Signature", ""))
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or set(payload) != {"task_id", "lease_id"}:
+            raise ValueError()
+        if any(not isinstance(v, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", v) for v in payload.values()):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise MeetError("meet_lease_unauthorized", 401) from None
+    response = jsonify({"allowed": runtime.lease_allowed(payload["task_id"], payload["lease_id"])})
+    response.headers["X-Ananta-Lease-Signature"] = signature(key, b"lease-v1\0" + response.get_data())
+    return response

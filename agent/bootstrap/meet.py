@@ -41,3 +41,35 @@ def configure_meet(app):
         profile, store, app.extensions["project_access_authority"], _task_access
     )
     app.extensions["meet_health_probe"] = MeetHealthProbe(profile)
+    configure_meet_media(app)
+
+
+def configure_meet_media(app):
+    """Explicit tenant/project preauthorization; no inferred approval policy."""
+    import json
+
+    if os.environ.get("ANANTA_MEET_MEDIA_ENABLED") != "1":
+        return
+    from agent.services.meet_media_transport import HttpMediaWorker
+    from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
+    from worker.meet_media.contract import load_key
+
+    scopes = json.loads(os.environ.get("ANANTA_MEET_MEDIA_ALLOWED_SCOPES", "[]"))
+    if not isinstance(scopes, list) or any(
+        not isinstance(item, list) or len(item) != 2 or any(not isinstance(v, str) or not v for v in item)
+        for item in scopes
+    ):
+        raise ValueError("meet_media_scope_policy_invalid")
+    key = load_key(os.environ["ANANTA_MEET_MEDIA_KEY_FILE"])
+    app.extensions["meet_media_worker_key"] = key
+    worker = HttpMediaWorker(os.environ["ANANTA_MEET_MEDIA_WORKER_URL"], key)
+    issuer = None
+    if os.environ.get("ANANTA_MEET_MACHINE_ENABLED") == "1":
+        from agent.services.meet_machine_grant import MeetMachineGrantIssuer
+
+        issuer = MeetMachineGrantIssuer(
+            os.environ["ANANTA_MEET_MACHINE_ISSUER"], os.environ["ANANTA_MEET_MACHINE_KEY_FILE"]
+        )
+    app.extensions["meet_turn_service"] = MeetTurnService(
+        app.extensions["meet_binding_service"], worker, HubMediaTasks(), map(tuple, scopes), grant_issuer=issuer
+    )

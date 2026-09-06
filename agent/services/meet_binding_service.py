@@ -47,6 +47,10 @@ class MeetBindingService:
         self._authorize(principal, project, task)
         return self._projection(self.store.get(principal.tenant_id, project, task), project, task)
 
+    def require_write_access(self, principal, project, task=""):
+        """Public project authorization port for additive Meet capabilities."""
+        self._authorize(principal, project, task, write=True)
+
     def change(self, principal, project, task, payload, *, unlink=False):
         self._authorize(principal, project, task, write=True)
         fields = {"expected_revision"} if unlink else {"expected_revision", "invite_url"}
