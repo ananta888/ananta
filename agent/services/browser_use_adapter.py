@@ -78,7 +78,12 @@ class BrowserUseExecutionAdapter:
                 return BrowserAdapterResult("failed", "timeout", idx - 1, traces, extracted)
             if time.time() > deadline:
                 return BrowserAdapterResult("failed", "timeout", idx - 1, traces, extracted)
-            if str((action or {}).get("type") or "").strip().lower() == "download":
+            action_type = str((action or {}).get("type") or "").strip().lower()
+            if action_type in {"navigate", "open", "goto", "go_to_url"}:
+                navigation = policy.enforce_domain(url=(action or {}).get("url"), contract=contract)
+                if not navigation.allow:
+                    return BrowserAdapterResult("blocked", "policy_denied", idx - 1, traces, extracted)
+            if action_type == "download":
                 download_decision = policy.enforce_download_policy(
                     download_url=str((action or {}).get("url") or start_url),
                     output_path=str((action or {}).get("output_path") or ""),

@@ -79,15 +79,15 @@ class BrowserCamofoxAdapter:
 
         blocked = policy.enforce_blocked_hosts(url=url, contract=contract)
         if not blocked.allow:
-            log_audit(_AUDIT_POLICY_DENIED, {"reason": blocked.reason_code, "url": url, "session_id": session_id})
+            log_audit(_AUDIT_POLICY_DENIED, {"reason": blocked.reason_code, "session_id": session_id})
             return CamofoxActionResult(False, "navigate", session_id, policy_denial_code=blocked.reason_code)
 
         domain = policy.enforce_domain(url=url, contract=contract)
         if not domain.allow:
-            log_audit(_AUDIT_POLICY_DENIED, {"reason": domain.reason_code, "url": url, "session_id": session_id})
+            log_audit(_AUDIT_POLICY_DENIED, {"reason": domain.reason_code, "session_id": session_id})
             return CamofoxActionResult(False, "navigate", session_id, policy_denial_code=domain.reason_code)
 
-        log_audit(_AUDIT_NAVIGATE, {"url": url, "session_id": session_id})
+        log_audit(_AUDIT_NAVIGATE, {"session_id": session_id})
         try:
             data = self._post(f"/sessions/{session_id}/navigate", {"url": url})
             return CamofoxActionResult(True, "navigate", session_id, data=data)
@@ -167,17 +167,17 @@ class BrowserCamofoxAdapter:
 
         blocked = policy.enforce_blocked_hosts(url=url, contract=contract)
         if not blocked.allow:
-            log_audit(_AUDIT_POLICY_DENIED, {"reason": blocked.reason_code, "url": url, "action": "download"})
+            log_audit(_AUDIT_POLICY_DENIED, {"reason": blocked.reason_code, "action": "download"})
             return CamofoxActionResult(False, "download", session_id, policy_denial_code=blocked.reason_code)
 
         download_decision = policy.enforce_download_policy(
             download_url=url, output_path=output_path, contract=contract
         )
         if not download_decision.allow:
-            log_audit(_AUDIT_POLICY_DENIED, {"reason": download_decision.reason_code, "url": url, "action": "download"})
+            log_audit(_AUDIT_POLICY_DENIED, {"reason": download_decision.reason_code, "action": "download"})
             return CamofoxActionResult(False, "download", session_id, policy_denial_code=download_decision.reason_code)
 
-        log_audit(_AUDIT_DOWNLOAD, {"url": url, "output_path": output_path, "session_id": session_id})
+        log_audit(_AUDIT_DOWNLOAD, {"session_id": session_id})
         try:
             data = self._post(
                 f"/sessions/{session_id}/download",
