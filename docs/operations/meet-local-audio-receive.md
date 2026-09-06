@@ -82,3 +82,21 @@ Headless coverage lives in `tests/test_meet_audio_receive.py` and
 `tests/test_meet_asr_provisioning.py`, with existing Voice audio-security,
 streaming and backend regressions. Synthetic model bytes are generated inside
 tests; no live recordings, credentials or model binaries are committed.
+
+## Local observation on 2026-09-06
+
+The RTX 3080 synthetic probe recognized all four expected words from 48,160
+canonical samples in 14.33 seconds (including local speech generation). It first
+ran with read-only source mounts in a short-lived worker; that container exited
+successfully and was automatically removed. The final dedicated worker image
+`sha256:8a9e8c1f4cdaccc94491ff09dea6467f0ab8189efefc1a690b0741de5fb8ec59`
+then passed the real ASR probe and both existing GPU media/chat tests: **3 passed
+in 24.51 seconds**. This image contains the ASR source at `0387c458e`; later
+persona-image work is a separate task and is not claimed by this image check.
+
+The combined non-GPU Meet/Voice regression passed **343 tests in 91.98 seconds**.
+An initial GPU test invocation overlapped container recreation and failed all
+three checks on unavailable-container/connection errors. After confirming the
+new worker was running at its private endpoint, the unchanged tests passed.
+No CPU fallback, broader grants or public service restart was used to fix that
+test-ordering error. None of these observations are Hub-registered release evidence.
