@@ -1,4 +1,4 @@
-"""A worker can check, but never create or refresh, its image task authority."""
+"""Workers check, but never create or refresh, their inspection task authority."""
 
 import time
 import uuid
@@ -8,14 +8,17 @@ from worker.meet_media.persona_http import signed_post
 
 
 class PersonaLeaseGuard:
-    def __init__(self, endpoint, key, assignment):
+    def __init__(self, endpoint, key, assignment, *, kind="image"):
+        if kind not in ("image", "video"):
+            raise ValueError("persona_inspection_kind_invalid")
+        self.domain = b"persona-lease-v1" if kind == "image" else b"persona-video-lease-v1"
         parsed = urlsplit(endpoint)
         if (
             parsed.scheme not in {"http", "https"}
             or not parsed.hostname
             or parsed.username
             or parsed.password
-            or parsed.path != "/api/persona-media/v1/internal/image-lease"
+            or parsed.path != f"/api/persona-media/v1/internal/{kind}-lease"
             or parsed.query
             or parsed.fragment
         ):
@@ -27,10 +30,10 @@ class PersonaLeaseGuard:
         result = signed_post(
             self.endpoint,
             self.key,
-            b"persona-lease-v1",
+            self.domain,
             {"assignment": self.assignment, "nonce": str(uuid.uuid4())},
             maximum=512,
             deadline=min(self.deadline, time.monotonic() + 3),
         )
-        if result != {"allowed": True}:
+        if not isinstance(result, dict) or set(result) != {"allowed"} or result["allowed"] is not True:
             raise PermissionError("persona_hub_lease_revoked")

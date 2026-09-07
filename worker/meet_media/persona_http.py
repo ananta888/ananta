@@ -2,10 +2,10 @@
 
 import hashlib
 import hmac
-import json
 import time
 import urllib.request
 
+from ananta_contracts.persona_inspection_wire import parse_inspection_json
 from worker.meet_media.contract import encode, signature
 
 
@@ -55,6 +55,6 @@ def signed_post(endpoint, key, domain, payload, *, maximum, deadline, host=None)
             supplied = response.headers.get("X-Ananta-Persona-Result-Signature", "")
         if not hmac.compare_digest(supplied, result_signature(key, domain, raw, result)):
             raise ValueError("persona_http_result_unauthorized")
-        return json.loads(result)
+        return parse_inspection_json(result, maximum=maximum)
     except Exception:
         raise ValueError("persona_http_unavailable_or_unauthorized") from None

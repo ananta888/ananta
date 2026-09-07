@@ -1,0 +1,26 @@
+# Opt-in CPU clip inspection only. No GPU, models, host ports or publish credentials.
+services:
+  persona-video-worker:
+    build:
+      context: .
+      dockerfile: docker/persona-video/Dockerfile
+    init: true
+    user: "${PERSONA_VIDEO_UID:-1000}:${PERSONA_VIDEO_GID:-1000}"
+    read_only: true
+    environment:
+      PERSONA_VIDEO_WORKER_KEY_FILE: /run/secrets/persona-video-key
+      PERSONA_VIDEO_HUB_LEASE_URL: http://persona-authorizing-hub:5000/api/persona-media/v1/internal/video-lease
+    volumes:
+      - ${PERSONA_VIDEO_STATE_DIR:?Set an absolute private video state directory}/worker-key:/run/secrets/persona-video-key:ro
+      - ${PERSONA_VIDEO_STATE_DIR:?Set an absolute private video state directory}/worker-state:/state
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    mem_limit: 384m
+    cpus: 1
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [persona-videos]
+networks:
+  persona-videos:
+    internal: true

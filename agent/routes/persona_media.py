@@ -1,25 +1,24 @@
 """Headless user asset API and a separately authenticated read-only worker lease."""
 
 import base64
-import hmac
-import json
 import re
-import time
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from agent.auth import check_user_auth, get_authenticated_source_control_principal
 from agent.models.persona_asset_policy import PersonaImagePolicy
 from agent.models.persona_media import PersonaMediaProfile
+from agent.routes.persona_inspection_lease_response import inspection_lease_response
 from agent.routes.persona_media_http import payload as _payload
 from agent.routes.persona_media_http import service as _service
 from agent.routes.persona_retention import persona_retention_bp
+from agent.routes.persona_video_lease import persona_video_lease_bp
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignment
-from worker.meet_media.persona_http import request_signature, result_signature
 
 persona_media_bp = Blueprint("persona_media", __name__, url_prefix="/api/persona-media/v1")
 persona_media_bp.register_blueprint(persona_retention_bp)
+persona_media_bp.register_blueprint(persona_video_lease_bp)
 
 
 @persona_media_bp.before_request
@@ -138,33 +137,12 @@ def revoke_image(project, artifact_id):
 
 @persona_media_bp.post("/internal/image-lease")
 def image_lease():
-    service = _service("persona_image_leases")
-    key = current_app.extensions.get("persona_image_worker_key")
-    if key is None or request.content_length is None or not 0 < request.content_length <= 8192:
-        raise PermissionError("persona_lease_invalid")
-    raw = request.get_data(cache=False)
-    if not hmac.compare_digest(
-        request_signature(key, b"persona-lease-v1", raw), request.headers.get("X-Ananta-Persona-Signature", "")
-    ):
-        raise PermissionError("persona_lease_unauthorized")
-    payload = json.loads(raw)
-    if (
-        not isinstance(payload, dict)
-        or set(payload) != {"assignment", "nonce"}
-        or not isinstance(payload["nonce"], str)
-        or not re.fullmatch(r"[a-f0-9-]{36}", payload["nonce"])
-    ):
-        raise ValueError("persona_lease_invalid")
-    try:
-        service.require(validate_assignment(payload["assignment"], time.time()))
-        allowed = True
-    except (ValueError, PermissionError, ProjectAccessError):
-        allowed = False
-    response = jsonify({"allowed": allowed})
-    response.headers["X-Ananta-Persona-Result-Signature"] = result_signature(
-        key, b"persona-lease-v1", raw, response.get_data()
+    return inspection_lease_response(
+        service=_service("persona_image_leases"),
+        key=current_app.extensions.get("persona_image_worker_key"),
+        domain=b"persona-lease-v1",
+        validate_assignment=validate_assignment,
     )
-    return response
 
 
 @persona_media_bp.post("/projects/<project>/images/<artifact_id>/purge")
