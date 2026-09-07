@@ -163,6 +163,13 @@ Neue LLM-CLI-Backends gehören in `agent/cli_backends/`. Production-Code
 importiert aus dem neuen Namespace — direkte `from agent.common.sgpt_X`
 Imports in Production-Code werden vom Detektor gemeldet.
 
+The standalone Meet media Worker image deliberately excludes the Hub `agent`
+package. Its execution ports and preserved SRP/DIP debt are documented in
+`docs/architecture/meet-hub-worker-boundaries.md`. For changes to
+`worker/meet_media`, run `python scripts/check_meet_worker_boundaries.py`:
+no Hub service imports or Hub task-ingestion/delegation ownership belong there.
+This packaging-specific guard does not change the shared-facade rules above.
+
 ---
 
 # Security Principles

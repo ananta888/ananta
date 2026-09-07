@@ -347,10 +347,10 @@
       "repository": "both",
       "type": "architecture",
       "milestone_id": "MAP-M1",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-01"
       ],
@@ -360,7 +360,8 @@
         "Browser-Worker und Medien-Worker kommunizieren nicht zur Auftragsvergabe miteinander; getrennte Worker werden ausschließlich durch Hub-Tasks mit geschlossenen Artefakt-/Stream-Zuweisungen verbunden.",
         "Signaling-Server und vorhandene Blind-Media-Agenten bleiben frei von Mediengenerierung, Persona-Entscheidungen und entschlüsselten Inhalten."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "completion_note": "2026-09-08: Alle vier Spezifikationskriterien gegen Hub-/Worker-Quellen und Companion 4d40b45 abgeglichen; Verantwortungs-/Portinventar und erhaltene SRP/DIP-Schulden in docs/architecture/meet-hub-worker-boundaries.md. Standalone-Worker ohne agent-Paket; neuer AST-Guard prueft 77 Python-Dateien ohne Quellcodeausfuehrung und sperrt Hub-Imports/Taskbesitz. 35 fokussierte Architektur-/Budget-/Transport-/Replaytests in 23.08 s bestanden. Signaling/Blind-RTP-Weiterleitung quellengeprueft, Legacy-Decoderpfad explizit getrennt. Architektur-Spezifikation abgeschlossen, keine Schliessung anderer Laufzeit-/GPU-/Mehragenten-/Produktionskriterien und keine synthetische Produktionsfreigabe."
     },
     {
       "id": "MAP-03",
@@ -1061,11 +1062,11 @@
     "by_status": {
       "todo": 2,
       "in_progress": 9,
-      "partial": 14,
+      "partial": 13,
       "blocked": 0,
-      "done": 7
+      "done": 8
     },
-    "progress_percent_done": 21.9,
+    "progress_percent_done": 25.0,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1079,8 +1080,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 2,
-      "remaining": 14
+      "done": 3,
+      "remaining": 13
     },
     "milestones": {
       "total": 8,
@@ -1150,14 +1151,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 8,
@@ -1235,28 +1236,28 @@
     "state": "in_progress",
     "todo_remaining": 2,
     "in_progress": 9,
-    "partial": 14,
+    "partial": 13,
     "blocked": 0,
-    "done": 7,
-    "count_based_percent": 21.9,
-    "weighted_percent": 54.5
+    "done": 8,
+    "count_based_percent": 25.0,
+    "weighted_percent": 56.4
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 31.738,
-    "remaining_weight": 26.512,
+    "done_weight": 32.838,
+    "remaining_weight": 25.412,
     "blocked_weight": 0.0,
-    "weighted_percent": 54.5
+    "weighted_percent": 56.4
   },
   "milestone_progress_summary": {
     "milestones": {
       "MAP-M1": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 69.3,
+        "count_based_percent": 75.0,
+        "weighted_percent": 85.0,
         "status": "in_progress"
       },
       "MAP-M2": {
@@ -1320,10 +1321,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T21:49:54.123796Z",
+    "generated_at": "2026-09-07T22:04:23.062870Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "3ab5032f9def14b3aec22b8062d4437a315233c4abfc8449aa041a275c011616",
+    "source_hash": "d2136161ce870a33af54e8801989e77f82f522b98151ce46ee2a2d9ed225c2e0",
     "is_stale": false
   }
 }

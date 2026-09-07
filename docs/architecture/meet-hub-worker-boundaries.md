@@ -45,15 +45,31 @@ from required-SFrame blind transport; no universal blindness claim is made.
 Cross-repository compatibility tests keep Human/Pair behavior distinct and
 must not treat skipped public TURN/infrastructure checks as a successful gate.
 
-## Guard planned before implementation
+## Implemented regression guard
 
-Add a bounded AST regression detector for this standalone Python Worker package:
-reject Hub `agent.*` imports (including literal dynamic imports) and explicit
-Hub task-ingestion/delegation calls. The CLI must parse, never execute, source;
-report only path/line/fixed rule codes. Keep it independent of Flask/GPU.
-Exercise aliases, comments/strings, async contexts, malformed source and the
-actual package. This is a narrow accidental-coupling detector, not a sandbox,
+`python scripts/check_meet_worker_boundaries.py` parses the standalone Python
+Worker package and rejects Hub `agent.*` imports (including literal dynamic
+imports) and explicit Hub task-ingestion/delegation calls. It never executes
+audited source and reports only relative path/line/fixed rule codes, independently
+of Flask/GPU. Input count and bytes are bounded; missing, linked, oversized or
+unparseable source fails. Tests cover aliases, comments/strings, async contexts,
+malformed source and the actual package. This is a narrow accidental-coupling detector, not a sandbox,
 network firewall or proof against deliberately obfuscated malicious code.
+
+## Acceptance audit (2026-09-08)
+
+All four MAP-02 specification criteria are covered by the inventory and container
+boundary above. The actual package scan passed for 77 Python files; 35 focused
+architecture/reply-budget/transport/replay tests passed in 23.08 seconds.
+Companion source inspected at `4d40b45`: `src/server.js` rejects binary signaling
+and applies `machineMessageAllowed` plus current session leases before forwarding
+messages. `media-edge-agent/media_agent.go` reads bounded RTP packets and forwards
+them through `WriteRTP`; `federation.go` likewise gates forwarding by current
+negotiated route state. These paths do not resolve personas or run generators.
+Their RTP rewriting is transport continuity, not decoding; the distinct legacy
+relay and required-SFrame scope are documented in `docs/blind-media-edge-agent.md`
+in that repository. This is a source/architecture audit, not production runtime
+or cryptographic implementation certification.
 
 ## Preserved engineering debt and verification scope
 
