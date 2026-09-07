@@ -13,6 +13,7 @@ Paths are relative to `/api/persona-media/v1/projects/{project}`:
 | DELETE | `/video-policy/{source_id}` | Revoke source policy |
 | POST | `/videos` | Delegate inspection, verify receipt, admit private bundle |
 | GET | `/videos/{artifact_id}/preview` | Authorized PNG preview, never MP4 publication |
+| GET | `/videos/{artifact_id}/reference` | Current immutable video reference for profile selection |
 | DELETE | `/videos/{artifact_id}` | Revoke both parts under exact catalog revision |
 | GET | `/videos/{artifact_id}/purge` | Read bounded erasure/resume state |
 | POST | `/videos/{artifact_id}/purge` | Erase the exact retired bundle |
@@ -41,8 +42,10 @@ changing their field schemas.
 ## Independent Hub configuration
 
 `ANANTA_PERSONA_VIDEOS_ENABLED=1` is the exact Hub-only opt-in. It is independent
-of `ANANTA_PERSONA_IMAGES_ENABLED`; video does not implicitly enable image or
-profile services, background deletion or any source policy. Also required:
+of `ANANTA_PERSONA_IMAGES_ENABLED`; video does not implicitly enable
+image transport, background deletion or any source policy. Shared profile
+metadata services can use the available video port without an image port.
+Also required:
 
 - `ANANTA_PERSONA_VIDEO_KEY_FILE`: private inspection key file;
 - `ANANTA_PERSONA_VIDEO_WORKER_URL`: private `/v1/persona-videos` endpoint;
@@ -65,9 +68,8 @@ enabling video initializes only passive retention services and an empty ledger.
 
 SRP/DIP: the child blueprint translates authenticated requests/responses; a
 separate composition module wires policy, task, receipt, catalog, storage and
-erasure ports. The existing larger image composition still groups image,
-profile and retention wiring (a preserved SRP limitation); video wiring is
-not added to that mixed block.
+erasure ports. Shared profile composition is now separate from image transport
+initialization; see [persona-profile-videos.md](persona-profile-videos.md).
 
 Tests cover authenticated scope, closed payloads, kind separation, revision
 guards, absent publication/download escapes, duplicate keys, disabled/non-Hub

@@ -16,14 +16,27 @@ class PersonaProfileOwners(Protocol):
     def require_runtime(self, tenant, project, organization, kind, owner): ...
 
 
-class PersonaProfileImagePort(Protocol):
+class PersonaProfileAssetPort(Protocol):
     def require_reference(self, principal, reference): ...
 
 
+PersonaProfileImagePort = PersonaProfileAssetPort  # Existing import compatibility.
+
+
 class PersonaProfileService:
-    def __init__(self, *, access, memberships, owners: PersonaProfileOwners, profiles, images: PersonaProfileImagePort):
+    def __init__(
+        self,
+        *,
+        access,
+        memberships,
+        owners: PersonaProfileOwners,
+        profiles,
+        images: PersonaProfileAssetPort | None,
+        videos: PersonaProfileAssetPort | None = None,
+    ):
         self.access, self.memberships, self.owners = access, memberships, owners
         self.profiles, self.images = profiles, images
+        self.videos = videos
 
     def _authorize(self, principal, project, organization, kind, owner, *, mutable):
         if (
@@ -59,14 +72,17 @@ class PersonaProfileService:
             raise PermissionError("persona_profile_organization_denied")
         self.owners.require(principal.tenant_id, project, organization, kind, owner, mutable=mutable)
 
-    def _images(self, principal, profile):
-        for kind in ("voice", "video", "style"):
-            if getattr(profile, kind).asset is not None:
-                raise ValueError("persona_profile_media_not_supported")
-        reference = profile.image.asset
-        if reference is None:
-            return
-        self.images.require_reference(principal, reference)
+    def _media_port(self, kind):
+        port = {"image": self.images, "video": self.videos}.get(kind)
+        if port is None:
+            raise ValueError("persona_profile_media_not_supported")
+        return port
+
+    def _media(self, principal, profile):
+        for kind in ("image", "voice", "video", "style"):
+            reference = getattr(profile, kind).asset
+            if reference is not None:
+                self._media_port(kind).require_reference(principal, reference)
 
     def current(self, principal, project, organization, kind, owner):
         self._authorize(principal, project, organization, kind, owner, mutable=False)
@@ -79,7 +95,7 @@ class PersonaProfileService:
         available = True
         if profile is not None:
             try:
-                self._images(principal, profile)
+                self._media(principal, profile)
             except (ValueError, PermissionError, ProjectAccessError):
                 available = False
         self._authorize(principal, project, organization, kind, owner, mutable=False)
@@ -102,7 +118,7 @@ class PersonaProfileService:
         ):
             raise PermissionError("persona_profile_scope_mismatch")
         self._authorize(principal, project, organization, kind, owner, mutable=True)
-        self._images(principal, profile)
+        self._media(principal, profile)
         self._authorize(principal, project, organization, kind, owner, mutable=True)
         return self.profiles.append(profile, expected_revision=expected_revision, actor=principal.subject_id)
 
@@ -162,6 +178,16 @@ class PersonaProfileService:
         }
 
     def for_execution(self, principal, project, selection: PersonaProfileSelection, *, required_outputs=("image",)):
+        return self._for_execution(
+            principal, project, selection, required_outputs=required_outputs, primary_kind="image"
+        )
+
+    def for_video_execution(self, principal, project, selection: PersonaProfileSelection):
+        return self._for_execution(
+            principal, project, selection, required_outputs=("voice", "video"), primary_kind="video"
+        )
+
+    def _for_execution(self, principal, project, selection, *, required_outputs, primary_kind):
         if (
             not isinstance(required_outputs, tuple)
             or not required_outputs
@@ -180,24 +206,22 @@ class PersonaProfileService:
             item = outputs.get(kind)
             if item is None or item["state"] == "disabled":
                 raise PermissionError("persona_execution_output_disabled")
-            # The installed execution adapter supports image assets only.
-            # Missing voice/video selections may use its independently allowed
-            # fixed generator, but never silently replace an explicit asset.
-            if kind != "image" and item["state"] != "missing":
+            # Each execution adapter declares its exact primary source. Other
+            # missing outputs may use an independently allowed fixed generator,
+            # but an explicit asset or disabled output is never replaced.
+            if kind != primary_kind and item["state"] != "missing":
                 raise PermissionError("persona_execution_output_unsupported")
-        image = result["media"][0]
-        if image["kind"] != "image" or not image["preview_allowed"] or image["asset"] is None:
-            raise PermissionError("persona_execution_image_unavailable")
+        primary = outputs[primary_kind]
+        if not primary["preview_allowed"] or primary["asset"] is None:
+            raise PermissionError(f"persona_execution_{primary_kind}_unavailable")
         self.owners.require_runtime(principal.tenant_id, *scope[1:])
-        return image["asset"]
+        return primary["asset"]
 
     def _preview_selection(self, principal, selection):
         available = selection.state != "missing"
         if selection.asset is not None:
             try:
-                if selection.kind != "image":
-                    raise ValueError("persona_profile_media_not_supported")
-                self.images.require_reference(principal, selection.asset)
+                self._media_port(selection.kind).require_reference(principal, selection.asset)
             except (ValueError, PermissionError, ProjectAccessError):
                 available = False
         item = selection.model_dump(mode="json")

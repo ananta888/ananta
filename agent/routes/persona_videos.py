@@ -77,6 +77,15 @@ def preview(project, artifact_id):
     return Response(content, mimetype="image/png")
 
 
+@persona_videos_bp.get("/projects/<project>/videos/<artifact_id>/reference")
+@check_user_auth
+def reference(project, artifact_id):
+    value = service("persona_profile_videos").reference(
+        get_authenticated_source_control_principal(), project, artifact_id
+    )
+    return jsonify({"reference": value.model_dump(mode="json")})
+
+
 @persona_videos_bp.delete("/projects/<project>/videos/<artifact_id>")
 @check_user_auth
 def revoke_video(project, artifact_id):

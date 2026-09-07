@@ -73,7 +73,9 @@ def test_video_only_bootstrap_composes_exact_policy_task_receipt_and_erasure_por
     assert policy.inspection_receipts.format.kind == "video"
     assert app.extensions["persona_video_erasure"].catalog is service.catalog
     assert app.extensions["persona_video_worker_key"] == KEY
-    assert "persona_assets" not in app.extensions and "persona_profiles" not in app.extensions
+    assert "persona_assets" not in app.extensions
+    assert app.extensions["persona_profiles"].images is None
+    assert app.extensions["persona_profiles"].videos is app.extensions["persona_profile_videos"]
     assert app.extensions["persona_video_retention"].catalog is service.catalog
     assert app.extensions["persona_video_retention_runner"].tasks.kind == "video"
     assert "persona_video_retention_reconciler" not in app.extensions

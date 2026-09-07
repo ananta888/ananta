@@ -16,6 +16,7 @@ def configure_persona_videos(app):
     from agent.services.persona_inspection_leases import HubPersonaInspectionLeases
     from agent.services.persona_inspection_task_state import HubPersonaTaskState
     from agent.services.persona_inspection_tasks import HubPersonaInspectionReceipts, HubPersonaInspectionTasks
+    from agent.services.persona_profile_videos import PersonaProfileVideos
     from agent.services.persona_retention_runner import PersonaRetentionRunner
     from agent.services.persona_retention_service import PersonaRetentionService
     from agent.services.persona_retention_tasks import HubPersonaRetentionTasks
@@ -74,3 +75,4 @@ def configure_persona_videos(app):
             tasks=HubPersonaRetentionTasks(kind="video"),
         ),
     )
+    app.extensions["persona_profile_videos"] = PersonaProfileVideos(app.extensions["persona_video_assets"])
