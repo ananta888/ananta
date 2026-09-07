@@ -78,14 +78,18 @@ def close_bridge(bridge):
 
 
 @pytest.mark.parametrize(
-    "spoken_mode,gpu_mode,interruption_mode",
+    "spoken_mode,gpu_mode,interruption_mode,avatar_mode",
     [
-        pytest.param(False, False, None, id="text"),
-        pytest.param(True, False, None, id="speech"),
+        pytest.param(False, False, None, False, id="text"),
+        pytest.param(True, False, None, False, id="speech"),
+        pytest.param(
+            True, False, None, True, id="avatar", marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short avatar gate")
+        ),
         pytest.param(
             True,
             False,
             "pause",
+            False,
             id="interruption-pause",
             marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short interruption gate"),
         ),
@@ -93,6 +97,7 @@ def close_bridge(bridge):
             True,
             False,
             "stop",
+            False,
             id="interruption-stop",
             marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short interruption gate"),
         ),
@@ -100,6 +105,7 @@ def close_bridge(bridge):
             True,
             True,
             None,
+            False,
             id="gpu",
             marks=pytest.mark.skipif(
                 os.environ.get("MEET_DIALOG_GPU_GATE") != "1" or SOAK_SECONDS > 0,
@@ -115,6 +121,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     spoken_mode,
     gpu_mode,
     interruption_mode,
+    avatar_mode,
     record_property,
 ):
     from cryptography import x509
@@ -138,7 +145,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from agent.services.meet_media_transport import HttpMediaWorker
     from agent.services.meet_turn_service import HubMediaTasks
     from agent.services.source_control_access_policy import HubSourcePrincipal
+    from tests.meet_dialog_avatar_observer import DialogAvatarObserver
     from tests.meet_dialog_browser_fixture import DialogBrowserFixture
+    from tests.meet_dialog_cleanup import close_dialog_servers
     from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
     from tests.meet_dialog_interruption import configure_interruption, finish_interruption
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
@@ -183,7 +192,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         | {
             "MEET_TEST_HUB_PUBLIC_KEY": str(public),
             "MEET_DIALOG_GPU_GATE": "1" if gpu_mode else "0",
-            "MEET_DIALOG_OBSERVE": "1" if interruption_mode is not None else "0",
+            "MEET_DIALOG_OBSERVE": "1" if interruption_mode is not None or avatar_mode else "0",
         },
         text=True,
         stdin=subprocess.PIPE,
@@ -279,6 +288,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         speech_observer = DialogSpeechObserver(spoken_mode, monkeypatch)
         configure_dialog_gpu(speech_observer, gpu_mode, gpu_cleanup, record_property)
         interruption = configure_interruption(speech_observer, interruption_mode, monkeypatch)
+        avatar_observer = DialogAvatarObserver(avatar_mode, speech_observer, monkeypatch)
         capabilities = speech_observer.capabilities
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
@@ -437,6 +447,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             }
         )
         assert chat_ready.wait(8), failures
+        if avatar_observer.finish(
+            app, service, principal, started, speech_observer, command, completed, failures, record_property
+        ):
+            return
         with app.app_context():
             state = service.control(
                 principal,
@@ -609,15 +623,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         )
     finally:
         try:
-            if service is not None and started is not None:
-                with app.app_context():
-                    service.inspect(principal, "synthetic", started["task_id"], stop=True)
-            if runtime_thread is not None:
-                runtime_thread.join(timeout=10)
-            for server in (hub, worker):
-                if server is not None:
-                    server.shutdown()
-                    server.server_close()
+            close_dialog_servers(app, service, principal, started, runtime_thread, (hub, worker))
         finally:
             try:
                 if browser_fixture is not None:

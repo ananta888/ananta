@@ -44,7 +44,7 @@ describe('Hub-owned Meet dialog controls', () => {
   it('never starts, captures or grants sources on load; selections default off', () => {
     const f = setup(), c = f.componentInstance;
     expect(api.start).not.toHaveBeenCalled(); expect(api.list).not.toHaveBeenCalled();
-    expect(c.chat || c.audio || c.screen || c.speech).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
+    expect(c.chat || c.audio || c.screen || c.speech || c.avatar).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
   });
   it('requires explicit chat and speech selection without enabling listening or capture', async () => {
     const f = setup(), c = f.componentInstance;
@@ -61,6 +61,31 @@ describe('Hub-owned Meet dialog controls', () => {
   it('never infers chat permission from a stale speech selection', () => {
     const c = setup().componentInstance; c.screen = true; c.speech = true; c.start();
     expect(api.start).not.toHaveBeenCalled(); expect(c.message()).toContain('ausdrücklich ausgewählten Raumchat');
+  });
+  it('requests only explicit neutral-avatar permission and does not activate it on start', () => {
+    const c = setup().componentInstance; c.avatar = true; c.start();
+    expect(api.start).toHaveBeenCalledWith('project', '', { capabilities: ['avatar.publish'],
+      duration_seconds: 900, chat_mode: 'off', audio_mode: 'off' });
+    expect(api.control).not.toHaveBeenCalled();
+  });
+  it('toggles the assigned avatar while preserving independent speech and chat state', () => {
+    const c = setup().componentInstance;
+    const source = { ...row(), capabilities: ['chat.read', 'chat.send', 'speech.publish', 'avatar.publish'],
+      controls: { ...row().controls, speech: { enabled: true, revision: 1, since: 1000 },
+        avatar: { enabled: false, revision: 1, since: 1000 } } };
+    expect(validateDialog(source)).toBe(source); c.toggle(source, 'avatar');
+    expect(api.control).toHaveBeenCalledWith('project', 'task', { expected_revision: 1, chat: true, audio: false,
+      screen: false, speech: true, avatar: true });
+    expect(c.canControl(row(), 'avatar')).toBe(false);
+    expect(() => validateDialog({ ...source, capabilities: ['chat.read', 'chat.send', 'speech.publish'] })).toThrow();
+    expect(() => validateDialog({ ...source, controls: { ...source.controls, avatar: null } } as never)).toThrow();
+    expect(() => validateDialog({ ...source, controls: { ...source.controls, avatar: { ...source.controls.avatar, profile: 'url' } } } as never)).toThrow();
+  });
+  it.each(['account', 'project'])('clears selected neutral avatar on %s change', change => {
+    const f = setup(), c = f.componentInstance; c.avatar = true;
+    if (change === 'account') identity.next(null);
+    else { f.componentRef.setInput('projectId', 'other'); f.detectChanges(); }
+    expect(c.avatar).toBe(false); expect(api.start).not.toHaveBeenCalled();
   });
   it.each(['account', 'project'])('clears selected voice permission on %s change', change => {
     const f = setup(), c = f.componentInstance; c.setChat(true); c.speech = true;

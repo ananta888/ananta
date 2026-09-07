@@ -5,6 +5,7 @@ import time
 from contextlib import ExitStack
 
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assignment
+from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 from worker.meet_media.dialog_chat import DialogChatPump
 from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_matches
 from worker.meet_media.dialog_client import HubDialogClient
@@ -48,6 +49,7 @@ def run(assignment, hub):
         "screen.publish",
         "audio.receive",
         "speech.publish",
+        "avatar.publish",
     }:
         raise ValueError("meet_dialog_adapter_unavailable")
     with sync_playwright() as playwright, ExitStack() as cleanup:
@@ -78,6 +80,8 @@ def run(assignment, hub):
         cleanup.callback(chat.close)
         screen = DialogScreenPump(page, browser, assignment)
         cleanup.callback(screen.close)
+        avatar = DialogAvatarPump(page, assignment)
+        cleanup.callback(avatar.close)
         audio = None
         # Resolve the current source at teardown, not an obsolete iteration's object.
         cleanup.callback(lambda: audio.close() if audio is not None else None)
@@ -103,6 +107,7 @@ def run(assignment, hub):
                         audio.close()
                         audio = None
                     screen.invalidate()
+                    avatar.invalidate()
                     chat.invalidate()
                     page.evaluate("grant => window.anantaMachine.renew(grant)", state["renewal"])
                     next_exchange = 0
@@ -113,6 +118,7 @@ def run(assignment, hub):
                     audio = start_audio(page, hub, assignment, state, meet_session)
                 chat.update(receipt, controls["chat"])
                 speech.update(receipt, controls)
+                avatar.update(receipt, controls)
                 screen.update(
                     controls["screen"],
                     {
@@ -125,6 +131,7 @@ def run(assignment, hub):
             chat.tick()
             speech.tick()
             screen.tick()
+            avatar.tick()
             if chat.needs_refresh:
                 next_exchange = 0
             if audio is not None:

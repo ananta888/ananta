@@ -1,0 +1,115 @@
+"""Real Hub-controlled avatar scenario; synthetic non-silent speech, no GPU claim."""
+
+import threading
+import time
+
+from ananta_contracts.meet_speech import speech_profile
+from tests.meet_dialog_interruption import SyntheticToneWorker
+from worker.meet_media.avatar_browser import AvatarBrowserPort
+
+
+class DialogAvatarObserver:
+    def __init__(self, enabled, speech, monkeypatch):
+        self.enabled = enabled
+        self.condition = threading.Condition()
+        self.state, self.generation = "closed", 0
+        if not enabled:
+            return
+        speech.capabilities.append("avatar.publish")
+        speech.worker = SyntheticToneWorker()
+        speech.profile = speech_profile(max_seconds=10)
+        status, close = AvatarBrowserPort.status, AvatarBrowserPort.close
+
+        def observe(port):
+            value = status(port)
+            with self.condition:
+                self.state = value["source"]["state"]
+                self.generation = value["source"]["generation"]
+                self.condition.notify_all()
+            return value
+
+        def observe_close(port):
+            owned = port.token is not None
+            close(port)
+            if owned:
+                with self.condition:
+                    self.state = "closed"
+                    self.condition.notify_all()
+
+        monkeypatch.setattr(AvatarBrowserPort, "status", observe)
+        monkeypatch.setattr(AvatarBrowserPort, "close", observe_close)
+
+    def wait(self, state, timeout):
+        with self.condition:
+            assert self.condition.wait_for(lambda: self.state == state, timeout=timeout), {
+                "avatar_state": self.state,
+                "generation": self.generation,
+                "expected": state,
+            }
+            return self.generation
+
+    def finish(self, app, service, principal, started, speech, command, completed, failures, record_property):
+        if not self.enabled:
+            return False
+        task_id = started["task_id"]
+
+        def moving():
+            observed = command("avatar")
+            assert observed == {"moving_avatar": True}, {
+                "remote": observed, "local": self.state, "generation": self.generation, "runtime_errors": failures
+            }
+
+        def control(enabled):
+            with app.app_context():
+                current = service.inspect(principal, "synthetic", task_id)["controls"]
+                body = {name: row["enabled"] for name, row in current.items() if name != "revision"}
+                return service.control(
+                    principal,
+                    "synthetic",
+                    task_id,
+                    body | {"expected_revision": current["revision"], "avatar": enabled},
+                )
+
+        with app.app_context():
+            initial = service.inspect(principal, "synthetic", task_id)
+        assert initial["controls"]["avatar"]["enabled"] is False
+        assert command("avatar_absent") == {"avatar_absent": True}
+        control(True)
+        self.wait("open", 12)
+        moving()
+        speech.before_question(command)
+        assert command("ask") == {"sent": True}
+        assert speech.receive_answer(command) == {"received": True}
+        speech.require_completed(1, completed, failures)
+        speech.require_remote(command)
+        moving()
+        before = self.wait("open", 3)
+        control(False)
+        stopped_at = time.monotonic()
+        self.wait("closed", 3)
+        local_stop_ms = (time.monotonic() - stopped_at) * 1000
+        assert command("avatar_absent") == {"avatar_absent": True}
+        remote_stop_ms = (time.monotonic() - stopped_at) * 1000
+        assert remote_stop_ms <= 4000
+        assert command("screen") == {"moving_screen": True}
+        control(True)
+        assert self.wait("open", 12) > before
+        moving()
+        with app.app_context():
+            assert service.inspect(principal, "synthetic", task_id, stop=True)["status"] == "cancelled"
+        assert completed.wait(10), failures
+        assert command("alone") == {"alone": True}
+        record_property(
+            "dialog_avatar",
+            {
+                "synthetic": True,
+                "actual_gpu": False,
+                "production_release_evidence": False,
+                "local_pause_ms": round(local_stop_ms, 2),
+                "remote_pause_ms": round(remote_stop_ms, 2),
+                "generations": self.generation,
+                "speech_samples": speech.samples,
+                "remote_audio": speech.remote,
+            },
+        )
+        return True

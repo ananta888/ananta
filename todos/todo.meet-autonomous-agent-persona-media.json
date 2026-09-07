@@ -758,7 +758,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 55.0,
+      "progress_percent": 75.0,
       "depends_on": [
         "MAP-08",
         "MAP-18",
@@ -770,7 +770,7 @@
         "Bildwechsel, Größenanpassung und Stop/Revocation ohne alte Frames nach dem Wechsel testen; kein menschlicher Webcam-Zugriff.",
         "Avatarvideo und Browserpräsentation sind getrennte Quellen und können im selben Teilnehmer gleichzeitig oder unabhängig aktiv sein."
       ],
-      "implementation_note": "Optionale persona_image_id im vorhandenen Hub-Medienturn implementiert: immutable tenant-/projektgebundene Bildreferenz, unabhängige Preview-/Publish-Policy, Hash-/Formatprüfung, inhaltsfreier Taskkontext und erneute Asset-Freigabe über die bestehende Lease. Statischer 256x256-/12-FPS-Frame mit sichtbarer KI-Kennzeichnung, NVENC und unverändertem neutralem Avatar ohne Bildauswahl. 251 Meet-/Persona-/Chat-/Wire-Tests sowie 4 lokale GPU-Gates bestanden (ASR, Medienantwort, Chat, Persona-NVENC). docs/contracts/meet-persona-image-turns.md. Noch offen: Bildwechsel über Sessiongenerationen (MAP-20; Profilauflösung für begrenzte Turns bereits implementiert), unabhängige Avatar-/Browserquellen und öffentliche Live-Abnahme. Kein Nachweis generativer Talking-Head-Qualität oder produktiver Freigabe. Naechster abgegrenzter Schritt 2026-09-07: unabhaengiger explizit gewaehlter neutral-ai-v1-Kamera-Port mit eigener Ownership, 256x256/5 FPS, 30-s-Grenze, Lease-/Membership-Fencing und konkreter SFrame-Readiness; danach separate default-off Hub-Steuerung/Worker/UI. Plan docs/contracts/meet-independent-neutral-avatar.md und Companion MDS-11. Noch keine Implementierung oder Abnahme dieses neuen Ports behauptet; genehmigte Bildwechsel und Produktionsabnahme bleiben separat offen. Hub-Steuerungsfundament implementiert: optionaler avatar-Control startet auch mit Grant pausiert, Aktivierung nur ueber aktuelle Hub-CAS; gemeinsame geschlossene optionale Capability-Tabelle erhaelt alte Wireformen und verhindert Quelleninjektion. 34 neue/bestehende Control-/Authoritytests plus 33 Transport-/Route-/Task-/Speech-Regressionschecks bestanden. Worker-Avatar noch nicht freigeschaltet, bis eigener frischer Browser-Lifecycle existiert; keine End-to-End-Avatarabnahme aus diesen Backendchecks."
+      "implementation_note": "Optionale persona_image_id im vorhandenen Hub-Medienturn implementiert: immutable tenant-/projektgebundene Bildreferenz, unabhängige Preview-/Publish-Policy, Hash-/Formatprüfung, inhaltsfreier Taskkontext und erneute Asset-Freigabe über die bestehende Lease. Statischer 256x256-/12-FPS-Frame mit sichtbarer KI-Kennzeichnung, NVENC und unverändertem neutralem Avatar ohne Bildauswahl. 251 Meet-/Persona-/Chat-/Wire-Tests sowie 4 lokale GPU-Gates bestanden (ASR, Medienantwort, Chat, Persona-NVENC). docs/contracts/meet-persona-image-turns.md. Noch offen: Bildwechsel über Sessiongenerationen (MAP-20; Profilauflösung für begrenzte Turns bereits implementiert), unabhängige Avatar-/Browserquellen und öffentliche Live-Abnahme. Kein Nachweis generativer Talking-Head-Qualität oder produktiver Freigabe. Naechster abgegrenzter Schritt 2026-09-07: unabhaengiger explizit gewaehlter neutral-ai-v1-Kamera-Port mit eigener Ownership, 256x256/5 FPS, 30-s-Grenze, Lease-/Membership-Fencing und konkreter SFrame-Readiness; danach separate default-off Hub-Steuerung/Worker/UI. Plan docs/contracts/meet-independent-neutral-avatar.md und Companion MDS-11. Noch keine Implementierung oder Abnahme dieses neuen Ports behauptet; genehmigte Bildwechsel und Produktionsabnahme bleiben separat offen. Hub-Steuerungsfundament implementiert: optionaler avatar-Control startet auch mit Grant pausiert, Aktivierung nur ueber aktuelle Hub-CAS; gemeinsame geschlossene optionale Capability-Tabelle erhaelt alte Wireformen und verhindert Quelleninjektion. 34 neue/bestehende Control-/Authoritytests plus 33 Transport-/Route-/Task-/Speech-Regressionschecks bestanden. Worker-Avatar noch nicht freigeschaltet, bis eigener frischer Browser-Lifecycle existiert; keine End-to-End-Avatarabnahme aus diesen Backendchecks. Abschluss dieses neutralen Teils: Companion MDS-11-Port einschliesslich 2500-ms-Controllerpuls done; Worker-Avataradapter, nichtblockierender generationsgebundener Browserstart, aktueller Hub-Puls und separate default-off UI implementiert. 60 Worker-/Pump-/Speechchecks plus echter JS-Racetest und 57 UI-Tests gruen. Echter privater Hub/Worker/Meet-Lauf bestanden (36.95 s): bewegtes KI-Bild mit Screen und korrelierter synthetischer Sprachausgabe, Avatarpause lokal/remote 31.74/64.73 ms, neue Quellgeneration und Parentstop, Capture/Transformfehler null. Normaler adaptiver 64px-Empfang erforderte groesseres KI-Label/staerkeren Balken; keine erzwungene Bandbreite. MAP-21 deshalb partial/75, nicht done: genehmigte Bild-/Profilwechsel ueber Livegenerationen bleiben offen. Ein gescheiterter Vorlauf zeigte zusaetzlich SQLite-Lock im konkurrierenden Fixture-Teardown, als naechster gezielter Cleanup-Fix verfolgt. Keine GPU-/Produktionsfreigabe aus der synthetischen Avatarabnahme. Nachtrag: Text- und Avatar-Livefall gemeinsam erneut bestanden (68.97 s). Den genannten Cleanup-Fehler separat behandelt: nur exakte SQLite-Busy/Locked-Codes beim eigenen terminalen Fixture-CAS begrenzt wiederholen, keine Start-/Control-/Policy-Retries; ExitStack raeumt Testthreads/-server auch bei fehlgeschlagenem Cancel. Sieben Tests inklusive echtem Shared-Cache-SQLite-Lock bestanden (19.60 s), Helper-Commit 90ea17536."
     },
     {
       "id": "MAP-22",
@@ -1158,7 +1158,7 @@
         "done": 2,
         "partial": 7,
         "blocked": 0,
-        "progress_percent": 53.1
+        "progress_percent": 54.4
       },
       "infrastructure": {
         "total": 1,
@@ -1212,15 +1212,15 @@
     "blocked": 0,
     "done": 4,
     "count_based_percent": 12.5,
-    "weighted_percent": 50.0
+    "weighted_percent": 50.7
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 29.138,
-    "remaining_weight": 29.112,
+    "done_weight": 29.538,
+    "remaining_weight": 28.712,
     "blocked_weight": 0.0,
-    "weighted_percent": 50.0
+    "weighted_percent": 50.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1269,7 +1269,7 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 25.0,
-        "weighted_percent": 69.3,
+        "weighted_percent": 74.7,
         "status": "in_progress"
       },
       "MAP-M7": {
@@ -1293,10 +1293,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T03:11:10.508023Z",
+    "generated_at": "2026-09-07T07:17:49.948730Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d20fe83a13d37acba4296c89ace88a0f3569d1fc0b55f0b0f3077748a538f02b",
+    "source_hash": "94bde694988b0021d74cdb63a89194bf109129c965af9a04433581451120e3cb",
     "is_stale": false
   }
 }

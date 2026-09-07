@@ -4,8 +4,13 @@ import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 
 export interface SourceControl { enabled: boolean; revision: number; since: number }
-export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech';
-export interface DialogControls { revision: number; chat: SourceControl; audio: SourceControl; screen: SourceControl; speech?: SourceControl }
+export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech' | 'avatar';
+export interface DialogControls {
+  revision: number; chat: SourceControl; audio: SourceControl; screen: SourceControl;
+  speech?: SourceControl; avatar?: SourceControl;
+}
+export const optionalDialogSources = ['speech', 'avatar'] as const;
+const optionalCapabilities = { speech: 'speech.publish', avatar: 'avatar.publish' } as const;
 export interface MeetDialog {
   schema: 'ananta.meet-dialog-status.v1'; task_id: string; status: string; deadline: number;
   controls: DialogControls; capabilities: string[];
@@ -20,10 +25,10 @@ export function validateDialog(value: MeetDialog): MeetDialog {
     throw new Error('meet_dialog_contract_invalid');
   }
   const controls = value.controls;
-  if (!controls || !['audio,chat,revision,screen', 'audio,chat,revision,screen,speech'].includes(Object.keys(controls).sort().join())
-    || Object.hasOwn(controls, 'speech') && !value.capabilities.includes('speech.publish')
+  if (!controls || Object.keys(controls).filter(key => !(optionalDialogSources as readonly string[]).includes(key)).sort().join() !== 'audio,chat,revision,screen'
+    || optionalDialogSources.some(name => Object.hasOwn(controls, name) && !value.capabilities.includes(optionalCapabilities[name]))
     || !Number.isSafeInteger(controls.revision) || controls.revision < 1 || controls.revision > 1023) throw new Error('meet_dialog_contract_invalid');
-  const sources: DialogSource[] = ['chat', 'audio', 'screen', ...(Object.hasOwn(controls, 'speech') ? ['speech' as const] : [])];
+  const sources: DialogSource[] = ['chat', 'audio', 'screen', ...optionalDialogSources.filter(name => Object.hasOwn(controls, name))];
   for (const name of sources) {
     const source = controls[name];
     if (!source || Object.keys(source).sort().join() !== 'enabled,revision,since' || typeof source.enabled !== 'boolean'
