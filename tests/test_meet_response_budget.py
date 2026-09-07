@@ -1,14 +1,15 @@
 """Closed response budgets propagate to Ollama; malformed usage fails closed."""
 
+import io
 import json
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 from agent.services.meet_contract import MeetError
 from agent.services.meet_media_transport import validate_response_budget, validate_result
 from tests.test_meet_media import result, turn
-from worker.meet_media import llm
+from worker.meet_media import llm, ollama_http
 from worker.meet_media.contract import validate_turn
 
 pytestmark = pytest.mark.timeout(30)
@@ -59,13 +60,12 @@ def opener(monkeypatch, **changes):
     }
     responses = []
     for value in (payload, models):
-        response = MagicMock()
-        response.__enter__.return_value = response
-        response.read.return_value = json.dumps(value).encode()
+        response = io.BytesIO(json.dumps(value).encode())
+        response.status = 200
         responses.append(response)
     transport = Mock()
     transport.open.side_effect = responses
-    monkeypatch.setattr(llm.urllib.request, "build_opener", lambda *_: transport)
+    monkeypatch.setattr(ollama_http.urllib.request, "build_opener", lambda *_: transport)
     monkeypatch.delenv("MEET_LLM_MODEL", raising=False)
     monkeypatch.delenv("MEET_LLM_DIGEST", raising=False)
     return transport

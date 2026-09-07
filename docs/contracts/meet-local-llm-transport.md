@@ -36,3 +36,29 @@ no inherited proxy and exact prompt/token behavior with deterministic fixtures.
 Re-run existing response-budget and media-boundary tests. No Docker, GPU,
 external provider, production secret, human approval or fabricated evidence ID
 is needed. Actual GPU/browser acceptance remains a separate open gate.
+
+## Implemented and verified
+
+`OllamaHttp` now owns the validated fixed endpoint, no-proxy/no-redirect opener,
+64-KiB/deadline reads for both operations and redacted errors. Redirects and HTTP
+error bodies are explicitly closed, including errors raised before a response
+context is entered. Duplicate JSON keys and non-finite constants are rejected;
+exactly 64 KiB of valid JSON remains accepted. `generate` depends on the narrow
+two-operation port while preserving the existing fixed prompt, no-tools request,
+token/character limits, model/GPU checks and `GeneratedAnswer` return contract.
+
+The initial 99 transport/budget/failure tests passed in 46.11 s. With additional
+JSON-boundary/error-cleanup cases and existing media regressions, all 156 tests
+passed in 80.88 s using two Pytest workers. Actual loopback tests verify five
+redirect statuses on both paths, no redirect-destination request, rejected
+overflow/malformed JSON and no inherited proxy. The GPU/model-list content in
+these tests is explicitly synthetic, not model execution or release evidence.
+Targeted Ruff checks passed.
+
+SRP/DIP improve by separating HTTP configuration/IO from generation, and the
+two-method port protects ISP. The existing bounded reader remains in its
+historical `persona_http` module; no duplicate reader or broad module migration
+was introduced. The operator-configured host remains a trust boundary: this
+change does not validate DNS ownership or prove physical/local GPU residency
+against a malicious configured server. Other MAP-27 cross-room/visual/ASR attack
+and production criteria remain open.

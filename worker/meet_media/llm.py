@@ -1,11 +1,10 @@
 """Bounded local Ollama chat adapter; no tools or cloud fallbacks."""
 
-import json
 import os
-import urllib.request
 from dataclasses import dataclass, field
 
 from worker.meet_media.contract import validate_response_limits
+from worker.meet_media.ollama_http import OllamaHttp, OllamaJsonPort
 
 SYSTEM = (
     "Du bist Ananta, ein klar als KI erkennbarer Meeting-Assistent. "
@@ -26,9 +25,8 @@ def answer(text):
     return generate(text).text
 
 
-def generate(text, *, max_output_tokens=128, max_reply_chars=450):
+def generate(text, *, max_output_tokens=128, max_reply_chars=450, transport: OllamaJsonPort | None = None):
     validate_response_limits({"max_output_tokens": max_output_tokens, "max_reply_chars": max_reply_chars})
-    endpoint = os.environ.get("MEET_OLLAMA_URL", "http://meet-ollama:11434")
     payload = {
         "model": os.environ.get("MEET_LLM_MODEL", "qwen2.5:1.5b"),
         "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": text}],
@@ -36,17 +34,9 @@ def generate(text, *, max_output_tokens=128, max_reply_chars=450):
         "keep_alive": "5m",
         "options": {"num_ctx": 2048, "num_predict": max_output_tokens, "temperature": 0.3, "num_gpu": 99},
     }
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    request = urllib.request.Request(
-        endpoint + "/api/chat", json.dumps(payload).encode(), {"Content-Type": "application/json"}
-    )
-    with opener.open(request, timeout=60) as response:
-        raw = response.read(65537)
-    if len(raw) > 65536:
-        raise ValueError("meet_llm_response_too_large")
-    result = json.loads(raw)
-    with opener.open(endpoint + "/api/ps", timeout=5) as response:
-        loaded = json.loads(response.read(65536))
+    transport = transport if transport is not None else OllamaHttp()
+    result = transport.chat(payload)
+    loaded = transport.models()
     if not any(
         item.get("name") == payload["model"]
         and item.get("size_vram", 0) > 0

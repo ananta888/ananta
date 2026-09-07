@@ -913,7 +913,7 @@
         "Profile, Prompt-Kontext und Tool-Zugriff werden beim Rollen-/Raumwechsel neu geprüft; fremde Gesprächsdaten nicht in neue Sessions übernehmen.",
         "Automatisierte Angriffssequenzen testen Datenabfluss, falsche Sprecheridentität, Tool-Eskalation, Callback-Manipulation und persistierte Prompt-Injection."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. MAP-27-Nachtrag nach Quellstandpruefung: Default-HTTP-Redirects und fehlende Overflowpruefung der Ollama-Modellliste erkannt. docs/contracts/meet-local-llm-transport.md vor Implementierung geplant, committet und gepusht. Kleiner operatorgebundener Zwei-Methoden-Transport trennt HTTP-Konfiguration/IO von Antwortgenerierung (SRP/DIP/ISP): feste Chat-/Modellpfade, keine Redirects/Proxyuebernahme/Provider-Fallbacks, begrenzte JSON-Koerper und Reads, keine doppelten Schluessel oder nichtendlichen Zahlen, explizites Schliessen von Fehlerantworten, redigierte Fehlercodes. Prompts bleiben reine Userdaten unter festem Systemprompt ohne Tools/History; vorhandene Token-/Zeichen-/Modell-/GPU-Pruefung unveraendert. 156 echte Loopback-HTTP-/Budget-/Fehler-/Medienregressionen in 80.88 s bestanden, Ruff gruen. Test-GPU-Metadaten sind synthetisch; keine echte Inferenz oder Produktionsfreigabe behauptet. Bestehender HTTP-Reader im historischen persona_http-Modul wiederverwendet statt dupliziert; operatorgewaehlter Host bleibt eigene Vertrauensgrenze. Weitergehende tenant-/raum-/rollenbezogene, visuelle und ASR-Angriffssequenzen sowie Produktionskriterien bleiben offen; MAP-27 bleibt partial."
     },
     {
       "id": "MAP-28",
@@ -1301,10 +1301,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T15:07:07.341857Z",
+    "generated_at": "2026-09-07T15:32:25.191383Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "0f2ea244b593cf4183b1f4c47115d001768ea8b3e0aceb5d65a2a820dc44bf5e",
+    "source_hash": "bbb47b1ef5678ac40f5d56c797938c93ad518c55c993813d663ad9d8b2acb2b5",
     "is_stale": false
   }
 }
