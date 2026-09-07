@@ -30,3 +30,21 @@ is exposed, document its cause and make a narrow contract-preserving correction.
 The existing executor still combines replay storage, process launching and slot
 bookkeeping (SRP/DIP debt); tests must isolate those effects explicitly, without
 adding worker policy or an orchestration loop.
+
+## Result, 2026-09-07
+
+Three new tests use independent spawned Python processes and the same real
+temporary SQLite file. A simultaneous pair admits exactly one launch boundary;
+a fresh process rejects both the exact replay and a changed tenant/task/runtime
+under the already consumed lease. A distinct dispatch remains admissible.
+An actual abrupt exit with code 23 after the reservation commit and a separate
+failed launch both retain the fence across a fresh process.
+
+The first run failed three probe imports because the broad pytest application
+fixture had added another `tests` package to the import search path. Each test
+now explicitly prepends this checkout for fresh spawn imports; no production
+path or executor was changed. The repeat passed all 18 focused tests. The final
+combined replay/pump/transport/deadline/SQL regression passed **61 tests in
+31.60 seconds**. Child launch and watchdog remain explicit test doubles, not
+real browser crashes or media reception evidence. The existing durable worker
+admission implementation required no behavioral correction.
