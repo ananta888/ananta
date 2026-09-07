@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from tests.meet_gpu_capacity import require_gpu_capacity
 from tests.meet_gpu_source_fixture import ROOT, docker, driver_bindings
 from worker.meet_media.contract import signature
 
@@ -124,12 +125,13 @@ def worker_command(name, network, image, drivers, lifetime, key_path, root=ROOT)
 
 
 class DialogGpuFixture:
-    def __init__(self, lifetime=240, *, command=docker):
+    def __init__(self, lifetime=240, *, command=docker, check_capacity=require_gpu_capacity):
         if type(lifetime) is not int or not 180 <= lifetime <= 600:
             raise ValueError("test_inference_lifetime_invalid")
         base = "meet-test-inference-" + str(uuid4())
         self.network, self.provider, self.worker = (base + suffix for suffix in ("-network", "-ollama", "-worker"))
         self.command, self.lifetime = command, lifetime
+        self.check_capacity = check_capacity
         self.resources = []
         self.temporary = None
         self.endpoint = None
@@ -192,6 +194,7 @@ class DialogGpuFixture:
     def start(self):
         if self.resources or self.temporary is not None:
             raise ValueError("test_inference_already_started")
+        self.check_capacity()
         try:
             service = "ananta-meet-media-meet-media-worker-1"
             image = self.command("inspect", service, "--format", "{{.Image}}")

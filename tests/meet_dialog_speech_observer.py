@@ -59,8 +59,8 @@ class DialogSpeechObserver:
         monkeypatch.setattr(DialogSpeechOutput, "tick", observe)
         update = DialogSpeechOutput.update
 
-        def observe_update(output, receipt, controls):
-            update(output, receipt, controls)
+        def observe_update(output, receipt, controls, *voice):
+            update(output, receipt, controls, *voice)
             with self.condition:
                 self.control = controls.get("speech")
                 self.condition.notify_all()
@@ -77,6 +77,7 @@ class DialogSpeechObserver:
                     "usage": media["usage"],
                     "elapsed_seconds": round(time.monotonic() - started, 2),
                     "text_sha256": hashlib.sha256(media["text"].encode()).hexdigest(),
+                    "voice_id": media["speech"]["profile"]["voice_id"],
                 }
             )
             return media

@@ -294,3 +294,30 @@ containers/keys/networks. The existing large cross-repository setup function is
 a preserved SRP limitation; new scenario behavior belongs in a separate helper,
 not more scenario branches inside its orchestration fixture. These runs do not
 claim public TURN, production persona admission or release identity.
+
+The synthetic live voice scenario passed in 47.52 seconds: actual Hub Task CAS,
+signed exchanges and two correlated remote replies under explicit test policy.
+The first 220,500-sample source completed; revoking the second voice cleared its
+playing/queued PCM locally and removed remote audio in 1,717.75 ms, while screen
+and parent membership remained active. No human capture or policy bypass.
+Its fixture/legacy speech regressions passed 71 tests in 36.46 seconds.
+
+The actual GPU variant has **not passed**. Its first run failed after 111.86
+seconds: neutral speech completed (62,720 samples), but the second source
+stopped and the runtime reported `meet_dialog_hub_revoked_or_unavailable`.
+That original cause remains unresolved. A code/timing-only bounded callback
+observer was added; its diagnostic repeat failed earlier, after 116.69 seconds,
+in the existing 45-second pinned-model preload, before any dialog was admitted.
+Read-only host inspection found a separate project's Qwen process holding about
+8.4 GiB of the 10 GiB GPU; it was not stopped or modified. This observation does
+not retroactively establish the first failure's cause.
+
+The opt-in GPU fixture now requires at least 4,096 MiB free on its fixed GPU 0
+before creating its Docker/filesystem resources. This conservative readiness
+check is not a capacity reservation and cannot prevent a later competing load.
+Missing/insufficient capacity yields a bounded machine-readable test failure,
+never a successful skip, CPU substitution, process kill or interactive prompt.
+Capacity, cleanup, diagnostic and voice-scenario fixtures passed 46 tests in
+36.63 seconds. Actual selected-voice GPU delivery remains an open acceptance
+item until sufficient hardware capacity is available and the original failure
+can be diagnosed. Serving services, keys, model contents and trust are unchanged.

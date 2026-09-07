@@ -82,19 +82,36 @@ def close_bridge(bridge):
 
 
 @pytest.mark.parametrize(
-    "spoken_mode,gpu_mode,interruption_mode,avatar_mode",
+    "spoken_mode,gpu_mode,interruption_mode,avatar_mode,voice_mode",
     [
-        pytest.param(False, False, None, False, id="text"),
-        pytest.param(True, False, None, False, id="speech"),
+        pytest.param(False, False, None, False, False, id="text"),
+        pytest.param(True, False, None, False, False, id="speech"),
         pytest.param(
-            True, False, None, True, id="avatar", marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short avatar gate")
+            True,
+            False,
+            None,
+            True,
+            False,
+            id="avatar",
+            marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short avatar gate"),
         ),
-        pytest.param(True, True, None, True, id="avatar-gpu", marks=GPU_GATE),
+        pytest.param(True, True, None, True, False, id="avatar-gpu", marks=GPU_GATE),
+        pytest.param(
+            True,
+            False,
+            None,
+            False,
+            True,
+            id="voice-selection",
+            marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short voice gate"),
+        ),
+        pytest.param(True, True, None, False, True, id="voice-selection-gpu", marks=GPU_GATE),
         pytest.param(
             True,
             False,
             None,
             "image",
+            False,
             id="avatar-image",
             marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short image gate"),
         ),
@@ -103,6 +120,7 @@ def close_bridge(bridge):
             False,
             None,
             "image-renewal",
+            False,
             id="avatar-image-renewal",
             marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="bounded image renewal gate"),
         ),
@@ -110,6 +128,7 @@ def close_bridge(bridge):
             True,
             False,
             "pause",
+            False,
             False,
             id="interruption-pause",
             marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short interruption gate"),
@@ -119,6 +138,7 @@ def close_bridge(bridge):
             False,
             "stop",
             False,
+            False,
             id="interruption-stop",
             marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short interruption gate"),
         ),
@@ -126,6 +146,7 @@ def close_bridge(bridge):
             True,
             True,
             None,
+            False,
             False,
             id="gpu",
             marks=GPU_GATE,
@@ -140,6 +161,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     gpu_mode,
     interruption_mode,
     avatar_mode,
+    voice_mode,
     record_property,
 ):
     from cryptography import x509
@@ -170,6 +192,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from tests.meet_dialog_interruption import configure_interruption, finish_interruption
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
     from tests.meet_dialog_speech_observer import DialogSpeechObserver
+    from tests.meet_dialog_voice_scenario import make_voice_scenario
     from worker.meet_media.dialog_chat import DialogChatPump
     from worker.meet_media.dialog_client import HubDialogClient
     from worker.meet_media.dialog_runtime import run
@@ -210,7 +233,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         | {
             "MEET_TEST_HUB_PUBLIC_KEY": str(public),
             "MEET_DIALOG_GPU_GATE": "1" if gpu_mode else "0",
-            "MEET_DIALOG_OBSERVE": "1" if interruption_mode is not None or avatar_mode else "0",
+            "MEET_DIALOG_OBSERVE": "1" if interruption_mode is not None or avatar_mode or voice_mode else "0",
         },
         text=True,
         stdin=subprocess.PIPE,
@@ -307,6 +330,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         configure_dialog_gpu(speech_observer, gpu_mode, gpu_cleanup, record_property)
         interruption = configure_interruption(speech_observer, interruption_mode, monkeypatch)
         avatar_observer = make_avatar_observer(avatar_mode, speech_observer, monkeypatch, actual_gpu=gpu_mode)
+        voice_scenario = make_voice_scenario(voice_mode, speech_observer, monkeypatch, actual_gpu=gpu_mode)
         capabilities = speech_observer.capabilities
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
@@ -427,6 +451,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 speech_profile=speech_observer.profile,
             ),
             avatar_profiles=avatar_observer.profiles,
+            voice_profiles=voice_scenario.profiles,
         )
         app.config["ROLE"] = "hub"
         app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
@@ -447,6 +472,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                     "duration_seconds": SOAK_SECONDS or 90,
                     "chat_mode": "mention",
                     **avatar_observer.start_options,
+                    **voice_scenario.start_options,
                 },
             )
         started_at = time.monotonic()
@@ -467,6 +493,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             }
         )
         assert chat_ready.wait(8), failures
+        if voice_scenario.finish(
+            app, service, principal, started, speech_observer, command, completed, failures, record_property
+        ):
+            return
         if avatar_observer.finish(
             app, service, principal, started, speech_observer, command, completed, failures, record_property
         ):

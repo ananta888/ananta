@@ -79,7 +79,7 @@ def test_invalid_configuration_fails_before_docker(change, tmp_path):
     ],
 )
 def test_every_owned_resource_is_cleaned_after_partial_or_uncertain_setup(failure):
-    instance = DialogGpuFixture()
+    instance = DialogGpuFixture(check_capacity=lambda: None)
     created = []
 
     def command(*args):
