@@ -10,6 +10,7 @@ from agent.services.meet_chat_contract import ChatScope
 from agent.services.meet_chat_policy import ChatReplyPolicy
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import chat_policy_revision
+from agent.services.meet_dialog_lifecycle import organization_tuple
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from ananta_contracts.meet_dialog_audio import audio_job_current
 
@@ -123,6 +124,8 @@ class MeetDialogAudio:
             or child.status != "in_progress"
             or child.tenant_id != scope.tenant_id
             or child.project_id != scope.project_id
+            or getattr(child, "parent_task_id", None) != scope.task_id
+            or organization_tuple(child) != organization_tuple(parent)
             or (child.worker_execution_context or {})
             != {"meet_audio": job, "parent_dispatch": scope.lease_id, "runtime_id": scope.runtime_id}
         ):

@@ -27,6 +27,7 @@ def runtime():
     def claim(scope, job, now):
         f.context["audio_job"] = job
         children[job["task_id"]] = SimpleNamespace(task_kind="meet_audio_receive", status="in_progress", tenant_id="tenant", project_id="project",
+            parent_task_id=scope.task_id,
             worker_execution_context={"meet_audio": job, "parent_dispatch": scope.lease_id, "runtime_id": scope.runtime_id})
     f.tasks.claim_audio.side_effect = claim; f.tasks.finish_audio.return_value = True
     service = MeetDialogAudio(f.authority, f.tasks, meet, Mock(), Mock(), Mock(), Mock(), clock=lambda: f.now)

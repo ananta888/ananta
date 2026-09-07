@@ -171,6 +171,11 @@ class MeetTurnService:
             context.get("owner_subject", ""), task.tenant_id, task.project_id, frozenset({"user"})
         )
         try:
+            from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
+
+            MeetDialogLifecycle(get_repository_registry().task_repo).require_current(
+                task, context.get("binding_task_id", "")
+            )
             self.binding.require_write_access(principal, task.project_id, context.get("binding_task_id", ""))
             self._visuals().require_context(principal, task.project_id, context)
         except Exception:
@@ -180,6 +185,17 @@ class MeetTurnService:
 
 class HubMediaTasks:
     """Existing Hub queue, content-free events and lease-fenced terminal CAS."""
+
+    def __init__(self, *, lifecycle=None):
+        self.lifecycle = lifecycle
+
+    def _parent_lifecycle(self):
+        from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
+        from agent.services.repository_registry import get_repository_registry
+
+        return (
+            self.lifecycle if self.lifecycle is not None else MeetDialogLifecycle(get_repository_registry().task_repo)
+        )
 
     def require_current(self, turn):
         from agent.services.repository_registry import get_repository_registry
@@ -212,10 +228,14 @@ class HubMediaTasks:
             or any(context.get(key) != value for key, value in expected.items())
         ):
             raise MeetError("meet_capacity_task_changed", 409)
+        self._parent_lifecycle().require_current(task, turn.get("binding_task_id", ""))
 
     def start(self, turn, actor):
         from agent.services.task_queue_service import get_task_queue_service
 
+        inherited = self._parent_lifecycle().scope_for_parent(
+            turn["tenant_id"], turn["project_id"], turn.get("binding_task_id", "")
+        )
         get_task_queue_service().ingest_task(
             task_id=turn["task_id"],
             status="in_progress",
@@ -223,12 +243,14 @@ class HubMediaTasks:
             description="Hub-delegated local text, speech and synthetic avatar generation.",
             created_by=actor,
             source="meet_media",
+            team_id=inherited.pop("team_id", None),
             event_type="meet_media_delegated",
             event_channel="hub_task_queue",
             extra_fields={
                 "task_kind": "meet_media_turn",
                 "project_id": turn["project_id"],
                 "tenant_id": turn["tenant_id"],
+                **inherited,
                 "required_capabilities": ["meet_media_turn"],
                 "parent_task_id": turn.get("binding_task_id"),
                 "worker_execution_context": {
@@ -274,8 +296,20 @@ class HubMediaTasks:
         )
 
     def finish(self, turn, status):
+        from agent.services.meet_dialog_lifecycle import organization_tuple
+        from agent.services.repository_registry import get_repository_registry
         from agent.services.task_runtime_service import compare_and_set_local_task_status
 
+        inherited = None
+        if status == "completed":
+            try:
+                task = get_repository_registry().task_repo.get_by_id(turn["task_id"])
+                if task is None:
+                    return False
+                self._parent_lifecycle().require_current(task, turn.get("binding_task_id", ""))
+                inherited = organization_tuple(task)
+            except Exception:
+                return False  # Rejected success still permits separate failed/cancelled cleanup.
         return compare_and_set_local_task_status(
             turn["task_id"],
             status,
@@ -284,6 +318,13 @@ class HubMediaTasks:
                 task.task_kind == "meet_media_turn"
                 and task.tenant_id == turn["tenant_id"]
                 and task.project_id == turn["project_id"]
+                and (
+                    inherited is None
+                    or (
+                        organization_tuple(task) == inherited
+                        and (task.parent_task_id or "") == turn.get("binding_task_id", "")
+                    )
+                )
                 and (task.worker_execution_context or {}).get("meet_media", {}).get("lease_id") == turn["lease_id"]
                 and (task.worker_execution_context or {}).get("meet_media", {}).get("speech_profile")
                 == turn.get("speech_profile")

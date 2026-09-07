@@ -84,10 +84,12 @@ class HubDialogTasks:
             scope.task_id,
             "in_progress",
             expected_statuses={"in_progress"},
-            authoritative_predicate=lambda row: row.task_kind == "meet_dialog_session"
-            and row.tenant_id == scope.tenant_id
-            and row.project_id == scope.project_id
-            and row.worker_execution_context == context,
+            authoritative_predicate=lambda row: (
+                row.task_kind == "meet_dialog_session"
+                and row.tenant_id == scope.tenant_id
+                and row.project_id == scope.project_id
+                and row.worker_execution_context == context
+            ),
             worker_execution_context=context | {"meet_dialog": changed},
             event_type="meet_dialog_voice_selected"
             if voice_selection is not None
@@ -100,12 +102,25 @@ class HubDialogTasks:
 
     def claim_audio(self, scope, job, now):
         from agent.services.meet_contract import MeetError
+        from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle, organization_tuple
         from agent.services.task_queue_service import get_task_queue_service
         from agent.services.task_runtime_service import compare_and_set_local_task_status
 
         task = self.get_by_id(scope.task_id)
+        if (
+            task is None
+            or task.task_kind != "meet_dialog_session"
+            or task.status != "in_progress"
+            or task.tenant_id != scope.tenant_id
+            or task.project_id != scope.project_id
+        ):
+            raise MeetError("meet_audio_task_inactive", 403)
         context = dict(task.worker_execution_context or {})
         current = dict(context.get("meet_dialog", {}))
+        lifecycle = self.lifecycle if self.lifecycle is not None else MeetDialogLifecycle(self)
+        lifecycle.require_current(task, current.get("binding_task_id", ""))
+        inherited = organization_tuple(task)
+        parent_id = task.parent_task_id
         previous = current.get("audio_job")
         if (
             current.get("lease_id") != scope.lease_id
@@ -120,10 +135,14 @@ class HubDialogTasks:
             scope.task_id,
             "in_progress",
             expected_statuses={"in_progress"},
-            authoritative_predicate=lambda row: row.task_kind == "meet_dialog_session"
-            and row.tenant_id == scope.tenant_id
-            and row.project_id == scope.project_id
-            and row.worker_execution_context == context,
+            authoritative_predicate=lambda row: (
+                row.task_kind == "meet_dialog_session"
+                and row.tenant_id == scope.tenant_id
+                and row.project_id == scope.project_id
+                and row.parent_task_id == parent_id
+                and organization_tuple(row) == inherited
+                and row.worker_execution_context == context
+            ),
             worker_execution_context=context | {"meet_dialog": changed},
             event_type="meet_audio_delegated",
             event_actor="hub",
@@ -141,12 +160,14 @@ class HubDialogTasks:
             description="Bounded local ASR; no audio or transcript persisted.",
             created_by=scope.owner_subject,
             source="meet_audio",
+            team_id=inherited.get("team_id"),
             event_type="meet_audio_ingested",
             event_channel="hub_task_queue",
             extra_fields={
                 "task_kind": "meet_audio_receive",
                 "tenant_id": scope.tenant_id,
                 "project_id": scope.project_id,
+                **{key: value for key, value in inherited.items() if key != "team_id"},
                 "parent_task_id": scope.task_id,
                 "required_capabilities": ["meet_audio_receive"],
                 "worker_execution_context": {
@@ -166,12 +187,14 @@ class HubDialogTasks:
             job["task_id"],
             status,
             expected_statuses={"in_progress"},
-            authoritative_predicate=lambda row: row.task_kind == "meet_audio_receive"
-            and row.tenant_id == scope.tenant_id
-            and row.project_id == scope.project_id
-            and (row.worker_execution_context or {}).get("meet_audio") == job
-            and (row.worker_execution_context or {}).get("parent_dispatch") == scope.lease_id
-            and (row.worker_execution_context or {}).get("runtime_id") == scope.runtime_id,
+            authoritative_predicate=lambda row: (
+                row.task_kind == "meet_audio_receive"
+                and row.tenant_id == scope.tenant_id
+                and row.project_id == scope.project_id
+                and (row.worker_execution_context or {}).get("meet_audio") == job
+                and (row.worker_execution_context or {}).get("parent_dispatch") == scope.lease_id
+                and (row.worker_execution_context or {}).get("runtime_id") == scope.runtime_id
+            ),
             event_type="meet_audio_" + status,
             event_actor="hub",
         )
@@ -251,11 +274,13 @@ class HubDialogTasks:
             scope.task_id,
             status,
             expected_statuses={"in_progress"},
-            authoritative_predicate=lambda task: task.task_kind == "meet_dialog_session"
-            and task.tenant_id == scope.tenant_id
-            and task.project_id == scope.project_id
-            and (task.worker_execution_context or {}).get("meet_dialog", {}).get("lease_id") == scope.lease_id
-            and (task.worker_execution_context or {}).get("meet_dialog", {}).get("runtime_id") == scope.runtime_id,
+            authoritative_predicate=lambda task: (
+                task.task_kind == "meet_dialog_session"
+                and task.tenant_id == scope.tenant_id
+                and task.project_id == scope.project_id
+                and (task.worker_execution_context or {}).get("meet_dialog", {}).get("lease_id") == scope.lease_id
+                and (task.worker_execution_context or {}).get("meet_dialog", {}).get("runtime_id") == scope.runtime_id
+            ),
             event_type="meet_dialog_" + status,
             event_actor="hub",
             event_details={"runtime_id": scope.runtime_id},

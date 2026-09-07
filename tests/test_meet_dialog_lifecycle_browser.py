@@ -4,7 +4,7 @@ import os
 import time
 
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from agent.db_models import OrganizationInstanceDB, TaskDB
 from agent.services.meet_dialog_lifecycle import organization_tuple
@@ -28,6 +28,14 @@ class LifecycleScenario:
         assert child.status == "in_progress"
         assert organization_tuple(child) == organization_tuple(service.tasks.get_by_id(self.parent_id))
         with Session(engine) as session:
+            media_children = session.exec(
+                select(TaskDB).where(TaskDB.parent_task_id == child.id, TaskDB.task_kind == "meet_media_turn")
+            ).all()
+            assert len(media_children) == 2
+            assert all(
+                row.status == "completed" and organization_tuple(row) == organization_tuple(child)
+                for row in media_children
+            )
             if self.reason == "parent-cancel":
                 row = session.get(TaskDB, self.parent_id)
                 row.status = "cancelled"
@@ -46,6 +54,7 @@ class LifecycleScenario:
             "worker_stop_ms": round((time.monotonic() - revoked_at) * 1000, 2),
             "dialog_stop_api_used": False,
             "organization_tuple_inherited": True,
+            "completed_media_children_with_scope": len(media_children),
         }
 
 

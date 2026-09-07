@@ -177,6 +177,10 @@ def test_revocation_at_completion_still_hides_reply(runtime):
 
 
 def test_real_hub_task_is_content_free_and_cannot_use_legacy_publication_lease(runtime, app):
+    from sqlmodel import Session
+
+    from agent.database import engine
+    from agent.db_models import ProjectDB, TaskDB
     from agent.repository import task_repo
 
     runtime.service.tasks = HubMediaTasks()
@@ -197,6 +201,18 @@ def test_real_hub_task_is_content_free_and_cannot_use_legacy_publication_lease(r
 
     runtime.worker.execute.side_effect = execute
     with app.app_context():
+        # The synthetic chat authority still needs a real active parent when
+        # exercising the actual task adapter; an arbitrary task string is not one.
+        with Session(engine) as session:
+            session.add(ProjectDB(
+                tenant_id="tenant", project_id="project", name="Synthetic chat", created_by_subject_id="actor"
+            ))
+            session.commit()
+            session.add(TaskDB(
+                id=runtime.admission.reservation.scope.task_id, tenant_id="tenant", project_id="project",
+                status="in_progress", title="Synthetic chat parent",
+            ))
+            session.commit()
         reply = runtime.service.execute(PRINCIPAL, runtime.admission)
         stored = task_repo.get_by_id(reply["media"]["task_id"])
         assert stored.status == "completed"

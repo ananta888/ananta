@@ -34,3 +34,41 @@ SRP/DIP: reuse the small lifecycle port for parent policy and leave queue/CAS in
 the persistence adapters. The existing mixed `meet_turn_service` module remains
 documented SRP debt; this slice does not introduce another scheduler or move Hub
 policy into the Worker.
+
+## Implemented and verified (2026-09-08)
+
+Both original SQL inheritance assertions failed before correction (two failures,
+11.62 s): audio and generated media children had an empty organization tuple.
+Both now carry organization/unit/team/role from the authoritative dialog/parent.
+Audio reservation checks its live parent first and fences parent/scope in CAS;
+audio result admission rechecks the exact child parent and scope. Media capacity
+authority and publication leases recheck parent lifecycle. Successful media
+completion also fences the observed child scope in CAS, and uncertain policy/
+lookup rejects success without exposing provider details. Failed/cancelled
+cleanup remains possible after revocation.
+
+The first combined run found one older chat test with a synthetic parent string
+but no actual task row (90 passed, one failed). Its fixture now creates the real
+minimal parent/project; the production check was not weakened. The existing
+synthetic audio fixture likewise explicitly carries its real contract's parent
+column. Final targeted regression: 222 passed in 86.81 s, including audio and
+media child SQL/CAS races, removed scope, revoked parent/organization, no
+pre-reservation ingestion, stale completion/lease, provider failure, task
+cleanup, chat, capacity, image/video/persona profiles, dialog lifecycle and
+avatar/voice negotiation. Ruff and the 77-file Worker boundary gate passed.
+
+The current private Hub/Worker/Meet lifecycle matrix passed both cases in
+55.13 s. Each now asserts that both generated chat replies are completed real
+media child tasks with the entire organization tuple. Moving remote screen and
+two correlated chat replies precede parent cancellation or organization pause;
+Worker stopped in 1038.16/167.92 ms and the remote participant disappeared,
+without a dialog-stop command initiating teardown. This verifies real transport
+and persistence with synthetic organization/model/policy, not GPU, public TURN
+or production release evidence. It does not establish instantaneous cancellation
+of native inference already in flight.
+
+Role-assignment eligibility/revision and distinct Meet agent identity remain
+open; neither MAP-09 nor MAP-20 nor the whole TODO is complete. The legacy
+`MeetTurnService.lease_allowed` still uses the repository service locator (DIP
+debt); parent policy itself lives in the reusable narrow lifecycle port, while
+queue and CAS remain Hub persistence responsibilities.
