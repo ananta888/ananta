@@ -35,7 +35,25 @@ class HubDialogTasks:
         selection = parse_avatar_selection(selection, scope.tenant_id, scope.project_id)
         return self._set_controls(scope, controls, selection=selection)
 
-    def _set_controls(self, scope, controls, *, selection=None):
+    def set_voice_selection(self, scope, selection, controls):
+        from agent.models.meet_voice_selection import parse_voice_selection
+        from agent.services.meet_dialog_voice_selection import advance_voice_selection_controls
+        from ananta_contracts.meet_dialog import validate_controls
+
+        if scope.voice_selection is None:
+            return False
+        try:
+            validate_controls(controls)
+            if "speech" not in controls or controls != advance_voice_selection_controls(
+                scope, controls["speech"]["since"]
+            ):
+                return False
+        except ValueError:
+            return False
+        selection = parse_voice_selection(selection, scope.tenant_id, scope.project_id)
+        return self._set_controls(scope, controls, voice_selection=selection)
+
+    def _set_controls(self, scope, controls, *, selection=None, voice_selection=None):
         from agent.services.meet_dialog_controls import controls_projection
         from agent.services.task_runtime_service import compare_and_set_local_task_status
 
@@ -50,11 +68,15 @@ class HubDialogTasks:
             or current.get("runtime_id") != scope.runtime_id
             or selection is not None
             and current.get("avatar_selection") != scope.avatar_selection
+            or voice_selection is not None
+            and current.get("voice_selection") != scope.voice_selection
         ):
             return False
         changed = current | {"controls": controls}
         if selection is not None:
             changed["avatar_selection"] = selection
+        if voice_selection is not None:
+            changed["voice_selection"] = voice_selection
         return compare_and_set_local_task_status(
             scope.task_id,
             "in_progress",
@@ -64,7 +86,11 @@ class HubDialogTasks:
             and row.project_id == scope.project_id
             and row.worker_execution_context == context,
             worker_execution_context=context | {"meet_dialog": changed},
-            event_type="meet_dialog_avatar_selected" if selection is not None else "meet_dialog_controls_changed",
+            event_type="meet_dialog_voice_selected"
+            if voice_selection is not None
+            else "meet_dialog_avatar_selected"
+            if selection is not None
+            else "meet_dialog_controls_changed",
             event_actor=scope.owner_subject,
             event_details={"revision": controls["revision"]},
         )

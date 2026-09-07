@@ -204,3 +204,37 @@ routes and composition separate. Existing explicit kind allowlists are
 extended additively; no broad central profile refactor was introduced.
 Stages 5–6 (live selection CAS, old speech invalidation and UI/delivery) remain
 open. None of this enables the serving instance automatically.
+
+## Live voice selection: next closed slices
+
+First add a Meet-specific adapter that resolves a current voice profile,
+rechecks explicit preview/publication policy and the completed inspection
+receipt, reads the exact immutable descriptor, and derives only the catalog's
+speech profile. The profile pin and asset reference remain Hub metadata; a
+worker gets neither authority to choose another persona nor source-policy data.
+
+Then add optional dialog negotiation and a passive voice-selection CAS that
+advances only the global and speech revisions while preserving enabled state.
+The exchange must expose a bounded independent ready/paused/blocked projection.
+Policy revocation must invalidate playing/queued old speech even if the
+operator has not changed controls. Generation must recheck the selected pin
+before dispatch, during capacity admission and before releasing PCM. Existing
+unnegotiated sessions retain their fixed operator profile and exact old wire
+shape. A voice switch must not revoke parent Meet membership or unrelated
+avatar/screen/chat. No live selector/API/UI is enabled until these fences agree.
+
+The spoken binding extension will carry paired selection/profile digests only
+for explicitly negotiated voice sessions. The ordinary signed response must
+match both digests and its actual speech receipt. The worker additionally
+tracks observed voice-state transitions locally: a blocked-to-ready round trip
+cannot revive a previously pending reply just because its pins look unchanged.
+This local fence is not a new Hub identity or policy grant. Legacy spoken
+bindings and unnegotiated fixed-voice behavior remain unchanged.
+
+The Meet descriptor/profile adapter slice passed 50 combined adapter regressions
+in 30.12 seconds. The passive voice-selection CAS passed 81 voice/avatar/control
+tests in 37.35 seconds, including preserving both initially enabled and paused
+speech. Three initial failures were corrected test-fixture assumptions: the
+shared fixture started speech enabled. Production activation semantics were
+not weakened. These Hub primitives are not yet exposed as a live selector;
+negotiated projections and pending/playing result fences are the next slice.

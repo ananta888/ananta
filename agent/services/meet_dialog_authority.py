@@ -31,6 +31,7 @@ class DialogAuthority:
     audio_mode: str
     controls: DialogControls
     avatar_selection: dict | None = None
+    voice_selection: dict | None = None
 
 
 class MeetDialogAuthority:
@@ -73,7 +74,7 @@ class MeetDialogAuthority:
             "audio_count",
             "controls",
         }
-        if not isinstance(value, dict) or set(value) - {"avatar_selection"} != fields:
+        if not isinstance(value, dict) or set(value) - {"avatar_selection", "voice_selection"} != fields:
             raise MeetError("meet_dialog_binding_invalid", 403)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
             if not isinstance(value[field], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", value[field]):
@@ -104,6 +105,16 @@ class MeetDialogAuthority:
             raise MeetError("meet_dialog_policy_denied", 403)
         controls = parse_controls(value["controls"])
         avatar_selection = None
+        voice_selection = None
+        if "voice_selection" in value:
+            from agent.models.meet_voice_selection import parse_voice_selection
+
+            try:
+                if "speech.publish" not in capabilities or controls.speech is None:
+                    raise ValueError()
+                voice_selection = parse_voice_selection(value["voice_selection"], task.tenant_id, task.project_id)
+            except ValueError:
+                raise MeetError("meet_dialog_voice_selection_invalid", 403) from None
         if "avatar_selection" in value:
             from agent.models.meet_avatar_selection import parse_avatar_selection
 
@@ -143,4 +154,5 @@ class MeetDialogAuthority:
             value["audio_mode"],
             controls,
             avatar_selection,
+            voice_selection,
         )
