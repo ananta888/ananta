@@ -72,3 +72,12 @@ open; neither MAP-09 nor MAP-20 nor the whole TODO is complete. The legacy
 `MeetTurnService.lease_allowed` still uses the repository service locator (DIP
 debt); parent policy itself lives in the reusable narrow lifecycle port, while
 queue and CAS remain Hub persistence responsibilities.
+
+Follow-up fixture audit: the opt-in legacy GPU chat test used the same missing
+parent assumption as the corrected CPU chat test. Its isolated preparation now
+creates the exact project and active Hub parent before requesting GPU work.
+`test_meet_gpu_chat_fixture.py` exercises that preparation and the actual media
+task start/current/completion entirely on CPU: one passed in 7.78 s. The two
+actual hardware tests were explicitly skipped in this fixture-only run; no GPU
+success is claimed. The selected-voice combined GPU gate still requires 4096 MiB
+free; the last read-only observation was 1464 MiB, with other GPU work untouched.

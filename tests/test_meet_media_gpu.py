@@ -9,6 +9,34 @@ from unittest.mock import Mock
 import pytest
 
 
+def seed_gpu_chat_parent(engine, scope):
+    """Prepare only the test-owned Hub database; performs no GPU operation."""
+    from sqlmodel import Session
+
+    from agent.db_models import ProjectDB, TaskDB
+
+    with Session(engine) as session:
+        session.add(
+            ProjectDB(
+                tenant_id=scope.tenant_id,
+                project_id=scope.project_id,
+                name="Synthetic GPU chat",
+                created_by_subject_id="synthetic-test-actor",
+            )
+        )
+        session.commit()
+        session.add(
+            TaskDB(
+                id=scope.task_id,
+                tenant_id=scope.tenant_id,
+                project_id=scope.project_id,
+                status="in_progress",
+                title="Synthetic GPU chat parent",
+            )
+        )
+        session.commit()
+
+
 @pytest.mark.skipif(os.environ.get("MEET_MEDIA_GPU_GATE") != "1", reason="opt-in provisioned local RTX media worker")
 def test_real_hub_task_and_local_gpu_response(app):
     from agent.repository import task_repo
@@ -36,6 +64,7 @@ def test_real_hub_task_and_local_gpu_response(app):
 def test_real_gpu_chat_reply_obeys_reserved_budget(app, tmp_path):
     from sqlalchemy import create_engine
 
+    from agent.database import engine as hub_engine
     from agent.repositories.meet_chat_dispatches import SqlChatDispatches
     from agent.repositories.meet_chat_reservations import SqlChatReservations
     from agent.repository import task_repo
@@ -63,6 +92,9 @@ def test_real_gpu_chat_reply_obeys_reserved_budget(app, tmp_path):
     service = MeetChatReplyService(authority, dispatches, Mock(), worker, HubMediaTasks())
     try:
         with app.app_context():
+            # Synthetic policy does not make a caller-provided parent ID an
+            # authoritative Hub task. Seed the actual scope before GPU dispatch.
+            seed_gpu_chat_parent(hub_engine, admission.reservation.scope)
             reply = service.execute(SimpleNamespace(tenant_id="tenant", subject_id="synthetic-test-actor"), admission)
             assert reply["published"] is False
             assert 0 < len(reply["media"]["text"]) <= 80
