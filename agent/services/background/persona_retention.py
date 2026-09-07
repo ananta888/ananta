@@ -6,6 +6,7 @@ import threading
 
 EXTENSION = "persona_retention_reconciler"
 VIDEO_EXTENSION = "persona_video_retention_reconciler"
+VOICE_EXTENSION = "persona_voice_retention_reconciler"
 
 
 def start_persona_retention(app):
@@ -15,6 +16,12 @@ def start_persona_retention(app):
         extension=VIDEO_EXTENSION,
         flag="ANANTA_PERSONA_VIDEO_RETENTION_ENABLED",
         runner_key="persona_video_retention_runner",
+    )
+    _start(
+        app,
+        extension=VOICE_EXTENSION,
+        flag="ANANTA_PERSONA_VOICE_RETENTION_ENABLED",
+        runner_key="persona_voice_retention_runner",
     )
 
 
@@ -37,7 +44,7 @@ def _start(app, *, extension, flag, runner_key):
                 logging.warning("Persona retention tick unavailable: %s", type(error).__name__)
             stop.wait(60)
 
-    name = "persona-retention" if extension == EXTENSION else "persona-video-retention"
+    name = extension.removesuffix("_reconciler").replace("_", "-")
     thread = threading.Thread(target=run, name=name, daemon=True)
     app.extensions[extension] = {"thread": thread, "stop_event": stop}
     import agent.common.context
@@ -47,7 +54,7 @@ def _start(app, *, extension, flag, runner_key):
 
 
 def stop_persona_retention(app):
-    for extension in (EXTENSION, VIDEO_EXTENSION):
+    for extension in (EXTENSION, VIDEO_EXTENSION, VOICE_EXTENSION):
         state = getattr(app, "extensions", {}).get(extension)
         if state:
             state["stop_event"].set()

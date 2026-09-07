@@ -16,6 +16,7 @@ class PersonaFileErasureStore:
             "image": ("image", "v0001__image.png", 5 * 1024 * 1024),
             "video": ("video", "v0001__clip.mp4", 1_500_000),
             "video_preview": ("image", "v0001__preview.png", 350_000),
+            "voice": ("voice", "v0001__voice.json", 2048),
         }
         if type(profile) is not str or profile not in profiles:
             raise ValueError("persona_erasure_profile_invalid")

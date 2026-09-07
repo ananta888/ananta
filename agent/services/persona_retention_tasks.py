@@ -5,10 +5,10 @@ import time
 
 class HubPersonaRetentionTasks:
     def __init__(self, *, clock=time.time, kind="image"):
-        if type(kind) is not str or kind not in ("image", "video"):
+        if type(kind) is not str or kind not in ("image", "video", "voice"):
             raise ValueError("persona_retention_kind_invalid")
         self.kind = kind
-        self.context_key = "persona_retention" if kind == "image" else "persona_video_retention"
+        self.context_key = "persona_retention" if kind == "image" else f"persona_{kind}_retention"
         self.clock = clock
 
     def start(self, record):

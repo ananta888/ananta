@@ -4,7 +4,7 @@ from sqlalchemy import BigInteger, Column, Index, MetaData, String, Table
 
 
 def persona_retention_tables(kind):
-    if type(kind) is not str or kind not in ("image", "video"):
+    if type(kind) is not str or kind not in ("image", "video", "voice"):
         raise ValueError("persona_retention_kind_invalid")
     _metadata = MetaData()
     retention = Table(
@@ -40,7 +40,7 @@ def persona_retention_tables(kind):
         Column("task_id", String(160)),
     )
     Index(
-        "ix_persona_retention_due" if kind == "image" else "ix_persona_video_retention_due",
+        "ix_persona_retention_due" if kind == "image" else f"ix_persona_{kind}_retention_due",
         retention.c.state,
         retention.c.next_attempt_ms,
     )

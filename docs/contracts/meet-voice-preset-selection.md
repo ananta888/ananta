@@ -143,3 +143,30 @@ The remaining stage-4 composition must add an isolated descriptor-worker image
 and disposable private-container test, then retention/erasure and opt-in Hub/API
 wiring. It must not enable ingestion without a retirement path or infer a
 serving deployment from a successful local fixture.
+
+### Isolated worker and retirement acceptance
+
+The descriptor worker now has a pinned standard-library-only Python image and
+an opt-in private Compose template: non-root, read-only root filesystem, 128 MB,
+0.5 CPU, 32 PIDs, no capabilities, host ports, GPU/model mounts or publication
+credentials. The actual private-container HTTP test passed in 12.14 seconds
+using image `sha256:e7d88d03876c95fbe76e151ce888c621c07099267602f6d700a667c331ef1018`.
+Real Hub project authority and test-only Registry receipts admitted the exact
+descriptor; subsequent policy revocation denied its release. Disposable worker
+and private network were removed; no serving deployment was modified.
+
+Voice retirement uses its own ledger, SQL index and `persona_voice_retention`
+Hub task. It removes only the exact hash-bound `v0001__voice.json` after a durable
+retirement tombstone. Models, keys and unrelated files are not targets. Changed
+bytes, symlinks/hardlinks, revoked/cancelled claims fail closed. Scheduled work
+is separately opt-in via `ANANTA_PERSONA_VOICE_RETENTION_ENABLED=1`, Hub-owned
+and stoppable. Nine new retirement/template tests passed in 13.30 seconds;
+52 existing image/video retirement regressions passed in 28.79 seconds with
+two pytest workers.
+This is logical file deletion, not guaranteed secure erasure of storage devices.
+
+Before opting in, the remaining composition slice must provide authenticated
+voice-policy/admission/reference/query/retirement API routes and connect the
+voice reference port to persona profiles. A saved profile or descriptor preview
+still must not activate a live microphone or grant publication. Existing
+image/video profile API shapes must remain compatible.
