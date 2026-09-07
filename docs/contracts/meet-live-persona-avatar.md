@@ -214,3 +214,11 @@ the image is visible again. Keep the blue selection across the renewal, then
 revoke it and require a new spoken reply plus continued screen without stale
 picture or PCM replay. This is a bounded short renewal test, not the separate
 two-hour soak or public TURN gate. Existing short/GPU scenarios remain unchanged.
+
+This renewal gate subsequently passed in 92.40 s: actual Meet lease generations
+1 and 2, image hydrations under generations 1/1/2, four avatar source generations,
+two complete local 220,500-sample replies, no replay after renewal and continued
+screen. Subsequent avatar revocation took 1,218.52 ms locally / 1,246.80 ms remotely;
+capture and transform errors remained zero. No production clock, lease issuer,
+runtime or timeout was changed. Eleven synthetic-catalog/classification tests
+passed in 13.18 s, including denial of any silent GPU-to-tone substitution.

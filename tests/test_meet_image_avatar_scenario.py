@@ -1,0 +1,62 @@
+"""Classify the image gate's synthetic policy/bytes without claiming admission."""
+
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
+from ananta_contracts.meet_persona_image import decode_assignment
+from tests.meet_dialog_avatar_observer import make_avatar_observer
+from tests.meet_dialog_image_avatar_scenario import SyntheticImageProfiles
+
+
+def principal():
+    return SimpleNamespace(subject_id="owner", tenant_id="synthetic", project_id="synthetic")
+
+
+def test_synthetic_image_catalog_is_closed_copied_and_binds_real_content_hashes():
+    profiles = SyntheticImageProfiles()
+    hashes = []
+    for color in ("red", "blue"):
+        pin = profiles.catalog[color][1]
+        image, binding = profiles.prepare(principal(), "synthetic", pin, "publish")
+        decode_assignment(image, tenant_id="synthetic", project_id="synthetic")
+        assert image["reference"]["classification"] == "test_only"
+        hashes.append(image["reference"]["sha256"])
+        binding["owner_id"] = "mutated"
+        image["reference"]["sha256"] = "0" * 64
+        assert profiles.prepare(principal(), "synthetic", pin, "publish")[0]["reference"]["sha256"] == hashes[-1]
+    assert len(set(hashes)) == 2
+
+
+@pytest.mark.parametrize("change", ["owner", "tenant", "project", "route", "purpose", "pin", "reference", "revoked"])
+def test_synthetic_policy_fixture_does_not_admit_foreign_or_revoked_bindings(change):
+    profiles, subject = SyntheticImageProfiles(), principal()
+    project, purpose = "synthetic", "publish"
+    image, pin = profiles.prepare(subject, project, profiles.catalog["red"][1], purpose)
+    if change == "owner":
+        subject.subject_id = "foreign"
+    elif change == "tenant":
+        subject.tenant_id = "foreign"
+    elif change == "project":
+        subject.project_id = "foreign"
+    elif change == "route":
+        project = "foreign"
+    elif change == "purpose":
+        purpose = "preview"
+    elif change == "pin":
+        pin["selection_digest"] = "0" * 64
+    elif change == "reference":
+        image["reference"]["artifact_id"] = "foreign"
+    else:
+        profiles.revoke()
+    with pytest.raises(PermissionError):
+        profiles.require_current(subject, project, pin, image["reference"], purpose)
+
+
+@pytest.mark.parametrize("mode", ["image", "image-renewal"])
+def test_synthetic_image_gate_cannot_silently_substitute_for_a_requested_gpu_case(mode, monkeypatch):
+    speech = Mock(worker=None)
+    with pytest.raises(ValueError, match="image_avatar_gpu_not_configured"):
+        make_avatar_observer(mode, speech, monkeypatch, actual_gpu=True)
+    assert speech.worker is None

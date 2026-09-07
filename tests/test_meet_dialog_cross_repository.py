@@ -101,6 +101,14 @@ def close_bridge(bridge):
         pytest.param(
             True,
             False,
+            None,
+            "image-renewal",
+            id="avatar-image-renewal",
+            marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="bounded image renewal gate"),
+        ),
+        pytest.param(
+            True,
+            False,
             "pause",
             False,
             id="interruption-pause",

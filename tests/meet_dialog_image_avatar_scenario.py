@@ -79,10 +79,16 @@ class SyntheticImageProfiles:
 
 
 class ImageAvatarScenario:
-    def __init__(self, speech, monkeypatch):
+    def __init__(self, speech, monkeypatch, *, renewal=False):
         self.observer = DialogAvatarObserver(True, speech, monkeypatch)
         self.profiles = SyntheticImageProfiles()
         self.start_options = {"avatar_images": True}
+        self.renewal = None
+        if renewal:
+            from tests.meet_avatar_renewal_observer import AvatarRenewalObserver
+
+            self.renewal = AvatarRenewalObserver(monkeypatch)
+            self.start_options["duration_seconds"] = 180
         self.callback_errors = []
         self.source_errors = []
         exchange = MeetDialogService.exchange
@@ -189,6 +195,12 @@ class ImageAvatarScenario:
                 {"speech": str(error), "hub_callbacks": self.callback_errors, "source_errors": self.source_errors}
             ) from error
         speech.require_remote(command)
+        if self.renewal is not None:
+            self.renewal.require_renewed(self.profiles.catalog["blue"][0]["reference"]["sha256"])
+            self.observer.wait("open", 12)
+            moving("blue")
+            assert len(speech.samples) == 1  # Never replay the old reply after renewal.
+            assert command("screen") == {"moving_screen": True}
         self.profiles.revoke()
         revoked_at = time.monotonic()
         self.observer.wait("closed", 3)
@@ -221,6 +233,7 @@ class ImageAvatarScenario:
                 "generations": self.observer.generation,
                 "speech_samples": speech.samples,
                 "remote_audio": speech.remote,
+                "renewal": self.renewal.report() if self.renewal is not None else None,
             },
         )
         return True

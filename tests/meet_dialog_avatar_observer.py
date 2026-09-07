@@ -134,8 +134,10 @@ class DialogAvatarObserver:
 
 
 def make_avatar_observer(mode, speech, monkeypatch, *, actual_gpu=False):
-    if mode == "image":
+    if mode in ("image", "image-renewal"):
+        if actual_gpu:
+            raise ValueError("test_image_avatar_gpu_not_configured")
         from tests.meet_dialog_image_avatar_scenario import ImageAvatarScenario
 
-        return ImageAvatarScenario(speech, monkeypatch)
+        return ImageAvatarScenario(speech, monkeypatch, renewal=mode == "image-renewal")
     return DialogAvatarObserver(mode, speech, monkeypatch, actual_gpu=actual_gpu)
