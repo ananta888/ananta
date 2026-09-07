@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { ApiBaseService } from '../../../services/api-base.service';
 import { PersonaEffectiveProfile, PersonaImageReference, PersonaVideoReference, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot } from './persona-profile.models';
-import { videoReference } from './persona-video-reference';
+import { videoPage, videoReference } from './persona-video-reference';
 
 @Injectable({ providedIn: 'root' })
 export class PersonaProfileApiClient extends ApiBaseService {
@@ -36,6 +36,12 @@ export class PersonaProfileApiClient extends ApiBaseService {
     return this.core.get<{ reference: PersonaVideoReference }>(
       `${this.base(scope)}/videos/${encodeURIComponent(artifactId)}/reference`, scope.hub, undefined, false,
     ).pipe(map(result => videoReference(result.reference, scope.project, artifactId)));
+  }
+
+  videos(scope: PersonaProfileScope, cursor: string | null) {
+    return this.core.request<unknown>(
+      'POST', `${this.base(scope)}/videos/query`, scope.hub, { body: { cursor, limit: 20 } },
+    ).pipe(map(result => videoPage(result, scope.project)));
   }
 
   preview(scope: PersonaProfileScope, artifactId: string) {

@@ -63,6 +63,42 @@ describe('Persona profile HTTP client', () => {
     expect(accept).toHaveBeenCalledWith(reference);
   });
 
+  it('queries preview-only clip pages with opaque cursor in the request body', () => {
+    const accept = vi.fn();
+    api.videos(scope, 'v'.repeat(43)).subscribe(accept);
+    const request = http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/query');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ cursor: 'v'.repeat(43), limit: 20 });
+    request.flush({ items: [], next_cursor: null, purpose: 'preview' });
+    expect(accept).toHaveBeenCalledWith({ items: [], next_cursor: null, purpose: 'preview' });
+  });
+
+  it.each([
+    { purpose: 'publish' }, { unknown: true }, { items: null }, { items: Array(21).fill(null) },
+    { items: [null] }, { next_cursor: 'private-asset-id' }, { next_cursor: undefined },
+    { items: [{ kind: 'image' }] },
+  ])('rejects malformed or authority-broadening clip list responses', change => {
+    const failed = vi.fn();
+    api.videos(scope, null).subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/query').flush({
+      items: [], next_cursor: null, purpose: 'preview', ...change,
+    });
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
+  it.each(['duplicate', 'foreign-project', 'mixed-tenant'])('rejects %s clip pages', failure => {
+    const item = { kind: 'video', artifact_id: 'clip', tenant_id: 'tenant', project_id: 'project', revision: 1,
+      sha256: 'a'.repeat(64), classification: 'test_only' };
+    const second = failure === 'duplicate' ? item : { ...item, artifact_id: 'clip2',
+      ...(failure === 'foreign-project' ? { project_id: 'other' } : { tenant_id: 'other' }) };
+    const failed = vi.fn();
+    api.videos(scope, null).subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/query').flush({
+      items: [item, second], next_cursor: null, purpose: 'preview',
+    });
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
   it('loads only a bounded private PNG for the clip preview', () => {
     const accept = vi.fn();
     api.videoPreview(scope, 'clip').subscribe(accept);

@@ -12,6 +12,11 @@ export interface PersonaAssetReference<K extends PersonaMediaKind = PersonaMedia
 }
 export type PersonaImageReference = PersonaAssetReference<'image'>;
 export type PersonaVideoReference = PersonaAssetReference<'video'>;
+export interface PersonaAssetPage<K extends 'image' | 'video'> {
+  items: readonly PersonaAssetReference<K>[];
+  next_cursor: string | null;
+  purpose: 'preview';
+}
 export interface PersonaSelection<K extends PersonaMediaKind = PersonaMediaKind> {
   state: PersonaSelectionState;
   asset: PersonaAssetReference<K> | null;

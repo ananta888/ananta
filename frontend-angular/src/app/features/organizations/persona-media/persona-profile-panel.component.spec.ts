@@ -23,6 +23,7 @@ function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blan
     image: vi.fn(() => of(image)), preview: vi.fn(() => of(new Blob(['synthetic-png'], { type: 'image/png' }))),
     video: vi.fn(() => of(video)), videoPreview: vi.fn(() => of(new Blob(['synthetic-clip-preview'], { type: 'image/png' }))),
     images: vi.fn(() => of({ items: [image], next_cursor: null as string | null, purpose: 'preview' })),
+    videos: vi.fn(() => of({ items: [video], next_cursor: null as string | null, purpose: 'preview' })),
   };
   TestBed.configureTestingModule({ providers: [
     { provide: OrganizationTopologyStateService, useValue: state }, { provide: PersonaProfileApiClient, useValue: api },
@@ -178,6 +179,52 @@ describe('Persona profile panel', () => {
     expect(api.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       image: { state: 'inherit', asset: null }, video: { state: 'asset', asset: video },
     }), 0);
+  });
+
+  it('lists clips and rechecks the selected reference before loading only its PNG preview', () => {
+    const { fixture, facade, api } = setup();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:listed-clip' });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    facade.selectVideoState('asset');
+    facade.listVideos();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Für deine Vorschau freigegebene Clips');
+    expect(facade.videoOptions()).toEqual([video]);
+    facade.chooseListedVideo('unlisted');
+    expect(api.video).not.toHaveBeenCalled();
+    facade.chooseListedVideo('clip');
+    expect(api.video).toHaveBeenCalledOnce();
+    expect(api.videoPreview).toHaveBeenCalledOnce();
+    expect(api.image).not.toHaveBeenCalled();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('video')).toBeNull();
+  });
+
+  it('replaces clip pages and discards private cursor state on project changes', () => {
+    const { fixture, facade, api, state } = setup();
+    api.videos.mockImplementation(() => of({ items: [video], next_cursor: 'v'.repeat(43), purpose: 'preview' }));
+    facade.listVideos();
+    facade.listVideos(true);
+    expect(api.videos).toHaveBeenLastCalledWith(expect.objectContaining({ project: 'project' }), 'v'.repeat(43));
+    expect(facade.videoOptions()).toHaveLength(1);
+    state.projectId.set('other');
+    facade.chooseListedVideo('clip');
+    expect(api.video).not.toHaveBeenCalled();
+    fixture.detectChanges();
+    expect(facade.videoOptions()).toEqual([]);
+    expect(facade.videoCursor()).toBeNull();
+    expect(facade.videosLoaded()).toBe(false);
+  });
+
+  it('drops late private clip pages after owner switches', () => {
+    const { facade, api } = setup();
+    const pending = new Subject<{ items: typeof video[]; next_cursor: string | null; purpose: string }>();
+    api.videos.mockImplementation(() => pending);
+    facade.listVideos();
+    facade.chooseOwner('team', 'team');
+    pending.next({ items: [video], next_cursor: 'v'.repeat(43), purpose: 'preview' });
+    expect(facade.videoOptions()).toEqual([]);
+    expect(facade.videoCursor()).toBeNull();
   });
 
   it.each(['inherit', 'disabled', 'missing'] as const)('saves explicit video state %s without any media read', state => {

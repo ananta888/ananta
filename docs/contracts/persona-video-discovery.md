@@ -42,3 +42,24 @@ passed in 44.41 seconds, including real private SQL assets and Hub Registry
 test receipts, revocation, cross-kind/scope rejection and no media loading.
 The structural video-inspection fixture is not a real decoder or production
 release gate.
+
+## Persona editor
+
+The video picker now offers an explicit admitted-clip query and a replaceable
+twenty-item page. It displays reference identity, revision and classification,
+not an invented clip title. The client rejects malformed pages, foreign
+projects, mixed tenants, duplicate identities and publication-purpose replies.
+Opaque cursors stay in POST bodies, not URLs. Video and image list state is
+independent, while a small local page model shares reset/replacement behavior.
+
+Choosing an entry performs the existing current-reference check again before
+loading its private PNG preview. It neither plays the MP4 nor saves a profile
+or publishes a track. Project/organization/owner changes cancel old requests
+and clear private pages/cursors; late responses cannot restore the old page.
+The hand-entered admitted-ID path remains available. The existing shared form
+field is reused rather than adding a new global UI abstraction.
+
+All 94 combined Meet/persona frontend checks passed in 1.43 seconds, followed
+by feature ESLint, Angular compilation and a successful production build in
+22.905 seconds. Existing unrelated RouterLink/CommonJS optimization warnings
+remain; no deployed service or public Meet trust was changed.

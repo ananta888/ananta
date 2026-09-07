@@ -2,8 +2,9 @@ import { DestroyRef, Injectable, effect, inject, signal, untracked } from '@angu
 import { Observable, Subscription } from 'rxjs';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { PersonaProfileApiClient } from './persona-profile-api.client';
-import { PersonaEffectiveProfile, PersonaImageReference, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState } from './persona-profile.models';
+import { PersonaAssetPage, PersonaEffectiveProfile, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState } from './persona-profile.models';
 import { PersonaVisualDraft } from './persona-visual-draft';
+import { PersonaVisualPage } from './persona-visual-page';
 
 @Injectable()
 export class PersonaProfileFacade {
@@ -26,9 +27,14 @@ export class PersonaProfileFacade {
   readonly videoState = this.videoDraft.state;
   readonly videoId = this.videoDraft.id;
   readonly video = this.videoDraft.asset;
-  readonly imageOptions = signal<readonly PersonaImageReference[]>([]);
-  readonly imageCursor = signal<string | null>(null);
-  readonly imagesLoaded = signal(false);
+  private readonly imagePage = new PersonaVisualPage<'image'>();
+  private readonly videoPage = new PersonaVisualPage<'video'>();
+  readonly imageOptions = this.imagePage.items;
+  readonly imageCursor = this.imagePage.cursor;
+  readonly imagesLoaded = this.imagePage.loaded;
+  readonly videoOptions = this.videoPage.items;
+  readonly videoCursor = this.videoPage.cursor;
+  readonly videosLoaded = this.videoPage.loaded;
   readonly previewUrl = signal('');
   readonly videoPreviewUrl = signal('');
   readonly busy = signal(false);
@@ -64,9 +70,8 @@ export class PersonaProfileFacade {
     this.effective.set(null);
     this.imageDraft.reset();
     this.videoDraft.reset();
-    this.imageOptions.set([]);
-    this.imageCursor.set(null);
-    this.imagesLoaded.set(false);
+    this.imagePage.reset();
+    this.videoPage.reset();
     this.personaId.set('');
     this.message.set('');
     this.error.set('');
@@ -124,17 +129,25 @@ export class PersonaProfileFacade {
   }
 
   listImages(next = false): void {
-    if (!this.scope || !this.scopeCurrent() || this.busy() || (next && !this.imageCursor())) return;
+    this.listVisuals(this.imagePage, (scope, cursor) => this.api.images(scope, cursor), next);
+  }
+
+  listVideos(next = false): void {
+    this.listVisuals(this.videoPage, (scope, cursor) => this.api.videos(scope, cursor), next);
+  }
+
+  private listVisuals<K extends 'image' | 'video'>(
+    pageState: PersonaVisualPage<K>, fetch: (scope: PersonaProfileScope, cursor: string | null) => Observable<PersonaAssetPage<K>>, next: boolean,
+  ): void {
+    if (!this.scope || !this.scopeCurrent() || this.busy() || (next && !pageState.cursor())) return;
     this.cancel();
-    const cursor = next ? this.imageCursor() : null;
-    this.imageOptions.set([]);
-    this.imagesLoaded.set(false);
-    this.imageCursor.set(null);
-    this.run(this.api.images(this.scope, cursor), page => {
+    const cursor = next ? pageState.cursor() : null;
+    pageState.reset();
+    this.run(fetch(this.scope, cursor), page => {
       // Replace pages instead of accumulating private references indefinitely.
-      this.imageOptions.set(page.items.slice(0, 20));
-      this.imageCursor.set(page.next_cursor);
-      this.imagesLoaded.set(true);
+      pageState.items.set(page.items.slice(0, 20));
+      pageState.cursor.set(page.next_cursor);
+      pageState.loaded.set(true);
     });
   }
 
@@ -144,6 +157,14 @@ export class PersonaProfileFacade {
     this.imageState.set('asset');
     this.changeImageId(artifactId);
     this.inspectImage();
+  }
+
+  chooseListedVideo(artifactId: string): void {
+    if (!this.scopeCurrent() || this.busy()) return;
+    if (!this.videoOptions().some(item => item.artifact_id === artifactId)) return;
+    this.videoState.set('asset');
+    this.changeVideoId(artifactId);
+    this.inspectVideo();
   }
 
   previewEffective(): void {
