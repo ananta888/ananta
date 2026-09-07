@@ -16,6 +16,7 @@ from agent.services.artifact_visibility_policy import (
         "persona_media_image",
         "persona_media_preview",
         "persona_media_video",
+        "persona_media_voice",
     ],
 )
 def test_system_managed_artifacts_are_not_generic(

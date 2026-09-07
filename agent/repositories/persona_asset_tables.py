@@ -1,10 +1,10 @@
-"""Identical CAS/audit schema, separate image/video namespaces; no migration."""
+"""Identical CAS/audit schema, separate media namespaces; no migration."""
 
 from sqlalchemy import BigInteger, Column, MetaData, String, Table, Text
 
 
 def persona_asset_tables(kind):
-    if kind not in ("image", "video"):
+    if kind not in ("image", "video", "voice"):
         raise ValueError("persona_asset_catalog_kind_invalid")
     metadata = MetaData()
     assets = Table(

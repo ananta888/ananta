@@ -97,3 +97,25 @@ hard-coded two-part transition count must become format-derived without
 weakening completeness checks for image/video (LSP/OCP). No fabricated preview
 artifact, uploaded model or implicit image/ASR permission will stand in for a
 voice asset.
+
+### Voice metadata foundation
+
+`ananta_contracts.persona_voice` defines a canonical descriptor of at most
+2,048 bytes: a schema and the exact catalog-pinned speech profile. Duplicate
+keys, alternative encodings, unknown fields/models and caller-selected runtime
+budgets are rejected. The descriptor is not PCM, a model upload or a preview
+recording. Its source hash and immutable asset hash bind the same exact bytes.
+
+Voice policies use explicit `media_kind: voice`, `licensed_pack` origin and
+separate `persona_voice` source, license and (when applicable) consent proofs.
+The SQL policy and asset namespaces are independent of images, videos and ASR.
+The one-part `persona_media_voice` artifact is hidden on generic artifact
+surfaces. Transitions validate the format's non-empty unique parts and still
+roll back state/audit if an artifact or version is missing.
+
+Initial headless foundation acceptance: 53 descriptor/policy/visibility tests
+and 27 voice/video catalog tests passed. Catalog tests reserve real test-only
+Hub identities; they deliberately do not claim completed inspection runs.
+This foundation is not yet wired into public admission, worker inspection,
+profile resolution or live publication. Those require the following execution
+and receipt slice before any feature can be enabled.

@@ -115,14 +115,14 @@ def test_stored_metadata_corruption_fails_closed(video_catalog):
         catalog.get_active("tenant", "project", "clip")
 
 
-def test_missing_artifact_member_rolls_back_activation_and_audit(video_catalog):
+@pytest.mark.parametrize("model", [ArtifactDB, ArtifactVersionDB], ids=["artifact", "version"])
+def test_missing_artifact_member_rolls_back_activation_and_audit(video_catalog, model):
     catalog, storage, asset, value = video_catalog
     catalog.reserve(asset, actor="actor")
     paths = storage.write(asset, value, checkpoint=Mock())
     with catalog.engine.begin() as connection:
-        connection.execute(
-            ArtifactVersionDB.__table__.delete().where(ArtifactVersionDB.__table__.c.artifact_id == "clip-preview")
-        )
+        key = model.__table__.c.id if model is ArtifactDB else model.__table__.c.artifact_id
+        connection.execute(model.__table__.delete().where(key == "clip-preview"))
     with pytest.raises(ValueError, match="catalog_incomplete"):
         catalog.transition(
             "tenant", "project", "clip", expected_revision=1, state="active", actor="actor", stored_paths=paths

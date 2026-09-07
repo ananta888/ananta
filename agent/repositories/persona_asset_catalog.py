@@ -1,4 +1,4 @@
-"""Immutable two-part persona catalog with injected image/video format adapters."""
+"""Immutable persona catalog with format-owned parts and atomic completeness checks."""
 
 import hashlib
 import uuid
@@ -193,6 +193,8 @@ class SqlPersonaAssetCatalog:
             if row["revision"] != expected_revision or row["state"] not in predecessors[state]:
                 raise ValueError("persona_asset_transition_conflict")
             references = tuple(part.reference.artifact_id for part in self.format.parts(asset))
+            if not references or len(set(references)) != len(references):
+                raise ValueError("persona_asset_catalog_parts_invalid")
             if state == "active" and (
                 not isinstance(stored_paths, dict)
                 or set(stored_paths) != set(references)
@@ -219,7 +221,7 @@ class SqlPersonaAssetCatalog:
                 .where(ArtifactDB.__table__.c.id.in_(references))
                 .values(status="stored" if state == "active" else state)
             )
-            if changed.rowcount != 2:
+            if changed.rowcount != len(references):
                 raise ValueError("persona_asset_catalog_incomplete")
             if state == "active":
                 for reference in references:
