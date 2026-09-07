@@ -58,6 +58,23 @@ Promises. These are deterministic technical tests, not real TTS/Meet evidence.
 The companion repository separately tests actual decrypted audio in Chromium
 and Firefox, including reopening and renewal.
 
+The opt-in `tests/test_meet_speech_cross_repository.py` now connects actual
+Piper/CUDA output from a separate current-source, read-only, networkless GPU
+container through `SpeechPublication` to the companion's private stdio fixture
+and required-SFrame receiver. On 2026-09-07 both browser variants passed in
+29.52 seconds: Chromium consumed 44,544 local samples with 79 non-silent remote
+observation windows; Firefox consumed 41,216 with 75 non-silent windows. Each
+uses a separate real synthesis of the fixed German test phrase, so sample
+counts need not be identical. Both recorded zero capture and transform errors.
+No generated PCM is included in the report. The test bridge has synthetic,
+cryptographically verified Hub admission, **not the productive Hub callback**.
+
+Run with `MEET_SPEECH_CROSS_GATE=1 .venv/bin/python -m pytest
+tests/test_meet_speech_cross_repository.py -n 0`; build current companion source
+first. This requires the existing local GPU model/image and private TLS/STUN
+fixture images, not production credentials or changes to running services.
+For an XML report with `record_property`, use `-o junit_family=legacy`.
+
 Still required: Hub-owned, short-lived result transfer bound to generation,
 parent runtime, child task, dispatch lease and current input consent; real Piper
 output through that path; a runtime policy/control for speech and integrated
