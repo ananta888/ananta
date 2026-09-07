@@ -127,3 +127,22 @@ def test_running_http_completion_after_close_cannot_apply_or_schedule_again():
         exchange.refresh()
     assert pool.submit.call_count == 1 and exchange.pending is None
     pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+
+
+def test_renewal_checkpoint_requires_established_fresh_state_without_any_io_or_extension():
+    clock, pool, exchange = setup()
+    with pytest.raises(ValueError, match="state_stale"):
+        exchange.require_fresh()
+    pool.submit.assert_not_called()
+    exchange.poll()
+    ready(exchange, {"renewal": True})
+    for offset in [0, 1, 2.49]:
+        clock.now = 100 + offset
+        exchange.require_fresh()
+        assert exchange.fresh_until == 102.5 and pool.submit.call_count == 1
+    clock.now = 102.5
+    with pytest.raises(ValueError, match="state_stale"):
+        exchange.require_fresh()
+    exchange.close()
+    with pytest.raises(ValueError, match="closed"):
+        exchange.require_fresh()

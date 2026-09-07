@@ -12,6 +12,7 @@ from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_match
 from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_control_exchange import DialogControlExchange
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
+from worker.meet_media.dialog_session_operations import DialogSessionOperations
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
 
 
@@ -69,11 +70,10 @@ def run(assignment, hub):
         page.goto(url, wait_until="domcontentloaded")
         if page.url != url:
             raise ValueError("meet_machine_navigation_denied")
-        page.wait_for_function("Boolean(window.anantaMachine)")
-        page.evaluate(
-            "([room, grant]) => window.anantaMachine.join(room, grant)",
-            [assignment["meeting"]["room_id"], assignment["meeting"]["grant"]],
-        )
+        session = DialogSessionOperations(page, url=url, deadline=hub.deadline)
+        cleanup.callback(session.close)
+        session.ready()
+        session.join(assignment["meeting"]["room_id"], assignment["meeting"]["grant"])
         local_status = "(({joined, lease}) => ({joined, lease}))(window.anantaMachine.status())"
         meet_session = page.evaluate(local_status)["lease"]["sessionId"]
         speech = DialogSpeechOutput(page, assignment)
@@ -116,7 +116,7 @@ def run(assignment, hub):
                     screen.invalidate()
                     avatar.invalidate()
                     chat.invalidate()
-                    page.evaluate("grant => window.anantaMachine.renew(grant)", state["renewal"])
+                    session.renew(state["renewal"], exchange.require_fresh)
                     exchange.refresh()
                     continue
                 if audio is not None:
@@ -155,7 +155,15 @@ def run(assignment, hub):
             # PCM is consumed in 20-ms frames. The old chat/screen idle cadence
             # can starve the deliberately small audio queue over browser RPC.
             page.wait_for_timeout(20 if speech.busy else 100)
-        page.evaluate("window.anantaMachine.leave()")
+        # Sources must stop even if normal leave never settles. ExitStack owns
+        # exceptional cleanup and safely repeats these idempotent closes.
+        if audio is not None:
+            audio.close()
+        screen.close()
+        avatar.close()
+        chat.close()
+        speech.close()
+        session.leave()
 
 
 def main():

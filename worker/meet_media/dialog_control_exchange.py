@@ -22,6 +22,13 @@ class DialogControlExchange:
         self.obsolete = self.pending is not None
         self.next_request = 0
 
+    def require_fresh(self):
+        """Pure checkpoint during bounded renewal; never refresh authority from a timer."""
+        if self.closed:
+            raise ValueError("meet_dialog_control_closed")
+        if self.fresh_until is None or self.clock() >= self.fresh_until:
+            raise ValueError("meet_dialog_control_state_stale")
+
     def poll(self, *, refresh_marker=None):
         if self.closed:
             raise ValueError("meet_dialog_control_closed")

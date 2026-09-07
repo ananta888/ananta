@@ -157,10 +157,20 @@ Repeated source announcements retain their epoch, while stop/restart or source
 replacement creates a new epoch owned by Meet's registry.
 
 Fresh 120-second grants renew the same browser membership. The Worker polls
-current Hub authority every two seconds; a bounded failed request stops the
+current Hub authority every one second; a bounded failed request stops the
 browser. This does not promise instant server-side revocation of a previously
 issued grant against a compromised Worker: it remains bounded by that grant's
 expiry. No automatic reconnect or takeover of an expired task exists.
+
+Dialog readiness, join, renewal and leave now use bounded polled browser phases
+instead of awaiting browser Promises in the RPC. Renewal invalidates sources
+first and must finish within the current 2.5-second control projection lifetime;
+outputs require a new verified Hub exchange afterwards. Join is capped at
+20 seconds. Normal leave closes sources first and retains only a three-second
+cleanup budget after assignment expiry. Failed settlement is terminal and the
+owned browser is torn down without retry. See
+[session operation lifecycle](meet-dialog-session-operations.md) for bounds,
+limitations and technical verification.
 
 ## Chat and audio execution
 

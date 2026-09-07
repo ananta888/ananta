@@ -4,6 +4,9 @@ import math
 import time
 from typing import Protocol
 
+from worker.meet_media.browser_session_phase import START as _START
+from worker.meet_media.browser_session_phase import STATE as _STATE
+
 
 class PublicationPage(Protocol):
     @property
@@ -14,15 +17,6 @@ class PublicationPage(Protocol):
     def wait_for_timeout(self, timeout): ...
 
 
-_START = """([operation, args, expectedUrl]) => {
-  if (window.location.href !== expectedUrl) throw new Error('meet_machine_navigation_denied');
-  const phase = { operation, status: 'pending' };
-  window.__anantaPublicationPhase = phase;
-  void Promise.resolve().then(() => window.anantaMachine[operation](...args)).then(
-    () => { if (window.__anantaPublicationPhase === phase) phase.status = 'done'; },
-    () => { if (window.__anantaPublicationPhase === phase) phase.status = 'failed'; });
-}"""
-_STATE = "() => window.__anantaPublicationPhase?.status"
 _READY = """() => Boolean(window.anantaMachine
   && ['join', 'publish', 'leave'].every(name => typeof window.anantaMachine[name] === 'function'))"""
 

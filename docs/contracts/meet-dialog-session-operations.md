@@ -14,7 +14,9 @@ Share only the existing small browser phase scripts; preserve the standalone
 publisher's API and budgets. Compose a separate dialog-session adapter with its
 original monotonic assignment deadline, exact `/machine` URL and fixed operation
 allowlist: join (20 seconds), renewal (at most 2.5 seconds and the current Hub
-projection's remaining freshness), leave (3 seconds). Readiness is bounded by
+projection's remaining freshness), leave (3 seconds). Leave alone retains that
+cleanup budget after assignment expiry; it cannot create or extend authority.
+Readiness is bounded by
 20 seconds and checks the dialog methods, not unrelated media publication.
 
 Start each operation exactly once, poll without awaiting its Promise, and check
@@ -46,3 +48,23 @@ a newer phase and exceptions are redacted. Run existing standalone publication
 and dialog control tests, then private real-browser chat/speech and actual lease
 renewal. All tests are headless with synthetic policies; these checks do not mint
 production evidence or change running deployments.
+
+## Technical verification
+
+Implemented with one shared browser-phase transport and a separate narrow dialog
+adapter. Standalone publication still has its original operations and 120-second
+lifetime; a dialog can renew after ten minutes without inheriting that cap.
+The fresh-control checkpoint performs no IO or authority extension. Browser and
+source cleanup order is tested separately from Promise settlement (SRP/DIP);
+the runtime's existing multi-source composition responsibility remains unchanged.
+
+All 59 deterministic session/control/standalone-publication tests passed in
+29.84 seconds, including the exact shared JavaScript's late-settlement and
+redaction cases. Four runtime composition/cleanup tests passed in 8.95 seconds.
+Two real private-browser cases passed together in 117.74 seconds: ordinary
+chat/screen and an actual lease renewal with persona image and spoken replies.
+The adjacent Meet source revision was
+`c20f4533308ee783807af7c9396f5b51fea965a1`; its existing local frontend build was
+used, not rebuilt or deployed by this change. Media/policies remain synthetic,
+and no GPU, public TURN, multi-host or production release claim follows.
+Targeted Ruff lint/format and whitespace checks passed.
