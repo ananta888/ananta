@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { map, throwError, timeout } from 'rxjs';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
+import { MeetAvatarSelection, validateAvatarSelection } from './meet-avatar-selection';
 
 export interface SourceControl { enabled: boolean; revision: number; since: number }
 export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech' | 'avatar';
@@ -14,15 +15,20 @@ const optionalCapabilities = { speech: 'speech.publish', avatar: 'avatar.publish
 export interface MeetDialog {
   schema: 'ananta.meet-dialog-status.v1'; task_id: string; status: string; deadline: number;
   controls: DialogControls; capabilities: string[];
+  avatar_selection?: MeetAvatarSelection;
 }
 const capabilities = ['chat.read', 'chat.send', 'audio.receive', 'screen.publish', 'avatar.publish', 'speech.publish'];
 export function validateDialog(value: MeetDialog): MeetDialog {
-  if (!value || Object.keys(value).sort().join() !== 'capabilities,controls,deadline,schema,status,task_id'
+  if (!value || Object.keys(value).filter(key => key !== 'avatar_selection').sort().join() !== 'capabilities,controls,deadline,schema,status,task_id'
     || value.schema !== 'ananta.meet-dialog-status.v1' || typeof value.task_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,160}$/.test(value.task_id)
     || !['in_progress', 'completed', 'failed', 'cancelled'].includes(value.status)
     || !Number.isSafeInteger(value.deadline) || value.deadline <= 0 || !Array.isArray(value.capabilities)
     || value.capabilities.some(v => !capabilities.includes(v)) || new Set(value.capabilities).size !== value.capabilities.length) {
     throw new Error('meet_dialog_contract_invalid');
+  }
+  if (Object.hasOwn(value, 'avatar_selection')) {
+    if (!value.capabilities.includes('avatar.publish') || !value.controls?.avatar) throw new Error('meet_dialog_contract_invalid');
+    validateAvatarSelection(value.avatar_selection!);
   }
   const controls = value.controls;
   if (!controls || Object.keys(controls).filter(key => !(optionalDialogSources as readonly string[]).includes(key)).sort().join() !== 'audio,chat,revision,screen'
@@ -42,7 +48,7 @@ export function validateDialog(value: MeetDialog): MeetDialog {
 export class MeetDialogApiService {
   private readonly core = inject(HubApiCoreService);
   private readonly directory = inject(AgentDirectoryService);
-  private request<T>(project: string, path: string, method: 'GET' | 'POST' | 'DELETE' | 'PATCH', body?: unknown) {
+  private request<T>(project: string, path: string, method: 'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT', body?: unknown) {
     const hub = this.directory.list().find(agent => agent.role === 'hub')?.url;
     if (!hub) return throwError(() => new Error('meet_hub_unavailable'));
     const root = `${hub.replace(/\/$/, '')}/api/meet/v1/projects/${encodeURIComponent(project)}`;
@@ -68,5 +74,8 @@ export class MeetDialogApiService {
   stop(project: string, task: string) { return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}`, 'DELETE').pipe(map(validateDialog)); }
   control(project: string, task: string, body: unknown) {
     return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}`, 'PATCH', body).pipe(map(validateDialog));
+  }
+  selectAvatar(project: string, task: string, body: unknown) {
+    return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}/avatar`, 'PUT', body).pipe(map(validateDialog));
   }
 }

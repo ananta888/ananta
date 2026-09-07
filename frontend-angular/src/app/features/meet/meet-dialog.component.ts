@@ -3,13 +3,15 @@ import { FormsModule } from '@angular/forms';
 import { Subscription, skip } from 'rxjs';
 import { UserAuthService } from '../../services/user-auth.service';
 import { MeetDialogApiService, MeetDialog, DialogSource, optionalDialogSources } from './meet-dialog-api.service';
+import { MeetAvatarPickerComponent } from './meet-avatar-picker.component';
+import type { PersonaEffectiveProfile } from '../organizations/persona-media/persona-profile.models';
 
 const sourceCapabilities: Record<DialogSource, readonly string[]> = {
   chat: ['chat.read', 'chat.send'], audio: ['audio.receive', 'chat.send'], screen: ['screen.publish'], speech: ['speech.publish'],
   avatar: ['avatar.publish'],
 };
 
-@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule], template: `
+@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent], template: `
   <section aria-label="Autorisierter Meet-Dialog">
     <h3>Ananta im Raum</h3>
     <p>Der Hub startet einen isolierten KI-Teilnehmer. Zuhören und Chatlesen benötigen zusätzlich die
@@ -20,7 +22,8 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
       und kein Zuhören; erkannte Audioeingaben werden in dieser Ausbaustufe weiterhin nur im Textchat beantwortet.</p>
     <label><input type="checkbox" [(ngModel)]="audio" [disabled]="busy()" />Freigegebenes Audio lokal erkennen und beantworten</label>
     <label><input type="checkbox" [(ngModel)]="screen" [disabled]="busy()" />Eigene isolierte KI-Arbeitsansicht teilen (kein Desktop)</label>
-    <label><input type="checkbox" [(ngModel)]="avatar" [disabled]="busy()" />Neutrales KI-Avatar erlauben (zunächst pausiert)</label>
+    <label><input type="checkbox" [ngModel]="avatar" (ngModelChange)="setAvatar($event)" [disabled]="busy()" />KI-Avatar erlauben (zunächst pausiert)</label>
+    <label><input type="checkbox" [(ngModel)]="avatarImages" [disabled]="busy() || !avatar" />Zusätzlich freigegebene Persona-Profilbilder und Bildwechsel erlauben</label>
     <p>Das feste KI-Symbol ist keine Kameraaufnahme und kein ausgewähltes Persona-Bild. Nach dem Start separat
       über „KI-Avatar: fortsetzen“ aktivieren; Sprache und Bildschirm bleiben unabhängig.</p>
     <label>Antwortstrategie <select [(ngModel)]="mode" [disabled]="busy()">
@@ -35,6 +38,12 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
     @for (item of dialogs(); track item.task_id) {
       <article><h4>Ananta (KI)</h4><p>Hub-Task: {{ item.task_id }} · {{ item.status }}</p>
         <p>Dies ist der Auftragsstatus, keine Bestätigung der Medienzustellung.</p>
+        @if (item.avatar_selection; as selection) {
+          <p>Avatar-Auswahl: {{ selection.mode === 'neutral-ai-v1' ? 'festes KI-Symbol' : 'ausgewähltes Persona-Profilbild' }}.
+            Die Auswahl ist keine aktuelle Publikationsfreigabe. Der Hub prüft sie erneut; bei Widerruf kein Ersatzbild.</p>
+          <app-meet-avatar-picker [projectId]="projectId" [disabled]="busy() || item.status !== 'in_progress'"
+            (avatarSelected)="selectAvatar(item, $event)" />
+        }
         @for (source of sourceNames; track source.key) {
           @if (item.controls[source.key]; as control) {
           <button type="button" [disabled]="busy() || item.status !== 'in_progress' || !canControl(item, source.key)"
@@ -56,14 +65,15 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   readonly nextCursor = signal<number | null>(null);
   readonly sourceNames = [{ key: 'chat', label: 'Raumchat' }, { key: 'audio', label: 'Audioempfang' },
     { key: 'screen', label: 'Arbeitsansicht' }, { key: 'speech', label: 'Sprachausgabe' }, { key: 'avatar', label: 'KI-Avatar' }] as const;
-  chat = false; audio = false; screen = false; speech = false; avatar = false; mode = 'mention'; minutes = 15;
+  chat = false; audio = false; screen = false; speech = false; avatar = false; avatarImages = false; mode = 'mention'; minutes = 15;
   setChat(enabled: boolean): void { this.chat = enabled; if (!enabled) this.speech = false; }
+  setAvatar(enabled: boolean): void { this.avatar = enabled; if (!enabled) this.avatarImages = false; }
   ngOnInit(): void { this.identity = this.auth.user$.pipe(skip(1)).subscribe(() => this.reset()); }
   ngOnChanges(): void { this.reset(); }
   ngOnDestroy(): void { this.request?.unsubscribe(); this.identity?.unsubscribe(); }
   private reset(): void {
     this.request?.unsubscribe(); this.busy.set(false); this.dialogs.set([]); this.nextCursor.set(null); this.message.set('');
-    this.chat = this.audio = this.screen = this.speech = this.avatar = false;
+    this.chat = this.audio = this.screen = this.speech = this.avatar = this.avatarImages = false;
   }
   private failure(error: {status?: number}): void {
     this.busy.set(false);
@@ -82,12 +92,14 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   start(): void {
     if (this.busy() || !this.projectId || !(this.chat || this.audio || this.screen || this.avatar)) return;
     if (this.speech && !this.chat) { this.message.set('Sprachausgabe benötigt ausdrücklich ausgewählten Raumchat.'); return; }
+    if (this.avatarImages && !this.avatar) { this.message.set('Profilbilder benötigen ausdrücklich ausgewählten KI-Avatar.'); return; }
     const capabilities = [...(this.chat ? ['chat.read'] : []), ...(this.chat || this.audio ? ['chat.send'] : []),
       ...(this.audio ? ['audio.receive'] : []), ...(this.screen ? ['screen.publish'] : []),
       ...(this.speech ? ['speech.publish'] : []), ...(this.avatar ? ['avatar.publish'] : [])];
     this.busy.set(true); this.message.set('');
     this.request = this.api.start(this.projectId, this.taskId, { capabilities, duration_seconds: this.minutes * 60,
-      chat_mode: this.chat || this.audio ? this.mode : 'off', audio_mode: this.audio ? 'dialog' : 'off' }).subscribe({
+      chat_mode: this.chat || this.audio ? this.mode : 'off', audio_mode: this.audio ? 'dialog' : 'off',
+      ...(this.avatarImages ? { avatar_images: true } : {}) }).subscribe({
       next: () => { this.busy.set(false); this.reload(); }, error: error => this.failure(error) });
   }
   stop(item: MeetDialog): void {
@@ -105,6 +117,14 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   }
   canControl(item: MeetDialog, source: DialogSource): boolean {
     return Boolean(item.controls[source]) && sourceCapabilities[source].every(capability => item.capabilities.includes(capability));
+  }
+  selectAvatar(item: MeetDialog, profile: PersonaEffectiveProfile['selection'] | null): void {
+    if (this.busy() || item.status !== 'in_progress' || !item.avatar_selection || !this.canControl(item, 'avatar')) return;
+    this.busy.set(true); this.message.set('');
+    const body = { expected_revision: item.controls.revision, ...(profile === null ? { neutral: true } : { profile }) };
+    this.request = this.api.selectAvatar(this.projectId, item.task_id, body).subscribe({
+      next: value => this.replace(value), error: error => this.failure(error),
+    });
   }
   private replace(item: MeetDialog): void {
     this.dialogs.update(rows => rows.map(row => row.task_id === item.task_id ? item : row)); this.busy.set(false);

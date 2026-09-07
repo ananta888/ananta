@@ -3,6 +3,9 @@ import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { MeetDialogApiService, validateDialog } from './meet-dialog-api.service';
 import { MeetDialogComponent } from './meet-dialog.component';
 import { UserAuthService } from '../../services/user-auth.service';
+import { AgentDirectoryService } from '../../services/agent-directory.service';
+import { PersonaProfileApiClient } from '../organizations/persona-media/persona-profile-api.client';
+import { effective } from './meet-avatar-test-fixtures';
 
 const row = () => ({ schema: 'ananta.meet-dialog-status.v1' as const, task_id: 'task', status: 'in_progress', deadline: 1788730000,
   capabilities: ['chat.read', 'chat.send'], controls: { revision: 1, chat: { enabled: true, revision: 1, since: 1000 },
@@ -26,7 +29,7 @@ describe('Hub-owned Meet dialog controls', () => {
     expect(() => validateDialog({ ...source, controls: { ...source.controls, speech: null } } as never)).toThrow();
     component.ngOnDestroy();
   });
-  const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn() };
+  const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn(), selectAvatar: vi.fn() };
   let identity: BehaviorSubject<unknown>;
   beforeEach(() => {
     identity = new BehaviorSubject({ sub: 'owner' });
@@ -36,6 +39,8 @@ describe('Hub-owned Meet dialog controls', () => {
     api.control.mockReturnValue(of(row()));
     TestBed.configureTestingModule({ imports: [MeetDialogComponent], providers: [
       { provide: MeetDialogApiService, useValue: api }, { provide: UserAuthService, useValue: { user$: identity } },
+      { provide: PersonaProfileApiClient, useValue: { effective: vi.fn() } },
+      { provide: AgentDirectoryService, useValue: { list: () => [] } },
     ] });
   });
   function setup() {
@@ -68,6 +73,38 @@ describe('Hub-owned Meet dialog controls', () => {
       duration_seconds: 900, chat_mode: 'off', audio_mode: 'off' });
     expect(api.control).not.toHaveBeenCalled();
   });
+  it('negotiates image support only when explicitly selected and resets it with avatar permission', () => {
+    const c = setup().componentInstance; expect(c.avatarImages).toBe(false);
+    c.setAvatar(true); c.avatarImages = true; c.start();
+    expect(api.start).toHaveBeenCalledWith('project', '', { capabilities: ['avatar.publish'], avatar_images: true,
+      duration_seconds: 900, chat_mode: 'off', audio_mode: 'off' });
+    expect(api.control).not.toHaveBeenCalled(); c.setAvatar(false); expect(c.avatarImages).toBe(false);
+  });
+  it('never turns a stale image checkbox into avatar capability', () => {
+    const c = setup().componentInstance; c.screen = true; c.avatarImages = true; c.start();
+    expect(api.start).not.toHaveBeenCalled(); expect(c.message()).toContain('ausdrücklich ausgewählten KI-Avatar');
+  });
+  it('selects a Hub pin by current CAS without activating a paused avatar or changing other sources', () => {
+    const f = setup(), c = f.componentInstance;
+    const source = { ...row(), capabilities: [...row().capabilities, 'avatar.publish'],
+      avatar_selection: { mode: 'neutral-ai-v1' as const },
+      controls: { ...row().controls, avatar: { enabled: false, revision: 1, since: 1000 } } };
+    c.dialogs.set([source]); f.detectChanges(); expect(f.nativeElement.querySelector('app-meet-avatar-picker')).not.toBeNull();
+    api.selectAvatar.mockReturnValue(of({ ...source, controls: { ...source.controls, revision: 2 } }));
+    c.selectAvatar(source, effective().selection);
+    expect(api.selectAvatar).toHaveBeenCalledWith('project', 'task', { expected_revision: 1, profile: effective().selection });
+    expect(api.control).not.toHaveBeenCalled(); expect(c.dialogs()[0].controls.avatar?.enabled).toBe(false);
+    c.selectAvatar(c.dialogs()[0], null);
+    expect(api.selectAvatar).toHaveBeenLastCalledWith('project', 'task', { expected_revision: 2, neutral: true });
+  });
+  it('never upgrades old dialogs or retries a rejected avatar-selection CAS automatically', () => {
+    const c = setup().componentInstance; c.selectAvatar(row(), null); expect(api.selectAvatar).not.toHaveBeenCalled();
+    const source = { ...row(), capabilities: ['avatar.publish'], avatar_selection: { mode: 'neutral-ai-v1' as const },
+      controls: { ...row().controls, avatar: { enabled: false, revision: 1, since: 1000 } } };
+    api.selectAvatar.mockReturnValue(throwError(() => ({ status: 409 }))); c.selectAvatar(source, null);
+    expect(api.selectAvatar).toHaveBeenCalledTimes(1); expect(c.message()).toContain('Bitte aktualisieren');
+    c.selectAvatar({ ...source, status: 'cancelled' }, null); expect(api.selectAvatar).toHaveBeenCalledTimes(1);
+  });
   it('toggles the assigned avatar while preserving independent speech and chat state', () => {
     const c = setup().componentInstance;
     const source = { ...row(), capabilities: ['chat.read', 'chat.send', 'speech.publish', 'avatar.publish'],
@@ -82,10 +119,10 @@ describe('Hub-owned Meet dialog controls', () => {
     expect(() => validateDialog({ ...source, controls: { ...source.controls, avatar: { ...source.controls.avatar, profile: 'url' } } } as never)).toThrow();
   });
   it.each(['account', 'project'])('clears selected neutral avatar on %s change', change => {
-    const f = setup(), c = f.componentInstance; c.avatar = true;
+    const f = setup(), c = f.componentInstance; c.avatar = true; c.avatarImages = true;
     if (change === 'account') identity.next(null);
     else { f.componentRef.setInput('projectId', 'other'); f.detectChanges(); }
-    expect(c.avatar).toBe(false); expect(api.start).not.toHaveBeenCalled();
+    expect(c.avatar).toBe(false); expect(c.avatarImages).toBe(false); expect(api.start).not.toHaveBeenCalled();
   });
   it.each(['account', 'project'])('clears selected voice permission on %s change', change => {
     const f = setup(), c = f.componentInstance; c.setChat(true); c.speech = true;
