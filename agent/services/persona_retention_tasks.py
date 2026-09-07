@@ -4,7 +4,11 @@ import time
 
 
 class HubPersonaRetentionTasks:
-    def __init__(self, *, clock=time.time):
+    def __init__(self, *, clock=time.time, kind="image"):
+        if type(kind) is not str or kind not in ("image", "video"):
+            raise ValueError("persona_retention_kind_invalid")
+        self.kind = kind
+        self.context_key = "persona_retention" if kind == "image" else "persona_video_retention"
         self.clock = clock
 
     def start(self, record):
@@ -13,28 +17,27 @@ class HubPersonaRetentionTasks:
         get_task_queue_service().ingest_task(
             task_id=record["task_id"],
             status="in_progress",
-            title="Apply persona image retention",
+            title=f"Apply persona {self.kind} retention",
             description="Hub-owned exact-asset cleanup in the private artifact store; no publication authority.",
             created_by=record["actor"],
             source="persona_media",
             event_type="persona_retention_started",
             event_channel="hub_task_queue",
             extra_fields={
-                "task_kind": "persona_image_retention",
+                "task_kind": f"persona_{self.kind}_retention",
                 "tenant_id": record["tenant_id"],
                 "project_id": record["project_id"],
-                "required_capabilities": ["hub_persona_retention"],
-                "worker_execution_context": {"persona_retention": record},
+                "required_capabilities": ["hub_" + self.context_key],
+                "worker_execution_context": {self.context_key: record},
             },
         )
 
-    @staticmethod
-    def _matches(task, record):
+    def _matches(self, task, record):
         return (
-            task.task_kind == "persona_image_retention"
+            task.task_kind == f"persona_{self.kind}_retention"
             and task.tenant_id == record["tenant_id"]
             and task.project_id == record["project_id"]
-            and task.worker_execution_context == {"persona_retention": record}
+            and task.worker_execution_context == {self.context_key: record}
         )
 
     def require(self, record):

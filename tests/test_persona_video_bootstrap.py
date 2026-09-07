@@ -74,7 +74,9 @@ def test_video_only_bootstrap_composes_exact_policy_task_receipt_and_erasure_por
     assert app.extensions["persona_video_erasure"].catalog is service.catalog
     assert app.extensions["persona_video_worker_key"] == KEY
     assert "persona_assets" not in app.extensions and "persona_profiles" not in app.extensions
-    assert not any("retention" in key for key in app.extensions)
+    assert app.extensions["persona_video_retention"].catalog is service.catalog
+    assert app.extensions["persona_video_retention_runner"].tasks.kind == "video"
+    assert "persona_video_retention_reconciler" not in app.extensions
     with base.engine.connect() as connection:
         assert not list(connection.execute(select(heads)))
     assert "/api/persona-media/v1/internal/video-lease" in {rule.rule for rule in app.url_map.iter_rules()}
@@ -110,6 +112,9 @@ def test_video_hub_overlay_is_separate_private_and_disabled_by_default():
     config = yaml.safe_load((root / "docker-compose.persona-videos-hub.yml").read_text())
     hub = config["services"]["ai-agent-hub"]
     assert hub["environment"]["ANANTA_PERSONA_VIDEOS_ENABLED"] == "${ANANTA_PERSONA_VIDEOS_ENABLED:-0}"
+    assert (
+        hub["environment"]["ANANTA_PERSONA_VIDEO_RETENTION_ENABLED"] == "${ANANTA_PERSONA_VIDEO_RETENTION_ENABLED:-0}"
+    )
     assert "ANANTA_PERSONA_IMAGES_ENABLED" not in hub["environment"]
     assert hub["environment"]["ANANTA_PERSONA_VIDEO_WORKER_URL"].endswith(":8096/v1/persona-videos")
     assert "ports" not in hub and set(hub["networks"]) == {"persona-videos"}

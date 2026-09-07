@@ -50,6 +50,7 @@ The combined lifecycle, real CPU HTTP, image/video tasks, erasure, policy and
 existing profile regression passed 115 tests in 87.37 seconds.
 
 Authenticated routes/bootstrap are documented in
-[persona-video-api.md](persona-video-api.md). Automatic video retention and
-persona-profile/Meet publisher selection remain separate integration work.
+[persona-video-api.md](persona-video-api.md). Automatic video retention is
+documented in [persona-video-retention.md](persona-video-retention.md).
+Persona-profile/Meet publisher selection remains separate integration work.
 No public deployment or production policy is enabled by this service change.

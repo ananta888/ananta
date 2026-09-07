@@ -14,6 +14,7 @@ from agent.routes.persona_media_http import revision as _revision
 from agent.routes.persona_media_http import service as _service
 from agent.routes.persona_retention import persona_retention_bp
 from agent.routes.persona_video_lease import persona_video_lease_bp
+from agent.routes.persona_video_retention import persona_video_retention_bp
 from agent.routes.persona_videos import persona_videos_bp
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignment
@@ -21,6 +22,7 @@ from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignmen
 persona_media_bp = Blueprint("persona_media", __name__, url_prefix="/api/persona-media/v1")
 persona_media_bp.register_blueprint(persona_retention_bp)
 persona_media_bp.register_blueprint(persona_video_lease_bp)
+persona_media_bp.register_blueprint(persona_video_retention_bp)
 persona_media_bp.register_blueprint(persona_videos_bp)
 
 

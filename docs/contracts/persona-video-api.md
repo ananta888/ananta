@@ -16,6 +16,7 @@ Paths are relative to `/api/persona-media/v1/projects/{project}`:
 | DELETE | `/videos/{artifact_id}` | Revoke both parts under exact catalog revision |
 | GET | `/videos/{artifact_id}/purge` | Read bounded erasure/resume state |
 | POST | `/videos/{artifact_id}/purge` | Erase the exact retired bundle |
+| PUT / GET / DELETE | `/videos/{artifact_id}/retention` | Schedule, inspect or cancel exact retired-bundle cleanup |
 
 Upload has exactly `content` (base64), `media_type` (`video/mp4`),
 `origin_binding`, `license_binding` and nullable `consent_binding`. Bindings
@@ -56,6 +57,11 @@ mounts only the video key and attaches the named external private video network;
 it publishes no port and leaves the feature disabled by default. Pair it with
 the worker compose from [persona-video-http.md](persona-video-http.md).
 No public Hub/Meet/Caddy restart or policy activation is performed.
+
+Automatic cleanup additionally requires the independent
+`ANANTA_PERSONA_VIDEO_RETENTION_ENABLED=1` opt-in and an explicit exact-asset
+grant; see [persona-video-retention.md](persona-video-retention.md). Merely
+enabling video initializes only passive retention services and an empty ledger.
 
 SRP/DIP: the child blueprint translates authenticated requests/responses; a
 separate composition module wires policy, task, receipt, catalog, storage and

@@ -9,12 +9,16 @@ def configure_persona_videos(app):
     from agent.database import engine
     from agent.repositories.persona_video_assets import create_video_asset_catalog
     from agent.repositories.persona_video_policies import create_video_policy_repository
+    from agent.repositories.persona_video_retention import create_video_retention_store
     from agent.services.artifact_store import ArtifactStore
     from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
     from agent.services.persona_inspection_formats import PersonaVideoInspectionFormat
     from agent.services.persona_inspection_leases import HubPersonaInspectionLeases
     from agent.services.persona_inspection_task_state import HubPersonaTaskState
     from agent.services.persona_inspection_tasks import HubPersonaInspectionReceipts, HubPersonaInspectionTasks
+    from agent.services.persona_retention_runner import PersonaRetentionRunner
+    from agent.services.persona_retention_service import PersonaRetentionService
+    from agent.services.persona_retention_tasks import HubPersonaRetentionTasks
     from agent.services.persona_video_asset_service import PersonaVideoAssetService
     from agent.services.persona_video_erasure import create_video_erasure_service
     from agent.services.persona_video_policy_service import create_video_policy_service
@@ -50,6 +54,9 @@ def configure_persona_videos(app):
     policies.initialize()
     catalog.initialize()
     store = ArtifactStore()
+    erasure = create_video_erasure_service(policy=policy, catalog=catalog, base_dir=store.base_dir)
+    retention = create_video_retention_store(engine)
+    retention.initialize()
     app.extensions.update(
         persona_video_policy=policy,
         persona_video_worker_key=key,
@@ -57,5 +64,13 @@ def configure_persona_videos(app):
         persona_video_assets=PersonaVideoAssetService(
             policy=policy, tasks=tasks, catalog=catalog, storage=PersonaVideoStorage(store)
         ),
-        persona_video_erasure=create_video_erasure_service(policy=policy, catalog=catalog, base_dir=store.base_dir),
+        persona_video_erasure=erasure,
+        persona_video_retention=PersonaRetentionService(policy=policy, catalog=catalog, store=retention),
+        persona_video_retention_runner=PersonaRetentionRunner(
+            policy=policy,
+            catalog=catalog,
+            store=retention,
+            erasure=erasure,
+            tasks=HubPersonaRetentionTasks(kind="video"),
+        ),
     )

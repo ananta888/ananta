@@ -5,20 +5,27 @@ import os
 import threading
 
 EXTENSION = "persona_retention_reconciler"
+VIDEO_EXTENSION = "persona_video_retention_reconciler"
 
 
 def start_persona_retention(app):
-    if (
-        app.config.get("ROLE") != "hub"
-        or os.environ.get("ANANTA_PERSONA_RETENTION_ENABLED") != "1"
-        or "persona_retention_runner" not in app.extensions
-    ):
+    _start(app, extension=EXTENSION, flag="ANANTA_PERSONA_RETENTION_ENABLED", runner_key="persona_retention_runner")
+    _start(
+        app,
+        extension=VIDEO_EXTENSION,
+        flag="ANANTA_PERSONA_VIDEO_RETENTION_ENABLED",
+        runner_key="persona_video_retention_runner",
+    )
+
+
+def _start(app, *, extension, flag, runner_key):
+    if app.config.get("ROLE") != "hub" or os.environ.get(flag) != "1" or runner_key not in app.extensions:
         return
-    existing = app.extensions.get(EXTENSION)
+    existing = app.extensions.get(extension)
     if existing and existing["thread"].is_alive():
         return
     stop = threading.Event()
-    runner = app.extensions["persona_retention_runner"]
+    runner = app.extensions[runner_key]
 
     def run():
         while not stop.is_set():
@@ -30,8 +37,9 @@ def start_persona_retention(app):
                 logging.warning("Persona retention tick unavailable: %s", type(error).__name__)
             stop.wait(60)
 
-    thread = threading.Thread(target=run, name="persona-retention", daemon=True)
-    app.extensions[EXTENSION] = {"thread": thread, "stop_event": stop}
+    name = "persona-retention" if extension == EXTENSION else "persona-video-retention"
+    thread = threading.Thread(target=run, name=name, daemon=True)
+    app.extensions[extension] = {"thread": thread, "stop_event": stop}
     import agent.common.context
 
     agent.common.context.active_threads.append(thread)
@@ -39,6 +47,7 @@ def start_persona_retention(app):
 
 
 def stop_persona_retention(app):
-    state = getattr(app, "extensions", {}).get(EXTENSION)
-    if state:
-        state["stop_event"].set()
+    for extension in (EXTENSION, VIDEO_EXTENSION):
+        state = getattr(app, "extensions", {}).get(extension)
+        if state:
+            state["stop_event"].set()

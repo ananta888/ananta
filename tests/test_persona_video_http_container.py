@@ -18,7 +18,11 @@ from agent.db_models import ArtifactDB, ArtifactVersionDB
 from agent.models.persona_asset_policy import PersonaSourcePin
 from agent.models.persona_video_assets import PersonaVideoAsset
 from agent.repositories.persona_video_assets import create_video_asset_catalog
+from agent.repositories.persona_video_retention import create_video_retention_store
 from agent.services.artifact_store import ArtifactStore
+from agent.services.persona_retention_runner import PersonaRetentionRunner
+from agent.services.persona_retention_service import PersonaRetentionService
+from agent.services.persona_retention_tasks import HubPersonaRetentionTasks
 from agent.services.persona_video_asset_service import PersonaVideoAssetService
 from agent.services.persona_video_erasure import create_video_erasure_service
 from agent.services.persona_video_storage import PersonaVideoStorage
@@ -151,7 +155,7 @@ def admit_synthetic_source(case, content):
     case.permission = permission
 
 
-def assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch):
+def assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch, retire_mode):
     for model in (ArtifactDB, ArtifactVersionDB):
         model.__table__.create(case.base.engine)
     catalog = create_video_asset_catalog(case.base.engine)
@@ -197,16 +201,58 @@ def assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch):
     assert service.read_video(case.principal, "project", asset.video.artifact_id, purpose="publish") == expected.video
     assert http.delete(path, headers=headers, json={"expected_revision": 2}).json == {"revision": 3, "state": "revoked"}
     assert http.get(path + "/preview", headers=headers).status_code == 409
-    assert http.post(path + "/purge", headers=headers, json={"expected_revision": 3}).json == {
-        "revision": 5,
-        "state": "purged",
-        "secure_device_erasure": False,
-    }
+    if retire_mode == "purge":
+        assert http.post(path + "/purge", headers=headers, json={"expected_revision": 3}).json == {
+            "revision": 5,
+            "state": "purged",
+            "secure_device_erasure": False,
+        }
+    else:
+        assert_video_retention(case, app, http, headers, path, catalog, erasure)
     assert not list(storage.store.base_dir.rglob("v0001__*"))
     assert catalog.get_retired("tenant", "project", asset.video.artifact_id) == (asset, 5, "purged")
 
 
-def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(request, app, tmp_path, monkeypatch):
+def assert_video_retention(case, app, http, headers, path, catalog, erasure):
+    store = create_video_retention_store(case.base.engine)
+    store.initialize()
+    now = [time.time()]
+    app.extensions["persona_video_retention"] = PersonaRetentionService(
+        policy=case.policy,
+        catalog=catalog,
+        store=store,
+        clock=lambda: now[0],
+    )
+    runner = PersonaRetentionRunner(
+        policy=case.policy,
+        catalog=catalog,
+        store=store,
+        erasure=erasure,
+        tasks=HubPersonaRetentionTasks(kind="video", clock=lambda: now[0]),
+        clock=lambda: now[0],
+    )
+    response = http.put(
+        path + "/retention",
+        headers=headers,
+        json={
+            "asset_revision": 3,
+            "expected_revision": 0,
+            "delete_after_seconds": 60,
+        },
+    )
+    assert response.status_code == 200 and response.json["state"] == "scheduled"
+    assert runner.run_once()["claimed"] == 0
+    # Advance only the injected retention clock; no interactive wait or task
+    # deadline extension is needed to test due scheduling and real file erasure.
+    now[0] += 61
+    assert runner.run_once()["completed"] == 1
+    assert http.get(path + "/retention", headers=headers).json["state"] == "completed"
+
+
+@pytest.mark.parametrize("retire_mode", ["purge", "retention"])
+def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(
+    request, app, tmp_path, monkeypatch, retire_mode
+):
     case = request.getfixturevalue("video_task")
     case.policy.access = app.extensions["project_access_authority"]
     app.config["ROLE"] = "hub"
@@ -243,5 +289,5 @@ def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(req
                 assert case.state.get(result.task_id).status == "completed"
                 run = case.base.repository.get_run(tenant_id="tenant", project_id="project", run_id=result.run_id)
                 assert run.state == "succeeded" and run.synthetic and run.evidence_scope == "test"
-                assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch)
+                assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch, retire_mode)
                 assert not docker("exec", container, "sh", "-c", "command -v nvidia-smi || true")

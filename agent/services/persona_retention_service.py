@@ -1,4 +1,4 @@
-"""User-authorized scheduling of exact, already-retired image bundles."""
+"""User-authorized scheduling of exact, already-retired persona bundles."""
 
 import hashlib
 import time
