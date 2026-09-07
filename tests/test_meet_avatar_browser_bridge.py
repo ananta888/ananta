@@ -21,8 +21,11 @@ let generation = 0, active = false, finish;
 const closed = [], pulses = [];
 const source = {
   status: () => ({generation}),
-  open(id, profile) {
-    assert.equal(id, 'avatar:synthetic'); assert.equal(profile, 'neutral-ai-v1');
+  open(id, profile, image) {
+    if (id === 'avatar:synthetic-image') {
+      assert.equal(profile, 'persona-image-v1');
+      assert.equal(image.png, 'bounded-fixture'); assert.equal(image.sha256, 'a'.repeat(64));
+    } else { assert.equal(id, 'avatar:synthetic'); assert.equal(profile, 'neutral-ai-v1'); }
     if (active) return Promise.reject(new Error('busy'));
     active = true; generation++;
     return new Promise(resolve => { finish = resolve; });
@@ -54,6 +57,17 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   finish({data: 'x'.repeat(1025)}); await flush();
   assert.equal(run('state', 'oversize').phase, 'failed');
   run('close', 'oversize'); assert.deepEqual(closed, [1, 2, 3]);
+
+  run('start', ['image', 'avatar:synthetic-image', 'persona-image-v1',
+    {png: 'bounded-fixture', sha256: 'a'.repeat(64)}]);
+  const imageFinish = finish;
+  run('close', 'image'); run('start', ['replacement', 'avatar:synthetic']);
+  imageFinish({generation: 4, profile: 'persona-image-v1'}); await flush();
+  assert.equal(run('state', 'replacement').phase, 'pending');
+  run('close', 'image'); assert.deepEqual(closed, [1, 2, 3, 4]);
+  finish({generation: 5, profile: 'neutral-ai-v1'}); await flush();
+  assert.equal(run('state', 'replacement').receipt.profile, 'neutral-ai-v1');
+  run('close', 'replacement'); assert.deepEqual(closed, [1, 2, 3, 4, 5]);
   process.stdout.write('bridge-races-ok');
 })().catch(error => { process.stderr.write(error.name); process.exitCode = 1; });
 """

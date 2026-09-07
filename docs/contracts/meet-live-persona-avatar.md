@@ -69,3 +69,27 @@ mutation during final asset authorization. One initial test attempted the
 invalid organization lifecycle `suspended`; the existing SQL constraint rejected
 it correctly. The fixture now uses the supported `archived` state. No database
 constraint, permission or legacy MP4 output requirement was relaxed.
+
+## Implemented browser/Worker image primitives
+
+Companion `25d6df3` implements the separately tested `persona-image-v1` port:
+bounded normalized PNG/hash/decode, fixed KI label, late-bitmap cleanup and
+generation fencing, with real Chromium/Firefox image replacement beside
+speech/screen. Its full check passed (568 frontend, 499 Node passed, two skips).
+Ananta's additive `AvatarBrowserPort.start_image` verifies the closed tenant/
+project-bound assignment, then passes only verified PNG bytes and their digest,
+never Hub profile metadata, to this port. Neutral operation stays unchanged.
+The receipt validator accepts image mode only when explicitly expected by the
+caller; an image receipt never silently satisfies a neutral source control.
+These are primitives, not yet enabled dialog image selection or hydration.
+The image bridge, actual JavaScript race harness and existing neutral pump
+regression passed together: 33 tests in 27.56 s. Stale image completion cannot
+replace a later neutral generation, and corrupt or foreign assignments never
+allocate a browser operation. An initial test-only import typo was corrected.
+
+The next Hub CAS slice must explicitly negotiate image support for new tasks;
+an old neutral-only assignment must reject image selection, not continue showing
+the neutral avatar. Persist only mode, immutable reference and profile pin.
+Keep image hydration out of the small dialog state envelope and out of task
+history. Image-only revocation must quiesce avatar without granting or changing
+independent chat, screen or speech controls.

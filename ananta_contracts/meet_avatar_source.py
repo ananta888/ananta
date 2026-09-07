@@ -1,7 +1,9 @@
-"""Closed neutral-avatar source observations, never authorization by themselves."""
+"""Closed avatar source observations, never authorization by themselves."""
 
 
-def validate_avatar_snapshot(value, now_ms, deadline_ms):
+def validate_avatar_snapshot(value, now_ms, deadline_ms, *, profile="neutral-ai-v1"):
+    if profile not in ("neutral-ai-v1", "persona-image-v1"):
+        raise ValueError("meet_avatar_profile_invalid")
     if not isinstance(value, dict) or set(value) != {"phase", "generation", "receipt", "source"}:
         raise ValueError("meet_avatar_snapshot_invalid")
     generation, source = value["generation"], value["source"]
@@ -29,7 +31,7 @@ def validate_avatar_snapshot(value, now_ms, deadline_ms):
         or not isinstance(receipt, dict)
         or set(receipt) != {"schema", "profile", "generation", "width", "height", "fps", "heartbeatMs", "expiresAt"}
         or receipt["schema"] != "ananta.meet-avatar-source.v1"
-        or receipt["profile"] != "neutral-ai-v1"
+        or receipt["profile"] != profile
         or any(
             type(receipt[k]) is not int for k in ("generation", "width", "height", "fps", "heartbeatMs", "expiresAt")
         )
