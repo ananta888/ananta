@@ -5,6 +5,7 @@ import time
 from contextlib import ExitStack
 
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assignment
+from worker.meet_media.dialog_avatar_presentation import DialogAvatarPresentation
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 from worker.meet_media.dialog_chat import DialogChatPump
 from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_matches
@@ -80,7 +81,11 @@ def run(assignment, hub):
         cleanup.callback(chat.close)
         screen = DialogScreenPump(page, browser, assignment)
         cleanup.callback(screen.close)
-        avatar = DialogAvatarPump(page, assignment)
+        avatar = (
+            DialogAvatarPresentation(page, hub, assignment)
+            if assignment.get("avatar_images") is True
+            else DialogAvatarPump(page, assignment)
+        )
         cleanup.callback(avatar.close)
         audio = None
         # Resolve the current source at teardown, not an obsolete iteration's object.
@@ -118,7 +123,10 @@ def run(assignment, hub):
                     audio = start_audio(page, hub, assignment, state, meet_session)
                 chat.update(receipt, controls["chat"])
                 speech.update(receipt, controls)
-                avatar.update(receipt, controls)
+                if assignment.get("avatar_images") is True:
+                    avatar.update(receipt, controls, state["avatar"])
+                else:
+                    avatar.update(receipt, controls)
                 screen.update(
                     controls["screen"],
                     {
