@@ -1,8 +1,8 @@
 # Spoken dialog result handoff — implementation plan
 
 MAP-22 follow-up after actual local Piper-to-Meet transport was verified.
-The closed envelope and shared WAV validator are implemented; HTTP dispatch,
-speech controls and runtime composition below remain planned. This is not an
+The closed envelope, shared WAV validator and optional independent Hub speech
+control are implemented; HTTP dispatch and runtime composition remain planned. This is not an
 active endpoint or runtime capability claim.
 
 ## Decision
@@ -64,3 +64,25 @@ reply's representation.
 tests passed in 95.07 s on 2026-09-07; Ruff and diff checks passed. These are
 technical regression tests. There is no new route, caller authority or
 production release evidence from this contract-only step.
+
+## Independent speech control
+
+Explicitly `speech.publish`-assigned new tasks receive an optional `speech`
+source control, with its own enabled/revision/since values. The Hub rejects a
+speech control on an unassigned task, even when its enabled value is false.
+No UI/control operation can add the capability. Existing tasks retain precisely
+the original three-source projection; an older three-source update preserves a
+present speech control rather than implicitly enabling or disabling it.
+
+Speech pause/resume updates its own source revision while keeping chat, audio
+receive and screen revisions intact. Parent updates retain ordinary TaskQueue
+compare-and-set semantics. The Angular panel accepts and displays this optional
+control only when backed by the assigned capability; it does not yet offer a
+new speech-enabled start flow before runtime composition is complete.
+
+47 backend regressions passed in 37.48 s, followed by 14 controls/real task-CAS
+and actual legacy Hub/Worker/Meet browser checks in 41.05 s. The existing chat/
+screen loop still passes with the unchanged three-source shape. 49 Angular Meet
+tests, feature lint and template/type checking passed; the unrelated existing
+KnowledgeHygiene RouterLink warning remains. Updated Python modules are
+formatted/linted; Hub/Worker responsibilities and task ownership are unchanged.

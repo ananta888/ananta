@@ -1,13 +1,15 @@
 """Re-read ordinary Hub task authority; Worker status is never an authorization."""
 
-from dataclasses import dataclass
 import re
 import time
+from dataclasses import dataclass
 
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
 
-CAPABILITIES = frozenset({"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"})
+CAPABILITIES = frozenset(
+    {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
+)
 
 
 @dataclass(frozen=True)
@@ -46,10 +48,29 @@ class MeetDialogAuthority:
         from agent.services.source_control_access_policy import HubSourcePrincipal
 
         task = self.tasks.get_by_id(task_id)
-        if task is None or task.task_kind != "meet_dialog_session" or task.status != "in_progress" or getattr(task, "archived", False):
+        if (
+            task is None
+            or task.task_kind != "meet_dialog_session"
+            or task.status != "in_progress"
+            or getattr(task, "archived", False)
+        ):
             raise MeetError("meet_dialog_task_inactive", 403)
         value = (task.worker_execution_context or {}).get("meet_dialog", {})
-        fields = {"lease_id", "runtime_id", "session_id", "room_id", "owner_subject", "binding_task_id", "deadline", "capabilities", "chat_mode", "audio_mode", "audio_job", "audio_count", "controls"}
+        fields = {
+            "lease_id",
+            "runtime_id",
+            "session_id",
+            "room_id",
+            "owner_subject",
+            "binding_task_id",
+            "deadline",
+            "capabilities",
+            "chat_mode",
+            "audio_mode",
+            "audio_job",
+            "audio_count",
+            "controls",
+        }
         if not isinstance(value, dict) or set(value) != fields:
             raise MeetError("meet_dialog_binding_invalid", 403)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
@@ -62,13 +83,28 @@ class MeetDialogAuthority:
         capabilities = value["capabilities"]
         if value["chat_mode"] not in {"off", "mention", "direct_question", "room"}:
             raise MeetError("meet_dialog_policy_denied", 403)
-        if (value["audio_mode"] not in {"off", "transcribe", "dialog"} or type(value["audio_count"]) is not int
-                or not 0 <= value["audio_count"] <= 720 or value["audio_job"] is not None and not isinstance(value["audio_job"], dict)):
+        if (
+            value["audio_mode"] not in {"off", "transcribe", "dialog"}
+            or type(value["audio_count"]) is not int
+            or not 0 <= value["audio_count"] <= 720
+            or value["audio_job"] is not None
+            and not isinstance(value["audio_job"], dict)
+        ):
             raise MeetError("meet_dialog_policy_denied", 403)
         allowed = self.policies.get((task.tenant_id, task.project_id), frozenset())
-        if (not isinstance(capabilities, list) or not capabilities or any(not isinstance(item, str) for item in capabilities)
-                or len(set(capabilities)) != len(capabilities) or not set(capabilities) <= allowed):
+        if (
+            not isinstance(capabilities, list)
+            or not capabilities
+            or any(not isinstance(item, str) for item in capabilities)
+            or len(set(capabilities)) != len(capabilities)
+            or not set(capabilities) <= allowed
+        ):
             raise MeetError("meet_dialog_policy_denied", 403)
+        controls = parse_controls(value["controls"])
+        if controls.speech is not None and (
+            "speech.publish" not in capabilities or controls.speech.enabled and value["chat_mode"] == "off"
+        ):
+            raise MeetError("meet_dialog_control_capability_denied", 403)
         parent = value["binding_task_id"]
         if not isinstance(parent, str) or parent and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", parent):
             raise MeetError("meet_dialog_binding_invalid", 403)
@@ -77,6 +113,20 @@ class MeetDialogAuthority:
         stored = self.binding.read(principal, task.project_id, parent)
         if not stored["invite_url"] or self.binding.profile.parse_invite(stored["invite_url"]) != value["room_id"]:
             raise MeetError("meet_dialog_room_changed", 403)
-        return DialogAuthority(task_id, lease_id, task.tenant_id, task.project_id, runtime_id, value["session_id"],
-                               value["room_id"], self.binding.profile.origin, value["owner_subject"], parent,
-                               value["deadline"], tuple(sorted(capabilities)), value["chat_mode"], value["audio_mode"], parse_controls(value["controls"]))
+        return DialogAuthority(
+            task_id,
+            lease_id,
+            task.tenant_id,
+            task.project_id,
+            runtime_id,
+            value["session_id"],
+            value["room_id"],
+            self.binding.profile.origin,
+            value["owner_subject"],
+            parent,
+            value["deadline"],
+            tuple(sorted(capabilities)),
+            value["chat_mode"],
+            value["audio_mode"],
+            controls,
+        )

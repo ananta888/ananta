@@ -2,7 +2,11 @@ import { Component, Input, OnChanges, OnDestroy, OnInit, inject, signal } from '
 import { FormsModule } from '@angular/forms';
 import { Subscription, skip } from 'rxjs';
 import { UserAuthService } from '../../services/user-auth.service';
-import { MeetDialogApiService, MeetDialog } from './meet-dialog-api.service';
+import { MeetDialogApiService, MeetDialog, DialogSource } from './meet-dialog-api.service';
+
+const sourceCapabilities: Record<DialogSource, readonly string[]> = {
+  chat: ['chat.read', 'chat.send'], audio: ['audio.receive', 'chat.send'], screen: ['screen.publish'], speech: ['speech.publish'],
+};
 
 @Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule], template: `
   <section aria-label="Autorisierter Meet-Dialog">
@@ -25,8 +29,10 @@ import { MeetDialogApiService, MeetDialog } from './meet-dialog-api.service';
       <article><h4>Ananta (KI)</h4><p>Hub-Task: {{ item.task_id }} · {{ item.status }}</p>
         <p>Dies ist der Auftragsstatus, keine Bestätigung der Medienzustellung.</p>
         @for (source of sourceNames; track source.key) {
+          @if (item.controls[source.key]; as control) {
           <button type="button" [disabled]="busy() || item.status !== 'in_progress' || !canControl(item, source.key)"
-            (click)="toggle(item, source.key)">{{ source.label }}: {{ item.controls[source.key].enabled ? 'pausieren' : 'fortsetzen' }}</button>
+            (click)="toggle(item, source.key)">{{ source.label }}: {{ control.enabled ? 'pausieren' : 'fortsetzen' }}</button>
+          }
         }
         <button type="button" [disabled]="busy() || item.status !== 'in_progress'" (click)="stop(item)">KI-Auftrag vollständig stoppen</button>
       </article>
@@ -41,7 +47,8 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   private request?: Subscription; private identity?: Subscription;
   readonly busy = signal(false); readonly message = signal(''); readonly dialogs = signal<MeetDialog[]>([]);
   readonly nextCursor = signal<number | null>(null);
-  readonly sourceNames = [{ key: 'chat', label: 'Raumchat' }, { key: 'audio', label: 'Audioempfang' }, { key: 'screen', label: 'Arbeitsansicht' }] as const;
+  readonly sourceNames = [{ key: 'chat', label: 'Raumchat' }, { key: 'audio', label: 'Audioempfang' },
+    { key: 'screen', label: 'Arbeitsansicht' }, { key: 'speech', label: 'Sprachausgabe' }] as const;
   chat = false; audio = false; screen = false; mode = 'mention'; minutes = 15;
   ngOnInit(): void { this.identity = this.auth.user$.pipe(skip(1)).subscribe(() => this.reset()); }
   ngOnChanges(): void { this.reset(); }
@@ -77,16 +84,16 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
     if (this.busy()) return; this.busy.set(true);
     this.request = this.api.stop(this.projectId, item.task_id).subscribe({ next: value => this.replace(value), error: error => this.failure(error) });
   }
-  toggle(item: MeetDialog, source: 'chat' | 'audio' | 'screen'): void {
+  toggle(item: MeetDialog, source: DialogSource): void {
     if (this.busy() || item.status !== 'in_progress' || !this.canControl(item, source)) return; this.busy.set(true);
+    const control = item.controls[source]!;
     const body = { expected_revision: item.controls.revision, chat: item.controls.chat.enabled,
-      audio: item.controls.audio.enabled, screen: item.controls.screen.enabled, [source]: !item.controls[source].enabled };
+      audio: item.controls.audio.enabled, screen: item.controls.screen.enabled,
+      ...(item.controls.speech ? { speech: item.controls.speech.enabled } : {}), [source]: !control.enabled };
     this.request = this.api.control(this.projectId, item.task_id, body).subscribe({ next: value => this.replace(value), error: error => this.failure(error) });
   }
-  canControl(item: MeetDialog, source: 'chat' | 'audio' | 'screen'): boolean {
-    const needed = source === 'chat' ? ['chat.read', 'chat.send'] : source === 'audio'
-      ? ['audio.receive', 'chat.send'] : ['screen.publish'];
-    return needed.every(capability => item.capabilities.includes(capability));
+  canControl(item: MeetDialog, source: DialogSource): boolean {
+    return Boolean(item.controls[source]) && sourceCapabilities[source].every(capability => item.capabilities.includes(capability));
   }
   private replace(item: MeetDialog): void {
     this.dialogs.update(rows => rows.map(row => row.task_id === item.task_id ? item : row)); this.busy.set(false);

@@ -4,7 +4,8 @@ import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 
 export interface SourceControl { enabled: boolean; revision: number; since: number }
-export interface DialogControls { revision: number; chat: SourceControl; audio: SourceControl; screen: SourceControl }
+export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech';
+export interface DialogControls { revision: number; chat: SourceControl; audio: SourceControl; screen: SourceControl; speech?: SourceControl }
 export interface MeetDialog {
   schema: 'ananta.meet-dialog-status.v1'; task_id: string; status: string; deadline: number;
   controls: DialogControls; capabilities: string[];
@@ -19,9 +20,11 @@ export function validateDialog(value: MeetDialog): MeetDialog {
     throw new Error('meet_dialog_contract_invalid');
   }
   const controls = value.controls;
-  if (!controls || Object.keys(controls).sort().join() !== 'audio,chat,revision,screen'
+  if (!controls || !['audio,chat,revision,screen', 'audio,chat,revision,screen,speech'].includes(Object.keys(controls).sort().join())
+    || Object.hasOwn(controls, 'speech') && !value.capabilities.includes('speech.publish')
     || !Number.isSafeInteger(controls.revision) || controls.revision < 1 || controls.revision > 1023) throw new Error('meet_dialog_contract_invalid');
-  for (const name of ['chat', 'audio', 'screen'] as const) {
+  const sources: DialogSource[] = ['chat', 'audio', 'screen', ...(Object.hasOwn(controls, 'speech') ? ['speech' as const] : [])];
+  for (const name of sources) {
     const source = controls[name];
     if (!source || Object.keys(source).sort().join() !== 'enabled,revision,since' || typeof source.enabled !== 'boolean'
       || !Number.isSafeInteger(source.revision) || source.revision < 1 || source.revision > controls.revision

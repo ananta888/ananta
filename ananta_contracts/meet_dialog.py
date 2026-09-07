@@ -8,18 +8,30 @@ from urllib.parse import urlsplit
 
 MAX_DIALOG_BYTES = 16384
 ID = re.compile(r"[A-Za-z0-9_.:-]{1,160}")
-CAPABILITIES = frozenset({"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"})
+CAPABILITIES = frozenset(
+    {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
+)
 
 
 def validate_controls(value):
-    if (not isinstance(value, dict) or set(value) != {"revision", "chat", "audio", "screen"}
-            or type(value["revision"]) is not int or not 1 <= value["revision"] <= 1023):
+    if (
+        not isinstance(value, dict)
+        or set(value) - {"speech"} != {"revision", "chat", "audio", "screen"}
+        or type(value["revision"]) is not int
+        or not 1 <= value["revision"] <= 1023
+    ):
         raise ValueError("meet_dialog_controls_invalid")
-    for name in ("chat", "audio", "screen"):
+    for name in ("chat", "audio", "screen") + (("speech",) if "speech" in value else ()):
         row = value[name]
-        if (not isinstance(row, dict) or set(row) != {"enabled", "revision", "since"} or type(row["enabled"]) is not bool
-                or type(row["revision"]) is not int or not 1 <= row["revision"] <= value["revision"]
-                or type(row["since"]) is not int or not 1 <= row["since"] < 2**53):
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"enabled", "revision", "since"}
+            or type(row["enabled"]) is not bool
+            or type(row["revision"]) is not int
+            or not 1 <= row["revision"] <= value["revision"]
+            or type(row["since"]) is not int
+            or not 1 <= row["since"] < 2**53
+        ):
             raise ValueError("meet_dialog_controls_invalid")
     return value
 
@@ -32,11 +44,15 @@ def parse(raw):
                 raise ValueError("meet_dialog_duplicate_field")
             value[key] = item
         return value
+
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_DIALOG_BYTES:
         raise ValueError("meet_dialog_payload_invalid")
     try:
-        return json.loads(raw.decode("utf-8", errors="strict"), object_pairs_hook=unique,
-                          parse_constant=lambda _: (_ for _ in ()).throw(ValueError("meet_dialog_number_invalid")))
+        return json.loads(
+            raw.decode("utf-8", errors="strict"),
+            object_pairs_hook=unique,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError("meet_dialog_number_invalid")),
+        )
     except (UnicodeError, RecursionError):
         raise ValueError("meet_dialog_payload_invalid") from None
 
@@ -47,17 +63,39 @@ def _ids(value, names):
 
 
 def validate_assignment(value, now):
-    fields = {"schema", "task_id", "lease_id", "runtime_id", "session_id", "tenant_id", "project_id", "deadline", "capabilities", "meeting", "audio_mode"}
+    fields = {
+        "schema",
+        "task_id",
+        "lease_id",
+        "runtime_id",
+        "session_id",
+        "tenant_id",
+        "project_id",
+        "deadline",
+        "capabilities",
+        "meeting",
+        "audio_mode",
+    }
     if not isinstance(value, dict) or set(value) != fields or value["schema"] != "ananta.meet-dialog-assignment.v1":
         raise ValueError("meet_dialog_assignment_invalid")
     _ids(value, fields - {"schema", "deadline", "capabilities", "meeting", "audio_mode"})
     caps = value["capabilities"]
-    if (not isinstance(caps, list) or not caps or any(not isinstance(v, str) for v in caps)
-            or len(caps) != len(set(caps)) or not set(caps) <= CAPABILITIES
-            or type(value["deadline"]) is not int or not now < value["deadline"] <= now + 7200):
+    if (
+        not isinstance(caps, list)
+        or not caps
+        or any(not isinstance(v, str) for v in caps)
+        or len(caps) != len(set(caps))
+        or not set(caps) <= CAPABILITIES
+        or type(value["deadline"]) is not int
+        or not now < value["deadline"] <= now + 7200
+    ):
         raise ValueError("meet_dialog_assignment_invalid")
-    if (not isinstance(value["audio_mode"], str) or value["audio_mode"] not in {"off", "transcribe", "dialog"}
-            or value["audio_mode"] != "off" and not {"audio.receive", "chat.send"} <= set(caps)):
+    if (
+        not isinstance(value["audio_mode"], str)
+        or value["audio_mode"] not in {"off", "transcribe", "dialog"}
+        or value["audio_mode"] != "off"
+        and not {"audio.receive", "chat.send"} <= set(caps)
+    ):
         raise ValueError("meet_dialog_audio_policy_invalid")
     meeting = value["meeting"]
     if not isinstance(meeting, dict) or set(meeting) != {"origin", "room_id", "grant"}:
@@ -65,10 +103,19 @@ def validate_assignment(value, now):
     if any(not isinstance(v, str) for v in meeting.values()):
         raise ValueError("meet_dialog_meeting_invalid")
     url = urlsplit(meeting["origin"])
-    if (url.scheme != "https" or not url.hostname or url.username or url.password or url.port
-            or url.path or url.query or url.fragment or url.netloc != url.hostname
-            or not re.fullmatch(r"room-[a-f0-9]{18}", meeting["room_id"])
-            or not re.fullmatch(r"[A-Za-z0-9_.-]{1,4096}", meeting["grant"])):
+    if (
+        url.scheme != "https"
+        or not url.hostname
+        or url.username
+        or url.password
+        or url.port
+        or url.path
+        or url.query
+        or url.fragment
+        or url.netloc != url.hostname
+        or not re.fullmatch(r"room-[a-f0-9]{18}", meeting["room_id"])
+        or not re.fullmatch(r"[A-Za-z0-9_.-]{1,4096}", meeting["grant"])
+    ):
         raise ValueError("meet_dialog_meeting_invalid")
     return value
 
@@ -88,25 +135,37 @@ def validate_callback(value, now):
     if set(value) != common | fields:
         raise ValueError("meet_dialog_callback_invalid")
     _ids(value, ("task_id", "lease_id", "runtime_id"))
-    if (not isinstance(value["nonce"], str) or not re.fullmatch(r"[a-f0-9]{32}", value["nonce"])
-            or type(value["sent_at"]) is not int or not now - 10 <= value["sent_at"] <= now + 2):
+    if (
+        not isinstance(value["nonce"], str)
+        or not re.fullmatch(r"[a-f0-9]{32}", value["nonce"])
+        or type(value["sent_at"]) is not int
+        or not now - 10 <= value["sent_at"] <= now + 2
+    ):
         raise ValueError("meet_dialog_callback_expired")
     if action == "finish":
         if not isinstance(value["status"], str) or value["status"] not in {"completed", "failed", "cancelled"}:
             raise ValueError("meet_dialog_terminal_invalid")
-    elif not isinstance(value["meet_session_id"], str) or not re.fullmatch(r"ms_[A-Za-z0-9_-]{32}", value["meet_session_id"]):
+    elif not isinstance(value["meet_session_id"], str) or not re.fullmatch(
+        r"ms_[A-Za-z0-9_-]{32}", value["meet_session_id"]
+    ):
         raise ValueError("meet_dialog_session_invalid")
     if action == "chat" and not isinstance(value["event"], dict):
         raise ValueError("meet_dialog_event_invalid")
     if action == "audio":
         from ananta_contracts.meet_dialog_audio import PUBLICATION_ID
+
         if not isinstance(value["publication_id"], str) or not PUBLICATION_ID.fullmatch(value["publication_id"]):
             raise ValueError("meet_dialog_publication_invalid")
     if action == "transcript":
         _ids(value, ("audio_task_id", "audio_lease_id"))
-        if (type(value["end_sample"]) is not int or value["end_sample"] != 160000
-                or not isinstance(value["language"], str) or value["language"] not in {"de", "en"}
-                or not isinstance(value["text"], str) or len(value["text"]) > 2000):
+        if (
+            type(value["end_sample"]) is not int
+            or value["end_sample"] != 160000
+            or not isinstance(value["language"], str)
+            or value["language"] not in {"de", "en"}
+            or not isinstance(value["text"], str)
+            or len(value["text"]) > 2000
+        ):
             raise ValueError("meet_dialog_transcript_invalid")
         try:
             if len(value["text"].encode("utf-8")) > 4000 or any(ord(c) < 32 and c not in "\n\t" for c in value["text"]):
@@ -121,4 +180,6 @@ def request_signature(key, body):
 
 
 def response_signature(key, request_body, response_body):
-    return hmac.new(key, b"meet-dialog-response-v1\0" + hashlib.sha256(request_body).digest() + response_body, hashlib.sha256).hexdigest()
+    return hmac.new(
+        key, b"meet-dialog-response-v1\0" + hashlib.sha256(request_body).digest() + response_body, hashlib.sha256
+    ).hexdigest()

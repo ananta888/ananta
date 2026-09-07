@@ -9,6 +9,23 @@ const row = () => ({ schema: 'ananta.meet-dialog-status.v1' as const, task_id: '
     audio: { enabled: false, revision: 1, since: 1000 }, screen: { enabled: false, revision: 1, since: 1000 } } });
 
 describe('Hub-owned Meet dialog controls', () => {
+  it('validates and toggles optional speech without resetting unrelated controls', () => {
+    const source = { ...row(), capabilities: [...row().capabilities, 'speech.publish'],
+      controls: { ...row().controls, speech: { enabled: true, revision: 1, since: 1000 } } };
+    expect(validateDialog(source)).toBe(source);
+    const result = { ...source, controls: { ...source.controls, revision: 2, speech: { enabled: false, revision: 2, since: 1100 } } };
+    const api = { control: vi.fn(() => of(result)) };
+    TestBed.configureTestingModule({ providers: [{ provide: MeetDialogApiService, useValue: api },
+      { provide: UserAuthService, useValue: { user$: of({ id: 'u' }) } }] });
+    const component = TestBed.runInInjectionContext(() => new MeetDialogComponent());
+    component.projectId = 'p'; component.dialogs.set([source]); component.toggle(source, 'speech');
+    expect(api.control).toHaveBeenCalledWith('p', 'task', { expected_revision: 1, chat: true, audio: false, screen: false, speech: false });
+    expect(component.dialogs()[0].controls.chat).toEqual(source.controls.chat);
+    expect(component.canControl(row(), 'speech')).toBe(false);
+    expect(() => validateDialog({ ...source, capabilities: row().capabilities })).toThrow();
+    expect(() => validateDialog({ ...source, controls: { ...source.controls, speech: null } } as never)).toThrow();
+    component.ngOnDestroy();
+  });
   const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn() };
   let identity: BehaviorSubject<unknown>;
   beforeEach(() => {

@@ -3,13 +3,17 @@
 import json
 import time
 import uuid
-from dataclasses import asdict
 
 from agent.services.meet_chat_admission import AuthorizedChatSession, MeetChatAdmissionService
 from agent.services.meet_chat_contract import ChatEvent, ChatScope
 from agent.services.meet_chat_policy import ChatReplyPolicy
 from agent.services.meet_contract import MeetError
-from agent.services.meet_dialog_controls import change_controls, chat_policy_revision, initial_controls
+from agent.services.meet_dialog_controls import (
+    change_controls,
+    chat_policy_revision,
+    controls_projection,
+    initial_controls,
+)
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from agent.services.meet_turn_service import HubMediaTasks
 
@@ -263,7 +267,7 @@ class MeetDialogService:
             "authorization": state,
             "renewal": renewal,
             "audio_job": audio_job,
-            "controls": asdict(scope.controls),
+            "controls": controls_projection(scope.controls),
         }
 
     def audio(self, payload):
