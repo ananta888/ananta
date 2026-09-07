@@ -13,11 +13,11 @@ class PersonaAssetLifecycle:
 
     def _require_kind(self):
         # Legacy image-only policy ports remain compatible for image use only.
-        if self.format.kind == "video":
+        if self.format.kind != "image":
             require = getattr(self.policy, "require_media_kind", None)
             if not callable(require):
-                raise PermissionError("persona_video_policy_kind_required")
-            require("video")
+                raise PermissionError(f"persona_{self.format.kind}_policy_kind_required")
+            require(self.format.kind)
 
     def admit(self, principal, project, *, content, media_type, origin_binding, license_binding, consent_binding=None):
         self._require_kind()
