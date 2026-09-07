@@ -76,3 +76,11 @@ maximum, and retain only eight allowlisted worklet error codes, never PCM.
 The remaining failure is the cross-process PCM producer cadence, not a missing
 human approval or a reason to enlarge the 200-ms worklet queue. The next bounded
 implementation slice is described in [browser PCM feeding](meet-browser-pcm-feeding.md).
+
+After browser-local, Hub-fenced feeding was implemented, the complete series
+passed in **222.66 s**: five locally complete 220500-sample replies, actual
+generations 1–4, matching image hydration after all three renewals, remotely
+decoded avatar and moving screen, image revocation and final parent stop.
+This closes this particular test scenario, not MAP-11's separate crash/restart
+and duplicate-dispatch criteria, MAP-28 multi-agent operation or MAP-31 public
+TURN/two-hour acceptance.

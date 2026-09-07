@@ -41,6 +41,11 @@ SRC/RUN identity is involved; public/GPU release acceptance stays separate.
 
 ## Implementation and technical observations
 
+The initial implementation below used `SpeechPublication` for delivery. Current
+production composition now transfers the validated opening receipt to
+[browser-local PCM feeding](meet-browser-pcm-feeding.md); injected/synchronous
+consumers retain the old producer. The opening contract itself is unchanged.
+
 The assigned dialog runtime now begins or polls one owned opening per tick,
 then transfers its validated receipt exactly once to `SpeechPublication`.
 Text correlation is reserved before source startup; a later audio setup failure

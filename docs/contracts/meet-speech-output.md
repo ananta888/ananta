@@ -8,6 +8,9 @@ This is not voice-cloning permission or a production release claim. The sections
 below describe the earlier output foundation; live wiring is documented in
 [dialog runtime](meet-dialog-runtime.md) and
 [voice selection](meet-voice-preset-selection.md).
+The current dialog transfers its one already-authorized bounded PCM result to
+the [Hub-fenced browser feeder](meet-browser-pcm-feeding.md); inference and the
+standalone pull/WAV contracts below are unchanged.
 
 ## Responsibilities and reuse
 

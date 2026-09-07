@@ -7,6 +7,13 @@ signed spoken-result transfer and current voice/control binding. The original
 small text callback remains unchanged. No deployment or public readiness claim
 follows from this adapter; the foundation observations below remain historical.
 
+Current production dialog delivery now uses
+[Hub-fenced browser-local PCM feeding](meet-browser-pcm-feeding.md), after the
+same receipt validation and nonblocking opening. `SpeechPublication` remains
+the synchronous/injected compatibility producer and standalone real-Piper sink.
+The limits and historical producer behavior below describe that retained port,
+not a requirement to feed production PCM through Python RPCs every 20 ms.
+
 ## Boundaries
 
 - `ananta_contracts/meet_speech_source.py` validates the exact versioned source

@@ -204,6 +204,12 @@ class VoiceSelectionScenario:
 
 
 def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
+    if enabled == "playback-stall":
+        if actual_gpu:
+            raise ValueError("test_playback_stall_requires_synthetic_audio")
+        from tests.meet_speech_playback_stall import PlaybackStallScenario
+
+        return PlaybackStallScenario(speech, monkeypatch)
     timing_probe = None
     if enabled == "latency":
         if actual_gpu:
@@ -223,6 +229,12 @@ def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
         from tests.meet_screen_decode_delay import ScreenDecodeDelay
 
         timing_probe = ScreenDecodeDelay(monkeypatch)
+    if enabled == "playback-latency":
+        if actual_gpu:
+            raise ValueError("test_playback_delay_requires_synthetic_audio")
+        from tests.meet_speech_playback_delay import SpeechPlaybackDelay
+
+        timing_probe = SpeechPlaybackDelay(monkeypatch)
     return (
         VoiceSelectionScenario(speech, monkeypatch, actual_gpu=actual_gpu, timing_probe=timing_probe)
         if enabled
