@@ -1,7 +1,9 @@
 # Spoken dialog result handoff — implementation plan
 
 MAP-22 follow-up after actual local Piper-to-Meet transport was verified.
-This document is a plan, not an active endpoint or runtime capability claim.
+The closed envelope and shared WAV validator are implemented; HTTP dispatch,
+speech controls and runtime composition below remain planned. This is not an
+active endpoint or runtime capability claim.
 
 ## Decision
 
@@ -46,3 +48,19 @@ The existing worker/browser process deadline remains necessary if JavaScript or
 inference stalls. Local consumed samples remain distinct from receiver delivery
 and production release evidence. Unit doubles, synthetic Hub admission and
 separate component probes must not be reported as completing step 5.
+
+## Contract verification
+
+`ananta_contracts/meet_spoken_reply.py` separates request/response HMAC domains
+from each other and from the existing dialog protocol. The closed response
+binds parent IDs, sender/input correlation, Meet session/membership, independent
+receive/chat/speech revisions, deadline and actual child task/lease IDs.
+`meet_speech_audio.py` verifies and decodes the bounded WAV under the pinned
+voice profile; the existing Hub validator reuses it without changing its error
+API or optional-profile compatibility. No PCM/text appears in the decoded
+reply's representation.
+
+143 contract, speech-profile/binding, existing dialog-transport and media-turn
+tests passed in 95.07 s on 2026-09-07; Ruff and diff checks passed. These are
+technical regression tests. There is no new route, caller authority or
+production release evidence from this contract-only step.
