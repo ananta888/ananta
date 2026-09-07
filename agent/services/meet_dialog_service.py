@@ -34,6 +34,7 @@ class MeetDialogService:
         media_tasks=None,
         replies=None,
         avatar_profiles=None,
+        voice_profiles=None,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
@@ -68,7 +69,14 @@ class MeetDialogService:
             clock,
             replies=self.replies,
         )
-        self.spoken_replies = MeetDialogSpokenReply(authority, meet, reservations, self.replies, clock=clock)
+        from agent.services.meet_dialog_voice_selection import MeetDialogVoiceSelection
+        from agent.services.meet_dialog_voices import MeetDialogVoices
+
+        self.voices = MeetDialogVoices(voice_profiles, self.replies.speech_profile, clock=clock)
+        self.voice_selections = MeetDialogVoiceSelection(authority, tasks, voice_profiles, clock=clock)
+        self.spoken_replies = MeetDialogSpokenReply(
+            authority, meet, reservations, self.replies, clock=clock, voices=self.voices
+        )
         from agent.services.meet_dialog_avatar_images import MeetDialogAvatarImages
         from agent.services.meet_dialog_avatar_selection import MeetDialogAvatarSelection
 
@@ -102,7 +110,8 @@ class MeetDialogService:
         self.authority.binding.require_write_access(principal, project, parent)
         if (
             not isinstance(payload, dict)
-            or set(payload) - {"audio_mode", "avatar_images"} != {"capabilities", "duration_seconds", "chat_mode"}
+            or set(payload) - {"audio_mode", "avatar_images", "voice_profiles"}
+            != {"capabilities", "duration_seconds", "chat_mode"}
             or type(payload["duration_seconds"]) is not int
             or not 30 <= payload["duration_seconds"] <= 7200
             or not isinstance(payload["capabilities"], list)
@@ -119,6 +128,14 @@ class MeetDialogService:
             raise MeetError("meet_dialog_avatar_images_invalid", 403)
         if payload.get("avatar_images") is True and self.avatar_images.profiles is None:
             raise MeetError("meet_dialog_avatar_profiles_unavailable", 409)
+        if "voice_profiles" in payload and (
+            payload["voice_profiles"] is not True or "speech.publish" not in payload["capabilities"]
+        ):
+            raise MeetError("meet_dialog_voice_profiles_invalid", 403)
+        if payload.get("voice_profiles") is True and (
+            self.voices.profiles is None or self.voices.configured_profile is None
+        ):
+            raise MeetError("meet_dialog_voice_profiles_unavailable", 409)
         ChatReplyPolicy(mode=payload["chat_mode"])
         audio_mode = payload.get("audio_mode", "off")
         if (
@@ -158,6 +175,8 @@ class MeetDialogService:
         )
         if payload.get("avatar_images") is True:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
+        if payload.get("voice_profiles") is True:
+            context["voice_selection"] = {"mode": "configured-piper-v1"}
         task_id = str(uuid.uuid4())
         self.tasks.start(task_id, principal.tenant_id, project, context)
         try:
@@ -178,6 +197,8 @@ class MeetDialogService:
             }
             if "avatar_selection" in context:
                 assignment["avatar_images"] = True
+            if "voice_selection" in context:
+                assignment["voice_profiles"] = True
             self.worker.start_dialog(assignment)
             self.authority.current(task_id, scope.lease_id, scope.runtime_id)
             return {
@@ -216,6 +237,8 @@ class MeetDialogService:
         }
         if "avatar_selection" in context:
             result["avatar_selection"] = context["avatar_selection"]
+        if "voice_selection" in context:
+            result["voice_selection"] = context["voice_selection"]
         return result
 
     def select_avatar(self, principal, project, task_id, payload):
@@ -227,6 +250,13 @@ class MeetDialogService:
 
     def avatar_image(self, payload):
         return self.avatar_images.hydrate(payload)
+
+    def select_voice(self, principal, project, task_id, payload):
+        self.inspect(principal, project, task_id)
+        context = self.tasks.get_by_id(task_id).worker_execution_context["meet_dialog"]
+        scope = self.authority.current(task_id, context["lease_id"], context["runtime_id"])
+        self.voice_selections.select(principal, scope, payload)
+        return self.inspect(principal, project, task_id)
 
     def control(self, principal, project, task_id, payload):
         self.inspect(principal, project, task_id)
@@ -267,6 +297,8 @@ class MeetDialogService:
         }
         if scope.avatar_selection is not None:
             result["avatar"] = self.avatar_images.projection(scope, state)
+        if scope.voice_selection is not None:
+            result["voice"] = self.voices.projection(scope)
         return result
 
     def audio(self, payload):

@@ -80,7 +80,7 @@ def test_capacity_denial_does_not_dispatch_or_retry(request):
 
 
 def test_chat_and_audio_use_the_same_injected_reply_composition():
-    replies = Mock()
+    replies = Mock(speech_profile=None)
     service = MeetDialogService(Mock(), Mock(), Mock(), Mock(), Mock(), Mock(), Mock(), Mock(), replies=replies)
     assert service.replies is replies and service.audio_coordinator.replies is replies
 
@@ -94,10 +94,15 @@ def test_enabled_production_dialog_cannot_omit_media_budgets(monkeypatch, capaci
         configure_meet_dialog(app, Mock(), Mock(), capacity=capacity, speech_profile=voice)
 
 
-def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypatch):
+@pytest.mark.parametrize("voice_assets,profiles", [(False, False), (True, False), (False, True), (True, True)])
+def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypatch, voice_assets, profiles):
     app = Flask(__name__)
     app.config["ROLE"] = "hub"
     app.extensions["meet_binding_service"] = Mock()
+    if voice_assets:
+        app.extensions["persona_voice_assets"] = Mock()
+    if profiles:
+        app.extensions["persona_profiles"] = Mock()
     monkeypatch.setenv("ANANTA_MEET_DIALOG_ENABLED", "1")
     monkeypatch.setenv("ANANTA_MEET_DIALOG_POLICIES", "[]")
     monkeypatch.setattr("agent.repositories.meet_chat_reservations.SqlChatReservations", Mock())
@@ -107,3 +112,8 @@ def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypa
     replies = app.extensions["meet_dialog_service"].replies
     assert replies.capacity is capacity and replies.speech_profile == voice
     assert app.extensions["meet_dialog_service"].audio_coordinator.replies is replies
+    bridge = app.extensions["meet_dialog_service"].voices
+    assert bridge.configured_profile == voice
+    assert (bridge.profiles is not None) == (voice_assets and profiles)
+    if bridge.profiles is not None:
+        assert bridge.profiles.voices.assets is app.extensions["persona_voice_assets"]

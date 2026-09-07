@@ -176,6 +176,14 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         capacity=capacity,
         speech_profile=speech_profile,
     )
+    voice_profiles = None
+    voice_assets = app.extensions.get("persona_voice_assets")
+    profiles = app.extensions.get("persona_profiles")
+    if voice_assets is not None and profiles is not None:
+        from agent.services.meet_persona_voice_profiles import MeetPersonaVoiceProfiles
+        from agent.services.meet_persona_voices import MeetPersonaVoices
+
+        voice_profiles = MeetPersonaVoiceProfiles(profiles, MeetPersonaVoices(voice_assets))
     app.extensions["meet_dialog_service"] = MeetDialogService(
         authority,
         tasks,
@@ -188,6 +196,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         media_tasks=media_tasks,
         replies=replies,
         avatar_profiles=avatar_profiles,
+        voice_profiles=voice_profiles,
     )
 
 

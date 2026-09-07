@@ -246,3 +246,34 @@ shared configured default. Only Hub child-task metadata contains the selected
 persona pins; delegated generation receives the closed speech profile. Current
 policy is rechecked around admission and PCM release, with a post-I/O source
 race check. These are headless technical tests, not production release evidence.
+
+Live wiring now requires the explicit optional `voice_profiles: true` start and
+assignment field, `speech.publish`, a configured operator speech budget and the
+voice-profile adapter. Old sessions reject upgrades and keep their exact wire
+shape. `PUT /api/meet/v1/projects/<project>/dialogs/<task>/voice` accepts only an
+owner-authenticated, bounded selection CAS. It never activates paused speech.
+The Hub exchange includes `voice` only for negotiated sessions; the worker
+requires its exact closed shape and matching speech revision. Voice-policy
+revocation yields an independent blocked projection without cancelling chat,
+avatar, screen or parent membership. Bootstrap composes the adapter only when
+the independent persona voice/profile services are present.
+
+This wiring passed 67 focused tests in 38.36 seconds, including actual SQL Hub
+tasks, signed callback HTTP, authenticated selection routes, concurrent source
+changes, composition and legacy avatar/transport regressions. UI selection and
+cross-repository delivery of selected voices remain subsequent checks. No
+serving configuration, key, model or trust policy was changed by this wiring.
+
+The next UI slice adds a separate default-off voice-profile negotiation option
+and owner-scoped metadata picker. Image and voice candidates retain independent
+validators; preview metadata is never treated as publication authority. A small
+shared candidate controller will own cancellation, bounded requests and stale
+scope fencing for both pickers, while each component owns its labels and media
+semantics (SRP/composition, no component inheritance). The UI sends only the
+current profile pin plus expected control revision, or explicit configured-voice
+selection. It cannot choose URLs, speaker IDs, model paths or activate speech
+as a side effect. Project/identity changes clear candidates and pending work.
+
+After live wiring, 129 spoken reply/worker/client/SQL chat regressions passed in
+52.57 seconds, including actual Hub child-task current/terminal CAS rejection
+when the selected voice metadata changes. No interactive approval was used.

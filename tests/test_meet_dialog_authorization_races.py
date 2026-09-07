@@ -10,20 +10,26 @@ from agent.services.meet_authorization_client import MeetAuthorizationClient
 from agent.services.meet_contract import MeetError
 from tests.test_meet_dialog_avatar_controls import avatar_scope
 from tests.test_meet_dialog_avatar_selection import image_selection
+from tests.test_meet_dialog_voice_selection import voice_selection
 
 
-@pytest.mark.parametrize("change", ["image", "controls", "owner", "runtime", "deadline", "capabilities", "negotiation"])
+@pytest.mark.parametrize(
+    "change",
+    ["image", "voice", "controls", "owner", "runtime", "deadline", "capabilities", "negotiation", "voice_negotiation"],
+)
 def test_concurrent_source_update_is_not_parent_revocation_but_identity_changes_are(monkeypatch, change):
     f, scope = avatar_scope()
-    scope = replace(scope, avatar_selection={"mode": "neutral-ai-v1"})
+    scope = replace(scope, avatar_selection={"mode": "neutral-ai-v1"}, voice_selection={"mode": "configured-piper-v1"})
     patches = {
         "image": {"avatar_selection": image_selection()},
+        "voice": {"voice_selection": voice_selection()},
         "controls": {"controls": replace(scope.controls, revision=scope.controls.revision + 1)},
         "owner": {"owner_subject": "foreign"},
         "runtime": {"runtime_id": "replacement"},
         "deadline": {"deadline": scope.deadline + 1},
         "capabilities": {"capabilities": ()},
         "negotiation": {"avatar_selection": None},
+        "voice_negotiation": {"voice_selection": None},
     }
     current = replace(scope, **patches[change])
     authority = Mock()
@@ -37,7 +43,7 @@ def test_concurrent_source_update_is_not_parent_revocation_but_identity_changes_
     validated = {"validated": "synthetic"}
     monkeypatch.setattr("agent.services.meet_authorization_client.validate_authorization", lambda *_args: validated)
     client = MeetAuthorizationClient(authority, issuer, clock=lambda: f.now)
-    if change in {"image", "controls"}:
+    if change in {"image", "voice", "controls"}:
         assert client.inspect(scope.task_id, scope.lease_id, scope.runtime_id, "ms_" + "a" * 32) == validated
     else:
         with pytest.raises(MeetError, match="authorization_changed"):

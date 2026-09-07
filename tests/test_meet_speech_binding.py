@@ -107,3 +107,24 @@ def test_real_hub_task_terminal_cas_binds_speech_profile(app):
         tasks.start(request, "actor")
         assert not tasks.finish(request | {"speech_profile": speech_profile(max_seconds=4)}, "completed")
         assert tasks.finish(request, "completed")
+
+
+def test_real_hub_task_keeps_voice_selection_in_current_and_terminal_cas(app):
+    import uuid
+
+    from tests.test_meet_dialog_voice_selection import voice_selection
+
+    request = turn() | {
+        "task_id": str(uuid.uuid4()),
+        "speech_profile": speech_profile(max_seconds=5),
+        "hub_voice_selection": voice_selection(),
+    }
+    tasks = HubMediaTasks()
+    with app.app_context():
+        tasks.start(request, "actor")
+        tasks.require_current(request)
+        changed = request | {"hub_voice_selection": {"mode": "configured-piper-v1"}}
+        with pytest.raises(MeetError):
+            tasks.require_current(changed)
+        assert not tasks.finish(changed, "completed")
+        assert tasks.finish(request, "completed")

@@ -223,6 +223,24 @@ def dialog_avatar_selection(project, task_id):
     return jsonify(service.select_avatar(get_authenticated_source_control_principal(), project, task_id, payload))
 
 
+@meet_bp.put("/projects/<project>/dialogs/<task_id>/voice")
+@check_user_auth
+def dialog_voice_selection(project, task_id):
+    from ananta_contracts.meet_dialog import parse
+
+    service = _dialog()
+    if (
+        request.args or request.headers.get("Transfer-Encoding")
+        or request.content_length is None or not 0 < request.content_length <= 2048
+    ):
+        raise MeetError("meet_dialog_voice_selection_invalid")
+    try:
+        payload = parse(request.get_data(cache=False))
+    except ValueError:
+        raise MeetError("meet_dialog_voice_selection_invalid") from None
+    return jsonify(service.select_voice(get_authenticated_source_control_principal(), project, task_id, payload))
+
+
 @meet_bp.post("/internal/dialog/avatar-image")
 def dialog_avatar_image_callback():
     import hmac

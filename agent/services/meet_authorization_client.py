@@ -91,7 +91,9 @@ class MeetAuthorizationClient:
             # A profile switch must not revoke the parent membership or speech.
             # Negotiation presence and every actual membership binding stay fixed.
             if ((current.avatar_selection is None) != (scope.avatar_selection is None)
-                    or current != replace(scope, controls=current.controls, avatar_selection=current.avatar_selection)):
+                    or (current.voice_selection is None) != (scope.voice_selection is None)
+                    or current != replace(scope, controls=current.controls, avatar_selection=current.avatar_selection,
+                                          voice_selection=current.voice_selection)):
                 raise MeetError("meet_authorization_changed", 409)
             return result
         except MeetError:

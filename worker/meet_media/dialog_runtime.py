@@ -122,7 +122,10 @@ def run(assignment, hub):
                 else:
                     audio = start_audio(page, hub, assignment, state, meet_session)
                 chat.update(receipt, controls["chat"])
-                speech.update(receipt, controls)
+                if assignment.get("voice_profiles") is True:
+                    speech.update(receipt, controls, state["voice"])
+                else:
+                    speech.update(receipt, controls)
                 if assignment.get("avatar_images") is True:
                     avatar.update(receipt, controls, state["avatar"])
                 else:

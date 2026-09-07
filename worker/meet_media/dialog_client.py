@@ -15,6 +15,7 @@ from ananta_contracts.meet_dialog import (
     validate_callback,
     validate_controls,
 )
+from ananta_contracts.meet_dialog_voice import validate_voice_projection
 from worker.meet_media.contract import encode, load_key
 from worker.meet_media.dialog_avatar_image_client import HubAvatarImageClient
 from worker.meet_media.dialog_speech_client import HubSpeechClient
@@ -38,6 +39,7 @@ class HubDialogClient:
         self.key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
         self.ids = {k: assignment[k] for k in ("task_id", "lease_id", "runtime_id")}
         self.avatar_images = assignment.get("avatar_images") is True
+        self.voice_profiles = assignment.get("voice_profiles") is True
         self.deadline = time.monotonic() + min(7200, assignment["deadline"] - time.time())
 
     def spoken(self, event, binding):
@@ -99,6 +101,8 @@ class HubDialogClient:
             }[action]
             if action == "exchange" and self.avatar_images:
                 fields = fields | {"avatar"}
+            if action == "exchange" and self.voice_profiles:
+                fields = fields | {"voice"}
             if (
                 not isinstance(value, dict)
                 or set(value) != {"schema", "nonce"} | fields
@@ -110,6 +114,10 @@ class HubDialogClient:
                 validate_controls(value["controls"])
                 if self.avatar_images:
                     validate_avatar_projection(value["avatar"])
+                if self.voice_profiles:
+                    voice = validate_voice_projection(value["voice"])
+                    if voice["speech_revision"] != value["controls"].get("speech", {}).get("revision"):
+                        raise ValueError("meet_dialog_voice_revision_changed")
             return value
         except Exception:
             raise ValueError("meet_dialog_hub_revoked_or_unavailable") from None

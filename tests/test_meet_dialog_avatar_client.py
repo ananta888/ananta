@@ -9,6 +9,7 @@ import pytest
 
 from agent.services.meet_dialog_controls import initial_controls
 from ananta_contracts.meet_dialog import request_signature, response_signature
+from ananta_contracts.meet_dialog_voice import content_digest
 from tests.test_meet_dialog_transport import assignment
 from worker.meet_media.contract import encode
 from worker.meet_media.dialog_client import HubDialogClient
@@ -24,16 +25,20 @@ from worker.meet_media.dialog_client import HubDialogClient
         (True, "invalid", False),
     ],
 )
+@pytest.mark.parametrize(
+    "source,flag,capability",
+    [("avatar", "avatar_images", "avatar.publish"), ("voice", "voice_profiles", "speech.publish")],
+)
 def test_signed_callback_never_silently_upgrades_or_downgrades_avatar_protocol(
-    tmp_path, monkeypatch, negotiated, projection, valid
+    tmp_path, monkeypatch, negotiated, projection, valid, source, flag, capability
 ):
     key = b"synthetic-avatar-callback-key-only"
     key_file = tmp_path / "callback.key"
     key_file.write_bytes(key)
     key_file.chmod(0o600)
-    value = assignment() | {"capabilities": ["avatar.publish"]}
+    value = assignment() | {"capabilities": [capability]}
     if negotiated:
-        value["avatar_images"] = True
+        value[flag] = True
     seen = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -51,12 +56,22 @@ def test_signed_callback_never_silently_upgrades_or_downgrades_avatar_protocol(
                 "controls": initial_controls(value["capabilities"], "off", "off", int(time.time()) * 1000),
             }
             if projection is not None:
-                response["avatar"] = {
-                    "mode": "neutral-ai-v1",
-                    "state": "paused",
-                    "binding": None,
-                    "reference": None,
-                } | ({"png": "unexpected"} if projection == "invalid" else {})
+                response[source] = (
+                    {
+                        "mode": "neutral-ai-v1",
+                        "state": "paused",
+                        "binding": None,
+                        "reference": None,
+                    }
+                    if source == "avatar"
+                    else {
+                        "mode": "configured-piper-v1",
+                        "state": "paused",
+                        "speech_revision": 1,
+                        "selection_digest": content_digest({"mode": "configured-piper-v1"}),
+                        "profile": None,
+                    }
+                ) | ({"unexpected": True} if projection == "invalid" else {})
             raw = encode(response)
             self.send_response(200)
             self.send_header("Content-Length", str(len(raw)))
@@ -76,12 +91,12 @@ def test_signed_callback_never_silently_upgrades_or_downgrades_avatar_protocol(
         client = HubDialogClient(value)
         if valid:
             result = client.call("exchange", meet_session_id="ms_" + "a" * 32)
-            assert ("avatar" in result) == negotiated
+            assert (source in result) == negotiated
         else:
             with pytest.raises(ValueError, match="hub_revoked_or_unavailable"):
                 client.call("exchange", meet_session_id="ms_" + "a" * 32)
         assert seen == ["/api/meet/v1/internal/dialog"]
-        if not negotiated:
+        if not negotiated and source == "avatar":
             with pytest.raises(ValueError, match="not_negotiated"):
                 client.avatar_image({}, {})
             assert len(seen) == 1
