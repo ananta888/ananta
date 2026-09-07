@@ -17,7 +17,8 @@ decoding; never queue another push, retry uncertain delivery, or grow the PCM
 queue. Continue to enforce the five-FPS limit after a confirmed completion.
 
 Preserve Meet's own decode, source expiry, membership, E2EE and post-decode
-generation checks. The Python adapter adds a bounded completion deadline and
+generation checks. The Python adapter adds a 1.5-second completion deadline
+(one-second native decode plus bounded observation margin) and
 exact page/generation/sequence fencing, and closes only its owned generation on
 failure or cancellation. A late Promise may not mutate a newer operation or
 close a replacement source. Closed activation races may reopen only on a later
@@ -39,3 +40,32 @@ complete PCM, moving remote screen, non-silent correlated remote audio and
 bounded revocation. Record failed attempts rather than hiding them with retries.
 All media/policy substitutes remain explicitly synthetic; no GPU, public TURN
 or production release claim follows from this gate.
+
+## Implemented and verified
+
+`BrowserScreenFrames` owns one token/generation/sequence and one browser phase;
+`DialogScreenPump` owns the latest-frame cadence and activation lifecycle.
+Neither phase polling nor cancellation retains JPEG content in phase metadata.
+Cancellation and source cleanup compare the exact generation, so an old decode
+cannot close a replacement. A pending decode cannot trigger source reopening
+inside a Hub update. Completion starts the next 200 ms cadence interval; this
+keeps the five-FPS ceiling but does not promise five FPS under decoder latency.
+The source factory and frame port are independently injectable (SRP/DIP/ISP).
+The existing pump still combines activation and frame scheduling; this preserved
+small coordination responsibility was not expanded into decoding or Hub policy.
+
+Forty initial transport/source tests passed in 24.01 s, then 57 tests including
+the scheduler and exact delay JavaScript passed in 30.71 s. The final combined
+speech/screen/session regression passed all 238 tests in 88.41 s with two Pytest
+workers. Targeted Ruff lint/format and diff checks passed.
+
+The real private-browser JPEG-delay gate passed in 45.13 s against Meet source
+`c20f4533308ee783807af7c9396f5b51fea965a1` and its existing local build. Native
+JPEG bitmap completion was delayed by 300 ms without changing the one-second
+decoder watchdog or any authority limit. The observer measured 47 completed
+frame deliveries at 312.70–401.83 ms. The first 220500-sample speech completed
+locally and the receiver observed correlated non-silent audio; this is not exact
+remote sample accounting. The selected second voice was interrupted by current
+policy revocation in 589.09/605.91 ms locally/remotely while screen continued.
+No human capture or transform errors occurred. Policy/audio were synthetic;
+real selected-voice GPU, public TURN and long-session acceptance remain separate.

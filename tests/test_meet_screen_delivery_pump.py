@@ -1,0 +1,122 @@
+"""Screen scheduling is independent of an unfinished browser JPEG decode."""
+
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
+from tests.test_meet_dialog_transport import assignment
+from worker.meet_media.dialog_screen_pump import DialogScreenPump
+
+
+def setup():
+    state = SimpleNamespace(now=100.0, opened=False, generation=0)
+    page = Mock()
+    frames = Mock(busy=False)
+    source = Mock(source_id="screen:synthetic")
+    source.take.return_value = "latest-jpeg"
+    factory = Mock(return_value=source)
+
+    def begin(*args):
+        frames.busy = True
+
+    frames.begin.side_effect = begin
+    frames.poll.return_value = "pending"
+
+    def cancel():
+        frames.busy = False
+
+    frames.cancel.side_effect = cancel
+
+    def evaluate(script, *args):
+        if "screen.status" in script:
+            return state.opened
+        if "screen.open" in script:
+            state.opened = True
+            state.generation += 1
+            return {"generation": state.generation}
+        raise AssertionError("transport must use its injected port")
+
+    page.evaluate.side_effect = evaluate
+    pump = DialogScreenPump(
+        page,
+        Mock(),
+        assignment() | {"capabilities": ["screen.publish"]},
+        factory,
+        frames=frames,
+        clock=lambda: state.now,
+    )
+    control = {"enabled": True, "revision": 1}
+    pump.update(control)
+    frames.reset_mock()
+    return SimpleNamespace(**locals())
+
+
+def test_pending_decode_never_reads_another_frame_and_success_keeps_5fps_ceiling():
+    f = setup()
+    f.pump.tick()
+    f.frames.begin.assert_called_once_with(1, 1, "latest-jpeg")
+    for offset in [0.02, 0.1, 0.3, 0.5]:
+        f.state.now = 100 + offset
+        f.pump.tick()
+    f.source.take.assert_called_once()
+    f.frames.begin.assert_called_once()
+    assert f.pump.sequence == 1 and f.frames.poll.call_count == 4
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.poll.side_effect = done
+    f.pump.tick()
+    f.state.now = 100.699
+    f.pump.tick()
+    f.frames.begin.assert_called_once()
+    f.state.now = 100.701
+    f.source.take.return_value = "new-latest-jpeg"
+    f.pump.tick()
+    f.frames.begin.assert_called_with(1, 2, "new-latest-jpeg")
+    assert f.frames.begin.call_count == 2
+    f.page.wait_for_timeout.assert_not_called()
+
+
+def test_pending_decode_cannot_trigger_source_reopen_during_fresh_hub_update():
+    f = setup()
+    f.pump.tick()
+    f.state.opened = False
+    f.pump.update(f.control)
+    assert f.state.generation == 1
+
+    def stale():
+        f.frames.busy = False
+        return "stale"
+
+    f.frames.poll.side_effect = stale
+    f.pump.tick()
+    assert not f.pump.failed and f.pump.lease is None
+    f.state.now += 1
+    f.pump.tick()
+    assert f.state.generation == 1
+    f.pump.update(f.control)
+    assert f.state.generation == 2 and f.pump.sequence == 0
+
+
+@pytest.mark.parametrize("operation", ["pause", "invalidate", "close", "failure"])
+def test_cancellation_drops_pending_frame_and_closes_only_its_generation(operation):
+    f = setup()
+    f.pump.tick()
+    if operation == "pause":
+        f.pump.update({"enabled": False, "revision": 2})
+    elif operation == "failure":
+        f.frames.poll.side_effect = ValueError("synthetic_decode_failed")
+        f.pump.tick()
+    else:
+        getattr(f.pump, operation)()
+    assert f.pump.lease is None and not f.frames.busy
+    f.frames.close_generation.assert_called_once_with(1)
+    f.pump.tick()
+    f.frames.begin.assert_called_once()
+    if operation == "failure":
+        assert f.pump.failed and f.pump.source is None
+        f.pump.update(f.control)
+        f.factory.assert_called_once()

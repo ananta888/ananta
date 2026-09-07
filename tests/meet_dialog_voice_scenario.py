@@ -74,11 +74,11 @@ class NoVoiceScenario:
 
 
 class VoiceSelectionScenario:
-    def __init__(self, speech, monkeypatch, *, actual_gpu=False, opening_delay=None):
+    def __init__(self, speech, monkeypatch, *, actual_gpu=False, timing_probe=None):
         if not speech.enabled or actual_gpu != (speech.worker is not None):
             raise ValueError("test_voice_gpu_classification_conflict")
         self.actual_gpu = actual_gpu
-        self.opening_delay = opening_delay
+        self.timing_probe = timing_probe
         if not actual_gpu:
             speech.worker, speech.profile = SyntheticToneWorker(), speech_profile(max_seconds=10)
         self.profiles = SyntheticVoiceProfiles()
@@ -198,13 +198,13 @@ class VoiceSelectionScenario:
                 "interrupted_playback": self.playback.closed,
             },
         )
-        if self.opening_delay is not None:
-            self.opening_delay.verify(record_property)
+        if self.timing_probe is not None:
+            self.timing_probe.verify(record_property)
         return True
 
 
 def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
-    opening_delay = None
+    timing_probe = None
     if enabled == "latency":
         if actual_gpu:
             raise ValueError("test_voice_latency_requires_synthetic_audio")
@@ -216,9 +216,15 @@ def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
             raise ValueError("test_speech_delay_requires_synthetic_audio")
         from tests.meet_speech_opening_delay import SpeechOpeningDelay
 
-        opening_delay = SpeechOpeningDelay(monkeypatch)
+        timing_probe = SpeechOpeningDelay(monkeypatch)
+    if enabled == "screen-latency":
+        if actual_gpu:
+            raise ValueError("test_screen_delay_requires_synthetic_audio")
+        from tests.meet_screen_decode_delay import ScreenDecodeDelay
+
+        timing_probe = ScreenDecodeDelay(monkeypatch)
     return (
-        VoiceSelectionScenario(speech, monkeypatch, actual_gpu=actual_gpu, opening_delay=opening_delay)
+        VoiceSelectionScenario(speech, monkeypatch, actual_gpu=actual_gpu, timing_probe=timing_probe)
         if enabled
         else NoVoiceScenario()
     )
