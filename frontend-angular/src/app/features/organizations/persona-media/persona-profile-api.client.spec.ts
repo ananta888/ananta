@@ -20,6 +20,57 @@ describe('Persona profile HTTP client', () => {
   });
   afterEach(() => http.verify());
 
+  it('checks a voice through its own private reference route without fetching audio or models', () => {
+    const reference = { kind: 'voice', artifact_id: 'voice:1', tenant_id: 'tenant', project_id: 'project', revision: 1,
+      sha256: 'c'.repeat(64), classification: 'test_only' };
+    const accept = vi.fn(); api.voice(scope, 'voice:1').subscribe(accept);
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/voices/voice%3A1/reference').flush({ reference });
+    expect(accept).toHaveBeenCalledExactlyOnceWith(reference);
+  });
+
+  it('queries bounded voice metadata with the cursor in the body', () => {
+    const accept = vi.fn(); api.voices(scope, 'v'.repeat(43)).subscribe(accept);
+    const request = http.expectOne('https://hub.test/api/persona-media/v1/projects/project/voices/query');
+    expect(request.request.method).toBe('POST'); expect(request.request.body).toEqual({ cursor: 'v'.repeat(43), limit: 20 });
+    request.flush({ items: [], next_cursor: null, purpose: 'preview' });
+    expect(accept).toHaveBeenCalledWith({ items: [], next_cursor: null, purpose: 'preview' });
+  });
+
+  it('rejects extra fields in a voice reference response instead of treating them as authority', () => {
+    const failed = vi.fn(); api.voice(scope, 'voice').subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/voices/voice/reference').flush({ reference: {
+      kind: 'voice', artifact_id: 'voice', tenant_id: 'tenant', project_id: 'project', revision: 1,
+      sha256: 'c'.repeat(64), classification: 'test_only',
+    }, publish: true });
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
+  it.each([{ purpose: 'publish' }, { unknown: true }, { items: null }, { items: Array(21).fill(null) },
+    { items: [null] }, { next_cursor: 'invalid' }, { items: [{ kind: 'video' }] }])('rejects malformed voice pages', patch => {
+    const failed = vi.fn(); api.voices(scope, null).subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/voices/query').flush({ items: [], next_cursor: null, purpose: 'preview', ...patch });
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
+  it.each(['duplicate', 'foreign-project', 'mixed-tenant'])('rejects %s voice metadata', failure => {
+    const item = { kind: 'voice', artifact_id: 'voice', tenant_id: 'tenant', project_id: 'project', revision: 1,
+      sha256: 'c'.repeat(64), classification: 'test_only' };
+    const second = failure === 'duplicate' ? item : { ...item, artifact_id: 'second',
+      ...(failure === 'foreign-project' ? { project_id: 'other' } : { tenant_id: 'other' }) };
+    const failed = vi.fn(); api.voices(scope, null).subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/voices/query').flush({ items: [item, second], next_cursor: null, purpose: 'preview' });
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
+  it.each([{ kind: 'image' }, { revision: true }, { sha256: 'invalid' }, { project_id: 'other' }, { artifact_id: 'other' }, { model: '/models/arbitrary' }])('rejects altered voice reference metadata', patch => {
+    const failed = vi.fn(); api.voice(scope, 'voice').subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/voices/voice/reference').flush({ reference: {
+      kind: 'voice', artifact_id: 'voice', tenant_id: 'tenant', project_id: 'project', revision: 1,
+      sha256: 'c'.repeat(64), classification: 'test_only', ...patch,
+    } });
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
   it('uses the project, organization and immutable owner route, with no automatic read retries', () => {
     const failed = vi.fn();
     api.current(scope).subscribe({ error: failed });

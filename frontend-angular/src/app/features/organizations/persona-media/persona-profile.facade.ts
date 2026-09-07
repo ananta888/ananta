@@ -1,10 +1,12 @@
 import { DestroyRef, Injectable, effect, inject, signal, untracked } from '@angular/core';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, timeout } from 'rxjs';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { PersonaProfileApiClient } from './persona-profile-api.client';
-import { PersonaAssetPage, PersonaEffectiveProfile, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState } from './persona-profile.models';
+import { PersonaAssetPage, PersonaEffectiveProfile, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState, PersonaStoredAssetKind } from './persona-profile.models';
 import { PersonaVisualDraft } from './persona-visual-draft';
 import { PersonaVisualPage } from './persona-visual-page';
+import { PersonaAssetDraft } from './persona-asset-draft';
+import { PersonaAssetPageState } from './persona-asset-page';
 
 @Injectable()
 export class PersonaProfileFacade {
@@ -21,6 +23,10 @@ export class PersonaProfileFacade {
   readonly personaId = signal('');
   private readonly imageDraft = new PersonaVisualDraft<'image'>();
   private readonly videoDraft = new PersonaVisualDraft<'video'>();
+  private readonly voiceDraft = new PersonaAssetDraft<'voice'>();
+  readonly voiceState = this.voiceDraft.state;
+  readonly voiceId = this.voiceDraft.id;
+  readonly voice = this.voiceDraft.asset;
   readonly imageState = this.imageDraft.state;
   readonly imageId = this.imageDraft.id;
   readonly image = this.imageDraft.asset;
@@ -29,6 +35,10 @@ export class PersonaProfileFacade {
   readonly video = this.videoDraft.asset;
   private readonly imagePage = new PersonaVisualPage<'image'>();
   private readonly videoPage = new PersonaVisualPage<'video'>();
+  private readonly voicePage = new PersonaAssetPageState<'voice'>();
+  readonly voiceOptions = this.voicePage.items;
+  readonly voiceCursor = this.voicePage.cursor;
+  readonly voicesLoaded = this.voicePage.loaded;
   readonly imageOptions = this.imagePage.items;
   readonly imageCursor = this.imagePage.cursor;
   readonly imagesLoaded = this.imagePage.loaded;
@@ -70,8 +80,10 @@ export class PersonaProfileFacade {
     this.effective.set(null);
     this.imageDraft.reset();
     this.videoDraft.reset();
+    this.voiceDraft.reset();
     this.imagePage.reset();
     this.videoPage.reset();
+    this.voicePage.reset();
     this.personaId.set('');
     this.message.set('');
     this.error.set('');
@@ -83,6 +95,7 @@ export class PersonaProfileFacade {
       this.personaId.set(profile?.persona_id ?? '');
       this.imageDraft.reset(profile?.image);
       this.videoDraft.reset(profile?.video);
+      this.voiceDraft.reset(profile?.voice);
       if (!snapshot.media_available) this.message.set('Das bisherige Medium ist nicht verfügbar. Das Profil kann ersetzt oder deaktiviert werden.');
       this.run(this.api.effective(scope), effective => this.effective.set(effective));
     });
@@ -108,6 +121,24 @@ export class PersonaProfileFacade {
     this.videoDraft.changeId(id);
   }
 
+  selectVoiceState(state: PersonaSelectionState): void { this.cancel(); this.voiceDraft.selectState(state); }
+  changeVoiceId(id: string): void { this.cancel(); this.voiceDraft.changeId(id); }
+
+  inspectVoice(): void {
+    if (!this.scope || !this.scopeCurrent() || this.busy() || !this.voiceId().trim()) return;
+    this.cancel();
+    this.run(this.api.voice(this.scope, this.voiceId().trim()), reference => this.voice.set(reference));
+  }
+
+  listVoices(next = false): void {
+    this.listAssets(this.voicePage, (scope, cursor) => this.api.voices(scope, cursor), next);
+  }
+
+  chooseListedVoice(artifactId: string): void {
+    if (!this.scopeCurrent() || this.busy() || !this.voiceOptions().some(item => item.artifact_id === artifactId)) return;
+    this.voiceState.set('asset'); this.changeVoiceId(artifactId); this.inspectVoice();
+  }
+
   inspectVideo(): void {
     if (!this.scope || !this.scopeCurrent() || this.busy() || !this.videoId().trim()) return;
     this.cancel();
@@ -129,15 +160,15 @@ export class PersonaProfileFacade {
   }
 
   listImages(next = false): void {
-    this.listVisuals(this.imagePage, (scope, cursor) => this.api.images(scope, cursor), next);
+    this.listAssets(this.imagePage, (scope, cursor) => this.api.images(scope, cursor), next);
   }
 
   listVideos(next = false): void {
-    this.listVisuals(this.videoPage, (scope, cursor) => this.api.videos(scope, cursor), next);
+    this.listAssets(this.videoPage, (scope, cursor) => this.api.videos(scope, cursor), next);
   }
 
-  private listVisuals<K extends 'image' | 'video'>(
-    pageState: PersonaVisualPage<K>, fetch: (scope: PersonaProfileScope, cursor: string | null) => Observable<PersonaAssetPage<K>>, next: boolean,
+  private listAssets<K extends PersonaStoredAssetKind>(
+    pageState: PersonaAssetPageState<K>, fetch: (scope: PersonaProfileScope, cursor: string | null) => Observable<PersonaAssetPage<K>>, next: boolean,
   ): void {
     if (!this.scope || !this.scopeCurrent() || this.busy() || (next && !pageState.cursor())) return;
     this.cancel();
@@ -192,12 +223,16 @@ export class PersonaProfileFacade {
       this.error.set('Bitte zuerst die Video-ID prüfen.');
       return;
     }
+    if (this.voiceState() === 'asset' && !this.voice()) {
+      this.error.set('Bitte zuerst die Stimm-ID prüfen.');
+      return;
+    }
     const empty = { state: 'missing', asset: null } as const;
     const profile: PersonaProfile = {
       schema_version: 'ananta.persona-media.v1', tenant_id: snapshot.tenant_id, project_id: this.scope.project,
       owner_kind: this.scope.kind, owner_id: this.scope.owner, persona_id: this.personaId().trim(), revision: snapshot.revision + 1,
       image: this.imageDraft.selection(), video: this.videoDraft.selection(),
-      voice: snapshot.profile?.voice ?? empty, style: snapshot.profile?.style ?? empty,
+      voice: this.voiceDraft.selection(), style: snapshot.profile?.style ?? empty,
       requested_usage: snapshot.profile?.requested_usage ?? [],
     };
     this.cancel();
@@ -212,7 +247,7 @@ export class PersonaProfileFacade {
     const sequence = this.sequence;
     this.busy.set(true);
     this.error.set('');
-    this.pending.add(request.subscribe({
+    this.pending.add(request.pipe(timeout(10_000)).subscribe({
       next: value => {
         if (sequence !== this.sequence || !this.scopeCurrent()) return;
         this.busy.set(false);

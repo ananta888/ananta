@@ -3,6 +3,7 @@ import { map } from 'rxjs';
 import { ApiBaseService } from '../../../services/api-base.service';
 import { PersonaEffectiveProfile, PersonaImageReference, PersonaVideoReference, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot } from './persona-profile.models';
 import { videoPage, videoReference } from './persona-video-reference';
+import { voicePage, voiceReference } from './persona-voice-reference';
 
 @Injectable({ providedIn: 'root' })
 export class PersonaProfileApiClient extends ApiBaseService {
@@ -36,6 +37,21 @@ export class PersonaProfileApiClient extends ApiBaseService {
     return this.core.get<{ reference: PersonaVideoReference }>(
       `${this.base(scope)}/videos/${encodeURIComponent(artifactId)}/reference`, scope.hub, undefined, false,
     ).pipe(map(result => videoReference(result.reference, scope.project, artifactId)));
+  }
+
+  voice(scope: PersonaProfileScope, artifactId: string) {
+    return this.core.get<{ reference: unknown }>(
+      `${this.base(scope)}/voices/${encodeURIComponent(artifactId)}/reference`, scope.hub, undefined, false,
+    ).pipe(map(result => {
+      if (!result || Object.keys(result).join() !== 'reference') throw new Error('persona_voice_reference_invalid');
+      return voiceReference(result.reference, scope.project, artifactId);
+    }));
+  }
+
+  voices(scope: PersonaProfileScope, cursor: string | null) {
+    return this.core.request<unknown>(
+      'POST', `${this.base(scope)}/voices/query`, scope.hub, { body: { cursor, limit: 20 } },
+    ).pipe(map(result => voicePage(result, scope.project)));
   }
 
   videos(scope: PersonaProfileScope, cursor: string | null) {

@@ -10,6 +10,7 @@ import { PersonaProfileSnapshot } from './persona-profile.models';
 const blank: PersonaProfileSnapshot = { profile: null, revision: 0, content_hash: null, media_available: true, tenant_id: 'tenant' };
 const image = { tenant_id: 'tenant', project_id: 'project', artifact_id: 'image', revision: 1, sha256: 'a'.repeat(64), kind: 'image', classification: 'test_only' } as const;
 const video = { ...image, artifact_id: 'clip', kind: 'video' } as const;
+const voice = { ...image, artifact_id: 'voice', kind: 'voice' } as const;
 
 function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blank)) {
   const state = {
@@ -24,6 +25,8 @@ function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blan
     video: vi.fn(() => of(video)), videoPreview: vi.fn(() => of(new Blob(['synthetic-clip-preview'], { type: 'image/png' }))),
     images: vi.fn(() => of({ items: [image], next_cursor: null as string | null, purpose: 'preview' })),
     videos: vi.fn(() => of({ items: [video], next_cursor: null as string | null, purpose: 'preview' })),
+    voice: vi.fn(() => of(voice)),
+    voices: vi.fn(() => of({ items: [voice], next_cursor: null as string | null, purpose: 'preview' })),
   };
   TestBed.configureTestingModule({ providers: [
     { provide: OrganizationTopologyStateService, useValue: state }, { provide: PersonaProfileApiClient, useValue: api },
@@ -34,6 +37,72 @@ function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blan
 }
 
 describe('Persona profile panel', () => {
+  it('checks and saves an explicit voice reference without playing audio or changing other media', () => {
+    const { fixture, facade, api } = setup(); facade.personaId.set('presentation');
+    facade.selectVoiceState('asset'); facade.changeVoiceId('voice'); facade.save();
+    expect(api.save).not.toHaveBeenCalled(); expect(facade.error()).toContain('Stimm-ID prüfen');
+    facade.listVoices(); expect(facade.voiceOptions()).toEqual([voice]);
+    facade.chooseListedVoice('not-listed'); expect(api.voice).not.toHaveBeenCalled();
+    facade.chooseListedVoice('voice'); expect(api.voice).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ project: 'project' }), 'voice');
+    expect(api.preview).not.toHaveBeenCalled(); expect(api.videoPreview).not.toHaveBeenCalled();
+    fixture.detectChanges(); expect(fixture.nativeElement.querySelector('app-persona-voice-picker')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('audio,video')).toBeNull();
+    facade.save(); expect(api.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      voice: { state: 'asset', asset: voice }, image: { state: 'missing', asset: null }, video: { state: 'missing', asset: null },
+    }), 0);
+  });
+
+  it.each(['inherit', 'disabled'] as const)('saves explicit voice %s without reading or synthesizing an asset', state => {
+    const { facade, api } = setup(); facade.personaId.set('presentation'); facade.selectVoiceState(state); facade.save();
+    expect(api.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ voice: { state, asset: null } }), 0);
+    expect(api.voice).not.toHaveBeenCalled(); expect(api.voices).not.toHaveBeenCalled();
+  });
+
+  it('preserves an existing voice pin when only an image state is edited', () => {
+    const empty = { state: 'missing' as const, asset: null };
+    const { facade, api } = setup(() => of({ ...blank, revision: 2, profile: {
+      schema_version: 'ananta.persona-media.v1', tenant_id: 'tenant', project_id: 'project', owner_kind: 'organization',
+      owner_id: 'org', persona_id: 'presentation', revision: 2, image: empty, video: empty, style: empty,
+      voice: { state: 'asset', asset: voice }, requested_usage: ['preview'],
+    } }));
+    expect(facade.voice()).toEqual(voice); facade.selectImageState('disabled'); facade.save();
+    expect(api.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      image: { state: 'disabled', asset: null }, voice: { state: 'asset', asset: voice }, requested_usage: ['preview'],
+    }), 2);
+    expect(api.voice).not.toHaveBeenCalled();
+  });
+
+  it('replaces voice pages and clears old references on owner and project changes', () => {
+    const { fixture, facade, api, state } = setup();
+    api.voices.mockReturnValue(of({ items: [voice], next_cursor: 'v'.repeat(43), purpose: 'preview' })); facade.listVoices();
+    api.voices.mockReturnValue(of({ items: [], next_cursor: null, purpose: 'preview' })); facade.listVoices(true);
+    expect(api.voices).toHaveBeenLastCalledWith(expect.anything(), 'v'.repeat(43)); expect(facade.voiceOptions()).toEqual([]);
+    facade.changeVoiceId('voice'); facade.inspectVoice(); expect(facade.voice()).toEqual(voice);
+    facade.chooseOwner('team', 'team'); expect(facade.voice()).toBeNull(); expect(facade.voicesLoaded()).toBe(false);
+    state.projectId.set('other'); facade.inspectVoice(); facade.listVoices(); fixture.detectChanges();
+    expect(facade.voice()).toBeNull(); expect(facade.voiceCursor()).toBeNull();
+  });
+
+  it('discards late voice references and never saves after a rejected check', () => {
+    const { fixture, facade, api, state } = setup(); const pending = new Subject<typeof voice>();
+    api.voice.mockReturnValue(pending); facade.selectVoiceState('asset'); facade.changeVoiceId('voice'); facade.inspectVoice();
+    state.projectId.set('other'); pending.next(voice); expect(facade.voice()).toBeNull(); fixture.detectChanges();
+    api.voice.mockReturnValue(throwError(() => ({ status: 403 }))); facade.personaId.set('presentation');
+    facade.selectVoiceState('asset'); facade.changeVoiceId('voice'); facade.inspectVoice(); facade.save();
+    expect(api.save).not.toHaveBeenCalled(); expect(facade.voice()).toBeNull();
+  });
+
+  it('bounds a voice metadata request without waiting for a person or automatically retrying', () => {
+    const { facade, api } = setup(); const pending = new Subject<typeof voice>();
+    vi.useFakeTimers();
+    try {
+      api.voice.mockReturnValue(pending); facade.selectVoiceState('asset'); facade.changeVoiceId('voice'); facade.inspectVoice();
+      expect(facade.busy()).toBe(true); vi.advanceTimersByTime(10_001);
+      expect(facade.busy()).toBe(false); expect(facade.voice()).toBeNull(); expect(facade.error()).toContain('Nicht verfügbar');
+      expect(api.voice).toHaveBeenCalledTimes(1); pending.next(voice); expect(facade.voice()).toBeNull();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('saves an explicit inherited selection without publishing or inventing an asset', () => {
     const { fixture, facade, api } = setup();
     facade.personaId.set('presentation');

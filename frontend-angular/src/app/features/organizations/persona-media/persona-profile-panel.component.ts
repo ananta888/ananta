@@ -5,12 +5,13 @@ import { PersonaProfileFacade } from './persona-profile.facade';
 import { PersonaOwnerKind } from './persona-profile.models';
 import { PersonaImagePickerComponent } from './persona-image-picker.component';
 import { PersonaVideoPickerComponent } from './persona-video-picker.component';
+import { PersonaVoicePickerComponent } from './persona-voice-picker.component';
 import { FormFieldComponent } from '../../../shared/ui/forms/form-field.component';
 
 @Component({
   selector: 'app-persona-profile-panel',
   standalone: true,
-  imports: [FormsModule, PersonaImagePickerComponent, PersonaVideoPickerComponent, FormFieldComponent],
+  imports: [FormsModule, PersonaImagePickerComponent, PersonaVideoPickerComponent, PersonaVoicePickerComponent, FormFieldComponent],
   providers: [PersonaProfileFacade],
   template: `
     <section aria-labelledby="persona-title">
@@ -70,8 +71,17 @@ import { FormFieldComponent } from '../../../shared/ui/forms/form-field.componen
           </app-form-field>
           @if (facade.videoState() === 'asset') { <app-persona-video-picker /> }
           @if (facade.videoPreviewUrl()) { <img [src]="facade.videoPreviewUrl()" alt="Privater Vorschauframe des ausgewählten oder effektiven Persona-Clips" width="256" height="256" /> }
+          <app-form-field label="Stimmauswahl">
+            <select [ngModel]="facade.voiceState()" (ngModelChange)="facade.selectVoiceState($event)" [disabled]="facade.busy()">
+              <option value="missing">Nicht gesetzt (Fallback zulassen)</option>
+              <option value="inherit">Explizit vererben</option>
+              <option value="disabled">Deaktiviert (Fallback stoppen)</option>
+              <option value="asset">Zugelassenes Stimmprofil auswählen</option>
+            </select>
+          </app-form-field>
+          @if (facade.voiceState() === 'asset') { <app-persona-voice-picker /> }
           <button type="button" (click)="facade.save()" [disabled]="facade.busy() || !facade.personaId().trim()">Profil speichern</button>
-          <small>Speichern benötigt Projektverwaltung und einen Organisationsgrant. Gespeicherte Clips sind keine generative Animation. Stimme und laufende Meet-Sitzungen werden hier noch nicht konfiguriert.</small>
+          <small>Speichern benötigt Projektverwaltung und einen Organisationsgrant. Gespeicherte Clips sind keine generative Animation. Stimmprofile sind lokale KI-Presets, keine Klon-Freigabe. Laufende Meet-Sitzungen werden hier nicht umgeschaltet.</small>
         }
       } @else { <p>Bitte zuerst eine Organisation auswählen.</p> }
       @if (facade.busy()) { <p role="status">Hub-Anfrage läuft …</p> }
