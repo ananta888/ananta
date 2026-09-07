@@ -62,3 +62,8 @@ All identities/policies are synthetic. No runtime flags, production database,
 public endpoint, credential or serving deployment was changed. The API prepares
 the association; it is not a live room-creation, remote participant or public
 provisioning acceptance result. MAP-07 remains partial for the wider workflow.
+
+That was the API-only checkpoint. The subsequent [completion audit](meet-room-assignment-completion-audit.md)
+maps the four MAP-07 criteria to the real silent-first-participant gate and
+existing compatibility/security checks. Public trust deployment and multi-agent
+or production acceptance remain separate even after that task-level closure.

@@ -33,3 +33,28 @@ only one canonical test room and move only its own synthetic human. They cannot
 submit tasks, signing grants, arbitrary JavaScript, credentials or policy. Bound
 input bytes, command times and exact owned-resource cleanup; check the current
 Meet browser build before provisioning.
+
+## Verification
+
+The fixture unit/SQL allocation suite passed 62 tests in 43.97 seconds, with
+the opt-in browser case explicitly skipped in that unit invocation. The first
+live attempt then failed its stale-build preflight in 8.97 seconds, without
+provisioning containers. Meet had advanced concurrently to `4d40b45`; a fresh
+private build completed in 7.438 seconds and was used unchanged for both gates.
+
+The real silent-first-machine gate passed in 25.24 seconds, observing four
+successful Hub exchanges, zero publications/capture and 1,193.69-ms removal.
+The final gate additionally checks the actual human browser's visible
+`Ananta (KI)` heading. It passed in **20.79 seconds**, with four validated Hub
+exchanges, zero machine publications, zero human capture calls, a never-called
+media executor and **1,146.63-ms** removal following Hub cancellation. The real
+task remains `cancelled`; a late Worker finish cannot override it.
+
+The fixture also checks partial setup cleanup, strict private commands, bounded
+partial-line reads, no side effects merely from importing its Node driver and
+bounded cleanup escalation for exactly its own process. A nonzero bridge
+cleanup exit is a gate failure, not silently successful cleanup. These are
+single-host technical observations, not production SRC/RUN evidence.
+
+The final combined room/recovery regression passed 193 tests in 74.44 seconds.
+That deterministic suite is separate from the two actual browser invocations.

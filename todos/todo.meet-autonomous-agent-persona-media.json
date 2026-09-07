@@ -453,10 +453,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-06"
       ],
@@ -467,7 +467,8 @@
         "Keine Menschen-Kennung und kein Avatar darf Moderations- oder Raumverwaltungsrechte verleihen."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
-      "completion_note": "2026-09-07 automatische Hub-Binding-Allokation unter eigenem default-denied Tenant-/Projekt-Opt-in implementiert: bestehende User-/Taskrechte, aktuelle Revision, kryptographischer Raumcode nur fuer leere Bindung, erneute Schreibautorisierung und vorhandener SQL-CAS/Auditpfad. Manuelle Bindungen unveraendert wiederverwendet, stale/ABA/Race abgewiesen, keine Task-zu-Projekt-Fallbacks oder impliziten Join-/Medienrechte. 113 fokussierte Tests47.96s plus Top-Level-Bootstraptest7.32s gruen. docs/contracts/meet-headless-room-assignment.md. Dies entfernt die manuelle Invite-Kopierpflicht fuer die Vorbereitung, nicht den gesonderten autorisierten Dialogtask/Meet-Beitritt oder die oeffentliche Provisionierungsabnahme; partial/40, kein Taskabschluss."
+      "allocation_note": "2026-09-07 historische API-Zwischenstufe: automatische Hub-Binding-Allokation unter eigenem default-denied Tenant-/Projekt-Opt-in implementiert: bestehende User-/Taskrechte, aktuelle Revision, kryptographischer Raumcode nur fuer leere Bindung, erneute Schreibautorisierung und vorhandener SQL-CAS/Auditpfad. Manuelle Bindungen unveraendert wiederverwendet, stale/ABA/Race abgewiesen, keine Task-zu-Projekt-Fallbacks oder impliziten Join-/Medienrechte. 113 fokussierte Tests47.96s plus Top-Level-Bootstraptest7.32s gruen. docs/contracts/meet-headless-room-assignment.md. Damals nur Vorbereitung, partial/40; nachfolgende echte Teilnehmerabnahme siehe completion_note.",
+      "completion_note": "2026-09-07 vier bestehende Kriterien gegen Quelle/Tests abgenommen, done/100: automatische policygebundene Hub-Zuordnung mit CAS und manueller/taskgenauer Kompatibilitaet; echter normaler Hub-Dialogtask joint zuerst einen nachweislich leeren neu zugeordneten Raum, nur chat.send bei chat/audio off. Privater Gegenstellenbeitritt zeigt Ananta (KI), keine Publikationen/Capture-Aufrufe, keine Medienworker-Ausfuehrung; vier erfolgreiche Hubabfragen. Erster Gate25.24s, finaler sichtbarer KI-Gate20.79s, Hubstop entfernt Teilnehmer nach1146.63ms, Task bleibtcancelled. 193 Raum-/Recovery-/HTTP-/SQL-/Fixture-Regressionen74.44s gruen. Meet4d40b45, frischer privater Build nach korrekt fehlgeschlagenem Stale-Preflight; keine Serving-/Trustaenderung. docs/contracts/meet-room-assignment-completion-audit.md. Kein Public-/GPU-/Mehragenten-/Produktionsclaim; die breiteren Kriterien anderer MAP-Tasks bleiben offen."
     },
     {
       "id": "MAP-08",
@@ -1060,11 +1061,11 @@
     "by_status": {
       "todo": 2,
       "in_progress": 9,
-      "partial": 15,
+      "partial": 14,
       "blocked": 0,
-      "done": 6
+      "done": 7
     },
-    "progress_percent_done": 18.8,
+    "progress_percent_done": 21.9,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1090,6 +1091,7 @@
     }
   },
   "summary_notes": [
+    "2026-09-07 MAP-07 nach eigener Kriterienmatrix auf done/100: Hub allokiert einen neuen Raumkontext automatisch unter separater Policy; regulaerer Hub-Dialogtask tritt zuerst als stille KI ein, spaeter eigene synthetische Gegenstelle. Echte private TLS/STUN-/Chromium-Gates25.24s undfinal20.79s bestanden, sichtbare Ananta-(KI)-Kennzeichnung, vier validierte Hubexchanges, null Publikationen/Capture und null Medienworker-Aufrufe; finaler Hubstop1146.63ms/Taskcancelled. 193 gebuendelte Raum-/Recovery-Regressionen74.44s gruen. Vorher Stale-Build-Preflight8.97s korrekt abgebrochen, neuer privater Meet4d40b45-Build7.438s, Servinginstanz unveraendert. Getrennte kleine Fixturemodule statt weiterer Grossszenarioverzweigung; alle Daten/Policies synthetisch, Single-Host, kein GPU/Public-/Releaseclaim. docs/contracts/meet-room-assignment-completion-audit.md; Gesamt-Todo bleibt aktiv/offen und wird nicht archiviert.",
     "2026-09-07 MAP-07/29 naechste echte private Abnahme vor Testcode spezifiziert: eigener kurzer Silent-Gate statt weiterer Verzweigung des grossen Medienfixtures. Normaler Hub-Allokator/SQL erzeugt neuen Raumkontext; bestehende private Meet-Fixture beobachtet genau diesen zuerst leeren Raum. Hub-Dialogtask mit ausschliesslich chat.send/chat-off/audio-off soll als erster klarer KI-Teilnehmer ohne Publikationen eintreten, danach synthetische Gegenstelle regulaer joinen, Hubstop muss realen Teilnehmer entfernen. Kein GPU/Public-TURN/Produktionsclaim und keine Companion-/Serving-Aenderung erforderlich. docs/contracts/meet-silent-allocated-room-gate.md; Scope-/Stdio-/Ressourcenbudgets vorab festgelegt.",
     "2026-09-07 MAP-07 headless Binding-Allokation abgeschlossen als begrenzter Slice (partial20 auf40, Gesamttrack offen): POST binding/allocate fuer exakten Projekt-/Taskkontext, nur expected_revision; separate default-denied Operatorpolicy und vorhandene Hub-User-/Taskrechte. SQL-CAS bewahrt manuelle Bindungen und Tombstones, keine Netzaufrufe/Teilnehmer/Medien durch Allokation, membership_granted und room_verified bleiben false. Initial93 Tests41.09s, erweiterte113 Tests47.96s und zusaetzlicher Top-Level-Bootstraptest7.32s bestanden; Compose-Defaults geprueft. Runtime-Policies, Trust und laufende Dienste unveraendert. docs/contracts/meet-headless-room-assignment.md und aktualisierte Betriebsanleitung; vollstaendiger stiller Agent-/Public-Workflow bleibt gesondert zu verifizieren.",
     "2026-09-07 MAP-07 naechster Implementierungsslice vor Code: Hub verlangt bislang kopierten Invite, Meet erzeugt fluechtige Raeume erst beim autorisierten Join. docs/contracts/meet-headless-room-assignment.md spezifiziert default-denied tenant-/projektgebundene automatische Binding-Allokation mit bestehendem User-/Taskrecht und Revision-CAS. Nur leere Bindung unter exakter Revision zufaellig vorbereiten, vorhandene Bindung unveraendert wiederverwenden; keine Membership-, Room-Existenz-, Moderations- oder Medienrechte daraus ableiten. Getrennter Hub-Dialogtask bleibt Join-/Ausfuehrungspfad. Keine produktive Policy oder Credentials aktivieren; volle MAP-07-/Public-Kriterien bleiben separat offen.",
@@ -1175,14 +1177,14 @@
         "by_status": {
           "todo": 1,
           "in_progress": 6,
-          "partial": 5,
+          "partial": 4,
           "blocked": 0,
-          "done": 4
+          "done": 5
         },
-        "done": 4,
-        "partial": 5,
+        "done": 5,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 57.8
+        "progress_percent": 61.6
       },
       "infrastructure": {
         "total": 1,
@@ -1232,19 +1234,19 @@
     "state": "in_progress",
     "todo_remaining": 2,
     "in_progress": 9,
-    "partial": 15,
+    "partial": 14,
     "blocked": 0,
-    "done": 6,
-    "count_based_percent": 18.8,
-    "weighted_percent": 52.4
+    "done": 7,
+    "count_based_percent": 21.9,
+    "weighted_percent": 54.5
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 30.538,
-    "remaining_weight": 27.712,
+    "done_weight": 31.738,
+    "remaining_weight": 26.512,
     "blocked_weight": 0.0,
-    "weighted_percent": 52.4
+    "weighted_percent": 54.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1258,10 +1260,10 @@
       },
       "MAP-M2": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 48.1,
+        "count_based_percent": 25.0,
+        "weighted_percent": 66.5,
         "status": "in_progress"
       },
       "MAP-M3": {
@@ -1317,10 +1319,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T21:26:06.927588Z",
+    "generated_at": "2026-09-07T21:49:54.123796Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "0921fdc229e248934294c2fe3410722b97796c25e49bdd62c0b778c5e1fa2925",
+    "source_hash": "3ab5032f9def14b3aec22b8062d4437a315233c4abfc8449aa041a275c011616",
     "is_stale": false
   }
 }
