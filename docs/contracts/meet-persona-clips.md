@@ -95,8 +95,9 @@ They bound the selected encoder buffers, **not** total VRAM: driver contexts,
 codec-internal allocations, speech models and other host processes remain
 outside that bound. Existing 256×256/12-FPS and forty-second turn limits remain.
 Missing/failed NVENC and encoding timeouts now produce distinct content-free
-internal errors, never an implicit CPU codec fallback; the outer Worker still
-returns its stable generic execution-failed contract.
+internal errors, never an implicit CPU codec fallback. The subsequent
+[closed failure protocol](meet-media-failures.md) now carries authenticated
+capability codes to the Hub; unsigned/legacy errors remain generic.
 
 The focused renderer/decoder/quality suite passed 61 tests in 44.78 seconds.
 The isolated RTX probe with the new options passed in 2.71 seconds, decoding

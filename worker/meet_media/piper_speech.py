@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 
+from ananta_contracts.meet_media_failures import MediaCapabilityError
 from worker.meet_media.audio_output import SAMPLE_RATE
 from worker.meet_media.piper_assets import load_pinned_assets
 from worker.meet_media.speech_gpu_profile import cuda_provider_options, require_cuda_budget
@@ -17,7 +18,7 @@ def load_cuda_voice(profile=None):
     model, config = load_pinned_assets(profile)
     ort.preload_dlls(directory="")
     if "CUDAExecutionProvider" not in ort.get_available_providers():
-        raise ValueError("meet_piper_cuda_unavailable")
+        raise MediaCapabilityError("meet_piper_cuda_unavailable")
     voice = PiperVoice(
         config=PiperConfig.from_dict(json.loads(config)),
         session=ort.InferenceSession(
@@ -30,7 +31,7 @@ def load_cuda_voice(profile=None):
         use_tashkeel=False,
     )
     if "CUDAExecutionProvider" not in voice.session.get_providers():
-        raise ValueError("meet_piper_cuda_fallback_forbidden")
+        raise MediaCapabilityError("meet_piper_cuda_fallback_forbidden")
     voice.session.disable_fallback()
     require_cuda_budget(voice.session)
     if voice.config.sample_rate != SAMPLE_RATE:

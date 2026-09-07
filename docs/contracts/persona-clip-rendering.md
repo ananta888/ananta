@@ -3,8 +3,10 @@
 `PersonaClipFrames` is an optional frame-source adapter alongside the existing
 static-image and procedural-avatar renderers. It does not open a room, mint a
 lease, create tasks or treat normalized media hashes as publication rights.
-Hub video policy/profile/assignment integration is still required before
-exposing this adapter to productive turns.
+The [Hub policy/profile/assignment integration](meet-persona-clips.md) now
+binds this adapter to bounded turns. Feature configuration and current explicit
+project/asset/publication authority are still required; local renderer tests
+do not grant productive use or prove live Meet delivery.
 
 The caller supplies a normalized clip, explicit origin/classification,
 `loop` or `hold_last`, and a current-authority callback. There is no inferred

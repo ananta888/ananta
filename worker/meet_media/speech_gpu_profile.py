@@ -1,5 +1,7 @@
 """Fixed speech-provider allocation policy; not a quota for all device users."""
 
+from ananta_contracts.meet_media_failures import MediaCapabilityError
+
 CUDA_ARENA_BYTES = 2 * 1024 * 1024 * 1024
 
 
@@ -16,4 +18,4 @@ def require_cuda_budget(session):
     """An unsupported/ignored allocation setting is not a bounded GPU profile."""
     actual = session.get_provider_options().get("CUDAExecutionProvider", {})
     if any(actual.get(key) != value for key, value in cuda_provider_options().items()):
-        raise ValueError("meet_piper_cuda_budget_unavailable")
+        raise MediaCapabilityError("meet_piper_cuda_budget_unavailable")

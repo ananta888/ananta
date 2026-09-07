@@ -3,6 +3,7 @@
 import math
 import subprocess
 
+from ananta_contracts.meet_media_failures import MediaCapabilityError
 from worker.meet_media.av_quality import MAX_VIDEO_BYTES, verify_encoded_media
 from worker.meet_media.video_encoder_profile import NVENC_OPTIONS
 
@@ -65,6 +66,6 @@ def _encode(command):
     try:
         subprocess.run(command, check=True, timeout=30, capture_output=True)
     except subprocess.TimeoutExpired:
-        raise ValueError("meet_video_encoder_timeout") from None
+        raise MediaCapabilityError("meet_video_encoder_timeout") from None
     except (OSError, subprocess.CalledProcessError):
-        raise ValueError("meet_video_encoder_unavailable_or_failed") from None
+        raise MediaCapabilityError("meet_video_encoder_unavailable_or_failed") from None

@@ -7,6 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from ananta_contracts.meet_media_failures import failure_exit
 from ananta_contracts.meet_speech import speech_profile
 from worker.meet_media.avatar import avatar
 from worker.meet_media.llm import answer, generate
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     try:
         result = run(json.load(sys.stdin))
         sys.stdout.write(json.dumps(result))
-    except Exception:
+    except Exception as error:
         # Model/request content, provider responses and filesystem details are private.
         sys.stderr.write("meet_local_media_execution_failed\n")
-        sys.exit(1)
+        sys.exit(failure_exit(error))

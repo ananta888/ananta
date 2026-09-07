@@ -44,9 +44,15 @@ class HttpMediaWorker:
         address = pin_private_container_address(parsed.hostname, parsed.port)
         host = f"[{address}]" if ":" in address else address
         body = encode(assignment)
-        request = urllib.request.Request(f"http://{host}:{parsed.port}/v1/dialogs", body,
-            {"Content-Type": "application/json", "Host": parsed.netloc,
-             "X-Ananta-Dialog-Signature": request_signature(self.key, body)})
+        request = urllib.request.Request(
+            f"http://{host}:{parsed.port}/v1/dialogs",
+            body,
+            {
+                "Content-Type": "application/json",
+                "Host": parsed.netloc,
+                "X-Ananta-Dialog-Signature": request_signature(self.key, body),
+            },
+        )
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         deadline = time.monotonic() + 3
         try:
@@ -56,8 +62,13 @@ class HttpMediaWorker:
             if not hmac.compare_digest(response_signature(self.key, body, raw), signed):
                 raise ValueError()
             result = parse(raw)
-            expected = {"schema": "ananta.meet-dialog-accepted.v1", "task_id": assignment["task_id"],
-                        "lease_id": assignment["lease_id"], "runtime_id": assignment["runtime_id"], "status": "accepted"}
+            expected = {
+                "schema": "ananta.meet-dialog-accepted.v1",
+                "task_id": assignment["task_id"],
+                "lease_id": assignment["lease_id"],
+                "runtime_id": assignment["runtime_id"],
+                "status": "accepted",
+            }
             if result != expected:
                 raise ValueError()
             return result
@@ -97,5 +108,9 @@ class HttpMediaWorker:
             return result
         except MeetError:
             raise
+        except urllib.error.HTTPError as error:
+            from agent.services.meet_media_failure_transport import worker_failure
+
+            raise worker_failure(error, key=self.key, request_body=body) from None
         except (OSError, ValueError, urllib.error.URLError):
             raise MeetError("meet_worker_unavailable", 503) from None
