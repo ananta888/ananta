@@ -91,7 +91,7 @@ class DialogSpeechOutput:
             raise ValueError("meet_dialog_voice_not_negotiated")
         self.receipt, self.controls = receipt, controls
         self.version += 1
-        # Existing control exchange cadence is two seconds. A stalled controller
+        # Normal control exchange cadence is one second. A stalled controller
         # may not keep pushing using an indefinitely cached Hub receipt.
         self.fresh_until = self.monotonic() + 2.5
         if self.busy:

@@ -10,6 +10,7 @@ from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 from worker.meet_media.dialog_chat import DialogChatPump
 from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_matches
 from worker.meet_media.dialog_client import HubDialogClient
+from worker.meet_media.dialog_control_exchange import DialogControlExchange
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
 
@@ -90,13 +91,14 @@ def run(assignment, hub):
         audio = None
         # Resolve the current source at teardown, not an obsolete iteration's object.
         cleanup.callback(lambda: audio.close() if audio is not None else None)
-        next_exchange = 0
+        exchange = DialogControlExchange(hub, meet_session)
+        cleanup.callback(exchange.close)
         control_revision = 0
         while time.monotonic() < hub.deadline:
             if page.url != url:
                 raise ValueError("meet_machine_navigation_denied")
-            if time.monotonic() >= next_exchange:
-                state = hub.call("exchange", meet_session_id=meet_session)
+            state = exchange.poll(refresh_marker=chat.pending_refresh if chat.needs_refresh else None)
+            if state is not None:
                 receipt, controls = state["authorization"], state["controls"]
                 local = page.evaluate(local_status)
                 if (
@@ -115,7 +117,7 @@ def run(assignment, hub):
                     avatar.invalidate()
                     chat.invalidate()
                     page.evaluate("grant => window.anantaMachine.renew(grant)", state["renewal"])
-                    next_exchange = 0
+                    exchange.refresh()
                     continue
                 if audio is not None:
                     audio.refresh(receipt, state["audio_job"])
@@ -138,13 +140,10 @@ def run(assignment, hub):
                         "audio": audio.stage if audio is not None and not audio.closed else "off",
                     },
                 )
-                next_exchange = time.monotonic() + 2
             chat.tick()
             speech.tick()
             screen.tick()
             avatar.tick()
-            if chat.needs_refresh:
-                next_exchange = 0
             if audio is not None:
                 try:
                     audio.tick()
