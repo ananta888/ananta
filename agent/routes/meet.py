@@ -78,6 +78,16 @@ def health(project):
     return jsonify(current_app.extensions["meet_health_probe"].inspect())
 
 
+@meet_bp.post("/projects/<project>/binding/allocate")
+@meet_bp.post("/projects/<project>/tasks/<task>/binding/allocate")
+@check_user_auth
+def room_allocation(project, task=""):
+    from agent.routes.meet_room_allocation import allocate_binding
+
+    _runtime()
+    return allocate_binding(project, task)
+
+
 @meet_bp.post("/projects/<project>/turns")
 @meet_bp.post("/projects/<project>/tasks/<task>/turns")
 @check_user_auth

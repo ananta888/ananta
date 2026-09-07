@@ -52,6 +52,9 @@ def configure_meet(app):
         profile, store, app.extensions["project_access_authority"], _task_access
     )
     app.extensions["meet_health_probe"] = MeetHealthProbe(profile)
+    from agent.bootstrap.meet_room_allocation import configure_meet_room_allocation
+
+    configure_meet_room_allocation(app)
     configure_meet_media(app)
 
 

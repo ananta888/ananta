@@ -39,3 +39,26 @@ unknown/duplicate fields, foreign users/scopes, disabled/Worker runtime, existin
 binding reuse, independent task scopes, random-source failure, reauthorization,
 CAS races, persistence and unchanged membership flags. All tests are headless;
 do not enable policy, generate production credentials or touch live meetings.
+
+## Implementation and verification, 2026-09-07
+
+`MeetRoomAllocation` depends on a three-method binding port and injected canonical
+invite/entropy functions. Operator configuration, strict HTTP parsing, existing
+binding persistence and orchestration remain separate. The configuration flag
+and exact scope allowlist are exposed in `.env.example` and the existing Meet
+Compose overlay, both default-denied. Neither the old binding response/profile
+nor the manually attached invitation flow changes.
+
+The initial allocation/binding/API suite passed 93 tests in 41.09 seconds. The
+expanded six-file regression passed **113 tests in 47.96 seconds**. An additional
+actual top-level bootstrap composition check passed in 7.32 seconds: allocation
+works without enabling or starting the media/dialog Worker. The overlay's
+default-off/empty-policy values were checked independently. Tests cover real
+isolated SQL persistence/CAS, a winning concurrent manual attachment, permission
+withdrawal before write, unlink tombstones, no project fallback for tasks,
+scope/role denial, bounded malformed config/HTTP input and duplicate JSON keys.
+
+All identities/policies are synthetic. No runtime flags, production database,
+public endpoint, credential or serving deployment was changed. The API prepares
+the association; it is not a live room-creation, remote participant or public
+provisioning acceptance result. MAP-07 remains partial for the wider workflow.

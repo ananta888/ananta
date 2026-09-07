@@ -23,6 +23,48 @@ One-click cross-app provisioning is **not implemented**. A future automation
 adapter must use an explicit Meet authorization contract, never Hub service
 credentials as a substitute for Meet OIDC.
 
+### Optional headless assignment
+
+The separate [room-allocation policy](../contracts/meet-headless-room-assignment.md)
+can remove the copy-and-attach step for an unbound project or task. It prepares
+a random invite through the existing Hub CAS; Meet creates an ephemeral room
+only when a separately authorized participant actually joins. Allocation does
+not activate media, create a participant or attest to room existence.
+
+On an already enabled Hub, configure explicitly:
+
+```text
+ANANTA_MEET_ROOM_ALLOCATION_ENABLED=1
+ANANTA_MEET_ROOM_ALLOCATION_SCOPES=[["EXACT-TENANT","EXACT-PROJECT"]]
+```
+
+The `docker-compose.meet.yml` overlay carries these values and defaults to off
+with an empty allowlist. The automated caller uses the existing authorized Hub
+user API, without a click/approval step in the allocation flow:
+
+```text
+POST /api/meet/v1/projects/{project}/binding/allocate
+POST /api/meet/v1/projects/{project}/tasks/{task}/binding/allocate
+Content-Type: application/json
+
+{"expected_revision":0}
+```
+
+First read the existing binding's revision. A populated binding at that exact
+revision is returned unchanged; a stale revision yields `409
+meet_binding_conflict`. Never blindly retry a conflict with a guessed revision.
+Task bindings do not fall back to the project. The response remains
+`ananta.meet-binding.v1`, with `room_verified=false` and
+`membership_granted=false`; existing manual profile fields are unchanged.
+Disabled allocation returns `404 meet_room_allocation_disabled`, a scope not
+on the operator allowlist returns `403 meet_room_allocation_denied`.
+
+The allocation flag confers no dialog, receive, publish or moderation rights.
+Actual agent joining still requires the normal Hub dialog task, the separate
+Hub/Meet machine trust and all current project/source policies. No existing
+production flag is enabled by installing this feature. Rollback disables this
+allocation flag and retains existing bindings/tombstones and their audit trail.
+
 ### Capability matrix
 
 | Capability | Version 1 |
