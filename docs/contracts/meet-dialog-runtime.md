@@ -8,9 +8,9 @@ An earlier session paused on 2026-09-07; implementation has since resumed at
 the user's request. That session's short cross-repository composition gate
 passed; its five-minute soak did **not** finish successfully.
 It observed moving remote pixels through 236 seconds and four lease generations,
-then a browser runtime failure. The two-hour gate has not run. A subsequent
-Meet expiry-timer fix still needs long-session verification. Do not promote
-these observations to production readiness or enable rollout automatically.
+then a browser runtime failure. After the corrections below, the five-minute
+gate passed. The two-hour gate has not run. Do not promote these observations
+to production readiness or enable rollout automatically.
 
 ## Reproducible private browser fixture
 
@@ -62,8 +62,47 @@ broadened by this fixture change.
 On 2026-09-07 this isolated short gate passed in 33.00 seconds and 14 fixture /
 teardown tests passed in 19.05 seconds. The subsequent five-minute attempt
 failed after 306.20 seconds: renewing publisher consent exposed a
-`meet_chat_authority_changed` race between queue status and polling/ACK. This
-remains a failed long-session observation until the Worker fix is verified.
+`meet_chat_authority_changed` race between queue status and polling/ACK. That
+failed attempt is retained as history, not reported as a successful run.
+
+### Consent-replacement race correction
+
+Queue `status().open` is not authority for a later `poll()` or `ack()`: a new
+publisher consent or expiry can close the queue between those operations. The
+Worker now uses a small browser-read/ACK port. It only treats four known
+authority-loss errors as a closed queue, and only if the browser confirms that
+the queue is closed. Unknown errors, malformed replies and scope tampering
+still fail. A failed ACK never starts a Hub input task.
+
+Closing discards the old local scope; only the next fresh Hub exchange may open
+another queue. A browser-only policy revision arriving before its HTTP receipt
+also remains closed until both agree. Different tenants, leases, generations
+or other identity fields still fail. Old asynchronous replies retain the exact
+scope/revision guard and cannot become answers to the new queue. This keeps
+browser transport handling separate from the pump and Hub policy (SRP/DIP).
+
+The short gate now includes consent replacement and a second real chat round
+trip, rather than postponing this case until minute four. It waits for the
+new Hub-matched queue revision and preserves the actual default ten-second Hub
+cooldown. A publisher's consent confirmation is not itself confirmation that
+the Worker's queue is already active. Test bridge teardown sends stdin EOF
+before waiting for Node; provisioning has a separate sixty-second deadline,
+while individual bridge commands retain their twenty-second response budget.
+
+A subsequent late-answer failure was a missing synthetic Project row: a newly
+opened database connection correctly rejected the scoped child Task's foreign
+key. The gate now seeds that real parent before any threaded ingestion, without
+weakening database integrity. The final five-minute repeat passed in 310.18
+seconds, observing 295 active seconds, four lease generations, five screen
+samples and three correlated answers across consent replacements. Peak measured
+RSS was 2,443,243,520 bytes across 20 processes. The private network and its three
+containers were removed by normal test cleanup. All 76 targeted race, fixture,
+pump, transport and screen tests also passed in 56.08 seconds.
+
+A read-only public check on 2026-09-07 returned the SPA HTML, not the expected
+JSON contract, from `https://webrtc.ananta.de/api/machine/capabilities`.
+This is not public machine-readiness evidence; no public deployment or trust
+configuration was changed by these local tests.
 
 ## Authority and composition
 
@@ -204,8 +243,8 @@ and is destroyed on close. Neither change permits a cleartext fallback.
 
 `MEET_CROSS_REPOSITORY_GATE=1 .venv/bin/python -m pytest -q
 tests/test_meet_dialog_cross_repository.py` is the separate real-wire composition
-gate. It uses the adjacent built Meet repo, its own loopback TLS identity and a
-three-minute, read-only Docker TCP forwarder for privileged port 443. No host
+gate. It uses the adjacent built Meet repo, its own private-network TLS identity
+and a bounded read-only Docker TCP forwarder for container port 443. No host
 sysctl, existing container, production trust or certificate is changed. Its
 model-result and project-policy ports remain explicitly synthetic; this is not
 a GPU/ASR or production-release claim. The local image used by the TCP forwarder

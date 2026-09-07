@@ -2,68 +2,125 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
+from worker.meet_media.dialog_chat_browser import DialogChatBrowser
+
 
 def chat_scope_matches(scope, receipt, assignment):
     if not isinstance(scope, dict):
         return False
-    expected = {"origin": assignment["meeting"]["origin"], **{k: assignment[k] for k in
-        ("tenant_id", "project_id", "task_id", "runtime_id", "session_id")},
-        "lease_id": receipt["lease"]["sessionId"], "generation": receipt["lease"]["generation"], "room_id": receipt["roomId"],
-        "own_peer_id": receipt["peerId"], "membership_epoch": receipt["membershipEpoch"], "policy_revision": receipt["receiveRevision"]}
-    return (set(scope) == set(expected) | {"deadline_ms"}
-            and type(scope["deadline_ms"]) is int and 0 < scope["deadline_ms"] < 2**53
-            and all(type(scope[k]) is type(v) and scope[k] == v for k, v in expected.items()))
+    expected = {
+        "origin": assignment["meeting"]["origin"],
+        **{k: assignment[k] for k in ("tenant_id", "project_id", "task_id", "runtime_id", "session_id")},
+        "lease_id": receipt["lease"]["sessionId"],
+        "generation": receipt["lease"]["generation"],
+        "room_id": receipt["roomId"],
+        "own_peer_id": receipt["peerId"],
+        "membership_epoch": receipt["membershipEpoch"],
+        "policy_revision": receipt["receiveRevision"],
+    }
+    return (
+        set(scope) == set(expected) | {"deadline_ms"}
+        and type(scope["deadline_ms"]) is int
+        and 0 < scope["deadline_ms"] < 2**53
+        and all(type(scope[k]) is type(v) and scope[k] == v for k, v in expected.items())
+    )
+
+
+def _only_policy_revision_changed(scope, receipt, assignment):
+    return (
+        isinstance(scope, dict)
+        and type(scope.get("policy_revision")) is int
+        and 0 < scope["policy_revision"] < 2**53
+        and chat_scope_matches(scope | {"policy_revision": receipt["receiveRevision"]}, receipt, assignment)
+    )
 
 
 class DialogChatPump:
     def __init__(self, page, hub, assignment):
         self.page, self.hub, self.assignment = page, hub, assignment
+        self.browser_chat = DialogChatBrowser(page)
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="meet-hub-chat")
-        self.opened = None; self.pending = None; self.receipt = None; self.revision = 0
+        self.opened = None
+        self.pending = None
+        self.receipt = None
+        self.revision = 0
 
     def update(self, receipt, control):
         allowed = control["enabled"] and any(g["chatRead"] for g in receipt["grants"])
-        if self.opened and (not allowed or control["revision"] != self.revision or not chat_scope_matches(self.opened, receipt, self.assignment)):
+        if self.opened and (
+            not allowed
+            or control["revision"] != self.revision
+            or not chat_scope_matches(self.opened, receipt, self.assignment)
+        ):
             self.invalidate()
         self.receipt, self.revision = receipt, control["revision"]
         if allowed and self.opened is None and {"chat.read", "chat.send"} <= set(self.assignment["capabilities"]):
             # HTTP and WebSocket receipts can arrive in either order. A not-yet
             # confirmed local grant remains closed until the next fresh Hub check.
-            scope = self.page.evaluate("() => { try { return window.anantaMachine.chat.open(); } catch { return null; } }")
+            scope = self.page.evaluate(
+                "() => { try { return window.anantaMachine.chat.open(); } catch { return null; } }"
+            )
             if scope is not None:
                 if not chat_scope_matches(scope, receipt, self.assignment):
-                    self.invalidate(); raise ValueError("meet_dialog_chat_scope_changed")
+                    self.invalidate()
+                    if _only_policy_revision_changed(scope, receipt, self.assignment):
+                        return  # Browser/HTTP ordering: accept neither until the next fresh Hub check.
+                    raise ValueError("meet_dialog_chat_scope_changed")
                 self.opened = scope
 
     def tick(self):
         if self.pending is not None and self.pending[0].done():
-            future, scope, message_id, revision = self.pending; self.pending = None
+            future, scope, message_id, revision = self.pending
+            self.pending = None
             try:
                 result = future.result()
             except ValueError:
                 result = {"reply": None}
             if result["reply"] is not None and self.opened == scope and self.revision == revision:
                 reply = result["reply"]
-                if (not isinstance(reply, dict) or set(reply) != {"message_id", "text"} or reply["message_id"] != message_id
-                        or not isinstance(reply["text"], str) or not 0 < len(reply["text"]) <= 450):
+                if (
+                    not isinstance(reply, dict)
+                    or set(reply) != {"message_id", "text"}
+                    or reply["message_id"] != message_id
+                    or not isinstance(reply["text"], str)
+                    or not 0 < len(reply["text"]) <= 450
+                ):
                     raise ValueError("meet_dialog_reply_invalid")
                 # A late/expired input is discarded, not retried or made into a
                 # new uncorrelated reply. The browser rechecks source authority.
-                self.page.evaluate("([id, text]) => { try { window.anantaMachine.chat.reply(id, text); } catch {} }", [message_id, reply["text"]])
+                self.page.evaluate(
+                    "([id, text]) => { try { window.anantaMachine.chat.reply(id, text); } catch {} }",
+                    [message_id, reply["text"]],
+                )
         if self.opened is None or self.pending is not None:
             return
         if not self.page.evaluate("window.anantaMachine.chat.status().open"):
-            self.opened = None; return
-        batch = self.page.evaluate("window.anantaMachine.chat.poll()")
+            self.opened = None
+            return
+        batch = self.browser_chat.poll()
+        if batch is None:
+            self.invalidate()
+            return  # Only a fresh Hub exchange may reopen after browser revocation.
         if not isinstance(batch, dict) or not isinstance(batch.get("events"), list) or len(batch["events"]) > 8:
             raise ValueError("meet_dialog_chat_batch_invalid")
         if batch["events"]:
-            item = batch["events"][0]; event = item["event"]
-            if not any(g["chatRead"] and g["publisherPeerId"] == event["sender_peer_id"] for g in self.receipt["grants"]):
+            item = batch["events"][0]
+            event = item["event"]
+            if not any(
+                g["chatRead"] and g["publisherPeerId"] == event["sender_peer_id"] for g in self.receipt["grants"]
+            ):
                 raise ValueError("meet_dialog_chat_source_denied")
-            self.page.evaluate("cursor => window.anantaMachine.chat.ack(cursor)", item["cursor"])
-            self.pending = (self.pool.submit(self.hub.call, "chat", meet_session_id=self.receipt["lease"]["sessionId"], event=event),
-                            self.opened, event["message_id"], self.revision)
+            if not self.browser_chat.ack(item["cursor"]):
+                self.invalidate()
+                return  # No input dispatch after the source changed during ACK.
+            self.pending = (
+                self.pool.submit(
+                    self.hub.call, "chat", meet_session_id=self.receipt["lease"]["sessionId"], event=event
+                ),
+                self.opened,
+                event["message_id"],
+                self.revision,
+            )
 
     def invalidate(self):
         self.opened = None

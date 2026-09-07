@@ -964,7 +964,7 @@
         "Kompatibilitätsregression für bisherigen Meet-Human-Join, Pair-Dev, Artefaktaustausch, LiveKit, Room-Caps und bestehende Invite-Zuordnungen ausführen.",
         "Companion-Contract-Fixtures mit MDS-01 abstimmen und Audioempfang, automatischen Chatturn sowie bewegten agenteneigenen Bildschirm Ende zu Ende testen. Negativfälle umfassen doppelte Events, Self-Echo, Prompt-Injection, fremde Publikationen, Schlüsselentzug und missbrauchte Renewal-Generationen."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich. Fortsetzung 2026-09-07 gegen Meet 17cbdf8: eigener interner TLS-Testproxy ersetzt die Annahme eines freien Host-Ports 443. Separater nicht-root Chromium-Container unter dem vorhandenen seccomp-Profil und lokaler STUN-only-Container verbinden Host und Testbrowser ohne externe ICE-Dienste, Host-Capture oder Abschalten von Sandbox/AppArmor. Reeller Kurzgate mit Chatantwort, bewegten CDP-Bildern, Pause/Fortsetzen, privatem Markerentzug und Stop in 33,00 Sekunden bestanden. 14 Infrastruktur-/Cleanup-Tests in 19,05 Sekunden bestanden. Fuenf-Minuten-Wiederholung nach 306,20 Sekunden fehlgeschlagen: Freigabeerneuerung wirft meet_chat_authority_changed zwischen Queue-Status und Lesen/ACK. Fehlerbehebung und erneuter Soak folgen; keine GPU-/TURN-/Produktionsfreigabe, keine Archivierung."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich. Fortsetzung 2026-09-07 gegen Meet 17cbdf8: eigener interner TLS-Testproxy ersetzt die Annahme eines freien Host-Ports 443. Separater nicht-root Chromium-Container unter dem vorhandenen seccomp-Profil und lokaler STUN-only-Container verbinden Host und Testbrowser ohne externe ICE-Dienste, Host-Capture oder Abschalten von Sandbox/AppArmor. Reeller Kurzgate mit Chatantwort, bewegten CDP-Bildern, Pause/Fortsetzen, privatem Markerentzug und Stop in 33,00 Sekunden bestanden. 14 Infrastruktur-/Cleanup-Tests in 19,05 Sekunden bestanden. Fuenf-Minuten-Wiederholung nach 306,20 Sekunden fehlgeschlagen: Freigabeerneuerung wirft meet_chat_authority_changed zwischen Queue-Status und Lesen/ACK. Fehlerbehebung und erneuter Soak folgen; keine GPU-/TURN-/Produktionsfreigabe, keine Archivierung. Nachfolgende Korrektur: separater Worker-Browser-Read/ACK-Port verwirft bekannte bereits geschlossene Freigaberennen ohne Dispatch; Reopening nur nach frischer exakt passender Hub-Abfrage. Browser-/HTTP-Policy-Revisionsrennen bleiben geschlossen, Identitaetsabweichungen weiterhin Fehler. Kurzgate jetzt mit zweiter Antwort nach Freigabewechsel und echtem 10s-Hub-Cooldown. Spaeterer Antwortfehler als fehlende synthetische Projekt-FK-Fixture diagnostiziert und durch echte Projektanlage behoben, keine Datenbankpruefung deaktiviert. Abschliessender Fuenf-Minuten-Lauf bestanden in 310,18s: 295s aktive Beobachtung, vier Lease-Generationen, fuenf Screen-Stichproben, drei Chatantworten, Peak 2.443.243.520 Bytes/20 Prozesse; eigene Container und Netz normal entfernt. 76 gezielte Regressionstests bestanden in 56,08s. Zwei-Stunden-/GPU-/TURN-/Produktionsabnahme bleibt offen."
     },
     {
       "id": "MAP-30",
@@ -1293,10 +1293,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T01:21:35.000131Z",
+    "generated_at": "2026-09-07T01:58:57.661096Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "146a1842d2a438782403ffee54d28e31b4fd3eeae0bd5e722899549971d95115",
+    "source_hash": "75d959db2bb8b5b1d77134fc45c186faef9438d3edea40b989393a9a06980fa3",
     "is_stale": false
   }
 }

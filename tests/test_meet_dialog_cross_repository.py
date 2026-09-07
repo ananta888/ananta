@@ -46,13 +46,22 @@ def process_usage(*roots):
 
 def close_bridge(bridge):
     """Reap only the process group this test created, including failed setup."""
+    running = bridge.poll() is None
     try:
-        if bridge.poll() is None:
-            try:
+        try:
+            if running:
                 bridge.stdin.write("stop\n")
                 bridge.stdin.flush()
+        except BrokenPipeError:
+            pass
+        finally:
+            # EOF releases the Node readline input as well as its resources;
+            # leaving stdin open until wait() completes can keep Node alive.
+            try:
+                bridge.stdin.close()
             except BrokenPipeError:
                 pass
+        if running:
             try:
                 # The private fixture now owns three bounded Docker cleanup
                 # operations; the old ten-second allowance could interrupt them.
@@ -63,7 +72,6 @@ def close_bridge(bridge):
                 os.killpg(bridge.pid, signal.SIGKILL)
                 bridge.wait(timeout=5)
     finally:
-        bridge.stdin.close()
         bridge.stdout.close()
 
 
@@ -72,12 +80,15 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
     from playwright.sync_api import Browser, BrowserType
+    from sqlmodel import Session
     from werkzeug.serving import WSGIRequestHandler, make_server
 
     from agent.database import engine
+    from agent.db_models.projects import ProjectDB
     from agent.repositories.meet_chat_dispatches import SqlChatDispatches
     from agent.repositories.meet_chat_reservations import SqlChatReservations
     from agent.services.meet_authorization_client import MeetAuthorizationClient
+    from agent.services.meet_chat_policy import ChatReplyPolicy
     from agent.services.meet_contract import MeetError, MeetProfile
     from agent.services.meet_dialog_authority import MeetDialogAuthority
     from agent.services.meet_dialog_service import MeetDialogService
@@ -107,6 +118,19 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     key_path.write_bytes(hmac_key)
     key_path.chmod(0o600)
     monkeypatch.setenv("MEET_WORKER_KEY_FILE", str(key_path))
+    # Task scopes are real foreign keys, even with synthetic access policy.
+    # Seed the owning project before any threaded Hub task ingestion; otherwise
+    # a newly opened SQLite connection can expose the missing fixture parent.
+    with Session(engine) as session:
+        session.add(
+            ProjectDB(
+                tenant_id="synthetic",
+                project_id="synthetic",
+                name="Synthetic dialog gate",
+                created_by_subject_id="owner",
+            )
+        )
+        session.commit()
     bridge = subprocess.Popen(
         ["node", "test/helpers/machine-hub-bridge.mjs"],
         cwd=meet,
@@ -118,10 +142,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         start_new_session=True,
     )
 
-    def receive():
+    def receive(timeout=20):
         with selectors.DefaultSelector() as selector:
             selector.register(bridge.stdout, selectors.EVENT_READ)
-            assert selector.select(20), "bounded Meet bridge response missing"
+            assert selector.select(timeout), "bounded Meet bridge response missing"
             line = bridge.stdout.readline(8193)
         assert line and len(line) <= 8192, "Meet bridge exited or exceeded response budget"
         return json.loads(line)
@@ -138,7 +162,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     browser_fixture = None
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
     try:
-        ready = receive()
+        # Provisioning private Docker/TLS/STUN resources has its own deadline;
+        # normal bridge operations retain the twenty-second response budget.
+        ready = receive(timeout=60)
         assert set(ready) == {"origin", "room_id", "certificate", "test_network"}, ready
         monkeypatch.setenv("SSL_CERT_FILE", ready["certificate"])
         cert = x509.load_pem_x509_certificate(Path(ready["certificate"]).read_bytes())
@@ -215,6 +241,8 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
 
         monkeypatch.setattr(OwnedDialogScreen, "take", source_with_test_mutation)
         generations = set()
+        chat_condition = threading.Condition()
+        chat_policy_revision = 0
         screen_debug = {}
         next_screen_debug = 0
         tick_screen = DialogScreenPump.tick
@@ -248,10 +276,14 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         update_chat = DialogChatPump.update
 
         def observe_chat_ready(pump, *args):
+            nonlocal chat_policy_revision
             result = update_chat(pump, *args)
             generations.add(args[0]["lease"]["generation"])
             if pump.opened is not None:
                 chat_ready.set()
+                with chat_condition:
+                    chat_policy_revision = pump.opened["policy_revision"]
+                    chat_condition.notify_all()
             return result
 
         monkeypatch.setattr(DialogChatPump, "update", observe_chat_ready)
@@ -359,6 +391,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             "runtime_errors": failures,
         }
         media.execute.assert_called_once()
+        last_answer_at = time.monotonic()
         with app.app_context():
             service.control(
                 principal,
@@ -367,6 +400,38 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
                 {"expected_revision": 2, "chat": True, "audio": False, "screen": True},
             )
         assert command("screen") == {"moving_screen": True}
+
+        def renewed_consent_round_trip():
+            nonlocal last_answer_at
+            with chat_condition:
+                previous = chat_policy_revision
+            assert command("consent") == {"consent": True}
+            with chat_condition:
+                assert chat_condition.wait_for(lambda: chat_policy_revision > previous, timeout=12), {
+                    "fresh_chat_queue_missing": True,
+                    "runtime_errors": failures,
+                    "previous_revision": previous,
+                    "observed_revision": chat_policy_revision,
+                }
+            assert not completed.is_set(), failures
+            # Keep the real Hub cooldown; do not turn a policy rejection into a
+            # missing-answer failure just to shorten this regression scenario.
+            cooldown = ChatReplyPolicy().cooldown_ms / 1000 + 0.1
+            assert not completed.wait(max(0, last_answer_at + cooldown - time.monotonic())), failures
+            assert command("ask") == {"sent": True}
+            answer = command("answer")
+            assert answer == {"received": True}, {
+                "answer": answer,
+                "media_calls": media.execute.call_count,
+                "runtime_errors": failures,
+                "policy_revision": chat_policy_revision,
+                "runtime_exited": completed.is_set(),
+            }
+            last_answer_at = time.monotonic()
+
+        # Exercise consent replacement in the short gate too. No question is
+        # emitted before a genuinely fresh Hub-matched browser queue exists.
+        renewed_consent_round_trip()
         if SOAK_SECONDS:
             # Real clocks, real browser/Hub lease renewals; no accelerated timers
             # or synthetic GPU claims. The final five seconds reserve stop budget.
@@ -398,10 +463,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
                 if time.monotonic() >= next_question:
                     # Explicit synthetic publisher consent, never an automatic
                     # production extension. Stay within the 40-reply Hub budget.
-                    assert command("consent") == {"consent": True}
-                    assert not completed.wait(3), failures
-                    assert command("ask") == {"sent": True}
-                    assert command("answer") == {"received": True}
+                    renewed_consent_round_trip()
                     next_question = time.monotonic() + 240
                 print(
                     json.dumps(

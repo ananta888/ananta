@@ -118,6 +118,22 @@ def test_bridge_already_exited_still_closes_both_pipes():
     bridge.stdout.close.assert_called_once()
 
 
+@pytest.mark.parametrize("broken_close", [False, True])
+def test_bridge_sends_eof_before_waiting_for_node_to_exit(broken_close):
+    bridge = Mock()
+    bridge.poll.return_value = None
+    if broken_close:
+        bridge.stdin.close.side_effect = BrokenPipeError()
+
+    def wait(**kwargs):
+        bridge.stdin.close.assert_called_once()
+        return 0
+
+    bridge.wait.side_effect = wait
+    close_bridge(bridge)
+    bridge.stdout.close.assert_called_once()
+
+
 def test_process_measurement_deduplicates_host_and_container_trees_and_handles_exit():
     import psutil
 
