@@ -12,6 +12,7 @@ from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_match
 from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_control_exchange import DialogControlExchange
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
+from worker.meet_media.dialog_session_binding import require_dialog_session
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
 
@@ -101,13 +102,13 @@ def run(assignment, hub):
             if state is not None:
                 receipt, controls = state["authorization"], state["controls"]
                 local = page.evaluate(local_status)
-                if (
-                    not local["joined"]
-                    or local["lease"] != receipt["lease"]
-                    or receipt["roomId"] != assignment["meeting"]["room_id"]
-                    or controls["revision"] < control_revision
-                ):
-                    raise ValueError("meet_dialog_session_changed")
+                require_dialog_session(
+                    local,
+                    receipt,
+                    controls,
+                    room_id=assignment["meeting"]["room_id"],
+                    previous_revision=control_revision,
+                )
                 control_revision = controls["revision"]
                 if state["renewal"]:
                     if audio is not None:
