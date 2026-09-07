@@ -57,6 +57,11 @@ class Browser:
         if generation == self.generation:
             self.closed.append(generation)
 
+    def push_frames(self, generation, start_sample, frames):
+        for encoded in frames:
+            self.push(generation, start_sample, encoded)
+            start_sample += len(base64.b64decode(encoded)) // 2
+
 
 def sink(browser=None, samples=66150, checkpoint=None, wall=None, monotonic=None):
     return SpeechPublication(
@@ -96,6 +101,58 @@ def test_exact_pcm_sample_clock_backpressure_and_partial_final_frame():
     }
     assert output.writable_samples() == 0 and output.completed is True
     output.close()
+
+
+def test_batch_preserves_exact_queue_backpressure_final_frame_and_completion():
+    browser = Browser()
+    output = sink(browser, samples=4859)
+    assert output.push_frames(tuple(frame(index * 441) for index in range(10)))
+    assert output.sent == 4410 and len(browser.frames) == 10
+    assert not output.push_frames((frame(4410),))
+    assert len(browser.frames) == 10
+    browser.played = 4410
+    assert output.push_frames((frame(4410), frame(4851, 8)))
+    assert output.sent == 4859 and browser.frames[-1] == (4851, b"\x01\x02" * 8)
+    output.close()
+
+
+@pytest.mark.parametrize(
+    "frames", [(), [], (frame(0),) * 11, (frame(1),), (frame(0, 440),), (frame(0), frame(0)), (None,)]
+)
+def test_invalid_batch_is_terminal_without_any_browser_write(frames):
+    browser = Browser()
+    output = sink(browser)
+    with pytest.raises(ValueError):
+        output.push_frames(frames)
+    assert output.closed and browser.frames == []
+
+
+def test_partial_browser_batch_failure_cannot_be_replayed_or_reported_as_completed():
+    browser = Browser()
+    output = sink(browser)
+
+    def fail_after_one(generation, start, frames):
+        browser.push(generation, start, frames[0])
+        raise ValueError("synthetic_second_frame_denied")
+
+    browser.push_frames = fail_after_one
+    with pytest.raises(ValueError):
+        output.push_frames((frame(0), frame(441)))
+    assert output.closed and output.sent == 0 and not output.completed and len(browser.frames) == 1
+    with pytest.raises(ValueError):
+        output.push_frames((frame(0), frame(441)))
+    assert len(browser.frames) == 1
+
+
+def test_batch_browser_bridge_is_one_rpc_and_rechecks_host_authority_afterwards():
+    page = Mock(url="https://synthetic.test/machine")
+    current = Mock()
+    browser = BrowserSpeechPort(page, current)
+    frames = [base64.b64encode(frame(0).pcm_s16le).decode()] * 10
+    browser.push_frames(1, 0, frames)
+    assert page.evaluate.call_count == 1 and current.call_count == 2
+    script, args = page.evaluate.call_args.args
+    assert args == [1, 0, frames] and "source.push(gen, start, pcm)" in script
 
 
 @pytest.mark.parametrize(

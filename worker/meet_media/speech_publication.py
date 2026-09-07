@@ -20,6 +20,7 @@ class SpeechBrowserPort(Protocol):
     def open(self, source_id: str, total_samples: int) -> dict: ...
     def status(self) -> dict: ...
     def push(self, generation: int, start_sample: int, pcm_base64: str) -> None: ...
+    def push_frames(self, generation: int, start_sample: int, frames: list[str]) -> None: ...
     def close(self, generation: int) -> None: ...
 
 
@@ -123,6 +124,38 @@ class SpeechPublication:
             return True
         except Exception:
             self.close()
+            raise
+
+    def push_frames(self, frames: tuple[SpeechFrame, ...]):
+        """One bounded RPC; the browser still authorizes every individual frame."""
+        try:
+            if not isinstance(frames, tuple) or not 1 <= len(frames) <= 10:
+                raise ValueError("meet_speech_publication_batch_invalid")
+            end = self.sent
+            for frame in frames:
+                if (
+                    not isinstance(frame, SpeechFrame)
+                    or type(frame.start_sample) is not int
+                    or frame.start_sample != end
+                    or type(frame.pcm_s16le) is not bytes
+                    or not frame.pcm_s16le
+                    or len(frame.pcm_s16le) != 2 * min(FRAME_SAMPLES, self.receipt.total_samples - end)
+                ):
+                    raise ValueError("meet_speech_publication_frame_invalid")
+                end += frame.samples
+            if self.writable_samples() < end - self.sent:
+                return False
+            self._check()
+            self.browser.push_frames(
+                self.receipt.generation,
+                self.sent,
+                [base64.b64encode(frame.pcm_s16le).decode("ascii") for frame in frames],
+            )
+            self.sent = end
+            self._check()
+            return True
+        except Exception:
+            self.close()  # A partially delivered batch is terminal, never replayed.
             raise
 
     def close(self):

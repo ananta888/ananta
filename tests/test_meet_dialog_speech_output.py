@@ -108,8 +108,7 @@ def test_control_and_browser_revocation_clear_only_owned_speech_without_reopen(c
     elif change == "navigation":
         f.page.url += "/other"
     elif change == "browser":
-        f.local["chat"] = False
-        f.elapsed[0] += 0.05
+        f.browser.status = Mock(side_effect=ValueError("meet_dialog_speech_browser_changed"))
     else:
         f.output.invalidate()
     f.output.tick()
@@ -142,22 +141,40 @@ def test_failed_source_setup_cannot_reopen_on_tick():
     assert f.browser.closed == [1] and not f.output.pcm and not f.browser.frames
 
 
-def test_browser_checkpoint_cache_is_only_fifty_ms_and_never_caches_hub_policy():
+def test_hub_checkpoint_is_pure_and_never_caches_policy_or_makes_redundant_browser_rpcs():
     f = fixture()
     assert f.output.accept(f.result, f.expected)
     before = f.page.evaluate.call_count
     f.output.tick()
-    assert f.page.evaluate.call_count == before  # Ten PCM frames, no redundant authority RPCs.
-    f.local["chat"] = False
-    f.elapsed[0] += 0.05
-    with pytest.raises(ValueError, match="browser_changed"):
-        f.output.require_current()
-    f.local["chat"] = True
+    assert f.page.evaluate.call_count == before  # Local checks now belong to the browser port's atomic RPC.
     f.output.require_current()
     f.controls["speech"]["enabled"] = False
     with pytest.raises(ValueError):
-        f.output.require_current()  # Hub control checks run even within the cache interval.
+        f.output.require_current()
     f.output.close()
+
+
+def test_tick_has_one_conservative_budget_and_keeps_live_checks_before_each_frame():
+    f = fixture()
+    assert f.output.accept(f.result, f.expected)
+    f.browser.status = Mock(wraps=f.browser.status)
+    f.output.tick()
+    assert f.browser.sent == 4410
+    assert f.browser.status.call_count == 2  # One tick budget plus the live batch-capacity check.
+    f.output.close()
+
+    f = fixture()
+    assert f.output.accept(f.result, f.expected)
+    push = f.browser.push
+
+    def revoke_after_first(*args):
+        push(*args)
+        f.controls["speech"]["enabled"] = False
+        raise ValueError("synthetic_browser_policy_revoked")
+
+    f.browser.push = revoke_after_first
+    f.output.tick()
+    assert len(f.browser.frames) == 1 and not f.output.busy
 
 
 @pytest.mark.parametrize("change", ["none", "speech", "chat", "generation", "send_failure", "reopened"])

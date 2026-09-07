@@ -49,14 +49,15 @@ class DialogSpeechOutput:
     def __init__(self, page, assignment, *, clock=time.time, monotonic=time.monotonic, browser=None):
         self.page, self.assignment, self.clock, self.monotonic = page, assignment, clock, monotonic
         self.browser = (
-            browser if browser is not None else BrowserSpeechPort(page, self.require_current, clock=monotonic)
+            browser
+            if browser is not None
+            else BrowserSpeechPort(page, self.require_current, clock=monotonic, lease=lambda: self.receipt["lease"])
         )
         self.url = assignment["meeting"]["origin"] + "/machine"
         self.receipt = self.controls = self.binding = self.publication = None
         self.pcm = b""
         self.version = 0
         self.fresh_until = 0
-        self.browser_checked_until = 0
 
     @property
     def busy(self):
@@ -65,7 +66,6 @@ class DialogSpeechOutput:
     def update(self, receipt, controls):
         self.receipt, self.controls = receipt, controls
         self.version += 1
-        self.browser_checked_until = 0
         # Existing control exchange cadence is two seconds. A stalled controller
         # may not keep pushing using an indefinitely cached Hub receipt.
         self.fresh_until = self.monotonic() + 2.5
@@ -94,32 +94,14 @@ class DialogSpeechOutput:
             != self.binding
         ):
             raise ValueError("meet_dialog_speech_authority_changed")
-        # The browser independently watches chat consent (250 ms) and speech
-        # lease/membership (100 ms). No poll/ACK consumes another chat input here.
-        # Repeated sink checkpoints in one frame must not each incur an RPC:
-        # that can starve the unchanged 200-ms PCM queue. Browser push/status
-        # still revalidate their own exact publication authority on every call.
-        if self.monotonic() < self.browser_checked_until:
-            return
-        current = self.page.evaluate("""() => {
-          const {joined, lease} = window.anantaMachine.status();
-          return {joined, lease, chat: window.anantaMachine.chat.status().open};
-        }""")
-        if (
-            not isinstance(current, dict)
-            or set(current) != {"joined", "lease", "chat"}
-            or current["joined"] is not True
-            or current["chat"] is not True
-            or current["lease"] != self.receipt["lease"]
-        ):
-            raise ValueError("meet_dialog_speech_browser_changed")
-        self.browser_checked_until = self.monotonic() + 0.05
+        # This pure checkpoint owns Hub policy. BrowserSpeechPort checks actual
+        # local membership, exact lease and chat on both sides of each source
+        # operation, without separate cached browser-authority RPCs.
 
     def accept(self, result, binding):
         if self.busy or not isinstance(result, SpokenReply):
             return False
         self.binding = binding
-        self.browser_checked_until = 0
         try:
             self.require_current()
             self.publication = SpeechPublication(
@@ -140,24 +122,29 @@ class DialogSpeechOutput:
         if not self.busy:
             return
         try:
+            available = self.publication.writable_samples()
+            if self.publication.completed:
+                self.close()
+                return
             # At most the fixed ten-frame browser queue per tick. Keep only the
             # already bounded authenticated PCM result and the next frame.
+            frames = []
+            start = self.publication.sent
             for _ in range(10):
-                available = self.publication.writable_samples()
-                if self.publication.completed:
-                    self.close()
-                    return
-                start = self.publication.sent
                 frame = SpeechFrame(start, self.pcm[start * 2 : (start + FRAME_SAMPLES) * 2])
-                if not frame.samples or available < frame.samples or not self.publication.push(frame):
-                    return
+                if not frame.samples or available < frame.samples:
+                    break
+                frames.append(frame)
+                available -= frame.samples
+                start += frame.samples
+            if frames:
+                self.publication.push_frames(tuple(frames))
         except Exception:
             self.close()  # Never reopen/retry a consumed reply after any failure.
 
     def close(self):
         publication, self.publication = self.publication, None
         self.pcm, self.binding = b"", None
-        self.browser_checked_until = 0
         if publication is not None:
             publication.close()
 

@@ -111,3 +111,43 @@ def test_actual_js_phase_fences_late_settlement_and_cleans_only_its_generation()
         timeout=5,
     )
     assert result.returncode == 0, "bounded JavaScript speech phase failed"
+
+
+def test_actual_js_bound_rpc_checks_live_chat_membership_and_exact_lease_before_and_after_access():
+    lease = {"sessionId": "synthetic", "generation": 1, "expiresAt": 1234}
+    page = Mock(url="https://synthetic.test/machine")
+    port = BrowserSpeechPort(page, lambda: None, lease=lambda: lease)
+    port.status()
+    status_script, status_args = page.evaluate.call_args.args
+    port.push_frames(1, 0, ["AQI=", "AQI="])
+    batch_script, batch_args = page.evaluate.call_args.args
+    script = """const assert = require('node:assert/strict');
+      const [statusCode,statusArgs,batchCode,batchArgs] = JSON.parse(process.argv[1]);
+      const status = eval('(' + statusCode + ')'), batch = eval('(' + batchCode + ')');
+      let joined=true, chat=true, lease={...statusArgs[0]}, reads=0, writes=[];
+      global.window={anantaMachine:{status:()=>({joined,lease}),chat:{status:()=>({open:chat})},
+        speech:{status:()=>{reads++;return {state:'open'}},push:(...args)=>writes.push(args)}}};
+      assert.deepEqual(status(statusArgs),{state:'open'}); batch(batchArgs);
+      assert.equal(reads,1); assert.deepEqual(writes,[[1,0,'AQI='],[1,1,'AQI=']]);
+      for(const change of ['joined','chat','generation','extra','missing']) {
+        joined=true; chat=true; lease={...statusArgs[0]}; reads=0; writes=[];
+        if(change==='joined') joined=false;
+        if(change==='chat') chat=false;
+        if(change==='generation') lease.generation++;
+        if(change==='extra') lease.extra=true;
+        if(change==='missing') lease=null;
+        assert.throws(()=>status(statusArgs),/speech_browser_changed/);
+        assert.throws(()=>batch(batchArgs),/speech_browser_changed/);
+        assert.equal(reads,0); assert.equal(writes.length,0);
+      }
+      joined=true;chat=true;lease={...statusArgs[0]};
+      window.anantaMachine.speech.status=()=>{chat=false;return {state:'open'}};
+      assert.throws(()=>status(statusArgs),/speech_browser_changed/);
+    """
+    result = subprocess.run(
+        ["node", "-e", script, json.dumps([status_script, status_args, batch_script, batch_args])],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode == 0, "bound speech RPC did not enforce live local scope"

@@ -32,9 +32,28 @@ _CANCEL = """token => {
 
 
 class BrowserSpeechPort:
-    def __init__(self, page, require_current, *, clock=time.monotonic):
+    def __init__(self, page, require_current, *, clock=time.monotonic, lease=None):
         self.page, self.require_current, self.clock = page, require_current, clock
+        self.lease = lease
         self.url = page.url
+
+    def _evaluate(self, operation, args=None):
+        if self.lease is None:
+            return self.page.evaluate(operation, args)
+        # Keep local membership/chat checks in the same RPC as source access.
+        # Separate status RPCs can consume the entire unchanged 200-ms queue.
+        script = """([expected, argument]) => {
+          const check = () => {
+            const machine = window.anantaMachine, current = machine.status();
+            if (!expected || current.joined !== true || machine.chat.status().open !== true
+              || JSON.stringify(Object.entries(current.lease || {}).sort())
+                !== JSON.stringify(Object.entries(expected).sort())) {
+              throw new Error('meet_dialog_speech_browser_changed');
+            }
+          };
+          check(); const result = (OPERATION)(argument); check(); return result;
+        }""".replace("OPERATION", operation)
+        return self.page.evaluate(script, [dict(self.lease()), args])
 
     def _check(self):
         if self.page.url != self.url:
@@ -50,12 +69,12 @@ class BrowserSpeechPort:
         deadline = self.clock() + 10
         try:
             self._check()
-            self.page.evaluate(_START, [token, source_id, total_samples])
+            self._evaluate(_START, [token, source_id, total_samples])
             while True:
                 self._check()
                 if self.clock() >= deadline:
                     raise ValueError("meet_speech_setup_timeout")
-                value = self.page.evaluate(_STATE, token)
+                value = self._evaluate(_STATE, token)
                 self._check()
                 if self.clock() >= deadline:
                     raise ValueError("meet_speech_setup_timeout")
@@ -76,11 +95,11 @@ class BrowserSpeechPort:
 
     def status(self):
         self._check()
-        return self.page.evaluate("window.anantaMachine.speech.status()")
+        return self._evaluate("() => window.anantaMachine.speech.status()")
 
     def push(self, generation, start_sample, pcm_base64):
         self._check()
-        self.page.evaluate(
+        self._evaluate(
             "([gen, start, pcm]) => window.anantaMachine.speech.push(gen, start, pcm)",
             [generation, start_sample, pcm_base64],
         )
@@ -96,3 +115,19 @@ class BrowserSpeechPort:
         }""",
             generation,
         )
+
+    def push_frames(self, generation, start_sample, frames):
+        self._check()
+        if not isinstance(frames, list) or not 1 <= len(frames) <= 10:
+            raise ValueError("meet_speech_publication_batch_invalid")
+        self._evaluate(
+            """([gen, start, frames]) => {
+              const source = window.anantaMachine.speech;
+              for (const pcm of frames) {
+                source.push(gen, start, pcm);
+                start += atob(pcm).length / 2;
+              }
+            }""",
+            [generation, start_sample, frames],
+        )
+        self._check()

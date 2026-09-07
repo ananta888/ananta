@@ -87,7 +87,11 @@ class MeetAuthorizationClient:
                 raw = read_bounded(response, maximum=16_384, deadline=deadline)
             result = validate_authorization(parse(raw), scope, self.issuer.issuer, session_id, nonce, int(self.clock() * 1000))
             current = self.authority.current(task_id, lease_id, runtime_id)
-            if current != replace(scope, controls=current.controls):
+            # Source CAS is checked independently by each fresh projection.
+            # A profile switch must not revoke the parent membership or speech.
+            # Negotiation presence and every actual membership binding stay fixed.
+            if ((current.avatar_selection is None) != (scope.avatar_selection is None)
+                    or current != replace(scope, controls=current.controls, avatar_selection=current.avatar_selection)):
                 raise MeetError("meet_authorization_changed", 409)
             return result
         except MeetError:
