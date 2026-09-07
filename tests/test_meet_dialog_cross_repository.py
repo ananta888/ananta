@@ -75,7 +75,8 @@ def close_bridge(bridge):
         bridge.stdout.close()
 
 
-def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(app, tmp_path, monkeypatch):
+@pytest.mark.parametrize("spoken_mode", [False, True], ids=["text", "speech"])
+def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(app, tmp_path, monkeypatch, spoken_mode):
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
@@ -91,13 +92,15 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     from agent.services.meet_chat_policy import ChatReplyPolicy
     from agent.services.meet_contract import MeetError, MeetProfile
     from agent.services.meet_dialog_authority import MeetDialogAuthority
+    from agent.services.meet_dialog_replies import MeetDialogReplies
     from agent.services.meet_dialog_service import MeetDialogService
     from agent.services.meet_dialog_tasks import HubDialogTasks
     from agent.services.meet_machine_grant import MeetMachineGrantIssuer
     from agent.services.meet_media_transport import HttpMediaWorker
+    from agent.services.meet_turn_service import HubMediaTasks
     from agent.services.source_control_access_policy import HubSourcePrincipal
     from tests.meet_dialog_browser_fixture import DialogBrowserFixture
-    from tests.test_meet_media import result
+    from tests.meet_dialog_speech_observer import DialogSpeechObserver
     from worker.meet_media.dialog_chat import DialogChatPump
     from worker.meet_media.dialog_client import HubDialogClient
     from worker.meet_media.dialog_runtime import run
@@ -216,9 +219,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
 
         binding = Binding()
         tasks = HubDialogTasks()
-        authority = MeetDialogAuthority(
-            tasks, binding, {("synthetic", "synthetic"): ["chat.read", "chat.send", "screen.publish"]}
-        )
+        speech_observer = DialogSpeechObserver(spoken_mode, monkeypatch)
+        capabilities = speech_observer.capabilities
+        authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
         reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
         reservations.initialize()
@@ -315,12 +318,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
 
         # Contract fixture, NOT a claim that the declared CUDA engines executed.
         media = Mock()
-        media.execute.side_effect = lambda turn: result() | {
-            "task_id": turn["task_id"],
-            "lease_id": turn["lease_id"],
-            "text": "Synthetic Hub answer",
-            "usage": {"input_tokens": 20, "output_tokens": 8},
-        }
+        media.execute.side_effect = speech_observer.execute
         worker = create_server(("127.0.0.1", 0), hmac_key, media, DialogExecution())
         threading.Thread(target=worker.serve_forever, daemon=True).start()
         transport = HttpMediaWorker(f"http://127.0.0.1:{worker.server_port}/v1/turns", hmac_key)
@@ -333,6 +331,13 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             transport,
             reservations,
             dispatches,
+            replies=MeetDialogReplies(
+                binding,
+                transport,
+                HubMediaTasks(),
+                dispatches,
+                speech_profile=speech_observer.profile,
+            ),
         )
         app.config["ROLE"] = "hub"
         app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
@@ -349,7 +354,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
                 principal,
                 "synthetic",
                 {
-                    "capabilities": ["chat.read", "chat.send", "screen.publish"],
+                    "capabilities": capabilities,
                     "duration_seconds": SOAK_SECONDS or 90,
                     "chat_mode": "mention",
                 },
@@ -391,6 +396,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             "runtime_errors": failures,
         }
         media.execute.assert_called_once()
+        speech_observer.require_completed(1, completed, failures)
         last_answer_at = time.monotonic()
         with app.app_context():
             service.control(
@@ -432,6 +438,24 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         # Exercise consent replacement in the short gate too. No question is
         # emitted before a genuinely fresh Hub-matched browser queue exists.
         renewed_consent_round_trip()
+        speech_observer.require_completed(2, completed, failures)
+        with app.app_context():
+            speech_observer.pause_and_require_text(
+                lambda: service.control(
+                    principal,
+                    "synthetic",
+                    started["task_id"],
+                    {
+                        "expected_revision": 3,
+                        "chat": True,
+                        "audio": False,
+                        "screen": True,
+                        "speech": False,
+                    },
+                ),
+                renewed_consent_round_trip,
+                media,
+            )
         if SOAK_SECONDS:
             # Real clocks, real browser/Hub lease renewals; no accelerated timers
             # or synthetic GPU claims. The final five seconds reserve stop budget.

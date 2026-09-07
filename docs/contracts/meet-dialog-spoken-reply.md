@@ -2,8 +2,10 @@
 
 MAP-22 follow-up after actual local Piper-to-Meet transport was verified.
 The closed envelope, shared WAV validator, optional independent Hub speech
-control, private Hub HTTP endpoint and bounded Worker transport are implemented.
-Runtime composition remains in progress; this is not a deployed runtime claim.
+control, private Hub HTTP endpoint, bounded Worker transport and continuous
+chat/speech runtime composition are implemented and tested locally. Actual GPU
+inference behind this complete Hub/dialog path remains open; no deployment or
+production release is claimed.
 
 ## Decision
 
@@ -135,3 +137,50 @@ real loopback HTTP for valid PCM, invalid signatures/domains/request binding,
 scope changes, oversized/truncated bodies, redirects, deadlines and request
 preflight. New modules pass Ruff. This tests transport, not yet productive
 continuous playback or actual GPU inference behind this Hub endpoint.
+
+## Continuous runtime composition
+
+`DialogSpeechOutput` owns only the current PCM publication and its current
+authority checkpoint. `DialogChatPump` still uses its one existing Hub request
+pool; it selects the speech callback only for explicitly enabled assigned
+speech. No new inference thread, task queue, provider routing or capture path
+was added. The old combined chat completion block was extracted into a separate
+method; media publication stays in its own adapter (SRP/ISP/DIP).
+
+A finished spoken request cannot immediately publish: the runtime first obtains
+a newer Hub exchange, then checks the exact pending receive/chat/speech and
+lease bindings. An equal-looking reopened browser chat queue is not the old
+activation. Correlated text is reserved in the browser before any PCM is pushed;
+failed correlation closes the owned speech generation, with no text/audio retry.
+Speech pause leaves future ordinary chat replies available. Revocation, task
+cancellation, renewal, changed membership, stale cached state and source failure
+close only the owned generation and drop its PCM references. Immutable Python
+bytes are not claimed to be securely zeroized.
+
+Hub state is refreshed by the existing two-second exchange and may be used for
+at most 2.5 seconds after receipt. Browser consent/lease watchdogs remain active.
+Repeated authority checkpoints within a frame share a browser observation for
+at most 50 ms; all local Hub checks still run, and every browser PCM push/status
+independently revalidates the publication lease. While speaking, the controller
+uses a 20-ms tick, with PCM serviced before screen capture. The 4410-sample /
+200-ms queue and strict no-underflow policy are unchanged.
+
+The first real speech integration exposed queue starvation: redundant browser
+RPCs took 316 ms to submit part of a frame batch. Sharing the narrowly bounded
+browser observation reduced RPC cost, but the old 100-ms idle cadence still
+starved the queue. The active 20-ms cadence fixed the reproduced failure without
+increasing buffering or weakening authority. 26 dedicated output/race tests
+passed in 22.84 s, and the final text + speech real Hub/Worker/Meet browser gate
+passed in 71.36 s. The speech variant completes two exact local 22050-sample
+outputs (the second alongside screen sharing), replaces input consent, pauses
+speech through the Hub and receives a third text-only answer before stopping.
+These are synthetic model/WAV fixtures, not decoded non-silent GPU delivery.
+
+One preceding combined run had 50 passes and a private fixture machine-page
+startup timeout before the speech dialog started; that failed run remains a
+failed observation, not counted as acceptance. The subsequent two-browser-case
+run above passed. The large pre-existing integration fixture still coordinates
+several infrastructure lifecycles; new speech observations were extracted into
+`tests/meet_dialog_speech_observer.py` rather than expanding that responsibility.
+Ruff and diff checks pass. Remaining work includes the combined real GPU path,
+live mid-output revocation/load/soak acceptance and the speech-enabled UI start.

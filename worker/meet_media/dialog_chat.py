@@ -36,7 +36,7 @@ def _only_policy_revision_changed(scope, receipt, assignment):
 
 
 class DialogChatPump:
-    def __init__(self, page, hub, assignment):
+    def __init__(self, page, hub, assignment, *, speech=None):
         self.page, self.hub, self.assignment = page, hub, assignment
         self.browser_chat = DialogChatBrowser(page)
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="meet-hub-chat")
@@ -44,6 +44,13 @@ class DialogChatPump:
         self.pending = None
         self.receipt = None
         self.revision = 0
+        self.speech = speech
+        self.pending_speech = None
+        self.pending_refresh = None
+
+    @property
+    def needs_refresh(self):
+        return self.pending_refresh is not None and self.speech.version <= self.pending_refresh
 
     def update(self, receipt, control):
         allowed = control["enabled"] and any(g["chatRead"] for g in receipt["grants"])
@@ -70,29 +77,8 @@ class DialogChatPump:
 
     def tick(self):
         if self.pending is not None and self.pending[0].done():
-            future, scope, message_id, revision = self.pending
-            self.pending = None
-            try:
-                result = future.result()
-            except ValueError:
-                result = {"reply": None}
-            if result["reply"] is not None and self.opened == scope and self.revision == revision:
-                reply = result["reply"]
-                if (
-                    not isinstance(reply, dict)
-                    or set(reply) != {"message_id", "text"}
-                    or reply["message_id"] != message_id
-                    or not isinstance(reply["text"], str)
-                    or not 0 < len(reply["text"]) <= 450
-                ):
-                    raise ValueError("meet_dialog_reply_invalid")
-                # A late/expired input is discarded, not retried or made into a
-                # new uncorrelated reply. The browser rechecks source authority.
-                self.page.evaluate(
-                    "([id, text]) => { try { window.anantaMachine.chat.reply(id, text); } catch {} }",
-                    [message_id, reply["text"]],
-                )
-        if self.opened is None or self.pending is not None:
+            self._complete()
+        if self.opened is None or self.pending is not None or self.speech is not None and self.speech.busy:
             return
         if not self.page.evaluate("window.anantaMachine.chat.status().open"):
             self.opened = None
@@ -113,21 +99,76 @@ class DialogChatPump:
             if not self.browser_chat.ack(item["cursor"]):
                 self.invalidate()
                 return  # No input dispatch after the source changed during ACK.
-            self.pending = (
-                self.pool.submit(
+            try:
+                self.pending_speech = self.speech.prepare(event) if self.speech is not None else None
+            except ValueError:
+                return  # Consumed stale input is not converted to a text retry.
+            future = (
+                self.pool.submit(self.hub.spoken, event, self.pending_speech)
+                if self.pending_speech is not None
+                else self.pool.submit(
                     self.hub.call, "chat", meet_session_id=self.receipt["lease"]["sessionId"], event=event
-                ),
+                )
+            )
+            self.pending = (
+                future,
                 self.opened,
                 event["message_id"],
                 self.revision,
             )
 
+    def _complete(self):
+        if self.pending_speech is not None:
+            if self.pending_refresh is None:
+                self.pending_refresh = self.speech.version
+                return  # The runtime must exchange fresh Hub state after inference.
+            if self.needs_refresh:
+                return
+        future, scope, message_id, revision = self.pending
+        binding, self.pending_speech = self.pending_speech, None
+        self.pending = self.pending_refresh = None
+        try:
+            result = future.result()
+        except ValueError:
+            return
+        if self.opened is not scope or self.revision != revision:
+            return
+        if binding is not None:
+            if result is None or result.message_id != message_id or not self.speech.accept(result, binding):
+                return
+            reply = {"message_id": message_id, "text": result.text}
+        else:
+            reply = result["reply"]
+        if reply is None:
+            return
+        if (
+            not isinstance(reply, dict)
+            or set(reply) != {"message_id", "text"}
+            or reply["message_id"] != message_id
+            or not isinstance(reply["text"], str)
+            or not 0 < len(reply["text"]) <= 450
+        ):
+            raise ValueError("meet_dialog_reply_invalid")
+        # Reserve browser correlation before any PCM is pushed. Uncertain text
+        # delivery is never retried; failed correlation also closes speech.
+        sent = self.page.evaluate(
+            """([id, text]) => {
+              try { window.anantaMachine.chat.reply(id, text); return true; } catch { return false; }
+            }""",
+            [message_id, reply["text"]],
+        )
+        if binding is not None and sent is not True:
+            self.speech.close()
+
     def invalidate(self):
         self.opened = None
+        if self.speech is not None:
+            self.speech.invalidate()
         self.page.evaluate("window.anantaMachine.chat.close()")
 
     def close(self):
         try:
             self.invalidate()
         finally:
+            self.pending = self.pending_speech = self.pending_refresh = None
             self.pool.shutdown(wait=False, cancel_futures=True)
