@@ -3,14 +3,35 @@ import { FormsModule } from '@angular/forms';
 import { Subscription, skip } from 'rxjs';
 import { UserAuthService } from '../../services/user-auth.service';
 import { MeetApiService, MeetTurn } from './meet-api.service';
+import { FormFieldComponent } from '../../shared/ui/forms/form-field.component';
+import { clipRequest, MeetStoredClipChoice } from './meet-visual-choice';
 
 @Component({
-  selector: 'app-meet-agent', standalone: true, imports: [FormsModule],
+  selector: 'app-meet-agent', standalone: true, imports: [FormsModule, FormFieldComponent],
   template: `
     <section aria-label="Lokaler KI-Medienassistent">
       <h3>Lokaler KI-Assistent</h3>
       <p>Antworttext, synthetische deutsche Stimme und einfaches Avatarvideo werden lokal erzeugt.
         Ohne die folgende Zusatzfreigabe bleibt die Ausgabe eine lokale Vorschau.</p>
+      <app-form-field label="Videoquelle">
+        <select [(ngModel)]="visualMode" [disabled]="busy()">
+          <option value="avatar">Einfacher synthetischer Avatar</option>
+          <option value="clip">Zugelassener gespeicherter Clip</option>
+        </select>
+      </app-form-field>
+      @if (visualMode === 'clip') {
+        <app-form-field label="Zugelassene Clip-ID" hint="Der Hub prüft das Video im aktuellen Projekt erneut. Keine Dateipfade, Kamera oder externen Links.">
+          <input [(ngModel)]="clipId" maxlength="160" autocomplete="off" [disabled]="busy()" />
+        </app-form-field>
+        <app-form-field label="Verhalten am Clip-Ende">
+          <select [(ngModel)]="clipRepeatMode" [disabled]="busy()">
+            <option value="">Bitte ausdrücklich auswählen …</option>
+            <option value="loop">Clip wiederholen, solange die Antwort spricht</option>
+            <option value="hold_last">Letzten Frame bis zum Sprachende halten</option>
+          </select>
+        </app-form-field>
+        <p>Ein gespeicherter Clip ist keine generative Animation. Die vorhandene Tonspur wird nicht übernommen.</p>
+      }
       <label><input type="checkbox" [(ngModel)]="publishToMeet" [disabled]="busy()" />
         Antwort als KI-Teilnehmer im zugeordneten Meet ausgeben (Hub-Vorautorisierung erforderlich)</label>
       <label>Nachricht an Ananta
@@ -36,6 +57,9 @@ export class MeetAgentComponent implements OnInit, OnChanges, OnDestroy {
   private identity?: Subscription;
   prompt = '';
   publishToMeet = false;
+  visualMode: 'avatar' | 'clip' = 'avatar';
+  clipId = '';
+  clipRepeatMode: 'loop' | 'hold_last' | '' = '';
   readonly busy = signal(false);
   readonly reply = signal('');
   readonly videoUrl = signal('');
@@ -53,14 +77,29 @@ export class MeetAgentComponent implements OnInit, OnChanges, OnDestroy {
     this.videoUrl.set(''); this.reply.set(''); this.error.set('');
     this.busy.set(false); this.prompt = '';
     this.publishToMeet = false; this.published.set(false);
+    this.visualMode = 'avatar'; this.clipId = ''; this.clipRepeatMode = '';
   }
 
   send(): void {
     if (this.busy() || !this.projectId || !this.prompt.trim()) return;
     const text = this.prompt.trim();
     const publish = this.publishToMeet;
+    if (this.visualMode !== 'avatar' && this.visualMode !== 'clip') {
+      this.error.set('Ungültige Videoquelle.'); return;
+    }
+    let visual: MeetStoredClipChoice | undefined;
+    if (this.visualMode === 'clip') {
+      if (this.clipRepeatMode !== 'loop' && this.clipRepeatMode !== 'hold_last') {
+        this.error.set('Bitte Wiederholung oder letzten Frame ausdrücklich auswählen.');
+        return;
+      }
+      visual = { kind: 'stored_clip', artifactId: this.clipId.trim(), repeatMode: this.clipRepeatMode };
+      try { clipRequest(visual); }
+      catch { this.error.set('Bitte eine gültige zugelassene Clip-ID eingeben.'); return; }
+    }
     this.clear(); this.busy.set(true);
-    const request = this.taskId ? this.api.turn(this.projectId, text, publish, this.taskId)
+    const request = visual ? this.api.turn(this.projectId, text, publish, this.taskId, visual)
+      : this.taskId ? this.api.turn(this.projectId, text, publish, this.taskId)
       : publish ? this.api.turn(this.projectId, text, true) : this.api.turn(this.projectId, text);
     this.request = request.subscribe({
       next: value => {

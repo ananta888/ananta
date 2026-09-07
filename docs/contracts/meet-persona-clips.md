@@ -130,3 +130,23 @@ Angular template/type compilation passed. Compilation reports the pre-existing
 unused `RouterLink` warning in the unrelated knowledge-hygiene page. The UI
 currently selects clips by admitted ID, not by a new public asset listing.
 Configuring a profile still does not switch a running dialog or generate a turn.
+
+## Explicit clip turns in the Meet assistant
+
+The Meet assistant now offers a stored-clip source beside the existing simple
+avatar. Choosing the source does nothing by itself. The user must specify an
+admitted clip ID, explicitly choose loop/hold-last and start a response. The
+publication checkbox remains independent and off by default. The closed UI
+choice maps to the same Hub API fields; paths, URLs, unknown source kinds,
+extra grant fields and implicit repeat modes are rejected before HTTP.
+
+Account/project changes and cleanup clear the clip and repeat selection. The
+existing request cancellation and bounded media preview lifecycle remain in
+place. This still is not a live-session source-switch control or an automatic
+subscription to saved profile changes.
+
+The combined Meet/persona frontend suite passed 79 tests in 1.58 seconds. Its
+form tests use actual automated Angular change events, including explicit mode
+selection, rather than unnotified plain-field mutations. Feature lint and
+Angular type/template checks passed; the production bundle built in 22.405
+seconds. Existing unrelated RouterLink/CommonJS optimization warnings remain.

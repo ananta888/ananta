@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { map, throwError, timeout } from 'rxjs';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
+import { clipRequest, MeetStoredClipChoice } from './meet-visual-choice';
 
 export interface MeetBinding {
   schema: 'ananta.meet-binding.v1';
@@ -55,12 +56,15 @@ export class MeetApiService {
   private readonly core = inject(HubApiCoreService);
   private readonly directory = inject(AgentDirectoryService);
 
-  turn(project: string, text: string, publishToMeet = false, task = '') {
+  turn(project: string, text: string, publishToMeet = false, task = '', visual?: MeetStoredClipChoice) {
     const hub = this.directory.list().find(agent => agent.role === 'hub')?.url;
     if (!hub) return throwError(() => new Error('meet_hub_unavailable'));
     const taskPath = task ? `/tasks/${encodeURIComponent(task)}` : '';
     const url = `${hub.replace(/\/$/, '')}/api/meet/v1/projects/${encodeURIComponent(project)}${taskPath}/turns`;
-    const body = publishToMeet ? { text, publish_to_meet: true } : { text };
+    let clip = {};
+    try { clip = visual === undefined ? {} : clipRequest(visual); }
+    catch { return throwError(() => new Error('meet_clip_selection_invalid')); }
+    const body = { text, ...(publishToMeet ? { publish_to_meet: true } : {}), ...clip };
     return this.core.request<MeetTurn>('POST', url, hub, { body }).pipe(timeout(120_000));
   }
 
