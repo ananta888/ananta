@@ -5,13 +5,14 @@ import os
 import stat
 from pathlib import Path
 
-from ananta_contracts.meet_speech import MODEL_NAME, speech_profile, validate_speech_profile
+from ananta_contracts.meet_speech import speech_profile, validate_speech_profile
+from ananta_contracts.meet_voice_catalog import DEFAULT_VOICE_ID, voice_preset
 
 
-def read_pinned_file(path, *, sha256, maximum):
+def read_pinned_file(path, *, sha256, maximum, dir_fd=None):
     descriptor = None
     try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= maximum or before.st_nlink != 1:
             raise ValueError("meet_piper_asset_invalid")
@@ -41,12 +42,20 @@ def read_pinned_file(path, *, sha256, maximum):
 
 def load_pinned_assets(profile=None):
     profile = validate_speech_profile(profile if profile is not None else speech_profile())
-    path = Path(os.environ.get("MEET_PIPER_MODEL", "/models/" + MODEL_NAME))
+    preset = voice_preset(profile["voice_id"])
+    legacy_path = os.environ.get("MEET_PIPER_MODEL")
+    model_directory = os.environ.get("MEET_PIPER_MODELS_DIR")
+    if legacy_path and preset.voice_id == DEFAULT_VOICE_ID:
+        path = Path(legacy_path)
+    else:
+        if legacy_path and not model_directory:
+            raise ValueError("meet_piper_preset_directory_required")
+        path = Path(model_directory or "/models") / preset.model.name
     if not path.is_absolute():
         raise ValueError("meet_piper_model_path_invalid")
     # Only verified byte snapshots, never these mutable pathnames, are passed
     # to Piper/ONNX. A replacement after this read cannot swap the loaded model.
     return (
-        read_pinned_file(path, sha256=profile["model_sha256"], maximum=70_000_000),
-        read_pinned_file(str(path) + ".json", sha256=profile["config_sha256"], maximum=65_536),
+        read_pinned_file(path, sha256=profile["model_sha256"], maximum=preset.model.model_max_bytes),
+        read_pinned_file(str(path) + ".json", sha256=profile["config_sha256"], maximum=preset.model.config_max_bytes),
     )

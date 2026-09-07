@@ -5,6 +5,8 @@ import json
 import numpy as np
 
 from ananta_contracts.meet_media_failures import MediaCapabilityError
+from ananta_contracts.meet_speech import speech_profile, validate_speech_profile
+from ananta_contracts.meet_voice_catalog import voice_preset
 from worker.meet_media.audio_output import SAMPLE_RATE
 from worker.meet_media.piper_assets import load_pinned_assets
 from worker.meet_media.speech_gpu_profile import cuda_provider_options, require_cuda_budget
@@ -15,12 +17,23 @@ def load_cuda_voice(profile=None):
     from piper import PiperVoice
     from piper.config import PiperConfig
 
+    profile = validate_speech_profile(profile if profile is not None else speech_profile())
+    preset = voice_preset(profile["voice_id"])
     model, config = load_pinned_assets(profile)
+    configuration = json.loads(config)
+    if preset.model.speakers and (
+        not isinstance(configuration, dict)
+        or type(configuration.get("num_speakers")) is not int
+        or configuration["num_speakers"] != len(preset.model.speakers)
+        or configuration.get("speaker_id_map") != dict(preset.model.speakers)
+        or any(type(value) is not int for value in configuration["speaker_id_map"].values())
+    ):
+        raise ValueError("meet_piper_speaker_map_invalid")
     ort.preload_dlls(directory="")
     if "CUDAExecutionProvider" not in ort.get_available_providers():
         raise MediaCapabilityError("meet_piper_cuda_unavailable")
     voice = PiperVoice(
-        config=PiperConfig.from_dict(json.loads(config)),
+        config=PiperConfig.from_dict(configuration),
         session=ort.InferenceSession(
             model,
             sess_options=ort.SessionOptions(),
@@ -41,9 +54,8 @@ def load_cuda_voice(profile=None):
 
 class PiperSpeechSource:
     def __init__(self, *, loader=None, profile=None):
-        from ananta_contracts.meet_speech import speech_profile, validate_speech_profile
-
         self.profile = validate_speech_profile(profile if profile is not None else speech_profile())
+        self.preset = voice_preset(self.profile["voice_id"])
         self.loader = loader if loader is not None else lambda: load_cuda_voice(self.profile)
 
     def synthesize(self, text, *, max_samples, require_current):
@@ -51,7 +63,12 @@ class PiperSpeechSource:
         voice = self.loader()
         require_current()
         produced = 0
-        chunks = iter(voice.synthesize(text))
+        if self.preset.speaker_id is None:
+            chunks = iter(voice.synthesize(text))
+        else:
+            from piper import SynthesisConfig
+
+            chunks = iter(voice.synthesize(text, syn_config=SynthesisConfig(speaker_id=self.preset.speaker_id)))
         try:
             while True:
                 require_current()
