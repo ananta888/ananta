@@ -3,6 +3,7 @@
 from dataclasses import asdict, dataclass
 
 from agent.services.meet_contract import MeetError
+from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
 
 
 @dataclass(frozen=True)
@@ -19,13 +20,15 @@ class DialogControls:
     audio: SourceControl
     screen: SourceControl
     speech: SourceControl | None = None
+    avatar: SourceControl | None = None
 
 
 def controls_projection(value):
     """Existing tasks retain exactly their original three-source wire shape."""
     result = asdict(value)
-    if value.speech is None:
-        result.pop("speech")
+    for name in OPTIONAL_CONTROL_CAPABILITIES:
+        if result[name] is None:
+            result.pop(name)
     return result
 
 
@@ -49,6 +52,9 @@ def initial_controls(capabilities, chat_mode, audio_mode, now_ms):
             SourceControl(audio_mode != "off", 1, now_ms),
             SourceControl("screen.publish" in capabilities, 1, now_ms),
             SourceControl(chat_mode != "off", 1, now_ms) if "speech.publish" in capabilities else None,
+            # Permission is not activation: neutral avatar requires an explicit
+            # current Hub control mutation, independently of chat or speech.
+            SourceControl(False, 1, now_ms) if "avatar.publish" in capabilities else None,
         )
     )
 
@@ -56,13 +62,13 @@ def initial_controls(capabilities, chat_mode, audio_mode, now_ms):
 def change_controls(scope, payload, now_ms):
     if (
         not isinstance(payload, dict)
-        or set(payload) - {"speech"} != {"expected_revision", "chat", "audio", "screen"}
+        or set(payload) - OPTIONAL_CONTROL_CAPABILITIES.keys() != {"expected_revision", "chat", "audio", "screen"}
         or type(payload["expected_revision"]) is not int
         or any(type(payload[k]) is not bool for k in payload if k != "expected_revision")
     ):
         raise MeetError("meet_dialog_controls_invalid")
     current = scope.controls
-    if "speech" in payload and current.speech is None:
+    if any(name in payload and getattr(current, name) is None for name in OPTIONAL_CONTROL_CAPABILITIES):
         raise MeetError("meet_dialog_control_capability_denied", 403)
     if payload["expected_revision"] != current.revision or current.revision >= 1023:
         raise MeetError("meet_dialog_controls_conflict", 409)
@@ -71,9 +77,11 @@ def change_controls(scope, payload, now_ms):
         "audio": "audio.receive" in scope.capabilities and scope.audio_mode != "off",
         "screen": "screen.publish" in scope.capabilities,
     }
-    if current.speech is not None:
-        allowed["speech"] = "speech.publish" in scope.capabilities and scope.chat_mode != "off"
-        payload = {"speech": current.speech.enabled, **payload}
+    for name, capability in OPTIONAL_CONTROL_CAPABILITIES.items():
+        source = getattr(current, name)
+        if source is not None:
+            allowed[name] = capability in scope.capabilities and (name != "speech" or scope.chat_mode != "off")
+            payload = {name: source.enabled, **payload}
     if any(payload[name] and not allowed[name] for name in allowed):
         raise MeetError("meet_dialog_control_capability_denied", 403)
     sources = {}

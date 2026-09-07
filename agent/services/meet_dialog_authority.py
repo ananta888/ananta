@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
+from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
 
 CAPABILITIES = frozenset(
     {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
@@ -101,9 +102,10 @@ class MeetDialogAuthority:
         ):
             raise MeetError("meet_dialog_policy_denied", 403)
         controls = parse_controls(value["controls"])
-        if controls.speech is not None and (
-            "speech.publish" not in capabilities or controls.speech.enabled and value["chat_mode"] == "off"
-        ):
+        if any(
+            getattr(controls, name) is not None and capability not in capabilities
+            for name, capability in OPTIONAL_CONTROL_CAPABILITIES.items()
+        ) or (controls.speech is not None and controls.speech.enabled and value["chat_mode"] == "off"):
             raise MeetError("meet_dialog_control_capability_denied", 403)
         parent = value["binding_task_id"]
         if not isinstance(parent, str) or parent and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", parent):

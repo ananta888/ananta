@@ -45,3 +45,23 @@ The existing machine API and conservative capability contract stay compatible.
 No productive trust, public deployment, image generation, source/evidence IDs
 or release claims are granted by this plan. Validation is fully headless and
 uses only private, ephemeral test resources.
+
+## Hub control foundation
+
+The closed optional `avatar` control now uses the same enabled/revision/since
+shape as speech, but is initially **disabled even when avatar.publish is
+granted**. An explicit current Hub CAS enables the neutral source. It needs no
+chat, audio receive or speech permission. Old tasks retain their exact wire
+shape; old client updates preserve any assigned optional source unchanged.
+Unassigned optional controls are rejected even when supplied as disabled.
+
+A small closed optional-source capability table is shared by contract shape
+validation, projection and Hub authority checks, avoiding another series of
+speech-specific branches (OCP). Source revisions remain independent; the real
+persisted Hub CAS admits a mutation only once. Twelve new cases plus existing
+speech/control/authority checks passed (34 in 28.34 s); transport, routes,
+task storage and speech output regression passed (33 in 34.81 s).
+
+The Worker capability denylist remains unchanged until the independent browser
+adapter and fresh-Hub lifecycle are integrated. This control foundation does
+not by itself claim a working end-to-end avatar session or persona switching.

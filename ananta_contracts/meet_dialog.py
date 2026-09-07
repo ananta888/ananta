@@ -11,17 +11,18 @@ ID = re.compile(r"[A-Za-z0-9_.:-]{1,160}")
 CAPABILITIES = frozenset(
     {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
 )
+OPTIONAL_CONTROL_CAPABILITIES = {"speech": "speech.publish", "avatar": "avatar.publish"}
 
 
 def validate_controls(value):
     if (
         not isinstance(value, dict)
-        or set(value) - {"speech"} != {"revision", "chat", "audio", "screen"}
+        or set(value) - OPTIONAL_CONTROL_CAPABILITIES.keys() != {"revision", "chat", "audio", "screen"}
         or type(value["revision"]) is not int
         or not 1 <= value["revision"] <= 1023
     ):
         raise ValueError("meet_dialog_controls_invalid")
-    for name in ("chat", "audio", "screen") + (("speech",) if "speech" in value else ()):
+    for name in value.keys() - {"revision"}:
         row = value[name]
         if (
             not isinstance(row, dict)
