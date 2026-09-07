@@ -119,3 +119,27 @@ Hub identities; they deliberately do not claim completed inspection runs.
 This foundation is not yet wired into public admission, worker inspection,
 profile resolution or live publication. Those require the following execution
 and receipt slice before any feature can be enabled.
+
+The next slice uses `persona_voice_inspection` in the existing Hub task queue,
+pre-reserved Registry runs and exact completion receipts. An isolated worker
+validates canonical metadata only: it neither loads a model nor infers a license.
+Its own request/lease signature domains, replay table and 20-second assignment
+limit remain separate from image/video inspection. Storage revalidates bytes
+and authority before/after access; revocation remains terminal and auditable.
+This slice will be tested with real Hub tasks/Registry state and explicit
+in-process transport fixtures before adding an opt-in HTTP/container composition.
+
+The execution and storage slice now passes those checks: 17 initial task/asset
+tests, 17 worker/storage tests, 128 image/video regressions (55.94 seconds with
+two pytest workers), and 49 final cross-kind/lease regressions (29.69 seconds).
+The latter include an additional check that a live voice callback cannot use an
+image policy service. Eight actual signed HTTP tests passed in 15.65 seconds,
+covering current Hub authority, revocation, durable replay after executor
+recreation, separate request/lease domains and malformed request rejection.
+All identities remain explicitly test-only. Storage preview returns descriptor
+metadata, not audible preview or a publication grant.
+
+The remaining stage-4 composition must add an isolated descriptor-worker image
+and disposable private-container test, then retention/erasure and opt-in Hub/API
+wiring. It must not enable ingestion without a retirement path or infer a
+serving deployment from a successful local fixture.
