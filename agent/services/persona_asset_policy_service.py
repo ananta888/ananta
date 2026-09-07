@@ -33,9 +33,9 @@ class PersonaAssetPolicyService:
         self.domain = domain if domain is not None else PersonaImagePolicyDomain()
 
     def require_media_kind(self, kind):
-        from agent.models.persona_asset_policy import PersonaImagePolicy, PersonaVideoPolicy
+        from agent.models.persona_asset_policy import PersonaImagePolicy, PersonaVideoPolicy, PersonaVoicePolicy
 
-        expected = {"image": PersonaImagePolicy, "video": PersonaVideoPolicy}
+        expected = {"image": PersonaImagePolicy, "video": PersonaVideoPolicy, "voice": PersonaVoicePolicy}
         if type(kind) is not str or expected.get(kind) is not self.domain.policy_type:
             raise PermissionError("persona_policy_media_kind_mismatch")
 

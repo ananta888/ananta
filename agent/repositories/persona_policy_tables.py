@@ -1,10 +1,10 @@
-"""Separate image/video policy namespaces with unchanged revision-CAS schema."""
+"""Separate media policy namespaces with unchanged revision-CAS schema."""
 
 from sqlalchemy import BigInteger, Column, MetaData, String, Table, Text
 
 
 def persona_policy_tables(kind):
-    if kind not in ("image", "video"):
+    if kind not in ("image", "video", "voice"):
         raise ValueError("persona_policy_catalog_kind_invalid")
     metadata = MetaData()
     heads = Table(

@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from agent.models.persona_asset_policy import PersonaImagePolicy, PersonaVideoPolicy
+from agent.models.persona_asset_policy import PersonaImagePolicy, PersonaVideoPolicy, PersonaVoicePolicy
 from agent.models.persona_assets import PersonaAssetAdmission
 
 
@@ -41,3 +41,13 @@ class PersonaVideoPolicyDomain:
         from agent.models.persona_video_assets import PersonaVideoAsset
 
         return PersonaVideoAsset.model_validate_json(asset.model_dump_json()).admission
+
+
+class PersonaVoicePolicyDomain:
+    policy_type = PersonaVoicePolicy
+    source_origin_type = "persona_voice"
+
+    def asset_admission(self, asset):
+        from agent.models.persona_voice_assets import PersonaVoiceAsset
+
+        return PersonaVoiceAsset.model_validate_json(asset.model_dump_json()).admission

@@ -55,3 +55,10 @@ class PersonaVideoPolicy(PersonaMediaPolicyTerms):
 
     media_kind: Literal["video"]
     generated_error: ClassVar[str] = "persona_generated_video_must_be_labelled_synthetic"
+
+
+class PersonaVoicePolicy(PersonaMediaPolicyTerms):
+    """Shipped preset permission only; uploaded models and cloning are unsupported."""
+
+    media_kind: Literal["voice"]
+    origin_kind: Literal["licensed_pack"]
