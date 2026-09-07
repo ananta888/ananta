@@ -13,7 +13,7 @@ from ananta_contracts.meet_spoken_reply import RESPONSE_SCHEMA, decode_spoken_re
 
 
 class MeetDialogSpokenReply:
-    def __init__(self, authority, meet, reservations, replies, *, clock=time.time):
+    def __init__(self, authority, meet, reservations, replies, *, clock=time.time, voices=None):
         self.authority, self.meet, self.reservations, self.replies, self.clock = (
             authority,
             meet,
@@ -21,6 +21,7 @@ class MeetDialogSpokenReply:
             replies,
             clock,
         )
+        self.voices = voices
 
     def execute(self, payload):
         try:
@@ -37,13 +38,30 @@ class MeetDialogSpokenReply:
         chat = CurrentDialogChatAuthority(
             self.authority, self.meet, identifiers, payload["meet_session_id"], event.sender_peer_id
         )
-        current = CurrentDialogSpeechAuthority(self.authority, identifiers, chat, event.sent_at_ms)
+        projection = None
+        if scope.voice_selection is not None:
+            if self.voices is None:
+                raise MeetError("meet_dialog_voice_profiles_unavailable", 409)
+            projection = self.voices.projection(scope)
+        current = CurrentDialogSpeechAuthority(
+            self.authority, identifiers, chat, event.sent_at_ms, voices=self.voices, voice_projection=projection
+        )
         admission = MeetChatAdmissionService(current, self.reservations, clock=self.clock).admit(raw)
         response = {"schema": RESPONSE_SCHEMA, "nonce": payload["nonce"], "code": admission.code, "reply": None}
         if admission.reservation is None:
             return response
         principal = HubSourcePrincipal(scope.owner_subject, scope.tenant_id, scope.project_id, frozenset({"user"}))
-        result = self.replies.execute(current, principal, admission)
+        result = (
+            self.replies.execute(
+                current,
+                principal,
+                admission,
+                speech_profile=projection["profile"],
+                voice_selection=scope.voice_selection,
+            )
+            if projection is not None
+            else self.replies.execute(current, principal, admission)
+        )
         active = current.current(scope.session_id)
         if active is None or active.scope != admission.reservation.scope:
             raise MeetError("meet_spoken_authority_changed", 409)
@@ -58,7 +76,7 @@ class MeetDialogSpokenReply:
             ):
                 raise ValueError()
             media = result["media"]
-            binding = spoken_binding(admission.reservation, payload["meet_session_id"])
+            binding = spoken_binding(admission.reservation, payload["meet_session_id"], voice_projection=projection)
             response.update(
                 code="generated",
                 reply={

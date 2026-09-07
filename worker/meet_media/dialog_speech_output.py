@@ -2,6 +2,7 @@
 
 import time
 
+from ananta_contracts.meet_dialog_voice import validate_voice_projection, voice_binding_fields
 from ananta_contracts.meet_speech_source import FRAME_SAMPLES
 from ananta_contracts.meet_spoken_reply import SpokenReply, validate_spoken_binding
 from worker.meet_media.audio_output import SpeechFrame
@@ -9,7 +10,7 @@ from worker.meet_media.speech_browser import BrowserSpeechPort
 from worker.meet_media.speech_publication import SpeechPublication
 
 
-def speech_binding(assignment, receipt, controls, sender):
+def speech_binding(assignment, receipt, controls, sender, voice=None):
     speech = controls.get("speech")
     chat = controls["chat"]
     if (
@@ -23,8 +24,15 @@ def speech_binding(assignment, receipt, controls, sender):
     if not any(grant["publisherPeerId"] == sender for grant in grants):
         raise ValueError("meet_dialog_speech_input_revoked")
     lease = receipt["lease"]
+    voice_fields = {}
+    if assignment.get("voice_profiles") is True:
+        voice = validate_voice_projection(voice)
+        if voice["speech_revision"] != speech["revision"]:
+            raise ValueError("meet_dialog_voice_revision_changed")
+        voice_fields = voice_binding_fields(voice)
     return validate_spoken_binding(
         {
+            **voice_fields,
             **{
                 name: assignment[name]
                 for name in ("tenant_id", "project_id", "task_id", "lease_id", "runtime_id", "session_id")
@@ -58,12 +66,29 @@ class DialogSpeechOutput:
         self.pcm = b""
         self.version = 0
         self.fresh_until = 0
+        self.voice = None
+        self.voice_epoch = 0
+        self.prepared_voice_epoch = None
 
     @property
     def busy(self):
         return self.publication is not None
 
-    def update(self, receipt, controls):
+    def update(self, receipt, controls, voice=None):
+        if self.assignment.get("voice_profiles") is True:
+            try:
+                voice = validate_voice_projection(voice)
+                if voice["speech_revision"] != controls.get("speech", {}).get("revision"):
+                    raise ValueError("meet_dialog_voice_revision_changed")
+            except ValueError:
+                self.invalidate()
+                raise
+            if voice != self.voice:
+                self.voice_epoch += 1
+            self.voice = voice
+        elif voice is not None:
+            self.invalidate()
+            raise ValueError("meet_dialog_voice_not_negotiated")
         self.receipt, self.controls = receipt, controls
         self.version += 1
         # Existing control exchange cadence is two seconds. A stalled controller
@@ -82,7 +107,9 @@ class DialogSpeechOutput:
             raise ValueError("meet_dialog_speech_state_stale")
         if event["sent_at_ms"] < max(self.controls["chat"]["since"], self.controls["speech"]["since"]):
             raise ValueError("meet_dialog_speech_input_stale")
-        return speech_binding(self.assignment, self.receipt, self.controls, event["sender_peer_id"])
+        binding = speech_binding(self.assignment, self.receipt, self.controls, event["sender_peer_id"], self.voice)
+        self.prepared_voice_epoch = self.voice_epoch
+        return binding
 
     def require_current(self):
         if (
@@ -90,7 +117,9 @@ class DialogSpeechOutput:
             or self.monotonic() >= self.fresh_until
             or self.clock() * 1000 >= self.binding["deadline_ms"]
             or self.page.url != self.url
-            or speech_binding(self.assignment, self.receipt, self.controls, self.binding["sender_peer_id"])
+            or self.assignment.get("voice_profiles") is True
+            and self.prepared_voice_epoch != self.voice_epoch
+            or speech_binding(self.assignment, self.receipt, self.controls, self.binding["sender_peer_id"], self.voice)
             != self.binding
         ):
             raise ValueError("meet_dialog_speech_authority_changed")
@@ -149,5 +178,6 @@ class DialogSpeechOutput:
             publication.close()
 
     def invalidate(self):
+        self.voice_epoch += 1
         self.fresh_until = 0
         self.close()

@@ -191,6 +191,7 @@ class HubMediaTasks:
             "deadline": turn["deadline"],
             "binding_task_id": turn.get("binding_task_id", ""),
             "speech_profile": turn.get("speech_profile"),
+            "persona_voice_selection": turn.get("hub_voice_selection"),
             "persona_profile": turn.get("hub_persona_profile"),
             "persona_video_profile": turn.get("hub_persona_video_profile"),
             "persona_image": turn.get("persona_image", {}).get("reference"),
@@ -239,6 +240,11 @@ class HubMediaTasks:
                         **({"chat_reply": turn["hub_chat_binding"]} if "hub_chat_binding" in turn else {}),
                         **({"response_limits": turn["response_limits"]} if "response_limits" in turn else {}),
                         **({"speech_profile": turn["speech_profile"]} if "speech_profile" in turn else {}),
+                        **(
+                            {"persona_voice_selection": turn["hub_voice_selection"]}
+                            if "hub_voice_selection" in turn
+                            else {}
+                        ),
                         **({"persona_profile": turn["hub_persona_profile"]} if "hub_persona_profile" in turn else {}),
                         **(
                             {"persona_video_profile": turn["hub_persona_video_profile"]}
@@ -281,6 +287,8 @@ class HubMediaTasks:
                 and (task.worker_execution_context or {}).get("meet_media", {}).get("lease_id") == turn["lease_id"]
                 and (task.worker_execution_context or {}).get("meet_media", {}).get("speech_profile")
                 == turn.get("speech_profile")
+                and (task.worker_execution_context or {}).get("meet_media", {}).get("persona_voice_selection")
+                == turn.get("hub_voice_selection")
             ),
             event_type=f"meet_media_{status}",
             event_actor="hub",

@@ -238,3 +238,11 @@ speech. Three initial failures were corrected test-fixture assumptions: the
 shared fixture started speech enabled. Production activation semantics were
 not weakened. These Hub primitives are not yet exposed as a live selector;
 negotiated projections and pending/playing result fences are the next slice.
+
+The projection and pending/playing fences now pass 101 focused contract/worker
+tests (42.83 seconds); selected-voice Hub generation and legacy reply/binding
+regressions pass 38 tests (23.23 seconds). Per-call profiles do not mutate the
+shared configured default. Only Hub child-task metadata contains the selected
+persona pins; delegated generation receives the closed speech profile. Current
+policy is rechecked around admission and PCM release, with a post-I/O source
+race check. These are headless technical tests, not production release evidence.

@@ -29,11 +29,13 @@ class MeetChatReplyService:
         clock=time.time,
         speech_profile=None,
         capacity: MediaCapacityPort | None = None,
+        voice_selection=None,
     ):
         self.authority, self.dispatches, self.binding = authority, dispatches, binding
         self.worker, self.tasks, self.clock = worker, tasks, clock
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
         self.capacity = capacity
+        self.voice_selection = voice_selection
 
     def _require_current(self, principal, reservation):
         scope = reservation.scope
@@ -57,6 +59,13 @@ class MeetChatReplyService:
         reservation = admission.reservation
         self._require_current(principal, reservation)
         scope = reservation.scope
+        voice_selection = None
+        if self.voice_selection is not None:
+            from agent.models.meet_voice_selection import parse_voice_selection
+
+            if self.speech_profile is None:
+                raise MeetError("meet_dialog_voice_profile_required", 409)
+            voice_selection = parse_voice_selection(self.voice_selection, scope.tenant_id, scope.project_id)
         turn = {
             "schema": SCHEMA,
             "task_id": str(uuid.uuid4()),
@@ -84,6 +93,8 @@ class MeetChatReplyService:
                 "policy_revision": scope.policy_revision,
             }
         }
+        if voice_selection is not None:
+            task_turn["hub_voice_selection"] = voice_selection
         started = False
         try:
             self._require_current(principal, reservation)

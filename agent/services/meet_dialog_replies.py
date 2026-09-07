@@ -12,7 +12,12 @@ class MeetDialogReplies:
         self.clock, self.capacity = clock, capacity
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
 
-    def execute(self, authority, principal, admission):
+    def execute(self, authority, principal, admission, *, speech_profile=None, voice_selection=None):
+        selected = self.speech_profile
+        if speech_profile is not None:
+            selected = validate_speech_profile(speech_profile)
+            if self.speech_profile is None or selected["max_seconds"] > self.speech_profile["max_seconds"]:
+                raise ValueError("meet_dialog_voice_budget_exceeded")
         return MeetChatReplyService(
             authority,
             self.dispatches,
@@ -21,5 +26,6 @@ class MeetDialogReplies:
             self.tasks,
             clock=self.clock,
             capacity=self.capacity,
-            speech_profile=self.speech_profile,
+            speech_profile=selected,
+            voice_selection=voice_selection,
         ).execute(principal, admission)

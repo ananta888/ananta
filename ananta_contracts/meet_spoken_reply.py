@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, field
 
 from ananta_contracts.meet_dialog import ID, MAX_DIALOG_BYTES, validate_callback
+from ananta_contracts.meet_dialog_voice import VOICE_BINDING_FIELDS, content_digest, validate_voice_binding_fields
 from ananta_contracts.meet_speech_audio import decode_speech_wav
 
 REQUEST_SCHEMA = "ananta.meet-dialog-speech-request.v1"
@@ -70,7 +71,7 @@ def validate_spoken_request(value, now):
 def validate_spoken_binding(binding):
     if (
         not isinstance(binding, dict)
-        or set(binding) != _BINDING_IDS | _BINDING_COUNTERS | {"meet_session_id", "room_id"}
+        or set(binding) - VOICE_BINDING_FIELDS != _BINDING_IDS | _BINDING_COUNTERS | {"meet_session_id", "room_id"}
         or any(not isinstance(binding[k], str) or not ID.fullmatch(binding[k]) for k in _BINDING_IDS)
         or any(type(binding[k]) is not int or not 1 <= binding[k] < 2**53 for k in _BINDING_COUNTERS)
         or not isinstance(binding["meet_session_id"], str)
@@ -79,6 +80,7 @@ def validate_spoken_binding(binding):
         or not re.fullmatch(r"room-[a-f0-9]{18}", binding["room_id"])
     ):
         raise ValueError("meet_spoken_binding_invalid")
+    validate_voice_binding_fields(binding)
     return binding
 
 
@@ -137,6 +139,11 @@ def decode_spoken_response(value, request, expected_binding, now_ms):
     except UnicodeError:
         raise ValueError("meet_spoken_text_invalid") from None
     pcm = decode_speech_wav(reply["audio"], reply["speech"], reply["duration_seconds"])
+    if (
+        "voice_profile_digest" in binding
+        and content_digest(reply["speech"]["profile"]) != binding["voice_profile_digest"]
+    ):
+        raise ValueError("meet_spoken_voice_profile_mismatch")
     return SpokenReply(reply["message_id"], reply["child_task_id"], reply["child_lease_id"], text, pcm)
 
 
