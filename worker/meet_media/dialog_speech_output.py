@@ -7,7 +7,10 @@ from ananta_contracts.meet_speech_source import FRAME_SAMPLES
 from ananta_contracts.meet_spoken_reply import SpokenReply, validate_spoken_binding
 from worker.meet_media.audio_output import SpeechFrame
 from worker.meet_media.speech_browser import BrowserSpeechPort
-from worker.meet_media.speech_publication import SpeechPublication
+from worker.meet_media.speech_opening import BrowserSpeechOpening
+from worker.meet_media.speech_publication import SpeechPublication, validate_publication_input
+
+_DEFAULT_OPENING = object()
 
 
 def speech_binding(assignment, receipt, controls, sender, voice=None):
@@ -54,7 +57,16 @@ def speech_binding(assignment, receipt, controls, sender, voice=None):
 
 
 class DialogSpeechOutput:
-    def __init__(self, page, assignment, *, clock=time.time, monotonic=time.monotonic, browser=None):
+    def __init__(
+        self,
+        page,
+        assignment,
+        *,
+        clock=time.time,
+        monotonic=time.monotonic,
+        browser=None,
+        opening_factory=_DEFAULT_OPENING,
+    ):
         self.page, self.assignment, self.clock, self.monotonic = page, assignment, clock, monotonic
         self.browser = (
             browser
@@ -69,10 +81,18 @@ class DialogSpeechOutput:
         self.voice = None
         self.voice_epoch = 0
         self.prepared_voice_epoch = None
+        self.opening = None
+        # Existing injected synchronous ports remain substitutable. Production
+        # dialog browsers opt into the narrow nonblocking setup capability.
+        self.opening_factory = (
+            (BrowserSpeechOpening if browser is None else None)
+            if opening_factory is _DEFAULT_OPENING
+            else opening_factory
+        )
 
     @property
     def busy(self):
-        return self.publication is not None
+        return self.publication is not None or self.opening is not None
 
     def update(self, receipt, controls, voice=None):
         if self.assignment.get("voice_profiles") is True:
@@ -133,6 +153,19 @@ class DialogSpeechOutput:
         self.binding = binding
         try:
             self.require_current()
+            if type(result.pcm) is not bytes or len(result.pcm) % 2:
+                raise ValueError("meet_speech_publication_invalid")
+            validate_publication_input(self.assignment["session_id"], len(result.pcm) // 2)
+            if self.opening_factory is not None:
+                self.pcm = result.pcm
+                self.opening = self.opening_factory(
+                    self.browser,
+                    "speech:" + self.assignment["session_id"],
+                    len(result.pcm) // 2,
+                    self.require_current,
+                    clock=self.monotonic,
+                )
+                return True  # Chat correlation is reserved before the first source poll/PCM write.
             self.publication = SpeechPublication(
                 self.browser,
                 self.assignment["session_id"],
@@ -151,6 +184,21 @@ class DialogSpeechOutput:
         if not self.busy:
             return
         try:
+            if self.opening is not None:
+                receipt = self.opening.poll()
+                if receipt is None:
+                    return
+                self.publication = SpeechPublication(
+                    self.browser,
+                    self.assignment["session_id"],
+                    len(self.pcm) // 2,
+                    self.require_current,
+                    clock=self.clock,
+                    monotonic=self.monotonic,
+                    opened_receipt=receipt,
+                )
+                self.opening.release()
+                self.opening = None
             available = self.publication.writable_samples()
             if self.publication.completed:
                 self.close()
@@ -173,7 +221,10 @@ class DialogSpeechOutput:
 
     def close(self):
         publication, self.publication = self.publication, None
+        opening, self.opening = self.opening, None
         self.pcm, self.binding = b"", None
+        if opening is not None:
+            opening.close()
         if publication is not None:
             publication.close()
 

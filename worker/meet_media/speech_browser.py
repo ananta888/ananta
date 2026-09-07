@@ -63,19 +63,16 @@ class BrowserSpeechPort:
             raise ValueError("meet_speech_navigation_denied")
 
     def open(self, source_id, total_samples):
-        # Local operation token, never an evidence identity or grant. Do not await
-        # a browser Promise in the RPC: retain Hub lease polling while it starts.
-        token = secrets.token_hex(16)
+        # Synchronous compatibility port. Dialog runtimes use begin/poll instead
+        # so their outer loop can refresh Hub state during browser setup.
+        token = None
         deadline = self.clock() + 10
         try:
-            self._check()
-            self._evaluate(_START, [token, source_id, total_samples])
+            token = self.begin_open(source_id, total_samples)
             while True:
-                self._check()
                 if self.clock() >= deadline:
                     raise ValueError("meet_speech_setup_timeout")
-                value = self._evaluate(_STATE, token)
-                self._check()
+                value = self.poll_open(token)
                 if self.clock() >= deadline:
                     raise ValueError("meet_speech_setup_timeout")
                 if not isinstance(value, dict) or set(value) != {"state", "result"}:
@@ -86,12 +83,36 @@ class BrowserSpeechPort:
                     raise ValueError("meet_speech_setup_failed")
                 self.page.wait_for_timeout(50)
         except Exception:
-            if self.page.url == self.url:
+            if token is not None:
                 try:
-                    self.page.evaluate(_CANCEL, token)
+                    self.cancel_open(token)
                 except Exception:
                     pass
             raise
+
+    def begin_open(self, source_id, total_samples):
+        token = secrets.token_hex(16)
+        try:
+            self._check()
+            self._evaluate(_START, [token, source_id, total_samples])
+            self._check()
+            return token
+        except Exception:
+            try:
+                self.cancel_open(token)
+            except Exception:
+                pass
+            raise
+
+    def poll_open(self, token):
+        self._check()
+        value = self._evaluate(_STATE, token)
+        self._check()
+        return value
+
+    def cancel_open(self, token):
+        if self.page.url == self.url:
+            self.page.evaluate(_CANCEL, token)
 
     def status(self):
         self._check()

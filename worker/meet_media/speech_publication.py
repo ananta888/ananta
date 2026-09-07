@@ -15,6 +15,19 @@ from ananta_contracts.meet_speech_source import (
 )
 from worker.meet_media.audio_output import SpeechFrame
 
+_UNOPENED = object()
+
+
+def validate_publication_input(session_id: str, total_samples: int) -> None:
+    """Validate source bounds before either synchronous or deferred browser IO."""
+    if (
+        not isinstance(session_id, str)
+        or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", session_id)
+        or type(total_samples) is not int
+        or not 1 <= total_samples <= 40 * SAMPLE_RATE
+    ):
+        raise ValueError("meet_speech_publication_invalid")
+
 
 class SpeechBrowserPort(Protocol):
     def open(self, source_id: str, total_samples: int) -> dict: ...
@@ -36,14 +49,9 @@ class SpeechPublication:
         *,
         clock=time.time,
         monotonic=time.monotonic,
+        opened_receipt=_UNOPENED,
     ):
-        if (
-            not isinstance(session_id, str)
-            or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", session_id)
-            or type(total_samples) is not int
-            or not 1 <= total_samples <= 40 * SAMPLE_RATE
-        ):
-            raise ValueError("meet_speech_publication_invalid")
+        validate_publication_input(session_id, total_samples)
         self.browser, self.require_current = browser, require_current
         self.clock, self.monotonic = clock, monotonic
         self.receipt = None
@@ -56,7 +64,7 @@ class SpeechPublication:
         try:
             self._check()
             source_id = "speech:" + session_id
-            value = browser.open(source_id, total_samples)
+            value = browser.open(source_id, total_samples) if opened_receipt is _UNOPENED else opened_receipt
             # A malformed receipt must never authorize a write. Cleanup is only
             # generation-conditional, including when a newer source has opened.
             if isinstance(value, dict) and type(value.get("generation")) is int:

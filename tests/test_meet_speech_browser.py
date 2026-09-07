@@ -9,6 +9,24 @@ import pytest
 from worker.meet_media.speech_browser import _CANCEL, _START, _STATE, BrowserSpeechPort
 
 
+def test_nonblocking_open_steps_make_one_rpc_each_and_never_wait():
+    page = Mock(url="https://synthetic.test/machine")
+    pending = {"state": "pending", "result": None}
+    page.evaluate.return_value = pending
+    port = BrowserSpeechPort(page, lambda: None)
+    token = port.begin_open("speech:synthetic", 441)
+    assert isinstance(token, str) and len(token) == 32
+    assert page.evaluate.call_count == 1 and page.evaluate.call_args.args == (_START, [token, "speech:synthetic", 441])
+    assert port.poll_open(token) is pending
+    assert page.evaluate.call_count == 2 and page.evaluate.call_args.args == (_STATE, token)
+    port.cancel_open(token)
+    assert page.evaluate.call_count == 3 and page.evaluate.call_args.args == (_CANCEL, token)
+    page.wait_for_timeout.assert_not_called()
+    page.url += "/other"
+    port.cancel_open(token)
+    assert page.evaluate.call_count == 3
+
+
 def test_unresolved_open_does_not_suspend_authority_or_deadline_checks():
     now = 0
     page = Mock(url="https://meet.example/machine")

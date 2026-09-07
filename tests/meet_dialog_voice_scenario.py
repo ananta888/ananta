@@ -74,10 +74,11 @@ class NoVoiceScenario:
 
 
 class VoiceSelectionScenario:
-    def __init__(self, speech, monkeypatch, *, actual_gpu=False):
+    def __init__(self, speech, monkeypatch, *, actual_gpu=False, opening_delay=None):
         if not speech.enabled or actual_gpu != (speech.worker is not None):
             raise ValueError("test_voice_gpu_classification_conflict")
         self.actual_gpu = actual_gpu
+        self.opening_delay = opening_delay
         if not actual_gpu:
             speech.worker, speech.profile = SyntheticToneWorker(), speech_profile(max_seconds=10)
         self.profiles = SyntheticVoiceProfiles()
@@ -197,14 +198,27 @@ class VoiceSelectionScenario:
                 "interrupted_playback": self.playback.closed,
             },
         )
+        if self.opening_delay is not None:
+            self.opening_delay.verify(record_property)
         return True
 
 
 def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
+    opening_delay = None
     if enabled == "latency":
         if actual_gpu:
             raise ValueError("test_voice_latency_requires_synthetic_audio")
         from tests.meet_dialog_exchange_latency import inject_exchange_latency
 
         inject_exchange_latency(monkeypatch)
-    return VoiceSelectionScenario(speech, monkeypatch, actual_gpu=actual_gpu) if enabled else NoVoiceScenario()
+    if enabled == "opening":
+        if actual_gpu:
+            raise ValueError("test_speech_delay_requires_synthetic_audio")
+        from tests.meet_speech_opening_delay import SpeechOpeningDelay
+
+        opening_delay = SpeechOpeningDelay(monkeypatch)
+    return (
+        VoiceSelectionScenario(speech, monkeypatch, actual_gpu=actual_gpu, opening_delay=opening_delay)
+        if enabled
+        else NoVoiceScenario()
+    )
