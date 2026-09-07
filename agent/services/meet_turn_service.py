@@ -7,6 +7,7 @@ from typing import Protocol
 from agent.services.meet_capacity_admission import MediaCapacityPort
 from agent.services.meet_contract import MeetError
 from agent.services.meet_speech_result import validate_speech_binding
+from agent.services.meet_visual_selection import MeetVisualSelections
 from ananta_contracts.meet_speech import validate_speech_profile
 from worker.meet_media.contract import SCHEMA, validate_turn
 
@@ -60,23 +61,18 @@ class MeetTurnService:
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
         self.capacity = capacity
 
+    def _visuals(self):
+        return MeetVisualSelections(
+            images=self.persona_images, image_profiles=self.persona_profiles, videos=self.persona_videos
+        )
+
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.
         self.binding.require_write_access(principal, project, task)
         if (principal.tenant_id, project) not in self.allowed_scopes:
             raise MeetError("meet_media_policy_denied", 403)
-        if (
-            not isinstance(payload, dict)
-            or set(payload)
-            - {"publish_to_meet", "persona_image_id", "persona_profile", "persona_video_id", "video_repeat_mode"}
-            != {"text"}
-            or type(payload.get("publish_to_meet", False)) is not bool
-            or len({"persona_image_id", "persona_profile", "persona_video_id"} & set(payload)) > 1
-            or ("persona_video_id" in payload) != ("video_repeat_mode" in payload)
-            or "video_repeat_mode" in payload
-            and payload["video_repeat_mode"] not in ("loop", "hold_last")
-        ):
-            raise MeetError("meet_turn_payload_invalid")
+        selections = self._visuals()
+        selections.validate_payload(payload)
         turn = {
             "schema": SCHEMA,
             "task_id": str(uuid.uuid4()),
@@ -90,42 +86,9 @@ class MeetTurnService:
             turn["binding_task_id"] = task
         if self.speech_profile is not None:
             turn["speech_profile"] = dict(self.speech_profile)
-        image_purpose = "publish" if payload.get("publish_to_meet") else "preview"
-        profile_binding = None
-        if "persona_profile" in payload:
-            if self.persona_profiles is None or self.persona_images is None:
-                raise MeetError("meet_persona_profile_unavailable", 403)
-            turn["persona_image"], profile_binding = self.persona_profiles.prepare(
-                principal, project, payload["persona_profile"], image_purpose
-            )
-        if "persona_image_id" in payload:
-            import re
-
-            if (
-                self.persona_images is None
-                or not isinstance(payload["persona_image_id"], str)
-                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", payload["persona_image_id"])
-            ):
-                raise MeetError("meet_persona_image_unavailable", 403)
-            turn["persona_image"] = self.persona_images.prepare(
-                principal, project, payload["persona_image_id"], image_purpose
-            )
-        if "persona_video_id" in payload:
-            import re
-
-            if (
-                self.persona_videos is None
-                or not isinstance(payload["persona_video_id"], str)
-                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", payload["persona_video_id"])
-            ):
-                raise MeetError("meet_persona_video_unavailable", 403)
-            turn["persona_video"] = self.persona_videos.prepare(
-                principal,
-                project,
-                payload["persona_video_id"],
-                image_purpose,
-                repeat_mode=payload["video_repeat_mode"],
-            )
+        visual = selections.prepare(principal, project, payload)
+        if visual is not None:
+            turn.update(visual.worker_fields)
         if payload.get("publish_to_meet"):
             if self.grant_issuer is None:
                 raise MeetError("meet_machine_publication_disabled", 403)
@@ -134,26 +97,16 @@ class MeetTurnService:
             validate_turn(turn, self.clock())
         except ValueError as exc:
             raise MeetError(str(exc)) from None
-        # Only exact admitted image bytes/reference go to the worker. Profile
-        # ancestry and configuration pins stay in the authoritative Hub task.
-        hub_turn = turn | ({"hub_persona_profile": profile_binding} if profile_binding else {})
+        # Only closed admitted asset bytes/reference go to the worker; profile
+        # ancestry and configuration pins remain in the authoritative Hub task.
+        hub_turn = turn | (visual.hub_fields if visual is not None else {})
         self.tasks.start(hub_turn, principal.subject_id)
         try:
 
             def require_dispatch():
                 self.binding.require_write_access(principal, project, task)
-                if profile_binding is not None:
-                    self.persona_profiles.require_current(
-                        principal, project, profile_binding, turn["persona_image"]["reference"]
-                    )
-                if "persona_image" in turn:
-                    self.persona_images.require_current(
-                        principal, project, turn["persona_image"]["reference"], image_purpose
-                    )
-                if "persona_video" in turn:
-                    self.persona_videos.require_current(
-                        principal, project, turn["persona_video"]["reference"], image_purpose
-                    )
+                if visual is not None:
+                    visual.require_current()
 
             require_dispatch()
             result = (
@@ -169,23 +122,9 @@ class MeetTurnService:
             ):
                 raise MeetError("meet_turn_result_stale", 409)
             # Recheck project access before disclosing generated media.
-            self.binding.require_write_access(principal, project, task)
-            if profile_binding is not None:
-                self.persona_profiles.require_current(
-                    principal, project, profile_binding, turn["persona_image"]["reference"]
-                )
-            if "persona_image" in turn:
-                self.persona_images.require_current(
-                    principal, project, turn["persona_image"]["reference"], image_purpose
-                )
-                if result.get("persona_image") != turn["persona_image"]["reference"]:
-                    raise MeetError("meet_persona_result_mismatch", 409)
-            if "persona_video" in turn:
-                self.persona_videos.require_current(
-                    principal, project, turn["persona_video"]["reference"], image_purpose
-                )
-                if result.get("persona_video") != turn["persona_video"]["reference"]:
-                    raise MeetError("meet_persona_result_mismatch", 409)
+            require_dispatch()
+            if visual is not None:
+                visual.require_result(result)
             if not self.tasks.finish(turn, "completed"):
                 raise MeetError("meet_turn_cancelled", 409)
             return result
@@ -202,8 +141,7 @@ class MeetTurnService:
         if task is None or task.task_kind != "meet_media_turn" or task.status != "in_progress":
             return False
         context = (task.worker_execution_context or {}).get("meet_media", {})
-        if {"persona_image", "persona_video"} <= set(context):
-            return False
+
         if "chat_reply" in context:
             # The v1 publisher does not implement dialog generation/key fencing.
             # A generated chat reply needs the separate MDS publication path.
@@ -222,24 +160,7 @@ class MeetTurnService:
         )
         try:
             self.binding.require_write_access(principal, task.project_id, context.get("binding_task_id", ""))
-            if "persona_profile" in context:
-                if self.persona_profiles is None or "persona_image" not in context:
-                    return False
-                self.persona_profiles.require_current(
-                    principal, task.project_id, context["persona_profile"], context["persona_image"]
-                )
-            if "persona_image" in context:
-                if self.persona_images is None:
-                    return False
-                self.persona_images.require_current(
-                    principal, task.project_id, context["persona_image"], context["persona_purpose"]
-                )
-            if "persona_video" in context:
-                if self.persona_videos is None or context.get("persona_video_repeat_mode") not in ("loop", "hold_last"):
-                    return False
-                self.persona_videos.require_current(
-                    principal, task.project_id, context["persona_video"], context["persona_purpose"]
-                )
+            self._visuals().require_context(principal, task.project_id, context)
         except Exception:
             return False
         return True

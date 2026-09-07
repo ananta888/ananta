@@ -45,10 +45,14 @@ the exact video reference; the Hub checks the response and current permissions
 again before completing or disclosing it.
 
 Structure: private asset policy/storage, closed wire validation and rendering
-remain separate (SRP/DIP/ISP). The existing `MeetTurnService` still combines
-orchestration and several selection branches; this is retained SRP/OCP debt.
-Before adding the next profile-renderer combinations, extract a focused visual
-selection strategy rather than adding another set of repeated branches.
+remain separate (SRP/DIP/ISP). `MeetTurnService` now delegates the previously
+repeated image/clip/profile selection and authority branches to focused
+`MeetVisualSelections` strategies. The temporary bound selection carries the
+exact revalidation port but is never serialized to a Worker. The Hub task
+adapter still lives alongside the turn service, a remaining modularity debt;
+no task orchestration or publication policy moved into a visual adapter.
+The extraction passed 110 image, clip, profile, turn and capacity regression
+tests in 79.62 seconds without changing the existing request fields.
 
 ## Verification and limits
 
