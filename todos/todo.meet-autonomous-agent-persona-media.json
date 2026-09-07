@@ -612,10 +612,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-08",
         "MAP-13"
@@ -626,7 +626,8 @@
         "Die im anderen Meet-Teilnehmer tatsächlich decodierten Frames enthalten den erwarteten bewegten Testseiteninhalt; eine lokale Screenshot-Datei reicht nicht als Verifikation.",
         "Automatischer Start/Stop ohne menschlichen Dialog wird positiv getestet, während der menschliche Bildschirmfreigabepfad weiterhin geschützt bleibt."
       ],
-      "decoder_lifetime_plan": "2026-09-08 Quellstandabgleich: Offline-CDP->MDS-05 und reale bewegte Remote-Frames sind inzwischen implementiert/verifiziert, aber MachineScreenSource setzt busy beim Close zurueck obwohl nativer Decode noch aussteht. Reopen/Timeout kann dadurch mehrere Decoder erzeugen; existierender Test settled alten Decode vor neuem Push und verfehlt die Luecke. docs/contracts/meet-screen-decoder-lifetime.md plant getrennte tatsaechliche Decoderbelegung, begrenztes decoder_busy vor neuer Surface, Regressionsreproduktion und aktuelle Browsermatrix ohne Lockerung von Rechten/Zeiten. Quelle bleibt agenteneigener Offline-Workspace, kein allgemeiner Browser-/Privacy-/Produktionsabschluss."
+      "decoder_lifetime_plan": "2026-09-08 Quellstandabgleich: Offline-CDP->MDS-05 und reale bewegte Remote-Frames sind inzwischen implementiert/verifiziert, aber MachineScreenSource setzt busy beim Close zurueck obwohl nativer Decode noch aussteht. Reopen/Timeout kann dadurch mehrere Decoder erzeugen; existierender Test settled alten Decode vor neuem Push und verfehlt die Luecke. docs/contracts/meet-screen-decoder-lifetime.md plant getrennte tatsaechliche Decoderbelegung, begrenztes decoder_busy vor neuer Surface, Regressionsreproduktion und aktuelle Browsermatrix ohne Lockerung von Rechten/Zeiten. Quelle bleibt agenteneigener Offline-Workspace, kein allgemeiner Browser-/Privacy-/Produktionsabschluss.",
+      "completion_audit": "2026-09-08 alle vier Adapterkriterien gegen Quellcode und aktuelle reale private Tests geprueft: eigener Offline-CDP-Workspace -> generationengebundener MDS-05-Port,640x360/5FPS/Latest-Frame/Byte-/Decode-/Stall-/Bandbreitenlimits, bewegter Remote-Inhalt und headless Start/Stop ohne Capture. Meet f6d1d90 behebt vorher reproduzierte native Decoderueberlappung;12 Source+13 Avatarunits gruen, vier Chromium/Firefox-Faelle25.89s inklusive acht gesperrter Reopens/frischem Remote-Frame/3 Leaserenewals pro Browser. Hub-/Worker-Decode-Latenzgate44.32s gruen:47 Frames307.69-442.26ms, volle lokale220500-Sample-Ausgabe, Remote-Ton und begrenzter Stimmwiderruf bei laufendem Screen. Isolierter Meet-Gesamtcheck639 Frontend/560 Node passed/3 Node-Skips/0 failed, Node140.35s. docs/contracts/meet-screen-decoder-lifetime.md ordnet jedes Kriterium zu. Nur begrenzter Offline-Agent-Browseradapter done; allgemeine Browser-Use/Camofox-/Seitenadmission, umfassende Privacy-, GPU-/TURN-/Produktionskriterien bleiben MAP-13/15/30/31 offen. Kein Registry-Produktionsclaim."
     },
     {
       "id": "MAP-15",
@@ -1066,12 +1067,12 @@
     "total": 32,
     "by_status": {
       "todo": 2,
-      "in_progress": 9,
+      "in_progress": 8,
       "partial": 13,
       "blocked": 0,
-      "done": 8
+      "done": 9
     },
-    "progress_percent_done": 25.0,
+    "progress_percent_done": 28.1,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1085,8 +1086,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 3,
-      "remaining": 13
+      "done": 4,
+      "remaining": 12
     },
     "milestones": {
       "total": 8,
@@ -1183,15 +1184,15 @@
         "total": 16,
         "by_status": {
           "todo": 1,
-          "in_progress": 6,
+          "in_progress": 5,
           "partial": 4,
           "blocked": 0,
-          "done": 5
+          "done": 6
         },
-        "done": 5,
+        "done": 6,
         "partial": 4,
         "blocked": 0,
-        "progress_percent": 61.6
+        "progress_percent": 65.3
       },
       "infrastructure": {
         "total": 1,
@@ -1240,20 +1241,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 2,
-    "in_progress": 9,
+    "in_progress": 8,
     "partial": 13,
     "blocked": 0,
-    "done": 8,
-    "count_based_percent": 25.0,
-    "weighted_percent": 57.1
+    "done": 9,
+    "count_based_percent": 28.1,
+    "weighted_percent": 59.7
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 33.288,
-    "remaining_weight": 24.962,
+    "done_weight": 34.788,
+    "remaining_weight": 23.462,
     "blocked_weight": 0.0,
-    "weighted_percent": 57.1
+    "weighted_percent": 59.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1283,10 +1284,10 @@
       },
       "MAP-M4": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 26.9,
+        "count_based_percent": 25.0,
+        "weighted_percent": 43.6,
         "status": "in_progress"
       },
       "MAP-M5": {
@@ -1326,10 +1327,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T22:15:30.407246Z",
+    "generated_at": "2026-09-07T23:01:05.847875Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "dfe8304e509128d7ab055949c0c9eff997f9da758bcee1813d9e3cc870e60e15",
+    "source_hash": "203f7002476c26e54c965af5dcc4893104702c6a1ad38868e6b8d1bcb5d07857",
     "is_stale": false
   }
 }
