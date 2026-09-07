@@ -3,6 +3,7 @@ import { Observable, Subscription } from 'rxjs';
 import { OrganizationTopologyStateService } from '../services/organization-topology-state.service';
 import { PersonaProfileApiClient } from './persona-profile-api.client';
 import { PersonaEffectiveProfile, PersonaImageReference, PersonaOwnerKind, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot, PersonaSelectionState } from './persona-profile.models';
+import { PersonaVisualDraft } from './persona-visual-draft';
 
 @Injectable()
 export class PersonaProfileFacade {
@@ -17,13 +18,19 @@ export class PersonaProfileFacade {
   readonly kind = signal<PersonaOwnerKind>('organization');
   readonly owner = signal('');
   readonly personaId = signal('');
-  readonly imageState = signal<PersonaSelectionState>('missing');
-  readonly imageId = signal('');
-  readonly image = signal<PersonaImageReference | null>(null);
+  private readonly imageDraft = new PersonaVisualDraft<'image'>();
+  private readonly videoDraft = new PersonaVisualDraft<'video'>();
+  readonly imageState = this.imageDraft.state;
+  readonly imageId = this.imageDraft.id;
+  readonly image = this.imageDraft.asset;
+  readonly videoState = this.videoDraft.state;
+  readonly videoId = this.videoDraft.id;
+  readonly video = this.videoDraft.asset;
   readonly imageOptions = signal<readonly PersonaImageReference[]>([]);
   readonly imageCursor = signal<string | null>(null);
   readonly imagesLoaded = signal(false);
   readonly previewUrl = signal('');
+  readonly videoPreviewUrl = signal('');
   readonly busy = signal(false);
   readonly message = signal('');
   readonly error = signal('');
@@ -55,13 +62,12 @@ export class PersonaProfileFacade {
     this.cancel();
     this.snapshot.set(null);
     this.effective.set(null);
-    this.image.set(null);
+    this.imageDraft.reset();
+    this.videoDraft.reset();
     this.imageOptions.set([]);
     this.imageCursor.set(null);
     this.imagesLoaded.set(false);
-    this.imageId.set('');
     this.personaId.set('');
-    this.imageState.set('missing');
     this.message.set('');
     this.error.set('');
     if (!this.scope) return;
@@ -70,9 +76,8 @@ export class PersonaProfileFacade {
       this.snapshot.set(snapshot);
       const profile = snapshot.profile;
       this.personaId.set(profile?.persona_id ?? '');
-      this.imageState.set(profile?.image.state ?? 'missing');
-      this.image.set(profile?.image.asset ?? null);
-      this.imageId.set(profile?.image.asset?.artifact_id ?? '');
+      this.imageDraft.reset(profile?.image);
+      this.videoDraft.reset(profile?.video);
       if (!snapshot.media_available) this.message.set('Das bisherige Medium ist nicht verfügbar. Das Profil kann ersetzt oder deaktiviert werden.');
       this.run(this.api.effective(scope), effective => this.effective.set(effective));
     });
@@ -80,15 +85,32 @@ export class PersonaProfileFacade {
 
   selectImageState(state: PersonaSelectionState): void {
     this.cancel();
-    this.imageState.set(state);
-    this.image.set(null);
-    this.imageId.set('');
+    this.imageDraft.selectState(state);
   }
 
   changeImageId(id: string): void {
     this.cancel();
-    this.imageId.set(id);
-    this.image.set(null);
+    this.imageDraft.changeId(id);
+  }
+
+  selectVideoState(state: PersonaSelectionState): void {
+    this.cancel();
+    this.videoDraft.selectState(state);
+  }
+
+  changeVideoId(id: string): void {
+    this.cancel();
+    this.videoDraft.changeId(id);
+  }
+
+  inspectVideo(): void {
+    if (!this.scope || !this.scopeCurrent() || this.busy() || !this.videoId().trim()) return;
+    this.cancel();
+    const scope = this.scope;
+    this.run(this.api.video(scope, this.videoId().trim()), reference => {
+      this.video.set(reference);
+      this.run(this.api.videoPreview(scope, reference.artifact_id), blob => this.videoPreviewUrl.set(URL.createObjectURL(blob)));
+    });
   }
 
   inspectImage(): void {
@@ -131,6 +153,13 @@ export class PersonaProfileFacade {
     this.run(this.api.preview(this.scope, selected.asset.artifact_id), blob => this.previewUrl.set(URL.createObjectURL(blob)));
   }
 
+  previewEffectiveVideo(): void {
+    const selected = this.effective()?.media.find(item => item.kind === 'video');
+    if (!this.scope || !this.scopeCurrent() || this.busy() || !selected?.preview_allowed || !selected.asset) return;
+    this.cancel();
+    this.run(this.api.videoPreview(this.scope, selected.asset.artifact_id), blob => this.videoPreviewUrl.set(URL.createObjectURL(blob)));
+  }
+
   save(): void {
     const snapshot = this.snapshot();
     if (!this.scope || !this.scopeCurrent() || !snapshot || this.busy() || !this.personaId().trim()) return;
@@ -138,12 +167,16 @@ export class PersonaProfileFacade {
       this.error.set('Bitte zuerst die Bild-ID prüfen.');
       return;
     }
+    if (this.videoState() === 'asset' && !this.video()) {
+      this.error.set('Bitte zuerst die Video-ID prüfen.');
+      return;
+    }
     const empty = { state: 'missing', asset: null } as const;
     const profile: PersonaProfile = {
       schema_version: 'ananta.persona-media.v1', tenant_id: snapshot.tenant_id, project_id: this.scope.project,
       owner_kind: this.scope.kind, owner_id: this.scope.owner, persona_id: this.personaId().trim(), revision: snapshot.revision + 1,
-      image: { state: this.imageState(), asset: this.imageState() === 'asset' ? this.image() : null },
-      voice: snapshot.profile?.voice ?? empty, video: snapshot.profile?.video ?? empty, style: snapshot.profile?.style ?? empty,
+      image: this.imageDraft.selection(), video: this.videoDraft.selection(),
+      voice: snapshot.profile?.voice ?? empty, style: snapshot.profile?.style ?? empty,
       requested_usage: snapshot.profile?.requested_usage ?? [],
     };
     this.cancel();
@@ -186,5 +219,8 @@ export class PersonaProfileFacade {
     const previous = this.previewUrl();
     if (previous) URL.revokeObjectURL(previous);
     this.previewUrl.set('');
+    const previousVideo = this.videoPreviewUrl();
+    if (previousVideo) URL.revokeObjectURL(previousVideo);
+    this.videoPreviewUrl.set('');
   }
 }

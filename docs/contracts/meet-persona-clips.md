@@ -81,7 +81,8 @@ speech samples, 256 padding samples and 17,007 microseconds end skew; the first
 two decoded video frames differ. This is a synthetic local technical
 observation, not Registry-backed production evidence, generative video quality,
 LLM inference, or decoded live Meet delivery. No running service was redeployed.
-Video-profile execution selection and Angular video selection remain next.
+The following sections document subsequent profile and UI wiring; live-delivery
+and production acceptance remain separate.
 
 ## Profile-bound clip execution
 
@@ -105,3 +106,27 @@ The combined video/image/profile/turn/bootstrap regressions passed 142 tests
 in 103.69 seconds, including actual Hub TaskQueue persistence and immediate
 live-lease denial after profile replacement. This does not prove live Meet
 delivery; Angular selection is tracked separately below as it is implemented.
+
+## Angular profile selection
+
+The organization/team/agent profile panel now independently edits stored clip
+selection: missing, inherit, disabled or an admitted asset ID. Video references
+have their own typed kind; the client rejects unknown fields, other kinds,
+wrong project/artifact bindings and invalid revisions/hashes before preview.
+The video-specific authenticated endpoint returns only a private PNG capped at
+350,000 bytes. It does not fetch a public clip URL, autoplay media, capture a
+device, join Meet or confer publication authority.
+
+The local `PersonaVisualDraft` model shares image/video draft state without
+owning HTTP or policy. The existing facade retains cancellation and scope
+ownership, discards late callbacks and revokes both preview object URLs on
+selection/scope changes or destruction. Saving preserves independent image
+and clip selections; unchecked new IDs cannot be saved as admitted assets.
+The video picker reuses the shared form-field primitive and remains a local
+persona feature component, not a generic global media component.
+
+All 31 targeted panel/API tests passed in 1.26 seconds; feature ESLint and
+Angular template/type compilation passed. Compilation reports the pre-existing
+unused `RouterLink` warning in the unrelated knowledge-hygiene page. The UI
+currently selects clips by admitted ID, not by a new public asset listing.
+Configuring a profile still does not switch a running dialog or generate a turn.

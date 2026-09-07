@@ -9,6 +9,7 @@ import { PersonaProfileSnapshot } from './persona-profile.models';
 
 const blank: PersonaProfileSnapshot = { profile: null, revision: 0, content_hash: null, media_available: true, tenant_id: 'tenant' };
 const image = { tenant_id: 'tenant', project_id: 'project', artifact_id: 'image', revision: 1, sha256: 'a'.repeat(64), kind: 'image', classification: 'test_only' } as const;
+const video = { ...image, artifact_id: 'clip', kind: 'video' } as const;
 
 function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blank)) {
   const state = {
@@ -20,6 +21,7 @@ function setup(current: () => Observable<PersonaProfileSnapshot> = () => of(blan
   };
   const api = { current: vi.fn(current), effective: vi.fn(() => of({ purpose: 'preview', runtime_bound: false, topology_revision: 1, media: [] })), save: vi.fn(() => of({ revision: 1, content_hash: 'b'.repeat(64) })),
     image: vi.fn(() => of(image)), preview: vi.fn(() => of(new Blob(['synthetic-png'], { type: 'image/png' }))),
+    video: vi.fn(() => of(video)), videoPreview: vi.fn(() => of(new Blob(['synthetic-clip-preview'], { type: 'image/png' }))),
     images: vi.fn(() => of({ items: [image], next_cursor: null as string | null, purpose: 'preview' })),
   };
   TestBed.configureTestingModule({ providers: [
@@ -154,5 +156,88 @@ describe('Persona profile panel', () => {
     fixture.detectChanges();
     expect(facade.imageOptions()).toEqual([]);
     expect(facade.imageCursor()).toBeNull();
+  });
+
+  it('selects an admitted clip independently of the image and saves its exact reference', () => {
+    const { fixture, facade, api } = setup();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:synthetic-clip' });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    facade.personaId.set('presentation');
+    facade.selectImageState('inherit');
+    facade.selectVideoState('asset');
+    facade.changeVideoId('clip');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Zugelassene Video-ID');
+    facade.inspectVideo();
+    expect(api.video).toHaveBeenCalledWith(expect.objectContaining({ project: 'project' }), 'clip');
+    expect(api.videoPreview).toHaveBeenCalledOnce();
+    expect(facade.videoPreviewUrl()).toBe('blob:synthetic-clip');
+    expect(api.image).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('video')).toBeNull();
+    facade.save();
+    expect(api.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      image: { state: 'inherit', asset: null }, video: { state: 'asset', asset: video },
+    }), 0);
+  });
+
+  it.each(['inherit', 'disabled', 'missing'] as const)('saves explicit video state %s without any media read', state => {
+    const { facade, api } = setup();
+    facade.personaId.set('presentation');
+    facade.selectVideoState(state);
+    facade.save();
+    expect(api.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ video: { state, asset: null } }), 0);
+    expect(api.video).not.toHaveBeenCalled();
+    expect(api.videoPreview).not.toHaveBeenCalled();
+  });
+
+  it('requires a checked video reference and invalidates it when its ID changes', () => {
+    const { facade, api } = setup();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:synthetic-clip' });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    facade.personaId.set('presentation');
+    facade.selectVideoState('asset');
+    facade.changeVideoId('clip');
+    facade.inspectVideo();
+    facade.changeVideoId('unchecked');
+    facade.save();
+    expect(facade.video()).toBeNull();
+    expect(facade.error()).toContain('zuerst die Video-ID prüfen');
+    expect(api.save).not.toHaveBeenCalled();
+  });
+
+  it('drops late clip responses after owner change and clears private preview URLs', () => {
+    const { facade, api } = setup();
+    const pending = new Subject<Blob>();
+    api.videoPreview.mockImplementation(() => pending);
+    const create = vi.fn(() => 'blob:must-not-exist');
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: create });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    facade.selectVideoState('asset');
+    facade.changeVideoId('clip');
+    facade.inspectVideo();
+    facade.chooseOwner('team', 'team');
+    pending.next(new Blob(['late-private-preview'], { type: 'image/png' }));
+    expect(create).not.toHaveBeenCalled();
+    expect(facade.video()).toBeNull();
+    expect(facade.videoPreviewUrl()).toBe('');
+  });
+
+  it('revokes a loaded clip preview on scope change and on destruction', () => {
+    const { fixture, facade, state } = setup();
+    const revoke = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:synthetic-clip' });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revoke });
+    facade.selectVideoState('asset');
+    facade.changeVideoId('clip');
+    facade.inspectVideo();
+    state.projectId.set('other');
+    fixture.detectChanges();
+    expect(revoke).toHaveBeenCalledWith('blob:synthetic-clip');
+    expect(facade.video()).toBeNull();
+    facade.selectVideoState('asset');
+    facade.changeVideoId('clip');
+    facade.inspectVideo();
+    fixture.destroy();
+    expect(revoke).toHaveBeenCalledTimes(2);
   });
 });

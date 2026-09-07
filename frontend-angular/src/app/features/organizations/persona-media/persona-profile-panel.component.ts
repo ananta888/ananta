@@ -4,11 +4,13 @@ import { OrganizationTopologyStateService } from '../services/organization-topol
 import { PersonaProfileFacade } from './persona-profile.facade';
 import { PersonaOwnerKind } from './persona-profile.models';
 import { PersonaImagePickerComponent } from './persona-image-picker.component';
+import { PersonaVideoPickerComponent } from './persona-video-picker.component';
+import { FormFieldComponent } from '../../../shared/ui/forms/form-field.component';
 
 @Component({
   selector: 'app-persona-profile-panel',
   standalone: true,
-  imports: [FormsModule, PersonaImagePickerComponent],
+  imports: [FormsModule, PersonaImagePickerComponent, PersonaVideoPickerComponent, FormFieldComponent],
   providers: [PersonaProfileFacade],
   template: `
     <section aria-labelledby="persona-title">
@@ -37,6 +39,9 @@ import { PersonaImagePickerComponent } from './persona-image-picker.component';
                 @if (medium.kind === 'image' && medium.preview_allowed) {
                   <button type="button" (click)="facade.previewEffective()" [disabled]="facade.busy()">Geerbtes / effektives Bild ansehen</button>
                 }
+                @if (medium.kind === 'video' && medium.preview_allowed) {
+                  <button type="button" (click)="facade.previewEffectiveVideo()" [disabled]="facade.busy()">Geerbten / effektiven Clip-Vorschauframe ansehen</button>
+                }
               }
             </section>
           }
@@ -55,8 +60,18 @@ import { PersonaImagePickerComponent } from './persona-image-picker.component';
             <app-persona-image-picker />
           }
           @if (facade.previewUrl()) { <img [src]="facade.previewUrl()" alt="Private Vorschau des ausgewählten oder effektiven Persona-Bilds" width="256" height="256" /> }
+          <app-form-field label="Videoauswahl">
+            <select [ngModel]="facade.videoState()" (ngModelChange)="facade.selectVideoState($event)" [disabled]="facade.busy()">
+              <option value="missing">Nicht gesetzt (Fallback zulassen)</option>
+              <option value="inherit">Explizit vererben</option>
+              <option value="disabled">Deaktiviert (Fallback stoppen)</option>
+              <option value="asset">Zugelassenen Clip auswählen</option>
+            </select>
+          </app-form-field>
+          @if (facade.videoState() === 'asset') { <app-persona-video-picker /> }
+          @if (facade.videoPreviewUrl()) { <img [src]="facade.videoPreviewUrl()" alt="Privater Vorschauframe des ausgewählten oder effektiven Persona-Clips" width="256" height="256" /> }
           <button type="button" (click)="facade.save()" [disabled]="facade.busy() || !facade.personaId().trim()">Profil speichern</button>
-          <small>Speichern benötigt Projektverwaltung und einen Organisationsgrant. Stimme, Animation und laufende Meet-Sitzungen werden hier noch nicht konfiguriert.</small>
+          <small>Speichern benötigt Projektverwaltung und einen Organisationsgrant. Gespeicherte Clips sind keine generative Animation. Stimme und laufende Meet-Sitzungen werden hier noch nicht konfiguriert.</small>
         }
       } @else { <p>Bitte zuerst eine Organisation auswählen.</p> }
       @if (facade.busy()) { <p role="status">Hub-Anfrage läuft …</p> }

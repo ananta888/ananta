@@ -1,17 +1,20 @@
 export type PersonaOwnerKind = 'organization' | 'team' | 'agent';
 export type PersonaSelectionState = 'missing' | 'inherit' | 'disabled' | 'asset';
-export interface PersonaImageReference {
+export type PersonaMediaKind = 'image' | 'voice' | 'video' | 'style';
+export interface PersonaAssetReference<K extends PersonaMediaKind = PersonaMediaKind> {
   tenant_id: string;
   project_id: string;
   artifact_id: string;
   revision: number;
   sha256: string;
-  kind: 'image';
+  kind: K;
   classification: 'production' | 'synthetic' | 'test_only';
 }
-export interface PersonaSelection {
+export type PersonaImageReference = PersonaAssetReference<'image'>;
+export type PersonaVideoReference = PersonaAssetReference<'video'>;
+export interface PersonaSelection<K extends PersonaMediaKind = PersonaMediaKind> {
   state: PersonaSelectionState;
-  asset: PersonaImageReference | null;
+  asset: PersonaAssetReference<K> | null;
 }
 export interface PersonaProfile {
   schema_version: 'ananta.persona-media.v1';
@@ -21,10 +24,10 @@ export interface PersonaProfile {
   owner_id: string;
   persona_id: string;
   revision: number;
-  image: PersonaSelection;
-  voice: PersonaSelection;
-  video: PersonaSelection;
-  style: PersonaSelection;
+  image: PersonaSelection<'image'>;
+  voice: PersonaSelection<'voice'>;
+  video: PersonaSelection<'video'>;
+  style: PersonaSelection<'style'>;
   requested_usage: readonly string[];
 }
 export interface PersonaProfileSnapshot {
@@ -49,7 +52,7 @@ export interface PersonaEffectiveProfile {
   media: readonly {
     kind: 'image' | 'voice' | 'video' | 'style';
     state: PersonaSelectionState;
-    asset: PersonaImageReference | null;
+    asset: PersonaAssetReference | null;
     available: boolean;
     preview_allowed: boolean;
     publication_checked: false;

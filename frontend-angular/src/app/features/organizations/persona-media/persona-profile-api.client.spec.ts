@@ -53,4 +53,45 @@ describe('Persona profile HTTP client', () => {
     expect(request.request.body).toEqual({ cursor: 'opaque-progress', limit: 20 });
     request.flush({ items: [], next_cursor: null, purpose: 'preview' });
   });
+
+  it('uses the video-specific authenticated reference path, never the image path', () => {
+    const reference = { kind: 'video', artifact_id: 'clip:1', tenant_id: 'tenant', project_id: 'project', revision: 1, sha256: 'a'.repeat(64), classification: 'test_only' };
+    const accept = vi.fn();
+    api.video(scope, 'clip:1').subscribe(accept);
+    const request = http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/clip%3A1/reference');
+    request.flush({ reference });
+    expect(accept).toHaveBeenCalledWith(reference);
+  });
+
+  it('loads only a bounded private PNG for the clip preview', () => {
+    const accept = vi.fn();
+    api.videoPreview(scope, 'clip').subscribe(accept);
+    const request = http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/clip/preview');
+    expect(request.request.responseType).toBe('blob');
+    request.flush(new Blob(['synthetic-preview'], { type: 'image/png' }));
+    expect(accept).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    new Blob(['not-a-preview'], { type: 'video/mp4' }),
+    new Blob([new Uint8Array(350_001)], { type: 'image/png' }),
+  ])('rejects a video body or over-budget preview', body => {
+    const failed = vi.fn();
+    api.videoPreview(scope, 'clip').subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/clip/preview').flush(body);
+    expect(failed).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { kind: 'image' }, { project_id: 'foreign' }, { artifact_id: 'other' }, { revision: true },
+    { sha256: 'unverified' }, { classification: 'camera' }, { unknown: true },
+  ])('rejects a mismatched clip reference before rendering its preview', change => {
+    const failed = vi.fn();
+    api.video(scope, 'clip').subscribe({ error: failed });
+    http.expectOne('https://hub.test/api/persona-media/v1/projects/project/videos/clip/reference').flush({ reference: {
+      kind: 'video', artifact_id: 'clip', tenant_id: 'tenant', project_id: 'project', revision: 1,
+      sha256: 'a'.repeat(64), classification: 'test_only', ...change,
+    } });
+    expect(failed).toHaveBeenCalledOnce();
+  });
 });

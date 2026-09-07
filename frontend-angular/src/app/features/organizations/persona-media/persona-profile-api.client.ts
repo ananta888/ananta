@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { map } from 'rxjs';
 import { ApiBaseService } from '../../../services/api-base.service';
-import { PersonaEffectiveProfile, PersonaImageReference, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot } from './persona-profile.models';
+import { PersonaEffectiveProfile, PersonaImageReference, PersonaVideoReference, PersonaProfile, PersonaProfileScope, PersonaProfileSnapshot } from './persona-profile.models';
+import { videoReference } from './persona-video-reference';
 
 @Injectable({ providedIn: 'root' })
 export class PersonaProfileApiClient extends ApiBaseService {
@@ -31,10 +32,25 @@ export class PersonaProfileApiClient extends ApiBaseService {
     );
   }
 
+  video(scope: PersonaProfileScope, artifactId: string) {
+    return this.core.get<{ reference: PersonaVideoReference }>(
+      `${this.base(scope)}/videos/${encodeURIComponent(artifactId)}/reference`, scope.hub, undefined, false,
+    ).pipe(map(result => videoReference(result.reference, scope.project, artifactId)));
+  }
+
   preview(scope: PersonaProfileScope, artifactId: string) {
-    return this.core.requestBlob(`${this.base(scope)}/images/${encodeURIComponent(artifactId)}/preview`, scope.hub).pipe(
+    return this.previewImage(scope, 'images', artifactId, 5 * 1024 * 1024);
+  }
+
+  videoPreview(scope: PersonaProfileScope, artifactId: string) {
+    // Only the normalized private PNG preview; never an implicit MP4 download.
+    return this.previewImage(scope, 'videos', artifactId, 350_000);
+  }
+
+  private previewImage(scope: PersonaProfileScope, kind: 'images' | 'videos', artifactId: string, maximum: number) {
+    return this.core.requestBlob(`${this.base(scope)}/${kind}/${encodeURIComponent(artifactId)}/preview`, scope.hub).pipe(
       map(response => {
-        if (!response.body || response.body.type !== 'image/png' || response.body.size > 5 * 1024 * 1024) {
+        if (!response.body || response.body.type !== 'image/png' || response.body.size > maximum) {
           throw new Error('persona_preview_invalid');
         }
         return response.body;
