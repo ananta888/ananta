@@ -625,7 +625,8 @@
         "Framerate, Auflösung, Codec, Warteschlange und Bandbreite sind begrenzt; bei Backpressure ältere Frames verwerfen statt unbeschränkt zu puffern.",
         "Die im anderen Meet-Teilnehmer tatsächlich decodierten Frames enthalten den erwarteten bewegten Testseiteninhalt; eine lokale Screenshot-Datei reicht nicht als Verifikation.",
         "Automatischer Start/Stop ohne menschlichen Dialog wird positiv getestet, während der menschliche Bildschirmfreigabepfad weiterhin geschützt bleibt."
-      ]
+      ],
+      "decoder_lifetime_plan": "2026-09-08 Quellstandabgleich: Offline-CDP->MDS-05 und reale bewegte Remote-Frames sind inzwischen implementiert/verifiziert, aber MachineScreenSource setzt busy beim Close zurueck obwohl nativer Decode noch aussteht. Reopen/Timeout kann dadurch mehrere Decoder erzeugen; existierender Test settled alten Decode vor neuem Push und verfehlt die Luecke. docs/contracts/meet-screen-decoder-lifetime.md plant getrennte tatsaechliche Decoderbelegung, begrenztes decoder_busy vor neuer Surface, Regressionsreproduktion und aktuelle Browsermatrix ohne Lockerung von Rechten/Zeiten. Quelle bleibt agenteneigener Offline-Workspace, kein allgemeiner Browser-/Privacy-/Produktionsabschluss."
     },
     {
       "id": "MAP-15",
