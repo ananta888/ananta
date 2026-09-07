@@ -36,6 +36,13 @@ class PersonaVideoPort(Protocol):
     def require_current(self, principal, project: str, reference: dict, purpose: str) -> None: ...
 
 
+class PersonaVideoProfilePort(Protocol):
+    def prepare(
+        self, principal, project: str, selection: dict, purpose: str, *, repeat_mode: str
+    ) -> tuple[dict, dict]: ...
+    def require_current(self, principal, project: str, binding: dict, reference: dict) -> None: ...
+
+
 class MeetTurnService:
     def __init__(
         self,
@@ -50,6 +57,7 @@ class MeetTurnService:
         speech_profile=None,
         capacity: MediaCapacityPort | None = None,
         persona_videos: PersonaVideoPort | None = None,
+        persona_video_profiles: PersonaVideoProfilePort | None = None,
     ):
         self.binding, self.worker, self.tasks = binding, worker, tasks
         self.allowed_scopes = frozenset(allowed_scopes)
@@ -58,12 +66,16 @@ class MeetTurnService:
         self.persona_images = persona_images
         self.persona_profiles = persona_profiles
         self.persona_videos = persona_videos
+        self.persona_video_profiles = persona_video_profiles
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
         self.capacity = capacity
 
     def _visuals(self):
         return MeetVisualSelections(
-            images=self.persona_images, image_profiles=self.persona_profiles, videos=self.persona_videos
+            images=self.persona_images,
+            image_profiles=self.persona_profiles,
+            videos=self.persona_videos,
+            video_profiles=self.persona_video_profiles,
         )
 
     def execute(self, principal, project, payload, task=""):
@@ -180,6 +192,7 @@ class HubMediaTasks:
             "binding_task_id": turn.get("binding_task_id", ""),
             "speech_profile": turn.get("speech_profile"),
             "persona_profile": turn.get("hub_persona_profile"),
+            "persona_video_profile": turn.get("hub_persona_video_profile"),
             "persona_image": turn.get("persona_image", {}).get("reference"),
             "persona_video": turn.get("persona_video", {}).get("reference"),
             "persona_video_repeat_mode": turn.get("persona_video", {}).get("repeat_mode"),
@@ -227,6 +240,11 @@ class HubMediaTasks:
                         **({"response_limits": turn["response_limits"]} if "response_limits" in turn else {}),
                         **({"speech_profile": turn["speech_profile"]} if "speech_profile" in turn else {}),
                         **({"persona_profile": turn["hub_persona_profile"]} if "hub_persona_profile" in turn else {}),
+                        **(
+                            {"persona_video_profile": turn["hub_persona_video_profile"]}
+                            if "hub_persona_video_profile" in turn
+                            else {}
+                        ),
                         **(
                             {
                                 "persona_image": turn["persona_image"]["reference"],

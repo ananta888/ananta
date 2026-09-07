@@ -97,10 +97,15 @@ def configure_meet_media(app):
     video_assets = app.extensions.get("persona_video_assets")
     videos = MeetPersonaVideos(video_assets) if video_assets is not None else None
     profiles = None
+    video_profiles = None
     if images is not None and app.extensions.get("persona_profiles") is not None:
         from agent.services.meet_persona_profiles import MeetPersonaProfiles
 
         profiles = MeetPersonaProfiles(app.extensions["persona_profiles"], images)
+    if videos is not None and app.extensions.get("persona_profiles") is not None:
+        from agent.services.meet_persona_video_profiles import MeetPersonaVideoProfiles
+
+        video_profiles = MeetPersonaVideoProfiles(app.extensions["persona_profiles"], videos)
     voice = speech_profile(max_seconds=int(os.environ.get("ANANTA_MEET_SPEECH_MAX_SECONDS", "40")))
     app.extensions["meet_turn_service"] = MeetTurnService(
         app.extensions["meet_binding_service"],
@@ -113,6 +118,7 @@ def configure_meet_media(app):
         speech_profile=voice,
         capacity=capacity,
         persona_videos=videos,
+        persona_video_profiles=video_profiles,
     )
     configure_meet_dialog(app, worker, issuer, capacity=capacity, speech_profile=voice)
 

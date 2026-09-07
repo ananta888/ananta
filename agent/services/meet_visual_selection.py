@@ -69,11 +69,14 @@ class BoundVisual:
 
 
 class MeetVisualSelections:
-    def __init__(self, *, images, image_profiles, videos):
+    def __init__(self, *, images, image_profiles, videos, video_profiles=None):
         self.strategies = (
             VisualStrategy("persona_image_id", "persona_image", images),
             VisualStrategy("persona_profile", "persona_image", images, image_profiles, "hub_persona_profile"),
             VisualStrategy("persona_video_id", "persona_video", videos, repeat_required=True),
+            VisualStrategy(
+                "persona_video_profile", "persona_video", videos, video_profiles, "hub_persona_video_profile", True
+            ),
         )
 
     def validate_payload(self, payload):

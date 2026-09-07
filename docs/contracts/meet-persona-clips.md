@@ -82,3 +82,26 @@ two decoded video frames differ. This is a synthetic local technical
 observation, not Registry-backed production evidence, generative video quality,
 LLM inference, or decoded live Meet delivery. No running service was redeployed.
 Video-profile execution selection and Angular video selection remain next.
+
+## Profile-bound clip execution
+
+The additive `persona_video_profile` selector now accepts the same exact
+`organization_id`, `owner_kind`, `owner_id`, `selection_digest` binding returned
+by the profile-effective endpoint. It requires explicit `video_repeat_mode`
+and cannot be combined with `persona_video_id`, `persona_image_id` or the
+legacy `persona_profile` image selector. The legacy selector retains its image
+semantics; it never silently chooses a configured video instead.
+
+`MeetPersonaVideoProfiles` uses the profile service's closed voice/video
+execution policy. Disabled voice or video, unavailable clips, stale profile
+digests, inactive owners and revoked project/organization access fail before
+asset loading or dispatch. This adapter works with video-only installations;
+image availability is not fabricated. Its new visual strategy keeps the
+binding under `persona_video_profile` in the Hub task and never sends profile
+ancestry to the Worker. Capacity checks and live Worker leases revalidate the
+exact binding, including revocation while a turn is running.
+
+The combined video/image/profile/turn/bootstrap regressions passed 142 tests
+in 103.69 seconds, including actual Hub TaskQueue persistence and immediate
+live-lease denial after profile replacement. This does not prove live Meet
+delivery; Angular selection is tracked separately below as it is implemented.

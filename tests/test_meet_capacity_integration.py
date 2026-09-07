@@ -103,6 +103,8 @@ def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(
     app = Flask(__name__)
     app.extensions["meet_binding_service"] = Mock()
     assets = Mock()
+    profiles = Mock()
+    app.extensions["persona_profiles"] = profiles
     if video_enabled:
         app.extensions["persona_video_assets"] = assets
     configure_meet_media(app)
@@ -111,5 +113,7 @@ def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(
     videos = app.extensions["meet_turn_service"].persona_videos
     if video_enabled:
         assert videos.assets is assets
+        assert app.extensions["meet_turn_service"].persona_video_profiles.profiles is profiles
     else:
         assert videos is None
+        assert app.extensions["meet_turn_service"].persona_video_profiles is None
