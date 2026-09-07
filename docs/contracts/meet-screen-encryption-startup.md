@@ -31,3 +31,31 @@ If the hypothesis is reproduced, make the smallest separately reviewed native
 keyframe-recovery change at the encryption transform, not in Hub authorization
 or retrying the entire session. Otherwise retain the diagnostic and investigate
 the measured counters rather than declaring a cause from an assumption.
+
+## Implemented diagnostic and result (2026-09-08)
+
+`tests/test_meet_screen_key_startup.py` now tests both sender and receiver key
+delivery, using the existing private fixture with a separate test-only timing
+adapter. Normal consent renewal can replace the first held key before delivery;
+the injector therefore admits at most three incoming current generations until
+one two-second delay completes, with one held key/timer, cancellation/wipe and
+no protocol retries. Duplicate KIDs do not reset that timer or replay state.
+An unexercised delay is a test failure, not a successful negative test. The
+closed bridge exposes only counts and milliseconds; no production crypto changed.
+
+The final serial run passed all three tests (JavaScript helper, actual sender
+and actual receiver) in 55.55 seconds. Both real paths decoded moving screen,
+completed two correlated synthetic chat replies, enforced the private-marker
+source stop and obeyed Hub cancellation. Companion helper tests also passed.
+The original intermittent zero-decoded-frame failure is **not reproduced or
+fixed by these tests**. No speculative native keyframe-recovery change was made.
+Keep the improved RTP/keyframe/PLI/transform-error counts for another occurrence.
+
+Earlier attempts remain failures: missing bridge opt-in (7.89 s; fixture corrected),
+an independent ERR_NETWORK_CHANGED before admission (12.50 s), and legitimately
+cancelled injections (35.28, 17.01, 15.93 and 30.43 s). The first cancelled-injection
+attempt initially surfaced as a later bridge timeout; the root now asserts its
+closed observation immediately. Sender-only actual injection had previously
+passed in 28.63 s, and the first genuinely exercised receiver repeat in 31.81 s.
+None of these synthetic observations is GPU, public TURN or Registry-backed
+production evidence.

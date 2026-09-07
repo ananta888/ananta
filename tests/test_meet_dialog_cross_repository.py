@@ -554,6 +554,13 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             }
         )
         assert chat_ready.wait(8), failures
+        if os.environ.get("MEET_TEST_RECEIVER_KEY_DELAY") == "1":
+            key_startup = command("receiver_key_startup")
+            assert set(key_startup) == {"scheduled", "delivered", "cancelled", "delayMs"}, key_startup
+            assert type(key_startup["scheduled"]) is int and 1 <= key_startup["scheduled"] <= 3
+            assert key_startup["delivered"] == 1 and key_startup["cancelled"] == key_startup["scheduled"] - 1
+            assert type(key_startup["delayMs"]) is int and 2000 <= key_startup["delayMs"] < 4000
+            record_property("synthetic_receiver_key_startup", key_startup)
         if voice_scenario.finish(
             app, service, principal, started, speech_observer, command, completed, failures, record_property
         ):
