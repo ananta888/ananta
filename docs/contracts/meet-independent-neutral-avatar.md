@@ -119,3 +119,15 @@ The ordinary text and new avatar live cases also passed together in 68.97 s
 before this final cleanup wiring; the avatar gate with final cleanup then passed
 again in 39.44 s. The failure reports remain preserved. Companion integration
 and thumbnail fix are committed as `d5c365d`, following source/pulse `2bd7436`.
+
+## Next verification slice: actual GPU voice with independent avatar
+
+Reuse the existing isolated, pinned Qwen/Piper/NVENC fixture for a separately
+opted-in `avatar-gpu` case. Preserve its real Worker transport and 20-second
+speech profile; the avatar observer must not replace them with the tone double.
+Measure actual answer/sample/usage counters, correlated received chat, remote
+non-silent voice, moving avatar with screen and real Hub pause/resume/stop.
+Classify synthetic policy separately from genuine model/audio execution. This
+is still private technical verification, not production release evidence or
+generative talking-head quality. No simultaneous full browser matrix or public
+service restart is needed for this bounded run.
