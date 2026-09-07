@@ -120,7 +120,7 @@ before this final cleanup wiring; the avatar gate with final cleanup then passed
 again in 39.44 s. The failure reports remain preserved. Companion integration
 and thumbnail fix are committed as `d5c365d`, following source/pulse `2bd7436`.
 
-## Next verification slice: actual GPU voice with independent avatar
+## Actual GPU voice with independent avatar
 
 Reuse the existing isolated, pinned Qwen/Piper/NVENC fixture for a separately
 opted-in `avatar-gpu` case. Preserve its real Worker transport and 20-second
@@ -131,3 +131,16 @@ Classify synthetic policy separately from genuine model/audio execution. This
 is still private technical verification, not production release evidence or
 generative talking-head quality. No simultaneous full browser matrix or public
 service restart is needed for this bounded run.
+
+The implemented `avatar-gpu` gate passed in 83.51 s, including 18.34 s of
+separately measured cold model preload. The real answer used 102 input and 41
+output tokens in 21.53 s and produced 183296 local PCM samples. The correlated
+remote observation contained 383 non-silent windows, with zero device captures
+and transform errors. Avatar pause took 1499.16 ms locally and 1535.42 ms until
+remote publication removal; three source generations were observed across
+bounded renewal and explicit resume. Screen remained available. These counters
+are technical observations, not exact remote sample delivery or latency SLAs.
+Five classification tests ensure GPU mode preserves its provisioned Worker and
+20-second profile and cannot silently substitute the synthetic tone (9.97 s).
+Synthetic admission policy remains explicitly separate from actual GPU/audio
+execution, and `production_release_evidence` remains false.

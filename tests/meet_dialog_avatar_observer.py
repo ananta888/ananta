@@ -1,4 +1,4 @@
-"""Real Hub-controlled avatar scenario; synthetic non-silent speech, no GPU claim."""
+"""Real Hub-controlled avatar scenario with explicitly selected synthetic/GPU voice."""
 
 import threading
 import time
@@ -8,16 +8,27 @@ from tests.meet_dialog_interruption import SyntheticToneWorker
 from worker.meet_media.avatar_browser import AvatarBrowserPort
 
 
+def configure_avatar_speech(speech, actual_gpu):
+    if actual_gpu:
+        if speech.worker is None or speech.profile != speech_profile(max_seconds=20):
+            raise ValueError("test_avatar_gpu_not_configured")
+        return  # Preserve the independently provisioned real GPU transport.
+    if speech.worker is not None:
+        raise ValueError("test_avatar_voice_classification_conflict")
+    speech.worker = SyntheticToneWorker()
+    speech.profile = speech_profile(max_seconds=10)
+
+
 class DialogAvatarObserver:
-    def __init__(self, enabled, speech, monkeypatch):
+    def __init__(self, enabled, speech, monkeypatch, *, actual_gpu=False):
         self.enabled = enabled
+        self.actual_gpu = actual_gpu
         self.condition = threading.Condition()
         self.state, self.generation = "closed", 0
         if not enabled:
             return
         speech.capabilities.append("avatar.publish")
-        speech.worker = SyntheticToneWorker()
-        speech.profile = speech_profile(max_seconds=10)
+        configure_avatar_speech(speech, actual_gpu)
         status, close = AvatarBrowserPort.status, AvatarBrowserPort.close
 
         def observe(port):
@@ -56,7 +67,10 @@ class DialogAvatarObserver:
         def moving():
             observed = command("avatar")
             assert observed == {"moving_avatar": True}, {
-                "remote": observed, "local": self.state, "generation": self.generation, "runtime_errors": failures
+                "remote": observed,
+                "local": self.state,
+                "generation": self.generation,
+                "runtime_errors": failures,
             }
 
         def control(enabled):
@@ -102,13 +116,15 @@ class DialogAvatarObserver:
         record_property(
             "dialog_avatar",
             {
-                "synthetic": True,
-                "actual_gpu": False,
+                "synthetic_policy": True,
+                "synthetic_audio": not self.actual_gpu,
+                "actual_gpu": self.actual_gpu,
                 "production_release_evidence": False,
                 "local_pause_ms": round(local_stop_ms, 2),
                 "remote_pause_ms": round(remote_stop_ms, 2),
                 "generations": self.generation,
                 "speech_samples": speech.samples,
+                "answers": speech.answers,
                 "remote_audio": speech.remote,
             },
         )

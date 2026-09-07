@@ -31,6 +31,10 @@ pytestmark = [
         reason="opt-in cross-repository browser gate; not GPU/TURN evidence",
     ),
 ]
+GPU_GATE = pytest.mark.skipif(
+    os.environ.get("MEET_DIALOG_GPU_GATE") != "1" or SOAK_SECONDS > 0,
+    reason="opt-in short real GPU dialog; extended GPU soak is a separate gate",
+)
 
 
 def process_usage(*roots):
@@ -85,6 +89,7 @@ def close_bridge(bridge):
         pytest.param(
             True, False, None, True, id="avatar", marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short avatar gate")
         ),
+        pytest.param(True, True, None, True, id="avatar-gpu", marks=GPU_GATE),
         pytest.param(
             True,
             False,
@@ -107,10 +112,7 @@ def close_bridge(bridge):
             None,
             False,
             id="gpu",
-            marks=pytest.mark.skipif(
-                os.environ.get("MEET_DIALOG_GPU_GATE") != "1" or SOAK_SECONDS > 0,
-                reason="opt-in short real GPU dialog; extended GPU soak is a separate gate",
-            ),
+            marks=GPU_GATE,
         ),
     ],
 )
@@ -288,7 +290,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         speech_observer = DialogSpeechObserver(spoken_mode, monkeypatch)
         configure_dialog_gpu(speech_observer, gpu_mode, gpu_cleanup, record_property)
         interruption = configure_interruption(speech_observer, interruption_mode, monkeypatch)
-        avatar_observer = DialogAvatarObserver(avatar_mode, speech_observer, monkeypatch)
+        avatar_observer = DialogAvatarObserver(avatar_mode, speech_observer, monkeypatch, actual_gpu=gpu_mode)
         capabilities = speech_observer.capabilities
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
