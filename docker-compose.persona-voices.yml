@@ -1,0 +1,26 @@
+# Opt-in descriptor inspection only. No model, GPU, host ports or publishing keys.
+services:
+  persona-voice-worker:
+    build:
+      context: .
+      dockerfile: docker/persona-voice/Dockerfile
+    init: true
+    user: "${PERSONA_VOICE_UID:-1000}:${PERSONA_VOICE_GID:-1000}"
+    read_only: true
+    environment:
+      PERSONA_VOICE_WORKER_KEY_FILE: /run/secrets/persona-voice-key
+      PERSONA_VOICE_HUB_LEASE_URL: http://persona-authorizing-hub:5000/api/persona-media/v1/internal/voice-lease
+    volumes:
+      - ${PERSONA_VOICE_STATE_DIR:?Set an absolute private voice state directory}/worker-key:/run/secrets/persona-voice-key:ro
+      - ${PERSONA_VOICE_STATE_DIR:?Set an absolute private voice state directory}/worker-state:/state
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [persona-voices]
+networks:
+  persona-voices:
+    internal: true
