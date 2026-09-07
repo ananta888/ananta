@@ -30,6 +30,7 @@ class DialogAuthority:
     chat_mode: str
     audio_mode: str
     controls: DialogControls
+    avatar_selection: dict | None = None
 
 
 class MeetDialogAuthority:
@@ -72,7 +73,7 @@ class MeetDialogAuthority:
             "audio_count",
             "controls",
         }
-        if not isinstance(value, dict) or set(value) != fields:
+        if not isinstance(value, dict) or set(value) - {"avatar_selection"} != fields:
             raise MeetError("meet_dialog_binding_invalid", 403)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
             if not isinstance(value[field], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", value[field]):
@@ -102,6 +103,16 @@ class MeetDialogAuthority:
         ):
             raise MeetError("meet_dialog_policy_denied", 403)
         controls = parse_controls(value["controls"])
+        avatar_selection = None
+        if "avatar_selection" in value:
+            from agent.models.meet_avatar_selection import parse_avatar_selection
+
+            try:
+                if "avatar.publish" not in capabilities or controls.avatar is None:
+                    raise ValueError()
+                avatar_selection = parse_avatar_selection(value["avatar_selection"], task.tenant_id, task.project_id)
+            except ValueError:
+                raise MeetError("meet_dialog_avatar_selection_invalid", 403) from None
         if any(
             getattr(controls, name) is not None and capability not in capabilities
             for name, capability in OPTIONAL_CONTROL_CAPABILITIES.items()
@@ -131,4 +142,5 @@ class MeetDialogAuthority:
             value["chat_mode"],
             value["audio_mode"],
             controls,
+            avatar_selection,
         )

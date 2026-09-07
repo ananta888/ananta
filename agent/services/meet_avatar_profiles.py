@@ -13,6 +13,11 @@ class MeetAvatarProfiles:
         self.require_current(principal, project, binding, assignment["reference"], purpose)
         return assignment, binding
 
+    def select(self, principal, project, selection, purpose):
+        reference, binding = self._binding.select(principal, project, selection)
+        self.require_current(principal, project, binding, reference, purpose)
+        return reference, binding
+
     def require_current(self, principal, project, binding, reference, purpose):
         self._binding.require_current(principal, project, binding, reference)
         self._images.require_current(principal, project, reference, purpose)

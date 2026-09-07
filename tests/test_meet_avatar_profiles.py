@@ -41,6 +41,17 @@ def test_disabled_voice_allows_image_avatar_but_still_denies_legacy_mp4(fixture)
         fixture.adapter.prepare(fixture.principal, "project", pin, "publish")
 
 
+def test_passive_avatar_selection_checks_real_profile_and_policy_without_image_hydration(fixture):
+    adapter = MeetAvatarProfiles(fixture.service, fixture.images)
+    fixture.images.prepare = Mock(wraps=fixture.images.prepare)
+    fixture.assets.storage.read = Mock(wraps=fixture.assets.storage.read)
+    reference, pin = adapter.select(fixture.principal, "project", selection(fixture), "publish")
+    assert reference == fixture.asset.image.model_dump(mode="json") and pin == selection(fixture)
+    fixture.images.prepare.assert_not_called()
+    fixture.assets.storage.read.assert_not_called()
+    fixture.assets.policy.require_asset.assert_any_call(fixture.principal, fixture.asset, "publish")
+
+
 @pytest.mark.parametrize("kind", ["image", "video"])
 def test_disabled_visual_output_denies_before_loading_image_and_never_selects_neutral(fixture, kind):
     value = profile(revision=2, **{kind: MediaSelection(state="disabled")})

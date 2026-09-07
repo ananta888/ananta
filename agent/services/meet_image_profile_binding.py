@@ -23,17 +23,26 @@ class MeetImageProfileBinding:
             raise ValueError("meet_persona_profile_outputs_invalid")
 
     def prepare(self, principal, project, selection, purpose):
+        reference, binding = self.select(principal, project, selection)
+        try:
+            assignment = self.images.prepare(principal, project, reference["artifact_id"], purpose)
+            if assignment["reference"] != reference:
+                raise PermissionError("persona_execution_reference_changed")
+            self.require_current(principal, project, binding, reference)
+            return assignment, binding
+        except (ValueError, PermissionError, ProjectAccessError):
+            raise MeetError("meet_persona_profile_denied_or_changed", 403) from None
+
+    def select(self, principal, project, selection):
+        """Resolve a passive metadata pin without hydrating private image bytes."""
         try:
             selection = PersonaProfileSelection.model_validate(selection)
             reference = self.profiles.for_execution(
                 principal, project, selection, required_outputs=self.required_outputs
             )
-            assignment = self.images.prepare(principal, project, reference["artifact_id"], purpose)
-            if assignment["reference"] != reference:
-                raise PermissionError("persona_execution_reference_changed")
             binding = selection.model_dump(mode="json")
             self.require_current(principal, project, binding, reference)
-            return assignment, binding
+            return reference, binding
         except (ValueError, PermissionError, ProjectAccessError):
             raise MeetError("meet_persona_profile_denied_or_changed", 403) from None
 

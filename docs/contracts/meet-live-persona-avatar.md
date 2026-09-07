@@ -93,3 +93,26 @@ the neutral avatar. Persist only mode, immutable reference and profile pin.
 Keep image hydration out of the small dialog state envelope and out of task
 history. Image-only revocation must quiesce avatar without granting or changing
 independent chat, screen or speech controls.
+
+## Implemented passive Hub selection CAS
+
+Closed selection models persist only explicit neutral mode or normalized image
+reference plus profile pin. `MeetDialogAvatarSelection` resolves metadata without
+reading PNG storage, rechecks the current task around profile/policy lookup, and
+uses the ordinary Task aggregate CAS. The persistence port itself requires one
+global/one avatar revision increment, unchanged activation and every independent
+control, and a non-backwards source timestamp. Concurrent controls, runtime
+changes, cancellation, foreign principals and stale selection fail closed.
+
+Existing tasks without a negotiated `avatar_selection` remain unchanged and
+cannot use image selection. This internal service is deliberately not exposed
+through a productive route before the image-support assignment handshake and
+hydration/runtime path are wired. Asset revocation does not implicitly choose
+neutral mode. Source policy and closed content-free metadata are separate from
+decoding and publication.
+The combined CAS/profile/authority/legacy-MP4 regression passed: 95 tests in
+69.24 s, including 32 new selection cases and metadata-only profile lookup.
+A test originally asserted publication checking was the final asset call; the
+subsequent profile recheck correctly also checks preview availability. The test
+now asserts publication was checked and no image bytes were read, with existing
+publication-denial tests retained.
