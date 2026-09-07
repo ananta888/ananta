@@ -711,10 +711,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M5",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-17",
         "MAP-18"
@@ -725,7 +725,7 @@
         "Eine Vorschau startet weder eine Meet-Sitzung noch Kamera/Mikrofon und veröffentlicht keine Daten; 'Vorschau' und 'In Raum publizieren' bleiben getrennte Aktionen.",
         "KI-/synthetische Darstellung kenntlich machen; Metadatenpflege ist per API ebenso möglich und benötigt keinen interaktiven UI-Schritt."
       ],
-      "implementation_note": "Headless Profil-API mit realer Projekt-/Organisationsautorität, expliziten Admin-Grants, logisch rollenbesetzungsgebundenen Agentenprofilen, immutable SQL-CAS und Akteur-Audit implementiert (c02959ad2). Mehrdeutige organisationsübergreifende Teamprofile werden abgelehnt. Widerrufene Medien bleiben ohne manuellen Datenbankeingriff ersetzbar. Organisations-Shell mit Bildreferenzprüfung, privater PNG-Vorschau, Vererben/Deaktivieren und Kontextwechsel-Abbruch ergänzt. Effektive Vererbung jetzt aus tatsächlicher Rollenbesetzung, Rollenplatz, Organisationseinheit und Teamlink aufgelöst; Herkunft, Revision und aktuelle Vorschaufreigabe werden angezeigt. Widerrufene Bilder werden redigiert und nicht still ersetzt; parallele Profil-/Topologieänderungen werden erkannt. 192 kombinierte Backend-Tests in 130,25 Sekunden und 11 UI-/HTTP-Tests bestanden; Angular-Development-Build erfolgreich (bestehende fachfremde RouterLink-Warnung). docs/contracts/persona-profile-api.md. Berechtigungsgefilterte, begrenzte Bildliste und eigenständiger UI-Picker ergänzt; kurzlebige opaque SQL-Cursor sind nutzer-/tenant-/projektgebunden, pro Leser quotiert und keine Grants. Auswahl prüft Referenz und private Vorschau erneut. 89 zugehörige Backend-Tests sowie 14 UI-/HTTP-Tests bestanden, ESLint und Angular-Build erfolgreich. docs/contracts/persona-image-query.md. Noch offen: erweiterte Voice-/Video-Eingaben. Keine aktive Sitzung oder öffentliche Instanz verändert. Clip-Picker-Nachtrag 2026-09-07: Video-spezifische, strikt authentifizierte Vorschau-Abfrage mit eigenen SQL-Cursortabellen implementiert; Bild-/Videohandles sind nicht austauschbar. Gemeinsame begrenzte Query-/Persistenzadapter ersetzen Duplikation bei stabiler Bild-API. Aktuelle private Katalog-/Video-Policy-/Registry-Receipt-Prüfung je Clip, höchstens 20 Referenzen/64 geprüfte Kandidaten, keine Medienbytes oder Publikationsrechte. Angular bietet eigenständige Clip-Liste mit Klassifizierung/Revision, erneutem Referenzcheck vor PNG-Vorschau, Seitenersetzung und Entzug alter Ergebnisse bei Projekt-/Owner-Wechsel; keine automatische Wiedergabe/Speicherung/Publikation. 58 Backendtests in 44.41 s und 94 Meet-/Persona-Frontendtests in 1.43 s bestanden; ESLint/Angular-Kompilierung und Produktionsbuild (22.905 s) erfolgreich. docs/contracts/persona-video-discovery.md. Umfangreiche Voice-/Live-Session-Abnahmen weiterhin separat offen."
+      "implementation_note": "Headless Profil-API mit realer Projekt-/Organisationsautorität, expliziten Admin-Grants, logisch rollenbesetzungsgebundenen Agentenprofilen, immutable SQL-CAS und Akteur-Audit implementiert (c02959ad2). Mehrdeutige organisationsübergreifende Teamprofile werden abgelehnt. Widerrufene Medien bleiben ohne manuellen Datenbankeingriff ersetzbar. Organisations-Shell mit Bildreferenzprüfung, privater PNG-Vorschau, Vererben/Deaktivieren und Kontextwechsel-Abbruch ergänzt. Effektive Vererbung jetzt aus tatsächlicher Rollenbesetzung, Rollenplatz, Organisationseinheit und Teamlink aufgelöst; Herkunft, Revision und aktuelle Vorschaufreigabe werden angezeigt. Widerrufene Bilder werden redigiert und nicht still ersetzt; parallele Profil-/Topologieänderungen werden erkannt. 192 kombinierte Backend-Tests in 130,25 Sekunden und 11 UI-/HTTP-Tests bestanden; Angular-Development-Build erfolgreich (bestehende fachfremde RouterLink-Warnung). docs/contracts/persona-profile-api.md. Berechtigungsgefilterte, begrenzte Bildliste und eigenständiger UI-Picker ergänzt; kurzlebige opaque SQL-Cursor sind nutzer-/tenant-/projektgebunden, pro Leser quotiert und keine Grants. Auswahl prüft Referenz und private Vorschau erneut. 89 zugehörige Backend-Tests sowie 14 UI-/HTTP-Tests bestanden, ESLint und Angular-Build erfolgreich. docs/contracts/persona-image-query.md. Historischer Zwischenstand: Voice-/Video-Eingaben waren damals noch offen. Keine aktive Sitzung oder öffentliche Instanz verändert. Clip-Picker-Nachtrag 2026-09-07: Video-spezifische, strikt authentifizierte Vorschau-Abfrage mit eigenen SQL-Cursortabellen implementiert; Bild-/Videohandles sind nicht austauschbar. Gemeinsame begrenzte Query-/Persistenzadapter ersetzen Duplikation bei stabiler Bild-API. Aktuelle private Katalog-/Video-Policy-/Registry-Receipt-Prüfung je Clip, höchstens 20 Referenzen/64 geprüfte Kandidaten, keine Medienbytes oder Publikationsrechte. Angular bietet eigenständige Clip-Liste mit Klassifizierung/Revision, erneutem Referenzcheck vor PNG-Vorschau, Seitenersetzung und Entzug alter Ergebnisse bei Projekt-/Owner-Wechsel; keine automatische Wiedergabe/Speicherung/Publikation. 58 Backendtests in 44.41 s und 94 Meet-/Persona-Frontendtests in 1.43 s bestanden; ESLint/Angular-Kompilierung und Produktionsbuild (22.905 s) erfolgreich. docs/contracts/persona-video-discovery.md. Abschluss MAP-19: eigenstaendiger Voice-Picker mit privater Discovery, frischer Referenzpruefung, Vererben/Deaktivieren und Profil-Speicher-CAS implementiert (bc4b343be); 168 gemeinsame Meet-/Persona-UI-Tests in 2.07 s, ESLint und Angular-Kompilierung bestanden. Der vorhandene Organisationsbereich bietet getrennte Bild-/Clip-/Stimmkomponenten fuer Organisation, Team und Agentenbesetzung, effektive Herkunft/Revision/Vorschauautoritaet sowie KI-Kennzeichnung. Serverautorisierte APIs bleiben headless; Auswahl, Vorschau und Speichern starten keine Medien oder Sitzung. Damit sind die vier UI-Akzeptanzkriterien erfuellt. Erhaltene SRP-/ISP-Einschraenkung: die Editor-Fassade hat eine wachsende medienspezifische Koordinationsoberflaeche; Validatoren, Draft-/Page-Zustaende und Picker bleiben separat. docs/contracts/persona-voice-profile-picker.md. Echte GPU-Zustellung und weitere Live-/Lastabnahmen gehoeren zu den weiterhin offenen MAP-20/22/26/30, nicht zu diesem abgeschlossenen UI-Task."
     },
     {
       "id": "MAP-20",
@@ -1058,11 +1058,11 @@
     "by_status": {
       "todo": 2,
       "in_progress": 9,
-      "partial": 17,
+      "partial": 16,
       "blocked": 0,
-      "done": 4
+      "done": 5
     },
-    "progress_percent_done": 12.5,
+    "progress_percent_done": 15.6,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1088,6 +1088,8 @@
     }
   },
   "summary_notes": [
+    "2026-09-07 MAP-19/20/22 Stimm-Auswahl inzwischen integriert: aktueller Persona-Voice-Adapter, passive eigene Sprach-CAS, explizite voice_profiles-Aushandlung, ready/paused/blocked-Projektion und gepaarte Selection-/Speech-Profil-Digests binden Generierung sowie wartende/laufende PCM-Ausgabe. Alte Sitzungen behalten ihren Vertrag; kein stiller Stimmenersatz, keine Aktivierung durch Auswahl. 101 Worker-/Vertragstests, 38 Hub-Replytests, 67 Wiringtests und 129 weitere Sprach-/Chatregressionen bestanden. Meet-Stimmprofilpicker und Organisationseditor fuer Voice-Discovery/Referenzpruefung, Vererben/Deaktivieren/Speicher-CAS implementiert; 168 gemeinsame Meet-/Persona-UI-Tests in 2.07 s sowie ESLint/ngc gruen. docs/contracts/meet-voice-preset-selection.md und docs/contracts/persona-voice-profile-picker.md. Historische Notizen zu noch fehlenden Voice-APIs/CAS/UI unten sind durch diesen Quellstand ueberholt.",
+    "2026-09-07 Live-Voice-Abnahme bleibt partiell: synthetischer echter Hub/Worker/Meet-Browserfall in 47.52 s bestanden, Stimmenwechsel und laufender Policy-Widerruf, remote Audioentfernung in 1717.75 ms. Echter GPU-Stimmenlauf nach 111.86 s an zweiter Ausgabe fehlgeschlagen; mitgespeicherte mutable Fehlerliste wurde durch Teardown nachtraeglich veraendert, daher ist der generische Hub-Code kein gesicherter Ursachenbeleg. Diagnosewiederholung scheiterte am 45-s-Modellpreload, insgesamt 116.69 s; separate Qwen-Anwendung belegte rund 8.4 von 10 GiB VRAM und blieb unberuehrt. Konservative 4096-MiB-GPU-Vorpruefung ohne Kill, CPU-Fallback oder Interaktion ergaenzt; 46 Tests gruen. Asynchroner einzelner Hub-Kontrollabruf vermeidet HTTP-Blockade im Medientakt, erhaelt 2.5-s-Freshness und erzwingt neue Abfrage nach Generierung. 78 fokussierte Tests und vier serielle Browserfaelle (Text, Sprache, Bildavatar, 300-ms-Hub-Latenz mit Stimmwechsel/Widerruf) in 175.09 s bestanden. Weitere Authority-Abnahme: zwei Fehler/ein Pass in 154.31 s (Avatarstart, vorzeitiger PCM-Leerlauf, Stop bestanden); Diagnose ein Fehler/ein Pass in 114.61 s (Kontrollstand beim Bildwechsel veraltet, Pause bestanden). Diese Restfehler werden nicht durch gruene Wiederholungen oder synthetische Evidenz verdeckt. Details und weitere Diagnosen: docs/contracts/meet-dialog-control-exchange.md. Kein Gesamt-PASS und keine Produktionsfreigabe. Nachtrag: normaler Abruf auf 1 s vorgezogen, unveraenderte 2.5-s-Grenze; 25 Margin-/Diagnosetests in 26.91 s und abschliessend 129 containerfreie Regressionen in 54.45 s bestanden. Browserpruefung dieser neuen Kadenz noch nicht moeglich: vier Faelle scheiterten vor Runtime-Start am Docker-Testproxy (145.06 s); auch minimaler isolierter Node-Start und Entfernen leerer eigener Container liefen in Timeouts. Daemon/Serving-Instanzen nicht neu gestartet. Leere eigene Testcontainer und Browserabnahme bleiben nach Daemon-Erholung zu bereinigen/pruefen.",
     "2026-09-07 Voice-API-/Profil-Nachtrag zu MAP-19/20/22: eigenstaendige opt-in Hub-Komposition mit privaten Worker-/Key-Overlays, authentifizierter Voice-Policy/Admission/Query/Referenz/Deskriptorvorschau und Revocation/Purge/Retention umgesetzt. Optionaler Voice-Referenzport bindet Organisations-/Team-/Agentenprofile mit Vererbung, disabled-Zustand, stale Pin- und Receipt-Widerrufpruefung; Speichern/Vorschau ist keine Synthese oder Publikation. 24 neue Bootstrap-/Profiltests in 19.95 s, 22 Task-/Speicher-gestuetzte API-Tests in 18.38 s, 126 Voice-Query-/Bild-/Video-/Profil-/API-Regressionen in 54.22 s bestanden (je zwei Pytest-Worker). Fortschritt bleibt partiell: Live-Voice-CAS, alte Sprachqueues verwerfen, UI und echte ausgewaehlte Sprachzustellung sind die folgenden Arbeitspakete. docs/contracts/meet-voice-preset-selection.md; keine serving Aenderung oder produktive Freigabe.",
     "2026-09-07 MAP-19/20/22 Voice-Ausbau umgesetzt, bisheriger Planungsstand unten historisch: lokaler immutable Presetkatalog mit acht Thorsten-Emotional-Ausdrucksvarianten plus kompatibler Standardstimme, key-unabhaengige Modellbereitstellung und echte RTX3080-Neutral/Whisper-Synthese samt Abbruch bestanden. Eigenstaendiger Voice-Deskriptor-/Policy-/Katalogpfad mit Hub-Registry-Testidentitaeten, vorab reservierten Inspektions-Tasks, getrennten Worker-HTTP-/Lease-Signaturen, privatem Ein-Datei-Speicher und widerrufbaren Receipts implementiert. Echter isolierter CPU-Containerpfad in 12.14 s geprueft, Testressourcen entfernt; keine laufende Instanz oder Produktionsfreigabe veraendert. Voice-only Retention/Erasure mit eigenen Ledgern und Hub-Tasks, begrenztem Background-Tick, exaktem Dateiziel und Link-/Hashabwehr implementiert. API-/Profil-/Discovery-Bootstrap wird im naechsten geprueften Commitblock verbunden; Live-Voice-CAS, Queue-Widerruf, UI-Auswahl und echte ausgewaehlte Meet-Sprachzustellung bleiben offen. Nachweise und Abgrenzung: docs/contracts/meet-voice-preset-selection.md. Keine Cloning-Freigabe, kein Modellupload, keine stille automatische Publikation.",
     "2026-09-07 MAP-19/20/22 Stimm-Ausbau vor Code geplant: aktueller Hub bindet nur fixes Piperprofil, ASR-/Feedbackdaten sind keine TTS-Stimmenfreigabe. docs/contracts/meet-voice-preset-selection.md definiert erst geschlossenen lokalen Presetkatalog und key-unabhaengige Modellbereitstellung, dann echten RTX-Variantentest, eigenen evidenz-/policygebundenen Voice-Assetdomain, Persona-Aufloesung und speech-CAS/Queue-Widerruf/UI. Erste Familie Thorsten Emotional mit acht Ausdrucksvarianten derselben deutschen Stimme, upstream CC0-Datensatz, unveraenderte 22050-Hz-/CUDA-/PCM-Policy. Nur immutable gepruefte Modell-/Configpins, keine callerbestimmten URLs/Pfade/Cloning-Modelle; neues bekanntes Modell bekommt eigenes exaktes Groessenlimit statt globaler Lockerung. Bestehender neutraler Sprachvertrag bleibt kompatibel. Noch kein neuer Preset oder produktive Freigabe implementiert.",
@@ -1157,14 +1159,14 @@
         "by_status": {
           "todo": 1,
           "in_progress": 6,
-          "partial": 7,
+          "partial": 6,
           "blocked": 0,
-          "done": 2
+          "done": 3
         },
-        "done": 2,
-        "partial": 7,
+        "done": 3,
+        "partial": 6,
         "blocked": 0,
-        "progress_percent": 54.4
+        "progress_percent": 55.0
       },
       "infrastructure": {
         "total": 1,
@@ -1214,19 +1216,19 @@
     "state": "in_progress",
     "todo_remaining": 2,
     "in_progress": 9,
-    "partial": 17,
+    "partial": 16,
     "blocked": 0,
-    "done": 4,
-    "count_based_percent": 12.5,
-    "weighted_percent": 50.7
+    "done": 5,
+    "count_based_percent": 15.6,
+    "weighted_percent": 50.9
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 29.538,
-    "remaining_weight": 28.712,
+    "done_weight": 29.638,
+    "remaining_weight": 28.612,
     "blocked_weight": 0.0,
-    "weighted_percent": 50.7
+    "weighted_percent": 50.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1264,10 +1266,10 @@
       },
       "MAP-M5": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 74.2,
+        "count_based_percent": 50.0,
+        "weighted_percent": 75.8,
         "status": "in_progress"
       },
       "MAP-M6": {
@@ -1299,10 +1301,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T07:17:49.948730Z",
+    "generated_at": "2026-09-07T15:07:07.341857Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "94bde694988b0021d74cdb63a89194bf109129c965af9a04433581451120e3cb",
+    "source_hash": "0f2ea244b593cf4183b1f4c47115d001768ea8b3e0aceb5d65a2a820dc44bf5e",
     "is_stale": false
   }
 }
