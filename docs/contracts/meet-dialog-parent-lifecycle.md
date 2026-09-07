@@ -32,3 +32,46 @@ composition. Audio-child organization propagation, live role-assignment
 eligibility/revision and distinct organization/agent Meet principal identity
 remain separately open until implemented and verified. Do not close MAP-09/20
 or claim production evidence from this bounded slice.
+
+## Implemented and verified (2026-09-08)
+
+`MeetDialogLifecycle` now owns this check through narrow lookup/gate ports.
+`HubDialogTasks.start` resolves the parent before ingestion and passes the entire
+organization tuple, with team through the queue's separate `team_id` argument.
+`MeetDialogAuthority.current` checks parent linkage, exact inherited scope and
+current organization lifecycle before room access/authorization. Parent status
+uses the existing canonical nonterminal `ACTIVE_TASK_STATUSES`; this is not an
+independent authorization to execute the parent's tools or bypass its gates.
+Lookup/provider errors have fixed content-free denials. Cleanup remains lease-
+fenced and possible after authority loss; no permission, retry or deadline grows.
+
+The original cancelled-parent regression failed in 7.22 s before correction.
+Real SQL tests now cover the complete organization/unit/team/slot graph,
+parent cancellation/archive, organization pause/archive, no grant/dispatch on
+denial and terminal cleanup without resurrection. Two early SQL-fixture mistakes
+(missing project creator and assuming a nonexistent TaskDB archive flag) were
+corrected against the schema; constraints were not disabled. Those failed runs
+are not counted as successful application tests.
+
+Final targeted regression: 216 passed in 82.23 s, including parent/scope,
+standalone session, source profile, avatar/voice selection, controls, transport,
+routes, deadline cleanup and ordinary task-scope inheritance. The static Worker
+boundary check passed all 77 files. Ruff checks and formatting passed for new
+files using the locally cached tool.
+
+The private real Hub/Worker/Meet composition passed both lifecycle scenarios in
+54.83 s against the current private Meet build. Each first delivered a moving
+screen and two correlated chat replies. Only the authoritative parent was
+cancelled or organization paused; no dialog-stop call triggered teardown.
+Worker completion was observed after 905.41 ms and 663.22 ms respectively, its
+own finish callback settled the dialog as failed, and the remote participant
+was removed. These times are Worker-stop observations, not a full remote-media
+latency benchmark. Model/owner policy and organization data were synthetic;
+transport, SQL, signatures and browser execution were real and fully headless.
+
+MAP-09/20 remain open: this does not yet bind a distinct organization/agent
+principal in Meet, prove role-assignment eligibility/revision, propagate every
+audio/media child scope or provide public/GPU/production release evidence. The
+existing broad cross-repository test composition retains SRP debt; the new
+lifecycle scenario and graph fixture stay separate rather than embedding their
+SQL/model policy in the production dialog service or a Worker.

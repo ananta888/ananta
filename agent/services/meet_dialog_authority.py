@@ -34,8 +34,9 @@ class DialogAuthority:
 
 
 class MeetDialogAuthority:
-    def __init__(self, tasks, binding, policies, clock=time.time):
+    def __init__(self, tasks, binding, policies, clock=time.time, *, lifecycle=None):
         self.tasks, self.binding, self.clock = tasks, binding, clock
+        self.lifecycle = lifecycle
         if not isinstance(policies, dict):
             raise ValueError("meet_dialog_policy_invalid")
         self.policies = {}
@@ -142,6 +143,10 @@ class MeetDialogAuthority:
         parent = value["binding_task_id"]
         if not isinstance(parent, str) or parent and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", parent):
             raise MeetError("meet_dialog_binding_invalid", 403)
+        from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
+
+        lifecycle = self.lifecycle if self.lifecycle is not None else MeetDialogLifecycle(self.tasks)
+        lifecycle.require_current(task, parent)
         principal = HubSourcePrincipal(value["owner_subject"], task.tenant_id, task.project_id, frozenset({"user"}))
         self.binding.require_write_access(principal, task.project_id, parent)
         stored = self.binding.read(principal, task.project_id, parent)

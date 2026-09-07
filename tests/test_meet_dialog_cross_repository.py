@@ -217,6 +217,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     avatar_mode,
     voice_mode,
     record_property,
+    lifecycle_scenario=None,
 ):
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -284,6 +285,8 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             )
         )
         session.commit()
+    if lifecycle_scenario is not None:
+        lifecycle_scenario.prepare(engine)
     bridge = subprocess.Popen(
         ["node", "test/helpers/machine-hub-bridge.mjs"],
         cwd=meet,
@@ -535,6 +538,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                     **avatar_observer.start_options,
                     **voice_scenario.start_options,
                 },
+                parent=lifecycle_scenario.parent_id if lifecycle_scenario is not None else "",
             )
         started_at = time.monotonic()
         consent = command("consent")
@@ -723,11 +727,16 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 ),
                 flush=True,
             )
-        inject_private_frame.set()
-        assert command("private_frame_absent") == {"private_frame_absent": True}
-        with app.app_context():
-            state = service.inspect(principal, "synthetic", started["task_id"], stop=True)
-            assert state["status"] == "cancelled"
+        if lifecycle_scenario is not None:
+            assert command("screen") == {"moving_screen": True}
+            with app.app_context():
+                lifecycle_scenario.revoke(engine, service, started, completed)
+        else:
+            inject_private_frame.set()
+            assert command("private_frame_absent") == {"private_frame_absent": True}
+            with app.app_context():
+                state = service.inspect(principal, "synthetic", started["task_id"], stop=True)
+                assert state["status"] == "cancelled"
         assert completed.wait(10), "Worker did not stop after Hub task cancellation"
         assert command("alone") == {"alone": True}
         record_property(

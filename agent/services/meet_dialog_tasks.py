@@ -2,6 +2,9 @@
 
 
 class HubDialogTasks:
+    def __init__(self, *, lifecycle=None):
+        self.lifecycle = lifecycle
+
     def list_page(self, tenant, project, offset):
         from agent.services.repository_registry import get_repository_registry
 
@@ -213,8 +216,11 @@ class HubDialogTasks:
         return get_repository_registry().task_repo.get_by_id(task_id)
 
     def start(self, task_id, tenant, project, context):
+        from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
         from agent.services.task_queue_service import get_task_queue_service
 
+        lifecycle = self.lifecycle if self.lifecycle is not None else MeetDialogLifecycle(self)
+        scope = lifecycle.scope_for_parent(tenant, project, context["binding_task_id"])
         get_task_queue_service().ingest_task(
             task_id=task_id,
             status="in_progress",
@@ -222,12 +228,14 @@ class HubDialogTasks:
             description="Hub-delegated isolated Meet client; content-free lifecycle metadata.",
             created_by=context["owner_subject"],
             source="meet_dialog",
+            team_id=scope.pop("team_id", None),
             event_type="meet_dialog_delegated",
             event_channel="hub_task_queue",
             extra_fields={
                 "task_kind": "meet_dialog_session",
                 "tenant_id": tenant,
                 "project_id": project,
+                **scope,
                 "required_capabilities": ["meet_dialog_session"],
                 "parent_task_id": context["binding_task_id"] or None,
                 "worker_execution_context": {"meet_dialog": context},
