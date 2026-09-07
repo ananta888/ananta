@@ -1,9 +1,9 @@
 # Spoken dialog result handoff — implementation plan
 
 MAP-22 follow-up after actual local Piper-to-Meet transport was verified.
-The closed envelope, shared WAV validator and optional independent Hub speech
-control are implemented; HTTP dispatch and runtime composition remain planned. This is not an
-active endpoint or runtime capability claim.
+The closed envelope, shared WAV validator, optional independent Hub speech
+control and private Hub HTTP endpoint are implemented. Worker transport and
+runtime composition remain in progress; this is not a deployed runtime claim.
 
 ## Decision
 
@@ -16,7 +16,7 @@ existing 40-second PCM/WAV budget; no unbounded live stream is introduced.
 
 Keep the existing `/internal/dialog` request, 16-KiB control response, schemas
 and text-only chat action unchanged. A distinct `/internal/dialog/speech` path
-will accept a closed chat-input request and return its own versioned envelope
+accepts a closed chat-input request and returns its own versioned envelope
 under a separate HMAC domain. Responses are limited to 2,700,000 bytes, sufficient
 for the existing at-most-2,000,000-byte WAV and bounded metadata, never MP4.
 The response signature binds the exact request and response; replay/admission,
@@ -86,3 +86,32 @@ screen loop still passes with the unchanged three-source shape. 49 Angular Meet
 tests, feature lint and template/type checking passed; the unrelated existing
 KnowledgeHygiene RouterLink warning remains. Updated Python modules are
 formatted/linted; Hub/Worker responsibilities and task ownership are unchanged.
+
+## Hub result projection
+
+`MeetDialogSpokenReply` composes the existing SQL-backed chat reservation and
+Hub-owned child generation service. `CurrentDialogChatAuthority` was extracted
+unchanged from the dialog service; a separate speech authority adapter adds the
+explicit capability, activation timestamp and independent revision checks.
+This keeps admission policy and result projection separate (SRP) without a
+second scheduling or persistence path (DIP/composition).
+
+The private `/api/meet/v1/internal/dialog/speech` route authenticates the small
+closed request in its own HMAC domain and signs the bounded response. Only
+correlated text, WAV/profile/sample receipt and exact parent/child bindings are
+projected; generated MP4, grants and source task metadata are not returned.
+Authority is rechecked after generation and again after WAV validation. Speech
+revision is included in the existing durable reservation/dispatch fence, so
+revocation or pause/resume cannot release a stale result or retry the consumed
+input. Pausing speech during a pending spoken reply discards that entire reply,
+including its text; it does not convert that reservation into a text retry.
+Later new inputs may still use the independent ordinary text path.
+
+57 focused service, route, SQL admission/dispatch and existing text/dialog
+regressions passed in 43.27 s on 2026-09-07. They include source revocation,
+chat/speech revision changes during generation, stale membership/lease,
+cancelled tasks, wrong profiles/child bindings, malformed input, replay and
+oversized responses. New service/test modules pass Ruff; the existing compact
+route module was changed narrowly, not globally reformatted. These are local
+synthetic technical checks, not actual Hub/Piper/browser integration or
+production release evidence.

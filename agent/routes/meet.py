@@ -203,3 +203,29 @@ def dialog_callback():
     response = jsonify(getattr(service, payload["action"])(payload))
     response.headers["X-Ananta-Dialog-Signature"] = response_signature(key, raw, response.get_data())
     return response
+
+
+@meet_bp.post("/internal/dialog/speech")
+def spoken_dialog_callback():
+    import hmac
+    import time
+    from ananta_contracts.meet_spoken_reply import (
+        MAX_SPOKEN_BYTES, parse_spoken, spoken_request_signature, spoken_response_signature, validate_spoken_request,
+    )
+    service = _dialog()
+    key = current_app.extensions.get("meet_media_worker_key")
+    if (key is None or request.headers.get("Authorization") or request.args or request.headers.get("Transfer-Encoding")
+            or request.content_length is None or not 0 < request.content_length <= 16384):
+        raise MeetError("meet_spoken_callback_invalid", 403)
+    raw = request.get_data(cache=False)
+    if not hmac.compare_digest(spoken_request_signature(key, raw), request.headers.get("X-Ananta-Speech-Signature", "")):
+        raise MeetError("meet_spoken_callback_unauthorized", 401)
+    try:
+        payload = validate_spoken_request(parse_spoken(raw), time.time())
+    except ValueError:
+        raise MeetError("meet_spoken_callback_invalid") from None
+    response = jsonify(service.spoken_reply(payload))
+    if len(response.get_data()) > MAX_SPOKEN_BYTES:
+        raise MeetError("meet_spoken_result_oversize", 502)
+    response.headers["X-Ananta-Speech-Signature"] = spoken_response_signature(key, raw, response.get_data())
+    return response

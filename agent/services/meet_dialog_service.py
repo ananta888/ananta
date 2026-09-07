@@ -4,56 +4,19 @@ import json
 import time
 import uuid
 
-from agent.services.meet_chat_admission import AuthorizedChatSession, MeetChatAdmissionService
-from agent.services.meet_chat_contract import ChatEvent, ChatScope
+from agent.services.meet_chat_admission import MeetChatAdmissionService
+from agent.services.meet_chat_contract import ChatEvent
 from agent.services.meet_chat_policy import ChatReplyPolicy
 from agent.services.meet_contract import MeetError
+from agent.services.meet_dialog_chat_authority import CurrentDialogChatAuthority
 from agent.services.meet_dialog_controls import (
     change_controls,
-    chat_policy_revision,
     controls_projection,
     initial_controls,
 )
 from agent.services.meet_dialog_replies import MeetDialogReplies
+from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
 from agent.services.meet_turn_service import HubMediaTasks
-
-
-class CurrentDialogChatAuthority:
-    def __init__(self, authority, meet, identifiers, meet_session_id, sender_peer_id):
-        self.authority, self.meet, self.identifiers = authority, meet, identifiers
-        self.meet_session_id, self.sender_peer_id = meet_session_id, sender_peer_id
-
-    def current(self, session_id):
-        scope = self.authority.current(*self.identifiers)
-        if (
-            session_id != scope.session_id
-            or not scope.controls.chat.enabled
-            or not {"chat.read", "chat.send"} <= set(scope.capabilities)
-        ):
-            return None
-        receipt = self.meet.inspect(*self.identifiers, self.meet_session_id)
-        grants = [g for g in receipt["grants"] if g["chatRead"]]
-        if not any(g["publisherPeerId"] == self.sender_peer_id for g in grants):
-            return None
-        lease = receipt["lease"]
-        return AuthorizedChatSession(
-            ChatScope(
-                origin=scope.origin,
-                tenant_id=scope.tenant_id,
-                project_id=scope.project_id,
-                task_id=scope.task_id,
-                session_id=scope.session_id,
-                runtime_id=scope.runtime_id,
-                lease_id=scope.lease_id,
-                generation=lease["generation"],
-                room_id=scope.room_id,
-                membership_epoch=receipt["membershipEpoch"],
-                policy_revision=chat_policy_revision(receipt["receiveRevision"], scope.controls.chat.revision),
-                own_peer_id=receipt["peerId"],
-                deadline_ms=min(lease["expiresAt"], scope.deadline * 1000, *(g["expiresAt"] for g in grants)),
-            ),
-            ChatReplyPolicy(mode=scope.chat_mode),
-        )
 
 
 class MeetDialogService:
@@ -104,6 +67,10 @@ class MeetDialogService:
             clock,
             replies=self.replies,
         )
+        self.spoken_replies = MeetDialogSpokenReply(authority, meet, reservations, self.replies, clock=clock)
+
+    def spoken_reply(self, payload):
+        return self.spoken_replies.execute(payload)
 
     def list(self, principal, project, cursor=0):
         self.authority.binding.require_write_access(principal, project)
