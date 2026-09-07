@@ -492,7 +492,8 @@
         "Unbekannter Codec, fehlendes ACK, Replay, Revocation oder unsupported Encoded-Transform-Fähigkeit stoppen die betroffene Quelle ohne Klartext-Fallback.",
         "Keys bleiben in der autorisierten Teilnehmer-Runtime; Hub-Orchestrierung, Signaling und blinde Relays bekommen keine zusätzliche Entschlüsselungsfähigkeit."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "startup_investigation": "2026-09-08: Intermittenter initialer Screenempfang mit 349 RTP-Paketen/0 dekodierten Frames, 33 Senderframes und lebendem Hub/Worker; gruene Wiederholung ist kein Fix. Companion 4d40b45 verwirft Frames vor SFrame-Keyinstallation, fordert dabei aber keinen Ersatz-Keyframe an. Hypothese noch unbestaetigt; docs/contracts/meet-screen-encryption-startup.md plant feste begrenzte Zweissekunden-Senderkeyverzoegerung ohne Rechte-/Timeout-/Verschluesselungslockerung und nur numerische Diagnosen."
     },
     {
       "id": "MAP-09",
