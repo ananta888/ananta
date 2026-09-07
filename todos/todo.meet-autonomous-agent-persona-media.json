@@ -964,7 +964,7 @@
         "Kompatibilitätsregression für bisherigen Meet-Human-Join, Pair-Dev, Artefaktaustausch, LiveKit, Room-Caps und bestehende Invite-Zuordnungen ausführen.",
         "Companion-Contract-Fixtures mit MDS-01 abstimmen und Audioempfang, automatischen Chatturn sowie bewegten agenteneigenen Bildschirm Ende zu Ende testen. Negativfälle umfassen doppelte Events, Self-Echo, Prompt-Injection, fremde Publikationen, Schlüsselentzug und missbrauchte Renewal-Generationen."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich. Fortsetzung 2026-09-07 gegen Meet 17cbdf8: eigener interner TLS-Testproxy ersetzt die Annahme eines freien Host-Ports 443. Separater nicht-root Chromium-Container unter dem vorhandenen seccomp-Profil und lokaler STUN-only-Container verbinden Host und Testbrowser ohne externe ICE-Dienste, Host-Capture oder Abschalten von Sandbox/AppArmor. Reeller Kurzgate mit Chatantwort, bewegten CDP-Bildern, Pause/Fortsetzen, privatem Markerentzug und Stop in 33,00 Sekunden bestanden. 14 Infrastruktur-/Cleanup-Tests in 19,05 Sekunden bestanden. Fuenf-Minuten-Wiederholung nach 306,20 Sekunden fehlgeschlagen: Freigabeerneuerung wirft meet_chat_authority_changed zwischen Queue-Status und Lesen/ACK. Fehlerbehebung und erneuter Soak folgen; keine GPU-/TURN-/Produktionsfreigabe, keine Archivierung."
     },
     {
       "id": "MAP-30",
@@ -1293,10 +1293,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T00:37:38.439165Z",
+    "generated_at": "2026-09-07T01:21:35.000131Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8e265cd7e2516fd8b4b1b539b0b754f3f67808045a9e3510a55be1fc17dc6e8e",
+    "source_hash": "146a1842d2a438782403ffee54d28e31b4fd3eeae0bd5e722899549971d95115",
     "is_stale": false
   }
 }

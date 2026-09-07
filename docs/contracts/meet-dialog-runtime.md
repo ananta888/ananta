@@ -4,12 +4,66 @@ This work is not deployed or production-accepted. Local tests are synthetic
 technical observations, not Hub Evidence Registry release records. The combined
 browser/ASR/Direct/SFU/TURN/long-session gate is still required.
 
-Work paused at the user's request on 2026-09-07. The short cross-repository
-composition gate passed; the five-minute soak did **not** finish successfully.
+An earlier session paused on 2026-09-07; implementation has since resumed at
+the user's request. That session's short cross-repository composition gate
+passed; its five-minute soak did **not** finish successfully.
 It observed moving remote pixels through 236 seconds and four lease generations,
 then a browser runtime failure. The two-hour gate has not run. A subsequent
 Meet expiry-timer fix still needs long-session verification. Do not promote
-these observations to production readiness or resume rollout automatically.
+these observations to production readiness or enable rollout automatically.
+
+## Reproducible private browser fixture
+
+The cross-repository gate provisions a private internal Docker network in Meet,
+with an opaque TLS proxy and a separately sandboxed Ananta Chromium container.
+An additional Coturn container provides STUN-only address discovery inside that
+same internal network. `MEET_TEST_STUN_IMAGE` defaults to `coturn/coturn:4.17.0`.
+It has no relay allocation or published host ports and a bounded process timeout.
+This resolves the observed lack of signalled container ICE candidates without
+disabling browser mDNS privacy or using an external STUN service.
+No public host port, host browser profile, GPU, Docker socket or host filesystem
+is exposed to that browser. Its image is resolved to an immutable local image ID;
+it runs as UID 1000 with the existing Chromium seccomp profile, no capabilities,
+read-only root, no-new-privileges, bounded tmpfs/RAM/PIDs and a hard lifetime.
+AppArmor and host namespace policy are not disabled. This avoids Ubuntu 26.04's
+rejection of sandboxed executables downloaded into an ordinary user's cache.
+
+Install the optional `meet-tests` extra (Playwright 1.58.0, matching the worker
+image) alongside the usual dev dependencies. Build the adjacent Meet repository
+first. `MEET_TEST_PROXY_IMAGE` must select an existing Node-capable image and
+`MEET_TEST_BROWSER_IMAGE` an existing image built from `docker/meet-media/Dockerfile`.
+The browser image only supplies Chromium, not the Hub/Worker application code
+being tested. The fixture uses the full [Playwright connection protocol](https://playwright.dev/python/docs/api/class-browsertype#browser-type-connect)
+and explicitly requests a sandboxed browser before connecting. It exposes no
+host-network tunnel. The Python package does not need its own downloaded browser
+for this container-backed gate.
+
+```bash
+MEET_CROSS_REPOSITORY_GATE=1 \
+MEET_TEST_PROXY_IMAGE=webrtc-ci-local-webrtc:latest \
+MEET_TEST_BROWSER_IMAGE=ananta-meet-media-meet-media-worker:latest \
+.venv/bin/python -m pytest tests/test_meet_dialog_cross_repository.py -n0
+```
+
+An optional `MEET_DIALOG_SOAK_SECONDS=300..7200` uses real clocks and counts both
+host fixture processes and the separate browser container's process tree.
+The fixture substitutes only browser hosting and explicit synthetic project /
+model fixtures: TLS, signed grants, task controls, receipt validation, SFrame,
+remote decoded frames and correlated chat remain real. No test success here
+constitutes production evidence or actual GPU/model execution.
+
+Browser provisioning now has a separate command-injected fixture (SRP/DIP), and
+process accounting and teardown have explicit testable helpers. The integration
+scenario still contains substantial Hub-policy setup, a preserved SRP debt;
+extracting a reusable Hub fixture is preferable to adding infrastructure branches
+to that scenario. No production authority, execution or capture interface was
+broadened by this fixture change.
+
+On 2026-09-07 this isolated short gate passed in 33.00 seconds and 14 fixture /
+teardown tests passed in 19.05 seconds. The subsequent five-minute attempt
+failed after 306.20 seconds: renewing publisher consent exposed a
+`meet_chat_authority_changed` race between queue status and polling/ACK. This
+remains a failed long-session observation until the Worker fix is verified.
 
 ## Authority and composition
 
