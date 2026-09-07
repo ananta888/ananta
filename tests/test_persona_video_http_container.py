@@ -16,6 +16,7 @@ from werkzeug.serving import make_server
 
 from agent.db_models import ArtifactDB, ArtifactVersionDB
 from agent.models.persona_asset_policy import PersonaSourcePin
+from agent.models.persona_video_assets import PersonaVideoAsset
 from agent.repositories.persona_video_assets import create_video_asset_catalog
 from agent.services.artifact_store import ArtifactStore
 from agent.services.persona_video_asset_service import PersonaVideoAssetService
@@ -150,34 +151,62 @@ def admit_synthetic_source(case, content):
     case.permission = permission
 
 
-def assert_video_asset_lifecycle(case, tmp_path, expected):
+def assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch):
     for model in (ArtifactDB, ArtifactVersionDB):
         model.__table__.create(case.base.engine)
     catalog = create_video_asset_catalog(case.base.engine)
     catalog.initialize()
     storage = PersonaVideoStorage(ArtifactStore(tmp_path / "private-assets"))
     service = PersonaVideoAssetService(policy=case.policy, tasks=case.tasks, catalog=catalog, storage=storage)
-    asset = service.admit_video(
-        case.principal,
-        "project",
-        content=case.content,
-        media_type="video/mp4",
-        origin_binding=case.permission.source.source_id,
-        license_binding=case.permission.license.source_id,
-    )
-    case.receipts.require_asset(case.principal, asset)
-    assert service.read_video(case.principal, "project", asset.video.artifact_id) == expected.preview
-    assert service.read_video(case.principal, "project", asset.video.artifact_id, purpose="publish") == expected.video
-    assert service.revoke(case.principal, "project", asset.video.artifact_id, expected_revision=2) == 3
-    with pytest.raises(ValueError):
-        service.read_video(case.principal, "project", asset.video.artifact_id)
+    app.extensions["persona_video_assets"] = service
     erasure = create_video_erasure_service(policy=case.policy, catalog=catalog, base_dir=storage.store.base_dir)
-    assert erasure.purge(case.principal, "project", asset.video.artifact_id, expected_revision=3) == 5
+    app.extensions["persona_video_erasure"] = erasure
+    # Explicit headless JWT-validation fixture; actual project authority, source
+    # policy, Hub task, Registry receipt and filesystem remain real.
+    monkeypatch.setattr(
+        "agent.auth._validate_user_jwt",
+        lambda token: {
+            "sub": "actor",
+            "tenant_id": "tenant",
+            "project_id": "project",
+            "role": "user",
+        }
+        if token == "synthetic-video-api"
+        else None,
+    )
+    monkeypatch.setattr("agent.auth._user_token_allows_current_request", lambda _: True)
+    http = app.test_client()
+    headers = {"Authorization": "Bearer synthetic-video-api"}
+    path = "/api/persona-media/v1/projects/project/videos"
+    response = http.post(
+        path,
+        headers=headers,
+        json={
+            "content": base64.b64encode(case.content).decode(),
+            "media_type": "video/mp4",
+            "origin_binding": case.permission.source.source_id,
+            "license_binding": case.permission.license.source_id,
+            "consent_binding": None,
+        },
+    )
+    assert response.status_code == 201 and response.json["revision"] == 2
+    asset = PersonaVideoAsset.model_validate(response.json["asset"])
+    path += "/" + asset.video.artifact_id
+    case.receipts.require_asset(case.principal, asset)
+    assert http.get(path + "/preview", headers=headers).data == expected.preview
+    assert service.read_video(case.principal, "project", asset.video.artifact_id, purpose="publish") == expected.video
+    assert http.delete(path, headers=headers, json={"expected_revision": 2}).json == {"revision": 3, "state": "revoked"}
+    assert http.get(path + "/preview", headers=headers).status_code == 409
+    assert http.post(path + "/purge", headers=headers, json={"expected_revision": 3}).json == {
+        "revision": 5,
+        "state": "purged",
+        "secure_device_erasure": False,
+    }
     assert not list(storage.store.base_dir.rglob("v0001__*"))
     assert catalog.get_retired("tenant", "project", asset.video.artifact_id) == (asset, 5, "purged")
 
 
-def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(request, app, tmp_path):
+def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(request, app, tmp_path, monkeypatch):
     case = request.getfixturevalue("video_task")
     case.policy.access = app.extensions["project_access_authority"]
     app.config["ROLE"] = "hub"
@@ -214,5 +243,5 @@ def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(req
                 assert case.state.get(result.task_id).status == "completed"
                 run = case.base.repository.get_run(tenant_id="tenant", project_id="project", run_id=result.run_id)
                 assert run.state == "succeeded" and run.synthetic and run.evidence_scope == "test"
-                assert_video_asset_lifecycle(case, tmp_path, expected)
+                assert_video_asset_lifecycle(case, tmp_path, expected, app, monkeypatch)
                 assert not docker("exec", container, "sh", "-c", "command -v nvidia-smi || true")

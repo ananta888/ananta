@@ -52,6 +52,7 @@ The combined Hub-task, image/video policy and decoder-contract run passed
 114 tests in 78.98 seconds. No public feature or Registry release was activated.
 
 The private authenticated worker HTTP transport/live-lease route is documented
-in [persona-video-http.md](persona-video-http.md). Still required to expose
-productive upload: lifecycle/API/bootstrap composition and profile/publisher
-integration. No public feature or trust policy is enabled.
+in [persona-video-http.md](persona-video-http.md). Lifecycle/API/bootstrap
+composition is documented in [persona-video-api.md](persona-video-api.md).
+Profile/publisher integration remains open. No public feature or trust policy
+is enabled.

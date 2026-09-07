@@ -1,12 +1,14 @@
-"""Explicit image-only Hub composition; configuration never grants project use."""
+"""Independent opt-in media composition; configuration never grants project use."""
 
 import os
 
 
 def configure_persona_media(app):
+    from agent.bootstrap.persona_videos import configure_persona_videos
     from agent.routes.persona_media import persona_media_bp
 
     app.register_blueprint(persona_media_bp)
+    configure_persona_videos(app)
     if app.config.get("ROLE") != "hub" or os.environ.get("ANANTA_PERSONA_IMAGES_ENABLED") != "1":
         return
     from sqlmodel import Session

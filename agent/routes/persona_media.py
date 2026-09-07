@@ -10,15 +10,18 @@ from agent.models.persona_asset_policy import PersonaImagePolicy
 from agent.models.persona_media import PersonaMediaProfile
 from agent.routes.persona_inspection_lease_response import inspection_lease_response
 from agent.routes.persona_media_http import payload as _payload
+from agent.routes.persona_media_http import revision as _revision
 from agent.routes.persona_media_http import service as _service
 from agent.routes.persona_retention import persona_retention_bp
 from agent.routes.persona_video_lease import persona_video_lease_bp
+from agent.routes.persona_videos import persona_videos_bp
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignment
 
 persona_media_bp = Blueprint("persona_media", __name__, url_prefix="/api/persona-media/v1")
 persona_media_bp.register_blueprint(persona_retention_bp)
 persona_media_bp.register_blueprint(persona_video_lease_bp)
+persona_media_bp.register_blueprint(persona_videos_bp)
 
 
 @persona_media_bp.before_request
@@ -51,12 +54,6 @@ def denied(_error):
 @persona_media_bp.errorhandler(ProjectAccessError)
 def project_denied(error):
     return jsonify({"error": {"code": error.reason_code}}), error.public_status
-
-
-def _revision(value, *, allow_zero=False):
-    if type(value) is not int or not (0 if allow_zero else 1) <= value <= 2**53 - 1:
-        raise ValueError("persona_revision_invalid")
-    return value
 
 
 @persona_media_bp.put("/projects/<project>/image-policy")

@@ -2,6 +2,14 @@
 
 from flask import current_app, request
 
+from ananta_contracts.persona_inspection_wire import parse_inspection_json
+
+
+def revision(value, *, allow_zero=False):
+    if type(value) is not int or not (0 if allow_zero else 1) <= value <= 2**53 - 1:
+        raise ValueError("persona_revision_invalid")
+    return value
+
 
 def service(name):
     if current_app.config.get("ROLE") != "hub":
@@ -15,7 +23,9 @@ def service(name):
 def payload(fields, *, maximum=16384):
     if request.content_length is None or not 0 < request.content_length <= maximum:
         raise ValueError("persona_payload_invalid")
-    value = request.get_json(silent=True)
+    if not request.is_json:
+        raise ValueError("persona_payload_invalid")
+    value = parse_inspection_json(request.get_data(cache=False), maximum=maximum)
     if not isinstance(value, dict) or set(value) != set(fields):
         raise ValueError("persona_payload_invalid")
     return value

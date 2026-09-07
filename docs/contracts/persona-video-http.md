@@ -4,7 +4,8 @@ Video inspection now has a dedicated CPU worker endpoint
 `POST /v1/persona-videos` and a read-only Hub callback
 `POST /api/persona-media/v1/internal/video-lease`. Neither route creates a
 policy or grants publication rights. User-facing upload/bootstrap integration
-is a separate lifecycle change; registering the callback does not enable it.
+is described in [persona-video-api.md](persona-video-api.md); registering the
+callback does not enable it.
 
 The Hub sends only its closed pre-reserved assignment, bounded MP4 bytes and
 media type. Private worker DNS is resolved and pinned before dispatch; the
