@@ -17,6 +17,8 @@ from agent.routes.persona_video_lease import persona_video_lease_bp
 from agent.routes.persona_video_retention import persona_video_retention_bp
 from agent.routes.persona_videos import persona_videos_bp
 from agent.routes.persona_voice_lease import persona_voice_lease_bp
+from agent.routes.persona_voice_retention import persona_voice_retention_bp
+from agent.routes.persona_voices import persona_voices_bp
 from agent.services.project_access_authority import ProjectAccessError
 from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignment
 
@@ -26,6 +28,8 @@ persona_media_bp.register_blueprint(persona_video_lease_bp)
 persona_media_bp.register_blueprint(persona_video_retention_bp)
 persona_media_bp.register_blueprint(persona_videos_bp)
 persona_media_bp.register_blueprint(persona_voice_lease_bp)
+persona_media_bp.register_blueprint(persona_voice_retention_bp)
+persona_media_bp.register_blueprint(persona_voices_bp)
 
 
 @persona_media_bp.before_request
