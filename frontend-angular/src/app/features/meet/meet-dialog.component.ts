@@ -13,7 +13,10 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
     <h3>Ananta im Raum</h3>
     <p>Der Hub startet einen isolierten KI-Teilnehmer. Zuhören und Chatlesen benötigen zusätzlich die
       Freigabe jedes jeweiligen Teilnehmers unter Meet → Analyse. Keine Aufzeichnung oder Tool-Freigabe.</p>
-    <label><input type="checkbox" [(ngModel)]="chat" [disabled]="busy()" />Auf neue Raumchat-Nachrichten antworten</label>
+    <label><input type="checkbox" [ngModel]="chat" (ngModelChange)="setChat($event)" [disabled]="busy()" />Auf neue Raumchat-Nachrichten antworten</label>
+    <label><input type="checkbox" [(ngModel)]="speech" [disabled]="busy() || !chat" />Raumchat-Antworten zusätzlich mit lokaler KI-Stimme sprechen</label>
+    <p>Sprachausgabe benötigt Raumchat und eine ausdrückliche Hub-Operatorfreigabe. Sie aktiviert kein Mikrofon
+      und kein Zuhören; erkannte Audioeingaben werden in dieser Ausbaustufe weiterhin nur im Textchat beantwortet.</p>
     <label><input type="checkbox" [(ngModel)]="audio" [disabled]="busy()" />Freigegebenes Audio lokal erkennen und beantworten</label>
     <label><input type="checkbox" [(ngModel)]="screen" [disabled]="busy()" />Eigene isolierte KI-Arbeitsansicht teilen (kein Desktop)</label>
     <label>Antwortstrategie <select [(ngModel)]="mode" [disabled]="busy()">
@@ -49,13 +52,14 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   readonly nextCursor = signal<number | null>(null);
   readonly sourceNames = [{ key: 'chat', label: 'Raumchat' }, { key: 'audio', label: 'Audioempfang' },
     { key: 'screen', label: 'Arbeitsansicht' }, { key: 'speech', label: 'Sprachausgabe' }] as const;
-  chat = false; audio = false; screen = false; mode = 'mention'; minutes = 15;
+  chat = false; audio = false; screen = false; speech = false; mode = 'mention'; minutes = 15;
+  setChat(enabled: boolean): void { this.chat = enabled; if (!enabled) this.speech = false; }
   ngOnInit(): void { this.identity = this.auth.user$.pipe(skip(1)).subscribe(() => this.reset()); }
   ngOnChanges(): void { this.reset(); }
   ngOnDestroy(): void { this.request?.unsubscribe(); this.identity?.unsubscribe(); }
   private reset(): void {
     this.request?.unsubscribe(); this.busy.set(false); this.dialogs.set([]); this.nextCursor.set(null); this.message.set('');
-    this.chat = this.audio = this.screen = false;
+    this.chat = this.audio = this.screen = this.speech = false;
   }
   private failure(error: {status?: number}): void {
     this.busy.set(false);
@@ -73,8 +77,10 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   }
   start(): void {
     if (this.busy() || !this.projectId || !(this.chat || this.audio || this.screen)) return;
+    if (this.speech && !this.chat) { this.message.set('Sprachausgabe benötigt ausdrücklich ausgewählten Raumchat.'); return; }
     const capabilities = [...(this.chat ? ['chat.read'] : []), ...(this.chat || this.audio ? ['chat.send'] : []),
-      ...(this.audio ? ['audio.receive'] : []), ...(this.screen ? ['screen.publish'] : [])];
+      ...(this.audio ? ['audio.receive'] : []), ...(this.screen ? ['screen.publish'] : []),
+      ...(this.speech ? ['speech.publish'] : [])];
     this.busy.set(true); this.message.set('');
     this.request = this.api.start(this.projectId, this.taskId, { capabilities, duration_seconds: this.minutes * 60,
       chat_mode: this.chat || this.audio ? this.mode : 'off', audio_mode: this.audio ? 'dialog' : 'off' }).subscribe({

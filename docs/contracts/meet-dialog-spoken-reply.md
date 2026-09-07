@@ -184,3 +184,21 @@ several infrastructure lifecycles; new speech observations were extracted into
 `tests/meet_dialog_speech_observer.py` rather than expanding that responsibility.
 Ruff and diff checks pass. Remaining work includes the combined real GPU path,
 live mid-output revocation/load/soak acceptance and the speech-enabled UI start.
+
+## Explicit speech-enabled start
+
+The existing Angular dialog form now offers an initially unchecked local speech
+option, enabled only alongside explicitly selected room-chat input. Selecting
+speech does not infer chat permission or enable audio reception; removing chat
+also clears speech. Account/project changes clear both selections, and the Hub
+still owns the actual operator-policy decision. The text explicitly distinguishes
+spoken room-chat answers from ASR inputs, which currently retain text replies.
+The form reuses its existing native labelled checkbox pattern; no shared UI
+primitive or new component was required.
+
+53 Meet frontend tests passed in 1.25 s, including disabled/default controls,
+exact selected capability projection, stale selection rejection and identity
+reset. ESLint and Angular template/type checking pass; the unrelated existing
+KnowledgeHygiene RouterLink warning remains. Tests await Angular form stability
+automatically rather than assuming synchronous ngModel initialization. This
+completes the start-form follow-up, not the remaining GPU/live acceptance gates.

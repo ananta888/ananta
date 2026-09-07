@@ -44,7 +44,29 @@ describe('Hub-owned Meet dialog controls', () => {
   it('never starts, captures or grants sources on load; selections default off', () => {
     const f = setup(), c = f.componentInstance;
     expect(api.start).not.toHaveBeenCalled(); expect(api.list).not.toHaveBeenCalled();
-    expect(c.chat || c.audio || c.screen).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
+    expect(c.chat || c.audio || c.screen || c.speech).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
+  });
+  it('requires explicit chat and speech selection without enabling listening or capture', async () => {
+    const f = setup(), c = f.componentInstance;
+    await f.whenStable();
+    const checkbox = [...f.nativeElement.querySelectorAll('input[type="checkbox"]')]
+      .find((element: HTMLInputElement) => element.parentElement?.textContent?.includes('lokaler KI-Stimme')) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true); expect(checkbox.checked).toBe(false);
+    c.setChat(true); f.detectChanges(); await f.whenStable(); expect(checkbox.disabled).toBe(false);
+    c.speech = true; c.start();
+    expect(api.start).toHaveBeenCalledWith('project', '', { capabilities: ['chat.read', 'chat.send', 'speech.publish'],
+      duration_seconds: 900, chat_mode: 'mention', audio_mode: 'off' });
+    c.setChat(false); expect(c.speech).toBe(false);
+  });
+  it('never infers chat permission from a stale speech selection', () => {
+    const c = setup().componentInstance; c.screen = true; c.speech = true; c.start();
+    expect(api.start).not.toHaveBeenCalled(); expect(c.message()).toContain('ausdrücklich ausgewählten Raumchat');
+  });
+  it.each(['account', 'project'])('clears selected voice permission on %s change', change => {
+    const f = setup(), c = f.componentInstance; c.setChat(true); c.speech = true;
+    if (change === 'account') identity.next(null);
+    else { f.componentRef.setInput('projectId', 'other'); f.detectChanges(); }
+    expect(c.speech).toBe(false); expect(c.chat).toBe(false); expect(api.start).not.toHaveBeenCalled();
   });
   it('sends only selected rights to the Hub and restores the persisted task list', () => {
     const f = setup(), c = f.componentInstance;
