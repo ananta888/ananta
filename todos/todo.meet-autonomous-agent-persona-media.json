@@ -498,6 +498,7 @@
     },
     {
       "id": "MAP-09",
+      "parent_lifecycle_plan": "2026-09-08 vor Code geprueft: MeetDialogTasks.start setzt Tenant/Projekt explizit und verliert deshalb die automatische Eltern-Organisationsvererbung; direkte Meet-Authority prueft bisher Session/Projekt/Raum, nicht selbst Eltern-Lifecycle und identische Organisationstupel. docs/contracts/meet-dialog-parent-lifecycle.md plant kleinen Hub-Lifecycle-Port, exakten aktiven Parent, vollstaendige Scopevererbung fuer Dialogtasks und erneute bestehende Organisations-Lifecycle-Pruefung bei jedem Authorityread. Regression/SQL-/Widerrufs-/No-Dispatch-/Browsertests, feste Failclosed-Codes, keine Worker-/Meet-Principal- oder Produktionsfreigabe. Rolleneligibility und Audiochild-Vererbung bleiben gesondert offen; MAP-09 bleibt in_progress.",
       "title": "Hub-Taskmodell für Meet-Agenten-Sitzungen integrieren",
       "repository": "ananta",
       "type": "feature",
