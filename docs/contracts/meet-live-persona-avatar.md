@@ -202,3 +202,15 @@ synthetic. No case is production release evidence. Companion `1c6c07f` adds the
 fixed read-only color observations; its serial full check passed with 569
 frontend and 499 Node successes / zero failures / two Node skips (69.11 s for
 the Node matrix), plus explicit external-infrastructure skips.
+
+## Next bounded gate: actual image lease renewal
+
+Before further implementation, extend the isolated cross-repository image
+scenario with an explicit 180-second parent assignment. Keep the production
+120-second grant and normal early-renewal path unchanged; do not fast-forward
+clocks or mint test-only substitute leases. Observe the actual fresh Meet lease
+generation in Worker updates and require a new matching image hydration before
+the image is visible again. Keep the blue selection across the renewal, then
+revoke it and require a new spoken reply plus continued screen without stale
+picture or PCM replay. This is a bounded short renewal test, not the separate
+two-hour soak or public TURN gate. Existing short/GPU scenarios remain unchanged.
