@@ -198,6 +198,13 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         avatar_profiles=avatar_profiles,
         voice_profiles=voice_profiles,
     )
+    from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
+    from agent.services.meet_dialog_deadlines import MeetDialogDeadlines
+    from agent.services.task_runtime_service import compare_and_set_local_task_status
+
+    app.extensions["meet_dialog_deadlines"] = MeetDialogDeadlines(
+        SqlDialogDeadlines(engine, task_status_cas=compare_and_set_local_task_status)
+    )
 
 
 def _persona_images(app):

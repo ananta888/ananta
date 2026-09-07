@@ -32,6 +32,7 @@ def test_background_manager_contains_start_failures_and_records_state(monkeypatc
     monkeypatch.setattr(manager, "_start_speech_evidence_retention_reconciler", lambda: None)
     monkeypatch.setattr(manager, "_start_agent_safety_retention_reconciler", lambda: None)
     monkeypatch.setattr(manager, "_start_persona_retention", lambda: None)
+    monkeypatch.setattr(manager, "_start_meet_dialog_deadlines", lambda: None)
     monkeypatch.setattr(manager, "_start_semantic_media_audit_reconciler", lambda: None)
     monkeypatch.setattr(manager, "_start_mail_polling_scheduler", lambda: None)
     monkeypatch.setattr(
@@ -57,6 +58,7 @@ def test_background_manager_contains_start_failures_and_records_state(monkeypatc
         "speech_evidence_retention_reconciler",
         "agent_safety_retention_reconciler",
         "persona_retention_reconciler",
+        "meet_dialog_deadline_reconciler",
         "semantic_media_audit_reconciler",
         "mail_polling_scheduler",
         "sfu_broadcast_reconciler_scheduler",

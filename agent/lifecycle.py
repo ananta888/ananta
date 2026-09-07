@@ -17,6 +17,7 @@ BACKGROUND_SERVICE_NAMES = (
     "speech_evidence_retention_reconciler",
     "agent_safety_retention_reconciler",
     "persona_retention_reconciler",
+    "meet_dialog_deadline_reconciler",
     "semantic_media_audit_reconciler",
     "mail_polling_scheduler",
     "sfu_broadcast_reconciler_scheduler",
@@ -77,6 +78,7 @@ class BackgroundServiceManager:
             self._start_agent_safety_retention_reconciler,
         )
         self._start_service("persona_retention_reconciler", self._start_persona_retention)
+        self._start_service("meet_dialog_deadline_reconciler", self._start_meet_dialog_deadlines)
         self._start_service(
             "semantic_media_audit_reconciler",
             self._start_semantic_media_audit_reconciler,
@@ -138,6 +140,7 @@ class BackgroundServiceManager:
             ("speech_evidence_retention_reconciler", self._stop_speech_evidence_retention_reconciler),
             ("agent_safety_retention_reconciler", self._stop_agent_safety_retention_reconciler),
             ("persona_retention_reconciler", self._stop_persona_retention),
+            ("meet_dialog_deadline_reconciler", self._stop_meet_dialog_deadlines),
         ):
             try:
                 stopper()
@@ -271,6 +274,16 @@ class BackgroundServiceManager:
         from agent.services.background.persona_retention import stop_persona_retention
 
         stop_persona_retention(self.app)
+
+    def _start_meet_dialog_deadlines(self):
+        from agent.services.background.meet_dialog_deadlines import start_meet_dialog_deadlines
+
+        start_meet_dialog_deadlines(self.app)
+
+    def _stop_meet_dialog_deadlines(self):
+        from agent.services.background.meet_dialog_deadlines import stop_meet_dialog_deadlines
+
+        stop_meet_dialog_deadlines(self.app)
 
     def _start_agent_safety_retention_reconciler(self):
         from agent.services.background.agent_safety_retention_reconciler import (

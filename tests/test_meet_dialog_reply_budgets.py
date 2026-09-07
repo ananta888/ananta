@@ -109,6 +109,12 @@ def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypa
     monkeypatch.setattr("agent.repositories.meet_chat_dispatches.SqlChatDispatches", Mock())
     capacity, voice = Mock(), speech_profile(max_seconds=7)
     configure_meet_dialog(app, Mock(), Mock(), capacity=capacity, speech_profile=voice)
+    from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
+    from agent.services.meet_dialog_deadlines import MeetDialogDeadlines
+
+    assert isinstance(app.extensions["meet_dialog_deadlines"], MeetDialogDeadlines)
+    assert isinstance(app.extensions["meet_dialog_deadlines"].store, SqlDialogDeadlines)
+    assert "meet_dialog_deadline_reconciler" not in app.extensions
     replies = app.extensions["meet_dialog_service"].replies
     assert replies.capacity is capacity and replies.speech_profile == voice
     assert app.extensions["meet_dialog_service"].audio_coordinator.replies is replies
