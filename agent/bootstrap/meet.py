@@ -92,6 +92,10 @@ def configure_meet_media(app):
             os.environ["ANANTA_MEET_MACHINE_ISSUER"], os.environ["ANANTA_MEET_MACHINE_KEY_FILE"]
         )
     images = _persona_images(app)
+    from agent.services.meet_persona_videos import MeetPersonaVideos
+
+    video_assets = app.extensions.get("persona_video_assets")
+    videos = MeetPersonaVideos(video_assets) if video_assets is not None else None
     profiles = None
     if images is not None and app.extensions.get("persona_profiles") is not None:
         from agent.services.meet_persona_profiles import MeetPersonaProfiles
@@ -108,6 +112,7 @@ def configure_meet_media(app):
         persona_profiles=profiles,
         speech_profile=voice,
         capacity=capacity,
+        persona_videos=videos,
     )
     configure_meet_dialog(app, worker, issuer, capacity=capacity, speech_profile=voice)
 

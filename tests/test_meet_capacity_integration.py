@@ -81,7 +81,10 @@ def test_global_worker_slot_projection_does_not_disclose_media_task_bindings():
     assert "private-marker" not in repr(projected)
 
 
-def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(request, tmp_path, monkeypatch):
+@pytest.mark.parametrize("video_enabled", [False, True])
+def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(
+    request, tmp_path, monkeypatch, video_enabled
+):
     from flask import Flask
 
     from agent.bootstrap.meet import configure_meet_media
@@ -99,6 +102,14 @@ def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(requ
     monkeypatch.setattr("agent.database.engine", capacity_store.engine)
     app = Flask(__name__)
     app.extensions["meet_binding_service"] = Mock()
+    assets = Mock()
+    if video_enabled:
+        app.extensions["persona_video_assets"] = assets
     configure_meet_media(app)
     assert app.extensions["meet_turn_service"].capacity is app.extensions["meet_media_capacity"]
     assert app.extensions["meet_turn_service"].grant_issuer is None
+    videos = app.extensions["meet_turn_service"].persona_videos
+    if video_enabled:
+        assert videos.assets is assets
+    else:
+        assert videos is None

@@ -113,7 +113,9 @@ def test_hub_queue_and_result_scope():
     assert result["task_id"] == envelope["task_id"]
     tasks.start.assert_called_once_with(envelope, "actor")
     tasks.finish.assert_called_once_with(envelope, "completed")
-    assert binding.require_write_access.call_count == 2
+    # Admission, immediately before dispatch (also without a capacity port),
+    # and before disclosing the completed media result.
+    assert binding.require_write_access.call_count == 3
 
 
 @pytest.mark.parametrize("failure", ["stale", "cancel", "error", "revoke"])

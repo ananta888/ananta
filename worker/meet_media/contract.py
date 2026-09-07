@@ -23,8 +23,11 @@ def signature(key, body):
 def validate_turn(value, now):
     if (
         not isinstance(value, dict)
-        or set(value) - {"meeting", "binding_task_id", "response_limits", "persona_image", "speech_profile"} != FIELDS
+        or set(value)
+        - {"meeting", "binding_task_id", "response_limits", "persona_image", "persona_video", "speech_profile"}
+        != FIELDS
         or value["schema"] != SCHEMA
+        or {"persona_image", "persona_video"} <= set(value)
     ):
         raise ValueError("meet_turn_contract_invalid")
     for field in ("task_id", "lease_id", "tenant_id", "project_id"):
@@ -51,6 +54,10 @@ def validate_turn(value, now):
         from ananta_contracts.meet_persona_image import decode_assignment
 
         decode_assignment(value["persona_image"], tenant_id=value["tenant_id"], project_id=value["project_id"])
+    if "persona_video" in value:
+        from ananta_contracts.meet_persona_video import decode_assignment as decode_clip
+
+        decode_clip(value["persona_video"], tenant_id=value["tenant_id"], project_id=value["project_id"])
     if "meeting" in value:
         from urllib.parse import urlsplit
 

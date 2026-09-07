@@ -30,6 +30,11 @@ class PersonaProfilePort(Protocol):
     def require_current(self, principal, project: str, binding: dict, reference: dict) -> None: ...
 
 
+class PersonaVideoPort(Protocol):
+    def prepare(self, principal, project: str, artifact_id: str, purpose: str, *, repeat_mode: str) -> dict: ...
+    def require_current(self, principal, project: str, reference: dict, purpose: str) -> None: ...
+
+
 class MeetTurnService:
     def __init__(
         self,
@@ -43,6 +48,7 @@ class MeetTurnService:
         persona_profiles: PersonaProfilePort | None = None,
         speech_profile=None,
         capacity: MediaCapacityPort | None = None,
+        persona_videos: PersonaVideoPort | None = None,
     ):
         self.binding, self.worker, self.tasks = binding, worker, tasks
         self.allowed_scopes = frozenset(allowed_scopes)
@@ -50,6 +56,7 @@ class MeetTurnService:
         self.grant_issuer = grant_issuer
         self.persona_images = persona_images
         self.persona_profiles = persona_profiles
+        self.persona_videos = persona_videos
         self.speech_profile = validate_speech_profile(speech_profile) if speech_profile is not None else None
         self.capacity = capacity
 
@@ -60,9 +67,14 @@ class MeetTurnService:
             raise MeetError("meet_media_policy_denied", 403)
         if (
             not isinstance(payload, dict)
-            or set(payload) - {"publish_to_meet", "persona_image_id", "persona_profile"} != {"text"}
+            or set(payload)
+            - {"publish_to_meet", "persona_image_id", "persona_profile", "persona_video_id", "video_repeat_mode"}
+            != {"text"}
             or type(payload.get("publish_to_meet", False)) is not bool
-            or {"persona_image_id", "persona_profile"} <= set(payload)
+            or len({"persona_image_id", "persona_profile", "persona_video_id"} & set(payload)) > 1
+            or ("persona_video_id" in payload) != ("video_repeat_mode" in payload)
+            or "video_repeat_mode" in payload
+            and payload["video_repeat_mode"] not in ("loop", "hold_last")
         ):
             raise MeetError("meet_turn_payload_invalid")
         turn = {
@@ -98,6 +110,22 @@ class MeetTurnService:
             turn["persona_image"] = self.persona_images.prepare(
                 principal, project, payload["persona_image_id"], image_purpose
             )
+        if "persona_video_id" in payload:
+            import re
+
+            if (
+                self.persona_videos is None
+                or not isinstance(payload["persona_video_id"], str)
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", payload["persona_video_id"])
+            ):
+                raise MeetError("meet_persona_video_unavailable", 403)
+            turn["persona_video"] = self.persona_videos.prepare(
+                principal,
+                project,
+                payload["persona_video_id"],
+                image_purpose,
+                repeat_mode=payload["video_repeat_mode"],
+            )
         if payload.get("publish_to_meet"):
             if self.grant_issuer is None:
                 raise MeetError("meet_machine_publication_disabled", 403)
@@ -122,7 +150,12 @@ class MeetTurnService:
                     self.persona_images.require_current(
                         principal, project, turn["persona_image"]["reference"], image_purpose
                     )
+                if "persona_video" in turn:
+                    self.persona_videos.require_current(
+                        principal, project, turn["persona_video"]["reference"], image_purpose
+                    )
 
+            require_dispatch()
             result = (
                 self.capacity.run(hub_turn, lambda: self.worker.execute(turn), require_dispatch)
                 if self.capacity is not None
@@ -147,6 +180,12 @@ class MeetTurnService:
                 )
                 if result.get("persona_image") != turn["persona_image"]["reference"]:
                     raise MeetError("meet_persona_result_mismatch", 409)
+            if "persona_video" in turn:
+                self.persona_videos.require_current(
+                    principal, project, turn["persona_video"]["reference"], image_purpose
+                )
+                if result.get("persona_video") != turn["persona_video"]["reference"]:
+                    raise MeetError("meet_persona_result_mismatch", 409)
             if not self.tasks.finish(turn, "completed"):
                 raise MeetError("meet_turn_cancelled", 409)
             return result
@@ -163,6 +202,8 @@ class MeetTurnService:
         if task is None or task.task_kind != "meet_media_turn" or task.status != "in_progress":
             return False
         context = (task.worker_execution_context or {}).get("meet_media", {})
+        if {"persona_image", "persona_video"} <= set(context):
+            return False
         if "chat_reply" in context:
             # The v1 publisher does not implement dialog generation/key fencing.
             # A generated chat reply needs the separate MDS publication path.
@@ -193,6 +234,12 @@ class MeetTurnService:
                 self.persona_images.require_current(
                     principal, task.project_id, context["persona_image"], context["persona_purpose"]
                 )
+            if "persona_video" in context:
+                if self.persona_videos is None or context.get("persona_video_repeat_mode") not in ("loop", "hold_last"):
+                    return False
+                self.persona_videos.require_current(
+                    principal, task.project_id, context["persona_video"], context["persona_purpose"]
+                )
         except Exception:
             return False
         return True
@@ -213,7 +260,11 @@ class HubMediaTasks:
             "speech_profile": turn.get("speech_profile"),
             "persona_profile": turn.get("hub_persona_profile"),
             "persona_image": turn.get("persona_image", {}).get("reference"),
-            "persona_purpose": ("publish" if "meeting" in turn else "preview") if "persona_image" in turn else None,
+            "persona_video": turn.get("persona_video", {}).get("reference"),
+            "persona_video_repeat_mode": turn.get("persona_video", {}).get("repeat_mode"),
+            "persona_purpose": ("publish" if "meeting" in turn else "preview")
+            if {"persona_image", "persona_video"} & set(turn)
+            else None,
             "chat_reply": turn.get("hub_chat_binding"),
             "response_limits": turn.get("response_limits"),
         }
@@ -261,6 +312,15 @@ class HubMediaTasks:
                                 "persona_purpose": "publish" if "meeting" in turn else "preview",
                             }
                             if "persona_image" in turn
+                            else {}
+                        ),
+                        **(
+                            {
+                                "persona_video": turn["persona_video"]["reference"],
+                                "persona_video_repeat_mode": turn["persona_video"]["repeat_mode"],
+                                "persona_purpose": "publish" if "meeting" in turn else "preview",
+                            }
+                            if "persona_video" in turn
                             else {}
                         ),
                     }

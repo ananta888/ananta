@@ -18,7 +18,7 @@ def run(turn):
     with tempfile.TemporaryDirectory(prefix="meet-turn-") as temporary:
         directory = Path(temporary)
         lease = None
-        if "persona_image" in turn:
+        if {"persona_image", "persona_video"} & set(turn):
             from worker.meet_media.lease_guard import HubLeaseGuard
 
             lease = HubLeaseGuard(turn["task_id"], turn["lease_id"], deadline=turn["deadline"])
@@ -41,10 +41,14 @@ def run(turn):
             max_seconds=voice_profile["max_seconds"],
             require_current=require_speech_current,
         )
+        visual_reference = {}
+        video_engine = "procedural-avatar-h264_nvenc"
         if lease is not None:
-            from worker.meet_media.persona_video import persona_video
+            from worker.meet_media.persona_visual import render_visual
 
-            video = persona_video(turn, wav, duration, directory, require_current=lease.require)
+            video, video_engine, visual_reference = render_visual(
+                turn, wav, duration, directory, require_current=lease.require
+            )
         else:
             video = avatar(wav, samples, rate, duration, directory)
         result = {
@@ -55,12 +59,12 @@ def run(turn):
             "engines": {
                 "llm": "ollama",
                 "speech": "piper-cuda",
-                "video": "persona-image-h264_nvenc" if lease is not None else "procedural-avatar-h264_nvenc",
+                "video": video_engine,
             },
         }
         if lease is not None:
             lease.require()
-            result["persona_image"] = turn["persona_image"]["reference"]
+            result.update(visual_reference)
         if generated:
             result["usage"] = {"input_tokens": generated.input_tokens, "output_tokens": generated.output_tokens}
         if "speech_profile" in turn:
