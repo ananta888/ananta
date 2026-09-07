@@ -7,7 +7,12 @@ from worker.meet_media.avatar_browser import AvatarBrowserPort
 
 
 class DialogAvatarPump:
-    def __init__(self, page, assignment, *, browser=None, clock=time.time, monotonic=time.monotonic):
+    def __init__(
+        self, page, assignment, *, browser=None, clock=time.time, monotonic=time.monotonic, profile="neutral-ai-v1"
+    ):
+        if profile not in ("neutral-ai-v1", "persona-image-v1"):
+            raise ValueError("meet_avatar_profile_invalid")
+        self.profile = profile
         self.assignment, self.clock, self.monotonic = assignment, clock, monotonic
         self.url = assignment["meeting"]["origin"] + "/machine"
         self.page = page
@@ -71,7 +76,9 @@ class DialogAvatarPump:
             if self.clock() * 1000 >= self.expires_at:
                 self._stop()  # Wait for a new Hub update; tick cannot reopen it.
                 return
-            state = validate_avatar_snapshot(self.browser.status(), self.clock() * 1000, self.binding[4])
+            state = validate_avatar_snapshot(
+                self.browser.status(), self.clock() * 1000, self.binding[4], profile=self.profile
+            )
             if state["phase"] == "pending" and self.monotonic() - self.started_at >= 10:
                 raise ValueError("meet_avatar_setup_timeout")
             self.expires_at = state["source"]["expiresAt"]

@@ -13,6 +13,7 @@ from ananta_contracts.meet_avatar_image import (
     image_request_signature,
     image_response_signature,
     parse_image_message,
+    validate_avatar_projection,
     validate_image_request,
 )
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, request_signature, response_signature
@@ -126,3 +127,29 @@ def test_new_signatures_bind_direction_protocol_and_exact_request():
     assert signature != response_signature(key, request, response)
     assert signature != image_request_signature(key, response)
     assert signature != image_response_signature(key, request + b" ", response)
+
+
+def test_projection_has_no_bytes_or_unnegotiated_fields_and_requires_matching_reference_scope():
+    request, response = packet()
+    value = {
+        "mode": "persona-image-v1",
+        "state": "ready",
+        "binding": request["binding"],
+        "reference": response["image"]["reference"],
+    }
+    assert validate_avatar_projection(value) is value
+    for patch in (
+        {"png": "private"},
+        {"state": "unknown"},
+        {"mode": "url"},
+        {"binding": None},
+        {"reference": None},
+        {"state": "blocked"},
+        {"mode": "neutral-ai-v1"},
+        {"reference": value["reference"] | {"project_id": "foreign"}},
+    ):
+        with pytest.raises(ValueError):
+            validate_avatar_projection(value | patch)
+    for mode in ("neutral-ai-v1", "persona-image-v1"):
+        for state in ("paused", "blocked"):
+            assert validate_avatar_projection({"mode": mode, "state": state, "binding": None, "reference": None})

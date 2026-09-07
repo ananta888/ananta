@@ -15,6 +15,24 @@ _IDS = frozenset({"tenant_id", "project_id", "task_id", "lease_id", "runtime_id"
 _COUNTERS = frozenset({"generation", "membership_epoch", "avatar_revision", "deadline_ms"})
 
 
+def validate_avatar_projection(value):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"mode", "state", "binding", "reference"}
+        or value["mode"] not in ("neutral-ai-v1", "persona-image-v1")
+        or value["state"] not in ("ready", "paused", "blocked")
+    ):
+        raise ValueError("meet_avatar_projection_invalid")
+    if value["mode"] == "persona-image-v1" and value["state"] == "ready":
+        binding = validate_image_binding(value["binding"])
+        reference = validate_reference(value["reference"])
+        if any(reference[name] != binding[name] for name in ("tenant_id", "project_id")):
+            raise ValueError("meet_avatar_projection_invalid")
+    elif value["binding"] is not None or value["reference"] is not None:
+        raise ValueError("meet_avatar_projection_invalid")
+    return value
+
+
 def validate_image_binding(value):
     if (
         not isinstance(value, dict)
