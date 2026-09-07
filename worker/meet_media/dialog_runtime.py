@@ -5,6 +5,7 @@ import time
 from contextlib import ExitStack
 
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assignment
+from ananta_contracts.meet_source_profile import dialog_source_profile
 from worker.meet_media.dialog_avatar_presentation import DialogAvatarPresentation
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 from worker.meet_media.dialog_chat import DialogChatPump
@@ -45,17 +46,11 @@ def start_audio(page, hub, assignment, state, meet_session):
 
 
 def run(assignment, hub):
+    # The fixed installed handler defines source classes. The signed closed v1
+    # envelope carries capabilities/options, not a Worker-selected capture mode.
+    dialog_source_profile(assignment["capabilities"], avatar_images=assignment.get("avatar_images", False))
     from playwright.sync_api import sync_playwright
 
-    if not set(assignment["capabilities"]) <= {
-        "chat.read",
-        "chat.send",
-        "screen.publish",
-        "audio.receive",
-        "speech.publish",
-        "avatar.publish",
-    }:
-        raise ValueError("meet_dialog_adapter_unavailable")
     with sync_playwright() as playwright, ExitStack() as cleanup:
         browser = playwright.chromium.launch(
             headless=True, chromium_sandbox=True, args=["--autoplay-policy=no-user-gesture-required"]

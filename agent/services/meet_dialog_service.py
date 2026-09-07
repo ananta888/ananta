@@ -17,6 +17,7 @@ from agent.services.meet_dialog_controls import (
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
 from agent.services.meet_turn_service import HubMediaTasks
+from ananta_contracts.meet_source_profile import dialog_source_profile
 
 
 class MeetDialogService:
@@ -177,6 +178,9 @@ class MeetDialogService:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         if payload.get("voice_profiles") is True:
             context["voice_selection"] = {"mode": "configured-piper-v1"}
+        context["source_profile"] = dialog_source_profile(
+            context["capabilities"], avatar_images="avatar_selection" in context
+        ).projection()
         task_id = str(uuid.uuid4())
         self.tasks.start(task_id, principal.tenant_id, project, context)
         try:

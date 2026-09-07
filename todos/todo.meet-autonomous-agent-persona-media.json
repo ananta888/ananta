@@ -372,7 +372,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 30.0,
+      "progress_percent": 60.0,
       "depends_on": [
         "MAP-02"
       ],
@@ -383,7 +383,8 @@
         "Cross-Tenant-Lecks, URL-/SSRF-Missbrauch, Prompt-Injection aus Medien, kompromittierte Teilnehmer, Replay und Schlüsselverlust als konkrete Negativfälle festhalten."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
-      "source_profile_plan": "2026-09-08 Quellstand vor Implementierung: feste Dialog-v1-Handler binden Offline-Browser, generierte Sprache, neutrales KI-Canvas und optional Hub-Personabild, aber noch ohne explizite gespeicherte Quellprofilprojektion. docs/contracts/meet-source-profile-policy.md legt additive Hub-abgeleitete, bei jeder Authority-Abfrage exakt gepruefte Projektion fest. Keine Worker-v1-Wire-Aenderung oder vom Caller waehlbare Quellklasse; Altauftraege behalten ausschliesslich die feste alte v1-Semantik. Negativmatrix fuer Rechteausweitung, Capture, Tenant, SSRF, Injection, Replay und Schluesselverlust; pfaduebergreifende Profilvereinheitlichung und Empfaenger-Secret-Abnahme bleiben offen."
+      "source_profile_plan": "2026-09-08 Quellstand vor Implementierung: feste Dialog-v1-Handler binden Offline-Browser, generierte Sprache, neutrales KI-Canvas und optional Hub-Personabild, aber noch ohne explizite gespeicherte Quellprofilprojektion. docs/contracts/meet-source-profile-policy.md legt additive Hub-abgeleitete, bei jeder Authority-Abfrage exakt gepruefte Projektion fest. Keine Worker-v1-Wire-Aenderung oder vom Caller waehlbare Quellklasse; Altauftraege behalten ausschliesslich die feste alte v1-Semantik. Negativmatrix fuer Rechteausweitung, Capture, Tenant, SSRF, Injection, Replay und Schluesselverlust; pfaduebergreifende Profilvereinheitlichung und Empfaenger-Secret-Abnahme bleiben offen.",
+      "source_profile_note": "2026-09-08 implementiert: immutable gemeinsamer Dialog-Quellprofilcompiler, Hub-eigene Persistierung und exakter erneuter Authority-Abgleich, Worker-Klassifikation vor Browserstart, kein neues v1-Wire-Feld. Alle 63 nichtleeren Capabilitymengen und Bildvarianten sowie Rechte-/Profil-/Capture-Manipulationen geprueft; 102 fokussierte Tests in 44.86 s gruen. Echter Text-/Screen-Fall bestanden, Bildavatar erst Video-Startfehler (349 Pakete, 0 dekodierte Frames, 33 Senderframes, kein Hub-Reject; Batch 49.77 s), isolierte Bild-/Wechsel-/Widerrufswiederholung 43.69 s bestanden. Intermittenter Empfangsstart bleibt offen und wird nicht als behoben ausgegeben; Details docs/contracts/meet-source-profile-policy.md. Kein Produktions-/GPU-/TURN-Claim."
     },
     {
       "id": "MAP-04",
@@ -1173,7 +1174,7 @@
         "done": 0,
         "partial": 6,
         "blocked": 0,
-        "progress_percent": 43.1
+        "progress_percent": 46.9
       },
       "feature": {
         "total": 16,
@@ -1241,15 +1242,15 @@
     "blocked": 0,
     "done": 8,
     "count_based_percent": 25.0,
-    "weighted_percent": 56.4
+    "weighted_percent": 57.1
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 32.838,
-    "remaining_weight": 25.412,
+    "done_weight": 33.288,
+    "remaining_weight": 24.962,
     "blocked_weight": 0.0,
-    "weighted_percent": 56.4
+    "weighted_percent": 57.1
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1258,7 +1259,7 @@
         "done": 3,
         "blocked": 0,
         "count_based_percent": 75.0,
-        "weighted_percent": 85.0,
+        "weighted_percent": 91.4,
         "status": "in_progress"
       },
       "MAP-M2": {
@@ -1322,10 +1323,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T22:04:23.062870Z",
+    "generated_at": "2026-09-07T22:15:30.407246Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d2136161ce870a33af54e8801989e77f82f522b98151ce46ee2a2d9ed225c2e0",
+    "source_hash": "dfe8304e509128d7ab055949c0c9eff997f9da758bcee1813d9e3cc870e60e15",
     "is_stale": false
   }
 }

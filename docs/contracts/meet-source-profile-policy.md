@@ -1,6 +1,6 @@
 # Meet source profile and threat model (MAP-03)
 
-## Source audit and planned additive binding
+## Source audit and implemented additive binding
 
 The dialog assignment v1 handler executes a fixed, operator-installed Worker
 runtime. `screen.publish` opens only `OwnedDialogScreen`: a new offline context,
@@ -10,13 +10,16 @@ canvas, or, only with the existing `avatar_images` negotiation, an immutable
 Hub-selected persona image. Neither the request nor a Worker callback may add
 an arbitrary source class, profile path, URL, cookie jar or capture device.
 
-Implement a small immutable profile projection shared outside the Hub domain.
+`ananta_contracts.meet_source_profile` provides an immutable profile projection shared outside the Hub domain.
 The Hub derives it from the closed capability set and existing image option,
 persists it with new task dispatches and rechecks it on every authority read.
 There is no caller-selected source policy. Existing tasks without this additive
 field retain exactly the same fixed v1 handler semantics; a present malformed,
 unknown or expanded profile fails closed. Do not add fields to the closed v1
-Worker wire or force old Workers to accept a new assignment schema.
+Worker wire or force old Workers to accept a new assignment schema. The Worker
+uses the same closed classifier before launching its fixed browser handler;
+its source factories remain unchanged. All 63 nonempty capability subsets and
+negotiated image variants have deterministic source upper bounds.
 
 | Source class | Trusted origin and restriction |
 | --- | --- |
@@ -66,3 +69,16 @@ Keep pure classification separate from Hub task persistence/authorization (SRP,
 DIP). Preserve existing lifecycle, media timing and closed wire behavior. The
 already documented broad Hub composition and Worker executor SRP/DIP debt is not
 expanded into a new policy scheduler.
+
+## Verification (2026-09-08)
+
+102 focused contract, persisted task, source escalation, authority, negotiation,
+lifecycle and deadline tests passed in 44.86 seconds. The actual private browser
+text/screen case also passed. The following image-avatar case initially failed:
+349 received video packets but zero decoded frames, with 33 sender frames and
+no Hub/runtime rejection. The combined attempt took 49.77 seconds. An isolated
+image-avatar repeat passed in 43.69 seconds, including image replacement and
+independent publication. This repeat does not establish a fix for the intermittent
+video startup failure; it remains a separately tracked transport investigation.
+No GPU or public TURN execution was substituted, and no production evidence was
+issued. The standalone Worker boundary scan remains clean (77 files).

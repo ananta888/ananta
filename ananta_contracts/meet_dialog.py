@@ -6,11 +6,10 @@ import json
 import re
 from urllib.parse import urlsplit
 
+from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
+
 MAX_DIALOG_BYTES = 16384
 ID = re.compile(r"[A-Za-z0-9_.:-]{1,160}")
-CAPABILITIES = frozenset(
-    {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
-)
 OPTIONAL_CONTROL_CAPABILITIES = {"speech": "speech.publish", "avatar": "avatar.publish"}
 
 

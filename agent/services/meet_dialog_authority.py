@@ -7,10 +7,8 @@ from dataclasses import dataclass
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
 from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
-
-CAPABILITIES = frozenset(
-    {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
-)
+from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
+from ananta_contracts.meet_source_profile import DialogSourceProfile, dialog_source_profile
 
 
 @dataclass(frozen=True)
@@ -32,6 +30,7 @@ class DialogAuthority:
     controls: DialogControls
     avatar_selection: dict | None = None
     voice_selection: dict | None = None
+    source_profile: DialogSourceProfile | None = None
 
 
 class MeetDialogAuthority:
@@ -74,7 +73,10 @@ class MeetDialogAuthority:
             "audio_count",
             "controls",
         }
-        if not isinstance(value, dict) or set(value) - {"avatar_selection", "voice_selection"} != fields:
+        if (
+            not isinstance(value, dict)
+            or set(value) - {"avatar_selection", "voice_selection", "source_profile"} != fields
+        ):
             raise MeetError("meet_dialog_binding_invalid", 403)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
             if not isinstance(value[field], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", value[field]):
@@ -129,6 +131,14 @@ class MeetDialogAuthority:
             for name, capability in OPTIONAL_CONTROL_CAPABILITIES.items()
         ) or (controls.speech is not None and controls.speech.enabled and value["chat_mode"] == "off"):
             raise MeetError("meet_dialog_control_capability_denied", 403)
+        # A missing field belongs only to the identical legacy v1 handler. A
+        # present field is never silently repaired, broadened or caller-selected.
+        source_profile = dialog_source_profile(capabilities, avatar_images="avatar_selection" in value)
+        if "source_profile" in value:
+            try:
+                source_profile.require_projection(value["source_profile"])
+            except ValueError:
+                raise MeetError("meet_dialog_source_profile_denied", 403) from None
         parent = value["binding_task_id"]
         if not isinstance(parent, str) or parent and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", parent):
             raise MeetError("meet_dialog_binding_invalid", 403)
@@ -155,4 +165,5 @@ class MeetDialogAuthority:
             controls,
             avatar_selection,
             voice_selection,
+            source_profile,
         )
