@@ -2,8 +2,10 @@
 
 The bounded media turn now consumes real Piper output incrementally through
 `SpeechSourcePort`. The existing HTTP response remains WAV plus MP4. This is
-**not yet a live Meet audio source**, a voice-cloning entitlement or a session
-renewal protocol.
+**not yet a live TTS dialog**, a voice-cloning entitlement or a session
+renewal protocol. The independent Meet PCM source and Ananta's separately tested
+[generation-bound publication adapter](meet-speech-publication.md) now exist;
+Hub-owned result transfer into the continuous dialog remains unconnected.
 
 ## Responsibilities and reuse
 
@@ -50,9 +52,10 @@ Checkpoints run before/after provider pulls and before each frame. Closing or
 failing the iterator closes its provider and drops pending output; immutable
 Python bytes are not claimed to be securely zeroized. The existing persona
 turn's Hub lease and all turns' original deadline are wired into the WAV path.
-Previously emitted frames cannot be recalled: any future live sink must bind
-its own exact session/publication generation and check current authority before
-sending. Frames themselves carry no grant, evidence identity or room context.
+Previously emitted frames cannot be recalled: the independent publication sink
+binds its exact session/publication generation and requires current authority
+before sending, but is not yet composed into the continuous dialog. Frames
+themselves carry no grant, evidence identity or room context.
 Current MP4 publication still has its independent Hub lease checks.
 
 ## Headless checks

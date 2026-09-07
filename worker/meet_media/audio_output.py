@@ -4,8 +4,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Protocol
 
-SAMPLE_RATE = 22_050
-FRAME_SAMPLES = 441  # Exactly 20 ms; no rounding drift between sentences.
+from ananta_contracts.meet_speech_source import FRAME_SAMPLES, SAMPLE_RATE
 
 
 class SpeechSourcePort(Protocol):
