@@ -53,3 +53,19 @@ their output requirements, rendering owns decoded images, and the Hub task
 aggregate owns CAS. Existing dialog service wiring remains a composition root;
 do not grow it into a media decoder or asset store. All tests use automatic
 bounded synthetic admission; technical results do not mint production evidence.
+
+## Implemented profile foundation
+
+`MeetImageProfileBinding` now owns shared immutable pin validation.
+`MeetPersonaProfiles` retains its existing MP4 interface and image/voice/video
+requirements. The composed `MeetAvatarProfiles` requires image/video only and
+rechecks both current publication policy and profile pin around asset checks.
+No live endpoint is enabled by this foundation alone.
+
+Sixteen new tests plus the existing profile/MP4-output suites passed: 41 checks
+in 34.89 s. Actual SQL cases cover stale profile pins, organization/project
+revocation and durable asset tombstones; deterministic races cover profile
+mutation during final asset authorization. One initial test attempted the
+invalid organization lifecycle `suspended`; the existing SQL constraint rejected
+it correctly. The fixture now uses the supported `archived` state. No database
+constraint, permission or legacy MP4 output requirement was relaxed.
