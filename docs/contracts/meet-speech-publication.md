@@ -1,10 +1,11 @@
 # Generation-bound PCM publication adapter
 
-MAP-22 now has a Worker-side sink for the independent Meet `speech` source
-(companion implementation `ef65c8b`). It is a building block, **not yet wired into
-the continuous dialog runtime**. That runtime still rejects `speech.publish`;
-its authenticated reply callback still returns text only. No new policy,
-deployment or public readiness claim follows from this adapter.
+MAP-22 has a Worker-side sink for the independent Meet `speech` source
+(initial companion implementation `ef65c8b`). It is now wired into the continuous
+dialog through an explicitly authorized `speech.publish` capability, separate
+signed spoken-result transfer and current voice/control binding. The original
+small text callback remains unchanged. No deployment or public readiness claim
+follows from this adapter; the foundation observations below remain historical.
 
 ## Boundaries
 
@@ -75,12 +76,16 @@ first. This requires the existing local GPU model/image and private TLS/STUN
 fixture images, not production credentials or changes to running services.
 For an XML report with `record_property`, use `-o junit_family=legacy`.
 
-Still required: Hub-owned, short-lived result transfer bound to generation,
-parent runtime, child task, dispatch lease and current input consent; real Piper
-output through that path; a runtime policy/control for speech and integrated
-source-stop/load tests. Do not put full WAV/PCM into the existing 16-KiB dialog
-callback, invent a Worker-to-Worker dispatch, or reinterpret a browser receipt
-as Hub permission.
+Subsequently implemented: separate Hub-owned, short-lived result transfer bound
+to generation, parent runtime, child task, dispatch lease and current input
+consent; independent runtime speech controls; source-stop tests; and real default
+Piper delivery through the dialog. See [live avatar verification](meet-live-persona-avatar.md),
+[voice-selection history](meet-voice-preset-selection.md),
+[nonblocking source opening](meet-dialog-speech-opening.md) and
+[delayed-screen regression](meet-dialog-screen-decoding.md). The selected-voice
+GPU rerun, broader shared-load/soak and public acceptance remain open. Full WAV/PCM
+does not enter the existing 16-KiB dialog callback, and a browser receipt is never
+Hub permission.
 
 SRP/ISP/DIP review: browser mechanics, closed wire validation, PCM framing and
 publication state are separate; no model or concrete browser SDK is imported by

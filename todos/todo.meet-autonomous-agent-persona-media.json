@@ -755,10 +755,11 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M6",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
+      "completion_note": "2026-09-07 gegen aktuellen Code und alle vier Kriterien geprueft: Hub-autorisierter neutraler/Bild-KI-Track, reine validierte PNG-/Hashprojektion ohne Identitaets-/Rollenrechte, begrenzte Skalierung mit unverdeckbarer KI-Kennzeichnung, generationsgebundener Bildwechsel/Widerruf und unabhaengiger Screen implementiert. Die anschliessende Live-Verdrahtung, Hydration und echte Lease-Erneuerung erledigen die im historischen implementation_note noch genannten offenen Fundamente. 148 aktuelle Avatar-/TTS-Regressionen in 58.15 s bestanden. Nach beiden neuen Medien-Scheduling-Fixes bestanden echter Bildwechsel/Leasewechsel/Sprachausgabe und Parent-Stop gemeinsam in 123.90 s gegen Meet c20f453. Kriterienmapping: docs/contracts/meet-persona-completion-audit.md. Statische Bildfunktion done; dynamischer Videowechsel, Mehrsessionbetrieb, ausgewaehlte GPU-Stimmen, Langzeit-/TURN-/Produktionsabnahme bleiben in MAP-20/22/28/30/31 offen. Keine Produktionsfreigabe oder synthetische Evidenzpromotion.",
       "depends_on": [
         "MAP-08",
         "MAP-18",
@@ -1058,11 +1059,11 @@
     "by_status": {
       "todo": 2,
       "in_progress": 9,
-      "partial": 16,
+      "partial": 15,
       "blocked": 0,
-      "done": 5
+      "done": 6
     },
-    "progress_percent_done": 15.6,
+    "progress_percent_done": 18.8,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1088,6 +1089,7 @@
     }
   },
   "summary_notes": [
+    "2026-09-07 MAP-21 nach vollstaendigem Kriterien-/Quellenabgleich done/100: historische Notizen zu noch fehlender Live-Bildintegration sind ueberholt. 148 aktuelle Avatar-/TTS-Tests und zwei reale private Browserfaelle mit Bild-/Leasewechsel sowie Parent-Stop bestanden (58.15 s bzw. 123.90 s). docs/contracts/meet-persona-completion-audit.md begruendet den Abschluss der vier statischen Bildkriterien und grenzt die weiterhin offenen Folgeaufgaben ab. Speech-Output-/Publication-Dokumente an die inzwischen vorhandene signierte Live-Verdrahtung angepasst; keine erneute GPU-Abnahme behauptet. Gesamter Track bleibt partial und wird nicht archiviert.",
     "2026-09-07 MAP-14/24/29: blockierendes Warten auf Meet-JPEG-Dekodierung im Bildschirm-Pump erkannt und vor Implementierung geplant/gepusht. Separater BrowserScreenFrames-Port startet/pollt genau einen generation-/sequenzgebundenen Frame; keine zweite Dekodierung, kein PCM-Queuewachstum, kein Retry ungewisser Zustellung. Pythonabschluss 1.5 s bei unveraendertem nativen 1-s-Decodebudget; neue 200-ms-Kadenz erst nach Bestaetigung. Cancel/Close betreffen nur eigene Generation, frische Hub-Updates eroeffnen waehrend Pending keine Ersatzquelle. 238 gemeinsame Sprach-/Screen-/Sessionregressionen in 88.41 s gruen. Privater echter Browserfall gegen Meet c20f453 in 45.13 s bestanden: 47 Frames mit 312.70-401.83 ms absichtlicher JPEG-Verzoegerung, erste 220500 PCM-Samples lokal komplett, korrelierte nichtstumme Empfaengerausgabe, zweiter Stimmwiderruf lokal/remote 589.09/605.91 ms bei weiterbewegtem Screen. docs/contracts/meet-dialog-screen-decoding.md. Synthetische Medien/Policy; kein exaktes Remote-Samplekonto, GPU-/TURN-/Langzeit- oder Produktionsclaim.",
     "2026-09-07 MAP-11/29: direkt abgewartete Join-/Renew-/Leave-Promises im Dialogquellcode erkannt, vor Code in docs/contracts/meet-dialog-session-operations.md geplant/gepusht und durch getrennten begrenzt gepollten Sitzungsadapter ersetzt. Gemeinsamer Browser-Phasentransport mit unveraenderter Standalone-Publisher-API; Dialog behaelt Originaldeadline bis 7200 s. Join 20 s, Renewal maximal aktuelle 2.5-s-Hub-Frische, Leave ausschliesslich 3-s-Cleanup auch nach Ablauf. Quellen vor Renewal/Leave entzogen, danach neue Hub-Abfrage vor Ausgabe; kein Replay/Retry/Grantwechsel durch Worker. 59 deterministische Session-/Control-/Publisher-Tests in 29.84 s, vier Kompositions-/Cleanup-Tests in 8.95 s und zwei echte private Browserfaelle mit Chat/Screen sowie Bildavatar/Sprache ueber echten Leasewechsel in 117.74 s bestanden. Meetquelle c20f453, bestehender lokaler Build, synthetische Medien/Policy; kein Deploy oder Produktionsclaim. Mehrfach-Renewal-/Crash-/Mehrsession- und oeffentliche Abnahme bleiben offen, Taskstatus nicht pauschal abgeschlossen.",
     "2026-09-07 MAP-12/22/24 Quellenstart gegen Code geprueft und vor Implementierung geplant/gepusht: BrowserSpeechPort.open wartete bisher im inneren Loop und verhinderte waehrenddessen frische Hub-Projektionen. DialogSpeechOutput startet/pollt jetzt genau eine eigene Browseroeffnung pro Tick; validierter Receipt wird einmalig an die vorhandene PCM-Publikation uebergeben. Aktuelle Voice-/Lease-/Chatbindung, generationseigener Abbruch, 10-s-Setup, 2.5-s-Kontrollfrische und 200-ms-Queue unveraendert. PCM-Form/Groesse vor Browser-I/O geprueft, kein Replay oder Stimmenfallback. Reeller privater Browser mit synthetischer Audio-/Profilpolicy gegen Meet 56cdeb3: erster Versuch vor Sprachstart am initialen Screenempfang gescheitert (28.67 s), eine Wiederholung bestanden (48.87 s). Absichtlich verzoegerte Workletstarts 3126.54/3101.41 ms; erste 220500 Samples vollstaendig, zweite Stimme nach Policywiderruf lokal/remote in 633.15/637.46 ms gestoppt. docs/contracts/meet-dialog-speech-opening.md. Kein Gesamt-PASS, GPU-/TURN-/Produktionsnachweis oder Task-Gesamtabschluss daraus abgeleitet.",
@@ -1163,14 +1165,14 @@
         "by_status": {
           "todo": 1,
           "in_progress": 6,
-          "partial": 6,
+          "partial": 5,
           "blocked": 0,
-          "done": 3
+          "done": 4
         },
-        "done": 3,
-        "partial": 6,
+        "done": 4,
+        "partial": 5,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 56.6
       },
       "infrastructure": {
         "total": 1,
@@ -1220,19 +1222,19 @@
     "state": "in_progress",
     "todo_remaining": 2,
     "in_progress": 9,
-    "partial": 16,
+    "partial": 15,
     "blocked": 0,
-    "done": 5,
-    "count_based_percent": 15.6,
-    "weighted_percent": 50.9
+    "done": 6,
+    "count_based_percent": 18.8,
+    "weighted_percent": 51.7
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 29.638,
-    "remaining_weight": 28.612,
+    "done_weight": 30.138,
+    "remaining_weight": 28.112,
     "blocked_weight": 0.0,
-    "weighted_percent": 50.9
+    "weighted_percent": 51.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1278,10 +1280,10 @@
       },
       "MAP-M6": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 74.7,
+        "count_based_percent": 50.0,
+        "weighted_percent": 81.3,
         "status": "in_progress"
       },
       "MAP-M7": {
@@ -1305,10 +1307,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T15:32:25.191383Z",
+    "generated_at": "2026-09-07T19:46:15.066469Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "bbb47b1ef5678ac40f5d56c797938c93ad518c55c993813d663ad9d8b2acb2b5",
+    "source_hash": "77d405e0ab8e6d41ae83d0c9e39ab706a49eca1d68bd098bbc6ab4cf3ad5bac9",
     "is_stale": false
   }
 }

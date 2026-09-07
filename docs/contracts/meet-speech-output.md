@@ -1,11 +1,13 @@
 # Local speech output and compatibility WAV adapter
 
-The bounded media turn now consumes real Piper output incrementally through
-`SpeechSourcePort`. The existing HTTP response remains WAV plus MP4. This is
-**not yet a live TTS dialog**, a voice-cloning entitlement or a session
-renewal protocol. The independent Meet PCM source and Ananta's separately tested
-[generation-bound publication adapter](meet-speech-publication.md) now exist;
-Hub-owned result transfer into the continuous dialog remains unconnected.
+The bounded media turn consumes real Piper output incrementally through
+`SpeechSourcePort`. The existing compatibility response remains WAV plus MP4.
+The continuous dialog now also uses a separate signed, assignment-bound spoken
+reply path and the [generation-bound publication adapter](meet-speech-publication.md).
+This is not voice-cloning permission or a production release claim. The sections
+below describe the earlier output foundation; live wiring is documented in
+[dialog runtime](meet-dialog-runtime.md) and
+[voice selection](meet-voice-preset-selection.md).
 
 ## Responsibilities and reuse
 
@@ -26,8 +28,9 @@ This separates previously mixed model-loading, inference and file concerns
 provider. Its decoder remains reused by the ASR smoke; no private resampler is
 copied into this output path. Speech adaptation/correction and consent services
 remain Hub authorities; a transcript correction profile is not a TTS voice or
-permission to clone a person. Dynamic voice/profile admission is still separate
-unfinished work.
+permission to clone a person. Dynamic voice/profile admission now has its own
+separate Hub services and passive selectors; real selected-voice GPU delivery
+remains an unfinished acceptance gate.
 
 ## Exact format and limits
 
@@ -54,7 +57,7 @@ Python bytes are not claimed to be securely zeroized. The existing persona
 turn's Hub lease and all turns' original deadline are wired into the WAV path.
 Previously emitted frames cannot be recalled: the independent publication sink
 binds its exact session/publication generation and requires current authority
-before sending, but is not yet composed into the continuous dialog. Frames
+before sending and is now composed into the continuous dialog. Frames
 themselves carry no grant, evidence identity or room context.
 Current MP4 publication still has its independent Hub lease checks.
 
