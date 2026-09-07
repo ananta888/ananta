@@ -1,0 +1,20 @@
+# Optional Hub overlay. Descriptor inspection and retirement are independently opt-in.
+services:
+  ai-agent-hub:
+    environment:
+      ANANTA_PERSONA_VOICES_ENABLED: ${ANANTA_PERSONA_VOICES_ENABLED:-0}
+      ANANTA_PERSONA_VOICE_RETENTION_ENABLED: ${ANANTA_PERSONA_VOICE_RETENTION_ENABLED:-0}
+      ANANTA_PERSONA_VOICE_WORKER_URL: http://persona-voice-worker:8097/v1/persona-voices
+      ANANTA_PERSONA_VOICE_KEY_FILE: /run/secrets/persona-voice-key
+      ANANTA_PERSONA_VOICE_REPOSITORY_REVISION: ${ANANTA_PERSONA_VOICE_REPOSITORY_REVISION:-}
+      ANANTA_PERSONA_VOICE_EXECUTION_PROFILE_DIGEST: ${ANANTA_PERSONA_VOICE_EXECUTION_PROFILE_DIGEST:-}
+      ANANTA_PERSONA_VOICE_ENVIRONMENT_DIGEST: ${ANANTA_PERSONA_VOICE_ENVIRONMENT_DIGEST:-}
+    volumes:
+      - ${PERSONA_VOICE_STATE_DIR:?Set an absolute private voice state directory}/worker-key:/run/secrets/persona-voice-key:ro
+    networks:
+      persona-voices:
+        aliases: [persona-authorizing-hub]
+networks:
+  persona-voices:
+    external: true
+    name: ${PERSONA_VOICE_NETWORK:-ananta-persona-voices_persona-voices}

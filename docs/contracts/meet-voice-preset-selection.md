@@ -170,3 +170,37 @@ voice-policy/admission/reference/query/retirement API routes and connect the
 voice reference port to persona profiles. A saved profile or descriptor preview
 still must not activate a live microphone or grant publication. Existing
 image/video profile API shapes must remain compatible.
+
+### Authenticated API, discovery and profile composition
+
+Voice-only bootstrap is now opt-in via `ANANTA_PERSONA_VOICES_ENABLED=1`; all
+operator execution bindings are validated before installing its services.
+`docker-compose.persona-voices-hub.yml` supplies only the independent private
+worker/key wiring, with both inspection and retirement disabled by default.
+No policy is automatically installed and no key is created by bootstrap.
+
+Under `/api/persona-media/v1/projects/<project>`, the additive routes are:
+
+- `PUT voice-policy` / `DELETE voice-policy/<source_id>` for explicit terms/CAS;
+- `POST voices` for a bounded base64 canonical descriptor and registered pins;
+- `POST voices/query` and `GET voices/<id>/reference` for scoped metadata;
+- `GET voices/<id>/preview` for the descriptor JSON only, never PCM;
+- `DELETE voices/<id>` followed by explicit `POST voices/<id>/purge`, or
+  `PUT/GET/DELETE voices/<id>/retention` for bounded scheduled retirement.
+
+All user routes require user authentication and current project/policy checks.
+There is no synthesis, publication, model-download or generic artifact escape.
+Voice paging handles are independent, expiring and tenant/project/subject-bound.
+Organization/team/agent profiles now accept the optional voice reference port;
+inheritance, disabling, stale pins and revoked receipts are checked without
+silently substituting another voice. `for_voice_execution` resolves only the
+exact selected metadata; publication still needs the separate Meet adapter.
+
+Acceptance: 24 voice bootstrap/profile tests (19.95 seconds), 22 actual
+task/storage-backed voice API tests (18.38 seconds), and 126 voice-query plus
+existing image/video/profile/API regressions (54.22 seconds), each with two
+pytest workers. SRP/DIP keep lifecycle, reference resolution, authenticated
+routes and composition separate. Existing explicit kind allowlists are
+extended additively; no broad central profile refactor was introduced.
+Stages 5–6 (live selection CAS, old speech invalidation and UI/delivery) remain
+open. None of this enables the serving instance automatically.
