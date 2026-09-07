@@ -60,7 +60,7 @@ class HubPersonaInspectionTasks:
         if kind_check is not None:
             kind_check(self.format.kind)
         elif self.format.kind != "image":
-            raise PermissionError("persona_video_policy_kind_required")
+            raise PermissionError(f"persona_{self.format.kind}_policy_kind_required")
         self.policy.require_current(principal, admission, "inspect")
         if (
             not isinstance(content, bytes)

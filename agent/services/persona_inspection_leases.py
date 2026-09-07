@@ -9,7 +9,7 @@ from agent.services.source_control_access_policy import HubSourcePrincipal
 
 class HubPersonaInspectionLeases:
     def __init__(self, *, state, policy, registry, clock=time.time, kind="image"):
-        if kind not in ("image", "video"):
+        if kind not in ("image", "video", "voice"):
             raise ValueError("persona_inspection_kind_invalid")
         self.state, self.policy, self.registry, self.clock = state, policy, registry, clock
         self.kind = kind
@@ -17,6 +17,11 @@ class HubPersonaInspectionLeases:
     def require(self, assignment):
         if assignment["schema"] != f"ananta.persona-{self.kind}-task.v1":
             raise PermissionError("persona_inspection_kind_mismatch")
+        if self.kind != "image":
+            require_kind = getattr(self.policy, "require_media_kind", None)
+            if not callable(require_kind):
+                raise PermissionError(f"persona_{self.kind}_policy_kind_required")
+            require_kind(self.kind)
         task = self.state.get(assignment["task_id"])
         if (
             task is None

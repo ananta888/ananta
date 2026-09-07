@@ -7,7 +7,7 @@ from agent.services.persona_inspection_tasks import task_context
 
 class HubPersonaTaskState:
     def __init__(self, *, clock=time.time, kind="image"):
-        if kind not in ("image", "video"):
+        if kind not in ("image", "video", "voice"):
             raise ValueError("persona_inspection_kind_invalid")
         self.clock = clock
         self.kind = kind
