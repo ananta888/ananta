@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_callback, validate_controls
 from worker.meet_media.contract import encode, load_key
+from worker.meet_media.dialog_speech_client import HubSpeechClient
 from worker.meet_media.persona_http import read_bounded
 
 
@@ -22,6 +23,9 @@ class HubDialogClient:
         self.key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
         self.ids = {k: assignment[k] for k in ("task_id", "lease_id", "runtime_id")}
         self.deadline = time.monotonic() + min(7200, assignment["deadline"] - time.time())
+
+    def spoken(self, event, binding):
+        return HubSpeechClient(self.url, self.key, self.ids, self.deadline).reply(event, binding)
 
     def call(self, action, **fields):
         class NoRedirect(urllib.request.HTTPRedirectHandler):

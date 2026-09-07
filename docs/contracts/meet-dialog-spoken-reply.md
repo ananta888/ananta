@@ -2,8 +2,8 @@
 
 MAP-22 follow-up after actual local Piper-to-Meet transport was verified.
 The closed envelope, shared WAV validator, optional independent Hub speech
-control and private Hub HTTP endpoint are implemented. Worker transport and
-runtime composition remain in progress; this is not a deployed runtime claim.
+control, private Hub HTTP endpoint and bounded Worker transport are implemented.
+Runtime composition remains in progress; this is not a deployed runtime claim.
 
 ## Decision
 
@@ -115,3 +115,23 @@ oversized responses. New service/test modules pass Ruff; the existing compact
 route module was changed narrowly, not globally reformatted. These are local
 synthetic technical checks, not actual Hub/Piper/browser integration or
 production release evidence.
+
+## Worker transport
+
+`HubSpeechClient` derives only the `/speech` suffix from the fixed operator
+dialog endpoint. It cannot select a provider or delegate a Worker. Proxy
+environment variables and redirects are disabled. A separate method on the
+existing callback client leaves all old actions and their 16-KiB reader intact.
+The speech reader caps bytes, rejects compressed/oversized/incomplete responses,
+authenticates exact request-bound bytes before parsing/decoding and compares
+the closed reply with the caller's current authority projection. Network reads
+have bounded timeouts and an absolute budget check; a read already blocked in
+the socket can consume its remaining socket timeout before that check runs.
+Timeout, invalid signatures, stale scope or invalid media return one redacted
+failure, with no redirect, retry, text fallback or source reopen.
+
+80 transport/contract tests passed in 56.23 s, including 22 Worker tests with
+real loopback HTTP for valid PCM, invalid signatures/domains/request binding,
+scope changes, oversized/truncated bodies, redirects, deadlines and request
+preflight. New modules pass Ruff. This tests transport, not yet productive
+continuous playback or actual GPU inference behind this Hub endpoint.
