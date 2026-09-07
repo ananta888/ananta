@@ -13,6 +13,7 @@ import selectors
 import subprocess
 import threading
 import time
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -75,8 +76,30 @@ def close_bridge(bridge):
         bridge.stdout.close()
 
 
-@pytest.mark.parametrize("spoken_mode", [False, True], ids=["text", "speech"])
-def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(app, tmp_path, monkeypatch, spoken_mode):
+@pytest.mark.parametrize(
+    "spoken_mode,gpu_mode",
+    [
+        pytest.param(False, False, id="text"),
+        pytest.param(True, False, id="speech"),
+        pytest.param(
+            True,
+            True,
+            id="gpu",
+            marks=pytest.mark.skipif(
+                os.environ.get("MEET_DIALOG_GPU_GATE") != "1" or SOAK_SECONDS > 0,
+                reason="opt-in short real GPU dialog; extended GPU soak is a separate gate",
+            ),
+        ),
+    ],
+)
+def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
+    app,
+    tmp_path,
+    monkeypatch,
+    spoken_mode,
+    gpu_mode,
+    record_property,
+):
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
@@ -100,6 +123,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     from agent.services.meet_turn_service import HubMediaTasks
     from agent.services.source_control_access_policy import HubSourcePrincipal
     from tests.meet_dialog_browser_fixture import DialogBrowserFixture
+    from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
     from tests.meet_dialog_speech_observer import DialogSpeechObserver
     from worker.meet_media.dialog_chat import DialogChatPump
     from worker.meet_media.dialog_client import HubDialogClient
@@ -137,7 +161,11 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     bridge = subprocess.Popen(
         ["node", "test/helpers/machine-hub-bridge.mjs"],
         cwd=meet,
-        env=os.environ | {"MEET_TEST_HUB_PUBLIC_KEY": str(public)},
+        env=os.environ
+        | {
+            "MEET_TEST_HUB_PUBLIC_KEY": str(public),
+            "MEET_DIALOG_GPU_GATE": "1" if gpu_mode else "0",
+        },
         text=True,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -156,13 +184,14 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
     def command(name):
         bridge.stdin.write(name + "\n")
         bridge.stdin.flush()
-        return receive()
+        return receive({"answer_correlated": 35}.get(name, 20))
 
     hub = worker = None
     runtime_thread = None
     service = None
     started = None
     browser_fixture = None
+    gpu_cleanup = ExitStack()
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
     try:
         # Provisioning private Docker/TLS/STUN resources has its own deadline;
@@ -186,6 +215,21 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         def observed_context(browser, *args, **kwargs):
             context = new_context(browser, *args, **kwargs)
             context.add_init_script("""window.__testPcs = [];
+              window.__testCaptures = 0;
+              for (const method of navigator.mediaDevices ? ['getUserMedia', 'getDisplayMedia'] : []) {
+                navigator.mediaDevices[method] = () => {
+                  window.__testCaptures++; throw new Error('test_human_capture_forbidden');
+                };
+              }
+              window.__testTransformErrors = [];
+              const NativeWorker = window.Worker;
+              window.Worker = class extends NativeWorker { constructor(...args) {
+                super(...args);
+                this.addEventListener('error', () => window.__testTransformErrors.push('worker_error'));
+                this.addEventListener('message', ({data}) => {
+                  if(data?.type === 'transform-error') window.__testTransformErrors.push(data.code);
+                });
+              }};
               window.__testIce = {emitted:0, mdns:0, received:0, failed:0};
               const Native = window.RTCPeerConnection;
               window.RTCPeerConnection = class extends Native {
@@ -204,7 +248,12 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         monkeypatch.setattr(Browser, "new_context", observed_context)
         # Only the private-container network boundary is substituted for local
         # loopback in this test. Production pinning has its own negative tests.
-        monkeypatch.setattr("agent.services.meet_media_transport.pin_private_container_address", lambda *_: "127.0.0.1")
+        from agent.services.private_container_network_policy import pin_private_container_address
+
+        monkeypatch.setattr(
+            "agent.services.meet_media_transport.pin_private_container_address",
+            lambda host, port: "127.0.0.1" if host == "127.0.0.1" else pin_private_container_address(host, port),
+        )
 
         class Binding:
             profile = MeetProfile(ready["origin"])
@@ -220,6 +269,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         binding = Binding()
         tasks = HubDialogTasks()
         speech_observer = DialogSpeechObserver(spoken_mode, monkeypatch)
+        configure_dialog_gpu(speech_observer, gpu_mode, gpu_cleanup, record_property)
         capabilities = speech_observer.capabilities
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
@@ -316,7 +366,8 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
                     "status": "accepted",
                 }
 
-        # Contract fixture, NOT a claim that the declared CUDA engines executed.
+        # Synthetic modes substitute inference only. The opt-in GPU mode forwards
+        # the actual Hub child assignment to the isolated current-source Worker.
         media = Mock()
         media.execute.side_effect = speech_observer.execute
         worker = create_server(("127.0.0.1", 0), hmac_key, media, DialogExecution())
@@ -387,9 +438,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             assert state["controls"]["screen"]["enabled"] is False
             assert state["controls"]["chat"]["revision"] == 1
         assert command("screen_absent") == {"screen_absent": True}
+        speech_observer.before_question(command)
         ask = command("ask")
         assert ask == {"sent": True}, {"ask": ask, "runtime_errors": failures, "exited": completed.is_set()}
-        answer = command("answer")
+        answer = speech_observer.receive_answer(command)
         assert answer == {"received": True}, {
             "answer": answer,
             "media_calls": media.execute.call_count,
@@ -397,6 +449,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         }
         media.execute.assert_called_once()
         speech_observer.require_completed(1, completed, failures)
+        speech_observer.require_remote(command)
         last_answer_at = time.monotonic()
         with app.app_context():
             service.control(
@@ -424,8 +477,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             # missing-answer failure just to shorten this regression scenario.
             cooldown = ChatReplyPolicy().cooldown_ms / 1000 + 0.1
             assert not completed.wait(max(0, last_answer_at + cooldown - time.monotonic())), failures
+            speech_observer.before_question(command)
             assert command("ask") == {"sent": True}
-            answer = command("answer")
+            answer = speech_observer.receive_answer(command)
             assert answer == {"received": True}, {
                 "answer": answer,
                 "media_calls": media.execute.call_count,
@@ -439,6 +493,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
         # emitted before a genuinely fresh Hub-matched browser queue exists.
         renewed_consent_round_trip()
         speech_observer.require_completed(2, completed, failures)
+        speech_observer.require_remote(command)
         with app.app_context():
             speech_observer.pause_and_require_text(
                 lambda: service.control(
@@ -521,6 +576,15 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
             assert state["status"] == "cancelled"
         assert completed.wait(10), "Worker did not stop after Hub task cancellation"
         assert command("alone") == {"alone": True}
+        record_property(
+            "dialog_gpu_observations",
+            {
+                "actual_gpu": gpu_mode,
+                "answers": speech_observer.answers,
+                "remote": speech_observer.remote,
+                "production_release_evidence": False,
+            },
+        )
     finally:
         try:
             if service is not None and started is not None:
@@ -537,4 +601,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(ap
                 if browser_fixture is not None:
                     browser_fixture.close()
             finally:
-                close_bridge(bridge)
+                try:
+                    close_bridge(bridge)
+                finally:
+                    gpu_cleanup.close()

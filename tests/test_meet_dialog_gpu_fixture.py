@@ -7,7 +7,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_gpu_fixture import MODEL_VOLUME, OLLAMA_IMAGE, DialogGpuFixture, provider_command, worker_command
+from tests.meet_dialog_gpu_fixture import (
+    MODEL_DIGEST,
+    MODEL_VOLUME,
+    OLLAMA_IMAGE,
+    DialogGpuFixture,
+    provider_command,
+    worker_command,
+)
 from tests.meet_gpu_source_fixture import driver_bindings
 from tests.test_meet_gpu_source_fixture import IMAGE, mounts
 
@@ -119,3 +126,38 @@ def test_every_owned_resource_is_cleaned_after_partial_or_uncertain_setup(failur
         ("network", "rm", name) if kind == "network" else ("rm", "--force", name) for kind, name in reversed(created)
     ]
     assert cleanup == expected and not instance.resources and instance.temporary is None
+
+
+@pytest.mark.parametrize("change", [None, "cpu", "digest", "status", "oversize", "incomplete"])
+def test_preload_has_no_prompt_and_requires_pinned_gpu_residency(change, monkeypatch):
+    instance = DialogGpuFixture()
+    instance.provider_address = ("172.30.0.2", 11434)
+    instance.endpoint = "http://172.30.0.3:8094/v1/turns"
+    first = Mock(status=503 if change == "status" else 200)
+    first.read.return_value = (
+        b"a" * 65537 if change == "oversize" else json.dumps({"done": change != "incomplete"}).encode()
+    )
+    second = Mock(status=200)
+    second.read.return_value = json.dumps(
+        {
+            "models": [
+                {
+                    "name": "qwen2.5:1.5b",
+                    "digest": "wrong" if change == "digest" else MODEL_DIGEST,
+                    "size_vram": 0 if change == "cpu" else 100,
+                }
+            ]
+        }
+    ).encode()
+    connection = Mock()
+    connection.getresponse.side_effect = [first, second]
+    monkeypatch.setattr("tests.meet_dialog_gpu_fixture.http.client.HTTPConnection", Mock(return_value=connection))
+    if change:
+        with pytest.raises(ValueError):
+            instance.preload()
+    else:
+        assert instance.preload() >= 0
+    payload = json.loads(connection.request.call_args_list[0].args[2])
+    assert payload["prompt"] == "" and payload["model"] == "qwen2.5:1.5b" and payload["options"]["num_gpu"] == 99
+    assert "task_id" not in payload and "messages" not in payload and "tools" not in payload
+    connection.close.assert_called_once()

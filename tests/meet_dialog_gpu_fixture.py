@@ -20,6 +20,18 @@ MODEL_VOLUME = "ananta-meet-media_meet-models"
 NAME = re.compile(r"meet-test-inference-[a-f0-9-]{36}-(?:worker|ollama|network)")
 
 
+def configure_dialog_gpu(observer, enabled, cleanup, record_property):
+    if not enabled:
+        return
+    from agent.services.meet_media_transport import HttpMediaWorker
+    from ananta_contracts.meet_speech import speech_profile
+
+    fixture = cleanup.enter_context(DialogGpuFixture(lifetime=360))
+    record_property("cold_model_preload_seconds", fixture.preload())
+    observer.worker = HttpMediaWorker(fixture.endpoint, fixture.key)
+    observer.profile = speech_profile(max_seconds=20)
+
+
 def inference_command(name, network, image, drivers, lifetime):
     if (
         not NAME.fullmatch(name)
@@ -73,7 +85,7 @@ def provider_command(name, network, drivers, lifetime):
         args
         + [
             "--network-alias=meet-test-ollama",
-        "--tmpfs=/home/ubuntu/.ollama:rw,size=4m,mode=1777",
+            "--tmpfs=/home/ubuntu/.ollama:rw,size=4m,mode=1777",
             "--mount",
             f"type=volume,src={MODEL_VOLUME},dst=/models,volume-subpath=models,readonly",
             "--env=OLLAMA_MODELS=/models",
@@ -121,6 +133,7 @@ class DialogGpuFixture:
         self.resources = []
         self.temporary = None
         self.endpoint = None
+        self.provider_address = None
         self.key = secrets.token_hex(32).encode("ascii")
 
     def _address(self, name, port):
@@ -206,11 +219,63 @@ class DialogGpuFixture:
                 self.command("start", name)
                 address = self._address(name, 11434 if name == self.provider else 8094)
                 self._ready(address, provider=name == self.provider)
+                if name == self.provider:
+                    self.provider_address = address
             self.endpoint = f"http://{address[0]}:{address[1]}/v1/turns"
             return self
         except Exception:
             self.close()
             raise
+
+    def preload(self):
+        """Explicit cold-model readiness, separate from any measured Hub answer."""
+        if self.provider_address is None or self.endpoint is None:
+            raise ValueError("test_inference_not_ready")
+        started = time.monotonic()
+        connection = http.client.HTTPConnection(*self.provider_address, timeout=45)
+        try:
+            # Empty prompt loads the pinned model; it does not generate a reply,
+            # create a Task or turn a synthetic input into Hub evidence.
+            connection.request(
+                "POST",
+                "/api/generate",
+                json.dumps(
+                    {
+                        "model": "qwen2.5:1.5b",
+                        "prompt": "",
+                        "stream": False,
+                        "keep_alive": "5m",
+                        "options": {"num_ctx": 2048, "num_predict": 1, "num_gpu": 99},
+                    }
+                ).encode(),
+                {"Content-Type": "application/json"},
+            )
+            response = connection.getresponse()
+            raw = response.read(65537)
+            if response.status != 200 or len(raw) > 65536 or json.loads(raw).get("done") is not True:
+                raise ValueError("test_inference_preload_failed")
+            remaining = 45 - (time.monotonic() - started)
+            if remaining <= 0:
+                raise ValueError("test_inference_preload_failed")
+            connection.timeout = remaining
+            if connection.sock is not None:
+                connection.sock.settimeout(remaining)
+            connection.request("GET", "/api/ps")
+            response = connection.getresponse()
+            raw = response.read(65537)
+            if response.status != 200 or len(raw) > 65536 or time.monotonic() - started >= 45:
+                raise ValueError("test_inference_preload_failed")
+            if not any(
+                model.get("name") == "qwen2.5:1.5b"
+                and model.get("digest") == MODEL_DIGEST
+                and type(model.get("size_vram")) is int
+                and model["size_vram"] > 0
+                for model in json.loads(raw).get("models", [])
+            ):
+                raise ValueError("test_inference_preload_gpu_required")
+            return round(time.monotonic() - started, 2)
+        finally:
+            connection.close()
 
     def close(self):
         failed = []

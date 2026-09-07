@@ -2,7 +2,7 @@
 
 MAP-22 follow-up after the current Hub/Worker/Meet dialog passed with synthetic
 model/WAV output. Isolation and the real GPU HTTP component gate are implemented;
-the combined Hub/browser gate remains open. No production release is claimed.
+the short combined Hub/browser gate now passes. No production release is claimed.
 
 ## Isolation decision
 
@@ -73,5 +73,60 @@ The ephemeral report is `/tmp/ananta-meet-dialog-gpu-component.xml`; it contains
 only counts and classification, no generated text/audio/video or signing key.
 This was a synthetic component task, not a Hub-issued production run or a Meet
 receiver test. Cold startup/inference timing must not be presented as warm
-dialog latency. The 25-second spoken callback budget still needs validation
-with actual inference in the combined gate; it has not been silently widened.
+dialog latency. At that component-only checkpoint the 25-second spoken callback
+budget still needed validation in the combined gate; it was not widened.
+
+## Combined real dialog verification
+
+The opt-in `gpu` case in `tests/test_meet_dialog_cross_repository.py` composes
+the same real Hub task/dispatch, admission, signed callback and private browser
+fixture with this isolated Worker. Cold model loading uses an explicitly empty
+provider prompt and separately checks the pinned model's nonzero GPU residency;
+it creates no answer/task/evidence identity and is excluded from answer timing.
+The productive 25-second callback and 200-ms PCM queue remain unchanged.
+
+On 2026-09-07 the combined gate passed in 97.88 s, including 18.39 s of separate
+cold-model preloading. First and second actual Qwen/Piper/NVENC child calls took
+20.94 s and 2.38 s; their local sources completed 48,896 and 47,104 samples.
+The receiver measured 84 and 89 non-silent windows, with no capture attempts or
+reported transform errors. After explicit Hub speech pause, a third correlated
+model answer remained text-only. Screen pause/resume, replacement consent,
+private-source fencing and Hub stop were exercised in the same bounded run.
+Text correlation checks the exact outgoing input, room and membership epoch,
+actual rendered acceptance, and the SHA-256 of that exact generated answer.
+Identical answer text cannot stand in for a new accepted reply.
+
+This test found a real companion UI lifecycle bug: switching from Live to Chat
+removed the room's audio elements while preserving membership. Packets arrived
+and a temporary private diagnostic confirmed successful decryption, but no audio
+was decoded/played. Meet now retains exactly one room-bound audio sink outside
+the section switch. The successful gate used the rebuilt application without
+that temporary transform instrumentation. Separate Chromium/Firefox navigation
+regression and the companion full check are recorded in its TODO.
+
+The fixture keeps only bounded counters and response digests in its report,
+not generated chat, PCM/video, grants or keys. Context-match counts are only
+diagnostics, not proof of key installation or decryption. Receiver sample counts
+are cumulative WebRTC observations, not exact source delivery. GPU voice quality,
+mid-speech revocation/load/soak, public TURN and productive deployment remain
+separate unfinished tasks. All identities/admission here remain synthetic;
+this local command is not promotable production release evidence.
+
+The actual GPU case is deliberately short: when `MEET_DIALOG_SOAK_SECONDS` is
+nonzero it is explicitly skipped, not mislabeled as a GPU soak. Its owned
+inference lifetime and bounded reply/audio observers are not an hours-long
+fixture. Legacy text/synthetic soak cases do not enable the GPU observer.
+
+A later 53-test regression run passed 52 cases, including the actual GPU case
+again, but failed before the synthetic-speech case could create a room:
+Chromium reported `ERR_NETWORK_CHANGED` during private fixture bootstrap.
+The companion fixture now retries only that precise navigation/bootstrap error,
+at most once within one 30-second deadline and before room creation/join/work.
+One 500-ms backoff between attempts consumes that same deadline so both attempts
+do not immediately encounter the same network-notification burst.
+Authorization errors, business operations and failed tests are never retried.
+This environmental failure is not recorded as a passing test.
+After this final bootstrap change both sequential private text/speech browser
+cases passed in 72.03 s. The earlier 50 fixture/output unit cases and actual GPU
+case had passed in both broader runs; those runs remain 52-pass/1-fail reports,
+not rewritten as an all-green combined run.
