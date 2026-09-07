@@ -22,6 +22,8 @@ def configure_avatar_speech(speech, actual_gpu):
 class DialogAvatarObserver:
     def __init__(self, enabled, speech, monkeypatch, *, actual_gpu=False):
         self.enabled = enabled
+        self.profiles = None
+        self.start_options = {}
         self.actual_gpu = actual_gpu
         self.condition = threading.Condition()
         self.state, self.generation = "closed", 0
@@ -129,3 +131,11 @@ class DialogAvatarObserver:
             },
         )
         return True
+
+
+def make_avatar_observer(mode, speech, monkeypatch, *, actual_gpu=False):
+    if mode == "image":
+        from tests.meet_dialog_image_avatar_scenario import ImageAvatarScenario
+
+        return ImageAvatarScenario(speech, monkeypatch)
+    return DialogAvatarObserver(mode, speech, monkeypatch, actual_gpu=actual_gpu)

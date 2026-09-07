@@ -1,10 +1,10 @@
 # Live persona image avatar
 
-Implementation plan for the remaining MAP-20/21 live image/profile slice.
-The independent neutral source and its genuine local GPU voice coexistence
-are implemented. Approved profile images currently work only in bounded MP4
-turns, not in live dialog source generations. This document is not a claim
-that the following steps already work end to end.
+MAP-20/21 implementation record. The original plan and intermediate foundation
+sections below are historical. Live image selection, signed hydration, Worker
+publication and UI are now integrated, with a private cross-repository image
+switch/revocation gate. This is not public deployment or production release
+evidence; actual profile/catalog permissions also have separate SQL/race tests.
 
 ## Boundaries
 
@@ -139,4 +139,66 @@ tests passed (16.27 s), and 23 actual loopback HTTP tests passed (21.26 s).
 Transport cases cover wrong nonce/scope/signature/domain/request, oversize,
 truncation, compression, redirect, status and deadline. These components remain
 unexposed until route/assignment/runtime composition; no productive image
-selection or end-to-end Hub image publication is claimed yet.
+selection or end-to-end Hub image publication was claimed at that foundation stage.
+
+## Integrated live selection and presentation
+
+New tasks may explicitly negotiate `avatar_images: true`, only with the assigned
+`avatar.publish` capability and a configured Hub profile authority. They still
+start with a paused neutral selection. Old tasks/assignments preserve their exact
+wire shape and cannot be silently upgraded. The signed ordinary callback adds
+only a content-free avatar projection for negotiated tasks. Both sides reject
+missing/unexpected image support rather than guessing compatibility.
+
+Authenticated `PUT /api/meet/v1/projects/<project>/dialogs/<task>/avatar` accepts
+only a current `expected_revision` plus a Hub profile pin or explicit
+`neutral: true`. Selection and its independent source revision share the actual
+Hub Task CAS; selection does not enable a paused source. The separate signed
+internal `/api/meet/v1/internal/dialog/avatar-image` callback enforces its own
+request/response HMAC domains, immutable assignment binding and byte limits.
+
+The Worker presentation adapter composes the existing source pump with a single
+bounded image-fetch slot. No task orchestration, browser access or publication
+runs in the HTTP executor. Only a new authenticated control update may consume
+the result and activate/pulse a matching generation. Delayed old fetches keep
+their sole slot until completion, are discarded after any binding change, and
+cannot create an unbounded queue or replace a later selection. Failed hydration
+does not retry or choose a neutral image. Ticks only maintain existing sources.
+
+The Angular dialog has an explicit default-off image-support checkbox and a
+separate local profile picker. Organization/team/agent IDs resolve through the
+existing authenticated profile API; only its validated effective pin is sent
+to the selection CAS. The picker fetches no image/video bytes and cannot grant
+publication. Voice is independent, while disabled/unsupported visual output
+remains unavailable. Edits, account/project changes, pending requests and Hub
+changes invalidate candidates. An explicit neutral choice is separate from
+failure handling. The Hub rechecks every permission when selecting/publishing.
+84 Meet UI tests, targeted ESLint and Angular compilation passed; the pre-existing
+unrelated KnowledgeHygienePage unused RouterLink warning remains.
+
+The actual private Hub/Worker/Meet gate passed in 45.66 s: decoded red-to-blue
+image replacement during speech, two exact local 220,500-sample completions,
+remote non-silent correlated replies, image revocation in 122.79/180.19 ms
+locally/remotely, continued screen and a new spoken answer after revocation,
+zero human captures and zero transform errors. Images, voice and catalog/policy
+are explicitly synthetic, not production approval. Separate actual SQL profile
+tests validate real catalog and revocation behavior. The gate exposed and drove
+two fixes described in `meet-dialog-speech-browser-batching.md`; earlier failed
+runs are not counted as successes.
+
+SRP/DIP: profile policy, passive selection CAS, content hydration, image transport,
+source presentation and UI selection remain separate components. Existing large
+route/runtime modules remain composition points, not new image-policy engines.
+Public deployment, arbitrary-network timing/soak, additional session-renewal
+image coverage and the broader MAP-20/21 acceptance work remain tracked separately.
+
+Final compatibility checks: 82 Hub-route/assignment/image-control/Worker tests
+passed in 62.22 s. Three additional actual cross-repository cases passed together
+in 164.16 s: RTX3080 Qwen/Piper avatar dialogue (52,992 completed local PCM
+samples, 105 non-silent remote windows, cold preload 18.86 s), live speech pause
+(1.630/1.638 s local/remote) and parent stop (1.713/1.725 s). The GPU case retains
+actual-GPU/non-synthetic-audio classification; the interruption fixtures remain
+synthetic. No case is production release evidence. Companion `1c6c07f` adds the
+fixed read-only color observations; its serial full check passed with 569
+frontend and 499 Node successes / zero failures / two Node skips (69.11 s for
+the Node matrix), plus explicit external-infrastructure skips.
