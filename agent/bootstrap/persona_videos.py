@@ -8,10 +8,12 @@ def configure_persona_videos(app):
         return
     from agent.database import engine
     from agent.repositories.persona_video_assets import create_video_asset_catalog
+    from agent.repositories.persona_video_cursors import SqlPersonaVideoCursors
     from agent.repositories.persona_video_policies import create_video_policy_repository
     from agent.repositories.persona_video_retention import create_video_retention_store
     from agent.services.artifact_store import ArtifactStore
     from agent.services.hub_evidence_registry_service import get_hub_evidence_registry_service
+    from agent.services.persona_asset_query import PersonaAssetQuery
     from agent.services.persona_inspection_formats import PersonaVideoInspectionFormat
     from agent.services.persona_inspection_leases import HubPersonaInspectionLeases
     from agent.services.persona_inspection_task_state import HubPersonaTaskState
@@ -76,3 +78,12 @@ def configure_persona_videos(app):
         ),
     )
     app.extensions["persona_profile_videos"] = PersonaProfileVideos(app.extensions["persona_video_assets"])
+    cursors = SqlPersonaVideoCursors(engine)
+    cursors.initialize()
+    app.extensions["persona_video_query"] = PersonaAssetQuery(
+        policy=policy,
+        catalog=catalog,
+        references=app.extensions["persona_profile_videos"],
+        cursors=cursors,
+        kind="video",
+    )

@@ -78,6 +78,11 @@ def test_video_only_bootstrap_composes_exact_policy_task_receipt_and_erasure_por
     assert app.extensions["persona_profiles"].videos is app.extensions["persona_profile_videos"]
     assert app.extensions["persona_video_retention"].catalog is service.catalog
     assert app.extensions["persona_video_retention_runner"].tasks.kind == "video"
+    query = app.extensions["persona_video_query"]
+    assert query.kind == "video" and query.policy is policy and query.catalog is service.catalog
+    assert query.references is app.extensions["persona_profile_videos"]
+    assert "persona_video_cursors" in inspect(base.engine).get_table_names()
+    assert "persona_image_cursors" not in inspect(base.engine).get_table_names()
     assert "persona_video_retention_reconciler" not in app.extensions
     with base.engine.connect() as connection:
         assert not list(connection.execute(select(heads)))

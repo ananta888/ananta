@@ -13,6 +13,17 @@ from ananta_contracts.persona_video import MAX_INPUT_BYTES, MAX_REQUEST_BYTES
 persona_videos_bp = Blueprint("persona_videos", __name__)
 
 
+@persona_videos_bp.post("/projects/<project>/videos/query")
+@check_user_auth
+def query_videos(project):
+    body = payload({"cursor", "limit"}, maximum=1024)
+    return jsonify(
+        service("persona_video_query").query(
+            get_authenticated_source_control_principal(), project, cursor=body["cursor"], limit=body["limit"]
+        )
+    )
+
+
 @persona_videos_bp.put("/projects/<project>/video-policy")
 @check_user_auth
 def install_policy(project):
