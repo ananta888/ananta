@@ -41,3 +41,44 @@ The existing runtime/test composition size is preserved architectural debt,
 not a reason to embed another scheduler or policy engine in either browser.
 This does not promise glitch-free audio under arbitrary browser/main-thread
 starvation, GPU availability, remote sample accounting or production evidence.
+
+## Implemented and verified
+
+`BrowserSpeechPlayback` validates the source receipt and monotonic progress;
+`BrowserPcmFeeder` owns the narrow browser transport, with fixed scripts in a
+separate module. Production dialog composition selects this delivery strategy
+after deferred opening and clears its Python PCM reference after transfer.
+Explicit synchronous opening and injected legacy producers remain compatible.
+Fresh `DialogSpeechOutput.update` calls alone pulse the controller. Each pulse
+carries the remaining absolute Hub window, rather than granting another full
+2.5 seconds after an arbitrarily delayed RPC. The browser also bounds monotonic
+age and checks local lease/chat/source/URL before filling the unchanged queue.
+
+The initial 107 focused regressions passed in 46.63 s; the expanded publication,
+opening, voice, observer and feeder regression passed 168 tests in 65.63 s.
+Exact-script tests run four seconds of consumption with no Python status poll
+or PCM RPC, and exercise controller loss, rollback, replacement, partial batch
+failure, invalid progress and zeroing retained storage. Later targeted helper
+checks cover the deterministic stall instrumentation separately: all 42 feeder,
+playback, delay and stall checks passed in 25.44 s.
+
+Serial private browser checks with the current isolated Meet build:
+
+- **50.25 s, passed:** 28 deliberately delayed Python status polls of
+  354.82–366.41 ms; first local output completed all 220500 samples with
+  correlated non-silent remote audio. The second selected voice was revoked;
+  local/remote removal took 872.20/883.59 ms. Screen remained usable.
+- **222.66 s, passed:** generations 1–4, three actual lease renewals and matching
+  image hydration, decoded blue avatar and moving screen after each, five full
+  local replies of 220500 samples each. Image removal took 1099.08 ms locally
+  and 1134.05 ms remotely; another reply then completed before parent stop.
+- **54.28 s, two passed:** a fresh-Hub-armed 4500-ms Worker polling stall still
+  delivered new remote audio after 500 ms, then the browser removed audio at
+  2494.75 ms, **before the Worker returned**. The stale runtime subsequently
+  terminated and its actual Hub task became failed; no completed reply/replay.
+  Separate Hub parent cancellation stopped local/remote speech in 514/522 ms.
+
+All media/policy fixtures in these checks are explicitly synthetic. No real GPU
+or public TURN acceptance, remote sample-accounting guarantee or production
+SRC/RUN evidence is claimed. The previous old-build and PCM-underrun failures
+remain in [the renewal ledger](meet-image-renewal-series.md).

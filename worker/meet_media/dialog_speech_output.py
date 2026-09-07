@@ -6,11 +6,13 @@ from ananta_contracts.meet_dialog_voice import validate_voice_projection, voice_
 from ananta_contracts.meet_speech_source import FRAME_SAMPLES
 from ananta_contracts.meet_spoken_reply import SpokenReply, validate_spoken_binding
 from worker.meet_media.audio_output import SpeechFrame
+from worker.meet_media.browser_speech_playback import BrowserSpeechPlayback
 from worker.meet_media.speech_browser import BrowserSpeechPort
 from worker.meet_media.speech_opening import BrowserSpeechOpening
 from worker.meet_media.speech_publication import SpeechPublication, validate_publication_input
 
 _DEFAULT_OPENING = object()
+_DEFAULT_PLAYBACK = object()
 
 
 def speech_binding(assignment, receipt, controls, sender, voice=None):
@@ -66,6 +68,7 @@ class DialogSpeechOutput:
         monotonic=time.monotonic,
         browser=None,
         opening_factory=_DEFAULT_OPENING,
+        playback_factory=_DEFAULT_PLAYBACK,
     ):
         self.page, self.assignment, self.clock, self.monotonic = page, assignment, clock, monotonic
         self.browser = (
@@ -89,6 +92,13 @@ class DialogSpeechOutput:
             if opening_factory is _DEFAULT_OPENING
             else opening_factory
         )
+        self.playback_factory = (
+            (BrowserSpeechPlayback if browser is None and self.opening_factory is not None else None)
+            if playback_factory is _DEFAULT_PLAYBACK
+            else playback_factory
+        )
+        if self.playback_factory is not None and self.opening_factory is None:
+            raise ValueError("meet_speech_playback_requires_deferred_opening")
 
     @property
     def busy(self):
@@ -117,6 +127,8 @@ class DialogSpeechOutput:
         if self.busy:
             try:
                 self.require_current()
+                if self.publication is not None and self.playback_factory is not None:
+                    self.publication.refresh()
             except Exception:
                 self.close()
 
@@ -146,6 +158,16 @@ class DialogSpeechOutput:
         # This pure checkpoint owns Hub policy. BrowserSpeechPort checks actual
         # local membership, exact lease and chat on both sides of each source
         # operation, without separate cached browser-authority RPCs.
+
+    def _playback_authority(self):
+        self.require_current()
+        now = self.clock() * 1000
+        return {
+            "url": self.url,
+            "lease": dict(self.receipt["lease"]),
+            "deadline": self.binding["deadline_ms"],
+            "hubUntil": min(self.binding["deadline_ms"], int(now + (self.fresh_until - self.monotonic()) * 1000)),
+        }
 
     def accept(self, result, binding):
         if self.busy or not isinstance(result, SpokenReply):
@@ -188,17 +210,34 @@ class DialogSpeechOutput:
                 receipt = self.opening.poll()
                 if receipt is None:
                     return
-                self.publication = SpeechPublication(
-                    self.browser,
-                    self.assignment["session_id"],
-                    len(self.pcm) // 2,
-                    self.require_current,
-                    clock=self.clock,
-                    monotonic=self.monotonic,
-                    opened_receipt=receipt,
-                )
+                if self.playback_factory is None:
+                    self.publication = SpeechPublication(
+                        self.browser,
+                        self.assignment["session_id"],
+                        len(self.pcm) // 2,
+                        self.require_current,
+                        clock=self.clock,
+                        monotonic=self.monotonic,
+                        opened_receipt=receipt,
+                    )
+                else:
+                    self.publication = self.playback_factory(
+                        self.page,
+                        self.assignment["session_id"],
+                        self.pcm,
+                        self._playback_authority,
+                        clock=self.clock,
+                        monotonic=self.monotonic,
+                        opened_receipt=receipt,
+                    )
+                    self.pcm = b""  # Ownership moved to the bounded browser-local asset store.
                 self.opening.release()
                 self.opening = None
+            if self.playback_factory is not None:
+                self.publication.tick()
+                if self.publication.completed:
+                    self.close()
+                return
             available = self.publication.writable_samples()
             if self.publication.completed:
                 self.close()
