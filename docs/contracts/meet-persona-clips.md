@@ -105,6 +105,30 @@ microseconds end skew. The moving motif remained distinguishable. This remains
 a synthetic technical check, not a VRAM quota, generative-quality or live-
 publication acceptance claim. No running service was changed.
 
+The hardware checks are now repeatable against current source without a
+service rebuild:
+
+```sh
+MEET_CURRENT_SOURCE_GPU_GATE=1 .venv/bin/python -m pytest \
+  tests/test_meet_gpu_source_fixture.py tests/test_meet_current_source_gpu.py \
+  -q -n 0 -o cache_dir=/tmp/ananta-meet-current-gpu-pytest-cache
+```
+
+This explicit local gate requires the provisioned media-worker image, local
+model files and the existing read-only host-driver bindings. It starts a
+separate random-named container from that immutable local image, mounting only
+the current media/contract source packages, models and allowlisted driver
+libraries read-only. It copies no service credentials, environment or state,
+has no network or public ports, drops capabilities, runs as UID 1000, caps
+host memory/PIDs/temp storage, and enforces a 45-second inner deadline plus
+bounded host commands. Exact owned-container cleanup runs on success, timeout,
+bad reports and uncertain creation. No image is pulled and no service is
+restarted. The original serving-worker opt-in gates remain separate.
+
+The fixture isolation suite plus both actual current-source clip/speech GPU
+gates passed all 15 checks in 23.91 seconds on 2026-09-07. Their explicit opt-in
+skips on ordinary test runs are not hardware acceptance claims.
+
 ## Profile-bound clip execution
 
 The additive `persona_video_profile` selector now accepts the same exact

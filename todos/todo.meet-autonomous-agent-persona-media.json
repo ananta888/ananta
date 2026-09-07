@@ -986,7 +986,7 @@
         "Keine fremden laufenden Räume, GPU-Jobs oder Host-Eingabegeräte übernehmen; eigenes Testdeployment ist von einer Abnahme der bestehenden laufenden Instanz getrennt.",
         "Fehler direkt beheben und betroffene Gates wiederholen; Rohdumps bleiben Runtime-Daten, strukturierte sekretfreie Berichte dürfen versioniert werden."
       ],
-      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:b1d22619d9a82fe8c3214539ce810991f0dad6ef1ae0dfd62e576d8365eff0de aktualisiert; keine öffentlichen Dienste verändert. 48 Checks in 60,93 Sekunden bestanden, davon acht echte private Hardware-/Browser-Gates: CUDA-ASR, Medienantwort, budgetierter Chat, Persona-NVENC, profilgebundener GPU-Turn mit realer Hub-HTTP-Lease, isolierter kontinuierlicher Chromium-CDP-Bildstrom, Piper-PCM-Chunks/Abbruch und vollständige Offline-A/V-Decoderprüfung. Initiale Decoderprobe: 28 Video-/50 Audioframes, 11,338 ms Endzeitdifferenz, 1,95 Sekunden Laufzeit. Zuvor 217 gezielte Regressionstests in 141,88 Sekunden bestanden. Profil-GPU-Turn bindet exakte Stimme/Modellhashes und ein Zehn-Sekunden-Audiobudget; tatsächliche WAV-Samples gegengeprüft. Bild-/Chat-Autoritätsfixtures bleiben ausdrücklich synthetisch, keine produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md, docs/contracts/meet-browser-source-baseline.md, docs/contracts/meet-speech-output.md und docs/contracts/meet-local-av-quality.md. Öffentliche Browserstream-/Mehragenten-Gegenstellen, Live-A/V-Drift, Soak-/Recovery-/TURN-Abnahme bleiben offen; lokal gelesener Meet-Stand 16b25af führt MDS-01 bis MDS-09 weiterhin als todo."
+      "implementation_note": "Privaten RTX3080-Worker auf Image sha256:b1d22619d9a82fe8c3214539ce810991f0dad6ef1ae0dfd62e576d8365eff0de aktualisiert; keine öffentlichen Dienste verändert. 48 Checks in 60,93 Sekunden bestanden, davon acht echte private Hardware-/Browser-Gates: CUDA-ASR, Medienantwort, budgetierter Chat, Persona-NVENC, profilgebundener GPU-Turn mit realer Hub-HTTP-Lease, isolierter kontinuierlicher Chromium-CDP-Bildstrom, Piper-PCM-Chunks/Abbruch und vollständige Offline-A/V-Decoderprüfung. Initiale Decoderprobe: 28 Video-/50 Audioframes, 11,338 ms Endzeitdifferenz, 1,95 Sekunden Laufzeit. Zuvor 217 gezielte Regressionstests in 141,88 Sekunden bestanden. Profil-GPU-Turn bindet exakte Stimme/Modellhashes und ein Zehn-Sekunden-Audiobudget; tatsächliche WAV-Samples gegengeprüft. Bild-/Chat-Autoritätsfixtures bleiben ausdrücklich synthetisch, keine produktive Release-Evidenz. docs/operations/meet-local-gpu-agent.md, docs/contracts/meet-browser-source-baseline.md, docs/contracts/meet-speech-output.md und docs/contracts/meet-local-av-quality.md. Öffentliche Browserstream-/Mehragenten-Gegenstellen, Live-A/V-Drift, Soak-/Recovery-/TURN-Abnahme bleiben offen; lokal gelesener Meet-Stand 16b25af führt MDS-01 bis MDS-09 weiterhin als todo. GPU-Quellstand-Gate 2026-09-07: Wiederholbare opt-in Tests starten separate zufallsbenannte Read-only-UID1000-Container aus lokal unveränderlicher Worker-Image-ID und exakt aktuellen Media-/Contract-Quellpaketen. Keine Worker-Umgebung/Secrets/Zustandsdateien, kein Netzwerk, keine öffentlichen Ports, kein Image-Pull oder Service-Restart; nur geschlossene Treiber-Mount-Allowlist und lokale Modelle, 45-s-Innenfrist und begrenzte Docker-Aufrufe, exakte Cleanup-Ziele auch bei Timeout/unklarer Erstellung. 13 deterministische Isolations-/Fehlertests und zwei echte RTX-Clip-/Sprachgates bestanden gemeinsam (15 Tests, 23.91 s). MEET_CURRENT_SOURCE_GPU_GATE=1; normaler Skip zählt nicht als Hardwareevidenz. docs/contracts/meet-persona-clips.md. Synthetische lokale technische Beobachtungen, keine öffentliche/produktive Freigabe."
     },
     {
       "id": "MAP-31",
@@ -1293,10 +1293,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-07T02:44:59.769451Z",
+    "generated_at": "2026-09-07T02:48:41.846648Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "99b41f0d1df7725f88746000b3692c6bf72a49b8e7fbd6d3c046b79d2325ee3e",
+    "source_hash": "77ea998e3e6a4701ed38b923dfa0f09cdc1d15b8fcb7a738f740e2de726c8ba0",
     "is_stale": false
   }
 }
