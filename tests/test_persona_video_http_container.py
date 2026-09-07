@@ -14,7 +14,13 @@ from contextlib import contextmanager
 import pytest
 from werkzeug.serving import make_server
 
+from agent.db_models import ArtifactDB, ArtifactVersionDB
 from agent.models.persona_asset_policy import PersonaSourcePin
+from agent.repositories.persona_video_assets import create_video_asset_catalog
+from agent.services.artifact_store import ArtifactStore
+from agent.services.persona_video_asset_service import PersonaVideoAssetService
+from agent.services.persona_video_erasure import create_video_erasure_service
+from agent.services.persona_video_storage import PersonaVideoStorage
 from agent.services.persona_video_transport import HttpPersonaVideoWorker
 from ananta_contracts.persona_video import decode_video
 from tests.test_persona_inspection_tasks import runtime as runtime
@@ -141,10 +147,39 @@ def admit_synthetic_source(case, content):
         consent_binding=None,
     )
     case.content = content
+    case.permission = permission
+
+
+def assert_video_asset_lifecycle(case, tmp_path, expected):
+    for model in (ArtifactDB, ArtifactVersionDB):
+        model.__table__.create(case.base.engine)
+    catalog = create_video_asset_catalog(case.base.engine)
+    catalog.initialize()
+    storage = PersonaVideoStorage(ArtifactStore(tmp_path / "private-assets"))
+    service = PersonaVideoAssetService(policy=case.policy, tasks=case.tasks, catalog=catalog, storage=storage)
+    asset = service.admit_video(
+        case.principal,
+        "project",
+        content=case.content,
+        media_type="video/mp4",
+        origin_binding=case.permission.source.source_id,
+        license_binding=case.permission.license.source_id,
+    )
+    case.receipts.require_asset(case.principal, asset)
+    assert service.read_video(case.principal, "project", asset.video.artifact_id) == expected.preview
+    assert service.read_video(case.principal, "project", asset.video.artifact_id, purpose="publish") == expected.video
+    assert service.revoke(case.principal, "project", asset.video.artifact_id, expected_revision=2) == 3
+    with pytest.raises(ValueError):
+        service.read_video(case.principal, "project", asset.video.artifact_id)
+    erasure = create_video_erasure_service(policy=case.policy, catalog=catalog, base_dir=storage.store.base_dir)
+    assert erasure.purge(case.principal, "project", asset.video.artifact_id, expected_revision=3) == 5
+    assert not list(storage.store.base_dir.rglob("v0001__*"))
+    assert catalog.get_retired("tenant", "project", asset.video.artifact_id) == (asset, 5, "purged")
 
 
 def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(request, app, tmp_path):
     case = request.getfixturevalue("video_task")
+    case.policy.access = app.extensions["project_access_authority"]
     app.config["ROLE"] = "hub"
     app.extensions["persona_video_worker_key"] = KEY
     app.extensions["persona_video_leases"] = case.leases
@@ -179,4 +214,5 @@ def test_real_cpu_video_decoder_over_private_http_completes_reserved_hub_run(req
                 assert case.state.get(result.task_id).status == "completed"
                 run = case.base.repository.get_run(tenant_id="tenant", project_id="project", run_id=result.run_id)
                 assert run.state == "succeeded" and run.synthetic and run.evidence_scope == "test"
+                assert_video_asset_lifecycle(case, tmp_path, expected)
                 assert not docker("exec", container, "sh", "-c", "command -v nvidia-smi || true")
