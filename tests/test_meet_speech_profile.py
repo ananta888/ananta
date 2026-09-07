@@ -93,9 +93,11 @@ def test_mutated_provisioned_file_fails_before_any_model_parser(tmp_path, monkey
 
 def test_cuda_loader_passes_only_verified_byte_snapshots_to_onnx(monkeypatch):
     from worker.meet_media import piper_speech
+    from worker.meet_media.speech_gpu_profile import cuda_provider_options
 
     session = Mock()
     session.get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    session.get_provider_options.return_value = {"CUDAExecutionProvider": cuda_provider_options()}
     ort = SimpleNamespace(
         preload_dlls=Mock(),
         get_available_providers=lambda: ["CUDAExecutionProvider"],
@@ -115,6 +117,7 @@ def test_cuda_loader_passes_only_verified_byte_snapshots_to_onnx(monkeypatch):
     monkeypatch.setattr(piper_speech, "load_pinned_assets", lambda _: (b"verified-bytes", b"{}"))
     result = piper_speech.load_cuda_voice()
     assert ort.InferenceSession.call_args.args == (b"verified-bytes",)
+    assert ort.InferenceSession.call_args.kwargs["providers"] == [("CUDAExecutionProvider", cuda_provider_options())]
     session.disable_fallback.assert_called_once()
     assert result.use_tashkeel is False  # This fixed German profile needs no dynamic Arabic model download.
     ort.get_available_providers = lambda: ["CPUExecutionProvider"]

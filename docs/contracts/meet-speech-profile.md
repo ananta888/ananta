@@ -27,6 +27,26 @@ diacritization is disabled for this fixed German voice, so it cannot trigger
 an unrelated model download. Local model availability errors never activate a
 cloud provider, model fetch or another voice.
 
+The fixed local CUDA profile now caps the provider arena at 2 GiB, extends it
+only as requested and disables maximum cuDNN convolution workspace allocation.
+The loader compares the actual session's returned provider options with these
+settings; ignored or unavailable settings fail before synthesis. The runtime's
+[CUDA provider documentation](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html)
+distinguishes this arena limit from total device memory, and describes the
+reduced convolution workspace when maximum allocation is disabled. This is
+not a hard process/GPU quota and does not arbitrate other GPU consumers.
+The settings are fixed Worker implementation limits, not caller-writable
+profile fields or a new Worker scheduler.
+
+On 2026-09-07, 85 focused speech/profile/clip-turn tests passed in 60.78 seconds.
+The isolated current-source RTX/Piper/NVENC clip probe passed in 2.70 seconds
+with 45 decoded video frames, 79 audio frames and 81,247 microseconds end skew.
+A separate real speech framing/stop probe passed in 2.36 seconds: 102 frames,
+44,544 samples, first frame including model load after 1,449 ms and local
+checkpoint cancellation after 23 ms. Both checked the effective CUDA options,
+ran without network, human capture or service changes, and are synthetic local
+observations rather than production evidence or a continuous live-stream test.
+
 ## Hub, worker and result
 
 Newly composed media-enabled Hubs inject the profile into each bounded turn;

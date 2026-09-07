@@ -6,6 +6,7 @@ import numpy as np
 
 from worker.meet_media.audio_output import SAMPLE_RATE
 from worker.meet_media.piper_assets import load_pinned_assets
+from worker.meet_media.speech_gpu_profile import cuda_provider_options, require_cuda_budget
 
 
 def load_cuda_voice(profile=None):
@@ -23,7 +24,7 @@ def load_cuda_voice(profile=None):
             model,
             sess_options=ort.SessionOptions(),
             providers=[
-                ("CUDAExecutionProvider", {"cudnn_conv_algo_search": "HEURISTIC"}),
+                ("CUDAExecutionProvider", cuda_provider_options()),
             ],
         ),
         use_tashkeel=False,
@@ -31,6 +32,7 @@ def load_cuda_voice(profile=None):
     if "CUDAExecutionProvider" not in voice.session.get_providers():
         raise ValueError("meet_piper_cuda_fallback_forbidden")
     voice.session.disable_fallback()
+    require_cuda_budget(voice.session)
     if voice.config.sample_rate != SAMPLE_RATE:
         raise ValueError("meet_speech_sample_rate_unsupported")
     return voice
