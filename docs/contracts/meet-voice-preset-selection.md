@@ -61,3 +61,39 @@ and browser playback separate. Workers execute assignments, never select new
 personas, issue evidence identities or orchestrate further work. This remains
 implementation work until verified; public deployment and production release
 evidence require their own actual authority and pre-reserved Hub runs.
+
+## Verified local preset slice (stages 1–3)
+
+The shipped immutable catalog now supports the original default and all eight
+expression variants. The default profile's wire fields and exported model pins
+are unchanged. The worker verifies each model/config snapshot before parsing,
+checks the complete multi-speaker map, and passes only the catalog's speaker ID
+to Piper. CUDA remains required; there is no cloud or CPU fallback.
+
+Model-only provisioning is separate from identity setup:
+
+```sh
+python -m scripts.provision_meet_voice /absolute/models/directory \
+  --voice-id piper.de_DE.thorsten_emotional.medium.neutral
+```
+
+This command verifies pinned bounded downloads, preserves existing files and
+creates no keys or service configuration. Additional presets use the explicit
+`MEET_PIPER_MODELS_DIR` (default `/models`); the legacy `MEET_PIPER_MODEL` remains
+an override for the original voice only. A legacy fixed path without an explicit
+directory cannot silently select another model.
+
+Headless acceptance: 109 catalog/profile/output/binding/fixture regressions
+passed in 73.33 seconds; 19 provisioning tests passed in 18.40 seconds. The
+opt-in `MEET_VOICE_VARIANT_GPU_GATE=1` test passed in 13.15 seconds on the local
+RTX3080: neutral (speaker 4) and whisper (speaker 7) produced non-silent PCM,
+with first frames including loading at 1,474/880 ms and local checkpoint stops
+at 24/26 ms. These are local technical observations, not voice quality claims,
+persona policy grants, Meet delivery proof or production release evidence.
+
+Stages 4–6 remain open. Their first slice is a closed, one-part voice descriptor
+asset and an explicitly separate voice policy domain. The shared SQL catalog's
+hard-coded two-part transition count must become format-derived without
+weakening completeness checks for image/video (LSP/OCP). No fabricated preview
+artifact, uploaded model or implicit image/ASR permission will stand in for a
+voice asset.

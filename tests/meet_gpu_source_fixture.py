@@ -10,7 +10,9 @@ import subprocess
 from pathlib import Path
 from uuid import uuid4
 
-MODULES = frozenset({"persona_visual_smoke", "speech_smoke", "persona_video_smoke", "speech_pcm_probe"})
+MODULES = frozenset(
+    {"persona_visual_smoke", "speech_smoke", "persona_video_smoke", "speech_pcm_probe", "voice_variant_smoke"}
+)
 DRIVER = re.compile(r"lib(?:cuda|nvcuvid|nvidia-(?:encode|ml|nvvm|gpucomp|ptxjitcompiler))\.so(?:\.[0-9]+)*")
 REQUIRED = frozenset({"libcuda.so.1", "libcuda.so", "libnvidia-encode.so.1", "libnvcuvid.so.1"})
 ROOT = Path(__file__).resolve().parents[1]
