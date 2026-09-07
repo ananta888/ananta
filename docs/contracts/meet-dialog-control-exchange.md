@@ -92,3 +92,15 @@ recovery; these infrastructure failures are not passing/skipped runtime tests.
 The final container-free regression passed all 129 control, observer, speech,
 browser-port, publication, chat-pump and scenario-fixture tests in 54.45 s with
 two Pytest workers. Targeted Ruff checks and TODO consistency validation passed.
+
+Docker later recovered without a daemon restart. All owned leftover proxy and
+readiness containers were removed; unrelated resources were preserved. Isolated
+readiness checks passed for both pinned test images. The resumed one-second
+cadence browser batch passed latency/voice, actual avatar lease renewal and
+speech pause, but failed before parent-stop on the second correlated chat reply
+(three passes/one failure, 236.29 s). The previous assertion did not expose
+whether generation or browser source admission was missing. Passive bounded
+acceptance/timing diagnostics now distinguish those phases without extra RPCs.
+The isolated stop diagnostic then passed in 40.54 s. This is not a clean combined
+batch or proof that every intermittent reply failure is resolved. Real GPU
+delivery still lacks its rerun with sufficient available VRAM.

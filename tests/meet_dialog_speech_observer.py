@@ -3,6 +3,7 @@
 import hashlib
 import threading
 import time
+from collections import deque
 
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet_dialog_callback_observer import DialogCallbackObserver
@@ -31,6 +32,24 @@ class DialogSpeechObserver:
         self.control_reads = DialogControlObserver(monkeypatch)
         self.last_tick = None
         self.max_tick_gap_ms = 0
+        self.acceptances = deque(maxlen=8)
+        accept = DialogSpeechOutput.accept
+
+        def observe_accept(output, result, binding):
+            started = time.monotonic()
+            fresh_before = output.monotonic() < output.fresh_until
+            accepted = accept(output, result, binding)
+            self.acceptances.append(
+                {
+                    "accepted": accepted,
+                    "fresh_before": fresh_before,
+                    "fresh_after": output.monotonic() < output.fresh_until,
+                    "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
+                }
+            )
+            return accepted
+
+        monkeypatch.setattr(DialogSpeechOutput, "accept", observe_accept)
         tick = DialogSpeechOutput.tick
 
         def observe(output):
@@ -141,7 +160,14 @@ class DialogSpeechObserver:
         if self.worker is None:
             return command("answer")
         value = command("answer_correlated")
-        assert value == {"correlated": True, "text_sha256": self.answers[-1]["text_sha256"]}
+        assert value == {"correlated": True, "text_sha256": self.answers[-1]["text_sha256"]}, {
+            "received": value,
+            "generated_answers": len(self.answers),
+            "acceptances": list(self.acceptances),
+            "control_timing": self.control_reads.report(),
+            "callbacks": self.callbacks.report(),
+            "slow_rpc": self.rpc.report(),
+        }
         return {"received": True}
 
     def require_remote(self, command):
