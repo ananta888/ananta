@@ -84,6 +84,27 @@ LLM inference, or decoded live Meet delivery. No running service was redeployed.
 The following sections document subsequent profile and UI wiring; live-delivery
 and production acceptance remain separate.
 
+## Encoder working-set follow-up
+
+The shared image/clip/procedural renderer now explicitly selects four NVENC
+surfaces, zero lookahead, no B-frames, zero async delay, ultra-low-latency tuning
+and disabled multipass. These settings avoid implicit surface growth from
+lookahead/reordering in the deployed
+[FFmpeg 5.1 encoder](https://github.com/FFmpeg/FFmpeg/blob/release/5.1/libavcodec/nvenc.c).
+They bound the selected encoder buffers, **not** total VRAM: driver contexts,
+codec-internal allocations, speech models and other host processes remain
+outside that bound. Existing 256×256/12-FPS and forty-second turn limits remain.
+Missing/failed NVENC and encoding timeouts now produce distinct content-free
+internal errors, never an implicit CPU codec fallback; the outer Worker still
+returns its stable generic execution-failed contract.
+
+The focused renderer/decoder/quality suite passed 61 tests in 44.78 seconds.
+The isolated RTX probe with the new options passed in 2.71 seconds, decoding
+43 video frames and 77 audio frames, with 512 audio padding samples and 7,460
+microseconds end skew. The moving motif remained distinguishable. This remains
+a synthetic technical check, not a VRAM quota, generative-quality or live-
+publication acceptance claim. No running service was changed.
+
 ## Profile-bound clip execution
 
 The additive `persona_video_profile` selector now accepts the same exact

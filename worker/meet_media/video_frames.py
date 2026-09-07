@@ -4,6 +4,7 @@ import math
 import subprocess
 
 from worker.meet_media.av_quality import MAX_VIDEO_BYTES, verify_encoded_media
+from worker.meet_media.video_encoder_profile import NVENC_OPTIONS
 
 
 def encode_frames(audio, duration, directory, *, frame_source, require_current):
@@ -18,7 +19,7 @@ def encode_frames(audio, duration, directory, *, frame_source, require_current):
                 raise ValueError("meet_video_frame_format_invalid")
             raw.write(frame.tobytes())
     require_current()
-    subprocess.run(
+    _encode(
         [
             "ffmpeg",
             "-nostdin",
@@ -38,14 +39,7 @@ def encode_frames(audio, duration, directory, *, frame_source, require_current):
             str(raw_path),
             "-i",
             str(audio),
-            "-c:v",
-            "h264_nvenc",
-            "-preset",
-            "p4",
-            "-pix_fmt",
-            "yuv420p",
-            "-b:v",
-            "350k",
+            *NVENC_OPTIONS,
             "-c:a",
             "aac",
             "-b:a",
@@ -55,9 +49,6 @@ def encode_frames(audio, duration, directory, *, frame_source, require_current):
             "+faststart",
             str(video_path),
         ],
-        check=True,
-        timeout=30,
-        capture_output=True,
     )
     require_current()
     with video_path.open("rb") as output:
@@ -67,3 +58,13 @@ def encode_frames(audio, duration, directory, *, frame_source, require_current):
             require_current=require_current,
         )
     return video_path
+
+
+def _encode(command):
+    """Keep private FFmpeg diagnostics local; never retry via another codec."""
+    try:
+        subprocess.run(command, check=True, timeout=30, capture_output=True)
+    except subprocess.TimeoutExpired:
+        raise ValueError("meet_video_encoder_timeout") from None
+    except (OSError, subprocess.CalledProcessError):
+        raise ValueError("meet_video_encoder_unavailable_or_failed") from None
