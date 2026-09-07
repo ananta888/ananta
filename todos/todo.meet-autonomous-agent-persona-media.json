@@ -382,7 +382,8 @@
         "Lesen/Zuhören, Senden, Aufzeichnen, Modelltraining und Werkzeugausführung sind getrennte Rechte; ein Raumbeitritt oder Persona-Bild erweitert keines davon.",
         "Cross-Tenant-Lecks, URL-/SSRF-Missbrauch, Prompt-Injection aus Medien, kompromittierte Teilnehmer, Replay und Schlüsselverlust als konkrete Negativfälle festhalten."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "source_profile_plan": "2026-09-08 Quellstand vor Implementierung: feste Dialog-v1-Handler binden Offline-Browser, generierte Sprache, neutrales KI-Canvas und optional Hub-Personabild, aber noch ohne explizite gespeicherte Quellprofilprojektion. docs/contracts/meet-source-profile-policy.md legt additive Hub-abgeleitete, bei jeder Authority-Abfrage exakt gepruefte Projektion fest. Keine Worker-v1-Wire-Aenderung oder vom Caller waehlbare Quellklasse; Altauftraege behalten ausschliesslich die feste alte v1-Semantik. Negativmatrix fuer Rechteausweitung, Capture, Tenant, SSRF, Injection, Replay und Schluesselverlust; pfaduebergreifende Profilvereinheitlichung und Empfaenger-Secret-Abnahme bleiben offen."
     },
     {
       "id": "MAP-04",
