@@ -116,3 +116,27 @@ A test originally asserted publication checking was the final asset call; the
 subsequent profile recheck correctly also checks preview availability. The test
 now asserts publication was checked and no image bytes were read, with existing
 publication-denial tests retained.
+
+## Implemented hydration foundation
+
+A separate closed `ananta.meet-avatar-image-request/response.v1` envelope binds
+the parent task, dispatch lease, runtime, Hub/Meet session, room, peer, membership,
+avatar control revision, exact selection digest and deadline. Requests retain
+the existing 16 KiB cap; only this separate response permits at most 8 MiB.
+Distinct request/response HMAC domains bind exact response bytes to their exact
+request, without changing ordinary dialog or speech protocol limits.
+
+`MeetDialogAvatarImages` re-reads Hub and Meet authority before and after image
+hydration. Its small state projection is content-free; a denied image remains
+image mode with state `blocked`, not a neutral fallback or unrelated-source
+control change. `HubAvatarImageClient` permits only the configured Hub path,
+at most six seconds and no redirects, environment proxies or retries. It checks
+assignment/reference scope before I/O, authenticates bytes before parsing, then
+checks the full binding, immutable reference and PNG hash before returning.
+
+Thirty contract tests passed (24.59 s), sixteen Hub hydration/revocation/race
+tests passed (16.27 s), and 23 actual loopback HTTP tests passed (21.26 s).
+Transport cases cover wrong nonce/scope/signature/domain/request, oversize,
+truncation, compression, redirect, status and deadline. These components remain
+unexposed until route/assignment/runtime composition; no productive image
+selection or end-to-end Hub image publication is claimed yet.
