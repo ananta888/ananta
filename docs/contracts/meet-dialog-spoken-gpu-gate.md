@@ -1,7 +1,8 @@
 # Combined spoken dialog GPU gate — implementation plan
 
 MAP-22 follow-up after the current Hub/Worker/Meet dialog passed with synthetic
-model/WAV output. This plan is not a completed GPU or production release claim.
+model/WAV output. Isolation and the real GPU HTTP component gate are implemented;
+the combined Hub/browser gate remains open. No production release is claimed.
 
 ## Isolation decision
 
@@ -43,3 +44,34 @@ UUID names are removed on teardown, including partial/uncertain setup failures.
 All gates are opt-in, bounded and fully headless. A missing GPU/image/model or
 failed gate is reported as such, never replaced with synthetic success. The
 broader voice-asset, live revocation, multi-node and soak TODOs remain open.
+
+## Isolated component verification
+
+`tests/meet_dialog_gpu_fixture.py` starts only its UUID-named internal network,
+Ollama and current-source media Worker. The pinned Ollama image uses UID 1000
+(`ubuntu`), so its small temporary writable directory is precisely
+`/home/ubuntu/.ollama`; using `/root` initially made startup fail read-only.
+The fix did not make the root filesystem or model store writable. Docker's
+read-only `volume-subpath=models` excludes the serving Ollama identity files.
+No HOME variable, serving key, provider environment or public port is reused.
+
+31 deterministic new/existing fixture checks passed in 25.68 s, covering
+configuration/driver validation, network membership and private addresses,
+source/model/key mount boundaries and reverse-order cleanup after partial or
+uncertain creation/start/health failure. New fixture/test modules pass Ruff.
+
+`MEET_DIALOG_GPU_GATE=1` with `tests/test_meet_dialog_gpu_turn.py` passed against
+the actual local RTX 3080 and current Worker source in 58.28 s. The measurement
+inside the test, including setup and cold inference, was 49.1 s: 108 input and
+13 output tokens, 65,792 real non-silent PCM samples, and a 63,868-byte NVENC MP4.
+The result traversed the actual signed private Worker HTTP adapter and pinned
+voice/sample validation. The local Qwen adapter checked the configured model
+digest and nonzero VRAM residency; Piper and NVENC retained their fail-closed
+GPU requirements. Both containers and the network were absent after cleanup.
+
+The ephemeral report is `/tmp/ananta-meet-dialog-gpu-component.xml`; it contains
+only counts and classification, no generated text/audio/video or signing key.
+This was a synthetic component task, not a Hub-issued production run or a Meet
+receiver test. Cold startup/inference timing must not be presented as warm
+dialog latency. The 25-second spoken callback budget still needs validation
+with actual inference in the combined gate; it has not been silently widened.
