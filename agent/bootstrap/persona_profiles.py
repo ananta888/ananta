@@ -2,8 +2,11 @@
 
 
 def configure_persona_profiles(app):
-    images, videos = (app.extensions.get(key) for key in ("persona_profile_images", "persona_profile_videos"))
-    if app.config.get("ROLE") != "hub" or (images is None and videos is None):
+    images, videos, voices = (
+        app.extensions.get(key)
+        for key in ("persona_profile_images", "persona_profile_videos", "persona_profile_voices")
+    )
+    if app.config.get("ROLE") != "hub" or (images is None and videos is None and voices is None):
         return
     from sqlmodel import Session
 
@@ -22,4 +25,5 @@ def configure_persona_profiles(app):
         profiles=profiles,
         images=images,
         videos=videos,
+        voices=voices,
     )

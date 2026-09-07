@@ -35,7 +35,7 @@ class PersonaAssetQuery:
         kind,
         monotonic=time.monotonic,
     ):
-        if kind not in {"image", "video"}:
+        if kind not in {"image", "video", "voice"}:
             raise ValueError("persona_query_kind_invalid")
         self.kind = kind
         self.policy, self.catalog, self.references, self.cursors = policy, catalog, references, cursors

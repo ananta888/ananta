@@ -33,10 +33,12 @@ class PersonaProfileService:
         profiles,
         images: PersonaProfileAssetPort | None,
         videos: PersonaProfileAssetPort | None = None,
+        voices: PersonaProfileAssetPort | None = None,
     ):
         self.access, self.memberships, self.owners = access, memberships, owners
         self.profiles, self.images = profiles, images
         self.videos = videos
+        self.voices = voices
 
     def _authorize(self, principal, project, organization, kind, owner, *, mutable):
         if (
@@ -73,7 +75,7 @@ class PersonaProfileService:
         self.owners.require(principal.tenant_id, project, organization, kind, owner, mutable=mutable)
 
     def _media_port(self, kind):
-        port = {"image": self.images, "video": self.videos}.get(kind)
+        port = {"image": self.images, "video": self.videos, "voice": self.voices}.get(kind)
         if port is None:
             raise ValueError("persona_profile_media_not_supported")
         return port
@@ -186,6 +188,9 @@ class PersonaProfileService:
         return self._for_execution(
             principal, project, selection, required_outputs=("voice", "video"), primary_kind="video"
         )
+
+    def for_voice_execution(self, principal, project, selection: PersonaProfileSelection):
+        return self._for_execution(principal, project, selection, required_outputs=("voice",), primary_kind="voice")
 
     def _for_execution(self, principal, project, selection, *, required_outputs, primary_kind):
         if (

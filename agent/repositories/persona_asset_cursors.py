@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 
 def cursor_tables(kind):
-    if kind not in {"image", "video"}:
+    if kind not in {"image", "video", "voice"}:
         raise ValueError("persona_cursor_kind_invalid")
     metadata = MetaData()
 
@@ -37,7 +37,7 @@ def _where(table, scope):
 
 class SqlPersonaAssetCursors:
     def __init__(self, engine, *, tables, kind, clock=time.time):
-        if kind not in {"image", "video"}:
+        if kind not in {"image", "video", "voice"}:
             raise ValueError("persona_cursor_kind_invalid")
         self.metadata, self.scopes, self.cursors = tables
         self.kind = kind
