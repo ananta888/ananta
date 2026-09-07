@@ -54,9 +54,52 @@ def test_synthetic_policy_fixture_does_not_admit_foreign_or_revoked_bindings(cha
         profiles.require_current(subject, project, pin, image["reference"], purpose)
 
 
-@pytest.mark.parametrize("mode", ["image", "image-renewal"])
+@pytest.mark.parametrize("mode", ["image", "image-renewal", "image-renewal-series"])
 def test_synthetic_image_gate_cannot_silently_substitute_for_a_requested_gpu_case(mode, monkeypatch):
     speech = Mock(worker=None)
     with pytest.raises(ValueError, match="image_avatar_gpu_not_configured"):
         make_avatar_observer(mode, speech, monkeypatch, actual_gpu=True)
     assert speech.worker is None
+
+
+@pytest.mark.parametrize("mode,seconds", [("image", None), ("image-renewal", 180), ("image-renewal-series", 360)])
+def test_each_image_scenario_declares_its_own_bounded_lifetime(mode, seconds, monkeypatch):
+    speech = SimpleNamespace(worker=None, capabilities=[], profile=None)
+    scenario = make_avatar_observer(mode, speech, monkeypatch)
+    assert scenario.start_options.get("duration_seconds") == seconds
+    assert scenario.renewal_count == (3 if mode == "image-renewal-series" else 1)
+    assert len(speech.capabilities) == 1 and speech.profile["max_seconds"] == 10
+
+
+def test_avatar_failure_observer_is_bounded_redacted_and_does_not_change_cleanup(monkeypatch):
+    from tests.meet_dialog_avatar_observer import DialogAvatarObserver
+    from worker.meet_media.avatar_browser import AvatarBrowserPort
+    from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
+
+    snapshot = {
+        "phase": "done",
+        "source": {"state": "open", "generation": 1},
+        "receipt": {"private": "PRIVATE_CONTENT"},
+    }
+    monkeypatch.setattr(AvatarBrowserPort, "status", lambda port: snapshot)
+    cleanup = Mock()
+    monkeypatch.setattr(DialogAvatarPump, "_fail", cleanup)
+    speech = SimpleNamespace(worker=None, capabilities=[], profile=None)
+    observer = DialogAvatarObserver(True, speech, monkeypatch)
+    port = AvatarBrowserPort(Mock(), "unused")
+    for generation in range(1, 40):
+        snapshot["source"]["generation"] = generation
+        assert port.status() is snapshot
+    pump = object.__new__(DialogAvatarPump)
+    for _ in range(12):
+        try:
+            raise ValueError("meet_avatar_setup_timeout PRIVATE_CONTENT")
+        except ValueError:
+            pump._fail()
+    report = observer.report()
+    assert len(report["transitions"]) == 24
+    assert report["errors"] == ["meet_avatar_setup_timeout"] * 8
+    assert "PRIVATE" not in str(report)
+    assert cleanup.call_count == 12
+    report["errors"].clear()
+    assert len(observer.report()["errors"]) == 8

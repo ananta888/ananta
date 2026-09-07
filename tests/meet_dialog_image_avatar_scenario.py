@@ -79,7 +79,10 @@ class SyntheticImageProfiles:
 
 
 class ImageAvatarScenario:
-    def __init__(self, speech, monkeypatch, *, renewal=False):
+    def __init__(self, speech, monkeypatch, *, renewal=False, renewal_count=1):
+        if type(renewal_count) is not int or renewal_count not in {1, 3} or renewal_count == 3 and not renewal:
+            raise ValueError("test_avatar_renewal_count_invalid")
+        self.renewal_count = renewal_count
         self.observer = DialogAvatarObserver(True, speech, monkeypatch)
         self.profiles = SyntheticImageProfiles()
         self.start_options = {"avatar_images": True}
@@ -88,7 +91,7 @@ class ImageAvatarScenario:
             from tests.meet_avatar_renewal_observer import AvatarRenewalObserver
 
             self.renewal = AvatarRenewalObserver(monkeypatch)
-            self.start_options["duration_seconds"] = 180
+            self.start_options["duration_seconds"] = 180 if renewal_count == 1 else 360
         self.callback_errors = []
         self.source_errors = []
         exchange = MeetDialogService.exchange
@@ -157,7 +160,15 @@ class ImageAvatarScenario:
 
         def moving(color):
             value = command("avatar_image_" + color)
-            assert value == {"moving_avatar_image": color}, {"remote": value, "runtime_errors": failures}
+            assert value == {"moving_avatar_image": color}, {
+                "remote": value,
+                "local_avatar": self.observer.report(),
+                "runtime_errors": list(failures),
+                "renewal": self.renewal.report() if self.renewal is not None else None,
+                "recent_callbacks": speech.callbacks.report(),
+                "control_timing": speech.control_reads.report(),
+                "slow_rpc": speech.rpc.report(),
+            }
 
         selected = select("red")
         assert selected["controls"]["avatar"]["enabled"] is False
@@ -212,12 +223,23 @@ class ImageAvatarScenario:
                 {"speech": str(error), "hub_callbacks": self.callback_errors, "source_errors": self.source_errors}
             ) from error
         speech.require_remote(command)
+        complete_replies = 1
         if self.renewal is not None:
-            self.renewal.require_renewed(self.profiles.catalog["blue"][0]["reference"]["sha256"])
-            self.observer.wait("open", 12)
-            moving("blue")
-            assert len(speech.samples) == 1  # Never replay the old reply after renewal.
-            assert command("screen") == {"moving_screen": True}
+            for generation in range(2, 2 + self.renewal_count):
+                self.renewal.require_renewed(
+                    self.profiles.catalog["blue"][0]["reference"]["sha256"], generation=generation
+                )
+                self.observer.wait("open", 12)
+                moving("blue")
+                assert len(speech.samples) == complete_replies  # No old reply replay after renewal.
+                assert command("screen") == {"moving_screen": True}
+                if self.renewal_count > 1:
+                    speech.before_question(command)
+                    assert command("ask") == {"sent": True}
+                    assert speech.receive_answer(command) == {"received": True}
+                    complete_replies += 1
+                    speech.require_completed(complete_replies, completed, failures)
+                    speech.require_remote(command)
         self.profiles.revoke()
         revoked_at = time.monotonic()
         self.observer.wait("closed", 3)
@@ -230,7 +252,7 @@ class ImageAvatarScenario:
         speech.before_question(command)
         assert command("ask") == {"sent": True}
         assert speech.receive_answer(command) == {"received": True}
-        speech.require_completed(2, completed, failures)
+        speech.require_completed(complete_replies + 1, completed, failures)
         speech.require_remote(command)
         assert command("avatar_absent") == {"avatar_absent": True}
         with app.app_context():

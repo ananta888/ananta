@@ -1,6 +1,7 @@
 """Read-only evidence of actual control-plane renewal and new image hydration."""
 
 import threading
+from collections import deque
 
 from worker.meet_media.dialog_avatar_image_client import HubAvatarImageClient
 from worker.meet_media.dialog_avatar_presentation import DialogAvatarPresentation
@@ -10,7 +11,7 @@ class AvatarRenewalObserver:
     def __init__(self, monkeypatch):
         self.condition = threading.Condition()
         self.generations = set()
-        self.hydrations = []
+        self.hydrations = deque(maxlen=16)
         update = DialogAvatarPresentation.update
         fetch = HubAvatarImageClient.fetch
 
@@ -31,10 +32,13 @@ class AvatarRenewalObserver:
         monkeypatch.setattr(DialogAvatarPresentation, "update", observe_update)
         monkeypatch.setattr(HubAvatarImageClient, "fetch", observe_fetch)
 
-    def require_renewed(self, image_hash):
+    def require_renewed(self, image_hash, *, generation=2):
+        if type(generation) is not int or not 2 <= generation <= 4:
+            raise ValueError("test_avatar_renewal_generation_invalid")
         with self.condition:
             assert self.condition.wait_for(
-                lambda: 2 in self.generations and {"generation": 2, "sha256": image_hash} in self.hydrations,
+                lambda: generation in self.generations
+                and {"generation": generation, "sha256": image_hash} in self.hydrations,
                 timeout=75,
             ), {
                 "lease_generations": sorted(self.generations),

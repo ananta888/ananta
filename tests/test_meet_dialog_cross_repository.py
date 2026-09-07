@@ -154,6 +154,15 @@ def close_bridge(bridge):
         pytest.param(
             True,
             False,
+            None,
+            "image-renewal-series",
+            False,
+            id="avatar-image-renewal-series",
+            marks=pytest.mark.skipif(SOAK_SECONDS != 360, reason="explicit 360-second three-renewal gate"),
+        ),
+        pytest.param(
+            True,
+            False,
             "pause",
             False,
             False,
@@ -228,7 +237,11 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from worker.meet_media.server import create_server
 
     meet = Path(__file__).resolve().parents[2] / "webrtc-minimize-server"
-    assert (meet / "dist/browser/index.html").is_file(), "Build the adjacent Meet repository first"
+    from tests.meet_companion_build import require_current_browser_build
+
+    record_property(
+        "meet_browser_build_preflight", require_current_browser_build(meet, os.environ.get("MEET_TEST_PUBLIC_DIR"))
+    )
     key = Ed25519PrivateKey.generate()
     private = tmp_path / "hub.pem"
     public = tmp_path / "hub-public.pem"
@@ -309,7 +322,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         new_context = Browser.new_context
 
         def observed_context(browser, *args, **kwargs):
+            from tests.meet_speech_worklet_observation import INSTALL
+
             context = new_context(browser, *args, **kwargs)
+            context.add_init_script(INSTALL)
             context.add_init_script("""window.__testPcs = [];
               window.__testCaptures = 0;
               for (const method of navigator.mediaDevices ? ['getUserMedia', 'getDisplayMedia'] : []) {
@@ -435,7 +451,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 run(assignment, client)
             except Exception as error:
                 codes = re.findall(r"\bmeet_[a-z_]{1,64}\b", str(error))
-                failures.append(codes[0] if codes else type(error).__name__)
+                failures.extend(codes[:2] if codes else [type(error).__name__])
             finally:
                 try:
                     client.call("finish", status="failed")

@@ -31,6 +31,7 @@ class DialogSpeechObserver:
         self.callbacks = DialogCallbackObserver(monkeypatch)
         self.control_reads = DialogControlObserver(monkeypatch)
         self.last_tick = None
+        self.last_publication = None
         self.max_tick_gap_ms = 0
         self.acceptances = deque(maxlen=8)
         accept = DialogSpeechOutput.accept
@@ -55,6 +56,10 @@ class DialogSpeechObserver:
         def observe(output):
             publication = output.publication
             started = time.monotonic()
+            if publication is not self.last_publication:
+                self.last_publication = publication
+                self.last_tick = None
+                self.max_tick_gap_ms = 0
             if publication is not None and self.last_tick is not None:
                 self.max_tick_gap_ms = max(self.max_tick_gap_ms, round((started - self.last_tick) * 1000))
             self.last_tick = started
@@ -86,6 +91,7 @@ class DialogSpeechObserver:
                         "slow_rpc": self.rpc.report(),
                         "callbacks": self.callbacks.report(),
                         "browser": output.page.evaluate("window.anantaMachine.speech.status()"),
+                        "worklet_errors": output.page.evaluate("window.__testSpeechErrors || []"),
                     }
                 )
 

@@ -1,11 +1,15 @@
 """Real Hub-controlled avatar scenario with explicitly selected synthetic/GPU voice."""
 
+import re
+import sys
 import threading
 import time
+from collections import deque
 
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet_dialog_interruption import SyntheticToneWorker
 from worker.meet_media.avatar_browser import AvatarBrowserPort
+from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 
 
 def configure_avatar_speech(speech, actual_gpu):
@@ -27,6 +31,8 @@ class DialogAvatarObserver:
         self.actual_gpu = actual_gpu
         self.condition = threading.Condition()
         self.state, self.generation = "closed", 0
+        self.transitions = deque(maxlen=24)
+        self.errors = deque(maxlen=8)
         if not enabled:
             return
         speech.capabilities.append("avatar.publish")
@@ -36,6 +42,9 @@ class DialogAvatarObserver:
         def observe(port):
             value = status(port)
             with self.condition:
+                transition = (value["phase"], value["source"]["state"], value["source"]["generation"])
+                if not self.transitions or self.transitions[-1] != transition:
+                    self.transitions.append(transition)
                 self.state = value["source"]["state"]
                 self.generation = value["source"]["generation"]
                 self.condition.notify_all()
@@ -51,6 +60,25 @@ class DialogAvatarObserver:
 
         monkeypatch.setattr(AvatarBrowserPort, "status", observe)
         monkeypatch.setattr(AvatarBrowserPort, "close", observe_close)
+        fail = DialogAvatarPump._fail
+
+        def observe_failure(pump):
+            error = sys.exception()
+            codes = re.findall(r"\bmeet_[a-z_]{1,64}\b", str(error))
+            with self.condition:
+                self.errors.append(codes[0] if codes else type(error).__name__)
+            return fail(pump)
+
+        monkeypatch.setattr(DialogAvatarPump, "_fail", observe_failure)
+
+    def report(self):
+        with self.condition:
+            return {
+                "state": self.state,
+                "generation": self.generation,
+                "transitions": list(self.transitions),
+                "errors": list(self.errors),
+            }
 
     def wait(self, state, timeout):
         with self.condition:
@@ -134,10 +162,12 @@ class DialogAvatarObserver:
 
 
 def make_avatar_observer(mode, speech, monkeypatch, *, actual_gpu=False):
-    if mode in ("image", "image-renewal"):
+    if mode in ("image", "image-renewal", "image-renewal-series"):
         if actual_gpu:
             raise ValueError("test_image_avatar_gpu_not_configured")
         from tests.meet_dialog_image_avatar_scenario import ImageAvatarScenario
 
-        return ImageAvatarScenario(speech, monkeypatch, renewal=mode == "image-renewal")
+        return ImageAvatarScenario(
+            speech, monkeypatch, renewal=mode != "image", renewal_count=3 if mode == "image-renewal-series" else 1
+        )
     return DialogAvatarObserver(mode, speech, monkeypatch, actual_gpu=actual_gpu)
