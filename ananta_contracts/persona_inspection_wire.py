@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Callable
 
-from ananta_contracts import persona_image, persona_video
+from ananta_contracts import persona_image, persona_video, persona_voice, persona_voice_wire
 
 
 def parse_inspection_json(raw, *, maximum):
@@ -61,4 +61,14 @@ VIDEO_WIRE = PersonaInspectionWire(
     persona_video.validate_assignment,
     persona_video.encode_video,
     persona_video.decode_video,
+)
+VOICE_WIRE = PersonaInspectionWire(
+    "voice",
+    persona_voice.MAX_DESCRIPTOR_BYTES,
+    12_288,
+    4096,
+    (persona_voice.MEDIA_TYPE,),
+    persona_voice_wire.validate_assignment,
+    persona_voice_wire.encode_voice,
+    persona_voice_wire.decode_voice,
 )

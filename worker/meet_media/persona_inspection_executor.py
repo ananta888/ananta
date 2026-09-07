@@ -10,7 +10,7 @@ import time
 class PersonaInspectionExecutor:
     def __init__(self, replay_path, *, guard_factory, wire, inspector):
         self.wire, self.inspector = wire, inspector
-        if type(wire.kind) is not str or wire.kind not in ("image", "video"):
+        if type(wire.kind) is not str or wire.kind not in ("image", "video", "voice"):
             raise ValueError("persona_inspection_kind_invalid")
         self.table = f"{wire.kind}_leases"
         self.replay_path, self.guard_factory = replay_path, guard_factory
