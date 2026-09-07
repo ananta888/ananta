@@ -277,3 +277,20 @@ as a side effect. Project/identity changes clear candidates and pending work.
 After live wiring, 129 spoken reply/worker/client/SQL chat regressions passed in
 52.57 seconds, including actual Hub child-task current/terminal CAS rejection
 when the selected voice metadata changes. No interactive approval was used.
+
+The independent Angular voice picker and explicit negotiation now pass all 96
+Meet UI tests (1.67 seconds), targeted ESLint and Angular compilation. A new
+timeout test found that asking for a nonexistent candidate cleared the failure
+diagnostic; the controller now preserves it. The existing unrelated
+KnowledgeHygienePage RouterLink warning remains. Candidate lifetime/cancellation
+is shared by composition, while media validators remain deliberately separate.
+
+Next add isolated cross-repository voice scenarios: real Hub Task selection and
+signed exchange/bindings with explicit synthetic profile policy, separate
+synthetic long-PCM interruption and actual pinned local GPU neutral/whisper
+delivery. Observe current Worker projections and remote non-silent audio, never
+substitute observations for grants. Own and clean up only private fixture
+containers/keys/networks. The existing large cross-repository setup function is
+a preserved SRP limitation; new scenario behavior belongs in a separate helper,
+not more scenario branches inside its orchestration fixture. These runs do not
+claim public TURN, production persona admission or release identity.

@@ -29,7 +29,7 @@ describe('Hub-owned Meet dialog controls', () => {
     expect(() => validateDialog({ ...source, controls: { ...source.controls, speech: null } } as never)).toThrow();
     component.ngOnDestroy();
   });
-  const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn(), selectAvatar: vi.fn() };
+  const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn(), selectAvatar: vi.fn(), selectVoice: vi.fn() };
   let identity: BehaviorSubject<unknown>;
   beforeEach(() => {
     identity = new BehaviorSubject({ sub: 'owner' });
@@ -66,6 +66,34 @@ describe('Hub-owned Meet dialog controls', () => {
   it('never infers chat permission from a stale speech selection', () => {
     const c = setup().componentInstance; c.screen = true; c.speech = true; c.start();
     expect(api.start).not.toHaveBeenCalled(); expect(c.message()).toContain('ausdrücklich ausgewählten Raumchat');
+  });
+  it('negotiates voice profiles only explicitly and clears them when speech or chat is disabled', () => {
+    const c = setup().componentInstance; expect(c.voiceProfiles).toBe(false);
+    c.setChat(true); c.setSpeech(true); c.voiceProfiles = true; c.start();
+    expect(api.start).toHaveBeenCalledWith('project', '', { capabilities: ['chat.read', 'chat.send', 'speech.publish'],
+      duration_seconds: 900, chat_mode: 'mention', audio_mode: 'off', voice_profiles: true });
+    expect(api.control).not.toHaveBeenCalled(); c.setSpeech(false); expect(c.voiceProfiles).toBe(false);
+    c.voiceProfiles = true; c.setChat(false); expect(c.voiceProfiles).toBe(false);
+    api.start.mockClear(); c.screen = true; c.voiceProfiles = true; c.start();
+    expect(api.start).not.toHaveBeenCalled(); expect(c.message()).toContain('ausdrücklich ausgewählte Sprachausgabe');
+  });
+  it('selects voices with independent passive CAS and never upgrades or retries old sessions', () => {
+    const f = setup(), c = f.componentInstance;
+    c.selectVoice(row(), null); expect(api.selectVoice).not.toHaveBeenCalled();
+    const source = { ...row(), capabilities: [...row().capabilities, 'speech.publish'],
+      voice_selection: { mode: 'configured-piper-v1' as const },
+      controls: { ...row().controls, speech: { enabled: false, revision: 1, since: 1000 } } };
+    c.dialogs.set([source]); f.detectChanges(); expect(f.nativeElement.querySelector('app-meet-voice-picker')).not.toBeNull();
+    api.selectVoice.mockReturnValue(of({ ...source, controls: { ...source.controls, revision: 2 } }));
+    c.selectVoice(source, effective().selection);
+    expect(api.selectVoice).toHaveBeenCalledWith('project', 'task', { expected_revision: 1, profile: effective().selection });
+    expect(api.control).not.toHaveBeenCalled(); expect(c.dialogs()[0].controls.speech?.enabled).toBe(false);
+    expect(c.dialogs()[0].controls.chat).toEqual(source.controls.chat);
+    api.selectVoice.mockReturnValue(throwError(() => ({ status: 409 })));
+    c.selectVoice(c.dialogs()[0], null);
+    expect(api.selectVoice).toHaveBeenLastCalledWith('project', 'task', { expected_revision: 2, configured: true });
+    expect(api.selectVoice).toHaveBeenCalledTimes(2); expect(c.message()).toContain('Bitte aktualisieren');
+    c.selectVoice({ ...source, status: 'cancelled' }, null); expect(api.selectVoice).toHaveBeenCalledTimes(2);
   });
   it('requests only explicit neutral-avatar permission and does not activate it on start', () => {
     const c = setup().componentInstance; c.avatar = true; c.start();
