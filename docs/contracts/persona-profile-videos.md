@@ -44,9 +44,11 @@ Tests combine real organization topology/profile CAS, private video policy,
 Hub tasks and Registry receipts with an explicitly structural decoder double.
 They cover all three owner kinds, inheritance/disable, stale or revoked
 references, editability after revocation, catalog races, exact runtime pins,
-disabled outputs and authenticated metadata-only API use. Clip publication and
-the Angular video picker remain subsequent integration work. No live meeting
-or production runtime is enabled by saving a profile.
+disabled outputs and authenticated metadata-only API use. The subsequent
+[bounded Meet clip integration](meet-persona-clips.md) and
+[Angular clip discovery](persona-video-discovery.md) now connect this profile
+path to rendering and selection. No live meeting or production runtime is
+enabled by saving a profile; continuous dialog switching remains separate.
 
 The combined video/image profile, output-control, bootstrap and existing Meet
 profile regression passed 80 tests in 60.94 seconds. One initially inactive

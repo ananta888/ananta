@@ -33,8 +33,11 @@ and matching project are mandatory. Destructive actions contain exactly
 Purge is separate from revocation and reports `secure_device_erasure: false`.
 
 No public clip `publish`, `download` or `content` route exists. Publication
-remains a separately authorized service operation requiring profile/publisher
-integration. Query parameters and Transfer-Encoding are rejected. Responses
+remains a separately authorized service operation through the
+[bounded Meet turn integration](meet-persona-clips.md). The separate
+[preview-only query](persona-video-discovery.md) lists current admitted
+references without publishing or downloading clips. Query parameters and
+Transfer-Encoding are rejected. Responses
 inherit no-store, no-referrer and nosniff headers. The shared user JSON boundary
 rejects duplicate keys for image, video, profile and retention routes without
 changing their field schemas.
