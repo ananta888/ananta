@@ -205,6 +205,58 @@ def dialog_callback():
     return response
 
 
+@meet_bp.put("/projects/<project>/dialogs/<task_id>/avatar")
+@check_user_auth
+def dialog_avatar_selection(project, task_id):
+    from ananta_contracts.meet_dialog import parse
+
+    service = _dialog()
+    if (
+        request.args or request.headers.get("Transfer-Encoding")
+        or request.content_length is None or not 0 < request.content_length <= 2048
+    ):
+        raise MeetError("meet_dialog_avatar_selection_invalid")
+    try:
+        payload = parse(request.get_data(cache=False))
+    except ValueError:
+        raise MeetError("meet_dialog_avatar_selection_invalid") from None
+    return jsonify(service.select_avatar(get_authenticated_source_control_principal(), project, task_id, payload))
+
+
+@meet_bp.post("/internal/dialog/avatar-image")
+def dialog_avatar_image_callback():
+    import hmac
+    import time
+
+    from ananta_contracts.meet_avatar_image import (
+        MAX_AVATAR_IMAGE_BYTES,
+        image_request_signature,
+        image_response_signature,
+        parse_image_message,
+        validate_image_request,
+    )
+
+    service = _dialog()
+    key = current_app.extensions.get("meet_media_worker_key")
+    if (
+        key is None or request.headers.get("Authorization") or request.args or request.headers.get("Transfer-Encoding")
+        or request.content_length is None or not 0 < request.content_length <= 16384
+    ):
+        raise MeetError("meet_avatar_image_callback_invalid", 403)
+    raw = request.get_data(cache=False)
+    if not hmac.compare_digest(image_request_signature(key, raw), request.headers.get("X-Ananta-Avatar-Signature", "")):
+        raise MeetError("meet_avatar_image_callback_unauthorized", 401)
+    try:
+        payload = validate_image_request(parse_image_message(raw), time.time())
+    except ValueError:
+        raise MeetError("meet_avatar_image_callback_invalid") from None
+    response = jsonify(service.avatar_image(payload))
+    if len(response.get_data()) > MAX_AVATAR_IMAGE_BYTES:
+        raise MeetError("meet_avatar_image_result_oversize", 502)
+    response.headers["X-Ananta-Avatar-Signature"] = image_response_signature(key, raw, response.get_data())
+    return response
+
+
 @meet_bp.post("/internal/dialog/speech")
 def spoken_dialog_callback():
     import hmac

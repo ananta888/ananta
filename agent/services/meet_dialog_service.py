@@ -33,6 +33,7 @@ class MeetDialogService:
         clock=time.time,
         media_tasks=None,
         replies=None,
+        avatar_profiles=None,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
@@ -68,6 +69,11 @@ class MeetDialogService:
             replies=self.replies,
         )
         self.spoken_replies = MeetDialogSpokenReply(authority, meet, reservations, self.replies, clock=clock)
+        from agent.services.meet_dialog_avatar_images import MeetDialogAvatarImages
+        from agent.services.meet_dialog_avatar_selection import MeetDialogAvatarSelection
+
+        self.avatar_images = MeetDialogAvatarImages(authority, meet, avatar_profiles, clock=clock)
+        self.avatar_selections = MeetDialogAvatarSelection(authority, tasks, avatar_profiles, clock=clock)
 
     def spoken_reply(self, payload):
         return self.spoken_replies.execute(payload)
@@ -96,7 +102,7 @@ class MeetDialogService:
         self.authority.binding.require_write_access(principal, project, parent)
         if (
             not isinstance(payload, dict)
-            or set(payload) - {"audio_mode"} != {"capabilities", "duration_seconds", "chat_mode"}
+            or set(payload) - {"audio_mode", "avatar_images"} != {"capabilities", "duration_seconds", "chat_mode"}
             or type(payload["duration_seconds"]) is not int
             or not 30 <= payload["duration_seconds"] <= 7200
             or not isinstance(payload["capabilities"], list)
@@ -107,6 +113,12 @@ class MeetDialogService:
             <= self.authority.policies.get((principal.tenant_id, project), frozenset())
         ):
             raise MeetError("meet_dialog_start_denied", 403)
+        if "avatar_images" in payload and (
+            payload["avatar_images"] is not True or "avatar.publish" not in payload["capabilities"]
+        ):
+            raise MeetError("meet_dialog_avatar_images_invalid", 403)
+        if payload.get("avatar_images") is True and self.avatar_images.profiles is None:
+            raise MeetError("meet_dialog_avatar_profiles_unavailable", 409)
         ChatReplyPolicy(mode=payload["chat_mode"])
         audio_mode = payload.get("audio_mode", "off")
         if (
@@ -144,6 +156,8 @@ class MeetDialogService:
         context["controls"] = initial_controls(
             context["capabilities"], context["chat_mode"], audio_mode, int(self.clock() * 1000)
         )
+        if payload.get("avatar_images") is True:
+            context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         task_id = str(uuid.uuid4())
         self.tasks.start(task_id, principal.tenant_id, project, context)
         try:
@@ -162,6 +176,8 @@ class MeetDialogService:
                 "audio_mode": scope.audio_mode,
                 "meeting": meeting,
             }
+            if "avatar_selection" in context:
+                assignment["avatar_images"] = True
             self.worker.start_dialog(assignment)
             self.authority.current(task_id, scope.lease_id, scope.runtime_id)
             return {
@@ -190,7 +206,7 @@ class MeetDialogService:
         if stop and task.status == "in_progress":
             self.tasks.finish_bound(task_id, context["lease_id"], context["runtime_id"], "cancelled")
             task = self.tasks.get_by_id(task_id)
-        return {
+        result = {
             "schema": "ananta.meet-dialog-status.v1",
             "task_id": task_id,
             "status": task.status,
@@ -198,6 +214,19 @@ class MeetDialogService:
             "controls": context.get("controls"),
             "capabilities": context.get("capabilities", []),
         }
+        if "avatar_selection" in context:
+            result["avatar_selection"] = context["avatar_selection"]
+        return result
+
+    def select_avatar(self, principal, project, task_id, payload):
+        self.inspect(principal, project, task_id)
+        context = self.tasks.get_by_id(task_id).worker_execution_context["meet_dialog"]
+        scope = self.authority.current(task_id, context["lease_id"], context["runtime_id"])
+        self.avatar_selections.select(principal, scope, payload)
+        return self.inspect(principal, project, task_id)
+
+    def avatar_image(self, payload):
+        return self.avatar_images.hydrate(payload)
 
     def control(self, principal, project, task_id, payload):
         self.inspect(principal, project, task_id)
@@ -228,7 +257,7 @@ class MeetDialogService:
         renewal = None
         if state["lease"]["expiresAt"] < min((self.clock() + 60) * 1000, scope.deadline * 1000):
             renewal = self.issuer.issue_dialog(self.authority, *ids, self.clock())["grant"]
-        return {
+        result = {
             "schema": "ananta.meet-dialog-state.v1",
             "nonce": payload["nonce"],
             "authorization": state,
@@ -236,6 +265,9 @@ class MeetDialogService:
             "audio_job": audio_job,
             "controls": controls_projection(scope.controls),
         }
+        if scope.avatar_selection is not None:
+            result["avatar"] = self.avatar_images.projection(scope, state)
+        return result
 
     def audio(self, payload):
         return self.audio_coordinator.start(payload)

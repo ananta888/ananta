@@ -97,11 +97,15 @@ def configure_meet_media(app):
     video_assets = app.extensions.get("persona_video_assets")
     videos = MeetPersonaVideos(video_assets) if video_assets is not None else None
     profiles = None
+    avatar_profiles = None
     video_profiles = None
     if images is not None and app.extensions.get("persona_profiles") is not None:
         from agent.services.meet_persona_profiles import MeetPersonaProfiles
 
         profiles = MeetPersonaProfiles(app.extensions["persona_profiles"], images)
+        from agent.services.meet_avatar_profiles import MeetAvatarProfiles
+
+        avatar_profiles = MeetAvatarProfiles(app.extensions["persona_profiles"], images)
     if videos is not None and app.extensions.get("persona_profiles") is not None:
         from agent.services.meet_persona_video_profiles import MeetPersonaVideoProfiles
 
@@ -120,10 +124,10 @@ def configure_meet_media(app):
         persona_videos=videos,
         persona_video_profiles=video_profiles,
     )
-    configure_meet_dialog(app, worker, issuer, capacity=capacity, speech_profile=voice)
+    configure_meet_dialog(app, worker, issuer, capacity=capacity, speech_profile=voice, avatar_profiles=avatar_profiles)
 
 
-def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=None):
+def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=None, avatar_profiles=None):
     """Separate opt-in: old publish-only scope grants never grant receive rights."""
     import json
 
@@ -183,6 +187,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         dispatches,
         media_tasks=media_tasks,
         replies=replies,
+        avatar_profiles=avatar_profiles,
     )
 
 
