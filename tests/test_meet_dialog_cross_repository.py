@@ -1,6 +1,7 @@
 """Real Hub/Worker/Meet wires and browsers; synthetic policy and model result.
 
-This proves neither GPU inference nor production trust/NAT. Opt in with
+Ordinary modes substitute inference. The separately opted-in GPU mode executes
+real local models; no mode proves production trust/NAT. Opt in with
 MEET_CROSS_REPOSITORY_GATE=1 and build the adjacent Meet repository first.
 """
 
@@ -77,13 +78,28 @@ def close_bridge(bridge):
 
 
 @pytest.mark.parametrize(
-    "spoken_mode,gpu_mode",
+    "spoken_mode,gpu_mode,interruption_mode",
     [
-        pytest.param(False, False, id="text"),
-        pytest.param(True, False, id="speech"),
+        pytest.param(False, False, None, id="text"),
+        pytest.param(True, False, None, id="speech"),
+        pytest.param(
+            True,
+            False,
+            "pause",
+            id="interruption-pause",
+            marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short interruption gate"),
+        ),
+        pytest.param(
+            True,
+            False,
+            "stop",
+            id="interruption-stop",
+            marks=pytest.mark.skipif(SOAK_SECONDS > 0, reason="short interruption gate"),
+        ),
         pytest.param(
             True,
             True,
+            None,
             id="gpu",
             marks=pytest.mark.skipif(
                 os.environ.get("MEET_DIALOG_GPU_GATE") != "1" or SOAK_SECONDS > 0,
@@ -98,6 +114,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     monkeypatch,
     spoken_mode,
     gpu_mode,
+    interruption_mode,
     record_property,
 ):
     from cryptography import x509
@@ -113,7 +130,6 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from agent.repositories.meet_chat_reservations import SqlChatReservations
     from agent.services.meet_authorization_client import MeetAuthorizationClient
     from agent.services.meet_chat_policy import ChatReplyPolicy
-    from agent.services.meet_contract import MeetError, MeetProfile
     from agent.services.meet_dialog_authority import MeetDialogAuthority
     from agent.services.meet_dialog_replies import MeetDialogReplies
     from agent.services.meet_dialog_service import MeetDialogService
@@ -124,6 +140,8 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from agent.services.source_control_access_policy import HubSourcePrincipal
     from tests.meet_dialog_browser_fixture import DialogBrowserFixture
     from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
+    from tests.meet_dialog_interruption import configure_interruption, finish_interruption
+    from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
     from tests.meet_dialog_speech_observer import DialogSpeechObserver
     from worker.meet_media.dialog_chat import DialogChatPump
     from worker.meet_media.dialog_client import HubDialogClient
@@ -165,6 +183,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         | {
             "MEET_TEST_HUB_PUBLIC_KEY": str(public),
             "MEET_DIALOG_GPU_GATE": "1" if gpu_mode else "0",
+            "MEET_DIALOG_OBSERVE": "1" if interruption_mode is not None else "0",
         },
         text=True,
         stdin=subprocess.PIPE,
@@ -255,21 +274,11 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             lambda host, port: "127.0.0.1" if host == "127.0.0.1" else pin_private_container_address(host, port),
         )
 
-        class Binding:
-            profile = MeetProfile(ready["origin"])
-
-            def require_write_access(self, actor, project, task=""):
-                if actor != principal or project != "synthetic":
-                    raise MeetError("test_scope_denied", 403)
-
-            def read(self, actor, project, task=""):
-                self.require_write_access(actor, project, task)
-                return {"invite_url": self.profile.invite(ready["room_id"])}
-
-        binding = Binding()
+        binding = SyntheticMeetBinding(ready["origin"], ready["room_id"], principal)
         tasks = HubDialogTasks()
         speech_observer = DialogSpeechObserver(spoken_mode, monkeypatch)
         configure_dialog_gpu(speech_observer, gpu_mode, gpu_cleanup, record_property)
+        interruption = configure_interruption(speech_observer, interruption_mode, monkeypatch)
         capabilities = speech_observer.capabilities
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
@@ -492,6 +501,19 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         # Exercise consent replacement in the short gate too. No question is
         # emitted before a genuinely fresh Hub-matched browser queue exists.
         renewed_consent_round_trip()
+        if finish_interruption(
+            interruption,
+            app,
+            service,
+            principal,
+            started,
+            speech_observer,
+            command,
+            renewed_consent_round_trip,
+            completed,
+            record_property,
+        ):
+            return
         speech_observer.require_completed(2, completed, failures)
         speech_observer.require_remote(command)
         with app.app_context():
