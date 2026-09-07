@@ -7,7 +7,6 @@ import time
 from agent.services.meet_chat_policy import ChatReplyPolicy
 from ananta_contracts.meet_speech import speech_profile
 from ananta_contracts.persona_voice import inspect_voice_descriptor, voice_descriptor
-from tests.meet_dialog_callback_observer import DialogCallbackObserver
 from tests.meet_dialog_interruption import SpeechInterruption, SyntheticToneWorker
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
 
@@ -84,7 +83,6 @@ class VoiceSelectionScenario:
         self.profiles = SyntheticVoiceProfiles()
         self.start_options = {"voice_profiles": True, "duration_seconds": 180}
         self.playback = SpeechInterruption("pause", monkeypatch)
-        self.callbacks = DialogCallbackObserver(monkeypatch)
         self.condition = threading.Condition()
         self.projection = None
         update = DialogSpeechOutput.update
@@ -109,6 +107,20 @@ class VoiceSelectionScenario:
     def finish(self, app, service, principal, started, speech, command, completed, failures, record_property):
         task_id = started["task_id"]
 
+        def complete(count):
+            try:
+                speech.require_completed(count, completed, failures)
+            except AssertionError as error:
+                raise AssertionError(
+                    {
+                        "speech": str(error),
+                        "callbacks": speech.callbacks.report(),
+                        "answers": speech.answers,
+                        "closed": self.playback.closed,
+                        "slow_rpc": speech.rpc.report(),
+                    }
+                ) from error
+
         def select(name):
             with app.app_context():
                 current = service.inspect(principal, "synthetic", task_id)
@@ -130,7 +142,7 @@ class VoiceSelectionScenario:
         speech.before_question(command)
         assert command("ask") == {"sent": True}
         assert speech.receive_answer(command) == {"received": True}
-        speech.require_completed(1, completed, failures)
+        complete(1)
         speech.require_remote(command)
         assert speech.answers[-1]["voice_id"] == self.profiles.catalog["neutral"][2]
         # Keep the actual Hub cooldown; never turn policy denial into a retry.
@@ -142,12 +154,7 @@ class VoiceSelectionScenario:
         assert speech.receive_answer(command) == {"received": True}
         assert speech.answers[-1]["voice_id"] == self.profiles.catalog["whisper"][2]
         if self.actual_gpu:
-            try:
-                speech.require_completed(2, completed, failures)
-            except AssertionError as error:
-                raise AssertionError(
-                    {"speech": str(error), "callbacks": self.callbacks.report(), "answers": speech.answers}
-                ) from error
+            complete(2)
         else:
             with self.playback.condition:
                 assert self.playback.condition.wait_for(
@@ -194,4 +201,10 @@ class VoiceSelectionScenario:
 
 
 def make_voice_scenario(enabled, speech, monkeypatch, *, actual_gpu=False):
+    if enabled == "latency":
+        if actual_gpu:
+            raise ValueError("test_voice_latency_requires_synthetic_audio")
+        from tests.meet_dialog_exchange_latency import inject_exchange_latency
+
+        inject_exchange_latency(monkeypatch)
     return VoiceSelectionScenario(speech, monkeypatch, actual_gpu=actual_gpu) if enabled else NoVoiceScenario()

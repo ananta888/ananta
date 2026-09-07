@@ -175,7 +175,18 @@ class ImageAvatarScenario:
                     "avatar": True,
                 },
             )
-        before = self.observer.wait("open", 12)
+        try:
+            before = self.observer.wait("open", 12)
+        except AssertionError as error:
+            raise AssertionError(
+                {
+                    "avatar": str(error),
+                    "runtime_errors": list(failures),
+                    "hub_callbacks": self.callback_errors,
+                    "recent_callbacks": speech.callbacks.report(),
+                    "slow_rpc": speech.rpc.report(),
+                }
+            ) from error
         moving("red")
         speech.before_question(command)
         assert command("ask") == {"sent": True}
@@ -185,7 +196,13 @@ class ImageAvatarScenario:
         with self.observer.condition:
             assert self.observer.condition.wait_for(
                 lambda: self.observer.state == "open" and self.observer.generation > before, timeout=12
-            ), {"avatar_state": self.observer.state, "runtime_errors": failures}
+            ), {
+                "avatar_state": self.observer.state,
+                "runtime_errors": list(failures),
+                "control_timing": speech.control_reads.report(),
+                "callbacks": speech.callbacks.report(),
+                "slow_rpc": speech.rpc.report(),
+            }
         moving("blue")
         assert command("screen") == {"moving_screen": True}
         try:

@@ -5,6 +5,9 @@ import threading
 import time
 
 from ananta_contracts.meet_speech import speech_profile
+from tests.meet_dialog_callback_observer import DialogCallbackObserver
+from tests.meet_dialog_control_observer import DialogControlObserver
+from tests.meet_dialog_rpc_observer import DialogRpcObserver
 from tests.test_meet_media import result
 from tests.test_meet_speech_binding import speech_result
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
@@ -23,11 +26,19 @@ class DialogSpeechObserver:
         self.answers = []
         self.remote = []
         self.sender = []
+        self.rpc = DialogRpcObserver(monkeypatch)
+        self.callbacks = DialogCallbackObserver(monkeypatch)
+        self.control_reads = DialogControlObserver(monkeypatch)
+        self.last_tick = None
+        self.max_tick_gap_ms = 0
         tick = DialogSpeechOutput.tick
 
         def observe(output):
             publication = output.publication
             started = time.monotonic()
+            if publication is not None and self.last_tick is not None:
+                self.max_tick_gap_ms = max(self.max_tick_gap_ms, round((started - self.last_tick) * 1000))
+            self.last_tick = started
             tick(output)
             if publication is not None and publication.completed and output.publication is None:
                 if self.worker is not None:
@@ -52,6 +63,9 @@ class DialogSpeechObserver:
                         "sent": publication.sent,
                         "played": publication.played,
                         "tick_ms": round((time.monotonic() - started) * 1000),
+                        "max_tick_gap_ms": self.max_tick_gap_ms,
+                        "slow_rpc": self.rpc.report(),
+                        "callbacks": self.callbacks.report(),
                         "browser": output.page.evaluate("window.anantaMachine.speech.status()"),
                     }
                 )
@@ -101,7 +115,8 @@ class DialogSpeechObserver:
             )
             assert len(expected) == count and self.samples == expected, {
                 "spoken_samples": self.samples,
-                "runtime_errors": failures,
+                "runtime_errors": list(failures),
+                "control_timing": self.control_reads.report(),
                 "closed_sources": self.closed,
             }
         # This is exact local source completion, never remote sample accounting.
