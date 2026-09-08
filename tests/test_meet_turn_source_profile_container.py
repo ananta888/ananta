@@ -11,7 +11,7 @@ from uuid import uuid4
 import pytest
 
 
-@pytest.mark.timeout(40)
+@pytest.mark.timeout(70)
 @pytest.mark.skipif(os.environ.get("MEET_TURN_PROFILE_GATE") != "1", reason="explicit installed Worker profile gate")
 def test_installed_renderer_classifies_sources_and_rejects_capture_before_execution():
     image = os.environ.get("MEET_TURN_PROFILE_IMAGE", "")
@@ -54,10 +54,11 @@ print(json.dumps({'variants': variants, 'pre_execution_denials': 4, 'gpu': False
     def docker(*args, timeout=10):
         return subprocess.run(["docker", *args], capture_output=True, text=True, timeout=timeout)
 
+    phase = "create"
+    created = False
     try:
-        result = docker(
-            "run",
-            "--rm",
+        creation = docker(
+            "create",
             "--name",
             name,
             "--label",
@@ -90,6 +91,10 @@ print(json.dumps({'variants': variants, 'pre_execution_denials': 4, 'gpu': False
             *digests,
             timeout=25,
         )
+        assert creation.returncode == 0, "installed profile fixture creation failed; runtime details redacted"
+        created = True
+        phase = "execute"
+        result = docker("start", "--attach", name, timeout=25)
         assert result.returncode == 0, "bounded installed profile check failed; runtime details redacted"
         assert result.stderr == ""
         assert json.loads(result.stdout) == {
@@ -98,8 +103,14 @@ print(json.dumps({'variants': variants, 'pre_execution_denials': 4, 'gpu': False
             "gpu": False,
             "production_evidence": False,
         }
+    except subprocess.TimeoutExpired:
+        # A timed-out Docker create can complete asynchronously in the daemon.
+        # Do not print a full command/script or claim the absent object is clean.
+        raise AssertionError("installed profile fixture timed out during " + phase) from None
     finally:
         owner = docker("inspect", "-f", '{{index .Config.Labels "ananta.test-run"}}', name)
         if owner.returncode == 0 and owner.stdout.strip() == identity:
             cleaned = docker("rm", "--force", name)
             assert cleaned.returncode == 0, "owned profile fixture cleanup failed"
+        elif not created:
+            raise AssertionError("profile fixture creation/cleanup unconfirmed; inspect the exact test-owned label")

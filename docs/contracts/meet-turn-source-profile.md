@@ -76,3 +76,37 @@ The corrected bootstrap plus all 34 source-profile cases passed together:
 the real Hub/Meet role-principal interoperability check and existing image/video,
 chat and capacity regressions. The next check uses a newly built immutable
 Worker image, never a source mount substituted for installed code.
+
+## Installed image and actual GPU check
+
+The full image built successfully from source `7aa5cb789`:
+`sha256:59096f02fa9515afa8cbbaab377d305ea44cfa6fd696a4361c61c384f2b5488b`.
+Its package/runtime lock check passed. The first test was started after the
+image ID became visible but before the build client had returned: Docker's
+cold container creation exceeded 25 s, then completed asynchronously after the
+fixture's initial cleanup inspection. Only a later `create` event existed;
+the profile script had not run. The exact UUID-labelled, never-started test
+container was inspected and removed. No other container was removed. A completed
+build is required before the gate; an image ID alone is insufficient readiness.
+
+The fixture now separates creation and execution into bounded phases and emits
+only their closed names on timeout. Its in-container execution limit remains
+15 s; uncertain creation/cleanup is explicitly a failure, not a clean result.
+After the build completed, the original check passed in 8.93 s. The updated
+two-phase check also passed, verifying installed source hashes, all six variants
+and four pre-execution capture/profile denials without source/network/GPU mounts.
+
+The first actual GPU turn returned `meet_worker_unavailable` after its original
+60-second budget; that response did not identify the failed internal phase.
+Do not claim a diagnosed or fixed cold-start problem. The component fixture now
+performs its existing bounded pinned-model preload, as the real dialog fixture
+already does, before creating the unchanged 60-second request. Preload checks
+the exact model digest and positive GPU allocation, not just process health.
+
+Both final packaged checks passed together in **58.95 s**: profile 8.754 s, GPU
+case 49.525 s including fixtures. Model preload took **19.59 s**. The actual
+Qwen/Piper-CUDA/NVENC turn produced **13 output tokens, 65,792 non-silent PCM
+samples and 61,439 MP4 bytes**. No CPU/cloud fallback, human capture, source-code
+mount, remote receiver claim or production evidence was substituted. These are
+synthetic-policy technical observations of genuine GPU execution. Cold-start
+performance and broader dialog/public rollout remain separate MAP-30/31 work.

@@ -18,6 +18,9 @@ from worker.meet_media.contract import SCHEMA
 def test_current_private_worker_runs_actual_qwen_piper_and_nvenc(record_property):
     started = time.monotonic()
     with DialogGpuFixture(packaged_image=os.environ.get("MEET_DIALOG_GPU_PACKAGED_IMAGE")) as fixture:
+        # Prepare only the pinned model, as in the actual dialog fixture. The
+        # request's original 60-second execution budget is never extended.
+        record_property("cold_model_preload_seconds", fixture.preload())
         turn = {
             "schema": SCHEMA,
             "task_id": "synthetic-gpu-component",
@@ -45,6 +48,7 @@ def test_current_private_worker_runs_actual_qwen_piper_and_nvenc(record_property
             "human_capture_used": False,
             "worker_image": fixture.image,
             "packaged_worker": fixture.packaged_image is not None,
+            "model_preloaded": True,
             "speech_samples": len(pcm) // 2,
             "video_bytes": video_bytes,
             "usage": result["usage"],
