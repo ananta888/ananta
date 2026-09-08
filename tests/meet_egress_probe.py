@@ -9,7 +9,19 @@ import time
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from worker.meet_egress.dns_server import read_exact
+
+def read_exact(connection, size, deadline):
+    data = bytearray()
+    while len(data) < size:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError()
+        connection.settimeout(remaining)
+        part = connection.recv(size - len(data))
+        if not part:
+            raise ValueError("incomplete test DNS reply")
+        data.extend(part)
+    return bytes(data)
 
 
 def serve(mode):
@@ -59,6 +71,27 @@ def http(address, port, path):
         response = connection.getresponse()
         assert response.status == 200
         return json.loads(response.read(1024))
+    finally:
+        connection.close()
+
+
+def status(address, port):
+    connection = HTTPConnection(address, port, timeout=0.7)
+    try:
+        connection.request("GET", "/healthz")
+        response = connection.getresponse()
+        response.read(128)
+        return response.status
+    finally:
+        connection.close()
+
+
+def unsigned_turn(address):
+    connection = HTTPConnection(address, 8094, timeout=0.7)
+    try:
+        connection.request("POST", "/v1/turns", body=b"{}", headers={"Content-Type": "application/json"})
+        response = connection.getresponse()
+        return {"status": response.status, "body": json.loads(response.read(256))}
     finally:
         connection.close()
 
@@ -123,3 +156,9 @@ if __name__ == "__main__":
         print(json.dumps(http(sys.argv[2], int(sys.argv[3]), sys.argv[4])))
     elif mode == "inbound":
         print(json.dumps({"blocked": blocked(lambda: http(sys.argv[2], 8094, "/hit"))}))
+    elif mode == "status":
+        print(json.dumps({"status": status(sys.argv[2], 8094)}))
+    elif mode == "blocked-status":
+        print(json.dumps({"blocked": blocked(lambda: status(sys.argv[2], 8094))}))
+    elif mode == "unsigned-turn":
+        print(json.dumps(unsigned_turn(sys.argv[2])))

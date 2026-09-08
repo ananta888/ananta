@@ -171,3 +171,24 @@ address; the guard correctly rejected that policy. Explicit endpoint readiness
 and address validation now precede guard construction. No firewall rule,
 timeout, capability ceiling or policy check was weakened to fix these tests.
 These observations are synthetic transport checks, not production evidence.
+
+### Packaged Media Worker follow-up
+
+The native media Worker image
+`sha256:03e5576cc841570aae8fe80ce68975bfad2d76da2bccae40266bfc7e8ec064d2`
+(unchanged Worker source from `bf065bdef`) also passed inside this guard's
+namespace. The three combined real container cases passed in 57.03 seconds;
+the final authenticated-boundary case plus five probe checks passed in 35.94
+seconds. The Worker remained non-root, read-only, without capabilities, GPU
+requests, Hub imports or application-source bind mounts. Only a synthetic key
+and an independent stdlib test probe were mounted; no lease was executed.
+
+The real Worker healthcheck was healthy and silent; local liveness returned
+the exact existing response. A network-admitted caller still received the
+existing 404 for remote health and `409 meet_turn_unauthorized` for an unsigned
+Task request. A non-admitted caller could not reach the listener. Outbound
+HTTP/UDP/DNS and forbidden-destination assertions stayed enabled. This closes
+the packaged listener/transport check, not media-over-TURN, GPU inference or
+public release acceptance. The broader Hub/Worker/Meet session is next; reuse
+the companion's independently added authenticated TURN fixture rather than
+inventing TURN credentials or changing public deployment trust.
