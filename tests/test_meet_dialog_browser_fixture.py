@@ -95,6 +95,40 @@ def test_browser_lifetime_requires_an_explicit_bounded_integer(lifetime):
         DialogBrowserFixture(NETWORK, lifetime)
 
 
+def test_node_trust_mount_is_only_the_exact_already_pinned_private_certificate(tmp_path):
+    from tests.meet_browser_network_server import certificate
+
+    pem, _, spki = certificate(tmp_path)
+    browser, run = fixture()
+    browser.start(spki, certificate=pem)
+    create = next(c.args for c in run.call_args_list if c.args[0] == "create")
+    assert create[create.index("--mount") + 1] == f"type=bind,src={pem},dst=/test/meet-ca.pem,readonly"
+    assert "--env=NODE_EXTRA_CA_CERTS=/test/meet-ca.pem" in create
+    assert create.count("--mount") == 1
+    browser.close()
+
+
+@pytest.mark.parametrize("failure", ["mismatch", "symlink", "missing", "bundle", "malformed"])
+def test_invalid_private_ca_cannot_create_a_browser_or_broaden_trust(tmp_path, failure):
+    from tests.meet_browser_network_server import certificate
+
+    pem, _, spki = certificate(tmp_path)
+    if failure == "mismatch":
+        spki = "a" * 43 + "="
+    elif failure == "symlink":
+        linked = tmp_path / "linked.pem"
+        linked.symlink_to(pem)
+        pem = linked
+    elif failure == "missing":
+        pem = tmp_path / "missing.pem"
+    else:
+        pem.write_bytes(pem.read_bytes() * 2 if failure == "bundle" else b"invalid")
+    browser, run = fixture()
+    with pytest.raises(ValueError, match="certificate_invalid"):
+        browser.start(spki, certificate=pem)
+    run.assert_not_called()
+
+
 def test_bridge_cleanup_allows_bounded_docker_teardown_then_reaps_only_owned_group(monkeypatch):
     bridge = Mock(pid=1234)
     bridge.poll.return_value = None

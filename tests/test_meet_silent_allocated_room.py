@@ -56,7 +56,7 @@ def test_real_hub_allocates_silent_first_machine_then_human_joins_and_hub_stops(
             ).digest()
         ).decode()
         browser = DialogBrowserFixture(ready["test_network"], 240)
-        browser.start(spki)
+        browser.start(spki, certificate=ready["certificate"])
         monkeypatch.setattr(BrowserType, "launch", lambda kind, *args, **kwargs: browser.launch(kind, *args, **kwargs))
         monkeypatch.setattr(
             "agent.services.meet_media_transport.pin_private_container_address",

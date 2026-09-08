@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from tests.meet_browser_fixture_ca import require_fixture_certificate
 from tests.meet_browser_launch_diagnostic import CLASSIFY_LAUNCH_FAILURE, launch_failure
 
 
@@ -30,9 +31,17 @@ class DialogBrowserFixture:
         self.endpoint = None
         self.process_id = None
 
-    def start(self, spki):
+    def start(self, spki, *, certificate=None):
         if self.created or not isinstance(spki, str) or not re.fullmatch(r"[A-Za-z0-9+/]{43}=", spki):
             raise ValueError("test_browser_start_invalid")
+        trust = ()
+        if certificate is not None:
+            path = require_fixture_certificate(certificate, spki)
+            trust = (
+                "--mount",
+                f"type=bind,src={path},dst=/test/meet-ca.pem,readonly",
+                "--env=NODE_EXTRA_CA_CERTS=/test/meet-ca.pem",
+            )
         info = json.loads(self.command("network", "inspect", self.network))[0]
         if info.get("Internal") is not True:
             raise ValueError("test_browser_network_invalid")
@@ -75,6 +84,7 @@ class DialogBrowserFixture:
             "--pids-limit=256",
             "--cpus=2",
             "--init",
+            *trust,
             "--entrypoint=" + package.removesuffix("/package") + "/node",
             image,
             "-e",

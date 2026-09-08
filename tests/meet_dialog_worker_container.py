@@ -82,6 +82,7 @@ class DialogWorkerContainer:
             "--env=MEET_DIALOG_ENABLED=1",
             "--env=MEET_WORKER_KEY_FILE=/test/worker-key",
             "--env=SSL_CERT_FILE=/test/meet-ca.pem",
+            "--env=NODE_EXTRA_CA_CERTS=/test/meet-ca.pem",
             "--env=MEET_HUB_DIALOG_URL=" + self.hub_url,
             "--env=MEET_TEST_BROWSER_SPKI=" + spki,
             "--entrypoint=timeout",

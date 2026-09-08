@@ -57,3 +57,40 @@ API references: [Route](https://playwright.dev/python/docs/api/class-route),
 [BrowserContext](https://playwright.dev/python/docs/api/class-browsercontext),
 [CSP multiple policies](https://www.w3.org/TR/CSP3/#multiple-policies),
 [connect-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src).
+
+## Implemented focused verification
+
+The final adapter uses native CSP, no WebSocket mock or forwarding. Its exact
+`connect-src` is accompanied by same-origin/blob `worker-src` and disabled
+frames/objects; it appends a separate policy rather than replacing existing
+directives. HTTP responses are fetched once with a two-second timeout, no
+redirects/retries, and released after fulfillment. Strict canonical origin
+validation also rejects CSP metacharacters, wildcards and ambiguous ports.
+Both runtimes install the adapter before creating their first page.
+
+The 120 combined policy, publication/runtime composition, private browser/Worker
+fixture and actual destination tests passed in 84.76 seconds. The expanded
+real check additionally passed in 10.20 seconds with a separately served
+dedicated-worker script: its allowed native socket connects, its foreign socket
+does not. Blob-worker fetch/socket/importScripts, direct resources, popup,
+HTTP/WS redirects and unneeded POST requests cannot reach the forbidden
+listener. A pre-existing `connect-src 'none'` still blocks otherwise admitted
+same-origin fetch and sockets. Destination counts, not only client rejections,
+are asserted. No WebSocket interception script exists in the tested page.
+
+The real fixture uses a network-less, non-root, read-only, resource-limited
+container with sandboxed Chromium and two loopback TLS listeners. Only its
+three test/source files and exact ephemeral certificate/key are mounted; this
+is a source-mounted component test, not the installed-image acceptance. The
+host's AppArmor/sandbox rejection and the fixture's initial missing crypto
+dependency were setup failures, not successful browser checks. Certificate
+generation now stays outside the dependency-minimal Worker. All tests retain
+their bounded execution and exact-owned cleanup.
+
+Node's HTTP fetch needs the private fixture CA independently of Chromium's SPKI
+pin. The cross-repository browser fixture may mount only one exact canonical
+PEM whose public-key digest equals that existing pin; bundles, mismatches,
+symlinks and missing/malformed files fail before container creation. The
+packaged Worker fixture exposes its already mounted private CA to Node too.
+This changes only test-process trust, never the host or a serving deployment.
+Fresh packaged image and real two-Worker integration are the next gate.

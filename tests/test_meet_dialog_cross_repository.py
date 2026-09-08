@@ -333,7 +333,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             hashlib.sha256(cert.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)).digest()
         ).decode()
         browser_fixture = DialogBrowserFixture(ready["test_network"], SOAK_SECONDS + 180)
-        browser_fixture.start(spki)
+        browser_fixture.start(spki, certificate=ready["certificate"])
 
         def trusted_fixture_launch(browser_type, *args, **kwargs):
             return browser_fixture.launch(browser_type, *args, **kwargs)
