@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from tests.meet_browser_launch_diagnostic import CLASSIFY_LAUNCH_FAILURE, launch_failure
+
 
 def docker(*args):
     return subprocess.run(["docker", *args], check=True, capture_output=True, text=True, timeout=30).stdout.strip()
@@ -46,12 +48,14 @@ class DialogBrowserFixture:
         seccomp = Path(__file__).resolve().parents[1] / "docker/meet-media/chromium-seccomp.json"
         package = "/usr/local/lib/python3.12/site-packages/playwright/driver/package"
         script = (
+            CLASSIFY_LAUNCH_FAILURE + ";"
             f"const p=require({json.dumps(package)});"
             f"setTimeout(()=>process.exit(0),{self.lifetime * 1000});"
             "p.chromium.launchServer({headless:true,chromiumSandbox:true,host:'0.0.0.0',port:8099,"
             "timeout:15000,args:['--autoplay-policy=no-user-gesture-required',"
             f"'--ignore-certificate-errors-spki-list={spki}']}})"
-            ".then(s=>console.log(s.wsEndpoint())).catch(()=>{console.log('test_browser_launch_failed');process.exit(1)})"
+            ".then(s=>console.log(s.wsEndpoint())).catch(error=>{"
+            "console.log('test_browser_launch_failed:'+classifyLaunchFailure(error));process.exit(1)})"
         )
         self.created = True  # Cleanup also covers an uncertain Docker create result.
         self.command(
@@ -94,8 +98,9 @@ class DialogBrowserFixture:
                 if match:
                     self.endpoint = f"ws://{address}:8099/{match[1]}"
                     return
-                if line == "test_browser_launch_failed":
-                    raise ValueError("test_browser_sandbox_launch_failed")
+                failure = launch_failure(line)
+                if failure is not None:
+                    raise ValueError(failure)
             time.sleep(0.1)
         raise ValueError("test_browser_start_timeout")
 
