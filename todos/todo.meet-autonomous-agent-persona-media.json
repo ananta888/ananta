@@ -572,7 +572,8 @@
         "Authentisierung, Quellgenerierung und Senden sind getrennt testbar; kein monolithischer Publisher mit eingebauter Hub-Policy."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
-      "liveness_cpu_result": "2026-09-08 implementiert: eigener loopback-only /healthz ohne Signatur/Task-/GPUaktion, feste stille stdlib-Probe unter Docker3s-Wallclock und Compose4CPU-Default.29fokussierte23.55s,145gemeinsame61.32s gruen; echter Mount-Container14.00s und separat aus bestehender gepinnter Runtime neu verpacktes Sourceimage ohne Quellmounts21.99s gruen. Healthy/unhealthy/healthy durch Stop/Continue nur des eigenen Listeners, kein Neustart/Leaseeintrag/Hubpaket/GPU/Netz. Packaged-Erstlauf14.12s falsche tmpfs-Inspect-Testannahme korrigiert. Voller Dependency-Neubau bleibt nicht bestanden (offline fehlendeAPTschicht; online600s beiCUDAinstallation abgelaufen); Sourcepackaging ist kein Ersatzclaim. docs/contracts/meet-worker-liveness.md. Keine bestehenden Dienste/Secrets veraendert; breitere MAP-10- und Produktionskriterien weiterhin offen."
+      "liveness_cpu_result": "2026-09-08 implementiert: eigener loopback-only /healthz ohne Signatur/Task-/GPUaktion, feste stille stdlib-Probe unter Docker3s-Wallclock und Compose4CPU-Default.29fokussierte23.55s,145gemeinsame61.32s gruen; echter Mount-Container14.00s und separat aus bestehender gepinnter Runtime neu verpacktes Sourceimage ohne Quellmounts21.99s gruen. Healthy/unhealthy/healthy durch Stop/Continue nur des eigenen Listeners, kein Neustart/Leaseeintrag/Hubpaket/GPU/Netz. Packaged-Erstlauf14.12s falsche tmpfs-Inspect-Testannahme korrigiert. Voller Dependency-Neubau bleibt nicht bestanden (offline fehlendeAPTschicht; online600s beiCUDAinstallation abgelaufen); Sourcepackaging ist kein Ersatzclaim. docs/contracts/meet-worker-liveness.md. Keine bestehenden Dienste/Secrets veraendert; breitere MAP-10- und Produktionskriterien weiterhin offen.",
+      "runtime_lock_plan": "2026-09-08 Quellabgleich8645183bf: Base/Directpins vorhanden, Pythontransitives einschliesslichCUDA/Browser ungebunden. Separates read-only/nonroot/GPU-/netzfreies Inventar des vorhandenen Image0e112df5 erhoben. docs/contracts/meet-worker-runtime-lock.md plant exakte Baselineconstraints plus geschlossenen Build-Inventarcheck, temporaeren CPU-ONNX-Buildpin und zwingende Abwesenheit im Runtimeimage. Keine neuen Versionen/Modelle/Secrets oder Runtimeaktivierung; kein Wheelhash/APT-/Bitreproduzierbarkeitsclaim. Reale Inventory- und Fehler-/Contractchecks, danach erneut explizit begrenzter Vollbuild."
     },
     {
       "id": "MAP-11",
@@ -1366,10 +1367,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T10:43:13.186350Z",
+    "generated_at": "2026-09-08T10:48:55.709291Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "95e3ac9559403659069a7cf7937b8e1894e561dd3c400a6635fdbc4a2918aa4f",
+    "source_hash": "144d0bfd91d6f03457c92fd0e8176f1f1912cd6f58a768d7efd4bb7948a13272",
     "is_stale": false
   }
 }
