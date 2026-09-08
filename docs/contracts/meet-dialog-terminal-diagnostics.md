@@ -57,3 +57,13 @@ snapshot in the same transaction as observation insertion. Identical immutable
 records remain idempotent; no Task status/context/event mutation is required.
 Read access rechecks current Task ownership/scope and the stored binding digest.
 Terminal identity immutability tests must remain unchanged and pass.
+
+Transport-budget refinement: an urllib socket timeout alone does not bound DNS
+or a response that dribbles data. Install a one-shot POSIX real-time deadline
+only in the existing standalone dialog child's main thread, after source and
+browser cleanup. Cap it at one second and the original assignment cleanup
+deadline, restore the prior signal handler, and skip optional reporting if a
+timer is already owned or the environment cannot provide this guard. Never
+replace another timer, create an unbounded reporting thread or extend the
+executor's existing watchdog. Exercise blocking DNS/body stand-ins in owned
+real child processes, not by changing the test runner's signal state.
