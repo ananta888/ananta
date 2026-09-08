@@ -27,7 +27,11 @@ from worker.meet_media.dialog_client import HubDialogClient
 )
 @pytest.mark.parametrize(
     "source,flag,capability",
-    [("avatar", "avatar_images", "avatar.publish"), ("voice", "voice_profiles", "speech.publish")],
+    [
+        ("avatar", "avatar_images", "avatar.publish"),
+        ("voice", "voice_profiles", "speech.publish"),
+        ("browser", "browser_workspace", "screen.publish"),
+    ],
 )
 def test_signed_callback_never_silently_upgrades_or_downgrades_avatar_protocol(
     tmp_path, monkeypatch, negotiated, projection, valid, source, flag, capability
@@ -56,22 +60,29 @@ def test_signed_callback_never_silently_upgrades_or_downgrades_avatar_protocol(
                 "controls": initial_controls(value["capabilities"], "off", "off", int(time.time()) * 1000),
             }
             if projection is not None:
-                response[source] = (
-                    {
+                response[source] = {
+                    "avatar": {
                         "mode": "neutral-ai-v1",
                         "state": "paused",
                         "binding": None,
                         "reference": None,
-                    }
-                    if source == "avatar"
-                    else {
+                    },
+                    "voice": {
                         "mode": "configured-piper-v1",
                         "state": "paused",
                         "speech_revision": 1,
                         "selection_digest": content_digest({"mode": "configured-piper-v1"}),
                         "profile": None,
-                    }
-                ) | ({"unexpected": True} if projection == "invalid" else {})
+                    },
+                    "browser": {
+                        "schema": "ananta.meet-browser-source.v1",
+                        "revision": 1,
+                        "mode": "off",
+                        "job": None,
+                        "binding": None,
+                        "reason": "not_selected",
+                    },
+                }[source] | ({"unexpected": True} if projection == "invalid" else {})
             raw = encode(response)
             self.send_response(200)
             self.send_header("Content-Length", str(len(raw)))

@@ -332,6 +332,30 @@ def dialog_voice_selection(project, task_id):
     return jsonify(service.select_voice(get_authenticated_source_control_principal(), project, task_id, payload))
 
 
+@meet_bp.route("/projects/<project>/dialogs/<task_id>/browser", methods=["GET", "POST"])
+@check_user_auth
+def dialog_browser_workspace(project, task_id):
+    from ananta_contracts.meet_dialog import parse
+
+    service = _dialog().browser_workspaces
+    if service is None:
+        raise MeetError("meet_dialog_browser_workspace_unavailable", 409)
+    if request.args or request.headers.get("Transfer-Encoding"):
+        raise MeetError("meet_browser_control_invalid")
+    principal = get_authenticated_source_control_principal()
+    if request.method == "GET":
+        if request.content_length not in (None, 0) or request.stream.read(1):
+            raise MeetError("meet_browser_control_invalid")
+        return jsonify(service.inspect(principal, project, task_id))
+    if request.content_length is None or not 0 < request.content_length <= 4096:
+        raise MeetError("meet_browser_control_invalid")
+    try:
+        payload = parse(request.get_data(cache=False))
+    except ValueError:
+        raise MeetError("meet_browser_control_invalid") from None
+    return jsonify(service.change(principal, project, task_id, payload))
+
+
 @meet_bp.post("/internal/dialog/avatar-image")
 def dialog_avatar_image_callback():
     import hmac

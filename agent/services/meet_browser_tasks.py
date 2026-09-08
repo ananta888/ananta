@@ -112,6 +112,17 @@ class HubBrowserTasks:
             raise MeetError("meet_browser_task_inactive", 403)
         return child
 
+    def child_status(self, scope, job):
+        child = self.tasks.get_by_id(job["task_id"])
+        if (
+            child is None
+            or child.task_kind != "meet_browser_workspace"
+            or (child.parent_task_id, child.tenant_id, child.project_id, child.worker_execution_context)
+            != (scope.task_id, scope.tenant_id, scope.project_id, self._execution(scope, job))
+        ):
+            return "unavailable"
+        return child.status if child.status in {"in_progress", "completed", "failed", "cancelled"} else "unavailable"
+
     def _child_matches(self, child, parent, scope, job):
         return (
             child.task_kind == "meet_browser_workspace"

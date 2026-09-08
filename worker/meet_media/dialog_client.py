@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from ananta_contracts.meet_avatar_image import validate_avatar_projection
 from ananta_contracts.meet_avatar_video import validate_video_projection
+from ananta_contracts.meet_browser_workspace import require_browser_assignment, validate_browser_source
 from ananta_contracts.meet_dialog import (
     parse,
     request_signature,
@@ -43,6 +44,20 @@ class HubDialogClient:
         self.avatar_images = assignment.get("avatar_images") is True
         self.avatar_videos = assignment.get("avatar_videos") is True
         self.voice_profiles = assignment.get("voice_profiles") is True
+        self.browser_workspace = assignment.get("browser_workspace") is True
+        self.browser_assignment = {
+            name: assignment[name]
+            for name in (
+                "task_id",
+                "lease_id",
+                "runtime_id",
+                "tenant_id",
+                "project_id",
+                "session_id",
+                "deadline",
+                "capabilities",
+            )
+        } | {"browser_workspace": self.browser_workspace}
         self.deadline = time.monotonic() + min(7200, assignment["deadline"] - time.time())
 
     def spoken(self, event, binding):
@@ -70,7 +85,7 @@ class HubDialogClient:
 
         budget = min(25 if action in {"chat", "transcript"} else 6, self.deadline - time.monotonic())
         # Terminal cleanup cannot create authority and remains possible after expiry.
-        if action == "finish":
+        if action in {"finish", "browser_finish"}:
             budget = 3
         if budget <= 0:
             raise ValueError("meet_dialog_expired")
@@ -104,6 +119,7 @@ class HubDialogClient:
                 "finish": "ananta.meet-dialog-finished.v1",
                 "audio": "ananta.meet-audio-assignment.v1",
                 "transcript": "ananta.meet-audio-result.v1",
+                "browser_finish": "ananta.meet-browser-finished.v1",
             }[action]
             fields = {
                 "exchange": {"authorization", "renewal", "audio_job", "controls"},
@@ -111,11 +127,14 @@ class HubDialogClient:
                 "finish": set(),
                 "audio": {"job"},
                 "transcript": {"reply"},
+                "browser_finish": set(),
             }[action]
             if action == "exchange" and self.avatar_images:
                 fields = fields | {"avatar"}
             if action == "exchange" and self.voice_profiles:
                 fields = fields | {"voice"}
+            if action == "exchange" and self.browser_workspace:
+                fields = fields | {"browser"}
             if (
                 not isinstance(value, dict)
                 or set(value) != {"schema", "nonce"} | fields
@@ -131,6 +150,12 @@ class HubDialogClient:
                     voice = validate_voice_projection(value["voice"])
                     if voice["speech_revision"] != value["controls"].get("speech", {}).get("revision"):
                         raise ValueError("meet_dialog_voice_revision_changed")
+                if self.browser_workspace:
+                    source = validate_browser_source(value["browser"])
+                    if source["job"] is not None:
+                        require_browser_assignment(source["job"], self.browser_assignment)
+                        if source["binding"]["screen_revision"] != value["controls"]["screen"]["revision"]:
+                            raise ValueError("meet_dialog_browser_revision_changed")
             return value
         except Exception:
             raise ValueError("meet_dialog_hub_revoked_or_unavailable") from None

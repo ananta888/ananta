@@ -151,3 +151,7 @@ class PublicDocumentWorkspace:
                     resource.close()
                 except Exception:
                     pass  # One dead browser target cannot retain the other surface.
+
+    def discard_pending(self):
+        if self.view is not None:
+            self.view.pending = None

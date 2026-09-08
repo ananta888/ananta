@@ -35,10 +35,12 @@ class MeetBrowserWorkspaces:
         # This owner-only receipt has no document, URL, worker endpoint or grant.
         return {
             "schema": "ananta.meet-browser-status.v1",
+            "dialog_task_id": scope.task_id,
             "revision": state["revision"],
             "mode": state["mode"],
             "task_id": job["task_id"] if job else None,
             "deadline_ms": job["deadline_ms"] if job else None,
+            "task_status": self.tasks.child_status(scope, job) if job else None,
         }
 
     def change(self, principal, project, task_id, payload):
@@ -152,3 +154,36 @@ class MeetBrowserWorkspaces:
                 reason = "policy_denied"
             self.tasks.finish(scope, job, "timeout" if reason == "expired" else "cancelled")
             return validate_browser_source(result | {"mode": "off", "job": None, "binding": None, "reason": reason})
+
+    def complete(self, payload):
+        from types import SimpleNamespace
+
+        from agent.models.meet_browser_state import browser_state
+
+        parent = self.tasks.get_parent(payload["task_id"])
+        if parent is None or parent.task_kind != "meet_dialog_session":
+            raise MeetError("meet_browser_parent_inactive", 403)
+        context = (parent.worker_execution_context or {}).get("meet_dialog", {})
+        if context.get("browser_workspace") is not True or (context.get("lease_id"), context.get("runtime_id")) != (
+            payload["lease_id"],
+            payload["runtime_id"],
+        ):
+            raise MeetError("meet_browser_parent_mismatch", 403)
+        state = browser_state((parent.worker_execution_context or {}).get("meet_browser"))
+        job = state["job"]
+        if job is None or (job["task_id"], job["lease_id"]) != (
+            payload["browser_task_id"],
+            payload["browser_lease_id"],
+        ):
+            raise MeetError("meet_browser_result_mismatch", 403)
+        scope = SimpleNamespace(
+            task_id=parent.id,
+            tenant_id=parent.tenant_id,
+            project_id=parent.project_id,
+            lease_id=context["lease_id"],
+            runtime_id=context["runtime_id"],
+        )
+        # Cleanup only: expiry/revocation does not require a fresh publication
+        # grant. Exact persisted identities prevent finishing another task.
+        self.tasks.finish(scope, job, payload["status"])
+        return {"schema": "ananta.meet-browser-finished.v1", "nonce": payload["nonce"]}

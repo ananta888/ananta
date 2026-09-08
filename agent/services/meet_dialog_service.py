@@ -401,6 +401,11 @@ class MeetDialogService:
     def transcript(self, payload):
         return self.audio_coordinator.complete(payload)
 
+    def browser_finish(self, payload):
+        if self.browser_workspaces is None:
+            raise MeetError("meet_dialog_browser_workspace_unavailable", 409)
+        return self.browser_workspaces.complete(payload)
+
     def chat(self, payload):
         from agent.services.source_control_access_policy import HubSourcePrincipal
 

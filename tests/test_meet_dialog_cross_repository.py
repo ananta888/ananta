@@ -81,6 +81,14 @@ def close_bridge(bridge):
         bridge.stdout.close()
 
 
+def finish_dialog_scenarios(scenarios, *args):
+    """Optional focused scenarios share the fixture, not its main assertion path."""
+    for scenario in scenarios:
+        if scenario is not None and scenario.finish(*args):
+            return True
+    return False
+
+
 @pytest.mark.parametrize(
     "spoken_mode,gpu_mode,interruption_mode,avatar_mode,voice_mode",
     [
@@ -219,6 +227,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     record_property,
     lifecycle_scenario=None,
     start_scenario=None,
+    browser_scenario=None,
 ):
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -519,6 +528,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             avatar_profiles=avatar_observer.profiles,
             avatar_video_profiles=getattr(avatar_observer, "video_profiles", None),
             voice_profiles=voice_scenario.profiles,
+            browser_workspaces=browser_scenario.configure(authority, tasks) if browser_scenario else None,
         )
         app.config["ROLE"] = "hub"
         app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
@@ -545,6 +555,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                     "chat_mode": "mention",
                     **avatar_observer.start_options,
                     **voice_scenario.start_options,
+                    **(browser_scenario.start_options if browser_scenario else {}),
                 },
                 parent=lifecycle_scenario.parent_id if lifecycle_scenario is not None else "",
             )
@@ -573,12 +584,17 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             assert key_startup["delivered"] == 1 and key_startup["cancelled"] == key_startup["scheduled"] - 1
             assert type(key_startup["delayMs"]) is int and 2000 <= key_startup["delayMs"] < 4000
             record_property("synthetic_receiver_key_startup", key_startup)
-        if voice_scenario.finish(
-            app, service, principal, started, speech_observer, command, completed, failures, record_property
-        ):
-            return
-        if avatar_observer.finish(
-            app, service, principal, started, speech_observer, command, completed, failures, record_property
+        if finish_dialog_scenarios(
+            (browser_scenario, voice_scenario, avatar_observer),
+            app,
+            service,
+            principal,
+            started,
+            speech_observer,
+            command,
+            completed,
+            failures,
+            record_property,
         ):
             return
         with app.app_context():

@@ -7,9 +7,11 @@ from contextlib import ExitStack
 
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assignment
 from ananta_contracts.meet_source_profile import dialog_source_profile
+from worker.meet_media.browser_completion_reports import BrowserCompletionReports
 from worker.meet_media.browser_network import restrict_meet_browser_network
 from worker.meet_media.dialog_avatar_presentation import DialogAvatarPresentation
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
+from worker.meet_media.dialog_browser_screen import DialogBrowserScreen
 from worker.meet_media.dialog_chat import DialogChatPump
 from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_matches
 from worker.meet_media.dialog_client import HubDialogClient
@@ -87,7 +89,12 @@ def run(assignment, hub):
         cleanup.callback(speech.close)
         chat = DialogChatPump(page, hub, assignment, speech=speech)
         cleanup.callback(chat.close)
-        screen = DialogScreenPump(page, browser, assignment)
+        if assignment.get("browser_workspace") is True:
+            browser_reports = BrowserCompletionReports(hub)
+            cleanup.callback(browser_reports.close)
+            screen = DialogBrowserScreen(page, browser, assignment, finish=browser_reports.report)
+        else:
+            screen = DialogScreenPump(page, browser, assignment)
         cleanup.callback(screen.close)
         avatar = (
             DialogAvatarPresentation(page, hub, assignment)
@@ -139,14 +146,15 @@ def run(assignment, hub):
                     avatar.update(receipt, controls, state["avatar"])
                 else:
                     avatar.update(receipt, controls)
-                screen.update(
-                    controls["screen"],
-                    {
-                        "chat": chat.opened is not None,
-                        "reply": chat.pending is not None,
-                        "audio": audio.stage if audio is not None and not audio.closed else "off",
-                    },
-                )
+                activity = {
+                    "chat": chat.opened is not None,
+                    "reply": chat.pending is not None,
+                    "audio": audio.stage if audio is not None and not audio.closed else "off",
+                }
+                if assignment.get("browser_workspace") is True:
+                    screen.update(receipt, controls["screen"], state["browser"], activity)
+                else:
+                    screen.update(controls["screen"], activity)
             chat.tick()
             speech.tick()
             screen.tick()

@@ -13,6 +13,8 @@ class SqlDialogDeadlines:
         self.task_status_cas = task_status_cas
 
     def page(self, after, limit):
+        from agent.services.meet_dialog_deadlines import KINDS
+
         if type(limit) is not int or not 1 <= limit <= 100 or after is not None and not isinstance(after, str):
             raise ValueError("meet_deadline_page_invalid")
         query = select(
@@ -22,7 +24,7 @@ class SqlDialogDeadlines:
             TaskDB.project_id,
             TaskDB.parent_task_id,
             TaskDB.worker_execution_context,
-        ).where(TaskDB.status == "in_progress", TaskDB.task_kind.in_(["meet_dialog_session", "meet_audio_receive"]))
+        ).where(TaskDB.status == "in_progress", TaskDB.task_kind.in_(KINDS))
         if after is not None:
             query = query.where(TaskDB.id > after)
         with Session(self.engine) as session:
@@ -54,9 +56,11 @@ class SqlDialogDeadlines:
             and row.project_id == expected["project_id"]
             and row.parent_task_id == expected["parent_task_id"]
             and row.worker_execution_context == expected["context"],
-            event_type="meet_dialog_deadline_expired"
-            if expected["task_kind"] == "meet_dialog_session"
-            else "meet_audio_deadline_expired",
+            event_type={
+                "meet_dialog_session": "meet_dialog_deadline_expired",
+                "meet_audio_receive": "meet_audio_deadline_expired",
+                "meet_browser_workspace": "meet_browser_deadline_expired",
+            }[expected["task_kind"]],
             event_actor="hub",
             event_details={"reason": "original_deadline_expired"},
         )

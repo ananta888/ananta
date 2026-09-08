@@ -148,9 +148,22 @@ def validate_callback(value, now):
     if not isinstance(value, dict) or value.get("schema") != "ananta.meet-dialog-callback.v1":
         raise ValueError("meet_dialog_callback_invalid")
     action = value.get("action")
-    if not isinstance(action, str) or action not in {"exchange", "chat", "finish", "audio", "transcript"}:
+    if not isinstance(action, str) or action not in {
+        "exchange",
+        "chat",
+        "finish",
+        "audio",
+        "transcript",
+        "browser_finish",
+    }:
         raise ValueError("meet_dialog_callback_invalid")
-    fields = {"status"} if action == "finish" else {"meet_session_id"} | ({"event"} if action == "chat" else set())
+    fields = (
+        {"status"}
+        if action in {"finish", "browser_finish"}
+        else {"meet_session_id"} | ({"event"} if action == "chat" else set())
+    )
+    if action == "browser_finish":
+        fields |= {"browser_task_id", "browser_lease_id"}
     if action == "audio":
         fields |= {"publication_id"}
     if action == "transcript":
@@ -165,9 +178,11 @@ def validate_callback(value, now):
         or not now - 10 <= value["sent_at"] <= now + 2
     ):
         raise ValueError("meet_dialog_callback_expired")
-    if action == "finish":
+    if action in {"finish", "browser_finish"}:
         if not isinstance(value["status"], str) or value["status"] not in {"completed", "failed", "cancelled"}:
             raise ValueError("meet_dialog_terminal_invalid")
+        if action == "browser_finish":
+            _ids(value, ("browser_task_id", "browser_lease_id"))
     elif not isinstance(value["meet_session_id"], str) or not re.fullmatch(
         r"ms_[A-Za-z0-9_-]{32}", value["meet_session_id"]
     ):

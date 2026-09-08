@@ -4,7 +4,11 @@ import math
 import time
 from typing import Callable, Protocol
 
-KINDS = {"meet_dialog_session": "meet_dialog", "meet_audio_receive": "meet_audio"}
+KINDS = {
+    "meet_dialog_session": "meet_dialog",
+    "meet_audio_receive": "meet_audio",
+    "meet_browser_workspace": "meet_browser_job",
+}
 
 
 class DialogDeadlineStore(Protocol):
@@ -29,6 +33,27 @@ def original_deadline(candidate):
         raise ValueError("meet_deadline_task_invalid")
     context = candidate["context"]
     binding = context.get(KINDS[candidate["task_kind"]])
+    if candidate["task_kind"] == "meet_browser_workspace":
+        from ananta_contracts.meet_browser_workspace import validate_browser_job
+
+        job = validate_browser_job(binding)
+        if set(context) != {"meet_browser_job", "parent_dispatch", "runtime_id"} or (
+            job["task_id"],
+            job["parent_task_id"],
+            job["tenant_id"],
+            job["project_id"],
+            job["parent_lease_id"],
+            job["runtime_id"],
+        ) != (
+            candidate["task_id"],
+            candidate["parent_task_id"],
+            candidate["tenant_id"],
+            candidate["project_id"],
+            context["parent_dispatch"],
+            context["runtime_id"],
+        ):
+            raise ValueError("meet_deadline_binding_invalid")
+        return job["deadline_ms"] / 1000
     if (
         not isinstance(binding, dict)
         or not _identifier(binding.get("lease_id"))
