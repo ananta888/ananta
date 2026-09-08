@@ -33,7 +33,7 @@ class DialogSourceProfile:
             raise ValueError("meet_source_profile_mismatch")
 
 
-def dialog_source_profile(capabilities, *, avatar_images=False):
+def dialog_source_profile(capabilities, *, avatar_images=False, avatar_videos=False):
     """Compile only the existing v1 handler; no arbitrary profile/plugin registry."""
     if (
         not isinstance(capabilities, (list, tuple))
@@ -42,6 +42,9 @@ def dialog_source_profile(capabilities, *, avatar_images=False):
         or len(capabilities) != len(set(capabilities))
         or not set(capabilities) <= CAPABILITIES
         or type(avatar_images) is not bool
+        or type(avatar_videos) is not bool
+        or avatar_videos
+        and not avatar_images
         or avatar_images
         and "avatar.publish" not in capabilities
     ):
@@ -53,5 +56,7 @@ def dialog_source_profile(capabilities, *, avatar_images=False):
         publications.append(("speech", ("generated_audio",)))
     if "avatar.publish" in capabilities:
         classes = ("generated_video", "persona_image") if avatar_images else ("generated_video",)
+        if avatar_videos:
+            classes += ("persona_video",)
         publications.append(("avatar", classes))
     return DialogSourceProfile(tuple(sorted(capabilities)), tuple(publications))

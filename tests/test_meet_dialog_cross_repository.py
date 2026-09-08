@@ -517,6 +517,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 speech_profile=speech_observer.profile,
             ),
             avatar_profiles=avatar_observer.profiles,
+            avatar_video_profiles=getattr(avatar_observer, "video_profiles", None),
             voice_profiles=voice_scenario.profiles,
         )
         app.config["ROLE"] = "hub"

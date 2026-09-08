@@ -8,6 +8,7 @@ import urllib.request
 from urllib.parse import urlsplit
 
 from ananta_contracts.meet_avatar_image import validate_avatar_projection
+from ananta_contracts.meet_avatar_video import validate_video_projection
 from ananta_contracts.meet_dialog import (
     parse,
     request_signature,
@@ -18,6 +19,7 @@ from ananta_contracts.meet_dialog import (
 from ananta_contracts.meet_dialog_voice import validate_voice_projection
 from worker.meet_media.contract import encode, load_key
 from worker.meet_media.dialog_avatar_image_client import HubAvatarImageClient
+from worker.meet_media.dialog_avatar_video_client import HubAvatarVideoClient
 from worker.meet_media.dialog_speech_client import HubSpeechClient
 from worker.meet_media.persona_http import read_bounded
 
@@ -39,6 +41,7 @@ class HubDialogClient:
         self.key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
         self.ids = {k: assignment[k] for k in ("task_id", "lease_id", "runtime_id")}
         self.avatar_images = assignment.get("avatar_images") is True
+        self.avatar_videos = assignment.get("avatar_videos") is True
         self.voice_profiles = assignment.get("voice_profiles") is True
         self.deadline = time.monotonic() + min(7200, assignment["deadline"] - time.time())
 
@@ -54,6 +57,11 @@ class HubDialogClient:
         if not self.avatar_images:
             raise ValueError("meet_avatar_images_not_negotiated")
         return HubAvatarImageClient(self.url, self.key, self.ids, self.deadline).fetch(binding, reference)
+
+    def avatar_video(self, binding, reference, repeat_mode):
+        if not self.avatar_videos:
+            raise ValueError("meet_avatar_videos_not_negotiated")
+        return HubAvatarVideoClient(self.url, self.key, self.ids, self.deadline).fetch(binding, reference, repeat_mode)
 
     def call(self, action, **fields):
         class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -118,7 +126,7 @@ class HubDialogClient:
             if action == "exchange":
                 validate_controls(value["controls"])
                 if self.avatar_images:
-                    validate_avatar_projection(value["avatar"])
+                    (validate_video_projection if self.avatar_videos else validate_avatar_projection)(value["avatar"])
                 if self.voice_profiles:
                     voice = validate_voice_projection(value["voice"])
                     if voice["speech_revision"] != value["controls"].get("speech", {}).get("revision"):

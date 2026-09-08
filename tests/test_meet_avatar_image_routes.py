@@ -66,7 +66,7 @@ def test_actual_image_callback_checks_separate_signature_exact_body_and_no_store
     assert post(raw).status_code == 502
 
 
-@pytest.mark.parametrize("source,choice", [("avatar", "neutral"), ("voice", "configured")])
+@pytest.mark.parametrize("source,choice", [("avatar", "neutral"), ("voice", "configured"), ("avatar-video", "video")])
 def test_selection_route_is_user_owned_closed_and_requires_no_interactive_approval(monkeypatch, source, choice):
     import agent.auth as auth
 
@@ -79,13 +79,17 @@ def test_selection_route_is_user_owned_closed_and_requires_no_interactive_approv
         else None,
     )
     monkeypatch.setattr(auth, "_user_token_allows_current_request", lambda _: True)
-    selector = getattr(runtime, "select_" + source)
+    selector = getattr(runtime, "select_" + source.replace("-", "_"))
     selector.return_value = {"selected": True}
     client, url = app.test_client(), "/api/meet/v1/projects/project/dialogs/task/" + source
     headers = {"Authorization": "Bearer synthetic-user"}
     payload = {"expected_revision": 1, choice: True}
+    if source == "avatar-video":
+        payload = {"expected_revision": 1, "profile": {"selection_digest": "a" * 64}, "repeat_mode": "hold_last"}
     assert client.put(url, json=payload).status_code == 401
-    assert client.put(url, json=payload, headers=headers).status_code == 200
+    response = client.put(url, json=payload, headers=headers)
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
     principal, project, task, body = selector.call_args.args
     assert (principal.subject_id, principal.tenant_id, project, task, body) == (
         "actor",
@@ -97,4 +101,7 @@ def test_selection_route_is_user_owned_closed_and_requires_no_interactive_approv
     assert client.put(url + "?tenant=foreign", json=payload, headers=headers).status_code == 400
     assert client.put(url, data=b" " * 2049, headers=headers).status_code == 400
     assert client.put(url, data=b'{"neutral":true,"neutral":false}', headers=headers).status_code == 400
+    selector.assert_called_once()
+    app.config["ROLE"] = "worker"
+    assert client.put(url, json=payload, headers=headers).status_code == 403
     selector.assert_called_once()

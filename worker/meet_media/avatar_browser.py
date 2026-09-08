@@ -71,6 +71,26 @@ class AvatarBrowserPort:
             arguments.extend((profile, image))
         self.page.evaluate(_START, arguments)
 
+    def start_video(self, source_id, assignment, *, tenant_id, project_id):
+        from ananta_contracts.meet_persona_video import decode_assignment as decode_video
+
+        self._check()
+        if self.token is not None:
+            raise ValueError("meet_avatar_operation_busy")
+        content = decode_video(assignment, tenant_id=tenant_id, project_id=project_id)
+        self._start(
+            source_id,
+            "persona-video-v1",
+            {
+                "mp4": base64.b64encode(content.video).decode(),
+                "sha256": content.video_sha256,
+                "frames": content.frames,
+                "repeatMode": assignment["repeat_mode"],
+                "originKind": assignment["origin_kind"],
+                "classification": assignment["reference"]["classification"],
+            },
+        )
+
     def status(self):
         self._check()
         return self.page.evaluate(_STATE, self.token)

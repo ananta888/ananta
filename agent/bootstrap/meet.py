@@ -183,7 +183,9 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
     from agent.bootstrap.meet_preauthorizations import configure_meet_preauthorizations
 
     authority = MeetDialogAuthority(
-        tasks, app.extensions["meet_binding_service"], policies,
+        tasks,
+        app.extensions["meet_binding_service"],
+        policies,
         preauthorization=configure_meet_preauthorizations(app, engine),
     )
     from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
@@ -235,6 +237,15 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
 
         voice_profiles = MeetPersonaVoiceProfiles(profiles, MeetPersonaVoices(voice_assets))
     dialog_worker = worker
+    avatar_video_profiles = None
+    video_assets = app.extensions.get("persona_video_assets")
+    if video_assets is not None and app.extensions.get("persona_profiles") is not None:
+        from agent.services.meet_avatar_video_profiles import MeetAvatarVideoProfiles
+        from agent.services.meet_persona_videos import MeetPersonaVideos
+
+        avatar_video_profiles = MeetAvatarVideoProfiles(
+            app.extensions["persona_profiles"], MeetPersonaVideos(video_assets)
+        )
     if dialog_workers is not None:
         from agent.services.meet_dialog_worker_router import MeetDialogWorkerRouter
 
@@ -253,6 +264,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         avatar_profiles=avatar_profiles,
         voice_profiles=voice_profiles,
         phases=phases,
+        avatar_video_profiles=avatar_video_profiles,
     )
     from agent.repositories.meet_dialog_starts import SqlDialogStarts
     from agent.services.meet_dialog_starts import MeetDialogStarts

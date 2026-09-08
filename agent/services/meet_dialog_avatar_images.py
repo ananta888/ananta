@@ -1,12 +1,10 @@
 """Current Hub asset policy and image hydration; never an output/render loop."""
 
-import hashlib
-import json
 import time
 
 from agent.services.meet_contract import MeetError
+from agent.services.meet_dialog_avatar_binding import avatar_binding, avatar_principal
 from agent.services.project_access_authority import ProjectAccessError
-from agent.services.source_control_access_policy import HubSourcePrincipal
 from ananta_contracts.meet_avatar_image import RESPONSE_SCHEMA, validate_image_binding, validate_image_request
 
 
@@ -18,6 +16,8 @@ class MeetDialogAvatarImages:
         selection = scope.avatar_selection
         if selection is None:
             return None  # Preserve the exact legacy dialog envelope.
+        if selection["mode"] not in ("neutral-ai-v1", "persona-image-v1"):
+            raise MeetError("meet_dialog_avatar_image_not_selected", 403)
         result = {"mode": selection["mode"], "state": "paused", "binding": None, "reference": None}
         if scope.controls.avatar is None or not scope.controls.avatar.enabled:
             return result
@@ -60,28 +60,8 @@ class MeetDialogAvatarImages:
         return scope
 
     def _binding(self, scope, state):
-        lease = state["lease"]
-        if state["roomId"] != scope.room_id or self.clock() * 1000 >= min(scope.deadline * 1000, lease["expiresAt"]):
-            raise MeetError("meet_dialog_avatar_meeting_changed", 403)
-        result = {
-            name: getattr(scope, name)
-            for name in ("tenant_id", "project_id", "task_id", "lease_id", "runtime_id", "session_id", "room_id")
-        }
-        return validate_image_binding(
-            result
-            | {
-                "meet_session_id": lease["sessionId"],
-                "own_peer_id": state["peerId"],
-                "generation": lease["generation"],
-                "membership_epoch": state["membershipEpoch"],
-                "avatar_revision": scope.controls.avatar.revision,
-                "deadline_ms": min(scope.deadline * 1000, lease["expiresAt"]),
-                "selection_digest": hashlib.sha256(
-                    json.dumps(scope.avatar_selection, sort_keys=True, separators=(",", ":")).encode()
-                ).hexdigest(),
-            }
-        )
+        return avatar_binding(scope, state, self.clock())
 
     @staticmethod
     def _principal(scope):
-        return HubSourcePrincipal(scope.owner_subject, scope.tenant_id, scope.project_id, frozenset({"user"}))
+        return avatar_principal(scope)

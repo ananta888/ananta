@@ -48,7 +48,7 @@ class HubDialogTasks:
                 return False
         except ValueError:
             return False
-        selection = parse_avatar_selection(selection, scope.tenant_id, scope.project_id)
+        selection = parse_avatar_selection(selection, scope.tenant_id, scope.project_id, videos=scope.avatar_videos)
         return self._set_controls(scope, controls, selection=selection)
 
     def set_voice_selection(self, scope, selection, controls):

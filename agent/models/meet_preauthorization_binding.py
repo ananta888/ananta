@@ -29,21 +29,29 @@ def assignment_projection(task_id, tenant, project, origin, context):
     caps = context.get("capabilities")
     if type(caps) is not list or any(type(cap) is not str for cap in caps) or len(caps) != len(set(caps)):
         raise MeetError("meet_preauthorization_binding_invalid", 403)
-    dialog_source_profile(caps, avatar_images="avatar_selection" in context)
+    dialog_source_profile(
+        caps, avatar_images="avatar_selection" in context, avatar_videos=context.get("avatar_videos", False)
+    )
+    if "avatar_videos" in context and context["avatar_videos"] is not True:
+        raise MeetError("meet_preauthorization_binding_invalid", 403)
     chat, audio = context.get("chat_mode"), context.get("audio_mode")
     if type(chat) is not str or chat not in {"off", "mention", "direct_question", "room"}:
         raise MeetError("meet_preauthorization_binding_invalid", 403)
     if type(audio) is not str or audio not in {"off", "transcribe", "dialog"}:
         raise MeetError("meet_preauthorization_binding_invalid", 403)
-    return fields | {
-        "schema": "ananta.meet-preauthorized-assignment.v1",
-        "deadline": deadline,
-        "capabilities": sorted(caps),
-        "chat_mode": chat,
-        "audio_mode": audio,
-        "avatar_images": "avatar_selection" in context,
-        "voice_profiles": "voice_selection" in context,
-    }
+    return (
+        fields
+        | ({"avatar_videos": True} if context.get("avatar_videos") is True else {})
+        | {
+            "schema": "ananta.meet-preauthorized-assignment.v1",
+            "deadline": deadline,
+            "capabilities": sorted(caps),
+            "chat_mode": chat,
+            "audio_mode": audio,
+            "avatar_images": "avatar_selection" in context,
+            "voice_profiles": "voice_selection" in context,
+        }
+    )
 
 
 def scope_key(assignment):

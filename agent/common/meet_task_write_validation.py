@@ -23,6 +23,8 @@ def meet_task_write_error(authoritative, candidate):
         return None
     before = getattr(authoritative, "worker_execution_context", None) or {}
     after = getattr(candidate, "worker_execution_context", None) or {}
+    if _video_option(before) != _video_option(after):
+        return "meet_dialog_video_negotiation_immutable"
     # Presence matters: null/malformed values cannot become an implicit legacy
     # principal. Existing Tasks may not be retrofitted to a different identity.
     if isinstance(before, dict) and isinstance(after, dict):
@@ -55,8 +57,10 @@ def meet_task_write_error(authoritative, candidate):
         ):
             return "meet_dialog_principal_immutable"
     elif (
-        isinstance(before, dict) and "meet_preauthorization" in before
-        or isinstance(after, dict) and "meet_preauthorization" in after
+        isinstance(before, dict)
+        and "meet_preauthorization" in before
+        or isinstance(after, dict)
+        and "meet_preauthorization" in after
     ):
         return "meet_dialog_preauthorization_immutable"
     elif (
@@ -78,6 +82,14 @@ def meet_task_write_error(authoritative, candidate):
 def terminal_meet_write_allowed(authoritative, candidate):
     """Compatibility facade; also protects opted-in principals before terminality."""
     return meet_task_write_error(authoritative, candidate) is None
+
+
+def _video_option(execution):
+    context = execution.get("meet_dialog") if isinstance(execution, dict) else None
+    if isinstance(context, dict) and "avatar_videos" in context:
+        value = context["avatar_videos"]
+        return True, type(value), value
+    return False, None, None
 
 
 def require_terminal_meet_write(authoritative, candidate):

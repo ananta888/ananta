@@ -33,6 +33,7 @@ class DialogAuthority:
     voice_selection: dict | None = None
     source_profile: DialogSourceProfile | None = None
     machine_principal: MeetMachinePrincipal | None = None
+    avatar_videos: bool = False
 
     @property
     def machine_subject(self):
@@ -83,7 +84,7 @@ class MeetDialogAuthority:
         }
         if (
             not isinstance(value, dict)
-            or set(value) - {"avatar_selection", "voice_selection", "source_profile"} != fields
+            or set(value) - {"avatar_selection", "avatar_videos", "voice_selection", "source_profile"} != fields
         ):
             raise MeetError("meet_dialog_binding_invalid", 403)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
@@ -116,6 +117,8 @@ class MeetDialogAuthority:
         controls = parse_controls(value["controls"])
         avatar_selection = None
         voice_selection = None
+        if "avatar_videos" in value and (value["avatar_videos"] is not True or "avatar_selection" not in value):
+            raise MeetError("meet_dialog_avatar_videos_invalid", 403)
         if "voice_selection" in value:
             from agent.models.meet_voice_selection import parse_voice_selection
 
@@ -131,7 +134,9 @@ class MeetDialogAuthority:
             try:
                 if "avatar.publish" not in capabilities or controls.avatar is None:
                     raise ValueError()
-                avatar_selection = parse_avatar_selection(value["avatar_selection"], task.tenant_id, task.project_id)
+                avatar_selection = parse_avatar_selection(
+                    value["avatar_selection"], task.tenant_id, task.project_id, videos=value.get("avatar_videos", False)
+                )
             except ValueError:
                 raise MeetError("meet_dialog_avatar_selection_invalid", 403) from None
         if any(
@@ -141,7 +146,9 @@ class MeetDialogAuthority:
             raise MeetError("meet_dialog_control_capability_denied", 403)
         # A missing field belongs only to the identical legacy v1 handler. A
         # present field is never silently repaired, broadened or caller-selected.
-        source_profile = dialog_source_profile(capabilities, avatar_images="avatar_selection" in value)
+        source_profile = dialog_source_profile(
+            capabilities, avatar_images="avatar_selection" in value, avatar_videos=value.get("avatar_videos", False)
+        )
         if "source_profile" in value:
             try:
                 source_profile.require_projection(value["source_profile"])
@@ -169,8 +176,12 @@ class MeetDialogAuthority:
                 raise MeetError("meet_preauthorization_provider_required", 403)
         else:
             self.preauthorization.require_current(
-                task_id, task.tenant_id, task.project_id, self.binding.profile.origin,
-                value, execution.get("meet_preauthorization"),
+                task_id,
+                task.tenant_id,
+                task.project_id,
+                self.binding.profile.origin,
+                value,
+                execution.get("meet_preauthorization"),
             )
         return DialogAuthority(
             task_id,
@@ -192,4 +203,5 @@ class MeetDialogAuthority:
             voice_selection,
             source_profile,
             machine_principal,
+            value.get("avatar_videos", False),
         )

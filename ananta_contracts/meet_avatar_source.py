@@ -2,7 +2,7 @@
 
 
 def validate_avatar_snapshot(value, now_ms, deadline_ms, *, profile="neutral-ai-v1"):
-    if profile not in ("neutral-ai-v1", "persona-image-v1"):
+    if profile not in ("neutral-ai-v1", "persona-image-v1", "persona-video-v1"):
         raise ValueError("meet_avatar_profile_invalid")
     if not isinstance(value, dict) or set(value) != {"phase", "generation", "receipt", "source"}:
         raise ValueError("meet_avatar_snapshot_invalid")

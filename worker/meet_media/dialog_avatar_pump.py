@@ -10,8 +10,10 @@ class DialogAvatarPump:
     def __init__(
         self, page, assignment, *, browser=None, clock=time.time, monotonic=time.monotonic, profile="neutral-ai-v1"
     ):
-        if profile not in ("neutral-ai-v1", "persona-image-v1"):
+        if profile not in ("neutral-ai-v1", "persona-image-v1", "persona-video-v1"):
             raise ValueError("meet_avatar_profile_invalid")
+        if profile == "persona-video-v1" and assignment.get("avatar_videos") is not True:
+            raise ValueError("meet_avatar_videos_not_negotiated")
         self.profile = profile
         self.assignment, self.clock, self.monotonic = assignment, clock, monotonic
         self.url = assignment["meeting"]["origin"] + "/machine"

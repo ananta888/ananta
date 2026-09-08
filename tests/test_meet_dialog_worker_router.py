@@ -34,6 +34,7 @@ def fixture():
         **{k: value["meeting"][k] for k in ("origin", "room_id")},
         avatar_selection=None,
         voice_selection=None,
+        avatar_videos=False,
     )
     task = SimpleNamespace(
         assigned_agent_url=SECOND,

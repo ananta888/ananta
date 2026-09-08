@@ -48,7 +48,7 @@ class DialogSessionOperations:
             raise ValueError("meet_dialog_session_expired")
         self.page.wait_for_timeout(min(100, remaining * 1000))
 
-    def ready(self, capabilities=()):
+    def ready(self, capabilities=(), *, avatar_videos=False):
         deadline = min(self.deadline, self.clock() + 20)
         try:
             if self.joined:
@@ -59,6 +59,12 @@ class DialogSessionOperations:
                 self._check(deadline, None)
                 if value is True:
                     check_client_probe(self.page, lambda: self._check(deadline, None), capabilities)
+                    if avatar_videos:
+                        from ananta_contracts.meet_avatar_video import require_video_probe
+
+                        value = self.page.evaluate("() => window.anantaMachine?.avatar?.videoProbe?.() ?? null")
+                        self._check(deadline, None)
+                        require_video_probe(value)
                     return
                 self._wait(deadline)
         except Exception:

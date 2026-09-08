@@ -60,9 +60,11 @@ class MeetDialogWorkerRouter:
             or any(assignment["meeting"][key] != getattr(scope, key) for key in ("origin", "room_id"))
         ):
             raise MeetError("meet_dialog_publisher_binding_denied", 403)
-        if (assignment.get("avatar_images") is True) != (scope.avatar_selection is not None) or (
-            assignment.get("voice_profiles") is True
-        ) != (scope.voice_selection is not None):
+        if (
+            (assignment.get("avatar_images") is True) != (scope.avatar_selection is not None)
+            or (assignment.get("voice_profiles") is True) != (scope.voice_selection is not None)
+            or (assignment.get("avatar_videos") is True) != scope.avatar_videos
+        ):
             raise MeetError("meet_dialog_publisher_binding_denied", 403)
         # The authoritative role check fences a concurrent destination/role edit;
         # selection never runs again here and an uncertain send is never retried.

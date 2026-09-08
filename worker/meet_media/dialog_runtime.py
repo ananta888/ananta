@@ -52,7 +52,11 @@ def start_audio(page, hub, assignment, state, meet_session):
 def run(assignment, hub):
     # The fixed installed handler defines source classes. The signed closed v1
     # envelope carries capabilities/options, not a Worker-selected capture mode.
-    dialog_source_profile(assignment["capabilities"], avatar_images=assignment.get("avatar_images", False))
+    dialog_source_profile(
+        assignment["capabilities"],
+        avatar_images=assignment.get("avatar_images", False),
+        avatar_videos=assignment.get("avatar_videos", False),
+    )
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright, ExitStack() as cleanup:
@@ -73,7 +77,9 @@ def run(assignment, hub):
             raise ValueError("meet_machine_navigation_denied")
         session = DialogSessionOperations(page, url=url, deadline=hub.deadline)
         cleanup.callback(session.close)
-        session.ready(assignment["capabilities"])
+        session.ready(
+            assignment["capabilities"], **({"avatar_videos": True} if assignment.get("avatar_videos") is True else {})
+        )
         session.join(assignment["meeting"]["room_id"], assignment["meeting"]["grant"])
         local_status = "(({joined, lease}) => ({joined, lease}))(window.anantaMachine.status())"
         meet_session = page.evaluate(local_status)["lease"]["sessionId"]

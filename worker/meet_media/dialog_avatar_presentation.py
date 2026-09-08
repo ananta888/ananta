@@ -1,12 +1,14 @@
-"""Compose fresh Hub image selection with the existing bounded source pump."""
+"""Compose freshly authorized avatar artwork with the bounded source pump."""
 
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 from ananta_contracts.meet_avatar_image import validate_avatar_projection
+from ananta_contracts.meet_avatar_video import validate_video_projection
 from worker.meet_media.avatar_browser import AvatarBrowserPort
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
+from worker.meet_media.dialog_avatar_video_browser import VideoAvatarBrowser
 
 
 class ImageAvatarBrowser:
@@ -40,7 +42,7 @@ class DialogAvatarPresentation:
             browser if browser is not None else AvatarBrowserPort(page, assignment["meeting"]["origin"] + "/machine")
         )
         self.pool = (
-            pool if pool is not None else ThreadPoolExecutor(max_workers=1, thread_name_prefix="meet-avatar-image")
+            pool if pool is not None else ThreadPoolExecutor(max_workers=1, thread_name_prefix="meet-avatar-artwork")
         )
         self.pending = self.pump = self.key = self.failed_key = None
         self.closed = False
@@ -54,13 +56,16 @@ class DialogAvatarPresentation:
         ):
             self.invalidate()
             raise ValueError("meet_avatar_scope_changed")
-        projection = validate_avatar_projection(projection)
+        validator = (
+            validate_video_projection if self.assignment.get("avatar_videos") is True else validate_avatar_projection
+        )
+        projection = validator(projection)
         control = controls.get("avatar")
         if not control or not control["enabled"] or projection["state"] != "ready":
             self.invalidate()
             return
-        if projection["mode"] == "persona-image-v1":
-            self._check_image_binding(receipt, control, projection["binding"])
+        if projection["mode"] != "neutral-ai-v1":
+            self._check_binding(receipt, control, projection["binding"])
         key = (json.dumps(projection, sort_keys=True, separators=(",", ":")), control["revision"], control["since"])
         if key != self.key:
             self._stop()
@@ -73,25 +78,29 @@ class DialogAvatarPresentation:
             if self.pump is None:
                 self._activate("neutral-ai-v1")
         else:
-            self._image(key, projection)
+            self._hydrate(key, projection)
         if self.pump is not None:
             # The only activation/pulse entry point is a new authenticated Hub
-            # update, including completion of asynchronous image hydration.
+            # update, including completion of asynchronous artwork hydration.
             self.pump.update(receipt, controls)
 
-    def _image(self, key, projection):
+    def _hydrate(self, key, projection):
         if self.pending is not None and self.pending[0].done():
             future, previous = self.pending
             self.pending = None
             if previous == key:
                 try:
-                    self._activate("persona-image-v1", future.result())
+                    self._activate(projection["mode"], future.result())
                 except Exception:
                     self.failed_key = key
                     return
         if self.pump is None and self.pending is None:
+            fetch, arguments = self.hub.avatar_image, [dict(projection["binding"]), dict(projection["reference"])]
+            if projection["mode"] == "persona-video-v1":
+                fetch = self.hub.avatar_video
+                arguments.append(projection["repeat_mode"])
             self.pending = (
-                self.pool.submit(self.hub.avatar_image, dict(projection["binding"]), dict(projection["reference"])),
+                self.pool.submit(fetch, *arguments),
                 key,
             )
         # A stale in-flight fetch retains its sole slot until it actually ends.
@@ -99,13 +108,15 @@ class DialogAvatarPresentation:
 
     def _activate(self, profile, image=None):
         browser = self.browser if image is None else ImageAvatarBrowser(self.browser, self.assignment, image)
-        if profile == "persona-image-v1" and image is None:
+        if profile == "persona-video-v1":
+            browser = VideoAvatarBrowser(self.browser, self.assignment, image)
+        if profile != "neutral-ai-v1" and image is None:
             raise ValueError("meet_avatar_image_missing")
         self.pump = DialogAvatarPump(
             self.page, self.assignment, browser=browser, clock=self.clock, monotonic=self.monotonic, profile=profile
         )
 
-    def _check_image_binding(self, receipt, control, binding):
+    def _check_binding(self, receipt, control, binding):
         lease = receipt["lease"]
         expected = {
             name: self.assignment[name]

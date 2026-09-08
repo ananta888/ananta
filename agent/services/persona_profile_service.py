@@ -192,6 +192,9 @@ class PersonaProfileService:
     def for_voice_execution(self, principal, project, selection: PersonaProfileSelection):
         return self._for_execution(principal, project, selection, required_outputs=("voice",), primary_kind="voice")
 
+    def for_avatar_video_execution(self, principal, project, selection: PersonaProfileSelection):
+        return self._for_execution(principal, project, selection, required_outputs=("video",), primary_kind="video")
+
     def _for_execution(self, principal, project, selection, *, required_outputs, primary_kind):
         if (
             not isinstance(required_outputs, tuple)
