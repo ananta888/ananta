@@ -48,3 +48,54 @@ generalize image-only contracts silently to authorize video for old sessions.
   independent speech/screen, pause/revocation and zero human capture.
 - Companion full check in a private build; no serving deployment, trust change
   or production evidence claim. MAP-20 stays open until all its criteria pass.
+
+## Implemented slice and technical observations (2026-09-08)
+
+The negotiated ceiling, Hub selection/CAS, separate signed hydration, Worker
+single-slot presentation and passive Angular video picker are implemented.
+The original image endpoint rejects video selections, and the generic Task write
+guard prevents adding, stripping or coercing the original video ceiling. Silent
+video profile resolution requires only the authorized video output; the existing
+one-shot audio/video profile adapter still requires both outputs. No inference
+or asset decoding was moved into the Hub coordinator.
+
+Focused backend batches passed: 172 contract/legacy tests in 114.55s, 39 Hub/HTTP
+tests in 31.81s, and 99 adapter/negotiation/profile tests in 72.44s. Meet/Persona
+UI tests passed (205), both Angular template checks passed, and the standalone
+Worker boundary detector passed for 87 files. These batches overlap existing
+regressions and are not a count of newly discovered bugs.
+
+Against private Meet build `f6b9255`, actual Chromium and Firefox receivers
+decoded the normalized red/blue silent clip, replaced image/video generations,
+and retained independent speech/screen. Controller loss removed the avatar in
+1826.62/1716.84ms respectively. The initial invocation lacked FFmpeg and failed
+before browser setup; explicitly selecting the existing extracted FFmpeg tools
+resolved this environment issue without changing application policy.
+
+The actual current-source Hub/Worker/browser test passed in 63.57s. Four avatar
+source generations covered video, image, video and resume; pause reached the
+receiver in 773.91ms and asset-policy revocation in 314.08ms (local 266.97ms).
+Two independent spoken answers each completed 220500 local samples, with remote
+audio correlation, continued screen frames, zero human capture and zero transform
+errors. The browser-only container used the earlier pinned Worker image; this
+test does not prove installation of the new Python code in an image.
+
+All these observations use explicit synthetic/test-only policy and media. They
+are not Hub-reserved production release evidence, GPU/soak/TURN verification or
+public deployment. Full isolated companion check and the remaining MAP-20
+pre-dispatch/multiple-session criteria are tracked separately.
+
+The final expanded backend batch ran 375 tests in 251.36s: 368 passed and seven
+failed because the router's synthetic `SimpleNamespace` fixture lacked the new
+default-false field. Updating that fixture to match `DialogAuthority` required
+no production-policy relaxation; all 24 router tests then passed in 21.26s.
+The expanded Meet plus Persona UI selection passed 277 tests in 2.26s; ESLint
+and Worker boundary checks remained green.
+
+Companion full check at `f6b9255` passed frontend/build/static/Go gates, then
+reported 779 Node passes, two failures and two explicit skips in 259.15s.
+Both failures reproduce outside the avatar feature in the native raw HLS
+encoder's audio queue; infrastructure gates after Node did not execute.
+TBP-016 tracks the concrete fix and renewed full check. Concurrent companion
+commits through `23f9517` were integrated without discarding their changes
+(`609c531`), so the next complete companion check must cover the merged source.
