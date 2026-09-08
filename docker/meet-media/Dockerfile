@@ -14,4 +14,5 @@ COPY worker/meet_media /app/worker/meet_media
 COPY ananta_contracts /app/ananta_contracts
 COPY voice_runtime /app/voice_runtime
 ENV PYTHONUNBUFFERED=1 NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+HEALTHCHECK --interval=15s --timeout=3s --start-period=15s --retries=3 CMD ["python", "-m", "worker.meet_media.health"]
 CMD ["python", "-m", "worker.meet_media.server"]

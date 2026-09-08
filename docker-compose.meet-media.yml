@@ -34,6 +34,7 @@ services:
     tmpfs:
       - /tmp:size=256m,mode=1777
     mem_limit: 4g
+    cpus: "${MEET_MEDIA_CPUS:-4.0}"
     pids_limit: 256
     shm_size: 256m
     cap_drop: [ALL]

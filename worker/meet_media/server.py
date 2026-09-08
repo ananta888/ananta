@@ -91,6 +91,11 @@ def create_server(address, key, executor, dialog_executor=None):
         def log_message(self, *_args):
             pass
 
+        def do_GET(self):
+            from worker.meet_media.health_route import write_health_response
+
+            write_health_response(self)
+
         def do_POST(self):
             self.connection.settimeout(5)
             body = b""
