@@ -12,16 +12,28 @@ from worker.meet_egress.enforcer import install_filters
 from worker.meet_egress.health import CONFIGURATION, READINESS
 
 
-def serve_guard(policy, stopped, *, install=install_filters, responder=FixedDnsResponder, readiness=READINESS):
+def serve_guard(
+    policy,
+    stopped,
+    *,
+    install=install_filters,
+    responder=FixedDnsResponder,
+    readiness=READINESS,
+    observe=lambda _: None,
+):
     # Caller provisions an empty private tmpfs. Never overwrite a pre-existing
     # readiness marker; no success from a previous process may start a Worker.
+    observe("filter")
     install(policy)
+    observe("dns_bind")
     dns = responder(policy)
     try:
+        observe("readiness")
         with open(readiness, "x", encoding="ascii") as target:
             os.fchmod(target.fileno(), 0o600)
             target.write(policy.digest)
         try:
+            observe("dns_serve")
             dns.serve(stopped)
         finally:
             os.unlink(readiness)
@@ -35,12 +47,18 @@ def main():
     if not Path("/.dockerenv").is_file() or os.getpid() != 1 or os.geteuid() != 0:
         return 1
     stopped = threading.Event()
+    stage = "configuration"
+
+    def observe(value):
+        nonlocal stage
+        stage = value
+
     for number in (signal.SIGTERM, signal.SIGINT):
         signal.signal(number, lambda *_: stopped.set())
     try:
-        serve_guard(read_policy(CONFIGURATION), stopped.is_set)
+        serve_guard(read_policy(CONFIGURATION), stopped.is_set, observe=observe)
     except Exception:
-        print("meet_egress_guard_failed", file=sys.stderr)
+        print("meet_egress_guard_failed:" + stage, file=sys.stderr)
         return 1
     return 0
 

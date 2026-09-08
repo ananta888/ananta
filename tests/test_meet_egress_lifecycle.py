@@ -109,8 +109,10 @@ def test_guard_orders_install_bind_readiness_and_removal(tmp_path):
             assert not ready.exists()
             events.append("close")
 
-    serve_guard(policy(), lambda: True, install=install, responder=Dns, readiness=ready)
+    phases = []
+    serve_guard(policy(), lambda: True, install=install, responder=Dns, readiness=ready, observe=phases.append)
     assert events == ["install", "bind", "serve", "close"]
+    assert phases == ["filter", "dns_bind", "readiness", "dns_serve"]
 
 
 def test_failed_filter_install_cannot_bind_or_create_readiness(tmp_path):
