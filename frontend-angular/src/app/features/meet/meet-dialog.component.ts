@@ -5,6 +5,7 @@ import { UserAuthService } from '../../services/user-auth.service';
 import { MeetDialogApiService, MeetDialog, DialogSource, optionalDialogSources } from './meet-dialog-api.service';
 import { MeetAvatarPickerComponent } from './meet-avatar-picker.component';
 import { MeetVoicePickerComponent } from './meet-voice-picker.component';
+import { PendingDialogStart } from './meet-dialog-start-attempt';
 import type { PersonaEffectiveProfile } from '../organizations/persona-media/persona-profile.models';
 
 const sourceCapabilities: Record<DialogSource, readonly string[]> = {
@@ -17,6 +18,7 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
     <h3>Ananta im Raum</h3>
     <p>Der Hub startet einen isolierten KI-Teilnehmer. Zuhören und Chatlesen benötigen zusätzlich die
       Freigabe jedes jeweiligen Teilnehmers unter Meet → Analyse. Keine Aufzeichnung oder Tool-Freigabe.</p>
+    <fieldset [disabled]="busy() || startPending()"><legend>Neue Startanfrage</legend>
     <label><input type="checkbox" [ngModel]="chat" (ngModelChange)="setChat($event)" [disabled]="busy()" />Auf neue Raumchat-Nachrichten antworten</label>
     <label><input type="checkbox" [ngModel]="speech" (ngModelChange)="setSpeech($event)" [disabled]="busy() || !chat" />Raumchat-Antworten zusätzlich mit lokaler KI-Stimme sprechen</label>
     <label><input type="checkbox" [(ngModel)]="voiceProfiles" [disabled]="busy() || !speech" />Zusätzlich freigegebene Persona-Stimmprofile und Stimmwechsel erlauben</label>
@@ -35,6 +37,13 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
       <option [ngValue]="5">5 Minuten</option><option [ngValue]="15">15 Minuten</option>
       <option [ngValue]="60">1 Stunde</option><option [ngValue]="120">2 Stunden</option></select></label>
     <button type="button" (click)="start()" [disabled]="busy() || !(chat || audio || screen || avatar)">KI-Teilnehmer starten</button>
+    </fieldset>
+    @if (startPending()) {
+      <p>Die Startanfrage ist noch nicht eindeutig bestätigt. Eine Wiederholung verwendet denselben Auftragsschlüssel
+        und dieselbe Auswahl. Der ursprüngliche Auftrag kann bereits laufen.</p>
+      <button type="button" (click)="retryStart()" [disabled]="busy()">Dieselbe Startanfrage wiederholen</button>
+      <button type="button" (click)="prepareAnotherStart()" [disabled]="busy()">Andere Startanfrage vorbereiten (alte wird nicht gestoppt)</button>
+    }
     <button type="button" (click)="reload()" [disabled]="busy()">Meine Aufträge aktualisieren</button>
     @if (message()) { <p role="status">{{ message() }}</p> }
     @for (item of dialogs(); track item.task_id) {
@@ -69,6 +78,8 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) projectId = ''; @Input() taskId = '';
   private readonly api = inject(MeetDialogApiService); private readonly auth = inject(UserAuthService);
   private request?: Subscription; private identity?: Subscription;
+  private readonly startAttempt = new PendingDialogStart();
+  readonly startPending = this.startAttempt.pending;
   readonly busy = signal(false); readonly message = signal(''); readonly dialogs = signal<MeetDialog[]>([]);
   readonly nextCursor = signal<number | null>(null);
   readonly sourceNames = [{ key: 'chat', label: 'Raumchat' }, { key: 'audio', label: 'Audioempfang' },
@@ -79,8 +90,9 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   setAvatar(enabled: boolean): void { this.avatar = enabled; if (!enabled) this.avatarImages = false; }
   ngOnInit(): void { this.identity = this.auth.user$.pipe(skip(1)).subscribe(() => this.reset()); }
   ngOnChanges(): void { this.reset(); }
-  ngOnDestroy(): void { this.request?.unsubscribe(); this.identity?.unsubscribe(); }
+  ngOnDestroy(): void { this.request?.unsubscribe(); this.identity?.unsubscribe(); this.startAttempt.clear(); }
   private reset(): void {
+    this.startAttempt.clear();
     this.request?.unsubscribe(); this.busy.set(false); this.dialogs.set([]); this.nextCursor.set(null); this.message.set('');
     this.chat = this.audio = this.screen = this.speech = this.voiceProfiles = this.avatar = this.avatarImages = false;
   }
@@ -99,18 +111,31 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
     }, error: error => { this.dialogs.set([]); this.nextCursor.set(null); this.failure(error); } });
   }
   start(): void {
-    if (this.busy() || !this.projectId || !(this.chat || this.audio || this.screen || this.avatar)) return;
+    if (this.busy() || this.startPending() || !this.projectId || !(this.chat || this.audio || this.screen || this.avatar)) return;
     if (this.speech && !this.chat) { this.message.set('Sprachausgabe benötigt ausdrücklich ausgewählten Raumchat.'); return; }
     if (this.voiceProfiles && !this.speech) { this.message.set('Stimmprofile benötigen ausdrücklich ausgewählte Sprachausgabe.'); return; }
     if (this.avatarImages && !this.avatar) { this.message.set('Profilbilder benötigen ausdrücklich ausgewählten KI-Avatar.'); return; }
     const capabilities = [...(this.chat ? ['chat.read'] : []), ...(this.chat || this.audio ? ['chat.send'] : []),
       ...(this.audio ? ['audio.receive'] : []), ...(this.screen ? ['screen.publish'] : []),
       ...(this.speech ? ['speech.publish'] : []), ...(this.avatar ? ['avatar.publish'] : [])];
-    this.busy.set(true); this.message.set('');
-    this.request = this.api.start(this.projectId, this.taskId, { capabilities, duration_seconds: this.minutes * 60,
+    this.startAttempt.begin(this.api.start(this.projectId, this.taskId, { capabilities, duration_seconds: this.minutes * 60,
       chat_mode: this.chat || this.audio ? this.mode : 'off', audio_mode: this.audio ? 'dialog' : 'off',
-      ...(this.avatarImages ? { avatar_images: true } : {}), ...(this.voiceProfiles ? { voice_profiles: true } : {}) }).subscribe({
-      next: () => { this.busy.set(false); this.reload(); }, error: error => this.failure(error) });
+      ...(this.avatarImages ? { avatar_images: true } : {}), ...(this.voiceProfiles ? { voice_profiles: true } : {}) }));
+    this.retryStart();
+  }
+  retryStart(): void {
+    const operation = this.startAttempt.current();
+    if (this.busy() || !operation) return;
+    this.busy.set(true); this.message.set('');
+    this.request = operation.subscribe({
+      next: () => { this.startAttempt.clear(); this.busy.set(false); this.reload(); },
+      error: error => this.failure(error),
+    });
+  }
+  prepareAnotherStart(): void {
+    if (this.busy() || !this.startPending()) return;
+    this.startAttempt.clear();
+    this.message.set('Neue Startanfrage vorbereitet. Der ursprüngliche Auftrag kann weiterlaufen; bitte Aufträge prüfen.');
   }
   stop(item: MeetDialog): void {
     if (this.busy()) return; this.busy.set(true);

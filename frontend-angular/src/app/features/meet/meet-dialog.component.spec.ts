@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, defer, of, throwError } from 'rxjs';
 import { MeetDialogApiService, validateDialog } from './meet-dialog-api.service';
 import { MeetDialogComponent } from './meet-dialog.component';
 import { UserAuthService } from '../../services/user-auth.service';
@@ -180,6 +180,47 @@ describe('Hub-owned Meet dialog controls', () => {
     api.start.mockReturnValue(throwError(() => ({ status: 503 })));
     const c = setup().componentInstance; c.screen = true; c.start();
     expect(api.start).toHaveBeenCalledOnce(); expect(c.message()).toContain('Ergebnis unklar'); expect(c.dialogs()).toEqual([]);
+  });
+  it('retries the same unresolved observable while new starts are locked and independent stop remains available', async () => {
+    let subscriptions = 0;
+    api.start.mockReturnValue(defer(() => ++subscriptions === 1 ? throwError(() => ({ status: 503 })) : of({ task_id: 'task' })));
+    const f = setup(), c = f.componentInstance; c.screen = true; c.start();
+    expect(c.startPending()).toBe(true); expect(subscriptions).toBe(1);
+    f.detectChanges(); await f.whenStable();
+    expect(f.nativeElement.querySelector('fieldset').disabled).toBe(true);
+    c.chat = true; c.start(); expect(api.start).toHaveBeenCalledOnce();
+    c.reload(); expect(c.startPending()).toBe(true);
+    c.stop(row()); expect(api.stop).toHaveBeenCalledOnce(); expect(c.startPending()).toBe(true);
+    c.retryStart(); expect(subscriptions).toBe(2); expect(api.start).toHaveBeenCalledOnce();
+    expect(c.startPending()).toBe(false); expect(c.dialogs()).toHaveLength(1);
+  });
+  it.each([409, 503, 0])('keeps an unresolved %s operation until explicit replacement, never silently creating a fresh start', status => {
+    api.start.mockReturnValue(throwError(() => ({ status })));
+    const c = setup().componentInstance; c.screen = true; c.start(); c.start(); c.retryStart();
+    expect(api.start).toHaveBeenCalledOnce(); expect(c.startPending()).toBe(true);
+    c.prepareAnotherStart(); expect(api.start).toHaveBeenCalledOnce(); expect(api.stop).not.toHaveBeenCalled();
+    expect(c.message()).toContain('ursprüngliche Auftrag kann weiterlaufen');
+    c.start(); expect(api.start).toHaveBeenCalledTimes(2);
+  });
+  it.each(['account', 'project', 'task', 'destroy'])('discards pending starts and ignores late responses after %s change', change => {
+    const stream = new Subject(); api.start.mockReturnValue(stream);
+    const f = setup(), c = f.componentInstance; c.screen = true; c.start();
+    expect(c.startPending()).toBe(true); c.retryStart(); expect(api.start).toHaveBeenCalledOnce();
+    if (change === 'account') identity.next(null);
+    if (change === 'project') { f.componentRef.setInput('projectId', 'other'); f.detectChanges(); }
+    if (change === 'task') { f.componentRef.setInput('taskId', 'other'); f.detectChanges(); }
+    if (change === 'destroy') f.destroy();
+    stream.next({ task_id: 'late-task' });
+    expect(stream.observed).toBe(false); expect(c.startPending()).toBe(false); expect(c.dialogs()).toEqual([]);
+    c.retryStart(); expect(api.start).toHaveBeenCalledOnce(); expect(api.stop).not.toHaveBeenCalled();
+    expect(api.list).not.toHaveBeenCalled();
+  });
+  it('does not forget or replace an in-flight operation and does not repeat it on reload failure', () => {
+    const stream = new Subject(); api.start.mockReturnValue(stream);
+    const c = setup().componentInstance; c.screen = true; c.start(); c.prepareAnotherStart();
+    expect(c.startPending()).toBe(true); expect(api.start).toHaveBeenCalledOnce();
+    stream.error({ status: 503 }); api.list.mockReturnValue(throwError(() => ({ status: 503 })));
+    c.reload(); expect(c.startPending()).toBe(true); expect(api.start).toHaveBeenCalledOnce();
   });
   it('does not offer source activation outside the assigned capabilities', () => {
     const c = setup().componentInstance;

@@ -4,6 +4,7 @@ import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 import { MeetAvatarSelection, validateAvatarSelection } from './meet-avatar-selection';
 import { MeetVoiceSelection, validateVoiceSelection } from './meet-voice-selection';
+import { DialogStartReceipt, dialogStartRequest } from './meet-dialog-start-request';
 
 export interface SourceControl { enabled: boolean; revision: number; since: number }
 export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech' | 'avatar';
@@ -54,11 +55,12 @@ export function validateDialog(value: MeetDialog): MeetDialog {
 export class MeetDialogApiService {
   private readonly core = inject(HubApiCoreService);
   private readonly directory = inject(AgentDirectoryService);
-  private request<T>(project: string, path: string, method: 'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT', body?: unknown) {
+  private request<T>(project: string, path: string, method: 'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT', body?: unknown,
+    headers?: Record<string, string>) {
     const hub = this.directory.list().find(agent => agent.role === 'hub')?.url;
     if (!hub) return throwError(() => new Error('meet_hub_unavailable'));
     const root = `${hub.replace(/\/$/, '')}/api/meet/v1/projects/${encodeURIComponent(project)}`;
-    return this.core.request<T>(method, root + path, hub, { body }).pipe(timeout(10_000));
+    return this.core.request<T>(method, root + path, hub, { body, ...(headers ? { headers } : {}) }).pipe(timeout(10_000));
   }
   list(project: string, cursor = 0) {
     return this.request<{schema: string; items: MeetDialog[]; next_cursor: number | null}>(project, `/dialogs?cursor=${cursor}`, 'GET').pipe(map(value => {
@@ -69,8 +71,11 @@ export class MeetDialogApiService {
     }));
   }
   start(project: string, task: string, body: unknown) {
-    return this.request<{schema: string; task_id: string; session_id: string; status: string}>(project,
-      (task ? `/tasks/${encodeURIComponent(task)}` : '') + '/dialogs', 'POST', body).pipe(map(value => {
+    let command: ReturnType<typeof dialogStartRequest>;
+    try { command = dialogStartRequest(body); }
+    catch { return throwError(() => new Error('meet_dialog_start_request_invalid')); }
+    return this.request<DialogStartReceipt>(project,
+      (task ? `/tasks/${encodeURIComponent(task)}` : '') + '/dialogs', 'POST', command.body, command.headers).pipe(map(value => {
       if (!value || Object.keys(value).sort().join() !== 'schema,session_id,status,task_id'
         || value.schema !== 'ananta.meet-dialog-start.v1' || value.status !== 'connecting'
         || ![value.task_id, value.session_id].every(id => typeof id === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(id))) throw new Error('meet_dialog_contract_invalid');

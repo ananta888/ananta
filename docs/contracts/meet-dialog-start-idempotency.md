@@ -109,3 +109,43 @@ no automatic retry, and continued independent emergency controls. Run focused
 Angular tests and a private-output build; preserve the serving build and user
 data. The existing broad Meet component retains SRP debt; request-attempt state
 belongs in a focused helper rather than growing a global retry manager.
+
+## UI implemented and verified, 2026-09-08
+
+The Angular start API now opts into keyed requests. Pure request preparation
+(`meet-dialog-start-request.ts`) allocates a secure UUID and freezes an independent
+JSON snapshot, rejecting unavailable randomness/oversized input with a fixed
+error and no unkeyed fallback. Component-local `PendingDialogStart` is separate
+from request preparation (`meet-dialog-start-attempt.ts`): it retains exactly one
+observable without subscribing or persisting anything itself. The API captures
+the Hub URL when constructing that observable, not on retries.
+
+The UI offers an explicit repeat of the unresolved operation. Preparing another
+command is a separate action with a warning that the first may still run; it does
+not stop the first task. Pending state disables new-start settings, not independent
+refresh/stop actions. Account, project, parent-task and component teardown discard
+pending state and late results. A completed receipt refreshes the task list; a
+failed list read does not recreate the start. Existing bounded 401 token refresh
+is preserved and keeps the same key/body; no new automatic business retry exists.
+
+Verification:
+
+- Existing component baseline after wiring: 23 passed in 2.36 seconds; new
+  command/component matrix: 41 passed in 1.37 seconds.
+- Final complete Meet frontend plus authentication regression: **127 passed in
+  2.01 seconds across 14 files**. This includes actual Angular HttpClient/Core/
+  interceptor handling of 401 followed by 202 with the same key and payload,
+  a deterministic ten-second timeout, immutable body/URL/key, secure-randomness
+  failure, malformed receipt, no automatic retry, scope changes and late results.
+- Existing HTTP tests plus actual configured CORS preflight: **8 passed in
+  16.43 seconds**. The new request header is accepted for the configured frontend
+  origin; a foreign origin gets no CORS allowance. No production CORS policy was
+  broadened. The UI does not need to read the optional response replay header.
+- Private-output optimized Angular build succeeds. Existing unrelated unused
+  RouterLink/CommonJS warnings remain; no serving `dist` or user data was changed.
+
+SRP check: immutable command preparation, unresolved UI state and transport are
+separate. Existing component source-selection/control responsibilities remain
+broader than ideal; no global state, shared command cache, second scheduler,
+weaker substitutability or media authority was introduced. Browser page-reload
+recovery, full persistent session phases and remaining MAP-09 criteria stay open.

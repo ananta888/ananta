@@ -72,3 +72,24 @@ def test_bad_header_cannot_start_a_session(http, key):
     )
     assert response.status_code == 400
     starter.start.assert_not_called()
+
+
+def test_existing_cors_policy_allows_keyed_preflight_only_for_configured_frontend(http, monkeypatch):
+    from agent.bootstrap.extensions import configure_cors, settings
+
+    client, app, starter, _ = http
+    monkeypatch.setattr(settings, "cors_origins", "https://synthetic-frontend.test")
+    configure_cors(app)
+    headers = {
+        "Origin": "https://synthetic-frontend.test",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "authorization,content-type,idempotency-key",
+    }
+    path = "/api/meet/v1/projects/project/dialogs"
+    allowed = client.options(path, headers=headers)
+    assert allowed.status_code == 200
+    assert allowed.headers["Access-Control-Allow-Origin"] == headers["Origin"]
+    assert "idempotency-key" in allowed.headers["Access-Control-Allow-Headers"].lower()
+    denied = client.options(path, headers=headers | {"Origin": "https://synthetic-foreign.test"})
+    assert "Access-Control-Allow-Origin" not in denied.headers
+    starter.start.assert_not_called()
