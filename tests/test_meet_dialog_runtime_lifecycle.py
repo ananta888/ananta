@@ -89,3 +89,36 @@ def test_failed_leave_still_closes_owned_browser_and_never_retries(monkeypatch):
     f.instances["session"].leave.assert_called_once()
     f.browser.close.assert_called_once()
     assert f.events[-1] == "browser.close"
+
+
+@pytest.mark.parametrize("failed_progress", [False, True])
+def test_progress_reports_original_freshness_only_after_valid_binding_before_renewal(monkeypatch, failed_progress):
+    f = setup(monkeypatch, running=True)
+    f.instances["exchange"].fresh_until = 2.5
+    state = {
+        "authorization": {"lease": f.lease, "roomId": "synthetic-room"},
+        "controls": {"revision": 1},
+        "renewal": "synthetic-renewal",
+    }
+    f.instances["exchange"].poll.side_effect = [state, ValueError("synthetic_stop")]
+    progress = Mock()
+    if failed_progress:
+        progress.report.side_effect = ValueError("synthetic_progress_failed")
+    with pytest.raises(ValueError, match="synthetic_progress_failed" if failed_progress else "synthetic_stop"):
+        dialog_runtime.run(f.assignment, f.hub, progress=progress)
+    progress.report.assert_called_once_with(2.5, 100)
+    assert f.instances["session"].renew.call_count == (0 if failed_progress else 1)
+    assert f.events[-1] == "browser.close"
+
+
+def test_invalid_membership_never_emits_resource_progress(monkeypatch):
+    f = setup(monkeypatch, running=True)
+    f.instances["exchange"].poll.return_value = {
+        "authorization": {"lease": f.lease, "roomId": "foreign-room"},
+        "controls": {"revision": 1},
+        "renewal": None,
+    }
+    progress = Mock()
+    with pytest.raises(ValueError):
+        dialog_runtime.run(f.assignment, f.hub, progress=progress)
+    progress.report.assert_not_called()

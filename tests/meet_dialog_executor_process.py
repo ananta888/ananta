@@ -11,6 +11,9 @@ class _CompletedProcess:
     def wait(self, *, timeout):
         return 0
 
+    def poll(self):
+        return 0
+
 
 class _InlineWatch:
     def __init__(self, *, target, args, daemon):

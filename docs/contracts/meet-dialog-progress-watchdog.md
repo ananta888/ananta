@@ -40,3 +40,30 @@ receiver is observing motion. Require bounded departure, no surviving owned
 browser descendants and no manufactured terminal report. Do not claim a
 network/receiver hard-real-time SLA from a Python timer, or close MAP-11 before
 its separate reconnect/restart criteria are satisfied.
+
+## Implemented parent/runtime boundary
+
+`DialogProgressBudget` owns pure monotonic deadline validation and irreversible
+failure. `DialogProgressChannel` owns the nonblocking eight-byte datagram and
+descriptor lifecycle; `dialog_progress_watch` polls independently in the
+already-existing executor watch thread. The runtime reports only after its
+current local membership and returned Hub state agree, before applying source
+updates or renewal. A failed progress write stops the runtime. Inheritance is
+disabled and the descriptor environment variable consumed before browser spawn.
+
+The parent retains one original hard bound, a 90-second startup maximum, and
+the unchanged control expiry plus 500-ms resource-cleanup allowance once active.
+The channel has a 16-packet per-tick maximum. Terminal/expired/malformed progress
+cannot reopen the budget. Every watch path closes descriptors and releases the
+existing slot in `finally`; SQL replay reservations remain durable. No approval,
+new task, grant, media replay or authority fallback was introduced.
+
+Initial verification: **85 budget/channel/executor/replay/runtime regressions
+passed in 38.82 s**, then **12 actual-process and runtime-composition checks
+passed in 16.67 s**. The latter exercise real stalled/silent/malformed children,
+normal exit and a real descendant with the progress descriptor closed even
+when `close_fds=False`. The unchanged process-group stop reaps the exact owned
+child, and invalid membership never emits progress. Ruff and the standalone
+Worker boundary check (**104 files**) passed. Installed-browser descendant and
+receiver verification is still required; these process tests alone do not
+prove Chromium's separately spawned subprocesses disappear.

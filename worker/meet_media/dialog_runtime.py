@@ -18,6 +18,7 @@ from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_control_exchange import DialogControlExchange
 from worker.meet_media.dialog_diagnostics import DialogRunDiagnostics
 from worker.meet_media.dialog_diagnostics_deadline import bounded_terminal_report
+from worker.meet_media.dialog_progress_channel import inherited_progress
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
 from worker.meet_media.dialog_session_binding import require_dialog_session
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
@@ -51,7 +52,7 @@ def start_audio(page, hub, assignment, state, meet_session):
         return None  # The Hub reservation bounds retries; no alternative source is inferred.
 
 
-def run(assignment, hub):
+def run(assignment, hub, *, progress=None):
     # The fixed installed handler defines source classes. The signed closed v1
     # envelope carries capabilities/options, not a Worker-selected capture mode.
     dialog_source_profile(
@@ -123,6 +124,8 @@ def run(assignment, hub):
                     previous_revision=control_revision,
                 )
                 control_revision = controls["revision"]
+                if progress is not None:
+                    progress.report(exchange.fresh_until, hub.deadline)
                 if state["renewal"]:
                     if audio is not None:
                         audio.close()
@@ -192,7 +195,8 @@ def main():
     status = "failed"
     failure = None
     try:
-        run(assignment, hub)
+        with inherited_progress() as progress:
+            run(assignment, hub, progress=progress)
         status = "completed"
     except Exception as error:
         failure = error

@@ -11,6 +11,9 @@ import time
 from ananta_contracts.meet_dialog import validate_assignment
 from worker.meet_media.assignment_input import dialog_assignment_input
 from worker.meet_media.contract import encode
+from worker.meet_media.dialog_progress_budget import DialogProgressBudget
+from worker.meet_media.dialog_progress_channel import DialogProgressChannel
+from worker.meet_media.dialog_progress_watch import watch_dialog_progress
 
 
 class DialogExecutor:
@@ -27,6 +30,7 @@ class DialogExecutor:
         if not self.slots.acquire(blocking=False):
             raise ValueError("meet_dialog_worker_busy")
         process = None
+        progress = None
         try:
             with sqlite3.connect(self.replay_path) as db:
                 db.execute("DELETE FROM dialog_leases WHERE deadline < ?", (int(time.time()) - 120,))
@@ -37,32 +41,46 @@ class DialogExecutor:
                 except sqlite3.IntegrityError:
                     raise ValueError("meet_dialog_replayed") from None
             with dialog_assignment_input(encode(assignment)) as source:
+                now = time.monotonic()
+                budget = DialogProgressBudget(now + max(0, min(7200, assignment["deadline"] - time.time())) + 5, now)
+                progress = DialogProgressChannel()
                 process = subprocess.Popen(
                     [sys.executable, "-m", "worker.meet_media.dialog_runtime"],
                     stdin=source,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
+                    **progress.child_options(),
                 )
-            threading.Thread(target=self._watch, args=(process, assignment["deadline"]), daemon=True).start()
+                progress.spawned()
+            threading.Thread(target=self._watch, args=(process, progress, budget), daemon=True).start()
         except Exception:
             try:
                 if process is not None:
                     self._stop(process)
             finally:
-                self.slots.release()
+                try:
+                    if progress is not None:
+                        progress.close()
+                finally:
+                    self.slots.release()
             raise
-        return {"schema": "ananta.meet-dialog-accepted.v1", "task_id": assignment["task_id"],
-                "lease_id": assignment["lease_id"], "runtime_id": assignment["runtime_id"], "status": "accepted"}
+        return {
+            "schema": "ananta.meet-dialog-accepted.v1",
+            "task_id": assignment["task_id"],
+            "lease_id": assignment["lease_id"],
+            "runtime_id": assignment["runtime_id"],
+            "status": "accepted",
+        }
 
-    def _watch(self, process, deadline):
+    def _watch(self, process, progress, budget):
         try:
-            try:
-                process.wait(timeout=max(0.01, min(7200, deadline - time.time()) + 5))
-            except subprocess.TimeoutExpired:
-                self._stop(process)
+            watch_dialog_progress(process, progress, budget, self._stop)
         finally:
-            self.slots.release()
+            try:
+                progress.close()
+            finally:
+                self.slots.release()
 
     @staticmethod
     def _stop(process):
