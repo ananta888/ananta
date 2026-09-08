@@ -650,6 +650,7 @@
     },
     {
       "id": "MAP-13",
+      "workspace_live_plan": "2026-09-08 sourcee70323868: BrowserTaskContract live intent and real Chromium probe exist, but status-page CDP is not task-browser sharing and existing adapters deny live. docs/contracts/meet-browser-workspace-live.md plans additive public-dom-v1: explicitly labelled sanitized public-document view, separate closed snapshot/network/renderer/Hub-task/source-control adapters, exact workspace/page/navigation epochs and existing MDS05 transport. Raw source pixels never enter sharing queue; no arbitrary tab/profile, authenticated or active-media fallback. Implement contracts/privacy first, public egress next, actual renderer then Hub binding/control and decoded receiver secret/revocation/crash matrix. MAP13/15/16 remain open until integrated; no public activation or production evidence.",
       "title": "Browser-Auftrag und Live-Ansicht sicher an eine Sitzung binden",
       "repository": "ananta",
       "type": "feature",
