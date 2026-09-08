@@ -92,3 +92,16 @@ exclude aggregate concurrent memory, GPU and media-delivery/release evidence.
 111 focused diagnostics/phase/dialog UI tests passed in 3.51s. Angular template
 type checking passed with one pre-existing unrelated RouterLink warning.
 These are local technical checks, not Hub-issued production release evidence.
+
+Packaged verification: immutable Worker
+`sha256:3951a3feaa58ddb174df884e4204a04664b8bbdc9186313b25450499234c9aac`
+was built from committed `67fa83f4b` with no local source mounts. Both two-Worker
+screen/persona-speech tests passed in 107.24s against a private Meet build of
+`ba67caa`, including the parallel companion audio-buffer/ICE improvements. Four
+actual child reports were stored, all with Hub status `cancelled`, fixed reason
+`hub_unavailable_or_revoked`, real process measurements and explicit unverified
+classification. Task/history snapshots stayed unchanged; no human captures,
+transform errors or proxy drops. This remains a single-host synthetic-policy
+test, not GPU, public TURN, soak or production acceptance. The serving frontend
+was not replaced. All 196 focused Meet UI tests passed in 11.16s; 30 fixture and
+bootstrap checks passed in 25.33s. Remaining MAP-12/32 criteria are still open.
