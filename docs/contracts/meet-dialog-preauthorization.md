@@ -81,3 +81,25 @@ diagnostics. The first independently cancelled Task remained cancelled. No
 human captures, proxy drops or transform errors. Current Hub source `e59e3b9d8`.
 The separate immutable Meet trust/rotation/HTTP/preflight suite also passed all
 112 cases in 1.965s, no skips. No public serving build or operator trust changed.
+
+## MAP-05 acceptance mapping
+
+All five implementation criteria now have concrete source and verification:
+
+| Criterion | Implementation and verification |
+| --- | --- |
+| Issuer and tenant/Organization/agent identity | `MeetMachineGrantIssuer`, `meet_machine_principal` model, current SQL role-assignment checks, parent preflight and owner receipt; actual two-principal Meet interop |
+| Versioned independent Meet trust | Companion `machine-trust-profile.js` / `machine-grant-trust.js`: exact issuer/audience/EdDSA/scopes, bounded overlapping key windows, replay and removal; real HTTP/WS three-renewal test |
+| Headless provisioning/renewal/revocation | Key-only provisioner, exact-policy operator CLI/SQL CAS, existing room allocation and signed renewal APIs; real policy withdrawal removes a running packaged participant without Task-stop assistance |
+| Machine/nonhuman credentials and boundaries | Existing closed v1 Worker assignment and Hub-private key loading, scoped short-lived grants; real nonroot read-only packaged Workers contain no Hub package or signing-key mount, and human captures remain zero |
+| Exact preauthorization without inferred approval | New immutable policy/dispatch binding and additional current-authority checks for tenant/project/owner/parent Task/room, validity and burned allowance; missing/expired/revoked policy and provider removal deny without legacy fallback |
+
+Final identity regression: 155 root tests passed in 105.48s, including actual
+ephemeral keyed v1/v2 signatures accepted only by Meet's matching trust, two
+Organization principals with the same display name, private-key file safety,
+headless CLI, current assignment revocation and owner-scoped preflight/receipts.
+This closes MAP-05's implementation, not MAP-08 startup intermittence, MAP-11
+reconnect/recovery, MAP-31 public activation/TURN/soak or production release.
+Trust replacement is explicit configuration/restart (which ends memberships),
+not a claim of seamless arbitrary hot reload. See
+`docs/operations/meet-dialog-preauthorization.md` for the exact operator steps.

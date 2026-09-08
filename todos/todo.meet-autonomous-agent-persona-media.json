@@ -428,10 +428,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-04"
       ],
@@ -442,7 +442,8 @@
         "Kein menschliches Konto nachahmen und keine privaten Ausstellerschlüssel an Worker übertragen; Secrets nur über scoped Secret-Referenzen und schmale Credentials.",
         "Ananta provisioniert den privaten Hub-Signierer und eine explizite tenant-/projekt-/raum-/taskgebundene Vorautorisierung. Meet erhält ausschließlich öffentlichen Trust und exakten Issuer. Der Plan selbst ist keine Runtime-Freigabe; fehlende Freigaben liefern maschinenlesbares blocked."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "completion_note": "2026-09-08: All five MAP05 implementation criteria mapped to source and verification in docs/contracts/meet-dialog-preauthorization.md. Hub-private key-only provisioning, independent versioned Meet issuer/audience/EdDSA/key-window/scope trust, actual Organization-assignment principals and now durable exact owner/parentTask/room policy with CAS revocation and burned dispatch allowance. Headless private-file operator CLI, no static/project/role/Meet-policy bypass or bound-task legacy fallback. 171 combined policy/SQL/Hub/CLI/start/terminal checks119.11s;155 key/principal/interop checks105.48s;112 companion trust/three-renewal checks1.965s passed. Two actual packaged Worker cases114.81s: policy revocation alone removed the second participant in118.90/815.17ms; no captures/transform errors/proxy drops. Root e59e3b9d8/988f77a10, immutable Worker3951a3feaa58ddb174df884e4204a04664b8bbdc9186313b25450499234c9aac, private Meetba67caa. Initial test fixture isolation/duration/terminal snapshot failures corrected and retained in docs. No serving/public trust activation or production evidence; MAP08/11/31/32 remain independent."
     },
     {
       "id": "MAP-06",
@@ -1148,11 +1149,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 7,
-      "partial": 10,
+      "partial": 9,
       "blocked": 0,
-      "done": 14
+      "done": 15
     },
-    "progress_percent_done": 43.8,
+    "progress_percent_done": 46.9,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1166,8 +1167,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 6,
-      "remaining": 10
+      "done": 7,
+      "remaining": 9
     },
     "milestones": {
       "total": 8,
@@ -1251,14 +1252,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 2,
-          "partial": 4,
+          "partial": 3,
           "blocked": 0,
-          "done": 2
+          "done": 3
         },
-        "done": 2,
-        "partial": 4,
+        "done": 3,
+        "partial": 3,
         "blocked": 0,
-        "progress_percent": 56.9
+        "progress_percent": 65.0
       },
       "feature": {
         "total": 16,
@@ -1322,19 +1323,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 7,
-    "partial": 10,
+    "partial": 9,
     "blocked": 0,
-    "done": 14,
-    "count_based_percent": 43.8,
-    "weighted_percent": 66.2
+    "done": 15,
+    "count_based_percent": 46.9,
+    "weighted_percent": 67.9
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 38.587,
-    "remaining_weight": 19.663,
+    "done_weight": 39.562,
+    "remaining_weight": 18.688,
     "blocked_weight": 0.0,
-    "weighted_percent": 66.2
+    "weighted_percent": 67.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1348,10 +1349,10 @@
       },
       "MAP-M2": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 75.8,
+        "count_based_percent": 75.0,
+        "weighted_percent": 90.8,
         "status": "in_progress"
       },
       "MAP-M3": {
@@ -1407,10 +1408,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T15:32:51.797266Z",
+    "generated_at": "2026-09-08T17:50:14.314312Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "77587b8a313d365dd57cd483543d85c4ea0ebc8a7118d07ae394845a6600bbc0",
+    "source_hash": "0e08027468915d7de193df6859cae651ba64a36d61c675d55819822d171f6cd2",
     "is_stale": false
   }
 }
