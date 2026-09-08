@@ -52,7 +52,8 @@ separate verification obligations.
 
 Packaged acceptance profile, fixed before execution: use the existing two
 isolated Worker/role/screen/persona-speech fixtures with explicit synthetic
-per-parent policy (120-second session ceiling, one burned dispatch each).
+per-parent policy (existing 120-second screen / 180-second persona-speech
+session ceiling, one burned dispatch each).
 After ordinary cancellation of the first Task, revoke only the second operator
 policy through its SQL CAS while its Worker is still active. Require the real
 receiver to become alone within five seconds, a failed second Hub Task, and
@@ -60,3 +61,12 @@ the new signed terminal observation. The existing 2.5-second local control
 freshness and all media/queue/lease limits are unchanged; five seconds is the
 separate end-to-end policy-write/receiver-departure budget, not a relaxed local
 stop fence. No explicit Task cancellation may satisfy this second assertion.
+
+The first packaged run failed both cases (73.78s). The screen-only policy
+revocation did remove the receiver's peer, but the fixture incorrectly compared
+the pre-finish Task to its subsequent legitimate terminal transition. Wait for
+that transition before capturing the immutable terminal snapshot. The media
+case correctly rejected a 180-second existing assignment under the test's
+incorrect 120-second policy. Derive the explicit test policy duration from the
+existing scenario rather than change either policy enforcement or media
+duration. Both failures are retained; rerun the corrected fixtures below.
