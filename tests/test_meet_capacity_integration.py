@@ -99,7 +99,6 @@ def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(
     monkeypatch.setenv("ANANTA_MEET_MEDIA_WORKER_URL", "http://synthetic:8094/v1/turns")
     monkeypatch.setenv("ANANTA_MEET_MEDIA_CAPACITY_POOL", "synthetic-media")
     monkeypatch.setenv("ANANTA_MEET_MACHINE_ENABLED", "0")
-    monkeypatch.setattr("agent.database.engine", capacity_store.engine)
     app = Flask(__name__)
     app.extensions["meet_binding_service"] = Mock()
     assets = Mock()
@@ -107,7 +106,11 @@ def test_enabled_bootstrap_installs_capacity_without_enabling_machine_trust(
     app.extensions["persona_profiles"] = profiles
     if video_enabled:
         app.extensions["persona_video_assets"] = assets
-    configure_meet_media(app)
+    # Restore the global database before the autouse runtime-isolation cleanup;
+    # dynamically requested fixture teardown may precede monkeypatch teardown.
+    with monkeypatch.context() as database_patch:
+        database_patch.setattr("agent.database.engine", capacity_store.engine)
+        configure_meet_media(app)
     assert app.extensions["meet_turn_service"].capacity is app.extensions["meet_media_capacity"]
     assert app.extensions["meet_turn_service"].grant_issuer is None
     videos = app.extensions["meet_turn_service"].persona_videos
