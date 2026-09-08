@@ -490,6 +490,7 @@
     },
     {
       "id": "MAP-08",
+      "client_probe_plan": "2026-09-08 Source3676a9f70/Meet9de2fa4: separate read-only client-probe.v1 reports fixed browser secure/transform/VP8/Opus and installed versioned ports. Strict pure Ananta validator checks exact types and assigned requirements before join under existing deadline/navigation/lease checks. Legacy absence not a successful probe, present malformed/unsupported fails closed, no native/LiveKit/plaintext fallback or v1 wire change. Tests: closed negative/mutation, session fencing, actual Chromium-Firefox/no-capture, private Hub and isolated Meet full check. docs/contracts/meet-client-probe.md. Decoder startup and production remain separate.",
       "trust_regression_startup_followup": "2026-09-08 Meet6aad282 isolierter Vollcheck:639Frontend/Build/Go/Security gruen, Node674pass/1fail/3skips149.98s. Bestehender Chromium->Firefox-Counter350-Test wartet erfolglos30s auf active-SFrame; kein Counterfehler bewiesen, keine Frontendaenderung im Trustslice.2 Einzelwiederholungen35.800/35.777s und gesamte7er-Browserdatei62.512s gruen, zuletzt427 Frames/5Keyframes/null Transformfehler. Kein Fixnachweis: Fehler bleibt offen. Naechster eng begrenzter Testschritt erfasst vor Cleanup nur feste Status-/Transform-/RTP-Zaehler am bisherigen fehlenden Startup-Gate; Assertions/Krypto/Fristen unveraendert, keine Produktivfreigabe.",
       "title": "Maschinen-Client mit erforderlicher Medienverschlüsselung verbinden",
       "repository": "both",
