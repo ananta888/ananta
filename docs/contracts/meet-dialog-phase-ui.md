@@ -22,3 +22,18 @@ Use the existing Hub HTTP/auth port and its bounded request deadline. Verify the
 validator matrix, HTTP method/body/task binding, headless component transitions,
 parent compatibility and an isolated optimized Angular build. No serving build
 or operator configuration is changed. Synthetic tests are not release evidence.
+
+## Verification (2026-09-08)
+
+Implemented as `MeetDialogPhaseComponent` plus a pure closed validator and the
+existing Hub API service port. Context, identity, explicit control revision,
+status, disabled state and destruction invalidate pending local observations.
+Control revision is explicit so synchronous control responses also clear an old
+observation. Parent Stop remains usable while the child query is pending.
+
+Final focused Meet/auth regression: 162 frontend tests passed in 1.80 seconds.
+The optimized build passed in 23.507 seconds, writing only to the private
+`/tmp/ananta-meet-phase-ui-final-build.fBlp7s` output. Existing unrelated Angular
+unused-import/CommonJS warnings remain; serving dist was not overwritten.
+Freshness is deliberately worded in the past tense, and DatePipe-incompatible
+timestamps are rejected. No media-delivery or current-liveness badge is added.

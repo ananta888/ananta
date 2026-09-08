@@ -5,6 +5,7 @@ import { UserAuthService } from '../../services/user-auth.service';
 import { MeetDialogApiService, MeetDialog, DialogSource, optionalDialogSources } from './meet-dialog-api.service';
 import { MeetAvatarPickerComponent } from './meet-avatar-picker.component';
 import { MeetVoicePickerComponent } from './meet-voice-picker.component';
+import { MeetDialogPhaseComponent } from './meet-dialog-phase.component';
 import { PendingDialogStart } from './meet-dialog-start-attempt';
 import type { PersonaEffectiveProfile } from '../organizations/persona-media/persona-profile.models';
 
@@ -13,7 +14,7 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
   avatar: ['avatar.publish'],
 };
 
-@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent, MeetVoicePickerComponent], template: `
+@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent, MeetVoicePickerComponent, MeetDialogPhaseComponent], template: `
   <section aria-label="Autorisierter Meet-Dialog">
     <h3>Ananta im Raum</h3>
     <p>Der Hub startet einen isolierten KI-Teilnehmer. Zuhören und Chatlesen benötigen zusätzlich die
@@ -49,6 +50,8 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
     @for (item of dialogs(); track item.task_id) {
       <article><h4>Ananta (KI)</h4><p>Hub-Task: {{ item.task_id }} · {{ item.status }}</p>
         <p>Dies ist der Auftragsstatus, keine Bestätigung der Medienzustellung.</p>
+        <app-meet-dialog-phase [projectId]="projectId" [taskId]="item.task_id" [taskStatus]="item.status"
+          [controlRevision]="item.controls.revision" [disabled]="busy()" />
         @if (item.avatar_selection; as selection) {
           <p>Avatar-Auswahl: {{ selection.mode === 'neutral-ai-v1' ? 'festes KI-Symbol' : 'ausgewähltes Persona-Profilbild' }}.
             Die Auswahl ist keine aktuelle Publikationsfreigabe. Der Hub prüft sie erneut; bei Widerruf kein Ersatzbild.</p>

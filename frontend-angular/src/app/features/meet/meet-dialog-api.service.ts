@@ -5,6 +5,7 @@ import { HubApiCoreService } from '../../services/hub-api-core.service';
 import { MeetAvatarSelection, validateAvatarSelection } from './meet-avatar-selection';
 import { MeetVoiceSelection, validateVoiceSelection } from './meet-voice-selection';
 import { DialogStartReceipt, dialogStartRequest } from './meet-dialog-start-request';
+import { validateDialogPhase } from './meet-dialog-phase';
 
 export interface SourceControl { enabled: boolean; revision: number; since: number }
 export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech' | 'avatar';
@@ -83,6 +84,10 @@ export class MeetDialogApiService {
     }));
   }
   stop(project: string, task: string) { return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}`, 'DELETE').pipe(map(validateDialog)); }
+  phase(project: string, task: string, refresh = false) {
+    return this.request<unknown>(project, `/dialogs/${encodeURIComponent(task)}/phase`, refresh ? 'POST' : 'GET')
+      .pipe(map(value => validateDialogPhase(value, task)));
+  }
   control(project: string, task: string, body: unknown) {
     return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}`, 'PATCH', body).pipe(map(validateDialog));
   }

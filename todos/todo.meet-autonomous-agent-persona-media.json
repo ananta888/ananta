@@ -971,6 +971,7 @@
     },
     {
       "id": "MAP-29",
+      "phase_ui_result": "2026-09-08 additive Phasenanzeige implementiert/verifiziert: eigener Angular-Child und geschlossener Antwortvalidator, explizites bodyless GET/POST zum vorhandenen Hubport; keine automatischen Polls/Joins/Quellenstarts/Business-Retries. Revision/registrierte Quellen/Beobachtungszeit und Frische ausdruecklich historisch, keine Live-/Medienzustellbehauptung. Project/Task/Status/Controlrevision/Identity/Destroy verwerfen lokale laufende Abfragen; Parentstop bleibt bei wartender Kindabfrage nutzbar. Altendpoint-/Malformed-/Fremdtask-/Terminal-/Datumsgrenzen failclosed. Finale162 Meet-/Auth-Frontendtests1.80s und optimierter isolierter Build23.507s gruen; Serving-dist/Operatorconfig unveraendert, bestehende fremde Buildwarnungen erhalten. docs/contracts/meet-dialog-phase-ui.md. Kein Abschluss breiter Ressourcen-/Betriebs-/Produktionskriterien von MAP-29.",
       "phase_ui_plan": "2026-09-08 Quellabgleich: trotz gruenem privaten persistenten Phasenbrowser zeigt Angular nur Taskstatus. docs/contracts/meet-dialog-phase-ui.md: eigener Childbaustein/closed Validator fuer explizites GET gespeicherter Phase und POST aktueller Eigenpublikationsbeobachtung, ohne Polling/Join/Autoenable/Retry. Historische Quellenregistrierung/Frische zum Abfragezeitpunkt deutlich von Lieferung/Liveness trennen; Scope-/Identitaets-/Controlwechsel und Destroy loeschen lokale Daten, Parentstop unabhaengig. Alte Endpoints fehlen duerfen Taskcontrols nicht blockieren. Validator-/HTTP-/Headless-Componenttests und isolierter optimierter Build; keine Serving-/Policyveraenderung.",
       "title": "Deterministische Headless-Vertrags-, Sicherheits- und Lifecycle-Matrix implementieren",
       "repository": "both",
@@ -1349,10 +1350,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T07:59:35.068932Z",
+    "generated_at": "2026-09-08T08:00:16.140697Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "71958ab35315b4b6690e99f68ce0568596034ee5c08a11e5661018ece09ac84f",
+    "source_hash": "f76d7cd5ea1475792bbc38bd96a7b445f4e8ec6b5cd558ebbedbaebd8c48692f",
     "is_stale": false
   }
 }
