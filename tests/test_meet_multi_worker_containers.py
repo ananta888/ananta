@@ -22,7 +22,9 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "media_mode", [False, True, "browser"], ids=["screen-only", "persona-speech", "browser-workspaces"]
+    "media_mode",
+    [False, True, "browser", "control-recovery"],
+    ids=["screen-only", "persona-speech", "browser-workspaces", "control-recovery"],
 )
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
     app, tmp_path, monkeypatch, record_property, media_mode
@@ -54,6 +56,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_dialog_worker_container import DialogWorkerContainer
     from tests.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
     from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
+    from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
     from tests.meet_multi_worker_media import MultiWorkerMediaScenario
     from tests.test_meet_dialog_cross_repository import close_bridge
 
@@ -71,6 +74,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
     media = MultiWorkerMediaScenario() if media_mode is True else None
     browser = MultiWorkerBrowserScenario(media_mode == "browser")
+    control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -216,7 +220,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         )
         exchange_failures = []
         exchange_states = {}
-        native_exchange = service.exchange
+        native_exchange = control_recovery.wrap(service.exchange)
 
         def observe_exchange(payload):
             began = time.monotonic()
@@ -373,6 +377,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             assert [tasks.get_by_id(row["task_id"]).model_dump() for row in started] == terminal_tasks
             browser.require_terminal(tasks)
         record_property("unverified_terminal_worker_observations", observations)
+        control_recovery.require(record_property)
         record_property(
             "two_packaged_worker_screens",
             {

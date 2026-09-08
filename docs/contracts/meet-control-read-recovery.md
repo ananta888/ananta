@@ -72,5 +72,16 @@ SOLID review: classification does not make policy decisions, retry accounting
 has no transport or media dependencies, and scheduling cannot mint or extend
 a lease. No Task dispatch, chat/audio result, grant redemption, navigation,
 approval decision or publication operation acquired a retry path. Broader
-MAP-11 recovery criteria remain open; the next verification packages this
-source and exercises independent Worker control-read failures.
+MAP-11 recovery criteria remain open.
+
+The installed-Worker gate now also passed in **44.85 s**, using immutable
+image `sha256:db7d7af1bf7d2ad20e74f58ba22291ae532ad0f04185dadc0b58a3b271a6c20d`
+built from `6c3c627e3`. Two separate role-assigned containers each encounter
+one test-owned second-read HTTP 503 and recover through a fresh signed native
+Hub response. Normal screen delivery, independent stops and terminal
+observations remain checked. No application-source bind mounts, source/client
+patches, relaxed freshness limits or retries of writes are involved. Three
+fixture isolation tests passed in **8.41 s**. The fixture injects only those
+two transport failures; its policy and infrastructure remain synthetic/private.
+This proves installed read recovery, not public outages, room rejoin, durable
+Hub restart, Worker replacement, GPU readiness or production release evidence.
