@@ -92,7 +92,9 @@ def configure_meet_media(app):
         from agent.services.meet_machine_grant import MeetMachineGrantIssuer
 
         issuer = MeetMachineGrantIssuer(
-            os.environ["ANANTA_MEET_MACHINE_ISSUER"], os.environ["ANANTA_MEET_MACHINE_KEY_FILE"]
+            os.environ["ANANTA_MEET_MACHINE_ISSUER"],
+            os.environ["ANANTA_MEET_MACHINE_KEY_FILE"],
+            key_id=os.environ.get("ANANTA_MEET_MACHINE_KEY_ID") or None,
         )
     images = _persona_images(app)
     from agent.services.meet_persona_videos import MeetPersonaVideos

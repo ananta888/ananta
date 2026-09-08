@@ -1,5 +1,6 @@
 """Hub-issued, single-task admission grant for the separate Meet authority."""
 
+import re
 import secrets
 from urllib.parse import urlsplit
 
@@ -10,12 +11,20 @@ from agent.services.meet_signing_key import load_meet_signing_key
 
 
 class MeetMachineGrantIssuer:
-    def __init__(self, issuer, key_path, *, key_loader=load_meet_signing_key):
+    def __init__(self, issuer, key_path, *, key_loader=load_meet_signing_key, key_id=None):
         parsed = urlsplit(issuer)
         if parsed.scheme != "https" or parsed.netloc != parsed.hostname or issuer != f"https://{parsed.hostname}":
             raise ValueError("meet_machine_issuer_invalid")
+        if key_id is not None and (
+            not isinstance(key_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", key_id)
+        ):
+            raise ValueError("meet_machine_key_id_invalid")
         self.key = key_loader(key_path)
         self.issuer = issuer
+        self._key_id = key_id
+
+    def _headers(self, token_type):
+        return {"typ": token_type, **({"kid": self._key_id} if self._key_id is not None else {})}
 
     def issue_dialog(self, authority, task_id, lease_id, runtime_id, now):
         """Only a fresh Hub task/policy lookup may produce this additive v2 grant."""
@@ -41,7 +50,7 @@ class MeetMachineGrantIssuer:
             },
             self.key,
             algorithm="EdDSA",
-            headers={"typ": "ananta-meet-machine-v2+jwt"},
+            headers=self._headers("ananta-meet-machine-v2+jwt"),
         )
         return {"origin": scope.origin, "room_id": scope.room_id, "grant": token}
 
@@ -65,6 +74,6 @@ class MeetMachineGrantIssuer:
             },
             self.key,
             algorithm="EdDSA",
-            headers={"typ": "ananta-meet-machine+jwt"},
+            headers=self._headers("ananta-meet-machine+jwt"),
         )
         return {"origin": binding.profile.origin, "room_id": room, "grant": token}

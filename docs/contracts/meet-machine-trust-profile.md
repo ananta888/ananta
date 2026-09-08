@@ -45,3 +45,19 @@ never replace live dist, secrets or deployment configuration.
 Organization/Agent principals, operator provisioning APIs, public TURN and
 production evidence remain separate subsequent work. MAP-05 is not complete
 merely because the trust-profile slice passes.
+
+## Implementation checkpoint
+
+The optional Hub `kid` and Meet profile/JSON/file/trust adapters are implemented.
+Strict JSON retains duplicate-key detection; public file loading uses one
+bounded regular-file FD snapshot and rejects FIFO without waiting. Scope and
+key-window policy are immutable per server instance. No Worker changes.
+
+Focused verification: 111 Meet tests passed in 3.023 s, including real
+P-256/HTTP/WS, three cross-key renewals, exact scope denial, replay, legacy
+capability behavior and configuration negatives. 102 Ananta tests passed in
+43.54 s, including actual keyed v1/v2 Hub grants checked by the adjacent
+Meet validator, revoked Hub Tasks and private-key loading. Ruff and all 77
+Worker-boundary files pass. All identities are ephemeral/synthetic; no
+production evidence is asserted. Isolated full Meet check follows this
+implementation checkpoint before push.
