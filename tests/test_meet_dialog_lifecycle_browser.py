@@ -6,7 +6,7 @@ import time
 import pytest
 from sqlmodel import Session, select
 
-from agent.db_models import OrganizationInstanceDB, OrganizationRoleSlotDB, TaskDB
+from agent.db_models import OrganizationInstanceDB, OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
 from agent.services.meet_dialog_lifecycle import organization_tuple
 from tests.meet_dialog_lifecycle_fixture import seed_parent
 
@@ -15,13 +15,13 @@ class LifecycleScenario:
     parent_id = "meet-test-parent"
 
     def __init__(self, reason):
-        if reason not in {"parent-cancel", "organization-pause", "role-draining"}:
+        if reason not in {"parent-cancel", "organization-pause", "role-draining", "assignment-suspended"}:
             raise ValueError("test_lifecycle_scenario_invalid")
         self.reason = reason
         self.observation = None
 
-    def prepare(self, engine):
-        seed_parent(engine, tenant="synthetic", project="synthetic", create_project=False)
+    def prepare(self, engine, *, publisher):
+        seed_parent(engine, tenant="synthetic", project="synthetic", create_project=False, publisher=publisher)
 
     def revoke(self, engine, service, started, completed):
         child = service.tasks.get_by_id(started["task_id"])
@@ -42,6 +42,9 @@ class LifecycleScenario:
             elif self.reason == "role-draining":
                 row = session.get(OrganizationRoleSlotDB, "meet-test-slot")
                 row.lifecycle = "draining"
+            elif self.reason == "assignment-suspended":
+                row = session.get(OrganizationRoleAssignmentDB, "meet-test-assignment")
+                row.lifecycle = "suspended"
             else:
                 row = session.get(OrganizationInstanceDB, "meet-test-org")
                 row.lifecycle = "paused"
@@ -62,7 +65,7 @@ class LifecycleScenario:
 
 
 @pytest.mark.timeout(240)
-@pytest.mark.parametrize("reason", ["parent-cancel", "organization-pause", "role-draining"])
+@pytest.mark.parametrize("reason", ["parent-cancel", "organization-pause", "role-draining", "assignment-suspended"])
 @pytest.mark.skipif(os.environ.get("MEET_DIALOG_LIFECYCLE_GATE") != "1", reason="opt-in private lifecycle transport")
 def test_parent_or_organization_loss_stops_real_dialog_and_removes_machine(
     app, tmp_path, monkeypatch, record_property, reason

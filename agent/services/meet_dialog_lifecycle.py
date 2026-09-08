@@ -17,9 +17,10 @@ class OrganizationGate(Protocol):
 
 
 class MeetDialogLifecycle:
-    def __init__(self, tasks: TaskLookup, organization_gate: OrganizationGate | None = None):
+    def __init__(self, tasks: TaskLookup, organization_gate: OrganizationGate | None = None, *, role_assignments=None):
         self.tasks = tasks
         self.organization_gate = organization_gate
+        self.role_assignments = role_assignments
 
     def _require_organization(self, task, scope):
         if not scope.get("organization_id"):
@@ -57,7 +58,14 @@ class MeetDialogLifecycle:
             raise MeetError("meet_dialog_parent_inactive", 403)
         scope = organization_tuple(parent)
         self._require_organization(parent, scope)
+        self._require_role_assignment(parent)
         return scope
+
+    def _require_role_assignment(self, task):
+        from agent.services.meet_role_assignment import get_meet_role_assignments
+
+        assignments = self.role_assignments if self.role_assignments is not None else get_meet_role_assignments()
+        assignments.require_current(task)
 
     def require_current(self, task, parent_id):
         if (
@@ -73,3 +81,4 @@ class MeetDialogLifecycle:
                 raise MeetError("meet_dialog_parent_scope_changed", 403)
         else:
             self._require_organization(task, scope)
+        self._require_role_assignment(task)

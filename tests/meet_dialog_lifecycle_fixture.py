@@ -3,7 +3,9 @@
 from sqlmodel import Session
 
 from agent.db_models import (
+    AgentInfoDB,
     OrganizationInstanceDB,
+    OrganizationRoleAssignmentDB,
     OrganizationRoleSlotDB,
     OrganizationTeamLinkDB,
     OrganizationUnitDB,
@@ -12,8 +14,10 @@ from agent.db_models import (
     TeamDB,
 )
 
+PUBLISHER = "http://synthetic-publisher:8091"
 
-def seed_parent(engine, *, tenant="tenant", project="project", create_project=True):
+
+def seed_parent(engine, *, tenant="tenant", project="project", create_project=True, publisher=PUBLISHER):
     scope = {"tenant_id": tenant, "project_id": project, "organization_id": "meet-test-org"}
     with Session(engine) as session:
         if create_project:
@@ -61,9 +65,16 @@ def seed_parent(engine, *, tenant="tenant", project="project", create_project=Tr
                 slot_key="synthetic",
                 role_template_key="synthetic",
                 role_template_version=1,
+                assignment_policy={
+                    "principal_kinds": ["agent"],
+                    "required_capabilities": [],
+                    "forbidden_capabilities": [],
+                    "write_access_required": False,
+                },
             )
         )
         session.commit()
+        seed_assignment(engine, tenant=tenant, project=project, publisher=publisher)
         session.add(
             TaskDB(
                 **scope,
@@ -73,6 +84,33 @@ def seed_parent(engine, *, tenant="tenant", project="project", create_project=Tr
                 role_slot_id="meet-test-slot",
                 status="in_progress",
                 title="Synthetic parent",
+            )
+        )
+        session.commit()
+
+
+def seed_assignment(engine, *, tenant="tenant", project="project", publisher=PUBLISHER):
+    with Session(engine) as session:
+        session.add(
+            AgentInfoDB(
+                url=publisher,
+                name="Synthetic Meet publisher",
+                registration_validated=True,
+                registration_provenance="synthetic-test",
+                authorized_capabilities=["meet_dialog_session"],
+            )
+        )
+        session.commit()
+        session.add(
+            OrganizationRoleAssignmentDB(
+                id="meet-test-assignment",
+                tenant_id=tenant,
+                project_id=project,
+                organization_id="meet-test-org",
+                role_slot_id="meet-test-slot",
+                agent_url=publisher,
+                lifecycle="active",
+                assigned_at=1000.0,
             )
         )
         session.commit()

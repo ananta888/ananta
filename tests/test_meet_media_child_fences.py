@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from sqlmodel import Session
 
-from agent.db_models import OrganizationInstanceDB, TaskDB
+from agent.db_models import OrganizationInstanceDB, OrganizationRoleAssignmentDB, TaskDB
 from agent.services.meet_contract import MeetError
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
 from tests.test_meet_dialog_audio import runtime
@@ -21,6 +21,9 @@ def revoke(engine, task_id, reason):
         if reason == "organization":
             row = session.get(OrganizationInstanceDB, "meet-test-org")
             row.lifecycle = "paused"
+        elif reason == "assignment":
+            row = session.get(OrganizationRoleAssignmentDB, "meet-test-assignment")
+            row.lifecycle = "suspended"
         else:
             row = session.get(TaskDB, task_id)
             row.status = "cancelled"
@@ -93,7 +96,7 @@ def test_audio_reservation_cas_fences_scope_drift_even_with_unchanged_dispatch_c
         assert f.tasks.get_by_id(dialog.id).worker_execution_context["meet_dialog"]["audio_count"] == 0
 
 
-@pytest.mark.parametrize("reason", ["parent", "organization"])
+@pytest.mark.parametrize("reason", ["parent", "organization", "assignment"])
 def test_revoked_media_cannot_acquire_capacity_complete_or_keep_publication_lease(app, reason):
     from agent.database import engine
 

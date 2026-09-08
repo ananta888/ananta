@@ -285,8 +285,6 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             )
         )
         session.commit()
-    if lifecycle_scenario is not None:
-        lifecycle_scenario.prepare(engine)
     bridge = subprocess.Popen(
         ["node", "test/helpers/machine-hub-bridge.mjs"],
         cwd=meet,
@@ -498,6 +496,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         worker = create_server(("127.0.0.1", 0), hmac_key, media, DialogExecution())
         threading.Thread(target=worker.serve_forever, daemon=True).start()
         transport = HttpMediaWorker(f"http://127.0.0.1:{worker.server_port}/v1/turns", hmac_key)
+        tasks.publisher_url = transport.publisher_url
+        if lifecycle_scenario is not None:
+            lifecycle_scenario.prepare(engine, publisher=transport.publisher_url)
         service = MeetDialogService(
             authority,
             tasks,

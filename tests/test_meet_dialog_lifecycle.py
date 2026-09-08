@@ -41,7 +41,9 @@ def parented():
     f.tasks.get_by_id.side_effect = lambda key: {"task": f.task, "parent": parent}.get(key)
     gate = Mock()
     gate.evaluate.return_value = SimpleNamespace(allowed=True)
-    f.authority.lifecycle = MeetDialogLifecycle(f.tasks, gate)
+    # This unit fixture isolates parent/topology policy; real assignment checks
+    # are exercised with SQL registration in test_meet_role_assignment_lifecycle.
+    f.authority.lifecycle = MeetDialogLifecycle(f.tasks, gate, role_assignments=Mock())
     return f, parent, gate
 
 

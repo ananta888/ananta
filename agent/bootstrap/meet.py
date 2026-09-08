@@ -165,7 +165,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         if scope in policies:
             raise ValueError("meet_dialog_policy_duplicate")
         policies[scope] = row["capabilities"]
-    tasks = HubDialogTasks()
+    tasks = HubDialogTasks(publisher_url=worker.publisher_url)
     authority = MeetDialogAuthority(tasks, app.extensions["meet_binding_service"], policies)
     reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
     reservations.initialize()

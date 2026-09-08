@@ -19,8 +19,10 @@ pytestmark = pytest.mark.timeout(45)
 
 
 def system(profiles=True):
+    from tests.meet_dialog_lifecycle_fixture import PUBLISHER
+
     f, _ = avatar_scope()
-    tasks = HubDialogTasks()
+    tasks = HubDialogTasks(publisher_url=PUBLISHER)
     f.authority.tasks = tasks
     issuer, worker, meet = Mock(), Mock(), Mock()
     issuer.issue_dialog.return_value = assignment()["meeting"]

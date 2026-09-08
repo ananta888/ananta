@@ -2,8 +2,9 @@
 
 
 class HubDialogTasks:
-    def __init__(self, *, lifecycle=None):
+    def __init__(self, *, lifecycle=None, publisher_url=None, role_assignments=None):
         self.lifecycle = lifecycle
+        self.publisher_url, self.role_assignments = publisher_url, role_assignments
 
     def list_page(self, tenant, project, offset):
         from agent.services.repository_registry import get_repository_registry
@@ -240,10 +241,16 @@ class HubDialogTasks:
 
     def start(self, task_id, tenant, project, context):
         from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
+        from agent.services.meet_role_assignment import get_meet_role_assignments
         from agent.services.task_queue_service import get_task_queue_service
 
         lifecycle = self.lifecycle if self.lifecycle is not None else MeetDialogLifecycle(self)
         scope = lifecycle.scope_for_parent(tenant, project, context["binding_task_id"])
+        assignments = self.role_assignments if self.role_assignments is not None else get_meet_role_assignments()
+        role_binding = assignments.admit(task_id, tenant, project, context, scope, self.publisher_url)
+        execution = {"meet_dialog": context}
+        if role_binding is not None:
+            execution["meet_role_assignment"] = role_binding
         get_task_queue_service().ingest_task(
             task_id=task_id,
             status="in_progress",
@@ -261,7 +268,8 @@ class HubDialogTasks:
                 **scope,
                 "required_capabilities": ["meet_dialog_session"],
                 "parent_task_id": context["binding_task_id"] or None,
-                "worker_execution_context": {"meet_dialog": context},
+                "worker_execution_context": execution,
+                **({"assigned_agent_url": role_binding["publisher_url"]} if role_binding is not None else {}),
             },
         )
 

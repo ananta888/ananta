@@ -35,6 +35,11 @@ class HttpMediaWorker:
             raise ValueError("meet_worker_endpoint_invalid")
         self.endpoint, self.key = endpoint, key
 
+    @property
+    def publisher_url(self):
+        """Exact registered origin of this operator-configured transport."""
+        return f"http://{urlsplit(self.endpoint).netloc}"
+
     def start_dialog(self, assignment):
         from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_assignment
         from worker.meet_media.persona_http import read_bounded
