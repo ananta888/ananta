@@ -9,6 +9,7 @@ import threading
 import time
 
 from ananta_contracts.meet_dialog import validate_assignment
+from worker.meet_media.assignment_input import dialog_assignment_input
 from worker.meet_media.contract import encode
 
 
@@ -30,12 +31,19 @@ class DialogExecutor:
             with sqlite3.connect(self.replay_path) as db:
                 db.execute("DELETE FROM dialog_leases WHERE deadline < ?", (int(time.time()) - 120,))
                 try:
-                    db.execute("INSERT INTO dialog_leases VALUES (?, ?)", (assignment["lease_id"], assignment["deadline"]))
+                    db.execute(
+                        "INSERT INTO dialog_leases VALUES (?, ?)", (assignment["lease_id"], assignment["deadline"])
+                    )
                 except sqlite3.IntegrityError:
                     raise ValueError("meet_dialog_replayed") from None
-            process = subprocess.Popen([sys.executable, "-m", "worker.meet_media.dialog_runtime"],
-                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            process.stdin.write(encode(assignment)); process.stdin.close()
+            with dialog_assignment_input(encode(assignment)) as source:
+                process = subprocess.Popen(
+                    [sys.executable, "-m", "worker.meet_media.dialog_runtime"],
+                    stdin=source,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
             threading.Thread(target=self._watch, args=(process, assignment["deadline"]), daemon=True).start()
         except Exception:
             try:

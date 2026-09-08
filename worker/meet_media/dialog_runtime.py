@@ -163,7 +163,11 @@ def run(assignment, hub):
 
 
 def main():
-    assignment = validate_assignment(parse(sys.stdin.buffer.read(MAX_DIALOG_BYTES + 1)), time.time())
+    # Drop the inherited seekable grant input before creating browser/model
+    # children. Only the closed assignment in this delegated process remains.
+    with sys.stdin.buffer as source:
+        raw = source.read(MAX_DIALOG_BYTES + 1)
+    assignment = validate_assignment(parse(raw), time.time())
     hub = HubDialogClient(assignment)
     status = "failed"
     try:

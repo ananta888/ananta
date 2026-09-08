@@ -33,3 +33,44 @@ Separating input/launch IO from replay/slot ownership protects SRP and DIP.
 The existing executor still composes persistence and watchdog bookkeeping;
 do not expand that refactor or claim general high-availability recovery.
 Storage/kernel stalls remain outside application-level timing guarantees.
+
+## Reproduction and chosen structure
+
+The real executor regression failed in 11.88 seconds overall: the valid grant
+exceeded a legal 4 KiB Linux pipe, and startup blocked until the non-reading
+owned child exited after three seconds. Its buffered `stdin.close()` then
+raised `BrokenPipeError`; the deadline watchdog had not started.
+
+Use a context-managed input adapter, rather than moving the entire launch
+into another abstraction. The executor retains its process reference before
+the input context closes, so even a close failure after successful spawn
+still reaches the existing owned-process cleanup. The adapter bounds bytes,
+performs one unbuffered write before launch, rejects short writes, rewinds
+and closes the anonymous descriptor. This smaller seam preserves SRP and
+keeps process/slot cleanup ownership explicit.
+
+The runtime also closes its inherited input immediately after the bounded
+read, before constructing a Hub client or browser/model descendants. Otherwise
+the new seekable descriptor would retain the grant for the entire session.
+This closure applies to malformed input as well. It is not permission to log,
+persist or forward the parsed assignment beyond its existing scoped protocol.
+
+## Verification
+
+The initial post-fix process/replay/pump regression passed 15 tests in 16.42
+seconds. The expanded Worker/handoff/health/media/session regression passed
+all 200 tests in 82.97 seconds. After grouping the final assertions correctly,
+all 14 input tests passed again in 15.01 seconds. Coverage includes the actual
+non-reading child, exact anonymous-file bytes received by a separate process,
+zero-link private mode-0600 input, parent descriptor closure, runtime closure
+before client/browser creation, invalid/oversize input, short/failed writes,
+seek/consumer/launch failures and cleanup after post-spawn close failure.
+Existing independent-process replay/crash and watchdog-start failure gates
+remain green; none grants a retry of an uncertain dispatch.
+
+Targeted Ruff and the standalone 80-file Worker boundary check pass. Tests
+use owned SQLite files, synthetic assignments and bounded local processes;
+no existing Worker or database is changed. This fixes startup handoff, not
+automatic reconnect, real multi-agent media crash recovery, GPU delivery or
+production release evidence. The earlier health source-packaged image was
+built before this change and is not claimed as its runtime acceptance image.
