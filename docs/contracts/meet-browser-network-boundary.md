@@ -1,5 +1,10 @@
 # Fixed Meet browser HTTP and WebSocket boundary (MAP-10)
 
+Current shipped method policy: assigned-origin GET/HEAD plus exactly POST
+`/api/machine/sessions` and POST `/api/machine/sessions/renew`, without query
+parameters. Native intersecting CSP restricts socket/connect destinations.
+The investigation and correction history below is retained explicitly.
+
 Source audit: Ananta `78323eaec`. Both ephemeral publisher runtimes navigate
 to the Hub-assigned HTTPS origin and check the exact machine page before
 handing over a grant. They block service workers, downloads and human media
@@ -110,3 +115,19 @@ The two-path exception is implemented. Its 76 focused policy and actual-browser
 checks passed in 56.59 seconds, including real allowed POSTs to both machine
 paths and continued rejection of all unneeded/foreign/ambiguous POST targets.
 No body/header rewrite, redirect or retry was added.
+
+The completed rebuild from `5807546ba` is
+`sha256:106febe29f37c0f7badc0b0dd3d761617bac7480b90d5b915cf1bf80a20bd10b`.
+Both actual Hub/two-packaged-Worker cases passed in 104.21 seconds against the
+private Meet `025d9ae` build: independent screens, persona artwork, simultaneous
+speech and individual source/task stops, without application source mounts.
+The actual selected-voice GPU dialog and image/lease-renewal cases then both
+passed in 193.42 seconds. GPU speech produced 54,528 and 99,584 non-silent
+samples; local/remote revocation took 478.96/483.39 ms. The real renewal passes
+through the newly admitted exact renewal POST, not a mocked API response.
+
+These are private synthetic-policy runtime observations, not public TURN,
+DNS/ICE/container firewall verification or production release evidence. The
+earlier intermittent GPU control-freshness incident remains separately tracked;
+passing these runs is not proof of its cause or fix. No serving container,
+operator certificate/key, public trust or foreign workload was changed.
