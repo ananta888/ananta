@@ -30,6 +30,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
     from werkzeug.serving import WSGIRequestHandler, make_server
 
+    from agent.bootstrap.meet_dialog_diagnostics import configure_dialog_diagnostics
     from agent.database import engine
     from agent.repositories.meet_chat_dispatches import SqlChatDispatches
     from agent.repositories.meet_chat_reservations import SqlChatReservations
@@ -142,7 +143,9 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         threading.Thread(target=hub.serve_forever, daemon=True).start()
         hub_url = f"http://{gateway}:{hub.server_port}/api/meet/v1/internal/dialog"
         containers = [
-            DialogWorkerContainer(ready["test_network"], os.environ["MEET_MULTI_WORKER_IMAGE"], hub_url, lifetime=300)
+            DialogWorkerContainer(
+                ready["test_network"], os.environ["MEET_MULTI_WORKER_IMAGE"], hub_url, lifetime=300, diagnostics=True
+            )
             for _ in range(2)
         ]
         for container in containers:
@@ -226,6 +229,8 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         monkeypatch.setattr(service, "exchange", observe_exchange)
         app.config["ROLE"] = "hub"
         app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
+        configure_dialog_diagnostics(app, engine, binding)
+        diagnostics = app.extensions["meet_dialog_diagnostics"]
         started, subjects = [], []
 
         def wait_chat_ready(index):
@@ -307,6 +312,23 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             assert tasks.get_by_id(started[1]["task_id"]).status == "in_progress"
         cancel_fixture_dialog(app, service, principal, started[1]["task_id"])
         assert command("alone") == {"alone": True, "captures": 0, "transformErrors": 0, "connectionDrops": 0}
+        with app.app_context():
+            terminal_tasks = [tasks.get_by_id(row["task_id"]).model_dump() for row in started]
+        until = time.monotonic() + 8
+        observations = []
+        while time.monotonic() < until:
+            with app.app_context():
+                observations = [diagnostics.inspect(principal, "synthetic", row["task_id"]) for row in started]
+            if all(row["observation_status"] == "recorded" for row in observations):
+                break
+            time.sleep(0.05)
+        assert all(row["observation_status"] == "recorded" for row in observations), "bounded terminal reports missing"
+        assert all(row["classification"] == "unverified_worker_observation" for row in observations)
+        assert all(row["hub_task_status"] == "cancelled" for row in observations)
+        assert all(row["observation"]["measurements"]["elapsed_ms"] > 0 for row in observations)
+        with app.app_context():
+            assert [tasks.get_by_id(row["task_id"]).model_dump() for row in started] == terminal_tasks
+        record_property("unverified_terminal_worker_observations", observations)
         record_property(
             "two_packaged_worker_screens",
             {

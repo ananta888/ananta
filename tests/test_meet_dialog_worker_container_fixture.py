@@ -25,6 +25,8 @@ PIN = "a" * 43 + "="
         {"lifetime": 0},
         {"lifetime": True},
         {"lifetime": 601},
+        {"diagnostics": 1},
+        {"diagnostics": "true"},
     ],
 )
 def test_bad_configuration_has_no_docker_side_effects(patch):
@@ -34,7 +36,7 @@ def test_bad_configuration_has_no_docker_side_effects(patch):
     command.assert_not_called()
 
 
-def fixture(tmp_path, monkeypatch, failure=None, health=None):
+def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False):
     calls = []
     key, cert = tmp_path / "key", tmp_path / "cert"
     key.write_bytes(b"synthetic")
@@ -56,12 +58,13 @@ def fixture(tmp_path, monkeypatch, failure=None, health=None):
             return "172.30.0.2"
         return ""
 
-    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, command=command)
+    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, diagnostics=diagnostics, command=command)
     return SimpleNamespace(**locals())
 
 
-def test_full_worker_has_no_source_or_hub_mounts_and_cleanup_is_idempotent(tmp_path, monkeypatch):
-    f = fixture(tmp_path, monkeypatch)
+@pytest.mark.parametrize("diagnostics", [False, True])
+def test_full_worker_has_no_source_or_hub_mounts_and_cleanup_is_idempotent(tmp_path, monkeypatch, diagnostics):
+    f = fixture(tmp_path, monkeypatch, diagnostics=diagnostics)
     f.worker.start(f.key, f.cert, PIN)
     create = next(call for call in f.calls if call[0] == "create")
     assert all(
@@ -74,6 +77,7 @@ def test_full_worker_has_no_source_or_hub_mounts_and_cleanup_is_idempotent(tmp_p
             "--memory=1g",
             "--pids-limit=256",
             "--env=MEET_DIALOG_ENABLED=1",
+            "--env=MEET_DIALOG_DIAGNOSTICS_ENABLED=" + ("1" if diagnostics else "0"),
         ]
     )
     assert not any("docker.sock" in part or "dst=/app" in part for part in create)

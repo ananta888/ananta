@@ -12,7 +12,7 @@ from tests.meet_dialog_browser_fixture import docker
 
 
 class DialogWorkerContainer:
-    def __init__(self, network, image, hub_url, *, lifetime=180, command=docker):
+    def __init__(self, network, image, hub_url, *, lifetime=180, diagnostics=False, command=docker):
         if not isinstance(network, str) or not re.fullmatch(r"meet-test-tls-[a-f0-9-]{36}-network", network):
             raise ValueError("test_worker_network_invalid")
         if not isinstance(image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
@@ -29,7 +29,10 @@ class DialogWorkerContainer:
             raise ValueError("test_worker_hub_invalid")
         if type(lifetime) is not int or not 180 <= lifetime <= 600:
             raise ValueError("test_worker_lifetime_invalid")
+        if type(diagnostics) is not bool:
+            raise ValueError("test_worker_diagnostics_invalid")
         self.network, self.image, self.hub_url, self.lifetime, self.command = network, image, hub_url, lifetime, command
+        self.diagnostics = diagnostics
         self.name = "meet-test-dialog-worker-" + str(uuid4())
         self.created, self.origin = False, None
 
@@ -80,6 +83,7 @@ class DialogWorkerContainer:
             ),
             "--env=PYTHONPATH=/test:/app",
             "--env=MEET_DIALOG_ENABLED=1",
+            "--env=MEET_DIALOG_DIAGNOSTICS_ENABLED=" + ("1" if self.diagnostics else "0"),
             "--env=MEET_WORKER_KEY_FILE=/test/worker-key",
             "--env=SSL_CERT_FILE=/test/meet-ca.pem",
             "--env=NODE_EXTRA_CA_CERTS=/test/meet-ca.pem",
