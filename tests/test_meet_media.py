@@ -304,7 +304,7 @@ def test_worker_result_requires_integrity(monkeypatch, signed):
     raw, key = encode(result()), b"k" * 32
     response = MagicMock()
     response.__enter__.return_value = response
-    response.read.return_value = raw
+    response.read1.side_effect = [raw, b""]
     response.headers = {"X-Ananta-Result-Signature": signature(key, b"result-v1\0" + raw) if signed else "bad"}
     opener = Mock()
     opener.open.return_value = response

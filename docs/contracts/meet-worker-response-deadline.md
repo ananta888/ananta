@@ -29,3 +29,55 @@ The reusable reader remains in its historical `persona_http` module (preserved
 naming/coupling debt). Reuse that small IO seam rather than introducing another
 reader or mixing task/governance decisions into transport (SRP/DIP). No Worker
 authority, protocol version, database or running service change is planned.
+
+## Reproduction and implementation boundary
+
+The initial real signed-body regression failed in 8.80 seconds: the old client
+accepted the complete synthetic result even though continuous byte delivery
+had outlived its 250-ms remaining budget. The fixed client converts that
+original budget once, refuses already expired calls before address resolution,
+rechecks after request preparation, and uses the shared bounded reader. Size
+overflow retains its original 502 code and every response context closes.
+
+The existing Worker always emits ordinary Content-Length responses. Transfer
+encodings are now explicitly rejected before reading: stdlib chunked `read1`
+may parse an entire chunk-header line internally, which is not one underlying
+read and would reopen the trickle problem. No supported Worker response changes.
+Initial response-header parsing and any single inactive socket read remain
+outside the new absolute body-loop checks; whole-request deadline hardening
+is a separate limitation, not claimed solved by this slice.
+
+The regular-body guard is a separate small Hub IO adapter shared by media
+success, dialog-start and signed-capability-failure reads, so transfer-encoding
+rejection is consistent without copying a body reader. Each caller still owns
+its own maximum, deadline, signature domain and error projection. It does not
+alter shared Persona HTTP consumers or embed governance in the Worker.
+
+The first expanded regression recorded 95 passes and three 10-second timeouts
+during global application-fixture import, in 101.91 seconds overall, while the
+large dependency image was building. The affected HTTP cases did not execute.
+Repeat them after the build without increasing deadlines; these setup errors
+are not passing transport tests or evidence that a product fix is necessary.
+
+The unloaded-build repeat passed all 101 tests in 45.25 seconds, with the
+original deadlines and both additional transfer-encoding rejection paths.
+The subsequent actual GPU/browser repeat failed in 118.63 seconds waiting
+for its first correlated answer: zero generated answers, zero inference
+failures and zero speech acceptances were observed. No inference invocation
+was observed at that checkpoint. This is not a passing GPU regression or
+proof of a transport failure; investigate the pre-inference chat path without
+changing answer budgets or adding retries. The earlier successful GPU runs
+remain historical observations, not substitutes for this failed repeat.
+
+The independent real GPU HTTP component gate then passed in 55.23 seconds:
+Qwen generated 13 output tokens, Piper-CUDA returned 69,632 non-silent PCM
+samples and NVENC returned 64,468 video bytes. The component observation
+explicitly reports no Hub-dialog or remote-delivery verification. It verifies
+actual successful media transport/inference, not the failed browser chat path.
+
+The next diagnostic step observes existing chat poll/ACK, speech preparation
+and spoken-callback calls only. A separate test-only observer keeps counters
+and at most eight allowlisted rejection codes; no event bodies, IDs, keys,
+extra browser operations or retries. Exact return values and exceptions must
+remain unchanged. This keeps path diagnosis separate from the already broad
+speech fixture (SRP), and does not change production admission policy.

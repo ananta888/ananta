@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from agent.services.meet_contract import MeetError
 from agent.services.meet_media_result import validate_response_budget as validate_response_budget
 from agent.services.meet_media_result import validate_result as validate_result
+from agent.services.meet_worker_response_body import read_worker_body
 from agent.services.private_container_network_policy import pin_private_container_address
 from worker.meet_media.contract import MAX_RESULT_BYTES, encode, signature
 
@@ -17,6 +18,15 @@ from worker.meet_media.contract import MAX_RESULT_BYTES, encode, signature
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *_args, **_kwargs):
         raise MeetError("meet_worker_redirect_denied", 502)
+
+
+def _read_media_result(response, deadline):
+    try:
+        return read_worker_body(response, maximum=MAX_RESULT_BYTES, deadline=deadline)
+    except ValueError as error:
+        if str(error) == "persona_http_body_too_large":
+            raise MeetError("meet_worker_result_too_large", 502) from None
+        raise
 
 
 class HttpMediaWorker:
@@ -42,7 +52,6 @@ class HttpMediaWorker:
 
     def start_dialog(self, assignment):
         from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_assignment
-        from worker.meet_media.persona_http import read_bounded
 
         validate_assignment(assignment, time.time())
         parsed = urlsplit(self.endpoint)
@@ -62,7 +71,7 @@ class HttpMediaWorker:
         deadline = time.monotonic() + 3
         try:
             with opener.open(request, timeout=3) as response:
-                raw = read_bounded(response, maximum=1024, deadline=deadline)
+                raw = read_worker_body(response, maximum=1024, deadline=deadline)
                 signed = response.headers.get("X-Ananta-Dialog-Signature", "")
             if not hmac.compare_digest(response_signature(self.key, body, raw), signed):
                 raise ValueError()
@@ -81,6 +90,10 @@ class HttpMediaWorker:
             raise MeetError("meet_dialog_worker_unavailable", 503) from None
 
     def execute(self, turn):
+        remaining = turn["deadline"] - time.time()
+        if remaining <= 0:
+            raise MeetError("meet_worker_unavailable", 503)
+        deadline = time.monotonic() + remaining
         # Pin DNS after rejecting public, loopback, metadata and mixed resolutions.
         parsed = urlsplit(self.endpoint)
         address = pin_private_container_address(parsed.hostname, parsed.port)
@@ -97,11 +110,12 @@ class HttpMediaWorker:
         )
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         try:
-            with opener.open(request, timeout=max(0.1, turn["deadline"] - time.time())) as response:
-                raw = response.read(MAX_RESULT_BYTES + 1)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise MeetError("meet_worker_unavailable", 503)
+            with opener.open(request, timeout=remaining) as response:
+                raw = _read_media_result(response, deadline)
                 supplied_signature = response.headers.get("X-Ananta-Result-Signature", "")
-            if len(raw) > MAX_RESULT_BYTES:
-                raise MeetError("meet_worker_result_too_large", 502)
             if not hmac.compare_digest(signature(self.key, b"result-v1\0" + raw), supplied_signature):
                 raise MeetError("meet_worker_result_unauthorized", 502)
             result = validate_result(json.loads(raw))
