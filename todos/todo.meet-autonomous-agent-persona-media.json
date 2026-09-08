@@ -236,7 +236,7 @@
     {
       "id": "MAP-M1",
       "title": "Quellabgleich, Architektur und Sicherheitsvertrag",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "MAP-01",
         "MAP-02",
@@ -371,10 +371,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M1",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-02"
       ],
@@ -386,7 +386,8 @@
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
       "source_profile_plan": "2026-09-08 Quellstand vor Implementierung: feste Dialog-v1-Handler binden Offline-Browser, generierte Sprache, neutrales KI-Canvas und optional Hub-Personabild, aber noch ohne explizite gespeicherte Quellprofilprojektion. docs/contracts/meet-source-profile-policy.md legt additive Hub-abgeleitete, bei jeder Authority-Abfrage exakt gepruefte Projektion fest. Keine Worker-v1-Wire-Aenderung oder vom Caller waehlbare Quellklasse; Altauftraege behalten ausschliesslich die feste alte v1-Semantik. Negativmatrix fuer Rechteausweitung, Capture, Tenant, SSRF, Injection, Replay und Schluesselverlust; pfaduebergreifende Profilvereinheitlichung und Empfaenger-Secret-Abnahme bleiben offen.",
-      "source_profile_note": "2026-09-08 implementiert: immutable gemeinsamer Dialog-Quellprofilcompiler, Hub-eigene Persistierung und exakter erneuter Authority-Abgleich, Worker-Klassifikation vor Browserstart, kein neues v1-Wire-Feld. Alle 63 nichtleeren Capabilitymengen und Bildvarianten sowie Rechte-/Profil-/Capture-Manipulationen geprueft; 102 fokussierte Tests in 44.86 s gruen. Echter Text-/Screen-Fall bestanden, Bildavatar erst Video-Startfehler (349 Pakete, 0 dekodierte Frames, 33 Senderframes, kein Hub-Reject; Batch 49.77 s), isolierte Bild-/Wechsel-/Widerrufswiederholung 43.69 s bestanden. Intermittenter Empfangsstart bleibt offen und wird nicht als behoben ausgegeben; Details docs/contracts/meet-source-profile-policy.md. Kein Produktions-/GPU-/TURN-Claim."
+      "source_profile_note": "2026-09-08 implementiert: immutable gemeinsamer Dialog-Quellprofilcompiler, Hub-eigene Persistierung und exakter erneuter Authority-Abgleich, Worker-Klassifikation vor Browserstart, kein neues v1-Wire-Feld. Alle 63 nichtleeren Capabilitymengen und Bildvarianten sowie Rechte-/Profil-/Capture-Manipulationen geprueft; 102 fokussierte Tests in 44.86 s gruen. Echter Text-/Screen-Fall bestanden, Bildavatar erst Video-Startfehler (349 Pakete, 0 dekodierte Frames, 33 Senderframes, kein Hub-Reject; Batch 49.77 s), isolierte Bild-/Wechsel-/Widerrufswiederholung 43.69 s bestanden. Intermittenter Empfangsstart bleibt offen und wird nicht als behoben ausgegeben; Details docs/contracts/meet-source-profile-policy.md. Kein Produktions-/GPU-/TURN-Claim.",
+      "completion_note": "2026-09-08: All four classification/threat-model criteria mapped in docs/contracts/meet-turn-source-profile.md and meet-source-profile-policy.md. Fixed Hub-derived dialog and one-shot profiles, explicit admitted persona_video, separate generation/publication and no capture/record/train/tool authority. Final330regressions218.00s clean, including formerly208cleanup-failing cases;81Workerboundary clean. Immutable image59096f02fa95 passes installed hashes/sixvariants/fourdenials and actual Qwen/Piper-CUDA/NVENC with separately prepared pinned model: two gates58.95s, preload19.59s,13tokens/65792samples/61439videoBytes. First incomplete-build create timeout and unconfirmed cold-turn failure recorded honestly; owned delayed container removed. No arbitrary browser privacy, native interoperability, receiver-delivery or production claim; broader MAP13/15/16/27/30/31 remain open."
     },
     {
       "id": "MAP-04",
@@ -511,7 +512,8 @@
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
       "startup_investigation": "2026-09-08: Intermittenter initialer Screenempfang mit 349 RTP-Paketen/0 dekodierten Frames, 33 Senderframes und lebendem Hub/Worker; gruene Wiederholung ist kein Fix. Companion 4d40b45 verwirft Frames vor SFrame-Keyinstallation, fordert dabei aber keinen Ersatz-Keyframe an. Hypothese noch unbestaetigt; docs/contracts/meet-screen-encryption-startup.md plant feste begrenzte Zweissekunden-Senderkeyverzoegerung ohne Rechte-/Timeout-/Verschluesselungslockerung und nur numerische Diagnosen.",
-      "startup_diagnostic_result": "2026-09-08: Sender-/Empfaenger-Keyverzoegerung implementiert, finale3 Tests in55.55s bestanden. Beide echten Browserpfade mit tatsaechlicher2s-Verzoegerung eines aktuellen Schluessels, bewegtem Screen, zwei Chatantworten, Secret-Marker-Sperre und Hub-Stop. Maximal drei eingehende aktuelle Keygenerationen/ein Key/Timer; verworfene Injektionen und Vorzulassungs-Netzfehler separat dokumentiert. Urspruenglicher sporadischer Decoderstartfehler damit NICHT reproduziert oder behoben; kein spekulativer Kryptofix. Numerische RTP/Keyframe/PLI/Transformdiagnose bleibt fuer weitere Vorkommnisse. MDS-Gesamtcheck folgt isoliert, keine synthetische Produktionsfreigabe."
+      "startup_diagnostic_result": "2026-09-08: Sender-/Empfaenger-Keyverzoegerung implementiert, finale3 Tests in55.55s bestanden. Beide echten Browserpfade mit tatsaechlicher2s-Verzoegerung eines aktuellen Schluessels, bewegtem Screen, zwei Chatantworten, Secret-Marker-Sperre und Hub-Stop. Maximal drei eingehende aktuelle Keygenerationen/ein Key/Timer; verworfene Injektionen und Vorzulassungs-Netzfehler separat dokumentiert. Urspruenglicher sporadischer Decoderstartfehler damit NICHT reproduziert oder behoben; kein spekulativer Kryptofix. Numerische RTP/Keyframe/PLI/Transformdiagnose bleibt fuer weitere Vorkommnisse. MDS-Gesamtcheck folgt isoliert, keine synthetische Produktionsfreigabe.",
+      "client_probe_implementation": "2026-09-08: Strict pure closed validator plus small browser observation adapter implemented; assigned ports/codec directions, all63nonempty capability sets, no native/plaintext fallback, absent legacy distinct from malformed/promise/unsupported. Session checkpoints before/after read fence navigation/expiry and prevent grant handoff. First105checks72.95s, expanded330source/media/persona/capacity/client/runtimechecks218.00s clean;81Workerboundary and Ruff green. Actual new Meet browser/full check and installed Worker integration pending. docs/contracts/meet-client-probe.md."
     },
     {
       "id": "MAP-09",
@@ -1134,11 +1136,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 7,
-      "partial": 11,
+      "partial": 10,
       "blocked": 0,
-      "done": 13
+      "done": 14
     },
-    "progress_percent_done": 40.6,
+    "progress_percent_done": 43.8,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1152,15 +1154,15 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 5,
-      "remaining": 11
+      "done": 6,
+      "remaining": 10
     },
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 8,
+      "in_progress": 7,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "summary_notes": [
@@ -1237,14 +1239,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 2,
-          "partial": 5,
+          "partial": 4,
           "blocked": 0,
-          "done": 1
+          "done": 2
         },
-        "done": 1,
-        "partial": 5,
+        "done": 2,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 51.9
+        "progress_percent": 56.9
       },
       "feature": {
         "total": 16,
@@ -1308,29 +1310,29 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 7,
-    "partial": 11,
+    "partial": 10,
     "blocked": 0,
-    "done": 13,
-    "count_based_percent": 40.6,
-    "weighted_percent": 65.2
+    "done": 14,
+    "count_based_percent": 43.8,
+    "weighted_percent": 66.2
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 37.987,
-    "remaining_weight": 20.263,
+    "done_weight": 38.587,
+    "remaining_weight": 19.663,
     "blocked_weight": 0.0,
-    "weighted_percent": 65.2
+    "weighted_percent": 66.2
   },
   "milestone_progress_summary": {
     "milestones": {
       "MAP-M1": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 91.4,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "MAP-M2": {
         "total_tasks": 4,
@@ -1393,10 +1395,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T14:55:24.560198Z",
+    "generated_at": "2026-09-08T15:32:51.797266Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "521915e500a84c3543ad351cc113ada838a2323c1b67971dfbe759d252f8563a",
+    "source_hash": "77587b8a313d365dd57cd483543d85c4ea0ebc8a7118d07ae394845a6600bbc0",
     "is_stale": false
   }
 }

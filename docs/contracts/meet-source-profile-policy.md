@@ -27,12 +27,16 @@ negotiated image variants have deterministic source upper bounds.
 | `generated_audio` | Hub-delegated response plus pinned speech configuration; publication still requires its own current control/Meet grant. |
 | `generated_video` | Neutral generated KI canvas in the dialog profile; clip/render profiles are separate execution paths. |
 | `persona_image` | Only the image-negotiated dialog variant; current Hub profile revision and scoped immutable asset, not identity or permission. |
+| `persona_video` | Only the separate fixed one-shot render profile, with an admitted immutable clip input; never relabelled as synthetic source footage. |
 | `human_device_capture` | Not supported by this profile: no getUserMedia/getDisplayMedia, personal profile, host display or device mount. Receiving an independently consented publication is not capturing a human device. |
 
 This is a trusted installed-code/profile boundary, not remote attestation of a
 compromised Worker. A malicious endpoint can lie about bytes; source labels alone
-must never certify provenance or satisfy a release gate. Full profile unification
-across the separate one-shot clip/render/browser-task paths remains MAP-03 work.
+must never certify provenance or satisfy a release gate. The separate one-shot
+path is now bound by [its fixed source profile](meet-turn-source-profile.md),
+sharing the vocabulary but not renderer/policy ownership. Browser-task adapters
+without a supported live-view contract remain denied; adding arbitrary workspace
+streaming and privacy filtering belongs to MAP-13/15/16.
 
 ## Independent rights
 

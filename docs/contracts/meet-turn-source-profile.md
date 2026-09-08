@@ -110,3 +110,19 @@ samples and 61,439 MP4 bytes**. No CPU/cloud fallback, human capture, source-cod
 mount, remote receiver claim or production evidence was substituted. These are
 synthetic-policy technical observations of genuine GPU execution. Cold-start
 performance and broader dialog/public rollout remain separate MAP-30/31 work.
+
+## MAP-03 criterion audit
+
+| Criterion | Implemented boundary |
+| --- | --- |
+| Explicit trusted source classes | Frozen dialog and turn classifiers share the source vocabulary, retain admitted image/video inputs, derive only from installed fixed handlers and Hub-owned fields, and are checked before dispatch/authority/rendering. Caller-selected classes remain forbidden. |
+| Headless own sources, separate human authority | The installed dialog owns a new offline browser and synthetic/pinned persona sources. Neither profile permits human capture, personal cookies/profile paths or an implicit source/URL fallback. Human capture remains inaccessible, not automatically authorized by the probe or a machine join. |
+| Independent rights | Separate chat read/send, audio receive and screen/speech/avatar publication capabilities; generated preview is not publication. Recording, training and tools are absent/denied, not inherited from room membership or artwork. |
+| Concrete negative threat cases | The companion source-profile threat matrix maps tenant/project, SSRF/navigation, untrusted media/chat, compromised peers, replay/generation and signing-key loss to explicit denial seams and their existing negative tests. |
+
+The final combined source-profile/client regression passed **330 tests in
+218.00 s**, including all 208 cases from the earlier cleanup-failing run, with
+no teardown errors. Together with the installed image and actual GPU checks,
+this closes MAP-03's classification/threat-model criteria.
+It does not close arbitrary browser privacy, multimodal injection, delivery
+quality, native adapter support, cold-start performance or public release.
