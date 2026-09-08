@@ -70,3 +70,14 @@ case correctly rejected a 180-second existing assignment under the test's
 incorrect 120-second policy. Derive the explicit test policy duration from the
 existing scenario rather than change either policy enforcement or media
 duration. Both failures are retained; rerun the corrected fixtures below.
+
+Corrected packaged result: both cases passed in 114.81s against immutable
+Worker `3951a3feaa58ddb174df884e4204a04664b8bbdc9186313b25450499234c9aac`
+(source `67fa83f4b`) and private Meet `ba67caa`. Exact operator policy revocation
+removed the still-running second participant at the real receiver in 118.90ms
+(screen) and 815.17ms (persona/speech). No separate second Task-stop operation;
+its ordinary callback then recorded `failed` and its signed content-free
+diagnostics. The first independently cancelled Task remained cancelled. No
+human captures, proxy drops or transform errors. Current Hub source `e59e3b9d8`.
+The separate immutable Meet trust/rotation/HTTP/preflight suite also passed all
+112 cases in 1.965s, no skips. No public serving build or operator trust changed.
