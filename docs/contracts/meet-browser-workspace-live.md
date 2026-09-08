@@ -386,3 +386,46 @@ snapshot/renderer/workspace probes passed in 18.10 s**, now including the
 33rd snapshot case: a real CDP viewport override with unchanged cached page
 metadata is denied by the DOM snapshot. These probes use exact source-file
 mounts and an immutable sandboxed browser image, not installed-Worker proof.
+
+### Packaged execution and completion scope
+
+The installed-Worker browser gate passed in **54.00 s** with two separate
+role-assigned containers from committed source `e6f954725`, image
+`sha256:89539e4f4f843d7e04264142718a2a6ac0327ca0ebc0af27f37b5b79e52404a3`.
+No application/Hub source, host profile, display socket or Docker socket was
+mounted. The only test seam supplies the private certificate, bounded local
+observations and an explicitly synthetic public-document fetch port. The
+actual installed Worker, Hub SQL roles/preauthorization, signed HTTP,
+script-disabled task workspaces and decoded Meet receiver execute normally.
+
+Both independent tasks load without publication, then present after their
+separate Hub commands. Participant departure changes the room membership epoch:
+the surviving dialog's old browser task is retired, not silently replayed.
+The headless Hub fixture then reserves and presents a fresh third browser task
+under current policy. Final parent cancellation/operator revocation removes
+the participants and settles all three browser tasks. Signed terminal
+observations remain explicitly unverified; no production identity is issued.
+
+The first packaged scenario incorrectly expected the old membership-bound
+browser task to continue automatically, and also selected the unrelated tone
+observer through a truthy string test mode. The fixture now selects that
+observer only for the explicit media case and tests the documented new-Hub-task
+requirement. Neither Worker replay protection nor membership fencing was
+relaxed. **39 container-fixture tests passed in 30.99 s**, including strict
+browser-fixture opt-in and closed metadata/no-content observation checks.
+
+MAP-13/15/16 are implemented for the declared public-text adapter: isolated
+Hub-owned task/page/navigation identity, public-fetch policy, sanitized-only
+continuous MDS-05 output, receiver-side privacy/crash verification and separate
+headless control/publication. This does not turn legacy Browser-Use/Camofox,
+authenticated/dynamic pages or arbitrary opaque media into supported live
+sources. Complete container egress/ICE, broader reconnect/HA, GPU fairness,
+public TURN and production soak/release claims remain their separate open
+tasks; no such claim follows from these private synthetic-policy gates.
+
+The two pre-existing packaged screen/persona/simultaneous-speech cases also
+passed against that same new image in **115.13 s**, preserving old clients,
+role isolation, operator revocation and terminal observations. The browser
+gate's measured operator-revocation time was **1327.88 ms**. All fixtures own
+and remove their private containers; no serving instance or operator trust
+configuration was changed.

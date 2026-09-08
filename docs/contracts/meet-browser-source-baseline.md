@@ -56,15 +56,25 @@ and a 45-second test limit. It needs the provisioned private browser image; it
 does not attach to the desktop or another browser profile. Unit tests need no
 browser or person.
 
-## Not yet delivered
+## Current adapter and remaining boundaries
 
-This is a synthetic technical capability/cost observation, not Registry-backed
-production release evidence and not decoded Meet reception. Hub-owned workspace
-admission, exact page/navigation epochs, privacy fencing/secret-marker receiver
-tests, publication controls and the MDS-05 source transport still need integration.
-No `live_view` request can currently activate that unimplemented production path.
-The Meet MDS companion now has active dialog, receive, source and renewal
-endpoints. Its isolated canvas source has a real direct-browser decoded-pixel
-test; Ananta's assignment-owned CDP task view and separate source controls are
-connected. Arbitrary Browser-Use/Camofox page admission is still not implied.
-See `meet-dialog-runtime.md` for the separate cross-repository composition gate.
+The baseline above is a synthetic technical capability/cost observation, not
+Registry-backed production evidence or a representative website benchmark.
+The subsequent additive `public-dom-v1` adapter is now integrated through the
+explicit `browser_workspace` dialog option, separate Hub origin/owner policy,
+ordinary immutable browser child Tasks and independent presentation controls.
+It streams a clearly labelled sanitized public-text view from an isolated,
+script-disabled task page, never raw source pixels or the host desktop.
+
+Actual sandboxed Hub/Worker/Meet receiver tests cover private-input rejection,
+viewport changes, extra tabs, real source renderer crash, pause/resume without
+refetch, policy revocation and independently surviving speech/avatar output.
+Their document/policy/tone ports are explicitly synthetic; real public HTTP
+fetch is verified separately. See `meet-browser-workspace-live.md` for exact
+boundaries, measured results and provenance limitations.
+
+The legacy `live_view` intent does not automatically activate that adapter.
+Browser-Use/Camofox still declare their own unsupported continuous-source
+capability. Arbitrary existing pages, authenticated sessions and dynamic or
+opaque media are not silently upgraded into the public-text profile. The
+older neutral KI-status CDP screen remains distinct from the task browser.

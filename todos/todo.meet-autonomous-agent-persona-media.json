@@ -269,7 +269,7 @@
     {
       "id": "MAP-M4",
       "title": "Eigener Browser als freigegebene Medienquelle",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "MAP-13",
         "MAP-14",
@@ -656,10 +656,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-10"
       ],
@@ -670,7 +670,8 @@
         "Vor Implementierung des Renderpfads eine Capability-/Kostenprobe des tatsächlich vorhandenen Browsers erstellen; alternative Adapter deklarieren ihre Grenzen ehrlich.",
         "Ananta erzeugt den Bildschirmstream ausschließlich aus seinem isolierten Browser-/virtuellen Display-Workspace und übergibt ihn dem MDS-05-Source-Port. Meet übernimmt Transport und Darstellung; persönliche Host-Displays, Profile, Mikrofone und Kameras bleiben unzugänglich."
       ],
-      "implementation_note": "BrowserTaskContract und Adapter geprüft. Geschlossener Live-View-Anfragevertrag mit festen Budgets, deny_unknown, deaktivierter Persistenz/Downloads und getrenntem Auth-Opt-in erteilt keine Capture-/Publikationsrechte. Camofox- und synthetischer Browser-Use-Pfad lehnen Live-Aufträge vor Ausführung ab. Reale private Chromium-Probe: Sandbox aktiv, 17 decodierte CDP-Frames 640x360 in 2012 ms, beide bewegten Testfarbzustände, keine Netzwerkanfragen oder menschlichen Geräte. Zusätzlich reproduzierte Browser-Policy-Lücken geschlossen: nichtkanonische numerische Loopback-Ziele, IPv4-in-IPv6/private und Link-Local-Literale, DNS-Root-Dot-/Custom-Denylist-Umgehung, ungültige Schemes/Authorities; gemeinsame strikte URL-Admission für Navigation/Downloads. Browser-Use prüft explizite Folge-Navigationen erneut. Audit kopiert keine Ziel-URLs/Query-Secrets/Downloadpfade. 177 gezielte Browserregressionen in 114,05 Sekunden bestanden, fünf optionale Live-Gates in diesem Batch übersprungen; vorher echte private Browser-/GPU-Proben separat bestanden. docs/contracts/meet-browser-source-baseline.md und docs/contracts/browser-navigation-admission.md. Noch offen: DNS-/Redirect-/Subresource-Egress am realen Browser, Hub-Workspace-/Seitenadmission, Navigationsepochen, Datenschutzfencing und MDS-05-Transport; keine vollständige SSRF-, Meet-Gegenstellen- oder Produktionsfreigabe behauptet."
+      "implementation_note": "Implemented public-dom-v1: an immutable Hub browser child Task owns exactly one script-disabled public-document workspace/page/navigation generation. Explicit owner/origin/navigation policy, bounded DNS-pinned public fetch, no auth/download/persistence/active-media fallback, separate sanitized renderer and session-scoped MDS-05 source port. Generic Browser-Use/Camofox live intent remains honestly unsupported; this is labelled public text, not arbitrary raw pixels. Technical verification: 243 integration regressions, 94 final snapshot/workspace/controller regressions, three actual sandbox probes and four decoded Meet receiver cases. The installed two-role Worker gate passed with image 89539e4f4f84 from e6f954725. Public HTTPS fetch is separately verified; document/model/policy ports in private receiver gates are synthetic, never production evidence. docs/contracts/meet-browser-workspace-live.md.",
+      "completion_verification": "2026-09-08: verified against committed implementation ecb61f156, UI 61ab5b779 and crash correction e6f954725; exact scope and remaining external/runtime boundaries in docs/contracts/meet-browser-workspace-live.md. No Registry-backed production claim."
     },
     {
       "id": "MAP-14",
@@ -703,10 +704,10 @@
       "repository": "ananta",
       "type": "security",
       "milestone_id": "MAP-M4",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-13",
         "MAP-14"
@@ -716,7 +717,9 @@
         "Feste Ausgangsauflösung, Größenwechsel, neue Tabs, Downloads und Browserabsturz dürfen keine unbereinigten Frames oder vorherige sensible Puffer offenlegen.",
         "DOM-basierte Maskierung allein gilt nicht als Schutz für unbekannte Canvas-/Video-/Cross-Origin-Inhalte; für diese Quellen explizite Freigabe oder fail-closed Pause verlangen.",
         "Negativtests mit eindeutig erkennbaren Secret-Markern prüfen den empfangenen Stream, nicht nur lokale Policy-Rückgaben; keine Secret-Bilder als normale Audit-Artefakte speichern."
-      ]
+      ],
+      "implementation_note": "Completed sanitized-only privacy and generation fencing for the declared public-text adapter. Raw page screenshots never enter publication. Unknown forms/secrets/auth/opaque media are denied; exact viewport, target, tab, task and navigation identity are rechecked. Actual Meet receiver matrix: input, resize, extra tab and real renderer crash all pass (203.13 s), with source stop 135.69-887.97 ms and independent audible tone/avatar continuation. Snapshot/renderer/workspace probes pass (18.10 s), including actual CDP size override despite unchanged cached viewport. The reproduced post-crash unbounded Page.evaluate race is fixed by passive identity checks and a 750-ms closed snapshot wait; no timeout or policy relaxation. No secret-image artifacts, semantic-DLP promise or production evidence. docs/contracts/meet-browser-workspace-live.md.",
+      "completion_verification": "2026-09-08: verified against committed implementation ecb61f156, UI 61ab5b779 and crash correction e6f954725; exact scope and remaining external/runtime boundaries in docs/contracts/meet-browser-workspace-live.md. No Registry-backed production claim."
     },
     {
       "id": "MAP-16",
@@ -725,10 +728,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M4",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 5.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-12",
         "MAP-15"
@@ -738,7 +741,9 @@
         "Meet-Zuschauer dürfen den Browser nicht allein durch Raumteilnahme fernsteuern; Maus-/Tastatur-/Navigationsaktionen benötigen eigene Autorisierung.",
         "Ein browserbedienender Worker delegiert keine Medienaufträge an andere Worker; der Hub bindet gegebenenfalls beide Tasks und den freigegebenen Quellkanal.",
         "Ende des Browser-Tasks entfernt die Veröffentlichung deterministisch; andere Audio-/Videoquellen dürfen nur unter weiterhin gültiger eigener Lease fortfahren."
-      ]
+      ],
+      "implementation_note": "Completed distinct owner-authenticated revision-CAS navigation, present, stop and neutral-status controls, explicit immutable session opt-in and passive Angular UI. Navigation never presents; screen pause retains the same admitted page without refetch. No viewer control or Worker-to-Worker delegation. Exact child completion and original-deadline reconciliation stop publication; changed membership retires the old task and requires fresh Hub navigation. Real competing SQL CAS passed under WAL and memory. 242 Meet UI tests, template compilation and targeted lint pass. Two packaged role-assigned Workers load/present independently, then exercise fresh Hub membership replacement, operator revocation and terminal cleanup (54.00 s, no application source mounts). Synthetic document/policy observation only. docs/contracts/meet-browser-workspace-live.md.",
+      "completion_verification": "2026-09-08: verified against committed implementation ecb61f156, UI 61ab5b779 and crash correction e6f954725; exact scope and remaining external/runtime boundaries in docs/contracts/meet-browser-workspace-live.md. No Registry-backed production claim."
     },
     {
       "id": "MAP-17",
@@ -1157,12 +1162,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 7,
+      "in_progress": 4,
       "partial": 8,
       "blocked": 0,
-      "done": 16
+      "done": 19
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 59.4,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1176,15 +1181,15 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 7,
-      "remaining": 9
+      "done": 10,
+      "remaining": 6
     },
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 7,
+      "in_progress": 6,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "summary_notes": [
@@ -1260,29 +1265,29 @@
         "total": 8,
         "by_status": {
           "todo": 0,
-          "in_progress": 2,
+          "in_progress": 1,
           "partial": 3,
           "blocked": 0,
-          "done": 3
+          "done": 4
         },
-        "done": 3,
+        "done": 4,
         "partial": 3,
         "blocked": 0,
-        "progress_percent": 65.0
+        "progress_percent": 75.0
       },
       "feature": {
         "total": 16,
         "by_status": {
           "todo": 0,
-          "in_progress": 4,
+          "in_progress": 2,
           "partial": 2,
           "blocked": 0,
-          "done": 10
+          "done": 12
         },
-        "done": 10,
+        "done": 12,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 78.8
+        "progress_percent": 88.4
       },
       "infrastructure": {
         "total": 1,
@@ -1331,20 +1336,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 7,
+    "in_progress": 4,
     "partial": 8,
     "blocked": 0,
-    "done": 16,
-    "count_based_percent": 50.0,
-    "weighted_percent": 70.0
+    "done": 19,
+    "count_based_percent": 59.4,
+    "weighted_percent": 78.7
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 40.762,
-    "remaining_weight": 17.488,
+    "done_weight": 45.837,
+    "remaining_weight": 12.413,
     "blocked_weight": 0.0,
-    "weighted_percent": 70.0
+    "weighted_percent": 78.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1374,11 +1379,11 @@
       },
       "MAP-M4": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 43.6,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "MAP-M5": {
         "total_tasks": 4,
@@ -1417,10 +1422,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T19:34:54.124023Z",
+    "generated_at": "2026-09-08T21:52:30.959502Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d9ad5cab97b600e45b106b8193cfb20a60df4ad983ca6c61eab4344fd46f9f12",
+    "source_hash": "309204a62ac2cf649bdff7c2711cf44f83ce402f65edaf4e73c2a81bc547c821",
     "is_stale": false
   }
 }

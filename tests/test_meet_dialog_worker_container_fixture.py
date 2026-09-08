@@ -27,6 +27,8 @@ PIN = "a" * 43 + "="
         {"lifetime": 601},
         {"diagnostics": 1},
         {"diagnostics": "true"},
+        {"browser_documents": 1},
+        {"browser_documents": "true"},
     ],
 )
 def test_bad_configuration_has_no_docker_side_effects(patch):
@@ -36,7 +38,7 @@ def test_bad_configuration_has_no_docker_side_effects(patch):
     command.assert_not_called()
 
 
-def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False):
+def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False, browser_documents=False):
     calls = []
     key, cert = tmp_path / "key", tmp_path / "cert"
     key.write_bytes(b"synthetic")
@@ -58,13 +60,18 @@ def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False)
             return "172.30.0.2"
         return ""
 
-    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, diagnostics=diagnostics, command=command)
+    worker = DialogWorkerContainer(
+        NETWORK, IMAGE, HUB, diagnostics=diagnostics, browser_documents=browser_documents, command=command
+    )
     return SimpleNamespace(**locals())
 
 
 @pytest.mark.parametrize("diagnostics", [False, True])
-def test_full_worker_has_no_source_or_hub_mounts_and_cleanup_is_idempotent(tmp_path, monkeypatch, diagnostics):
-    f = fixture(tmp_path, monkeypatch, diagnostics=diagnostics)
+@pytest.mark.parametrize("browser_documents", [False, True])
+def test_full_worker_has_no_source_or_hub_mounts_and_cleanup_is_idempotent(
+    tmp_path, monkeypatch, diagnostics, browser_documents
+):
+    f = fixture(tmp_path, monkeypatch, diagnostics=diagnostics, browser_documents=browser_documents)
     f.worker.start(f.key, f.cert, PIN)
     create = next(call for call in f.calls if call[0] == "create")
     assert all(
@@ -78,6 +85,7 @@ def test_full_worker_has_no_source_or_hub_mounts_and_cleanup_is_idempotent(tmp_p
             "--pids-limit=256",
             "--env=MEET_DIALOG_ENABLED=1",
             "--env=MEET_DIALOG_DIAGNOSTICS_ENABLED=" + ("1" if diagnostics else "0"),
+            "--env=MEET_TEST_PUBLIC_DOCUMENT=" + ("1" if browser_documents else "0"),
         ]
     )
     assert not any("docker.sock" in part or "dst=/app" in part for part in create)
@@ -161,4 +169,29 @@ def test_closed_runtime_marker_contains_only_open_state_and_revisions():
     command = Mock(return_value=json.dumps(expected))
     worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, command=command)
     assert worker.chat_state() == expected
+    assert command.call_args.args[:5] == ("exec", worker.name, "python", "-S", "-c")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"revision": True},
+        {"revision": 0},
+        {"mode": "raw"},
+        {"loaded": 1},
+        {"failed": "no"},
+        {"url": "https://example.com"},
+    ],
+)
+def test_browser_marker_rejects_unbounded_or_authority_shaped_fields(changes):
+    value = {"revision": 2, "mode": "off", "loaded": True, "failed": False} | changes
+    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, command=Mock(return_value=json.dumps(value)))
+    assert worker.browser_state() is None
+
+
+def test_browser_marker_exposes_only_closed_test_observations():
+    value = {"revision": 3, "mode": "browser", "loaded": True, "failed": False}
+    command = Mock(return_value=json.dumps(value))
+    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, command=command)
+    assert worker.browser_state() == value
     assert command.call_args.args[:5] == ("exec", worker.name, "python", "-S", "-c")

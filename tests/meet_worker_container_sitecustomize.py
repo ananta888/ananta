@@ -3,6 +3,8 @@
 Python loads this as /test/sitecustomize.py in the test-owned server and its
 delegated child. Only the ephemeral fixture certificate pin is added; sandbox,
 capture policy, actual Worker runtime and signed Hub callbacks stay unchanged.
+The separately opted-in browser profile substitutes only the public document
+fetch port with static synthetic HTML; it is never public network evidence.
 """
 
 import json
@@ -101,3 +103,40 @@ def _runtime_trace(frame, event, arg):
 
 
 sys.settrace(_runtime_trace)
+
+
+if os.environ.get("MEET_TEST_PUBLIC_DOCUMENT", "0") == "1":
+    import time
+
+    from ananta_contracts.browser_public_fetch import validate_fetch_request
+    from worker.meet_media.browser_public_fetch_process import PublicDocumentFetch
+    from worker.meet_media.dialog_browser_screen import DialogBrowserScreen
+
+    def _synthetic_public_fetch(self, request, *, deadline):
+        value = validate_fetch_request(request)
+        self.require_current()
+        if value["url"] != "https://example.com/docs" or time.monotonic() >= deadline:
+            raise ValueError("test_browser_document_request_invalid")
+        return "<html><body><h1>Synthetic packaged public document</h1><p>Isolated browser Task.</p></body></html>"
+
+    PublicDocumentFetch.fetch = _synthetic_public_fetch
+    _native_browser_update = DialogBrowserScreen.update
+
+    def _fixture_browser_update(self, *args, **kwargs):
+        result = _native_browser_update(self, *args, **kwargs)
+        try:
+            Path("/state/dialog-browser-ready.json").write_text(
+                json.dumps(
+                    {
+                        "revision": self.revision,
+                        "mode": self.mode,
+                        "loaded": self.workspace is not None,
+                        "failed": self.failed,
+                    }
+                )
+            )
+        except OSError:
+            pass
+        return result
+
+    DialogBrowserScreen.update = _fixture_browser_update

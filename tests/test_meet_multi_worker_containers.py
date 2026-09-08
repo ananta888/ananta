@@ -21,7 +21,9 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("media_mode", [False, True], ids=["screen-only", "persona-speech"])
+@pytest.mark.parametrize(
+    "media_mode", [False, True, "browser"], ids=["screen-only", "persona-speech", "browser-workspaces"]
+)
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
     app, tmp_path, monkeypatch, record_property, media_mode
 ):
@@ -51,6 +53,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
     from tests.meet_dialog_worker_container import DialogWorkerContainer
     from tests.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
+    from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
     from tests.meet_multi_worker_media import MultiWorkerMediaScenario
     from tests.test_meet_dialog_cross_repository import close_bridge
 
@@ -66,7 +69,8 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_key.write_bytes(hmac_key)
     worker_key.chmod(0o600)
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
-    media = MultiWorkerMediaScenario() if media_mode else None
+    media = MultiWorkerMediaScenario() if media_mode is True else None
+    browser = MultiWorkerBrowserScenario(media_mode == "browser")
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -74,7 +78,10 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             ["node", "test/helpers/machine-multi-hub-bridge.mjs"],
             cwd=meet,
             env=os.environ
-            | {"MEET_TEST_HUB_PUBLIC_KEY": str(public), "MEET_MULTI_WORKER_MEDIA_GATE": "1" if media_mode else "0"},
+            | {
+                "MEET_TEST_HUB_PUBLIC_KEY": str(public),
+                "MEET_MULTI_WORKER_MEDIA_GATE": "1" if media is not None else "0",
+            },
             text=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -145,7 +152,12 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         hub_url = f"http://{gateway}:{hub.server_port}/api/meet/v1/internal/dialog"
         containers = [
             DialogWorkerContainer(
-                ready["test_network"], os.environ["MEET_MULTI_WORKER_IMAGE"], hub_url, lifetime=300, diagnostics=True
+                ready["test_network"],
+                os.environ["MEET_MULTI_WORKER_IMAGE"],
+                hub_url,
+                lifetime=300,
+                diagnostics=True,
+                browser_documents=browser.enabled,
             )
             for _ in range(2)
         ]
@@ -200,6 +212,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             reservations,
             dispatches,
             **(media.service_options(binding, dispatches) if media is not None else {}),
+            **browser.service_options(authority, tasks),
         )
         exchange_failures = []
         exchange_states = {}
@@ -275,6 +288,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                         "duration_seconds": duration_seconds,
                         "chat_mode": "off",
                         **(media.initial_options(index) if media is not None else {}),
+                        **browser.start_options,
                     },
                     parent=parent,
                 )
@@ -312,7 +326,9 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         )
         if media is not None:
             media.exercise(app, service, principal, started, command, record_property, wait_chat_ready)
+        browser.exercise(app, principal, started, containers, command, record_property)
         cancel_fixture_dialog(app, service, principal, started[0]["task_id"])
+        browser.after_departure(app, principal, started[1], containers[1], record_property)
         survivor = command("survivor")
         assert survivor == {"moving": [False, True], "departedAbsent": True}, survivor
         if media is not None:
@@ -355,6 +371,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         assert all(row["observation"]["measurements"]["elapsed_ms"] > 0 for row in observations)
         with app.app_context():
             assert [tasks.get_by_id(row["task_id"]).model_dump() for row in started] == terminal_tasks
+            browser.require_terminal(tasks)
         record_property("unverified_terminal_worker_observations", observations)
         record_property(
             "two_packaged_worker_screens",

@@ -12,7 +12,9 @@ from tests.meet_dialog_browser_fixture import docker
 
 
 class DialogWorkerContainer:
-    def __init__(self, network, image, hub_url, *, lifetime=180, diagnostics=False, command=docker):
+    def __init__(
+        self, network, image, hub_url, *, lifetime=180, diagnostics=False, browser_documents=False, command=docker
+    ):
         if not isinstance(network, str) or not re.fullmatch(r"meet-test-tls-[a-f0-9-]{36}-network", network):
             raise ValueError("test_worker_network_invalid")
         if not isinstance(image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
@@ -31,8 +33,11 @@ class DialogWorkerContainer:
             raise ValueError("test_worker_lifetime_invalid")
         if type(diagnostics) is not bool:
             raise ValueError("test_worker_diagnostics_invalid")
+        if type(browser_documents) is not bool:
+            raise ValueError("test_worker_browser_documents_invalid")
         self.network, self.image, self.hub_url, self.lifetime, self.command = network, image, hub_url, lifetime, command
         self.diagnostics = diagnostics
+        self.browser_documents = browser_documents
         self.name = "meet-test-dialog-worker-" + str(uuid4())
         self.created, self.origin = False, None
 
@@ -84,6 +89,7 @@ class DialogWorkerContainer:
             "--env=PYTHONPATH=/test:/app",
             "--env=MEET_DIALOG_ENABLED=1",
             "--env=MEET_DIALOG_DIAGNOSTICS_ENABLED=" + ("1" if self.diagnostics else "0"),
+            "--env=MEET_TEST_PUBLIC_DOCUMENT=" + ("1" if self.browser_documents else "0"),
             "--env=MEET_WORKER_KEY_FILE=/test/worker-key",
             "--env=SSL_CERT_FILE=/test/meet-ca.pem",
             "--env=NODE_EXTRA_CA_CERTS=/test/meet-ca.pem",
@@ -144,6 +150,33 @@ class DialogWorkerContainer:
             or any(
                 type(value[k]) is not int or not 0 <= value[k] < 2**53 for k in ("control_revision", "receive_revision")
             )
+        ):
+            return None
+        return value
+
+    def browser_state(self):
+        raw = self.command(
+            "exec",
+            self.name,
+            "python",
+            "-S",
+            "-c",
+            "from pathlib import Path; p=Path('/state/dialog-browser-ready.json'); "
+            "print(p.open().read(257) if p.is_file() and not p.is_symlink() and p.stat().st_size <= 256 else '{}')",
+        )
+        if len(raw) > 256:
+            return None
+        try:
+            value = json.loads(raw)
+        except ValueError:
+            return None
+        if (
+            type(value) is not dict
+            or set(value) != {"revision", "mode", "loaded", "failed"}
+            or type(value["revision"]) is not int
+            or not 1 <= value["revision"] <= 1023
+            or value["mode"] not in ("off", "browser", "status")
+            or any(type(value[name]) is not bool for name in ("loaded", "failed"))
         ):
             return None
         return value
