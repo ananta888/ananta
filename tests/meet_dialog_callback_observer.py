@@ -10,6 +10,7 @@ from agent.services.meet_dialog_service import MeetDialogService
 FAILURES = frozenset(
     {
         "meet_authorization_unavailable",
+        "meet_authorization_failed",
         "meet_authorization_scope_invalid",
         "meet_authorization_state_invalid",
         "meet_authorization_contract_invalid",

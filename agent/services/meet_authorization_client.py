@@ -3,11 +3,13 @@
 import re
 import secrets
 import time
+import urllib.error
 import urllib.request
 from dataclasses import replace
 
 from agent.models.meet_membership import validate_membership
 from agent.services.meet_contract import MeetError
+from ananta_contracts.http_read_failure import transient_http_read_error
 from worker.meet_media.contract import encode
 from worker.meet_media.persona_http import read_bounded
 
@@ -140,5 +142,12 @@ class MeetAuthorizationClient:
             return result
         except MeetError:
             raise
-        except Exception:
-            raise MeetError("meet_authorization_unavailable", 503) from None
+        except Exception as error:
+            if isinstance(error, urllib.error.HTTPError):
+                try:
+                    error.close()
+                except OSError:
+                    pass
+            if transient_http_read_error(error):
+                raise MeetError("meet_authorization_unavailable", 503) from None
+            raise MeetError("meet_authorization_failed", 502) from None

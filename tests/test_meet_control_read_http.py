@@ -33,6 +33,13 @@ def http_hub(tmp_path, monkeypatch, responses):
             payload = json.loads(body)
             calls.append(payload["action"])
             result = responses.pop(0)
+            if isinstance(result, tuple):
+                status, terminal = result
+                self.send_response(status)
+                self.send_header("Content-Length", "0")
+                self.send_header("X-Ananta-Dialog-Terminal", terminal)
+                self.end_headers()
+                return
             if type(result) is int and result != 200:
                 self.send_response(result)
                 self.send_header("Content-Length", "0")
@@ -82,6 +89,19 @@ def wait_for_result(exchange):
         assert exchange.fresh_until is None, "a failed HTTP read cannot grant freshness"
         time.sleep(0.01)
     raise AssertionError("bounded signed control result missing")
+
+
+@pytest.mark.parametrize("status", [502, 503, 504])
+@pytest.mark.parametrize("terminal", ["1", "", "unknown"])
+def test_real_terminal_error_marker_never_acquires_gateway_retry(tmp_path, monkeypatch, status, terminal):
+    with http_hub(tmp_path, monkeypatch, [(status, terminal), 200]) as (hub, calls):
+        exchange = DialogControlExchange(hub, "ms_" + "a" * 32)
+        try:
+            with pytest.raises(ValueError, match="hub_revoked_or_unavailable"):
+                wait_for_result(exchange)
+            assert calls == ["exchange"] and exchange.fresh_until is None
+        finally:
+            exchange.close()
 
 
 @pytest.mark.parametrize("status", [502, 503, 504])

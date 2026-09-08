@@ -242,6 +242,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 if len(exchange_failures) < 8:
                     allowed = {
                         "meet_authorization_unavailable",
+                        "meet_authorization_failed",
                         "meet_authorization_scope_invalid",
                         "meet_authorization_state_invalid",
                         "meet_authorization_contract_invalid",

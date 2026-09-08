@@ -287,7 +287,16 @@ def dialog_callback():
         payload = validate_callback(parse(raw), time.time())
     except ValueError:
         raise MeetError("meet_dialog_callback_invalid") from None
-    response = jsonify(getattr(service, payload["action"])(payload))
+    try:
+        result = getattr(service, payload["action"])(payload)
+    except MeetError as error:
+        from ananta_contracts.meet_control_error import TERMINAL_HEADER, terminal_callback_error
+
+        response, status = meet_error(error)
+        if terminal_callback_error(payload["action"], error.code, error.status):
+            response.headers[TERMINAL_HEADER] = "1"
+        return response, status
+    response = jsonify(result)
     response.headers["X-Ananta-Dialog-Signature"] = response_signature(key, raw, response.get_data())
     return response
 
