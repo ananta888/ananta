@@ -4,6 +4,7 @@ import hmac
 import os
 import secrets
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 
@@ -21,6 +22,7 @@ from ananta_contracts.meet_dialog_voice import validate_voice_projection
 from worker.meet_media.contract import encode, load_key
 from worker.meet_media.dialog_avatar_image_client import HubAvatarImageClient
 from worker.meet_media.dialog_avatar_video_client import HubAvatarVideoClient
+from worker.meet_media.dialog_control_transport import ControlReadUnavailable, transient_control_read
 from worker.meet_media.dialog_speech_client import HubSpeechClient
 from worker.meet_media.persona_http import read_bounded
 
@@ -157,5 +159,12 @@ class HubDialogClient:
                         if source["binding"]["screen_revision"] != value["controls"]["screen"]["revision"]:
                             raise ValueError("meet_dialog_browser_revision_changed")
             return value
-        except Exception:
+        except Exception as error:
+            if isinstance(error, urllib.error.HTTPError):
+                try:
+                    error.close()  # Do not retain an unread error body/socket across a retry.
+                except OSError:
+                    pass
+            if transient_control_read(action, error):
+                raise ControlReadUnavailable() from None
             raise ValueError("meet_dialog_hub_revoked_or_unavailable") from None

@@ -66,6 +66,8 @@ def test_unavailable_or_invalid_measurements_remain_null_not_zero_or_success(sta
     [
         ("meet_dialog_control_request_stale", "control_stale"),
         ("meet_dialog_hub_revoked_or_unavailable", "hub_unavailable_or_revoked"),
+        ("meet_dialog_control_transport_unavailable", "hub_unavailable_or_revoked"),
+        ("meet_dialog_control_recovery_exhausted", "hub_unavailable_or_revoked"),
         ("meet_dialog_session_operation_failed", "session_failed"),
         ("secret token in error", "runtime_failed"),
     ],

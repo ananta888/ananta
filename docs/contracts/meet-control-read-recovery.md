@@ -45,3 +45,32 @@ scenario must continue normal chat/screen behavior through one explicit
 test-only 503, using original freshness limits and no human intervention.
 Broader MAP-11 reconnect/restart/HA criteria remain open until separately
 implemented and verified. No technical observation becomes production evidence.
+
+## Implemented and verified slice
+
+Separate `dialog_control_transport` and `dialog_control_retry` modules now
+classify fixed transport failures and reserve bounded replacement reads. The
+existing signed client closes unread HTTP-error bodies, returns only the
+closed unavailable signal for eligible `exchange` failures, and retains
+terminal behavior for every other action and all trust/contract denials.
+The scheduler keeps one future and never advances `fresh_until` on a retry.
+During recovery, even a valid but obsolete response consumes the remaining
+replacement-read budget and backoff; it cannot create an unlimited sequence
+of superficially successful reads. Existing terminal diagnostics map exhausted
+recovery into their established content-free Hub-unavailable reason.
+
+Verification: **72 initial unit/legacy tests in 38.12 s**, **25 signed HTTP and
+diagnostic tests in 19.20 s**, then **94 final combined regressions in 46.61 s**.
+The private actual Hub/Worker/Meet scenario passed in **43.47 s** through one
+explicit second-read HTTP 503: a subsequent signed current state arrives,
+normal chat/screen exchange continues, source pause/stop and terminal cleanup
+still work. It uses current Python source with the immutable sandboxed browser
+image, explicit synthetic policy/model and private test infrastructure. It is
+not installed-Worker, public outage, durable restart, GPU or production proof.
+
+SOLID review: classification does not make policy decisions, retry accounting
+has no transport or media dependencies, and scheduling cannot mint or extend
+a lease. No Task dispatch, chat/audio result, grant redemption, navigation,
+approval decision or publication operation acquired a retry path. Broader
+MAP-11 recovery criteria remain open; the next verification packages this
+source and exercises independent Worker control-read failures.

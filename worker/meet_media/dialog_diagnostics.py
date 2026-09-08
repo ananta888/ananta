@@ -36,7 +36,11 @@ def stop_reason(completed, failure):
     )
     if code in {"meet_dialog_control_state_stale", "meet_dialog_control_request_stale"}:
         return "control_stale"
-    if code == "meet_dialog_hub_revoked_or_unavailable":
+    if code in {
+        "meet_dialog_hub_revoked_or_unavailable",
+        "meet_dialog_control_transport_unavailable",
+        "meet_dialog_control_recovery_exhausted",
+    }:
         return "hub_unavailable_or_revoked"
     if code in {
         "meet_dialog_session_expired",
