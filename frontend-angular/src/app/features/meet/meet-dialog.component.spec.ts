@@ -29,7 +29,7 @@ describe('Hub-owned Meet dialog controls', () => {
     expect(() => validateDialog({ ...source, controls: { ...source.controls, speech: null } } as never)).toThrow();
     component.ngOnDestroy();
   });
-  const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn(), selectAvatar: vi.fn(), selectVoice: vi.fn(), phase: vi.fn() };
+  const api = { list: vi.fn(), start: vi.fn(), stop: vi.fn(), control: vi.fn(), selectAvatar: vi.fn(), selectVoice: vi.fn(), phase: vi.fn(), diagnostics: vi.fn() };
   let identity: BehaviorSubject<unknown>;
   beforeEach(() => {
     identity = new BehaviorSubject({ sub: 'owner' });
@@ -61,6 +61,17 @@ describe('Hub-owned Meet dialog controls', () => {
     expect(stop.disabled).toBe(false); stop.click(); f.detectChanges();
     expect(api.stop).toHaveBeenCalledExactlyOnceWith('project', 'task');
     expect(f.nativeElement.querySelector('app-meet-dialog-phase').textContent).not.toContain('Revision');
+  });
+  it('keeps stop independent of pending diagnostics and discards the cancelled request', () => {
+    const f = setup(), pending = new Subject<never>(); api.diagnostics.mockReturnValue(pending);
+    f.componentInstance.reload(); f.detectChanges();
+    f.nativeElement.querySelector('app-meet-dialog-diagnostics button').click(); f.detectChanges();
+    expect(api.diagnostics).toHaveBeenCalledOnce(); expect(f.componentInstance.busy()).toBe(false);
+    const stop = [...f.nativeElement.querySelectorAll('button')].find((button: HTMLButtonElement) =>
+      button.textContent?.includes('KI-Auftrag vollständig stoppen')) as HTMLButtonElement;
+    expect(stop.disabled).toBe(false); stop.click(); f.detectChanges();
+    expect(api.stop).toHaveBeenCalledExactlyOnceWith('project', 'task'); expect(pending.observed).toBe(false);
+    expect(f.nativeElement.querySelector('app-meet-dialog-diagnostics').textContent).not.toContain('Worker-Meldung');
   });
   it('requires explicit chat and speech selection without enabling listening or capture', async () => {
     const f = setup(), c = f.componentInstance;

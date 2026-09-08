@@ -6,6 +6,7 @@ import { MeetDialogApiService, MeetDialog, DialogSource, optionalDialogSources }
 import { MeetAvatarPickerComponent } from './meet-avatar-picker.component';
 import { MeetVoicePickerComponent } from './meet-voice-picker.component';
 import { MeetDialogPhaseComponent } from './meet-dialog-phase.component';
+import { MeetDialogDiagnosticsComponent } from './meet-dialog-diagnostics.component';
 import { PendingDialogStart } from './meet-dialog-start-attempt';
 import type { PersonaEffectiveProfile } from '../organizations/persona-media/persona-profile.models';
 
@@ -14,7 +15,7 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
   avatar: ['avatar.publish'],
 };
 
-@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent, MeetVoicePickerComponent, MeetDialogPhaseComponent], template: `
+@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent, MeetVoicePickerComponent, MeetDialogPhaseComponent, MeetDialogDiagnosticsComponent], template: `
   <section aria-label="Autorisierter Meet-Dialog">
     <h3>Ananta im Raum</h3>
     <p>Der Hub startet einen isolierten KI-Teilnehmer. Zuhören und Chatlesen benötigen zusätzlich die
@@ -52,6 +53,8 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
         <p>Dies ist der Auftragsstatus, keine Bestätigung der Medienzustellung.</p>
         <app-meet-dialog-phase [projectId]="projectId" [taskId]="item.task_id" [taskStatus]="item.status"
           [controlRevision]="item.controls.revision" [disabled]="busy()" />
+        <app-meet-dialog-diagnostics [projectId]="projectId" [taskId]="item.task_id" [taskStatus]="item.status"
+          [disabled]="busy()" />
         @if (item.avatar_selection; as selection) {
           <p>Avatar-Auswahl: {{ selection.mode === 'neutral-ai-v1' ? 'festes KI-Symbol' : 'ausgewähltes Persona-Profilbild' }}.
             Die Auswahl ist keine aktuelle Publikationsfreigabe. Der Hub prüft sie erneut; bei Widerruf kein Ersatzbild.</p>
