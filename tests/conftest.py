@@ -9,6 +9,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.isolation_guard import (
+    require_data_directory,
+    require_database_url,
+    require_preloaded_runtime_isolation,
+)
+
 # Stub out missing legacy module so test_worker_client_adapter.py can be collected.
 # worker_engine is not part of the current codebase; stubs prevent ImportError
 # while keeping the test file importable and runnable.
@@ -16,15 +22,20 @@ if "worker_engine" not in sys.modules:
     sys.modules["worker_engine"] = MagicMock()
 
 # Test environment defaults
-os.environ["DATABASE_URL"] = (
+_TEST_DATABASE_URL = (
     f"sqlite:///file:ananta-pytest-{os.getpid()}"
     "?mode=memory&cache=shared&uri=true"
 )
+_TEST_DATA_DIRECTORY = f"/tmp/ananta-pytest-data-{os.getpid()}"
+# Environment assignment cannot retarget an engine/settings object imported by
+# a diagnostic preloader. Reject it before init_db or destructive test cleanup.
+require_preloaded_runtime_isolation(sys.modules, _TEST_DATABASE_URL, _TEST_DATA_DIRECTORY)
+os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
 # Each xdist worker is a separate process but used to share ``data/``.  The
 # cleanup fixture then let one worker remove another worker's artifact or RAG
 # output mid-test.  Bind all mutable test files to the process-local sandbox
 # before importing application settings.
-os.environ["DATA_DIR"] = f"/tmp/ananta-pytest-data-{os.getpid()}"
+os.environ["DATA_DIR"] = _TEST_DATA_DIRECTORY
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
 os.environ["AGENT_NAME"] = "test-agent"
 os.environ["VOICE_DELETION_LEDGER_PATH"] = (
@@ -146,9 +157,11 @@ def _legacy_workflow_runner_text_generation_port(app):
 
 def _ensure_test_db() -> None:
     global _TEST_DB_READY
+    from agent.database import engine, init_db
+
+    require_database_url(engine.url, _TEST_DATABASE_URL)
     if _TEST_DB_READY:
         return
-    from agent.database import init_db
 
     init_db()
     _TEST_DB_READY = True
@@ -655,6 +668,10 @@ def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
 
     def _reset_runtime_state():
+        from agent.database import engine
+
+        require_database_url(engine.url, _TEST_DATABASE_URL)
+        require_data_directory(_settings().data_dir, _TEST_DATA_DIRECTORY)
         # Voice corrections run on the hub-owned executor and may still hold a
         # SQLAlchemy session after the request that scheduled them returned.
         # Drain them before deleting rows; concurrent SQLite cleanup can
@@ -875,6 +892,7 @@ def cleanup_db_and_runtime():
         except Exception:
             pass
         data_dir = Path(_settings().data_dir)
+        require_data_directory(data_dir, _TEST_DATA_DIRECTORY)
         for rel_dir in ("artifacts", "knowledge_indices"):
             target_dir = data_dir / rel_dir
             if target_dir.exists():
