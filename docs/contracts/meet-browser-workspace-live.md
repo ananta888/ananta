@@ -71,3 +71,53 @@ task orchestration in a Worker. Fixed existing source/stop budgets are not
 weakened to make tests pass. Each slice is recorded as partial until its actual
 composition criteria pass. All tests are headless with explicit synthetic
 policy; no production source/run identity is invented from local observations.
+
+## Snapshot and renderer foundation, 2026-09-08
+
+Implemented separate closed `browser_public_view` and immutable
+`BrowserViewGeneration` contracts, read-only `PublicDocumentSnapshot`, and
+`SanitizedDocumentView` with its own offline trusted page program. No existing
+dialog or browser endpoint activates these classes yet. Hub admission, public
+network I/O, workspace dispatch and MDS transport composition still follow.
+
+The snapshot walks at most 4096 DOM nodes with ancestor depth at most 48,
+retains at most 128 text blocks/8192 characters/32768 UTF-8 bytes, and returns
+only bounded text or an empty fixed-reason denial. Forms, secret inputs,
+explicit confidential markers, unknown elements and foreign namespaces are
+denied. Hidden/off-viewport text and script/style bodies are not copied. This
+requires an independently admitted script-disabled public source context; it
+is conservative structural filtering, **not semantic DLP or proof that an
+arbitrary document is public**. URLs, attributes and action code are not view
+fields.
+
+The renderer creates only fixed trusted markup and `textContent` nodes in a
+different network-blocked context. It produces continuous 640×360 JPEG frames,
+retains only the latest frame for at most one second, and never accepts another
+workspace/page/navigation generation. A blocked/malformed view, expiry, resize,
+target loss or foreign generation permanently closes that renderer and clears
+its pending frame. Source control must obtain a fresh Hub revision before a
+replacement instance can be admitted; these classes do not grant that revision.
+
+All **59 focused contract/renderer/browser tests passed in 49.59 s**. The two
+actual probes ran in a network-less, read-only non-root container with Chromium
+sandbox enabled and exact read-only source-file mounts, not the serving app.
+The snapshot probe covered 32 cases. It initially exposed SVG's differently
+cased tag name; the fix checks normalized names, namespaces and a closed
+ordinary-element set. A second test exposed inconsistent oversized-text reason
+classification; the size limit was unchanged and its bounded reason corrected.
+
+The renderer probe decoded eight distinct continuous frames, maximum 10904
+bytes, and confirmed source-page magenta pixels never entered the trusted
+view. Literal script markup stayed text. Four stop cases covered a secret
+input snapshot, resize, closed target and changed generation, with pending
+frames discarded. No screenshot file, raw sensitive-image artifact, human
+capture, network access or production evidence was produced. This is local
+decoded renderer verification, **not yet a decoded Meet-receiver privacy gate**.
+The host Chromium attempt reported no usable sandbox; the successful probe
+used the existing sandboxed container without disabling the sandbox.
+
+SOLID review: view validation is transport-neutral, DOM reading owns no Task
+or publication state, and the renderer owns only its context/frame lifecycle.
+The old status-screen and browser-adapter behavior are unchanged. Network and
+Hub workspace policy will compose these ports rather than make the renderer a
+browser/task orchestrator. MAP-13/15/16 remain in progress.

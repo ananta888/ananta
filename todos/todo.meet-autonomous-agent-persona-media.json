@@ -696,6 +696,7 @@
     },
     {
       "id": "MAP-15",
+      "sanitized_view_foundation": "2026-09-08: separate closed text-view/generation contracts, bounded read-only DOM snapshot and offline continuous renderer implemented, not yet exposed through a Hub/browser/dialog endpoint.59 focused tests49.59s passed; actual sandboxed network-less container32DOM cases and8distinct decoded640x360 frames(max10904bytes), no source-magenta pixels, literal markup stays text. Secret-input denial/resize/closed-target/new-generation clear pending frames; no sensitive image artifacts. Actual SVG namespace-case gap fixed and oversized-text reason corrected without widening limits. No public-source admission, navigation/egress, MDS receiver privacy or production claim yet; MAP13/15/16 remain open. docs/contracts/meet-browser-workspace-live.md.",
       "title": "Datenschutzfilter und Navigationswechsel vor Veröffentlichung absichern",
       "repository": "ananta",
       "type": "security",
