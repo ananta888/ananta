@@ -146,6 +146,9 @@ actual corrected two-container runs passed in 41.83 s and 41.27 s. The temporary
 HTTP diagnostic wrapper was removed after isolating the cause; closed Worker
 and service-specific failure observations remain. All 21 container/closed
 diagnostic unit checks passed in 21.90 s. The companion complete regression
-check is running in a separate worktree of `e7c2344`, including the concurrently
-pushed packager updates through `5e002cf`. Earlier unrelated single-Worker/browser startup intermittence remains
+check passed in a separate worktree of `e7c2344`, including the concurrently
+pushed packager updates through `5e002cf`: 665 frontend and 752 Node tests,
+zero failures, two Node skips, build/security/Go unit+vet green, 241.028 s
+for Node. Fourteen external live gates remain explicitly skipped. Companion
+results are recorded in `dacc96a`. Earlier unrelated single-Worker/browser startup intermittence remains
 separate and is not claimed fixed by this larger private fixture profile.
