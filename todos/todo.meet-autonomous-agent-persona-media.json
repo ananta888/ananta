@@ -992,7 +992,8 @@
         "Kein Agent darf eine zweite Persona durch bloßen Displayname-Wechsel vortäuschen oder fremde Audio-/Videostreams als eigene publizieren.",
         "Mindestens zwei verschiedene Agenten plus Gegenstelle mit gleichzeitigem Browser-/Audiobetrieb testen; eine Mehrcontainer-Prüfung auf einem PC bleibt als Single-Host-Test bezeichnet."
       ],
-      "implementation_plan": "2026-09-08: Source audit 36983a7f7 / companion c3e378a. Existing assignment-derived machine identity and exact session/source authority are implemented; real tests still cover one machine. docs/contracts/meet-multi-agent-isolation.md plans two independently admitted machines plus Chromium/Firefox receiver, distinct personas/screens/simultaneous audio, foreign-source rejection and independent stop; then real Hub/two-Worker-container/role-assignment integration. No prerequisite or production claim is closed by browser-only evidence."
+      "implementation_plan": "2026-09-08: Source audit 36983a7f7 / companion c3e378a. Existing assignment-derived machine identity and exact session/source authority are implemented; real tests still cover one machine. docs/contracts/meet-multi-agent-isolation.md plans two independently admitted machines plus Chromium/Firefox receiver, distinct personas/screens/simultaneous audio, foreign-source rejection and independent stop; then real Hub/two-Worker-container/role-assignment integration. No prerequisite or production claim is closed by browser-only evidence.",
+      "publisher_routing_gap": "2026-09-08: Real companion two-machine browser matrix passed Chromium/Firefox (7.568 s; six related browser cases 18.649 s), but HubDialogTasks and MeetDialogService still use one fixed publisher, so two distinct assigned Worker endpoints cannot be selected. docs/contracts/meet-multi-agent-isolation.md now specifies bounded operator allowlist, exact scoped eligible role selection, shared preflight/admission port, persisted binding and revalidated dispatch; no caller URLs, ambiguous fallback, retry or new scheduler. Existing HMAC trust group is preserved explicitly, not claimed per-Worker credential isolation. Implement with focused SQL/negative/default-composition checks before two-container acceptance."
     },
     {
       "id": "MAP-29",
@@ -1381,10 +1382,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T12:51:05.219496Z",
+    "generated_at": "2026-09-08T12:59:15.930170Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "89f14dea02c221fa66cd2a0a3f9637683fe791ed3114d7c04e2ae553f3d6fe44",
+    "source_hash": "68d138c0699ad4090aa390742f5365127124304df59b804172be39fb3a0a94e6",
     "is_stale": false
   }
 }

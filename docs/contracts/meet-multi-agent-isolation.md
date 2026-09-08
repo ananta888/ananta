@@ -29,3 +29,25 @@ Preserve the existing broad integration fixture as known SRP debt. Put
 multi-publisher observation and scenarios into separate focused helpers rather
 than adding another mode to the already large single-dialog test. No policy
 or cryptographic bypass is permitted to make this matrix pass.
+
+## Missing Hub routing identified
+
+`HubDialogTasks.start` admits roles against one fixed `publisher_url`, and
+`MeetDialogService.start` dispatches through one fixed transport. The existing
+role-derived identities therefore do not provide two independently assigned
+Worker destinations. Add an optional operator allowlist of at most eight
+dialog Worker endpoints. Select exactly one eligible current role assignment
+inside the requested tenant/project/Organization/role scope; missing, ambiguous,
+malformed or unavailable assignment data must deny instead of falling back.
+Persist the selected origin using the existing role binding and revalidate it
+immediately before dispatch. Preflight and actual task admission must use the
+same selection port. Legacy non-Organization sessions retain their explicit
+default Worker. The separate model-generation Worker remains Hub-configured.
+
+Keep selection, bound dispatch and environment parsing separate (SRP/DIP).
+No client/Worker-selected endpoint, directory-wide discovery, task rebinding,
+retry after an uncertain dispatch, or new orchestration loop. The opt-in
+allowlist reuses the existing HMAC trust group; it is not per-Worker credential
+isolation, and that limitation must remain explicit. Test two scoped SQL role
+assignments, ambiguity/revocation/tampering, exact dispatch, unchanged default
+composition, and then the two-container path.
