@@ -48,3 +48,12 @@ bootstrap composition remain preserved debt, not homes for parsing, SQL or
 telemetry policy. No schema change to Meet and no production flag activation.
 MAP-12/32 stay open until their remaining UI, stop, resource and rollout criteria
 are verified; this slice alone does not establish GPU metrics or a stop SLA.
+
+Persistence refinement before implementation: `meet_task_write_validation.py`
+already makes the complete terminal `worker_execution_context` immutable. Do
+not weaken that fence to append diagnostics. Use a separate append-only Hub SQL
+ledger, one row per original Task, and revalidate/lock the exact terminal Task
+snapshot in the same transaction as observation insertion. Identical immutable
+records remain idempotent; no Task status/context/event mutation is required.
+Read access rechecks current Task ownership/scope and the stored binding digest.
+Terminal identity immutability tests must remain unchanged and pass.
