@@ -41,3 +41,38 @@ DIP shares a pure contract without importing Hub services into the Worker.
 Existing broad `HubMediaTasks` and local runtime composition are preserved debt;
 put profile derivation/validation in focused helpers, not another renderer branch
 or a plugin registry that could expand permissions implicitly.
+
+## Implementation
+
+`TurnSourceProfile` is a separate frozen value, not an inherited renderer or
+policy plugin. Six variants distinguish neutral/image/video inputs and preview/
+publication. The input list keeps admitted persona clips explicit. Fresh nested
+projection objects cannot mutate its source bounds or one another.
+
+`meet_turn_source_binding` owns the Hub metadata and exact-context check. A
+partial or malformed new binding is denied; legacy absence of both new fields
+retains the old renderer. Capacity admission and successful terminal CAS compare
+against the original turn, including coherent preview-to-publication expansion.
+The lease callback checks the stored projection but still needs all existing
+scope, task, parent, profile and asset rights. Terminal failure cleanup is not
+blocked by corrupted source metadata. This is fixed-code classification, not
+remote attestation of a compromised endpoint or cryptographic immutability of
+the entire Hub database.
+
+The first 96 classifier/real Hub task/media/child-fence checks passed in 67.07 s.
+The expanded regression and installed-image checks remain in progress. The
+standalone boundary scan covers 80 files and remains free of Hub imports.
+
+The expanded set passed all 208 test bodies in 144.66 s but exposed two cleanup
+errors in the existing capacity bootstrap test: its temporary global database
+replacement outlived the test body and reached the autouse isolation guard.
+The fixture now scopes that replacement explicitly to bootstrap configuration
+and restores it before runtime cleanup. The guard remains unchanged; this is
+not a production database migration or a source-profile test failure. Repeat
+the affected bootstrap/isolation cases and the final regression before release.
+
+The corrected bootstrap plus all 34 source-profile cases passed together:
+40 passed in 31.60 s, no cleanup errors. The earlier 208-case set also included
+the real Hub/Meet role-principal interoperability check and existing image/video,
+chat and capacity regressions. The next check uses a newly built immutable
+Worker image, never a source mount substituted for installed code.

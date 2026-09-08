@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ananta_contracts.meet_media_failures import failure_exit
 from ananta_contracts.meet_speech import speech_profile
+from ananta_contracts.meet_turn_source_profile import profile_for_turn
 from worker.meet_media.avatar import avatar
 from worker.meet_media.llm import answer, generate
 from worker.meet_media.piper_speech import PiperSpeechSource
@@ -16,6 +17,7 @@ from worker.meet_media.speech import speech
 
 
 def run(turn):
+    profile_for_turn(turn)
     with tempfile.TemporaryDirectory(prefix="meet-turn-") as temporary:
         directory = Path(temporary)
         lease = None

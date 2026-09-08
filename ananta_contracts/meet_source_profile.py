@@ -6,7 +6,7 @@ CAPABILITIES = frozenset(
     {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
 )
 SOURCE_CLASSES = frozenset(
-    {"agent_browser", "generated_audio", "generated_video", "persona_image", "human_device_capture"}
+    {"agent_browser", "generated_audio", "generated_video", "persona_image", "persona_video", "human_device_capture"}
 )
 DENIED_OPERATIONS = ("human_device_capture", "record", "model.train", "tool.execute")
 

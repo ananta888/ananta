@@ -365,6 +365,7 @@
     },
     {
       "id": "MAP-03",
+      "turn_source_profile_implementation": "2026-09-08: Pure frozen six-variant turn classifier and shared sourceclasses now retain persona_video input explicitly, separate generated/publication bounds and deny capture/record/train/tools/receive/screen. Hub stores projection plus publication intent, checks current/capacity/success CAS/original turn and legacy lease, preserves failure cleanup. Worker classifies before model/temp/render; closed v1wire unchanged. First96checks67.07s; expanded208bodies passed144.66s with2existing bootstrap cleanup errors, scoped database patch corrected then40affected/bootstrap/profilechecks31.60s passed. Ruff/80Workerboundary green. Newly built installed runtime/GPU check pending before closure; no production/source-attestation claim. docs/contracts/meet-turn-source-profile.md.",
       "turn_source_profile_plan": "2026-09-08: Source audit b3620b3b7: dialog profile explicit but separate one-shot neutral/image/video renderer lacks stored source classification. docs/contracts/meet-turn-source-profile.md plans pure immutable compiler, explicit persona_video input (not mislabeled synthetic), distinct generation/publication bounds, Hub-owned persistence/current/success/lease checks and Worker pre-render classification without new wire fields or rights. Legacy fixed handler compatible; malformed present projection denied, failed cleanup retained. Focused real TaskQueue/negative/media/persona/chat/capacity regressions and updated packaged runtime check required; browser privacy and production evidence remain separate.",
       "title": "Bedrohungsmodell und getrennte Rechte für eigene und menschliche Quellen festlegen",
       "repository": "both",
@@ -1390,10 +1391,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T14:44:46.222514Z",
+    "generated_at": "2026-09-08T14:54:40.849580Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "709fdd3a97e6c65e1989d7bddfb666040654d767b3b9fb7b92656ab84299a1b3",
+    "source_hash": "bb7b08f7de3002128c1cbb6c1f5917ca0cb631493db857d8d15e262f5a4d0d62",
     "is_stale": false
   }
 }

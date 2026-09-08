@@ -7,6 +7,7 @@ from typing import Protocol
 from agent.services.meet_capacity_admission import MediaCapacityPort
 from agent.services.meet_contract import MeetError
 from agent.services.meet_speech_result import validate_speech_binding
+from agent.services.meet_turn_source_binding import require_source_context, source_context_matches, source_metadata
 from agent.services.meet_visual_selection import MeetVisualSelections
 from ananta_contracts.meet_speech import validate_speech_profile
 from worker.meet_media.contract import SCHEMA, validate_turn
@@ -173,6 +174,7 @@ class MeetTurnService:
         try:
             from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
 
+            require_source_context(context)
             MeetDialogLifecycle(get_repository_registry().task_repo).require_current(
                 task, context.get("binding_task_id", "")
             )
@@ -226,6 +228,7 @@ class HubMediaTasks:
             or task.tenant_id != turn["tenant_id"]
             or task.project_id != turn["project_id"]
             or any(context.get(key) != value for key, value in expected.items())
+            or not source_context_matches(context, turn)
         ):
             raise MeetError("meet_capacity_task_changed", 409)
         self._parent_lifecycle().require_current(task, turn.get("binding_task_id", ""))
@@ -255,6 +258,7 @@ class HubMediaTasks:
                 "parent_task_id": turn.get("binding_task_id"),
                 "worker_execution_context": {
                     "meet_media": {
+                        **source_metadata(turn),
                         "lease_id": turn["lease_id"],
                         "deadline": turn["deadline"],
                         "owner_subject": actor,
@@ -306,6 +310,7 @@ class HubMediaTasks:
                 task = get_repository_registry().task_repo.get_by_id(turn["task_id"])
                 if task is None:
                     return False
+                require_source_context((task.worker_execution_context or {}).get("meet_media", {}), turn)
                 self._parent_lifecycle().require_current(task, turn.get("binding_task_id", ""))
                 inherited = organization_tuple(task)
             except Exception:
@@ -318,6 +323,10 @@ class HubMediaTasks:
                 task.task_kind == "meet_media_turn"
                 and task.tenant_id == turn["tenant_id"]
                 and task.project_id == turn["project_id"]
+                and (
+                    status != "completed"
+                    or source_context_matches((task.worker_execution_context or {}).get("meet_media", {}), turn)
+                )
                 and (
                     inherited is None
                     or (
