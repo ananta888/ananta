@@ -77,3 +77,25 @@ def test_chat_readiness_contains_only_actual_open_state_and_numeric_revisions(mo
     with pytest.raises(ValueError, match="native-denial"):
         seam["_fixture_chat_update"](receiver, receipt, control)
     written.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "message,code",
+    [
+        ("PRIVATE Resource temporarily unavailable", "resource"),
+        ("PRIVATE No usable sandbox", "sandbox"),
+        ("PRIVATE Executable doesn't exist", "executable"),
+        ("PRIVATE Received signal 11", "crash"),
+        ("PRIVATE unknown", "unknown"),
+    ],
+)
+def test_launch_diagnostic_only_exports_closed_reason_and_never_retries(monkeypatch, message, code):
+    seam, _ = load_seam(monkeypatch)
+    error = type("TargetClosedError", (Exception,), {})(message)
+    error.message = message
+    seam["_native_launch"].side_effect = error
+    with pytest.raises(ValueError, match="^test_worker_browser_launch_" + code + "$"):
+        seam["_fixture_launch"](
+            Mock(), headless=True, chromium_sandbox=True, args=["--autoplay-policy=no-user-gesture-required"]
+        )
+    seam["_native_launch"].assert_called_once()

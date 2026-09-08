@@ -21,6 +21,7 @@ _pin = os.environ.get("MEET_TEST_BROWSER_SPKI", "")
 if not re.fullmatch(r"[A-Za-z0-9+/]{43}=", _pin):
     raise RuntimeError("test_worker_certificate_pin_required")
 _native_launch = BrowserType.launch
+_launch_codes = frozenset({"timeout", "sandbox", "resource", "executable", "crash", "unknown"})
 _failure_codes = frozenset(
     {
         "meet_dialog_control_state_stale",
@@ -42,15 +43,37 @@ _failure_codes = frozenset(
         "control_regressed",
     )
 )
+_failure_codes |= frozenset("test_worker_browser_launch_" + code for code in _launch_codes)
+
+
+def _launch_failure(error):
+    if type(error).__name__ == "TimeoutError":
+        return "timeout"
+    if type(error).__name__ not in {"Error", "TargetClosedError"}:
+        return "unknown"
+    message = getattr(error, "message", "")
+    text = message[:32768] if isinstance(message, str) else ""
+    for code, pattern in (
+        ("sandbox", r"No usable sandbox|Failed to move to new namespace|Operation not permitted.*namespace"),
+        ("resource", r"Resource temporarily unavailable|Cannot allocate memory|No space left on device"),
+        ("executable", r"Executable doesn't exist|browser executable.*not found"),
+        ("crash", r"Received signal 11|SIGSEGV"),
+    ):
+        if re.search(pattern, text, re.IGNORECASE):
+            return code
+    return "unknown"
 
 
 def _fixture_launch(self, *args, **kwargs):
     expected = {"headless": True, "chromium_sandbox": True, "args": ["--autoplay-policy=no-user-gesture-required"]}
     if args or kwargs != expected:
         raise RuntimeError("test_worker_browser_contract_changed")
-    return _native_launch(
-        self, **(kwargs | {"args": kwargs["args"] + ["--ignore-certificate-errors-spki-list=" + _pin]})
-    )
+    try:
+        return _native_launch(
+            self, **(kwargs | {"args": kwargs["args"] + ["--ignore-certificate-errors-spki-list=" + _pin]})
+        )
+    except Exception as error:
+        raise ValueError("test_worker_browser_launch_" + _launch_failure(error)) from None
 
 
 BrowserType.launch = _fixture_launch

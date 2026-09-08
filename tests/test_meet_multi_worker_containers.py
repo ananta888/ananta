@@ -23,8 +23,16 @@ pytestmark = [
 
 @pytest.mark.parametrize(
     "media_mode",
-    [False, True, "browser", "control-recovery", "worker-crash", "terminal-control"],
-    ids=["screen-only", "persona-speech", "browser-workspaces", "control-recovery", "worker-crash", "terminal-control"],
+    [False, True, "browser", "control-recovery", "worker-crash", "terminal-control", "runtime-stall"],
+    ids=[
+        "screen-only",
+        "persona-speech",
+        "browser-workspaces",
+        "control-recovery",
+        "worker-crash",
+        "terminal-control",
+        "runtime-stall",
+    ],
 )
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
     app, tmp_path, monkeypatch, record_property, media_mode
@@ -77,7 +85,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     media = MultiWorkerMediaScenario() if media_mode is True else None
     browser = MultiWorkerBrowserScenario(media_mode == "browser")
     control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
-    worker_crash = media_mode == "worker-crash"
+    worker_crash = media_mode in {"worker-crash", "runtime-stall"}
     terminal_control = MultiWorkerTerminalControl(media_mode == "terminal-control")
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
@@ -342,7 +350,11 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         if control_recovery.enabled:
             assert command("screens") == both, "both screens must keep moving after the actual recovery"
         browser.exercise(app, principal, started, containers, command, record_property)
-        if worker_crash:
+        if media_mode == "runtime-stall":
+            from tests.meet_multi_worker_runtime_stall import stall_owned_runtime
+
+            stall_owned_runtime(containers[0], record_property)
+        elif worker_crash:
             from tests.meet_multi_worker_crash import crash_owned_worker
 
             crash_owned_worker(containers[0])
@@ -374,7 +386,9 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         if worker_crash:
             from tests.meet_multi_worker_crash import reconcile_crashed_worker
 
-            reconcile_crashed_worker(app, tasks, started[0]["task_id"], record_property)
+            reconcile_crashed_worker(
+                app, tasks, started[0]["task_id"], record_property, container_killed=media_mode == "worker-crash"
+            )
         expected_statuses = [
             "failed" if worker_crash or terminal_control.enabled else "cancelled",
             "failed" if preauthorization is not None else "cancelled",

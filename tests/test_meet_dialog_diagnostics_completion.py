@@ -25,8 +25,9 @@ def test_main_reports_only_after_run_cleanup_and_finish_without_changing_outcome
     source = io.BytesIO(json.dumps(assignment()).encode())
     hub = Mock(deadline=time.monotonic() + 60)
 
-    def run(*_args):
+    def run(*_args, progress=None):
         assert source.closed
+        assert progress is None
         events.append("cleanup")
         if failure == "control":
             raise original

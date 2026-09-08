@@ -5,8 +5,8 @@ import re
 import time
 
 
-def crash_owned_worker(container):
-    """Resolve one freshly created fixture, then kill its immutable container ID."""
+def owned_worker_id(container):
+    """Resolve one freshly created fixture before any destructive test injection."""
     if not container.created or not re.fullmatch(r"meet-test-dialog-worker-[a-f0-9-]{36}", container.name):
         raise ValueError("test_worker_crash_target_invalid")
     rows = json.loads(container.command("inspect", container.name))
@@ -21,13 +21,18 @@ def crash_owned_worker(container):
         or set(row.get("NetworkSettings", {}).get("Networks", {})) != {container.network}
     ):
         raise ValueError("test_worker_crash_target_invalid")
-    container.command("kill", "--signal=KILL", row["Id"])
-    state = json.loads(container.command("inspect", row["Id"], "--format", "{{json .State}}"))
+    return row["Id"]
+
+
+def crash_owned_worker(container):
+    identifier = owned_worker_id(container)
+    container.command("kill", "--signal=KILL", identifier)
+    state = json.loads(container.command("inspect", identifier, "--format", "{{json .State}}"))
     assert state["Running"] is False and state["ExitCode"] == 137, "owned Worker did not exit abruptly"
     container.test_crashed = True
 
 
-def reconcile_crashed_worker(app, tasks, task_id, record_property):
+def reconcile_crashed_worker(app, tasks, task_id, record_property, *, container_killed=True):
     """No clock substitution, task mutation, fake callback or assignment replay."""
     from agent.database import engine
     from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
@@ -64,7 +69,8 @@ def reconcile_crashed_worker(app, tasks, task_id, record_property):
     record_property(
         "packaged_worker_crash",
         {
-            "abrupt_container_exit": 137,
+            "abrupt_container_exit": 137 if container_killed else None,
+            "runtime_stall": not container_killed,
             "surviving_worker_continues": True,
             "original_deadline_settled_once": True,
             "real_clock": True,

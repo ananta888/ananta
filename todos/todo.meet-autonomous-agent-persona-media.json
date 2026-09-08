@@ -516,7 +516,8 @@
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
       "startup_investigation": "2026-09-08: Intermittenter initialer Screenempfang mit 349 RTP-Paketen/0 dekodierten Frames, 33 Senderframes und lebendem Hub/Worker; gruene Wiederholung ist kein Fix. Companion 4d40b45 verwirft Frames vor SFrame-Keyinstallation, fordert dabei aber keinen Ersatz-Keyframe an. Hypothese noch unbestaetigt; docs/contracts/meet-screen-encryption-startup.md plant feste begrenzte Zweissekunden-Senderkeyverzoegerung ohne Rechte-/Timeout-/Verschluesselungslockerung und nur numerische Diagnosen.",
       "startup_diagnostic_result": "2026-09-08: Sender-/Empfaenger-Keyverzoegerung implementiert, finale3 Tests in55.55s bestanden. Beide echten Browserpfade mit tatsaechlicher2s-Verzoegerung eines aktuellen Schluessels, bewegtem Screen, zwei Chatantworten, Secret-Marker-Sperre und Hub-Stop. Maximal drei eingehende aktuelle Keygenerationen/ein Key/Timer; verworfene Injektionen und Vorzulassungs-Netzfehler separat dokumentiert. Urspruenglicher sporadischer Decoderstartfehler damit NICHT reproduziert oder behoben; kein spekulativer Kryptofix. Numerische RTP/Keyframe/PLI/Transformdiagnose bleibt fuer weitere Vorkommnisse. MDS-Gesamtcheck folgt isoliert, keine synthetische Produktionsfreigabe.",
-      "client_probe_implementation": "2026-09-08: Strict pure closed validator plus small browser observation adapter implemented; assigned ports/codec directions, all63nonempty capability sets, no native/plaintext fallback, absent legacy distinct from malformed/promise/unsupported. Session checkpoints before/after read fence navigation/expiry and prevent grant handoff. First105checks72.95s, expanded330source/media/persona/capacity/client/runtimechecks218.00s clean;81Workerboundary and Ruff green. Actual new Meet browser/full check and installed Worker integration pending. docs/contracts/meet-client-probe.md."
+      "client_probe_implementation": "2026-09-08: Strict pure closed validator plus small browser observation adapter implemented; assigned ports/codec directions, all63nonempty capability sets, no native/plaintext fallback, absent legacy distinct from malformed/promise/unsupported. Session checkpoints before/after read fence navigation/expiry and prevent grant handoff. First105checks72.95s, expanded330source/media/persona/capacity/client/runtimechecks218.00s clean;81Workerboundary and Ruff green. Actual new Meet browser/full check and installed Worker integration pending. docs/contracts/meet-client-probe.md.",
+      "packaged_launch_observation": "2026-09-09 private watchdog selection2pass/1fail124.70s: third case fails at installed Chromium launch before bind/injection, original exception was redacted. Test-only closed timeout/sandbox/resource/executable/crash/unknown launch classifier added and12tests14.25s pass; standalone stall repeat159.69s and further2packaged media/browser cases120.70s pass. This is not proof of the original launch cause or a product startup fix. docs/contracts/meet-dialog-progress-watchdog.md; startup intermittence remains an open MAP08/29 observation."
     },
     {
       "id": "MAP-09",
@@ -603,7 +604,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 45.0,
+      "progress_percent": 65.0,
       "depends_on": [
         "MAP-09",
         "MAP-10"
@@ -630,7 +631,8 @@
       "control_error_boundary_result": "2026-09-09: shared pure HTTP-read classifier, Hub closed temporary-vs-terminal translation/error-body closure and additive restrictive callback header implemented. Known Meet TLS/policy/parser/schema errors no longer masquerade as retryable Hub outages; absent header preserves legacy gateway compatibility within unchanged2.5s budget. Reproduction29failed/12passed45.17s represents parameterizations of one cross-boundary problem, not29 distinct bugs. Fixed96tests86.96s plus57tests46.48s (nine actual Worker->Hub->upstream HTTP chains),58 legacy/client/diagnostic/crash regressions34.16s with-n2;101 Worker boundary files and Ruff passed. docs/contracts/meet-control-error-boundary.md. No room rejoin, full Hub restart or production claim; installed-image follow-up remains next.",
       "progress_watchdog_plan": "2026-09-09 source89fe9db32: parent executor enforces only whole assignment+5s while browser RPC may block local2.5s control checks. docs/contracts/meet-dialog-progress-watchdog.md plans separate private monotonic-deadline datagram/resource watchdog: startup<=90s/original cap, active original freshness+500ms cleanup, no heartbeat time renewal, no source/policy/Task/dispatch authority. Separate pure budget/descriptor/process seams; real child, descriptor/replay/negative tests then actual owned runtime stall and receiver/descendant cleanup. Existing source freshness unchanged; no network realtime/full MAP11 claim.",
       "control_error_packaged_result": "2026-09-09: installed89fe9db32 image547fc9e52c5a8ab28fdaae878aac9ded4241710490737984d0cb5010556d9855 and separately built current Meet92f583f pass2 real two-Worker cases81.77s: independent503 recovery then continued moving remote screens; known terminal contract502 stops after exactly1 failed read/no retry, survivor continues then independently revoked, signed terminal observations retained. Initial2cases27.95s rejected stale private frontend after parallel companion changes; fresh private build and765UItests11.08s pass, servingdist untouched. Next1pass/1fail80.58s exposed fixture cancellation before second read; explicit bounded recovery barrier plus post-recovery remote motion fixes test sequencing, no product delay/freshness change.15 final fixture tests16.48s. docs/contracts/meet-control-error-boundary.md. Synthetic/private technical observation, not full companion check/GPU/public/production proof.",
-      "progress_watchdog_initial_result": "2026-09-09: independent existing parent-watch thread now consumes private8byte absolute monotonic control deadlines; pure irreversible budget, datagram/descriptor and process seams. Startup<=90s/original bound, active unchangedfreshness+500ms resource cleanup,16packet cap, no queued/duplicate/expired time renewal. Runtime reports only after local/Hub membership agreement, disables descendant inheritance; no dispatch/grant/approval retry.85 unit/channel/executor/replay regressions38.82s and12 real-child/runtime-composition checks16.67s passed;104 standalone Worker boundary files/Ruff pass. docs/contracts/meet-dialog-progress-watchdog.md. Installed browser descendants/receiver and full MAP11 recovery remain unverified pending next gate; no production claim."
+      "progress_watchdog_initial_result": "2026-09-09: independent existing parent-watch thread now consumes private8byte absolute monotonic control deadlines; pure irreversible budget, datagram/descriptor and process seams. Startup<=90s/original bound, active unchangedfreshness+500ms resource cleanup,16packet cap, no queued/duplicate/expired time renewal. Runtime reports only after local/Hub membership agreement, disables descendant inheritance; no dispatch/grant/approval retry.85 unit/channel/executor/replay regressions38.82s and12 real-child/runtime-composition checks16.67s passed;104 standalone Worker boundary files/Ruff pass. docs/contracts/meet-dialog-progress-watchdog.md. Installed browser descendants/receiver and full MAP11 recovery remain unverified pending next gate; no production claim.",
+      "progress_watchdog_packaged_result": "2026-09-09 installedbf065bdef image03e5576cc841570aae8fe80ce68975bfad2d76da2bccae40266bfc7e8ec064d2, private Meet92f583f: real runtime SIGSTOP after both remote screens move; parent removes runtime and9 browser descendants2139.86ms, no active orphan browser, container still live/native health passes. Receiver departure/survivor motion then independent revocation216.78ms; original real-clock orphan deadline settled once, report correctly missing. Gate159.69s pass. First2pass/1fail124.70s ended stall case before injection at browser launch; enum-only diagnostic added, original cause unestablished. Probe NUL collection typo corrected before execution. Final152 regressions63.47s; two complete packaged persona/simultaneous-speech and browser-workspace cases120.70s pass, no application source mounts. docs/contracts/meet-dialog-progress-watchdog.md. MAP11 assessment65percent/partial: bounded control recovery, independent stall stop and original-deadline reconciliation verified; automatic room rejoin, full Hub restart and broader recovery matrix still open. No GPU/public/production claim."
     },
     {
       "id": "MAP-12",
@@ -1296,7 +1298,7 @@
         "done": 12,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 88.4
+        "progress_percent": 89.7
       },
       "infrastructure": {
         "total": 1,
@@ -1350,15 +1352,15 @@
     "blocked": 0,
     "done": 19,
     "count_based_percent": 59.4,
-    "weighted_percent": 78.7
+    "weighted_percent": 79.0
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 45.837,
-    "remaining_weight": 12.413,
+    "done_weight": 46.037,
+    "remaining_weight": 12.213,
     "blocked_weight": 0.0,
-    "weighted_percent": 78.7
+    "weighted_percent": 79.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1383,7 +1385,7 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 25.0,
-        "weighted_percent": 66.9,
+        "weighted_percent": 70.0,
         "status": "in_progress"
       },
       "MAP-M4": {
@@ -1431,10 +1433,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T21:52:30.959502Z",
+    "generated_at": "2026-09-08T23:01:23.056409Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "309204a62ac2cf649bdff7c2711cf44f83ce402f65edaf4e73c2a81bc547c821",
+    "source_hash": "041505a332d5fe2277cc345a61c8594831374e43a026e9c4516e34db8ff1e0ee",
     "is_stale": false
   }
 }

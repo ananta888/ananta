@@ -67,3 +67,44 @@ child, and invalid membership never emits progress. Ruff and the standalone
 Worker boundary check (**104 files**) passed. Installed-browser descendant and
 receiver verification is still required; these process tests alone do not
 prove Chromium's separately spawned subprocesses disappear.
+
+## Installed browser and receiver verification
+
+Immutable image
+`sha256:03e5576cc841570aae8fe80ce68975bfad2d76da2bccae40266bfc7e8ec064d2`
+was built from `bf065bdef`, without application-source mounts. Against the
+separately built Meet `92f583f`, the first selection passed read recovery and
+terminal-error fencing. Its stall case failed before injection during browser
+launch (**2 passed/1 failed, 124.70 s**); the old test diagnostic redacted the
+underlying launch reason. A bounded enum-only launch diagnostic now distinguishes
+timeout, sandbox, resource, executable, crash and unknown, without retry,
+Chromium logs or launch arguments. The cause of that first startup failure
+remains unestablished; a passing repeat is not a fix for it.
+
+The stall repeat passed in **159.69 s**. After both remote screens were moving,
+the probe resolved exactly one owned runtime by process identity and start
+time, then applied SIGSTOP only to that runtime. The parent watchdog removed
+it and all **nine observed browser descendants in 2139.86 ms**. No active
+untracked Chromium/driver process remained. The Worker container stayed running
+and its native health probe succeeded. The departed participant disappeared;
+the other screen continued and subsequently obeyed independent operator
+revocation (**216.78 ms**). Native Hub reconciliation later failed the orphan
+at its unchanged real-clock deadline with exactly one history event. Its
+terminal Worker observation correctly remains missing, not fabricated.
+
+The test uses kernel suspension of the real runtime to represent an event loop
+that cannot progress; it does not claim to diagnose an actual hung browser RPC.
+The first new probe file also had an invalid NUL literal during test collection;
+its byte splitting was corrected and module/probe syntax checked before the
+successful run. Ten stall/cleanup helper tests passed in **12.79 s**, twelve
+closed launch-diagnostic tests in **14.25 s**, and 35 completion/crash/observation
+regressions in **31.18 s**. A narrow test double was updated to accept the new
+optional progress port; production cleanup order was not relaxed.
+
+The final **152 selected regressions passed in 63.47 s**. Two additional full
+installed-container cases passed in **120.70 s**: simultaneous persona/speech
+and separately owned browser workspaces, including their independent source,
+membership and operator-stop fences. This also rechecks the extracted terminal
+observation helper in actual containers. These remain private, synthetic-policy
+technical observations, not GPU, public TURN, full-Hub restart, automatic room
+rejoin or production release evidence. MAP-11 remains partial.

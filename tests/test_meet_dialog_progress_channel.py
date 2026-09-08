@@ -116,3 +116,21 @@ def test_spawn_options_inherit_only_writer_and_parent_closes_both_resources():
     channel.close()
     with pytest.raises(OSError):
         os.fstat(reader)
+
+
+def test_lost_parent_channel_cannot_be_treated_as_successful_progress():
+    channel = DialogProgressChannel()
+    try:
+        channel.reader.close()
+        with pytest.raises(OSError):
+            DialogProgressSender(channel.writer, clock=lambda: 100).report(102, 500)
+    finally:
+        channel.close()
+
+
+def test_short_send_is_terminal_not_a_partial_success():
+    channel = Mock()
+    channel.send.return_value = 4
+    with pytest.raises(ValueError, match="send_failed"):
+        DialogProgressSender(channel, clock=lambda: 100).report(102, 500)
+    channel.send.assert_called_once()
