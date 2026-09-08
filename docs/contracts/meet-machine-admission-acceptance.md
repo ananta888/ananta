@@ -29,3 +29,20 @@ closed interfaces. The broad existing HTTP composition in `src/server.js`
 remains SRP debt; this audit does not add another concern to it. A future
 route extraction should preserve those existing adapters and exact order of
 verification rather than combine them into one authentication service.
+
+## Closure verification
+
+The complete isolated companion regression at `59ce395` passed with 665
+frontend and 759 Node tests, zero failures, build/security and Go unit/vet
+green (242.353 s Node stage). It includes the actual P-256/HTTP/WebSocket
+admission, three-renewal, trust-scope/replay, ticket, human and room/pair tests
+mapped above. Results are pushed in `1a62de0`. Root's actual SQL/Hub-signature/
+Meet cross-subject interoperability case also passed in the 208-case media
+regression. Its two unrelated bootstrap teardown failures were corrected and
+the affected 40-case regression passed without errors in 31.60 s.
+
+MAP-06's four v2 admission criteria are therefore complete. No duplicate
+authentication implementation was needed. External trust provisioning, public
+TURN, general reconnect recovery and source-delivery quality are not promoted
+by this closure; neither synthetic test credentials nor this source audit are
+production release evidence.

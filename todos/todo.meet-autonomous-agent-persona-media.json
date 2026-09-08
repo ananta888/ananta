@@ -449,10 +449,10 @@
       "repository": "ananta_meet",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-05"
       ],
@@ -462,7 +462,8 @@
         "Einmalige Join-Credentials werden nach gültiger Admission automatisch ausgestellt. Falsche Audience, fremder Tenant, falscher Raum oder wiederholte Verwendung werden abgewiesen.",
         "Bestehende Human-OIDC-/P-256-Flows, 20-Teilnehmer-Raumgrenze und Pair-Grenzen bleiben unverändert; der Agent zählt als normaler kapazitätsrelevanter Teilnehmer."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "completion_note": "2026-09-08: All four v2 admission criteria verified against current signed scope/P-256/device lease/one-use origin-bound ticket/replay/shared room-pair-human source and real tests; docs/contracts/meet-machine-admission-acceptance.md. Complete companion59ce395 check665frontend/759Nodepassed/0failed plus build/security/Go green, results1a62de0; real Hub SQL/signature cross-subject interop passed in208-case root regression. Two unrelated bootstrap teardown errors corrected;40affected/profilecases31.60s passed. Existing implementation meets admission contract, no duplicate auth code or runtime trust changes. Narrow legacyv1 remains compatible; provisioning/recovery/publicTURN/delivery quality and production evidence separately open."
     },
     {
       "id": "MAP-07",
@@ -1132,11 +1133,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 7,
-      "partial": 12,
+      "partial": 11,
       "blocked": 0,
-      "done": 12
+      "done": 13
     },
-    "progress_percent_done": 37.5,
+    "progress_percent_done": 40.6,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1150,8 +1151,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 4,
-      "remaining": 12
+      "done": 5,
+      "remaining": 11
     },
     "milestones": {
       "total": 8,
@@ -1235,14 +1236,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 2,
-          "partial": 6,
+          "partial": 5,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 6,
+        "done": 1,
+        "partial": 5,
         "blocked": 0,
-        "progress_percent": 46.9
+        "progress_percent": 51.9
       },
       "feature": {
         "total": 16,
@@ -1306,19 +1307,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 7,
-    "partial": 12,
+    "partial": 11,
     "blocked": 0,
-    "done": 12,
-    "count_based_percent": 37.5,
-    "weighted_percent": 64.2
+    "done": 13,
+    "count_based_percent": 40.6,
+    "weighted_percent": 65.2
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 37.388,
-    "remaining_weight": 20.862,
+    "done_weight": 37.987,
+    "remaining_weight": 20.263,
     "blocked_weight": 0.0,
-    "weighted_percent": 64.2
+    "weighted_percent": 65.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1332,10 +1333,10 @@
       },
       "MAP-M2": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 66.5,
+        "count_based_percent": 50.0,
+        "weighted_percent": 75.8,
         "status": "in_progress"
       },
       "MAP-M3": {
@@ -1391,10 +1392,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T14:54:40.849580Z",
+    "generated_at": "2026-09-08T14:55:24.560198Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "bb7b08f7de3002128c1cbb6c1f5917ca0cb631493db857d8d15e262f5a4d0d62",
+    "source_hash": "521915e500a84c3543ad351cc113ada838a2323c1b67971dfbe759d252f8563a",
     "is_stale": false
   }
 }
