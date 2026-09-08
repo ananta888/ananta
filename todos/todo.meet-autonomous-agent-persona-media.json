@@ -806,10 +806,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M5",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-11",
         "MAP-18"
@@ -823,7 +823,8 @@
       "implementation_note": "Additive persona_profile-Auswahl für neue begrenzte Medienturns implementiert. Hub-Konfigurationsdigest bindet Scope, tatsächliche Abstammung, Topologiestand und immutable Profilhashes; kein Evidenz-Identifier oder Grant. Aktive Organisation/Team/Einheit/Rollenplatz/Besetzung erforderlich. Worker erhält nur konkrete geschlossene Bildprojektion; Profilbindung bleibt im Hub-Task und wird nach Erzeugung sowie über die bestehende Publikations-Lease erneut geprüft. Profilwechsel, Rechte-/Bildentzug, Pausierung und fehlende/deaktivierte Bilder sperren Ergebnisse ohne stillen neutralen Fallback. Zusätzlich explizite/geerbte Voice-/Video-Deaktivierung für den kombinierten MP4-Pfad durchgesetzt: dessen benötigte Ausgaben werden vor Bildladen, Taskanlage und Workerdispatch geprüft; kein stilles Erzeugen deaktivierter Medien. Unabhängige Bildvorschau bleibt möglich. 73 Profil-/Output-/Auflösungstests in 53,96 Sekunden bestanden; zuvor 174 kombinierte Medien-/Chat-/Profiltests sowie 10 UI-/HTTP-Tests und Angular-Build bestanden. docs/contracts/meet-persona-profile-turns.md. Noch offen: einzeln steuerbare Livequellen, langlebige MDS-Sessiongenerationen, separater Hub-Wechselbefehl und Queue-Invalidierung über den neuen Meet-Transport. Keine öffentliche Produktionsfreigabe oder laufende Sitzung behauptet.",
       "video_selection_plan": "2026-09-08 source35166c9b0: existing active neutral/image/voice switches and standalone admitted clips are not an active dialog video switch. Implement explicit negotiated video ceiling, separate owner CAS and bounded signed hydration, current generation/epoch/profile/asset binding, single Worker slot and independently stoppable labeled Meet artwork. docs/contracts/meet-dialog-avatar-video.md records source gaps, SRP/DIP seams and required real receiver/legacy/revocation verification. No automatic fallback, source enable, trust or serving change; MAP20 remains partial until verified.",
       "video_selection_verification": "2026-09-08: Livevideo-Aushandlung, Hub-CAS, separat signierte begrenzte Hydration, Worker-Einzelslot und passiver UI-Picker implementiert. Privater Meet f6b9255: echte Chromium-/Firefox-Empfaenger bestanden; Video/Bildwechsel und unabhaengige Speech/Screen-Quellen, Stop bei Controllerverlust 1826.62/1716.84 ms. Echter aktueller Hub/Worker/Browser-Lauf 63.57 s bestanden: vier Avatar-Generationen, Pause remote 773.91 ms, Assetwiderruf lokal/remote 266.97/314.08 ms, zwei lokal vollstaendige Sprachausgaben je220500 Samples mit Remote-Korrelation, Capture/Transformfehler null. Synthetische Policy/Medien, Browser-only-Container mit vorherigem Workerimage; keine neue Imageinstallations-, GPU-, TURN-, Soak- oder Produktionsfreigabe. Fokusbatchs172/39/99 und205UI gruen; Isolierter Meetcheck:779 Node-PASS,2FAIL,2SKIP; beide FAIL reproduzieren im vorhandenen nativen Raw-Encoder, TBP016-Fix und Wiederholung laufen. Erweiterte Ananta-Regression368/375PASS; sieben veraltete Router-Testdoubles korrigiert, kompletter Router-Nachtest24PASS21.26s. Erweiterte Meet/Persona-UI277PASS2.26s. Historische Aussage Live-Videowechsel fehlt ist damit ueberholt; initiale Persona-Projektion vor Dialogdispatch und gleiche Persona in mehreren isolierten Sessions werden als naechste Kriterien geprueft. docs/contracts/meet-dialog-avatar-video.md.",
-      "initial_persona_plan": "2026-09-08 source9039b55d9: resolve explicit optional initial image/video/voice pins before long-lived dialog dispatch, without hydration or enabling paused sources; recheck exact profile/asset authority before send. Separate immutable closed original projection from live CAS selections; bind preauthorization, phase, Task write guard and Worker validation. Reuse passive pickers. Test original binding/revocation races and same-profile concurrent session/Worker/browser isolation. docs/contracts/meet-dialog-initial-persona.md; no legacy upgrade, silent fallback, public activation or production evidence."
+      "initial_persona_plan": "2026-09-08 source9039b55d9: resolve explicit optional initial image/video/voice pins before long-lived dialog dispatch, without hydration or enabling paused sources; recheck exact profile/asset authority before send. Separate immutable closed original projection from live CAS selections; bind preauthorization, phase, Task write guard and Worker validation. Reuse passive pickers. Test original binding/revocation races and same-profile concurrent session/Worker/browser isolation. docs/contracts/meet-dialog-initial-persona.md; no legacy upgrade, silent fallback, public activation or production evidence.",
+      "completion_verification": "2026-09-08 source0fdcb71ca/UI3e8d095b3: initial image/video/voice pins resolved before dispatch, copied closed original projection binds preauthorization/phase/Task immutability; live CAS selections remain independently revocable.503 focused backend tests189.41s,80 persistence/admission/phase tests70.00s,4 final fixture11.08s and283 UI3.55s passed; Ruff/ESLint/ngc/87Worker boundaries pass. Actual initial-video Hub/Worker/Meet gate63.04s: four generations, pause776.71ms and asset revoke253.09/295.21ms local/remote, two complete220500sample replies with remote correlation, no human captures/transform errors. Same exact clip in separate Chromium/Firefox machine contexts2PASS9.33s; first replacement/stop preserves second generation and simultaneous speech/screens. Real SQL organization/project revocation covered across image/voice/video. Immutable Worker image e5bacdf0c43347df3a57586578f5a9f240fb71de1490bef8ae9f510a08c5b0b6/source45f59e11d: both full-container cases2PASS115.74s, initial personas before dispatch, separate role tasks and SQL preauthorization; operator revoke219.83/824.53ms, four persisted bounded terminal observations; no Worker source mounts. Private merged Meet68db657 full check757frontend/788Node/0FAIL/2NodeSKIP301.35sNode;14external infrastructure and optional image canary explicitly skipped. All four MAP20 criteria technically verified; historical open-live-source note superseded. Synthetic policy/media and single-host transport are not GPU/public/TURN/soak or production evidence. docs/contracts/meet-dialog-initial-persona.md; overall track remains partial."
     },
     {
       "id": "MAP-21",
@@ -1152,11 +1153,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 7,
-      "partial": 9,
+      "partial": 8,
       "blocked": 0,
-      "done": 15
+      "done": 16
     },
-    "progress_percent_done": 46.9,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1269,14 +1270,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 4,
-          "partial": 3,
+          "partial": 2,
           "blocked": 0,
-          "done": 9
+          "done": 10
         },
-        "done": 9,
-        "partial": 3,
+        "done": 10,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 75.0
+        "progress_percent": 78.8
       },
       "infrastructure": {
         "total": 1,
@@ -1326,19 +1327,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 7,
-    "partial": 9,
+    "partial": 8,
     "blocked": 0,
-    "done": 15,
-    "count_based_percent": 46.9,
-    "weighted_percent": 67.9
+    "done": 16,
+    "count_based_percent": 50.0,
+    "weighted_percent": 70.0
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 39.562,
-    "remaining_weight": 18.688,
+    "done_weight": 40.762,
+    "remaining_weight": 17.488,
     "blocked_weight": 0.0,
-    "weighted_percent": 67.9
+    "weighted_percent": 70.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1376,10 +1377,10 @@
       },
       "MAP-M5": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 75.8,
+        "count_based_percent": 75.0,
+        "weighted_percent": 94.2,
         "status": "in_progress"
       },
       "MAP-M6": {
@@ -1411,10 +1412,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T17:59:11.966725Z",
+    "generated_at": "2026-09-08T19:34:54.124023Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "c1f33fbdecf858b69d84c1562e1a2c5be03f29569a6c6b158c439cf581910c8c",
+    "source_hash": "d9ad5cab97b600e45b106b8193cfb20a60df4ad983ca6c61eab4344fd46f9f12",
     "is_stale": false
   }
 }

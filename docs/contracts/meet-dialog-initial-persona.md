@@ -128,3 +128,29 @@ errors to bounded domain denials, **80 tests passed in 70.00 s**. The added
 persistence cases use actual Hub Tasks plus a private SQL preauthorization
 ledger: original pins survive live neutral selection and a restarted phase
 reader; generic saves cannot rewrite them, and cancellation remains valid.
+
+## Packaged verification and MAP-20 closure
+
+The immutable Worker image
+`sha256:e5bacdf0c43347df3a57586578f5a9f240fb71de1490bef8ae9f510a08c5b0b6`
+was built from committed source `45f59e11d`. Both real two-container tests
+passed in **115.74 s**, without Worker source mounts. The persona case binds
+both initial image profiles before dispatch, then exercises explicit reselection,
+separate speech/screens and image revocation. Both cases use distinct role
+assignments and real private SQL preauthorization; revoking the second policy
+stopped it in 219.83/824.53 ms. All four one-shot terminal observations were
+persisted with bounded reasons/CPU/RSS measurements and unchanged terminal
+Task identity. Human captures, transform errors and proxy drops remained zero.
+The fixture's 18 deterministic checks passed in 18.53 s.
+
+Merged Meet source `68db657` also passed its complete private check: 757
+frontend tests, 788 Node passes, zero failures, two explicit Node skips;
+Node phase 301.35 s. Go/build/static checks passed. Fourteen external
+infrastructure gates and optional container-image canary were explicitly skipped.
+
+MAP-20's four criteria are now technically verified: initial closed resolution,
+Hub-owned live CAS changes, role/asset revocation without implicit fallback,
+and independently owned same-persona sessions. This does not close the parent
+track or the separate workspace, recovery, fairness, GPU/soak, forced TURN and
+public production gates. Test classification and original evidence rules remain
+unchanged; no new production `SRC_*`/`RUN_*` was inferred from these commands.
