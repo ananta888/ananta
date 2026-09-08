@@ -174,3 +174,42 @@ is reused, preserving its current `voice_runtime.preprocessing` namespace
 coupling rather than adding a duplicate process supervisor or a broad unrelated
 refactor. The next workspace adapter consumes HTML only after current Hub
 assignment validation; no existing endpoint activates the fetcher by itself.
+
+### Hub composition and independent control plan
+
+Add an explicit immutable `browser_workspace: true` dialog option, validated
+before dispatch and bound into the original preauthorization/phase identity.
+Absent options retain the existing wire and status-screen behavior. This does
+not grant network access: a separate default-deny, Hub-owned public-browser
+policy restricts tenant/project, owner, exact origins and navigation versus
+presentation operations. Existing project/task write access, current parent
+role/dispatch and browser task policy checks remain mandatory. Merely joining
+a Meet room grants neither navigation nor access to these Hub endpoints.
+
+Each admitted navigation creates an ordinary, short-lived Hub browser Task
+with one immutable page/workspace generation, exact parent Task/dispatch/
+runtime and inherited organization bindings. The Hub persists the selection
+with CAS before delegating it. Workers cannot create or substitute that Task,
+extend its deadline, choose a publisher, broaden origins or approve a page.
+Navigation and selecting the resulting browser view for presentation are
+separate explicit operations; presentation still requires the independent
+current screen control and Meet publication lease. A blocked/expired browser
+source does not silently select the old status page or another browser.
+
+The installed Worker executes a single admitted fetch asynchronously so DNS
+and HTTP cannot stall the control-refresh/media loop. Old in-flight work owns
+its slot until cancellation/termination is confirmed; rapid source changes
+cannot create an unbounded executor queue. Browser calls remain on the owning
+Playwright thread. Only a new authenticated Hub update may consume a fetch
+result or activate a source. Fresh current assignment checks surround page
+loading, snapshot reading and frame consumption. Parent/child completion,
+lease/role/policy revision changes, source failure and explicit stop revoke
+the pending frame and the owned workspace independently of other sources.
+
+Keep new policy, Task persistence/coordinator, projection validation and Worker
+presentation in separate modules. The existing dialog composition service has
+many responsibilities; preserve only narrow delegation calls there instead
+of adding browser policy/SQL/rendering logic to that SRP pressure point. Verify
+real SQL CAS and terminality, exact dispatch/tenant/role isolation, bounded
+async cancellation, and decoded private Meet receiver privacy/lifecycle cases
+before closing MAP-13/15/16 or enabling any public deployment policy.
