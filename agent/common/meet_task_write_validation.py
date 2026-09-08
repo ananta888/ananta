@@ -19,6 +19,8 @@ IDENTITY_FIELDS = (
 def meet_task_write_error(authoritative, candidate):
     """General Tasks retain normal retries; old Meet executions require a new Task."""
     original_kind, proposed_kind = getattr(authoritative, "task_kind", None), getattr(candidate, "task_kind", None)
+    if "meet_browser_workspace" in (original_kind, proposed_kind):
+        return _browser_task_write_error(authoritative, candidate)
     if "meet_dialog_session" in (original_kind, proposed_kind) and original_kind != proposed_kind:
         return "meet_dialog_terminal_identity_immutable"
     if original_kind != "meet_dialog_session":
@@ -27,6 +29,8 @@ def meet_task_write_error(authoritative, candidate):
     after = getattr(candidate, "worker_execution_context", None) or {}
     if _video_option(before) != _video_option(after):
         return "meet_dialog_video_negotiation_immutable"
+    if _browser_option(before) != _browser_option(after):
+        return "meet_dialog_browser_negotiation_immutable"
     try:
         if _initial_option(before) != _initial_option(after):
             return "meet_dialog_initial_persona_immutable"
@@ -86,6 +90,18 @@ def meet_task_write_error(authoritative, candidate):
     return None if unchanged else "meet_dialog_terminal_identity_immutable"
 
 
+def _browser_task_write_error(authoritative, candidate):
+    immutable = (*IDENTITY_FIELDS, "organization_id", "unit_id", "team_id", "role_slot_id")
+    if any(getattr(authoritative, key, None) != getattr(candidate, key, None) for key in immutable):
+        return "meet_browser_task_identity_immutable"
+    before, after = getattr(authoritative, "status", None), getattr(candidate, "status", None)
+    if before in TERMINAL and before != after:
+        return "meet_browser_terminal_immutable"
+    if after not in {"in_progress", "completed", "cancelled", "failed", "timeout"}:
+        return "meet_browser_status_invalid"
+    return None
+
+
 def terminal_meet_write_allowed(authoritative, candidate):
     """Compatibility facade; also protects opted-in principals before terminality."""
     return meet_task_write_error(authoritative, candidate) is None
@@ -95,6 +111,14 @@ def _video_option(execution):
     context = execution.get("meet_dialog") if isinstance(execution, dict) else None
     if isinstance(context, dict) and "avatar_videos" in context:
         value = context["avatar_videos"]
+        return True, type(value), value
+    return False, None, None
+
+
+def _browser_option(execution):
+    context = execution.get("meet_dialog") if isinstance(execution, dict) else None
+    if isinstance(context, dict) and "browser_workspace" in context:
+        value = context["browser_workspace"]
         return True, type(value), value
     return False, None, None
 

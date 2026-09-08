@@ -206,6 +206,14 @@ loading, snapshot reading and frame consumption. Parent/child completion,
 lease/role/policy revision changes, source failure and explicit stop revoke
 the pending frame and the owned workspace independently of other sources.
 
+For this bounded profile, pause/resume of **presentation** retains the same
+admitted browser Task/page and does not issue another network fetch. Screen
+activation revisions fence the publication wrapper separately. An execution
+failure or changed Meet membership/session generation retires that browser
+Task on the Worker; it cannot be reloaded under the old identity. Continuing
+then requires a new explicit Hub navigation Task (which an authorized headless
+workflow may request). There is no implicit fetch retry or source fallback.
+
 Keep new policy, Task persistence/coordinator, projection validation and Worker
 presentation in separate modules. The existing dialog composition service has
 many responsibilities; preserve only narrow delegation calls there instead
@@ -239,3 +247,31 @@ browser RPC is attempted inside that callback and both contexts are closed on
 the next foreground authority check. This separates lifecycle invalidation
 from resource teardown (SRP); publication never resumes under the revoked
 generation. Hub Task and Meet receiver integration remain unfinished.
+
+Hub admission and persistence foundations now pass **199 contract/policy/
+negotiation/router/preauthorization/phase tests in 73.18 s** and **40 Task/
+negotiation/legacy-source tests in 24.38 s**. The immutable opt-in is preserved
+in original dispatch, preauthorization and phase bindings; repository writes
+cannot retrofit or remove it. Public browser permissions are explicit
+tenant/project/owner/operator-policy rows. Exact public origins remain subject
+to the existing browser Task policy, with navigation and presentation checked
+independently. No bootstrap or public route activates this coordinator yet.
+
+`HubBrowserTasks` reserves the parent pointer with ordinary Task CAS, ingests a
+30-second `meet_browser_workspace` child with inherited scope and exact parent
+dispatch/runtime, and checks the persisted child before projecting it. A new
+navigation does not present; selection needs its own permission. Conflicts,
+policy changes, wrong room, child completion and expiry return an empty source,
+never an automatic status-page substitution. New navigation/stop and parent
+completion terminate the owned child. Child identity and terminality are
+immutable through the normal Task repository. No Worker is allowed to create
+that Task or select a different execution destination.
+
+The Task tests found an unsupported `in_progress -> timeout` transition. The
+adapter now uses the existing terminal `failed` status with the fixed audit
+reason `deadline_exceeded`, without extending or forcing the common state
+machine. A separate fixture failure was a missing persisted project required
+by actual SQL foreign keys; the synthetic fixture now seeds it explicitly.
+There is no human approval, production evidence identity or public activation
+in these tests. Worker/MDS composition, crash reconciliation, HTTP/UI controls
+and decoded receiver privacy cases remain open.

@@ -720,6 +720,7 @@
     },
     {
       "id": "MAP-16",
+      "hub_browser_foundation": "2026-09-08: explicit immutable browser_workspace option bound to assignment/preauthorization/phase and normal Task write guards. Separate Hub public-origin/owner/navigation/presentation policy plus CAS-reserved ordinary30s browser child Tasks, inherited scope/exact parent dispatch/runtime, immutable child identity/terminality, policy/room/task/expiry denials and parent completion cleanup.199 contract/admission tests73.18s and40 Task/legacy regressions24.38s passed. Expiry corrected to canonical failed+deadline_exceeded instead of unsupported timeout transition; SQL fixture now seeds required project FK. No bootstrap/route/Worker/MDS activation yet; integration, reconciliation and decoded receiver privacy remain open. docs/contracts/meet-browser-workspace-live.md.",
       "title": "Browserpräsentation und Browsersteuerung getrennt integrieren",
       "repository": "ananta",
       "type": "feature",

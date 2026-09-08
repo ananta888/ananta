@@ -241,9 +241,19 @@ class HubDialogTasks:
         )
         finished = self.finish(scope, status)
         if finished:
+            # Re-read after terminal CAS: a concurrent browser reservation that
+            # preceded completion must also be terminated, not only the old read.
+            task = self.get_by_id(task_id)
+            if task is None:
+                return finished
             job = (task.worker_execution_context or {}).get("meet_dialog", {}).get("audio_job")
             if job:
                 self.finish_audio(scope, job, "cancelled", release=False)
+            browser = (task.worker_execution_context or {}).get("meet_browser", {}).get("job")
+            if browser is not None:
+                from agent.services.meet_browser_tasks import HubBrowserTasks
+
+                HubBrowserTasks(self).finish(scope, browser, "cancelled")
         return finished
 
     def get_by_id(self, task_id):

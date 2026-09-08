@@ -79,7 +79,8 @@ def validate_assignment(value, now):
     }
     if (
         not isinstance(value, dict)
-        or set(value) - {"avatar_images", "avatar_videos", "voice_profiles", "initial_persona"} != fields
+        or set(value) - {"avatar_images", "avatar_videos", "voice_profiles", "initial_persona", "browser_workspace"}
+        != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
     ):
         raise ValueError("meet_dialog_assignment_invalid")
@@ -101,6 +102,8 @@ def validate_assignment(value, now):
         raise ValueError("meet_dialog_avatar_videos_invalid")
     if "voice_profiles" in value and (value["voice_profiles"] is not True or "speech.publish" not in caps):
         raise ValueError("meet_dialog_voice_profiles_invalid")
+    if "browser_workspace" in value and (value["browser_workspace"] is not True or "screen.publish" not in caps):
+        raise ValueError("meet_dialog_browser_workspace_invalid")
     if "initial_persona" in value:
         validate_initial_persona(
             value["initial_persona"],

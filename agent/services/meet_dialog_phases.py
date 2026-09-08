@@ -76,6 +76,8 @@ class MeetDialogPhases:
             expected["avatar_selection"] = scope.avatar_selection
         if scope.avatar_videos:
             expected["avatar_videos"] = True
+        if getattr(scope, "browser_workspace", False):
+            expected["browser_workspace"] = True
         if scope.initial_persona is not None:
             expected["initial_persona"] = scope.initial_persona
         if scope.voice_selection is not None:

@@ -39,9 +39,11 @@ class MeetDialogService:
         voice_profiles=None,
         phases=None,
         avatar_video_profiles=None,
+        browser_workspaces=None,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.phases = phases
+        self.browser_workspaces = browser_workspaces
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
             worker,
             media_worker,
@@ -122,7 +124,8 @@ class MeetDialogService:
         self.authority.binding.require_write_access(principal, project, parent)
         if (
             not isinstance(payload, dict)
-            or set(payload) - {"audio_mode", "avatar_images", "avatar_videos", "voice_profiles", "initial_persona"}
+            or set(payload)
+            - {"audio_mode", "avatar_images", "avatar_videos", "voice_profiles", "initial_persona", "browser_workspace"}
             != {"capabilities", "duration_seconds", "chat_mode"}
             or type(payload["duration_seconds"]) is not int
             or not 30 <= payload["duration_seconds"] <= 7200
@@ -138,6 +141,11 @@ class MeetDialogService:
             payload["avatar_images"] is not True or "avatar.publish" not in payload["capabilities"]
         ):
             raise MeetError("meet_dialog_avatar_images_invalid", 403)
+        if "browser_workspace" in payload:
+            if payload["browser_workspace"] is not True or "screen.publish" not in payload["capabilities"]:
+                raise MeetError("meet_dialog_browser_workspace_invalid", 403)
+            if self.browser_workspaces is None:
+                raise MeetError("meet_dialog_browser_workspace_unavailable", 409)
         if payload.get("avatar_images") is True and self.avatar_images.profiles is None:
             raise MeetError("meet_dialog_avatar_profiles_unavailable", 409)
         if "avatar_videos" in payload and (
@@ -203,6 +211,8 @@ class MeetDialogService:
             context["avatar_videos"] = True
         if payload.get("voice_profiles") is True:
             context["voice_selection"] = {"mode": "configured-piper-v1"}
+        if payload.get("browser_workspace") is True:
+            context["browser_workspace"] = True
         if initial is not None:
             context.update({name + "_selection": selection for name, selection in initial.selections.items()})
             context["initial_persona"] = initial.projection
@@ -246,6 +256,8 @@ class MeetDialogService:
                 assignment["avatar_images"] = True
             if scope.avatar_videos:
                 assignment["avatar_videos"] = True
+            if scope.browser_workspace:
+                assignment["browser_workspace"] = True
             if "voice_selection" in context:
                 assignment["voice_profiles"] = True
             if initial is not None:
@@ -298,6 +310,8 @@ class MeetDialogService:
             result["avatar_selection"] = context["avatar_selection"]
         if context.get("avatar_videos") is True:
             result["avatar_videos"] = True
+        if context.get("browser_workspace") is True:
+            result["browser_workspace"] = True
         if "voice_selection" in context:
             result["voice_selection"] = context["voice_selection"]
         return result
@@ -375,6 +389,10 @@ class MeetDialogService:
             result["avatar"] = renderer.projection(scope, state)
         if scope.voice_selection is not None:
             result["voice"] = self.voices.projection(scope)
+        if scope.browser_workspace:
+            if self.browser_workspaces is None:
+                raise MeetError("meet_dialog_browser_workspace_unavailable", 409)
+            result["browser"] = self.browser_workspaces.projection(scope, state)
         return result
 
     def audio(self, payload):

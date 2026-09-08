@@ -35,6 +35,7 @@ class DialogAuthority:
     machine_principal: MeetMachinePrincipal | None = None
     avatar_videos: bool = False
     initial_persona: dict | None = None
+    browser_workspace: bool = False
 
     @property
     def machine_subject(self):
@@ -86,7 +87,14 @@ class MeetDialogAuthority:
         if (
             not isinstance(value, dict)
             or set(value)
-            - {"avatar_selection", "avatar_videos", "voice_selection", "source_profile", "initial_persona"}
+            - {
+                "avatar_selection",
+                "avatar_videos",
+                "voice_selection",
+                "source_profile",
+                "initial_persona",
+                "browser_workspace",
+            }
             != fields
         ):
             raise MeetError("meet_dialog_binding_invalid", 403)
@@ -118,6 +126,10 @@ class MeetDialogAuthority:
         ):
             raise MeetError("meet_dialog_policy_denied", 403)
         controls = parse_controls(value["controls"])
+        if "browser_workspace" in value and (
+            value["browser_workspace"] is not True or "screen.publish" not in capabilities
+        ):
+            raise MeetError("meet_dialog_browser_workspace_invalid", 403)
         avatar_selection = None
         voice_selection = None
         if "avatar_videos" in value and (value["avatar_videos"] is not True or "avatar_selection" not in value):
@@ -222,4 +234,5 @@ class MeetDialogAuthority:
             machine_principal,
             value.get("avatar_videos", False),
             value.get("initial_persona"),
+            value.get("browser_workspace", False),
         )
