@@ -23,8 +23,8 @@ pytestmark = [
 
 @pytest.mark.parametrize(
     "media_mode",
-    [False, True, "browser", "control-recovery"],
-    ids=["screen-only", "persona-speech", "browser-workspaces", "control-recovery"],
+    [False, True, "browser", "control-recovery", "worker-crash"],
+    ids=["screen-only", "persona-speech", "browser-workspaces", "control-recovery", "worker-crash"],
 )
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
     app, tmp_path, monkeypatch, record_property, media_mode
@@ -75,6 +75,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     media = MultiWorkerMediaScenario() if media_mode is True else None
     browser = MultiWorkerBrowserScenario(media_mode == "browser")
     control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
+    worker_crash = media_mode == "worker-crash"
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -121,6 +122,9 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             # browser contents, arbitrary exception messages or assignment inputs.
             records = []
             for container in containers:
+                if getattr(container, "test_crashed", False):
+                    records.append({"test_owned_abrupt_exit": 137})
+                    continue
                 output = docker(
                     "exec",
                     container.name,
@@ -331,14 +335,19 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         if media is not None:
             media.exercise(app, service, principal, started, command, record_property, wait_chat_ready)
         browser.exercise(app, principal, started, containers, command, record_property)
-        cancel_fixture_dialog(app, service, principal, started[0]["task_id"])
+        if worker_crash:
+            from tests.meet_multi_worker_crash import crash_owned_worker
+
+            crash_owned_worker(containers[0])
+        else:
+            cancel_fixture_dialog(app, service, principal, started[0]["task_id"])
         browser.after_departure(app, principal, started[1], containers[1], record_property)
         survivor = command("survivor")
         assert survivor == {"moving": [False, True], "departedAbsent": True}, survivor
         if media is not None:
             media.survivor(command)
         with app.app_context():
-            assert tasks.get_by_id(started[0]["task_id"]).status == "cancelled"
+            assert tasks.get_by_id(started[0]["task_id"]).status == ("in_progress" if worker_crash else "cancelled")
             assert tasks.get_by_id(started[1]["task_id"]).status == "in_progress"
         revoke_started = time.monotonic()
         if preauthorization is not None:
@@ -350,7 +359,14 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             revoked_ms = (time.monotonic() - revoke_started) * 1000
             assert revoked_ms < 5000, "end-to-end operator-revocation budget exceeded"
             record_property("operator_preauthorization_revocation_ms", revoked_ms)
-        expected_statuses = ["cancelled", "failed" if preauthorization is not None else "cancelled"]
+        if worker_crash:
+            from tests.meet_multi_worker_crash import reconcile_crashed_worker
+
+            reconcile_crashed_worker(app, tasks, started[0]["task_id"], record_property)
+        expected_statuses = [
+            "failed" if worker_crash else "cancelled",
+            "failed" if preauthorization is not None else "cancelled",
+        ]
         until = time.monotonic() + 8
         terminal_tasks = []
         # Receiver departure precedes the ordinary finish callback by design.
@@ -366,13 +382,16 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         while time.monotonic() < until:
             with app.app_context():
                 observations = [diagnostics.inspect(principal, "synthetic", row["task_id"]) for row in started]
-            if all(row["observation_status"] == "recorded" for row in observations):
+            if all(row["observation_status"] == "recorded" for row in observations[1 if worker_crash else 0 :]):
                 break
             time.sleep(0.05)
-        assert all(row["observation_status"] == "recorded" for row in observations), "bounded terminal reports missing"
+        recorded = observations[1 if worker_crash else 0 :]
+        assert all(row["observation_status"] == "recorded" for row in recorded), "bounded terminal reports missing"
+        if worker_crash:
+            assert observations[0]["observation_status"] == "missing" and observations[0]["observation"] is None
         assert all(row["classification"] == "unverified_worker_observation" for row in observations)
         assert [row["hub_task_status"] for row in observations] == expected_statuses
-        assert all(row["observation"]["measurements"]["elapsed_ms"] > 0 for row in observations)
+        assert all(row["observation"]["measurements"]["elapsed_ms"] > 0 for row in recorded)
         with app.app_context():
             assert [tasks.get_by_id(row["task_id"]).model_dump() for row in started] == terminal_tasks
             browser.require_terminal(tasks)

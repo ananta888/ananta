@@ -25,3 +25,23 @@ and deadline implementation retain their responsibilities. No shared fixture
 expectation is weakened for the existing graceful cases. Tests remain bounded
 and headless, with private synthetic policy. This is not automatic room rejoin,
 durable full-Hub-process restart, public infrastructure or production evidence.
+
+## Verified private crash slice
+
+The installed-image case passed in **159.27 s** with immutable Worker
+`sha256:db7d7af1bf7d2ad20e74f58ba22291ae532ad0f04185dadc0b58a3b271a6c20d`.
+Both role-assigned remote screens moved before injection. The exact owned first
+container exited with SIGKILL/137; its participant disappeared and the other
+screen continued moving. The survivor then obeyed independent operator-policy
+revocation and supplied its actual signed terminal observation. The killed
+Worker supplied none: its observation remains explicitly missing.
+
+A newly constructed native Hub deadline coordinator settled the orphan only
+after the original real-clock deadline, with one `original_deadline_expired`
+history event, unchanged assignment and no dispatch replay. A second new
+coordinator left that terminal snapshot unchanged. Twelve initial helper and
+control-recovery fixture checks passed in **14.32 s**. The real gate includes
+no application-source mounts or substituted clocks. It deliberately spends
+the remaining original lease budget instead of manufacturing an early finish.
+This closes the abrupt container-loss/reconciliation test slice, not automatic
+replacement, full Hub restart, GPU/audio crash isolation or all MAP-11 criteria.
