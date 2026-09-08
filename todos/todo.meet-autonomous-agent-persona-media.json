@@ -409,6 +409,7 @@
     },
     {
       "id": "MAP-05",
+      "versioned_preflight_plan": "2026-09-08 Folgeabgleich Meet6aad282: v1-Rolloutplan kennt keinen Profiltrust. Additiver Plan-v2 mit exakter Trustrevision/kid/Subject/Audience/TTL, Publicpin-/Zeitfenster-/Scope-/Ceilingpruefung und begrenztem Headless-Dateilesen geplant; docs/machine-trust-preflight.md im Meetrepo. Rein lokale Diagnose ohne Grants, Writes, externe Freigabe oder Produktionsclaim. Org-/Agentenbindung und Provisionierung danach weiterhin offen.",
       "versioned_trust_result": "2026-09-08 optionaler Hub-kid und getrennte Meet-JSON-/Profil-/Datei-/Signaturpruefung implementiert. Exakte Subject/Tenant/Projekt/Capabilities, Keyfenster, unbekannte Keys/Claims/Duplicatefelder/Privatmaterial failclosed; kein Workerkey oder Runtime-Rollout.111Meettests3.023s mit echtem P256/HTTP/WS und3 Cross-Key-Renewals derselben Membership,102Rootchecks43.54s inklusive echter v1/v2-Hubgrants im Meetvalidator, Ruff/77Workerboundary gruen. Isolierter Meet-Vollcheck folgt vor Push. Org-/Agentenprinzipale, Provisionierung und Produktionskriterien bleiben offen; docs/contracts/meet-machine-trust-profile.md.",
       "versioned_trust_plan": "2026-09-08 Quellabgleich Ananta740dfb7e5/Meet478856c: Einzelkey/globales Ceiling ohne versioniertes Trustprofil, Rotation oder Meet-Projektallowlist. docs/contracts/meet-machine-trust-profile.md plant optionalen geschlossenen Public-Keyring mit Zeitfenstern, exakten Subject/Tenant/Projekt/Capability-Tupeln und Hub-eigenem kid; Altpfad kompatibel, kein Downgrade oder Runtime-Rollout. Reale Signaturen/HTTP/WS und Hubgrants, dann isolierter Meet-Vollcheck. Org-/Agentenprinzipale und Operatorprovisionierung gesondert offen.",
       "signing_key_load_result": "2026-09-08 implementiert/verifiziert: separater injizierbarer Hub-Keyloader mit4KiB-/regulaerem Datei-/privaten Rechte-/FD-Snapshot-Grenzen, nonblocking/CLOEXEC-open, einmalig begrenztem Read und finally-close. Symlink-Regularsecrets bleiben bei identischem Ziel kompatibel; FIFO/Socket/Directory/Size/Path/Permissions/Swaps/Mutation/Readfehler sowie verschluesselte/falsche Schluessel failclosed mit festen Fehlercodes ohne private Details. Alter FIFO-Startuphang im begrenzten eigenen Subprozess reproduziert1 failed9.12s. Finale82 echte Key-/Datei-/Grant-/Medientests36.84s gruen; privater realer Hub/Worker/Meet-Browser mit neuem Loader1 passed33.47s, signierte Grants/bewegter Screen/zwei Chatantworten/Pause-Resume/terminale Persistenz. Ruff/77-Dateien-Workerboundary gruen. docs/contracts/meet-signing-key-loading.md; keine Operator-/Trustaenderung oder Produktivevidenz. Versionierte Trustprofile/Rotation und Org-/Agentenidentitaeten bleiben gesondert offen, MAP-05 weiterhinpartial.",
@@ -479,6 +480,7 @@
     },
     {
       "id": "MAP-08",
+      "trust_regression_startup_followup": "2026-09-08 Meet6aad282 isolierter Vollcheck:639Frontend/Build/Go/Security gruen, Node674pass/1fail/3skips149.98s. Bestehender Chromium->Firefox-Counter350-Test wartet erfolglos30s auf active-SFrame; kein Counterfehler bewiesen, keine Frontendaenderung im Trustslice.2 Einzelwiederholungen35.800/35.777s und gesamte7er-Browserdatei62.512s gruen, zuletzt427 Frames/5Keyframes/null Transformfehler. Kein Fixnachweis: Fehler bleibt offen. Naechster eng begrenzter Testschritt erfasst vor Cleanup nur feste Status-/Transform-/RTP-Zaehler am bisherigen fehlenden Startup-Gate; Assertions/Krypto/Fristen unveraendert, keine Produktivfreigabe.",
       "title": "Maschinen-Client mit erforderlicher Medienverschlüsselung verbinden",
       "repository": "both",
       "type": "security",
@@ -1354,10 +1356,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T08:40:29.929281Z",
+    "generated_at": "2026-09-08T08:49:46.848565Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "03eb611732f04975fd23dd746aec0e18f3ffaf8b65c748622375569bef6b9616",
+    "source_hash": "dd4c9e712d8794d65a2bcfd21987746a8ba965c11cc7dd42a4dc3e282900b84b",
     "is_stale": false
   }
 }

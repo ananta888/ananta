@@ -61,3 +61,28 @@ Meet validator, revoked Hub Tasks and private-key loading. Ruff and all 77
 Worker-boundary files pass. All identities are ephemeral/synthetic; no
 production evidence is asserted. Isolated full Meet check follows this
 implementation checkpoint before push.
+
+The actual isolated full check at Meet `6aad282` subsequently failed:
+639 frontend tests, build/Go/security checks passed; Node recorded 674 pass,
+one failure and three explicit skips in 149.98 s. The failed existing
+Chromium-to-Firefox counter-350 gate timed out waiting for active SFrame,
+before its counter assertion. No human-profile or frontend code was changed
+by this trust slice. Two isolated repetitions passed (35.800/35.777 s);
+the complete seven-case browser file then passed in 62.512 s, with 427
+decoded frames/five keyframes in its interop case. These repetitions do not
+establish a startup fix or erase the failed full check. MAP-08 stays open.
+
+Next verification adds a bounded, content-free failure snapshot to that
+existing browser test (SFrame state, fixed transform counters and numeric
+RTP counts) before teardown. Assertions and cryptographic behavior stay
+unchanged. Continue profile preflight while retaining this intermittent
+failure for the next full-check investigation; do not declare overall green.
+
+## Next source-checked integration step
+
+Meet's v1 rollout preflight does not yet understand profile-only trust.
+`docs/machine-trust-preflight.md` in the companion plans an additive closed
+v2 plan with profile revision, key ID, subject, audience and grant lifetime,
+checked against the exact immutable profile. It must remain read-only and
+never convert local readiness into production approval. The CLI's existing
+open-before-filetype FIFO risk is included in its bounded headless tests.
