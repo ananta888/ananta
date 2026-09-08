@@ -3,6 +3,7 @@ import { map, throwError, timeout } from 'rxjs';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { HubApiCoreService } from '../../services/hub-api-core.service';
 import { MeetAvatarSelection, validateAvatarSelection } from './meet-avatar-selection';
+import { MeetAvatarVideoSelection, validateAvatarVideoSelection } from './meet-avatar-video-selection';
 import { MeetVoiceSelection, validateVoiceSelection } from './meet-voice-selection';
 import { DialogStartReceipt, dialogStartRequest } from './meet-dialog-start-request';
 import { validateDialogPhase } from './meet-dialog-phase';
@@ -19,12 +20,13 @@ const optionalCapabilities = { speech: 'speech.publish', avatar: 'avatar.publish
 export interface MeetDialog {
   schema: 'ananta.meet-dialog-status.v1'; task_id: string; status: string; deadline: number;
   controls: DialogControls; capabilities: string[];
-  avatar_selection?: MeetAvatarSelection;
+  avatar_selection?: MeetAvatarSelection | MeetAvatarVideoSelection;
+  avatar_videos?: true;
   voice_selection?: MeetVoiceSelection;
 }
 const capabilities = ['chat.read', 'chat.send', 'audio.receive', 'screen.publish', 'avatar.publish', 'speech.publish'];
 export function validateDialog(value: MeetDialog): MeetDialog {
-  if (!value || Object.keys(value).filter(key => !['avatar_selection', 'voice_selection'].includes(key)).sort().join() !== 'capabilities,controls,deadline,schema,status,task_id'
+  if (!value || Object.keys(value).filter(key => !['avatar_selection', 'avatar_videos', 'voice_selection'].includes(key)).sort().join() !== 'capabilities,controls,deadline,schema,status,task_id'
     || value.schema !== 'ananta.meet-dialog-status.v1' || typeof value.task_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,160}$/.test(value.task_id)
     || !['in_progress', 'completed', 'failed', 'cancelled'].includes(value.status)
     || !Number.isSafeInteger(value.deadline) || value.deadline <= 0 || !Array.isArray(value.capabilities)
@@ -33,8 +35,12 @@ export function validateDialog(value: MeetDialog): MeetDialog {
   }
   if (Object.hasOwn(value, 'avatar_selection')) {
     if (!value.capabilities.includes('avatar.publish') || !value.controls?.avatar) throw new Error('meet_dialog_contract_invalid');
-    validateAvatarSelection(value.avatar_selection!);
+    if (value.avatar_selection?.mode === 'persona-video-v1') {
+      if (value.avatar_videos !== true) throw new Error('meet_dialog_contract_invalid');
+      validateAvatarVideoSelection(value.avatar_selection);
+    } else validateAvatarSelection(value.avatar_selection!);
   }
+  if (Object.hasOwn(value, 'avatar_videos') && (value.avatar_videos !== true || !value.avatar_selection)) throw new Error('meet_dialog_contract_invalid');
   if (Object.hasOwn(value, 'voice_selection')) {
     if (!value.capabilities.includes('speech.publish') || !value.controls?.speech) throw new Error('meet_dialog_contract_invalid');
     validateVoiceSelection(value.voice_selection!);
@@ -101,5 +107,8 @@ export class MeetDialogApiService {
   }
   selectVoice(project: string, task: string, body: unknown) {
     return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}/voice`, 'PUT', body).pipe(map(validateDialog));
+  }
+  selectAvatarVideo(project: string, task: string, body: unknown) {
+    return this.request<MeetDialog>(project, `/dialogs/${encodeURIComponent(task)}/avatar-video`, 'PUT', body).pipe(map(validateDialog));
   }
 }
