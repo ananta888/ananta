@@ -25,8 +25,8 @@ Implement an additive, execution-only terminal observation path:
    cannot hide or change the original runtime outcome or delay media cleanup.
 3. The Hub accepts only the exact task/dispatch lease/runtime binding on an
    already terminal ordinary dialog Task, within a short fixed cleanup grace.
-   A narrow repository adapter stores one bounded observation with terminal
-   Task-CAS. Identical reports are idempotent; conflicting reports cannot
+   A narrow repository adapter stores one bounded observation alongside the
+   locked terminal Task. Identical reports are idempotent; conflicting reports cannot
    replace it. Persisted data is explicitly an unverified Worker observation,
    never a task/status/policy/lease transition, SFrame proof or SRC/RUN evidence.
    Hub-derived status/control revision remain separately labeled facts.
@@ -36,7 +36,7 @@ Implement an additive, execution-only terminal observation path:
    beside the existing Hub dialog bootstrap; do not add another responsibility
    to `MeetDialogService` or let a Worker select/authorize recipients.
 5. Test schema mutation/redaction and measurement semantics with deterministic
-   clocks/ports; test real signed HTTP, exact SQL-CAS/replay/tenant/terminal
+   clocks/ports; test real signed HTTP, exact SQL snapshot/replay/tenant/terminal
    fencing and expiry. Exercise the actual child completion path without
    human input. Missing observations must stay visibly missing, never become
    a successful media or production claim. Then add UI/operational presentation
@@ -67,3 +67,28 @@ timer is already owned or the environment cannot provide this guard. Never
 replace another timer, create an unbounded reporting thread or extend the
 executor's existing watchdog. Exercise blocking DNS/body stand-ins in owned
 real child processes, not by changing the test runner's signal state.
+
+Implemented admission lifetime: requests must be at most ten seconds old (two
+seconds clock skew forward permitted), and insertion must precede the original
+assignment deadline plus thirty seconds. Early termination does not start a new
+thirty-second timer: the original assignment bound remains authoritative. The
+Worker itself reports only immediately after cleanup, once, within its original
+five-second executor cleanup allowance; receipt grants no execution rights.
+
+Verification before packaged integration: 227 backend checks passed in 153.52s,
+including real Worker HTTP to Flask/SQL, separate request/response HMAC domains,
+current owner/project checks, immutable terminal Task/history, exact duplicate
+handling, conflicting/stale reports and the unchanged 44 terminal-reopen tests.
+Real owned children verify DNS/body stalls and redirect denial; the one-second
+guard restores signal ownership and skips existing timers/non-main threads.
+16 existing bootstrap/budget checks passed in 16.81s. The first SQL pass found
+four failures caused by catching domain MeetError (a ValueError subtype) as a
+generic bad record; domain error codes/statuses are now preserved and tested.
+
+The separate Angular display makes no request on load, performs only one bounded
+owner read per action, and discards pending/previous data on identity/task/scope
+changes. Missing measurements remain absent, not zero; CPU/RSS labels explicitly
+exclude aggregate concurrent memory, GPU and media-delivery/release evidence.
+111 focused diagnostics/phase/dialog UI tests passed in 3.51s. Angular template
+type checking passed with one pre-existing unrelated RouterLink warning.
+These are local technical checks, not Hub-issued production release evidence.

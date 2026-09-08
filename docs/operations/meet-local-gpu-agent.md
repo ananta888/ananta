@@ -172,6 +172,35 @@ ohne Autoplay wiedergeben; headless Worker-Publikation benötigt keinen Klick.
 Das Löschen der lokalen Vorschau bricht keinen bereits delegierten Auftrag ab;
 dafür die vorhandene Hub-Aufgabenverwaltung verwenden.
 
+## Optionale inhaltsfreie Abschlussdiagnose
+
+`MEET_DIALOG_DIAGNOSTICS_ENABLED=1` aktiviert im Dialog-Worker genau einen
+signierten Meldeversuch nach Medien-/Browser-Cleanup und dem normalen
+Abschlussaufruf. Die Compose-Vorlage bleibt standardmäßig bei `0`.
+Der neue Hub speichert die Meldung separat, ohne den beendeten Task oder
+dessen Historie zu ändern. Ein alter Hub oder ein Netzfehler führt zu einer
+fehlenden Diagnose, nicht zu einer Wiederholung oder neuen Medienfreigabe.
+
+Die bestehende Hub-Dialogkonfiguration richtet den Lesepfad
+`GET /api/meet/v1/projects/<project>/dialogs/<task_id>/diagnostics` ein.
+Er benötigt aktuelle Benutzer-/Projektberechtigung und denselben Eigentümer.
+Im Dialogbereich lädt „Abschlussdiagnose laden“ diese gespeicherte Meldung;
+Start, Quellenkontrolle und Not-Aus bleiben von der Abfrage unabhängig.
+
+Enthalten sind ein fester Abbruchgrund und optionale ganzzahlige Prozesswerte:
+Laufzeit/CPU in Millisekunden sowie getrennte RSS-Höchstwerte in KiB für den
+Dialogprozess und seine bereits beendeten Kindprozesse. Das ist weder der
+gleichzeitige Gesamtspeicher noch eine GPU-, Medienzustellungs- oder
+Release-Messung. Fehlende Messwerte bleiben ausdrücklich fehlend. Freitext,
+Tokens, SDP, Chat, Audio und Bilder gehören nicht in diese Meldung.
+
+Die Meldung bleibt `unverified_worker_observation`. Ein gemeinsamer
+Worker-HMAC-Schlüssel authentifiziert die konfigurierte Vertrauensgruppe,
+nicht eine Hardwaremessung oder einen einzelnen Worker gegenüber anderen
+Schlüsselinhabern. Die optionale Meldung verleiht keine Ausführungsrechte.
+Vertrag, Ein-Sekunden-Abbruch und Bindungsgrenzen:
+`docs/contracts/meet-dialog-terminal-diagnostics.md`.
+
 ## Verifikation und Grenzen
 
 Implementierungsstände: Ananta `5c300821de83b2057afd4953294cc692142239a7`,
