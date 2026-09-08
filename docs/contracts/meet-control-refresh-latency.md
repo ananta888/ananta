@@ -45,3 +45,14 @@ copies. Native calls, return values and exception identity remain unchanged.
 The first 34 observer/control/speech/scenario checks passed in 29.03 s. Repeat
 the real GPU scenario next; these tests establish diagnostic behavior, not a
 runtime latency fix.
+
+Two identical actual-GPU repeats with the passive observers passed in 114.63
+and 113.69 seconds. The first generated 44,800 and 182,528 non-silent samples;
+local/remote revocation took 812.53/817.01 ms. Its retained completed transport
+calls were 76–101 ms, with no in-flight call at teardown. The expected final
+403 was the real Hub's `meet_dialog_task_inactive` after cancellation, not an
+unexpected transport failure. The only retained slow browser call took 70 ms.
+These are useful baselines, not a reproduction or fix of the earlier 1.3-second
+browser/1.6-second pending-request incident. Keep that intermittent failure open;
+do not spend unbounded GPU repetitions looking for a green result or change the
+freshness policy without a deterministic causal regression.
