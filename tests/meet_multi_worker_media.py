@@ -80,6 +80,15 @@ class MultiWorkerMediaScenario:
         self.images = IndependentlyRevocableImages()
         self.worker = TwoReplyToneWorker()
 
+    def initial_options(self, index):
+        if type(index) is not int or index not in (0, 1):
+            raise ValueError("test_multi_persona_index_invalid")
+        return self.start_options | {
+            "initial_persona": {
+                "avatar": {"mode": "persona-image-v1", "profile": self.images.pin(("red", "blue")[index])}
+            }
+        }
+
     def service_options(self, binding, dispatches):
         return {
             "avatar_profiles": self.images,
@@ -107,6 +116,9 @@ class MultiWorkerMediaScenario:
         task_ids = [row["task_id"] for row in started]
         for index, color in enumerate(("red", "blue")):
             with app.app_context():
+                context = service.tasks.get_by_id(task_ids[index]).worker_execution_context["meet_dialog"]
+                assert context["avatar_selection"]["profile"] == self.images.pin(color)
+                assert context["initial_persona"]["avatar"]["reference"] == context["avatar_selection"]["reference"]
                 current = service.inspect(principal, "synthetic", task_ids[index])["controls"]
                 selected = service.select_avatar(
                     principal,
@@ -144,6 +156,7 @@ class MultiWorkerMediaScenario:
                 "single_host": True,
                 "production_release_evidence": False,
                 "distinct_personas": True,
+                "initial_personas_before_dispatch": True,
                 "simultaneous_audio_observations": 3,
                 "independent_image_revocation": True,
                 "reply_tasks": len(self.worker.calls),

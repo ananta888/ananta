@@ -9,13 +9,26 @@ from agent.services.meet_speech_result import validate_speech_binding
 from ananta_contracts.meet_persona_image import decode_assignment
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet_dialog_interruption import SyntheticToneWorker
-from tests.meet_multi_worker_media import IndependentlyRevocableImages, TwoReplyToneWorker
+from tests.meet_multi_worker_media import IndependentlyRevocableImages, MultiWorkerMediaScenario, TwoReplyToneWorker
 
 pytestmark = pytest.mark.timeout(45)
 
 
 def principal():
     return SimpleNamespace(subject_id="owner", tenant_id="synthetic", project_id="synthetic")
+
+
+def test_initial_personas_are_passive_copied_and_exactly_bound_to_each_worker_index():
+    scenario = MultiWorkerMediaScenario()
+    first, second = scenario.initial_options(0), scenario.initial_options(1)
+    assert first["initial_persona"]["avatar"]["profile"] == scenario.images.pin("red")
+    assert second["initial_persona"]["avatar"]["profile"] == scenario.images.pin("blue")
+    first["initial_persona"]["avatar"]["profile"]["owner_id"] = "foreign"
+    assert scenario.initial_options(0)["initial_persona"]["avatar"]["profile"] == scenario.images.pin("red")
+    assert scenario.worker.calls == [] and "controls" not in first
+    for invalid in (True, 0.0, -1, 2, "0"):
+        with pytest.raises(ValueError, match="index_invalid"):
+            scenario.initial_options(invalid)
 
 
 def test_images_are_distinct_copied_test_only_and_independently_revocable():

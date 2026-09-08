@@ -265,7 +265,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 )
             )
 
-        for parent in PARENTS:
+        for index, parent in enumerate(PARENTS):
             with app.app_context():
                 result = service.start(
                     principal,
@@ -274,7 +274,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                         "capabilities": capabilities,
                         "duration_seconds": duration_seconds,
                         "chat_mode": "off",
-                        **(media.start_options if media is not None else {}),
+                        **(media.initial_options(index) if media is not None else {}),
                     },
                     parent=parent,
                 )
