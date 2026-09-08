@@ -49,3 +49,14 @@ parsing or CLI behavior. The Hub remains the only issuer and task owner.
 No production flag, key, public trust or operator scope is activated by this
 implementation. Deployment/public TURN and other unfinished MAP tasks remain
 separate verification obligations.
+
+Packaged acceptance profile, fixed before execution: use the existing two
+isolated Worker/role/screen/persona-speech fixtures with explicit synthetic
+per-parent policy (120-second session ceiling, one burned dispatch each).
+After ordinary cancellation of the first Task, revoke only the second operator
+policy through its SQL CAS while its Worker is still active. Require the real
+receiver to become alone within five seconds, a failed second Hub Task, and
+the new signed terminal observation. The existing 2.5-second local control
+freshness and all media/queue/lease limits are unchanged; five seconds is the
+separate end-to-end policy-write/receiver-departure budget, not a relaxed local
+stop fence. No explicit Task cancellation may satisfy this second assertion.
