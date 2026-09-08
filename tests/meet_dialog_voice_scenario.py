@@ -194,6 +194,7 @@ class VoiceSelectionScenario:
                 "remote_revocation_ms": round(remote_ms, 2),
                 "speech_samples": speech.samples,
                 "answers": speech.answers,
+                "chat_flow": speech.chat_flow.report(),
                 "remote_audio": speech.remote,
                 "interrupted_playback": self.playback.closed,
             },

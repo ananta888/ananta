@@ -8,6 +8,7 @@ from collections import deque
 from ananta_contracts.meet_media_failures import CODES as MEDIA_FAILURE_CODES
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet_dialog_callback_observer import DialogCallbackObserver
+from tests.meet_dialog_chat_observer import DialogChatObserver
 from tests.meet_dialog_control_observer import DialogControlObserver
 from tests.meet_dialog_rpc_observer import DialogRpcObserver
 from tests.test_meet_media import result
@@ -30,6 +31,7 @@ class DialogSpeechObserver:
         self.remote = []
         self.sender = []
         self.rpc = DialogRpcObserver(monkeypatch)
+        self.chat_flow = DialogChatObserver(monkeypatch)
         self.callbacks = DialogCallbackObserver(monkeypatch)
         self.control_reads = DialogControlObserver(monkeypatch)
         self.last_tick = None
@@ -182,6 +184,7 @@ class DialogSpeechObserver:
         assert self.answers and value == {"correlated": True, "text_sha256": self.answers[-1]["text_sha256"]}, {
             "received": value,
             "generated_answers": len(self.answers),
+            "chat_flow": self.chat_flow.report(),
             "inference_failures": list(self.inference_failures),
             "runtime_errors": list(failures),
             "acceptances": list(self.acceptances),
