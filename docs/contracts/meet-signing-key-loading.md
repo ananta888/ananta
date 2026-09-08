@@ -25,3 +25,22 @@ read errors and descriptor cleanup. Re-run existing private grant/browser paths.
 No operator files, trust, credentials, deployment or active services are changed.
 This does not complete versioned Trust profiles, key rotation or organization/
 agent principals; those broader MAP-05 requirements stay open.
+
+## Verification (2026-09-08)
+
+The old FIFO constructor timed out in the owned two-second subprocess regression
+(one failure, 9.12 s including the application fixture). The new loader rejects
+the FIFO before reading and admits only a bounded regular-file descriptor.
+The same FIFO assertion is part of the final 82-test key/grant/media regression,
+which passed in 36.84 seconds. Tests also cover real Ed25519 signatures, 0400/0600
+files, symlinks, group/other permissions, socket/directory/missing/empty/oversize,
+encrypted/malformed/wrong-type keys, swapped regular/FIFO/permission targets,
+short/error reads, in-place changes, invalid paths and exact descriptor closure.
+The issuer accepts a narrow injected loading function and retains its original
+v1/v2 claims and current Hub authorization checks.
+
+The actual private Hub/Worker/Meet phase browser passed in 33.47 seconds with
+the new loader, real signed grants, moving screen, two correlated chat replies,
+source pause/resume and durable cancellation. Policy and model output remain
+synthetic, not production release evidence. Ruff and Worker boundaries pass.
+No live credential file, operator trust, deployment or running service changed.

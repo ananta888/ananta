@@ -409,6 +409,7 @@
     },
     {
       "id": "MAP-05",
+      "signing_key_load_result": "2026-09-08 implementiert/verifiziert: separater injizierbarer Hub-Keyloader mit4KiB-/regulaerem Datei-/privaten Rechte-/FD-Snapshot-Grenzen, nonblocking/CLOEXEC-open, einmalig begrenztem Read und finally-close. Symlink-Regularsecrets bleiben bei identischem Ziel kompatibel; FIFO/Socket/Directory/Size/Path/Permissions/Swaps/Mutation/Readfehler sowie verschluesselte/falsche Schluessel failclosed mit festen Fehlercodes ohne private Details. Alter FIFO-Startuphang im begrenzten eigenen Subprozess reproduziert1 failed9.12s. Finale82 echte Key-/Datei-/Grant-/Medientests36.84s gruen; privater realer Hub/Worker/Meet-Browser mit neuem Loader1 passed33.47s, signierte Grants/bewegter Screen/zwei Chatantworten/Pause-Resume/terminale Persistenz. Ruff/77-Dateien-Workerboundary gruen. docs/contracts/meet-signing-key-loading.md; keine Operator-/Trustaenderung oder Produktivevidenz. Versionierte Trustprofile/Rotation und Org-/Agentenidentitaeten bleiben gesondert offen, MAP-05 weiterhinpartial.",
       "signing_key_load_plan": "2026-09-08 Quellabgleichf1e7eb0b7: Hubsignierer prueft Pfadrechte, dann unbegrenztes Path.read_bytes ohne regulaeren Dateityp und ohne atomare FD-Bindung; private0600-FIFO kann Startup unbegrenzt halten, Zielwechsel kann frueheren Rechtecheck ueberholen. docs/contracts/meet-signing-key-loading.md: separater Hub-Keyloader mit4KiB-/Dateityp-/FD-/Metadaten-/Rechtegrenzen, nonblocking-open und garantiertem Schliessen, Symlink-Regularsecret kompatibel bei identischem Snapshot, feste redigierte Fehler ohne Retry. Erst begrenzten FIFO-Prozessnegativtest, dann echte Ed25519-/Datei-/Race-/Fehlerchecks und bestehende private Grants/Browser. Keine Operator-/Trustaenderung; versionierte Trustprofile, Rotation und Org-/Agentenprinzipale weiterhin offen.",
       "title": "Maschinenidentität, Trust-Profil und automatisierte Provisionierung implementieren",
       "repository": "both",
@@ -1351,10 +1352,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T08:00:16.140697Z",
+    "generated_at": "2026-09-08T08:12:37.478523Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "f76d7cd5ea1475792bbc38bd96a7b445f4e8ec6b5cd558ebbedbaebd8c48692f",
+    "source_hash": "887ed7f8ae42c5ec6ccd43775fce5af7725e7782ccf9844e27141306e86de708",
     "is_stale": false
   }
 }

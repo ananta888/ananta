@@ -1,28 +1,20 @@
 """Hub-issued, single-task admission grant for the separate Meet authority."""
 
-from pathlib import Path
 import secrets
 from urllib.parse import urlsplit
 
 import jwt
 
 from agent.services.meet_contract import MeetError
+from agent.services.meet_signing_key import load_meet_signing_key
 
 
 class MeetMachineGrantIssuer:
-    def __init__(self, issuer, key_path):
+    def __init__(self, issuer, key_path, *, key_loader=load_meet_signing_key):
         parsed = urlsplit(issuer)
         if parsed.scheme != "https" or parsed.netloc != parsed.hostname or issuer != f"https://{parsed.hostname}":
             raise ValueError("meet_machine_issuer_invalid")
-        key_file = Path(key_path)
-        if key_file.stat().st_mode & 0o077:
-            raise ValueError("meet_machine_key_permissions")
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-        from cryptography.hazmat.primitives.serialization import load_pem_private_key
-
-        self.key = load_pem_private_key(key_file.read_bytes(), password=None)
-        if not isinstance(self.key, Ed25519PrivateKey):
-            raise ValueError("meet_machine_key_type_invalid")
+        self.key = key_loader(key_path)
         self.issuer = issuer
 
     def issue_dialog(self, authority, task_id, lease_id, runtime_id, now):
@@ -31,11 +23,26 @@ class MeetMachineGrantIssuer:
         issued = int(now)
         if not issued < scope.deadline or scope.deadline > now + 7200:
             raise MeetError("meet_dialog_expired", 403)
-        token = jwt.encode({"iss": self.issuer, "aud": "ananta-meet-machine-v2", "sub": "ananta",
-            "iat": issued, "exp": min(issued + 120, scope.deadline), "jti": secrets.token_hex(16),
-            "roomId": scope.room_id, "taskId": scope.task_id, "tenantId": scope.tenant_id, "projectId": scope.project_id,
-            "runtimeId": scope.runtime_id, "sessionId": scope.session_id, "capabilities": list(scope.capabilities)},
-            self.key, algorithm="EdDSA", headers={"typ": "ananta-meet-machine-v2+jwt"})
+        token = jwt.encode(
+            {
+                "iss": self.issuer,
+                "aud": "ananta-meet-machine-v2",
+                "sub": "ananta",
+                "iat": issued,
+                "exp": min(issued + 120, scope.deadline),
+                "jti": secrets.token_hex(16),
+                "roomId": scope.room_id,
+                "taskId": scope.task_id,
+                "tenantId": scope.tenant_id,
+                "projectId": scope.project_id,
+                "runtimeId": scope.runtime_id,
+                "sessionId": scope.session_id,
+                "capabilities": list(scope.capabilities),
+            },
+            self.key,
+            algorithm="EdDSA",
+            headers={"typ": "ananta-meet-machine-v2+jwt"},
+        )
         return {"origin": scope.origin, "room_id": scope.room_id, "grant": token}
 
     def issue(self, turn, binding, principal, now, task=""):
