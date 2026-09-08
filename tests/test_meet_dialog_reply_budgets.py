@@ -115,6 +115,9 @@ def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypa
     assert isinstance(app.extensions["meet_dialog_deadlines"], MeetDialogDeadlines)
     assert isinstance(app.extensions["meet_dialog_deadlines"].store, SqlDialogDeadlines)
     assert "meet_dialog_deadline_reconciler" not in app.extensions
+    starts = app.extensions["meet_dialog_starts"]
+    assert starts.starter is app.extensions["meet_dialog_service"]
+    assert starts.access is app.extensions["meet_binding_service"]
     replies = app.extensions["meet_dialog_service"].replies
     assert replies.capacity is capacity and replies.speech_profile == voice
     assert app.extensions["meet_dialog_service"].audio_coordinator.replies is replies

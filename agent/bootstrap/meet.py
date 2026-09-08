@@ -201,6 +201,14 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         avatar_profiles=avatar_profiles,
         voice_profiles=voice_profiles,
     )
+    from agent.repositories.meet_dialog_starts import SqlDialogStarts
+    from agent.services.meet_dialog_starts import MeetDialogStarts
+
+    starts = SqlDialogStarts(engine)
+    starts.initialize()
+    app.extensions["meet_dialog_starts"] = MeetDialogStarts(
+        app.extensions["meet_dialog_service"], starts, app.extensions["meet_binding_service"]
+    )
     from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
     from agent.services.meet_dialog_deadlines import MeetDialogDeadlines
     from agent.services.task_runtime_service import compare_and_set_local_task_status

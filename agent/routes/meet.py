@@ -157,20 +157,33 @@ def _dialog():
 def dialog_start(project, task=""):
     from ananta_contracts.meet_dialog import parse
     service = _dialog()
-    if request.args or request.headers.get("Transfer-Encoding") or request.content_length is None or not 0 < request.content_length <= 2048:
+    if (
+        request.args or request.headers.get("Transfer-Encoding")
+        or request.content_length is None or not 0 < request.content_length <= 2048
+    ):
         raise MeetError("meet_dialog_payload_invalid")
     try:
         payload = parse(request.get_data(cache=False))
     except ValueError:
         raise MeetError("meet_dialog_payload_invalid") from None
-    return jsonify(service.start(get_authenticated_source_control_principal(), project, payload, task)), 202
+    principal = get_authenticated_source_control_principal()
+    if "Idempotency-Key" in request.headers:
+        starts = current_app.extensions.get("meet_dialog_starts")
+        if starts is None:
+            raise MeetError("meet_dialog_idempotency_unavailable", 503)
+        receipt, replayed = starts.start(principal, project, payload, task, request.headers["Idempotency-Key"])
+        return jsonify(receipt), 202, {"Idempotency-Replayed": "true" if replayed else "false"}
+    return jsonify(service.start(principal, project, payload, task)), 202
 
 
 @meet_bp.get("/projects/<project>/dialogs")
 @check_user_auth
 def dialog_list(project):
     cursor = request.args.get("cursor", "0")
-    if set(request.args) - {"cursor"} or len(request.args.getlist("cursor")) > 1 or not re.fullmatch(r"[0-9]{1,6}", cursor):
+    if (
+        set(request.args) - {"cursor"} or len(request.args.getlist("cursor")) > 1
+        or not re.fullmatch(r"[0-9]{1,6}", cursor)
+    ):
         raise MeetError("meet_dialog_cursor_invalid")
     return jsonify(_dialog().list(get_authenticated_source_control_principal(), project, int(cursor)))
 
@@ -180,7 +193,10 @@ def dialog_list(project):
 def dialog_status(project, task_id):
     if request.method == "PATCH":
         from ananta_contracts.meet_dialog import parse
-        if request.args or request.headers.get("Transfer-Encoding") or request.content_length is None or not 0 < request.content_length <= 1024:
+        if (
+            request.args or request.headers.get("Transfer-Encoding")
+            or request.content_length is None or not 0 < request.content_length <= 1024
+        ):
             raise MeetError("meet_dialog_payload_invalid")
         try:
             value = parse(request.get_data(cache=False))
@@ -197,6 +213,7 @@ def dialog_status(project, task_id):
 def dialog_callback():
     import hmac
     import time
+
     from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_callback
     service = _dialog()
     key = current_app.extensions.get("meet_media_worker_key")
@@ -289,8 +306,13 @@ def dialog_avatar_image_callback():
 def spoken_dialog_callback():
     import hmac
     import time
+
     from ananta_contracts.meet_spoken_reply import (
-        MAX_SPOKEN_BYTES, parse_spoken, spoken_request_signature, spoken_response_signature, validate_spoken_request,
+        MAX_SPOKEN_BYTES,
+        parse_spoken,
+        spoken_request_signature,
+        spoken_response_signature,
+        validate_spoken_request,
     )
     service = _dialog()
     key = current_app.extensions.get("meet_media_worker_key")
@@ -298,7 +320,9 @@ def spoken_dialog_callback():
             or request.content_length is None or not 0 < request.content_length <= 16384):
         raise MeetError("meet_spoken_callback_invalid", 403)
     raw = request.get_data(cache=False)
-    if not hmac.compare_digest(spoken_request_signature(key, raw), request.headers.get("X-Ananta-Speech-Signature", "")):
+    if not hmac.compare_digest(
+        spoken_request_signature(key, raw), request.headers.get("X-Ananta-Speech-Signature", "")
+    ):
         raise MeetError("meet_spoken_callback_unauthorized", 401)
     try:
         payload = validate_spoken_request(parse_spoken(raw), time.time())

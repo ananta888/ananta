@@ -218,6 +218,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     voice_mode,
     record_property,
     lifecycle_scenario=None,
+    start_scenario=None,
 ):
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -529,7 +530,12 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         monkeypatch.setenv("MEET_HUB_DIALOG_URL", f"http://127.0.0.1:{hub.server_port}/api/meet/v1/internal/dialog")
         threading.Thread(target=hub.serve_forever, daemon=True).start()
         with app.app_context():
-            started = service.start(
+            start_dialog = service.start
+            if start_scenario is not None:
+                from functools import partial
+
+                start_dialog = partial(start_scenario, service)
+            started = start_dialog(
                 principal,
                 "synthetic",
                 {
