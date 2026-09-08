@@ -108,6 +108,15 @@ Der aktuelle Generator enthält diese Abhängigkeit. Das Overlay bindet nur GPU 
 und konkret aufgelöste Treiberbibliotheken read-only ein. Keine Host-Kamera,
 kein Desktop, Docker-Socket oder persönliches Browserprofil wird eingebunden.
 
+Das Toolkit-Profil wählt für Worker und Ollama standardmäßig nur GPU `0` aus;
+`MEET_MEDIA_GPU_DEVICE_ID` erlaubt eine ausdrücklich konfigurierte andere
+Geräte-ID. Das generierte Host-Treiber-Overlay bleibt dagegen ausschließlich
+an GPU `0` gebunden und ersetzt die Toolkit-Anforderung; die Variable ändert
+dieses Overlay nicht. Geräteauswahl bedeutet weder exklusive Nutzung noch
+eine VRAM-Partition. Das Root-Dateisystem des Workers ist schreibgeschützt;
+sein bestehendes privates `/state` und begrenztes `/tmp` bleiben beschreibbar.
+Die Vorlage verändert keine bereits laufenden Container.
+
 Chromium läuft mit **aktivierter Sandbox** als Nicht-root-Benutzer, ohne
 zusätzliche Container-Capabilities und unter `no-new-privileges`. Das eng
 konfigurierte seccomp-Profil erlaubt seine Benutzer-Namespace-Erzeugung und

@@ -110,6 +110,7 @@ def test_health_probe_runs_as_nonroot_inside_private_bounded_worker_without_mode
         )
         state = await_health("healthy")
         assert state["HostConfig"]["NetworkMode"] == "none"
+        assert state["HostConfig"]["ReadonlyRootfs"] is True
         assert state["HostConfig"]["NanoCpus"] == 500_000_000
         assert state["HostConfig"]["Memory"] == 256 * 1024**2
         assert state["HostConfig"]["PidsLimit"] == 32

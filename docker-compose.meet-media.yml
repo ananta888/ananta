@@ -3,7 +3,9 @@
 services:
   meet-ollama:
     image: ollama/ollama@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80
-    gpus: all
+    gpus:
+      - driver: nvidia
+        device_ids: ["${MEET_MEDIA_GPU_DEVICE_ID:-0}"]
     environment:
       OLLAMA_MAX_LOADED_MODELS: "1"
       OLLAMA_NUM_PARALLEL: "1"
@@ -16,8 +18,11 @@ services:
     build:
       context: .
       dockerfile: docker/meet-media/Dockerfile
-    gpus: all
+    gpus:
+      - driver: nvidia
+        device_ids: ["${MEET_MEDIA_GPU_DEVICE_ID:-0}"]
     init: true
+    read_only: true
     user: "${MEET_MEDIA_UID:-1000}:${MEET_MEDIA_GID:-1000}"
     environment:
       MEET_WORKER_KEY_FILE: /run/secrets/meet-worker-key
