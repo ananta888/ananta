@@ -52,3 +52,28 @@ Hub/Meet principal interoperability, additional probe requirements/fencing and
 publisher/runtime cleanup. No teardown errors remain. Ruff and the 81-file
 standalone Worker boundary scan passed. Actual current Meet browser and installed
 Worker integration remain to be checked before the probe slice is complete.
+
+## Real browser and packaged integration
+
+Meet `025d9ae` passed its full isolated check: 676 frontend tests and 762 Node
+tests, zero failures, two explicit Node skips; build/static/security/Go unit/vet
+passed. Both actual Chromium and Firefox machine pages expose the exact frozen
+projection without probe-triggered capture, device enumeration, HTTP, keys,
+PeerConnection, WebSocket or join. Missing transforms return unsupported, and
+the old `capabilities()` object remains byte-shape compatible.
+
+The complete Worker image built from `89956ecaf`, using the already verified
+dependency layers, is
+`sha256:01db5060da48dd832588c84e00e2454b6792020a8236657ed1936f7df33de984`.
+The build client exited successfully before testing. Both real Hub/two packaged
+Worker cases passed together in **105.70 s**, without application source mounts:
+independent screens, two admitted persona images, overlapping speech and
+independent revocation/stop against the fresh Meet build. Thus the additive probe
+and strict installed Worker consumer work together under actual machine grants.
+
+A further selected-voice GPU dialog generated both answers but failed later
+during the second output because its Hub control state became stale. See
+[control freshness diagnosis](meet-control-refresh-latency.md). It is neither a
+failed capability probe nor a completed GPU-dialog acceptance; the mandatory
+stop was preserved. MAP-08/11/24 remain open for their outstanding runtime
+criteria. No production, public TURN or native-interoperability claim follows.
