@@ -81,3 +81,31 @@ and at most eight allowlisted rejection codes; no event bodies, IDs, keys,
 extra browser operations or retries. Exact return values and exceptions must
 remain unchanged. This keeps path diagnosis separate from the already broad
 speech fixture (SRP), and does not change production admission policy.
+
+The expanded 120-test transport/observer regression passed in 52.03 seconds.
+The next selected-voice GPU/browser run passed in 98.28 seconds, including
+54,272/64,000 samples and remote voice revocation in 1,083.54 ms. The passive
+diagnostic did not cause a production fix; the prior intermittent pre-inference
+failure is therefore still unresolved rather than reclassified as success.
+
+Follow-up source review identified a framing difference: `read1()` does not
+itself enforce the promised Content-Length at EOF like the earlier full read.
+Add a real HTTP regression announcing one byte more than a valid signed result
+and closing early. If accepted, preserve strict framing through the existing
+reader's optional exact-length input, without adding another reader or changing
+the original deadline. Missing lengths may retain bounded EOF-delimited
+compatibility; malformed, duplicate or over-budget lengths must fail closed.
+
+The real premature-EOF regression reproduced acceptance of the incomplete
+response in 7.73 seconds (`DID NOT RAISE`). The regular-body adapter now parses
+at most one ASCII decimal Content-Length, rejects duplicates/invalid values
+before body reads, preserves the existing overflow error, and passes the exact
+length into the shared reader. It retains bounded EOF-delimited reads only
+when no length is supplied. This corrects a framing regression in the new
+`read1` integration; it is not an explanation for the earlier browser failure.
+
+All 172 combined framing, transport, chat diagnostics and packaged-fixture
+regressions then passed in 69.92 seconds with the original time limits. This
+includes the real truncated signed response, exact/duplicate/malformed length
+cases, all previous trickle/overflow/signature tests and default GPU-fixture
+compatibility. Targeted Ruff and diff checks pass.

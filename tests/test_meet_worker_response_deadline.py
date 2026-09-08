@@ -21,7 +21,7 @@ KEY = b"synthetic-worker-read-key-32bytes!"
 
 
 @contextmanager
-def endpoint(monkeypatch, raw, *, interval=0, signed=True):
+def endpoint(monkeypatch, raw, *, interval=0, signed=True, announced_extra=0):
     stop = threading.Event()
     requests = []
 
@@ -36,7 +36,7 @@ def endpoint(monkeypatch, raw, *, interval=0, signed=True):
             requests.append(self.path)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Content-Length", str(len(raw) + announced_extra))
             self.send_header("X-Ananta-Result-Signature", signature(KEY, b"result-v1\0" + raw) if signed else "bad")
             self.end_headers()
             try:
@@ -97,6 +97,13 @@ def test_real_oversize_body_preserves_existing_error_code(monkeypatch):
         with pytest.raises(MeetError, match="meet_worker_result_too_large") as error:
             worker.execute(turn())
         assert error.value.status == 502
+        assert requests == ["/v1/turns"]
+
+
+def test_premature_eof_is_rejected_even_when_partial_body_contains_a_signed_result(monkeypatch):
+    with endpoint(monkeypatch, encode(result()), announced_extra=1) as (worker, requests):
+        with pytest.raises(MeetError, match="meet_worker_unavailable"):
+            worker.execute(turn())
         assert requests == ["/v1/turns"]
 
 
