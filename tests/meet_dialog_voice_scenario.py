@@ -119,6 +119,8 @@ class VoiceSelectionScenario:
                         "answers": speech.answers,
                         "closed": self.playback.closed,
                         "slow_rpc": speech.rpc.report(),
+                        "transport": speech.transport.report(),
+                        "control_history": speech.control_reads.history(),
                     }
                 ) from error
 
@@ -201,6 +203,15 @@ class VoiceSelectionScenario:
         )
         if self.timing_probe is not None:
             self.timing_probe.verify(record_property)
+        record_property(
+            "dialog_control_timing",
+            {
+                "transport": speech.transport.report(),
+                "control_history": speech.control_reads.history(),
+                "slow_rpc": speech.rpc.report(),
+                "callbacks": speech.callbacks.report(),
+            },
+        )
         return True
 
 

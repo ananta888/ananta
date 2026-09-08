@@ -11,6 +11,7 @@ from tests.meet_dialog_callback_observer import DialogCallbackObserver
 from tests.meet_dialog_chat_observer import DialogChatObserver
 from tests.meet_dialog_control_observer import DialogControlObserver
 from tests.meet_dialog_rpc_observer import DialogRpcObserver
+from tests.meet_dialog_transport_observer import DialogTransportObserver
 from tests.test_meet_media import result
 from tests.test_meet_speech_binding import speech_result
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
@@ -34,6 +35,7 @@ class DialogSpeechObserver:
         self.chat_flow = DialogChatObserver(monkeypatch)
         self.callbacks = DialogCallbackObserver(monkeypatch)
         self.control_reads = DialogControlObserver(monkeypatch)
+        self.transport = DialogTransportObserver(monkeypatch)
         self.last_tick = None
         self.last_publication = None
         self.max_tick_gap_ms = 0

@@ -34,3 +34,14 @@ not production release evidence or a completed cold-start/soak/public gate.
 SRP/DIP: transport, browser and control-state observation remain separate small
 test adapters. Existing broad runtime/test composition debt is preserved; no
 Worker-owned task scheduler or timing policy belongs in an observer.
+
+Implemented passive observers now share numeric monotonic timestamps. Browser
+tags recognize mixed-case internal speech/screen names; complete Hub transport
+keeps 12 recent calls and at most four in-flight timing rows with explicit
+overflow. The controller retains only 16 transitions, never each PCM tick,
+and reports pending/running/done plus the due-time delta without consuming a
+future. Domain failures are reduced to fixed known codes; returned rows are
+copies. Native calls, return values and exception identity remain unchanged.
+The first 34 observer/control/speech/scenario checks passed in 29.03 s. Repeat
+the real GPU scenario next; these tests establish diagnostic behavior, not a
+runtime latency fix.

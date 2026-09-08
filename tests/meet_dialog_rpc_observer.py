@@ -17,14 +17,20 @@ class DialogRpcObserver:
             elapsed = (clock() - started) * 1000
             if elapsed >= 40:
                 with self.lock:
-                    self.slow.append({"operation": operation, "elapsed_ms": round(elapsed, 2)})
+                    self.slow.append(
+                        {
+                            "operation": operation,
+                            "started_at_ms": round(started * 1000, 2),
+                            "elapsed_ms": round(elapsed, 2),
+                        }
+                    )
 
         def observed_evaluate(page, expression, *args, **kwargs):
             operation = next(
                 (
                     name
-                    for name in ("speech", "screen", "avatar", "__testPcs", "__testIce", "chat")
-                    if name in expression
+                    for name in ("speech", "screen", "avatar", "__testPcs", "__testIce", "chat", "status", "probe")
+                    if name.casefold() in expression.casefold()
                 ),
                 "other",
             )
@@ -46,4 +52,4 @@ class DialogRpcObserver:
 
     def report(self):
         with self.lock:
-            return list(self.slow)
+            return [dict(row) for row in self.slow]
