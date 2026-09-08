@@ -59,6 +59,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
     from tests.meet_multi_worker_media import MultiWorkerMediaScenario
     from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
+    from tests.meet_multi_worker_terminal_observations import terminal_observations
     from tests.test_meet_dialog_cross_repository import close_bridge
 
     assert os.environ.get("ANANTA_TEST_DATABASE_MODE") == "wal", "isolated concurrent SQL profile required"
@@ -378,33 +379,10 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             "failed" if worker_crash or terminal_control.enabled else "cancelled",
             "failed" if preauthorization is not None else "cancelled",
         ]
-        until = time.monotonic() + 8
-        terminal_tasks = []
-        # Receiver departure precedes the ordinary finish callback by design.
-        # Compare immutable snapshots only after the actual terminal transition.
-        while time.monotonic() < until:
-            with app.app_context():
-                terminal_tasks = [tasks.get_by_id(row["task_id"]).model_dump() for row in started]
-            if [row["status"] for row in terminal_tasks] == expected_statuses:
-                break
-            time.sleep(0.05)
-        assert [row["status"] for row in terminal_tasks] == expected_statuses, "bounded terminal Task finish missing"
-        observations = []
-        while time.monotonic() < until:
-            with app.app_context():
-                observations = [diagnostics.inspect(principal, "synthetic", row["task_id"]) for row in started]
-            if all(row["observation_status"] == "recorded" for row in observations[1 if worker_crash else 0 :]):
-                break
-            time.sleep(0.05)
-        recorded = observations[1 if worker_crash else 0 :]
-        assert all(row["observation_status"] == "recorded" for row in recorded), "bounded terminal reports missing"
-        if worker_crash:
-            assert observations[0]["observation_status"] == "missing" and observations[0]["observation"] is None
-        assert all(row["classification"] == "unverified_worker_observation" for row in observations)
-        assert [row["hub_task_status"] for row in observations] == expected_statuses
-        assert all(row["observation"]["measurements"]["elapsed_ms"] > 0 for row in recorded)
+        observations = terminal_observations(
+            app, tasks, diagnostics, principal, started, expected_statuses, crashed=worker_crash
+        )
         with app.app_context():
-            assert [tasks.get_by_id(row["task_id"]).model_dump() for row in started] == terminal_tasks
             browser.require_terminal(tasks)
         record_property("unverified_terminal_worker_observations", observations)
         control_recovery.require(record_property)

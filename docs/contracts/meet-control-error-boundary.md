@@ -87,3 +87,11 @@ Fifteen helper tests passed in **16.66 s** before the barrier correction and
 again in **16.48 s** after it.
 All infrastructure and policy remain private/synthetic, without application
 source mounts, GPU use or production outage claims.
+
+The additional recovery barrier exposed existing SRP debt in the large
+container-composition test (31 branches against the lint limit of 30).
+Terminal Task waiting, missing-versus-recorded report checks and immutable
+snapshot verification are now extracted together into a focused test helper,
+with the same eight-second bound and assertions. Twelve extraction checks
+passed in **14.09 s**; no lint suppression or weakened check was added. Its
+next installed-runtime run remains part of the watchdog follow-up.
