@@ -7,6 +7,7 @@ import os
 import selectors
 import subprocess
 import threading
+import time
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -20,8 +21,9 @@ pytestmark = [
 ]
 
 
+@pytest.mark.parametrize("media_mode", [False, True], ids=["screen-only", "persona-speech"])
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
-    app, tmp_path, monkeypatch, record_property
+    app, tmp_path, monkeypatch, record_property, media_mode
 ):
     from cryptography import x509
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -48,6 +50,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
     from tests.meet_dialog_worker_container import DialogWorkerContainer
     from tests.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
+    from tests.meet_multi_worker_media import MultiWorkerMediaScenario
     from tests.test_meet_dialog_cross_repository import close_bridge
 
     assert os.environ.get("ANANTA_TEST_DATABASE_MODE") == "wal", "isolated concurrent SQL profile required"
@@ -62,11 +65,14 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_key.write_bytes(hmac_key)
     worker_key.chmod(0o600)
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
+    media = MultiWorkerMediaScenario() if media_mode else None
+    capabilities = media.capabilities if media is not None else ["screen.publish"]
     with ExitStack() as cleanup:
         bridge = subprocess.Popen(
             ["node", "test/helpers/machine-multi-hub-bridge.mjs"],
             cwd=meet,
-            env=os.environ | {"MEET_TEST_HUB_PUBLIC_KEY": str(public)},
+            env=os.environ
+            | {"MEET_TEST_HUB_PUBLIC_KEY": str(public), "MEET_MULTI_WORKER_MEDIA_GATE": "1" if media_mode else "0"},
             text=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -86,7 +92,16 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         def command(name, **fields):
             bridge.stdin.write(json.dumps({"command": name, **fields}) + "\n")
             bridge.stdin.flush()
-            return receive()
+            response = receive()
+            assert "bridge_error" not in response, json.dumps(
+                {
+                    "bridge": response,
+                    "workers": worker_diagnostics(),
+                    "exchange_failures": exchange_failures,
+                    "reply_count": len(media.worker.calls) if media is not None else 0,
+                }
+            )
+            return response
 
         def worker_diagnostics():
             # Read only the test seam's bounded enum/line projection, never logs,
@@ -159,7 +174,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             organization_principals=True,
             publishers=MeetDialogPublishers(SqlMeetRoleAssignments(), origins, origins[0]),
         )
-        authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): ["screen.publish"]})
+        authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
         reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
         reservations.initialize()
@@ -173,13 +188,24 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             transports[origins[0]],
             reservations,
             dispatches,
+            **(media.service_options(binding, dispatches) if media is not None else {}),
         )
         exchange_failures = []
+        exchange_states = {}
         native_exchange = service.exchange
 
         def observe_exchange(payload):
+            began = time.monotonic()
             try:
-                return native_exchange(payload)
+                result = native_exchange(payload)
+                exchange_states[payload["task_id"]] = {
+                    "began": began,
+                    "receive_revision": result["authorization"]["receiveRevision"],
+                    "control_revision": result["controls"]["chat"]["revision"],
+                    "chat_enabled": result["controls"]["chat"]["enabled"],
+                    "read_grants": sum(g["chatRead"] is True for g in result["authorization"]["grants"]),
+                }
+                return result
             except MeetError as error:
                 if len(exchange_failures) < 8:
                     allowed = {
@@ -201,12 +227,42 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         app.config["ROLE"] = "hub"
         app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
         started, subjects = [], []
+
+        def wait_chat_ready(index):
+            since = time.monotonic()
+            while time.monotonic() < since + 8:
+                state = exchange_states.get(started[index]["task_id"])
+                if state is not None and state["began"] >= since:
+                    expected = {"open": True, **{k: state[k] for k in ("control_revision", "receive_revision")}}
+                    if containers[index].chat_state() == expected:
+                        return
+                time.sleep(0.1)
+            with app.app_context():
+                statuses = [tasks.get_by_id(row["task_id"]).status for row in started]
+            raise AssertionError(
+                json.dumps(
+                    {
+                        "chat_ready_missing": index,
+                        "latest_exchange": state,
+                        "marker": containers[index].chat_state(),
+                        "task_statuses": statuses,
+                        "workers": worker_diagnostics(),
+                        "exchange_failures": exchange_failures,
+                    }
+                )
+            )
+
         for parent in PARENTS:
             with app.app_context():
                 result = service.start(
                     principal,
                     "synthetic",
-                    {"capabilities": ["screen.publish"], "duration_seconds": 120, "chat_mode": "off"},
+                    {
+                        "capabilities": capabilities,
+                        "duration_seconds": 120,
+                        "chat_mode": "off",
+                        **(media.start_options if media is not None else {}),
+                    },
                     parent=parent,
                 )
                 started.append(result)
@@ -239,9 +295,13 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "exchange_failures": exchange_failures,
             }
         )
+        if media is not None:
+            media.exercise(app, service, principal, started, command, record_property, wait_chat_ready)
         cancel_fixture_dialog(app, service, principal, started[0]["task_id"])
         survivor = command("survivor")
         assert survivor == {"moving": [False, True], "departedAbsent": True}, survivor
+        if media is not None:
+            media.survivor(command)
         with app.app_context():
             assert tasks.get_by_id(started[0]["task_id"]).status == "cancelled"
             assert tasks.get_by_id(started[1]["task_id"]).status == "in_progress"

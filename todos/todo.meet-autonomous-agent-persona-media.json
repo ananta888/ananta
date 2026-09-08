@@ -972,6 +972,7 @@
     },
     {
       "id": "MAP-28",
+      "two_worker_media_result": "2026-09-08: Real two packaged Worker persona/screen/audio matrix passed both cases103.64s (42.234s/61.045s). Real scoped child tasks, three consecutive fresh simultaneous audio observations, independent image/task revocation; single-host synthetic policy/inference, no production/GPU/TURN claim. Reproduced fixture chat-open and target-render races corrected with passive exact-revision Worker observation and bounded DOM render barrier, no event/grant retry or policy weakening.49root units37.07s and8companion units/Chromium/Firefox checks8.327s passed, including foreign screen/speech/avatar rejection. No owned Worker leftovers. Companion b0d6c10 includes concurrent upstream84da270; isolated full check underway before push. docs/contracts/meet-multi-agent-isolation.md.",
       "title": "Mehrere Agenten und Personas ohne Identitätsvermischung betreiben",
       "repository": "both",
       "type": "feature",
@@ -1386,10 +1387,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T13:58:18.102303Z",
+    "generated_at": "2026-09-08T14:31:18.076809Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "2fc951915721d089c3f3f452b21b2efdec01c87b33d4c02f72fcffb80f9e60f7",
+    "source_hash": "2a455af4e2f0fd6ce97980eda9d70d4f639e9fc9c8aff838fa43370fe7ddb296",
     "is_stale": false
   }
 }

@@ -179,3 +179,44 @@ in the fixture unit checks. No raw images, PCM, subjects, grants or keys go into
 the report; the matrix remains synthetic-policy/single-host, not a production
 release, GPU concurrency or Hub speaker-fairness claim. Keep default screen-only
 acceptance unchanged and run both cases plus targeted helper regressions.
+
+### Implemented media scenario and readiness corrections
+
+The media scenario now uses separate image-revocation, bounded tone-execution
+and scenario helpers. It passed with two real packaged Workers in 69.90 s:
+distinct red/blue persona images, two real Hub child replies, three consecutive
+fresh observations of simultaneous decoded audio, independent first-image
+revocation and the existing separate task cancellation boundaries. The tone
+inference and profile catalog remain explicitly synthetic; this is not a GPU
+or production release result. Forty-nine Python helper/regression checks passed
+in 37.07 s and five companion bridge unit checks passed in 0.527 s.
+
+Two fixture errors were isolated: chat sent before the Worker's real chat port
+opened is correctly not replayed; selecting another UI target can leave a stale
+checked DOM field while its model is reset. A private passive Worker marker now
+records only open/revision values after the unchanged native chat update; the
+Hub fixture waits for an exact fresh exchange match. Receiver consent explicitly
+changes the checkbox and verifies the selected peer's confirmed grant. No
+security decision, event replay, human input or production Worker patch is
+introduced. The follow-up combined run passed screen-only but failed during
+consent in the media case (78.04 s total), so that single green media run does
+not close MAP-28. A closed command-step diagnostic is being used to isolate the
+remaining error before declaring the combined matrix complete.
+
+That diagnostic reproduced the failure at the second consent checkbox, before
+any Worker failure: Playwright input could race Angular's target-reset render.
+The later membership-loss report was teardown, not its cause. Consent now
+waits for the selected target's rendered pressed state and reset unchecked
+field before dispatching another input event. This is a bounded DOM observation,
+not a delay, application state mutation, grant retry or relaxed admission.
+
+The corrected combined packaged matrix passed both cases in 103.64 s:
+42.234 s screen-only and 61.045 s persona/speech including fixture lifecycle.
+Both reports retain exact image revision and synthetic/single-host classification;
+the media case records two child replies, three simultaneous audio observations
+and individual image withdrawal. No owned Worker container remained afterwards.
+
+SRP separates observation, synthetic inference/catalog and Hub scenario; DIP
+retains the existing real task/reply ports. The large pre-existing integration
+fixture still owns composition and cleanup; its broad setup is preserved test
+debt, not a new production service responsibility.

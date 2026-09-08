@@ -115,3 +115,30 @@ class DialogWorkerContainer:
         if self.created:
             self.created = False
             self.command("rm", "--force", self.name)
+
+    def chat_state(self):
+        raw = self.command(
+            "exec",
+            self.name,
+            "python",
+            "-S",
+            "-c",
+            "from pathlib import Path; p=Path('/state/dialog-chat-ready.json'); "
+            "print(p.open().read(257) if p.is_file() and not p.is_symlink() and p.stat().st_size <= 256 else '{}')",
+        )
+        if len(raw) > 256:
+            return None
+        try:
+            value = json.loads(raw)
+        except ValueError:
+            return None  # A concurrent test-marker write is not a readiness signal.
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"open", "control_revision", "receive_revision"}
+            or type(value["open"]) is not bool
+            or any(
+                type(value[k]) is not int or not 0 <= value[k] < 2**53 for k in ("control_revision", "receive_revision")
+            )
+        ):
+            return None
+        return value

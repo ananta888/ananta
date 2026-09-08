@@ -18,6 +18,11 @@ SAMPLES = 22050 * 10
 class SyntheticToneWorker:
     """Contract test double: declared engine labels are not GPU evidence."""
 
+    def __init__(self, seconds=10):
+        if type(seconds) is not int or seconds not in {10, 20}:
+            raise ValueError("test_tone_duration_invalid")
+        self.seconds = seconds
+
     def execute(self, turn):
         frame = b"".join(struct.pack("<h", round(12000 * math.sin(2 * math.pi * 500 * n / 22050))) for n in range(441))
         output = io.BytesIO()
@@ -25,8 +30,8 @@ class SyntheticToneWorker:
             audio.setframerate(22050)
             audio.setnchannels(1)
             audio.setsampwidth(2)
-            audio.writeframes(frame * 500)
-        return speech_result(profile=turn["speech_profile"], samples=SAMPLES) | {
+            audio.writeframes(frame * (50 * self.seconds))
+        return speech_result(profile=turn["speech_profile"], samples=22050 * self.seconds) | {
             "task_id": turn["task_id"],
             "lease_id": turn["lease_id"],
             "audio": {"mime": "audio/wav", "base64": base64.b64encode(output.getvalue()).decode()},

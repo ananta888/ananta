@@ -131,3 +131,30 @@ def test_started_fixture_cannot_create_another_container(tmp_path, monkeypatch):
         assert f.calls == calls
     finally:
         f.worker.close()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "",
+        "{",
+        "[]",
+        "{}",
+        "x" * 257,
+        '{"open":1,"control_revision":1,"receive_revision":1}',
+        '{"open":true,"control_revision":true,"receive_revision":1}',
+        '{"open":true,"control_revision":1,"receive_revision":-1}',
+        '{"open":true,"control_revision":1,"receive_revision":1,"extra":1}',
+    ],
+)
+def test_partial_or_malformed_runtime_marker_never_proves_chat_readiness(raw):
+    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, command=Mock(return_value=raw))
+    assert worker.chat_state() is None
+
+
+def test_closed_runtime_marker_contains_only_open_state_and_revisions():
+    expected = {"open": True, "control_revision": 2, "receive_revision": 7}
+    command = Mock(return_value=json.dumps(expected))
+    worker = DialogWorkerContainer(NETWORK, IMAGE, HUB, command=command)
+    assert worker.chat_state() == expected
+    assert command.call_args.args[:5] == ("exec", worker.name, "python", "-S", "-c")

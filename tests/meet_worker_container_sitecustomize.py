@@ -13,6 +13,8 @@ from pathlib import Path
 
 from playwright.sync_api import BrowserType
 
+from worker.meet_media.dialog_chat import DialogChatPump
+
 _pin = os.environ.get("MEET_TEST_BROWSER_SPKI", "")
 if not re.fullmatch(r"[A-Za-z0-9+/]{43}=", _pin):
     raise RuntimeError("test_worker_certificate_pin_required")
@@ -50,6 +52,28 @@ def _fixture_launch(self, *args, **kwargs):
 
 
 BrowserType.launch = _fixture_launch
+
+_native_chat_update = DialogChatPump.update
+
+
+def _fixture_chat_update(self, receipt, control):
+    result = _native_chat_update(self, receipt, control)
+    try:
+        Path("/state/dialog-chat-ready.json").write_text(
+            json.dumps(
+                {
+                    "open": self.opened is not None,
+                    "control_revision": control["revision"],
+                    "receive_revision": receipt["receiveRevision"],
+                }
+            )
+        )
+    except OSError:
+        pass
+    return result
+
+
+DialogChatPump.update = _fixture_chat_update
 
 
 def _runtime_trace(frame, event, arg):

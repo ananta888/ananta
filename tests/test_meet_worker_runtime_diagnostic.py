@@ -13,7 +13,11 @@ pytestmark = pytest.mark.timeout(45)
 
 def load_seam(monkeypatch):
     browser = type("Browser", (), {"launch": Mock()})
+    chat = type("Chat", (), {"update": Mock()})
     monkeypatch.setitem(__import__("sys").modules, "playwright.sync_api", SimpleNamespace(BrowserType=browser))
+    monkeypatch.setitem(
+        __import__("sys").modules, "worker.meet_media.dialog_chat", SimpleNamespace(DialogChatPump=chat)
+    )
     monkeypatch.setattr("sys.settrace", Mock())
     monkeypatch.setenv("MEET_TEST_BROWSER_SPKI", "a" * 43 + "=")
     written = Mock()
@@ -58,3 +62,18 @@ def test_diagnostic_storage_failure_cannot_replace_worker_failure(monkeypatch):
     seam, written = load_seam(monkeypatch)
     written.side_effect = OSError("synthetic-storage-error")
     seam["_runtime_trace"](SimpleNamespace(f_lineno=93), "exception", (ValueError, ValueError("private"), None))
+
+
+def test_chat_readiness_contains_only_actual_open_state_and_numeric_revisions(monkeypatch):
+    seam, written = load_seam(monkeypatch)
+    receiver = SimpleNamespace(opened={"private": "secret-canary"})
+    receipt, control = {"receiveRevision": 7, "grants": "secret-canary"}, {"revision": 3}
+    native = seam["_native_chat_update"]
+    assert seam["_fixture_chat_update"](receiver, receipt, control) is native.return_value
+    native.assert_called_once_with(receiver, receipt, control)
+    assert json.loads(written.call_args.args[0]) == {"open": True, "control_revision": 3, "receive_revision": 7}
+    native.side_effect = ValueError("synthetic-native-denial")
+    written.reset_mock()
+    with pytest.raises(ValueError, match="native-denial"):
+        seam["_fixture_chat_update"](receiver, receipt, control)
+    written.assert_not_called()
