@@ -979,7 +979,7 @@
       "status": "in_progress",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 5.0,
+      "progress_percent": 35.0,
       "depends_on": [
         "MAP-12",
         "MAP-24",
@@ -993,7 +993,8 @@
         "Mindestens zwei verschiedene Agenten plus Gegenstelle mit gleichzeitigem Browser-/Audiobetrieb testen; eine Mehrcontainer-Prüfung auf einem PC bleibt als Single-Host-Test bezeichnet."
       ],
       "implementation_plan": "2026-09-08: Source audit 36983a7f7 / companion c3e378a. Existing assignment-derived machine identity and exact session/source authority are implemented; real tests still cover one machine. docs/contracts/meet-multi-agent-isolation.md plans two independently admitted machines plus Chromium/Firefox receiver, distinct personas/screens/simultaneous audio, foreign-source rejection and independent stop; then real Hub/two-Worker-container/role-assignment integration. No prerequisite or production claim is closed by browser-only evidence.",
-      "publisher_routing_gap": "2026-09-08: Real companion two-machine browser matrix passed Chromium/Firefox (7.568 s; six related browser cases 18.649 s), but HubDialogTasks and MeetDialogService still use one fixed publisher, so two distinct assigned Worker endpoints cannot be selected. docs/contracts/meet-multi-agent-isolation.md now specifies bounded operator allowlist, exact scoped eligible role selection, shared preflight/admission port, persisted binding and revalidated dispatch; no caller URLs, ambiguous fallback, retry or new scheduler. Existing HMAC trust group is preserved explicitly, not claimed per-Worker credential isolation. Implement with focused SQL/negative/default-composition checks before two-container acceptance."
+      "publisher_routing_gap": "2026-09-08: Real companion two-machine browser matrix passed Chromium/Firefox (7.568 s; six related browser cases 18.649 s), but HubDialogTasks and MeetDialogService still use one fixed publisher, so two distinct assigned Worker endpoints cannot be selected. docs/contracts/meet-multi-agent-isolation.md now specifies bounded operator allowlist, exact scoped eligible role selection, shared preflight/admission port, persisted binding and revalidated dispatch; no caller URLs, ambiguous fallback, retry or new scheduler. Existing HMAC trust group is preserved explicitly, not claimed per-Worker credential isolation. Implement with focused SQL/negative/default-composition checks before two-container acceptance.",
+      "publisher_routing_implementation": "2026-09-08: Implemented optional bounded ANANTA_MEET_DIALOG_WORKER_URLS, exact scoped role selector, immutable destination-map router, shared admission/preflight selection and persisted role revalidation immediately before one dispatch. Default single-Worker and separate model-generation paths unchanged; HMAC trust group preserved explicitly, no per-Worker credential claim. 103 focused tests passed in 72.14 s with real SQL/TaskQueue two-role identities/destinations, ambiguity/revocation races/tampering/config/default/preflight/budget checks. Initial slow WAL unit run terminated without completion; in-memory isolated SQL verification passed. Companion af582c0 matrix/full check passed (665 frontend, 745 Node, zero failures, two Node skips plus fourteen opt-in live skips), pushed through e214973. Real two-Worker-container acceptance remains next; no MAP-28 completion claim. docs/contracts/meet-multi-agent-isolation.md."
     },
     {
       "id": "MAP-29",
@@ -1247,7 +1248,7 @@
         "done": 8,
         "partial": 3,
         "blocked": 0,
-        "progress_percent": 69.1
+        "progress_percent": 70.9
       },
       "infrastructure": {
         "total": 1,
@@ -1301,15 +1302,15 @@
     "blocked": 0,
     "done": 11,
     "count_based_percent": 34.4,
-    "weighted_percent": 61.7
+    "weighted_percent": 62.5
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 35.963,
-    "remaining_weight": 22.287,
+    "done_weight": 36.413,
+    "remaining_weight": 21.837,
     "blocked_weight": 0.0,
-    "weighted_percent": 61.7
+    "weighted_percent": 62.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1366,7 +1367,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 40.8,
+        "weighted_percent": 48.3,
         "status": "in_progress"
       },
       "MAP-M8": {
@@ -1382,10 +1383,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T12:59:15.930170Z",
+    "generated_at": "2026-09-08T13:13:22.450247Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "68d138c0699ad4090aa390742f5365127124304df59b804172be39fb3a0a94e6",
+    "source_hash": "434ed0d686abea62c40d62a315a349d48fc6772c626c2e485eb757f0e5b4217e",
     "is_stale": false
   }
 }

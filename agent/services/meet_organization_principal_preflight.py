@@ -5,9 +5,10 @@ from agent.services.meet_contract import MeetError
 
 
 class MeetOrganizationPrincipalPreflight:
-    def __init__(self, binding, lifecycle, roles, *, publisher_url, issuer):
+    def __init__(self, binding, lifecycle, roles, *, publisher_url, issuer, publishers=None):
         self.binding, self.lifecycle, self.roles = binding, lifecycle, roles
         self.publisher_url, self.issuer = publisher_url, issuer
+        self.publishers = publishers
 
     def inspect(self, principal, project, parent_id):
         if set(principal.roles) & {"worker", "service"} or principal.project_id and principal.project_id != project:
@@ -18,7 +19,12 @@ class MeetOrganizationPrincipalPreflight:
         fields = self.lifecycle.scope_for_parent(principal.tenant_id, project, parent_id)
         if not fields.get("organization_id"):
             raise MeetError("meet_dialog_organization_principal_unavailable", 409)
-        resolved = self.roles.resolve(principal.tenant_id, project, fields, self.publisher_url)
+        publisher = (
+            self.publisher_url
+            if self.publishers is None
+            else self.publishers.select(principal.tenant_id, project, fields)
+        )
+        resolved = self.roles.resolve(principal.tenant_id, project, fields, publisher)
         if resolved is None:
             raise MeetError("meet_dialog_principal_assignment_required", 403)
         try:

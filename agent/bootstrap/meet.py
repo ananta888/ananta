@@ -167,9 +167,18 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         if scope in policies:
             raise ValueError("meet_dialog_policy_duplicate")
         policies[scope] = row["capabilities"]
+    from agent.bootstrap.meet_dialog_publishers import configured_dialog_workers
+    from agent.services.meet_role_assignment import get_meet_role_assignments
+
+    assignments = get_meet_role_assignments()
+    publishers, dialog_workers = configured_dialog_workers(
+        os.environ.get("ANANTA_MEET_DIALOG_WORKER_URLS"), worker, assignments.rows
+    )
     tasks = HubDialogTasks(
         publisher_url=worker.publisher_url,
         organization_principals=os.environ.get("ANANTA_MEET_ORGANIZATION_PRINCIPALS_ENABLED") == "1",
+        role_assignments=assignments,
+        publishers=publishers,
     )
     authority = MeetDialogAuthority(tasks, app.extensions["meet_binding_service"], policies)
     from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
@@ -178,12 +187,15 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
     if tasks.organization_principals:
         from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
         from agent.services.meet_organization_principal_preflight import MeetOrganizationPrincipalPreflight
-        from agent.services.meet_role_assignment import get_meet_role_assignments
 
-        assignments = get_meet_role_assignments()
         lifecycle = MeetDialogLifecycle(tasks, role_assignments=assignments)
         app.extensions["meet_organization_principal_preflight"] = MeetOrganizationPrincipalPreflight(
-            authority.binding, lifecycle, assignments, publisher_url=tasks.publisher_url, issuer=issuer.issuer
+            authority.binding,
+            lifecycle,
+            assignments,
+            publisher_url=tasks.publisher_url,
+            issuer=issuer.issuer,
+            publishers=publishers,
         )
     from agent.repositories.meet_dialog_phases import TaskDialogPhases
     from agent.services.meet_dialog_phases import MeetDialogPhases
@@ -214,12 +226,17 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         from agent.services.meet_persona_voices import MeetPersonaVoices
 
         voice_profiles = MeetPersonaVoiceProfiles(profiles, MeetPersonaVoices(voice_assets))
+    dialog_worker = worker
+    if dialog_workers is not None:
+        from agent.services.meet_dialog_worker_router import MeetDialogWorkerRouter
+
+        dialog_worker = MeetDialogWorkerRouter(authority, tasks, dialog_workers, worker.publisher_url)
     app.extensions["meet_dialog_service"] = MeetDialogService(
         authority,
         tasks,
         meet,
         issuer,
-        worker,
+        dialog_worker,
         worker,
         reservations,
         dispatches,
