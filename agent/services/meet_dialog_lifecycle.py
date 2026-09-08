@@ -4,7 +4,7 @@ import re
 from typing import Protocol
 
 from agent.services.meet_contract import MeetError
-from agent.services.task_organization_scope import ORGANIZATION_SCOPE_FIELDS
+from agent.services.meet_task_scope import organization_tuple as organization_tuple
 from agent.services.task_state_machine_service import ACTIVE_TASK_STATUSES
 
 
@@ -14,22 +14,6 @@ class TaskLookup(Protocol):
 
 class OrganizationGate(Protocol):
     def evaluate(self, task): ...
-
-
-def organization_tuple(task) -> dict[str, str]:
-    """Copy whole scope without coercion or silently dropping malformed fields."""
-    scope = {}
-    for field in ORGANIZATION_SCOPE_FIELDS:
-        value = getattr(task, field, None)
-        if value is None or value == "":
-            continue
-        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,191}", value):
-            raise MeetError("meet_dialog_organization_scope_invalid", 403)
-        scope[field] = value
-    # A legacy team may exist outside an organization; units/slots may not.
-    if not scope.get("organization_id") and (scope.get("unit_id") or scope.get("role_slot_id")):
-        raise MeetError("meet_dialog_organization_scope_invalid", 403)
-    return scope
 
 
 class MeetDialogLifecycle:
@@ -43,11 +27,9 @@ class MeetDialogLifecycle:
         try:
             gate = self.organization_gate
             if gate is None:
-                from agent.services.organization_task_dispatch_gate_service import (
-                    get_organization_task_dispatch_gate_service,
-                )
+                from agent.services.meet_organization_topology import get_meet_organization_topology_gate
 
-                gate = get_organization_task_dispatch_gate_service()
+                gate = get_meet_organization_topology_gate()
             allowed = gate.evaluate(task).allowed
         except Exception:
             raise MeetError("meet_dialog_lifecycle_unavailable", 403) from None

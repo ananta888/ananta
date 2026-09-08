@@ -6,7 +6,7 @@ import time
 import pytest
 from sqlmodel import Session, select
 
-from agent.db_models import OrganizationInstanceDB, TaskDB
+from agent.db_models import OrganizationInstanceDB, OrganizationRoleSlotDB, TaskDB
 from agent.services.meet_dialog_lifecycle import organization_tuple
 from tests.meet_dialog_lifecycle_fixture import seed_parent
 
@@ -15,7 +15,7 @@ class LifecycleScenario:
     parent_id = "meet-test-parent"
 
     def __init__(self, reason):
-        if reason not in {"parent-cancel", "organization-pause"}:
+        if reason not in {"parent-cancel", "organization-pause", "role-draining"}:
             raise ValueError("test_lifecycle_scenario_invalid")
         self.reason = reason
         self.observation = None
@@ -39,6 +39,9 @@ class LifecycleScenario:
             if self.reason == "parent-cancel":
                 row = session.get(TaskDB, self.parent_id)
                 row.status = "cancelled"
+            elif self.reason == "role-draining":
+                row = session.get(OrganizationRoleSlotDB, "meet-test-slot")
+                row.lifecycle = "draining"
             else:
                 row = session.get(OrganizationInstanceDB, "meet-test-org")
                 row.lifecycle = "paused"
@@ -59,7 +62,7 @@ class LifecycleScenario:
 
 
 @pytest.mark.timeout(240)
-@pytest.mark.parametrize("reason", ["parent-cancel", "organization-pause"])
+@pytest.mark.parametrize("reason", ["parent-cancel", "organization-pause", "role-draining"])
 @pytest.mark.skipif(os.environ.get("MEET_DIALOG_LIFECYCLE_GATE") != "1", reason="opt-in private lifecycle transport")
 def test_parent_or_organization_loss_stops_real_dialog_and_removes_machine(
     app, tmp_path, monkeypatch, record_property, reason
