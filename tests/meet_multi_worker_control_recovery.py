@@ -1,6 +1,7 @@
 """One test-owned transient read failure per assigned Worker; no policy relaxation."""
 
 import threading
+import time
 
 from agent.services.meet_contract import MeetError
 
@@ -32,6 +33,17 @@ class MultiWorkerControlRecovery:
             return result
 
         return exchange
+
+    def wait_recovered(self):
+        if not self.enabled:
+            return
+        until = time.monotonic() + 3
+        while time.monotonic() < until:
+            with self.lock:
+                if len(self.reads) == len(self.interrupted) == len(self.recovered) == 2:
+                    return
+            time.sleep(0.025)
+        raise AssertionError("both assigned Workers did not complete bounded read recovery")
 
     def require(self, record_property):
         if self.enabled:

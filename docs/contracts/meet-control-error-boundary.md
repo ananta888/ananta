@@ -61,3 +61,29 @@ runtime; callback error metadata is separate from retry scheduling. Existing
 Hub imports of the historical Worker encode/body helpers remain coupling debt
 (DIP), not broadened here. Moving those existing ports is a separate migration;
 this correction introduces no duplicate HTTP reader or orchestration loop.
+
+## Installed-image follow-up
+
+Immutable Worker image
+`sha256:547fc9e52c5a8ab28fdaae878aac9ded4241710490737984d0cb5010556d9855`
+was built from `89fe9db32`. The first packaged selection stopped both cases
+before resource creation because the existing private browser build had become
+stale (**2 failed, 27.95 s**). Parallel Meet development had advanced to
+`92f583f`. A separate clean worktree built that revision successfully and
+passed **765 frontend tests in 11.08 s**; serving `dist` was not touched. This
+is not a new complete companion `npm run check` claim.
+
+The next selection passed the terminal-denial case but failed the recovery
+fixture's final counts (**1 passed/1 failed, 80.58 s**): both screens could
+become visible before the second read, and the fixture then cancelled the
+first task before its required injected failure/recovery. Add an explicit
+bounded recovery barrier and require moving remote screens again afterwards;
+do not slow the product or loosen freshness. The final selection passed both
+cases in **81.77 s**. Two independent Workers recover from their one temporary
+503 each; an armed terminal contract 502 receives exactly one failed read and
+zero retries, the first Worker ends and the survivor continues then obeys
+independent revocation. Both cases retain actual signed terminal observations.
+Fifteen helper tests passed in **16.66 s** before the barrier correction and
+again in **16.48 s** after it.
+All infrastructure and policy remain private/synthetic, without application
+source mounts, GPU use or production outage claims.

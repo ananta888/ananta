@@ -23,8 +23,8 @@ pytestmark = [
 
 @pytest.mark.parametrize(
     "media_mode",
-    [False, True, "browser", "control-recovery", "worker-crash"],
-    ids=["screen-only", "persona-speech", "browser-workspaces", "control-recovery", "worker-crash"],
+    [False, True, "browser", "control-recovery", "worker-crash", "terminal-control"],
+    ids=["screen-only", "persona-speech", "browser-workspaces", "control-recovery", "worker-crash", "terminal-control"],
 )
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
     app, tmp_path, monkeypatch, record_property, media_mode
@@ -58,6 +58,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
     from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
     from tests.meet_multi_worker_media import MultiWorkerMediaScenario
+    from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
     from tests.test_meet_dialog_cross_repository import close_bridge
 
     assert os.environ.get("ANANTA_TEST_DATABASE_MODE") == "wal", "isolated concurrent SQL profile required"
@@ -76,6 +77,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     browser = MultiWorkerBrowserScenario(media_mode == "browser")
     control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
     worker_crash = media_mode == "worker-crash"
+    terminal_control = MultiWorkerTerminalControl(media_mode == "terminal-control")
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -224,7 +226,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         )
         exchange_failures = []
         exchange_states = {}
-        native_exchange = control_recovery.wrap(service.exchange)
+        native_exchange = terminal_control.wrap(control_recovery.wrap(service.exchange))
 
         def observe_exchange(payload):
             began = time.monotonic()
@@ -335,11 +337,16 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         )
         if media is not None:
             media.exercise(app, service, principal, started, command, record_property, wait_chat_ready)
+        control_recovery.wait_recovered()
+        if control_recovery.enabled:
+            assert command("screens") == both, "both screens must keep moving after the actual recovery"
         browser.exercise(app, principal, started, containers, command, record_property)
         if worker_crash:
             from tests.meet_multi_worker_crash import crash_owned_worker
 
             crash_owned_worker(containers[0])
+        elif terminal_control.enabled:
+            terminal_control.arm(started[0]["task_id"])
         else:
             cancel_fixture_dialog(app, service, principal, started[0]["task_id"])
         browser.after_departure(app, principal, started[1], containers[1], record_property)
@@ -347,8 +354,11 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         assert survivor == {"moving": [False, True], "departedAbsent": True}, survivor
         if media is not None:
             media.survivor(command)
+        terminal_control.wait_stopped(app, tasks)
         with app.app_context():
-            assert tasks.get_by_id(started[0]["task_id"]).status == ("in_progress" if worker_crash else "cancelled")
+            assert tasks.get_by_id(started[0]["task_id"]).status == (
+                "in_progress" if worker_crash else "failed" if terminal_control.enabled else "cancelled"
+            )
             assert tasks.get_by_id(started[1]["task_id"]).status == "in_progress"
         revoke_started = time.monotonic()
         if preauthorization is not None:
@@ -365,7 +375,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
 
             reconcile_crashed_worker(app, tasks, started[0]["task_id"], record_property)
         expected_statuses = [
-            "failed" if worker_crash else "cancelled",
+            "failed" if worker_crash or terminal_control.enabled else "cancelled",
             "failed" if preauthorization is not None else "cancelled",
         ]
         until = time.monotonic() + 8
@@ -398,6 +408,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             browser.require_terminal(tasks)
         record_property("unverified_terminal_worker_observations", observations)
         control_recovery.require(record_property)
+        terminal_control.require(record_property)
         record_property(
             "two_packaged_worker_screens",
             {
