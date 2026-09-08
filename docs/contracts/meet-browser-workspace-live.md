@@ -213,3 +213,29 @@ of adding browser policy/SQL/rendering logic to that SRP pressure point. Verify
 real SQL CAS and terminality, exact dispatch/tenant/role isolation, bounded
 async cancellation, and decoded private Meet receiver privacy/lifecycle cases
 before closing MAP-13/15/16 or enabling any public deployment policy.
+
+Workspace composition is implemented as `PublicDocumentWorkspace`, a separate
+one-generation adapter accepting only bounded UTF-8 content from an upstream
+admitted fetch. Its new context has JavaScript, credentials, downloads,
+service workers and network egress unavailable. Source text is inspected again
+before each frame is consumed; only changed valid closed snapshots update the
+separate renderer. Raw source-page screenshots are never requested. This class
+still requires the planned external Hub assignment/current-authority port.
+
+**22 workspace and real-browser tests passed in 104.32 s**: 19 lifecycle seams
+plus all three opt-in sandboxed private browser probes. The new workspace
+probe decoded seven distinct continuous frames and checked seven stop cases
+(secret input, resize, lost page, foreign generation, authority revocation,
+extra tab and unassigned navigation). Source scripts did not execute, an
+external stylesheet request was aborted, and source magenta pixels were absent
+from every decoded output frame. No human input, screenshots on disk, network
+access, serving-dist changes or production evidence were involved.
+
+The initial actual test exposed incomplete teardown when a source-tab event
+called synchronous Playwright close operations reentrantly. Fixed by immediate
+event-side revocation/emptying the renderer buffer, then foreground teardown
+before any frame consumption. A dedicated seam regression checks that no
+browser RPC is attempted inside that callback and both contexts are closed on
+the next foreground authority check. This separates lifecycle invalidation
+from resource teardown (SRP); publication never resumes under the revoked
+generation. Hub Task and Meet receiver integration remain unfinished.
