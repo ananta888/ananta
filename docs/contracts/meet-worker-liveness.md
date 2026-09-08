@@ -77,3 +77,19 @@ not a fully fresh dependency build, deployment, model readiness or aggregate
 GPU isolation. Existing services/credentials were unchanged. The health-only
 import guard scanned 79 files. The server's broad existing composition remains
 SRP debt; health request policy and the probe are separate small modules.
+
+## Full locked-build follow-up
+
+The subsequent complete Dockerfile build, bounded to 1,800 seconds and using
+the explicit Python inventory lock, finished successfully. Its immutable image
+is `sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e`,
+built from source snapshot `76ec57d71`. Unlike the earlier source-packaging
+check, this executes the dependency-install and build-inventory steps too.
+
+The packaged health gate passed against this new image in 26.03 seconds,
+without source mounts: healthy/unhealthy/healthy, silent probe output, same
+listener PID, no restart and zero executed leases. The non-root, network/GPU-free
+resource restrictions and exact health-module hash checks remained enabled.
+This supersedes the pending full-build outcome, not the separate limitations
+on GPU readiness, production deployment or aggregate resource isolation.
+No existing service was replaced or restarted.

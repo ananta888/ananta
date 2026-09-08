@@ -65,3 +65,20 @@ TTS/observer/inventory regression passed all 210 tests in 79.14 seconds with
 the real inventory gate explicitly enabled and no skips. Targeted Ruff passes.
 The full fresh dependency-image build still follows these checks; its outcome
 is not inferred from matching the existing runtime.
+
+## Successful full build and packaged verification
+
+The complete Dockerfile build subsequently finished within its explicit
+1,800-second bound, using the source snapshot `76ec57d71`. The resulting image
+is `sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e`.
+Its build log records dependency installation, the successful inventory check,
+browser installation and completed image export; this is not a source-only
+repackage of the old runtime.
+
+All 34 inventory tests passed in 28.42 seconds with the real container gate
+explicitly enabled against that new image. The packaged health gate also
+passed in 26.03 seconds, without source bind mounts, including the actual
+healthy/unhealthy/healthy transition and no Hub package or executed lease.
+No running Worker or provider was replaced. These checks establish a successful
+locked-version build and liveness, not inference correctness, wheel/APT hash
+reproducibility or Registry-backed production release evidence.
