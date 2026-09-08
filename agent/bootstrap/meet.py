@@ -167,6 +167,15 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         policies[scope] = row["capabilities"]
     tasks = HubDialogTasks(publisher_url=worker.publisher_url)
     authority = MeetDialogAuthority(tasks, app.extensions["meet_binding_service"], policies)
+    from agent.repositories.meet_dialog_phases import TaskDialogPhases
+    from agent.services.meet_dialog_phases import MeetDialogPhases
+    from agent.services.task_runtime_service import compare_and_set_local_task_status
+
+    meet = MeetAuthorizationClient(authority, issuer)
+    phases = MeetDialogPhases(
+        TaskDialogPhases(tasks, task_status_cas=compare_and_set_local_task_status), authority, meet
+    )
+    app.extensions["meet_dialog_phases"] = phases
     reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
     reservations.initialize()
     dispatches.initialize()
@@ -190,7 +199,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
     app.extensions["meet_dialog_service"] = MeetDialogService(
         authority,
         tasks,
-        MeetAuthorizationClient(authority, issuer),
+        meet,
         issuer,
         worker,
         worker,
@@ -200,6 +209,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         replies=replies,
         avatar_profiles=avatar_profiles,
         voice_profiles=voice_profiles,
+        phases=phases,
     )
     from agent.repositories.meet_dialog_starts import SqlDialogStarts
     from agent.services.meet_dialog_starts import MeetDialogStarts

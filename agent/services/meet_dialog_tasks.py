@@ -239,7 +239,7 @@ class HubDialogTasks:
 
         return get_repository_registry().task_repo.get_by_id(task_id)
 
-    def start(self, task_id, tenant, project, context):
+    def start(self, task_id, tenant, project, context, *, phase=None):
         from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
         from agent.services.meet_role_assignment import get_meet_role_assignments
         from agent.services.task_queue_service import get_task_queue_service
@@ -249,6 +249,10 @@ class HubDialogTasks:
         assignments = self.role_assignments if self.role_assignments is not None else get_meet_role_assignments()
         role_binding = assignments.admit(task_id, tenant, project, context, scope, self.publisher_url)
         execution = {"meet_dialog": context}
+        if phase is not None:
+            from agent.models.meet_dialog_phase import phase_binding, validate_record
+
+            execution["meet_phase"] = validate_record(phase, phase_binding(task_id, tenant, project, context))
         if role_binding is not None:
             execution["meet_role_assignment"] = role_binding
         get_task_queue_service().ingest_task(

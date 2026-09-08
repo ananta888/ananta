@@ -156,10 +156,13 @@ def _dialog():
 @check_user_auth
 def dialog_start(project, task=""):
     from ananta_contracts.meet_dialog import parse
+
     service = _dialog()
     if (
-        request.args or request.headers.get("Transfer-Encoding")
-        or request.content_length is None or not 0 < request.content_length <= 2048
+        request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 2048
     ):
         raise MeetError("meet_dialog_payload_invalid")
     try:
@@ -181,7 +184,8 @@ def dialog_start(project, task=""):
 def dialog_list(project):
     cursor = request.args.get("cursor", "0")
     if (
-        set(request.args) - {"cursor"} or len(request.args.getlist("cursor")) > 1
+        set(request.args) - {"cursor"}
+        or len(request.args.getlist("cursor")) > 1
         or not re.fullmatch(r"[0-9]{1,6}", cursor)
     ):
         raise MeetError("meet_dialog_cursor_invalid")
@@ -193,9 +197,12 @@ def dialog_list(project):
 def dialog_status(project, task_id):
     if request.method == "PATCH":
         from ananta_contracts.meet_dialog import parse
+
         if (
-            request.args or request.headers.get("Transfer-Encoding")
-            or request.content_length is None or not 0 < request.content_length <= 1024
+            request.args
+            or request.headers.get("Transfer-Encoding")
+            or request.content_length is None
+            or not 0 < request.content_length <= 1024
         ):
             raise MeetError("meet_dialog_payload_invalid")
         try:
@@ -205,8 +212,25 @@ def dialog_status(project, task_id):
         return jsonify(_dialog().control(get_authenticated_source_control_principal(), project, task_id, value))
     if request.args or request.headers.get("Transfer-Encoding") or request.content_length not in (None, 0):
         raise MeetError("meet_dialog_payload_invalid")
-    return jsonify(_dialog().inspect(get_authenticated_source_control_principal(), project, task_id,
-                                    stop=request.method == "DELETE"))
+    return jsonify(
+        _dialog().inspect(
+            get_authenticated_source_control_principal(), project, task_id, stop=request.method == "DELETE"
+        )
+    )
+
+
+@meet_bp.route("/projects/<project>/dialogs/<task_id>/phase", methods=["GET", "POST"])
+@check_user_auth
+def dialog_phase(project, task_id):
+    _dialog()
+    phases = current_app.extensions.get("meet_dialog_phases")
+    if phases is None:
+        raise MeetError("meet_dialog_phase_unavailable", 409)
+    if request.args or request.content_length not in (None, 0) or request.stream.read(1):
+        raise MeetError("meet_dialog_phase_payload_invalid")
+    return jsonify(
+        phases.inspect(get_authenticated_source_control_principal(), project, task_id, refresh=request.method == "POST")
+    )
 
 
 @meet_bp.post("/internal/dialog")
@@ -215,10 +239,17 @@ def dialog_callback():
     import time
 
     from ananta_contracts.meet_dialog import parse, request_signature, response_signature, validate_callback
+
     service = _dialog()
     key = current_app.extensions.get("meet_media_worker_key")
-    if (key is None or request.headers.get("Authorization") or request.args or request.headers.get("Transfer-Encoding")
-            or request.content_length is None or not 0 < request.content_length <= 16384):
+    if (
+        key is None
+        or request.headers.get("Authorization")
+        or request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 16384
+    ):
         raise MeetError("meet_dialog_callback_invalid", 403)
     raw = request.get_data(cache=False)
     if not hmac.compare_digest(request_signature(key, raw), request.headers.get("X-Ananta-Dialog-Signature", "")):
@@ -239,8 +270,10 @@ def dialog_avatar_selection(project, task_id):
 
     service = _dialog()
     if (
-        request.args or request.headers.get("Transfer-Encoding")
-        or request.content_length is None or not 0 < request.content_length <= 2048
+        request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 2048
     ):
         raise MeetError("meet_dialog_avatar_selection_invalid")
     try:
@@ -257,8 +290,10 @@ def dialog_voice_selection(project, task_id):
 
     service = _dialog()
     if (
-        request.args or request.headers.get("Transfer-Encoding")
-        or request.content_length is None or not 0 < request.content_length <= 2048
+        request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 2048
     ):
         raise MeetError("meet_dialog_voice_selection_invalid")
     try:
@@ -284,8 +319,12 @@ def dialog_avatar_image_callback():
     service = _dialog()
     key = current_app.extensions.get("meet_media_worker_key")
     if (
-        key is None or request.headers.get("Authorization") or request.args or request.headers.get("Transfer-Encoding")
-        or request.content_length is None or not 0 < request.content_length <= 16384
+        key is None
+        or request.headers.get("Authorization")
+        or request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 16384
     ):
         raise MeetError("meet_avatar_image_callback_invalid", 403)
     raw = request.get_data(cache=False)
@@ -314,10 +353,17 @@ def spoken_dialog_callback():
         spoken_response_signature,
         validate_spoken_request,
     )
+
     service = _dialog()
     key = current_app.extensions.get("meet_media_worker_key")
-    if (key is None or request.headers.get("Authorization") or request.args or request.headers.get("Transfer-Encoding")
-            or request.content_length is None or not 0 < request.content_length <= 16384):
+    if (
+        key is None
+        or request.headers.get("Authorization")
+        or request.args
+        or request.headers.get("Transfer-Encoding")
+        or request.content_length is None
+        or not 0 < request.content_length <= 16384
+    ):
         raise MeetError("meet_spoken_callback_invalid", 403)
     raw = request.get_data(cache=False)
     if not hmac.compare_digest(

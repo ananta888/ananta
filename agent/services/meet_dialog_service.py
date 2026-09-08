@@ -36,8 +36,10 @@ class MeetDialogService:
         replies=None,
         avatar_profiles=None,
         voice_profiles=None,
+        phases=None,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
+        self.phases = phases
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
             worker,
             media_worker,
@@ -182,9 +184,15 @@ class MeetDialogService:
             context["capabilities"], avatar_images="avatar_selection" in context
         ).projection()
         task_id = str(uuid.uuid4())
-        self.tasks.start(task_id, principal.tenant_id, project, context)
+        phase = (
+            {} if self.phases is None else {"phase": self.phases.queued(task_id, principal.tenant_id, project, context)}
+        )
+        self.tasks.start(task_id, principal.tenant_id, project, context, **phase)
         try:
             scope = self.authority.current(task_id, context["lease_id"], context["runtime_id"])
+            if self.phases is not None:
+                self.phases.advance(scope, "admitted")
+                self.phases.advance(scope, "connecting")
             meeting = self.issuer.issue_dialog(self.authority, task_id, scope.lease_id, scope.runtime_id, self.clock())
             assignment = {
                 "schema": "ananta.meet-dialog-assignment.v1",
@@ -229,7 +237,12 @@ class MeetDialogService:
         if context.get("owner_subject") != principal.subject_id:
             raise MeetError("meet_dialog_owner_required", 403)
         if stop and task.status == "in_progress":
-            self.tasks.finish_bound(task_id, context["lease_id"], context["runtime_id"], "cancelled")
+            try:
+                if self.phases is not None:
+                    self.phases.stopping(task_id, context["lease_id"], context["runtime_id"])
+            finally:
+                # Observational metadata must never obstruct bound cancellation.
+                self.tasks.finish_bound(task_id, context["lease_id"], context["runtime_id"], "cancelled")
             task = self.tasks.get_by_id(task_id)
         result = {
             "schema": "ananta.meet-dialog-status.v1",
@@ -279,6 +292,8 @@ class MeetDialogService:
         scope = self.authority.current(*ids)
         state = self.meet.inspect(*ids, payload["meet_session_id"])
         scope = self.authority.current(*ids)
+        if self.phases is not None:
+            self.phases.advance(scope, "joined", state)
         task = self.tasks.get_by_id(scope.task_id)
         audio_job = (task.worker_execution_context or {}).get("meet_dialog", {}).get("audio_job")
         if audio_job and (

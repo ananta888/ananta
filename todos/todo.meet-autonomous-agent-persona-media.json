@@ -498,6 +498,7 @@
     },
     {
       "id": "MAP-09",
+      "completion_note": "2026-09-08 vier bestehende MAP-09-Kriterien gegen Source/Tests abgenommen, done/100: Hub-TaskQueue/aktuelle Role-/Org-/Parentautoritaet, langlebige Start-/Dispatch-Idempotenz und Source-CAS, optionale persistente queued/admitted/connecting/joined/publishing/stopping-Phasen im selben Taskaggregate, feste Konflikt-/Zeit-/Revisionsgrenzen ohne Redispatch; terminaler Taskstatus dominiert und neue gemeinsame Terminal-/Rename-/Archiv-Policy verhindert alte Laufidentitaets-Wiederbelebung. Keine Teilnahme durch UI/Personaansicht. 301 eindeutige Meet-/Phasen-/allgemeine Taskregressionen113.92s, danach70 Dispatch-Prozess-/Start-/Browseroperations-/Controltests35.11s. Finaler privater echter Hub/Worker/Meet-Browser inklusive Terminalfence1 passed39.18s: bewegter Screen/zwei Chatantworten, publishing/joined/publishing/cancelled, Revisionen5/10/19/21, Pause/Resume538.23/1162.30ms und rekonstruierter terminaler Hubzustand. Ruff/77-Dateien-Workerboundary gruen. docs/contracts/meet-dialog-task-completion-audit.md. Synthetisch/keine Produktionsfreigabe; Generalrecovery, Mehragenten, Decoderstartup-Intermittenz und uebrige MAP-Kriterien separat offen, Track nicht archiviert.",
       "terminal_reopen_result": "2026-09-08 reproduzierte cancelled->in_progress-Luecke behoben: eigene infrastrukturfreie Meet-Task-Policy an bestehender transaktionaler Save-/Status-CAS-Grenze, keine Aenderung normaler Task-Retries. Alte terminale Meet-Status-/Scope-/Runtimekontexte unveraenderlich; force, aktive/terminale Kind-Umbenennung und Legacy-Archiv-Promotion abgewiesen, Metadatenedit und terminale Archivwiederherstellung kompatibel. Baseline1 failed7.55s, derselbe Test1 passed8.11s;81 dedizierte/Taskadmin/State/Knowledge-Regressionsfaelle39.76s. Final zusammen mit Phasen-/Meet-Berechtigungs-/SQL-/Start-/Deadlinepfaden301 eindeutige Tests113.92s gruen, Ruff und77-Dateien-Workerboundary gruen. docs/contracts/meet-dialog-terminal-fence.md; keine produktiven Taskmutationen oder neue Ausfuehrungsautoritaet.",
       "terminal_reopen_plan": "2026-09-08 Abschlussaudit findet reale Restluecke: allgemeiner Task-CAS erlaubt cancelled -> in_progress mit alter Meet-Dispatch-/Runtimeidentitaet. Isolierter realer SQL/TaskQueue-Negativtest reproduziert1 failed7.55s. docs/contracts/meet-dialog-terminal-fence.md plant eng begrenzte, infrastrukturfreie Meet-Session-Policy an gemeinsamer transaktionaler Task-Schreibgrenze, ohne allgemeine Retrysemantik zu aendern. Terminalstatus/Kind/Executionidentitaet bleiben geschlossen, auch bei force/rename/update_many; neuer Lauf nur ueber neuen explizit zugelassenen Hubtask. Purematrix/echte SQL- und allgemeine Taskregressionen vor MAP-09-Abschluss.",
       "persistent_phase_plan": "2026-09-08 Quellabgleichce70629ac/Meet058e4e4: persistente Phasen fehlen weiterhin. docs/contracts/meet-dialog-phases.md legt optionalen geschlossenen Hubrecord im bestehenden Taskaggregate fest: queued/admitted/connecting, verifiziertes joined und gesondertes publishing via Eigenpublikationsbeobachtung, stopping und terminale Taskdominanz. Kein zweites SQL-Ledger/Taskorchestrierung; exakte Scopebindung/Fullcontext-CAS ueber bestehenden Auditpfad, monotone Revisionen/Membershippin, Noops und feste Konflikte ohne Redispatch. Stop bleibt auch bei Telemetriefehler wirksam; alte Tasks ohne Record erhalten keine erfundene Historie. Separate reine Zustandslogik/Taskadapter/Koordinator/HTTP, Unit-/SQL-Race-/HTTP-/privater Browsernachweis vor Abschluss; Task bleibt offen.",
@@ -522,10 +523,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M3",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-07"
       ],
@@ -1088,12 +1089,12 @@
     "total": 32,
     "by_status": {
       "todo": 2,
-      "in_progress": 8,
+      "in_progress": 7,
       "partial": 13,
       "blocked": 0,
-      "done": 9
+      "done": 10
     },
-    "progress_percent_done": 28.1,
+    "progress_percent_done": 31.2,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1205,15 +1206,15 @@
         "total": 16,
         "by_status": {
           "todo": 1,
-          "in_progress": 5,
+          "in_progress": 4,
           "partial": 4,
           "blocked": 0,
-          "done": 6
+          "done": 7
         },
-        "done": 6,
+        "done": 7,
         "partial": 4,
         "blocked": 0,
-        "progress_percent": 65.9
+        "progress_percent": 67.5
       },
       "infrastructure": {
         "total": 1,
@@ -1262,20 +1263,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 2,
-    "in_progress": 8,
+    "in_progress": 7,
     "partial": 13,
     "blocked": 0,
-    "done": 9,
-    "count_based_percent": 28.1,
-    "weighted_percent": 60.1
+    "done": 10,
+    "count_based_percent": 31.2,
+    "weighted_percent": 60.9
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 34.988,
-    "remaining_weight": 23.262,
+    "done_weight": 35.488,
+    "remaining_weight": 22.762,
     "blocked_weight": 0.0,
-    "weighted_percent": 60.1
+    "weighted_percent": 60.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1297,10 +1298,10 @@
       },
       "MAP-M3": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 59.2,
+        "count_based_percent": 25.0,
+        "weighted_percent": 66.9,
         "status": "in_progress"
       },
       "MAP-M4": {
@@ -1348,10 +1349,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T00:33:38.042254Z",
+    "generated_at": "2026-09-08T07:59:35.068932Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "ad55f90f4ca53b663eded3da85d73f9a33b14062e91bc40dd218b3fb809d8ae6",
+    "source_hash": "71958ab35315b4b6690e99f68ce0568596034ee5c08a11e5661018ece09ac84f",
     "is_stale": false
   }
 }
