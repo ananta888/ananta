@@ -55,3 +55,21 @@ Verification: 12 guard tests passed in 16.78 seconds, including the actual
 early repository import in a bounded subprocess and byte-for-byte sentinel
 preservation. The affected local database's modification time remained
 unchanged during these correctly isolated checks. No recovery is claimed.
+
+## Source-checked browser database follow-up
+
+Correctly isolated browser attempts reproduced SQLite extended error 262
+(`SQLITE_LOCKED_SHAREDCACHE`) on a Task control write. The named-memory
+shared-cache database cannot use WAL; concurrent browser/Hub threads expose
+table-lock failures that the application's file-backed SQLite WAL setup
+avoids. This is not an identity-policy denial, and the failed run stays failed.
+
+Add an explicit test-only `ANANTA_TEST_DATABASE_MODE=wal` startup option.
+The harness itself must allocate a fresh private `mkdtemp` directory and
+fixed filename, never accept a caller-supplied database URL/path or an
+existing runtime database. Retain the exact URL/settings/directory guards.
+Default unit/xdist runs remain named-memory. Test setup stays headless and
+bounded; do not add business-operation retries, relax assertions or change
+production transaction/policy behavior. Check real SQL initialization uses
+WAL, sentinel rejection, process isolation and both legacy/new-principal
+browser paths before recording this result as verified.
