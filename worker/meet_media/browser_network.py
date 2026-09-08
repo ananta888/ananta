@@ -59,6 +59,18 @@ class FixedMeetOrigin:
         websocket = self.origin.replace("https://", "wss://", 1)
         return f"connect-src {self.origin} {websocket}; worker-src 'self' blob:; frame-src 'none'; object-src 'none'"
 
+    def allows_request(self, method, url):
+        if not self.allows(url):
+            return False
+        if method in {"GET", "HEAD"}:
+            return True
+        parsed = _url(url)
+        return (
+            method == "POST"
+            and not parsed.query
+            and parsed.path in {"/api/machine/sessions", "/api/machine/sessions/renew"}
+        )
+
 
 def restrict_meet_browser_network(context, origin):
     """Install before creating pages; no grant, source or Hub-policy ownership."""
@@ -67,7 +79,7 @@ def restrict_meet_browser_network(context, origin):
     def request(route):
         response = None
         try:
-            if route.request.method not in {"GET", "HEAD"} or not policy.allows(route.request.url):
+            if not policy.allows_request(route.request.method, route.request.url):
                 route.abort("blockedbyclient")
                 return
             # Continuing a checked first URL is not a redirect boundary. Never

@@ -105,6 +105,38 @@ def test_unneeded_http_methods_are_denied_before_network(method):
     route.fetch.assert_not_called()
 
 
+@pytest.mark.parametrize("path", ["/api/machine/sessions", "/api/machine/sessions/renew"])
+def test_exact_machine_admission_posts_forward_original_request_without_retry(path):
+    handler, _, route, response = routes()
+    route.request.url, route.request.method = "https://meet.test" + path, "POST"
+    response.url = route.request.url
+    handler(route)
+    route.fetch.assert_called_once_with(max_redirects=0, max_retries=0, timeout=2000)
+    route.fulfill.assert_called_once()
+    route.abort.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/sessions",
+        "/api/rooms",
+        "/api/machine/sessions/",
+        "/api/machine/sessions?extra=1",
+        "/api/machine/sessions/renew?extra=1",
+        "/api/machine/sessions/renew/",
+        "/api/machine/sessions%2frenew",
+    ],
+)
+def test_machine_post_exception_never_admits_sibling_or_ambiguous_endpoints(path):
+    assert not FixedMeetOrigin("https://meet.test").allows_request("POST", "https://meet.test" + path)
+
+
+@pytest.mark.parametrize("method", ["POST", "GET", "HEAD", "OPTIONS", "PUT", "DELETE"])
+def test_machine_paths_on_foreign_origin_never_admitted(method):
+    assert not FixedMeetOrigin("https://meet.test").allows_request(method, "https://foreign.test/api/machine/sessions")
+
+
 @pytest.mark.parametrize("status", [300, 301, 302, 303, 304, 307, 308, 399])
 def test_no_redirect_response_reaches_browser(status):
     handler, _, route, response = routes()

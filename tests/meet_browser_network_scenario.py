@@ -74,6 +74,11 @@ def run(pem, private, spki):
             page.goto(origin + "/machine", wait_until="domcontentloaded")
             print("fixture-phase:page", flush=True)
             assert page.evaluate("fetch('/asset').then(r => r.text())") == "synthetic-asset"
+            for path in ("/api/machine/sessions", "/api/machine/sessions/renew"):
+                assert (
+                    page.evaluate("path => fetch(path, {method: 'POST'}).then(r => r.text())", path)
+                    == "synthetic-asset"
+                )
             assert page.evaluate("typeof window.__pwWebSocketDispatch") == "undefined"
             assert page.evaluate(SOCKET, origin.replace("https:", "wss:") + "/socket") == "synthetic-ready"
             print("fixture-phase:socket", flush=True)

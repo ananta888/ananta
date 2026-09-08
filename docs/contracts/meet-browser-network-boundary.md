@@ -105,3 +105,8 @@ endpoints, alternate methods, redirects or retries. Forward the original
 signed request unchanged; Meet remains the admission/renewal authority. Add
 path/method/foreign-origin negative checks and actual private POST observations
 before rebuilding and repeating the same installed cases.
+
+The two-path exception is implemented. Its 76 focused policy and actual-browser
+checks passed in 56.59 seconds, including real allowed POSTs to both machine
+paths and continued rejection of all unneeded/foreign/ambiguous POST targets.
+No body/header rewrite, redirect or retry was added.
