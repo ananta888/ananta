@@ -622,6 +622,7 @@
     },
     {
       "id": "MAP-12",
+      "terminal_diagnostics_plan": "Source5807546ba: Hub source/control/phase CAS exists, standalone child only reports terminal status and discards output; useful closed reasons/resources currently test-only. docs/contracts/meet-dialog-terminal-diagnostics.md plans optional one-shot signed closed terminal observation, bounded process measurements/no messages or media, exact terminalTask/lease/runtime CAS and owner-scoped read. Separate adapters; existing v1 assignment/control/finish/phase shapes unchanged; no authority or evidence promotion, no retries/cleanup delay. Deterministic, HTTP and SQL negative tests before UI integration; MAP12/32 remain open.",
       "title": "Unabhängige Quellenkontrolle, Not-Aus und auditierbare Beendigung integrieren",
       "repository": "both",
       "type": "security",
