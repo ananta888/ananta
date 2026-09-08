@@ -442,6 +442,7 @@
     },
     {
       "id": "MAP-06",
+      "admission_closure_audit": "2026-09-08: Current Ananta6a81636d9/Meetb0d6c10 source audit maps all four admission criteria to existing v2 signed scope, P-256 exact join proof, origin/one-use ticket, immutable device lease, trust nonce replay protection and shared room/pair/human admission boundaries. docs/contracts/meet-machine-admission-acceptance.md. Reuse real HTTP/WS/crypto/SQL regressions before closure rather than duplicate implemented admission. Legacyv1 remains narrower; rollout/recovery/decoder/public criteria remain separate. Existing broad server.js composition is preserved SRP debt. Full companion regression currently stopped by separately reproduced pre-stimulus native key-only ICE startup, being corrected without timeout or permission weakening.",
       "title": "Maschinengebundene Join-Admission und Besitznachweis ergänzen",
       "repository": "ananta_meet",
       "type": "security",
@@ -1388,10 +1389,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T14:36:36.533534Z",
+    "generated_at": "2026-09-08T14:39:48.172776Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "729f03d794d9214f4851634bf6f6add7f35d072c0dc3b0be92ea2f8e8a0242e5",
+    "source_hash": "e2d9b05ab7748f617ff6f13b855701faf59bbdcf91879c6a5a6b9a1cbfba9dc3",
     "is_stale": false
   }
 }
