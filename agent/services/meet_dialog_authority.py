@@ -40,9 +40,10 @@ class DialogAuthority:
 
 
 class MeetDialogAuthority:
-    def __init__(self, tasks, binding, policies, clock=time.time, *, lifecycle=None):
+    def __init__(self, tasks, binding, policies, clock=time.time, *, lifecycle=None, preauthorization=None):
         self.tasks, self.binding, self.clock = tasks, binding, clock
         self.lifecycle = lifecycle
+        self.preauthorization = preauthorization
         if not isinstance(policies, dict):
             raise ValueError("meet_dialog_policy_invalid")
         self.policies = {}
@@ -162,6 +163,15 @@ class MeetDialogAuthority:
         stored = self.binding.read(principal, task.project_id, parent)
         if not stored["invite_url"] or self.binding.profile.parse_invite(stored["invite_url"]) != value["room_id"]:
             raise MeetError("meet_dialog_room_changed", 403)
+        execution = task.worker_execution_context
+        if self.preauthorization is None:
+            if "meet_preauthorization" in execution:
+                raise MeetError("meet_preauthorization_provider_required", 403)
+        else:
+            self.preauthorization.require_current(
+                task_id, task.tenant_id, task.project_id, self.binding.profile.origin,
+                value, execution.get("meet_preauthorization"),
+            )
         return DialogAuthority(
             task_id,
             lease_id,

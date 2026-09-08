@@ -251,7 +251,7 @@ class HubDialogTasks:
 
         return get_repository_registry().task_repo.get_by_id(task_id)
 
-    def start(self, task_id, tenant, project, context, *, phase=None):
+    def start(self, task_id, tenant, project, context, *, phase=None, preauthorization=None):
         from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
         from agent.services.meet_role_assignment import get_meet_role_assignments
         from agent.services.task_queue_service import get_task_queue_service
@@ -262,6 +262,10 @@ class HubDialogTasks:
         publisher = self.publisher_url if self.publishers is None else self.publishers.select(tenant, project, scope)
         role_binding = assignments.admit(task_id, tenant, project, context, scope, publisher)
         execution = {"meet_dialog": context}
+        if preauthorization is not None:
+            from agent.models.meet_preauthorization_binding import validate_policy_binding
+
+            execution["meet_preauthorization"] = validate_policy_binding(preauthorization)
         if phase is not None:
             from agent.models.meet_dialog_phase import phase_binding, validate_record
 

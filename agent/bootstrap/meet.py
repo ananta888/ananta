@@ -180,7 +180,12 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         role_assignments=assignments,
         publishers=publishers,
     )
-    authority = MeetDialogAuthority(tasks, app.extensions["meet_binding_service"], policies)
+    from agent.bootstrap.meet_preauthorizations import configure_meet_preauthorizations
+
+    authority = MeetDialogAuthority(
+        tasks, app.extensions["meet_binding_service"], policies,
+        preauthorization=configure_meet_preauthorizations(app, engine),
+    )
     from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
 
     app.extensions["meet_dialog_principals"] = MeetDialogPrincipalReceipts(authority, tasks, issuer.issuer)

@@ -184,10 +184,15 @@ class MeetDialogService:
             context["capabilities"], avatar_images="avatar_selection" in context
         ).projection()
         task_id = str(uuid.uuid4())
+        authorization = {}
+        if self.authority.preauthorization is not None:
+            authorization["preauthorization"] = self.authority.preauthorization.reserve(
+                task_id, principal.tenant_id, project, self.authority.binding.profile.origin, context
+            )
         phase = (
             {} if self.phases is None else {"phase": self.phases.queued(task_id, principal.tenant_id, project, context)}
         )
-        self.tasks.start(task_id, principal.tenant_id, project, context, **phase)
+        self.tasks.start(task_id, principal.tenant_id, project, context, **phase, **authorization)
         try:
             scope = self.authority.current(task_id, context["lease_id"], context["runtime_id"])
             if self.phases is not None:
