@@ -976,10 +976,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 5.0,
       "depends_on": [
         "MAP-12",
         "MAP-24",
@@ -991,7 +991,8 @@
         "Hub koordiniert Teamsitzungen über bestehende Role-Assignments und Task-Queue; Meet erzwingt weiterhin seine Teilnehmer-/Raumrechte.",
         "Kein Agent darf eine zweite Persona durch bloßen Displayname-Wechsel vortäuschen oder fremde Audio-/Videostreams als eigene publizieren.",
         "Mindestens zwei verschiedene Agenten plus Gegenstelle mit gleichzeitigem Browser-/Audiobetrieb testen; eine Mehrcontainer-Prüfung auf einem PC bleibt als Single-Host-Test bezeichnet."
-      ]
+      ],
+      "implementation_plan": "2026-09-08: Source audit 36983a7f7 / companion c3e378a. Existing assignment-derived machine identity and exact session/source authority are implemented; real tests still cover one machine. docs/contracts/meet-multi-agent-isolation.md plans two independently admitted machines plus Chromium/Firefox receiver, distinct personas/screens/simultaneous audio, foreign-source rejection and independent stop; then real Hub/two-Worker-container/role-assignment integration. No prerequisite or production claim is closed by browser-only evidence."
     },
     {
       "id": "MAP-29",
@@ -1119,8 +1120,8 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 2,
-      "in_progress": 7,
+      "todo": 1,
+      "in_progress": 8,
       "partial": 12,
       "blocked": 0,
       "done": 11
@@ -1236,8 +1237,8 @@
       "feature": {
         "total": 16,
         "by_status": {
-          "todo": 1,
-          "in_progress": 4,
+          "todo": 0,
+          "in_progress": 5,
           "partial": 3,
           "blocked": 0,
           "done": 8
@@ -1245,7 +1246,7 @@
         "done": 8,
         "partial": 3,
         "blocked": 0,
-        "progress_percent": 68.8
+        "progress_percent": 69.1
       },
       "infrastructure": {
         "total": 1,
@@ -1293,21 +1294,21 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 2,
-    "in_progress": 7,
+    "todo_remaining": 1,
+    "in_progress": 8,
     "partial": 12,
     "blocked": 0,
     "done": 11,
     "count_based_percent": 34.4,
-    "weighted_percent": 61.6
+    "weighted_percent": 61.7
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 35.888,
-    "remaining_weight": 22.362,
+    "done_weight": 35.963,
+    "remaining_weight": 22.287,
     "blocked_weight": 0.0,
-    "weighted_percent": 61.6
+    "weighted_percent": 61.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1364,7 +1365,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 39.6,
+        "weighted_percent": 40.8,
         "status": "in_progress"
       },
       "MAP-M8": {
@@ -1380,10 +1381,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T12:41:11.128366Z",
+    "generated_at": "2026-09-08T12:51:05.219496Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "901e68a795ae03ead4f141d126d507aae322f1552712d58d98c8b543e6cd9528",
+    "source_hash": "89f14dea02c221fa66cd2a0a3f9637683fe791ed3114d7c04e2ae553f3d6fe44",
     "is_stale": false
   }
 }
