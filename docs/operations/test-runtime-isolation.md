@@ -24,6 +24,11 @@ No database replacement or speculative restoration was performed. Recovery
 requires identifying a valid pre-incident backup and its intended target;
 never overwrite another runtime with the emptied database or test fixtures.
 
+The user subsequently confirmed that this is a disposable development/test
+environment, contains no production data, and requires no backup restoration.
+Recovery is therefore not a blocker. The isolation guard remains mandatory;
+the incorrectly isolated diagnostic is still excluded from verification.
+
 ## Preventive boundary
 
 `tests/isolation_guard.py` checks preloaded database/settings objects before
