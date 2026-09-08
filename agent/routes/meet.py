@@ -5,11 +5,14 @@ import re
 from flask import Blueprint, current_app, jsonify, request
 
 from agent.auth import check_user_auth, get_authenticated_source_control_principal
+from agent.routes.meet_dialog_diagnostics import register_routes as register_diagnostic_routes
 from agent.services.meet_contract import MeetError
 from agent.services.project_access_authority import ProjectAccessError
 from agent.services.task_read_access_service import TaskReadAccessError
 
 meet_bp = Blueprint("meet", __name__, url_prefix="/api/meet/v1")
+
+register_diagnostic_routes(meet_bp)
 
 
 @meet_bp.before_request

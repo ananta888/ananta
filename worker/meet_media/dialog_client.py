@@ -45,6 +45,11 @@ class HubDialogClient:
     def spoken(self, event, binding):
         return HubSpeechClient(self.url, self.key, self.ids, self.deadline).reply(event, binding)
 
+    def report_terminal(self, observation):
+        from worker.meet_media.dialog_diagnostics_client import report_terminal
+
+        return report_terminal(self.url, self.key, self.ids, observation, self.deadline)
+
     def avatar_image(self, binding, reference):
         if not self.avatar_images:
             raise ValueError("meet_avatar_images_not_negotiated")

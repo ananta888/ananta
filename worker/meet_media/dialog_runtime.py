@@ -1,5 +1,6 @@
 """One Hub-assigned ephemeral browser. No human capture, profiles or task authority."""
 
+import os
 import sys
 import time
 from contextlib import ExitStack
@@ -13,6 +14,8 @@ from worker.meet_media.dialog_chat import DialogChatPump
 from worker.meet_media.dialog_chat import chat_scope_matches as chat_scope_matches
 from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_control_exchange import DialogControlExchange
+from worker.meet_media.dialog_diagnostics import DialogRunDiagnostics
+from worker.meet_media.dialog_diagnostics_deadline import bounded_terminal_report
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
 from worker.meet_media.dialog_session_binding import require_dialog_session
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
@@ -171,15 +174,26 @@ def main():
         raw = source.read(MAX_DIALOG_BYTES + 1)
     assignment = validate_assignment(parse(raw), time.time())
     hub = HubDialogClient(assignment)
+    diagnostics = DialogRunDiagnostics(enabled=os.environ.get("MEET_DIALOG_DIAGNOSTICS_ENABLED") == "1")
     status = "failed"
+    failure = None
     try:
         run(assignment, hub)
         status = "completed"
+    except Exception as error:
+        failure = error
+        raise
     finally:
         try:
             hub.call("finish", status=status)
         except Exception:
             pass  # No contents, grants or upstream exception text in logs.
+        finally:
+            diagnostics.finish(
+                lambda report: bounded_terminal_report(lambda: hub.report_terminal(report), hub.deadline),
+                completed=status == "completed",
+                failure=failure,
+            )
 
 
 if __name__ == "__main__":

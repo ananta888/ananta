@@ -206,6 +206,9 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         TaskDialogPhases(tasks, task_status_cas=compare_and_set_local_task_status), authority, meet
     )
     app.extensions["meet_dialog_phases"] = phases
+    from agent.bootstrap.meet_dialog_diagnostics import configure_dialog_diagnostics
+
+    configure_dialog_diagnostics(app, engine, authority.binding)
     reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
     reservations.initialize()
     dispatches.initialize()

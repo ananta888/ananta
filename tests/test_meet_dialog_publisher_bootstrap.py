@@ -30,6 +30,11 @@ def test_preflight_task_admission_and_dispatch_share_configured_destinations(mon
     worker = HttpMediaWorker("http://first:8091/v1/turns", b"synthetic" * 4)
     configure_meet_dialog(app, worker, Mock(), capacity=Mock(), speech_profile=speech_profile(max_seconds=7))
     service = app.extensions["meet_dialog_service"]
+    from agent.services.meet_dialog_diagnostics import MeetDialogDiagnostics
+
+    diagnostics = app.extensions["meet_dialog_diagnostics"]
+    assert isinstance(diagnostics, MeetDialogDiagnostics)
+    assert diagnostics.access is service.authority.binding
     preflight = app.extensions["meet_organization_principal_preflight"]
     assert service.media_worker is worker and service.replies.worker is worker
     assert service.tasks.publishers is preflight.publishers
