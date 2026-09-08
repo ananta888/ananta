@@ -600,6 +600,9 @@ class TaskAdminService(
                         task = restore_task_record(archived)
                         if task.status == "archived":
                             task.status = "todo"
+                        from agent.common.meet_task_write_validation import require_terminal_meet_write
+
+                        require_terminal_meet_write(archived, task)
                         repos.task_repo.save(task)
                     repos.archived_task_repo.delete(task_id)
                     return True

@@ -409,7 +409,9 @@ def _prepare_existing_task_write(
     write_operation: str,
     completion_policy: TaskCompletionPolicyPort | None,
 ) -> TaskDB | None:
-    """Apply the single authoritative Recovery write policy in-transaction."""
+    """Apply domain Task write policies under the authoritative transaction lock."""
+
+    from agent.common.meet_task_write_validation import require_terminal_meet_write, terminal_meet_write_allowed
 
     task_id = str(getattr(authoritative, "id", "") or "").strip()
     candidate = _preserve_bound_knowledge_index_context(
@@ -423,6 +425,10 @@ def _prepare_existing_task_write(
         session=session,
         completion_policy=completion_policy,
     )
+    if not terminal_meet_write_allowed(authoritative, candidate):
+        if write_operation == "status_cas":
+            return None
+        require_terminal_meet_write(authoritative, candidate)
     if write_operation == "status_cas":
         cas_mismatches = _recovery_status_cas_sensitive_mismatches(
             authoritative,
