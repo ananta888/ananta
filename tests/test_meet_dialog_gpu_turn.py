@@ -17,7 +17,7 @@ from worker.meet_media.contract import SCHEMA
 @pytest.mark.timeout(180)
 def test_current_private_worker_runs_actual_qwen_piper_and_nvenc(record_property):
     started = time.monotonic()
-    with DialogGpuFixture() as fixture:
+    with DialogGpuFixture(packaged_image=os.environ.get("MEET_DIALOG_GPU_PACKAGED_IMAGE")) as fixture:
         turn = {
             "schema": SCHEMA,
             "task_id": "synthetic-gpu-component",
@@ -43,6 +43,8 @@ def test_current_private_worker_runs_actual_qwen_piper_and_nvenc(record_property
             "hub_dialog_verified": False,
             "remote_delivery_verified": False,
             "human_capture_used": False,
+            "worker_image": fixture.image,
+            "packaged_worker": fixture.packaged_image is not None,
             "speech_samples": len(pcm) // 2,
             "video_bytes": video_bytes,
             "usage": result["usage"],

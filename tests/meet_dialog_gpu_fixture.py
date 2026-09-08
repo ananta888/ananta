@@ -4,6 +4,7 @@ import hmac
 import http.client
 import ipaddress
 import json
+import os
 import re
 import secrets
 import tempfile
@@ -27,7 +28,10 @@ def configure_dialog_gpu(observer, enabled, cleanup, record_property):
     from agent.services.meet_media_transport import HttpMediaWorker
     from ananta_contracts.meet_speech import speech_profile
 
-    fixture = cleanup.enter_context(DialogGpuFixture(lifetime=360))
+    fixture = cleanup.enter_context(
+        DialogGpuFixture(lifetime=360, packaged_image=os.environ.get("MEET_DIALOG_GPU_PACKAGED_IMAGE"))
+    )
+    record_property("dialog_gpu_image", {"image": fixture.image, "packaged": fixture.packaged_image is not None})
     record_property("cold_model_preload_seconds", fixture.preload())
     observer.worker = HttpMediaWorker(fixture.endpoint, fixture.key)
     observer.profile = speech_profile(max_seconds=20)
@@ -101,14 +105,21 @@ def provider_command(name, network, drivers, lifetime):
     )
 
 
-def worker_command(name, network, image, drivers, lifetime, key_path, root=ROOT):
+def worker_command(name, network, image, drivers, lifetime, key_path, root=ROOT, *, packaged=False):
     args, process = inference_command(name, network, image, drivers, lifetime)
-    for source, target in (
-        (root / "worker/meet_media", "/app/worker/meet_media"),
-        (root / "ananta_contracts", "/app/ananta_contracts"),
+    source_mounts = (
+        []
+        if packaged
+        else [
+            (root / "worker/meet_media", "/app/worker/meet_media"),
+            (root / "ananta_contracts", "/app/ananta_contracts"),
+        ]
+    )
+    for source, target in [
+        *source_mounts,
         (root / "data/meet-media/models", "/models"),
         (key_path, "/run/secrets/test-key"),
-    ):
+    ]:
         args += ["--mount", f"type=bind,src={source},dst={target},readonly"]
     return (
         args
@@ -125,9 +136,14 @@ def worker_command(name, network, image, drivers, lifetime, key_path, root=ROOT)
 
 
 class DialogGpuFixture:
-    def __init__(self, lifetime=240, *, command=docker, check_capacity=require_gpu_capacity):
+    def __init__(self, lifetime=240, *, command=docker, check_capacity=require_gpu_capacity, packaged_image=None):
         if type(lifetime) is not int or not 180 <= lifetime <= 600:
             raise ValueError("test_inference_lifetime_invalid")
+        if packaged_image is not None and (
+            not isinstance(packaged_image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", packaged_image)
+        ):
+            raise ValueError("test_inference_packaged_image_invalid")
+        self.packaged_image, self.image = packaged_image, None
         base = "meet-test-inference-" + str(uuid4())
         self.network, self.provider, self.worker = (base + suffix for suffix in ("-network", "-ollama", "-worker"))
         self.command, self.lifetime = command, lifetime
@@ -197,7 +213,13 @@ class DialogGpuFixture:
         self.check_capacity()
         try:
             service = "ananta-meet-media-meet-media-worker-1"
-            image = self.command("inspect", service, "--format", "{{.Image}}")
+            if self.packaged_image is not None:
+                image = self.command("image", "inspect", self.packaged_image, "--format", "{{.Id}}")
+                if image != self.packaged_image:
+                    raise ValueError("test_inference_packaged_image_mismatch")
+            else:
+                image = self.command("inspect", service, "--format", "{{.Image}}")
+            self.image = image
             drivers = driver_bindings(json.loads(self.command("inspect", service, "--format", "{{json .Mounts}}")))
             if self.command("image", "inspect", OLLAMA_IMAGE, "--format", "{{.Id}}") != OLLAMA_IMAGE:
                 raise ValueError("test_inference_provider_image_missing")
@@ -215,7 +237,18 @@ class DialogGpuFixture:
             self.subnet = ipaddress.IPv4Network(info["IPAM"]["Config"][0]["Subnet"])
             for name, args in (
                 (self.provider, provider_command(self.provider, self.network, drivers, self.lifetime)),
-                (self.worker, worker_command(self.worker, self.network, image, drivers, self.lifetime, key_path)),
+                (
+                    self.worker,
+                    worker_command(
+                        self.worker,
+                        self.network,
+                        image,
+                        drivers,
+                        self.lifetime,
+                        key_path,
+                        packaged=self.packaged_image is not None,
+                    ),
+                ),
             ):
                 self.resources.append(("container", name))
                 self.command(*args)

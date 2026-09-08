@@ -78,15 +78,16 @@ def test_invalid_configuration_fails_before_docker(change, tmp_path):
         "wrong_membership",
     ],
 )
-def test_every_owned_resource_is_cleaned_after_partial_or_uncertain_setup(failure):
-    instance = DialogGpuFixture(check_capacity=lambda: None)
+@pytest.mark.parametrize("packaged", [False, True])
+def test_every_owned_resource_is_cleaned_after_partial_or_uncertain_setup(failure, packaged):
+    instance = DialogGpuFixture(check_capacity=lambda: None, packaged_image=IMAGE if packaged else None)
     created = []
 
     def command(*args):
         if args[0] == "inspect" and args[1] == "ananta-meet-media-meet-media-worker-1":
             return IMAGE if args[-1] == "{{.Image}}" else json.dumps(mounts())
         if args[:2] == ("image", "inspect"):
-            return OLLAMA_IMAGE
+            return args[2]
         if args[:2] == ("volume", "inspect"):
             return MODEL_VOLUME
         if args[:2] == ("network", "create"):
