@@ -9,6 +9,7 @@ import { MeetAvatarVideoPickerComponent, AvatarVideoChoice } from './meet-avatar
 import { MeetDialogPhaseComponent } from './meet-dialog-phase.component';
 import { MeetDialogDiagnosticsComponent } from './meet-dialog-diagnostics.component';
 import { MeetInitialPersonaComponent, InitialPersonaChoice } from './meet-initial-persona.component';
+import { MeetBrowserWorkspaceComponent } from './meet-browser-workspace.component';
 import { PendingDialogStart } from './meet-dialog-start-attempt';
 import type { PersonaEffectiveProfile } from '../organizations/persona-media/persona-profile.models';
 
@@ -17,7 +18,7 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
   avatar: ['avatar.publish'],
 };
 
-@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent, MeetVoicePickerComponent, MeetAvatarVideoPickerComponent, MeetDialogPhaseComponent, MeetDialogDiagnosticsComponent, MeetInitialPersonaComponent], template: `
+@Component({ selector: 'app-meet-dialog', standalone: true, imports: [FormsModule, MeetAvatarPickerComponent, MeetVoicePickerComponent, MeetAvatarVideoPickerComponent, MeetDialogPhaseComponent, MeetDialogDiagnosticsComponent, MeetInitialPersonaComponent, MeetBrowserWorkspaceComponent], template: `
   <section aria-label="Autorisierter Meet-Dialog">
     <h3>Ananta im Raum</h3>
     <p>Der Hub startet einen isolierten KI-Teilnehmer. Zuhören und Chatlesen benötigen zusätzlich die
@@ -29,7 +30,8 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
     <p>Sprachausgabe benötigt Raumchat und eine ausdrückliche Hub-Operatorfreigabe. Sie aktiviert kein Mikrofon
       und kein Zuhören; erkannte Audioeingaben werden in dieser Ausbaustufe weiterhin nur im Textchat beantwortet.</p>
     <label><input type="checkbox" [(ngModel)]="audio" [disabled]="busy()" />Freigegebenes Audio lokal erkennen und beantworten</label>
-    <label><input type="checkbox" [(ngModel)]="screen" [disabled]="busy()" />Eigene isolierte KI-Arbeitsansicht teilen (kein Desktop)</label>
+    <label><input type="checkbox" [ngModel]="screen" (ngModelChange)="setScreen($event)" [disabled]="busy()" />Eigene isolierte KI-Arbeitsansicht teilen (kein Desktop)</label>
+    <label><input type="checkbox" [(ngModel)]="browserWorkspace" [disabled]="busy() || !screen" />Zusätzlich bereinigte öffentliche Browser-Tasks erlauben (separate Hub-Policy erforderlich)</label>
     <label><input type="checkbox" [ngModel]="avatar" (ngModelChange)="setAvatar($event)" [disabled]="busy()" />KI-Avatar erlauben (zunächst pausiert)</label>
     <label><input type="checkbox" [ngModel]="avatarImages" (ngModelChange)="setAvatarImages($event)" [disabled]="busy() || !avatar" />Zusätzlich freigegebene Persona-Profilbilder und Bildwechsel erlauben</label>
     <label><input type="checkbox" [ngModel]="avatarVideos" (ngModelChange)="setAvatarVideos($event)" [disabled]="busy() || !avatar || !avatarImages" />Zusätzlich freigegebene stumme Persona-Videos und Videowechsel erlauben</label>
@@ -62,6 +64,9 @@ const sourceCapabilities: Record<DialogSource, readonly string[]> = {
           [controlRevision]="item.controls.revision" [disabled]="busy()" />
         <app-meet-dialog-diagnostics [projectId]="projectId" [taskId]="item.task_id" [taskStatus]="item.status"
           [disabled]="busy()" />
+        @if (item.browser_workspace) {
+          <app-meet-browser-workspace [projectId]="projectId" [taskId]="item.task_id" [taskStatus]="item.status" [disabled]="busy()" />
+        }
         @if (item.avatar_selection; as selection) {
           <p>Avatar-Auswahl: {{ selection.mode === 'neutral-ai-v1' ? 'festes KI-Symbol' : selection.mode === 'persona-video-v1' ? 'ausgewähltes stummes Persona-Video' : 'ausgewähltes Persona-Profilbild' }}.
             Die Auswahl ist keine aktuelle Publikationsfreigabe. Der Hub prüft sie erneut; bei Widerruf kein Ersatzbild.</p>
@@ -103,6 +108,8 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
     { key: 'screen', label: 'Arbeitsansicht' }, { key: 'speech', label: 'Sprachausgabe' }, { key: 'avatar', label: 'KI-Avatar' }] as const;
   chat = false; audio = false; screen = false; speech = false; voiceProfiles = false; avatar = false; avatarImages = false; avatarVideos = false; mode = 'mention'; minutes = 15;
   initialPersona: InitialPersonaChoice | null = null;
+  browserWorkspace = false;
+  setScreen(enabled: boolean): void { this.screen = enabled; if (!enabled) this.browserWorkspace = false; }
   setChat(enabled: boolean): void { this.chat = enabled; if (!enabled) this.setSpeech(false); }
   setSpeech(enabled: boolean): void { this.speech = enabled; if (!enabled) this.setVoiceProfiles(false); }
   setVoiceProfiles(enabled: boolean): void { this.voiceProfiles = enabled; if (!enabled) this.clearInitial('voice'); }
@@ -117,6 +124,7 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
   ngOnDestroy(): void { this.request?.unsubscribe(); this.identity?.unsubscribe(); this.startAttempt.clear(); }
   private reset(): void {
     this.initialPersona = null;
+    this.browserWorkspace = false;
     this.startAttempt.clear();
     this.request?.unsubscribe(); this.busy.set(false); this.dialogs.set([]); this.nextCursor.set(null); this.message.set('');
     this.chat = this.audio = this.screen = this.speech = this.voiceProfiles = this.avatar = this.avatarImages = this.avatarVideos = false;
@@ -136,6 +144,7 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
     }, error: error => { this.dialogs.set([]); this.nextCursor.set(null); this.failure(error); } });
   }
   start(): void {
+    if (this.browserWorkspace && !this.screen) { this.message.set('Browser-Tasks benötigen ausdrücklich ausgewählte Arbeitsansicht-Rechte.'); return; }
     if (this.busy() || this.startPending() || !this.projectId || !(this.chat || this.audio || this.screen || this.avatar)) return;
     if (this.speech && !this.chat) { this.message.set('Sprachausgabe benötigt ausdrücklich ausgewählten Raumchat.'); return; }
     if (this.voiceProfiles && !this.speech) { this.message.set('Stimmprofile benötigen ausdrücklich ausgewählte Sprachausgabe.'); return; }
@@ -151,6 +160,7 @@ export class MeetDialogComponent implements OnInit, OnChanges, OnDestroy {
     this.startAttempt.begin(this.api.start(this.projectId, this.taskId, { capabilities, duration_seconds: this.minutes * 60,
       chat_mode: this.chat || this.audio ? this.mode : 'off', audio_mode: this.audio ? 'dialog' : 'off',
       ...(this.avatarImages ? { avatar_images: true } : {}), ...(this.avatarVideos ? { avatar_videos: true } : {}), ...(this.voiceProfiles ? { voice_profiles: true } : {}),
+      ...(this.browserWorkspace ? { browser_workspace: true } : {}),
       ...(this.initialPersona ? { initial_persona: structuredClone(this.initialPersona) } : {}) }));
     this.retryStart();
   }

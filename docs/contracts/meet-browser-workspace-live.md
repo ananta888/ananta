@@ -275,3 +275,69 @@ by actual SQL foreign keys; the synthetic fixture now seeds it explicitly.
 There is no human approval, production evidence identity or public activation
 in these tests. Worker/MDS composition, crash reconciliation, HTTP/UI controls
 and decoded receiver privacy cases remain open.
+
+### Integrated Worker, Hub controls and passive UI
+
+The negotiated browser option now composes `DialogBrowserScreen` in the
+ordinary dialog Worker. One bounded fetch slot executes the closed Hub job;
+only a fresh authenticated control update may consume its result and create
+the task workspace. A separate execution lease checks exact parent/job/Meet
+bindings and the unchanged 2.5-second freshness and 30-second lifetime limits.
+Presentation wrappers can be closed and recreated without refetching or
+destroying the admitted page. Retired task identities cannot reopen. Neither
+the Worker timer nor the browser document can create jobs or grant authority.
+
+Bootstrap reads explicit `ANANTA_MEET_BROWSER_PUBLIC_POLICIES` operator rows,
+defaulting to an empty deny-all list. Owner-authenticated GET/POST
+`/api/meet/v1/projects/<project>/dialogs/<task>/browser` expose bounded metadata
+and revision-checked navigation/present/stop/status commands. Responses contain
+no document, URL, network endpoint or grant. A signed, exact-child terminal
+callback is best effort and nonblocking; the existing Hub deadline sweep
+settles expired browser children after Worker/Hub loss. No new orchestration
+loop is introduced. `.env.example` and Compose only document/pass this option;
+no running operator policy or public installation was changed.
+
+The feature-local Angular control stays passive until explicit user/API
+actions. Session negotiation, document loading and presentation are separate
+choices. It labels the output as sanitized public text, not a desktop mirror
+or semantic DLP. Identity/project/task changes cancel pending UI responses;
+uncertain writes are never automatically repeated. The existing shared
+explanation component is reused; no browser capture/embed is added to the UI.
+
+Verification before final expanded regressions: **71 backend tests passed in
+38.95 s**, **242 Meet UI tests in 2.38 s**, targeted ESLint and Angular
+compilation passed (one pre-existing unused RouterLink warning outside Meet).
+The real private Hub/Worker/Meet receiver scenario passed in **46.29 s**:
+two ordinary browser children/workspaces, no presentation from navigation,
+same-page pause/resume with exactly one fetch, received continuous decoded
+screen frames, private-input stop in **98.64 ms**, Hub policy-revocation stop
+in **1114.95 ms**, chat after source failure, explicit neutral-status recovery
+and complete parent/child cleanup. Its document transport and operator policy
+are explicitly synthetic. Browser execution, SQL, signed HTTP and Meet media
+transport/receiver are real; this is not public fetch, installed-image,
+GPU/TURN or production-release evidence. No secret images were written.
+
+The actual receiver test exposed a composition bug missed by pump doubles:
+MDS-05 requires `screen:<hub-session-id>`, but the initial wrapper used the
+workspace ID. The adapter now preserves the existing session-scoped Meet
+source contract and fences its internal page with the separate immutable
+workspace/navigation generation. No companion contract or trust check was
+weakened. The regression asserts both identities independently. Earlier
+generic Hub-unavailable output was teardown following the receiver failure,
+not evidence that Hub authority itself was the cause.
+
+SOLID review: the execution lease, document fetch/workspace, presentation
+wrapper and terminal reporter own separate lifecycles. Hub policy and SQL
+remain behind their existing narrow ports. The already-large dialog fixture
+and service are preserved SRP pressure points; new scenario logic lives in
+its own module and the fixture uses a shared optional-scenario dispatcher,
+rather than extending its main conditional chain. Browser crash, concurrent
+SQL ownership and packaged-Worker verification still precede closing the
+remaining MAP-13/15/16 criteria.
+
+The final expanded integration regression batch passed **243 tests in
+94.21 s**. A separate actual competing-navigation test passed in **18.75 s**
+under WAL: both commands reach the same original parent revision, exactly one
+ordinary SQL CAS wins, only its child is ingested, and unrelated immutable
+parent context remains unchanged. This proves contention for that scoped
+navigation path, not multi-node production deployment or public authorization.

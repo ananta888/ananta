@@ -51,6 +51,15 @@ describe('Hub-owned Meet dialog controls', () => {
     expect(api.start).not.toHaveBeenCalled(); expect(api.list).not.toHaveBeenCalled();
     expect(c.chat || c.audio || c.screen || c.speech || c.avatar).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
   });
+  it('negotiates browser workspace only explicitly and clears it with screen rights', () => {
+    const c = setup().componentInstance;
+    expect(c.browserWorkspace).toBe(false); c.setScreen(true); c.browserWorkspace = true; c.start();
+    expect(api.start).toHaveBeenCalledWith('project', '', { capabilities: ['screen.publish'], duration_seconds: 900,
+      chat_mode: 'off', audio_mode: 'off', browser_workspace: true });
+    c.setScreen(false); expect(c.browserWorkspace).toBe(false);
+    api.start.mockClear(); c.browserWorkspace = true; c.start();
+    expect(api.start).not.toHaveBeenCalled(); expect(c.message()).toContain('Arbeitsansicht-Rechte');
+  });
   it('keeps the parent stop usable while a child phase query is pending', () => {
     const f = setup(), pending = new Subject<never>(); api.phase.mockReturnValue(pending);
     f.componentInstance.reload(); f.detectChanges();
