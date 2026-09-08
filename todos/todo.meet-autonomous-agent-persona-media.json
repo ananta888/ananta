@@ -574,7 +574,8 @@
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
       "liveness_cpu_result": "2026-09-08 implementiert: eigener loopback-only /healthz ohne Signatur/Task-/GPUaktion, feste stille stdlib-Probe unter Docker3s-Wallclock und Compose4CPU-Default.29fokussierte23.55s,145gemeinsame61.32s gruen; echter Mount-Container14.00s und separat aus bestehender gepinnter Runtime neu verpacktes Sourceimage ohne Quellmounts21.99s gruen. Healthy/unhealthy/healthy durch Stop/Continue nur des eigenen Listeners, kein Neustart/Leaseeintrag/Hubpaket/GPU/Netz. Packaged-Erstlauf14.12s falsche tmpfs-Inspect-Testannahme korrigiert. Voller Dependency-Neubau bleibt nicht bestanden (offline fehlendeAPTschicht; online600s beiCUDAinstallation abgelaufen); Sourcepackaging ist kein Ersatzclaim. docs/contracts/meet-worker-liveness.md. Keine bestehenden Dienste/Secrets veraendert; breitere MAP-10- und Produktionskriterien weiterhin offen.",
       "runtime_lock_plan": "2026-09-08 Quellabgleich8645183bf: Base/Directpins vorhanden, Pythontransitives einschliesslichCUDA/Browser ungebunden. Separates read-only/nonroot/GPU-/netzfreies Inventar des vorhandenen Image0e112df5 erhoben. docs/contracts/meet-worker-runtime-lock.md plant exakte Baselineconstraints plus geschlossenen Build-Inventarcheck, temporaeren CPU-ONNX-Buildpin und zwingende Abwesenheit im Runtimeimage. Keine neuen Versionen/Modelle/Secrets oder Runtimeaktivierung; kein Wheelhash/APT-/Bitreproduzierbarkeitsclaim. Reale Inventory- und Fehler-/Contractchecks, danach erneut explizit begrenzter Vollbuild.",
-      "runtime_lock_result": "2026-09-08: 43 exakte Pythonpins (42 final plus temporaeres CPU-ONNX), Build-Inventarcheck und beide Installationen constrained. Vollstaendiger Dockerfile-Neubau aus76ec57d71 innerhalb1800s erfolgreich: sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e. Gegen dieses neue Image34Inventartests28.42s und echter packagedHealthgate26.03s bestanden (kein Sourcebind/Netz/GPU/Hubpaket/Task, healthy-unhealthy-healthy ohneRestart). Damit vorher ausstehender Vollbuild bestanden; keine bestehenden Dienste ersetzt. docs/contracts/meet-worker-runtime-lock.md und meet-worker-liveness.md. Kein Wheel-/APT-Hash-, GPUreadiness- oder Produktionsfreigabeclaim; weitere MAP-10-Kriterien separat offen."
+      "runtime_lock_result": "2026-09-08: 43 exakte Pythonpins (42 final plus temporaeres CPU-ONNX), Build-Inventarcheck und beide Installationen constrained. Vollstaendiger Dockerfile-Neubau aus76ec57d71 innerhalb1800s erfolgreich: sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e. Gegen dieses neue Image34Inventartests28.42s und echter packagedHealthgate26.03s bestanden (kein Sourcebind/Netz/GPU/Hubpaket/Task, healthy-unhealthy-healthy ohneRestart). Damit vorher ausstehender Vollbuild bestanden; keine bestehenden Dienste ersetzt. docs/contracts/meet-worker-runtime-lock.md und meet-worker-liveness.md. Kein Wheel-/APT-Hash-, GPUreadiness- oder Produktionsfreigabeclaim; weitere MAP-10-Kriterien separat offen.",
+      "device_root_isolation_plan": "2026-09-08 Quellabgleichf333c4826: Fixturecontainer readonlyRoot, ausgeliefertesComposeaberwritableRoot undgpusall fuerWorker/Provider. docs/contracts/meet-worker-device-isolation.md plantreadonlyWorkerrootbeiunveraendertemState/tmpfs sowieDefaultGPU0/ausdruecklichesToolkitDeviceoverridefuerbeideServices. HostdriveroverlaybleibtexplizitGPU0undsetztToolkitrequestszurueck. Raw-/echteComposeRendererchecksmitsecretfreiemEnv, paketierterHealthgateReadonlyRootInspect; keineDienstneustarts/VRAMexklusivitaets-/Egressallowlistbehauptung. WeiteresMAP-10-Isolationskriteriumnichtvoreiligdone."
     },
     {
       "id": "MAP-11",
@@ -1375,10 +1376,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T12:02:58.905411Z",
+    "generated_at": "2026-09-08T12:03:54.605646Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "549514031f28331496ca89d153a9534bee09b785186c259ece8929470c4777c6",
+    "source_hash": "a67ec3b03cf1cd1d72bb199da0d1f3d232942a58ef0a37fe63b766b25c25ad86",
     "is_stale": false
   }
 }
