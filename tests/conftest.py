@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.isolation_database import isolated_database_url
 from tests.isolation_guard import (
     require_data_directory,
     require_database_url,
@@ -22,10 +23,7 @@ if "worker_engine" not in sys.modules:
     sys.modules["worker_engine"] = MagicMock()
 
 # Test environment defaults
-_TEST_DATABASE_URL = (
-    f"sqlite:///file:ananta-pytest-{os.getpid()}"
-    "?mode=memory&cache=shared&uri=true"
-)
+_TEST_DATABASE_URL = isolated_database_url(os.environ.get("ANANTA_TEST_DATABASE_MODE", "memory"))
 _TEST_DATA_DIRECTORY = f"/tmp/ananta-pytest-data-{os.getpid()}"
 # Environment assignment cannot retarget an engine/settings object imported by
 # a diagnostic preloader. Reject it before init_db or destructive test cleanup.

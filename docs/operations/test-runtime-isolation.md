@@ -33,10 +33,11 @@ the incorrectly isolated diagnostic is still excluded from verification.
 
 `tests/isolation_guard.py` checks preloaded database/settings objects before
 conftest imports the application. The only accepted engine is the exact
-process-owned named-memory database, and cleanup's data directory must be
-the exact process-local test path. URL query ordering is normalized; another
-in-memory database, a local file, another process's namespace or a remote
-database does not qualify. The guard emits a fixed error without URLs,
+harness-owned database: named-memory by default, or a fresh private temporary
+file under explicit `ANANTA_TEST_DATABASE_MODE=wal`. Cleanup's data directory
+must be the exact process-local test path. URL query ordering is normalized;
+another in-memory database, a caller-selected local file, another process's
+namespace or a remote database does not qualify. The guard emits a fixed error without URLs,
 credentials or paths.
 
 The engine check runs again before database initialization and before each
@@ -73,3 +74,18 @@ bounded; do not add business-operation retries, relax assertions or change
 production transaction/policy behavior. Check real SQL initialization uses
 WAL, sentinel rejection, process isolation and both legacy/new-principal
 browser paths before recording this result as verified.
+
+Both modes passed the same 21 isolation tests: named-memory in 18.85 seconds,
+WAL in 129.58 seconds. The slower file mode is opt-in for concurrency gates,
+not a replacement for ordinary unit-test defaults. The harness allocates its
+own mode-0700 directory, caches that selection only for the current process,
+and retains failed-run files for diagnosis. Separate processes get separate
+directories. A real reader/writer test verifies snapshot isolation and a
+successful concurrent commit using the production WAL connection setup.
+
+The correctly isolated private browser gate then passed both legacy and
+Organization-principal variants in 99.10 seconds with the original media,
+chat, control, phase-persistence and stop assertions. No business retry or
+production database change was introduced. This fixes the shared-cache
+test-environment incompatibility; it does not establish production evidence
+or fix the separate intermittent SFrame startup issue.
