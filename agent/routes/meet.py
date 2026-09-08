@@ -233,6 +233,30 @@ def dialog_phase(project, task_id):
     )
 
 
+@meet_bp.get("/projects/<project>/dialogs/<task_id>/principal")
+@check_user_auth
+def dialog_principal(project, task_id):
+    _dialog()
+    receipts = current_app.extensions.get("meet_dialog_principals")
+    if receipts is None:
+        raise MeetError("meet_dialog_organization_principal_unavailable", 409)
+    if request.args or request.content_length not in (None, 0) or request.stream.read(1):
+        raise MeetError("meet_dialog_principal_payload_invalid")
+    return jsonify(receipts.inspect(get_authenticated_source_control_principal(), project, task_id))
+
+
+@meet_bp.get("/projects/<project>/tasks/<task_id>/machine-principal")
+@check_user_auth
+def organization_principal_preflight(project, task_id):
+    _dialog()
+    preflight = current_app.extensions.get("meet_organization_principal_preflight")
+    if preflight is None:
+        raise MeetError("meet_dialog_organization_principal_unavailable", 409)
+    if request.args or request.content_length or request.stream.read(1):
+        raise MeetError("meet_dialog_principal_payload_invalid")
+    return jsonify(preflight.inspect(get_authenticated_source_control_principal(), project, task_id))
+
+
 @meet_bp.post("/internal/dialog")
 def dialog_callback():
     import hmac

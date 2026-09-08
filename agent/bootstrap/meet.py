@@ -167,8 +167,24 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         if scope in policies:
             raise ValueError("meet_dialog_policy_duplicate")
         policies[scope] = row["capabilities"]
-    tasks = HubDialogTasks(publisher_url=worker.publisher_url)
+    tasks = HubDialogTasks(
+        publisher_url=worker.publisher_url,
+        organization_principals=os.environ.get("ANANTA_MEET_ORGANIZATION_PRINCIPALS_ENABLED") == "1",
+    )
     authority = MeetDialogAuthority(tasks, app.extensions["meet_binding_service"], policies)
+    from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
+
+    app.extensions["meet_dialog_principals"] = MeetDialogPrincipalReceipts(authority, tasks, issuer.issuer)
+    if tasks.organization_principals:
+        from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
+        from agent.services.meet_organization_principal_preflight import MeetOrganizationPrincipalPreflight
+        from agent.services.meet_role_assignment import get_meet_role_assignments
+
+        assignments = get_meet_role_assignments()
+        lifecycle = MeetDialogLifecycle(tasks, role_assignments=assignments)
+        app.extensions["meet_organization_principal_preflight"] = MeetOrganizationPrincipalPreflight(
+            authority.binding, lifecycle, assignments, publisher_url=tasks.publisher_url, issuer=issuer.issuer
+        )
     from agent.repositories.meet_dialog_phases import TaskDialogPhases
     from agent.services.meet_dialog_phases import MeetDialogPhases
     from agent.services.task_runtime_service import compare_and_set_local_task_status

@@ -4,6 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 
+from agent.models.meet_machine_principal import MeetMachinePrincipal, current_machine_principal
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
 from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
@@ -31,6 +32,11 @@ class DialogAuthority:
     avatar_selection: dict | None = None
     voice_selection: dict | None = None
     source_profile: DialogSourceProfile | None = None
+    machine_principal: MeetMachinePrincipal | None = None
+
+    @property
+    def machine_subject(self):
+        return self.machine_principal.subject if self.machine_principal is not None else "ananta"
 
 
 class MeetDialogAuthority:
@@ -146,7 +152,11 @@ class MeetDialogAuthority:
         from agent.services.meet_dialog_lifecycle import MeetDialogLifecycle
 
         lifecycle = self.lifecycle if self.lifecycle is not None else MeetDialogLifecycle(self.tasks)
-        lifecycle.require_current(task, parent)
+        verified_role = lifecycle.require_current(task, parent)
+        try:
+            machine_principal = current_machine_principal(task.worker_execution_context, verified_role)
+        except ValueError:
+            raise MeetError("meet_dialog_principal_invalid", 403) from None
         principal = HubSourcePrincipal(value["owner_subject"], task.tenant_id, task.project_id, frozenset({"user"}))
         self.binding.require_write_access(principal, task.project_id, parent)
         stored = self.binding.read(principal, task.project_id, parent)
@@ -171,4 +181,5 @@ class MeetDialogAuthority:
             avatar_selection,
             voice_selection,
             source_profile,
+            machine_principal,
         )

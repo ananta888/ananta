@@ -88,8 +88,9 @@ class PhaseScenario:
 
 @pytest.mark.timeout(240)
 @pytest.mark.skipif(os.environ.get("MEET_DIALOG_PHASE_GATE") != "1", reason="opt-in private persistent phases")
+@pytest.mark.parametrize("organization_principals", [False, True], ids=["legacy", "organization-principal"])
 def test_real_dialog_has_persistent_phase_revisions_across_source_changes_and_stop(
-    app, tmp_path, monkeypatch, record_property
+    app, tmp_path, monkeypatch, record_property, organization_principals
 ):
     from agent.services.task_runtime_service import compare_and_set_local_task_status
     from tests.test_meet_dialog_cross_repository import SOAK_SECONDS
@@ -102,12 +103,23 @@ def test_real_dialog_has_persistent_phase_revisions_across_source_changes_and_st
     scenario = PhaseScenario()
 
     def start(service, principal, project, payload, parent=""):
+        service.tasks.organization_principals = organization_principals
         service.phases = MeetDialogPhases(
             TaskDialogPhases(service.tasks, task_status_cas=compare_and_set_local_task_status),
             service.authority,
             service.meet,
         )
-        return service.start(principal, project, payload, parent)
+        started = service.start(principal, project, payload, parent)
+        task = service.tasks.get_by_id(started["task_id"])
+        assert ("meet_machine_principal" in task.worker_execution_context) is organization_principals
+        if organization_principals:
+            from agent.services.meet_dialog_principal_receipts import MeetDialogPrincipalReceipts
+
+            receipt = MeetDialogPrincipalReceipts(service.authority, service.tasks, service.issuer.issuer).inspect(
+                principal, project, task.id
+            )
+            assert receipt["principal"] == task.worker_execution_context["meet_machine_principal"]
+        return started
 
     run_gate(
         app,
@@ -124,3 +136,4 @@ def test_real_dialog_has_persistent_phase_revisions_across_source_changes_and_st
     )
     assert scenario.result is not None
     record_property("synthetic_persistent_dialog_phases", scenario.result)
+    record_property("organization_principal_enabled", organization_principals)

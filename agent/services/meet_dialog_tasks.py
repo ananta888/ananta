@@ -2,9 +2,12 @@
 
 
 class HubDialogTasks:
-    def __init__(self, *, lifecycle=None, publisher_url=None, role_assignments=None):
+    def __init__(self, *, lifecycle=None, publisher_url=None, role_assignments=None, organization_principals=False):
+        if type(organization_principals) is not bool:
+            raise ValueError("meet_organization_principals_config_invalid")
         self.lifecycle = lifecycle
         self.publisher_url, self.role_assignments = publisher_url, role_assignments
+        self.organization_principals = organization_principals
 
     def list_page(self, tenant, project, offset):
         from agent.services.repository_registry import get_repository_registry
@@ -255,6 +258,14 @@ class HubDialogTasks:
             execution["meet_phase"] = validate_record(phase, phase_binding(task_id, tenant, project, context))
         if role_binding is not None:
             execution["meet_role_assignment"] = role_binding
+        if self.organization_principals and scope.get("organization_id"):
+            from agent.models.meet_machine_principal import principal_from_verified_role
+            from agent.services.meet_contract import MeetError
+
+            try:
+                execution["meet_machine_principal"] = principal_from_verified_role(role_binding).projection()
+            except ValueError:
+                raise MeetError("meet_dialog_principal_assignment_required", 403) from None
         get_task_queue_service().ingest_task(
             task_id=task_id,
             status="in_progress",

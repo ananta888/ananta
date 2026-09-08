@@ -36,7 +36,7 @@ class MeetMachineGrantIssuer:
             {
                 "iss": self.issuer,
                 "aud": "ananta-meet-machine-v2",
-                "sub": "ananta",
+                "sub": scope.machine_subject,
                 "iat": issued,
                 "exp": min(issued + 120, scope.deadline),
                 "jti": secrets.token_hex(16),

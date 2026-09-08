@@ -8,7 +8,7 @@ from agent.services.meet_contract import MeetError
 def validate_membership(value, scope, issuer, session_id, nonce, now_ms, *, schema):
     expected = {
         "issuer": issuer,
-        "subject": "machine:ananta",
+        "subject": "machine:" + getattr(scope, "machine_subject", "ananta"),
         "roomId": scope.room_id,
         "taskId": scope.task_id,
         "tenantId": scope.tenant_id,

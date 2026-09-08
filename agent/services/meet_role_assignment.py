@@ -18,7 +18,8 @@ class MeetRoleAssignments:
     def __init__(self, rows: RoleAssignmentRows):
         self.rows = rows
 
-    def admit(self, task_id, tenant, project, context, fields, publisher_url):
+    def resolve(self, tenant, project, fields, publisher_url):
+        """Read current eligible facts without reserving or fabricating a Task."""
         if not fields.get("role_slot_id"):
             return None
         try:
@@ -27,6 +28,17 @@ class MeetRoleAssignments:
             facts = self.rows.read(scope, publisher_url)
             if not isinstance(facts, MeetRoleFacts) or facts.publisher_url != publisher_url:
                 raise ValueError()
+            facts.require_eligible()
+            return scope, facts
+        except Exception:
+            raise MeetError("meet_dialog_assignment_denied", 403) from None
+
+    def admit(self, task_id, tenant, project, context, fields, publisher_url):
+        resolved = self.resolve(tenant, project, fields, publisher_url)
+        if resolved is None:
+            return None
+        scope, facts = resolved
+        try:
             return binding_projection(
                 task_id, context["binding_task_id"], context["lease_id"], context["runtime_id"], scope, facts
             )
@@ -59,6 +71,7 @@ class MeetRoleAssignments:
             )
             if saved != expected:
                 raise ValueError()
+            return expected
         except Exception:
             raise MeetError("meet_dialog_assignment_revoked", 403) from None
 

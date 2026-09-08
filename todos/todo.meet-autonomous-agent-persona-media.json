@@ -409,6 +409,8 @@
     },
     {
       "id": "MAP-05",
+      "organization_principal_result": "2026-09-08 implementiert: opt-in neue Org-Dialoge mit Hub-abgeleitetem persistiertem Rollenprincipal; frische SQL-Zuweisungs-/Publisher-/Topologiepruefung, keine Alt-Task-Nachruestung oder Flagoff-Abschwaechung, aktive Identitaetsfence. Autorisierte bodyless Parent-Preflight- und aktive Dialogreceipt-APIs, keine Grant-/Dispatch-/Secret-Writes. Zwei echte Hubsignierte Rollenidentitaeten im Meet-P256/HTTP/WS mit Cross-Subject-Denial. Finale gemeinsame400Checks142.53s gruen. Korrekt isolierte Legacy/Org-Phasenbrowser2passed99.10s mit Screen/Chat/Controls/Stop; shared-cache SQLite262 vorher reproduziert, optionale eigens erstellte WAL-TestDB behebt Testumgebungsproblem. Falsch isolierter Diagnoselauf ausdruecklich ungueltig. Ruff/77Workerboundary gruen. docs/contracts/meet-organization-machine-principal.md; Operator-Rollout und Mehrworker-/SFrame-/GPU-/Produktionskriterien nicht dadurch erledigt.",
+      "key_only_provisioning_result": "2026-09-08 beide bisherigen privaten/oeffentlichen FIFO-Haenger im2s-Prozesslimit reproduziert; neuer separater lokaler Hubkey-Adapter/CLI und Legacyfacade implementiert. Privater Owner-/FD-gebundener Ordner mit nonblocking Lock, exklusive fsynced Dateien ohne Ueberschreiben, bounded Keyloader/Publicvergleich, sichere Private-only-Fortsetzung. Feste headless JSON-Ausgabe/Public-SPKI-SHA256, keine Downloads/Workerkeys/Grants/Trustaktivierung.77gezielteTests35.82s und finale gemeinsame400Checks142.53s bestanden; docs/contracts/meet-machine-key-provisioning.md. Bestehende Operatorcredentials unveraendert; breitere vorautorisierte Deploymentautomation bleibt offen.",
       "key_only_provisioning_plan": "2026-09-08 Quellabgleich4f52b1214: setup_meet_media koppelt optionale Hubkeys an Worker/Modelsetup, bestehende PEMs unbegrenzt gelesen, FIFO kann blockieren, unterbrochenes Private-only-Paar nicht fortsetzbar. Separaten lokalen Key-only-Adapter/CLI planen: privater FD-gebundener Zielordner, exklusive komplette Dateien ohne Ueberschreiben, bounded bestehende Keys pruefen, nur passende Publichaelfte ergaenzen, feste headless JSON-Ergebnisse. Keine Downloads/Grants/Trustaktivierung. docs/contracts/meet-machine-key-provisioning.md; zuerst eigener begrenzter FIFO-Regressionsprozess.",
       "principal_pre_admission_plan": "2026-09-08 Implementierungsabgleich: aktiver Principalreceipt allein kommt fuer initiale Meet-Profilepins zu spaet. Vor Abschluss additiven read-only Parent-Task-Preflight planen: aktuelle erlaubte Orgrolle und operatorgewaehlten Publisher ueber denselben Role-Port aufloesen, reine Principalableitung ohne erfundene Task-/Lease-/RuntimeIDs, Ingestion, Grant oder Dispatch. Explizit preflight_only; tatsaechlicher Start revalidiert weiter. docs/contracts/meet-organization-machine-principal.md. Bisher188 Modell-/SQL-/Regressionen gruen,9 Route/echteHub-Meet-Interopchecks gruen; weitere Pruefung folgt.",
       "versioned_trust_final_verification": "2026-09-08 Meetb67c2f7 implementiert bounded v2-Preflight inkl. reproduziertem/behobenem CLI-FIFO-Hang;3441454 ergaenzt nur Startup-Testdiagnose.160gezielte Checks2.871s und finale Datei-/CLIassertions gruen. Isolierter3441454-Vollcheck Exit0:639Frontend/718Nodepassed/3Skips/0Fehler, Node151.736s, Build/Go/Security gruen. Echter privater Hub/Worker/Meet-Phasenbrowser1passed32.99s. Sporadischer frueherer SFramefehler bleibt offen; keine externe/Produktivfreigabe. Parallel-Packagermergec987613 separat Go-unit/vet-gruen. Naechster Quellabgleich/Plan: Org-Maschinenprincipal.",
@@ -1360,10 +1362,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T09:55:37.614725Z",
+    "generated_at": "2026-09-08T10:10:03.890813Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "b99ca3287d8e2bd47b5dd48327e1dee53112956ddbb1f5b1318e192a0a79694b",
+    "source_hash": "c0987e46172c6f37a1d318a5fc804cb5f1b065c6e4a411d914379bb7aa1145d8",
     "is_stale": false
   }
 }

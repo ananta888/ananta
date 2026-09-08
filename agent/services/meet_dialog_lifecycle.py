@@ -65,7 +65,7 @@ class MeetDialogLifecycle:
         from agent.services.meet_role_assignment import get_meet_role_assignments
 
         assignments = self.role_assignments if self.role_assignments is not None else get_meet_role_assignments()
-        assignments.require_current(task)
+        return assignments.require_current(task)
 
     def require_current(self, task, parent_id):
         if (
@@ -81,4 +81,4 @@ class MeetDialogLifecycle:
                 raise MeetError("meet_dialog_parent_scope_changed", 403)
         else:
             self._require_organization(task, scope)
-        self._require_role_assignment(task)
+        return self._require_role_assignment(task)

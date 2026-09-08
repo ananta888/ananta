@@ -95,7 +95,10 @@ def test_enabled_production_dialog_cannot_omit_media_budgets(monkeypatch, capaci
 
 
 @pytest.mark.parametrize("voice_assets,profiles", [(False, False), (True, False), (False, True), (True, True)])
-def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypatch, voice_assets, profiles):
+@pytest.mark.parametrize("organization_principals", [False, True])
+def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(
+    monkeypatch, voice_assets, profiles, organization_principals
+):
     app = Flask(__name__)
     app.config["ROLE"] = "hub"
     app.extensions["meet_binding_service"] = Mock()
@@ -105,10 +108,20 @@ def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(monkeypa
         app.extensions["persona_profiles"] = Mock()
     monkeypatch.setenv("ANANTA_MEET_DIALOG_ENABLED", "1")
     monkeypatch.setenv("ANANTA_MEET_DIALOG_POLICIES", "[]")
+    monkeypatch.setenv("ANANTA_MEET_ORGANIZATION_PRINCIPALS_ENABLED", "1" if organization_principals else "0")
     monkeypatch.setattr("agent.repositories.meet_chat_reservations.SqlChatReservations", Mock())
     monkeypatch.setattr("agent.repositories.meet_chat_dispatches.SqlChatDispatches", Mock())
     capacity, voice = Mock(), speech_profile(max_seconds=7)
     configure_meet_dialog(app, Mock(), Mock(), capacity=capacity, speech_profile=voice)
+    service = app.extensions["meet_dialog_service"]
+    assert service.tasks.organization_principals is organization_principals
+    assert app.extensions["meet_dialog_principals"].authority is service.authority
+    assert ("meet_organization_principal_preflight" in app.extensions) is organization_principals
+    if organization_principals:
+        preflight = app.extensions["meet_organization_principal_preflight"]
+        assert preflight.binding is service.authority.binding
+        assert preflight.lifecycle.tasks is service.tasks
+        assert preflight.publisher_url is service.tasks.publisher_url
     from agent.repositories.meet_dialog_deadlines import SqlDialogDeadlines
     from agent.services.meet_dialog_deadlines import MeetDialogDeadlines
 
