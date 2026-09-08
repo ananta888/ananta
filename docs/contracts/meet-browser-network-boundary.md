@@ -94,3 +94,14 @@ symlinks and missing/malformed files fail before container creation. The
 packaged Worker fixture exposes its already mounted private CA to Node too.
 This changes only test-process trust, never the host or a serving deployment.
 Fresh packaged image and real two-Worker integration are the next gate.
+
+The installed-image integration exposed a missed source dependency: both cases
+failed in 93.43 seconds at join, before any Hub exchange or media. Meet's
+`room-session.service.ts` uses POST `/api/machine/sessions` and POST
+`/api/machine/sessions/renew`; the initial GET/HEAD-only rule blocked them.
+Correct the fixed method policy to allow exactly these two query-free paths
+at the assigned origin, without permitting other POSTs, legacy human-session
+endpoints, alternate methods, redirects or retries. Forward the original
+signed request unchanged; Meet remains the admission/renewal authority. Add
+path/method/foreign-origin negative checks and actual private POST observations
+before rebuilding and repeating the same installed cases.
