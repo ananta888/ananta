@@ -365,6 +365,7 @@
     },
     {
       "id": "MAP-03",
+      "turn_source_profile_plan": "2026-09-08: Source audit b3620b3b7: dialog profile explicit but separate one-shot neutral/image/video renderer lacks stored source classification. docs/contracts/meet-turn-source-profile.md plans pure immutable compiler, explicit persona_video input (not mislabeled synthetic), distinct generation/publication bounds, Hub-owned persistence/current/success/lease checks and Worker pre-render classification without new wire fields or rights. Legacy fixed handler compatible; malformed present projection denied, failed cleanup retained. Focused real TaskQueue/negative/media/persona/chat/capacity regressions and updated packaged runtime check required; browser privacy and production evidence remain separate.",
       "title": "Bedrohungsmodell und getrennte Rechte für eigene und menschliche Quellen festlegen",
       "repository": "both",
       "type": "security",
@@ -1389,10 +1390,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T14:39:48.172776Z",
+    "generated_at": "2026-09-08T14:44:46.222514Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "e2d9b05ab7748f617ff6f13b855701faf59bbdcf91879c6a5a6b9a1cbfba9dc3",
+    "source_hash": "709fdd3a97e6c65e1989d7bddfb666040654d767b3b9fb7b92656ab84299a1b3",
     "is_stale": false
   }
 }
