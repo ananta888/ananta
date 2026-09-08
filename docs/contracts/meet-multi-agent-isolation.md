@@ -98,3 +98,54 @@ ports and injected dependencies (ISP/DIP), and the unset option preserves the
 old composition (OCP/LSP). Existing broad Hub task/service composition and the
 shared HMAC trust group remain explicitly preserved debt, not newly claimed
 isolation properties.
+
+## Two packaged Worker acceptance fixture
+
+The separate opt-in `tests/test_meet_multi_worker_containers.py` now starts two
+immutable-image Worker containers on the private Meet fixture network. Each
+uses its own SQL role assignment, signed Hub dispatch, browser process/profile
+and registered Meet machine principal. A third browser attributes moving
+screen frames to those exact principals. Cancelling the first Hub task must
+remove its publication while the second remains active; cancelling the second
+must leave the receiver alone with zero device captures or transform errors.
+
+Infrastructure setup, test-only certificate/closed failure observation, and
+the scenario remain separate from production authority. Containers run nonroot
+with a read-only root, explicit CPU/RAM/PID limits and an independent lifetime
+limit. No Hub package, Worker source, GPU, host profile or display is mounted.
+Readiness uses the packaged Docker health probe: the production `/healthz`
+route intentionally remains loopback-only. The first fixture incorrectly tried
+to reach it remotely and was corrected without relaxing that boundary.
+
+One actual run passed in 40.74 s with image
+`sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e`.
+This is a single-host screen/lifecycle observation under synthetic policy,
+not two-container audio/persona or production-release evidence. Repeated runs
+also exposed a control-exchange failure in one Worker; therefore
+that first successful run did not establish reliable multi-Worker operation. The
+fixture preserves closed failure codes, task states and numeric receiver
+counters before its bounded cleanup, never grants, keys or media contents.
+No MAP-28 completion claim follows from this result.
+
+### Reproduced fixture capacity failure
+
+The private TLS forwarder was capped at 16 concurrent connections, which the
+additional independent browser processes can exhaust. A real failing run
+recorded one explicit Node `drop` event, a Hub `ConnectionResetError` (errno 104),
+`meet_authorization_unavailable`, and the second Worker's bounded termination.
+The same path also produced TLS EOF errors. This was not a role-policy denial
+or an SFrame decoder failure. A passing repeat without that diagnosis was not
+considered a fix.
+
+Only the new two-Worker fixture opts into a fixed 32-connection profile; the
+existing 16-connection default, private network, memory/CPU limits, TLS trust,
+Hub policy and freshness deadlines remain unchanged. A saturated, content-free
+counter retains at most eight drop events; successful acceptance now requires
+zero drops. Six proxy configuration/diagnostic tests passed, and the first
+actual corrected two-container runs passed in 41.83 s and 41.27 s. The temporary global
+HTTP diagnostic wrapper was removed after isolating the cause; closed Worker
+and service-specific failure observations remain. All 21 container/closed
+diagnostic unit checks passed in 21.90 s. The companion complete regression
+check is running in a separate worktree of `e7c2344`, including the concurrently
+pushed packager updates through `5e002cf`. Earlier unrelated single-Worker/browser startup intermittence remains
+separate and is not claimed fixed by this larger private fixture profile.

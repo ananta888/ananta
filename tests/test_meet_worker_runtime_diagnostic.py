@@ -1,0 +1,60 @@
+"""The private container seam cannot export arbitrary exception contents."""
+
+import json
+import runpy
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
+
+pytestmark = pytest.mark.timeout(45)
+
+
+def load_seam(monkeypatch):
+    browser = type("Browser", (), {"launch": Mock()})
+    monkeypatch.setitem(__import__("sys").modules, "playwright.sync_api", SimpleNamespace(BrowserType=browser))
+    monkeypatch.setattr("sys.settrace", Mock())
+    monkeypatch.setenv("MEET_TEST_BROWSER_SPKI", "a" * 43 + "=")
+    written = Mock()
+    monkeypatch.setattr(Path, "write_text", written)
+    seam = runpy.run_path(str(Path(__file__).with_name("meet_worker_container_sitecustomize.py")))
+    return seam, written
+
+
+@pytest.mark.parametrize(
+    "message,expected",
+    [
+        ("meet_dialog_control_state_stale", "meet_dialog_control_state_stale"),
+        (
+            "meet_dialog_session_changed meet_dialog_lease_generation_changed",
+            "meet_dialog_session_changed meet_dialog_lease_generation_changed",
+        ),
+        ("meet_secret_canary", "redacted"),
+        ("Bearer secret-canary", "redacted"),
+    ],
+)
+def test_only_closed_failure_codes_and_line_are_written(monkeypatch, message, expected):
+    seam, written = load_seam(monkeypatch)
+    frame = SimpleNamespace(f_lineno=93)
+    seam["_runtime_trace"](frame, "exception", (ValueError, ValueError(message), None))
+    assert json.loads(written.call_args.args[0]) == {"line": 93, "kind": "ValueError", "code": expected}
+
+
+def test_trace_is_limited_to_the_delegated_runtime_function(monkeypatch):
+    seam, written = load_seam(monkeypatch)
+    trace = seam["_runtime_trace"]
+    frame = SimpleNamespace(
+        f_code=SimpleNamespace(co_name="run", co_filename="/app/worker/meet_media/dialog_runtime.py")
+    )
+    assert trace(frame, "call", None) is trace
+    assert frame.f_trace_lines is False
+    frame.f_code.co_filename = "/app/worker/meet_media/server.py"
+    assert trace(frame, "call", None) is None
+    written.assert_not_called()
+
+
+def test_diagnostic_storage_failure_cannot_replace_worker_failure(monkeypatch):
+    seam, written = load_seam(monkeypatch)
+    written.side_effect = OSError("synthetic-storage-error")
+    seam["_runtime_trace"](SimpleNamespace(f_lineno=93), "exception", (ValueError, ValueError("private"), None))
