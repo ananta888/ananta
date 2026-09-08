@@ -409,6 +409,7 @@
     },
     {
       "id": "MAP-05",
+      "principal_pre_admission_plan": "2026-09-08 Implementierungsabgleich: aktiver Principalreceipt allein kommt fuer initiale Meet-Profilepins zu spaet. Vor Abschluss additiven read-only Parent-Task-Preflight planen: aktuelle erlaubte Orgrolle und operatorgewaehlten Publisher ueber denselben Role-Port aufloesen, reine Principalableitung ohne erfundene Task-/Lease-/RuntimeIDs, Ingestion, Grant oder Dispatch. Explizit preflight_only; tatsaechlicher Start revalidiert weiter. docs/contracts/meet-organization-machine-principal.md. Bisher188 Modell-/SQL-/Regressionen gruen,9 Route/echteHub-Meet-Interopchecks gruen; weitere Pruefung folgt.",
       "versioned_trust_final_verification": "2026-09-08 Meetb67c2f7 implementiert bounded v2-Preflight inkl. reproduziertem/behobenem CLI-FIFO-Hang;3441454 ergaenzt nur Startup-Testdiagnose.160gezielte Checks2.871s und finale Datei-/CLIassertions gruen. Isolierter3441454-Vollcheck Exit0:639Frontend/718Nodepassed/3Skips/0Fehler, Node151.736s, Build/Go/Security gruen. Echter privater Hub/Worker/Meet-Phasenbrowser1passed32.99s. Sporadischer frueherer SFramefehler bleibt offen; keine externe/Produktivfreigabe. Parallel-Packagermergec987613 separat Go-unit/vet-gruen. Naechster Quellabgleich/Plan: Org-Maschinenprincipal.",
       "organization_principal_plan": "2026-09-08 Quellabgleich e5c96e093/Meet3441454: v2-Meet kann opaque Subjects exakt binden, Hub signiert aber auch Org-Tasks statisch ananta. docs/contracts/meet-organization-machine-principal.md plant opt-in fuer neue Org-Tasks, aus bereits gepruefter echter RoleAssignment abgeleiteten/persistierten Principal, erneute Lifecyclepruefung bei jedem Grant/Backchannel, aktive Taskwrite-Identitaetsfence und autorisierten read-only Receipt. Bestehende Tasks/Wire bleiben kompatibel; keine erfundenen Agent-/EvidenzIDs oder Runtimeaktivierung. RealSQL/Rekonstruktion/Widerruf und echte Hub-/Meet-Signaturen/Scopeisolation pruefen.",
       "versioned_preflight_plan": "2026-09-08 Folgeabgleich Meet6aad282: v1-Rolloutplan kennt keinen Profiltrust. Additiver Plan-v2 mit exakter Trustrevision/kid/Subject/Audience/TTL, Publicpin-/Zeitfenster-/Scope-/Ceilingpruefung und begrenztem Headless-Dateilesen geplant; docs/machine-trust-preflight.md im Meetrepo. Rein lokale Diagnose ohne Grants, Writes, externe Freigabe oder Produktionsclaim. Org-/Agentenbindung und Provisionierung danach weiterhin offen.",
@@ -1358,10 +1359,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T09:10:01.075095Z",
+    "generated_at": "2026-09-08T09:24:29.848343Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d42579b584604b33881405fcbec8dd5a5d718400fbecdd538d63d5cc3259bca1",
+    "source_hash": "c607b5852a1e0f5585a80205889fbcaab30584ccc5c5b6502d9b9e1fcc6379e5",
     "is_stale": false
   }
 }

@@ -53,3 +53,17 @@ renewal/observation. All checks are bounded and headless. Production trust,
 running rooms, private operator configuration and unrelated GPU workloads
 stay untouched. Multi-agent media fairness, dynamic persona ownership and
 public TURN/soak remain separate Tasks, not completed by identity tests.
+
+## Source-checked provisioning dependency
+
+The first implementation and its 188 model/SQL/regression checks are green;
+two actual Hub role identities have also crossed Meet HTTP/WS with exact
+subject isolation. Before finalizing provisioning, add a read-only **parent
+Task preflight**: an active-dialog receipt alone is too late to pin a new
+subject before the first Meet join. Resolve the same current eligible role
+and operator-configured publisher from an authorized parent Task, without
+inventing Task/lease/runtime IDs or creating a dialog. Return its candidate
+principal explicitly as `preflight_only`; actual start still revalidates
+everything. Reuse the existing role-resolution port, with pure derivation
+from its typed scope/facts. The caller cannot select a Worker/publisher.
+Test no task ingestion/dispatch/signing and revoked/foreign parent denial.
