@@ -321,3 +321,51 @@ Capacity, cleanup, diagnostic and voice-scenario fixtures passed 46 tests in
 36.63 seconds. Actual selected-voice GPU delivery remains an open acceptance
 item until sufficient hardware capacity is available and the original failure
 can be diagnosed. Serving services, keys, model contents and trust are unchanged.
+
+## Resumed real GPU verification, 2026-09-08
+
+The user explicitly identified the other loaded GPU model as disposable test
+work and authorized unloading it. Only that model's user service was stopped;
+no model files, configuration or startup enablement were deleted/changed. The
+GPU then reported 9,864 MiB free, so the normal capacity gate could admit an
+owned test run. No interactive step is required inside the test itself.
+
+The first resumed run failed in 118.77 seconds. Its observer indexed an empty
+generated-answer list and raised `IndexError`, masking the original missing
+answer. The observer now short-circuits that access, snapshots runtime errors,
+and records at most eight allowlisted inference failures/timings without prompt,
+PCM or credential details. It does not retry, extend a budget or turn failure
+into success. The original missing-answer cause is not retrospectively known.
+The combined observer/scenario/runtime-lock checks passed 47 tests with one
+explicit optional inventory-container skip in 26.79 seconds.
+
+The diagnostic repeat passed in **100.93 seconds**, using the real RTX 3080,
+Qwen and Piper, current source mounts, own WAL test database and private Meet
+browser build. Model preload was 18.36 seconds. Neutral and whisper generated
+74,752 and 65,536 locally completed PCM samples in 23.09 and 2.53 seconds.
+The receiver observed 164 and 125 non-silent windows respectively. Voice
+revocation was observed locally in 926.54 ms and remotely in 930.90 ms;
+screen/chat/parent stayed authorized until the explicit final parent stop.
+There was no human capture. The 25-second reply and 200-ms PCM budgets stayed
+unchanged. The private fixture removed its owned containers and network.
+
+These observations establish a successful selected-voice GPU path, not a fix
+for every intermittent reply failure, exact remote sample equality, long-soak
+or public TURN/production acceptance. Profile policy and admission identities
+remain explicitly synthetic/test-only. A combined serial avatar/selected-voice
+GPU regression follows; its outcome is recorded separately.
+
+That combined serial regression also passed: **two cases in 180.10 seconds**.
+The avatar GPU case took 82.492 seconds; selected voice took 97.230 seconds
+(remaining time is suite setup/teardown). Selected voice completed 134,912
+neutral and 174,848 whisper samples. Local/remote revocation was 957.58/964.95
+ms. Both owned deployments were removed; the GPU returned to 9,864 MiB free.
+This is a further successful bounded single-host regression, not an explanation
+of the earlier first-attempt missing answer or a long-soak reliability claim.
+
+The final 210-test TTS/profile/publication/voice/diagnostic/runtime-inventory
+regression passed in 79.14 seconds with no skips. The newly fixed observer
+also verifies exact digest matching, bounded/redacted failure records, no
+automatic retry and a snapshot unaffected by later teardown errors. The
+existing large fixture/observer composition remains SRP debt; production
+protocols, authorization and budgets are unchanged by these test corrections.

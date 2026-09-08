@@ -5,6 +5,7 @@ import threading
 import time
 from collections import deque
 
+from ananta_contracts.meet_media_failures import CODES as MEDIA_FAILURE_CODES
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet_dialog_callback_observer import DialogCallbackObserver
 from tests.meet_dialog_control_observer import DialogControlObserver
@@ -25,6 +26,7 @@ class DialogSpeechObserver:
         self.condition = threading.Condition()
         self.worker = None
         self.answers = []
+        self.inference_failures = deque(maxlen=8)
         self.remote = []
         self.sender = []
         self.rpc = DialogRpcObserver(monkeypatch)
@@ -109,7 +111,18 @@ class DialogSpeechObserver:
     def execute(self, turn):
         started = time.monotonic()
         if self.worker is not None:
-            media = self.worker.execute(turn)
+            try:
+                media = self.worker.execute(turn)
+            except Exception as error:
+                code = getattr(error, "code", None)
+                allowed = (*MEDIA_FAILURE_CODES, "meet_worker_unavailable", "meet_worker_result_unauthorized")
+                self.inference_failures.append(
+                    {
+                        "code": code if isinstance(code, str) and code in allowed else "worker_execution_failed",
+                        "elapsed_seconds": round(time.monotonic() - started, 2),
+                    }
+                )
+                raise
             self.answers.append(
                 {
                     "samples": media["speech"]["samples"],
@@ -162,13 +175,15 @@ class DialogSpeechObserver:
         if self.worker is not None:
             assert command("audio_reset") == {"reset": True}
 
-    def receive_answer(self, command):
+    def receive_answer(self, command, *, failures=()):
         if self.worker is None:
             return command("answer")
         value = command("answer_correlated")
-        assert value == {"correlated": True, "text_sha256": self.answers[-1]["text_sha256"]}, {
+        assert self.answers and value == {"correlated": True, "text_sha256": self.answers[-1]["text_sha256"]}, {
             "received": value,
             "generated_answers": len(self.answers),
+            "inference_failures": list(self.inference_failures),
+            "runtime_errors": list(failures),
             "acceptances": list(self.acceptances),
             "control_timing": self.control_reads.report(),
             "callbacks": self.callbacks.report(),

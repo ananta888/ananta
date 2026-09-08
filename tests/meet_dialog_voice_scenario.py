@@ -142,7 +142,7 @@ class VoiceSelectionScenario:
         self.wait("ready", revision)
         speech.before_question(command)
         assert command("ask") == {"sent": True}
-        assert speech.receive_answer(command) == {"received": True}
+        assert speech.receive_answer(command, failures=failures) == {"received": True}
         complete(1)
         speech.require_remote(command)
         assert speech.answers[-1]["voice_id"] == self.profiles.catalog["neutral"][2]
@@ -152,7 +152,7 @@ class VoiceSelectionScenario:
         self.wait("ready", revision)
         speech.before_question(command)
         assert command("ask") == {"sent": True}
-        assert speech.receive_answer(command) == {"received": True}
+        assert speech.receive_answer(command, failures=failures) == {"received": True}
         assert speech.answers[-1]["voice_id"] == self.profiles.catalog["whisper"][2]
         if self.actual_gpu:
             complete(2)

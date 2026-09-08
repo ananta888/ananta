@@ -32,8 +32,9 @@ provider. Its decoder remains reused by the ASR smoke; no private resampler is
 copied into this output path. Speech adaptation/correction and consent services
 remain Hub authorities; a transcript correction profile is not a TTS voice or
 permission to clone a person. Dynamic voice/profile admission now has its own
-separate Hub services and passive selectors; real selected-voice GPU delivery
-remains an unfinished acceptance gate.
+separate Hub services and passive selectors. A real selected-voice GPU path
+has now passed; see the dated measurements and retained failed attempts in
+[voice selection](meet-voice-preset-selection.md).
 
 ## Exact format and limits
 
@@ -81,3 +82,31 @@ Private RTX 3080 reference probe on 2026-09-06, worker image
 106 frames, 46,336 samples (2.101 seconds), first frame in 1377 ms including
 model loading, local checkpoint cancellation in 19 ms, two executions in
 2.19 seconds overall. No live-room publication or human capture occurred.
+
+## MAP-22 acceptance audit, 2026-09-08
+
+The four task criteria are implementation criteria, not the separate public
+deployment, multi-agent, long-soak or Registry-backed release gates:
+
+| Criterion | Current source and verification |
+| --- | --- |
+| Reuse and consent separation | The inbound `voice_runtime.streaming`/ASR ports remain distinct from outbound `SpeechSourcePort`; existing correction/consent metadata grants no cloning or TTS identity. Hub voice policy/profile admission is separate. |
+| Replaceable TTS port and Hub-bound inputs | `audio_output.SpeechSourcePort` is one injectable synthesis method; `PiperSpeechSource` is the real local implementation. The closed speech profile pins voice/language/model bytes/format/budget. Hub voice projection and `CurrentDialogSpeechAuthority` recheck selected persona/source revisions before admission and output. |
+| PCM source and bounded sample clock | Pull frames are mono PCM16LE/22050 Hz with contiguous absolute sample offsets and bounded duration. The independent speech publication port and browser-local feeder enforce generation/current-authority fencing and the unchanged 200-ms playback buffer. |
+| Real permitted adapter and bounded failures | The private RTX 3080 runs exercise actual Qwen/Piper and non-silent remote audio, including neutral/whisper selection and revocation. CUDA/model/budget failures remain closed; no cloud or alternate CPU runtime is silently selected. |
+
+The selected-voice case passed in 100.93 seconds, then the combined avatar/
+selected-voice GPU regression passed both cases in 180.10 seconds. Exact
+measurements, synthetic policy classification and the retained earlier failed
+attempt are in the voice-selection contract. These satisfy the real TTS-path
+criterion without pretending synthetic policy is production authorization.
+Other tracks retain broader A/V quality, continuous ASR, external TURN,
+multi-agent and long-soak obligations. The preserved broad browser-fixture
+composition is SRP debt; the production synthesis, framing, publication and
+Hub-policy responsibilities remain separated through small injected ports.
+
+The final focused synthesis/profile/binding/publication/voice/diagnostic/runtime
+inventory regression passed all 210 tests in 79.14 seconds, including the
+explicit real installed-image inventory gate. MAP-22's four criteria are
+therefore complete; this does not close the surrounding Meet TODO or broaden
+the accepted runtime/production scope.
