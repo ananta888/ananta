@@ -68,6 +68,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
     media = MultiWorkerMediaScenario() if media_mode else None
     capabilities = media.capabilities if media is not None else ["screen.publish"]
+    duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
         bridge = subprocess.Popen(
             ["node", "test/helpers/machine-multi-hub-bridge.mjs"],
@@ -178,6 +179,13 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             publishers=MeetDialogPublishers(SqlMeetRoleAssignments(), origins, origins[0]),
         )
         authority = MeetDialogAuthority(tasks, binding, {("synthetic", "synthetic"): capabilities})
+        preauthorization = None
+        if os.environ.get("MEET_MULTI_WORKER_PREAUTHORIZATION_GATE") == "1":
+            from tests.meet_multi_worker_preauthorization import MultiWorkerPreauthorization
+
+            preauthorization = MultiWorkerPreauthorization(
+                engine, authority, PARENTS, principal, ready["room_id"], duration_seconds=duration_seconds
+            )
         issuer = MeetMachineGrantIssuer("https://synthetic-hub.example.test", private)
         reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
         reservations.initialize()
@@ -264,7 +272,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                     "synthetic",
                     {
                         "capabilities": capabilities,
-                        "duration_seconds": 120,
+                        "duration_seconds": duration_seconds,
                         "chat_mode": "off",
                         **(media.start_options if media is not None else {}),
                     },
@@ -273,6 +281,8 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 started.append(result)
                 cleanup.callback(cancel_fixture_dialog, app, service, principal, result["task_id"])
                 task = tasks.get_by_id(result["task_id"])
+                if preauthorization is not None:
+                    preauthorization.require_bound(task, len(started) - 1)
                 subjects.append(task.worker_execution_context["meet_machine_principal"]["subject"])
         admitted = command("bind", subjects=subjects)
         with app.app_context():
@@ -310,11 +320,28 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         with app.app_context():
             assert tasks.get_by_id(started[0]["task_id"]).status == "cancelled"
             assert tasks.get_by_id(started[1]["task_id"]).status == "in_progress"
-        cancel_fixture_dialog(app, service, principal, started[1]["task_id"])
+        revoke_started = time.monotonic()
+        if preauthorization is not None:
+            assert preauthorization.revoke(1)["status"] == "revoked"
+        else:
+            cancel_fixture_dialog(app, service, principal, started[1]["task_id"])
         assert command("alone") == {"alone": True, "captures": 0, "transformErrors": 0, "connectionDrops": 0}
-        with app.app_context():
-            terminal_tasks = [tasks.get_by_id(row["task_id"]).model_dump() for row in started]
+        if preauthorization is not None:
+            revoked_ms = (time.monotonic() - revoke_started) * 1000
+            assert revoked_ms < 5000, "end-to-end operator-revocation budget exceeded"
+            record_property("operator_preauthorization_revocation_ms", revoked_ms)
+        expected_statuses = ["cancelled", "failed" if preauthorization is not None else "cancelled"]
         until = time.monotonic() + 8
+        terminal_tasks = []
+        # Receiver departure precedes the ordinary finish callback by design.
+        # Compare immutable snapshots only after the actual terminal transition.
+        while time.monotonic() < until:
+            with app.app_context():
+                terminal_tasks = [tasks.get_by_id(row["task_id"]).model_dump() for row in started]
+            if [row["status"] for row in terminal_tasks] == expected_statuses:
+                break
+            time.sleep(0.05)
+        assert [row["status"] for row in terminal_tasks] == expected_statuses, "bounded terminal Task finish missing"
         observations = []
         while time.monotonic() < until:
             with app.app_context():
@@ -324,7 +351,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             time.sleep(0.05)
         assert all(row["observation_status"] == "recorded" for row in observations), "bounded terminal reports missing"
         assert all(row["classification"] == "unverified_worker_observation" for row in observations)
-        assert all(row["hub_task_status"] == "cancelled" for row in observations)
+        assert [row["hub_task_status"] for row in observations] == expected_statuses
         assert all(row["observation"]["measurements"]["elapsed_ms"] > 0 for row in observations)
         with app.app_context():
             assert [tasks.get_by_id(row["task_id"]).model_dump() for row in started] == terminal_tasks
