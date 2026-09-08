@@ -4,6 +4,7 @@ import base64
 import time
 
 from worker.meet_media.av_quality import MAX_VIDEO_BYTES
+from worker.meet_media.browser_network import restrict_meet_browser_network
 from worker.meet_media.publication_session import PublicationSession
 
 
@@ -19,6 +20,7 @@ def publish(meeting, text, video_path, deadline, lease):
         )
         try:
             context = browser.new_context(permissions=[], accept_downloads=False, service_workers="block")
+            restrict_meet_browser_network(context, meeting["origin"])
             # No persisted human profile, certificates bypass, file input or device grant.
             context.add_init_script("""for (const name of ['getUserMedia', 'getDisplayMedia']) {
               navigator.mediaDevices[name] = () => Promise.reject(new Error('human_capture_forbidden'));

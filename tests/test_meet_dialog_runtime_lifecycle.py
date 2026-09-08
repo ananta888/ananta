@@ -51,6 +51,9 @@ def test_normal_deadline_closes_all_sources_before_bounded_leave_then_closes_bro
         assert f.events.index(f"{name}.close") < f.events.index("session.leave")
     assert f.events.index("session.leave") < f.events.index("browser.close")
     f.instances["exchange"].poll.assert_not_called()
+    methods = [c[0] for c in f.browser.new_context.return_value.mock_calls]
+    assert methods.index("route") < methods.index("new_page")
+    f.browser.new_context.return_value.route_web_socket.assert_not_called()
     f.page.wait_for_function.assert_not_called()
 
 

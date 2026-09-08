@@ -6,6 +6,7 @@ from contextlib import ExitStack
 
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assignment
 from ananta_contracts.meet_source_profile import dialog_source_profile
+from worker.meet_media.browser_network import restrict_meet_browser_network
 from worker.meet_media.dialog_avatar_presentation import DialogAvatarPresentation
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
 from worker.meet_media.dialog_chat import DialogChatPump
@@ -57,6 +58,7 @@ def run(assignment, hub):
         )
         cleanup.callback(browser.close)
         context = browser.new_context(permissions=[], accept_downloads=False, service_workers="block")
+        restrict_meet_browser_network(context, assignment["meeting"]["origin"])
         context.add_init_script("""for (const name of ['getUserMedia', 'getDisplayMedia']) {
           navigator.mediaDevices[name] = () => Promise.reject(new Error('human_capture_forbidden'));
         }""")

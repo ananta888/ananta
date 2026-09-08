@@ -48,6 +48,9 @@ def test_every_publication_phase_closes_browser_without_retry(runtime, failure):
         assert result["status"] == "published" and result["delivery_verified"] is False
     browser.close.assert_called_once()
     context.new_page.assert_called_once()
+    methods = [c[0] for c in context.mock_calls]
+    assert methods.index("route") < methods.index("new_page")
+    context.route_web_socket.assert_not_called()
     assert context.add_init_script.call_count == 1
     assert "getDisplayMedia" in context.add_init_script.call_args.args[0]
     operations = [call.args[0] for call in session.call.call_args_list]
