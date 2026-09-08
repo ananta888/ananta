@@ -587,6 +587,7 @@
     },
     {
       "id": "MAP-11",
+      "control_refresh_latency_plan": "2026-09-08 Source89956ecaf/Meet1c7cd3c; new packaged01db5060 passes both two-Worker cases105.70s. Actual selected-voice GPU dialog110.73s fails control_state_stale during second output after both real answers generated. Pollgap25.06ms, freshness18.08ms over, pendingrequest1609.21ms, prior otherbrowserRPC1320.71ms, completed domaincalls48-64ms. Cause not established; docs/contracts/meet-control-refresh-latency.md plans passive bounded correlated transport/browser/control-transition diagnostics, deterministic observer checks and same GPU reproduction before any scheduling fix. No deadline/retry/policy weakening, source-content logging or production claim.",
       "title": "Selbstverwaltung unter Dispatch-Lease und Hub-Fencing umsetzen",
       "repository": "ananta",
       "type": "feature",
