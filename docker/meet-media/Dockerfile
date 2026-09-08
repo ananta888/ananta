@@ -3,13 +3,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libgomp1
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY docker/meet-media/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt \
+COPY docker/meet-media/requirements.lock /app/requirements.lock
+RUN pip install --no-cache-dir -c requirements.lock -r requirements.txt \
     && pip uninstall -y onnxruntime \
-    && pip install --no-cache-dir --force-reinstall --no-deps onnxruntime-gpu==1.22.0
+    && pip install --no-cache-dir -c requirements.lock --force-reinstall --no-deps onnxruntime-gpu==1.22.0
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/meet-browser
-RUN pip install --no-cache-dir playwright==1.58.0 \
+RUN pip install --no-cache-dir -c requirements.lock playwright==1.58.0 \
     && python -m playwright install --with-deps chromium \
     && chmod -R a+rX /opt/meet-browser
+COPY scripts/check_meet_runtime_lock.py /app/check_meet_runtime_lock.py
+RUN python /app/check_meet_runtime_lock.py /app/requirements.lock
 COPY worker/meet_media /app/worker/meet_media
 COPY ananta_contracts /app/ananta_contracts
 COPY voice_runtime /app/voice_runtime

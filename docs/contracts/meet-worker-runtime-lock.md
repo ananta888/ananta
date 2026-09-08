@@ -39,3 +39,29 @@ must remain explicit rather than inferred from a matching package list.
 SRP: a build-only checker owns inventory validation; Docker owns installation
 and existing Worker modules retain delegated runtime execution. No new global
 service, dependency resolver, worker orchestration or broad configuration API.
+
+## Implemented inventory gate
+
+The lock contains 43 exact distribution pins: 42 in the final runtime and the
+explicit temporary CPU-ONNX build dependency. Both media and Playwright installs
+use the same constraints; the existing GPU-ONNX replacement remains unchanged.
+After Playwright installation, the image runs the standalone inventory checker.
+Any missing, extra, changed or duplicate-normalized distribution fails the build;
+the CPU distribution is forbidden in the final set.
+
+The checker is standard-library-only and separate from Worker execution. Its
+16 KiB/256-entry ASCII lock parser rejects version ranges, URLs, markers,
+duplicate/ambiguous names and malformed versions. File reads are nonblocking,
+regular-file-only and bounded; descriptor cleanup covers failure. CLI output is
+only a fixed success/failure line, including FIFO and malformed-metadata cases.
+No package install, network call, source registration or task dispatch occurs
+inside this checker.
+
+The first 32-test run had 31 passes, including the actual immutable-container
+inventory, and one test assertion failure in 27.78 seconds: the expected entry
+count was mistakenly 44 instead of 43. Correcting that assertion passed in
+7.25 seconds; no package pin was changed to force a match. The final combined
+TTS/observer/inventory regression passed all 210 tests in 79.14 seconds with
+the real inventory gate explicitly enabled and no skips. Targeted Ruff passes.
+The full fresh dependency-image build still follows these checks; its outcome
+is not inferred from matching the existing runtime.
