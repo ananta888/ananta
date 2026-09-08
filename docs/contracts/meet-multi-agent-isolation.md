@@ -220,3 +220,25 @@ SRP separates observation, synthetic inference/catalog and Hub scenario; DIP
 retains the existing real task/reply ports. The large pre-existing integration
 fixture still owns composition and cleanup; its broad setup is preserved test
 debt, not a new production service responsibility.
+
+## MAP-28 criterion closure
+
+| Criterion | Verified implementation |
+| --- | --- |
+| Separate participants, personas, sources, keys and withdrawal | Two installed Worker containers, separate browser/device identities and authenticated role principals; red/blue Hub-pinned images, independently decoded screens/audio and individual image/task withdrawal. Required SFrame and membership fences remain enabled. |
+| Hub-owned team coordination | Real SQL role assignments and Hub TaskQueue admission select two fixed configured destinations; scoped router revalidates assignment and dispatch exactly once. No Worker schedules another Worker. |
+| No display-name or foreign-source identity substitution | Real Hub/Meet principal interoperability retains distinct identities under the same fixed KI label and rejects cross-subject inspection/renewal; both browser engines reject the other session's screen, speech and avatar source IDs. |
+| Two agents plus receiver with simultaneous browser/audio | Corrected two-container matrix passed both cases in 103.64 s; six observer/helper checks plus Chromium/Firefox foreign-source/simultaneous-media cases passed in 8.327 s. Explicitly a single-host, synthetic-inference/policy observation. |
+
+These four MAP-28 criteria are satisfied. This does not finish its broader
+prerequisite tracks: arbitrary browser-workspace presentation/privacy,
+speaker fairness, receive/injection matrix, GPU concurrency, public TURN and
+soak/release acceptance remain open. Shared Worker HMAC trust is still not
+per-Worker credential isolation; no claim extends beyond the actual admitted
+publisher and browser/device/source boundaries above.
+
+Companion `b0d6c10`/`346afa5` and root `6a81636d9` contain this slice. The first
+companion full check passed 665 frontend tests/build/static/security, then
+failed a separate existing native-packager key-only startup fixture before its
+stimulus. Two of ten isolated repetitions also failed. That regression is
+tracked and being diagnosed, not hidden by MAP-28 closure or asserted green.

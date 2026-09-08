@@ -977,10 +977,10 @@
       "repository": "both",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-12",
         "MAP-24",
@@ -998,7 +998,8 @@
       "publisher_routing_implementation": "2026-09-08: Implemented optional bounded ANANTA_MEET_DIALOG_WORKER_URLS, exact scoped role selector, immutable destination-map router, shared admission/preflight selection and persisted role revalidation immediately before one dispatch. Default single-Worker and separate model-generation paths unchanged; HMAC trust group preserved explicitly, no per-Worker credential claim. 103 focused tests passed in 72.14 s with real SQL/TaskQueue two-role identities/destinations, ambiguity/revocation races/tampering/config/default/preflight/budget checks. Initial slow WAL unit run terminated without completion; in-memory isolated SQL verification passed. Companion af582c0 matrix/full check passed (665 frontend, 745 Node, zero failures, two Node skips plus fourteen opt-in live skips), pushed through e214973. Real two-Worker-container acceptance remains next; no MAP-28 completion claim. docs/contracts/meet-multi-agent-isolation.md.",
       "two_packaged_worker_result": "2026-09-08: Two immutable packaged Worker containers with exact SQL role assignments, real Hub-signed HTTP dispatch, distinct Meet principals/devices and independently attributed moving screens implemented and verified. Both cancellation boundaries passed, zero human captures/transform errors, single host/synthetic policy/no GPU. Test health readiness corrected to existing Docker loopback-only probe. Repeated control failures traced to 16-connection private TLS proxy saturation: actual drop plus ConnectionResetError errno104, Hub503 and bounded Worker exit. Explicit32 only for new multi-Worker fixture; old16/TLS/policy/resource/stop limits unchanged, successful gate requires zero drops. Corrected actual runs41.83s/41.27s passed; 21 fixture/closed-diagnostic unit checks21.90s and six proxy checks passed. Broad temporary HTTP tracing removed. Companion source e7c2344 includes unrelated upstream5e002cf by clean fast-forward; isolated complete check ongoing before push. Two-container audio/persona and MAP-12/24/26/27 prerequisites remain open; no completed MAP-28 or production release claim. docs/contracts/meet-multi-agent-isolation.md.",
       "two_worker_full_check": "2026-09-08: Companion e7c2344 including upstream5e002cf passed isolated npm run check:665frontend/752Nodepassed/0failed/2Nodeskips, build/security/Go unit+vet green,241.028s Node stage,14explicit external live skips. Pushed source/results through dacc96a. Root two packaged Worker gate passed41.83s and41.27s after reproduced private proxy capacity correction; synthetic single-host screen/lifecycle evidence only. Two-container persona/audio acceptance continues next, no complete MAP-28 claim.",
-      "two_worker_media_plan": "2026-09-08: Quellabgleich ffee665c3/dacc96a. docs/contracts/meet-multi-agent-isolation.md plant separaten Media-Szenariohelper: reale zwei paketierte Worker mit je Hub-gewaehlter roter/blauer Testbildrevision, echtem signiertem Bildtransport und per PeerConnection zugeordnetem Audio. Synthetische20s-PCM ueber echten Hub-ChildTask-Pfad, kein GPUclaim; zweiten Hubchat zuerst pausieren, beide Chatquellen automatisch freigeben, erste Ausgabe messen, bestehenden10s-Raumcooldown respektieren, zweiten Chat aktivieren und gleichzeitigen Empfang pruefen. Einzelbildwiderruf, verbleibende Persona/Screens und bestehende unabhaengige Parent-Cancellation. Keine Budget-/Policylockerung, getrennte negative Fixturechecks, Screen-only-Profil bleibt erhalten. MAP-28 bleibt in_progress."
+      "two_worker_media_plan": "2026-09-08: Quellabgleich ffee665c3/dacc96a. docs/contracts/meet-multi-agent-isolation.md plant separaten Media-Szenariohelper: reale zwei paketierte Worker mit je Hub-gewaehlter roter/blauer Testbildrevision, echtem signiertem Bildtransport und per PeerConnection zugeordnetem Audio. Synthetische20s-PCM ueber echten Hub-ChildTask-Pfad, kein GPUclaim; zweiten Hubchat zuerst pausieren, beide Chatquellen automatisch freigeben, erste Ausgabe messen, bestehenden10s-Raumcooldown respektieren, zweiten Chat aktivieren und gleichzeitigen Empfang pruefen. Einzelbildwiderruf, verbleibende Persona/Screens und bestehende unabhaengige Parent-Cancellation. Keine Budget-/Policylockerung, getrennte negative Fixturechecks, Screen-only-Profil bleibt erhalten. MAP-28 bleibt in_progress.",
+      "completion_note": "2026-09-08: All four own criteria mapped to verified source and actual two packaged Worker plus receiver acceptance in docs/contracts/meet-multi-agent-isolation.md. Exact Hub SQL role routing, distinct real signed principals/devices/persona images, independent withdrawal, simultaneous decoded audio/screens; two root cases103.64s,49units37.07s and8companion helper/Chromium/Firefox checks8.327s passed including foreign screen/speech/avatar denial. Root6a81636d9, companionb0d6c10/346afa5. Single-host synthetic policy/inference, not production/GPU/public TURN evidence. Broader MAP-12/24/26/27 and browser privacy/soak criteria remain open. Companion full check failed separate existing native key-only startup after665frontend/build/static/security passes;2of10 isolated repeats reproduced, diagnosis continues, no complete-green claim."
     },
     {
       "id": "MAP-29",
@@ -1127,12 +1128,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 8,
+      "in_progress": 7,
       "partial": 12,
       "blocked": 0,
-      "done": 11
+      "done": 12
     },
-    "progress_percent_done": 34.4,
+    "progress_percent_done": 37.5,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1244,15 +1245,15 @@
         "total": 16,
         "by_status": {
           "todo": 0,
-          "in_progress": 5,
+          "in_progress": 4,
           "partial": 3,
           "blocked": 0,
-          "done": 8
+          "done": 9
         },
-        "done": 8,
+        "done": 9,
         "partial": 3,
         "blocked": 0,
-        "progress_percent": 70.9
+        "progress_percent": 75.0
       },
       "infrastructure": {
         "total": 1,
@@ -1301,20 +1302,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 8,
+    "in_progress": 7,
     "partial": 12,
     "blocked": 0,
-    "done": 11,
-    "count_based_percent": 34.4,
-    "weighted_percent": 62.5
+    "done": 12,
+    "count_based_percent": 37.5,
+    "weighted_percent": 64.2
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 36.413,
-    "remaining_weight": 21.837,
+    "done_weight": 37.388,
+    "remaining_weight": 20.862,
     "blocked_weight": 0.0,
-    "weighted_percent": 62.5
+    "weighted_percent": 64.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1368,10 +1369,10 @@
       },
       "MAP-M7": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 48.3,
+        "count_based_percent": 25.0,
+        "weighted_percent": 64.6,
         "status": "in_progress"
       },
       "MAP-M8": {
@@ -1387,10 +1388,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T14:31:18.076809Z",
+    "generated_at": "2026-09-08T14:36:36.533534Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "2a455af4e2f0fd6ce97980eda9d70d4f639e9fc9c8aff838fa43370fe7ddb296",
+    "source_hash": "729f03d794d9214f4851634bf6f6add7f35d072c0dc3b0be92ea2f8e8a0242e5",
     "is_stale": false
   }
 }
