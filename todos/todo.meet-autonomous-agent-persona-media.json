@@ -552,6 +552,7 @@
     },
     {
       "id": "MAP-10",
+      "liveness_cpu_plan": "2026-09-08 Quellabgleichec048fd3d: Standalone Worker besitzt begrenzte POST-Ausfuehrung/RAM/PIDs/tmpfs, aber keinen Healthcheck oder CPU-Quota. docs/contracts/meet-worker-liveness.md plant getrennten loopback-only contentfreien GET-Livenesspfad und bounded stdlib-Probe unter Docker-Wallclocklimit plus konfigurierbaren4CPU-Default. Keine Modell-/GPU-/Task-/Lease-Aktion, keine Secrets/signierten Healthantworten, keine offenenPorts/Mounts oder Runtime-Neustarts. RealHTTP/Busy/Negativ-/Probe-/Compose-/Boundarytests; Modellreadiness und breitere MAP-10-Kriterien getrennt pruefen.",
       "title": "Isolierten Publisher-Worker und Browser-Workspace bereitstellen",
       "repository": "ananta",
       "type": "infrastructure",
@@ -1362,10 +1363,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T10:10:03.890813Z",
+    "generated_at": "2026-09-08T10:14:37.233659Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "c0987e46172c6f37a1d318a5fc804cb5f1b065c6e4a411d914379bb7aa1145d8",
+    "source_hash": "f829e14ba43957a384f06d9132e531d3a88c338385d63d0e26805dc356484f03",
     "is_stale": false
   }
 }
