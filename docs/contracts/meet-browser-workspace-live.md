@@ -141,3 +141,36 @@ workspace consumes only the validated result under the still-current Hub page
 generation. The network fetcher is not a new public endpoint or a grant to
 fetch an arbitrary caller URL. Verify target/framing/connect seams and real
 timeout/cleanup behavior before wiring it into the workspace.
+
+Public fetch implemented and verified: **247 tests passed in 88.01 s**, including
+the unchanged legacy navigation-policy tests. Closed requests admit at most
+eight exact canonical HTTP(S) origins on their default ports. DNS is resolved
+once; mixed/private/unsupported answers are denied before opening a socket.
+The socket connects to the checked numeric IP and TLS retains certificate and
+original-hostname verification. Requests are fixed unauthenticated GETs, with
+no ambient proxy, cookies, authorization, redirects or retry/fallback route.
+
+The reader bounds status/header lines (1024/4096 bytes), total headers (16384
+bytes), identity HTML (524288 bytes) and chunk count (4096). Conflicting or
+duplicate framing, downloads, auth challenges, compression and trailers are
+denied. Only strict UTF-8 HTML is returned; remote headers/status text are not
+returned. The existing bounded process port supplies minimal environment,
+bounded stdout, process-group cleanup, cancellation and a three-second maximum
+fetch deadline, including DNS/TLS/header stalls. Two tests used actual stalled
+DNS children to exercise timeout and revocation; neither performed networking.
+
+An explicit read-only technical probe also retrieved `https://webrtc.ananta.de/`
+through this exact default fetch process: 781 UTF-8 bytes in 0.202 s, without
+logging content or writing server state. This verifies a real public TLS GET,
+not dynamic app execution, arbitrary-site compatibility, Hub source admission
+or production evidence. The initial suite's sole failure was an overly narrow
+test reason: malformed bare-LF input was correctly rejected by the earlier
+line parser. The fixture now accepts either applicable fixed denial code.
+
+SOLID review: URL parsing remains a pure shared contract with a backward-
+compatible Hub facade. Target validation, numeric connection, HTTP framing and
+supervision have separate responsibilities. The existing generic process port
+is reused, preserving its current `voice_runtime.preprocessing` namespace
+coupling rather than adding a duplicate process supervisor or a broad unrelated
+refactor. The next workspace adapter consumes HTML only after current Hub
+assignment validation; no existing endpoint activates the fetcher by itself.
