@@ -409,6 +409,7 @@
     },
     {
       "id": "MAP-05",
+      "signing_key_load_plan": "2026-09-08 Quellabgleichf1e7eb0b7: Hubsignierer prueft Pfadrechte, dann unbegrenztes Path.read_bytes ohne regulaeren Dateityp und ohne atomare FD-Bindung; private0600-FIFO kann Startup unbegrenzt halten, Zielwechsel kann frueheren Rechtecheck ueberholen. docs/contracts/meet-signing-key-loading.md: separater Hub-Keyloader mit4KiB-/Dateityp-/FD-/Metadaten-/Rechtegrenzen, nonblocking-open und garantiertem Schliessen, Symlink-Regularsecret kompatibel bei identischem Snapshot, feste redigierte Fehler ohne Retry. Erst begrenzten FIFO-Prozessnegativtest, dann echte Ed25519-/Datei-/Race-/Fehlerchecks und bestehende private Grants/Browser. Keine Operator-/Trustaenderung; versionierte Trustprofile, Rotation und Org-/Agentenprinzipale weiterhin offen.",
       "title": "Maschinenidentität, Trust-Profil und automatisierte Provisionierung implementieren",
       "repository": "both",
       "type": "security",
