@@ -130,3 +130,34 @@ retry; no fallback and no disabled constraints. Release the media-child
 inspection session before writing. Stop timing starts only after the revocation
 commits. Test contention using a real held SQLite read transaction, exhausted
 budgets, exact targets and non-lock failures, then rerun the private matrix.
+
+The fixture adapter is implemented separately from production lifecycle code.
+Each attempt uses a fresh transaction and an exact expected-state UPDATE; it
+cannot activate a role, create a task, change arbitrary targets or silently
+accept a second already-applied stimulus. A failed session closes before its
+50-ms pause. Three attempts and a one-second **retry** budget bound contention
+handling; this does not redefine the database driver's individual call timeout.
+The media-child inspection transaction is closed before the revocation starts.
+All **66 focused fixture/cleanup/assignment regressions passed in 33.02
+seconds**, including a real shared-cache read lock released only between the
+first failed and second successful write. Non-lock errors, missing/changed
+targets and exhausted attempts/deadline remain failures. The final four-case
+private browser matrix follows with unchanged media and stop assertions.
+
+The final matrix passed **all four cases in one run, 107.41 seconds**. Each
+fixture write committed on its first attempt; the separate held-lock unit test
+is the evidence that the retry path was exercised. Parent cancellation,
+organization pause, role draining and assignment suspension stopped the Worker
+in **261.13 / 641.34 / 1177.01 / 708.14 ms**, respectively, with terminal task and
+remote participant removal. All cases retained moving-screen and two-correlated
+reply/scoped-media-child prerequisites. No capture or interactive approval was
+needed, no timeout or success assertion was relaxed. The historical intermittent
+screen-start failure remains unresolved; the new diagnostic was not triggered
+in this successful run.
+
+MAP-09 source audit now estimates 75%, still `in_progress`: current organization,
+team and role-assignment checks plus explicit-only activation are implemented.
+The complete persisted queued/admitted/connecting/joined/publishing/stopping
+state sequence and broader command-idempotency criteria still require work.
+Do not archive this TODO or conflate the current publisher assignment with a
+distinct organization/persona principal in Meet.

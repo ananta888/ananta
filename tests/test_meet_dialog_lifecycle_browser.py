@@ -6,9 +6,10 @@ import time
 import pytest
 from sqlmodel import Session, select
 
-from agent.db_models import OrganizationInstanceDB, OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
+from agent.db_models import TaskDB
 from agent.services.meet_dialog_lifecycle import organization_tuple
 from tests.meet_dialog_lifecycle_fixture import seed_parent
+from tests.meet_lifecycle_revocation import revoke_fixture_lifecycle
 
 
 class LifecycleScenario:
@@ -36,20 +37,7 @@ class LifecycleScenario:
                 row.status == "completed" and organization_tuple(row) == organization_tuple(child)
                 for row in media_children
             )
-            if self.reason == "parent-cancel":
-                row = session.get(TaskDB, self.parent_id)
-                row.status = "cancelled"
-            elif self.reason == "role-draining":
-                row = session.get(OrganizationRoleSlotDB, "meet-test-slot")
-                row.lifecycle = "draining"
-            elif self.reason == "assignment-suspended":
-                row = session.get(OrganizationRoleAssignmentDB, "meet-test-assignment")
-                row.lifecycle = "suspended"
-            else:
-                row = session.get(OrganizationInstanceDB, "meet-test-org")
-                row.lifecycle = "paused"
-            session.add(row)
-            session.commit()
+        attempts = revoke_fixture_lifecycle(engine, self.reason)
         revoked_at = time.monotonic()
         assert completed.wait(8), "Worker failed to stop after authoritative lifecycle loss"
         assert service.tasks.get_by_id(child.id).status == "failed"
@@ -57,6 +45,7 @@ class LifecycleScenario:
             "synthetic": True,
             "production_release_evidence": False,
             "cause": self.reason,
+            "fixture_revocation_write_attempts": attempts,
             "worker_stop_ms": round((time.monotonic() - revoked_at) * 1000, 2),
             "dialog_stop_api_used": False,
             "organization_tuple_inherited": True,
