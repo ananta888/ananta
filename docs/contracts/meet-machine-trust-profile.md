@@ -86,3 +86,23 @@ v2 plan with profile revision, key ID, subject, audience and grant lifetime,
 checked against the exact immutable profile. It must remain read-only and
 never convert local readiness into production approval. The CLI's existing
 open-before-filetype FIFO risk is included in its bounded headless tests.
+
+## Subsequent preflight and verification result
+
+Meet `b67c2f7` implements that closed v2 preflight through separate plan,
+trust-check and report ports. The old CLI FIFO hang was reproduced under a
+2 s parent bound; regular-file FD and 8 KiB/duplicate-JSON checks now return
+fixed blocked JSON/exit 2. 160 combined targeted checks passed in 2.871 s;
+the final stricter file/CLI assertions also pass. `3441454` adds only bounded
+startup diagnostics, verified in actual Chromium and Firefox (1.763 s).
+
+The isolated full check at `3441454` passes: 639 frontend tests, 718 Node
+passes/three explicit skips/zero failures (151.736 s Node), build/Go/security
+gates. The actual private Hub/Worker/Meet phase gate passes in 32.99 s.
+Earlier sporadic SFrame failure is retained, not declared fixed. External
+infrastructure remains skipped and no production release evidence is claimed.
+Concurrent native Packager work was merged at `c987613` and its Go unit/vet
+gate passed separately; the full-check revision above is not rewritten.
+
+Next work is the source-audited Organization identity integration described
+in `meet-organization-machine-principal.md`.

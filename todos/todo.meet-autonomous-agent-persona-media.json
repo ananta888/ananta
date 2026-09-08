@@ -409,6 +409,8 @@
     },
     {
       "id": "MAP-05",
+      "versioned_trust_final_verification": "2026-09-08 Meetb67c2f7 implementiert bounded v2-Preflight inkl. reproduziertem/behobenem CLI-FIFO-Hang;3441454 ergaenzt nur Startup-Testdiagnose.160gezielte Checks2.871s und finale Datei-/CLIassertions gruen. Isolierter3441454-Vollcheck Exit0:639Frontend/718Nodepassed/3Skips/0Fehler, Node151.736s, Build/Go/Security gruen. Echter privater Hub/Worker/Meet-Phasenbrowser1passed32.99s. Sporadischer frueherer SFramefehler bleibt offen; keine externe/Produktivfreigabe. Parallel-Packagermergec987613 separat Go-unit/vet-gruen. Naechster Quellabgleich/Plan: Org-Maschinenprincipal.",
+      "organization_principal_plan": "2026-09-08 Quellabgleich e5c96e093/Meet3441454: v2-Meet kann opaque Subjects exakt binden, Hub signiert aber auch Org-Tasks statisch ananta. docs/contracts/meet-organization-machine-principal.md plant opt-in fuer neue Org-Tasks, aus bereits gepruefter echter RoleAssignment abgeleiteten/persistierten Principal, erneute Lifecyclepruefung bei jedem Grant/Backchannel, aktive Taskwrite-Identitaetsfence und autorisierten read-only Receipt. Bestehende Tasks/Wire bleiben kompatibel; keine erfundenen Agent-/EvidenzIDs oder Runtimeaktivierung. RealSQL/Rekonstruktion/Widerruf und echte Hub-/Meet-Signaturen/Scopeisolation pruefen.",
       "versioned_preflight_plan": "2026-09-08 Folgeabgleich Meet6aad282: v1-Rolloutplan kennt keinen Profiltrust. Additiver Plan-v2 mit exakter Trustrevision/kid/Subject/Audience/TTL, Publicpin-/Zeitfenster-/Scope-/Ceilingpruefung und begrenztem Headless-Dateilesen geplant; docs/machine-trust-preflight.md im Meetrepo. Rein lokale Diagnose ohne Grants, Writes, externe Freigabe oder Produktionsclaim. Org-/Agentenbindung und Provisionierung danach weiterhin offen.",
       "versioned_trust_result": "2026-09-08 optionaler Hub-kid und getrennte Meet-JSON-/Profil-/Datei-/Signaturpruefung implementiert. Exakte Subject/Tenant/Projekt/Capabilities, Keyfenster, unbekannte Keys/Claims/Duplicatefelder/Privatmaterial failclosed; kein Workerkey oder Runtime-Rollout.111Meettests3.023s mit echtem P256/HTTP/WS und3 Cross-Key-Renewals derselben Membership,102Rootchecks43.54s inklusive echter v1/v2-Hubgrants im Meetvalidator, Ruff/77Workerboundary gruen. Isolierter Meet-Vollcheck folgt vor Push. Org-/Agentenprinzipale, Provisionierung und Produktionskriterien bleiben offen; docs/contracts/meet-machine-trust-profile.md.",
       "versioned_trust_plan": "2026-09-08 Quellabgleich Ananta740dfb7e5/Meet478856c: Einzelkey/globales Ceiling ohne versioniertes Trustprofil, Rotation oder Meet-Projektallowlist. docs/contracts/meet-machine-trust-profile.md plant optionalen geschlossenen Public-Keyring mit Zeitfenstern, exakten Subject/Tenant/Projekt/Capability-Tupeln und Hub-eigenem kid; Altpfad kompatibel, kein Downgrade oder Runtime-Rollout. Reale Signaturen/HTTP/WS und Hubgrants, dann isolierter Meet-Vollcheck. Org-/Agentenprinzipale und Operatorprovisionierung gesondert offen.",
@@ -1356,10 +1358,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T08:49:46.848565Z",
+    "generated_at": "2026-09-08T09:10:01.075095Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "dd4c9e712d8794d65a2bcfd21987746a8ba965c11cc7dd42a4dc3e282900b84b",
+    "source_hash": "d42579b584604b33881405fcbec8dd5a5d718400fbecdd538d63d5cc3259bca1",
     "is_stale": false
   }
 }
