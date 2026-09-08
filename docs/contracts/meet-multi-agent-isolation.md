@@ -152,3 +152,30 @@ zero failures, two Node skips, build/security/Go unit+vet green, 241.028 s
 for Node. Fourteen external live gates remain explicitly skipped. Companion
 results are recorded in `dacc96a`. Earlier unrelated single-Worker/browser startup intermittence remains
 separate and is not claimed fixed by this larger private fixture profile.
+
+## Next acceptance: two-container persona and audio sources
+
+Extend the existing packaged-Worker gate with a separate media scenario helper,
+not another inference or orchestration loop in a Worker. Both signed assignments
+negotiate image avatars and speech/chat; the Hub independently selects a red
+and blue test-only image revision and activates each source through its existing
+CAS controls. The receiver correlates images, screens and decoded audio to the
+same two authenticated principals and actual peer connections.
+
+Use explicitly synthetic bounded PCM generation through the ordinary Hub child
+task/reply ports. This test isolates real packaged publication from model speed;
+the real RTX/Qwen/Piper path retains its separate GPU acceptance. Start with the
+second Hub chat control paused. Automatically consent both receiver-owned chat
+paths, observe the first actual spoken reply, respect the existing ten-second
+room cooldown, then enable the second chat control and issue its new input
+while the first longer bounded reply is still playing. Require audio from both
+publishers in one observation window without changing admission budgets.
+
+Revoke only the first admitted image in the synthetic catalog; require that
+avatar to disappear while the second image and both screen sources remain
+correctly attributed. The existing real task cancellation then proves separate
+participant termination. Reject wrong profile references, scope and revisions
+in the fixture unit checks. No raw images, PCM, subjects, grants or keys go into
+the report; the matrix remains synthetic-policy/single-host, not a production
+release, GPU concurrency or Hub speaker-fairness claim. Keep default screen-only
+acceptance unchanged and run both cases plus targeted helper regressions.
