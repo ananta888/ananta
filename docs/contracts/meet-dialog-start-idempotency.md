@@ -82,3 +82,30 @@ test orchestration retain SRP debt; the new browser scenario is isolated in its
 own test through one optional fixture hook, without adding a Worker scheduler.
 UI callers still need to opt in; complete persistent session phases, recovery,
 retention and the remaining MAP-09 acceptance criteria are not claimed complete.
+
+## UI follow-up plan at a2ff35769
+
+Source inspection: the Angular API currently sends no idempotency header. After
+an uncertain result, another Start click constructs a fresh unprotected request.
+Opt this client into the Hub receipt contract. Allocate one secure random key
+and an independent bounded JSON body snapshot when creating a start observable,
+not on subscription. Its URL, payload and key must remain fixed when the same
+operation is resubscribed, including authentication refresh. No automatic retry,
+unkeyed fallback, storage of credentials or page-load start is introduced.
+
+Keep one unresolved start operation in a small component-owned helper (SRP).
+On an error, a separately labelled retry reuses that exact observable, without
+creating another API command. While unresolved, disable editing/new start but
+leave list refresh, source stop and whole-task stop available. Explicitly
+preparing a different command must warn that the original may still run and must
+not cancel it. Project/task/account change and destruction discard local pending
+state and unsubscribe; they never start, stop or replay a server task implicitly.
+Successful historical receipts trigger a fresh list read, not a claim of live
+membership. No local/session storage and no cross-reload recovery claim.
+
+Test body/key/URL reuse, distinct explicit operations, timeout/conflict and
+malformed replies, identity/project/task changes, late responses, list refresh,
+no automatic retry, and continued independent emergency controls. Run focused
+Angular tests and a private-output build; preserve the serving build and user
+data. The existing broad Meet component retains SRP debt; request-attempt state
+belongs in a focused helper rather than growing a global retry manager.
