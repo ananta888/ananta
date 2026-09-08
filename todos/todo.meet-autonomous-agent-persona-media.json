@@ -560,6 +560,7 @@
     },
     {
       "id": "MAP-10",
+      "browser_network_plan": "2026-09-08 Source78323eaec: fresh machine contexts block devices/downloads/service workers but not foreign HTTP/WebSocket destinations. docs/contracts/meet-browser-network-boundary.md plans fixed assigned-origin GET/HEAD and WSS adapter before page creation, no redirects/retries/transport fallback, unchanged TLS. Pure and actual private-browser negative tests must observe zero destination requests, then packaged two-Worker integration. No complete container firewall/DNS/ICE/TURN/arbitrary browser privacy claim; MAP10 remains open.",
       "liveness_cpu_plan": "2026-09-08 Quellabgleichec048fd3d: Standalone Worker besitzt begrenzte POST-Ausfuehrung/RAM/PIDs/tmpfs, aber keinen Healthcheck oder CPU-Quota. docs/contracts/meet-worker-liveness.md plant getrennten loopback-only contentfreien GET-Livenesspfad und bounded stdlib-Probe unter Docker-Wallclocklimit plus konfigurierbaren4CPU-Default. Keine Modell-/GPU-/Task-/Lease-Aktion, keine Secrets/signierten Healthantworten, keine offenenPorts/Mounts oder Runtime-Neustarts. RealHTTP/Busy/Negativ-/Probe-/Compose-/Boundarytests; Modellreadiness und breitere MAP-10-Kriterien getrennt pruefen.",
       "title": "Isolierten Publisher-Worker und Browser-Workspace bereitstellen",
       "repository": "ananta",
