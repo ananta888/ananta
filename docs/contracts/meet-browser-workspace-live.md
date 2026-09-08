@@ -121,3 +121,23 @@ or publication state, and the renderer owns only its context/frame lifecycle.
 The old status-screen and browser-adapter behavior are unchanged. Network and
 Hub workspace policy will compose these ports rather than make the renderer a
 browser/task orchestrator. MAP-13/15/16 remain in progress.
+
+### Public-fetch implementation boundary
+
+Move the existing pure URL/IP parser to the standalone contracts namespace,
+keeping the old Hub import as a compatibility facade. The new read-only fetch
+profile uses exact canonical origins, only public addresses and no inherited
+proxy/cookie/auth state. Resolve once, reject mixed/private DNS answers, and
+connect a numeric socket to the admitted address; HTTPS still verifies the
+original hostname/SNI. Redirects, authentication challenges, downloads, unknown
+content encodings and malformed/oversized framing are bounded denials.
+
+Execute each network fetch in a separate supervised child with a closed stdin
+request, minimal non-secret environment, bounded body/response and an absolute
+parent timeout. This also bounds DNS, TLS and trickled response headers;
+socket inactivity limits alone are not a whole-request deadline. The child
+does not execute page scripts, follow redirects or spawn tasks. The browser
+workspace consumes only the validated result under the still-current Hub page
+generation. The network fetcher is not a new public endpoint or a grant to
+fetch an arbitrary caller URL. Verify target/framing/connect seams and real
+timeout/cleanup behavior before wiring it into the workspace.
