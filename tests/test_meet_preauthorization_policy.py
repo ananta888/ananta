@@ -87,6 +87,8 @@ def test_policy_roundtrip_is_closed_and_assignment_digest_ignores_only_mutable_s
         {"max_dispatches": 0},
         {"max_dispatches": 1001},
         {"policy_id": "a" * 161},
+        {"policy_id": "SRC_not-a-policy"},
+        {"policy_id": "RUN_not-a-policy"},
     ],
 )
 def test_unknown_scope_wildcards_authority_fields_and_unbounded_policy_are_rejected(patch):
@@ -123,6 +125,8 @@ def test_duration_capability_and_expiry_limits_are_independent():
         {"revision": True},
         {"assignment_digest": "wrong"},
         {"policy_id": "*"},
+        {"policy_id": "SRC_not-a-policy"},
+        {"policy_id": "RUN_not-a-policy"},
         {"allow": True},
     ],
 )

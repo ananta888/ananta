@@ -52,6 +52,8 @@ def scope_key(assignment):
 
 def policy_binding(policy_id, revision, assignment_digest):
     identifier(policy_id)
+    if policy_id.startswith(("SRC_", "RUN_")):
+        raise MeetError("meet_preauthorization_binding_invalid", 403)
     integer(revision)
     if type(assignment_digest) is not str or not re.fullmatch(r"[a-f0-9]{64}", assignment_digest):
         raise MeetError("meet_preauthorization_binding_invalid", 403)

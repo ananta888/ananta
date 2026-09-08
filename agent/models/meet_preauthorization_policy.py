@@ -59,6 +59,8 @@ class MeetPreauthorizationPolicy:
             raise MeetError("meet_preauthorization_invalid")
         for key in ("policy_id", "tenant_id", "project_id", "parent_task_id", "owner_subject"):
             identifier(value[key])
+        if value["policy_id"].startswith(("SRC_", "RUN_")):
+            raise MeetError("meet_preauthorization_invalid")
         if type(value["origin"]) is not str or type(value["room_id"]) is not str:
             raise MeetError("meet_preauthorization_invalid")
         MeetProfile(value["origin"]).invite(value["room_id"])
