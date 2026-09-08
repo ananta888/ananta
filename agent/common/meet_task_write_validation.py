@@ -1,5 +1,7 @@
 """Meet-specific immutable identity policy, without infrastructure or scheduling."""
 
+import json
+
 TERMINAL = frozenset(
     {"completed", "failed", "cancelled", "verification_failed", "skipped", "aborted", "timeout", "archived"}
 )
@@ -25,6 +27,11 @@ def meet_task_write_error(authoritative, candidate):
     after = getattr(candidate, "worker_execution_context", None) or {}
     if _video_option(before) != _video_option(after):
         return "meet_dialog_video_negotiation_immutable"
+    try:
+        if _initial_option(before) != _initial_option(after):
+            return "meet_dialog_initial_persona_immutable"
+    except (ValueError, TypeError, RecursionError):
+        return "meet_dialog_initial_persona_immutable"
     # Presence matters: null/malformed values cannot become an implicit legacy
     # principal. Existing Tasks may not be retrofitted to a different identity.
     if isinstance(before, dict) and isinstance(after, dict):
@@ -96,3 +103,11 @@ def require_terminal_meet_write(authoritative, candidate):
     error = meet_task_write_error(authoritative, candidate)
     if error is not None:
         raise ValueError(error)
+
+
+def _initial_option(execution):
+    context = execution.get("meet_dialog") if isinstance(execution, dict) else None
+    if isinstance(context, dict) and "initial_persona" in context:
+        # Canonical JSON distinguishes true/1 and 1/1.0 inside immutable pins.
+        return True, json.dumps(context["initial_persona"], sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return False, None

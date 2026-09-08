@@ -87,3 +87,30 @@ def test_old_image_assignment_rejects_new_video_projection_without_fetch():
     assert not s.pool.calls
     s.f.browser.start_video.assert_not_called()
     s.source.close()
+
+
+def test_same_clip_does_not_share_worker_pending_buffers_pumps_or_stop_state():
+    first, second = setup(), setup()
+    for key in ("task_id", "lease_id", "runtime_id", "session_id"):
+        second.f.assigned[key] += "-second"
+        second.projection["binding"][key] = second.f.assigned[key]
+    assert first.video == second.video and first.video is not second.video
+    update(first)
+    update(second)
+    assert first.source.pending[0] is not second.source.pending[0] and first.source.pool is not second.source.pool
+    complete(first)
+    update(first)
+    assert first.source.pump.active and second.source.pump is None
+    first.source.close()
+    second.f.browser.close.assert_not_called()
+    complete(second)
+    update(second)
+    assert second.source.pump.active and first.source.closed
+    second.f.browser.start_video.assert_called_once_with(
+        "avatar:session-second", second.video, tenant_id="tenant", project_id="project"
+    )
+    closes = second.f.browser.close.call_count
+    first.source.close()
+    assert second.f.browser.close.call_count == closes
+    assert second.source.pump.browser.video is not first.video
+    second.source.close()

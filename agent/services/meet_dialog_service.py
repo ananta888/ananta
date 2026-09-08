@@ -14,6 +14,7 @@ from agent.services.meet_dialog_controls import (
     controls_projection,
     initial_controls,
 )
+from agent.services.meet_dialog_initial_persona import MeetDialogInitialPersona
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
 from agent.services.meet_turn_service import HubMediaTasks
@@ -121,7 +122,7 @@ class MeetDialogService:
         self.authority.binding.require_write_access(principal, project, parent)
         if (
             not isinstance(payload, dict)
-            or set(payload) - {"audio_mode", "avatar_images", "avatar_videos", "voice_profiles"}
+            or set(payload) - {"audio_mode", "avatar_images", "avatar_videos", "voice_profiles", "initial_persona"}
             != {"capabilities", "duration_seconds", "chat_mode"}
             or type(payload["duration_seconds"]) is not int
             or not 30 <= payload["duration_seconds"] <= 7200
@@ -173,6 +174,12 @@ class MeetDialogService:
         stored = self.authority.binding.read(principal, project, parent)
         if not stored["invite_url"]:
             raise MeetError("meet_room_binding_required", 409)
+        initial = None
+        resolver = MeetDialogInitialPersona(
+            self.avatar_images.profiles, self.avatar_videos.profiles, self.voices.profiles
+        )
+        if "initial_persona" in payload:
+            initial = resolver.resolve(principal, project, payload["initial_persona"], payload)
         context = {
             "lease_id": str(uuid.uuid4()),
             "runtime_id": str(uuid.uuid4()),
@@ -196,6 +203,9 @@ class MeetDialogService:
             context["avatar_videos"] = True
         if payload.get("voice_profiles") is True:
             context["voice_selection"] = {"mode": "configured-piper-v1"}
+        if initial is not None:
+            context.update({name + "_selection": selection for name, selection in initial.selections.items()})
+            context["initial_persona"] = initial.projection
         context["source_profile"] = dialog_source_profile(
             context["capabilities"],
             avatar_images="avatar_selection" in context,
@@ -213,6 +223,8 @@ class MeetDialogService:
         self.tasks.start(task_id, principal.tenant_id, project, context, **phase, **authorization)
         try:
             scope = self.authority.current(task_id, context["lease_id"], context["runtime_id"])
+            if initial is not None:
+                resolver.require_current(principal, project, initial, scope)
             if self.phases is not None:
                 self.phases.advance(scope, "admitted")
                 self.phases.advance(scope, "connecting")
@@ -236,6 +248,11 @@ class MeetDialogService:
                 assignment["avatar_videos"] = True
             if "voice_selection" in context:
                 assignment["voice_profiles"] = True
+            if initial is not None:
+                resolver.require_current(
+                    principal, project, initial, self.authority.current(task_id, scope.lease_id, scope.runtime_id)
+                )
+                assignment["initial_persona"] = initial.projection
             self.worker.start_dialog(assignment)
             self.authority.current(task_id, scope.lease_id, scope.runtime_id)
             return {

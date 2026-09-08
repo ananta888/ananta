@@ -34,6 +34,7 @@ class DialogAuthority:
     source_profile: DialogSourceProfile | None = None
     machine_principal: MeetMachinePrincipal | None = None
     avatar_videos: bool = False
+    initial_persona: dict | None = None
 
     @property
     def machine_subject(self):
@@ -84,7 +85,9 @@ class MeetDialogAuthority:
         }
         if (
             not isinstance(value, dict)
-            or set(value) - {"avatar_selection", "avatar_videos", "voice_selection", "source_profile"} != fields
+            or set(value)
+            - {"avatar_selection", "avatar_videos", "voice_selection", "source_profile", "initial_persona"}
+            != fields
         ):
             raise MeetError("meet_dialog_binding_invalid", 403)
         for field in fields - {"deadline", "capabilities", "binding_task_id", "audio_job", "audio_count", "controls"}:
@@ -144,6 +147,20 @@ class MeetDialogAuthority:
             for name, capability in OPTIONAL_CONTROL_CAPABILITIES.items()
         ) or (controls.speech is not None and controls.speech.enabled and value["chat_mode"] == "off"):
             raise MeetError("meet_dialog_control_capability_denied", 403)
+        if "initial_persona" in value:
+            from ananta_contracts.meet_initial_persona import validate_initial_persona
+
+            try:
+                validate_initial_persona(
+                    value["initial_persona"],
+                    task.tenant_id,
+                    task.project_id,
+                    avatar_images=avatar_selection is not None,
+                    avatar_videos=value.get("avatar_videos", False),
+                    voice_profiles=voice_selection is not None,
+                )
+            except ValueError:
+                raise MeetError("meet_initial_persona_invalid", 403) from None
         # A missing field belongs only to the identical legacy v1 handler. A
         # present field is never silently repaired, broadened or caller-selected.
         source_profile = dialog_source_profile(
@@ -204,4 +221,5 @@ class MeetDialogAuthority:
             source_profile,
             machine_principal,
             value.get("avatar_videos", False),
+            value.get("initial_persona"),
         )

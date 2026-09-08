@@ -76,6 +76,8 @@ class MeetDialogPhases:
             expected["avatar_selection"] = scope.avatar_selection
         if scope.avatar_videos:
             expected["avatar_videos"] = True
+        if scope.initial_persona is not None:
+            expected["initial_persona"] = scope.initial_persona
         if scope.voice_selection is not None:
             expected["voice_selection"] = scope.voice_selection
         if record["binding"] != phase_binding(scope.task_id, scope.tenant_id, scope.project_id, expected):

@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 from sqlalchemy import update
 
-from agent.db_models import OrganizationInstanceDB
+from agent.db_models import OrganizationInstanceDB, OrganizationMembershipDB, ProjectMembershipDB
 from agent.models.persona_media import MediaSelection
 from agent.services.meet_contract import MeetError
 from agent.services.meet_persona_voice_profiles import MeetPersonaVoiceProfiles
@@ -57,7 +57,9 @@ def test_passive_selection_does_not_read_bytes_or_activate_speech(bound_voice):
     fixture.case.fixture.service.storage.read.assert_not_called()
 
 
-@pytest.mark.parametrize("change", ["asset", "policy", "profile", "topology", "foreign", "budget"])
+@pytest.mark.parametrize(
+    "change", ["asset", "policy", "profile", "topology", "membership", "project", "foreign", "budget"]
+)
 def test_revoked_or_changed_selection_cannot_prepare_another_voice(bound_voice, change):
     fixture, case = bound_voice, bound_voice.case
     if change == "asset":
@@ -71,6 +73,14 @@ def test_revoked_or_changed_selection_cannot_prepare_another_voice(bound_voice, 
     elif change == "topology":
         with case.scope.engine.begin() as connection:
             connection.execute(update(OrganizationInstanceDB).values(lifecycle="paused"))
+    elif change in {"membership", "project"}:
+        model, fields = (
+            (OrganizationMembershipDB, {"expires_at": 1})
+            if change == "membership"
+            else (ProjectMembershipDB, {"state": "revoked"})
+        )
+        with case.scope.engine.begin() as connection:
+            connection.execute(update(model).values(**fields))
     elif change == "foreign":
         fixture.pin = fixture.pin | {"owner_id": "foreign"}
     with pytest.raises(MeetError):

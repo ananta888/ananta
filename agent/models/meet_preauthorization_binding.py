@@ -1,9 +1,11 @@
 """Immutable original dispatch binding; mutable source selections stay separate."""
 
 import re
+from copy import deepcopy
 
 from agent.models.meet_preauthorization_policy import SCOPE_FIELDS, digest, identifier, integer
 from agent.services.meet_contract import MeetError, MeetProfile
+from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import dialog_source_profile
 
 
@@ -34,6 +36,21 @@ def assignment_projection(task_id, tenant, project, origin, context):
     )
     if "avatar_videos" in context and context["avatar_videos"] is not True:
         raise MeetError("meet_preauthorization_binding_invalid", 403)
+    initial = {}
+    if "initial_persona" in context:
+        try:
+            initial["initial_persona"] = deepcopy(
+                validate_initial_persona(
+                    context["initial_persona"],
+                    tenant,
+                    project,
+                    avatar_images="avatar_selection" in context,
+                    avatar_videos=context.get("avatar_videos", False),
+                    voice_profiles="voice_selection" in context,
+                )
+            )
+        except ValueError:
+            raise MeetError("meet_preauthorization_binding_invalid", 403) from None
     chat, audio = context.get("chat_mode"), context.get("audio_mode")
     if type(chat) is not str or chat not in {"off", "mention", "direct_question", "room"}:
         raise MeetError("meet_preauthorization_binding_invalid", 403)
@@ -41,6 +58,7 @@ def assignment_projection(task_id, tenant, project, origin, context):
         raise MeetError("meet_preauthorization_binding_invalid", 403)
     return (
         fields
+        | initial
         | ({"avatar_videos": True} if context.get("avatar_videos") is True else {})
         | {
             "schema": "ananta.meet-preauthorized-assignment.v1",

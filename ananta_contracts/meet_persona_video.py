@@ -1,34 +1,11 @@
 """Closed clip assignment; immutable bytes never confer publication authority."""
 
-import re
-
+from ananta_contracts.persona_reference import validate_reference as validate_asset_reference
 from ananta_contracts.persona_video import decode_video
 
 
 def validate_reference(value):
-    if not isinstance(value, dict) or set(value) != {
-        "tenant_id",
-        "project_id",
-        "artifact_id",
-        "revision",
-        "sha256",
-        "kind",
-        "classification",
-    }:
-        raise ValueError("meet_persona_video_reference_invalid")
-    for name in ("tenant_id", "project_id", "artifact_id"):
-        if not isinstance(value[name], str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", value[name]):
-            raise ValueError("meet_persona_video_reference_invalid")
-    if (
-        type(value["revision"]) is not int
-        or value["revision"] != 1
-        or value["kind"] != "video"
-        or not isinstance(value["sha256"], str)
-        or not re.fullmatch(r"[a-f0-9]{64}", value["sha256"])
-        or value["classification"] not in ("production", "synthetic", "test_only")
-    ):
-        raise ValueError("meet_persona_video_reference_invalid")
-    return value
+    return validate_asset_reference(value, kind="video", error="meet_persona_video_reference_invalid")
 
 
 def decode_assignment(value, *, tenant_id, project_id):

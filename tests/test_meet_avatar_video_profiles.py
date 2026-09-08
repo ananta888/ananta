@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 from sqlalchemy import update
 
-from agent.db_models import OrganizationInstanceDB
+from agent.db_models import OrganizationInstanceDB, OrganizationMembershipDB, ProjectMembershipDB
 from agent.models.persona_media import MediaSelection
 from agent.services.meet_avatar_video_profiles import MeetAvatarVideoProfiles
 from agent.services.meet_contract import MeetError
@@ -37,7 +37,7 @@ def test_silent_clip_can_publish_with_voice_disabled_without_changing_legacy_aud
         c.port.prepare(c.scope.principal, "project", pin, "publish", repeat_mode="hold_last")
 
 
-@pytest.mark.parametrize("change", ["profile", "asset", "organization", "during_policy"])
+@pytest.mark.parametrize("change", ["profile", "asset", "organization", "membership", "project", "during_policy"])
 def test_current_scope_and_clip_policy_are_rechecked_before_hydration(request, change):
     c = request.getfixturevalue("clip_profile")
     adapter = MeetAvatarVideoProfiles(c.scope.service, c.port.videos)
@@ -55,6 +55,14 @@ def test_current_scope_and_clip_policy_are_rechecked_before_hydration(request, c
     elif change == "organization":
         with c.scope.engine.begin() as connection:
             connection.execute(update(OrganizationInstanceDB).values(lifecycle="archived"))
+    elif change in {"membership", "project"}:
+        model, fields = (
+            (OrganizationMembershipDB, {"expires_at": 1})
+            if change == "membership"
+            else (ProjectMembershipDB, {"state": "revoked"})
+        )
+        with c.scope.engine.begin() as connection:
+            connection.execute(update(model).values(**fields))
     else:
         original = c.port.videos.require_current
 

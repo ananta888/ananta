@@ -35,6 +35,7 @@ def fixture():
         avatar_selection=None,
         voice_selection=None,
         avatar_videos=False,
+        initial_persona=None,
     )
     task = SimpleNamespace(
         assigned_agent_url=SECOND,

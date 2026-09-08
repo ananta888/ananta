@@ -98,7 +98,14 @@ class VideoAvatarScenario:
             timeout=20,
         )
         self.video_profiles = SyntheticVideoProfiles(json.loads(result.stdout))
-        self.start_options = {"avatar_images": True, "avatar_videos": True, "duration_seconds": 180}
+        self.start_options = {
+            "avatar_images": True,
+            "avatar_videos": True,
+            "duration_seconds": 180,
+            "initial_persona": {
+                "avatar": {"mode": "persona-video-v1", "profile": dict(self.video_profiles.pin), "repeat_mode": "loop"}
+            },
+        }
 
     def finish(self, app, service, principal, started, speech, command, completed, failures, record_property):
         task_id = started["task_id"]
@@ -142,7 +149,12 @@ class VideoAvatarScenario:
                 "callbacks": speech.callbacks.report(),
             }
 
-        selected = change()
+        with app.app_context():
+            selected = service.inspect(principal, "synthetic", task_id)
+            original = service.tasks.get_by_id(task_id).worker_execution_context["meet_dialog"]
+            assert original["avatar_selection"]["profile"] == self.video_profiles.pin
+            assert original["initial_persona"]["avatar"]["mode"] == "persona-video-v1"
+            assert original["initial_persona"]["avatar"]["reference"] == self.video_profiles.video["reference"]
         assert selected["controls"]["avatar"]["enabled"] is False
         assert command("avatar_absent") == {"avatar_absent": True}
         change(enabled=True)
@@ -188,6 +200,7 @@ class VideoAvatarScenario:
             {
                 "synthetic_policy": True,
                 "synthetic_clip": True,
+                "initial_persona_before_dispatch": True,
                 "actual_gpu": False,
                 "production_release_evidence": False,
                 "pause_ms": round(pause_ms, 2),

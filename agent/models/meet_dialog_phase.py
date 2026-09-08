@@ -43,6 +43,7 @@ def phase_binding(task_id, tenant, project, context):
                 project,
                 {key: context[key] for key in keys}
                 | ({"avatar_videos": context["avatar_videos"]} if "avatar_videos" in context else {}),
+                *([context["initial_persona"]] if "initial_persona" in context else []),
                 "avatar_selection" in context,
                 "voice_selection" in context,
             ]

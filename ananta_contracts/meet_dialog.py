@@ -6,6 +6,7 @@ import json
 import re
 from urllib.parse import urlsplit
 
+from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 
 MAX_DIALOG_BYTES = 16384
@@ -78,7 +79,7 @@ def validate_assignment(value, now):
     }
     if (
         not isinstance(value, dict)
-        or set(value) - {"avatar_images", "avatar_videos", "voice_profiles"} != fields
+        or set(value) - {"avatar_images", "avatar_videos", "voice_profiles", "initial_persona"} != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
     ):
         raise ValueError("meet_dialog_assignment_invalid")
@@ -100,6 +101,15 @@ def validate_assignment(value, now):
         raise ValueError("meet_dialog_avatar_videos_invalid")
     if "voice_profiles" in value and (value["voice_profiles"] is not True or "speech.publish" not in caps):
         raise ValueError("meet_dialog_voice_profiles_invalid")
+    if "initial_persona" in value:
+        validate_initial_persona(
+            value["initial_persona"],
+            value["tenant_id"],
+            value["project_id"],
+            avatar_images=value.get("avatar_images", False),
+            avatar_videos=value.get("avatar_videos", False),
+            voice_profiles=value.get("voice_profiles", False),
+        )
     if (
         not isinstance(value["audio_mode"], str)
         or value["audio_mode"] not in {"off", "transcribe", "dialog"}
