@@ -75,3 +75,99 @@ and distinguishes service/container sharing from host networking in
 [Compose networking](https://docs.docker.com/compose/how-tos/networking/).
 The [iptables-restore manual](https://man7.org/linux/man-pages/man8/iptables-restore.8.html)
 defines filter restoration, test parsing and bounded lock waits.
+
+## Deployment contract
+
+The opt-in overlay is `docker-compose.meet-egress.yml`, applied **after**
+`docker-compose.meet-media.yml`. It does not activate itself or change any
+existing running service. Set `MEET_EGRESS_POLICY_FILE` to an absolute path to
+a regular, non-symlink policy file before rendering or creating the profile.
+The file is mounted read-only into the guard only; a missing host file must
+not be silently created as a directory. Existing model/state/key mounts and
+Worker GPU selection, seccomp, non-root user and resource limits are retained.
+
+The configuration has exactly these fields (documentation-only addresses):
+
+```json
+{
+  "schema": "ananta.meet-worker-egress.v1",
+  "endpoints": [
+    {"address": "192.0.2.10", "protocol": "tcp", "port": 443},
+    {"address": "192.0.2.20", "protocol": "udp", "port": 3478}
+  ],
+  "names": [{"name": "meet.example.test", "address": "192.0.2.10"}],
+  "hub_clients": ["192.0.2.30"]
+}
+```
+
+Declare every necessary Hub callback, Meet TLS, model provider, public-document
+and TURN transport endpoint explicitly. `hub_clients` permits only incoming
+TCP to the existing 8094 Worker listener; it does not allow outbound callbacks.
+Pin local service addresses in an operator-owned IPAM/static-address overlay
+and use matching policy records. An automatically changing service address is
+not an automatically admitted replacement. DNS records must point to an
+admitted endpoint address. External ports 53/853, IPv6, address ranges and
+wildcard hostnames are not supported by this profile. TURN relay allocation
+ports belong on the TURN server's side, not in a wildcard Worker allowlist.
+
+The guard retains only NET_ADMIN and NET_BIND_SERVICE, a 64 MiB memory budget,
+16 PIDs, 0.25 CPU and two tiny private tmpfs paths. Its fixed commands change
+only the private filter tables; each command has a two-second lock wait and
+four-second wall-clock bound. Configuration validation, both-family rule
+validation/installation and DNS binding must succeed before readiness is
+written. The readiness probe binds the immutable policy digest to a real,
+half-second loopback DNS query. No Task, lease, grant or model is touched.
+
+The guard must own a **private** namespace and serve exactly one Worker.
+Never override its network/PID mode with host sharing or attach other
+consumers. The container marker/PID check only prevents accidental direct
+host invocation; it cannot prove that a malicious Docker invocation did not
+select host networking. Deployment tools must enforce that boundary.
+Never run the enforcer module against the host firewall.
+
+There is no policy reload, guard restart loop or automatic fail-open mode.
+Changing a policy requires a new, verified guard/Worker pair. Health failure
+does not grant restart, reassignment or new admission authority. A policy digest
+is configuration metadata, **not** a Hub evidence identifier. The original
+unfiltered Compose profile remains available for compatibility and must not
+be represented as the strict profile.
+
+## Verification boundaries
+
+The isolated gate `tests/test_meet_egress_containers.py` requires explicit
+`MEET_EGRESS_GATE=1` and an immutable locally built `MEET_EGRESS_IMAGE`.
+It creates its own label-bound internal bridge and temporary containers,
+checks exact resource IDs before cleanup, and does not contact public hosts.
+Actual counter-bearing HTTP/UDP endpoints distinguish delivery from merely
+observing a connection error; fixed DNS is checked through Docker's embedded
+resolver. Invalid configuration must never start a namespace consumer.
+
+This transport probe is not a full packaged media Worker, a TURN session or
+production evidence. Those acceptance steps remain separate. The service
+emits only one of five fixed failure phases (configuration, filter, DNS bind,
+readiness, DNS service), never raw command output, queries or policy contents.
+The enforcer and resolver remain injectable, separate responsibilities (SRP/DIP);
+no Hub dependencies or independent Worker orchestration are introduced.
+
+### Installed transport observation (2026-09-09)
+
+The guard image built from `baabf4229` is
+`sha256:896c817caac38f09c263c86cf2113db597d19f549bd93067dbce420c6aa017ef`.
+Two actual container gates passed in 34.11 seconds: invalid policy terminated
+without starting a consumer; valid policy admitted only configured HTTP/UDP
+and the authorized Hub caller. A live second TCP port on the admitted address,
+an unadmitted endpoint, external DNS listeners and a live IPv6 loopback UDP
+listener received zero forbidden requests. Docker's actual embedded UDP and
+TCP DNS returned the pinned A record and NXDOMAIN for an unknown name.
+All temporary containers/bridge were removed by exact label-checked IDs.
+
+The focused suite passed 122 tests in 54.24 seconds, including real Compose
+merges, hostile policy/DNS input, slow TCP clients and lifecycle failures.
+After adding closed failure-phase diagnostics, 24 lifecycle/probe tests also
+passed. Initial gate errors were test defects: capability-prefix comparison,
+an HTTP helper/import name collision, and a helper dependency missing from
+the script module path. The last made a stopped endpoint contribute an empty
+address; the guard correctly rejected that policy. Explicit endpoint readiness
+and address validation now precede guard construction. No firewall rule,
+timeout, capability ceiling or policy check was weakened to fix these tests.
+These observations are synthetic transport checks, not production evidence.
