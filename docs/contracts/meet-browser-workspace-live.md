@@ -341,3 +341,48 @@ under WAL: both commands reach the same original parent revision, exactly one
 ordinary SQL CAS wins, only its child is ingested, and unrelated immutable
 parent context remains unchanged. This proves contention for that scoped
 navigation path, not multi-node production deployment or public authorization.
+
+### Crash-race correction
+
+The expanded actual receiver matrix exposed a source-page crash race:
+Chromium's crash notification could arrive after the foreground identity check
+had entered `Page.evaluate`. That API did not apply the configured page default
+timeout while waiting for a replacement execution context. The Meet watchdog
+removed the stale screen, but the blocked Worker could no longer process chat
+or refresh its other sources. Bounded lifecycle-only instrumentation localized
+the wait to this identity read, not Hub policy or the crash-trigger request.
+
+Foreground ownership checks now use the exact cached page/context/viewport
+identity without a JavaScript evaluation. The bounded source snapshot also
+checks the actual 640×360 DOM viewport, so a direct CDP metrics override cannot
+hide behind cached dimensions. Its closed projection is read with an explicit
+750-ms context/evaluation wait and the temporary handle is released. Every
+result, including denial, is a truthy closed object: the read does not retry a
+rejected document or wait for its content to become acceptable. Raw source
+pixels remain unavailable. No freshness, policy or source-stop limit changed.
+
+**94 focused snapshot/workspace/renderer/controller tests passed in 42.98 s**.
+The formerly failing actual source-crash receiver case passed in **58.36 s**:
+screen stop **1162.58 ms**, subsequent policy stop **899.61 ms**, 220500 actual
+local played tone samples, correlated audible remote output with no capture
+or transform errors, surviving avatar and a fresh second browser Task. The
+voice/document/model ports are explicitly synthetic in this test, not GPU or
+production evidence. A separate diagnostic attempt failed during private
+browser startup with `ERR_NETWORK_CHANGED`, before reaching the scenario;
+that infrastructure intermittence is not claimed fixed by the crash change.
+
+SRP review: identity checks remain passive, and DOM execution plus its timeout
+belong to the snapshot adapter. Temporary diagnostic method wrappers were
+removed after locating the race. The permanent test triggers a real source
+renderer crash using a bounded public navigation call and verifies the actual
+crash event, remote stop, resource cleanup and independent media continuation.
+
+Final clean-scenario rerun: **all four actual receiver cases passed in
+203.13 s** (private input, viewport resize, extra tab and real renderer crash).
+Every case also checks pause/resume without refetch, a fresh second browser
+Task, later Hub policy revocation, surviving audible tone/avatar, explicit
+status restoration and full parent/child teardown. **All three actual private
+snapshot/renderer/workspace probes passed in 18.10 s**, now including the
+33rd snapshot case: a real CDP viewport override with unchanged cached page
+metadata is denied by the DOM snapshot. These probes use exact source-file
+mounts and an immutable sandboxed browser image, not installed-Worker proof.

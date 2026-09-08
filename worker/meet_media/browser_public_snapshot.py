@@ -8,9 +8,11 @@ arbitrary page is public. Source admission/navigation remain separate duties.
 from ananta_contracts.browser_public_view import blocked_view, validate_public_view
 
 # No selectors, script text, URLs or action code supplied by the source/Hub are
-# interpolated into this program. The page adapter owns evaluation deadlines.
+# interpolated into this program. This always returns a truthy closed object,
+# including denials: the bounded wait evaluates once, never retries a denial.
 SNAPSHOT_SCRIPT = r"""() => {
   const blocked = reason => ({schema:'ananta.browser-public-view.v1',state:'blocked',reason,blocks:[]});
+  if (innerWidth !== 640 || innerHeight !== 360) return blocked('source_unavailable');
   if (!document.body) return blocked('no_visible_text');
   const denied = new Set(['INPUT','TEXTAREA','SELECT','BUTTON','FORM','DATALIST','OPTION']);
   const opaque = new Set(['CANVAS','VIDEO','AUDIO','IMG','PICTURE','IFRAME','FRAME','FRAMESET','SVG',
@@ -89,7 +91,14 @@ class PublicDocumentSnapshot:
 
     def read(self):
         try:
-            value = self.page.evaluate(SNAPSHOT_SCRIPT)
+            # Page.evaluate does not honor page default timeouts and can wait
+            # indefinitely for a new execution context after a crash race.
+            # A bounded wait covers context acquisition as well as execution.
+            handle = self.page.wait_for_function(SNAPSHOT_SCRIPT, timeout=750)
+            try:
+                value = handle.json_value()
+            finally:
+                handle.dispose()
         except Exception:
             return blocked_view("source_unavailable")
         try:

@@ -6,10 +6,13 @@ import pytest
 
 
 @pytest.mark.timeout(240)
+@pytest.mark.parametrize("stop_kind", ["input", "resize", "extra_page", "crash"])
 @pytest.mark.skipif(
     os.environ.get("MEET_BROWSER_WORKSPACE_GATE") != "1", reason="opt-in private browser workspace gate"
 )
-def test_actual_browser_task_pause_privacy_revocation_and_chat_isolation(app, tmp_path, monkeypatch, record_property):
+def test_actual_browser_task_pause_privacy_revocation_and_chat_isolation(
+    app, tmp_path, monkeypatch, record_property, stop_kind
+):
     from tests.meet_dialog_browser_workspace_scenario import BrowserWorkspaceScenario
     from tests.test_meet_dialog_cross_repository import SOAK_SECONDS
     from tests.test_meet_dialog_cross_repository import (
@@ -22,11 +25,11 @@ def test_actual_browser_task_pause_privacy_revocation_and_chat_isolation(app, tm
         app,
         tmp_path,
         monkeypatch,
-        False,
+        True,
         False,
         None,
-        False,
+        True,
         False,
         record_property,
-        browser_scenario=BrowserWorkspaceScenario(monkeypatch),
+        browser_scenario=BrowserWorkspaceScenario(monkeypatch, stop_kind),
     )

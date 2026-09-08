@@ -82,6 +82,20 @@ def run():
             checks += 1
             assert read("<p hidden>hidden</p>")["reason"] == "no_visible_text"
             checks += 1
+            page.set_content("<p>Public text</p>")
+            cdp = context.new_cdp_session(page)
+            cdp.send(
+                "Emulation.setDeviceMetricsOverride",
+                {
+                    "width": 700,
+                    "height": 400,
+                    "deviceScaleFactor": 1,
+                    "mobile": False,
+                },
+            )
+            assert page.viewport_size == {"width": 640, "height": 360}
+            assert reader.read()["reason"] == "source_unavailable"
+            checks += 1  # Real DOM shape remains fenced even if cached metadata is unchanged.
             context.close()
         finally:
             browser.close()

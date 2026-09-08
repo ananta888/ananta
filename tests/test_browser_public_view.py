@@ -83,12 +83,24 @@ def test_blocked_view_never_contains_partial_content_or_unbounded_reason():
 
 def test_snapshot_reader_is_passive_copied_and_normalizes_transport_or_contract_failure():
     page = Mock()
-    page.evaluate.return_value = ready()
+    handle = page.wait_for_function.return_value
+    handle.json_value.return_value = ready()
     reader = PublicDocumentSnapshot(page)
     assert reader.read() == ready()
     page.screenshot.assert_not_called()
     page.goto.assert_not_called()
-    page.evaluate.return_value = deepcopy(ready()) | {"private": "never-disclose"}
+    page.evaluate.assert_not_called()
+    assert page.wait_for_function.call_args.kwargs == {"timeout": 750}
+    handle.dispose.assert_called_once()
+    handle.json_value.return_value = deepcopy(ready()) | {"private": "never-disclose"}
     assert reader.read() == blocked_view("snapshot_invalid")
-    page.evaluate.side_effect = RuntimeError("private browser message")
+    page.wait_for_function.side_effect = RuntimeError("private browser message")
     assert reader.read() == blocked_view("source_unavailable")
+
+
+def test_snapshot_serialization_failure_releases_handle_and_discloses_no_partial_value():
+    page = Mock()
+    handle = page.wait_for_function.return_value
+    handle.json_value.side_effect = RuntimeError("synthetic secret from crashed target")
+    assert PublicDocumentSnapshot(page).read() == blocked_view("source_unavailable")
+    handle.dispose.assert_called_once()

@@ -15,7 +15,11 @@ from worker.meet_media.dialog_browser_screen import DialogBrowserScreen
 class BrowserWorkspaceScenario:
     start_options = {"browser_workspace": True, "duration_seconds": 120}
 
-    def __init__(self, monkeypatch):
+    def __init__(self, monkeypatch, stop_kind="input"):
+        if stop_kind not in {"input", "resize", "extra_page", "crash"}:
+            raise ValueError("test_browser_stop_kind_invalid")
+        self.stop_kind = stop_kind
+        self.crashed = threading.Event()
         self.loaded = threading.Event()
         self.inject_private = threading.Event()
         self.loads = []
@@ -39,6 +43,7 @@ class BrowserWorkspaceScenario:
         class ObservedWorkspace(PublicDocumentWorkspace):
             def load(self, content, generation):
                 super().load(content, generation)
+                self.page.on("crash", lambda: scenario.crashed.set())
                 scenario.loads.append(self)
                 scenario.loaded.set()
 
@@ -46,11 +51,25 @@ class BrowserWorkspaceScenario:
                 if scenario.inject_private.is_set():
                     scenario.inject_private.clear()
                     # Only the source-owning Playwright thread may mutate this page.
-                    self.page.evaluate("""() => {
-                      document.body.replaceChildren(document.createElement('input'));
-                      document.body.style.background = '#ff00ff';
-                      document.querySelector('input').value = 'SYNTHETIC_PRIVATE_MARKER';
-                    }""")
+                    if scenario.stop_kind == "input":
+                        self.page.evaluate("""() => {
+                          document.body.replaceChildren(document.createElement('input'));
+                          document.body.style.background = '#ff00ff';
+                          document.querySelector('input').value = 'SYNTHETIC_PRIVATE_MARKER';
+                        }""")
+                    elif scenario.stop_kind == "resize":
+                        self.page.set_viewport_size({"width": 700, "height": 400})
+                    elif scenario.stop_kind == "extra_page":
+                        self.context.new_page()
+                    else:
+                        from playwright.sync_api import Error
+
+                        try:
+                            # Bound the fixture trigger independently and require
+                            # the actual crash event, not a simulated page close.
+                            self.page.goto("chrome://crash", timeout=1000, wait_until="commit")
+                        except Error:
+                            pass  # The expected target crash is checked explicitly below.
                 return super().take(generation)
 
         monkeypatch.setattr(
@@ -86,7 +105,7 @@ class BrowserWorkspaceScenario:
                     body["url"] = "https://example.com/docs"
                 return self.coordinator.change(principal, "synthetic", parent, body)
 
-        def screen(enabled):
+        def control(**selection):
             with app.app_context():
                 controls = service.inspect(principal, "synthetic", parent)["controls"]
                 body = {name: value["enabled"] for name, value in controls.items() if name != "revision"}
@@ -94,9 +113,11 @@ class BrowserWorkspaceScenario:
                     principal,
                     "synthetic",
                     parent,
-                    body | {"screen": enabled, "expected_revision": controls["revision"]},
+                    body | selection | {"expected_revision": controls["revision"]},
                 )
 
+        control(avatar=True)
+        assert command("avatar") == {"moving_avatar": True}, failures
         first = change("navigate")
         assert first["mode"] == "off" and first["task_status"] == "in_progress"
         assert command("screen_absent") == {"screen_absent": True}
@@ -112,9 +133,9 @@ class BrowserWorkspaceScenario:
                 "transport": speech.transport.report(),
             }
         )
-        screen(False)
+        control(screen=False)
         assert command("screen_absent") == {"screen_absent": True}
-        screen(True)
+        control(screen=True)
         assert command("screen") == {"moving_screen": True}, failures
         assert self.fetches == len(self.loads) == 1, "presentation pause must retain the assigned workspace"
         self.inject_private.set()
@@ -122,9 +143,15 @@ class BrowserWorkspaceScenario:
         assert command("private_frame_absent") == {"private_frame_absent": True}, failures
         privacy_stop_ms = (time.monotonic() - invalidated_at) * 1000
         assert privacy_stop_ms <= 5000
+        if self.stop_kind == "crash":
+            assert self.crashed.is_set(), "the renderer must actually crash, not just close"
         # A rejected source does not turn into a neutral fallback or kill chat.
+        speech.before_question(command)
         assert command("ask") == {"sent": True}
         assert speech.receive_answer(command) == {"received": True}, failures
+        speech.require_completed(1, completed, failures)
+        speech.require_remote(command)
+        assert command("avatar") == {"moving_avatar": True}, failures
         with app.app_context():
             assert service.tasks.get_by_id(first["task_id"]).status == "failed"
         assert self.loads[0].closed
@@ -156,9 +183,12 @@ class BrowserWorkspaceScenario:
                 "synthetic_policy": True,
                 "actual_decoded_meet_receiver": True,
                 "source_workspaces": len(self.loads),
+                "source_stop_kind": self.stop_kind,
                 "pause_preserves_workspace": True,
                 "privacy_stop_ms": round(privacy_stop_ms, 2),
                 "policy_stop_ms": round(policy_stop_ms, 2),
+                "speech_samples": speech.samples,
+                "remote_audio": speech.remote,
                 "production_release_evidence": False,
             },
         )

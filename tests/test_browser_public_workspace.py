@@ -13,6 +13,7 @@ def workspace():
     page = browser.new_context.return_value.new_page.return_value
     browser.new_context.return_value.pages = [page]
     page.url, page.is_closed.return_value, page.evaluate.return_value = "about:blank", False, True
+    page.viewport_size = {"width": 640, "height": 360}
     snapshots.return_value.read.return_value = {
         "schema": "ananta.browser-public-view.v1",
         "state": "ready",
@@ -49,6 +50,14 @@ def test_page_is_ephemeral_script_disabled_and_only_renderer_can_return_frames()
     browser.new_context.return_value.close.assert_called_once()
 
 
+def test_foreground_identity_checks_never_wait_for_a_crashed_execution_context():
+    value, generation, _, _, views, _ = workspace()
+    value.load("<p>Public</p>", generation)
+    value.page.evaluate.side_effect = AssertionError("unbounded execution-context read forbidden")
+    assert value.take(generation) is views.return_value.take.return_value
+    value.page.evaluate.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "mode",
     [
@@ -77,7 +86,7 @@ def test_stale_scope_never_consumes_a_pending_view_frame(mode):
     elif mode == "page_url":
         value.page.url = "https://elsewhere.example"
     elif mode == "resize":
-        value.page.evaluate.return_value = False
+        value.page.viewport_size = {"width": 700, "height": 400}
     elif mode == "extra_page":
         value.context.pages.append(Mock())
     elif mode == "expired":

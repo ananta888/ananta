@@ -20,7 +20,7 @@ def test_actual_script_disabled_chromium_snapshot_bounds_and_secret_exclusion():
         ),
     )
     assert result == {
-        "checks": 32,
+        "checks": 33,
         "sandbox": True,
         "page_scripts": False,
         "network": False,

@@ -8,8 +8,6 @@ from ananta_contracts.browser_view_generation import BrowserViewGeneration
 from worker.meet_media.browser_public_renderer import SanitizedDocumentView
 from worker.meet_media.browser_public_snapshot import PublicDocumentSnapshot
 
-_SHAPE = "window.innerWidth === 640 && window.innerHeight === 360"
-
 
 class PublicDocumentWorkspace:
     """No networking or task creation. Caller supplies a still-current Hub assignment."""
@@ -52,7 +50,7 @@ class PublicDocumentWorkspace:
                 self.page.is_closed()
                 or self.page.url != "about:blank"
                 or self.context.pages != [self.page]
-                or self.page.evaluate(_SHAPE) is not True
+                or self.page.viewport_size != {"width": 640, "height": 360}
             ):
                 raise ValueError()
         except Exception:
