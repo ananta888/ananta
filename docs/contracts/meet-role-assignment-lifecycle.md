@@ -114,3 +114,19 @@ latency evidence. Green repeated role gates do **not** fix the initial screen
 failure. The companion's `docs/machine-key-startup-regression.md` tracks its next
 bounded, content-free diagnostic. Distinct Meet principals, multi-session
 isolation/resource fairness and broader lifecycle criteria remain open.
+
+### Follow-up fixture contention audit
+
+The next four-case browser run passed parent/organization cases but failed in
+the role test's revocation write with actual SQLite `SQLITE_LOCKED` on
+`organization_role_slots` (2 passed / 1 failed, 80.54 seconds). This is not the
+screen-start symptom: its moving-screen precondition had already passed.
+The shared-cache in-memory test database does not apply a normal busy wait to
+that table lock. Before code, plan a separate fixture-only revocation adapter:
+exact four known test targets, monotone active-to-revoked UPDATE, fresh session
+per attempt, at most three attempts / one second and only native SQLite
+BUSY/LOCKED errors. No arbitrary failure, admission, start or success assertion
+retry; no fallback and no disabled constraints. Release the media-child
+inspection session before writing. Stop timing starts only after the revocation
+commits. Test contention using a real held SQLite read transaction, exhausted
+budgets, exact targets and non-lock failures, then rerun the private matrix.
