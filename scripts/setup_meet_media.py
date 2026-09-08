@@ -46,39 +46,17 @@ def provision(directory):
 
 
 def provision_machine_keys(directory):
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from agent.services.meet_machine_key_provisioning import provision_meet_machine_keys
 
-    private_path, public_path = directory / "machine-private.pem", directory / "machine-public.pem"
-    if private_path.exists() or public_path.exists():
-        if not private_path.exists() or not public_path.exists():
-            raise ValueError("machine_key_pair_incomplete")
-        if private_path.stat().st_mode & 0o077:
-            raise ValueError("machine_private_key_permissions")
-        key = serialization.load_pem_private_key(private_path.read_bytes(), password=None)
-        if not isinstance(key, Ed25519PrivateKey):
-            raise ValueError("machine_private_key_type")
-        expected = key.public_key().public_bytes(
-            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-        if public_path.read_bytes() != expected:
-            raise ValueError("machine_public_key_mismatch")
-        return
-    key = Ed25519PrivateKey.generate()
-    with os.fdopen(os.open(private_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as output:
-        output.write(
-            key.private_bytes(
-                serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
-            )
-        )
-    with public_path.open("xb") as output:
-        output.write(
-            key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
-        )
+    provision_meet_machine_keys(directory)
     print("Machine key pair ready. Public trust was not activated.")
 
 
 if __name__ == "__main__":
+    if not __package__:
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--machine-keys", action="store_true")

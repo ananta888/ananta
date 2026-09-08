@@ -38,3 +38,51 @@ of room/Task scopes or complete operator deployment automation. Existing
 Hub preauthorization, Meet public trust and their independent validation
 remain mandatory. Only test-owned directories are used for implementation
 checks; existing operator credentials and running services stay unchanged.
+
+## Implemented local workflow
+
+On the Linux Hub/operator host, explicitly prepare a dedicated key directory:
+
+```bash
+.venv/bin/python -m scripts.provision_meet_machine_keys /absolute/private/meet-hub-keys
+```
+
+The command returns a closed `ananta.meet-machine-key-provisioning.v1`
+JSON receipt. Success is exit 0 with a SHA-256 fingerprint of the public
+Ed25519 SPKI DER, `trust_activated: false` and
+`production_release_evidence: false`. Failure is exit 2 with the fixed
+`meet_machine_key_provisioning_blocked` code, not a traceback or a prompt.
+Neither output contains key contents or paths.
+
+Only `machine-private.pem` and `machine-public.pem` are installed, mode 0600,
+inside the private owner-checked directory. The private file belongs only
+to the Hub signer. The public half may be copied into separately authorized
+Meet trust configuration; this command does not do so or reload a service.
+An existing mode-0400 private key and mode-0644 public key remain readable.
+Provisioning rejects file/directory symlinks; the runtime signer separately
+retains its checked read-only secret-mount symlink compatibility.
+
+The adapter holds a nonblocking directory lock, publishes complete fsynced
+temporary inodes through exclusive hard links, and never replaces a target.
+A private-only interrupted pair resumes by deriving its matching public half;
+public-only, mismatched, unsafe or malformed input fails unchanged. Errors
+after publishing one complete file can be retried explicitly without
+generating another identity. A changed directory descriptor is rejected.
+Application bounds cover file type, size and lock contention, not an operating
+system or storage device that itself stops responding.
+
+The existing `setup_meet_media.py --machine-keys` path delegates to this
+adapter for compatibility. Its voice/Worker setup remains separate behavior;
+the new key-only CLI performs no model download or Worker credential setup.
+
+Verification: both historical private/public FIFO hangs reproduced under a
+two-second parent limit (two failed regressions, 12.12 seconds total). After
+the fix, 77 key/provisioning/signature checks passed in 35.82 seconds. These
+cover real signatures, exact repeat invocation, partial-pair recovery,
+permissions, oversize/symlinks, competing writers, write/fsync/link failures,
+exclusive publication, directory replacement, descriptor cleanup and actual
+bounded CLI success/failure. No operator key or live trust was changed.
+
+The final combined principal, provisioning, authority, phase, route and
+test-isolation regression passed all 400 checks in 142.53 seconds. Ruff and
+the 77-file Worker packaging boundary check also pass.
