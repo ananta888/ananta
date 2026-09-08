@@ -1,0 +1,36 @@
+# Opt-in fixed-endpoints-v1: combine AFTER docker-compose.meet-media.yml.
+# The read-only policy must pin all Hub/Meet/model/TURN endpoints explicitly.
+# Never use network_mode: host, PID sharing, a Docker socket or published ports.
+services:
+  meet-egress:
+    build:
+      context: .
+      dockerfile: docker/meet-egress/Dockerfile
+    read_only: true
+    user: "0:0"
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+    cpus: "0.25"
+    pids_limit: 16
+    tmpfs:
+      - /run/meet-egress:size=64k,mode=0700
+      - /run/xtables:size=64k,mode=0700
+    volumes:
+      - type: bind
+        source: ${MEET_EGRESS_POLICY_FILE:?Set an absolute fixed-endpoints policy file}
+        target: /etc/ananta/egress.json
+        read_only: true
+        bind:
+          create_host_path: false
+    dns: [127.0.0.1]
+    networks:
+      meet-compute:
+        aliases: [meet-media-worker]
+  meet-media-worker:
+    networks: !reset []
+    network_mode: service:meet-egress
+    depends_on:
+      meet-egress:
+        condition: service_healthy
