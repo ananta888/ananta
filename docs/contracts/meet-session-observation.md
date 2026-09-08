@@ -34,3 +34,34 @@ Verify start/stop/replace/no-op revisions, unknown/cross-scope/replayed grants,
 expired/revoked membership, publication ownership and source capabilities, then
 the actual private Hub/Worker/Meet browser. Companion full check runs in a private
 worktree; never overwrite the serving frontend build or operator trust.
+
+## Verification (2026-09-08)
+
+Implemented in the companion at `777f7ce`, with the Hub's separate validated
+`observe` transport. Common lease/membership validation is shared with the old
+authorization path; publication and receive contracts remain separate (SRP/ISP).
+No extra TLS request is added to the Worker's one-second control exchange.
+
+The final unique focused Hub regression passed 170 tests in 66.79 seconds.
+The companion's isolated full check passed 639 frontend and 573 Node tests
+(three Node skips); build, Go, security and configuration checks also passed.
+External infrastructure gates remained explicit skips, not release evidence.
+The old source-replacement overflow defect was reproduced against the verified
+pre-change RoomRegistry blob: a rejected replacement deleted the existing
+publication. Both counter limits are now checked before mutation, with regression
+coverage for preserving the old source.
+
+The actual private Hub/Worker/Meet browser passed in 33.26 seconds: moving screen,
+two correlated chat answers, own source counts `[1, 0, 1]`, publication revisions
+`[3, 4, 5]`, unchanged membership, and denial after Hub cancellation. Source
+pause/resume converged in 845.61/1132.17 ms. Resumed decoding was not asserted.
+The initial fixture allowed only 958 ms for a one-second control cadence. Its
+separate deterministic wait helper now enforces a strict three-second success
+budget and 32-observation cap; an in-flight HTTP call retains its own three-second
+transport deadline. Seven timing cases include late success, frozen/backward and
+non-finite clocks. No Worker stop deadline or product retry was relaxed.
+
+The browser build was produced in a fresh private worktree; the preflight correctly
+rejected the older source build. Serving files, trust and deployment were untouched.
+All results are synthetic technical checks. Persistent phases and the intermittent
+decoder-startup failure remain separate open work; this does not complete MAP-09.
