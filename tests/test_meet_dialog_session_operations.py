@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from worker.meet_media.browser_session_phase import START, STATE
+from worker.meet_media.client_probe import READ_PROBE
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
 
 URL = "https://synthetic.test/machine"
@@ -21,6 +22,8 @@ class Page:
 
     def evaluate(self, expression, arg=None):
         self.calls.append((expression, arg))
+        if expression == READ_PROBE:
+            return {"present": False}  # Legacy only, never a successful capability probe.
         if expression == START:
             return None  # Never return the browser Promise.
         self.after_read()

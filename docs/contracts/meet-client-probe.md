@@ -27,3 +27,28 @@ navigation/expiry fencing, legacy compatibility and actual Chromium/Firefox
 projections. Follow with a private Hub/Worker dialog and isolated Meet full check;
 the separately tracked intermittent decoder-start problem is not fixed by this
 probe. No serving runtime, trust, credentials or human capture is activated.
+
+## Implemented consumer
+
+`ananta_contracts.meet_client_probe` validates exact fields, versions and actual
+booleans before checking assigned ports/codecs. All 63 nonempty capability sets
+are exercised. Each direction remains independent: audio receive does not need
+video, MP4 needs its legacy publication port and both sender codecs, and absent
+unused dialog ports do not invalidate a compatible MP4 client. Secure context
+and encoded-transform support remain mandatory, including a chat-only machine.
+
+`worker.meet_media.client_probe` distinguishes genuinely absent from malformed,
+throwing and Promise-returning probes. It never waits for an arbitrary probe
+Promise or invokes join, capture or source methods. Both session adapters keep
+their original deadlines and check navigation/current authority before and after
+the read; failed dialog readiness closes the session before any grant handoff.
+The dialog runtime supplies only the existing assignment capability set. Legacy
+absence is explicitly `False`, not verified readiness or a native fallback.
+
+The first 105 consumer/session checks passed in 72.95 s. The expanded regression
+then passed **330 tests in 218.00 s**, including every source-profile/media/
+persona/capacity/child-fence case from the previously cleanup-failing set, real
+Hub/Meet principal interoperability, additional probe requirements/fencing and
+publisher/runtime cleanup. No teardown errors remain. Ruff and the 81-file
+standalone Worker boundary scan passed. Actual current Meet browser and installed
+Worker integration remain to be checked before the probe slice is complete.

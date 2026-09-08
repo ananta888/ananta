@@ -68,7 +68,7 @@ def run(assignment, hub):
             raise ValueError("meet_machine_navigation_denied")
         session = DialogSessionOperations(page, url=url, deadline=hub.deadline)
         cleanup.callback(session.close)
-        session.ready()
+        session.ready(assignment["capabilities"])
         session.join(assignment["meeting"]["room_id"], assignment["meeting"]["grant"])
         local_status = "(({joined, lease}) => ({joined, lease}))(window.anantaMachine.status())"
         meet_session = page.evaluate(local_status)["lease"]["sessionId"]

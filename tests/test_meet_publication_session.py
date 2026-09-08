@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from worker.meet_media.client_probe import READ_PROBE
 from worker.meet_media.publication_session import PublicationSession
 
 URL = "https://meet.example/machine"
@@ -18,6 +19,8 @@ class Page:
         self.calls = []
 
     def evaluate(self, expression, arg=None):
+        if expression == READ_PROBE:
+            return {"present": False}  # Explicit legacy browser contract in these operation tests.
         if arg is not None:
             self.calls.append(arg)
             return
@@ -48,7 +51,7 @@ def test_join_publish_leave_are_single_attempt_lease_checked_operations():
     for operation in ["join", "publish", "leave"]:
         current.call(operation, [])
     assert page.calls == [["join", [], URL], ["publish", [], URL], ["leave", [], URL]]
-    assert lease.require.call_count == 11
+    assert lease.require.call_count == 13
 
 
 @pytest.mark.parametrize("operation,budget", [("join", 20), ("publish", 85), ("leave", 3)])

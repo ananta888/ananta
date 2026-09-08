@@ -6,6 +6,7 @@ from typing import Protocol
 
 from worker.meet_media.browser_session_phase import START as _START
 from worker.meet_media.browser_session_phase import STATE as _STATE
+from worker.meet_media.client_probe import check_client_probe
 
 
 class PublicationPage(Protocol):
@@ -47,6 +48,7 @@ class PublicationSession:
             ready = self.page.evaluate(_READY)
             self._require(deadline)
             if ready is True:
+                check_client_probe(self.page, lambda: self._require(deadline), (), mp4=True)
                 return
             self._wait(deadline)
 

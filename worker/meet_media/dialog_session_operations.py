@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from worker.meet_media.browser_session_phase import START, STATE
+from worker.meet_media.client_probe import check_client_probe
 
 _READY = """() => Boolean(window.anantaMachine
   && ['join', 'renew', 'leave'].every(name => typeof window.anantaMachine[name] === 'function'))"""
@@ -47,7 +48,7 @@ class DialogSessionOperations:
             raise ValueError("meet_dialog_session_expired")
         self.page.wait_for_timeout(min(100, remaining * 1000))
 
-    def ready(self):
+    def ready(self, capabilities=()):
         deadline = min(self.deadline, self.clock() + 20)
         try:
             if self.joined:
@@ -57,6 +58,7 @@ class DialogSessionOperations:
                 value = self.page.evaluate(_READY)
                 self._check(deadline, None)
                 if value is True:
+                    check_client_probe(self.page, lambda: self._check(deadline, None), capabilities)
                     return
                 self._wait(deadline)
         except Exception:
