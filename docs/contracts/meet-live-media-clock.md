@@ -97,3 +97,29 @@ speech and screens were received without human capture or transform errors.
 These do not measure end-to-end A/V alignment and are not GPU/public/release
 evidence. Hub option admission and actual installed Worker composition remain
 next; the new Python transport is not yet called by `dialog_runtime`.
+
+## Hub negotiation and runtime composition
+
+`ANANTA_MEET_MEDIA_TIMING=1` explicitly selects the fixed profile for new
+Hub-owned dialog assignments; the default is zero. A caller cannot inject this
+field through the start payload. Only exact `media_timing: true` is additive
+in the stored context and signed Worker assignment. Preauthorization, phase
+and recovery bindings include it without changing legacy recovery digests.
+Changing Hub mode while an older differently negotiated task runs fails closed;
+upgrade both repositories and every Worker and drain earlier assignments
+before enabling. This is not a browser-decided fallback or a live migration.
+
+The Worker starts timing only after matching fresh Hub and browser membership,
+before source updates, and checks it during the existing bounded control loop.
+Failure uses the existing source/session cleanup. Renewal retains the timing
+fence; a Hub-authorized new membership starts a new local epoch. The separate
+browser watchdog remains active when Worker polling stalls. No timing result
+refreshes Hub authority, grants consent or extends the original Task deadline.
+
+192 focused Hub/Worker negotiation, original binding, bootstrap, runtime,
+preauthorization and legacy transport tests passed in 109.18 s. The existing
+large authority reader remains SRP debt: the new option validation is a separate
+policy helper rather than adding another conditional to its complexity limit.
+No source lifecycle or scheduling moves into that helper. Full packaged Worker
+acceptance using the actual option remains required before calling this an
+installed integration result.

@@ -9,6 +9,7 @@ from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assig
 from ananta_contracts.meet_reconnect import MAX_RECOVERIES
 from ananta_contracts.meet_source_profile import dialog_source_profile
 from worker.meet_media.browser_completion_reports import BrowserCompletionReports
+from worker.meet_media.browser_media_timing import BrowserMediaTiming
 from worker.meet_media.browser_network import restrict_meet_browser_network
 from worker.meet_media.dialog_avatar_presentation import DialogAvatarPresentation
 from worker.meet_media.dialog_avatar_pump import DialogAvatarPump
@@ -150,6 +151,7 @@ def _run_joined(assignment, hub, page, browser, session, *, url, progress=None):
         exchange = DialogControlExchange(hub, meet_session)
         cleanup.callback(exchange.close)
         control_revision = 0
+        media_timing = None
         while time.monotonic() < hub.deadline:
             if page.url != url:
                 raise ValueError("meet_machine_navigation_denied")
@@ -166,6 +168,14 @@ def _run_joined(assignment, hub, page, browser, session, *, url, progress=None):
                 )
                 checkpoint.confirm(receipt)
                 control_revision = controls["revision"]
+                if assignment.get("media_timing") is True and media_timing is None:
+                    media_timing = BrowserMediaTiming(
+                        page,
+                        exchange.require_fresh,
+                        assignment["capabilities"],
+                        decoded_video=assignment.get("avatar_videos") is True,
+                    )
+                    cleanup.callback(media_timing.close)
                 if progress is not None:
                     progress.report(exchange.fresh_until, hub.deadline)
                 if state["renewal"]:
@@ -208,6 +218,8 @@ def _run_joined(assignment, hub, page, browser, session, *, url, progress=None):
                     screen.update(receipt, controls["screen"], state["browser"], activity)
                 else:
                     screen.update(controls["screen"], activity)
+            if media_timing is not None:
+                media_timing.poll()
             chat.tick()
             speech.tick()
             screen.tick()

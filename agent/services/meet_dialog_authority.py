@@ -8,6 +8,7 @@ from agent.models.meet_machine_principal import MeetMachinePrincipal, current_ma
 from agent.services.meet_audio_profile import bound_audio_profile
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
+from agent.services.meet_media_timing_policy import validate_media_timing_negotiation
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_audio_profile import AudioReceiveProfile
 from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
@@ -42,6 +43,7 @@ class DialogAuthority:
     audio_profile: AudioReceiveProfile | None = None
     speaker_floor: bool = False
     reconnect: bool = False
+    media_timing: bool = False
 
     @property
     def machine_subject(self):
@@ -103,6 +105,7 @@ class MeetDialogAuthority:
                 "audio_profile",
                 "speaker_floor",
                 "reconnect",
+                "media_timing",
             }
             != fields
         ):
@@ -117,6 +120,7 @@ class MeetDialogAuthority:
         capabilities = value["capabilities"]
         if "reconnect" in value and value["reconnect"] is not True:
             raise MeetError("meet_reconnect_negotiation_invalid", 403)
+        validate_media_timing_negotiation(value)
         if "speaker_floor" in value and (
             value["speaker_floor"] is not True
             or not isinstance(capabilities, list)
@@ -259,4 +263,5 @@ class MeetDialogAuthority:
             audio_profile,
             value.get("speaker_floor", False),
             value.get("reconnect", False),
+            value.get("media_timing", False),
         )

@@ -124,6 +124,43 @@ def test_invalid_membership_never_emits_resource_progress(monkeypatch):
     progress.report.assert_not_called()
 
 
+@pytest.mark.parametrize("failure", ["start", "poll"])
+def test_optional_timing_is_started_only_after_verified_membership_and_fails_before_more_output(monkeypatch, failure):
+    f = setup(monkeypatch, running=True)
+    f.assignment["media_timing"] = True
+    timing = Mock()
+    factory = Mock(return_value=timing)
+    monkeypatch.setattr(dialog_runtime, "BrowserMediaTiming", factory)
+    state = {
+        "authorization": {"lease": f.lease, "roomId": "synthetic-room"},
+        "controls": {"revision": 1},
+        "renewal": "synthetic-renewal",
+    }
+    f.instances["exchange"].poll.side_effect = [state, None]
+    if failure == "start":
+        factory.side_effect = ValueError("timing_failed")
+    else:
+        timing.poll.side_effect = ValueError("timing_failed")
+    with pytest.raises(ValueError, match="timing_failed"):
+        dialog_runtime.run(f.assignment, f.hub)
+    factory.assert_called_once_with(
+        f.page, f.instances["exchange"].require_fresh, f.assignment["capabilities"], decoded_video=False
+    )
+    for name in ("speech", "screen", "avatar", "chat"):
+        f.instances[name].tick.assert_not_called()
+        f.instances[name].close.assert_called()
+    assert timing.close.call_count == int(failure == "poll")
+    assert f.events[-1] == "browser.close"
+
+
+def test_unnegotiated_legacy_runtime_never_calls_timing_port(monkeypatch):
+    f = setup(monkeypatch, running=False)
+    factory = Mock(side_effect=AssertionError("unexpected timing"))
+    monkeypatch.setattr(dialog_runtime, "BrowserMediaTiming", factory)
+    dialog_runtime.run(f.assignment, f.hub)
+    factory.assert_not_called()
+
+
 def test_confirmed_disconnect_closes_sources_before_hub_recovery_and_recreates_them(monkeypatch):
     f = setup(monkeypatch, running=True)
     f.assignment["reconnect"] = True

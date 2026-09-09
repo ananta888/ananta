@@ -87,6 +87,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from werkzeug.serving import WSGIRequestHandler, make_server
 
     from agent.bootstrap.meet_dialog_diagnostics import configure_dialog_diagnostics
+    from agent.bootstrap.meet_media_timing import configured_media_timing
     from agent.database import engine
     from agent.repositories.meet_chat_dispatches import SqlChatDispatches
     from agent.repositories.meet_chat_reservations import SqlChatReservations
@@ -317,6 +318,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             transports[origins[0]],
             reservations,
             dispatches,
+            media_timing=configured_media_timing(),
             **media_options,
             **browser.service_options(authority, tasks),
             **room_recovery.service_options(
@@ -406,6 +408,9 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 started.append(result)
                 cleanup.callback(cancel_fixture_dialog, app, service, principal, result["task_id"])
                 task = tasks.get_by_id(result["task_id"])
+                assert (
+                    task.worker_execution_context["meet_dialog"].get("media_timing") is True
+                ) is service.media_timing
                 if preauthorization is not None:
                     preauthorization.require_bound(task, len(started) - 1)
                 subjects.append(task.worker_execution_context["meet_machine_principal"]["subject"])
@@ -511,6 +516,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "worker_containers": 2,
                 "image": containers[0].image,
                 "worker_source_mounts": False,
+                "media_timing": service.media_timing,
                 "distinct_role_principals": True,
                 "both": both,
                 "survivor": survivor,

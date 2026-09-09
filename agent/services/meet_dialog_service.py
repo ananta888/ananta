@@ -19,6 +19,7 @@ from agent.services.meet_dialog_initial_persona import MeetDialogInitialPersona
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from agent.services.meet_dialog_speaker_floor import negotiated_speaker_fields
 from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
+from agent.services.meet_media_timing_policy import negotiated_media_timing, require_media_timing_mode
 from agent.services.meet_turn_service import HubMediaTasks
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_reconnect import negotiated_reconnect_fields
@@ -46,12 +47,15 @@ class MeetDialogService:
         browser_workspaces=None,
         speaker_floor=None,
         recovery=None,
+        media_timing=False,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.phases = phases
         self.browser_workspaces = browser_workspaces
         self.speaker_floor = speaker_floor
         self.recovery = recovery
+        negotiated_media_timing(media_timing)
+        self.media_timing = media_timing
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
             worker,
             media_worker,
@@ -231,6 +235,7 @@ class MeetDialogService:
         context.update(audio_profile_fields(audio_profile))
         context.update(negotiated_speaker_fields(self.speaker_floor is not None, context["capabilities"]))
         context.update(negotiated_reconnect_fields(self.recovery is not None))
+        context.update(negotiated_media_timing(self.media_timing))
         if payload.get("avatar_images") is True:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         if payload.get("avatar_videos") is True:
@@ -283,6 +288,7 @@ class MeetDialogService:
             assignment.update(audio_profile_fields(scope.audio_profile))
             assignment.update(negotiated_speaker_fields(scope.speaker_floor, scope.capabilities))
             assignment.update(negotiated_reconnect_fields(scope.reconnect))
+            assignment.update(negotiated_media_timing(scope.media_timing))
             if scope.avatar_videos:
                 assignment["avatar_videos"] = True
             if scope.browser_workspace:
@@ -400,11 +406,13 @@ class MeetDialogService:
         ids = (payload["task_id"], payload["lease_id"], payload["runtime_id"])
         scope = self.authority.current(*ids)
         require_speaker_mode(scope, self.speaker_floor)
+        require_media_timing_mode(scope, self.media_timing)
         if "speech_finished" in payload and not scope.speaker_floor:
             raise MeetError("meet_speaker_not_negotiated", 409)
         state = self.meet.inspect(*ids, payload["meet_session_id"])
         scope = self.authority.current(*ids)
         require_speaker_mode(scope, self.speaker_floor)
+        require_media_timing_mode(scope, self.media_timing)
         if self.phases is not None:
             self.phases.advance(scope, "joined", state)
         task = self.tasks.get_by_id(scope.task_id)

@@ -15,6 +15,10 @@ def recovery_owner(scope):
     # principal. Mutable source controls/selections are rechecked separately;
     # their negotiation presence must remain immutable, not their current asset.
     value = asdict(scope)
+    if value.get("media_timing") is False:
+        # Preserve existing recovery digests for assignments predating this
+        # additive option. Only explicitly negotiated timing adds a binding.
+        del value["media_timing"]
     del value["controls"]
     for name in ("avatar_selection", "voice_selection"):
         value[name] = value[name] is not None

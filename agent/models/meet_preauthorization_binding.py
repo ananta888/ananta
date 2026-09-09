@@ -43,6 +43,8 @@ def assignment_projection(task_id, tenant, project, origin, context):
         raise MeetError("meet_preauthorization_binding_invalid", 403)
     if "reconnect" in context and context["reconnect"] is not True:
         raise MeetError("meet_preauthorization_binding_invalid", 403)
+    if "media_timing" in context and context["media_timing"] is not True:
+        raise MeetError("meet_preauthorization_binding_invalid", 403)
     initial = {}
     if "audio_profile" in context:
         try:
@@ -77,6 +79,7 @@ def assignment_projection(task_id, tenant, project, origin, context):
         | ({"browser_workspace": True} if context.get("browser_workspace") is True else {})
         | ({"speaker_floor": True} if context.get("speaker_floor") is True else {})
         | ({"reconnect": True} if context.get("reconnect") is True else {})
+        | ({"media_timing": True} if context.get("media_timing") is True else {})
         | {
             "schema": "ananta.meet-preauthorized-assignment.v1",
             "deadline": deadline,

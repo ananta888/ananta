@@ -44,7 +44,8 @@ def phase_binding(task_id, tenant, project, context):
                 project,
                 {key: context[key] for key in keys}
                 | ({"avatar_videos": context["avatar_videos"]} if "avatar_videos" in context else {})
-                | ({"browser_workspace": context["browser_workspace"]} if "browser_workspace" in context else {}),
+                | ({"browser_workspace": context["browser_workspace"]} if "browser_workspace" in context else {})
+                | ({"media_timing": context["media_timing"]} if "media_timing" in context else {}),
                 *([context["reconnect"]] if "reconnect" in context else []),
                 *([context["initial_persona"]] if "initial_persona" in context else []),
                 "avatar_selection" in context,

@@ -251,6 +251,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
 
         dialog_worker = MeetDialogWorkerRouter(authority, tasks, dialog_workers, worker.publisher_url)
     from agent.bootstrap.meet_browser import configured_browser_workspaces
+    from agent.bootstrap.meet_media_timing import configured_media_timing
     from agent.bootstrap.meet_recovery import configured_dialog_recovery
     from agent.bootstrap.meet_speaker import configured_speaker_floor
 
@@ -275,6 +276,7 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         browser_workspaces=configured_browser_workspaces(authority, tasks),
         speaker_floor=speaker_floor,
         recovery=recovery,
+        media_timing=configured_media_timing(),
     )
     from agent.repositories.meet_dialog_starts import SqlDialogStarts
     from agent.services.meet_dialog_starts import MeetDialogStarts

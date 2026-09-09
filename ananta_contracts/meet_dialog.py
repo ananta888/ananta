@@ -101,6 +101,7 @@ def validate_assignment(value, now):
             "audio_profile",
             "speaker_floor",
             "reconnect",
+            "media_timing",
         }
         != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
@@ -128,6 +129,8 @@ def validate_assignment(value, now):
         raise ValueError("meet_speaker_negotiation_invalid")
     if "reconnect" in value and value["reconnect"] is not True:
         raise ValueError("meet_reconnect_negotiation_invalid")
+    if "media_timing" in value and value["media_timing"] is not True:
+        raise ValueError("meet_media_timing_negotiation_invalid")
     if "browser_workspace" in value and (value["browser_workspace"] is not True or "screen.publish" not in caps):
         raise ValueError("meet_dialog_browser_workspace_invalid")
     if "initial_persona" in value:
