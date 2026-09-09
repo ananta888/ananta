@@ -35,4 +35,8 @@ failure position and idempotence. Native validation must additionally check that
 the exact test network disappears after the actual browser reference.
 
 The 67 focused cleanup/browser/handshake checks passed in 34.61 seconds;
-Ruff and Todo consistency checks passed. Native cleanup validation is pending.
+Ruff and Todo consistency checks passed. The actual paired-idle browser reference
+at `afc5eeb7c` then passed in 315.847 seconds under
+`RUN_f168a00e2c54f42d27cfc6b14f1a0faf`. Its captured network had four fixture
+containers during execution and its exact immutable ID was absent after final
+automatic cleanup. No manual removal was needed for that run's network.

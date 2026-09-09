@@ -80,4 +80,25 @@ ordering defect needs its own correction and checks.
 The late-completion correction is now implemented in the existing focused
 screen pump; 108 related pump, frame-delivery, browser-screen, timing and
 contract tests passed in 46.30 seconds. Worker boundary and Ruff checks passed.
-The immutable updated image and actual after-fix reference are still pending.
+The immutable updated image and actual after-fix reference followed below.
+
+## After-fix native result
+
+The identical fixed fault profile passed at Ananta `afc5eeb7c` / Meet `ebd78be`
+in 315.847 runner seconds / 311.58 pytest seconds, with unchanged inputs and
+one pass, zero failures/errors/skips:
+`RUN_f168a00e2c54f42d27cfc6b14f1a0faf` /
+`SRC_25e80519a82b97f9b02afba8c95d39ba`. The immutable browser image was
+`sha256:5d4be51c5dda34636602c7a4782480d8f930a19f2d186c91e7e10b661a8f4b10`,
+built with the full Worker revision `968a15c200b61f4a5e5f481bd8dd15bf8b7519f6`.
+The text dialog executor itself ran from the host snapshot, as in the before
+reference; installed-Worker execution remains a separate reference.
+
+All 30 targeted idle calls and all 20 delayed waits completed. The 300-second
+Task supplied 295 active observation seconds, four lease generations and six
+periodic screen observations; peak sampled RSS was 2,253,651,968 bytes across
+22 processes. Chat/re-consent, private-frame exclusion and final stop passed.
+The exact captured private network ID was absent after automatic teardown.
+This demonstrates the correction under this actual-browser synthetic fault;
+it does not replace the normal two-hour reference or establish GPU/public
+readiness. Production eligibility remains explicitly false.
