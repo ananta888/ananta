@@ -256,6 +256,34 @@ def test_immutable_turn_does_not_share_mutable_binding():
         item.priority = 2
 
 
+def test_owner_control_projection_and_completion_cannot_cross_task_scope(store):
+    item, other = turn(), turn(2)
+    store.reserve(item, NOW)
+    permit = store.poll(item, NOW)
+    assert store.projection(item.owner, NOW) == permit
+    assert store.projection(other.owner, NOW) is None
+    assert not store.complete(other.owner, permit, NOW)
+    store.revoke(other.owner, NOW)
+    assert store.current(item, permit, NOW)
+    assert store.complete(item.owner, permit, NOW)
+    assert store.projection(item.owner, NOW) is None
+    assert not store.complete(item.owner, permit, NOW)
+
+
+def test_owner_withdrawal_retires_queued_and_active_turns_but_not_other_tasks(store):
+    item, other = turn(), turn(2)
+    waiting = replace(item, turn_id="next-input")
+    for candidate in (item, waiting, other):
+        store.reserve(candidate, NOW)
+    permit = store.poll(item, NOW)
+    store.revoke(item.owner, NOW)
+    assert not store.current(item, permit, NOW)
+    assert [row["state"] for row in rows(store)] == ["quarantine", "finished", "queued"]
+    assert store.poll(other, NOW + CLEANUP_MS)["sequence"] == 3
+    assert not store.complete(item.owner, permit, NOW + CLEANUP_MS)
+    assert store.projection(other.owner, NOW + CLEANUP_MS)["sequence"] == 3
+
+
 @pytest.mark.parametrize(
     "change",
     [

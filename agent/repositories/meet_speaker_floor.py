@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from agent.models.meet_speaker_floor import AGING_MS, CLEANUP_MS, OUTPUT_MS, WAIT_MS, require_clock
 from agent.services.meet_contract import MeetError
+from ananta_contracts.meet_speaker_floor import validate_speaker_permit
 
 _metadata = MetaData()
 rooms = Table(
@@ -172,3 +173,42 @@ class SqlMeetSpeakerFloor:
             else:
                 return  # Repeated/delayed callbacks cannot extend or undo quarantine.
             connection.execute(update(turns).where(turns.c.id == turn.identity).values(**values))
+
+    def _owned(self, connection, owner):
+        # At most four queued plus one active/quarantined row. Never expose a
+        # different tenant/task's speaker identity in an owner's control reply.
+        candidates = (
+            connection.execute(
+                select(turns).where(turns.c.room_id == owner.room_key, turns.c.state.in_(("queued", "active")))
+            )
+            .mappings()
+            .all()
+        )
+        return [row for row in candidates if all(row["binding"].get(k) == v for k, v in owner.metadata.items())]
+
+    def projection(self, owner, now_ms):
+        with self._locked(owner, now_ms) as connection:
+            return next((_permit(row) for row in self._owned(connection, owner) if row["state"] == "active"), None)
+
+    def complete(self, owner, permit, now_ms):
+        permit = validate_speaker_permit(permit)
+        with self._locked(owner, now_ms) as connection:
+            for row in self._owned(connection, owner):
+                if row["state"] == "active" and _permit(row) == permit:
+                    connection.execute(
+                        update(turns)
+                        .where(turns.c.id == row["id"])
+                        .values(state="quarantine", quiet_ms=now_ms + CLEANUP_MS)
+                    )
+                    return True
+            return False  # An old/foreign completion cannot stop a newer turn.
+
+    def revoke(self, owner, now_ms):
+        with self._locked(owner, now_ms) as connection:
+            for row in self._owned(connection, owner):
+                values = (
+                    {"state": "quarantine", "quiet_ms": now_ms + CLEANUP_MS}
+                    if row["state"] == "active"
+                    else {"state": "finished"}
+                )
+                connection.execute(update(turns).where(turns.c.id == row["id"]).values(**values))

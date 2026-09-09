@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -19,6 +20,53 @@ def _digest(value):
 
 
 @dataclass(frozen=True)
+class SpeakerOwner:
+    """Exact native Hub task ownership for a content-free control projection."""
+
+    origin: str
+    room_id: str
+    tenant_id: str
+    project_id: str
+    task_id: str
+    lease_id: str
+    runtime_id: str
+
+    def __post_init__(self):
+        if not isinstance(self.origin, str):
+            raise ValueError("meet_speaker_owner_invalid")
+        url = urlsplit(self.origin)
+        if (
+            url.scheme != "https"
+            or not url.hostname
+            or url.netloc != url.hostname
+            or url.path
+            or url.query
+            or url.fragment
+            or len(self.origin) > 260
+        ):
+            raise ValueError("meet_speaker_owner_invalid")
+        if any(
+            not isinstance(getattr(self, name), str) or not ID.fullmatch(getattr(self, name))
+            for name in ("room_id", "tenant_id", "project_id", "task_id", "lease_id", "runtime_id")
+        ):
+            raise ValueError("meet_speaker_owner_invalid")
+        if not re.fullmatch(r"room-[a-f0-9]{18}", self.room_id):
+            raise ValueError("meet_speaker_owner_invalid")
+
+    @classmethod
+    def from_scope(cls, scope):
+        return cls(**{name: getattr(scope, name) for name in cls.__dataclass_fields__})
+
+    @property
+    def room_key(self):
+        return _digest(["meet-speaker-room-v1", self.origin, self.room_id])
+
+    @property
+    def metadata(self):
+        return {name: getattr(self, name) for name in ("tenant_id", "project_id", "task_id", "lease_id", "runtime_id")}
+
+
+@dataclass(frozen=True)
 class SpeakerTurn:
     """Construct only from current Hub policy, never from Worker-selected priority."""
 
@@ -30,16 +78,8 @@ class SpeakerTurn:
     def __post_init__(self):
         if not isinstance(self.origin, str) or not isinstance(self.binding_json, str) or len(self.binding_json) > 8192:
             raise ValueError("meet_speaker_turn_invalid")
-        url = urlsplit(self.origin)
         if (
-            url.scheme != "https"
-            or not url.hostname
-            or url.netloc != url.hostname
-            or url.path
-            or url.query
-            or url.fragment
-            or len(self.origin) > 260
-            or not isinstance(self.turn_id, str)
+            not isinstance(self.turn_id, str)
             or not ID.fullmatch(self.turn_id)
             or type(self.priority) is not int
             or not 0 <= self.priority <= 2
@@ -48,6 +88,7 @@ class SpeakerTurn:
         binding = validate_spoken_binding(json.loads(self.binding_json))
         if self.binding_json != json.dumps(binding, sort_keys=True, separators=(",", ":")):
             raise ValueError("meet_speaker_turn_invalid")
+        self.owner  # Validate the shared origin/room/owner boundary in one place.
 
     @classmethod
     def from_binding(cls, origin, binding, turn_id, *, priority=0):
@@ -61,7 +102,13 @@ class SpeakerTurn:
     def room_key(self):
         # The physical room is shared even if eligible tasks have distinct tenants.
         # Separate tenant pools would incorrectly admit simultaneous speakers.
-        return _digest(["meet-speaker-room-v1", self.origin, self.binding["room_id"]])
+        return self.owner.room_key
+
+    @property
+    def owner(self):
+        return SpeakerOwner(
+            self.origin, **{name: self.binding[name] for name in SpeakerOwner.__dataclass_fields__ if name != "origin"}
+        )
 
     @property
     def identity(self):
