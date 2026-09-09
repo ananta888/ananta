@@ -130,3 +130,29 @@ also passed (one explicit runtime-inventory opt-in skip). These are technical
 observations. The next gate uses an immutable packaged Worker and real private
 Meet browsers for separately granted camera/screen sources; no public deploy,
 production trust or semantic scene understanding is claimed.
+
+## Real packaged source acceptance
+
+On2026-09-09 source `f223cbe53`, immutable Worker image
+`sha256:bd4cc14c24a8dd4eaa4a4f0a2bc3f0a5fdfd18282d84c8a1567c6d4635afccd0`,
+passed both actual camera/screen chains in66.58s. The extended repeated-grant/
+active-revocation pair passed in104.85s. Each received three decoded frames in
+the packaged Worker, ran the native statistical child and completed the exact
+Hub child Task. A new source grant allowed a fresh bounded assignment; revoking
+that active assignment failed it without accepting another result. Task context
+contains neither raw frames nor calculated features. The default-off Hub control
+was exercised independently of the publisher's grant.
+
+The first setup attempt selected a missing default proxy image tag; explicitly
+pinning the existing private proxy fixed setup. Regrant testing then exposed a
+fixture UI race: clicking the same peer could inspect the old checked DOM before
+Angular reset its editor. The helper now awaits the actual revoke receipt and
+unchecked editor before a new checkbox action. No production policy was loosened.
+The shared private fixture extraction subsequently passed the camera/regrant/
+revocation chain again in57.23s; the four companion browser cases passed10.17s.
+
+The fixture keeps ephemeral authentication, container lifecycle and source
+scenario assertions separate (SRP). The GPU option is only for the next audio
+gate; image statistics themselves do not need a GPU. These observations use
+synthetic sources and private infrastructure, not a public deployment or
+Hub-registered production release run.
