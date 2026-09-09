@@ -122,3 +122,89 @@ def test_invalid_membership_never_emits_resource_progress(monkeypatch):
     with pytest.raises(ValueError):
         dialog_runtime.run(f.assignment, f.hub, progress=progress)
     progress.report.assert_not_called()
+
+
+def test_confirmed_disconnect_closes_sources_before_hub_recovery_and_recreates_them(monkeypatch):
+    f = setup(monkeypatch, running=True)
+    f.assignment["reconnect"] = True
+    f.instances["session"].closed = False
+    state = {
+        "authorization": {"lease": f.lease, "roomId": "synthetic-room"},
+        "controls": {"revision": 1},
+        "renewal": "synthetic-renewal",
+    }
+    values = iter([state])
+
+    def poll(**kwargs):
+        value = next(values, None)
+        if value is not None:
+            return value
+        f.page.evaluate.return_value = {"joined": False, "lease": None}
+        raise ValueError("synthetic_transport_lost")
+
+    f.instances["exchange"].poll.side_effect = poll
+
+    def recover(assignment, hub, page, session, old_session, **kwargs):
+        assert old_session == "synthetic-session"
+        f.events.append("hub.reconnect")
+        page.evaluate.return_value = {"joined": True, "lease": {"sessionId": "synthetic-new"}}
+        hub.deadline = -1  # End this composition-only test after replacing pumps.
+
+    reconnect = Mock(side_effect=recover)
+    monkeypatch.setattr(dialog_runtime, "reconnect_session", reconnect)
+    dialog_runtime.run(f.assignment, f.hub)
+    reconnect.assert_called_once()
+    for name in ["speech", "chat", "screen", "avatar", "exchange"]:
+        assert f.events.index(f"{name}.close") < f.events.index("session.leave") < f.events.index("hub.reconnect")
+    assert dialog_runtime.DialogSessionOperations.call_count == 2
+    assert dialog_runtime.DialogScreenPump.call_count == 2
+    assert dialog_runtime.DialogControlExchange.call_args.args[1] == "synthetic-new"
+    assert f.instances["session"].leave.call_count == 2 and f.events[-1] == "browser.close"
+
+
+@pytest.mark.parametrize("condition", ["unconfirmed", "joined", "cleanup_failed", "leave_failed"])
+def test_recovery_never_hands_off_when_membership_or_cleanup_is_unconfirmed(monkeypatch, condition):
+    f = setup(monkeypatch, running=True)
+    f.assignment["reconnect"] = True
+    f.instances["session"].closed = False
+    state = {
+        "authorization": {"lease": f.lease, "roomId": "synthetic-room"},
+        "controls": {"revision": 1},
+        "renewal": "synthetic-renewal",
+    }
+    values = iter([] if condition == "unconfirmed" else [state])
+
+    def poll(**kwargs):
+        value = next(values, None)
+        if value is not None:
+            return value
+        f.page.evaluate.return_value = {"joined": condition == "joined", "lease": None}
+        raise ValueError("synthetic_loss_or_denial")
+
+    f.instances["exchange"].poll.side_effect = poll
+    if condition == "cleanup_failed":
+        f.instances["screen"].close.side_effect = ValueError("synthetic_cleanup")
+    if condition == "leave_failed":
+        f.instances["session"].leave.side_effect = ValueError("synthetic_leave")
+    reconnect = Mock()
+    monkeypatch.setattr(dialog_runtime, "reconnect_session", reconnect)
+    with pytest.raises(ValueError):
+        dialog_runtime.run(f.assignment, f.hub)
+    reconnect.assert_not_called()
+    f.browser.close.assert_called_once()
+
+
+def test_worker_executes_at_most_two_hub_recoveries_under_one_original_assignment(monkeypatch):
+    f = setup(monkeypatch, running=True)
+    f.assignment["reconnect"] = True
+    joined = Mock(side_effect=dialog_runtime.DialogMembershipLost("synthetic-confirmed"))
+    reconnect = Mock()
+    monkeypatch.setattr(dialog_runtime, "_run_joined", joined)
+    monkeypatch.setattr(dialog_runtime, "reconnect_session", reconnect)
+    with pytest.raises(dialog_runtime.DialogMembershipLost):
+        dialog_runtime.run(f.assignment, f.hub)
+    assert joined.call_count == 3 and reconnect.call_count == 2
+    assert dialog_runtime.DialogSessionOperations.call_count == 3
+    assert all(call.args[:2] == (f.assignment, f.hub) for call in reconnect.call_args_list)
+    assert f.hub.deadline == 100
+    f.browser.close.assert_called_once()

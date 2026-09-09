@@ -48,22 +48,22 @@ class DialogSessionOperations:
             raise ValueError("meet_dialog_session_expired")
         self.page.wait_for_timeout(min(100, remaining * 1000))
 
-    def ready(self, capabilities=(), *, avatar_videos=False):
+    def ready(self, capabilities=(), *, avatar_videos=False, require_current=None):
         deadline = min(self.deadline, self.clock() + 20)
         try:
             if self.joined:
                 raise ValueError("meet_dialog_session_transition_invalid")
             while True:
-                self._check(deadline, None)
+                self._check(deadline, require_current)
                 value = self.page.evaluate(_READY)
-                self._check(deadline, None)
+                self._check(deadline, require_current)
                 if value is True:
-                    check_client_probe(self.page, lambda: self._check(deadline, None), capabilities)
+                    check_client_probe(self.page, lambda: self._check(deadline, require_current), capabilities)
                     if avatar_videos:
                         from ananta_contracts.meet_avatar_video import require_video_probe
 
                         value = self.page.evaluate("() => window.anantaMachine?.avatar?.videoProbe?.() ?? null")
-                        self._check(deadline, None)
+                        self._check(deadline, require_current)
                         require_video_probe(value)
                     return
                 self._wait(deadline)
@@ -97,8 +97,8 @@ class DialogSessionOperations:
             self.close()
             raise
 
-    def join(self, room: str, grant: str):
-        self._call("join", [room, grant], 20)
+    def join(self, room: str, grant: str, *, require_current=None):
+        self._call("join", [room, grant], 20, require_current)
 
     def renew(self, grant: str, require_current: Callable[[], None]):
         if not callable(require_current):

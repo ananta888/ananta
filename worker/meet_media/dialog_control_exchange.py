@@ -8,8 +8,9 @@ from worker.meet_media.dialog_control_transport import ControlReadUnavailable
 
 
 class DialogControlExchange:
-    def __init__(self, hub, meet_session, *, clock=time.monotonic, pool=None):
+    def __init__(self, hub, meet_session, *, clock=time.monotonic, pool=None, read=None):
         self.hub, self.meet_session, self.clock = hub, meet_session, clock
+        self.read = read
         self.pool = pool if pool is not None else ThreadPoolExecutor(max_workers=1, thread_name_prefix="meet-hub-state")
         self.pending = None
         self.started = 0
@@ -71,7 +72,11 @@ class DialogControlExchange:
                 return None
         if now >= max(self.next_request, self.retry.not_before):
             self.started, self.obsolete = now, False
-            self.pending = self.pool.submit(self.hub.call, "exchange", meet_session_id=self.meet_session)
+            self.pending = (
+                self.pool.submit(self.hub.call, "exchange", meet_session_id=self.meet_session)
+                if self.read is None
+                else self.pool.submit(self.read)
+            )
         return None
 
     def close(self):

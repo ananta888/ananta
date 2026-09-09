@@ -6,6 +6,7 @@ import time
 from contextlib import ExitStack
 
 from ananta_contracts.meet_dialog import MAX_DIALOG_BYTES, parse, validate_assignment
+from ananta_contracts.meet_reconnect import MAX_RECOVERIES
 from ananta_contracts.meet_source_profile import dialog_source_profile
 from worker.meet_media.browser_completion_reports import BrowserCompletionReports
 from worker.meet_media.browser_network import restrict_meet_browser_network
@@ -18,7 +19,9 @@ from worker.meet_media.dialog_client import HubDialogClient
 from worker.meet_media.dialog_control_exchange import DialogControlExchange
 from worker.meet_media.dialog_diagnostics import DialogRunDiagnostics
 from worker.meet_media.dialog_diagnostics_deadline import bounded_terminal_report
+from worker.meet_media.dialog_membership_loss import LOCAL_MEMBERSHIP, DialogMembershipLost, MembershipCheckpoint
 from worker.meet_media.dialog_progress_channel import inherited_progress
+from worker.meet_media.dialog_reconnect import reconnect_session
 from worker.meet_media.dialog_screen_pump import DialogScreenPump
 from worker.meet_media.dialog_session_binding import require_dialog_session
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
@@ -88,8 +91,36 @@ def run(assignment, hub, *, progress=None):
             assignment["capabilities"], **({"avatar_videos": True} if assignment.get("avatar_videos") is True else {})
         )
         session.join(assignment["meeting"]["room_id"], assignment["meeting"]["grant"])
-        local_status = "(({joined, lease}) => ({joined, lease}))(window.anantaMachine.status())"
-        meet_session = page.evaluate(local_status)["lease"]["sessionId"]
+        for recovery_count in range(MAX_RECOVERIES + 1):
+            try:
+                _run_joined(assignment, hub, page, browser, session, url=url, progress=progress)
+            except DialogMembershipLost as lost:
+                if assignment.get("reconnect") is not True or recovery_count >= MAX_RECOVERIES:
+                    raise
+                # All old pumps are closed by their own ExitStack before this
+                # branch. A cleanup failure never reaches the grant handoff.
+                session.leave()
+                session = DialogSessionOperations(page, url=url, deadline=hub.deadline)
+                cleanup.callback(session.close)
+                reconnect_session(assignment, hub, page, session, lost.session_id, progress=progress)
+            else:
+                session.leave()
+                return
+
+
+def _run_joined(assignment, hub, page, browser, session, *, url, progress=None):
+    checkpoint = MembershipCheckpoint(
+        enabled=assignment.get("reconnect"),
+        page=page,
+        session=session,
+        url=url,
+        deadline=hub.deadline,
+        clock=time.monotonic,
+    )
+    # Detect confirmed membership loss before cleanup. If cleanup itself fails,
+    # its exception overrides recovery and the outer scope destroys the browser.
+    with ExitStack() as cleanup, checkpoint.guard():
+        meet_session = page.evaluate(LOCAL_MEMBERSHIP)["lease"]["sessionId"]
         speech = DialogSpeechOutput(
             page,
             assignment,
@@ -125,7 +156,7 @@ def run(assignment, hub, *, progress=None):
             state = exchange.poll(refresh_marker=chat.pending_refresh if chat.needs_refresh else None)
             if state is not None:
                 receipt, controls = state["authorization"], state["controls"]
-                local = page.evaluate(local_status)
+                local = page.evaluate(LOCAL_MEMBERSHIP)
                 require_dialog_session(
                     local,
                     receipt,
@@ -133,6 +164,7 @@ def run(assignment, hub, *, progress=None):
                     room_id=assignment["meeting"]["room_id"],
                     previous_revision=control_revision,
                 )
+                checkpoint.confirm(receipt)
                 control_revision = controls["revision"]
                 if progress is not None:
                     progress.report(exchange.fresh_until, hub.deadline)
@@ -209,7 +241,6 @@ def run(assignment, hub, *, progress=None):
         avatar.close()
         chat.close()
         speech.close()
-        session.leave()
 
 
 def main():

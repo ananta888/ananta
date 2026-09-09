@@ -159,3 +159,37 @@ rejoin or live recovery claim is made from those transport checks.
 Upgrade Meet, every Hub and every assigned Worker before enabling recovery.
 Fresh machine membership does not inherit the old peer's human receive consent:
 only a new independently authorized consent/policy may enable those inputs.
+
+## Worker execution implemented; packaged recovery gate pending
+
+The Worker now separates browser ownership, one joined membership's pumps,
+and one admitted reconnect execution. Only loss of previously Hub-confirmed
+membership with a responsive, unchanged page and an open session can enter
+recovery. Initial admission failure, renderer ambiguity, navigation, expired
+authority or failed cleanup remains terminal. Every old source/controller is
+closed before bounded leave, Hub retirement and a fresh join. At most two
+recoveries execute under the same assignment; no old grant is replayed.
+
+The reconnect executor consumes the signed receipt gate and polls a single
+fixed Hub callback during quarantine, readiness and pending join. Only fresh
+Hub replies refresh the original 2.5-second resource progress budget. The
+original Task deadline, fixed 30-second recovery window and individual
+20-second browser setup bounds remain independent upper bounds. Waiting
+produces no media. Fresh ordinary membership and controls precede resumed
+source publication; old receive consent and pending input are not replayed.
+
+SRP/DIP: `MembershipCheckpoint` only classifies confirmed loss, the small
+reconnect executor only executes a validated handoff, and the existing
+single-flight control reader accepts an injected fixed read operation. Session
+readiness/join take an additive policy checkpoint, retaining legacy behavior.
+The broad joined media composition remains existing SRP debt, but no Hub
+policy, task scheduling or SQL ownership was moved into the Worker.
+
+66 executor/session/legacy tests passed in 32.70 seconds, followed by 35
+membership/executor/runtime-composition tests in 22.68 seconds (overlapping).
+They include actual session/pulse logic with deterministic clocks, cleanup
+failure precedence, two-attempt ceiling, perpetual waiting, stalled requests,
+pending join, policy withdrawal and resource progress fencing. Logs:
+`/tmp/ananta-meet-reconnect-{executor,lifecycle}.log`. These are synthetic
+technical checks; packaged Worker disconnect/rejoin and separate receiver
+acceptance remain required before MAP-11 is done or deployment is enabled.
