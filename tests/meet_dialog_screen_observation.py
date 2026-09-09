@@ -65,6 +65,52 @@ def _transforms(value):
     }
 
 
+def _pipeline_row(value):
+    value = _object(value)
+    return {
+        **_counts(
+            value,
+            (
+                "index",
+                "inputKey",
+                "inputDelta",
+                "inputOther",
+                "enqueuedKey",
+                "enqueuedDelta",
+                "enqueuedOther",
+                "dropped",
+                "thrown",
+                "keySetCommands",
+                "keyClearCommands",
+            ),
+        ),
+        "direction": _choice(value.get("direction"), ("encrypt", "decrypt", "unknown")),
+        "ended": _boolean(value.get("ended")),
+        "pipeFailed": _boolean(value.get("pipeFailed")),
+    }
+
+
+def _pipelines(value):
+    value = _object(value)
+    workers = value.get("workers")
+    return {
+        "available": _boolean(value.get("available")),
+        "workers": [
+            {
+                "schema": _choice(_object(worker).get("schema"), ("meet.test-sframe-pipeline.v1",)),
+                "total": _count(_object(worker).get("total")),
+                "truncated": _boolean(_object(worker).get("truncated")),
+                "rows": [_pipeline_row(row) for row in _object(worker).get("rows", [])[:16]]
+                if isinstance(_object(worker).get("rows"), list)
+                else [],
+            }
+            for worker in workers[:4]
+        ]
+        if isinstance(workers, list)
+        else [],
+    }
+
+
 def screen_failure_projection(result, source):
     result, source = _object(result), _object(source)
     receiver = _object(result.get("observation"))
@@ -78,6 +124,7 @@ def screen_failure_projection(result, source):
             "ice_counts": _counts(receiver.get("iceCounts"), ("emitted", "mdns", "received", "failed")),
             "transform_errors": _count(receiver.get("transformErrors")),
             "transform_failure_codes": _transforms(receiver.get("transformFailureCodes")),
+            "pipelines": _pipelines(receiver.get("pipelines")),
             "videos": _rows(receiver.get("videos"), lambda row: _counts(row, ("width", "ready"))),
             "peers": _rows(receiver.get("peers"), _peer),
         },
@@ -97,3 +144,13 @@ def screen_failure_projection(result, source):
 def record_screen_failure(result, source, record_property):
     if result != {"moving_screen": True}:
         record_property("dialog_screen_failure", screen_failure_projection(result, source))
+
+
+def require_pipeline_probe(value, record_property):
+    projection = _pipelines(value)
+    record_property("dialog_receiver_pipeline_probe", projection)
+    assert projection["available"] is True and any(
+        worker["schema"] == "meet.test-sframe-pipeline.v1"
+        and any(row["direction"] == "decrypt" and (row["enqueuedKey"] or 0) > 0 for row in worker["rows"])
+        for worker in projection["workers"]
+    ), "instrumented receiver did not observe an enqueued keyframe"

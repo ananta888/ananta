@@ -43,3 +43,40 @@ limits to obtain a pass.
 The existing broad native integration fixture and PeerMesh composition remain
 SRP debt. Reuse their narrow fixture/media ports for the reproducer rather than
 introducing a second orchestration owner or mixing Hub policy with decoding.
+
+## Fast isolation and next diagnostic
+
+The private c4ef486 frontend passed Chromium 80-source churn both with one
+renewal (98.233 s) and 39 renewals (98.630 s), Firefox 80-source/39-renewal churn
+(100.039 s), and Chromium 40 active audio/chat/screen phases with 39 renewals
+(61.391 s). The latter checks at least 16,000 actual PCM samples in every
+phase, correlated chat, source pixels and final revocation. These unreserved
+technical observations do not prove a fix or a normal elapsed two-hour run.
+The corresponding forty-phase Firefox reference also passed in 66.197 seconds.
+
+The companion now provides a test-only SFrame pipeline probe for the private
+bridge receiver, with separate native-stream unit and Chromium/Firefox checks.
+It counts input, enqueue, drops, thrown transforms, pipe termination and key
+setup/clear commands without exporting media, IDs or keys. The Ananta JUnit
+projection preserves only the closed counters, at most four Workers and sixteen
+rows per Worker. Missing/unavailable measurements are not filled with success.
+There are no periodic extra browser RPCs; collection occurs on screen failure.
+
+The private served Worker response is instrumented by the fixture; its source
+is included in the companion test snapshot. It is not a claim of uninjected
+frontend execution, and enqueue/key-command counts are not decoder/key-install
+receipts. Production code, actual source/lease/framing limits and on-disk bundle
+are unchanged. A subsequent causal repair still needs an uninjected reference.
+
+The Hub runner selects this explicitly with `private-pipeline-smoke` (ordinary
+short task, 360-second outer bound) or `private-pipeline-soak` (7,200-second task,
+7,560-second outer bound). Their reference identities differ from the normal
+profiles. Every other profile forces the injection flag off, overriding ambient
+settings. The probe returns only the four latest rows per Worker and caps its
+envelope at 6,000 characters inside the unchanged 8-KiB bridge response limit.
+Startup must actually observe an enqueued receiver keyframe through the probe;
+an older companion that ignores the opt-in cannot silently satisfy this profile.
+95 runner/projection/soak-observer checks passed in 66.45 seconds; the final
+15 projection/startup checks passed in 16.02 seconds (overlapping coverage).
+The final companion probe checks passed nine native-stream/collector cases in
+1.153 seconds and the Chromium/Firefox receiver pair in 7.738 seconds.

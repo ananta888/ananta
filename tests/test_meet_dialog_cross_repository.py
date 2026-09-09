@@ -617,6 +617,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 "runtime_exited": completed.is_set(),
             }
         )
+        if os.environ.get("MEET_TEST_SFRAME_PIPELINE_PROBE") == "1":
+            from tests.meet_dialog_screen_observation import require_pipeline_probe
+
+            require_pipeline_probe(command("pipeline_probe"), record_property)
         assert chat_ready.wait(8), failures
         if os.environ.get("MEET_TEST_RECEIVER_KEY_DELAY") == "1":
             key_startup = command("receiver_key_startup")

@@ -5,7 +5,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_screen_observation import record_screen_failure, screen_failure_projection
+from tests.meet_dialog_screen_observation import (
+    record_screen_failure,
+    require_pipeline_probe,
+    screen_failure_projection,
+)
 
 
 def test_failure_preserves_exact_receiver_counts_and_separate_last_source_sample():
@@ -118,3 +122,86 @@ def test_transform_diagnostics_preserve_only_fixed_counts_and_truncation():
     assert observation["counts"]["media_envelope_version"] == 3
     assert observation["counts"]["unknown"] == 125
     assert "PRIVATE-MARKER" not in json.dumps(result)
+
+
+def test_pipeline_receipt_distinguishes_drops_from_enqueues_without_claiming_decode():
+    probe = {
+        "available": True,
+        "workers": [
+            {
+                "schema": "meet.test-sframe-pipeline.v1",
+                "total": 72,
+                "truncated": True,
+                "rows": [
+                    {
+                        "index": 72,
+                        "direction": "decrypt",
+                        "inputKey": 1,
+                        "inputDelta": 40,
+                        "enqueuedKey": 0,
+                        "enqueuedDelta": 0,
+                        "dropped": 41,
+                        "thrown": 0,
+                        "ended": False,
+                        "pipeFailed": False,
+                        "contextId": "PRIVATE-MARKER",
+                        "key": "PRIVATE-MARKER",
+                    }
+                ],
+            }
+        ],
+    }
+    value = screen_failure_projection({"observation": {"pipelines": probe}}, {})["receiver"]["pipelines"]
+    assert value["available"] is True and value["workers"][0]["total"] == 72
+    row = value["workers"][0]["rows"][0]
+    assert row["inputDelta"] == 40 and row["dropped"] == 41 and row["enqueuedDelta"] == 0
+    assert row["pipeFailed"] is False and "PRIVATE-MARKER" not in json.dumps(value)
+
+
+def test_pipeline_receipt_bounds_every_level_and_rejects_unknown_values():
+    row = {
+        "index": True,
+        "direction": "PRIVATE-MARKER",
+        "inputKey": -1,
+        "enqueuedKey": 2**53,
+        "ended": "PRIVATE-MARKER",
+        "pipeFailed": 1,
+    }
+    probe = {"available": "PRIVATE-MARKER", "workers": [{"schema": "PRIVATE-MARKER", "rows": [row] * 100}] * 100}
+    result = screen_failure_projection({"observation": {"pipelines": probe}}, {})["receiver"]["pipelines"]
+    assert result["available"] is None and len(result["workers"]) == 4
+    assert all(len(worker["rows"]) == 16 for worker in result["workers"])
+    assert all(value is None for value in result["workers"][0]["rows"][0].values())
+    assert "PRIVATE-MARKER" not in json.dumps(result)
+    for value in [None, 1, "PRIVATE-MARKER", [], {"workers": [None, {"rows": "PRIVATE-MARKER"}]}]:
+        assert "PRIVATE-MARKER" not in json.dumps(screen_failure_projection({"observation": {"pipelines": value}}, {}))
+
+
+def test_pipeline_profile_requires_actual_probe_delivery_and_records_closed_startup():
+    record = Mock()
+    observed = {
+        "available": True,
+        "workers": [
+            {
+                "schema": "meet.test-sframe-pipeline.v1",
+                "rows": [{"direction": "decrypt", "enqueuedKey": 1, "secret": "PRIVATE-MARKER"}],
+            }
+        ],
+    }
+    require_pipeline_probe(observed, record)
+    assert record.call_args.args[0] == "dialog_receiver_pipeline_probe"
+    assert "PRIVATE-MARKER" not in json.dumps(record.call_args.args[1])
+    for invalid in [
+        {},
+        {"available": True, "workers": []},
+        {"bridge_error": "unsupported"},
+        {
+            "available": True,
+            "workers": [
+                {"schema": "meet.test-sframe-pipeline.v1", "rows": [{"direction": "decrypt", "enqueuedKey": True}]}
+            ],
+        },
+        {"available": True, "workers": [{"schema": "unknown", "rows": [{"direction": "decrypt", "enqueuedKey": 1}]}]},
+    ]:
+        with pytest.raises(AssertionError, match="did not observe"):
+            require_pipeline_probe(invalid, record)

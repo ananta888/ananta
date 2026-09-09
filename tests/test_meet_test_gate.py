@@ -35,6 +35,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
     )
     monkeypatch.setenv("MEET_DIALOG_SOAK_SECONDS", "7200")
     monkeypatch.setenv("MEET_DIALOG_CADENCE_DELAY", "unrecorded-ambient-fault")
+    monkeypatch.setenv("MEET_TEST_SFRAME_PIPELINE_PROBE", "unrecorded-ambient-probe")
     monkeypatch.setenv("PYTEST_ADDOPTS", "--ignore=tests")
     monkeypatch.setattr("scripts.run_meet_test_gate.frontend_digest", lambda _: "d" * 64)
     monkeypatch.setattr(
@@ -73,6 +74,9 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         assert environment["ANANTA_MEET_MEDIA_TIMING"] == "1"
         assert environment["MEET_DIALOG_SOAK_SECONDS"] == profile.environment()["MEET_DIALOG_SOAK_SECONDS"]
         assert environment["MEET_DIALOG_CADENCE_DELAY"] == profile.environment()["MEET_DIALOG_CADENCE_DELAY"]
+        assert (
+            environment["MEET_TEST_SFRAME_PIPELINE_PROBE"] == profile.environment()["MEET_TEST_SFRAME_PIPELINE_PROBE"]
+        )
         assert environment["PYTEST_ADDOPTS"] == profile.environment()["PYTEST_ADDOPTS"]
         assert all(environment[key] == value for key, value in profile.settings)
         assert "-n" in command and "0" in command
@@ -156,6 +160,13 @@ def test_selected_soak_is_fixed_and_cannot_mutate_other_profile_environment():
     assert delayed.timeout_seconds == 660 and delayed.node == long.node
     assert delayed.image_inputs == long.image_inputs and delayed.reference != short.reference
     assert long.environment()["MEET_DIALOG_CADENCE_DELAY"] == "off"
+    assert long.environment()["MEET_TEST_SFRAME_PIPELINE_PROBE"] == "0"
+    for name, seconds, timeout in (("smoke", "0", 360), ("soak", "7200", 7560)):
+        diagnostic = select_profile(f"private-pipeline-{name}")
+        assert diagnostic.environment()["MEET_TEST_SFRAME_PIPELINE_PROBE"] == "1"
+        assert diagnostic.environment()["MEET_DIALOG_SOAK_SECONDS"] == seconds
+        assert diagnostic.timeout_seconds == timeout and diagnostic.node == long.node
+        assert diagnostic.reference != long.reference and diagnostic.image_inputs == long.image_inputs
 
 
 def test_existing_output_is_not_overwritten_and_preflight_failure_never_reserves(tmp_path, monkeypatch):

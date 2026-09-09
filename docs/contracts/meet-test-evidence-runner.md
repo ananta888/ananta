@@ -44,6 +44,16 @@ Without this setting, the five-minute reference completed successfully but
 its numeric progress appeared only when the process exited. This is output
 visibility, not an execution timeout or missing media observation.
 
+`private-pipeline-smoke` and `private-pipeline-soak` are explicitly instrumented
+receiver diagnostics, with respectively zero/7,200 soak seconds and 360/7,560
+outer seconds. Their private fixture injects a content-free TransformStream
+probe into its served SFrame Worker response. The diagnostic source and opt-in
+are bound to the selected test revision/profile. On-disk frontend bytes remain
+pinned, but the served instrumented execution is not an uninjected production
+reference. Every other profile forces `MEET_TEST_SFRAME_PIPELINE_PROBE=0` even
+when the caller environment requests injection. See the
+[receiver investigation](meet-receiver-freeze-investigation.md).
+
 ## Owned process-group cleanup
 
 The executor checks its owned process group even after the pytest leader has

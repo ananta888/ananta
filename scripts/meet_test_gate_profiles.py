@@ -20,6 +20,7 @@ class MeetTestProfile:
             "ANANTA_MEET_MEDIA_TIMING": "1",
             "MEET_DIALOG_SOAK_SECONDS": "0",
             "MEET_DIALOG_CADENCE_DELAY": "off",
+            "MEET_TEST_SFRAME_PIPELINE_PROBE": "0",
             "PYTEST_ADDOPTS": "",
             "PYTHONUNBUFFERED": "1",
             "MEET_ISOLATED_PEER_BROWSER": "0",
@@ -121,6 +122,24 @@ _PROFILES = (
         ),
         ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
     ),
+)
+_PROFILES += tuple(
+    MeetTestProfile(
+        f"private-pipeline-{name}",
+        "tests/test_meet_dialog_cross_repository.py::"
+        "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
+        f"synthetic-single-host-instrumented-receiver-pipeline-{name}-v1",
+        timeout,
+        (
+            ("MEET_CROSS_REPOSITORY_GATE", "1"),
+            ("MEET_DIALOG_SOAK_SECONDS", str(seconds)),
+            ("MEET_ISOLATED_PEER_BROWSER", "1"),
+            ("MEET_TEST_SFRAME_PIPELINE_PROBE", "1"),
+            ("PYTEST_ADDOPTS", "--capture=tee-sys"),
+        ),
+        ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
+    )
+    for name, seconds, timeout in (("smoke", 0, 360), ("soak", 7200, 7560))
 )
 PROFILE_NAMES = tuple(profile.name for profile in _PROFILES)
 
