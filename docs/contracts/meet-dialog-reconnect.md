@@ -62,3 +62,35 @@ admission and late old-ID replay. Logs `/tmp/ananta-meet-retirement-hub.log`
 and `/tmp/ananta-meet-retirement-final.log`. These establish the transport
 primitive, not automatic reconnect or MAP-11 completion. Durable recovery
 admission, negotiated Worker execution and actual recovery acceptance remain.
+
+## Durable recovery resource bounds
+
+The next resource slice stores one row per original Hub Task, bound to the
+immutable assignment digest and original deadline. It stores only validated
+membership metadata, two retired session/peer pairs at most, an attempt
+counter, phase and time bounds; no grant, transcript, PCM or keys. At most two
+reconnect attempts may be consumed over the entire original assignment.
+An attempt has 30 seconds total, including a four-second quarantine starting
+only after confirmed Meet retirement. One grant handoff may be claimed after
+that quarantine; an uncertain handoff cannot issue another grant. Current Hub
+policy and the original deadline remain mandatory at every service boundary.
+
+Only a fresh validated new session/peer and a later membership epoch can settle
+the joining phase. Same-session lease refreshes remain monotonic; retired IDs,
+late old observations and a changed assignment cannot overwrite current state.
+Clock rollback and expired recovery windows are terminal and persisted, not
+merely exceptions rolled back with their transaction. SQL row locking, not an
+in-process mutex, serializes concurrent Hub requests. The resource itself has
+no task-dispatch, grant-issuance or browser-execution authority.
+
+The resource is implemented as `SqlDialogRecovery` with separate immutable
+`RecoveryOwner` / `RecoveryMembership` models and closed persisted-state
+validation. 59 focused tests passed in 31.68 seconds, including two actually
+spawned Hub-side processes competing for one grant slot, independent-connection
+attempt races, restart, three monotonic refreshes, two complete recovery-state
+cycles, expiry/rollback persistence, malformed records and retired-ID replay.
+An earlier 32-test slice passed in 20.87 seconds; these suites overlap. Logs:
+`/tmp/ananta-meet-recovery-resource.log` and
+`/tmp/ananta-meet-recovery-resource-final.log`. No grant, browser rejoin or media
+execution is simulated by this repository test. Service/Worker integration
+and real connection-loss acceptance remain required; MAP-11 stays unfinished.
