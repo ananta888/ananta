@@ -53,7 +53,7 @@
         "PI-T05",
         "PI-T06"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -80,10 +80,10 @@
       "id": "PI-T02",
       "title": "Optionalen Provider über bestehende Ports ergänzen",
       "type": "implementation",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 20.0,
       "depends_on": [
         "PI-T01"
       ],
@@ -94,7 +94,8 @@
         "Absolute Binary-Pfade und Argumentlisten, begrenzte Ausgaben, Timeout, Abbruch und Beendigung aller Kindprozesse gewährleisten; Node-Abhängigkeiten versioniert im Worker bereitstellen.",
         "Vor Wiederverwendung des gemeinsamen Prozessports: blockiertes stdin, Ausgabe ohne Zeilenumbruch, bereits beendeten Hauptprozess und TERM-ignorierende Kinder mit begrenzten Regressionen prüfen und gefundene Lebenszykluslücken beheben; vorhandene CLI-Clients kompatibel halten.",
         "System- und Zusatzprompt explizit an eigene unveränderliche auftragsbezogene Dateien binden; --no-context-files allein verhindert die globale SYSTEM.md-Ladung nicht. Keine unkontrollierte Dateiauflösung aus Prompttext oder globale Benutzerkonfiguration übernehmen."
-      ]
+      ],
+      "provisioning_result": "Pinned optional Pi 0.85.1 catalog entry uses existing admin Hub-to-registered-Worker provision route. Bounded injected Node/npm commands, Node >=22.19.0, lifecycle scripts disabled, isolated temporary npm configuration, exact CLI version verification; no provider activation or interactive login. 36 focused Pi/existing provisioning/API tests PASS in 32.09 s; Ruff and namespace detector PASS. Real local Node/npm version-only configuration probe PASS without installation/network. Actual provider, assignment isolation, model/context and result bindings remain open. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T03",
@@ -187,8 +188,8 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 5,
-      "in_progress": 0,
+      "todo": 4,
+      "in_progress": 1,
       "partial": 0,
       "blocked": 0,
       "done": 1
@@ -212,14 +213,14 @@
     },
     "milestones": {
       "total": 2,
-      "todo": 1,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 1,
       "blocked": 0,
       "done": 1
     }
   },
   "summary_notes": [
-    "PI-T01 ist nach gepinntem Quellabgleich und realem isolierten No-Tools-CLI/JSON-Prototyp abgeschlossen. Der Pi-Provider ist noch nicht implementiert; PI-T02 bis PI-T06 bleiben offen. Die gemeinsame Prozesshärtung ist umgesetzt und fokussiert geprüft.",
+    "PI-T01 ist nach gepinntem Quellabgleich und realem isolierten No-Tools-CLI/JSON-Prototyp abgeschlossen. PI-T02 ist in Bearbeitung: gemeinsame Prozesshärtung und optionale gepinnte Worker-Bereitstellung umgesetzt und fokussiert geprüft; der Pi-Provider selbst und PI-T03 bis PI-T06 bleiben offen.",
     "PI-T02 bis PI-T06 nur nach positiver dokumentierter Eignungsentscheidung durchführen; bei Ablehnung Ergebnis und Gründe dokumentieren."
   ],
   "tasks_type_summary": {
@@ -242,8 +243,8 @@
       "implementation": {
         "total": 3,
         "by_status": {
-          "todo": 3,
-          "in_progress": 0,
+          "todo": 2,
+          "in_progress": 1,
           "partial": 0,
           "blocked": 0,
           "done": 0
@@ -251,7 +252,7 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 6.7
       },
       "security": {
         "total": 1,
@@ -286,10 +287,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 1.5,
-    "remaining_weight": 8.5,
+    "done_weight": 1.8,
+    "remaining_weight": 8.2,
     "blocked_weight": 0.0,
-    "weighted_percent": 15.0
+    "weighted_percent": 18.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -306,28 +307,28 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 3.5,
+        "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 5,
-    "in_progress": 0,
+    "state": "in_progress",
+    "todo_remaining": 4,
+    "in_progress": 1,
     "partial": 0,
     "blocked": 0,
     "done": 1,
     "count_based_percent": 16.7,
-    "weighted_percent": 15.0
+    "weighted_percent": 18.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T21:35:47.945587Z",
+    "generated_at": "2026-09-09T22:00:47.869945Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d4c24be92dffb6134ab292e337dbbba3e328eba42c9cbc3ddf63bbdd00e9bd31",
+    "source_hash": "5e6100d9a782f6446cc060252341b41d57ac2ebad2a6cf717875a5b6ce675a78",
     "is_stale": false
   }
 }

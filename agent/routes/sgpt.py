@@ -543,6 +543,9 @@ def cli_backend_provision(backend_id: str):
             "npm_install_failed",
             "installed_binary_verification_failed",
             "backend_not_provisionable",
+            "node_runtime_unavailable",
+            "node_runtime_incompatible",
+            "node_package_command_failed",
             "TimeoutExpired",
         }:
             reason_code = "cli_backend_provisioning_internal_error"

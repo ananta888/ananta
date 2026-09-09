@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from agent.cli_backends.coding_agent_contract import ProcessRunnerPort
+from agent.cli_backends.headless_node_provisioning import HeadlessNodeProvisioning, HeadlessNodeProvisioningError
+
 
 @dataclass(frozen=True)
 class CliBackendPackage:
@@ -17,6 +20,7 @@ class CliBackendPackage:
     package: str
     version: str
     binary: str
+    headless_node_minimum: tuple[int, int, int] | None = None
 
 
 PROVISIONABLE_CLI_BACKENDS: Mapping[str, CliBackendPackage] = {
@@ -31,6 +35,13 @@ PROVISIONABLE_CLI_BACKENDS: Mapping[str, CliBackendPackage] = {
         package="@anthropic-ai/claude-code",
         version="2.1.220",
         binary="claude",
+    ),
+    "pi": CliBackendPackage(
+        backend_id="pi",
+        package="@earendil-works/pi-coding-agent",
+        version="0.85.1",
+        binary="pi",
+        headless_node_minimum=(22, 19, 0),
     ),
 }
 _PROVISIONING_LOCKS = {
@@ -57,6 +68,7 @@ class CliBackendProvisioner:
         *,
         base_dir: Path | None = None,
         run_command: RunCommand = subprocess.run,
+        headless_runner: ProcessRunnerPort | None = None,
     ) -> None:
         configured = str(os.environ.get("ANANTA_CLI_BACKENDS_DIR") or "").strip()
         self._base_dir = (
@@ -66,6 +78,7 @@ class CliBackendProvisioner:
             or Path.home() / ".local" / "share" / "ananta" / "cli-backends"
         )
         self._run_command = run_command
+        self._headless = HeadlessNodeProvisioning(headless_runner)
 
     def status(self, backend_id: str) -> dict:
         package = self._package(backend_id)
@@ -82,10 +95,13 @@ class CliBackendProvisioner:
                 "status": "ready" if installed else "not_installed",
             }
             if installed:
-                probe = self._run(
-                    [str(binary_path), "--version"],
-                    timeout=30,
-                )
+                if package.headless_node_minimum is not None:
+                    try:
+                        probe = self._headless.probe(binary_path, package.version, package.headless_node_minimum)
+                    except HeadlessNodeProvisioningError as exc:
+                        raise CliBackendProvisioningError(str(exc)) from exc
+                else:
+                    probe = self._run([str(binary_path), "--version"], timeout=30)
                 result["version_probe"] = self._public_process_result(probe)
                 if probe.returncode != 0:
                     result["status"] = "error"
@@ -94,6 +110,17 @@ class CliBackendProvisioner:
     def install(self, backend_id: str) -> dict:
         package = self._package(backend_id)
         with _PROVISIONING_LOCKS[package.backend_id]:
+            if package.headless_node_minimum is not None:
+                try:
+                    self._headless.install(
+                        package.package, package.version, self.install_prefix(backend_id), package.headless_node_minimum
+                    )
+                except HeadlessNodeProvisioningError as exc:
+                    raise CliBackendProvisioningError(str(exc)) from exc
+                status = self.status(backend_id)
+                if not status["installed"] or status["status"] != "ready":
+                    raise CliBackendProvisioningError("installed_binary_verification_failed")
+                return status
             npm = shutil.which("npm")
             if not npm:
                 raise CliBackendProvisioningError("npm_not_available")

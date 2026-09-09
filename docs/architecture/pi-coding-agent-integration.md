@@ -188,3 +188,46 @@ Modelle, Settings, Auth und Erweiterungsladung bleiben geschlossen; ein
 Read-only-Toolprofil oder Resume wird erst nach eigener technischer Abnahme
 angeboten. PI-T02 bis PI-T06 bleiben offen; der erfolgreiche No-Tools-Prototyp
 ist keine vollständige Coding-, Datei-Sandbox- oder Provider-Integration.
+
+## Optionale Worker-Bereitstellung
+
+Der bestehende administrative Bereitstellungspfad unterstützt nun `pi`:
+`POST /api/sgpt/backends/pi/provision`, Aktion `status` oder `install`.
+Am Hub muss ein registrierter Worker gewählt werden. Weitergeleitet wird nur
+die Aktion; Paketname und Version aus einem Request werden nicht übernommen.
+Die Installation allein aktiviert weder einen Provider noch Modell-Routing.
+Pi erhält keinen interaktiven Account-Login-/Worker-Action-Pfad.
+
+Der feste Katalogeintrag installiert ausschließlich
+`@earendil-works/pi-coding-agent@0.85.1` im vorhandenen Worker-eigenen,
+versionierten CLI-Verzeichnis. Der vorhandene Worker-Dockerfile pinnt bereits
+Node 24.18.0; trotzdem wird die tatsächlich verfügbare Node-Version vor
+Installation und Versionsprobe gegen >=22.19.0 geprüft. Erst die exakte
+Pi-Ausgabe 0.85.1 ohne Fehlerausgabe ergibt den Bereitstellungsstatus `ready`.
+Dieser Status ist keine Bestätigung der noch offenen Provider-Fähigkeiten.
+
+Der neue schmale `HeadlessNodeProvisioning`-Adapter verwendet den injizierbaren
+gemeinsamen Prozessport, eine 540-s-Installationsfrist, 5-s-Versionsproben und
+Ausgabelimits von 32.768 Zeichen. npm-Lifecycle-Skripte sind deaktiviert. Hub-/Provider-
+Credentials, Node-Startoptionen und fremde npm-Konfiguration werden nicht aus
+der Umgebung übernommen. Zwei eigene leere Konfigurationsdateien werden nach
+dem Aufruf entfernt. Ein technischer npm-Versionsprobeaufruf bestätigte die
+Verdrahtung ohne Paketinstallation oder Netzwerk: Node 22.22.1 und npm 9.2.0,
+jeweils Exit 0 ohne stderr. Beide Konfigurationstypen dürfen nicht denselben
+`/dev/null`-Pfad verwenden; npm lehnt dessen doppelte Ladung ab.
+
+36 fokussierte Pi-/bestehende Provisionierungs- und API-Tests bestehen in
+32.09 Sekunden. Abgedeckt sind feste Argumente, temporäre Konfiguration,
+fehlendes/ungeeignetes Node, Versionsabweichung, Installationsfehler inklusive
+Timeout-/Overflow-/Abbruchcodes, geschlossene Prozessdiagnosen, registrierte
+Worker-Weiterleitung und die Ablehnung interaktiver Pi-Login-Routen. Ruff und
+der CLI-Namespace-Detektor bestehen. Kein produktiver Worker wurde installiert
+oder umgeschaltet; dies sind technische Tests, keine Release-Evidenz.
+
+SRP/DIP: Katalog, Pfade und bestehende Sperren verbleiben im Provisioner;
+begrenzte Node-/npm-Ausführung liegt hinter dem vorhandenen Prozessport.
+Beibehaltene technische Schuld: Die älteren Installationszweige anderer
+CLI-Clients verwenden weiterhin ihren bisherigen `subprocess.run`-Adapter;
+deren Ausgabegrenze wird durch diese additive Pi-Änderung nicht verbessert.
+PI-T02 ist damit teilweise implementiert. Der eigentliche Provider sowie
+Auftragsisolierung, Modell-/Kontextanbindung und Ergebnisbindung bleiben offen.

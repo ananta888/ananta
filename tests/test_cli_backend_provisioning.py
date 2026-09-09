@@ -2,6 +2,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 from agent.cli_backends.provisioning import CliBackendProvisioner
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,8 +38,9 @@ def test_provisioner_installs_only_pinned_catalog_package(tmp_path, monkeypatch)
     assert calls[0][1]["timeout"] == 600
 
 
+@pytest.mark.parametrize("backend", ["claude_code", "pi"])
 def test_worker_provision_route_executes_allowlisted_installer(
-    client, admin_auth_header, monkeypatch
+    client, admin_auth_header, monkeypatch, backend
 ):
     provisioner = MagicMock()
     provisioner.install.return_value = {
@@ -54,18 +57,19 @@ def test_worker_provision_route_executes_allowlisted_installer(
     )
 
     response = client.post(
-        "/api/sgpt/backends/claude_code/provision",
-        json={"action": "install"},
+        f"/api/sgpt/backends/{backend}/provision",
+        json={"action": "install", "package": "untrusted-package", "version": "latest"},
         headers=admin_auth_header,
     )
 
     assert response.status_code == 200
     assert response.json["data"]["installed"] is True
-    provisioner.install.assert_called_once_with("claude_code")
+    provisioner.install.assert_called_once_with(backend)
 
 
+@pytest.mark.parametrize("backend", ["codex", "pi"])
 def test_hub_provision_route_forwards_only_to_registered_worker(
-    client, admin_auth_header, monkeypatch
+    client, admin_auth_header, monkeypatch, backend
 ):
     worker = SimpleNamespace(
         name="alpha",
@@ -92,8 +96,8 @@ def test_hub_provision_route_forwards_only_to_registered_worker(
     monkeypatch.setattr("agent.routes.sgpt.get_worker_gateway", lambda: gateway)
 
     response = client.post(
-        "/api/sgpt/backends/codex/provision",
-        json={"worker_url": worker.url, "action": "install"},
+        f"/api/sgpt/backends/{backend}/provision",
+        json={"worker_url": worker.url, "action": "install", "package": "untrusted-package", "version": "latest"},
         headers=admin_auth_header,
     )
 
@@ -101,21 +105,22 @@ def test_hub_provision_route_forwards_only_to_registered_worker(
     assert response.json["data"]["worker"]["name"] == "alpha"
     gateway.forward_task.assert_called_once_with(
         worker.url,
-        "/api/sgpt/backends/codex/provision",
+        f"/api/sgpt/backends/{backend}/provision",
         {"action": "install"},
         token=worker.token,
         timeout=620,
     )
 
 
+@pytest.mark.parametrize("backend", ["codex", "pi"])
 def test_hub_provision_route_rejects_unknown_worker(
-    client, admin_auth_header, monkeypatch
+    client, admin_auth_header, monkeypatch, backend
 ):
     monkeypatch.setattr("agent.routes.sgpt.settings.role", "hub")
     monkeypatch.setattr("agent.routes.sgpt._registered_worker", lambda _url: None)
 
     response = client.post(
-        "/api/sgpt/backends/codex/provision",
+        f"/api/sgpt/backends/{backend}/provision",
         json={"worker_url": "http://attacker.invalid", "action": "install"},
         headers=admin_auth_header,
     )
