@@ -88,6 +88,19 @@ def test_control_requires_exact_key_no_query_no_body_and_has_no_arbitrary_option
     assert service.start.call_count == 1
 
 
+def test_private_controls_do_not_collide_with_native_hub_health_endpoint():
+    app = Flask(__name__)
+
+    @app.get("/health")
+    def health():
+        return {"native": True}
+
+    register_control(app, Mock(), object(), b"x" * 32)
+    client = app.test_client()
+    assert client.get("/health").json == {"native": True}
+    assert client.get("/__test/health").json == {"ready": True}
+
+
 @pytest.mark.timeout(15)
 def test_runtime_without_explicit_opt_in_exits_before_loading_hub_or_files():
     env = dict(os.environ)

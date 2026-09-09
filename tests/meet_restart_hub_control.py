@@ -3,12 +3,13 @@
 import hmac
 import re
 
-from flask import abort, jsonify, request
+from flask import Blueprint, abort, jsonify, request
 
 
 def register_control(app, service, principal, control_key):
     if not isinstance(control_key, bytes) or len(control_key) != 32:
         raise ValueError("test_hub_control_key_invalid")
+    routes = Blueprint("meet_restart_test", __name__, url_prefix="/__test")
 
     def authorized():
         if (
@@ -31,11 +32,11 @@ def register_control(app, service, principal, control_key):
             abort(404)
         return row
 
-    @app.get("/__test/health")
+    @routes.get("/health")
     def health():
         return jsonify(ready=True)
 
-    @app.post("/__test/start")
+    @routes.post("/start")
     def start():
         authorized()
         if service.tasks.list_page("synthetic", "synthetic", 0):
@@ -52,7 +53,7 @@ def register_control(app, service, principal, control_key):
         )
         return jsonify(task_id=result["task_id"])
 
-    @app.post("/__test/enable/<identifier>")
+    @routes.post("/enable/<identifier>")
     def enable(identifier):
         authorized()
         row = task(identifier)
@@ -71,7 +72,7 @@ def register_control(app, service, principal, control_key):
         )
         return jsonify(enabled=True)
 
-    @app.get("/__test/status/<identifier>")
+    @routes.get("/status/<identifier>")
     def status(identifier):
         authorized()
         row = task(identifier)
@@ -85,3 +86,5 @@ def register_control(app, service, principal, control_key):
             deadline_events=sum(item.get("event_type") == "meet_dialog_deadline_expired" for item in row.history),
             dialog_tasks=len(service.tasks.list_page("synthetic", "synthetic", 0)),
         )
+
+    app.register_blueprint(routes)
