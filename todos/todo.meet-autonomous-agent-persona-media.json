@@ -949,6 +949,7 @@
     },
     {
       "id": "MAP-24",
+      "live_clock_plan": "2026-09-09 source cfe01b6cc/Meet12235df audit: PCM sampletimeline, separate decoder/canvasgenerations, HubGPUFIFO/speakerfloor and packaged no-old-audio reconnect are implemented; no commonliveprojection or receiverdrift evidence yet. docs/contracts/meet-live-media-clock.md defines separate monotonic timingguard/sourceadapters/closed optional probe and Hubnegotiation, fixed independent-persona profile500ms drift/750ms observationage without extending2.5s authority/originalTask bounds. Submission timestamps are not RTPdelivery or lipsync proof. Deterministic drift/generation/underflow/loop-hold and actualChromium-Firefox/GPUreceiver gates required; aggregate Hubsession/bandwidth budgets audited separately. No runtime implemented in this planning slice, MAP24 stayspartial.",
       "title": "Audio/Video-Zeitbasis, Sprachunterbrechung und Ressourcenbudgets koordinieren",
       "repository": "ananta",
       "type": "feature",
