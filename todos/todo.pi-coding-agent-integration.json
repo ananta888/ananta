@@ -93,9 +93,11 @@
         "BoundedCodingAgentProcess für geeignete Subprozesspfade wiederverwenden; RPC nur bei nachgewiesenem Bedarf über kleinen separaten Transportadapter.",
         "Absolute Binary-Pfade und Argumentlisten, begrenzte Ausgaben, Timeout, Abbruch und Beendigung aller Kindprozesse gewährleisten; Node-Abhängigkeiten versioniert im Worker bereitstellen.",
         "Vor Wiederverwendung des gemeinsamen Prozessports: blockiertes stdin, Ausgabe ohne Zeilenumbruch, bereits beendeten Hauptprozess und TERM-ignorierende Kinder mit begrenzten Regressionen prüfen und gefundene Lebenszykluslücken beheben; vorhandene CLI-Clients kompatibel halten.",
-        "System- und Zusatzprompt explizit an eigene unveränderliche auftragsbezogene Dateien binden; --no-context-files allein verhindert die globale SYSTEM.md-Ladung nicht. Keine unkontrollierte Dateiauflösung aus Prompttext oder globale Benutzerkonfiguration übernehmen."
+        "System- und Zusatzprompt explizit an eigene unveränderliche auftragsbezogene Dateien binden; --no-context-files allein verhindert die globale SYSTEM.md-Ladung nicht. Keine unkontrollierte Dateiauflösung aus Prompttext oder globale Benutzerkonfiguration übernehmen.",
+        "Pi-Startmigrationen dürfen kein Benutzerprojekt verändern: No-Tools-Profil startet in eigenem leerem Laufverzeichnis statt im Projekt-cwd; direkte Datei-Tools bleiben ohne technische Sandbox unsupported. Den tatsächlichen Session-cwd getrennt vom Hub-Auftrags-/Repository-Bezug validieren."
       ],
-      "provisioning_result": "Pinned optional Pi 0.85.1 catalog entry uses existing admin Hub-to-registered-Worker provision route. Bounded injected Node/npm commands, Node >=22.19.0, lifecycle scripts disabled, isolated temporary npm configuration, exact CLI version verification; no provider activation or interactive login. 36 focused Pi/existing provisioning/API tests PASS in 32.09 s; Ruff and namespace detector PASS. Real local Node/npm version-only configuration probe PASS without installation/network. Actual provider, assignment isolation, model/context and result bindings remain open. docs/architecture/pi-coding-agent-integration.md."
+      "provisioning_result": "Pinned optional Pi 0.85.1 catalog entry uses existing admin Hub-to-registered-Worker provision route. Bounded injected Node/npm commands, Node >=22.19.0, lifecycle scripts disabled, isolated temporary npm configuration, exact CLI version verification; no provider activation or interactive login. 36 focused Pi/existing provisioning/API tests PASS in 32.09 s; Ruff and namespace detector PASS. Real local Node/npm version-only configuration probe PASS without installation/network. Actual provider, assignment isolation, model/context and result bindings remain open. docs/architecture/pi-coding-agent-integration.md.",
+      "protocol_prerequisite_result": "Closed pure Pi single-turn/no-tools JSON parser implemented. 46 deterministic checks PASS in 35.64 s; real isolated Pi 0.85.1 synthetic-model stream accepted. Missing/duplicate/conflicting terminals, model/workdir substitutions, retries, tools and malformed JSON fail closed. Additional real negative probe confirmed startup migration .pi/commands -> .pi/prompts despite no-tools/no-approve: neutral per-run cwd required before provider activation. No user workspace affected. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T03",
@@ -325,10 +327,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T22:00:47.869945Z",
+    "generated_at": "2026-09-09T22:09:43.447674Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "5e6100d9a782f6446cc060252341b41d57ac2ebad2a6cf717875a5b6ce675a78",
+    "source_hash": "826740b670f80f12437db04812bd9e6a2092c8faf49358f319f9b37618ca84d1",
     "is_stale": false
   }
 }

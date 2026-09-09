@@ -231,3 +231,36 @@ CLI-Clients verwenden weiterhin ihren bisherigen `subprocess.run`-Adapter;
 deren Ausgabegrenze wird durch diese additive Pi-Änderung nicht verbessert.
 PI-T02 ist damit teilweise implementiert. Der eigentliche Provider sowie
 Auftragsisolierung, Modell-/Kontextanbindung und Ergebnisbindung bleiben offen.
+
+## Geschlossener JSON-Abschluss und Start-Migrationen
+
+`pi_events.py` prüft den gepinnten Ein-Turn-/No-Tools-Vertrag separat von
+Prozesssteuerung, Modellwahl und Hub-Identitäten (SRP). Nur eine vollständige
+Folge bis `agent_settled` liefert den autoritativen Antworttext. Modell,
+Provider, API und tatsächliches CLI-Arbeitsverzeichnis müssen passen.
+`message_end`, `turn_end`, `agent_end` und ein gegebenenfalls vorhandenes
+Streaming-`done` dürfen sich nicht widersprechen. Fehlende/doppelte Enden,
+Retry, Tool-Aufrufe, Fehler/Abbruch/Längenlimit, ungültiges JSON einschließlich
+doppelter Schlüssel und nicht endlicher Konstanten werden geschlossen
+abgelehnt. Teiltext wird dabei nicht in einen erfolgreichen Abschluss umgedeutet.
+
+46 deterministische Parser-Prüfungen bestehen in 35.64 Sekunden; Ruff und
+Namespace-Detektor bestehen ebenfalls. Zusätzlich akzeptierte der neue Parser
+den tatsächlichen 0.85.1-JSON-Stream im isolierten Container mit genau einer
+synthetischen Modellantwort. Diese Prüfung verwendet keine externe Inferenz.
+Der Parser allein bindet noch keine Hub-Lease und aktiviert keinen Provider.
+
+Ein zusätzlicher realer Negativversuch bestätigte einen Start-Nebeneffekt:
+Pi benannte im eigenen Testprojekt `.pi/commands` in `.pi/prompts` um,
+obwohl `--no-tools`, `--no-approve` und alle Ressourcen-Abschaltflags gesetzt
+waren; der Prozess endete mit Exit 0. Der installierte `migrations.js` und
+`main.js` erklären den Aufruf vor der Runtime-Erzeugung. Das ist kein Nachweis
+einer Tool-Freigabe, sondern eine zusätzliche Isolationsanforderung.
+
+Der erste No-Tools-Adapter muss deshalb in einem eigenen leeren Laufverzeichnis
+starten und erhält freigegebenen CodeCompass-Kontext nur als Eingabe. Das
+Projektverzeichnis darf dafür nicht als CLI-cwd verwendet werden. Direkte
+Datei-Tools bleiben bis zu einer nachgewiesenen technischen Sandbox unsupported.
+Der Session-Header bindet in diesem Profil das eigene Laufverzeichnis, nicht
+eine erfundene Repository- oder Evidenzidentität. Alle Teständerungen betrafen
+nur eigene Wegwerfdateien; keine Benutzer-Projekte wurden migriert.
