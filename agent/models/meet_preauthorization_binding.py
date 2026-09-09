@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from agent.models.meet_preauthorization_policy import SCOPE_FIELDS, digest, identifier, integer
 from agent.services.meet_contract import MeetError, MeetProfile
+from ananta_contracts.meet_audio_profile import parse_audio_profile
 from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import dialog_source_profile
 
@@ -39,6 +40,13 @@ def assignment_projection(task_id, tenant, project, origin, context):
     if "browser_workspace" in context and (context["browser_workspace"] is not True or "screen.publish" not in caps):
         raise MeetError("meet_preauthorization_binding_invalid", 403)
     initial = {}
+    if "audio_profile" in context:
+        try:
+            initial["audio_profile"] = parse_audio_profile(context["audio_profile"]).projection()
+            if context.get("audio_mode") == "off":
+                raise ValueError()
+        except ValueError:
+            raise MeetError("meet_preauthorization_binding_invalid", 403) from None
     if "initial_persona" in context:
         try:
             initial["initial_persona"] = deepcopy(

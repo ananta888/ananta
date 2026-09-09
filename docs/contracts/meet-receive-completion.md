@@ -61,3 +61,33 @@ receive-only child completion and revocation. Existing audio/task/transport/
 speech-control regressions remained green. The standalone boundary check passed
 all 108 Worker files. This fixes duplicated policy coupling (DIP/ISP); the
 larger browser-pump SRP extraction and remaining receive features are still open.
+
+## Closed audio profiles and fixed segment execution
+
+An optional immutable `audio_profile` now binds explicit `de`/`en`, the installed
+`whisper-small-pinned` model, local VAD on/off and a 1–10 second segment. Hub
+request/current authority, original preauthorization digest, dispatch router,
+signed Worker assignment, child Task and native ASR child preserve the same
+projection. Global callback bounds are not authority: Hub completion requires
+the exact delegated sample count and language. Legacy assignments omit the new
+field and retain their previous ten-second behavior.
+
+`AudioBatchCursor` extracts bounded batch/timeline validation from browser and
+ASR lifecycle (SRP/DIP). It accepts at most five canonical chunks at once, never
+retains their PCM, advances only after successful ACK and rejects truncation,
+oversize and replay. Closing the pump clears its pending Future reference,
+cancels work and wipes the existing receiver buffers. A transcribe-only Worker
+also rejects an unexpected reply rather than calling the publication port.
+The Hub composition methods remain relatively large existing SRP debt; a small
+profile/error adapter prevents duplicating validation or adding more branches.
+
+Initial focused checks: 64 profile/SQL Task/router/preauthorization/batch cases
+passed in 30.58 seconds and 212 legacy regressions in 77.11 seconds. The expanded
+execution selection passed 80 tests in 37.68 seconds, including real bounded
+PCM buffering and exact two-second completion, cancellation/wipe and no reply
+publication. Two initial failures were a test inspecting the decoder's
+nonexistent public `limits` attribute; the assertion now inspects its actual
+configured `_limits`, without altering decoder behavior. Native pinned-image
+RTX3080 profile probes are the next verification step, not yet a live-receive
+or production release claim. Early VAD segmentation and visual analysis remain
+open parts of MAP-25.

@@ -11,7 +11,14 @@ from pathlib import Path
 from uuid import uuid4
 
 MODULES = frozenset(
-    {"persona_visual_smoke", "speech_smoke", "persona_video_smoke", "speech_pcm_probe", "voice_variant_smoke"}
+    {
+        "persona_visual_smoke",
+        "speech_smoke",
+        "persona_video_smoke",
+        "speech_pcm_probe",
+        "voice_variant_smoke",
+        "asr_smoke",
+    }
 )
 DRIVER = re.compile(r"lib(?:cuda|nvcuvid|nvidia-(?:encode|ml|nvvm|gpucomp|ptxjitcompiler))\.so(?:\.[0-9]+)*")
 REQUIRED = frozenset({"libcuda.so.1", "libcuda.so", "libnvidia-encode.so.1", "libnvcuvid.so.1"})
@@ -51,11 +58,17 @@ def driver_bindings(mounts):
     return [f"type=bind,src={source},dst=/host-nvidia/{name},readonly" for name, source in sorted(result.items())]
 
 
-def probe_command(name, image, bindings, module, root=ROOT):
+def probe_command(name, image, bindings, module, root=ROOT, *, packaged=False, asr_profile=None):
     if module not in MODULES or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
         raise ValueError("test_gpu_probe_invalid")
     if not re.fullmatch(r"meet-test-gpu-[a-f0-9-]{36}", name):
         raise ValueError("test_gpu_probe_name_invalid")
+    if (
+        type(packaged) is not bool
+        or asr_profile is not None
+        and (module != "asr_smoke" or asr_profile not in ("bounded-4s-vad", "bounded-4s-no-vad"))
+    ):
+        raise ValueError("test_gpu_probe_profile_invalid")
     args = [
         "create",
         "--name",
@@ -73,14 +86,18 @@ def probe_command(name, image, bindings, module, root=ROOT):
     ]
     for device in ("nvidia0", "nvidiactl", "nvidia-uvm", "nvidia-uvm-tools"):
         args += ["--device", f"/dev/{device}"]
-    for source, destination in (
-        (root / "data/meet-media/models", "/models"),
-        (root / "worker/meet_media", "/app/worker/meet_media"),
-        (root / "ananta_contracts", "/app/ananta_contracts"),
-    ):
+    mounts = [(root / "data/meet-media/models", "/models")]
+    if not packaged:
+        mounts += [
+            (root / "worker/meet_media", "/app/worker/meet_media"),
+            (root / "ananta_contracts", "/app/ananta_contracts"),
+        ]
+    for source, destination in mounts:
         args += ["--mount", f"type=bind,src={source},dst={destination},readonly"]
     for binding in bindings:
         args += ["--mount", binding]
+    if asr_profile is not None:
+        args += ["--env", "MEET_ASR_SMOKE_PROFILE=" + asr_profile]
     return args + [
         "--env=LD_LIBRARY_PATH=/host-nvidia",
         image,
@@ -93,15 +110,22 @@ def probe_command(name, image, bindings, module, root=ROOT):
     ]
 
 
-def run_probe(module, *, command=docker):
+def run_probe(module, *, command=docker, packaged_image=None, asr_profile=None):
     if module not in MODULES:
         raise ValueError("test_gpu_probe_invalid")
     # Inspect only image identity and mounts, never service environment/secrets.
     service = "ananta-meet-media-meet-media-worker-1"
-    image = command("inspect", service, "--format", "{{.Image}}")
+    if packaged_image is not None:
+        if not isinstance(packaged_image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", packaged_image):
+            raise ValueError("test_gpu_probe_image_invalid")
+        image = command("image", "inspect", packaged_image, "--format", "{{.Id}}")
+        if image != packaged_image:
+            raise ValueError("test_gpu_probe_image_mismatch")
+    else:
+        image = command("inspect", service, "--format", "{{.Image}}")
     bindings = driver_bindings(json.loads(command("inspect", service, "--format", "{{json .Mounts}}")))
     name = "meet-test-gpu-" + str(uuid4())
-    args = probe_command(name, image, bindings, module)
+    args = probe_command(name, image, bindings, module, packaged=packaged_image is not None, asr_profile=asr_profile)
     try:
         command(*args)
         output = command("start", "--attach", name)

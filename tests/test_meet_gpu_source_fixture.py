@@ -92,3 +92,30 @@ def test_unlisted_probe_never_invokes_docker():
     with pytest.raises(ValueError):
         run_probe("server", command=command)
     command.assert_not_called()
+
+
+def test_packaged_asr_has_only_models_and_driver_mounts_and_closed_profile(tmp_path):
+    args = probe_command(
+        NAME, IMAGE, driver_bindings(mounts()), "asr_smoke", tmp_path, packaged=True, asr_profile="bounded-4s-vad"
+    )
+    assert "MEET_ASR_SMOKE_PROFILE=bounded-4s-vad" in args
+    assert not any("dst=/app/" in value for value in args)
+    assert sum(arg == "--mount" for arg in args) == len(mounts()) + 1
+    for module, profile in [("speech_smoke", "bounded-4s-vad"), ("asr_smoke", "cloud"), ("asr_smoke", {})]:
+        with pytest.raises(ValueError):
+            probe_command(NAME, IMAGE, driver_bindings(mounts()), module, tmp_path, packaged=True, asr_profile=profile)
+
+
+@pytest.mark.parametrize("image", ["latest", True, "sha256:x"])
+def test_packaged_invalid_image_is_rejected_before_docker(image):
+    command = Mock()
+    with pytest.raises(ValueError):
+        run_probe("asr_smoke", command=command, packaged_image=image)
+    command.assert_not_called()
+
+
+def test_packaged_missing_identity_never_falls_back_to_serving_image():
+    command = Mock(return_value="sha256:" + "b" * 64)
+    with pytest.raises(ValueError, match="image_mismatch"):
+        run_probe("asr_smoke", command=command, packaged_image=IMAGE)
+    command.assert_called_once_with("image", "inspect", IMAGE, "--format", "{{.Id}}")

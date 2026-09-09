@@ -7,6 +7,7 @@ import re
 from urllib.parse import urlsplit
 
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
+from ananta_contracts.meet_audio_profile import parse_audio_profile
 from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 
@@ -80,7 +81,8 @@ def validate_assignment(value, now):
     }
     if (
         not isinstance(value, dict)
-        or set(value) - {"avatar_images", "avatar_videos", "voice_profiles", "initial_persona", "browser_workspace"}
+        or set(value)
+        - {"avatar_images", "avatar_videos", "voice_profiles", "initial_persona", "browser_workspace", "audio_profile"}
         != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
     ):
@@ -116,6 +118,10 @@ def validate_assignment(value, now):
         )
     if not audio_mode_permitted(value["audio_mode"], caps):
         raise ValueError("meet_dialog_audio_policy_invalid")
+    if "audio_profile" in value:
+        parse_audio_profile(value["audio_profile"])
+        if value["audio_mode"] == "off":
+            raise ValueError("meet_dialog_audio_policy_invalid")
     meeting = value["meeting"]
     if not isinstance(meeting, dict) or set(meeting) != {"origin", "room_id", "grant"}:
         raise ValueError("meet_dialog_meeting_invalid")
@@ -194,7 +200,8 @@ def validate_callback(value, now):
         _ids(value, ("audio_task_id", "audio_lease_id"))
         if (
             type(value["end_sample"]) is not int
-            or value["end_sample"] != 160000
+            or not 16000 <= value["end_sample"] <= 160000
+            or value["end_sample"] % 16000 != 0
             or not isinstance(value["language"], str)
             or value["language"] not in {"de", "en"}
             or not isinstance(value["text"], str)

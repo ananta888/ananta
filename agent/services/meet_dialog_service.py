@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 
+from agent.services.meet_audio_profile import audio_profile_fields, bound_audio_profile
 from agent.services.meet_chat_admission import MeetChatAdmissionService
 from agent.services.meet_chat_contract import ChatEvent
 from agent.services.meet_chat_policy import ChatReplyPolicy
@@ -126,7 +127,15 @@ class MeetDialogService:
         if (
             not isinstance(payload, dict)
             or set(payload)
-            - {"audio_mode", "avatar_images", "avatar_videos", "voice_profiles", "initial_persona", "browser_workspace"}
+            - {
+                "audio_mode",
+                "avatar_images",
+                "avatar_videos",
+                "voice_profiles",
+                "initial_persona",
+                "browser_workspace",
+                "audio_profile",
+            }
             != {"capabilities", "duration_seconds", "chat_mode"}
             or type(payload["duration_seconds"]) is not int
             or not 30 <= payload["duration_seconds"] <= 7200
@@ -178,6 +187,7 @@ class MeetDialogService:
         ):
             raise MeetError("meet_dialog_chat_rights_required", 403)
         stored = self.authority.binding.read(principal, project, parent)
+        audio_profile = bound_audio_profile(payload, audio_mode)
         if not stored["invite_url"]:
             raise MeetError("meet_room_binding_required", 409)
         initial = None
@@ -203,6 +213,7 @@ class MeetDialogService:
         context["controls"] = initial_controls(
             context["capabilities"], context["chat_mode"], audio_mode, int(self.clock() * 1000)
         )
+        context.update(audio_profile_fields(audio_profile))
         if payload.get("avatar_images") is True:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         if payload.get("avatar_videos") is True:
@@ -252,6 +263,7 @@ class MeetDialogService:
             }
             if "avatar_selection" in context:
                 assignment["avatar_images"] = True
+            assignment.update(audio_profile_fields(scope.audio_profile))
             if scope.avatar_videos:
                 assignment["avatar_videos"] = True
             if scope.browser_workspace:

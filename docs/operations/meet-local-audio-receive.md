@@ -1,10 +1,12 @@
 # Local Meet audio recognition
 
-This is an execution-only, bounded worker adapter, not an enabled Meet receive
-integration. Sending media does not authorize receiving it. The MDS receive
-transport and a production `ReceiveLeasePort` must supply and continually verify
-the exact Hub assignment and current Meet publication permission before use.
-Until those adapters exist, only explicitly synthetic local probes are available.
+The bounded Worker adapter is now connected to the MDS audio subscription port
+and ordinary Hub-owned `meet_audio_receive` child Tasks. Enabling the integration
+still requires explicit Hub session policy and current publication-bound Meet
+receive grants. Sending media does not authorize receiving it. The Worker and
+Hub continually check the original assignment, source and current permission.
+Local synthetic probes below do not by themselves verify live reception or
+authorize production use.
 
 ## Boundaries
 
@@ -32,9 +34,39 @@ uses the existing safe audio decoder and FasterWhisper backend, with CUDA float1
 beam size 1 and local VAD. CPU/cloud fallback and runtime downloads are disabled.
 
 The structured result includes exact source binding and sample range. It does
-not authorize publication, retention, training or further provider use. A future
-Hub task adapter must separately admit each of those operations. Continuous
-renewable receive and MDS transport wiring remain open, as does visual analysis.
+not authorize publication, retention, training or further provider use. The Hub
+adapter separately admits an eligible reply Task under its reply policy;
+transcribe-only needs no chat send permission and produces no retained transcript.
+Renewal cancels an active window before starting a newly delegated one. Full
+continuous receive acceptance and separately authorized visual analysis remain
+open; see [completion audit](../contracts/meet-receive-completion.md).
+
+## Explicit bounded audio profile
+
+Dialog start optionally accepts `audio_profile`, only with a non-off audio mode:
+
+```json
+{
+  "schema": "ananta.meet-audio-profile.v1",
+  "language": "en",
+  "model": "whisper-small-pinned",
+  "vad": "local-vad-v1",
+  "segment_seconds": 2
+}
+```
+
+Language is `de` or `en`; the only installed allowed model is the immutable local
+Whisper-small profile described below. VAD is `local-vad-v1` or explicitly `off`.
+Segment length is an integer 1–10 seconds. Segments currently close at that fixed
+sample count; local ASR VAD is not an early browser endpoint detector. No arbitrary
+provider, path, download, recording or model-selection string is accepted.
+
+The original Hub context, optional preauthorization digest, signed dialog
+assignment, child Task and ASR subprocess all bind the same profile. Changing
+it invalidates an already assigned child. Without the optional field, legacy
+ten-second German recognition, local VAD and the old wire shape remain unchanged.
+The callback's global bounds permit the new integer-second lengths, but the Hub
+still requires exactly the length and language delegated to that child.
 
 ## Explicit setup and synthetic GPU probe
 

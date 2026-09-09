@@ -13,6 +13,7 @@ from agent.services.meet_dialog_controls import chat_policy_revision
 from agent.services.meet_dialog_lifecycle import organization_tuple
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
+from ananta_contracts.meet_audio_profile import optional_audio_profile
 from ananta_contracts.meet_dialog_audio import audio_job_current
 
 
@@ -74,7 +75,8 @@ class MeetDialogAudio:
             scope.audio_mode == "off"
             or not scope.controls.audio.enabled
             or not audio_mode_permitted(scope.audio_mode, scope.capabilities)
-            or scope.audio_mode == "dialog" and scope.chat_mode == "off"
+            or scope.audio_mode == "dialog"
+            and scope.chat_mode == "off"
         ):
             raise MeetError("meet_audio_policy_denied", 403)
         receipt = self.meet.inspect(*ids, payload["meet_session_id"])
@@ -104,6 +106,8 @@ class MeetDialogAudio:
             "publication_epoch": publication["publicationEpoch"],
             "source": publication["source"],
         }
+        if scope.audio_profile is not None:
+            job["audio_profile"] = scope.audio_profile.projection()
         self.tasks.claim_audio(scope, job, now)
         self.current(ids, job)
         return {"schema": "ananta.meet-audio-assignment.v1", "nonce": payload["nonce"], "job": job}
@@ -114,8 +118,11 @@ class MeetDialogAudio:
             scope.audio_mode == "off"
             or not scope.controls.audio.enabled
             or not audio_mode_permitted(scope.audio_mode, scope.capabilities)
-            or scope.audio_mode == "dialog" and scope.chat_mode == "off"
+            or scope.audio_mode == "dialog"
+            and scope.chat_mode == "off"
             or job["control_revision"] != scope.controls.audio.revision
+            or job.get("audio_profile")
+            != (scope.audio_profile.projection() if scope.audio_profile is not None else None)
         ):
             raise MeetError("meet_audio_policy_denied", 403)
         parent = self.tasks.get_by_id(scope.task_id)
@@ -150,7 +157,14 @@ class MeetDialogAudio:
         reply = None
         try:
             self.current(ids, job)
-            if payload["end_sample"] != 160000 or payload["language"] not in {"de", "en"}:
+            profile = optional_audio_profile(job)
+            if (
+                type(payload["end_sample"]) is not int
+                or payload["end_sample"] != profile.end_sample
+                or payload["language"] not in {"de", "en"}
+                or "audio_profile" in job
+                and payload["language"] != profile.language
+            ):
                 raise MeetError("meet_audio_result_invalid")
             text = payload["text"]
             if not isinstance(text, str) or len(text) > 2000 or len(text.encode("utf-8")) > 4000:

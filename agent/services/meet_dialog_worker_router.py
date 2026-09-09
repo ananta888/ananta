@@ -66,6 +66,8 @@ class MeetDialogWorkerRouter:
             or (assignment.get("avatar_videos") is True) != scope.avatar_videos
             or assignment.get("initial_persona") != scope.initial_persona
             or (assignment.get("browser_workspace") is True) != getattr(scope, "browser_workspace", False)
+            or assignment.get("audio_profile")
+            != (scope.audio_profile.projection() if getattr(scope, "audio_profile", None) is not None else None)
         ):
             raise MeetError("meet_dialog_publisher_binding_denied", 403)
         # The authoritative role check fences a concurrent destination/role edit;

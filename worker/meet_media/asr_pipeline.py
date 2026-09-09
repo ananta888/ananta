@@ -9,13 +9,14 @@ import threading
 import time
 from pathlib import Path
 
+from ananta_contracts.meet_audio_profile import parse_audio_profile
 from voice_runtime.backends.base import TranscriptionResult
 from voice_runtime.preprocessing.audio_decode import BoundedSubprocessRunner
 from worker.meet_media.asr_model import REVISION
 
 
 class MeetAsrPipeline:
-    def __init__(self, binding, lease, *, deadline_monotonic, runner=None):
+    def __init__(self, binding, lease, *, deadline_monotonic, runner=None, audio_profile=None):
         now = time.monotonic()
         if (
             type(deadline_monotonic) not in (int, float)
@@ -24,6 +25,7 @@ class MeetAsrPipeline:
         ):
             raise ValueError("meet_asr_deadline_invalid")
         self.binding, self.lease, self.deadline = binding, lease, deadline_monotonic
+        self.audio_profile = parse_audio_profile(audio_profile) if audio_profile is not None else None
         self._cancelled = threading.Event()
         self.runner = runner or BoundedSubprocessRunner(
             library_paths=(
@@ -40,6 +42,11 @@ class MeetAsrPipeline:
         del filename, context
         if language not in ("de", "en") or not isinstance(content, bytes) or not 44 < len(content) <= 320_044:
             raise ValueError("meet_asr_input_invalid")
+        payload = {"wav": base64.b64encode(content).decode(), "language": language}
+        if self.audio_profile is not None:
+            if language != self.audio_profile.language or len(content) > self.audio_profile.end_sample * 2 + 44:
+                raise ValueError("meet_asr_profile_mismatch")
+            payload["audio_profile"] = self.audio_profile.projection()
         remaining = min(20, self.deadline - time.monotonic())
         if remaining <= 0:
             raise ValueError("meet_asr_deadline_exceeded")
@@ -47,7 +54,7 @@ class MeetAsrPipeline:
         try:
             response = self.runner.run(
                 [sys.executable, "-m", "worker.meet_media.asr_child"],
-                input_payload=json.dumps({"wav": base64.b64encode(content).decode(), "language": language}).encode(),
+                input_payload=json.dumps(payload).encode(),
                 max_stdout_bytes=12_000,
                 timeout_seconds=remaining,
                 cwd=Path(__file__).resolve().parents[2],
@@ -67,6 +74,8 @@ class MeetAsrPipeline:
                 or len(result["text"]) > 2000
                 or type(result["duration_ms"]) is not int
                 or not 0 < result["duration_ms"] <= 10_000
+                or self.audio_profile is not None
+                and result["duration_ms"] > self.audio_profile.segment_seconds * 1000
             ):
                 raise ValueError("meet_asr_result_invalid")
             self._require()

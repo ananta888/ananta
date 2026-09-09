@@ -5,9 +5,11 @@ import time
 from dataclasses import dataclass
 
 from agent.models.meet_machine_principal import MeetMachinePrincipal, current_machine_principal
+from agent.services.meet_audio_profile import bound_audio_profile
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
+from ananta_contracts.meet_audio_profile import AudioReceiveProfile
 from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 from ananta_contracts.meet_source_profile import DialogSourceProfile, dialog_source_profile
@@ -37,6 +39,7 @@ class DialogAuthority:
     avatar_videos: bool = False
     initial_persona: dict | None = None
     browser_workspace: bool = False
+    audio_profile: AudioReceiveProfile | None = None
 
     @property
     def machine_subject(self):
@@ -95,6 +98,7 @@ class MeetDialogAuthority:
                 "source_profile",
                 "initial_persona",
                 "browser_workspace",
+                "audio_profile",
             }
             != fields
         ):
@@ -125,10 +129,12 @@ class MeetDialogAuthority:
             or len(set(capabilities)) != len(capabilities)
             or not set(capabilities) <= allowed
             or not audio_mode_permitted(value["audio_mode"], capabilities)
-            or value["audio_mode"] == "dialog" and value["chat_mode"] == "off"
+            or value["audio_mode"] == "dialog"
+            and value["chat_mode"] == "off"
         ):
             raise MeetError("meet_dialog_policy_denied", 403)
         controls = parse_controls(value["controls"])
+        audio_profile = bound_audio_profile(value, value["audio_mode"])
         if "browser_workspace" in value and (
             value["browser_workspace"] is not True or "screen.publish" not in capabilities
         ):
@@ -238,4 +244,5 @@ class MeetDialogAuthority:
             value.get("avatar_videos", False),
             value.get("initial_persona"),
             value.get("browser_workspace", False),
+            audio_profile,
         )

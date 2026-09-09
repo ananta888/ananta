@@ -1,10 +1,12 @@
 """Synthetic local GPU smoke, never a real Meet receive grant or release gate."""
 
 import json
+import os
 import tempfile
 import time
 from pathlib import Path
 
+from ananta_contracts.meet_audio_profile import parse_audio_profile
 from voice_runtime.preprocessing.audio_decode import AudioDecodeLimits, SafeAudioDecoder
 from worker.meet_media.asr_model import REVISION
 from worker.meet_media.asr_pipeline import MeetAsrPipeline
@@ -12,8 +14,11 @@ from worker.meet_media.audio_receive import MeetAudioReceiver, ReceiveBinding
 from worker.meet_media.speech import speech
 
 
-def run():
+def run(audio_profile=None):
     started = time.monotonic()
+    profile = parse_audio_profile(audio_profile) if audio_profile is not None else None
+    if profile is not None and profile.language != "de":
+        raise ValueError("meet_asr_smoke_language_invalid")
     binding = ReceiveBinding(
         tenant_id="synthetic",
         project_id="synthetic",
@@ -44,9 +49,27 @@ def run():
         )
         pcm = audio.pcm_s16le
         pcm += b"\0" * ((-len(pcm)) % 320)  # Explicit final synthetic packet padding, <10 ms.
+        if profile is not None:
+            if len(pcm) > profile.end_sample * 2:
+                raise ValueError("meet_asr_smoke_segment_too_short")
+            pcm += b"\0" * (profile.end_sample * 2 - len(pcm))
         lease = SyntheticLease()
-        pipeline = MeetAsrPipeline(binding, lease, deadline_monotonic=time.monotonic() + 30)
-        receiver = MeetAudioReceiver(binding, lease, pipeline)
+        pipeline = MeetAsrPipeline(
+            binding,
+            lease,
+            deadline_monotonic=time.monotonic() + 30,
+            **({"audio_profile": profile.projection()} if profile is not None else {}),
+        )
+        receiver = MeetAudioReceiver(
+            binding,
+            lease,
+            pipeline,
+            **(
+                {"language": profile.language, "max_audio_seconds": profile.segment_seconds}
+                if profile is not None
+                else {}
+            ),
+        )
         try:
             for offset in range(0, len(pcm), 3200):
                 receiver.push(binding, start_sample=offset // 2, pcm=pcm[offset : offset + 3200])
@@ -67,8 +90,20 @@ def run():
         "matched_expected_words": matches,
         "production_release_evidence": False,
         "real_meet_receive_verified": False,
+        "human_capture_used": False,
+        **({"audio_profile": profile.projection()} if profile is not None else {}),
     }
 
 
 if __name__ == "__main__":
-    print(json.dumps(run()))
+    from ananta_contracts.meet_audio_profile import AudioReceiveProfile
+
+    selected = os.environ.get("MEET_ASR_SMOKE_PROFILE", "legacy")
+    profiles = {
+        "legacy": None,
+        "bounded-4s-vad": AudioReceiveProfile(segment_seconds=4).projection(),
+        "bounded-4s-no-vad": AudioReceiveProfile(segment_seconds=4, vad="off").projection(),
+    }
+    if selected not in profiles:
+        raise ValueError("meet_asr_smoke_profile_invalid")
+    print(json.dumps(run(profiles[selected])))

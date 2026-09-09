@@ -5,16 +5,24 @@ import json
 import sys
 from pathlib import Path
 
+from ananta_contracts.meet_audio_profile import optional_audio_profile
 from voice_runtime.backends.faster_whisper import FasterWhisperBackend
 from voice_runtime.preprocessing.audio_decode import AudioDecodeLimits, SafeAudioDecoder
 from worker.meet_media.asr_model import REVISION, verify_model
 
 
 def transcribe(payload):
-    if not isinstance(payload, dict) or set(payload) != {"wav", "language"} or payload["language"] not in ("de", "en"):
+    if (
+        not isinstance(payload, dict)
+        or set(payload) - {"audio_profile"} != {"wav", "language"}
+        or payload["language"] not in ("de", "en")
+    ):
         raise ValueError("meet_asr_input_invalid")
+    profile = optional_audio_profile(payload)
+    if "audio_profile" in payload and payload["language"] != profile.language:
+        raise ValueError("meet_asr_profile_mismatch")
     wav = base64.b64decode(payload["wav"], validate=True)
-    if not 44 < len(wav) <= 320_044:
+    if not 44 < len(wav) <= profile.end_sample * 2 + 44:
         raise ValueError("meet_asr_input_invalid")
     model = Path("/models/faster-whisper-small")
     verify_model(model)
@@ -33,14 +41,14 @@ def transcribe(payload):
         device="cuda",
         compute_type="float16",
         beam_size=1,
-        vad_filter=True,
+        vad_filter=profile.vad == "local-vad-v1",
         model_factory=cuda_factory,
         allow_download=False,
         decoder=SafeAudioDecoder(
             limits=AudioDecodeLimits(
-                max_encoded_bytes=320_044,
-                max_decoded_pcm_bytes=320_000,
-                max_duration_ms=10_000,
+                max_encoded_bytes=profile.end_sample * 2 + 44,
+                max_decoded_pcm_bytes=profile.end_sample * 2,
+                max_duration_ms=profile.segment_seconds * 1000,
                 max_channels=1,
                 max_sample_rate_hz=16_000,
                 target_sample_rate_hz=16_000,
