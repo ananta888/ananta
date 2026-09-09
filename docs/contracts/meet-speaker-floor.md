@@ -77,3 +77,11 @@ policy bound was relaxed. Log: `/tmp/ananta-meet-speaker-floor-sql-final.log`.
 This establishes the resource primitive only. Production composition, signed
 Worker handoff, current-control projection and actual audio-floor acceptance
 remain required before MAP-26 is complete.
+
+The separate `MeetSpeakerFloor` service uses an injected persistence port and
+current-authority checks before, throughout and after bounded admission.
+Monotonic waiting remains limited if the wall clock moves backwards. Explicit
+Hub policy checks surround headless interruption; withdrawal is terminal and
+never selects a replacement Worker. Eight service tests passed in 12.08 s
+over the real SQL repository (`/tmp/ananta-meet-speaker-admission.log`). These
+are resource-service checks, not yet live output or API activation.
