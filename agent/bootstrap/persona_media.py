@@ -4,12 +4,14 @@ import os
 
 
 def configure_persona_media(app):
+    from agent.bootstrap.persona_generated_sources import configure_persona_generated_sources
     from agent.bootstrap.persona_profiles import configure_persona_profiles
     from agent.bootstrap.persona_videos import configure_persona_videos
     from agent.bootstrap.persona_voices import configure_persona_voices
     from agent.routes.persona_media import persona_media_bp
 
     app.register_blueprint(persona_media_bp)
+    configure_persona_generated_sources(app)
     configure_persona_videos(app)
     configure_persona_voices(app)
     _configure_persona_images(app)
