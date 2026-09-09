@@ -32,3 +32,19 @@ SOLID review: policy stays Hub-owned, each source owns its lifecycle, terminal
 observability is separate from execution status, and adapters preserve the old
 wire format. The large dialog composer/component remain existing SRP debt;
 this audit adds no new orchestration responsibility to either Worker or UI.
+
+## Current acceptance result
+
+The current-source focused matrix passed **357 tests in 152.64 s** using the
+normal harness-owned memory database. A preceding disk/WAL batch exposed an
+older speech-CAS test's missing project foreign-key fixture; it was interrupted
+after 37 passes and that failure (222.43 s), not counted as an aggregate pass.
+The test now creates its actual scoped Project before its Task. The corrected
+case also passes independently with WAL and real foreign-key enforcement in
+22.56 s. No database constraint, source policy or deadline was disabled.
+
+Together with the 267 current Meet/auth UI checks (2.46 s), optimized isolated
+build (25.669 s) and the separately documented actual private source/revocation
+checks above, this satisfies the four MAP-12 criteria. Task ownership remains
+exact and headless APIs are unchanged. MAP-11 recovery and MAP-24/26/27/29–32
+remain open; this is not whole-track or production release completion.

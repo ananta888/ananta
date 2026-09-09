@@ -657,10 +657,10 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M3",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-11"
       ],
@@ -670,7 +670,8 @@
         "Status/Fehler, Lease-/Policy-Revision, Stop-Grund und Ressourcenmetriken ohne Tokens, SDP, Raum-Invites oder Medieninhalte auditieren.",
         "UI zeigt Quelle, Eigentümer, KI-Kennzeichnung, Status und Widerrufsmöglichkeit; eine sichtbare Bedienoberfläche ist keine Voraussetzung für den automatischen Lauf."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "completion_note": "2026-09-09: All four independent source/control/stop/audit/UI criteria source-mapped in docs/contracts/meet-source-control-acceptance.md. Exact visual receive UI contract omission fixed c126c4056;267Meet/auth tests2.46s and isolated optimized build25.669s pass.357current-source controls/source replacement/receive cleanup/lifecycle/terminal/diagnostic regressions152.64s pass. InitialWALbatch1failed37passed222.43s interrupted: old speech-CAS fixture omitted required Project; fixed actual project seed, focused WAL/FK test passes22.56s without weakening constraints. Existing documented actual private interruption, avatar/screen, installed visual revoke/regrant and stalled-runtime/key cleanup establish their stated boundaries; no new production/public/soak claim. Per-Task owner-authorized Hub emergency stop, not unauthenticated global process kill. Remaining recovery/fair-speaking/multimodal attack/AV/public/soak milestones stay open."
     },
     {
       "id": "MAP-13",
@@ -1207,12 +1208,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 4,
+      "in_progress": 3,
       "partial": 4,
       "blocked": 0,
-      "done": 23
+      "done": 24
     },
-    "progress_percent_done": 71.9,
+    "progress_percent_done": 75.0,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1310,15 +1311,15 @@
         "total": 8,
         "by_status": {
           "todo": 0,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 6
+          "done": 7
         },
-        "done": 6,
+        "done": 7,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 83.1
+        "progress_percent": 90.6
       },
       "feature": {
         "total": 16,
@@ -1381,20 +1382,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 4,
+    "in_progress": 3,
     "partial": 4,
     "blocked": 0,
-    "done": 23,
-    "count_based_percent": 71.9,
-    "weighted_percent": 83.6
+    "done": 24,
+    "count_based_percent": 75.0,
+    "weighted_percent": 84.6
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 48.687,
-    "remaining_weight": 9.563,
+    "done_weight": 49.287,
+    "remaining_weight": 8.963,
     "blocked_weight": 0.0,
-    "weighted_percent": 83.6
+    "weighted_percent": 84.6
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1416,10 +1417,10 @@
       },
       "MAP-M3": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 85.4,
+        "count_based_percent": 75.0,
+        "weighted_percent": 94.6,
         "status": "in_progress"
       },
       "MAP-M4": {
@@ -1467,10 +1468,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T04:00:40.821249Z",
+    "generated_at": "2026-09-09T04:52:52.743896Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "3dee9f43d90b740de7721514230d0585de8a5de50cfd4eead6ec8194cb4be0c3",
+    "source_hash": "75b00cb8ba4ea53d0a3d6c714a5440efd79a5f1702e9e9fa9fb1a96d254b9eaa",
     "is_stale": false
   }
 }
