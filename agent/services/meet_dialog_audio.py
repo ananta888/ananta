@@ -135,6 +135,7 @@ class MeetDialogAudio:
             or child.tenant_id != scope.tenant_id
             or child.project_id != scope.project_id
             or getattr(child, "parent_task_id", None) != scope.task_id
+            or getattr(child, "assigned_agent_url", None) != getattr(parent, "assigned_agent_url", None)
             or organization_tuple(child) != organization_tuple(parent)
             or (child.worker_execution_context or {})
             != {"meet_audio": job, "parent_dispatch": scope.lease_id, "runtime_id": scope.runtime_id}
@@ -146,6 +147,7 @@ class MeetDialogAudio:
         return scope, receipt
 
     def complete(self, payload):
+        from agent.common.task_mutation_lock import get_task_mutation_lock_port
         from agent.services.source_control_access_policy import HubSourcePrincipal
 
         ids = tuple(payload[k] for k in ("task_id", "lease_id", "runtime_id"))
@@ -196,9 +198,12 @@ class MeetDialogAudio:
                     )
                     generated = self.replies.execute(current, principal, admission)
                     reply = {"text": generated["media"]["text"]}
-            self.current(ids, job)
-            if not self.tasks.finish_audio(scope, job, "completed", release=False):
-                raise MeetError("meet_audio_task_cancelled", 409)
+            with get_task_mutation_lock_port().mutation_locks({scope.task_id, job["task_id"]}) as acquired:
+                if not acquired:
+                    raise MeetError("meet_audio_completion_conflict", 409)
+                scope, _receipt = self.current(ids, job)
+                if not self.tasks.finish_audio(scope, job, "completed", release=False):
+                    raise MeetError("meet_audio_task_cancelled", 409)
             return {"schema": "ananta.meet-audio-result.v1", "nonce": payload["nonce"], "reply": reply}
         except Exception:
             self.tasks.finish_audio(scope, job, "failed")

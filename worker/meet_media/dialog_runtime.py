@@ -45,11 +45,14 @@ def start_audio(page, hub, assignment, state, meet_session):
         return None
     from worker.meet_media.dialog_audio import DialogAudioPump
 
-    delegated = hub.call("audio", meet_session_id=meet_session, publication_id=publication["publicationId"])
     try:
+        delegated = hub.call("audio", meet_session_id=meet_session, publication_id=publication["publicationId"])
         return DialogAudioPump(page, hub, assignment, delegated["job"])
     except Exception:
-        page.evaluate("window.anantaMachine.audio.close()")
+        try:
+            page.evaluate("window.anantaMachine.audio.close()")
+        except Exception:
+            pass  # A lost browser still fails the independent session/control loop.
         return None  # The Hub reservation bounds retries; no alternative source is inferred.
 
 

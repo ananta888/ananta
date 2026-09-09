@@ -61,6 +61,32 @@ physical microphone. Verify actual bounded sample counts, local recognition,
 current source revocation and no transcript persistence. This infrastructure
 slice itself does not establish live ASR success or reserve production evidence.
 
+### Worker-bound audio completion and readmission
+
+The actual packaged CUDA test exposed a missing `assigned_agent_url` on audio
+child Tasks. Audio reservation now copies the exact parent Worker and checks it
+in its parent CAS; current child authority rejects a different or missing Worker
+when the parent is assigned. The final policy reread and completion share parent/
+child mutation locks with repository control changes, as in visual completion.
+Existing unassigned legacy parents remain compatible; old mismatched live child
+rows fail closed instead of gaining post-hoc authority.
+
+A second source admission can be refused while an earlier original reservation
+deadline still applies. That source-local refusal now closes only the audio
+attempt, not the whole dialog. Independent Hub/session freshness checks remain
+unchanged; no alternative profile, source or fallback is inferred. Existing broad
+Hub dialog task/coordinator modules remain SRP debt; this fix preserves their
+ownership boundary instead of adding Worker orchestration.
+
+The focused Hub/contract selection passed118 tests in65.61s, and18 pump/readmission
+checks passed28.04s. The initial actual microphone/screen-audio pair subsequently
+passed109.35s with the packaged visual-era Worker and corrected Hub: exactly
+128,000 samples each, local CUDA recognition above the unchanged three-of-four
+synthetic-word threshold, no reply publication or transcript persistence.
+The fixture emits one complete synthetic phrase after Hub admission, rather than
+joining a looping utterance mid-sentence. Repeated-source/revocation acceptance
+with the newly packaged readmission fix is the next gate; no release claim.
+
 ## Receive-only capability separation
 
 The shared pure `audio_mode_permitted` predicate now guards Hub start,

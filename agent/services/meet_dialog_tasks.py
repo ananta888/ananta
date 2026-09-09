@@ -134,6 +134,7 @@ class HubDialogTasks:
         lifecycle.require_current(task, current.get("binding_task_id", ""))
         inherited = organization_tuple(task)
         parent_id = task.parent_task_id
+        worker_url = task.assigned_agent_url
         previous = current.get("audio_job")
         if (
             current.get("lease_id") != scope.lease_id
@@ -153,6 +154,7 @@ class HubDialogTasks:
                 and row.tenant_id == scope.tenant_id
                 and row.project_id == scope.project_id
                 and row.parent_task_id == parent_id
+                and row.assigned_agent_url == worker_url
                 and organization_tuple(row) == inherited
                 and row.worker_execution_context == context
             ),
@@ -182,6 +184,7 @@ class HubDialogTasks:
                 "project_id": scope.project_id,
                 **{key: value for key, value in inherited.items() if key != "team_id"},
                 "parent_task_id": scope.task_id,
+                "assigned_agent_url": worker_url,
                 "required_capabilities": ["meet_audio_receive"],
                 "worker_execution_context": {
                     "meet_audio": job,
