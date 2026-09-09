@@ -17,12 +17,24 @@ from worker.meet_media.dialog_control_exchange import DialogControlExchange
 
 
 @contextmanager
-def http_hub(tmp_path, monkeypatch, responses, *, speaker_floor=False, floor_projection=None, observe=None):
+def http_hub(
+    tmp_path,
+    monkeypatch,
+    responses,
+    *,
+    speaker_floor=False,
+    floor_projection=None,
+    observe=None,
+    reconnect=False,
+    response_factory=None,
+):
     key = b"synthetic-control-read-key-material"
     key_file = tmp_path / "control.key"
     key_file.write_bytes(key)
     key_file.chmod(0o600)
     value, calls = assignment(), []
+    if reconnect:
+        value["reconnect"] = True
     if speaker_floor:
         value["speaker_floor"] = True
         value["capabilities"] = sorted(set(value["capabilities"]) | {"speech.publish", "chat.read", "chat.send"})
@@ -51,7 +63,9 @@ def http_hub(tmp_path, monkeypatch, responses, *, speaker_floor=False, floor_pro
                 self.end_headers()
                 return
             raw = encode(
-                {
+                response_factory(payload, value)
+                if response_factory is not None
+                else {
                     "schema": "ananta.meet-dialog-state.v1",
                     "nonce": payload["nonce"],
                     "authorization": None,

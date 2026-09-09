@@ -29,10 +29,12 @@ from worker.meet_media.dialog_avatar_video_client import HubAvatarVideoClient
 from worker.meet_media.dialog_control_transport import ControlReadUnavailable, transient_control_read
 from worker.meet_media.dialog_speech_client import HubSpeechClient
 from worker.meet_media.persona_http import read_bounded
+from worker.meet_media.reconnect_receipt import ReconnectReceiptGate
 
 
 class HubDialogClient:
     def __init__(self, assignment):
+        self.recovery_receipts = ReconnectReceiptGate(assignment)
         self.speaker_floor = assignment.get("speaker_floor", False)
         self.speech_finished = None
         self.url = os.environ.get("MEET_HUB_DIALOG_URL", "")
@@ -97,6 +99,8 @@ class HubDialogClient:
         return HubAvatarVideoClient(self.url, self.key, self.ids, self.deadline).fetch(binding, reference, repeat_mode)
 
     def call(self, action, **fields):
+        if action == "reconnect":
+            self.recovery_receipts.require_enabled()
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *_args, **_kwargs):
                 raise ValueError("meet_dialog_redirect_denied")
@@ -147,6 +151,7 @@ class HubDialogClient:
                 "visual": "ananta.meet-visual-assignment.v1",
                 "visual_result": "ananta.meet-visual-accepted.v1",
                 "browser_finish": "ananta.meet-browser-finished.v1",
+                "reconnect": "ananta.meet-reconnect-state.v1",
             }[action]
             fields = {
                 "exchange": {"authorization", "renewal", "audio_job", "controls"},
@@ -157,6 +162,7 @@ class HubDialogClient:
                 "visual": {"job"},
                 "visual_result": set(),
                 "browser_finish": set(),
+                "reconnect": {"attempt", "state", "deadline_ms", "ready_ms", "meeting"},
             }[action]
             if action == "exchange" and self.avatar_images:
                 fields = fields | {"avatar"}
@@ -175,6 +181,8 @@ class HubDialogClient:
                 or value["nonce"] != payload["nonce"]
             ):
                 raise ValueError()
+            if action == "reconnect":
+                value = self.recovery_receipts.accept(value, payload)
             if action == "exchange":
                 validate_controls(value["controls"])
                 if self.speaker_floor and value["speaker_floor"] is not None:
@@ -193,6 +201,8 @@ class HubDialogClient:
                             raise ValueError("meet_dialog_browser_revision_changed")
             return value
         except Exception as error:
+            if action == "reconnect":
+                self.recovery_receipts.close()
             if isinstance(error, urllib.error.HTTPError):
                 try:
                     error.close()  # Do not retain an unread error body/socket across a retry.
