@@ -33,7 +33,7 @@ from agent.cli_backends.pi_runtime import pi_sdk_command
 from agent.cli_backends.provisioning import CliBackendProvisioningError, get_cli_backend_provisioner
 
 if TYPE_CHECKING:
-    from agent.cli_backends.coding_agent_targets import CodingAgentInferenceTarget
+    from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
 
 
 class PiCodingAgentProvider:

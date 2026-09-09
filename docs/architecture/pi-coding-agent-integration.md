@@ -432,3 +432,12 @@ Dispatch-Autorität. Die vorhandene Native-Workflow-Komposition besitzt dafür
 bereits Verify-only- und Hub-Budget-Ports; deren konkrete Bindung wird getrennt
 von DTOs und Prozessausführung implementiert. Keine produktive Pi-Aktivierung
 oder neue Autorität wird durch diese Vorbereitung eingeführt.
+
+Der Zielvertrag liegt jetzt in `ananta_contracts/coding_agent_target.py`.
+Der bestehende CLI-Import ist ein Reexport derselben Klasse; Felder,
+Unveränderlichkeit, öffentliche Metadaten und explizite Prozessprojektion
+bleiben erhalten. Ein separater isolierter Python-Prozess bestätigt, dass
+der gemeinsame Import kein `agent`-Modul oder Hub-Konfiguration lädt.
+46 Zielvertrags-/Aider-/Pi-Provider-/Runtime-Prüfungen bestehen in 36.66 Sekunden;
+Ruff und Namespace-Detektor sind grün. Diese SRP-/DIP-Korrektur stellt noch
+keine Task-Autorisierung oder Budgetreservierung bereit.

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Iterator
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
-    from agent.cli_backends.coding_agent_targets import CodingAgentInferenceTarget
+    from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
 
 PI_PROVIDER_NAME = "ananta"
 PI_VERSION = "0.85.1"
