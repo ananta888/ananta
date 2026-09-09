@@ -1189,16 +1189,17 @@
     },
     {
       "id": "MAP-31",
+      "integration_readiness_plan": "Source audit against Meet f67c9e5: new public /api/machine/integration exposes closed implemented ports/global ceiling/consent/lease metadata, not Hub/project authority. Extend read-only diagnostics with a separate strict versioned projection, retain legacy status/API and never derive rights from feature availability. Missing/unknown/inconsistent snapshots remain unavailable/unverified; tests cover malformed/secret-bearing fields, canonical capability lists and unchanged legacy behavior. No deployment/trust/login mutation; current normal2h frozen snapshot remains untouched. GitHub environment has named TUI OIDC secrets but no scoped issuer variables; existing workflow defaults ananta-e2e versus public ananta, so suitability remains unverified.",
       "live_readiness_current_result": "2026-09-09 laterhost-DNS-HTTPSrepeat succeeds:health/authrequired/SFramerequired/TURNconfiguredtrue,0rooms/participants,machineadmissionstilldisabled. Inspectedrunningimagef7c08107/revision92f583f34680cbf371a83872512cd9333cc41881 remainsolderthan21cff89code; no deployment/trustmodified. EarlierDNS timeout ishistorical,notcurrentblocker. ScopedHubtrust/projectpolicy/publicreceiver stillunverified. NoLIVE_OIDC_USERNAME/PASSWORD orKeycloakadmin keys inMeet.env/currentprocessenvironment; askedasynchronouslyforlocaltest-secret location withoutpausinglocalwork or requestingsecretvaluesinchat.",
       "live_readiness_source_audit": "2026-09-09 automatedread-only scripts/check_meet_live_readiness.py distinguishesHTTPShealth/auth/SFrame/machineadmission/TURNconfiguration, localimage/revision and exactunverifiedtrust/project/publicmedia claims. Actual loopbackTLSroutehealthy,auth+SFramerequired,TURNconfigured,0rooms/participants, machineadmissionDISABLED; inspectedrunningrevision92f583f34680cbf371a83872512cd9333cc41881, notnewcheckout. EarlierordinaryDNSrequesttimedout; localTLSnotpublicDNS/NATproof. No login,trust,room,deployment or foreignGPUchanges; selectednumeric/hash/booleanprojection excludesICEcredentials/configvalues. Need scopedtrustandverifieddeployment beforeactualpublicmachine/TURN/2hsoak. docs/contracts/meet-live-readiness.md.",
       "title": "Öffentliche Meet-Maschinenintegration und erzwungenen TURN-Pfad prüfen",
       "repository": "both",
       "type": "test",
       "milestone_id": "MAP-M8",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 10.0,
       "depends_on": [
         "MAP-30"
       ],
@@ -1262,8 +1263,8 @@
   "tasks_status_summary": {
     "total": 32,
     "by_status": {
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 2,
       "partial": 1,
       "blocked": 0,
       "done": 29
@@ -1407,8 +1408,8 @@
       "test": {
         "total": 3,
         "by_status": {
-          "todo": 1,
-          "in_progress": 1,
+          "todo": 0,
+          "in_progress": 2,
           "partial": 0,
           "blocked": 0,
           "done": 1
@@ -1416,7 +1417,7 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 50.0
+        "progress_percent": 53.3
       },
       "operations": {
         "total": 1,
@@ -1436,21 +1437,21 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 1,
-    "in_progress": 1,
+    "todo_remaining": 0,
+    "in_progress": 2,
     "partial": 1,
     "blocked": 0,
     "done": 29,
     "count_based_percent": 90.6,
-    "weighted_percent": 90.8
+    "weighted_percent": 91.2
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 52.875,
-    "remaining_weight": 5.375,
+    "done_weight": 53.1,
+    "remaining_weight": 5.15,
     "blocked_weight": 0.0,
-    "weighted_percent": 90.8
+    "weighted_percent": 91.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1515,7 +1516,7 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 25.0,
-        "weighted_percent": 41.9,
+        "weighted_percent": 44.3,
         "status": "in_progress"
       }
     }
@@ -1523,10 +1524,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T16:55:06.957235Z",
+    "generated_at": "2026-09-09T17:25:34.232685Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "fa2eb7ca408c8d8af6ffaca95384c3e5bc58ef148f2d55b4896418ad9a4ae849",
+    "source_hash": "1ce10cc5753847e039a1047be7fa9caf19148c090bf31dcc9fde1f74c9d16697",
     "is_stale": false
   }
 }
