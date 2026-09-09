@@ -1,4 +1,5 @@
-# Test-only dependency image must be supplied by immutable digest/image ID.
+# Supply a repository digest, or a private local tag whose image ID is verified
+# before/after building. BuildKit does not accept bare sha256 image IDs in FROM.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 WORKDIR /fixtureapp
