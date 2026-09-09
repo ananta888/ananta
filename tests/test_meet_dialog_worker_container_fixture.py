@@ -38,7 +38,7 @@ def test_bad_configuration_has_no_docker_side_effects(patch):
     command.assert_not_called()
 
 
-def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False, browser_documents=False):
+def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False, browser_documents=False, gpu=False):
     calls = []
     key, cert = tmp_path / "key", tmp_path / "cert"
     key.write_bytes(b"synthetic")
@@ -61,9 +61,23 @@ def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False,
         return ""
 
     worker = DialogWorkerContainer(
-        NETWORK, IMAGE, HUB, diagnostics=diagnostics, browser_documents=browser_documents, command=command
+        NETWORK, IMAGE, HUB, diagnostics=diagnostics, browser_documents=browser_documents, gpu=gpu, command=command
     )
     return SimpleNamespace(**locals())
+
+
+def test_gpu_profile_adds_only_explicit_resource_port_and_memory_budget(tmp_path, monkeypatch):
+    resources = Mock(return_value=["--env=LD_LIBRARY_PATH=/host-nvidia"])
+    monkeypatch.setattr("tests.meet_dialog_gpu_resources.receive_gpu_arguments", resources)
+    f = fixture(tmp_path, monkeypatch, gpu=True)
+    try:
+        f.worker.start(f.key, f.cert, PIN)
+        create = next(call for call in f.calls if call[0] == "create")
+        assert "--memory=4g" in create and "--memory=1g" not in create
+        assert "--env=LD_LIBRARY_PATH=/host-nvidia" in create
+        resources.assert_called_once_with(f.worker.command)
+    finally:
+        f.worker.close()
 
 
 @pytest.mark.parametrize("diagnostics", [False, True])

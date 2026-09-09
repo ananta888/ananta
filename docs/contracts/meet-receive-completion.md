@@ -44,6 +44,23 @@ MAP-25 stays open until all acceptance criteria, including visual analysis,
 have been implemented and verified. Small reviewed commits are checkpoints,
 not completion of the overall 32-task request.
 
+### Packaged receive GPU fixture
+
+The existing owned dialog-container fixture now offers an explicit boolean GPU
+profile, default off. A separate resource adapter checks free GPU capacity and
+projects only allowlisted read-only driver files, fixed NVIDIA devices and the
+read-only installed model directory. No application source, serving credentials,
+provider endpoint or serving container configuration is copied. The opt-in
+profile has a 4GiB container memory budget; the existing non-GPU profile remains
+1GiB. Forty-six infrastructure/cleanup checks passed in25.05s, including refusal
+before Docker on invalid configuration and exact owned-resource cleanup.
+
+Next: use this profile for real packaged browser-to-local-CUDA ASR over the
+private Meet fixture. A test-owned synthetic spoken source is permitted, not a
+physical microphone. Verify actual bounded sample counts, local recognition,
+current source revocation and no transcript persistence. This infrastructure
+slice itself does not establish live ASR success or reserve production evidence.
+
 ## Receive-only capability separation
 
 The shared pure `audio_mode_permitted` predicate now guards Hub start,

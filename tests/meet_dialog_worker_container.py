@@ -21,6 +21,7 @@ class DialogWorkerContainer:
         lifetime=180,
         diagnostics=False,
         browser_documents=False,
+        gpu=False,
         network_namespace=None,
         relay_url=None,
         command=docker,
@@ -45,6 +46,8 @@ class DialogWorkerContainer:
             raise ValueError("test_worker_diagnostics_invalid")
         if type(browser_documents) is not bool:
             raise ValueError("test_worker_browser_documents_invalid")
+        if type(gpu) is not bool:
+            raise ValueError("test_worker_gpu_invalid")
         if network_namespace is not None and (
             not isinstance(network_namespace, str) or not re.fullmatch(r"[a-f0-9]{64}", network_namespace)
         ):
@@ -58,6 +61,7 @@ class DialogWorkerContainer:
         self.network, self.image, self.hub_url, self.lifetime, self.command = network, image, hub_url, lifetime, command
         self.diagnostics = diagnostics
         self.browser_documents = browser_documents
+        self.gpu = gpu
         self.network_namespace, self.relay_url = network_namespace, relay_url
         self.name = "meet-test-dialog-worker-" + str(uuid4())
         self.created, self.origin = False, None
@@ -93,6 +97,11 @@ class DialogWorkerContainer:
         for path, _ in mounts:
             if path.is_symlink() or not path.is_file():
                 raise ValueError("test_worker_mount_invalid")
+        gpu_arguments = []
+        if self.gpu:
+            from tests.meet_dialog_gpu_resources import receive_gpu_arguments
+
+            gpu_arguments = receive_gpu_arguments(self.command)
         self.created = True  # Covers an uncertain create result in cleanup.
         self.command(
             "create",
@@ -108,10 +117,11 @@ class DialogWorkerContainer:
             "--tmpfs=/tmp:size=256m,mode=1777",
             "--tmpfs=/state:size=32m,uid=1000,gid=1000,mode=0700",
             "--shm-size=256m",
-            "--memory=1g",
+            "--memory=4g" if self.gpu else "--memory=1g",
             "--pids-limit=256",
             "--cpus=2",
             "--init",
+            *gpu_arguments,
             *(
                 argument
                 for source, target in mounts
