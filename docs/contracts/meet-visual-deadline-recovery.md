@@ -27,3 +27,22 @@ clock, shutdown and CAS coordination. Keep its public `KINDS` and
 `original_deadline` entry points compatible. This removes an expanding
 kind-specific conditional from the scheduler rather than introducing visual
 execution or policy authority into it.
+
+## Implemented and verified
+
+The real TaskQueue/SQL regression failed before implementation in **8.46 s**:
+the child was absent from the scanner. The immutable per-kind binding registry
+now includes visual children and their fixed audit event. Generic paging and
+settlement use that registry; the parent/audio/browser validation rules retain
+their existing behavior and public entry points.
+
+The first combined deadline/background/browser suite passed **74 tests in
+35.77 s**. The final visual lifecycle/deadline/browser suite passed **89 tests in
+40.50 s**, including rejection of a self-parent, malformed/foreign child,
+missing dispatch/runtime, extra fields, unknown profile and invalid deadline.
+The actual SQL child remains live just before its original deadline, settles
+once at that deadline without a Worker result, leaves the parent live, retains
+its unchanged execution context and is not redispatched. A fresh scanner and
+repeated CAS leave the terminal snapshot unchanged. Ruff and diff checks pass.
+Clocks in these deterministic tests are explicit fixtures; this does not claim
+a real-clock crash, full Hub-process restart or production recovery result.

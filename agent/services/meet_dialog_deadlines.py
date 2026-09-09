@@ -4,11 +4,9 @@ import math
 import time
 from typing import Callable, Protocol
 
-KINDS = {
-    "meet_dialog_session": "meet_dialog",
-    "meet_audio_receive": "meet_audio",
-    "meet_browser_workspace": "meet_browser_job",
-}
+from agent.services.meet_deadline_bindings import DEADLINE_BINDINGS, deadline_identifier
+
+KINDS = {kind: binding.context_key for kind, binding in DEADLINE_BINDINGS.items()}
 
 
 class DialogDeadlineStore(Protocol):
@@ -16,63 +14,19 @@ class DialogDeadlineStore(Protocol):
     def settle(self, candidate: dict, still_expired: Callable[[], bool]) -> bool: ...
 
 
-def _identifier(value):
-    return isinstance(value, str) and 0 < len(value) <= 191
-
-
 def original_deadline(candidate):
     """Inspect only a known task's captured identity; missing fields are not defaults."""
     if (
         not isinstance(candidate, dict)
         or set(candidate) != {"task_id", "task_kind", "tenant_id", "project_id", "parent_task_id", "context"}
-        or not all(_identifier(candidate[key]) for key in ("task_id", "tenant_id", "project_id"))
+        or not all(deadline_identifier(candidate[key]) for key in ("task_id", "tenant_id", "project_id"))
         or not isinstance(candidate["task_kind"], str)
         or candidate["task_kind"] not in KINDS
         or not isinstance(candidate["context"], dict)
     ):
         raise ValueError("meet_deadline_task_invalid")
-    context = candidate["context"]
-    binding = context.get(KINDS[candidate["task_kind"]])
-    if candidate["task_kind"] == "meet_browser_workspace":
-        from ananta_contracts.meet_browser_workspace import validate_browser_job
-
-        job = validate_browser_job(binding)
-        if set(context) != {"meet_browser_job", "parent_dispatch", "runtime_id"} or (
-            job["task_id"],
-            job["parent_task_id"],
-            job["tenant_id"],
-            job["project_id"],
-            job["parent_lease_id"],
-            job["runtime_id"],
-        ) != (
-            candidate["task_id"],
-            candidate["parent_task_id"],
-            candidate["tenant_id"],
-            candidate["project_id"],
-            context["parent_dispatch"],
-            context["runtime_id"],
-        ):
-            raise ValueError("meet_deadline_binding_invalid")
-        return job["deadline_ms"] / 1000
-    if (
-        not isinstance(binding, dict)
-        or not _identifier(binding.get("lease_id"))
-        or type(binding.get("deadline")) is not int
-        or not 0 < binding["deadline"] < 2**53
-    ):
-        raise ValueError("meet_deadline_binding_invalid")
-    if candidate["task_kind"] == "meet_dialog_session":
-        valid = _identifier(binding.get("runtime_id"))
-    else:
-        valid = (
-            _identifier(candidate["parent_task_id"])
-            and binding.get("task_id") == candidate["task_id"]
-            and _identifier(context.get("parent_dispatch"))
-            and _identifier(context.get("runtime_id"))
-        )
-    if not valid:
-        raise ValueError("meet_deadline_binding_invalid")
-    return binding["deadline"]
+    binding = DEADLINE_BINDINGS[candidate["task_kind"]]
+    return binding.read(candidate, candidate["context"].get(binding.context_key))
 
 
 class MeetDialogDeadlines:

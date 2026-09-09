@@ -42,6 +42,7 @@ class SqlDialogDeadlines:
             ]
 
     def settle(self, candidate, still_expired):
+        from agent.services.meet_deadline_bindings import DEADLINE_BINDINGS
         from agent.services.meet_dialog_deadlines import original_deadline
 
         original_deadline(candidate)  # This port cannot settle arbitrary task kinds or malformed bindings.
@@ -56,11 +57,7 @@ class SqlDialogDeadlines:
             and row.project_id == expected["project_id"]
             and row.parent_task_id == expected["parent_task_id"]
             and row.worker_execution_context == expected["context"],
-            event_type={
-                "meet_dialog_session": "meet_dialog_deadline_expired",
-                "meet_audio_receive": "meet_audio_deadline_expired",
-                "meet_browser_workspace": "meet_browser_deadline_expired",
-            }[expected["task_kind"]],
+            event_type=DEADLINE_BINDINGS[expected["task_kind"]].event_type,
             event_actor="hub",
             event_details={"reason": "original_deadline_expired"},
         )
