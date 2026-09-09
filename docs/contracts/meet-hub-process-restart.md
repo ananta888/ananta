@@ -60,3 +60,42 @@ starting that Hub. The Worker fixture may use a non-gateway Hub endpoint only
 when it matches this exact owned restart-test container and port. Existing
 host-Hub fixtures keep their gateway restriction. No public port, serving
 container, broad subnet trust, new network route or timeout relaxation.
+
+## Installed acceptance result
+
+The complete real-clock gate now passes in **168.41 s** with packaged Hub
+`sha256:3751c382b380433366aa0506aa436e8d28bf378b8c6052cc7ee08c6e7e53f352`
+(source 8faf98a00), separate unchanged Worker
+`sha256:55ec55247f2ee83285ac40fb83eb3781b6dbd99e8a15c98447e33a7d3aa745c2`,
+and private Meet a98706f (production frontend at 2803903; intervening changes
+are fixture/test/planning only).
+
+Actual authorized camera frames completed the native visual child before
+SIGKILL of the exact owned Hub. The old runtime/browser stopped in **2833.80 ms**,
+inside the unchanged four-second gate, while its Worker container remained.
+The private Meet room then contained only its synthetic source participant.
+The same Hub container restarted with a different process and the same
+persistent database: one dialog Task, unchanged original deadline and already
+completed child, no dispatch or new participant. The native background scanner
+failed the orphan parent only at its original real-clock deadline, with exactly
+one expiry event. Repeated status reads retained that terminal snapshot.
+
+The fixture uses a fixed address from its own private network, checked against
+the stopped container's explicit IPAM setting before Worker configuration and
+against the running address afterward. No host port is published. The endpoint,
+container and existing Worker fixture matrix passed 88 tests in 39.38 s.
+
+Additional fixture defects found and corrected during this gate: the analysis
+view unmounts the live participant counter (now read from the actual private
+Meet registry), the installed binary also uses `chrome-headless-shell` (now
+included in orphan detection), and the UI's active-only Task list excludes a
+terminal Task (now counted through an injected scoped all-status SQL query).
+The final counter/control checks passed 22 cases in 22.98 s. These failed
+attempts are not additional passed restart runs or production defects.
+The final JUnit emitted its existing xunit2/record_property compatibility
+warning; the closed numeric observation is present in the XML.
+
+All owned containers/networks were cleaned; test-owned SQL remains recoverable
+under the pytest temporary directory. This remains synthetic-policy technical
+acceptance, not Registry-grounded production evidence, automatic room rejoin,
+lossless dialogue resumption or Hub HA. MAP-11 therefore remains open.

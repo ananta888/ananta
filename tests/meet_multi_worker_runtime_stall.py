@@ -52,7 +52,7 @@ while time.monotonic() - began < 4:
         break
     time.sleep(0.025)
 assert not remaining, 'stalled runtime or owned browser descendants survived watchdog'
-browser_names = {b'chrome', b'chrome_crashpad_handler', b'headless_shell', b'node'}
+browser_names = {b'chrome', b'chrome-headless-shell', b'chrome_crashpad_handler', b'headless_shell', b'node'}
 assert not any(row['state'] != 'Z' and os.path.basename(row['args'][0]) in browser_names
     for row in processes().values()), 'untracked browser process survived'
 print(json.dumps({'runtime_frozen': True, 'known_descendants': len(owned) - 1,
