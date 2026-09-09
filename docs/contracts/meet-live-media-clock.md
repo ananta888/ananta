@@ -131,3 +131,11 @@ the exact-match fence rejects all six before contacting either Worker. All 49
 router, timing negotiation and assignment transport cases then passed in
 28.97 s. This is a dispatch-binding correction, not an explanation for unrelated
 intermittent browser timing failures.
+
+The first packaged two-Worker timing/reconnect gate failed during Hub admission
+in 31.61 s: the phase coordinator omitted `media_timing` when reconstructing
+the authoritative phase digest. The stored binding correctly included it, so
+startup failed closed before browser dispatch. The coordinator now preserves
+the flag. Two real SQL-Task regression cases cover startup, join, coordinator
+restart and rejection of flag removal, with and without reconnect. All 72
+phase/model/negotiation tests passed in 34.70 s; the live gate must be repeated.

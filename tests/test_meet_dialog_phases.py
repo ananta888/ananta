@@ -13,13 +13,14 @@ from tests.test_meet_dialog_avatar_negotiation import system
 pytestmark = pytest.mark.timeout(45)
 
 
-def setup(*, reconnect=False):
+def setup(*, reconnect=False, media_timing=False):
     from agent.services.task_runtime_service import compare_and_set_local_task_status
 
     f = system()
     f.store = TaskDialogPhases(f.tasks, task_status_cas=compare_and_set_local_task_status)
     f.phases = MeetDialogPhases(f.store, f.f.authority, f.meet, clock=lambda: f.f.now)
     f.service.phases = f.phases
+    f.service.media_timing = media_timing
     if reconnect:
         f.service.recovery = Mock()
     f.started = f.service.start(f.principal, "project", f.payload)
@@ -39,6 +40,22 @@ def setup(*, reconnect=False):
 
 def inspect(f, refresh=False):
     return f.phases.inspect(f.principal, "project", f.task_id, refresh=refresh)
+
+
+@pytest.mark.parametrize("reconnect", [False, True])
+def test_negotiated_timing_survives_phase_start_join_and_restart_but_cannot_be_removed(app, reconnect):
+    from dataclasses import replace
+
+    with app.app_context():
+        f = setup(reconnect=reconnect, media_timing=True)
+        assert inspect(f)["phase"] == "connecting"
+        assert f.scope.media_timing is True
+        f.phases.advance(f.scope, "joined", f.state)
+        f.phases = MeetDialogPhases(f.store, f.f.authority, f.meet, clock=lambda: f.f.now)
+        assert inspect(f, True)["phase"] == "publishing"
+        with pytest.raises(MeetError, match="phase_conflict"):
+            f.phases.advance(replace(f.scope, media_timing=False), "joined", f.state)
+        assert f.worker.start_dialog.call_count == 1
 
 
 def test_new_task_persists_phases_and_restarted_coordinator_retains_terminal_precedence(app):
