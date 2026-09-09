@@ -69,6 +69,20 @@ def test_uncertain_dispatch_preserves_exception_without_retry_or_fallback():
     f.first.start_dialog.assert_not_called()
 
 
+@pytest.mark.parametrize("field", ["media_timing", "speaker_floor", "reconnect"])
+@pytest.mark.parametrize("added", [False, True])
+def test_dispatch_cannot_add_or_remove_hub_negotiated_execution_fences(field, added):
+    f = fixture()
+    f.value["capabilities"].append("speech.publish")
+    setattr(f.scope, field, not added)
+    if added:
+        f.value[field] = True
+    with pytest.raises(MeetError, match="publisher_binding_denied"):
+        f.router.start_dialog(f.value)
+    f.first.start_dialog.assert_not_called()
+    f.second.start_dialog.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "field", ["task_id", "lease_id", "runtime_id", "session_id", "tenant_id", "project_id", "deadline", "audio_mode"]
 )

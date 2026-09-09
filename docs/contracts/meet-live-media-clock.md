@@ -123,3 +123,11 @@ policy helper rather than adding another conditional to its complexity limit.
 No source lifecycle or scheduling moves into that helper. Full packaged Worker
 acceptance using the actual option remains required before calling this an
 installed integration result.
+
+The final Hub publisher router now also compares `media_timing`, `speaker_floor`
+and `reconnect` against the current authority. Six negative cases first exposed
+that these options could be added or removed at dispatch without rejection;
+the exact-match fence rejects all six before contacting either Worker. All 49
+router, timing negotiation and assignment transport cases then passed in
+28.97 s. This is a dispatch-binding correction, not an explanation for unrelated
+intermittent browser timing failures.
