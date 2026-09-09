@@ -12,6 +12,7 @@ class SpeakerFloorPort(Protocol):
     def poll(self, turn: SpeakerTurn, now_ms: int): ...
     def current(self, turn: SpeakerTurn, permit: dict, now_ms: int): ...
     def cancel(self, turn: SpeakerTurn, now_ms: int): ...
+    def preempt(self, turn: SpeakerTurn, now_ms: int): ...
 
 
 class MeetSpeakerFloor:
@@ -21,8 +22,10 @@ class MeetSpeakerFloor:
     def _now(self):
         return int(self.clock() * 1000)
 
-    def acquire(self, turn, require_current):
+    def acquire(self, turn, require_current, *, interrupt=False):
         """Reserve one resource for an already admitted Hub turn, not a new task."""
+        if type(interrupt) is not bool:
+            raise ValueError("meet_speaker_interruption_policy_invalid")
         end = self.monotonic() + min(WAIT_MS, max(0, turn.deadline_ms - self._now())) / 1000
 
         def require():
@@ -33,6 +36,9 @@ class MeetSpeakerFloor:
         require()
         self.store.reserve(turn, self._now())
         try:
+            if interrupt:
+                require()
+                self.store.preempt(turn, self._now())
             while True:
                 require()
                 permit = self.store.poll(turn, self._now())

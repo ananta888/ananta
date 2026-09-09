@@ -6,6 +6,7 @@ from typing import Protocol
 from agent.models.meet_speaker_floor import CLEANUP_MS, SpeakerOwner, SpeakerTurn
 from agent.services.meet_contract import MeetError
 from agent.services.meet_speaker_floor import MeetSpeakerFloor
+from agent.services.meet_speaker_policy import MeetSpeakerPolicy
 from ananta_contracts.meet_speaker_floor import validate_speaker_permit
 
 
@@ -34,10 +35,11 @@ class MeetDialogSpeakerFloor:
         clock=time.time,
         monotonic=time.monotonic,
         priority=None,
+        policy=None,
     ):
         self.admission, self.states, self.clock = admission, states, clock
         self.monotonic, self.ready_at = monotonic, monotonic() + CLEANUP_MS / 1000
-        self.priority = priority if priority is not None else lambda _scope: 0
+        self.priority, self.policy = priority, policy if policy is not None else MeetSpeakerPolicy([])
 
     def require_ready(self):
         if self.monotonic() < self.ready_at:
@@ -47,7 +49,15 @@ class MeetDialogSpeakerFloor:
         require_speaker_mode(scope, self)
         self.require_ready()
         binding = response["reply"]["binding"]
-        turn = SpeakerTurn.from_binding(scope.origin, binding, reservation.intent_id, priority=self.priority(scope))
+        decision = self.policy.decide(scope)
+        turn = SpeakerTurn.from_binding(
+            scope.origin,
+            binding,
+            reservation.intent_id,
+            priority=decision.priority if self.priority is None else self.priority(scope),
+            organization_id=decision.organization_id,
+            policy_digest=decision.policy_digest if self.priority is None else None,
+        )
         if turn.owner != SpeakerOwner.from_scope(scope):
             raise MeetError("meet_speaker_turn_changed", 409)
 
@@ -56,7 +66,7 @@ class MeetDialogSpeakerFloor:
             if active is None or active.scope != reservation.scope:
                 raise MeetError("meet_spoken_authority_changed", 409)
 
-        permit = self.admission.acquire(turn, require_current)
+        permit = self.admission.acquire(turn, require_current, interrupt=self.priority is None and decision.barge_in)
         try:
             permit = validate_speaker_permit(permit, deadline_ms=binding["deadline_ms"])
             self.admission.require_current(turn, permit, require_current)

@@ -1,5 +1,6 @@
 """Headless policy and deadline checks over real SQL speaker-resource leases."""
 
+from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
@@ -117,3 +118,24 @@ def test_rejected_initial_authority_creates_no_reservation(store):
     with pytest.raises(MeetError, match="synthetic_revoked"):
         Clock().service(store).acquire(turn(), denied)
     assert rows(store) == []
+
+
+def test_automatic_higher_priority_admission_is_explicit_and_waits_through_quarantine(store):
+    clock = Clock()
+    service = clock.service(store)
+    first, next_turn = replace(turn(), organization_id="org"), replace(turn(2, priority=2), organization_id="org")
+    old = service.acquire(first, lambda: None)
+    permit = service.acquire(next_turn, lambda: None, interrupt=True)
+    assert permit["sequence"] == 2
+    assert 4 <= clock.elapsed < 4.2
+    assert not store.current(first, old, int(clock.wall * 1000))
+
+
+def test_high_priority_without_explicit_interruption_policy_cannot_preempt(store):
+    clock = Clock()
+    service = clock.service(store)
+    first, next_turn = replace(turn(), organization_id="org"), replace(turn(2, priority=2), organization_id="org")
+    old = service.acquire(first, lambda: None)
+    with pytest.raises(MeetError, match="wait_expired|turn_inactive"):
+        service.acquire(next_turn, lambda: None)
+    assert store.current(first, old, int(clock.wall * 1000))

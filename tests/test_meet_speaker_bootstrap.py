@@ -37,3 +37,28 @@ def test_explicit_bootstrap_wires_same_durable_resource_into_both_service_ports(
         assert service.ready_at > service.monotonic()
     finally:
         engine.dispose()
+
+
+@pytest.mark.parametrize("raw", ["{}", "null", "[{}]", '[{"priority":1,"priority":2}]', "[" * 20, " " * 131073])
+def test_malformed_operator_priority_config_fails_before_database_writes(monkeypatch, raw):
+    monkeypatch.setenv("ANANTA_MEET_SPEAKER_FLOOR", "1")
+    monkeypatch.setenv("ANANTA_MEET_SPEAKER_POLICIES", raw)
+    engine = Mock()
+    with pytest.raises(ValueError):
+        configured_speaker_floor(engine)
+    assert not engine.mock_calls
+
+
+def test_bootstrap_reads_explicit_role_priority_policy(monkeypatch, tmp_path):
+    import json
+
+    from tests.test_meet_speaker_policy import rule, scope
+
+    monkeypatch.setenv("ANANTA_MEET_SPEAKER_FLOOR", "1")
+    monkeypatch.setenv("ANANTA_MEET_SPEAKER_POLICIES", json.dumps([rule()]))
+    engine = create_engine(f"sqlite:///{tmp_path / 'speaker-priority-config.sqlite'}")
+    try:
+        decision = configured_speaker_floor(engine).policy.decide(scope())
+        assert decision.priority == 2 and decision.barge_in
+    finally:
+        engine.dispose()

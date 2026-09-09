@@ -212,3 +212,27 @@ class SqlMeetSpeakerFloor:
                     else {"state": "finished"}
                 )
                 connection.execute(update(turns).where(turns.c.id == row["id"]).values(**values))
+
+    def preempt(self, turn, now_ms):
+        """Apply an explicit Hub decision only against a lower-priority same-org turn."""
+        with self._locked(turn, now_ms) as connection:
+            waiting = self._row(connection, turn)
+            if waiting["state"] != "queued" or turn.priority == 0 or not turn.organization_id:
+                return False
+            active = (
+                connection.execute(select(turns).where(turns.c.room_id == turn.room_key, turns.c.state == "active"))
+                .mappings()
+                .first()
+            )
+            if (
+                active is None
+                or active["binding"]["priority"] >= turn.priority
+                or any(
+                    active["binding"].get(k) != turn.metadata[k] for k in ("tenant_id", "project_id", "organization_id")
+                )
+            ):
+                return False
+            connection.execute(
+                update(turns).where(turns.c.id == active["id"]).values(state="quarantine", quiet_ms=now_ms + CLEANUP_MS)
+            )
+            return True

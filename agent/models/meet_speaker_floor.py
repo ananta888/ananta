@@ -74,6 +74,8 @@ class SpeakerTurn:
     binding_json: str
     turn_id: str
     priority: int = 0
+    organization_id: str = ""
+    policy_digest: str | None = None
 
     def __post_init__(self):
         if not isinstance(self.origin, str) or not isinstance(self.binding_json, str) or len(self.binding_json) > 8192:
@@ -83,6 +85,11 @@ class SpeakerTurn:
             or not ID.fullmatch(self.turn_id)
             or type(self.priority) is not int
             or not 0 <= self.priority <= 2
+            or not isinstance(self.organization_id, str)
+            or self.organization_id
+            and not ID.fullmatch(self.organization_id)
+            or self.policy_digest is not None
+            and (not isinstance(self.policy_digest, str) or not re.fullmatch(r"[a-f0-9]{64}", self.policy_digest))
         ):
             raise ValueError("meet_speaker_turn_invalid")
         binding = validate_spoken_binding(json.loads(self.binding_json))
@@ -91,8 +98,15 @@ class SpeakerTurn:
         self.owner  # Validate the shared origin/room/owner boundary in one place.
 
     @classmethod
-    def from_binding(cls, origin, binding, turn_id, *, priority=0):
-        return cls(origin, json.dumps(binding, sort_keys=True, separators=(",", ":")), turn_id, priority)
+    def from_binding(cls, origin, binding, turn_id, *, priority=0, organization_id="", policy_digest=None):
+        return cls(
+            origin,
+            json.dumps(binding, sort_keys=True, separators=(",", ":")),
+            turn_id,
+            priority,
+            organization_id,
+            policy_digest,
+        )
 
     @property
     def binding(self):
@@ -127,6 +141,8 @@ class SpeakerTurn:
             "authority_digest": _digest([self.origin, self.binding_json, self.turn_id]),
             "deadline_ms": self.deadline_ms,
             "priority": self.priority,
+            "organization_id": self.organization_id,
+            **({"policy_digest": self.policy_digest} if self.policy_digest is not None else {}),
         }
 
 

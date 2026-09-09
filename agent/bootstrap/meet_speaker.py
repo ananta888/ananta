@@ -12,7 +12,12 @@ def configured_speaker_floor(engine):
     from agent.repositories.meet_speaker_floor import SqlMeetSpeakerFloor
     from agent.services.meet_dialog_speaker_floor import MeetDialogSpeakerFloor
     from agent.services.meet_speaker_floor import MeetSpeakerFloor
+    from agent.services.meet_speaker_policy import MeetSpeakerPolicy
+    from ananta_contracts.persona_inspection_wire import parse_inspection_json
 
+    policy = MeetSpeakerPolicy(
+        parse_inspection_json(os.environ.get("ANANTA_MEET_SPEAKER_POLICIES", "[]").encode("utf-8"), maximum=131072)
+    )
     states = SqlMeetSpeakerFloor(engine)
     states.initialize()
-    return MeetDialogSpeakerFloor(MeetSpeakerFloor(states), states)
+    return MeetDialogSpeakerFloor(MeetSpeakerFloor(states), states, policy=policy)

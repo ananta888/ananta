@@ -284,6 +284,56 @@ def test_owner_withdrawal_retires_queued_and_active_turns_but_not_other_tasks(st
     assert store.projection(other.owner, NOW + CLEANUP_MS)["sequence"] == 3
 
 
+def test_explicit_higher_priority_preemption_waits_for_old_source_quarantine(store):
+    first = replace(turn(), organization_id="org", policy_digest="a" * 64)
+    urgent = replace(turn(2, priority=2), organization_id="org", policy_digest="b" * 64)
+    store.reserve(first, NOW)
+    permit = store.poll(first, NOW)
+    store.reserve(urgent, NOW + 100)
+    assert store.preempt(urgent, NOW + 100)
+    assert not store.current(first, permit, NOW + 100)
+    assert not store.preempt(urgent, NOW + 101)
+    assert store.poll(urgent, NOW + 100 + CLEANUP_MS - 1) is None
+    assert store.poll(urgent, NOW + 100 + CLEANUP_MS)["sequence"] == 2
+    with pytest.raises(MeetError, match="duplicate_turn"):
+        store.reserve(first, NOW + 5000)
+    assert rows(store)[0]["binding"]["policy_digest"] == "a" * 64
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"organization_id": "other"},
+        {"organization_id": ""},
+        {"priority": 0},
+        {"tenant_id": "other"},
+        {"project_id": "other"},
+    ],
+)
+def test_preemption_cannot_cross_organization_tenant_project_or_equal_priority(store, change):
+    first = replace(turn(), organization_id="org")
+    args = {k: v for k, v in change.items() if k in {"tenant_id", "project_id"}}
+    urgent = replace(
+        turn(2, priority=change.get("priority", 2), **args), organization_id=change.get("organization_id", "org")
+    )
+    store.reserve(first, NOW)
+    permit = store.poll(first, NOW)
+    store.reserve(urgent, NOW)
+    assert not store.preempt(urgent, NOW)
+    assert store.current(first, permit, NOW)
+
+
+def test_withdrawn_waiter_cannot_interrupt_anyone(store):
+    first = replace(turn(), organization_id="org")
+    urgent = replace(turn(2, priority=2), organization_id="org")
+    store.reserve(first, NOW)
+    permit = store.poll(first, NOW)
+    store.reserve(urgent, NOW)
+    store.cancel(urgent, NOW)
+    assert not store.preempt(urgent, NOW)
+    assert store.current(first, permit, NOW)
+
+
 @pytest.mark.parametrize(
     "change",
     [

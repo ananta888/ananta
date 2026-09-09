@@ -146,3 +146,40 @@ completion, current speech pause and immutable preauthorization. Automatic
 role-priority interruption and real two-Worker audio acceptance remain next.
 An additional 25 ordinary bootstrap, preauthorization, route and authority
 regressions passed in 20.42 s (`/tmp/ananta-meet-speaker-composition.log`).
+
+## Role priority and automatic interruption
+
+`ANANTA_MEET_SPEAKER_POLICIES` is a closed list of at most 64 operator rules.
+Each names `tenant_id`, `project_id`, `organization_id`, `role_slot_id`,
+`policy_id`, positive `revision`, integer `priority` (0–2) and boolean
+`barge_in`. Duplicate scopes, wildcards, ambiguous numbers and extra fields
+are rejected. An example rule is:
+
+```json
+{"tenant_id":"example","project_id":"example","organization_id":"example-org","role_slot_id":"chair","policy_id":"chair-speech","revision":1,"priority":2,"barge_in":true}
+```
+
+Only the exact current verified Hub machine principal selects this rule.
+Unlisted roles and legacy principals use priority 0 without automatic
+interruption. The immutable rule digest and organization scope are persisted
+with the resource reservation; neither is an evidence-registry identity.
+The optional existing injected priority callback stays substitutable, but
+cannot enable automatic interruption or claim a configured rule digest.
+
+An already admitted new input with an explicit `barge_in` rule can retire
+only a strictly lower-priority active permit in the same tenant, project and
+organization. It still waits through four seconds of cleanup and normal
+queue ordering. An ended waiter, equal priority, foreign organization or
+ordinary priority without that rule cannot interrupt. A preempted input is
+aborted, not retried or requeued; pending-turn aging is not a promise that
+low-priority speech finishes despite explicitly authorized interruption.
+Default FIFO mode never preempts. Original wait/output/task limits remain.
+
+112 combined policy/SQL/service/native-dialog checks passed in 48.76 s;
+15 configuration checks passed in 16.14 s, including malformed/duplicate JSON
+before any store write. Logs: `/tmp/ananta-meet-speaker-priority.log` and
+`/tmp/ananta-meet-speaker-policy-config.log`. The full Worker Dockerfile built
+tracked source `82a2508e7` without source overlays, producing local image
+`sha256:3592969d5c58f71053a3f613b3365949a7f4b20dbc04bf4e448d1036569c9318`.
+Subsequent changes here affect only Hub policy and its tests. The private
+two-Worker audio acceptance is the next required verification.
