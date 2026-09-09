@@ -297,15 +297,24 @@ def test_enabled_bootstrap_uses_production_composition(monkeypatch, tmp_path):
     import agent.database
     from agent.bootstrap.meet import configure_meet
 
-    monkeypatch.setattr(agent.database, "engine", create_engine(f"sqlite:///{tmp_path / 'hub.db'}"))
-    app = Flask(__name__)
-    app.config.update(ROLE="hub", ANANTA_MEET_ENABLED=True, ANANTA_MEET_ORIGIN=ORIGIN)
-    app.extensions["project_access_authority"] = Mock()
-    configure_meet(app)
-    service = app.extensions["meet_binding_service"]
-    principal = HubSourcePrincipal("alice", "tenant-a", "project-a", frozenset({"user"}))
-    assert service.read(principal, "project-a")["revision"] == 0
-    assert isinstance(app.extensions["meet_health_probe"], MeetHealthProbe)
+    original = agent.database.engine
+    engine = create_engine(f"sqlite:///{tmp_path / 'hub.db'}")
+    try:
+        # Restore before the autouse isolation guard, independent of pytest's
+        # fixture teardown ordering. This test owns only its temporary engine.
+        with monkeypatch.context() as patch:
+            patch.setattr(agent.database, "engine", engine)
+            app = Flask(__name__)
+            app.config.update(ROLE="hub", ANANTA_MEET_ENABLED=True, ANANTA_MEET_ORIGIN=ORIGIN)
+            app.extensions["project_access_authority"] = Mock()
+            configure_meet(app)
+            service = app.extensions["meet_binding_service"]
+            principal = HubSourcePrincipal("alice", "tenant-a", "project-a", frozenset({"user"}))
+            assert service.read(principal, "project-a")["revision"] == 0
+            assert isinstance(app.extensions["meet_health_probe"], MeetHealthProbe)
+    finally:
+        engine.dispose()
+    assert agent.database.engine is original
 
 
 def test_real_project_authority_rejects_viewer_mutation_and_archived_reads(runtime):

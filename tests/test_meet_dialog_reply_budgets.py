@@ -112,8 +112,10 @@ def test_bootstrap_passes_exact_capacity_and_voice_to_both_dialog_paths(
     monkeypatch.setattr("agent.repositories.meet_chat_reservations.SqlChatReservations", Mock())
     monkeypatch.setattr("agent.repositories.meet_chat_dispatches.SqlChatDispatches", Mock())
     capacity, voice = Mock(), speech_profile(max_seconds=7)
-    configure_meet_dialog(app, Mock(), Mock(), capacity=capacity, speech_profile=voice)
+    worker = Mock(publisher_url="http://meet-media-worker:8090")
+    configure_meet_dialog(app, worker, Mock(), capacity=capacity, speech_profile=voice)
     service = app.extensions["meet_dialog_service"]
+    assert service.worker.workers[worker.publisher_url] is worker
     assert service.tasks.organization_principals is organization_principals
     assert app.extensions["meet_dialog_principals"].authority is service.authority
     assert ("meet_organization_principal_preflight" in app.extensions) is organization_principals
