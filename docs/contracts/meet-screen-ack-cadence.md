@@ -201,3 +201,31 @@ browser calls or the long-run failure have been repaired.
 SRP/DIP: keep chat authority enforcement at its existing browser endpoint and
 closed transport port, not a second Worker-side status decision. The broad
 runtime composition remains preserved SRP debt and is not expanded here.
+
+The owned status view also repeated the same DOM update for every accepted
+control receipt. It now keeps only the three validated scalar activity values
+after a successful render; unchanged state adds no DOM mutation or RPC.
+Validation and revoked/closed checks occur before this comparison, mutable
+caller dictionaries are not retained and a failed render is never cached as
+successful. Capture, content checks, source clocks, frame freshness and
+five-FPS submission remain unchanged. The new duplicate-render regression
+failed before the change (one failure/two passing guards, 8.98 seconds).
+All 47 source/pump/frame checks pass (37.40 seconds); after formatting the
+small legacy source/test modules, the final 14 source checks pass again
+(15.32 seconds), with Ruff and the Worker boundary guard clean.
+The existing source owns both its fixed presentation and CDP adapter; this
+small preserved SRP concern is not expanded into policy or shared caches.
+
+The passive five-minute baseline at `ffe6ea1a9` passed before either of these
+runtime optimizations: `RUN_cf26ce4c5ee4b9644e5a01fade0cfe8c`, under
+`SRC_84240704ac0743957560b38e1bd4ee37`, 310.30 pytest / 314.92 controller
+seconds, unchanged inputs, no failures/errors/skips. It observed 295 active
+seconds, four renewed generations, six screen checks and sampled peak RSS
+2,252,963,840 bytes / 22 processes. The result digest is
+`66514493b23f9b72abc7b784b2385a0ae4edd2d992577a0d47fb84a77710dfa8`.
+Its 1,468 CDP ACKs took at most 9.1 ms, source-content checks at most 14.38 ms
+and test diagnostic calls at most 9.78 ms. Chat made 4,629 calls; unchanged
+activity was rendered 273 times. Two screen calls exceeded 250 ms (maximum
+362.29 ms), and one idle reached 341.62 ms. This early-run baseline does not
+reproduce the sustained slow calls at the end of the failed long reference;
+it specifically does not establish CDP ACKs as that failure's cause.
