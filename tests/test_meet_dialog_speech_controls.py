@@ -104,11 +104,26 @@ def test_revoked_capability_off_policy_and_stale_cas_never_authorize_speech():
 
 
 def test_real_hub_compare_and_set_preserves_the_optional_projection(app):
+    from sqlmodel import Session
+
+    from agent.database import engine
+    from agent.db_models import ProjectDB
+
     f, scope = speech_scope()
     task_id = str(uuid4())
     scope = replace(scope, task_id=task_id)
     tasks = HubDialogTasks()
     with app.app_context():
+        with Session(engine) as session:
+            session.add(
+                ProjectDB(
+                    tenant_id=scope.tenant_id,
+                    project_id=scope.project_id,
+                    name="Synthetic speech-control project",
+                    created_by_subject_id="owner",
+                )
+            )
+            session.commit()
         tasks.start(task_id, scope.tenant_id, scope.project_id, f.context)
         paused = change_controls(
             scope,
