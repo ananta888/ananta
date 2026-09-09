@@ -42,3 +42,10 @@ was not inferred from the working local TLS path. The runtime and trust were
 not changed by these observations. A scoped operator trust configuration and
 separately verified deployment are needed before the public machine test can
 join; disabling authentication is not an alternative.
+
+The later host-DNS HTTPS checks, most recently during the 15:43 Europe/Berlin
+checkpoint on the same day, succeeded for health/auth/SFrame/TURN. The earlier
+DNS timeout is historical, not the current blocker. Machine admission remained
+disabled, occupancy was zero, and the inspected image/revision remained the
+same older deployment. Neither successful HTTPS nor this empty-room snapshot
+authorizes a new Hub trust scope or identifies an OIDC test account.

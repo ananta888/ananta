@@ -1,6 +1,8 @@
 """Reservation precedes execution; changed inputs and skips never become acceptance."""
 
 import json
+import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -172,3 +174,72 @@ def test_executor_timeout_terminates_only_its_owned_process_group(tmp_path, monk
     assert spawn.call_args.kwargs["stdin"] == subprocess.DEVNULL
     assert [call.args[0] for call in kill.call_args_list] == [123456, 123456]
     assert [call.kwargs["timeout"] for call in process.wait.call_args_list] == [1, 10, 5]
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="owned descendant observation uses Linux proc state")
+def test_executor_success_stops_an_owned_term_ignoring_descendant(tmp_path):
+    log = tmp_path / "owned-process.log"
+    child = (
+        "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        "print('ready', flush=True); time.sleep(30)"
+    )
+    parent = (
+        "import os,subprocess,sys; "
+        f"p=subprocess.Popen([sys.executable,'-c',{child!r}], stdout=subprocess.PIPE); "
+        "assert p.stdout.readline()==b'ready\\n'; print(p.pid,os.getpgrp(),flush=True)"
+    )
+    pid = group = None
+    try:
+        assert execute([sys.executable, "-c", parent], {}, log, root=tmp_path, timeout=5) == 0
+        pid, group = map(int, log.read_text().split())
+        # A dead child can briefly remain a zombie under an external PID 1.
+        # It cannot execute, hold media or run cleanup callbacks in that state.
+        def running():
+            try:
+                return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] not in ("Z", "X")
+            except FileNotFoundError:
+                return False
+
+        import time
+
+        deadline = time.monotonic() + 1
+        while running() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert not running(), "successful test leader left its owned descendant executing"
+    finally:
+        if pid is not None:
+            try:
+                if os.getpgid(pid) == group:
+                    os.killpg(group, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_executor_timeout_still_kills_descendants_when_the_leader_exits_on_term(tmp_path, monkeypatch):
+    process = Mock(pid=123456)
+    process.wait.side_effect = [subprocess.TimeoutExpired("synthetic", 1), -signal.SIGTERM, -signal.SIGTERM]
+    kill = Mock()
+    monkeypatch.setattr("scripts.run_meet_test_gate.subprocess.Popen", Mock(return_value=process))
+    monkeypatch.setattr("scripts.run_meet_test_gate.os.killpg", kill)
+    with pytest.raises(subprocess.TimeoutExpired):
+        execute(["synthetic"], {}, tmp_path / "test.log", root=tmp_path, timeout=1)
+    assert [call.args for call in kill.call_args_list] == [(123456, signal.SIGTERM), (123456, signal.SIGKILL)]
+
+
+def test_executor_gone_group_is_not_signaled_again(tmp_path, monkeypatch):
+    process = Mock(pid=123456)
+    process.wait.return_value = 0
+    kill = Mock(side_effect=ProcessLookupError)
+    monkeypatch.setattr("scripts.run_meet_test_gate.subprocess.Popen", Mock(return_value=process))
+    monkeypatch.setattr("scripts.run_meet_test_gate.os.killpg", kill)
+    assert execute(["synthetic"], {}, tmp_path / "test.log", root=tmp_path, timeout=1) == 0
+    kill.assert_called_once_with(123456, signal.SIGTERM)
+
+
+def test_executor_cannot_report_success_when_group_cleanup_is_denied(tmp_path, monkeypatch):
+    process = Mock(pid=123456)
+    process.wait.return_value = 0
+    monkeypatch.setattr("scripts.run_meet_test_gate.subprocess.Popen", Mock(return_value=process))
+    monkeypatch.setattr("scripts.run_meet_test_gate.os.killpg", Mock(side_effect=PermissionError))
+    with pytest.raises(PermissionError):
+        execute(["synthetic"], {}, tmp_path / "test.log", root=tmp_path, timeout=1)

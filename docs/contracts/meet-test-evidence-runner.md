@@ -44,6 +44,25 @@ Without this setting, the five-minute reference completed successfully but
 its numeric progress appeared only when the process exited. This is output
 visibility, not an execution timeout or missing media observation.
 
+## Owned process-group cleanup
+
+The executor checks its owned process group even after the pytest leader has
+exited. A successful leader is not proof that all descendants stopped. TERM is
+followed by the existing bounded leader wait and an unconditional KILL attempt
+for that same group; a vanished group is benign, while denied or failed cleanup
+cannot produce a successful reference. No foreign process list or group is
+scanned or targeted. Docker-daemon resources remain the responsibility of the
+existing owned fixtures, not something a POSIX signal can clean up.
+
+The real regression starts a no-network child that ignores TERM, then lets its
+parent exit successfully. It failed against the previous executor (10.11 s);
+the corrected six execution/output checks passed in 10.80 s, and all 61
+runner/input checks passed in 31.97 s. The test verifies the descendant has
+stopped executing; a briefly retained zombie under an external PID 1 is not
+misreported as running. Its independent failure cleanup is bounded to the
+recorded owned group. Other cases retain timeout propagation and cover a leader
+that exits on TERM, a vanished group, and a denied cleanup signal.
+
 Each profile now declares every container image input it actually uses. Browser
 profiles additionally require immutable `MEET_TEST_BROWSER_IMAGE`, preventing
 the fixture's legacy mutable-tag default from silently selecting an unbound

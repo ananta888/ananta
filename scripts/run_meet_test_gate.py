@@ -39,12 +39,22 @@ def execute(command, environment, log_path, *, root=ROOT, timeout=420):
         try:
             return process.wait(timeout=timeout)
         finally:
-            if process.poll() is None:
+            # The leader may exit before its descendants. Its successful exit
+            # is not proof that the separately owned process group is empty.
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                process.wait(timeout=5)
+            else:
                 try:
-                    os.killpg(process.pid, signal.SIGTERM)
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    pass
+                finally:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
                     process.wait(timeout=5)
 
 
