@@ -5,7 +5,17 @@ from pathlib import Path
 
 import pytest
 
-from scripts.meet_test_gate_inputs import frontend_digest, snapshot_repository
+from scripts.meet_test_gate_inputs import frontend_digest, require_packaged_gpu_image, snapshot_repository
+
+
+@pytest.mark.parametrize("image", [None, "latest", "sha256:" + "a" * 63, "sha256:" + "g" * 64, True])
+def test_gpu_gate_never_inherits_the_serving_image_or_mutable_tag(image):
+    with pytest.raises(ValueError, match="packaged_gpu_image_required"):
+        require_packaged_gpu_image(image)
+
+
+def test_exact_packaged_gpu_reference_is_accepted_without_pulling_or_deploying():
+    assert require_packaged_gpu_image("sha256:" + "a" * 64) is None
 
 
 def test_clean_tracked_snapshot_rejects_changed_or_new_selected_sources(tmp_path):

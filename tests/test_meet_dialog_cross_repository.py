@@ -529,7 +529,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             avatar_video_profiles=getattr(avatar_observer, "video_profiles", None),
             voice_profiles=voice_scenario.profiles,
             browser_workspaces=browser_scenario.configure(authority, tasks) if browser_scenario else None,
+            media_timing=os.environ.get("ANANTA_MEET_MEDIA_TIMING") == "1",
         )
+        record_property("dialog_media_timing_negotiated", service.media_timing)
         app.config["ROLE"] = "hub"
         app.extensions.update(meet_binding_service=binding, meet_dialog_service=service, meet_media_worker_key=hmac_key)
 

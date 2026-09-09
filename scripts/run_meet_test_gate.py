@@ -1,4 +1,4 @@
-"""Run the fixed two-Worker reference gate under a pre-reserved Hub TEST identity."""
+"""Run a closed Meet reference profile under a pre-reserved Hub TEST identity."""
 
 import argparse
 import hashlib
@@ -13,19 +13,9 @@ from pathlib import Path
 
 from scripts.hub_browser_test_evidence import HubBrowserTestRun
 from scripts.meet_test_gate_inputs import ROOT_PATHS, frontend_digest, native_environment, snapshot_repository
+from scripts.meet_test_gate_profiles import DEFAULT_PROFILE, PROFILE_NAMES, select_profile
 
 ROOT = Path(__file__).resolve().parents[1]
-NODE = (
-    "tests/test_meet_multi_worker_containers.py::"
-    "test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently[room-reconnect-media]"
-)
-ENVIRONMENT = {
-    "ANANTA_TEST_DATABASE_MODE": "wal",
-    "ANANTA_SQLITE_POOL_SIZE": "8",
-    "ANANTA_MEET_MEDIA_TIMING": "1",
-    "MEET_MULTI_WORKER_GATE": "1",
-    "MEET_WORKER_RESOURCES_GATE": "1",
-}
 
 
 def execute(command, environment, log_path, *, root=ROOT, timeout=420):
@@ -62,18 +52,26 @@ def counts(path):
     }
 
 
-def run(output, registry_db, meet_root, *, root=ROOT, reserve=HubBrowserTestRun.reserve, worker=execute):
+def run(
+    output,
+    registry_db,
+    meet_root,
+    *,
+    profile_name=DEFAULT_PROFILE,
+    root=ROOT,
+    reserve=HubBrowserTestRun.reserve,
+    worker=execute,
+):
+    selected = select_profile(profile_name)
     before, sources = snapshot_repository(root, ROOT_PATHS)
     companion, _ = snapshot_repository(meet_root, (".",))
     environment = native_environment()
     bundle = frontend_digest(environment["MEET_TEST_PUBLIC_DIR"])
-    profile = {
-        "schema": "ananta.meet-test-reference-profile.v1",
-        "node": NODE,
-        "environment": ENVIRONMENT,
-        "timeout_seconds": 420,
-        "reference": "two-cpu-one-gib-per-publisher-independent-media-v1",
-    }
+    profile = selected.projection()
+    if profile_name.startswith("gpu-"):
+        from scripts.meet_test_gate_inputs import require_packaged_gpu_image
+
+        require_packaged_gpu_image(environment.get("MEET_DIALOG_GPU_PACKAGED_IMAGE"))
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     run = reserve(
         root=root,
@@ -100,7 +98,7 @@ def run(output, registry_db, meet_root, *, root=ROOT, reserve=HubBrowserTestRun.
     try:
         child_environment = (
             os.environ
-            | ENVIRONMENT
+            | selected.environment()
             | {"ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON": json.dumps(run.assignment, sort_keys=True)}
         )
         code = worker(
@@ -111,7 +109,7 @@ def run(output, registry_db, meet_root, *, root=ROOT, reserve=HubBrowserTestRun.
                 "-n",
                 "0",
                 "-q",
-                NODE,
+                selected.node,
                 "--junitxml=" + str(output / "junit.xml"),
                 "-o",
                 "cache_dir=" + str(output / "pytest-cache"),
@@ -119,6 +117,7 @@ def run(output, registry_db, meet_root, *, root=ROOT, reserve=HubBrowserTestRun.
             child_environment,
             output / "pytest.log",
             root=root,
+            timeout=selected.timeout_seconds,
         )
         observed = counts(output / "junit.xml")
         after, _ = snapshot_repository(root, ROOT_PATHS)
@@ -172,8 +171,14 @@ def main():
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--registry-db", type=Path, default=ROOT / "data/meet-test-evidence.sqlite3")
     parser.add_argument("--meet-root", type=Path, default=ROOT.parent / "webrtc-minimize-server")
+    parser.add_argument("--profile", choices=PROFILE_NAMES, default=DEFAULT_PROFILE)
     args = parser.parse_args()
-    return run(args.output_directory.resolve(), args.registry_db.resolve(), args.meet_root.resolve())
+    return run(
+        args.output_directory.resolve(),
+        args.registry_db.resolve(),
+        args.meet_root.resolve(),
+        profile_name=args.profile,
+    )
 
 
 if __name__ == "__main__":

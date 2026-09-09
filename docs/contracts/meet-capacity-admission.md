@@ -180,3 +180,12 @@ most 2.25 cores over observed intervals (two-core quota plus sampling/burst
 margin). It does not call sparse samples continuous peak monitoring. Actual
 new-image acceptance follows; older images remain explicitly unsupported for
 this optional observer, not silently upgraded by local Python tests.
+
+The new installed-image reference subsequently passed at Hub `10d655c6c`,
+Meet `28eff78` and immutable Worker `6a2ac86f9209`, one actual two-Worker case
+in 65.51 s. All startup/active/terminal slot, memory, PID and interval-average
+CPU assertions passed, alongside source timing and room recovery. Each Worker
+returned to zero active slots and five PIDs. This run was reserved through the
+Hub Registry before execution and classified test/synthetic; its accepted
+test result remains ineligible for production. See `meet-test-evidence-runner.md`
+for sampling limits and reproducible invocation.

@@ -2,6 +2,15 @@
 
 `python -m scripts.run_meet_test_gate --output-directory NEW_DIRECTORY` runs
 one fixed, headless two-packaged-Worker timing/resource/reconnect reference.
+The optional closed `--profile` selector also supports `gpu-components`,
+`gpu-avatar` and `gpu-voices`. GPU profiles require an explicit immutable
+`MEET_DIALOG_GPU_PACKAGED_IMAGE`; absence or a mutable tag fails before
+reservation, never falling back to the serving Worker. Component inference
+has a 240-second outer deadline; the browser/GPU profiles have 360 seconds.
+All profiles force the short-test soak setting to zero instead of inheriting
+an unrelated long-run opt-in. Selection, original deadlines and environment
+are bound into the reserved execution profile; arbitrary test nodes, command
+arguments and timeout extensions are not accepted.
 Set the existing explicit immutable `MEET_MULTI_WORKER_IMAGE`,
 `MEET_TEST_PROXY_IMAGE`, private `MEET_TEST_PUBLIC_DIR` and local native-tool
 environment first. It never pulls/deploys an image, changes trust, provisions a
@@ -35,3 +44,23 @@ this runner cannot retroactively create evidence identities for them. Source
 snapshotting, bounded execution and Registry issuance remain separate
 responsibilities. The existing browser evidence adapter gains only an optional
 policy-path input; its older callers keep their previous default policy.
+
+GPU component execution verifies actual Qwen/Piper-CUDA/NVENC bytes, but has no
+browser receiver. GPU browser profiles use a host-side dialog executor, a
+separate packaged inference Worker and an isolated browser container. They
+exercise actual Qwen/Piper speech plus independent owned screen/neutral avatar,
+not two packaged dialog publishers or live NVENC avatar delivery. The fixture
+now explicitly passes the selected timing mode into its manually assembled Hub
+service and records that negotiation; setting an unused environment variable
+alone would not verify the new clock path. Resource/occupancy assertions remain
+specific to the two-Worker profile. Profile success does not stand in for the
+remaining measured GPU, public trust or long-soak acceptance criteria.
+
+The initial default reference passed at Ananta `10d655c6c` / Meet `28eff78`
+with immutable Worker `6a2ac86f9209` in 65.51 s, one test and zero failures,
+errors or skips. Source/bundle inputs were unchanged; the Hub Registry accepted
+the pre-reserved test result and explicitly rejected production eligibility.
+Both Workers had one active dialog during the sample and zero after cleanup.
+Observed active memory was 369,598,464 / 344,862,720 bytes under each 1-GiB
+quota; sampled PID counts were 104 / 102 and returned to five. These are sparse
+startup/active/terminal observations, not continuous CPU/RAM peak guarantees.
