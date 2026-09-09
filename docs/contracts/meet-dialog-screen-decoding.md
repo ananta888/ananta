@@ -48,8 +48,11 @@ or production release claim follows from this gate.
 Neither phase polling nor cancellation retains JPEG content in phase metadata.
 Cancellation and source cleanup compare the exact generation, so an old decode
 cannot close a replacement. A pending decode cannot trigger source reopening
-inside a Hub update. Completion starts the next 200 ms cadence interval; this
-keeps the five-FPS ceiling but does not promise five FPS under decoder latency.
+inside a Hub update. The host start floor is anchored before submission;
+the browser delivery slot stays pending until 200 ms after actual successful
+submission. This preserves the five-FPS ceiling without adding a second idle
+interval after a delayed RPC reply; it does not promise five FPS under decoder
+latency. See the [delayed-ack cadence correction](meet-screen-ack-cadence.md).
 The source factory and frame port are independently injectable (SRP/DIP/ISP).
 The existing pump still combines activation and frame scheduling; this preserved
 small coordination responsibility was not expanded into decoding or Hub policy.

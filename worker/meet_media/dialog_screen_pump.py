@@ -69,10 +69,13 @@ class DialogScreenPump:
             if self.lease is None:
                 return
             frame = self.source.take()
+            # Anchor the host start floor before the RPC, not after its reply.
+            # The delivery port separately retains its slot until the browser's
+            # actual submission spacing is safe, even when replies are early.
+            self.next_frame = self.clock() + 0.2
             if frame is not None:
                 self.sequence += 1
                 self.frames.begin(self.lease["generation"], self.sequence, frame)
-            self.next_frame = self.clock() + 0.2
         except Exception:
             self.failed = True
             self.close()  # A source failure does not revive it or stop unrelated chat/audio.

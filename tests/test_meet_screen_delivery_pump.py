@@ -183,6 +183,55 @@ def test_completed_decode_does_not_add_another_idle_interval(completion):
     assert f.pump.next_frame == pytest.approx(f.state.starts[-1] + 0.2)
 
 
+def test_delayed_begin_ack_does_not_restart_the_host_start_interval():
+    f = setup()
+    begin = f.frames.begin.side_effect
+
+    def delayed(*args):
+        begin(*args)
+        f.state.now += 0.3638
+
+    f.frames.begin.side_effect = delayed
+    f.pump.tick()
+    assert f.pump.next_frame == pytest.approx(100.2)
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.poll.side_effect = done
+    f.frames.begin.side_effect = begin
+    f.state.now = 100.52684
+    f.pump.tick()
+    assert f.state.starts == [100.0, 100.52684]
+
+
+def test_delayed_ack_trace_keeps_the_existing_freshness_fence():
+    f = setup()
+    begin = f.frames.begin.side_effect
+
+    def delayed_once(*args):
+        begin(*args)
+        f.state.now += 0.36
+        f.frames.begin.side_effect = begin
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.begin.side_effect = delayed_once
+    f.frames.poll.side_effect = done
+    f.pump.tick()
+    # A synthetic 25-ms browser submission delay is not a measured cross-clock
+    # offset. The first acknowledgement arrives after the pacing slot is ready.
+    for offset in (0.49, 0.89, 1.15):
+        f.state.now = 100 + offset
+        assert f.state.now - (f.state.starts[-1] + 0.025) <= 0.75
+        f.pump.tick()
+    assert len(f.state.starts) == 4
+    assert all(after - before >= 0.2 for before, after in zip(f.state.starts, f.state.starts[1:]))
+
+
 @pytest.mark.parametrize("operation", ["pause", "invalidate", "close", "failure"])
 def test_cancellation_drops_pending_frame_and_closes_only_its_generation(operation):
     f = setup()

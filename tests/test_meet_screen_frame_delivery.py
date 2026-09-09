@@ -114,11 +114,51 @@ def test_known_closed_activation_is_not_promoted_to_success_or_retried():
     assert page.evaluate.call_count == 2
 
 
+def test_actual_javascript_keeps_one_slot_until_browser_submission_spacing_is_safe():
+    script = """
+      const assert = require('node:assert/strict');
+      const [start,poll,cancel] = JSON.parse(process.argv[1]).map(s=>eval('('+s+')'));
+      let now=0, sequence=0, generation=2, open=true, resolve, pushes=0, closes=0;
+      global.performance={now:()=>now};
+      global.window={location:{href:'synthetic'},anantaMachine:{screen:{
+        status:()=>({open,generation,sequence}),
+        push(){pushes++;return new Promise(yes=>{resolve=yes})},
+        close(){closes++;open=false}
+      }}};
+      const flush=()=>new Promise(r=>setImmediate(r));
+      (async()=>{
+        start(['early',2,1,'jpeg','synthetic']);
+        now=80;sequence=1;resolve();await flush();
+        assert.equal(poll(['early','synthetic']),'pending');
+        assert.throws(()=>start(['backlog',2,2,'jpeg','synthetic']),/frame_busy/);
+        now=279.999;assert.equal(poll(['early','synthetic']),'pending');
+        now=280;assert.equal(poll(['early','synthetic']),'done');
+        assert.equal(window.__anantaScreenFrame,undefined);
+        start(['late',2,2,'jpeg','synthetic']);
+        now=300;sequence=2;resolve();await flush();
+        now=700;assert.equal(poll(['late','synthetic']),'done');
+        assert.equal(pushes,2);
+        start(['cancel',2,3,'jpeg','synthetic']);
+        now=720;sequence=3;resolve();await flush();
+        cancel(['cancel','synthetic']);now=1000;
+        assert.equal(poll(['cancel','synthetic']),'failed');
+        assert.equal(closes,1);assert.equal(pushes,3);
+        open=true;generation=4;sequence=0;
+        start(['backward',4,1,'jpeg','synthetic']);
+        sequence=1;resolve();await flush();now=999;
+        assert.equal(poll(['backward','synthetic']),'failed');
+      })().catch(e=>{console.error(e);process.exitCode=1});
+    """
+    result = subprocess.run(["node", "-e", script, json.dumps([START, POLL, CANCEL])], capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode()
+
+
 def test_actual_javascript_prevents_late_frame_settlement_from_touching_replacement_generation():
     script = """
       const assert = require('node:assert/strict');
       const [start,poll,cancel,close] = JSON.parse(process.argv[1]).map(s => eval('('+s+')'));
       let generation=2, sequence=0, open=true, pushes=0, closes=[], resolve, reject;
+      let now=0; global.performance={now:()=>now};
       global.window = {location:{href:'synthetic'}, anantaMachine:{screen:{
         status:()=>({open,generation,sequence}),
         push(){pushes++;return new Promise((yes,no)=>{resolve=yes;reject=no})},
@@ -135,7 +175,7 @@ def test_actual_javascript_prevents_late_frame_settlement_from_touching_replacem
         start(['fresh',4,1,'new-jpeg','synthetic']);const current=resolve;
         late(); await flush(); assert.equal(poll(['fresh','synthetic']),'pending');
         cancel(['old','synthetic']);close([2,'synthetic']);assert.deepEqual(closes,[2]);
-        sequence=1;current();await flush();assert.equal(poll(['fresh','synthetic']),'done');
+        sequence=1;current();await flush();now=200;assert.equal(poll(['fresh','synthetic']),'done');
         assert.equal(window.__anantaScreenFrame,undefined);
         start(['failing',4,2,'jpeg','synthetic']);reject(new Error('PRIVATE_ERROR'));await flush();
         assert.deepEqual(window.__anantaScreenFrame,{token:'failing',generation:4,sequence:2,state:'failed'});

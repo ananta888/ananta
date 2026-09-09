@@ -54,6 +54,13 @@ reference. Every other profile forces `MEET_TEST_SFRAME_PIPELINE_PROBE=0` even
 when the caller environment requests injection. See the
 [receiver investigation](meet-receiver-freeze-investigation.md).
 
+The separate closed `private-dialog-ack-delay` profile uses the same five-minute
+CPU/browser reference and original 660-second outer bound, with exactly one
+350-ms acknowledgement delay and a subsequent bounded idle delay. The complete
+owned injection is asserted and reported. It does not enable the SFrame probe,
+extend source/quality deadlines or apply to GPU/long profiles. See the
+[delayed-ack cadence reference](meet-screen-ack-cadence.md).
+
 ## Owned process-group cleanup
 
 The executor checks its owned process group even after the pytest leader has

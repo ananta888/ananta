@@ -2,6 +2,8 @@
 
 import threading
 
+from tests.meet_dialog_ack_delay import PROFILE as ACK_PROFILE
+
 PROFILE = "paired-idle-450-v1"
 
 
@@ -28,6 +30,10 @@ class DialogCadenceDelay:
 
         monkeypatch.setattr(Page, "wait_for_timeout", delayed)
 
+    def start_observation(self):
+        # This older closed profile deliberately retains its startup injection.
+        pass
+
     def report(self):
         with self.lock:
             return {
@@ -46,18 +52,31 @@ class DialogCadenceDelay:
 def require_cadence_profile(profile, *, soak_seconds, spoken, gpu):
     if profile == "off":
         return False
-    if profile != PROFILE or soak_seconds != 300 or spoken or gpu:
+    if profile not in (PROFILE, ACK_PROFILE) or soak_seconds != 300 or spoken or gpu:
         raise ValueError("test_cadence_delay_profile_invalid")
     return True
 
 
-def install_cadence_delay(enabled, monkeypatch, *, url):
-    return DialogCadenceDelay(monkeypatch, url=url) if enabled else None
+def install_cadence_delay(enabled, monkeypatch, *, url, profile=PROFILE):
+    if not enabled:
+        return None
+    if profile == PROFILE:
+        return DialogCadenceDelay(monkeypatch, url=url)
+    if profile == ACK_PROFILE:
+        from tests.meet_dialog_ack_delay import DialogAckDelay
+
+        return DialogAckDelay(monkeypatch, url=url)
+    raise ValueError("test_cadence_delay_profile_invalid")
 
 
 def require_cadence_complete(delay):
     if delay is not None:
         delay.require_complete()
+
+
+def start_cadence_observation(delay):
+    if delay is not None:
+        delay.start_observation()
 
 
 def record_cadence_delay(delay, record_property):

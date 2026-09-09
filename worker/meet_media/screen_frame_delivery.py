@@ -7,7 +7,7 @@ from typing import Protocol
 START = """([token, generation, sequence, jpeg, url]) => {
   if (window.location.href !== url) throw new Error('meet_screen_navigation_denied');
   const source = window.anantaMachine.screen;
-  if (window.__anantaScreenFrame?.state === 'pending') throw new Error('meet_screen_frame_busy');
+  if (window.__anantaScreenFrame) throw new Error('meet_screen_frame_busy');
   const phase = {token, generation, sequence, state:'pending'};
   window.__anantaScreenFrame = phase;
   try {
@@ -20,6 +20,7 @@ START = """([token, generation, sequence, jpeg, url]) => {
       const current = source.status();
       phase.state = !current.open ? 'stale'
         : current.generation === generation && current.sequence === sequence ? 'done' : 'failed';
+      if (phase.state === 'done') phase.completedAt = performance.now();
     }).catch(error => {
       if (window.__anantaScreenFrame !== phase || phase.state !== 'pending') return;
       phase.state = error?.message === 'meet_screen_authority_changed' && !source.status().open ? 'stale' : 'failed';
@@ -31,6 +32,15 @@ POLL = """([token, url]) => {
   const phase = window.__anantaScreenFrame;
   if (!phase || phase.token !== token) return 'failed';
   const result = phase.state;
+  if (result === 'done') {
+    // Read the browser's clock, not the timing of the host-side RPC reply.
+    // Retain this one slot without timers or queued frames until 5 FPS is safe.
+    const elapsed = performance.now() - phase.completedAt;
+    if (!Number.isFinite(phase.completedAt) || !Number.isFinite(elapsed) || elapsed < 0) {
+      delete window.__anantaScreenFrame; return 'failed';
+    }
+    if (elapsed < 200) return 'pending';
+  }
   if (result !== 'pending') delete window.__anantaScreenFrame;
   return result;
 }"""
@@ -56,6 +66,8 @@ class ScreenFramePage(Protocol):
 
 
 class BrowserScreenFrames:
+    """One decode/pacing slot; done also certifies 200-ms submission spacing."""
+
     def __init__(self, page: ScreenFramePage, *, url: str, clock=time.monotonic):
         self.page, self.url, self.clock = page, url, clock
         self.token = None

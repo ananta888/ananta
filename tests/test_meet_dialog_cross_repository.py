@@ -258,6 +258,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         record_cadence_delay,
         require_cadence_complete,
         require_cadence_profile,
+        start_cadence_observation,
     )
     from tests.meet_dialog_cleanup import close_dialog_browsers, close_dialog_servers
     from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
@@ -274,8 +275,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from worker.meet_media.dialog_screen_pump import DialogScreenPump
     from worker.meet_media.server import create_server
 
+    cadence_profile = os.environ.get("MEET_DIALOG_CADENCE_DELAY", "off")
     cadence_enabled = require_cadence_profile(
-        os.environ.get("MEET_DIALOG_CADENCE_DELAY", "off"),
+        cadence_profile,
         soak_seconds=SOAK_SECONDS, spoken=spoken_mode, gpu=gpu_mode,
     )
     cadence_delay = None
@@ -445,7 +447,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         from tests.meet_dialog_soak_observer import DialogSoakObserver, record_soak_failure
 
         soak_observer = DialogSoakObserver(monkeypatch) if SOAK_SECONDS else None
-        cadence_delay = install_cadence_delay(cadence_enabled, monkeypatch, url=ready["origin"] + "/machine")
+        cadence_delay = install_cadence_delay(
+            cadence_enabled, monkeypatch, url=ready["origin"] + "/machine", profile=cadence_profile
+        )
         inject_private_frame = threading.Event()
         take_frame = OwnedDialogScreen.take
 
@@ -743,6 +747,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             # or synthetic GPU claims. The final five seconds reserve stop budget.
             import psutil
 
+            start_cadence_observation(cadence_delay)
             process = psutil.Process()
             peaks = {"rss_bytes": 0, "processes": 0}
             observations = 0

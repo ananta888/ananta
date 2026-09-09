@@ -109,6 +109,21 @@ _PROFILES = (
         ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
     ),
     MeetTestProfile(
+        "private-dialog-ack-delay",
+        "tests/test_meet_dialog_cross_repository.py::"
+        "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
+        "synthetic-single-host-paired-ack-idle-350ms-five-minute-v1",
+        660,
+        (
+            ("MEET_CROSS_REPOSITORY_GATE", "1"),
+            ("MEET_DIALOG_SOAK_SECONDS", "300"),
+            ("MEET_DIALOG_CADENCE_DELAY", "paired-ack-350-v1"),
+            ("MEET_ISOLATED_PEER_BROWSER", "1"),
+            ("PYTEST_ADDOPTS", "--capture=tee-sys"),
+        ),
+        ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
+    ),
+    MeetTestProfile(
         "private-dialog-soak",
         "tests/test_meet_dialog_cross_repository.py::"
         "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
