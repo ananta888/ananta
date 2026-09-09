@@ -2,7 +2,8 @@
 
 Run `python -m scripts.check_meet_live_readiness` for bounded, unauthenticated
 GET observations of `/healthz`, `/config` and `/api/machine/capabilities` on
-the configured HTTPS origin. `--container` selects one exact local Docker
+the configured HTTPS origin, plus the additive `/api/machine/integration`
+observation. `--container` selects one exact local Docker
 container for a read-only running/image/revision observation. This association
 does not itself prove that the container is the public reverse proxy's upstream.
 
@@ -30,6 +31,42 @@ Read-only transport/JSON limits, pure content-free report projection and CLI
 composition remain separate responsibilities (SRP). Existing Meet admission,
 Hub task/policy authority and the companion's local operator-profile preflight
 are reused as separate boundaries; this is not another authorization engine.
+
+## Additive integration observation
+
+The optional `integration` report section validates the entire closed
+`ananta.meet-integration.v1` contract introduced in Meet `f67c9e5`. Fixed
+implemented capabilities, the sorted unique global operator ceiling, mandatory
+publisher-consent kinds and the exact session-lease version are separate fields.
+Unknown fields/versions, wrong types, missing entries, duplicate/unsorted/unknown
+capabilities or an enabled admission with an empty ceiling are `unavailable`.
+Disagreement with the separately fetched legacy admission snapshot is
+`inconsistent`; no positive metadata is retained. This may be a deployment race,
+not proof of a specific server defect. Unknown values are null, not an invented
+empty capability set. Each invocation fetches afresh and follows no redirects.
+
+This informational section does not alter the old report status or legacy
+capability semantics. In particular `observed` remains a limited observation,
+not comprehensive readiness. Old servers without the additive endpoint continue
+to report their legacy checks, with integration unavailable. Neither a global
+ceiling nor implemented software grants a Hub key, project, task or publisher
+right. No deployment, login or trust configuration is performed.
+
+The pure version adapter in `scripts/meet_integration_observation.py` is separate
+from command transport and CLI orchestration (SRP/DIP). It owns a small explicit
+versioned compatibility projection rather than importing companion runtime code.
+70 focused readiness/negative/CLI tests passed in 50.17 seconds; five real
+companion HTTP/schema tests passed in 0.431 seconds on `5a10338`. Three actual
+Node-produced full/empty/chat-only projections were also accepted by the Python
+adapter. These are synthetic technical checks, not public authorization evidence.
+
+The actual public read-only repeat at 19:28 Europe/Berlin on 2026-09-09 showed
+the older running revision below, required auth/SFrame and configured TURN,
+zero occupancy, disabled machine admission and unavailable additive integration.
+GitHub contains named TUI test secrets in a separate environment, but the
+existing workflow defaults to realm `ananta-e2e`, unlike public Meet's `ananta`.
+Their suitability is unverified; values were not retrieved and the unrelated
+workflow was not dispatched.
 
 ## Actual instance checkpoint
 

@@ -13,12 +13,13 @@ ORIGIN = "https://meet.example.test"
 
 
 @pytest.mark.parametrize("local", [False, True])
-def test_https_reader_is_bounded_headless_without_proxy_credentials_redirects_or_curlrc(local):
+@pytest.mark.parametrize("path", ["/healthz", "/config", "/api/machine/capabilities", "/api/machine/integration"])
+def test_https_reader_is_bounded_headless_without_proxy_credentials_redirects_or_curlrc(local, path):
     execute = Mock(return_value=SimpleNamespace(stdout=b'{"status":"ok"}'))
-    assert public_observation(ORIGIN, "/healthz", local_tls_route=local, execute=execute) == {"status": "ok"}
+    assert public_observation(ORIGIN, path, local_tls_route=local, execute=execute) == {"status": "ok"}
     args = execute.call_args.args[0]
     assert args[:2] == ["curl", "--disable"]
-    assert args[-1] == ORIGIN + "/healthz"
+    assert args[-1] == ORIGIN + path
     assert args[args.index("--noproxy") + 1] == "*"
     assert args[args.index("--proto") + 1] == "=https"
     assert args[args.index("--max-time") + 1] == "10"

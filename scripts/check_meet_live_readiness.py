@@ -18,7 +18,10 @@ def main(argv=None):
             public_observation(args.origin, path, local_tls_route=args.local_tls_route)
             for path in ("/healthz", "/config", "/api/machine/capabilities")
         ]
-        report = readiness_report(args.origin, *observations, container, local_tls_route=args.local_tls_route)
+        integration = public_observation(args.origin, "/api/machine/integration", local_tls_route=args.local_tls_route)
+        report = readiness_report(
+            args.origin, *observations, container, local_tls_route=args.local_tls_route, integration=integration
+        )
     except ValueError:
         report = {
             "schema": "ananta.meet-live-readiness.v1",

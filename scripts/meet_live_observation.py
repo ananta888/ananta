@@ -6,6 +6,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from agent.services.meet_contract import MeetProfile
+from scripts.meet_integration_observation import integration_projection
 
 MAX_BODY = 16384
 
@@ -32,7 +33,10 @@ def _json_command(command, timeout, *, execute=subprocess.run):
 
 def public_observation(origin, path, *, local_tls_route=False, execute=subprocess.run):
     MeetProfile(origin)
-    if path not in ("/healthz", "/config", "/api/machine/capabilities") or type(local_tls_route) is not bool:
+    if (
+        path not in ("/healthz", "/config", "/api/machine/capabilities", "/api/machine/integration")
+        or type(local_tls_route) is not bool
+    ):
         raise ValueError("meet_readiness_request_invalid")
     command = [
         "curl",
@@ -83,7 +87,7 @@ def container_projection(value):
     }
 
 
-def readiness_report(origin, health, config, capabilities, container, *, local_tls_route=False):
+def readiness_report(origin, health, config, capabilities, container, *, local_tls_route=False, integration=None):
     MeetProfile(origin)
     health, config, capabilities = (
         value if isinstance(value, dict) else {} for value in (health, config, capabilities)
@@ -110,6 +114,7 @@ def readiness_report(origin, health, config, capabilities, container, *, local_t
         "checks": checks,
         "occupancy_snapshot": counts,
         "container": container_projection(container),
+        "integration": integration_projection(integration, capabilities),
         "unverified": [
             "container_is_public_upstream",
             "exact_hub_trust_scope_and_key",
