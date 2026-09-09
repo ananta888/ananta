@@ -36,3 +36,18 @@ The Registry accepted this as synthetic-policy TEST evidence and explicitly
 denied production-release eligibility. No simultaneous browser delivery,
 continuous VRAM peak or exclusive GPU ownership is claimed by this component
 run; those are distinct observations.
+
+## Later hardware availability failure, 2026-09-09
+
+At 14:37:53 Europe/Berlin, this Linux host's kernel recorded NVIDIA Xid 79,
+`GPU has fallen off the bus`, followed by Xid 154 with recovery action
+`Node Reboot Required`. Subsequent numeric `nvidia-smi` queries returned exit 6
+and no devices. The retained PCI information names the RTX 3080; that does not
+make it usable. A passive 90-second clock observation showed no large wall
+steps during that later sample, not a diagnosis of the GPU crash.
+
+No host reboot, GPU reset, driver unload or interruption of unrelated services
+was performed. New GPU references cannot run until hardware access is restored;
+historical successful runs above remain revision-scoped observations. CPU-only
+private tests can continue. The kernel messages identify loss and the requested
+recovery action, not whether hardware, power, a driver or a workload caused it.
