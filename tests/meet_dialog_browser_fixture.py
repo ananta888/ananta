@@ -128,5 +128,5 @@ class DialogBrowserFixture:
 
     def close(self):
         if self.created:
-            self.created = False
             self.command("rm", "--force", self.name)
+            self.created = False

@@ -259,9 +259,10 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         require_cadence_complete,
         require_cadence_profile,
     )
-    from tests.meet_dialog_cleanup import close_dialog_servers
+    from tests.meet_dialog_cleanup import close_dialog_browsers, close_dialog_servers
     from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
     from tests.meet_dialog_interruption import configure_interruption, finish_interruption
+    from tests.meet_dialog_network_cleanup import DialogNetworkCleanup
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
     from tests.meet_dialog_speech_observer import DialogSpeechObserver
     from tests.meet_dialog_voice_scenario import make_voice_scenario
@@ -343,6 +344,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     started = None
     browser_fixture = None
     peer_browser = BridgeBrowserHandshake(SOAK_SECONDS + 180)
+    network_cleanup = DialogNetworkCleanup()
     gpu_cleanup = ExitStack()
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
     try:
@@ -350,10 +352,12 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         # normal bridge operations retain the twenty-second response budget.
         ready = receive(timeout=60)
         if os.environ.get("MEET_ISOLATED_PEER_BROWSER") == "1":
+            network_cleanup.capture(ready.get("test_network"))
             bridge.stdin.write(json.dumps(peer_browser.start(ready)) + "\n")
             bridge.stdin.flush()
             ready = receive(timeout=60)
         assert set(ready) == {"origin", "room_id", "certificate", "test_network"}, ready
+        network_cleanup.capture(ready["test_network"])
         monkeypatch.setenv("SSL_CERT_FILE", ready["certificate"])
         cert = x509.load_pem_x509_certificate(Path(ready["certificate"]).read_bytes())
         spki = base64.b64encode(
@@ -814,16 +818,11 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             close_dialog_servers(app, service, principal, started, runtime_thread, (hub, worker))
         finally:
             try:
-                if browser_fixture is not None:
-                    browser_fixture.close()
+                close_dialog_browsers(
+                    browser_fixture, peer_browser, bridge, network_cleanup, close_bridge=close_bridge,
+                )
             finally:
                 try:
-                    close_bridge(bridge)
+                    gpu_cleanup.close()
                 finally:
-                    try:
-                        peer_browser.close()
-                    finally:
-                        try:
-                            gpu_cleanup.close()
-                        finally:
-                            record_cadence_delay(cadence_delay, record_property)
+                    record_cadence_delay(cadence_delay, record_property)

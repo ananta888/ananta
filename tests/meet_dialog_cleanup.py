@@ -40,3 +40,13 @@ def close_dialog_servers(app, service, principal, started, runtime_thread, serve
             cleanup.callback(runtime_thread.join, timeout=10)
         if service is not None and started is not None:
             cancel_fixture_dialog(app, service, principal, started["task_id"])
+
+
+def close_dialog_browsers(worker_browser, peer_browser, bridge, network, *, close_bridge):
+    """Dependents before their network, even if a prior close operation fails."""
+    with ExitStack() as cleanup:
+        cleanup.callback(network.close)
+        cleanup.callback(close_bridge, bridge)
+        cleanup.callback(peer_browser.close)
+        if worker_browser is not None:
+            cleanup.callback(worker_browser.close)

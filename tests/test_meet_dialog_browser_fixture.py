@@ -62,6 +62,18 @@ def test_browser_uses_owned_internal_network_and_existing_sandbox_without_host_e
     assert removed == [("rm", "--force", browser.name)]
 
 
+def test_failed_browser_removal_does_not_discard_owned_cleanup_capability():
+    browser, run = fixture()
+    browser.start("a" * 43 + "=")
+    run.side_effect = RuntimeError("synthetic removal failed")
+    with pytest.raises(RuntimeError, match="removal failed"):
+        browser.close()
+    assert browser.created
+    run.side_effect = None
+    browser.close()
+    assert not browser.created
+
+
 @pytest.mark.parametrize("network", ["bridge", "host", "meet-test-tls-../../other-network", None])
 def test_browser_rejects_non_fixture_network_before_commands(network):
     run = Mock()
