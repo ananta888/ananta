@@ -90,3 +90,24 @@ GPU/public reference. Existing serving containers were not replaced.
 
 The next grouped Meet check and two-hour repeated profile remain distinct.
 The failed 45-minute run is not erased by these shorter corrected-source passes.
+
+## Grouped compatibility and repeated long reference
+
+The isolated Meet `ebd78bed6013471ad0eec6d52adfbbbb56293b6c` grouped check passed:
+1,142 frontend tests, 1,066 Node/browser passes, zero failures, four explicit
+Node skips; Node duration 380.153 seconds. Build (7.994 s), Go/unit/vet and
+static gates passed. Fourteen external infrastructure opt-ins were visibly
+skipped. Both independent speech tests completed 66,150 played samples with
+zero capture/transform errors. The full result and exact scope are recorded in
+the companion's `docs/ananta-linux-grouped-check-20260909.md`.
+
+The repeated private two-hour run then reserved
+`RUN_9ab174c5f462affa4b9e9755f473d03c` under
+`SRC_b399a44bb8347179c9155f266a210d53`, with Ananta
+`63f602b8f51dee23804f707e773be4f70fb32a3f`, the same fixed Meet snapshot and
+the immutable `ea1d671b6670…` Worker described above. Its input worktrees and
+bundle stay unchanged during execution. This reservation is TEST/synthetic
+only and, at this checkpoint, still running rather than accepted evidence.
+The improved stdout setting now exposes numeric periodic progress while the
+test is actually running. No other large owned test/GPU run is launched in
+parallel with the long media reference.
