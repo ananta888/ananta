@@ -51,3 +51,27 @@ and receiver-quality measurement are separate small ports. Preserve the
 existing broad machine-page/Worker composition for now; do not add another
 scheduler, global identity issuer or policy authority there. MAP-24 remains
 partial until these implementations and actual acceptance are complete.
+
+## Closed observation contract and execution-side fence
+
+The first implementation adds `ananta.meet-media-timing.v1`, fixed profile and
+`browser-performance-v1` timebase. Its epoch and up to three source generations
+are local lifecycle counters, never evidence identities. Each source records
+start, observation and media-position timestamps separately. A held decoded
+video retains its last media timestamp while requiring a fresh rendering
+observation; a canvas submission has no invented media position or drift.
+Drift arithmetic is independently checked against the reported origin and
+position. A failed source remains explicitly failed.
+
+`MediaTimingGate` pins the expected epoch and permitted source kinds, rejects
+rebasing within a generation, retains retired-generation fences and checks
+browser time advance against the independently sampled Worker monotonic clock.
+Invalid data or failed quality irreversibly closes the gate. Returned snapshots
+cannot mutate its private comparison state. It has no grant, source-open,
+retry, Task or Hub-service port.
+
+Thirty-nine contract/fence tests passed in 23.60 seconds; the standalone Worker
+boundary guard passed for 120 files. These are synthetic virtual-clock tests.
+The browser producer, explicit Hub negotiation, runtime composition and actual
+receiver/hardware checks are still required: these classes alone do not claim
+an active live-clock feature or completed MAP-24 acceptance.
