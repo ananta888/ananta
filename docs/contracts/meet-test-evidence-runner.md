@@ -38,6 +38,11 @@ The long profile uses bounded periodic fixture reports with `tee-sys` capture,
 so progress is visible in its log without disabling failure capture. Ambient
 `PYTEST_ADDOPTS` is cleared for every other profile; it cannot inject a different
 test selection or ignore flags into the reserved command.
+The fixed environment also sets `PYTHONUNBUFFERED=1`: `tee-sys` alone can leave
+the underlying pipe buffered even when the test calls `print(..., flush=True)`.
+Without this setting, the five-minute reference completed successfully but
+its numeric progress appeared only when the process exited. This is output
+visibility, not an execution timeout or missing media observation.
 
 Each profile now declares every container image input it actually uses. Browser
 profiles additionally require immutable `MEET_TEST_BROWSER_IMAGE`, preventing

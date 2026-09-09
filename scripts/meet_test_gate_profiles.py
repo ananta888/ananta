@@ -20,6 +20,7 @@ class MeetTestProfile:
             "ANANTA_MEET_MEDIA_TIMING": "1",
             "MEET_DIALOG_SOAK_SECONDS": "0",
             "PYTEST_ADDOPTS": "",
+            "PYTHONUNBUFFERED": "1",
             "MEET_ISOLATED_PEER_BROWSER": "0",
             **dict(self.settings),
         }

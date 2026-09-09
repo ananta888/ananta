@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -129,6 +130,7 @@ def test_selected_soak_is_fixed_and_cannot_mutate_other_profile_environment():
     assert short.environment()["MEET_ISOLATED_PEER_BROWSER"] == "1"
     assert short.image_inputs == long.image_inputs
     assert short.reference != long.reference
+    assert short.environment()["PYTHONUNBUFFERED"] == long.environment()["PYTHONUNBUFFERED"] == "1"
 
 
 def test_existing_output_is_not_overwritten_and_preflight_failure_never_reserves(tmp_path, monkeypatch):
@@ -137,6 +139,20 @@ def test_existing_output_is_not_overwritten_and_preflight_failure_never_reserves
     with pytest.raises(ValueError, match="unready"):
         run(tmp_path, tmp_path / "registry.sqlite", tmp_path, reserve=reserve)
     reserve.assert_not_called()
+
+
+def test_fixed_profile_uses_an_actual_unbuffered_python_output_pipe(tmp_path):
+    from scripts.meet_test_gate_profiles import select_profile
+
+    log = tmp_path / "progress.log"
+    code = execute(
+        [sys.executable, "-c", "import sys; print('unbuffered' if sys.stdout.write_through else 'buffered')"],
+        select_profile("private-dialog-soak-smoke").environment(),
+        log,
+        root=tmp_path,
+        timeout=5,
+    )
+    assert code == 0 and log.read_text() == "unbuffered\n"
 
 
 def test_executor_timeout_terminates_only_its_owned_process_group(tmp_path, monkeypatch):

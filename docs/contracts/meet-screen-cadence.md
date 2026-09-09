@@ -64,3 +64,29 @@ bound). It cannot masquerade as the two-hour profile or accept arbitrary test
 commands. All 56 runner/input checks passed in 29.90 seconds, including exact
 profile/image selection, environment isolation, mutation rejection and owned
 process timeout handling. The intermediate actual run is still separate.
+
+## Actual corrected-source and installed-package checks
+
+At Ananta `51377daa0` / Meet `2d39a17`, the following pre-reserved TEST runs
+passed with unchanged inputs. Their source identity is
+`SRC_e41a0251956a34c5b05146dbb00f41fc`; none is production eligible.
+
+| Profile | Actual result |
+| --- | --- |
+| Private isolated-peer short | `RUN_bf75d4df0a914e6c8db961ddd07a1477`, 37.186 s runner duration; real correlated chat, moving screen, pause/resume, private-marker exclusion and stop. |
+| Five-minute intermediate | `RUN_19353574cf4ec8076169266b50820c7e`, 314.103 s runner / 309.84 s pytest; 295 s active observation of the 300-s task, four lease generations, six screen samples, peak sampled RSS 2,231,808,000 bytes / 22 processes. |
+| Two installed Workers/resources/reconnect/media | `RUN_6ab4779bb83cd2215ca5272a12d96b09`, 56.635 s runner / 52.46 s pytest; actual independent packaged publishers and existing media/recovery/stop assertions passed. Active memory samples 271,024,128 / 265,662,464 bytes with 107 PIDs each; terminal zero active slots and five PIDs each, within unchanged limits. |
+
+The immutable image is
+`sha256:ea1d671b66705782014ad3df2b5eead35d634df21aebcc2a8f97d13e9f2c2bcf`,
+built from runtime source `a10b0e9c9efe8acb24b3e48383b2f7601f60c59b`.
+A separate owned no-network/read-only container read the installed pump file;
+its SHA-256 exactly matches source
+`a3e8fa19447fbcc683451f122c402221741e5c3194cd5a868e589901045e7ee4`.
+The short/intermediate fixtures use a host-side executor and this image as
+isolated browser host; the third run actually executes the packaged Worker
+code without source mounts. These are different topologies, not an invented
+GPU/public reference. Existing serving containers were not replaced.
+
+The next grouped Meet check and two-hour repeated profile remain distinct.
+The failed 45-minute run is not erased by these shorter corrected-source passes.
