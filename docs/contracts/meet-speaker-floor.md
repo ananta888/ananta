@@ -47,3 +47,33 @@ negotiated production path and real two-Worker publication test. Synthetic
 policies and test audio remain technical observations, not production release
 evidence. No changes to the publicly serving Meet instance are part of this
 private implementation slice.
+
+## Durable resource verification
+
+`SpeakerTurn` is an immutable, closed authority binding; `SqlMeetSpeakerFloor`
+uses a database room-row lock and two resource tables, without changing the
+Hub task queue or GPU admission. The room key covers physical origin/room,
+not tenant: two separately authorized tenants in one room must not receive
+two simultaneous permits. Exact task/tenant/project/runtime/dispatch scope is
+still required to inspect or withdraw a reservation.
+
+The first bounded policy has four waiting places, a ten-second wait, three
+priority levels and three-second aging steps. At equal effective priority,
+arrival order wins. Output authority is capped at sixty seconds and always
+at the original source/task deadline. Revocation and natural expiry retain
+four seconds of cleanup quarantine. Polls and repeated callbacks never
+extend or revive a permit. Longer occupied rooms produce a bounded admission
+failure, not indefinite waiting or permission to overlap.
+
+47 SQL/model checks passed in 38.54 seconds, including two real separately
+spawned processes, independent database connections, restart, source-field
+substitution, priority aging, replay, ambiguous numeric values, deadline and
+lost-completion quarantine. The first process test failed because the broad
+application fixture inserted another dependency's `tests` package ahead of
+this checkout; the test now explicitly selects this checkout in fresh child
+interpreters, matching existing dialog-start process tests. No SQL lock or
+policy bound was relaxed. Log: `/tmp/ananta-meet-speaker-floor-sql-final.log`.
+
+This establishes the resource primitive only. Production composition, signed
+Worker handoff, current-control projection and actual audio-floor acceptance
+remain required before MAP-26 is complete.
