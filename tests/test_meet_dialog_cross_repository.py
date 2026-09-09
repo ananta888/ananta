@@ -360,6 +360,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             from tests.meet_speech_worklet_observation import INSTALL
 
             context = new_context(browser, *args, **kwargs)
+            startup_observer.observe_context(context)
             context.add_init_script(INSTALL)
             context.add_init_script("""window.__testPcs = [];
               window.__testCaptures = 0;

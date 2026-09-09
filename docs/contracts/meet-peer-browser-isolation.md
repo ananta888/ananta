@@ -61,6 +61,13 @@ Worker, Task, grant, consent or media-quality deadline. Startup phase and measur
 join latency are content-free test properties. Short and long native verification
 remain required; this ordering fix does not explain the earlier timing failure.
 
+The ordered native repeat failed in 33.84 seconds at actual Worker startup
+with `meet_dialog_session_expired`, before a join completed. This is not a fixed
+startup incident or a successful gate. The observer additionally retains the
+fixed failed startup phase and at most eight allowlisted HTTP/request/script
+error observations per category, using existing events without extra browser
+RPCs or raw exception/URL/token output.
+
 The first isolated peer smoke reached actual chat and screen execution but
 failed after 49.81 seconds with `meet_media_timing_source_failed`; it did not
 establish soak readiness. The native fixture now retains at most one strictly
