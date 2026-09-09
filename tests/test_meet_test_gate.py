@@ -31,6 +31,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         lambda: {"MEET_TEST_PUBLIC_DIR": "/synthetic", **dict.fromkeys(profile.image_inputs, "sha256:" + "a" * 64)},
     )
     monkeypatch.setenv("MEET_DIALOG_SOAK_SECONDS", "7200")
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--ignore=tests")
     monkeypatch.setattr("scripts.run_meet_test_gate.frontend_digest", lambda _: "d" * 64)
     reserved = SimpleNamespace(
         source_id="synthetic-source-not-evidence",
@@ -53,6 +54,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         assert json.loads(environment["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"]) == {"synthetic": True}
         assert environment["ANANTA_MEET_MEDIA_TIMING"] == "1"
         assert environment["MEET_DIALOG_SOAK_SECONDS"] == profile.environment()["MEET_DIALOG_SOAK_SECONDS"]
+        assert environment["PYTEST_ADDOPTS"] == profile.environment()["PYTEST_ADDOPTS"]
         assert all(environment[key] == value for key, value in profile.settings)
         assert "-n" in command and "0" in command
         assert profile.node in command

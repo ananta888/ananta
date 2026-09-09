@@ -19,6 +19,7 @@ class MeetTestProfile:
             "ANANTA_SQLITE_POOL_SIZE": "8",
             "ANANTA_MEET_MEDIA_TIMING": "1",
             "MEET_DIALOG_SOAK_SECONDS": "0",
+            "PYTEST_ADDOPTS": "",
             **dict(self.settings),
         }
 
@@ -71,7 +72,11 @@ _PROFILES = (
         "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
         "synthetic-single-host-hub-dialog-screen-two-hour-v1",
         7560,
-        (("MEET_CROSS_REPOSITORY_GATE", "1"), ("MEET_DIALOG_SOAK_SECONDS", "7200")),
+        (
+            ("MEET_CROSS_REPOSITORY_GATE", "1"),
+            ("MEET_DIALOG_SOAK_SECONDS", "7200"),
+            ("PYTEST_ADDOPTS", "--capture=tee-sys"),
+        ),
         ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
     ),
 )

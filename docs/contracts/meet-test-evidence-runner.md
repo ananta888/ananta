@@ -29,6 +29,10 @@ private TLS/direct networking and a host-side dialog executor, not a public
 TURN, GPU or two-publisher soak. Report the actual active observation duration
 separately from the two-hour Task budget. No second Task/membership is created
 to conceal absolute expiry or extend the original run.
+The long profile uses bounded periodic fixture reports with `tee-sys` capture,
+so progress is visible in its log without disabling failure capture. Ambient
+`PYTEST_ADDOPTS` is cleared for every other profile; it cannot inject a different
+test selection or ignore flags into the reserved command.
 
 Each profile now declares every container image input it actually uses. Browser
 profiles additionally require immutable `MEET_TEST_BROWSER_IMAGE`, preventing
