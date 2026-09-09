@@ -2,9 +2,12 @@
 
 import sqlite3
 from unittest.mock import MagicMock, Mock
+from uuid import uuid4
 
 import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.pool import QueuePool
 from sqlmodel import Session
 
 from agent.db_models import OrganizationInstanceDB, OrganizationRoleAssignmentDB, OrganizationRoleSlotDB, TaskDB
@@ -112,11 +115,30 @@ def test_exact_real_targets_are_monotone_and_second_application_is_not_success(a
             revoke_fixture_lifecycle(engine, reason)
 
 
-def test_actual_shared_cache_read_lock_is_released_before_revocation_retry(app):
-    from agent.database import engine
-
-    with app.app_context():
-        seed_parent(engine)
+@pytest.mark.parametrize("database_mode", ["shared-cache", "wal"])
+def test_real_sqlite_revocation_retries_only_shared_cache_contention(tmp_path, database_mode):
+    # Explicit local DB topology: a WAL reader must not be mistaken for a
+    # shared-cache table lock. Never change the application's global engine.
+    database = (
+        "file:meet-revocation-" + uuid4().hex + "?mode=memory&cache=shared"
+        if database_mode == "shared-cache" else str(tmp_path / "revocation.db")
+    )
+    engine = create_engine(
+        "sqlite://", creator=lambda: sqlite3.connect(database, uri=True, timeout=0.05),
+        poolclass=QueuePool, pool_size=2, max_overflow=0,
+    )
+    try:
+        with engine.begin() as connection:
+            if database_mode == "wal":
+                assert connection.exec_driver_sql("PRAGMA journal_mode=WAL").scalar_one() == "wal"
+            else:
+                assert connection.exec_driver_sql("PRAGMA journal_mode").scalar_one() == "memory"
+            # Minimal SQL surface for this lock test. The separate four full
+            # organization-graph cases above cover the real schema and targets.
+            connection.exec_driver_sql(
+                "CREATE TABLE organization_role_slots (id TEXT PRIMARY KEY, lifecycle TEXT NOT NULL)"
+            )
+            connection.exec_driver_sql("INSERT INTO organization_role_slots VALUES ('meet-test-slot', 'active')")
         reader = engine.raw_connection()
         try:
             cursor = reader.cursor()
@@ -129,10 +151,16 @@ def test_actual_shared_cache_read_lock_is_released_before_revocation_retry(app):
                 pauses.append(delay)
                 reader.rollback()
 
-            assert revoke_fixture_lifecycle(engine, "role-draining", pause=release) == 2
-            assert pauses == [0.05]
-            with Session(engine) as session:
-                assert session.get(OrganizationRoleSlotDB, "meet-test-slot").lifecycle == "draining"
+            assert revoke_fixture_lifecycle(engine, "role-draining", pause=release) == (
+                2 if database_mode == "shared-cache" else 1
+            )
+            assert pauses == ([0.05] if database_mode == "shared-cache" else [])
+            with engine.connect() as connection:
+                assert connection.exec_driver_sql(
+                    "SELECT lifecycle FROM organization_role_slots WHERE id='meet-test-slot'"
+                ).scalar_one() == "draining"
         finally:
             reader.rollback()
             reader.close()
+    finally:
+        engine.dispose()

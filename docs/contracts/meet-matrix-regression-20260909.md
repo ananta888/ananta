@@ -37,3 +37,40 @@ adapter/runtime-probe tests were then explicitly enabled and all13 passed in
 14.98 seconds. The remaining two skips require the private native phase gate.
 These LiveKit checks test deterministic adapters and closed probe behavior;
 they are not a claim of a new live LiveKit server or public media run.
+
+## Updated isolated matrix
+
+At Ananta `4c53b51f3`, a clean private worktree ran 302 Meet/dialog-browser and
+LiveKit test files with four pytest workers, an explicit 120-second default
+case deadline and a 3,600-second outer process-group deadline. The 13
+self-contained LiveKit integrations were explicitly enabled. This matrix is a
+technical observation, not a Hub-reserved production release reference.
+
+It completed in 1,035.90 pytest seconds (17 min 15.90 s), 1,038.762 controller
+seconds: 5,021 cases, 4,937 passed, 82 explicit skips and two failures. Skipped
+native/GPU/public gates are not passes. The prior two bootstrap/isolation
+fixture defects did not recur. The two new failures were environment-dependent
+test assumptions, not evidence of an actual GPU model or revocation failure:
+
+- The GPU resource-projection unit mocked capacity and Docker but still
+  required `data/meet-media/models` in the checkout. The clean worktree correctly
+  had no runtime model download. Its test-only helper now accepts an explicit
+  model directory for isolated unit testing; real callers retain the original
+  repository default and actual capacity check. Missing/file/symlink directories
+  still fail before Docker inspection. No model or GPU acceptance is simulated
+  as hardware evidence.
+- The read-lock test used the application-global database while assuming
+  shared-cache SQLite semantics. This matrix explicitly used WAL, which allows
+  the writer to succeed on its first attempt while the reader remains open.
+  The test now owns separate explicit shared-cache and WAL databases, two real
+  pooled connections and a minimal SQL lock surface. It verifies one bounded
+  retry only for shared-cache, none for WAL, and the actual committed revocation.
+  The four separate real organization-graph cases still exercise full schema
+  and exact targets; no foreign-key or runtime contention policy was relaxed.
+
+This removes hidden filesystem/global-database coupling (DIP) and keeps fixture
+topology separate from revocation behavior (SRP). Neither repair changes Worker
+or Hub production runtime. All 89 affected/resource/cleanup/container checks
+passed in WAL mode in 41.06 seconds; Ruff passed. Both repaired modules also
+passed all 20 cases under the default-memory application mode in 17.58 seconds.
+Final combined confirmation follows separately; the failed aggregate is retained.

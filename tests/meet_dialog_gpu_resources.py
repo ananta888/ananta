@@ -7,9 +7,11 @@ from tests.meet_gpu_capacity import require_gpu_capacity
 from tests.meet_gpu_source_fixture import driver_bindings
 
 
-def receive_gpu_arguments(command, *, check_capacity=require_gpu_capacity):
+def receive_gpu_arguments(command, *, check_capacity=require_gpu_capacity, model_directory: Path | None = None):
     check_capacity()
-    models = Path(__file__).resolve().parents[1] / "data/meet-media/models"
+    models = (
+        Path(__file__).resolve().parents[1] / "data/meet-media/models" if model_directory is None else model_directory
+    )
     if not models.is_dir() or models.is_symlink():
         raise ValueError("test_receive_models_unavailable")
     drivers = driver_bindings(
