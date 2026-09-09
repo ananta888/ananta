@@ -140,3 +140,17 @@ policy; independent screens/personas, two actual recoveries (5,431.22 /
 independent survivor were verified. Third-loss exhaustion stopped in 246.41 ms.
 This is local synthetic-policy acceptance, not GPU utilization or public
 network-bandwidth evidence.
+
+## Remaining execution-side observation
+
+Source audit at `0e5e04e84`: the dedicated Worker reports progress/liveness but
+does not expose its actual dialog slot occupancy or cgroup resource counters.
+Add a separate signed, bounded read-only resource query, not fields on the
+existing exact acceptance receipt or local liveness response. Bind the reply
+to the fresh query nonce, return only slot counts and cgroup memory/CPU/PID
+numbers (explicitly unavailable when unsupported), and never return Task IDs,
+keys, environment, process arguments or source content. The Hub owns capacity
+decisions; a Worker observation cannot mint a lease or increase its admission
+budget. Keep sampling, authentication/transport and occupancy tracking separate.
+Verify malformed/stale/signature cases and partial cgroup support headlessly,
+then read actual installed-container counters during the hardware profile.
