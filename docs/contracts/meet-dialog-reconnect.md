@@ -127,3 +127,35 @@ use (SRP); source-policy or SQL orchestration was not added to HTTP routes.
 negotiation checks in 52.05 s. Suites overlap. Logs:
 `/tmp/ananta-meet-reconnect-{contract,binding,guard,phases}.log`. These complete
 contract and phase components, not runtime activation or automatic rejoin.
+
+## Hub composition and signed Worker receipt
+
+`ANANTA_MEET_DIALOG_RECONNECT=1` now opts new Hub assignments into recovery.
+Default `0` preserves legacy fail-closed sessions; malformed configuration and
+missing authority/retirement/issuer/phase ports fail before resource creation.
+The ordinary Hub bootstrap shares the exact recovery coordinator between the
+dialog service and validated Meet observations, and shares its speaker-floor
+withdrawal port. Current Task/assignment policy is rechecked before and after
+every retirement, phase update and grant handoff. A failed retirement or phase
+CAS stays `retiring`; a failed/uncertain grant handoff consumes its one slot
+without issuing a replacement. No existing runtime environment was changed.
+
+20 resource/coordinator tests passed in 17.29 s and the combined 77-test
+bootstrap/coordinator/native-phase/media-budget suite passed in 36.68 s.
+Logs `/tmp/ananta-meet-recovery-{coordinator,composition}.log`. These use real
+SQL and synthetic authority ports; actual packaged runtime recovery is still
+required before enabling this flag for a deployment.
+
+The Worker signed HTTP client also negotiates the new response separately.
+Its small `ReconnectReceiptGate` pins the first attempt's deadline/quarantine,
+rejects phase/counter regression and accepts at most one grant per attempt.
+Uncertain HTTP outcomes, invalid signatures or malformed receipts permanently
+close that local gate instead of inheriting the read-only exchange retry rule.
+The client stores only the original endpoint/room/deadline, not another copy
+of the initial grant. 43 real loopback HTTP/signature/legacy/speaker-control
+checks passed in 25.45 s (`/tmp/ananta-meet-reconnect-http.log`). No browser
+rejoin or live recovery claim is made from those transport checks.
+
+Upgrade Meet, every Hub and every assigned Worker before enabling recovery.
+Fresh machine membership does not inherit the old peer's human receive consent:
+only a new independently authorized consent/policy may enable those inputs.
