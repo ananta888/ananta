@@ -27,3 +27,13 @@ verification, not a claim that the full 4,877-case matrix has been rerun green.
 Native startup/source-timing failures and the long/public gates remain separate
 open work in MAP-29 through MAP-32. The user's unrelated Compose/Caddy and
 frontend runtime files were not changed.
+
+A subsequent broader targeted batch at `1b2206db2` passed391 cases in141.07
+seconds with15 explicit skips. It included publisher/bootstrap composition,
+durable capacity and role binding, phases, evidence-runner inputs, startup
+observers and LiveKit observation compatibility. Thirteen skips were the
+integration-directory default opt-out; those exact self-contained LiveKit
+adapter/runtime-probe tests were then explicitly enabled and all13 passed in
+14.98 seconds. The remaining two skips require the private native phase gate.
+These LiveKit checks test deterministic adapters and closed probe behavior;
+they are not a claim of a new live LiveKit server or public media run.
