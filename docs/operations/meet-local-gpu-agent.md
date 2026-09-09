@@ -1,5 +1,12 @@
 # Lokaler Meet-KI-Assistent (erste Ausbaustufe)
 
+**Historischer Einstieg zur ersten Ausbaustufe.** Der aktuelle implementierte
+Betriebsweg einschließlich Dialog, Persona, eigenem Browserstream, getrennten
+Workern, Rotation und Not-Aus steht in
+[Autonomer Meet-Agent](meet-autonomous-agent.md). Die nachfolgenden Aussagen
+„noch nicht“ beschreiben den damaligen Funktionsstand, nicht den gesamten
+aktuellen Quellcode. Eine öffentliche Gesamtfreigabe folgt daraus weiterhin nicht.
+
 Die nachfolgende Dialog-Ausbaustufe beginnt mit der separat getesteten
 [Hub-Chat-Admission-Grundlage](../contracts/meet-chat-admission.md). Sie ist
 noch nicht an produktive Meet-Events oder die Antwort-Task-Ausführung angebunden;
