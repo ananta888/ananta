@@ -1169,6 +1169,7 @@
     },
     {
       "id": "MAP-31",
+      "live_readiness_current_result": "2026-09-09 laterhost-DNS-HTTPSrepeat succeeds:health/authrequired/SFramerequired/TURNconfiguredtrue,0rooms/participants,machineadmissionstilldisabled. Inspectedrunningimagef7c08107/revision92f583f34680cbf371a83872512cd9333cc41881 remainsolderthan21cff89code; no deployment/trustmodified. EarlierDNS timeout ishistorical,notcurrentblocker. ScopedHubtrust/projectpolicy/publicreceiver stillunverified. NoLIVE_OIDC_USERNAME/PASSWORD orKeycloakadmin keys inMeet.env/currentprocessenvironment; askedasynchronouslyforlocaltest-secret location withoutpausinglocalwork or requestingsecretvaluesinchat.",
       "live_readiness_source_audit": "2026-09-09 automatedread-only scripts/check_meet_live_readiness.py distinguishesHTTPShealth/auth/SFrame/machineadmission/TURNconfiguration, localimage/revision and exactunverifiedtrust/project/publicmedia claims. Actual loopbackTLSroutehealthy,auth+SFramerequired,TURNconfigured,0rooms/participants, machineadmissionDISABLED; inspectedrunningrevision92f583f34680cbf371a83872512cd9333cc41881, notnewcheckout. EarlierordinaryDNSrequesttimedout; localTLSnotpublicDNS/NATproof. No login,trust,room,deployment or foreignGPUchanges; selectednumeric/hash/booleanprojection excludesICEcredentials/configvalues. Need scopedtrustandverifieddeployment beforeactualpublicmachine/TURN/2hsoak. docs/contracts/meet-live-readiness.md.",
       "title": "Öffentliche Meet-Maschinenintegration und erzwungenen TURN-Pfad prüfen",
       "repository": "both",
