@@ -69,8 +69,9 @@ if __name__ == "__main__":
         if os.environ.get("MEET_HUB_RESTART_GATE") == "1":
             report["frames"] = [
                 {"file": Path(frame.filename).name, "line": frame.lineno}
-                for frame in traceback.extract_tb(error.__traceback__)[-4:]
-                if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}\.py", Path(frame.filename).name)
-            ]
+                for frame in traceback.extract_tb(error.__traceback__)
+                if Path(frame.filename).is_relative_to("/fixtureapp")
+                and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}\.py", Path(frame.filename).name)
+            ][-4:]
         print(json.dumps(report), flush=True)
         raise SystemExit(1) from None
