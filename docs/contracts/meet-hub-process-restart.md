@@ -43,3 +43,20 @@ The private Hub control/configuration prototype passed 20 headless tests in
 operations, no repeat start or arbitrary execution options). These preparation
 checks are **not** the full process-restart result; the installed Hub and actual
 restart gate remain to be run.
+
+The first installed startup exposed a test-control endpoint collision with the
+native Hub `health` function. An explicit blueprint namespace fixes it; the
+focused reproduction failed in 8.23 s before the fix and 31 control/container
+checks passed in 70.71 s afterward. This was a new fixture defect, not a change
+to the production health API.
+
+The following installed attempt stayed alive but failed readiness: Docker's
+internal network exposed no host binding (`8099/tcp: null`), and the last
+bounded access diagnostic was connection refused. Replace the intended host
+publication with direct private container addressing. Prepare the stopped,
+owned Hub container first, validate its immutable ID/image/name/sole network,
+and use its assigned private address. Write the closed Worker origin before
+starting that Hub. The Worker fixture may use a non-gateway Hub endpoint only
+when it matches this exact owned restart-test container and port. Existing
+host-Hub fixtures keep their gateway restriction. No public port, serving
+container, broad subnet trust, new network route or timeout relaxation.
