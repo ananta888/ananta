@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from scripts.hub_browser_test_evidence import HubBrowserTestRun
+from scripts.meet_test_browser_driver import peer_driver_snapshot
 from scripts.meet_test_gate_inputs import (
     ROOT_PATHS,
     frontend_digest,
@@ -76,6 +77,7 @@ def run(
     profile = selected.projection()
     for name in selected.image_inputs:
         require_immutable_test_image(environment.get(name))
+    peer_driver = peer_driver_snapshot() if selected.environment()["MEET_ISOLATED_PEER_BROWSER"] == "1" else None
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     run = reserve(
         root=root,
@@ -83,7 +85,12 @@ def run(
         task_id="MAP-30",
         source_paths=sources,
         execution_profile=profile,
-        environment={"companion": companion, "frontend_digest": bundle, "native": environment},
+        environment={
+            "companion": companion,
+            "frontend_digest": bundle,
+            "native": environment,
+            "peer_driver": peer_driver,
+        },
         policy_paths=(
             Path("AGENTS.md"),
             Path("docs/contracts/meet-live-media-clock.md"),
@@ -105,6 +112,8 @@ def run(
             | selected.environment()
             | {"ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON": json.dumps(run.assignment, sort_keys=True)}
         )
+        if peer_driver is not None:
+            child_environment["MEET_TEST_PEER_PLAYWRIGHT_PACKAGE"] = peer_driver["path"]
         code = worker(
             [
                 sys.executable,
@@ -130,6 +139,7 @@ def run(
             before == after
             and companion == companion_after
             and bundle == frontend_digest(environment["MEET_TEST_PUBLIC_DIR"])
+            and (peer_driver is None or peer_driver == peer_driver_snapshot(peer_driver["path"]))
         )
         passed = code == 0 and observed == {"tests": 1, "failed": 0, "errors": 0, "skipped": 0} and stable
         result = {

@@ -250,6 +250,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from agent.services.meet_media_transport import HttpMediaWorker
     from agent.services.meet_turn_service import HubMediaTasks
     from agent.services.source_control_access_policy import HubSourcePrincipal
+    from tests.meet_bridge_browser_handshake import BridgeBrowserHandshake
     from tests.meet_dialog_avatar_observer import make_avatar_observer
     from tests.meet_dialog_browser_fixture import DialogBrowserFixture
     from tests.meet_dialog_cleanup import close_dialog_servers
@@ -329,12 +330,17 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     service = None
     started = None
     browser_fixture = None
+    peer_browser = BridgeBrowserHandshake(SOAK_SECONDS + 180)
     gpu_cleanup = ExitStack()
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
     try:
         # Provisioning private Docker/TLS/STUN resources has its own deadline;
         # normal bridge operations retain the twenty-second response budget.
         ready = receive(timeout=60)
+        if os.environ.get("MEET_ISOLATED_PEER_BROWSER") == "1":
+            bridge.stdin.write(json.dumps(peer_browser.start(ready)) + "\n")
+            bridge.stdin.flush()
+            ready = receive(timeout=60)
         assert set(ready) == {"origin", "room_id", "certificate", "test_network"}, ready
         monkeypatch.setenv("SSL_CERT_FILE", ready["certificate"])
         cert = x509.load_pem_x509_certificate(Path(ready["certificate"]).read_bytes())
@@ -718,7 +724,8 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                     "source": screen_debug,
                 }
                 browser_process = psutil.Process(browser_fixture.process_id)
-                rss, process_count = process_usage(process, browser_process)
+                peers = () if peer_browser.process_id is None else (psutil.Process(peer_browser.process_id),)
+                rss, process_count = process_usage(process, browser_process, *peers)
                 peaks["rss_bytes"] = max(peaks["rss_bytes"], rss)
                 peaks["processes"] = max(peaks["processes"], process_count)
                 assert rss < 3 * 1024**3 and process_count < 80, peaks
@@ -785,4 +792,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 try:
                     close_bridge(bridge)
                 finally:
-                    gpu_cleanup.close()
+                    try:
+                        peer_browser.close()
+                    finally:
+                        gpu_cleanup.close()

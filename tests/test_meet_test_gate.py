@@ -33,6 +33,10 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
     monkeypatch.setenv("MEET_DIALOG_SOAK_SECONDS", "7200")
     monkeypatch.setenv("PYTEST_ADDOPTS", "--ignore=tests")
     monkeypatch.setattr("scripts.run_meet_test_gate.frontend_digest", lambda _: "d" * 64)
+    monkeypatch.setattr(
+        "scripts.run_meet_test_gate.peer_driver_snapshot",
+        lambda *_: {"path": "/synthetic-driver", "version": "1.58.0", "digest": "e" * 64},
+    )
     reserved = SimpleNamespace(
         source_id="synthetic-source-not-evidence",
         run_id="synthetic-run-not-evidence",

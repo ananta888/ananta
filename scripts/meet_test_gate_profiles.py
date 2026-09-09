@@ -20,6 +20,7 @@ class MeetTestProfile:
             "ANANTA_MEET_MEDIA_TIMING": "1",
             "MEET_DIALOG_SOAK_SECONDS": "0",
             "PYTEST_ADDOPTS": "",
+            "MEET_ISOLATED_PEER_BROWSER": "0",
             **dict(self.settings),
         }
 
@@ -67,6 +68,15 @@ _PROFILES = (
         ("MEET_DIALOG_GPU_PACKAGED_IMAGE",),
     ),
     MeetTestProfile(
+        "private-peer-smoke",
+        "tests/test_meet_dialog_cross_repository.py::"
+        "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
+        "synthetic-single-host-isolated-peer-dialog-screen-v1",
+        360,
+        (("MEET_CROSS_REPOSITORY_GATE", "1"), ("MEET_ISOLATED_PEER_BROWSER", "1")),
+        ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
+    ),
+    MeetTestProfile(
         "private-dialog-soak",
         "tests/test_meet_dialog_cross_repository.py::"
         "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
@@ -75,6 +85,7 @@ _PROFILES = (
         (
             ("MEET_CROSS_REPOSITORY_GATE", "1"),
             ("MEET_DIALOG_SOAK_SECONDS", "7200"),
+            ("MEET_ISOLATED_PEER_BROWSER", "1"),
             ("PYTEST_ADDOPTS", "--capture=tee-sys"),
         ),
         ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
