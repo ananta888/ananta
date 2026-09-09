@@ -387,3 +387,30 @@ Erforderlich sind ein exakt gebundener POST-Endpunkt, höchstens ein HTTP-
 Aufruf, abgelehnte Redirects und ein echter automatischer Negativtest, der
 einen unerlaubten Zielkontakt erkennt. Eine vorherige URL-Prüfung allein
 schützt nicht vor späterem Folgen eines Redirects.
+
+### Durchgesetzte HTTP-Grenze (2026-09-10)
+
+Ein echter isolierter SDK-Negativlauf hat die Lücke bestätigt: HTTP 307
+führte zu zwei Modellanfragen, einem Kontakt am Redirect-Ziel und einem
+fälschlich erfolgreichen Provider-Ergebnis. Der separate Adapter
+`pi_http_transport.mjs` wird jetzt über den öffentlichen SDK-`fetch`-Port
+injiziert. Er erlaubt genau einen POST an den ausgewählten vollständigen
+Completions-Endpunkt, prüft Modell, Streaming-Form und Tokenobergrenze im
+tatsächlichen Request und lehnt Tools sowie zusätzliche Versuche ab.
+`redirect: error` verhindert den Zielkontakt; auch ein injizierter Transport
+darf keinen 3xx-/Redirect-/abweichenden Ziel-Response unterschieben.
+
+Der identische echte 307-Negativlauf besteht nach der Änderung: eine Anfrage,
+null Redirect-Zielkontakte, `pi_assistant_failed`, unverändertes Projekt und
+vollständiges temporäres Cleanup. Reale normale und unerlaubte Tool-Antworten
+bestehen ebenfalls mit genau einer Anfrage; der Tool-Versuch bleibt abgelehnt.
+Alle drei nutzen Pi 0.85.1 mit synthetischem containerlokalem Modell, nicht
+externe Inferenz oder produktive Release-Evidenz. Die 33 Node-Vertragsfälle
+einschließlich eines echten lokalen HTTP-Redirects sind zusätzlich über
+`tests/test_pi_http_transport.py` im regulären Pytest-Gate erfasst.
+
+SRP/DIP: Der kleine Transportadapter vollstreckt die bereits ausgewählte
+Endpoint-/Budgetprojektion. Er entscheidet weder über Modellwahl noch über
+Hub-Autorität. DNS-/Egress-Policy, konkrete Hub-Task-/Lease-Bindung und die
+Containerkomposition bleiben separate offene Teile von PI-T03; der neue
+Guard ist keine allgemeine OS-Netzwerksandbox.

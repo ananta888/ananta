@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { createPiFetch } from "./pi_http_transport.mjs";
 
 let session;
 try {
@@ -22,6 +23,7 @@ try {
   const modelId = modelConfig.providers.ananta.models[0].id;
   const maxTokens = modelConfig.providers.ananta.models[0].maxTokens;
   if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 16384) throw new Error("pi_budget_invalid");
+  const fetch = createPiFetch({ baseUrl: modelConfig.providers.ananta.baseUrl, modelId, maxTokens });
   const settingsManager = sdk.SettingsManager.inMemory(settings, { projectTrusted: false });
   const modelRuntime = await sdk.ModelRuntime.create({
     authPath: join(configDirectory, "auth.json"), modelsPath: join(configDirectory, "models.json"),
@@ -49,7 +51,7 @@ try {
         || selected.api !== "openai-completions" || context.tools?.length) {
       throw new Error("pi_model_call_not_authorized");
     }
-    return stream(selected, context, { ...options, maxTokens, maxRetries: 0 });
+    return stream(selected, context, { ...options, maxTokens, maxRetries: 0, fetch });
   };
   let pending = Promise.resolve();
   const write = (event) => {
