@@ -10,6 +10,7 @@ from dataclasses import replace
 from agent.models.meet_membership import validate_membership
 from agent.services.meet_contract import MeetError
 from ananta_contracts.http_read_failure import transient_http_read_error
+from ananta_contracts.meet_receive_capability import receive_capability
 from worker.meet_media.contract import encode
 from worker.meet_media.persona_http import read_bounded
 
@@ -50,7 +51,7 @@ def validate_authorization(value, scope, issuer, session_id, nonce, now_ms):
             or type(grant["expiresAt"]) is not int
             or not now_ms < grant["expiresAt"] <= now_ms + 600_000
             or not isinstance(grant["publicationIds"], list)
-            or len(grant["publicationIds"]) > 2
+            or len(grant["publicationIds"]) > 4
             or any(
                 not isinstance(p, str) or not re.fullmatch(r"[A-Za-z0-9_={}:-]{1,128}", p)
                 for p in grant["publicationIds"]
@@ -60,7 +61,7 @@ def validate_authorization(value, scope, issuer, session_id, nonce, now_ms):
             raise MeetError("meet_authorization_grant_invalid", 502)
         seen.add(grant["publisherPeerId"])
     publications = value["publications"]
-    if not isinstance(publications, list) or len(publications) > 38:
+    if not isinstance(publications, list) or len(publications) > 76:
         raise MeetError("meet_authorization_publications_invalid", 502)
     seen = set()
     for publication in publications:
@@ -70,7 +71,7 @@ def validate_authorization(value, scope, issuer, session_id, nonce, now_ms):
             or not isinstance(publication["peerId"], str)
             or not isinstance(publication["publicationId"], str)
             or not isinstance(publication["source"], str)
-            or publication["source"] not in {"microphone", "screen-audio"}
+            or receive_capability(publication["source"]) not in scope.capabilities
             or type(publication["publicationEpoch"]) is not int
             or not 1 <= publication["publicationEpoch"] < 2**53
             or (publication["peerId"], publication["publicationId"]) in seen

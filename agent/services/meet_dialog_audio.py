@@ -83,7 +83,7 @@ class MeetDialogAudio:
         publication = next(
             (p for p in receipt["publications"] if p["publicationId"] == payload["publication_id"]), None
         )
-        if publication is None:
+        if publication is None or publication["source"] not in {"microphone", "screen-audio"}:
             raise MeetError("meet_audio_source_denied", 403)
         grant = next(g for g in receipt["grants"] if g["publisherPeerId"] == publication["peerId"])
         now = int(self.clock())

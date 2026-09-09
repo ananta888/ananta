@@ -954,6 +954,7 @@
     },
     {
       "id": "MAP-25",
+      "visual_policy_implementation": "2026-09-09 shared video.receive mapping, exact per-source Hub receipt validation/max4 audiovisual grants and VP8 receive probe prerequisite implemented; visual grants cannot create ASR tasks.135 focused capability/probe/backchannel/audio tests passed54.21s, Ruff green. docs/contracts/meet-visual-receive.md; separate actual frame probe and Hub visual analysis Task/Worker integration remain required. Technical observation only, no production evidence or MAP25 closure.",
       "title": "Separat autorisierten Audio-/Videoempfang und Medienverstehen anbinden",
       "repository": "ananta",
       "type": "feature",

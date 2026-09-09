@@ -41,7 +41,7 @@ def test_every_nonempty_closed_capability_subset_is_supported_by_the_full_browse
         for subset in itertools.combinations(capabilities, count):
             require_client_probe(projection(), subset)
             checked += 1
-    assert checked == 63
+    assert checked == 2 ** len(CAPABILITIES) - 1
 
 
 @pytest.mark.parametrize(
@@ -90,6 +90,7 @@ def test_security_readiness_is_required_even_for_chat(field):
         ("chat.read", "chat", None),
         ("chat.send", "chat", None),
         ("audio.receive", "audio", "opusReceive"),
+        ("video.receive", "session", "vp8Receive"),
         ("speech.publish", "speech", "opusSend"),
         ("screen.publish", "screen", "vp8Send"),
         ("avatar.publish", "avatar", "vp8Send"),
@@ -99,7 +100,7 @@ def test_only_assigned_ports_and_codec_directions_are_required(capability, port,
     value = projection()
     value["ports"] = dict.fromkeys(PORTS, False)
     value["codecs"] = dict.fromkeys(CODECS, False)
-    value["ports"].update(session=True, **{port: True})
+    value["ports"].update({"session": True, port: True})
     if codec:
         value["codecs"][codec] = True
     require_client_probe(value, [capability])

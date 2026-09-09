@@ -45,6 +45,7 @@ def require_client_probe(value, capabilities, *, mp4=False):
                 "chat.read": "chat",
                 "chat.send": "chat",
                 "audio.receive": "audio",
+                "video.receive": "session",  # The separate visual probe is required before reception.
                 "screen.publish": "screen",
                 "speech.publish": "speech",
                 "avatar.publish": "avatar",
@@ -56,6 +57,8 @@ def require_client_probe(value, capabilities, *, mp4=False):
             codecs.add("opusSend")
         elif capability == "audio.receive":
             codecs.add("opusReceive")
+        elif capability == "video.receive":
+            codecs.add("vp8Receive")
     if not (
         value["secureContext"]
         and value["encodedTransform"]

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 CAPABILITIES = frozenset(
-    {"audio.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
+    {"audio.receive", "video.receive", "chat.read", "chat.send", "avatar.publish", "speech.publish", "screen.publish"}
 )
 SOURCE_CLASSES = frozenset(
     {"agent_browser", "generated_audio", "generated_video", "persona_image", "persona_video", "human_device_capture"}

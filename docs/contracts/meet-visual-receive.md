@@ -44,3 +44,18 @@ decoder failure and cancellation. Then exercise real isolated browsers and a
 normal Hub Task/Worker analysis chain. Full MAP-25 closure still requires its
 remaining live audio and visual acceptance; this document is a plan, not proof
 of a capability already deployed to the public instance.
+
+## Receive-policy implementation, 2026-09-09
+
+The shared source-to-capability contract and Hub backchannel now admit at most
+four exact audiovisual sources per publisher, each requiring its own audio or
+visual receive capability. Visual grants cannot create ASR child tasks. The
+unchanged legacy client probe additionally checks VP8 receive support when the
+new capability is selected; actual frame consumption still needs the separate
+visual probe. The focused capability/backchannel/audio regression passed 135
+tests in 54.21s. This is technical test observation, not production evidence.
+
+Pure capability mapping protects SRP/DIP. Existing broad Hub audio coordinator
+and backchannel validators remain SRP debt; this slice only tightens their
+source boundaries and does not add visual decoding or persistence to them.
+Visual analysis Task/Worker integration is still pending.
