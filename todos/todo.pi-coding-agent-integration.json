@@ -105,10 +105,10 @@
       "id": "PI-T03",
       "title": "Hub-Policies und isolierte Ausführung durchsetzen",
       "type": "security",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 5.0,
       "depends_on": [
         "PI-T01",
         "PI-T02"
@@ -118,8 +118,11 @@
         "Hub bleibt alleiniger Eigentümer von Task Queue, Routing, Modellwahl, Budget, Delegation und Berechtigungen; Pi orchestriert keine weiteren Worker.",
         "Tools, Dateipfade, Netzwerk und Extensions anhand Hub-Policy begrenzen; fehlende Pi-Berechtigungsdialoge gelten niemals als Freigabe. Read-only technisch testen, andernfalls Capability ablehnen.",
         "Projekt-/Benutzer-Konfiguration, AGENTS.md, Skills und Extensions als Eingaben ohne zusätzliche Autorität behandeln; automatische fremde Extension-Ladung/Installation und Selbständerung außerhalb des Auftrags verhindern.",
-        "Jeder Worker bleibt in eigenem Container mit auftragsgebundenem Workspace; fehlende Autorisierung liefert begrenztes maschinenlesbares blocked/failed."
-      ]
+        "Jeder Worker bleibt in eigenem Container mit auftragsgebundenem Workspace; fehlende Autorisierung liefert begrenztes maschinenlesbares blocked/failed.",
+        "Bestehende Hub-Provider-Kontext-, Budget- und Autorisierungsports wiederverwenden; fehlender oder legacy-kompatibler Kontext ist keine Pi-Freigabe. Keine zweite Task Queue oder Worker-eigene Signaturausstellung.",
+        "Den tatsächlichen SDK-HTTP-Transport auf den freigegebenen POST-Endpunkt und eine Anfrage begrenzen; Redirects vor Kontakt zum Ziel ablehnen und dies automatisch mit echtem isoliertem SDK-Aufruf prüfen."
+      ],
+      "source_audit": "Against 359621c4a: reuse HubProviderContextSpec, ProviderInvocationContext, existing Hub provider budgets/endpoint policy and Native Hub revalidation/public Ed25519 verification. Never use legacy_compatible context or a new worker-owned signer as Pi authority. Concrete task/assignment/lease composition and container isolation still open. Pinned SDK exposes fetch injection and OpenAI-completions passes it through; add exact one-POST endpoint and redirect refusal with real synthetic negative before activation. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T04",
@@ -192,8 +195,8 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 3,
+      "in_progress": 1,
       "partial": 0,
       "blocked": 0,
       "done": 2
@@ -261,8 +264,8 @@
       "security": {
         "total": 1,
         "by_status": {
-          "todo": 1,
-          "in_progress": 0,
+          "todo": 0,
+          "in_progress": 1,
           "partial": 0,
           "blocked": 0,
           "done": 0
@@ -270,7 +273,7 @@
         "done": 0,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 5.0
       },
       "verification": {
         "total": 1,
@@ -291,10 +294,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 3.0,
-    "remaining_weight": 7.0,
+    "done_weight": 3.1,
+    "remaining_weight": 6.9,
     "blocked_weight": 0.0,
-    "weighted_percent": 30.0
+    "weighted_percent": 31.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -311,28 +314,28 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 20.0,
-        "weighted_percent": 17.6,
+        "weighted_percent": 18.8,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 4,
-    "in_progress": 0,
+    "state": "in_progress",
+    "todo_remaining": 3,
+    "in_progress": 1,
     "partial": 0,
     "blocked": 0,
     "done": 2,
     "count_based_percent": 33.3,
-    "weighted_percent": 30.0
+    "weighted_percent": 31.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T22:37:54.780394Z",
+    "generated_at": "2026-09-09T22:44:15.054503Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "566637860c0934db0b7bead648f48187b5b74f8bf6ec73fd0f27900c86011145",
+    "source_hash": "3b010e46fd88c4904fe89f62cb1776cec73f2d3f325e8e47c375d53bf0df252a",
     "is_stale": false
   }
 }

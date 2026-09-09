@@ -360,3 +360,30 @@ gesamte Pi-Integration. Hub-Policy-/Containerbindung, zentrale Modell- und
 ContextBundle-Konfiguration, Ergebnis-Ingress und optionale echte Modellläufe
 (PI-T03 bis PI-T06) bleiben offen. SRP/DIP werden durch getrennte Konfigurations-,
 Runtime-, SDK-, Parser- und Prozessadapter mit injizierten Prüfports erhalten.
+
+## PI-T03: Abgleich der noch offenen Policy-Anbindung
+
+Der Quellabgleich gegen `359621c4a` findet bereits die benötigten zentralen
+Bausteine: `HubProviderContextSpec` erzeugt Hub-seitig Provider-Kontexte;
+`ProviderInvocationContext`, die Provider-Middleware und
+`HubProviderBudgetAdapter` transportieren beziehungsweise prüfen Modell-,
+Endpoint-, Budget- und Fencing-Bindungen. Native Workflow-Aufträge besitzen
+bereits Hub-Revalidierung und öffentliche Ed25519-Verifikation. Diese Ports
+sollen erweitert/verwendet werden, nicht durch eine Pi-eigene Task Queue,
+einen symmetrischen Worker-Signierer oder eine zweite Modellkonfiguration
+ersetzt werden. Die vorhandene allgemeine `legacy_compatible()`-Fallback-
+Semantik ist für Pi ausdrücklich keine Autorisierungsgrundlage.
+
+Vor Aktivierung fehlen weiterhin die konkrete Task-/Assignment-/Lease-
+Komposition und eine nachgewiesene Containergrenze gegen fremde Prozesse.
+Die bisherige boolesche Autorisierungsnaht ist nur ein Port, nicht selbst
+der Nachweis einer gültigen Hub-Freigabe. Die vorhandenen anderen Legacy-
+Aufrufpfade werden durch diese Arbeit nicht global umgestellt.
+
+Zusätzlich muss Pi denselben Redirect-Schutz wie die vorhandenen Python-
+Provider-Transporte erhalten. Das gepinnte SDK bietet dafür einen `fetch`-Port
+in `ProviderRequestOptions`; der OpenAI-Completions-Adapter reicht ihn weiter.
+Erforderlich sind ein exakt gebundener POST-Endpunkt, höchstens ein HTTP-
+Aufruf, abgelehnte Redirects und ein echter automatischer Negativtest, der
+einen unerlaubten Zielkontakt erkennt. Eine vorherige URL-Prüfung allein
+schützt nicht vor späterem Folgen eines Redirects.
