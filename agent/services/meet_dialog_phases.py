@@ -7,6 +7,7 @@ from agent.models.meet_dialog_phase import (
     projection,
     publication_observation,
     queued,
+    reconnecting,
     transition,
     validate_record,
 )
@@ -42,7 +43,7 @@ class MeetDialogPhases:
             raise MeetError("meet_dialog_phase_conflict", 409)
         return changed
 
-    def advance(self, scope, target, state=None):
+    def _scoped(self, scope):
         self.authority.current(scope.task_id, scope.lease_id, scope.runtime_id)
         legacy = self.store.read(scope.task_id)
         if legacy is not None and "meet_phase" not in (legacy.worker_execution_context or {}):
@@ -82,8 +83,25 @@ class MeetDialogPhases:
             expected["initial_persona"] = scope.initial_persona
         if scope.voice_selection is not None:
             expected["voice_selection"] = scope.voice_selection
+        if scope.reconnect:
+            expected["reconnect"] = True
         if record["binding"] != phase_binding(scope.task_id, scope.tenant_id, scope.project_id, expected):
             raise MeetError("meet_dialog_phase_conflict", 409)
+        return task, record
+
+    def begin_recovery(self, scope, session_id, attempt):
+        resolved = self._scoped(scope)
+        if not scope.reconnect or resolved is None:
+            raise MeetError("meet_dialog_phase_recovery_invalid", 409)
+        task, record = resolved
+        self._write(task, record, reconnecting(record, session_id, attempt, self._now()))
+        self.authority.current(scope.task_id, scope.lease_id, scope.runtime_id)
+
+    def advance(self, scope, target, state=None):
+        resolved = self._scoped(scope)
+        if resolved is None:
+            return
+        task, record = resolved
         membership = None if state is None else {"session_id": state["lease"]["sessionId"], "peer_id": state["peerId"]}
         # Authorization proves continued membership, not a source stop. Never
         # downgrade an observed publishing phase merely because exchange ran.

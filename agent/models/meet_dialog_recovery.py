@@ -4,10 +4,9 @@ import re
 from dataclasses import asdict, dataclass
 
 from agent.services.meet_contract import MeetError
-
-MAX_RECOVERIES = 2
-RECOVERY_MS = 30_000
-RECOVERY_QUIET_MS = 4_000
+from ananta_contracts.meet_reconnect import MAX_RECOVERIES as MAX_RECOVERIES
+from ananta_contracts.meet_reconnect import RECOVERY_MS as RECOVERY_MS
+from ananta_contracts.meet_reconnect import RECOVERY_QUIET_MS as RECOVERY_QUIET_MS
 
 
 def instant(value):

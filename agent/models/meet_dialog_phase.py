@@ -5,6 +5,7 @@ import json
 import re
 
 from agent.services.meet_contract import MeetError
+from ananta_contracts.meet_reconnect import MAX_RECOVERIES
 
 SCHEMA = "ananta.meet-dialog-phase-record.v1"
 TERMINAL = frozenset({"completed", "failed", "cancelled"})
@@ -44,6 +45,7 @@ def phase_binding(task_id, tenant, project, context):
                 {key: context[key] for key in keys}
                 | ({"avatar_videos": context["avatar_videos"]} if "avatar_videos" in context else {})
                 | ({"browser_workspace": context["browser_workspace"]} if "browser_workspace" in context else {}),
+                *([context["reconnect"]] if "reconnect" in context else []),
                 *([context["initial_persona"]] if "initial_persona" in context else []),
                 "avatar_selection" in context,
                 "voice_selection" in context,
@@ -79,7 +81,8 @@ def validate_record(value, binding):
         raise MeetError("meet_dialog_phase_unavailable", 409)
     if (
         not isinstance(value, dict)
-        or set(value) != {"schema", "binding", "phase", "revision", "since", "membership", "observation"}
+        or set(value) - {"retired_memberships"}
+        != {"schema", "binding", "phase", "revision", "since", "membership", "observation"}
         or value["schema"] != SCHEMA
         or value["binding"] != binding
         or not isinstance(binding, str)
@@ -92,15 +95,7 @@ def validate_record(value, binding):
         raise MeetError("meet_dialog_phase_record_invalid", 409)
     timestamp(value["since"])
     membership = value["membership"]
-    if membership is not None and (
-        not isinstance(membership, dict)
-        or set(membership) != {"session_id", "peer_id"}
-        or not isinstance(membership["session_id"], str)
-        or not re.fullmatch(r"ms_[A-Za-z0-9_-]{32}", membership["session_id"])
-        or not isinstance(membership["peer_id"], str)
-        or not re.fullmatch(r"[a-f0-9]{16}", membership["peer_id"])
-    ):
-        raise MeetError("meet_dialog_phase_membership_invalid", 409)
+    _validate_memberships(membership, value.get("retired_memberships", []))
     observation = value["observation"]
     if observation is not None:
         if (
@@ -133,6 +128,56 @@ def validate_record(value, binding):
     ):
         raise MeetError("meet_dialog_phase_record_invalid", 409)
     return value
+
+
+def _validate_memberships(current, retired):
+    if type(retired) is not list or len(retired) > MAX_RECOVERIES:
+        raise MeetError("meet_dialog_phase_membership_invalid", 409)
+    sessions, peers = set(), set()
+    for membership in retired + ([current] if current is not None else []):
+        if (
+            not isinstance(membership, dict)
+            or set(membership) != {"session_id", "peer_id"}
+            or not isinstance(membership["session_id"], str)
+            or not re.fullmatch(r"ms_[A-Za-z0-9_-]{32}", membership["session_id"])
+            or not isinstance(membership["peer_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{16}", membership["peer_id"])
+            or membership["session_id"] in sessions
+            or membership["peer_id"] in peers
+        ):
+            raise MeetError("meet_dialog_phase_membership_invalid", 409)
+        sessions.add(membership["session_id"])
+        peers.add(membership["peer_id"])
+
+
+def reconnecting(record, session_id, attempt, now):
+    """Only the Hub coordinator invokes this after confirmed exact retirement."""
+    validate_record(record, record["binding"])
+    timestamp(now)
+    retired = record.get("retired_memberships", [])
+    if (
+        record["phase"] not in {"joined", "publishing"}
+        or record["membership"] is None
+        or record["membership"]["session_id"] != session_id
+        or type(attempt) is not int
+        or attempt != len(retired) + 1
+        or not 1 <= attempt <= MAX_RECOVERIES
+        or now < record["since"]
+        or record["revision"] >= 2**53 - 2
+    ):
+        raise MeetError("meet_dialog_phase_recovery_invalid", 409)
+    return validate_record(
+        record
+        | {
+            "phase": "connecting",
+            "membership": None,
+            "observation": None,
+            "retired_memberships": retired + [dict(record["membership"])],
+            "revision": record["revision"] + 1,
+            "since": now,
+        },
+        record["binding"],
+    )
 
 
 def transition(record, target, now, *, membership=None, observation=None):

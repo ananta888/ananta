@@ -13,13 +13,15 @@ from tests.test_meet_dialog_avatar_negotiation import system
 pytestmark = pytest.mark.timeout(45)
 
 
-def setup():
+def setup(*, reconnect=False):
     from agent.services.task_runtime_service import compare_and_set_local_task_status
 
     f = system()
     f.store = TaskDialogPhases(f.tasks, task_status_cas=compare_and_set_local_task_status)
     f.phases = MeetDialogPhases(f.store, f.f.authority, f.meet, clock=lambda: f.f.now)
     f.service.phases = f.phases
+    if reconnect:
+        f.service.recovery = Mock()
     f.started = f.service.start(f.principal, "project", f.payload)
     f.task_id = f.started["task_id"]
     f.context = f.tasks.get_by_id(f.task_id).worker_execution_context["meet_dialog"]

@@ -100,6 +100,7 @@ def validate_assignment(value, now):
             "browser_workspace",
             "audio_profile",
             "speaker_floor",
+            "reconnect",
         }
         != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
@@ -125,6 +126,8 @@ def validate_assignment(value, now):
         raise ValueError("meet_dialog_voice_profiles_invalid")
     if "speaker_floor" in value and (value["speaker_floor"] is not True or "speech.publish" not in caps):
         raise ValueError("meet_speaker_negotiation_invalid")
+    if "reconnect" in value and value["reconnect"] is not True:
+        raise ValueError("meet_reconnect_negotiation_invalid")
     if "browser_workspace" in value and (value["browser_workspace"] is not True or "screen.publish" not in caps):
         raise ValueError("meet_dialog_browser_workspace_invalid")
     if "initial_persona" in value:
@@ -142,7 +145,12 @@ def validate_assignment(value, now):
         parse_audio_profile(value["audio_profile"])
         if value["audio_mode"] == "off":
             raise ValueError("meet_dialog_audio_policy_invalid")
-    meeting = value["meeting"]
+    validate_meeting(value["meeting"])
+    return value
+
+
+def validate_meeting(meeting):
+    """Closed opaque grant handoff; admission remains the receiving Meet's job."""
     if not isinstance(meeting, dict) or set(meeting) != {"origin", "room_id", "grant"}:
         raise ValueError("meet_dialog_meeting_invalid")
     if any(not isinstance(v, str) for v in meeting.values()):
@@ -162,7 +170,7 @@ def validate_assignment(value, now):
         or not re.fullmatch(r"[A-Za-z0-9_.-]{1,4096}", meeting["grant"])
     ):
         raise ValueError("meet_dialog_meeting_invalid")
-    return value
+    return meeting
 
 
 def validate_callback(value, now):
@@ -179,6 +187,7 @@ def validate_callback(value, now):
         "visual",
         "visual_result",
         "browser_finish",
+        "reconnect",
     }:
         raise ValueError("meet_dialog_callback_invalid")
     fields = (
@@ -188,6 +197,12 @@ def validate_callback(value, now):
     )
     if action == "browser_finish":
         fields |= {"browser_task_id", "browser_lease_id"}
+    if action == "reconnect":
+        from ananta_contracts.meet_reconnect import MAX_RECOVERIES
+
+        if type(value.get("attempt")) is not int or not 0 <= value["attempt"] <= MAX_RECOVERIES:
+            raise ValueError("meet_reconnect_attempt_invalid")
+        fields |= {"attempt"}
     if action == "exchange" and "speech_finished" in value:
         from ananta_contracts.meet_speaker_floor import validate_speaker_permit
 

@@ -41,6 +41,7 @@ class DialogAuthority:
     browser_workspace: bool = False
     audio_profile: AudioReceiveProfile | None = None
     speaker_floor: bool = False
+    reconnect: bool = False
 
     @property
     def machine_subject(self):
@@ -101,6 +102,7 @@ class MeetDialogAuthority:
                 "browser_workspace",
                 "audio_profile",
                 "speaker_floor",
+                "reconnect",
             }
             != fields
         ):
@@ -113,6 +115,8 @@ class MeetDialogAuthority:
         if type(value["deadline"]) is not int or not self.clock() < value["deadline"] <= self.clock() + 7200:
             raise MeetError("meet_dialog_expired", 403)
         capabilities = value["capabilities"]
+        if "reconnect" in value and value["reconnect"] is not True:
+            raise MeetError("meet_reconnect_negotiation_invalid", 403)
         if "speaker_floor" in value and (
             value["speaker_floor"] is not True
             or not isinstance(capabilities, list)
@@ -254,4 +258,5 @@ class MeetDialogAuthority:
             value.get("browser_workspace", False),
             audio_profile,
             value.get("speaker_floor", False),
+            value.get("reconnect", False),
         )

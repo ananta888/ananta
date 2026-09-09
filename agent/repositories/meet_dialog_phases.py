@@ -40,7 +40,10 @@ class TaskDialogPhases:
                 worker_execution_context=context | {"meet_phase": deepcopy(record)},
                 event_type="meet_dialog_phase_observed",
                 event_actor="hub",
-                event_details={"phase": record["phase"], "revision": record["revision"]},
+                event_details={"phase": record["phase"], "revision": record["revision"]}
+                | (
+                    {"reconnect_attempt": len(record["retired_memberships"])} if "retired_memberships" in record else {}
+                ),
             )
         except Exception:
             raise MeetError("meet_dialog_phase_storage_unavailable", 503) from None

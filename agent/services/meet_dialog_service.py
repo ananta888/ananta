@@ -21,6 +21,7 @@ from agent.services.meet_dialog_speaker_floor import negotiated_speaker_fields
 from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
 from agent.services.meet_turn_service import HubMediaTasks
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
+from ananta_contracts.meet_reconnect import negotiated_reconnect_fields
 from ananta_contracts.meet_source_profile import dialog_source_profile
 
 
@@ -44,11 +45,13 @@ class MeetDialogService:
         avatar_video_profiles=None,
         browser_workspaces=None,
         speaker_floor=None,
+        recovery=None,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.phases = phases
         self.browser_workspaces = browser_workspaces
         self.speaker_floor = speaker_floor
+        self.recovery = recovery
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
             worker,
             media_worker,
@@ -108,6 +111,11 @@ class MeetDialogService:
 
     def spoken_reply(self, payload):
         return self.spoken_replies.execute(payload)
+
+    def reconnect(self, payload):
+        if self.recovery is None:
+            raise MeetError("meet_reconnect_coordinator_required", 409)
+        return self.recovery.exchange(payload)
 
     def list(self, principal, project, cursor=0):
         self.authority.binding.require_write_access(principal, project)
@@ -222,6 +230,7 @@ class MeetDialogService:
         )
         context.update(audio_profile_fields(audio_profile))
         context.update(negotiated_speaker_fields(self.speaker_floor is not None, context["capabilities"]))
+        context.update(negotiated_reconnect_fields(self.recovery is not None))
         if payload.get("avatar_images") is True:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         if payload.get("avatar_videos") is True:
@@ -273,6 +282,7 @@ class MeetDialogService:
                 assignment["avatar_images"] = True
             assignment.update(audio_profile_fields(scope.audio_profile))
             assignment.update(negotiated_speaker_fields(scope.speaker_floor, scope.capabilities))
+            assignment.update(negotiated_reconnect_fields(scope.reconnect))
             if scope.avatar_videos:
                 assignment["avatar_videos"] = True
             if scope.browser_workspace:

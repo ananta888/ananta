@@ -94,3 +94,36 @@ An earlier 32-test slice passed in 20.87 seconds; these suites overlap. Logs:
 `/tmp/ananta-meet-recovery-resource-final.log`. No grant, browser rejoin or media
 execution is simulated by this repository test. Service/Worker integration
 and real connection-loss acceptance remain required; MAP-11 stays unfinished.
+
+## Negotiation and phase fencing
+
+The additive assignment/context field `reconnect: true` is now closed and bound
+to original preauthorization. Invalid flags fail instead of being coerced.
+The current authority projection includes this flag. A negotiated membership
+read without its configured recovery coordinator is rejected before issuing
+a control grant or making an HTTP request; legacy tasks remain unchanged.
+The reconnect callback carries only its exact session and bounded attempt.
+Signed response validation retains the original origin/room/task deadline,
+checks the next attempt and quarantine, and cannot accept unnegotiated output.
+
+The recovery digest is a domain-separated immutable authority projection, not
+an evidence ID or the preauthorization record's digest. It includes the actual
+verified organization/role principal and all profile/identity ceilings. Mutable
+source control values and selected asset references do not change that identity;
+their negotiation presence does, and current controls are still independently
+revalidated before use.
+
+Only the separate Hub phase recovery transition can reset a joined/publishing
+record to connecting after confirmed retirement. It discards old publication
+observations and preserves up to two retired session/peer pairs. Normal phase
+transitions stay strict, including a late previously validated old observation
+arriving after the phase reset. The existing Task CAS/audit port records the
+attempt without changing the original dispatch context or creating another
+task. Broad existing phase-service scope validation was extracted for shared
+use (SRP); source-policy or SQL orchestration was not added to HTTP routes.
+
+98 wire/resource/legacy checks passed in 46.19 s, 66 binding/authority checks in
+32.93 s, 69 transport/route guard checks in 33.78 s, and 127 native phase/CAS/
+negotiation checks in 52.05 s. Suites overlap. Logs:
+`/tmp/ananta-meet-reconnect-{contract,binding,guard,phases}.log`. These complete
+contract and phase components, not runtime activation or automatic rejoin.

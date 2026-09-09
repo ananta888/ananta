@@ -88,8 +88,9 @@ def validate_authorization(value, scope, issuer, session_id, nonce, now_ms):
 
 
 class MeetAuthorizationClient:
-    def __init__(self, authority, issuer, clock=time.time):
+    def __init__(self, authority, issuer, clock=time.time, *, recovery=None):
         self.authority, self.issuer, self.clock = authority, issuer, clock
+        self.recovery = recovery
 
     def inspect(self, task_id, lease_id, runtime_id, session_id):
         return self._inspect(task_id, lease_id, runtime_id, session_id, "authorization", validate_authorization)
@@ -108,6 +109,8 @@ class MeetAuthorizationClient:
         if not isinstance(session_id, str) or not re.fullmatch(r"ms_[A-Za-z0-9_-]{32}", session_id):
             raise MeetError("meet_authorization_session_invalid")
         scope = self.authority.current(task_id, lease_id, runtime_id)
+        if scope.reconnect and endpoint != "retire" and self.recovery is None:
+            raise MeetError("meet_reconnect_coordinator_required", 409)
         meeting = self.issuer.issue_dialog(self.authority, task_id, lease_id, runtime_id, self.clock())
         nonce = secrets.token_hex(16)
         body = encode({"roomId": scope.room_id, "sessionId": session_id, "nonce": nonce})
@@ -160,6 +163,8 @@ class MeetAuthorizationClient:
                 )
             ):
                 raise MeetError("meet_authorization_changed", 409)
+            if scope.reconnect and endpoint != "retire":
+                self.recovery.observe(current, result)
             return result
         except MeetError:
             raise
