@@ -25,3 +25,14 @@ They include missing/duplicate/extra models, malformed row/list shapes, wrong
 name/digest, zero/negative/boolean/string/oversized residency, unchanged request
 budgets, stale-sample clearing and copied report values. Actual measured numbers
 still require the separate real GPU run.
+
+The new pre-reserved component run at Ananta `fd6aa8fec` / Meet `21cff89`
+passed in90.67 seconds with unchanged selected inputs and immutable Worker
+`6a2ac86f9209`. GPU0 had9864MiB free before setup; the owned provider reported
+1,105,419,304 model-resident VRAM bytes after the34.63-second cold preload.
+Actual Qwen produced13 output tokens, Piper-CUDA65792 non-silent PCM samples
+and NVENC63412 encoded video bytes. Only owned containers were cleaned up.
+The Registry accepted this as synthetic-policy TEST evidence and explicitly
+denied production-release eligibility. No simultaneous browser delivery,
+continuous VRAM peak or exclusive GPU ownership is claimed by this component
+run; those are distinct observations.
