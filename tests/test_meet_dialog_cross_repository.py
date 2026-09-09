@@ -264,6 +264,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from tests.meet_dialog_interruption import configure_interruption, finish_interruption
     from tests.meet_dialog_network_cleanup import DialogNetworkCleanup
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
+    from tests.meet_dialog_screen_observation import record_screen_failure
     from tests.meet_dialog_speech_observer import DialogSpeechObserver
     from tests.meet_dialog_voice_scenario import make_voice_scenario
     from worker.meet_media.dialog_chat import DialogChatPump
@@ -607,6 +608,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         }
         # Wait for one fresh Hub-authorized queue activation; no old chat replay.
         first_screen = command("screen")
+        record_screen_failure(first_screen, screen_debug, record_property)
         assert first_screen == {"moving_screen": True}, json.dumps(
             {
                 "screen": first_screen,
@@ -747,6 +749,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 if time.monotonic() >= started_at + SOAK_SECONDS - 5:
                     break
                 screen_state = command("screen")
+                record_screen_failure(screen_state, screen_debug, record_property)
                 assert screen_state == {"moving_screen": True}, {
                     "screen": screen_state,
                     "runtime_errors": failures,

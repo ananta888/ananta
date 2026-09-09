@@ -147,3 +147,19 @@ unchanged; no retry, wider freshness bound or optimistic pass. Verify redaction
 and exact failure behavior deterministically, then collect a fresh real reference.
 The existing large integration fixture remains SRP debt; projection belongs in
 a separate passive test adapter, not additional orchestration branches.
+
+The passive adapter is implemented in `tests/meet_dialog_screen_observation.py`.
+Both initial and periodic screen assertions first retain its closed JUnit
+property on failure only. It records fixed connection states, numeric RTP,
+decoded/keyframe/PLI/NACK counts, bounded fixed transform-failure categories,
+video readiness and the last separately sampled source activation. It makes no
+additional browser calls, changes no assertion and adds no retry. Source and
+receiver observations are explicitly not atomic. Unknown values become null,
+all nested rows are bounded and no arbitrary fields or values are preserved.
+
+21 related screen/scheduling/RPC/control/transport observation tests passed in
+29.44 seconds; the final twelve screen-projection tests passed in 17.91 seconds
+after retaining the existing fixed transform-failure categories. Ruff and all
+123 Worker boundary checks passed. No media runtime or immutable image change
+was made. A fresh short check and diagnostic reference follow on the same Meet
+`c4ef486` bundle; the historical failed run remains failed.

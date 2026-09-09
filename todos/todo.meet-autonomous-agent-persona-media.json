@@ -1146,6 +1146,7 @@
     },
     {
       "id": "MAP-30",
+      "screen_failure_receipt_result": "Separate passive JUnitprojection implemented beforeinitial/periodicscreenassertion:closedreceiverRTP/decoded/keyframe/PLI/NACK/connection/transformcounts and lastsourceactivation, non-atomicexplicit,unknownnull/bounded/no content. No extraRPC/retry/timeout/mediacode/imagechange.21relatedobservertestsPASS29.44s;final12projectiontestsPASS17.91s,Worker123boundary/RuffPASS. SameMeetc4ef486/image5d4be51c short then diagnosticreference planned; historical36mfailure remainsfailed, causenotestablished. docs/contracts/meet-cadence-delay-reference.md.",
       "third_normal_soak_failure": "RUN_4c3ab71f6f6734f21aed51c7032dbc19/SRC_1a79f19adf72bffe8407a72d1ce302c3 failed2166.283runner/2162.03pytest seconds at frozenrootd29d1780a/Meetc4ef486/image5d4be51c,unchangedinputs,1fail0skip/error. Last2090active/35leases/45screenchecks/peak2370232320bytes22processes; failuregeneration36, receiver screen_not_moving after12s while runtimeactive/noerrors. ExactreceiverRTP/decoder/source assertiondiagnostics truncated bypytest; laterteardown schedulingnotatomicfailurestate. Causeunknown,notearliercadenceclaim. Plan separate bounded allowlisted failureproperty beforeassert, redaction/failuresemantics tests, freshnative reference with unchangedauthority/budgets/no retries. docs/contracts/meet-cadence-delay-reference.md.",
       "normal_two_hour_after_late_completion_started": "After green current root matrix4943PASS/0FAIL, updated Meet fullcheck and actual forcedTURN Chromium/Firefox dialogs UDP/TCP4PASS plus2payloadprobes, normal7200s dialog/screen profile starts18:51 Europe/Berlin 2026-09-09. Frozen Anantad29d1780a/Meetc4ef486/image5d4be51c5dda, HubTEST SRC_1a79f19adf72bffe8407a72d1ce302c3 / RUN_4c3ab71f6f6734f21aed51c7032dbc19. No paired-idle fault or other owned large suite concurrently. Ongoing,notpassed; earlier45m/88m failures retained. GPU remains unavailable afterXid79/154, publicmachineadmissiondisabled/testOIDCmissing; no restart/trust/deployment change authorized or performed. Completed reports retained outside/tmp for a possible later operator restart.",
       "unattributed_startup_followup": "Retained from MAP-29 on test-matrix completion: historical349RTPpackets/0decoded startup incident has no established cause. Two-second sender/receiver key delays and actual first-keyframe loss on Chromium/Firefox did not reproduce it; nativePLI recovered in both engines. Separate structural-envelope-resumption fix8341813 was not identified as its cause. Keep bounded startup/RTP/error diagnostics and fail any recurrence during runtime references; no blind retry or green-repeat-as-causal-fix. No historical failed run is promoted to PASS.",
@@ -1526,10 +1527,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T17:34:34.253484Z",
+    "generated_at": "2026-09-09T17:39:08.693159Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "de5b67df91e4bdb918505d12385b8f66b0fc7bafe267e8f19e61d75147b76915",
+    "source_hash": "93d3cd9f30932020588598ff879c24189fc54732fc84e9b3237d1d16448fc108",
     "is_stale": false
   }
 }
