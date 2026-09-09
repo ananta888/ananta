@@ -1146,6 +1146,7 @@
     },
     {
       "id": "MAP-30",
+      "screen_receipt_native_followup": "FrozenAnanta5a7be27f5/Meetc4ef486/image5d4be51c: private-peer-smokePASS34.800s,1pass0fail/error/skip,unchangedinputs,SRC_6b5a3906023621addc28d9aa17359fe6/RUN_a8184b3b87479114580169c5dd6f13e5. Same7200snormaldiagnosticreference started19:40Berlin withRUN_88068c4c434679702ac991373e66298f/sameSRC,ongoing/notpassed. No injectedfault oradditionalownedlargesuite; sourceonlypassivefailureprojection,unchangedmediacode/bundle/image/budgets. Evenagreenrepeatwillnotprovehistoricalreceiverfreezecausefixed. Completedfailed36mreportsretainedoutside/tmp; nohardware/publictrustmutation.",
       "screen_failure_receipt_result": "Separate passive JUnitprojection implemented beforeinitial/periodicscreenassertion:closedreceiverRTP/decoded/keyframe/PLI/NACK/connection/transformcounts and lastsourceactivation, non-atomicexplicit,unknownnull/bounded/no content. No extraRPC/retry/timeout/mediacode/imagechange.21relatedobservertestsPASS29.44s;final12projectiontestsPASS17.91s,Worker123boundary/RuffPASS. SameMeetc4ef486/image5d4be51c short then diagnosticreference planned; historical36mfailure remainsfailed, causenotestablished. docs/contracts/meet-cadence-delay-reference.md.",
       "third_normal_soak_failure": "RUN_4c3ab71f6f6734f21aed51c7032dbc19/SRC_1a79f19adf72bffe8407a72d1ce302c3 failed2166.283runner/2162.03pytest seconds at frozenrootd29d1780a/Meetc4ef486/image5d4be51c,unchangedinputs,1fail0skip/error. Last2090active/35leases/45screenchecks/peak2370232320bytes22processes; failuregeneration36, receiver screen_not_moving after12s while runtimeactive/noerrors. ExactreceiverRTP/decoder/source assertiondiagnostics truncated bypytest; laterteardown schedulingnotatomicfailurestate. Causeunknown,notearliercadenceclaim. Plan separate bounded allowlisted failureproperty beforeassert, redaction/failuresemantics tests, freshnative reference with unchangedauthority/budgets/no retries. docs/contracts/meet-cadence-delay-reference.md.",
       "normal_two_hour_after_late_completion_started": "After green current root matrix4943PASS/0FAIL, updated Meet fullcheck and actual forcedTURN Chromium/Firefox dialogs UDP/TCP4PASS plus2payloadprobes, normal7200s dialog/screen profile starts18:51 Europe/Berlin 2026-09-09. Frozen Anantad29d1780a/Meetc4ef486/image5d4be51c5dda, HubTEST SRC_1a79f19adf72bffe8407a72d1ce302c3 / RUN_4c3ab71f6f6734f21aed51c7032dbc19. No paired-idle fault or other owned large suite concurrently. Ongoing,notpassed; earlier45m/88m failures retained. GPU remains unavailable afterXid79/154, publicmachineadmissiondisabled/testOIDCmissing; no restart/trust/deployment change authorized or performed. Completed reports retained outside/tmp for a possible later operator restart.",
@@ -1527,10 +1528,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T17:39:08.693159Z",
+    "generated_at": "2026-09-09T17:44:14.302422Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "93d3cd9f30932020588598ff879c24189fc54732fc84e9b3237d1d16448fc108",
+    "source_hash": "b54f8f539c4b7406e8adde766eeb7e46bd3830f62d2b1476d531941d12328d39",
     "is_stale": false
   }
 }

@@ -163,3 +163,12 @@ after retaining the existing fixed transform-failure categories. Ruff and all
 123 Worker boundary checks passed. No media runtime or immutable image change
 was made. A fresh short check and diagnostic reference follow on the same Meet
 `c4ef486` bundle; the historical failed run remains failed.
+
+The actual short reference at Ananta `5a7be27f5` passed in 34.800 seconds,
+one pass and zero failures/errors/skips, unchanged inputs:
+`SRC_6b5a3906023621addc28d9aa17359fe6` /
+`RUN_a8184b3b87479114580169c5dd6f13e5`. The same normal 7,200-second profile
+then started at approximately 19:40 Europe/Berlin under
+`RUN_88068c4c434679702ac991373e66298f` and the same source admission.
+At this checkpoint it is ongoing, not passed. A non-recurrence will not be
+reported as a causal correction of the historical receiver freeze.
