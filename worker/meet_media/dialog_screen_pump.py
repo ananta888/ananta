@@ -55,8 +55,9 @@ class DialogScreenPump:
                 if outcome == "stale":
                     # Only a later fresh Hub update may reopen an expired activation.
                     self.lease = None
-                if outcome != "pending":
-                    self.next_frame = self.clock() + 0.2
+                # Completion releases the single slot; it must not postpone
+                # the existing start-anchored 5-fps deadline by another 200 ms.
+                # The next tick may send one latest frame, never catch up.
                 return
             if self.clock() < self.next_frame:
                 return

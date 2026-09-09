@@ -10,7 +10,7 @@ from worker.meet_media.dialog_screen_pump import DialogScreenPump
 
 
 def setup():
-    state = SimpleNamespace(now=100.0, opened=False, generation=0)
+    state = SimpleNamespace(now=100.0, opened=False, generation=0, starts=[])
     page = Mock()
     frames = Mock(busy=False)
     source = Mock(source_id="screen:synthetic")
@@ -18,6 +18,7 @@ def setup():
     factory = Mock(return_value=source)
 
     def begin(*args):
+        state.starts.append(state.now)
         frames.busy = True
 
     frames.begin.side_effect = begin
@@ -69,14 +70,20 @@ def test_pending_decode_never_reads_another_frame_and_success_keeps_5fps_ceiling
 
     f.frames.poll.side_effect = done
     f.pump.tick()
-    f.state.now = 100.699
-    f.pump.tick()
-    f.frames.begin.assert_called_once()
-    f.state.now = 100.701
+    f.state.now = 100.501
     f.source.take.return_value = "new-latest-jpeg"
     f.pump.tick()
     f.frames.begin.assert_called_with(1, 2, "new-latest-jpeg")
     assert f.frames.begin.call_count == 2
+    f.state.now = 100.502
+    f.pump.tick()  # Completion cannot cause a same-tick catch-up send.
+    f.state.now = 100.700
+    f.pump.tick()
+    assert f.frames.begin.call_count == 2
+    f.state.now = 100.702
+    f.pump.tick()
+    assert f.frames.begin.call_count == 3
+    assert all(after - before >= 0.2 for before, after in zip(f.state.starts, f.state.starts[1:]))
     f.page.wait_for_timeout.assert_not_called()
 
 
@@ -99,6 +106,41 @@ def test_pending_decode_cannot_trigger_source_reopen_during_fresh_hub_update():
     assert f.state.generation == 1
     f.pump.update(f.control)
     assert f.state.generation == 2 and f.pump.sequence == 0
+
+
+def test_recorded_soak_tick_can_submit_before_the_later_scheduling_gap():
+    f = setup()
+    f.pump.tick()
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.poll.side_effect = done
+    f.state.now = 100.13213
+    f.pump.tick()
+    f.state.now = 100.27417
+    f.pump.tick()
+    assert f.frames.begin.call_count == 2, "completion must not postpone the original 200-ms frame opportunity"
+    assert f.pump.sequence == 2 and f.frames.busy
+
+
+@pytest.mark.parametrize("completion", [0.01, 0.13213, 0.5])
+def test_completed_decode_does_not_add_another_idle_interval(completion):
+    f = setup()
+    f.pump.tick()
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.poll.side_effect = done
+    f.state.now = 100 + completion
+    f.pump.tick()
+    f.state.now = 100 + max(0.201, completion + 0.001)
+    f.pump.tick()
+    assert f.frames.begin.call_count == 2
+    assert f.pump.next_frame >= f.state.now + 0.2
 
 
 @pytest.mark.parametrize("operation", ["pause", "invalidate", "close", "failure"])

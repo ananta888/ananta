@@ -39,3 +39,21 @@ browser-workspace pump. Then run fresh private short/intermediate/long gates
 and verify the new installed Worker separately. The old failed run stays
 recorded regardless of subsequent success. Scheduling, frame transport and
 Hub authority remain separate responsibilities (SRP/ISP/DIP).
+
+## Deterministic correction
+
+The captured missed-tick case and three fast/slow-completion cases failed
+against the old pump (four failed, six existing cases passed; 13.24 seconds).
+Removing only the completion-time deadline reset fixes that scheduling defect.
+The next normal tick may submit one latest frame when the original interval
+has elapsed; a pending decode still owns the sole slot and cannot trigger a
+catch-up burst or reopen itself after stale authority.
+
+All **88** pump, frame transport, owned-screen/workspace and independent timing
+checks passed in **40.09 seconds**. The existing rate test now verifies actual
+start-to-start spacing after a slow completion, including a subsequent fast
+completion, instead of treating an extra idle interval as the rate limit.
+Source freshness, quality polling order, frame decode timeout, Hub authority
+and browser cleanup are unchanged. Ruff and whitespace checks pass.
+Fresh private/native and installed-image verification remain pending; this
+unit result alone does not close the failed long-run acceptance.
