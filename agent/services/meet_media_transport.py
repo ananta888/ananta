@@ -89,6 +89,11 @@ class HttpMediaWorker:
         except (OSError, ValueError, urllib.error.URLError):
             raise MeetError("meet_dialog_worker_unavailable", 503) from None
 
+    def observe_dialog_resources(self):
+        from agent.services.meet_dialog_resources import HttpDialogResources
+
+        return HttpDialogResources(self.publisher_url, self.key).observe()
+
     def execute(self, turn):
         remaining = turn["deadline"] - time.time()
         if remaining <= 0:

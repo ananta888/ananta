@@ -14,13 +14,14 @@ from worker.meet_media.contract import encode
 from worker.meet_media.dialog_progress_budget import DialogProgressBudget
 from worker.meet_media.dialog_progress_channel import DialogProgressChannel
 from worker.meet_media.dialog_progress_watch import watch_dialog_progress
+from worker.meet_media.dialog_slots import DialogSlots
 
 
 class DialogExecutor:
     def __init__(self, replay_path, slots=2):
         if type(slots) is not int or not 1 <= slots <= 4:
             raise ValueError("meet_dialog_slots_invalid")
-        self.slots = threading.BoundedSemaphore(slots)
+        self.slots = DialogSlots(slots)
         self.replay_path = replay_path
         with sqlite3.connect(replay_path) as db:
             db.execute("CREATE TABLE IF NOT EXISTS dialog_leases (id TEXT PRIMARY KEY, deadline INTEGER NOT NULL)")

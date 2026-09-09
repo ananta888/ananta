@@ -154,3 +154,29 @@ decisions; a Worker observation cannot mint a lease or increase its admission
 budget. Keep sampling, authentication/transport and occupancy tracking separate.
 Verify malformed/stale/signature cases and partial cgroup support headlessly,
 then read actual installed-container counters during the hardware profile.
+
+Implemented `/v1/dialog-resources` as an authenticated POST with a closed
+fresh-nonce query and request-bound response MAC in its own signature domain.
+The Hub's `HttpMediaWorker.observe_dialog_resources()` delegates to a separate
+two-second, 1-KiB, pinned-private-address/no-proxy/no-redirect reader. Existing
+dialog receipts, execution signatures and loopback liveness bytes are unchanged.
+Slot accounting wraps the existing semaphore semantics and preserves bounded
+execution/cleanup; observations cannot acquire a slot or start work.
+
+Only `memory.current`, `memory.max`, `cpu.stat`'s cumulative `usage_usec`, and
+`pids.current` are sampled from the Worker's cgroup. Missing/malformed counters
+and unlimited memory are explicit nulls, not invented zero usage or readiness.
+CPU percentage needs successive observations from the same Worker; timestamps
+from separate Workers must not be compared as a shared clock. There is no
+GPU/NVML or host-wide resource claim.
+
+82 initial contract/execution/health tests passed in 40.16 s, twelve HTTP
+transport checks in 15.89 s, seventy combined corrected-sampling/HTTP/health/
+process-cleanup checks in 37.63 s and twenty observer/HTTP checks in 19.39 s.
+The standalone Worker boundary audit passed for 123 files. The opt-in installed
+test (`MEET_WORKER_RESOURCES_GATE=1`) samples startup, active and terminal counts,
+the existing 1-GiB/256-PID non-GPU container budget and average CPU use of at
+most 2.25 cores over observed intervals (two-core quota plus sampling/burst
+margin). It does not call sparse samples continuous peak monitoring. Actual
+new-image acceptance follows; older images remain explicitly unsupported for
+this optional observer, not silently upgraded by local Python tests.

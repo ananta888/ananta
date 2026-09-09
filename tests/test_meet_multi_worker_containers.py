@@ -107,6 +107,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_dialog_browser_fixture import docker
     from tests.meet_dialog_cleanup import cancel_fixture_dialog
     from tests.meet_dialog_policy_fixture import SyntheticMeetBinding
+    from tests.meet_dialog_resource_observation import DialogResourceObservation
     from tests.meet_dialog_worker_container import DialogWorkerContainer
     from tests.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
     from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
@@ -288,6 +289,8 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         assert origins[0] != origins[1]
         seed_multi_role_parents(engine, publishers=origins, tenant="synthetic", project="synthetic")
         transports = {origin: HttpMediaWorker(origin + "/v1/turns", hmac_key) for origin in origins}
+        resources = DialogResourceObservation(os.environ.get("MEET_WORKER_RESOURCES_GATE") == "1", transports.values())
+        resources.capture(0)
         binding = SyntheticMeetBinding(ready["origin"], ready["room_id"], principal)
         tasks = HubDialogTasks(
             publisher_url=origins[0],
@@ -432,6 +435,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             }
         )
         both = guarded_turn.screen_observation(command("screens"), 2)
+        resources.capture(1)
         with app.app_context():
             statuses = [tasks.get_by_id(row["task_id"]).status for row in started]
         assert both == {"moving": [True, True], "departedAbsent": False}, json.dumps(
@@ -506,6 +510,8 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         with app.app_context():
             browser.require_terminal(tasks)
         record_property("unverified_terminal_worker_observations", observations)
+        resources.capture(0, settle=True, unavailable=(0,) if media_mode == "worker-crash" else ())
+        resources.record(record_property)
         control_recovery.require(record_property)
         terminal_control.require(record_property)
         guarded_turn.record(record_property)

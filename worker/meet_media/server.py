@@ -102,17 +102,34 @@ def create_server(address, key, executor, dialog_executor=None):
             turn = None
             capability_failure = False
             dialog = self.path == "/v1/dialogs"
+            resources = self.path == "/v1/dialog-resources"
             try:
-                if self.path not in {"/v1/turns", "/v1/dialogs"} or self.headers.get("Transfer-Encoding"):
+                if self.path not in {"/v1/turns", "/v1/dialogs", "/v1/dialog-resources"} or self.headers.get(
+                    "Transfer-Encoding"
+                ):
                     raise ValueError("meet_turn_request_invalid")
+                if resources and (
+                    len(self.headers.get_all("Content-Length", [])) != 1
+                    or self.headers.get_all("Transfer-Encoding", [])
+                ):
+                    raise ValueError("meet_dialog_resources_request_invalid")
                 length = int(self.headers.get("Content-Length", "0"))
-                maximum = 16384 if dialog else MAX_REQUEST_BYTES
+                maximum = 1024 if resources else 16384 if dialog else MAX_REQUEST_BYTES
                 if not 0 < length <= maximum:
                     raise ValueError("meet_turn_request_invalid")
                 from worker.meet_media.persona_http import read_bounded
 
                 body = read_bounded(self.rfile, maximum=maximum, length=length, deadline=time.monotonic() + 5)
-                if dialog:
+                if resources:
+                    from worker.meet_media.dialog_resources import observe_resources
+
+                    result, status = (
+                        observe_resources(
+                            key, body, self.headers.get("X-Ananta-Resources-Signature", ""), dialog_executor
+                        ),
+                        200,
+                    )
+                elif dialog:
                     import hmac
 
                     from ananta_contracts.meet_dialog import parse, request_signature, validate_assignment
@@ -153,6 +170,10 @@ def create_server(address, key, executor, dialog_executor=None):
                 from ananta_contracts.meet_dialog import response_signature
 
                 self.send_header("X-Ananta-Dialog-Signature", response_signature(key, body, raw))
+            if resources:
+                from ananta_contracts.meet_dialog_resources import response_signature
+
+                self.send_header("X-Ananta-Resources-Signature", response_signature(key, body, raw))
             self.end_headers()
             try:
                 self.wfile.write(raw)
