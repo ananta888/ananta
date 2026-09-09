@@ -89,7 +89,7 @@ the negotiated750-ms timing fence. These are Hub-pre-reserved TEST runs,
 not production acceptance. The proxy fix is not a causal fix for older unrelated
 decoder incidents.
 
-The subsequent7200-second-profile attempt failed after35.20 seconds, before
+The subsequent7200-second-profile attempt finished failed in39.95 seconds, before
 its first long observation: screen generation2 had no new submission for
 1,096,801 microseconds and the real timing fence terminated the dialog. It
 overlapped the companion full frontend test stage; resource contention is an
