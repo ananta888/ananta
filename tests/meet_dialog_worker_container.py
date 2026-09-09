@@ -13,7 +13,17 @@ from tests.meet_dialog_browser_fixture import docker
 
 class DialogWorkerContainer:
     def __init__(
-        self, network, image, hub_url, *, lifetime=180, diagnostics=False, browser_documents=False, command=docker
+        self,
+        network,
+        image,
+        hub_url,
+        *,
+        lifetime=180,
+        diagnostics=False,
+        browser_documents=False,
+        network_namespace=None,
+        relay_url=None,
+        command=docker,
     ):
         if not isinstance(network, str) or not re.fullmatch(r"meet-test-tls-[a-f0-9-]{36}-network", network):
             raise ValueError("test_worker_network_invalid")
@@ -35,9 +45,20 @@ class DialogWorkerContainer:
             raise ValueError("test_worker_diagnostics_invalid")
         if type(browser_documents) is not bool:
             raise ValueError("test_worker_browser_documents_invalid")
+        if network_namespace is not None and (
+            not isinstance(network_namespace, str) or not re.fullmatch(r"[a-f0-9]{64}", network_namespace)
+        ):
+            raise ValueError("test_worker_namespace_invalid")
+        if relay_url is not None and (
+            network_namespace is None
+            or not isinstance(relay_url, str)
+            or not re.fullmatch(r"turn:[0-9.]+:3478\?transport=(udp|tcp)", relay_url)
+        ):
+            raise ValueError("test_worker_relay_invalid")
         self.network, self.image, self.hub_url, self.lifetime, self.command = network, image, hub_url, lifetime, command
         self.diagnostics = diagnostics
         self.browser_documents = browser_documents
+        self.network_namespace, self.relay_url = network_namespace, relay_url
         self.name = "meet-test-dialog-worker-" + str(uuid4())
         self.created, self.origin = False, None
 
@@ -54,11 +75,21 @@ class DialogWorkerContainer:
         if self.command("image", "inspect", self.image, "--format", "{{.Id}}") != self.image:
             raise ValueError("test_worker_image_mismatch")
         root = Path(__file__).resolve().parents[1]
+        namespace = None
+        if self.network_namespace is not None:
+            from tests.meet_dialog_egress_guard import namespace_info
+
+            namespace = namespace_info(self.command, self.network_namespace, self.network)
         mounts = [
             (root / "tests/meet_worker_container_sitecustomize.py", "/test/sitecustomize.py"),
             (Path(key), "/test/worker-key"),
             (Path(certificate), "/test/meet-ca.pem"),
         ]
+        if self.relay_url is not None:
+            mounts += [
+                (root / "tests/meet_worker_relay_context.py", "/test/meet_worker_relay_context.py"),
+                (root.parent / "webrtc-minimize-server/test/helpers/machine-forced-relay.js", "/test/forced-relay.js"),
+            ]
         for path, _ in mounts:
             if path.is_symlink() or not path.is_file():
                 raise ValueError("test_worker_mount_invalid")
@@ -68,7 +99,7 @@ class DialogWorkerContainer:
             "--name",
             self.name,
             "--network",
-            self.network,
+            "container:" + self.network_namespace if namespace is not None else self.network,
             "--user=1000:1000",
             "--read-only",
             "--cap-drop=ALL",
@@ -90,6 +121,7 @@ class DialogWorkerContainer:
             "--env=MEET_DIALOG_ENABLED=1",
             "--env=MEET_DIALOG_DIAGNOSTICS_ENABLED=" + ("1" if self.diagnostics else "0"),
             "--env=MEET_TEST_PUBLIC_DOCUMENT=" + ("1" if self.browser_documents else "0"),
+            "--env=MEET_TEST_FORCE_RELAY_URL=" + (self.relay_url or ""),
             "--env=MEET_WORKER_KEY_FILE=/test/worker-key",
             "--env=SSL_CERT_FILE=/test/meet-ca.pem",
             "--env=NODE_EXTRA_CA_CERTS=/test/meet-ca.pem",
@@ -103,11 +135,15 @@ class DialogWorkerContainer:
             "worker.meet_media.server",
         )
         self.command("start", self.name)
-        address = self.command(
-            "inspect",
-            self.name,
-            "--format",
-            "{{(index .NetworkSettings.Networks " + json.dumps(self.network) + ").IPAddress}}",
+        address = (
+            namespace["NetworkSettings"]["Networks"][self.network]["IPAddress"]
+            if namespace is not None
+            else self.command(
+                "inspect",
+                self.name,
+                "--format",
+                "{{(index .NetworkSettings.Networks " + json.dumps(self.network) + ").IPAddress}}",
+            )
         )
         if ipaddress.IPv4Address(address) not in ipaddress.IPv4Network(info["IPAM"]["Config"][0]["Subnet"]):
             raise ValueError("test_worker_address_invalid")

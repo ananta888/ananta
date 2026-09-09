@@ -23,7 +23,39 @@ pytestmark = [
 
 @pytest.mark.parametrize(
     "media_mode",
-    [False, True, "browser", "control-recovery", "worker-crash", "terminal-control", "runtime-stall"],
+    [
+        False,
+        True,
+        "browser",
+        "control-recovery",
+        "worker-crash",
+        "terminal-control",
+        "runtime-stall",
+        pytest.param(
+            "guarded-turn-udp",
+            marks=pytest.mark.skipif(
+                not os.environ.get("MEET_EGRESS_IMAGE"), reason="explicit immutable egress guard image required"
+            ),
+        ),
+        pytest.param(
+            "guarded-turn-tcp",
+            marks=pytest.mark.skipif(
+                not os.environ.get("MEET_EGRESS_IMAGE"), reason="explicit immutable egress guard image required"
+            ),
+        ),
+        pytest.param(
+            "guarded-auto-udp",
+            marks=pytest.mark.skipif(
+                not os.environ.get("MEET_EGRESS_IMAGE"), reason="explicit immutable egress guard image required"
+            ),
+        ),
+        pytest.param(
+            "guarded-auto-tcp",
+            marks=pytest.mark.skipif(
+                not os.environ.get("MEET_EGRESS_IMAGE"), reason="explicit immutable egress guard image required"
+            ),
+        ),
+    ],
     ids=[
         "screen-only",
         "persona-speech",
@@ -32,6 +64,10 @@ pytestmark = [
         "worker-crash",
         "terminal-control",
         "runtime-stall",
+        "guarded-turn-udp",
+        "guarded-turn-tcp",
+        "guarded-auto-udp",
+        "guarded-auto-tcp",
     ],
 )
 def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_independently(
@@ -65,6 +101,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_multi_role_fixture import PARENTS, seed_multi_role_parents
     from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
     from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
+    from tests.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
     from tests.meet_multi_worker_media import MultiWorkerMediaScenario
     from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
     from tests.meet_multi_worker_terminal_observations import terminal_observations
@@ -87,6 +124,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
     worker_crash = media_mode in {"worker-crash", "runtime-stall"}
     terminal_control = MultiWorkerTerminalControl(media_mode == "terminal-control")
+    guarded_turn = MultiWorkerGuardedTurn(media_mode)
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -94,6 +132,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             ["node", "test/helpers/machine-multi-hub-bridge.mjs"],
             cwd=meet,
             env=os.environ
+            | guarded_turn.environment
             | {
                 "MEET_TEST_HUB_PUBLIC_KEY": str(public),
                 "MEET_MULTI_WORKER_MEDIA_GATE": "1" if media is not None else "0",
@@ -122,6 +161,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 {
                     "bridge": response,
                     "workers": worker_diagnostics(),
+                    "relay_errors": guarded_turn.errors(containers),
                     "exchange_failures": exchange_failures,
                     "reply_count": len(media.worker.calls) if media is not None else 0,
                 }
@@ -148,7 +188,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             return records
 
         ready = receive(60)
-        assert set(ready) == {"origin", "room_id", "certificate", "test_network"}, ready
+        guarded_turn.require_ready(ready)
         monkeypatch.setenv("SSL_CERT_FILE", ready["certificate"])
         certificate = x509.load_pem_x509_certificate(Path(ready["certificate"]).read_bytes())
         spki = base64.b64encode(
@@ -177,6 +217,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 lifetime=300,
                 diagnostics=True,
                 browser_documents=browser.enabled,
+                **guarded_turn.worker_options(ready, hub_url, tmp_path, cleanup),
             )
             for _ in range(2)
         ]
@@ -191,7 +232,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "/test/sitecustomize.py",
                 "/test/worker-key",
                 "/test/meet-ca.pem",
-            }
+            } | guarded_turn.mounts
             docker(
                 "exec",
                 container.name,
@@ -333,7 +374,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "exchange_failures": exchange_failures,
             }
         )
-        both = command("screens")
+        both = guarded_turn.screen_observation(command("screens"), 2)
         with app.app_context():
             statuses = [tasks.get_by_id(row["task_id"]).status for row in started]
         assert both == {"moving": [True, True], "departedAbsent": False}, json.dumps(
@@ -363,7 +404,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         else:
             cancel_fixture_dialog(app, service, principal, started[0]["task_id"])
         browser.after_departure(app, principal, started[1], containers[1], record_property)
-        survivor = command("survivor")
+        survivor = guarded_turn.screen_observation(command("survivor"), 1)
         assert survivor == {"moving": [False, True], "departedAbsent": True}, survivor
         if media is not None:
             media.survivor(command)
@@ -401,6 +442,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         record_property("unverified_terminal_worker_observations", observations)
         control_recovery.require(record_property)
         terminal_control.require(record_property)
+        guarded_turn.record(record_property)
         record_property(
             "two_packaged_worker_screens",
             {

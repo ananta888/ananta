@@ -573,10 +573,10 @@
       "repository": "ananta",
       "type": "infrastructure",
       "milestone_id": "MAP-M3",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-08",
         "MAP-09"
@@ -596,7 +596,8 @@
       "egress_profile_plan": "2026-09-09 source2df574089: standalone bridge remains without complete process DNS/TCP/UDP/ICE egress filter despite application HTTP/CSP/public-fetch restrictions. docs/contracts/meet-worker-egress-profile.md plans additive fixed-endpoints-v1 profile: separate minimal guard owns private shared network namespace, guard-onlyNET_ADMIN, exact immutableIPv4 endpoint/port/Hubcaller/name mappings, defaultdenyIPv4/IPv6 and non-forwarding bounded localDNS. No host networking/PID/socket/firewall, public listener, live activation or legacy-template replacement. Hub still owns all Tasks/policy; existing TLS/HMAC/source gates unchanged. Pure hostile config/DNS/rules then real private resolver/forbidden-destination/namespace/capability/readiness/Compose tests; TURN and installedruntime remain separate criteria. MAP10 stayspartial until verified.",
       "egress_profile_result": "2026-09-09: additive fixed-endpoints-v1 Compose guard implemented (8599ba768; closed startup diagnostics baabf4229). Pure policy/filter, bounded non-forwarding UDP/TCP DNS, configuration-bound readiness, guard-only NET_ADMIN and private namespace; legacy deployment unchanged. 122 focused tests54.24s; installed image sha256:896c817caac38f09c263c86cf2113db597d19f549bd93067dbce420c6aa017ef: 2 actual container gates34.11s pass. Exact admitted HTTP/UDP and Hub caller work; live forbidden endpoint/secondTCPport/externalDNS/IPv6 listeners receive zero; real Docker UDP/TCP DNS resolves pinned name and returns unknownNXDOMAIN. Invalid policy exits before consumer start. Fixture capability spelling, HTTP name collision and missing probe module path corrected; missing endpoint readiness had yielded empty IP correctly rejected by guard. No policy relaxation. docs/contracts/meet-worker-egress-profile.md. Full packaged media Worker, actual TURN session and production release remain separate pending acceptance, MAP10 not done.",
       "egress_packaged_result": "2026-09-09: real unchanged packaged media Worker03e5576cc841 frombf065bdef shares verified guard896c817caac3 namespace, nonroot/readonly/noCAP/GPU/Hubimports orapplicationSourceMounts. 3 actual container cases57.03s, final unsignedTask+probe regression6PASS35.94s. Existing silent Dockerhealth and exact localhealth work; admittedremotehealth404 and unsignedTask409meet_turn_unauthorized; unadmittedcallerblocked. Exact allowed HTTP/UDP/DockerDNS and zero forbidden delivery retained; leases0. No media/TURN/GPU inference claim. Companionupstreamb29fa60 (3 commits after92f583f) safely fastforwarded, no local edits/servingdist/publictrust changes; newly added authenticatedTURNfixture can be reused for next native Hub/Worker/Meet strict-network session gate.",
-      "guarded_turn_session_plan": "2026-09-09 source979c3be9a and companionb29fa60 audited: docs/contracts/meet-guarded-turn-session.md plans native two-Worker media over private authenticated TURN-UDP/TCP, one fixed-endpoint guard per Worker, exact Hubcallback/Meet443/TURN3478 only, no direct peer/range/host/public changes. Reuse actual companion session-issued REST credentials via explicit test-only relay-from-start adapter and closed bridge option; native Tasks/signatures/headlesspolicy/source/independentstop remain. Selected successful relay pairs and rising bytes plus moving screens/survivor/revoke required. Normal delayed Worker ICE fallback remains a distinct follow-up, not implicitly fixed by fixture; GPU/public/soak remain separate."
+      "guarded_turn_session_plan": "2026-09-09 source979c3be9a and companionb29fa60 audited: docs/contracts/meet-guarded-turn-session.md plans native two-Worker media over private authenticated TURN-UDP/TCP, one fixed-endpoint guard per Worker, exact Hubcallback/Meet443/TURN3478 only, no direct peer/range/host/public changes. Reuse actual companion session-issued REST credentials via explicit test-only relay-from-start adapter and closed bridge option; native Tasks/signatures/headlesspolicy/source/independentstop remain. Selected successful relay pairs and rising bytes plus moving screens/survivor/revoke required. Normal delayed Worker ICE fallback remains a distinct follow-up, not implicitly fixed by fixture; GPU/public/soak remain separate.",
+      "acceptance_closure": "2026-09-09: strict optional fixed-endpoints-v1 isolation complete. Native Hub/two-packaged-Worker forced UDP/TCP TURN2PASS114.67s; normal automatic Worker fallback without adapter2PASS130.28s. Two moving screens/selected relay pairs/growing bytes, survivor continuation and revocation818.64/217.24ms; unchanged exact endpoints, no human capture/transform/proxy errors. ICE486 fixture reservation mismatch fixed with three-party500k perallocation within unchanged4Maggregate. Guard896c817caac3/media03e5576cc841, companion62b786d;68helper/legacy checks50.22s and boundary104 pass. Runtime fullbuild/pins/inventory, readonly/device/resources/health, scoped workspaces and typed capability failures separately verified. Final regression92PASS/1explicitinventoryskip60.63s. docs/contracts/meet-guarded-turn-session.md and meet-worker-egress-profile.md. GPUfairness, Firefox normalfallback, public/NAT/soak and production evidence remain separate; no bit-identicalAPT claim. Legacy unchanged; strict profile requires immutable endpoints."
     },
     {
       "id": "MAP-11",
@@ -1178,11 +1179,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 4,
-      "partial": 8,
+      "partial": 7,
       "blocked": 0,
-      "done": 19
+      "done": 20
     },
-    "progress_percent_done": 59.4,
+    "progress_percent_done": 62.5,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1196,8 +1197,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 10,
-      "remaining": 6
+      "done": 11,
+      "remaining": 5
     },
     "milestones": {
       "total": 8,
@@ -1309,14 +1310,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 60.0
+        "progress_percent": 100.0
       },
       "test": {
         "total": 3,
@@ -1352,19 +1353,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 4,
-    "partial": 8,
+    "partial": 7,
     "blocked": 0,
-    "done": 19,
-    "count_based_percent": 59.4,
-    "weighted_percent": 79.0
+    "done": 20,
+    "count_based_percent": 62.5,
+    "weighted_percent": 80.8
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 46.037,
-    "remaining_weight": 12.213,
+    "done_weight": 47.037,
+    "remaining_weight": 11.213,
     "blocked_weight": 0.0,
-    "weighted_percent": 79.0
+    "weighted_percent": 80.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1386,10 +1387,10 @@
       },
       "MAP-M3": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 70.0,
+        "count_based_percent": 50.0,
+        "weighted_percent": 85.4,
         "status": "in_progress"
       },
       "MAP-M4": {
@@ -1437,10 +1438,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-08T23:01:23.056409Z",
+    "generated_at": "2026-09-09T00:17:33.334557Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "041505a332d5fe2277cc345a61c8594831374e43a026e9c4516e34db8ff1e0ee",
+    "source_hash": "8dd10433dc63af83550c7a10fe6cfd65ccfa93ac078cb19cfeca1b7a07c56aab",
     "is_stale": false
   }
 }

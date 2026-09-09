@@ -70,3 +70,35 @@ Worker-side observers recorded actual ICE error code 486 on both Workers.
 The isolated direct baseline remained green. Apply the closed three-party
 budget profile next, then verify whether it resolves these allocation failures;
 do not raise the aggregate ceiling or alter a grant/guard to obtain a pass.
+
+## Verified fixed-budget sessions (2026-09-09)
+
+The explicit three-participant fixture now reserves 500,000 bytes/s per
+allocation within the unchanged 4,000,000 bytes/s aggregate limit. The forced
+UDP/TCP two-Worker cases both passed in 114.67 seconds. Each case observed two
+connected relay-backed receiver transports with growing sent/received bytes,
+two distinct moving screens, one surviving screen after independent cancellation
+and bounded final revocation (1,352.19 / 1,345.19 ms). Both Workers had their
+own default-deny namespace; no direct peer or relay-port-range egress was added.
+The concrete 486 allocation failure was resolved by correcting the test
+topology's reservation profile, not by changing production crypto or policy.
+
+The separate **normal Worker fallback** UDP/TCP cases then both passed in
+130.28 seconds. These Workers used the unchanged installed browser behavior:
+no relay-from-start Worker adapter, extra adapter source mount or adapter
+environment setting. The receiver still used the test-only forced-relay
+adapter. Two relay-backed moving screens, continued survivor media and
+independent final revocation (818.64 / 217.24 ms) passed in both transports.
+This verifies automatic Chromium Worker fallback behind the guard, not
+unmodified fallback in both browsers or Firefox, public NAT or external hosts.
+
+The installed media image was `sha256:03e5576cc841570aae8fe80ce68975bfad2d76da2bccae40266bfc7e8ec064d2`
+and the guard was `sha256:896c817caac38f09c263c86cf2113db597d19f549bd93067dbce420c6aa017ef`.
+Companion fixture changes are committed as `62b786d`; the private frontend
+was built from `92f583f` (no intervening frontend changes). There were no human
+device captures, transform errors or proxy drops. Cleanup removed only the
+owned immutable container/network IDs. The final helper/legacy checks passed
+68 tests in 50.22 seconds, with the Worker import boundary check also passing.
+These are synthetic-policy, real-container technical observations, not
+Hub-reserved production evidence. Long soak, GPU fairness, public deployment
+and full restart/rejoin remain distinct acceptance tasks.

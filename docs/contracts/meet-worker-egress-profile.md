@@ -192,3 +192,26 @@ the packaged listener/transport check, not media-over-TURN, GPU inference or
 public release acceptance. The broader Hub/Worker/Meet session is next; reuse
 the companion's independently added authenticated TURN fixture rather than
 inventing TURN credentials or changing public deployment trust.
+
+### MAP-10 acceptance closure
+
+The subsequent [native guarded session](meet-guarded-turn-session.md) passed
+two actual packaged Workers over both UDP and TCP TURN, first with the private
+forced-relay adapter (114.67 seconds), then with the unchanged Worker's automatic
+fallback (130.28 seconds). All endpoint rules, independent stop checks and
+synthetic Hub admission boundaries remained active. This completes the missing
+media-session integration of the strict, opt-in isolation profile.
+
+Together with the separately verified runtime lock/full dependency build,
+device/root isolation, bounded health checks, source/workspace boundaries and
+typed policy-controlled capability failures, this satisfies MAP-10's implementation
+criteria. A final focused failure/device/health/runtime regression passed
+92 tests in 60.63 seconds; one explicit inventory-container opt-in was skipped
+in that invocation, not counted as new runtime proof. The earlier actual full
+build and installed-inventory gates remain the corresponding runtime checks.
+
+The legacy unfiltered profile remains backward compatible and is not advertised
+as strict isolation. GPU scheduling fairness, long-running recovery, public
+TURN/NAT and release evidence remain MAP-24/30/31/32 work. Existing broader
+server/scenario composition is preserved SRP debt; the new policy, resolver,
+enforcer and fixture adapters keep separate responsibilities and injected seams.

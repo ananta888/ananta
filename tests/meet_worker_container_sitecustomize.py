@@ -78,6 +78,12 @@ def _fixture_launch(self, *args, **kwargs):
 
 BrowserType.launch = _fixture_launch
 
+if os.environ.get("MEET_TEST_FORCE_RELAY_URL"):
+    from meet_worker_relay_context import install_relay_context
+    from playwright.sync_api import Browser
+
+    install_relay_context(Browser, os.environ["MEET_TEST_FORCE_RELAY_URL"], "/test/forced-relay.js")
+
 _native_chat_update = DialogChatPump.update
 
 
