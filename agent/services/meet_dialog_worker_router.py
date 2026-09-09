@@ -15,13 +15,16 @@ class DialogWorkerPort(Protocol):
 
 
 class MeetDialogWorkerRouter:
-    def __init__(self, authority, tasks, workers: dict[str, DialogWorkerPort], default, clock=time.time):
+    def __init__(
+        self, authority, tasks, workers: dict[str, DialogWorkerPort], default, clock=time.time, *, capacity=None
+    ):
         if not isinstance(workers, dict) or not 1 <= len(workers) <= 8 or default not in workers:
             raise ValueError("meet_dialog_publishers_invalid")
         for origin in workers:
             publisher_origin(origin)
         self.authority, self.tasks, self.clock = authority, tasks, clock
         self.workers, self.default = MappingProxyType(dict(workers)), default
+        self.capacity = capacity
 
     def start_dialog(self, assignment):
         validate_assignment(assignment, self.clock())
@@ -74,7 +77,17 @@ class MeetDialogWorkerRouter:
             != (scope.audio_profile.projection() if getattr(scope, "audio_profile", None) is not None else None)
         ):
             raise MeetError("meet_dialog_publisher_binding_denied", 403)
-        # The authoritative role check fences a concurrent destination/role edit;
+
+        def operation():
+            return self._send_exact(scope, assignment, bound_origin, role, worker)
+
+        if self.capacity is not None:
+            return self.capacity.dispatch(scope, destination, operation)
+        return operation()
+
+    def _send_exact(self, scope, assignment, bound_origin, role, worker):
+        ids = scope.task_id, scope.lease_id, scope.runtime_id
+        # Run after any capacity wait: fence a concurrent destination/role edit;
         # selection never runs again here and an uncertain send is never retried.
         if self.authority.current(*ids) != scope:
             raise MeetError("meet_dialog_publisher_binding_denied", 403)

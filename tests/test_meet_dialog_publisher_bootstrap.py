@@ -41,6 +41,8 @@ def test_preflight_task_admission_and_dispatch_share_configured_destinations(
     configure_meet_dialog(app, worker, Mock(), capacity=Mock(), speech_profile=speech_profile(max_seconds=7))
     service = app.extensions["meet_dialog_service"]
     assert service.media_timing is media_timing
+    assert service.worker.capacity is app.extensions["meet_dialog_capacity"]
+    assert service.worker.capacity.authority is service.authority
     assert (service.speaker_floor is not None) == speaker_floor
     assert service.spoken_replies.speaker_floor is service.speaker_floor
     assert (service.recovery is not None) == reconnect
@@ -70,4 +72,5 @@ def test_preflight_task_admission_and_dispatch_share_configured_destinations(
         assert service.worker.authority is service.authority and service.worker.tasks is service.tasks
         assert service.tasks.role_assignments.rows is service.tasks.publishers.rows
     else:
-        assert service.worker is worker and service.tasks.publishers is None
+        assert isinstance(service.worker, MeetDialogWorkerRouter)
+        assert service.worker.workers[worker.publisher_url] is worker and service.tasks.publishers is None

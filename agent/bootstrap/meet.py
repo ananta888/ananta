@@ -246,10 +246,16 @@ def configure_meet_dialog(app, worker, issuer, *, capacity=None, speech_profile=
         avatar_video_profiles = MeetAvatarVideoProfiles(
             app.extensions["persona_profiles"], MeetPersonaVideos(video_assets)
         )
-    if dialog_workers is not None:
-        from agent.services.meet_dialog_worker_router import MeetDialogWorkerRouter
+    from agent.bootstrap.meet_dialog_capacity import configured_dialog_capacity
+    from agent.services.meet_dialog_worker_router import MeetDialogWorkerRouter
 
-        dialog_worker = MeetDialogWorkerRouter(authority, tasks, dialog_workers, worker.publisher_url)
+    dialog_worker = MeetDialogWorkerRouter(
+        authority,
+        tasks,
+        dialog_workers or {worker.publisher_url: worker},
+        worker.publisher_url,
+        capacity=configured_dialog_capacity(app, engine, authority),
+    )
     from agent.bootstrap.meet_browser import configured_browser_workspaces
     from agent.bootstrap.meet_media_timing import configured_media_timing
     from agent.bootstrap.meet_recovery import configured_dialog_recovery

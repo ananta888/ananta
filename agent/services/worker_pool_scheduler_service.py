@@ -321,7 +321,10 @@ class WorkerPoolSchedulerService:
         )
 
     def get_scheduler_status(self) -> dict[str, Any]:
-        leases = worker_slot_lease_repo.list_all()
+        leases = [
+            lease for lease in worker_slot_lease_repo.list_all()
+            if lease.lease_type not in {"meet_media", "meet_dialog_capacity"}
+        ]
         active = [x for x in leases if x.status == "active"]
         queued = [x for x in leases if x.status == "queued"]
         rejected = [x for x in leases if x.status == "rejected"]

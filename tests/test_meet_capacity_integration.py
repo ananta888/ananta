@@ -48,13 +48,15 @@ def test_task_state_or_binding_changes_cannot_acquire_capacity(app):
             tasks.require_current(envelope)
 
 
-def test_generic_worker_scheduler_cannot_release_or_promote_media_capacity(monkeypatch):
+@pytest.mark.parametrize("lease_type", ["meet_media", "meet_dialog_capacity"])
+def test_generic_worker_scheduler_cannot_release_or_promote_media_capacity(monkeypatch, lease_type):
     from agent.db_models import WorkerSlotLeaseDB
 
     lease_repo = Mock()
-    lease = WorkerSlotLeaseDB(lease_type="meet_media", status="queued", deadline_at=time.time() - 1)
+    lease = WorkerSlotLeaseDB(lease_type=lease_type, status="queued", deadline_at=time.time() - 1)
     lease_repo.get_by_id.return_value = lease
     lease_repo.list_expired.return_value = [lease]
+    lease_repo.list_all.return_value = [lease]
     monkeypatch.setattr("agent.services.worker_pool_scheduler_service.worker_slot_lease_repo", lease_repo)
     scheduler = WorkerPoolSchedulerService()
     scheduler.release_for_job(lease.id)
@@ -63,17 +65,21 @@ def test_generic_worker_scheduler_cannot_release_or_promote_media_capacity(monke
         slot_lease_id=lease.id, policy_decision_ref=None, policy_decision_hash=None
     )
     assert decision.reason_code == "slot_lease_not_owned"
+    status = scheduler.get_scheduler_status()
+    assert status["active_slots"] == status["queued_jobs"] == 0
+    assert status["capacity_by_worker"] == {}
     lease_repo.release.assert_not_called()
     lease_repo.save.assert_not_called()
 
 
-def test_global_worker_slot_projection_does_not_disclose_media_task_bindings():
+@pytest.mark.parametrize("lease_type", ["meet_media", "meet_dialog_capacity"])
+def test_global_worker_slot_projection_does_not_disclose_media_task_bindings(lease_type):
     from agent.db_models import WorkerSlotLeaseDB
     from agent.routes.worker_pool import _public_leases
 
     ordinary = WorkerSlotLeaseDB(id="ordinary", lease_type="worker")
     private = WorkerSlotLeaseDB(
-        lease_type="meet_media",
+        lease_type=lease_type,
         lease_metadata={"tenant_id": "private-marker", "lease_id": "private-marker"},
     )
     projected = _public_leases([ordinary, private])

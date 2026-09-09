@@ -35,7 +35,11 @@ def worker_pool_queues():
 def _public_leases(leases):
     # These legacy routes are not project-scoped. Media task/tenant/dispatch
     # bindings must not become globally readable through the shared table.
-    return [lease.model_dump(mode="json") for lease in leases if lease.lease_type != "meet_media"]
+    return [
+        lease.model_dump(mode="json")
+        for lease in leases
+        if lease.lease_type not in {"meet_media", "meet_dialog_capacity"}
+    ]
 
 
 @worker_pool_bp.route("/worker-pool/ollama-models", methods=["GET"])

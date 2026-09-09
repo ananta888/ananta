@@ -86,6 +86,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
     from werkzeug.serving import WSGIRequestHandler, make_server
 
+    from agent.bootstrap.meet_dialog_capacity import configured_dialog_capacity
     from agent.bootstrap.meet_dialog_diagnostics import configure_dialog_diagnostics
     from agent.bootstrap.meet_media_timing import configured_media_timing
     from agent.database import engine
@@ -306,7 +307,8 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         reservations.initialize()
         dispatches.initialize()
         meet_client = MeetAuthorizationClient(authority, issuer)
-        worker_router = MeetDialogWorkerRouter(authority, tasks, transports, origins[0])
+        session_capacity = configured_dialog_capacity(app, engine, authority)
+        worker_router = MeetDialogWorkerRouter(authority, tasks, transports, origins[0], capacity=session_capacity)
         room_recovery.observe_dispatch(monkeypatch, worker_router)
         media_options = media.service_options(binding, dispatches) if media is not None else {}
         service = MeetDialogService(
@@ -517,6 +519,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "image": containers[0].image,
                 "worker_source_mounts": False,
                 "media_timing": service.media_timing,
+                "dialog_capacity_policy": session_capacity.slots.policy.projection(),
                 "distinct_role_principals": True,
                 "both": both,
                 "survivor": survivor,

@@ -69,6 +69,34 @@ def test_uncertain_dispatch_preserves_exception_without_retry_or_fallback():
     f.first.start_dialog.assert_not_called()
 
 
+def test_capacity_wraps_only_exact_selected_publisher_and_rechecks_role_after_wait():
+    f = fixture()
+    f.router.capacity = Mock()
+
+    def waiting(scope, publisher, operation):
+        assert scope is f.scope and publisher == SECOND
+        f.first.start_dialog.assert_not_called()
+        f.second.start_dialog.assert_not_called()
+        f.task.assigned_agent_url = FIRST
+        return operation()
+
+    f.router.capacity.dispatch.side_effect = waiting
+    with pytest.raises(MeetError, match="publisher_binding_denied"):
+        f.router.start_dialog(f.value)
+    f.second.start_dialog.assert_not_called()
+    f.first.start_dialog.assert_not_called()
+
+
+def test_capacity_refusal_does_not_contact_any_worker_or_try_default():
+    f = fixture()
+    f.router.capacity = Mock()
+    f.router.capacity.dispatch.side_effect = MeetError("meet_dialog_capacity_wait_expired", 429)
+    with pytest.raises(MeetError, match="capacity_wait_expired"):
+        f.router.start_dialog(f.value)
+    f.first.start_dialog.assert_not_called()
+    f.second.start_dialog.assert_not_called()
+
+
 @pytest.mark.parametrize("field", ["media_timing", "speaker_floor", "reconnect"])
 @pytest.mark.parametrize("added", [False, True])
 def test_dispatch_cannot_add_or_remove_hub_negotiated_execution_fences(field, added):

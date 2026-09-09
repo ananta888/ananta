@@ -78,3 +78,56 @@ shared-cache in-memory database's table locking; neither failed attempt was
 counted as a passed hardware gate. Private worker image remains
 `sha256:b2a42d560e3a8f7f1dd72d7d7bf2ca9b53580a51906c13f91066148c59e7be53`;
 no public Hub, Meet, trust or project policy was changed.
+
+## Durable dialog publication admission
+
+Enabled Hub dialog composition now also installs `MeetDialogCapacity` around
+the exact selected publisher, including the single-publisher configuration.
+The default immutable profile admits at most eight active dialog reservations,
+two per publisher (matching the installed Worker's independent limit), and
+384,000,000 bit/s of aggregate publication reservation. Configuration is a
+strict JSON object in `ANANTA_MEET_DIALOG_CAPACITY`; callers cannot set it.
+`ANANTA_MEET_DIALOG_CAPACITY_POOL` defaults to `local-meet-dialog` and must be
+shared by every Hub dispatching to the same physical publishers.
+
+Publication cost reserves every authorized output capability, even if paused:
+128,000 bit/s speech, 1,200,000 bit/s avatar and 2,500,000 bit/s screen, multiplied
+by the existing maximum nineteen remote room participants. Receive traffic,
+protocol overhead and unrelated applications are not measured or shaped by
+this reservation. Meet's separate sender-quality configuration and actual
+hardware/network measurements remain necessary; unsupported sender ceilings
+must not be reported as enforced bandwidth. Media/GPU generation continues to
+use its separate existing single-flight FIFO.
+
+The new SQL pool pins a digest of the operator profile. Mismatched profiles
+fail at initialization and every mutation rather than permitting disagreement
+between Hubs. A coordinated profile change needs drained old dialogs and a new
+pool name; changing only one Hub or choosing another pool while old publishers
+remain active is not a supported migration. Old profiles and lease history are
+not deleted automatically.
+
+Four FIFO waiters, a ten-second request-side deadline, exact Task/dispatch/role
+rechecks after waiting and no fallback destination bound admission. An
+asynchronous acceptance is not completion: its resource remains reserved.
+Uncertain HTTP dispatch also retains the slot. Normal expiry is the original
+Task deadline plus five seconds. On a subsequent admission, a terminal/missing
+Task starts a 95-second cleanup quarantine (the existing longest pre-progress
+Worker supervisor budget is ninety seconds), capped by the original expiry.
+Later polls cannot refresh quarantine. This conservative policy can reject new
+starts while stopped resources drain; it never requires human intervention.
+
+Generic worker-pool mutations do not own these leases. Non-project-scoped
+lease/queue/status projections omit private media and dialog reservations.
+Clock agreement and bounded database operations remain deployment requirements.
+Policy arithmetic, SQL serialization, bounded authority waiting and publisher
+selection are separate modules/ports (SRP/ISP/DIP). Existing broad dialog and
+generic scheduler composition is preserved rather than expanded into a second
+scheduler. The initial 86 tests passed in 39.40 s and the expanded 143
+capacity/legacy GPU/role/phase/authority checks in 59.31 s. Installed two-Worker
+acceptance with this new admission is still required.
+
+Final focused checks passed: 63 admission/router cases in 31.48 s and fourteen
+generic scheduler/route ownership cases in 16.39 s. These include rejection of
+an active reservation whose cost was mutated, a final authority read that
+consumes the wait deadline, private status filtering and role changes during
+capacity waiting. No deadlines were increased to obtain these results.
