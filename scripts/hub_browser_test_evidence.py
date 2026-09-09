@@ -31,9 +31,11 @@ def canonical_digest(value: Any) -> str:
 
 
 def repository_revision(root: Path) -> str:
-    return subprocess.run(
-        ("git", "rev-parse", "HEAD"), cwd=root, check=True, text=True, capture_output=True
-    ).stdout.strip().lower()
+    return (
+        subprocess.run(("git", "rev-parse", "HEAD"), cwd=root, check=True, text=True, capture_output=True)
+        .stdout.strip()
+        .lower()
+    )
 
 
 def source_digest(root: Path, paths: Sequence[Path]) -> str:
@@ -128,12 +130,15 @@ class HubBrowserTestRun:
         environment: Mapping[str, Any],
         tenant_id: str = "ananta-local",
         project_id: str = "ananta",
+        policy_paths: Sequence[Path] | None = None,
     ) -> HubBrowserTestRun:
         revision = repository_revision(root)
         inputs = source_digest(root, source_paths)
         policy = source_digest(
             root,
-            (Path("AGENTS.md"), Path("docs/decisions/ADR-decentralized-peer-overlay.md")),
+            policy_paths
+            if policy_paths is not None
+            else (Path("AGENTS.md"), Path("docs/decisions/ADR-decentralized-peer-overlay.md")),
         )
         registry_db.parent.mkdir(parents=True, exist_ok=True)
         engine = create_engine(f"sqlite:///{registry_db}")
