@@ -221,32 +221,16 @@ class BoundedSemanticExecutor:
     @staticmethod
     def _visual(reference: str, content: bytes, media_type: str) -> dict[str, Any]:
         try:
-            from PIL import Image
+            from worker.image_features import image_features
 
-            Image.MAX_IMAGE_PIXELS = 20_000_000
-            with Image.open(io.BytesIO(content)) as image:
-                image.verify()
-            with Image.open(io.BytesIO(content)) as image:
-                image.thumbnail((512, 512))
-                rgb = image.convert("RGB")
-                histogram = rgb.histogram()
-                pixels = max(1, rgb.width * rgb.height)
-                averages = [
-                    round(sum(index * histogram[channel * 256 + index] for index in range(256)) / pixels, 3)
-                    for channel in range(3)
-                ]
-                width, height = image.size
-                mode = image.mode
+            features = image_features(content, max_pixels=20_000_000, thumbnail=(512, 512))
         except Exception as exc:
             raise SemanticComputeWorkerError("visual_input_invalid") from exc
         return {
             "input_ref": reference,
             "media_type": media_type,
             "sha256": hashlib.sha256(content).hexdigest(),
-            "width": width,
-            "height": height,
-            "mode": mode,
-            "average_rgb": averages,
+            **features,
         }
 
     @staticmethod

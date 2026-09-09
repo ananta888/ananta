@@ -954,6 +954,7 @@
     },
     {
       "id": "MAP-25",
+      "image_features_extraction": "2026-09-09 execution-only worker.image_features extracts existing semantic-compute Pillow statistics without its artifact policy. Per-call pixel/dimension/format limits before decoding remove hidden global MAX_IMAGE_PIXELS mutation; existing output/thumbnail behavior retained, narrow module added to Meet image.18extraction/semantic worker checks passed26.19s; cache permission warning isolated via temporary pytest cache in later runs. No semantic scene-understanding, model, retention or production claim. docs/contracts/meet-visual-receive.md; Hub/Worker visual integration continues.",
       "visual_policy_implementation": "2026-09-09 shared video.receive mapping, exact per-source Hub receipt validation/max4 audiovisual grants and VP8 receive probe prerequisite implemented; visual grants cannot create ASR tasks.135 focused capability/probe/backchannel/audio tests passed54.21s, Ruff green. docs/contracts/meet-visual-receive.md; separate actual frame probe and Hub visual analysis Task/Worker integration remain required. Technical observation only, no production evidence or MAP25 closure.",
       "title": "Separat autorisierten Audio-/Videoempfang und Medienverstehen anbinden",
       "repository": "ananta",

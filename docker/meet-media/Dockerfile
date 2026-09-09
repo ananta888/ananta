@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -c requirements.lock playwright==1.58.0 \
 COPY scripts/check_meet_runtime_lock.py /app/check_meet_runtime_lock.py
 RUN python /app/check_meet_runtime_lock.py /app/requirements.lock
 COPY worker/meet_media /app/worker/meet_media
+COPY worker/image_features.py /app/worker/image_features.py
 COPY ananta_contracts /app/ananta_contracts
 COPY voice_runtime /app/voice_runtime
 ENV PYTHONUNBUFFERED=1 NVIDIA_DRIVER_CAPABILITIES=compute,utility,video

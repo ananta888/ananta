@@ -59,3 +59,16 @@ Pure capability mapping protects SRP/DIP. Existing broad Hub audio coordinator
 and backchannel validators remain SRP debt; this slice only tightens their
 source boundaries and does not add visual decoding or persistence to them.
 Visual analysis Task/Worker integration is still pending.
+
+## Reusable local image-feature execution
+
+The semantic-compute image calculation now lives in execution-only
+`worker.image_features`. Existing result shape/thumbnail statistics remain
+compatible. Per-call pixel/dimension/format limits replace the previous global
+`Image.MAX_IMAGE_PIXELS` mutation; metadata limits are checked before decoding.
+The old artifact handler still owns its separate publish policy. Meet's image
+includes only this narrow execution module, not the semantic artifact handler.
+This removes hidden decoder side effects (SRP/LSP) without introducing Hub
+imports, storage, capture or provider access to the Worker. Eighteen extraction
+and existing semantic-worker tests passed in26.19s. The test cache emitted a
+permission warning, not a test failure; later runs use a separate temporary cache.
