@@ -48,11 +48,21 @@ def test_wal_directory_is_private_stable_only_within_this_process_and_independen
 
 
 def test_actual_harness_engine_uses_the_selected_sqlite_journal_mode(app):
+    from sqlalchemy.pool import NullPool, QueuePool
+
+    from agent.config import settings
     from agent.database import engine
 
     with engine.connect() as connection:
         expected = "wal" if os.environ.get("ANANTA_TEST_DATABASE_MODE", "memory") == "wal" else "memory"
         assert connection.exec_driver_sql("PRAGMA journal_mode").scalar() == expected
+    if expected == "wal":
+        if settings.sqlite_pool_size:
+            assert isinstance(engine.pool, QueuePool)
+            assert engine.pool.size() == settings.sqlite_pool_size
+            assert engine.pool.timeout() == 0.25
+        else:
+            assert isinstance(engine.pool, NullPool)
 
 
 def test_production_wal_connection_allows_writer_while_an_independent_reader_holds_snapshot(tmp_path):

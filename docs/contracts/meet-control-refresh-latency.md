@@ -56,3 +56,53 @@ These are useful baselines, not a reproduction or fix of the earlier 1.3-second
 browser/1.6-second pending-request incident. Keep that intermittent failure open;
 do not spend unbounded GPU repetitions looking for a green result or change the
 freshness policy without a deterministic causal regression.
+
+## Reconnect multimedia: file-SQLite connection churn
+
+On 2026-09-09 the new packaged two-Worker reconnect/media scenario reproduced
+a different, Hub-domain delay. Four diagnostic runs failed in 91.10, 78.78,
+89.19 and 91.02 seconds; the earliest uninstrumented media attempt failed in
+62.89 seconds before speech observation. Do not erase these failures or treat
+the initial speech failure as independently explained.
+
+The bounded native-port observer measured control exchanges at 2,428/2,665 ms,
+authority checks around 200–300 ms, and individual Task reads around 40 ms.
+Recent browser calls were approximately 45–76 ms. The owned SQLite test database
+contained 3,055 schema objects. Forty read-only connection/read iterations on
+that retained test database averaged 6.125 ms with connection reopening versus
+0.146 ms with reuse (including initial opening). This is a local technical
+comparison, not a production benchmark or the earlier GPU/browser incident.
+
+`ANANTA_SQLITE_POOL_SIZE=1..64` now optionally reuses that many physical
+file-SQLite connections. Zero retains the existing `NullPool` default;
+PostgreSQL and both in-memory SQLite profiles are unchanged. Overflow is zero
+and saturated checkout fails after 250 ms. Hub restart is required. This is
+not a Session, transaction, result or policy cache: each authority check still
+performs its own fresh queries, and rollback-on-return remains enabled.
+Capacity must be selected for the deployment; bounded exhaustion remains a
+failure, never automatic authority. No serving deployment was changed.
+
+Tests prove exact physical connection counts across independent Sessions,
+external revocation visibility, rollback of uncommitted state, foreign keys,
+recovery after saturation and actual configured Hub engine selection. The
+pooled WAL/isolation/recovery/observer group passed 48 tests in 27.31 seconds.
+The corresponding native multimedia run, with eight connections, reached both
+rejoins and the second spoken reply with recorded control calls around 38–65 ms.
+It then failed in 67.18 seconds at the third interruption: the test had navigated
+to Chat and incorrectly waited for a participant counter rendered only in Live.
+That independent fixture navigation issue requires its own correction and a
+complete repeat; this intermediate result is not a passed reconnect gate.
+
+After the explicit test-only Live navigation correction, the entire packaged
+multimedia reconnect gate passed in 57.78 seconds. Two actual recoveries took
+6,524.61/6,010.07 ms, followed by exhausted-attempt stop in 437.82 ms. Old audio
+was absent across all observed receiver tracks, new memberships required fresh
+receive consent, both moving screens/personas returned, and the other Worker
+continued independently. Retained late control exchanges were 30.56–55.67 ms.
+This closes the measured connection-churn failure for the explicitly pooled
+single-host profile, not every latency cause or the earlier GPU incident.
+
+SRP: pool-option policy lives in a small infrastructure module, not the Meet
+authority or Worker. Existing large Settings/database composition remains
+preserved debt; no domain API or Hub/Worker responsibility is changed. All
+observations here use synthetic policy, not production release evidence.

@@ -6,7 +6,7 @@ from typing import Any
 import portalocker
 from sqlalchemy import event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.pool import NullPool, QueuePool, StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.config import settings
@@ -47,9 +47,12 @@ if DATABASE_URL.startswith("sqlite"):
         engine_kwargs["max_overflow"] = 24
         engine_kwargs["pool_timeout"] = 30
     else:
-        # SQLite file DBs under high parallel E2E load can exhaust QueuePool and return 500s.
-        # NullPool avoids connection checkout starvation by opening short-lived connections.
-        engine_kwargs["poolclass"] = NullPool
+        from agent.sqlite_connection_pool import file_sqlite_pool_options
+
+        # Preserve legacy unpooled high-parallelism behavior by default. A
+        # configured pool avoids repeated large-schema parsing on hot reads;
+        # saturation fails within 250ms, without unbounded overflow or waits.
+        engine_kwargs.update(file_sqlite_pool_options(settings.sqlite_pool_size))
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
 

@@ -967,6 +967,7 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
 
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
+    sqlite_pool_size: int = Field(default=0, ge=0, le=64, validation_alias="ANANTA_SQLITE_POOL_SIZE")
 
     @property
     def effective_database_url(self) -> str:
