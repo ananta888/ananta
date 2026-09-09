@@ -80,10 +80,10 @@
       "id": "PI-T02",
       "title": "Optionalen Provider über bestehende Ports ergänzen",
       "type": "implementation",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 20.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "PI-T01"
       ],
@@ -98,7 +98,8 @@
       ],
       "provisioning_result": "Pinned optional Pi 0.85.1 catalog entry uses existing admin Hub-to-registered-Worker provision route. Bounded injected Node/npm commands, Node >=22.19.0, lifecycle scripts disabled, isolated temporary npm configuration, exact CLI version verification; no provider activation or interactive login. 36 focused Pi/existing provisioning/API tests PASS in 32.09 s; Ruff and namespace detector PASS. Real local Node/npm version-only configuration probe PASS without installation/network. Actual provider, assignment isolation, model/context and result bindings remain open. docs/architecture/pi-coding-agent-integration.md.",
       "protocol_prerequisite_result": "Closed pure Pi single-turn/no-tools JSON parser implemented. 46 deterministic checks PASS in 35.64 s; real isolated Pi 0.85.1 synthetic-model stream accepted. Missing/duplicate/conflicting terminals, model/workdir substitutions, retries, tools and malformed JSON fail closed. Additional real negative probe confirmed startup migration .pi/commands -> .pi/prompts despite no-tools/no-approve: neutral per-run cwd required before provider activation. No user workspace affected. docs/architecture/pi-coding-agent-integration.md.",
-      "sdk_transport_result": "Real no-tools CLI negative probe refused a write but made 2 model requests before terminal validation. Decision revised to a thin pinned SDK process: explicit resources/model, no tools, no retries/compaction, in-memory session, shouldStopAfterTurn and stream-function one-call/model guard. Real normal and malicious-tool probes PASS with exactly 1 model request, unchanged project and cleaned runtime; explicit 1024-token request ceiling checked. 16 deterministic runtime-layout/target checks PASS in combined focused suite. Provider/factory publication follows separately; Hub task/configuration wiring and actual inference remain open. docs/architecture/pi-coding-agent-integration.md."
+      "sdk_transport_result": "Real no-tools CLI negative probe refused a write but made 2 model requests before terminal validation. Decision revised to a thin pinned SDK process: explicit resources/model, no tools, no retries/compaction, in-memory session, shouldStopAfterTurn and stream-function one-call/model guard. Real normal and malicious-tool probes PASS with exactly 1 model request, unchanged project and cleaned runtime; explicit 1024-token request ceiling checked. 16 deterministic runtime-layout/target checks PASS in combined focused suite. Provider/factory publication follows separately; Hub task/configuration wiring and actual inference remain open. docs/architecture/pi-coding-agent-integration.md.",
+      "provider_result": "Optional PiCodingAgentProvider registered behind existing factory/descriptor contract, disabled by default and absent from automatic routing/fallback. Requires explicit target and injected task authorization; checks before preparation, immediately before process and after execution. Only no-tools read_only without resume is supported; no OS-sandbox or direct write capability claimed. Private run cwd/config, pinned SDK one-call/one-turn guard, bounded shared process, terminal parser and post-JSON secret redaction. Real isolated normal/tool-negative probes PASS with exactly one synthetic model request, unchanged project and cleanup; output token ceiling checked. Final 91 provider/parser/existing CLI checks PASS in 64.89 s; previous 103-run includes 16 runtime/target checks and overlaps. Separate 36 provisioning/API checks PASS. Hub policy/container binding, model/context configuration, result ingress and real inference remain PI-T03 to PI-T06. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T03",
@@ -192,12 +193,12 @@
     "total": 6,
     "by_status": {
       "todo": 4,
-      "in_progress": 1,
+      "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 1
+      "done": 2
     },
-    "progress_percent_done": 16.7,
+    "progress_percent_done": 33.3,
     "by_priority": {
       "P0": 0,
       "P1": 0,
@@ -211,8 +212,8 @@
     },
     "critical_path": {
       "total": 6,
-      "done": 1,
-      "remaining": 5
+      "done": 2,
+      "remaining": 4
     },
     "milestones": {
       "total": 2,
@@ -223,7 +224,7 @@
     }
   },
   "summary_notes": [
-    "PI-T01 ist nach gepinntem Quellabgleich und realem isolierten No-Tools-CLI/JSON-Prototyp abgeschlossen. PI-T02 ist in Bearbeitung: gemeinsame Prozesshärtung und optionale gepinnte Worker-Bereitstellung umgesetzt und fokussiert geprüft; der Pi-Provider selbst und PI-T03 bis PI-T06 bleiben offen.",
+    "PI-T01 und PI-T02 sind abgeschlossen: gepinnter Quell-/Laufzeitabgleich, begrenzter Prozessport, optionale Worker-Bereitstellung und standardmäßig deaktivierter No-Tools-Pi-Provider hinter bestehenden Ports. Reale synthetische Negativtests begründeten den Wechsel vom CLI zum schmalen SDK-Prozess mit einer Modellanfrage/einem Turn. PI-T03 bis PI-T06 bleiben offen; keine produktive Aktivierung, OS-Sandbox-, Lease-Ingress- oder echte Inferenzabnahme behauptet.",
     "PI-T02 bis PI-T06 nur nach positiver dokumentierter Eignungsentscheidung durchführen; bei Ablehnung Ergebnis und Gründe dokumentieren."
   ],
   "tasks_type_summary": {
@@ -247,15 +248,15 @@
         "total": 3,
         "by_status": {
           "todo": 2,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 6.7
+        "progress_percent": 33.3
       },
       "security": {
         "total": 1,
@@ -290,10 +291,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 1.8,
-    "remaining_weight": 8.2,
+    "done_weight": 3.0,
+    "remaining_weight": 7.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 18.0
+    "weighted_percent": 30.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -307,31 +308,31 @@
       },
       "PI-M2": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 3.5,
+        "count_based_percent": 20.0,
+        "weighted_percent": 17.6,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "todo",
     "todo_remaining": 4,
-    "in_progress": 1,
+    "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 1,
-    "count_based_percent": 16.7,
-    "weighted_percent": 18.0
+    "done": 2,
+    "count_based_percent": 33.3,
+    "weighted_percent": 30.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T22:33:59.404803Z",
+    "generated_at": "2026-09-09T22:37:54.780394Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "c64d04b9cf91e46a792a80914e8dd3a82fb020554dec30090cfc04e05a712680",
+    "source_hash": "566637860c0934db0b7bead648f48187b5b74f8bf6ec73fd0f27900c86011145",
     "is_stale": false
   }
 }

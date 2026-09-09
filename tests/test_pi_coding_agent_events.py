@@ -7,26 +7,7 @@ from pathlib import Path
 import pytest
 
 from agent.cli_backends.pi_events import PiProtocolError, parse_pi_one_shot
-
-
-def events():
-    user = {"role": "user", "content": [{"type": "text", "text": "Explain this code."}]}
-    assistant = {
-        "role": "assistant", "content": [{"type": "text", "text": "A\u2028B"}],
-        "api": "openai-completions", "provider": "ananta", "model": "selected-model", "stopReason": "stop",
-    }
-    return [
-        {"type": "session", "version": 3, "cwd": "/workspace"},
-        {"type": "agent_start"}, {"type": "turn_start"},
-        {"type": "message_start", "message": {"role": "user"}},
-        {"type": "message_end", "message": copy.deepcopy(user)},
-        {"type": "message_start", "message": {"role": "assistant"}},
-        {"type": "message_update", "assistantMessageEvent": {"type": "text_delta", "delta": "not authoritative"}},
-        {"type": "message_end", "message": copy.deepcopy(assistant)},
-        {"type": "turn_end", "message": copy.deepcopy(assistant), "toolResults": []},
-        {"type": "agent_end", "messages": [copy.deepcopy(user), copy.deepcopy(assistant)], "willRetry": False},
-        {"type": "agent_settled"},
-    ]
+from tests.pi_protocol_examples import pi_events as events
 
 
 def parse(records):

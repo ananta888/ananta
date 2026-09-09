@@ -15,6 +15,7 @@ from agent.cli_backends.coding_agent_contract import (
     CodingAgentCapabilities,
     CodingAgentDescriptor,
     CodingAgentProbe,
+    CodingAgentProvider,
     CodingAgentRunRequest,
     CodingAgentRunResult,
     EventSink,
@@ -24,6 +25,7 @@ from agent.cli_backends.coding_agent_contract import (
     ProviderState,
 )
 from agent.cli_backends.coding_agent_process import BoundedCodingAgentProcess
+from agent.cli_backends.pi_provider import PiCodingAgentProvider
 
 _BASE_ENVIRONMENT = frozenset({"HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"})
 
@@ -430,6 +432,7 @@ EXISTING_DESCRIPTORS = {
 
 def coding_agent_descriptors() -> tuple[CodingAgentDescriptor, ...]:
     descriptors = [profile.descriptor for profile in CLI_PROFILES.values()]
+    descriptors.append(PiCodingAgentProvider.descriptor)
     descriptors.extend(EXTERNAL_DESCRIPTORS.values())
     descriptors.extend(EXISTING_DESCRIPTORS.values())
     return tuple(sorted(descriptors, key=lambda item: item.provider_id))
@@ -438,8 +441,11 @@ def coding_agent_descriptors() -> tuple[CodingAgentDescriptor, ...]:
 def build_cli_coding_agent_provider(
     provider_id: str,
     **kwargs: object,
-) -> CliCodingAgentProvider:
-    profile = CLI_PROFILES.get(str(provider_id or "").strip().lower())
+) -> CodingAgentProvider:
+    normalized = str(provider_id or "").strip().lower()
+    if normalized == "pi":
+        return PiCodingAgentProvider(**kwargs)  # type: ignore[arg-type]
+    profile = CLI_PROFILES.get(normalized)
     if profile is None:
         raise ValueError("coding_agent_cli_provider_unsupported")
     return CliCodingAgentProvider(profile, **kwargs)  # type: ignore[arg-type]

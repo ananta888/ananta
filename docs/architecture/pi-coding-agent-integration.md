@@ -318,3 +318,45 @@ Endpoint-/Modell-/Credential-Formate ab. Der API-Key wird ausschließlich als
 Großbuchstabenname wäre in Pi ein Literal. Im Test wird der tatsächliche
 Authorization-Header geprüft, ohne ihn zu protokollieren. SDK-Adapter und
 Runtime-/Konfigurationsprojektion bleiben separate, kleine Verantwortungen.
+
+## Registrierter, standardmäßig deaktivierter Provider
+
+`PiCodingAgentProvider` implementiert jetzt den vorhandenen Provider-Port und
+ist über die bestehende Factory sowie den Capability-Katalog auffindbar.
+Er wird nicht in automatisches CLI-Routing oder eine Fallback-Liste aufgenommen.
+Ohne explizites Einschalten, ausgewählten Target-Vertrag und injizierte
+Auftragsautorisierung findet kein Modellaufruf statt. Autorität wird vor der
+Vorbereitung, unmittelbar vor dem Prozess und vor der Ergebnisübernahme
+geprüft. Die produktive Bindung dieses Prüfports an Hub-Assignment/Dispatch
+Lease ist weiterhin Aufgabe von PI-T03/PI-T05; ein beliebiges `True` aus einer
+Testfixture ist keine produktive Freigabe.
+
+Das erste Profil verarbeitet ausschließlich mitgegebenen Kontext und liefert
+Text beziehungsweise vorgeschlagene Änderungen. Es akzeptiert nur
+`read_only` ohne Session-ID; direkte Schreib-/Shell-Tools, Resume, MCP,
+Streaming-Freigabe und OS-Sandbox werden nicht als verfügbar ausgewiesen.
+Insbesondere schützen eigene temporäre Verzeichnisse allein nicht vor
+anderen absichtlich bösartigen Prozessen derselben UID. Die technische
+Container-/Auftragsgrenze muss vor produktiver Aktivierung geprüft werden.
+
+Der Prozessport begrenzt Ausführung, Ausgabe und Cleanup. Erst ein vollständig
+validiertes Ergebnis erreicht den Event-Sink; Prozess-/Protokollfehler und
+entzogene Autorisierung liefern keinen Teiltext. Nach dem JSON-Dekodieren
+folgt eine weitere Secret-Redaktion, damit JSON-Escapes oder kurze Credentials
+nicht die zeilenbasierte Prozessredaktion umgehen. Es gibt keine eigene
+Evidenzvergabe, Sitzungsveröffentlichung oder Worker-Delegation.
+
+Die letzte fokussierte Provider-/Parser-/bestehende CLI-Regression besteht
+mit 91 Tests in 64.89 Sekunden, einschließlich vier zusätzlicher
+Secret-Dekodierfälle. Die zuvor bestandenen 103 Tests (72.20 Sekunden)
+enthielten außerdem 16 Runtime-/Target-Fälle und überlappen größtenteils;
+sie werden nicht zu 194 unabhängigen Tests addiert. Die 36 separaten
+Provisionierungs-/API-Prüfungen bestehen ebenfalls. Ruff, Node-Syntaxprüfung,
+CLI-Namespace- und Todo-Konsistenzprüfung bestehen. Sämtliche echten
+SDK-Probeläufe hier verwendeten einen synthetischen containerlokalen Server.
+
+Damit ist der optionale Provider-Unterbau PI-T02 abgeschlossen, nicht die
+gesamte Pi-Integration. Hub-Policy-/Containerbindung, zentrale Modell- und
+ContextBundle-Konfiguration, Ergebnis-Ingress und optionale echte Modellläufe
+(PI-T03 bis PI-T06) bleiben offen. SRP/DIP werden durch getrennte Konfigurations-,
+Runtime-, SDK-, Parser- und Prozessadapter mit injizierten Prüfports erhalten.
