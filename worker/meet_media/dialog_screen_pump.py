@@ -55,10 +55,12 @@ class DialogScreenPump:
                 if outcome == "stale":
                     # Only a later fresh Hub update may reopen an expired activation.
                     self.lease = None
-                # Completion releases the single slot; it must not postpone
-                # the existing start-anchored 5-fps deadline by another 200 ms.
-                # The next tick may send one latest frame, never catch up.
-                return
+                if outcome != "done":
+                    return
+                # A confirmed completion releases the one slot. If the next
+                # start is already due, use it now instead of adding another
+                # potentially delayed outer-loop tick. There is still at most
+                # one begin per call, no catch-up loop, and a 200-ms start gap.
             if self.clock() < self.next_frame:
                 return
             if not self.page.evaluate("window.anantaMachine.screen.status().open"):

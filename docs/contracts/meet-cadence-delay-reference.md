@@ -58,3 +58,26 @@ The first 75 profile/input/fault-unit checks passed in 35.48 seconds; the
 subsequent nine focused hook checks, including the inert default path, passed
 in 12.39 seconds. Ruff and Todo consistency checks passed. Actual fault-profile
 results are still separate from these deterministic tests.
+
+## Before-fix native reproduction
+
+At Ananta `3ece4183f` / Meet `ebd78be`, the real fault profile failed in
+33.361 runner seconds / 29.04 pytest seconds under
+`RUN_88786bfb62746cbafefa85cd95338f90` /
+`SRC_a8e57386d5f98b35f9f743b4442875f8`. Inputs were unchanged; one test
+failed, none skipped or errored. Four delayed waits completed before the
+screen timing source failed at age 915,300 microseconds. The initial moving
+screen assertion then failed. This is actual browser reproduction under a
+synthetic schedule, not a production or two-hour pass.
+
+An earlier attempt, `RUN_371bb4eea78a8c1d6f61b7fc0c90d7a2`, never reached
+media: Docker's predefined address pools were exhausted. One confirmed empty
+fixture network was removed before the retry; no serving network or container
+was removed. Inspection also found that cross-repository teardown removes the
+bridge-owned network before the externally owned peer browser. That resource
+ordering defect needs its own correction and checks.
+
+The late-completion correction is now implemented in the existing focused
+screen pump; 108 related pump, frame-delivery, browser-screen, timing and
+contract tests passed in 46.30 seconds. Worker boundary and Ruff checks passed.
+The immutable updated image and actual after-fix reference are still pending.

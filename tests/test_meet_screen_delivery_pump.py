@@ -69,15 +69,15 @@ def test_pending_decode_never_reads_another_frame_and_success_keeps_5fps_ceiling
         return "done"
 
     f.frames.poll.side_effect = done
+    f.source.take.return_value = "new-latest-jpeg"
     f.pump.tick()
     f.state.now = 100.501
-    f.source.take.return_value = "new-latest-jpeg"
     f.pump.tick()
     f.frames.begin.assert_called_with(1, 2, "new-latest-jpeg")
     assert f.frames.begin.call_count == 2
     f.state.now = 100.502
-    f.pump.tick()  # Completion cannot cause a same-tick catch-up send.
-    f.state.now = 100.700
+    f.pump.tick()  # Completion before the next deadline cannot send early.
+    f.state.now = 100.699
     f.pump.tick()
     assert f.frames.begin.call_count == 2
     f.state.now = 100.702
@@ -125,6 +125,46 @@ def test_recorded_soak_tick_can_submit_before_the_later_scheduling_gap():
     assert f.pump.sequence == 2 and f.frames.busy
 
 
+def test_late_completion_can_submit_only_one_due_latest_frame_in_the_same_tick():
+    f = setup()
+    f.pump.tick()
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.poll.side_effect = done
+    f.source.take.return_value = "latest-after-gap"
+    f.state.now = 100.45622
+    f.pump.tick()
+    assert f.state.starts == [100.0, 100.45622]
+    f.frames.begin.assert_called_with(1, 2, "latest-after-gap")
+    assert f.frames.busy and f.frames.poll.call_count == 1
+    f.pump.tick()
+    assert f.frames.begin.call_count == 2, "no catch-up burst at the same clock instant"
+
+
+def test_recorded_late_completion_trace_keeps_existing_pre_tick_freshness_limit():
+    f = setup()
+    f.pump.tick()
+
+    def done():
+        f.frames.busy = False
+        return "done"
+
+    f.frames.poll.side_effect = done
+    # Relative to sequence70 in the failed 88-minute run. A synthetic 25-ms
+    # completion delay models the async slot; it is not a measured latency.
+    # The skipped opportunity exceeds the unchanged 750-ms freshness limit.
+    for offset in (0.45622, 0.59977, 1.07708, 1.54160):
+        f.state.now = 100 + offset
+        age = f.state.now - (f.state.starts[-1] + 0.025)
+        assert age <= 0.75, "late completion postponed an already-due frame beyond the unchanged freshness bound"
+        f.pump.tick()
+    assert len(f.state.starts) == 4
+    assert all(after - before >= 0.2 for before, after in zip(f.state.starts, f.state.starts[1:]))
+
+
 @pytest.mark.parametrize("completion", [0.01, 0.13213, 0.5])
 def test_completed_decode_does_not_add_another_idle_interval(completion):
     f = setup()
@@ -140,7 +180,7 @@ def test_completed_decode_does_not_add_another_idle_interval(completion):
     f.state.now = 100 + max(0.201, completion + 0.001)
     f.pump.tick()
     assert f.frames.begin.call_count == 2
-    assert f.pump.next_frame >= f.state.now + 0.2
+    assert f.pump.next_frame == pytest.approx(f.state.starts[-1] + 0.2)
 
 
 @pytest.mark.parametrize("operation", ["pause", "invalidate", "close", "failure"])
