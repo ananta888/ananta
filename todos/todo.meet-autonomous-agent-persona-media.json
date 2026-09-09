@@ -1146,6 +1146,7 @@
     },
     {
       "id": "MAP-30",
+      "persistent_post_restart_reference": "Post-restart normal7200s referenceRUN_9c1e519283f6ad02421b85b96d0a4e86/SRC_6b5a3906023621addc28d9aa17359fe6 ongoingfrozen5a7be27f5/Meetc4ef486/image5d4be51c/newbundle803a77c0. Worktree/native-tools/output nowpersistentunderdata/. PreviousRUN88068cancelled/noexecutionresult; earlier36mreceiverfailurestillunresolved. No currentreceiptretrofit or extraownedbrowser/GPU/large-suite. docs/contracts/meet-reference-restart-recovery.md.",
       "host_restart_recovery": "Actualhostboot20:08:10Berlin, previousRUN_88068c4c434679702ac991373e66298f handle/process/tmpworkspace missing; no terminaltestresult. ExactpersistedHubTESTreservation validatedagainsttask/source/revision/prebootcreation then cancelled through existingregistryservice/originalassignmentlease,notSQLpatch/fakeworkerresult. Priorcompletedreportssurviveddata/. Rebuiltpersistentprivate5a7be27f5/c4ef486/5dimage;newbundle803a77c0. RealshortPASS34.720s/1test0skip-error-fail unchangedinputs,RUN_e338ee9fdd06f2db559c56b67ce2675f/SRC_6b5a3906023621addc28d9aa17359fe6; freshnormal2h follows. GPUdetectedagainbutdifferentmoe-testjobsoccupyVRAM,notstopped. docs/contracts/meet-reference-restart-recovery.md.",
       "screen_receipt_native_followup": "FrozenAnanta5a7be27f5/Meetc4ef486/image5d4be51c: private-peer-smokePASS34.800s,1pass0fail/error/skip,unchangedinputs,SRC_6b5a3906023621addc28d9aa17359fe6/RUN_a8184b3b87479114580169c5dd6f13e5. Same7200snormaldiagnosticreference started19:40Berlin withRUN_88068c4c434679702ac991373e66298f/sameSRC,ongoing/notpassed. No injectedfault oradditionalownedlargesuite; sourceonlypassivefailureprojection,unchangedmediacode/bundle/image/budgets. Evenagreenrepeatwillnotprovehistoricalreceiverfreezecausefixed. Completedfailed36mreportsretainedoutside/tmp; nohardware/publictrustmutation.",
       "screen_failure_receipt_result": "Separate passive JUnitprojection implemented beforeinitial/periodicscreenassertion:closedreceiverRTP/decoded/keyframe/PLI/NACK/connection/transformcounts and lastsourceactivation, non-atomicexplicit,unknownnull/bounded/no content. No extraRPC/retry/timeout/mediacode/imagechange.21relatedobservertestsPASS29.44s;final12projectiontestsPASS17.91s,Worker123boundary/RuffPASS. SameMeetc4ef486/image5d4be51c short then diagnosticreference planned; historical36mfailure remainsfailed, causenotestablished. docs/contracts/meet-cadence-delay-reference.md.",
@@ -1220,6 +1221,7 @@
     },
     {
       "id": "MAP-32",
+      "reservation_receipt_result": "Implementedclosed8KiBexclusive0600reservation.json beforechildexecution,actualHubIDs/binding/sources/frontend/fixedprofile only,reservedTEST/nonrelease. Noassignment/dispatch/envsecretprojection. Fileflush/fsync anddirectoryfsyncwhereavailable; writefailureblockschildandusesexistingfailedcompletion.81runner/input/receiptchecksPASS57.79s;final7receiptchecksPASS11.01s includeactualownedSIGKILLafterwrite,parseablereceipt/noresult. Existingfile/symlink/FIFO/oversize/fsyncnegativescovered. Pureartifactadapter preservesHubissuance/Workerexecution,active5a7be27f5soaknotmutated/no retroactivereceipt. docs/contracts/meet-reference-restart-recovery.md.",
       "reservation_receipt_plan": "Followingactualhostrestartloss, persistclosedexclusive reservation.json beforechildexecution:Hub-issuedIDs/binding/source/companion/frontend/fixedprofile,reservedTEST/nonrelease only; no assignment/dispatch/environment/secrets. Filemode/flush/existingfileprotection, writefailurepreventsworkerandusesexistingfailurepath. Smallartifactadapter SRP/DIP, ordering/redaction/failure/allprofiletests; receiptneverprovesliveness/resumeauthority/success. Frozenactive2h remainsuntouched. docs/contracts/meet-reference-restart-recovery.md.",
       "operations_index_result": "Current docs/operations/meet-autonomous-agent.md maps actualbootstrap/HTTP/trust/preauthorization/persona/resourceports; separateversion/trust/Hubrights,explicitfeaturestages,task/sourceNotaus,keyoverlaprotationandnon-policyImageRollback,closeddiagnosticsandTESTclassification. OriginalGPUguide nowclearlyhistorical. Localdocumentlinkschecked; no newauthority/configactivation orproductioncompletionclaim. Companion2ce5e2cpublicheadlessboundaryalsoverified30integratedchecks2.067s andpushed,includingnew23boundarycases;publiccredentialsandactualselectedTURNpayloadremainseparate.",
       "hub_compose_forwarding_result": "TwelveexistingHuboptionsnowforwarded; newfeaturesdefaultoff,emptystrictvaluespreserved,andoptionalpublisherunset-vs-presentsemanticsretained. SevenactualComposechecksreproducedmissingfields11.62s;newforwarding+existingdevice/egresschecks16PASS18.59s. Syntheticconfigrenderonly,nocontainer/runtime/operatorenvwrites. Existingnetwork/readonlysecret/device/egressboundariespreserved;documentedComposemergeprecedence. docs/contracts/meet-hub-compose-options.md. No publicactivation orWorkerimagechange.",
@@ -1233,7 +1235,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 30.0,
+      "progress_percent": 35.0,
       "depends_on": [
         "MAP-30",
         "MAP-31"
@@ -1438,7 +1440,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 30.0
+        "progress_percent": 35.0
       }
     }
   },
@@ -1450,15 +1452,15 @@
     "blocked": 0,
     "done": 29,
     "count_based_percent": 90.6,
-    "weighted_percent": 91.2
+    "weighted_percent": 91.4
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 53.1,
-    "remaining_weight": 5.15,
+    "done_weight": 53.225,
+    "remaining_weight": 5.025,
     "blocked_weight": 0.0,
-    "weighted_percent": 91.2
+    "weighted_percent": 91.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1523,7 +1525,7 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 25.0,
-        "weighted_percent": 44.3,
+        "weighted_percent": 45.7,
         "status": "in_progress"
       }
     }
@@ -1531,10 +1533,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T18:19:01.904701Z",
+    "generated_at": "2026-09-09T18:28:14.840850Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "381feb09b5b10ddb90cdef78551b642a2c6b3b22fb269a5832e92d56df520d90",
+    "source_hash": "6b4f398cd350dc5f87a9aefd711e63b0d64fb55fd3ce9f669a11978bba15586c",
     "is_stale": false
   }
 }

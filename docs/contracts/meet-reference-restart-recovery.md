@@ -40,9 +40,9 @@ were not stopped or repurposed. Public readiness now observes running Meet
 all implemented ports listed, but machine admission still disabled. Neither
 the restart nor these deployment changes were performed by this recovery.
 
-## Reservation receipt hardening plan (MAP-32)
+## Reservation receipt hardening (MAP-32)
 
-Persist a closed `reservation.json` before launching the selected child:
+The runner now persists a closed `reservation.json` before launching the selected child:
 actual Hub-issued source/run/binding references, exact source/companion and
 frontend digests, fixed profile identity and explicit reserved/TEST/non-release
 classification. Never write the assignment projection, dispatch credentials,
@@ -52,7 +52,28 @@ A receipt-write failure must prevent execution and follow the existing failed
 result path. The receipt does not prove a live process, successful test or
 authority to resume/cancel; recovery must still inspect authoritative state.
 
-Keep serialization/persistence in a small artifact adapter (SRP), independent
+Serialization/persistence lives in a small artifact adapter (SRP), independent
 of Hub identity issuance and worker execution (DIP). Test ordering, exact
 fields/redaction, existing-file protection, write failure and all closed runner
-profiles. Do not alter the currently running frozen diagnostic reference.
+profiles. The currently running frozen diagnostic reference remains unchanged.
+
+The receipt is limited to 8 KiB, created with exclusive mode and owner-only
+permissions, flushed and fsynced before execution. On systems supporting
+directory fsync the new directory entry is also flushed. This cannot guarantee
+survival of filesystem/hardware failure. A partial or merely reserved receipt
+must never substitute for the final Hub-accepted report or a live process check.
+
+81 receipt/closed-profile/input/executor tests passed in 57.79 seconds. The
+final seven receipt tests passed in 11.01 seconds, including an actual owned
+child terminated by SIGKILL after writing: its receipt remained parseable,
+explicitly reserved and without any result report. Identity inputs in that
+fault test are synthetic doubles, not issued run evidence. Existing files,
+symlinks and FIFOs are not overwritten/opened; missing/oversized metadata and
+fsync failures are bounded failures. Receipt failure in every closed profile
+prevents child execution and records failure through the existing completion
+path. No large suite or second browser workload was started beside the soak.
+
+The post-restart soak uses `RUN_9c1e519283f6ad02421b85b96d0a4e86` and the
+previously admitted `SRC_6b5a3906023621addc28d9aa17359fe6`, frozen at
+`5a7be27f5`. It is ongoing at this checkpoint, not passed. It predates this
+receipt implementation; no pre-execution receipt is fabricated retroactively.

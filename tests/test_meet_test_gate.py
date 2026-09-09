@@ -16,7 +16,7 @@ from scripts.run_meet_test_gate import execute, run
 
 
 @pytest.mark.parametrize("profile_name", PROFILE_NAMES)
-@pytest.mark.parametrize("mode", ["pass", "fail", "skip", "changed", "exception"])
+@pytest.mark.parametrize("mode", ["pass", "fail", "skip", "changed", "exception", "receipt-failure"])
 def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_inputs(
     tmp_path, monkeypatch, mode, profile_name
 ):
@@ -44,6 +44,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
     reserved = SimpleNamespace(
         source_id="synthetic-source-not-evidence",
         run_id="synthetic-run-not-evidence",
+        binding_digest="f" * 64,
         assignment={"synthetic": True},
         complete=Mock(return_value={"synthetic": True, "production_release_eligible": False}),
     )
@@ -57,6 +58,15 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         return reserved
 
     def worker(command, environment, log_path, *, root, timeout):
+        receipt = json.loads((log_path.parent / "reservation.json").read_text())
+        assert receipt["state"] == "reserved" and receipt["execution_result_available"] is False
+        assert receipt["identity"]["run_id"] == reserved.run_id
+        assert receipt["identity"]["binding_digest"] == reserved.binding_digest
+        assert receipt["source"] == source and receipt["companion"] == source
+        assert receipt["profile"] == {
+            key: profile.projection()[key] for key in ("name", "reference", "timeout_seconds")
+        }
+        assert receipt["production_release_eligible"] is False
         events.append("execute")
         assert events == ["reserve", "execute"]
         assert json.loads(environment["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"]) == {"synthetic": True}
@@ -75,6 +85,10 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         return 1 if mode == "fail" else 0
 
     output = tmp_path / "owned-report"
+    if mode == "receipt-failure":
+        monkeypatch.setattr(
+            "scripts.run_meet_test_gate.write_reservation_receipt", Mock(side_effect=OSError("PRIVATE-MARKER"))
+        )
     code = run(
         output,
         tmp_path / "registry.sqlite",
@@ -90,6 +104,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
     assert report["identity"]["production_release_eligible"] is False
     assert "PRIVATE-MARKER" not in json.dumps(report)
     assert reserved.complete.call_args.kwargs == {"succeeded": mode == "pass"}
+    assert events == (["reserve"] if mode == "receipt-failure" else ["reserve", "execute"])
 
 
 def test_unlisted_profile_fails_before_reading_inputs_or_reserving(tmp_path, monkeypatch):

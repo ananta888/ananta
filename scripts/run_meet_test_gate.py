@@ -21,6 +21,7 @@ from scripts.meet_test_gate_inputs import (
     snapshot_repository,
 )
 from scripts.meet_test_gate_profiles import DEFAULT_PROFILE, PROFILE_NAMES, select_profile
+from scripts.meet_test_reservation_receipt import write_reservation_receipt
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -117,6 +118,14 @@ def run(
     result = {"passed": False, "reason": "meet_test_gate_incomplete"}
     started = time.monotonic()
     try:
+        write_reservation_receipt(
+            output / "reservation.json",
+            reservation=run,
+            source=before,
+            companion=companion,
+            frontend_digest=bundle,
+            profile=profile,
+        )
         child_environment = (
             os.environ
             | selected.environment()
