@@ -954,6 +954,7 @@
     },
     {
       "id": "MAP-25",
+      "completion_verification": "2026-09-09 sourcec72f8162f/image55ec55247f2ee83285ac40fb83eb3781b6dbd99e8a15c98447e33a7d3aa745c2 final actual microphone/screen-audio pair159.93s:128000samples/localCUDA/unchanged>=3of4word threshold/Worker-boundHubchild/no reply or transcript/PCM retention. Regrant+active revoke both; microphone actuallease renewal/newgenerationchild/independent Hubpause with parentalive. Repeated bounded windows retain30s originalreservation/720admission cap, no lossless/unlimited-recording claim. Earlier packagedvisual camera/screen/regrant/revoke2cases104.85s and8Chromium/Firefox engine/sourcecases22.03s pass; fixed nativeimage-features profile notOCR/objectunderstanding.118Hubcontract/18Worker regressions,115Workerboundaryfiles,10companionfixtureguardtests green; companiond57096d isolatedfullcheck844frontend/863Node/0fail/2explicitNodeskips. SevenMAP25criteria met; MDS03/MDS13 closed. docs/contracts/meet-receive-completion.md and meet-visual-receive.md. Syntheticlocaltechnical observation, not productionRegistry evidence; other10rootTasks remain open.",
       "audio_worker_binding_fix": "2026-09-09 real packaged CUDA test found missing assigned_agent_url on ASR child. Reservation now copies/checks exact parent Worker; child authority rejects mismatch, final current-policy reread/completion uses shared parent+child mutation locks. Source admission refusal during original cooldown closes only audio attempt, preserving independent dialog controls/freshness; no fallback.118Hub/contract tests65.61s,18pump/readmission28.04s pass. Actual microphone/screen-audio initial pair109.35s passes128000samples each/localCUDA/unchanged>=3of4syntheticword criterion/no reply or transcript retention with correctedHub. Newworker readmission packaging/repeatedrevoke gate next; no release claim. docs/contracts/meet-receive-completion.md.",
       "packaged_visual_receive_result": "2026-09-09 sourcef223cbe53/imagebd4cc14c24a8dd4eaa4a4f0a2bc3f0a5fdfd18282d84c8a1567c6d4635afccd0:2actual camera/screen Hub+packagedWorker+privateMeet cases66.58s; extended2repeat-grant/active-revocation cases104.85s.3decoded frames/native stats/exactordinaryHubchild completed; revoked next child failed without another accepted result, no features/rawframes persisted. First setupmissingproxy corrected explicit immutable image; regrant UItest awaited actual revoke ACK/editorreset, no production policy change. Sharedfixture extraction camera regrant/revoke57.23s pass,4companion cases10.17s. docs/contracts/meet-visual-receive.md. LiveGPU audio next; no publictrust/release/MAP25completion claim.",
       "packaged_receive_gpu_fixture": "2026-09-09 explicit default-off GPU profile in owned packaged dialog-container fixture; separate resource adapter checks capacity, fixed devices, allowlisted read-only driver/model mounts,4GiB RAM. No application source, serving keys/state, provider or deployment changes.46resource/configuration/cleanup tests25.05s pass. Actual browser-to-CUDA microphone/screen-audio acceptance next; no live ASR or release claim from fixture tests. docs/contracts/meet-receive-completion.md.",
@@ -966,10 +967,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-08",
         "MAP-09",
@@ -1197,12 +1198,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 4,
+      "in_progress": 3,
       "partial": 6,
       "blocked": 0,
-      "done": 21
+      "done": 22
     },
-    "progress_percent_done": 65.6,
+    "progress_percent_done": 68.8,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1314,15 +1315,15 @@
         "total": 16,
         "by_status": {
           "todo": 0,
-          "in_progress": 2,
+          "in_progress": 1,
           "partial": 2,
           "blocked": 0,
-          "done": 12
+          "done": 13
         },
-        "done": 12,
+        "done": 13,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 89.7
+        "progress_percent": 92.5
       },
       "infrastructure": {
         "total": 1,
@@ -1371,20 +1372,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 4,
+    "in_progress": 3,
     "partial": 6,
     "blocked": 0,
-    "done": 21,
-    "count_based_percent": 65.6,
-    "weighted_percent": 81.4
+    "done": 22,
+    "count_based_percent": 68.8,
+    "weighted_percent": 82.6
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 47.412,
-    "remaining_weight": 10.838,
+    "done_weight": 48.087,
+    "remaining_weight": 10.163,
     "blocked_weight": 0.0,
-    "weighted_percent": 81.4
+    "weighted_percent": 82.6
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1438,10 +1439,10 @@
       },
       "MAP-M7": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 64.6,
+        "count_based_percent": 50.0,
+        "weighted_percent": 75.8,
         "status": "in_progress"
       },
       "MAP-M8": {
@@ -1457,10 +1458,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T01:07:43.920173Z",
+    "generated_at": "2026-09-09T03:21:12.553769Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "f35624bf60f96a685c6cca12049803d176a1045c35cf179b76b276da55554fc3",
+    "source_hash": "cdf054057857754b07b610127499630e1c7333b07604fb89c7b93b40cf38592d",
     "is_stale": false
   }
 }

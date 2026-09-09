@@ -87,6 +87,42 @@ The fixture emits one complete synthetic phrase after Hub admission, rather than
 joining a looping utterance mid-sentence. Repeated-source/revocation acceptance
 with the newly packaged readmission fix is the next gate; no release claim.
 
+### MAP-25 completed bounded receive profile
+
+Source `c72f8162f`, immutable Worker image
+`sha256:55ec55247f2ee83285ac40fb83eb3781b6dbd99e8a15c98447e33a7d3aa745c2`,
+passed the final actual microphone/screen-audio pair in159.93s. Both receive
+exactly128,000 samples through private required-SFrame Meet and local CUDA ASR,
+meet the unchanged three-of-four fixed-word threshold, complete the exact
+Worker-bound Hub child, and retain neither transcript nor PCM in Task context.
+Regrant permits a new Task; active revoke fails it without another accepted
+transcript. The microphone also verifies actual Meet lease renewal, a higher
+generation's new child, and independent Hub audio pause with the parent alive.
+
+The source is test-owned synthesized speech, not a physical device. Subsequent
+utterances start after the original Hub reservation deadline, so a silent source
+or a phrase ending before readmission is legal cannot be mistaken for continuous
+input. The service supports repeated bounded windows across renewal, not lossless
+recording or an unlimited audio stream: the original30s reservation budget and
+720-admission ceiling remain intact. Fixed/energy segmentation, local model/VAD/
+language profiles and visual image-features are the supported closed profiles.
+The visual profile is not OCR or semantic object understanding.
+
+`tests/test_meet_audio_packaged.py` uses explicit `MEET_AUDIO_PACKAGED_GATE=1`,
+`MEET_AUDIO_WORKER_IMAGE` as an immutable image ID, a fresh private
+`MEET_TEST_PUBLIC_DIR`, and `ANANTA_TEST_DATABASE_MODE=wal`. The shared fixture
+keeps infrastructure separate from scenario assertions; all grants, source
+actions, cancellation and cleanup are automated. Ten companion source/file/
+opt-in negative checks passed2.53s. Companion `d57096d` isolated full check passed
+844 frontend/863 Node tests with0 failures and2 explicit Node skips. External
+infrastructure remains unverified by that run.
+
+Together with the documented visual native/packaged/both-browser-engine tests,
+the seven scoped MAP-25 criteria are satisfied. This is local synthetic technical
+verification, not a Hub-registered production release. Public trust, general
+multimodal instruction security, room-wide turn-taking and production soak stay
+with their remaining tasks; closing MAP-25 does not close the32-task track.
+
 ## Receive-only capability separation
 
 The shared pure `audio_mode_permitted` predicate now guards Hub start,

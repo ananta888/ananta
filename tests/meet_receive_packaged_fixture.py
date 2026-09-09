@@ -85,7 +85,7 @@ def packaged_receive(app, tmp_path, monkeypatch, *, source, image):
             return response
 
         def command(name):
-            assert name in {"source", "grant", "revoke"}
+            assert name in ({"source", "grant", "revoke", "speak"} if gpu else {"source", "grant", "revoke"})
             bridge.stdin.write(name + "\n")
             bridge.stdin.flush()
             return receive()
