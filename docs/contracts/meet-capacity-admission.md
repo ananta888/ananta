@@ -131,3 +131,12 @@ generic scheduler/route ownership cases in 16.39 s. These include rejection of
 an active reservation whose cost was mutated, a final authority read that
 consumes the wait deadline, private status filtering and role changes during
 capacity waiting. No deadlines were increased to obtain these results.
+
+The installed two-Worker gate at Hub `2c046e039`, Worker image `bd2445226c60`
+and private Meet frontend `95d0d4e` subsequently passed in 76.05 s with both
+timing and the real SQL admission enabled. The report pins the exact default
+policy; independent screens/personas, two actual recoveries (5,431.22 /
+6,304.97 ms), interrupted synthetic speech, fresh consent, no replay and an
+independent survivor were verified. Third-loss exhaustion stopped in 246.41 ms.
+This is local synthetic-policy acceptance, not GPU utilization or public
+network-bandwidth evidence.
