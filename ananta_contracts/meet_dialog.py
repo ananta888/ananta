@@ -92,7 +92,15 @@ def validate_assignment(value, now):
     if (
         not isinstance(value, dict)
         or set(value)
-        - {"avatar_images", "avatar_videos", "voice_profiles", "initial_persona", "browser_workspace", "audio_profile"}
+        - {
+            "avatar_images",
+            "avatar_videos",
+            "voice_profiles",
+            "initial_persona",
+            "browser_workspace",
+            "audio_profile",
+            "speaker_floor",
+        }
         != fields
         or value["schema"] != "ananta.meet-dialog-assignment.v1"
     ):
@@ -115,6 +123,8 @@ def validate_assignment(value, now):
         raise ValueError("meet_dialog_avatar_videos_invalid")
     if "voice_profiles" in value and (value["voice_profiles"] is not True or "speech.publish" not in caps):
         raise ValueError("meet_dialog_voice_profiles_invalid")
+    if "speaker_floor" in value and (value["speaker_floor"] is not True or "speech.publish" not in caps):
+        raise ValueError("meet_speaker_negotiation_invalid")
     if "browser_workspace" in value and (value["browser_workspace"] is not True or "screen.publish" not in caps):
         raise ValueError("meet_dialog_browser_workspace_invalid")
     if "initial_persona" in value:
@@ -178,6 +188,11 @@ def validate_callback(value, now):
     )
     if action == "browser_finish":
         fields |= {"browser_task_id", "browser_lease_id"}
+    if action == "exchange" and "speech_finished" in value:
+        from ananta_contracts.meet_speaker_floor import validate_speaker_permit
+
+        validate_speaker_permit(value["speech_finished"])
+        fields |= {"speech_finished"}
     if action in {"audio", "visual"}:
         fields |= {"publication_id"}
     if action == "visual_result":

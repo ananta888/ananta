@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from ananta_contracts.meet_dialog import ID, MAX_DIALOG_BYTES, validate_callback
 from ananta_contracts.meet_dialog_voice import VOICE_BINDING_FIELDS, content_digest, validate_voice_binding_fields
+from ananta_contracts.meet_speaker_floor import validate_speaker_permit
 from ananta_contracts.meet_speech_audio import decode_speech_wav
 
 REQUEST_SCHEMA = "ananta.meet-dialog-speech-request.v1"
@@ -91,9 +92,12 @@ class SpokenReply:
     child_lease_id: str
     text: str = field(repr=False)
     pcm: bytes = field(repr=False)
+    speaker_floor: dict | None = None
 
 
-def decode_spoken_response(value, request, expected_binding, now_ms):
+def decode_spoken_response(value, request, expected_binding, now_ms, *, floor_required=False):
+    if type(floor_required) is not bool:
+        raise ValueError("meet_speaker_negotiation_invalid")
     if type(now_ms) is not int or not 0 < now_ms < 2**53:
         raise ValueError("meet_spoken_clock_invalid")
     if (
@@ -111,6 +115,8 @@ def decode_spoken_response(value, request, expected_binding, now_ms):
         return None
     reply = value["reply"]
     fields = {"message_id", "child_task_id", "child_lease_id", "text", "binding", "audio", "speech", "duration_seconds"}
+    if floor_required:
+        fields |= {"speaker_floor"}
     if not isinstance(reply, dict) or set(reply) != fields or value["code"] != "generated":
         raise ValueError("meet_spoken_response_invalid")
     binding = validate_spoken_binding(reply["binding"])
@@ -138,13 +144,18 @@ def decode_spoken_response(value, request, expected_binding, now_ms):
         text.encode("utf-8", errors="strict")
     except UnicodeError:
         raise ValueError("meet_spoken_text_invalid") from None
+    floor = None
+    if floor_required:
+        floor = validate_speaker_permit(reply["speaker_floor"], deadline_ms=binding["deadline_ms"])
+        if now_ms >= floor["expires_ms"]:
+            raise ValueError("meet_speaker_permit_expired")
     pcm = decode_speech_wav(reply["audio"], reply["speech"], reply["duration_seconds"])
     if (
         "voice_profile_digest" in binding
         and content_digest(reply["speech"]["profile"]) != binding["voice_profile_digest"]
     ):
         raise ValueError("meet_spoken_voice_profile_mismatch")
-    return SpokenReply(reply["message_id"], reply["child_task_id"], reply["child_lease_id"], text, pcm)
+    return SpokenReply(reply["message_id"], reply["child_task_id"], reply["child_lease_id"], text, pcm, floor)
 
 
 def spoken_request_signature(key, body):

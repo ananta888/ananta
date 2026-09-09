@@ -85,3 +85,14 @@ Hub policy checks surround headless interruption; withdrawal is terminal and
 never selects a replacement Worker. Eight service tests passed in 12.08 s
 over the real SQL repository (`/tmp/ananta-meet-speaker-admission.log`). These
 are resource-service checks, not yet live output or API activation.
+
+The additive wire contract negotiates `speaker_floor: true` in a Hub speech
+assignment. Only this mode accepts/requires a speaker permit in a generated
+spoken reply; the legacy reply remains closed and rejects the additional
+field. The permit is covered by the existing request-bound reply signature
+and cannot outlive the ordinary speech binding. An optional, closed
+`speech_finished` field on control exchange carries that same permit; Hub
+integration must additionally require negotiation and exact current ownership.
+74 contract/legacy transport tests passed in 36.33 s, including expiry,
+unnegotiated/missing permit, numeric ambiguity and foreign-action completion.
+Log: `/tmp/ananta-meet-speaker-contract.log`. Runtime activation is still pending.
