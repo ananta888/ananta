@@ -51,6 +51,16 @@ orchestration authority. Test identities remain synthetic and production
 release-ineligible.
 # Native quality-failure diagnostics
 
+The operation-stage repeat failed specifically at `consent-membership` in
+32.66 seconds. The fixture began its 12-second peer UI wait immediately after
+asynchronous dispatch, although real Worker navigation, client readiness and
+join each have a separate existing 20-second limit. The fixture now observes
+the actual join return before consent, with a 60-second startup bound and an
+immediate failure wake-up. It neither fabricates membership nor changes any
+Worker, Task, grant, consent or media-quality deadline. Startup phase and measured
+join latency are content-free test properties. Short and long native verification
+remain required; this ordering fix does not explain the earlier timing failure.
+
 The first isolated peer smoke reached actual chat and screen execution but
 failed after 49.81 seconds with `meet_media_timing_source_failed`; it did not
 establish soak readiness. The native fixture now retains at most one strictly

@@ -421,6 +421,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         from tests.meet_media_timing_observer import observe_media_timing_failure
 
         observe_media_timing_failure(monkeypatch, record_property)
+        from tests.meet_dialog_startup_observer import DialogStartupObserver
+
+        startup_observer = DialogStartupObserver(monkeypatch)
         inject_private_frame = threading.Event()
         take_frame = OwnedDialogScreen.take
 
@@ -485,12 +488,14 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
 
         def execute_runtime(assignment):
             client = HubDialogClient(assignment)
+            startup_observer.start()
             try:
                 run(assignment, client)
             except Exception as error:
                 codes = re.findall(r"\bmeet_[a-z_]{1,64}\b", str(error))
                 failures.extend(codes[:2] if codes else [type(error).__name__])
             finally:
+                startup_observer.finished()
                 try:
                     client.call("finish", status="failed")
                 except ValueError:
@@ -571,6 +576,16 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 parent=lifecycle_scenario.parent_id if lifecycle_scenario is not None else "",
             )
         started_at = time.monotonic()
+        # A dispatch receipt is not membership. Worker navigation, client
+        # readiness and join each retain their existing 20-second bound; only
+        # after the real join may the peer's 12-second consent UI budget start.
+        startup_observer.settled.wait(60)
+        startup = startup_observer.snapshot()
+        record_property("dialog_startup", startup)
+        assert startup["phase"] == "joined" and not completed.is_set(), {
+            "startup": startup,
+            "runtime_errors": failures,
+        }
         consent = command("consent")
         assert consent == {"consent": True}, {
             "consent": consent,
