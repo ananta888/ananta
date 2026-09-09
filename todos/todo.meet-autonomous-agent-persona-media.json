@@ -1030,6 +1030,7 @@
     },
     {
       "id": "MAP-27",
+      "attack_sequence_plan": "2026-09-09 source578d44516/Meet a98706f audit: fixed two-message local LLM/no history/tools/fallback, content-free native Task metadata, exact post-generation authority and numeric-only JPEG analysis already implemented. ASR human classification derives from Meet authenticated non-machine-only source consent and pre-snapshot pruning, not transcript text; explicitly test that premise. Add automated adversarial HTTP/ASR/native SQL/visual metadata and consent-pruning sequences, retain existing signature/renderer/role scope regressions. docs/contracts/meet-multimodal-input-isolation.md. No schema broadening, prompt-only defense, arbitrary text execution, malicious-Worker attestation or production provenance claim; MAP27 remains open until verified.",
       "title": "Raum-, Tenant- und Persona-Kontext gegen Injection isolieren",
       "repository": "ananta",
       "type": "security",
