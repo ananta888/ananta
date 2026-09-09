@@ -29,3 +29,27 @@ production acceptance. SRP/DIP: the API adapter owns wire validation, the view
 owns explicit user choices, and the Hub retains all source authority. The large
 existing dialog component remains acknowledged SRP debt; avoid adding policy
 or another orchestration loop to it.
+
+## Verification
+
+The current-Hub response reproduction failed before the fix (one failure,
+seven negative cases passing, 0.860 s). The exact additive visual capability
+and optional control now pass; the view explicitly requests visual-only input
+without starting capture, publication, chat or a source-control mutation.
+Owner text follows the native owner-filtered list rather than inventing an
+identity field. Independent toggles preserve every other negotiated source;
+legacy tasks gain no control. Identity/project changes clear the choice.
+
+The focused contract/rendered-UI checks passed 47 cases in 1.47 s. The combined
+Meet/auth frontend batch passed 267 cases across 19 files in 2.46 s. It covers
+mixed legacy/visual list mapping and terminal DELETE responses, explicit start,
+rendered visual pause and whole-task stop, exact CAS payloads, negative schemas,
+missing capability, terminal controls and rejected CAS without automatic retry.
+An isolated optimized Angular build also passed; serving output and operator
+configuration were not changed. The first build invocation selected a nonexistent
+`production` configuration and failed before building; the verified command
+uses this workspace's `--optimization` option. Existing CommonJS warnings remain.
+
+These are headless UI/technical observations. Real visual receipt/revocation
+has its separate installed-Worker tests; neither result grants production trust
+or completes all remaining MAP-12 acceptance.

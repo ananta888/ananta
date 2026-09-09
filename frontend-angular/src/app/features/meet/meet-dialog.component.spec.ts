@@ -49,7 +49,53 @@ describe('Hub-owned Meet dialog controls', () => {
   it('never starts, captures or grants sources on load; selections default off', () => {
     const f = setup(), c = f.componentInstance;
     expect(api.start).not.toHaveBeenCalled(); expect(api.list).not.toHaveBeenCalled();
-    expect(c.chat || c.audio || c.screen || c.speech || c.avatar).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
+    expect(c.chat || c.audio || c.screen || c.speech || c.avatar || c.visual).toBe(false); c.start(); expect(api.start).not.toHaveBeenCalled();
+  });
+  it('requests visual reception explicitly without activating a source or granting publication', async () => {
+    const f = setup(), c = f.componentInstance;
+    await f.whenStable();
+    const checkbox = [...f.nativeElement.querySelectorAll('input[type="checkbox"]')]
+      .find((element: HTMLInputElement) => element.parentElement?.textContent?.includes('Kamera-/Bildschirmbilder')) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false); expect(checkbox.disabled).toBe(false);
+    checkbox.click(); f.detectChanges(); await f.whenStable();
+    expect(c.visual).toBe(true); c.start();
+    expect(api.start).toHaveBeenCalledExactlyOnceWith('project', '', { capabilities: ['video.receive'],
+      duration_seconds: 900, chat_mode: 'off', audio_mode: 'off' });
+    expect(api.control).not.toHaveBeenCalled();
+    identity.next({ sub: 'other' }); expect(c.visual).toBe(false); expect(c.dialogs()).toEqual([]);
+    c.visual = true; f.componentRef.setInput('projectId', 'other-project'); f.detectChanges(); expect(c.visual).toBe(false);
+  });
+  it('renders independently stoppable visual reception and preserves unrelated source controls', () => {
+    const source = { ...row(), capabilities: ['chat.read', 'chat.send', 'speech.publish', 'avatar.publish', 'video.receive'],
+      controls: { ...row().controls, speech: { enabled: true, revision: 1, since: 1000 },
+        avatar: { enabled: true, revision: 1, since: 1000 }, visual: { enabled: true, revision: 1, since: 1000 } } };
+    const f = setup(), c = f.componentInstance;
+    api.list.mockReturnValue(of({ schema: 'ananta.meet-dialog-list.v1', items: [source], next_cursor: null }));
+    const paused = { ...source, controls: { ...source.controls, revision: 2, visual: { enabled: false, revision: 2, since: 1100 } } };
+    api.control.mockReturnValue(of(paused)); c.reload(); f.detectChanges();
+    const buttons = [...f.nativeElement.querySelectorAll('button')] as HTMLButtonElement[];
+    const visual = buttons.find(b => b.textContent?.includes('Bildeingang: pausieren'))!;
+    expect(visual.disabled).toBe(false); visual.click(); f.detectChanges();
+    expect(api.control).toHaveBeenCalledExactlyOnceWith('project', 'task', { expected_revision: 1,
+      chat: true, audio: false, screen: false, speech: true, avatar: true, visual: false });
+    expect(c.dialogs()[0].controls.speech).toEqual(source.controls.speech);
+    c.toggle(paused, 'speech');
+    expect(api.control).toHaveBeenLastCalledWith('project', 'task', { expected_revision: 2,
+      chat: true, audio: false, screen: false, speech: false, avatar: true, visual: false });
+    expect(c.canControl(row(), 'visual')).toBe(false);
+    const stop = buttons.find(b => b.textContent?.includes('KI-Auftrag vollständig stoppen'))!;
+    expect(stop.disabled).toBe(false); stop.click();
+    expect(api.stop).toHaveBeenCalledExactlyOnceWith('project', 'task');
+  });
+  it('never creates unnegotiated visual controls or retries a rejected visual CAS', () => {
+    const c = setup().componentInstance;
+    c.toggle(row(), 'visual'); expect(api.control).not.toHaveBeenCalled();
+    const source = { ...row(), capabilities: ['video.receive'],
+      controls: { ...row().controls, chat: { enabled: false, revision: 1, since: 1000 },
+        visual: { enabled: false, revision: 1, since: 1000 } } };
+    api.control.mockReturnValue(throwError(() => ({ status: 409 })));
+    c.toggle(source, 'visual'); expect(api.control).toHaveBeenCalledTimes(1); expect(c.message()).toContain('Bitte aktualisieren');
+    c.toggle({ ...source, status: 'cancelled' }, 'visual'); expect(api.control).toHaveBeenCalledTimes(1);
   });
   it('negotiates browser workspace only explicitly and clears it with screen rights', () => {
     const c = setup().componentInstance;

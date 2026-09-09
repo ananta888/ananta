@@ -11,13 +11,13 @@ import { validateDialogDiagnostics } from './meet-dialog-diagnostics';
 import { browserCommand, validateBrowserStatus } from './meet-browser-workspace';
 
 export interface SourceControl { enabled: boolean; revision: number; since: number }
-export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech' | 'avatar';
+export type DialogSource = 'chat' | 'audio' | 'screen' | 'speech' | 'avatar' | 'visual';
 export interface DialogControls {
   revision: number; chat: SourceControl; audio: SourceControl; screen: SourceControl;
-  speech?: SourceControl; avatar?: SourceControl;
+  speech?: SourceControl; avatar?: SourceControl; visual?: SourceControl;
 }
-export const optionalDialogSources = ['speech', 'avatar'] as const;
-const optionalCapabilities = { speech: 'speech.publish', avatar: 'avatar.publish' } as const;
+export const optionalDialogSources = ['speech', 'avatar', 'visual'] as const;
+const optionalCapabilities = { speech: 'speech.publish', avatar: 'avatar.publish', visual: 'video.receive' } as const;
 export interface MeetDialog {
   schema: 'ananta.meet-dialog-status.v1'; task_id: string; status: string; deadline: number;
   controls: DialogControls; capabilities: string[];
@@ -26,7 +26,7 @@ export interface MeetDialog {
   voice_selection?: MeetVoiceSelection;
   browser_workspace?: true;
 }
-const capabilities = ['chat.read', 'chat.send', 'audio.receive', 'screen.publish', 'avatar.publish', 'speech.publish'];
+const capabilities = ['chat.read', 'chat.send', 'audio.receive', 'screen.publish', 'avatar.publish', 'speech.publish', 'video.receive'];
 export function validateDialog(value: MeetDialog): MeetDialog {
   if (!value || Object.keys(value).filter(key => !['avatar_selection', 'avatar_videos', 'voice_selection', 'browser_workspace'].includes(key)).sort().join() !== 'capabilities,controls,deadline,schema,status,task_id'
     || value.schema !== 'ananta.meet-dialog-status.v1' || typeof value.task_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,160}$/.test(value.task_id)
