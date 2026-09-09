@@ -11,6 +11,7 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_phases import MeetDialogPhases
 from agent.services.meet_dialog_recovery import MeetDialogRecovery
 from agent.services.task_runtime_service import compare_and_set_local_task_status
+from tests.meet_recovery_timing import RecoveryTiming
 
 
 class MultiWorkerRoomRecovery:
@@ -19,6 +20,13 @@ class MultiWorkerRoomRecovery:
         self.engine = None
         self.elapsed = []
         self.dispatched = []
+        self.multimedia_verified = False
+        self.timing = RecoveryTiming()
+
+    def observe_services(self, monkeypatch, service):
+        if self.enabled:
+            self.timing.install(monkeypatch, service.authority, service.meet, service.recovery, service.phases, service)
+            self.timing.install_authority(monkeypatch, service.authority)
 
     def observe_dispatch(self, monkeypatch, router):
         if not self.enabled:
@@ -32,7 +40,7 @@ class MultiWorkerRoomRecovery:
 
         monkeypatch.setattr(router, "start_dialog", recorded)
 
-    def service_options(self, engine, authority, tasks, meet, issuer):
+    def service_options(self, engine, authority, tasks, meet, issuer, *, speaker_floor=None):
         if not self.enabled:
             return {}
         self.engine = engine
@@ -43,7 +51,7 @@ class MultiWorkerRoomRecovery:
             authority,
             meet,
         )
-        recovery = MeetDialogRecovery(authority, states, meet, issuer, phases)
+        recovery = MeetDialogRecovery(authority, states, meet, issuer, phases, speaker_floor=speaker_floor)
         meet.recovery = recovery
         return {"phases": phases, "recovery": recovery}
 
@@ -61,7 +69,7 @@ class MultiWorkerRoomRecovery:
             time.sleep(0.05)
         raise AssertionError("test_reconnect_active_membership_missing")
 
-    def exercise(self, app, service, started, command):
+    def exercise(self, app, service, started, command, *, media=None, principal=None, wait_chat_ready=None):
         if not self.enabled:
             return
         task_id = started[0]["task_id"]
@@ -73,6 +81,11 @@ class MultiWorkerRoomRecovery:
             destination = task.assigned_agent_url
             assert context["reconnect"] is True
         previous = self.wait_active(task_id, 0)
+        if media is not None:
+            media.prepare_inputs(app, service, principal, started, command, wait_chat_ready)
+            assert command("ask") == {"sent": True}
+            assert command("answer-count", count=1) == {"replies": 1}
+            assert command("media", phase="first-speech") == {"audio": "first", "consecutive": 3}
         for attempt in (1, 2):
             began = time.monotonic()
             assert command("disconnect") == {"interrupted": 0, "attempt": attempt}
@@ -102,6 +115,25 @@ class MultiWorkerRoomRecovery:
                 with pytest.raises(MeetError):
                     service.meet.inspect(*ids, previous["membership"]["session_id"])
             previous = row
+            if media is not None:
+                assert command("media", phase="avatars") == {"personas": ["red", "blue"], "screens": [True, True]}
+                assert command("recovered-media") == {"oldAudioReplayed": False, "quietMs": 300}
+                with app.app_context():
+                    state = service.meet.inspect(*ids, row["membership"]["session_id"])
+                    assert state["grants"] == [], "new member cannot inherit old receive consent"
+                    scope = service.authority.current(*ids)
+                    assert service.speaker_floor.exchange(scope) is None
+                if attempt == 1:
+                    media.worker.await_room_cooldown(task_id)
+                    assert command("consent", publisher=0, enabled=True) == {"consent": 0, "enabled": True}
+                    wait_chat_ready(0)
+                    assert command("ask") == {"sent": True}
+                    assert command("answer-count", count=2) == {"replies": 2}
+                    assert command("media", phase="first-speech") == {"audio": "first", "consecutive": 3}
+        if media is not None:
+            assert command("answers") == {"replies": 2}
+            assert [row[0] for row in media.worker.calls] == [task_id, task_id]
+            self.multimedia_verified = True
 
     def exhaust(self, app, tasks, started, command, record_property):
         task_id = started[0]["task_id"]
@@ -117,6 +149,7 @@ class MultiWorkerRoomRecovery:
         stopped_ms = (time.monotonic() - began) * 1000
         assert self.current(task_id)["attempt"] == 2
         assert self.dispatched == [row["task_id"] for row in started]
+        record_property("packaged_reconnect_hub_timings", self.timing.report())
         record_property(
             "packaged_room_reconnect",
             {
@@ -129,5 +162,8 @@ class MultiWorkerRoomRecovery:
                 "recovery_ms": self.elapsed,
                 "exhausted_stop_ms": round(stopped_ms, 2),
                 "new_dispatch": False,
+                "active_speech_interrupted": self.multimedia_verified,
+                "old_audio_replay_absent": self.multimedia_verified,
+                "fresh_receive_consent_required": self.multimedia_verified,
             },
         )

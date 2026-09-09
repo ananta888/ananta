@@ -47,6 +47,9 @@ class MultiWorkerSpeakerFloor:
     def initial_options(self, index):
         return self.media.initial_options(index)
 
+    def prepare_inputs(self, *args):
+        return self.media.prepare_inputs(*args)
+
     def floor_diagnostic(self):
         if self.store is None:
             return []
@@ -162,6 +165,6 @@ class MultiWorkerSpeakerFloor:
 def multi_worker_media(mode):
     if mode is True:
         return MultiWorkerMediaScenario()
-    if mode in {"speaker-fifo", "speaker-barge-in"}:
+    if mode in {"speaker-fifo", "speaker-barge-in", "room-reconnect-media"}:
         return MultiWorkerSpeakerFloor(mode == "speaker-barge-in")
     return None

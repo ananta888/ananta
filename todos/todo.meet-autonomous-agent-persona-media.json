@@ -258,7 +258,7 @@
     {
       "id": "MAP-M3",
       "title": "Hub-gesteuerter Teilnehmer-Lebenszyklus",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "MAP-09",
         "MAP-10",
@@ -602,6 +602,7 @@
     },
     {
       "id": "MAP-11",
+      "acceptance_closure": "2026-09-09: final actual packaged multimedia reconnectPASS57.78s with native Hub Task/SQL/phase/speakerfloor/retirement, immutable Workeraf4e895bd imagee0cea017 and private Meet87b1a0f frontend plus12235df testadapters. Active speech interrupted twice; same originalTask/lease/runtime/device/deadline, newmemberships/later epochs6524.61/6010.07ms, bothpersonas/moving screens, allreceiveraudioquiet300ms/no replay and fresh receive consent before secondreply. Thirdloss exhausts2attempts, failed437.82ms, independent survivor/cancel, no redispatch/capture/transform/proxyerrors. Complete390focused contract/HTTP/SQL/phase/runtime/progress/fixture/db regressions174.08sPASS. Prior actual3renewals222.66s, exactTaskoccupancy fence, Workercrash/stall and realHubSIGKILL/restart168.41s cover remaining bounded lifecycle criteria; no automaticHA/lipsync/public/2hsoak claim. Measured SQLite latency solved only for explicitpool8 profile; legacydefaultunchanged. Companion fullcheck12235df stillrunning and has unrelated six-human trustedrelay timeout under MAP29; no aggregatePASSclaim. MAP11 sixboundedcriteria verified, broader MAP24/29/30/31/32 remain open; docs/contracts/meet-dialog-reconnect.md.",
       "room_recovery_sqlite_latency": "2026-09-09: bounded native timing reproduces control exchanges2428/2665ms, repeated authority200-300ms/Taskreads40ms; owned WAL schema3055objects,40read-onlyiterations6.125ms reopen versus0.146ms reuse. Additive ANANTA_SQLITE_POOL_SIZE=0(defaultNullPool)/1..64 connection-only pool, no overflow,250ms checkout, fresh independent Sessions/queries/rollback and every policy fence unchanged; PostgreSQL/memory unchanged.48pooled-WAL/isolation/recovery/observer tests27.31s pass.8connection native multimediarun reaches2rejoins/2replies with38-65ms controls but fails67.18s at third disconnect because participantcount exists only in Live while fixture had opened Chat; navigation fix and complete repeat pending. Earlier failed gates62.89/91.10/78.78/89.19/91.02s retained in docs/contracts/meet-control-refresh-latency.md. Serving config unchanged, synthetic technical observation only; MAP11 remains open.",
       "room_recovery_packaged_screen_result": "2026-09-09 actual native Hub SQL/phase/retirement +2 immutable nonroot readonly Worker containers af4e895bd/imagee0cea017 +private Meet0d3d1ea/fresh frontend PASS61.89s. Exact first socket loss twice yields new memberships/later epochs and moving screens7858.77/7136.32ms under same Task/dispatch/runtime/device/deadline; observed router dispatches only initial2assignments. Third loss exhausts2attempts and fails714.09ms; secondWorker remains independent then cancels;0capture/transform/proxyerrors.233combined recovery/phase/HTTP/progress checks88.50s pass. Two preadmission failures caused by Docker address pools exhausted;14validated empty old testnetworks removed, no service/data deletion. Following68.95s run passed recovery but old fixture terminal expectedcancelled instead offailed; corrected. docs/contracts/meet-dialog-reconnect.md. Active-speech/no-old-input/freshconsent multimedia reconnect gate remains next; private synthetic technical observation only, MAP11 not closed.",
       "room_recovery_worker_result": "2026-09-09: Worker separates browser ownership, joined source cleanup, confirmed membership loss and bounded Hub-admitted rejoin. No retry for unknown initial membership, ambiguous renderer, changed URL, expired assignment or failed source/leave cleanup. Single-flight fresh Hub pulses continue through quarantine/readiness/join; unchanged2.5s progress, originalTask deadline,30s attempt and20s setup ceilings; atmost2recoveries/no oldgrant/input replay.66executor/session/legacy tests32.70s and35membership/runtimecomposition tests22.68s pass, overlapping synthetic technical checks. Packaged real disconnect/rejoin/receiver gate pending, deploymentflag remains off and MAP11 unfinished. docs/contracts/meet-dialog-reconnect.md.",
@@ -616,10 +617,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M3",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 65.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-09",
         "MAP-10"
@@ -1222,12 +1223,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 2,
+      "in_progress": 1,
       "partial": 3,
       "blocked": 0,
-      "done": 26
+      "done": 27
     },
-    "progress_percent_done": 81.2,
+    "progress_percent_done": 84.4,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1247,9 +1248,9 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 3,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "summary_notes": [
@@ -1339,15 +1340,15 @@
         "total": 16,
         "by_status": {
           "todo": 0,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 14
+          "done": 15
         },
-        "done": 14,
+        "done": 15,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 94.7
+        "progress_percent": 96.9
       },
       "infrastructure": {
         "total": 1,
@@ -1396,20 +1397,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 2,
+    "in_progress": 1,
     "partial": 3,
     "blocked": 0,
-    "done": 26,
-    "count_based_percent": 81.2,
-    "weighted_percent": 87.1
+    "done": 27,
+    "count_based_percent": 84.4,
+    "weighted_percent": 87.7
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 50.737,
-    "remaining_weight": 7.513,
+    "done_weight": 51.087,
+    "remaining_weight": 7.163,
     "blocked_weight": 0.0,
-    "weighted_percent": 87.1
+    "weighted_percent": 87.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1431,11 +1432,11 @@
       },
       "MAP-M3": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 94.6,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "MAP-M4": {
         "total_tasks": 4,
@@ -1482,10 +1483,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T06:26:54.004268Z",
+    "generated_at": "2026-09-09T08:34:07.744190Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a69415f703cb3f086a8385ebbc83d1496ac6484e42041c3e05bc4673529e8202",
+    "source_hash": "1c36a2ce6f697654c6154fe2832ec576153f504cf7f89eaf321ec200131e9df4",
     "is_stale": false
   }
 }

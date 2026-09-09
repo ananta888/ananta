@@ -20,6 +20,7 @@ class DialogWorkerContainer:
         *,
         lifetime=180,
         diagnostics=False,
+        control_diagnostics=False,
         browser_documents=False,
         gpu=False,
         network_namespace=None,
@@ -44,6 +45,8 @@ class DialogWorkerContainer:
             raise ValueError("test_worker_lifetime_invalid")
         if type(diagnostics) is not bool:
             raise ValueError("test_worker_diagnostics_invalid")
+        if type(control_diagnostics) is not bool:
+            raise ValueError("test_worker_control_diagnostics_invalid")
         if type(browser_documents) is not bool:
             raise ValueError("test_worker_browser_documents_invalid")
         if type(gpu) is not bool:
@@ -60,6 +63,7 @@ class DialogWorkerContainer:
             raise ValueError("test_worker_relay_invalid")
         self.network, self.image, self.hub_url, self.lifetime, self.command = network, image, hub_url, lifetime, command
         self.diagnostics = diagnostics
+        self.control_diagnostics = control_diagnostics
         self.browser_documents = browser_documents
         self.gpu = gpu
         self.network_namespace, self.relay_url = network_namespace, relay_url
@@ -70,10 +74,7 @@ class DialogWorkerContainer:
         if self.created or not isinstance(spki, str) or not re.fullmatch(r"[A-Za-z0-9+/]{43}=", spki):
             raise ValueError("test_worker_start_invalid")
         info = json.loads(self.command("network", "inspect", self.network))[0]
-        if (
-            info.get("Internal") is not True
-            or len(info["IPAM"]["Config"]) != 1
-        ):
+        if info.get("Internal") is not True or len(info["IPAM"]["Config"]) != 1:
             raise ValueError("test_worker_network_invalid")
         if hub_identity is None:
             if info["IPAM"]["Config"][0]["Gateway"] != urlsplit(self.hub_url).hostname:
@@ -95,6 +96,11 @@ class DialogWorkerContainer:
             (Path(key), "/test/worker-key"),
             (Path(certificate), "/test/meet-ca.pem"),
         ]
+        if self.control_diagnostics:
+            mounts += [
+                (root / ("tests/" + name), "/test/" + name)
+                for name in ("meet_dialog_control_observer.py", "meet_dialog_rpc_observer.py")
+            ]
         if self.relay_url is not None:
             mounts += [
                 (root / "tests/meet_worker_relay_context.py", "/test/meet_worker_relay_context.py"),
@@ -136,6 +142,7 @@ class DialogWorkerContainer:
             "--env=PYTHONPATH=/test:/app",
             "--env=MEET_DIALOG_ENABLED=1",
             "--env=MEET_DIALOG_DIAGNOSTICS_ENABLED=" + ("1" if self.diagnostics else "0"),
+            "--env=MEET_TEST_CONTROL_DIAGNOSTICS=" + ("1" if self.control_diagnostics else "0"),
             "--env=MEET_TEST_PUBLIC_DOCUMENT=" + ("1" if self.browser_documents else "0"),
             "--env=MEET_TEST_FORCE_RELAY_URL=" + (self.relay_url or ""),
             "--env=MEET_WORKER_KEY_FILE=/test/worker-key",

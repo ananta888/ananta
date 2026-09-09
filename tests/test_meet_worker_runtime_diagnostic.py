@@ -11,7 +11,7 @@ import pytest
 pytestmark = pytest.mark.timeout(45)
 
 
-def load_seam(monkeypatch):
+def load_seam(monkeypatch, *, control=False):
     browser = type("Browser", (), {"launch": Mock()})
     chat = type("Chat", (), {"update": Mock()})
     monkeypatch.setitem(__import__("sys").modules, "playwright.sync_api", SimpleNamespace(BrowserType=browser))
@@ -20,10 +20,47 @@ def load_seam(monkeypatch):
     )
     monkeypatch.setattr("sys.settrace", Mock())
     monkeypatch.setenv("MEET_TEST_BROWSER_SPKI", "a" * 43 + "=")
+    monkeypatch.setenv("MEET_TEST_CONTROL_DIAGNOSTICS", "1" if control else "0")
+    if control:
+        for name, symbol in [
+            ("meet_dialog_control_observer", "DialogControlObserver"),
+            ("meet_dialog_rpc_observer", "DialogRpcObserver"),
+        ]:
+            observer = Mock()
+            observer.report.return_value = {} if "control" in name else []
+            observer.history.return_value = []
+            monkeypatch.setitem(
+                __import__("sys").modules, name, SimpleNamespace(**{symbol: Mock(return_value=observer)})
+            )
+        exchange = type("Exchange", (), {"poll": Mock()})
+        monkeypatch.setitem(
+            __import__("sys").modules,
+            "worker.meet_media.dialog_control_exchange",
+            SimpleNamespace(DialogControlExchange=exchange),
+        )
     written = Mock()
     monkeypatch.setattr(Path, "write_text", written)
     seam = runpy.run_path(str(Path(__file__).with_name("meet_worker_container_sitecustomize.py")))
     return seam, written
+
+
+@pytest.mark.parametrize("storage_failed", [False, True])
+def test_optional_control_timing_seam_preserves_native_return_and_exception(monkeypatch, storage_failed):
+    seam, written = load_seam(monkeypatch, control=True)
+    native, observe = seam["_observed_poll"], seam["_control_failure"]
+    exchange, value = object(), object()
+    native.return_value = value
+    assert observe(exchange, refresh_marker=2) is value
+    native.assert_called_once_with(exchange, refresh_marker=2)
+    written.assert_not_called()
+    failure = ValueError("private-do-not-serialize")
+    native.side_effect = failure
+    if storage_failed:
+        written.side_effect = OSError("private-storage")
+    with pytest.raises(ValueError) as caught:
+        observe(exchange)
+    assert caught.value is failure
+    assert json.loads(written.call_args.args[0]) == {"control": {}, "rpc": [], "history": []}
 
 
 @pytest.mark.parametrize(
@@ -54,6 +91,25 @@ def test_trace_is_limited_to_the_delegated_runtime_function(monkeypatch):
     assert trace(frame, "call", None) is trace
     assert frame.f_trace_lines is False
     frame.f_code.co_filename = "/app/worker/meet_media/server.py"
+    assert trace(frame, "call", None) is None
+    written.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "filename,name",
+    [
+        ("dialog_runtime.py", "_run_joined"),
+        ("dialog_speech_output.py", "accept"),
+        ("dialog_speech_output.py", "require_current"),
+        ("speaker_permit.py", "deadline"),
+    ],
+)
+def test_private_speech_diagnostic_observes_only_fixed_delegated_functions(monkeypatch, filename, name):
+    seam, written = load_seam(monkeypatch)
+    trace = seam["_runtime_trace"]
+    frame = SimpleNamespace(f_code=SimpleNamespace(co_name=name, co_filename="/app/worker/meet_media/" + filename))
+    assert trace(frame, "call", None) is trace and frame.f_trace_lines is False
+    frame.f_code.co_name = "unrelated"
     assert trace(frame, "call", None) is None
     written.assert_not_called()
 

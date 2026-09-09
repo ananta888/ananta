@@ -27,6 +27,8 @@ PIN = "a" * 43 + "="
         {"lifetime": 601},
         {"diagnostics": 1},
         {"diagnostics": "true"},
+        {"control_diagnostics": 1},
+        {"control_diagnostics": "true"},
         {"browser_documents": 1},
         {"browser_documents": "true"},
     ],
@@ -38,7 +40,16 @@ def test_bad_configuration_has_no_docker_side_effects(patch):
     command.assert_not_called()
 
 
-def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False, browser_documents=False, gpu=False):
+def fixture(
+    tmp_path,
+    monkeypatch,
+    failure=None,
+    health=None,
+    diagnostics=False,
+    browser_documents=False,
+    gpu=False,
+    control_diagnostics=False,
+):
     calls = []
     key, cert = tmp_path / "key", tmp_path / "cert"
     key.write_bytes(b"synthetic")
@@ -61,7 +72,14 @@ def fixture(tmp_path, monkeypatch, failure=None, health=None, diagnostics=False,
         return ""
 
     worker = DialogWorkerContainer(
-        NETWORK, IMAGE, HUB, diagnostics=diagnostics, browser_documents=browser_documents, gpu=gpu, command=command
+        NETWORK,
+        IMAGE,
+        HUB,
+        diagnostics=diagnostics,
+        browser_documents=browser_documents,
+        gpu=gpu,
+        command=command,
+        control_diagnostics=control_diagnostics,
     )
     return SimpleNamespace(**locals())
 
@@ -78,6 +96,19 @@ def test_gpu_profile_adds_only_explicit_resource_port_and_memory_budget(tmp_path
         resources.assert_called_once_with(f.worker.command)
     finally:
         f.worker.close()
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_private_timing_observation_mounts_only_two_fixed_readonly_test_adapters(tmp_path, monkeypatch, enabled):
+    f = fixture(tmp_path, monkeypatch, control_diagnostics=enabled)
+    f.worker.start(f.key, f.cert, PIN)
+    create = next(call for call in f.calls if call[0] == "create")
+    assert ("--env=MEET_TEST_CONTROL_DIAGNOSTICS=" + ("1" if enabled else "0")) in create
+    extra = [arg for arg in create if "observer.py" in arg]
+    assert len(extra) == 2 * int(enabled)
+    assert all(arg.endswith(",readonly") and "dst=/test/meet_dialog_" in arg for arg in extra)
+    assert not any("dst=/app" in arg for arg in create)
+    f.worker.close()
 
 
 @pytest.mark.parametrize("diagnostics", [False, True])

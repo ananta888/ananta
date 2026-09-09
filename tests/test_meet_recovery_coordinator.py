@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, select
 from agent.models.meet_recovery_binding import recovery_owner
 from agent.repositories.meet_dialog_recovery import SqlDialogRecovery, recoveries
 from agent.services.meet_contract import MeetError
+from agent.services.meet_dialog_controls import initial_controls
 from agent.services.meet_dialog_recovery import MeetDialogRecovery
 from ananta_contracts.meet_reconnect import validate_reconnect_response
 from tests.test_meet_dialog_authority import fixture
@@ -18,9 +19,15 @@ pytestmark = pytest.mark.timeout(30)
 
 
 @pytest.fixture
-def system(tmp_path):
+def system(tmp_path, request):
     f = fixture()
     f.context["reconnect"] = True
+    with_speaker = getattr(request, "param", False)
+    if with_speaker:
+        f.context["capabilities"].append("speech.publish")
+        f.context["speaker_floor"] = True
+        f.context["controls"] = initial_controls(f.context["capabilities"], "mention", "off", f.now * 1000)
+        f.authority.policies[("tenant", "project")] = frozenset(f.context["capabilities"])
     now = [f.now]
     f.authority.clock = lambda: now[0]
     scope = f.authority.current("task", "dispatch", "runtime")
@@ -34,7 +41,10 @@ def system(tmp_path):
     phases.begin_recovery.side_effect = lambda *args: events.append("phase")
     issuer = Mock()
     issuer.issue_dialog.return_value = {"origin": scope.origin, "room_id": scope.room_id, "grant": "synthetic-fresh"}
-    service = MeetDialogRecovery(f.authority, states, meet, issuer, phases, clock=lambda: now[0])
+    speaker = Mock() if with_speaker else None
+    if speaker is not None:
+        speaker.withdraw.side_effect = lambda *args: events.append("speaker-withdraw")
+    service = MeetDialogRecovery(f.authority, states, meet, issuer, phases, speaker_floor=speaker, clock=lambda: now[0])
     receipt = {
         "lease": {
             "sessionId": "ms_" + "a" * 32,
@@ -198,3 +208,28 @@ def test_old_scope_observation_cannot_bind_a_new_assignment(system):
     with pytest.raises(MeetError, match="authority_changed"):
         s.service.observe(replace(s.scope, owner_subject="foreign"), s.receipt)
     assert row(s)["assignment_digest"] == recovery_owner(s.scope).assignment_digest
+
+
+@pytest.mark.parametrize("system", [True], indirect=True)
+def test_speaker_permit_is_withdrawn_before_retirement_and_phase_reset(system):
+    s = system
+    s.service.exchange(s.payload)
+    assert s.events == ["speaker-withdraw", "retire", "phase"]
+    s.speaker.withdraw.assert_called_once_with(s.scope)
+    s.issuer.issue_dialog.assert_not_called()
+
+
+@pytest.mark.parametrize("system", [True], indirect=True)
+@pytest.mark.parametrize("missing", [False, True])
+def test_missing_or_failed_speaker_withdrawal_cannot_issue_retirement_or_grant(system, missing):
+    s = system
+    if missing:
+        s.service.speaker_floor = None
+    else:
+        s.speaker.withdraw.side_effect = MeetError("synthetic_speaker_failure", 503)
+    with pytest.raises(MeetError):
+        s.service.exchange(s.payload)
+    s.meet.retire.assert_not_called()
+    s.phases.begin_recovery.assert_not_called()
+    s.issuer.issue_dialog.assert_not_called()
+    assert row(s)["state"] == ("active" if missing else "retiring")

@@ -227,3 +227,31 @@ TURN/HA or old-speech/receive-consent rejection in a live multimedia reconnect.
 The multimedia follow-up must interrupt active speech, verify no old audio
 replay, retain independent persona/screens, and require fresh receive consent
 before a new correlated reply. MAP-11 remains in progress pending that check.
+
+## Multimedia acceptance and bounded MAP-11 closure
+
+The follow-up passed in 57.78 seconds with the same immutable Worker, fresh
+Meet `87b1a0f` frontend and private test adapters committed as `12235df`.
+Active synthetic speech was interrupted twice. New membership recovery took
+6,524.61/6,010.07 ms under unchanged original assignment and deadline. Both
+pinned personas and moving screens returned; all observed audio tracks,
+including retired connections, stayed quiet for 300 consecutive ms. Only
+fresh receive consent allowed the next correlated reply. A third loss exhausted
+the two-attempt budget and failed in 437.82 ms; the second Worker continued
+independently before its own cancellation. No new dispatch, human capture,
+transform error or proxy drop was observed.
+
+The measured Hub latency and separate Chat/Live fixture navigation failure were
+fixed without extending any safety deadline; see
+`meet-control-refresh-latency.md`. This gate explicitly uses eight pooled
+file-SQLite connections, not the legacy unpooled default. The complete focused
+390-test recovery/contract/HTTP/SQL/phase/runtime/progress/fixture/database group
+passed in 174.08 seconds. Together with the preceding actual three-renewal,
+duplicate-Task occupancy, Worker crash/stall and Hub-process restart gates,
+these satisfy MAP-11's bounded single-host lifecycle criteria.
+
+Public/long-soak, coordinated live clocks and aggregate compatibility are
+separate outstanding tasks. The isolated combined Meet check at `12235df` has
+reported a six-human trusted-relay browser timeout and is not declared green.
+All results remain synthetic-policy technical observations, not production
+release evidence or automatic multi-node recovery.

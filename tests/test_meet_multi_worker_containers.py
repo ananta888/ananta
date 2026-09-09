@@ -32,6 +32,7 @@ pytestmark = [
         "terminal-control",
         "runtime-stall",
         "room-reconnect",
+        "room-reconnect-media",
         "speaker-fifo",
         "speaker-barge-in",
         pytest.param(
@@ -68,6 +69,7 @@ pytestmark = [
         "terminal-control",
         "runtime-stall",
         "room-reconnect",
+        "room-reconnect-media",
         "speaker-fifo",
         "speaker-barge-in",
         "guarded-turn-udp",
@@ -132,7 +134,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_crash = media_mode in {"worker-crash", "runtime-stall"}
     terminal_control = MultiWorkerTerminalControl(media_mode == "terminal-control")
     guarded_turn = MultiWorkerGuardedTurn(media_mode)
-    room_recovery = MultiWorkerRoomRecovery(media_mode == "room-reconnect")
+    room_recovery = MultiWorkerRoomRecovery(media_mode in {"room-reconnect", "room-reconnect-media"})
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -165,11 +167,13 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         def command(name, **fields):
             bridge.stdin.write(json.dumps({"command": name, **fields}) + "\n")
             bridge.stdin.flush()
-            response = receive(48 if name == "floor-result" else 25)
+            response = receive(48 if name == "floor-result" else 28 if name == "answer-count" else 25)
             assert "bridge_error" not in response, json.dumps(
                 {
                     "bridge": response,
                     "workers": worker_diagnostics(),
+                    "control_timing": control_timing(),
+                    "hub_timing": room_recovery.timing.report(),
                     "relay_errors": guarded_turn.errors(containers),
                     "exchange_failures": exchange_failures,
                     "reply_count": len(media.worker.calls) if media is not None else 0,
@@ -190,12 +194,32 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                     "exec",
                     container.name,
                     "python",
+                    "-S",
                     "-c",
                     "from pathlib import Path; p=Path('/state/dialog-diagnostic.json'); "
                     "print(p.read_text() if p.exists() else '{}')",
                 )
                 records.append(json.loads(output))
             return records
+
+        def control_timing():
+            if not room_recovery.enabled:
+                return []
+            return [
+                json.loads(
+                    docker(
+                        "exec",
+                        container.name,
+                        "python",
+                        "-S",
+                        "-c",
+                        "from pathlib import Path; p=Path('/state/dialog-control-failure.json'); "
+                        "print(p.read_text() if p.is_file() and not p.is_symlink() "
+                        "and p.stat().st_size <= 4096 else '{}')",
+                    )
+                )
+                for container in containers
+            ]
 
         ready = receive(60)
         guarded_turn.require_ready(ready)
@@ -226,6 +250,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 hub_url,
                 lifetime=300,
                 diagnostics=True,
+                control_diagnostics=room_recovery.enabled,
                 browser_documents=browser.enabled,
                 **guarded_turn.worker_options(ready, hub_url, tmp_path, cleanup),
             )
@@ -242,7 +267,14 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "/test/sitecustomize.py",
                 "/test/worker-key",
                 "/test/meet-ca.pem",
-            } | guarded_turn.mounts
+            } | guarded_turn.mounts | (
+                {
+                    "/test/meet_dialog_control_observer.py",
+                    "/test/meet_dialog_rpc_observer.py",
+                }
+                if room_recovery.enabled
+                else set()
+            )
             docker(
                 "exec",
                 container.name,
@@ -275,6 +307,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         meet_client = MeetAuthorizationClient(authority, issuer)
         worker_router = MeetDialogWorkerRouter(authority, tasks, transports, origins[0])
         room_recovery.observe_dispatch(monkeypatch, worker_router)
+        media_options = media.service_options(binding, dispatches) if media is not None else {}
         service = MeetDialogService(
             authority,
             tasks,
@@ -284,11 +317,14 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             transports[origins[0]],
             reservations,
             dispatches,
-            **(media.service_options(binding, dispatches) if media is not None else {}),
+            **media_options,
             **browser.service_options(authority, tasks),
-            **room_recovery.service_options(engine, authority, tasks, meet_client, issuer),
+            **room_recovery.service_options(
+                engine, authority, tasks, meet_client, issuer, speaker_floor=media_options.get("speaker_floor")
+            ),
         )
         exchange_failures = []
+        room_recovery.observe_services(monkeypatch, service)
         exchange_states = {}
         native_exchange = terminal_control.wrap(control_recovery.wrap(service.exchange))
 
@@ -399,13 +435,15 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 "exchange_failures": exchange_failures,
             }
         )
-        if media is not None:
+        if media is not None and not room_recovery.enabled:
             media.exercise(app, service, principal, started, command, record_property, wait_chat_ready)
         control_recovery.wait_recovered()
         if control_recovery.enabled:
             assert command("screens") == both, "both screens must keep moving after the actual recovery"
         browser.exercise(app, principal, started, containers, command, record_property)
-        room_recovery.exercise(app, service, started, command)
+        room_recovery.exercise(
+            app, service, started, command, media=media, principal=principal, wait_chat_ready=wait_chat_ready
+        )
         if room_recovery.enabled:
             room_recovery.exhaust(app, tasks, started, command, record_property)
         elif media_mode == "runtime-stall":

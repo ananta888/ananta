@@ -29,6 +29,12 @@ _failure_codes = frozenset(
         "meet_dialog_control_closed",
         "meet_dialog_hub_revoked_or_unavailable",
         "meet_machine_navigation_denied",
+        "meet_speaker_permit_changed",
+        "meet_dialog_speech_authority_changed",
+        "meet_dialog_speech_state_stale",
+        "meet_dialog_speech_input_revoked",
+        "meet_speech_setup_timeout",
+        "meet_speech_setup_failed",
     }
 ) | frozenset(
     "meet_dialog_session_changed meet_dialog_" + reason
@@ -106,11 +112,17 @@ def _fixture_chat_update(self, receipt, control):
 
 DialogChatPump.update = _fixture_chat_update
 
+_trace_functions = {
+    "/app/worker/meet_media/dialog_runtime.py": frozenset({"run", "_run_joined"}),
+    "/app/worker/meet_media/dialog_speech_output.py": frozenset({"accept", "require_current", "tick"}),
+    "/app/worker/meet_media/speaker_permit.py": frozenset({"accept", "deadline"}),
+}
+
 
 def _runtime_trace(frame, event, arg):
     """Test-only closed exception projection, never locals, messages or tracebacks."""
     if event == "call":
-        if frame.f_code.co_name != "run" or frame.f_code.co_filename != "/app/worker/meet_media/dialog_runtime.py":
+        if frame.f_code.co_name not in _trace_functions.get(frame.f_code.co_filename, ()):
             return None
         frame.f_trace_lines = False
         return _runtime_trace
@@ -132,6 +144,39 @@ def _runtime_trace(frame, event, arg):
 
 
 sys.settrace(_runtime_trace)
+
+if os.environ.get("MEET_TEST_CONTROL_DIAGNOSTICS", "0") == "1":
+    from types import SimpleNamespace
+
+    from meet_dialog_control_observer import DialogControlObserver
+    from meet_dialog_rpc_observer import DialogRpcObserver
+
+    from worker.meet_media.dialog_control_exchange import DialogControlExchange
+
+    _setter = SimpleNamespace(setattr=setattr)
+    _controls = DialogControlObserver(_setter)
+    _rpcs = DialogRpcObserver(_setter)
+    _observed_poll = DialogControlExchange.poll
+
+    def _control_failure(exchange, **kwargs):
+        try:
+            return _observed_poll(exchange, **kwargs)
+        except Exception:
+            try:
+                Path("/state/dialog-control-failure.json").write_text(
+                    json.dumps(
+                        {
+                            "control": _controls.report(),
+                            "rpc": _rpcs.report()[-4:],
+                            "history": _controls.history()[-4:],
+                        }
+                    )
+                )
+            except OSError:
+                pass
+            raise
+
+    DialogControlExchange.poll = _control_failure
 
 
 if os.environ.get("MEET_TEST_PUBLIC_DOCUMENT", "0") == "1":
