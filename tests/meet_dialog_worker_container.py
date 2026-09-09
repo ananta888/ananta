@@ -66,16 +66,22 @@ class DialogWorkerContainer:
         self.name = "meet-test-dialog-worker-" + str(uuid4())
         self.created, self.origin = False, None
 
-    def start(self, key, certificate, spki):
+    def start(self, key, certificate, spki, *, hub_identity=None):
         if self.created or not isinstance(spki, str) or not re.fullmatch(r"[A-Za-z0-9+/]{43}=", spki):
             raise ValueError("test_worker_start_invalid")
         info = json.loads(self.command("network", "inspect", self.network))[0]
         if (
             info.get("Internal") is not True
             or len(info["IPAM"]["Config"]) != 1
-            or (info["IPAM"]["Config"][0]["Gateway"] != urlsplit(self.hub_url).hostname)
         ):
             raise ValueError("test_worker_network_invalid")
+        if hub_identity is None:
+            if info["IPAM"]["Config"][0]["Gateway"] != urlsplit(self.hub_url).hostname:
+                raise ValueError("test_worker_network_invalid")
+        else:
+            from tests.meet_private_hub_endpoint import require_private_hub_endpoint
+
+            require_private_hub_endpoint(self.command, self.network, self.hub_url, hub_identity)
         if self.command("image", "inspect", self.image, "--format", "{{.Id}}") != self.image:
             raise ValueError("test_worker_image_mismatch")
         root = Path(__file__).resolve().parents[1]
