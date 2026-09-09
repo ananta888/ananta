@@ -253,6 +253,12 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from tests.meet_bridge_browser_handshake import BridgeBrowserHandshake
     from tests.meet_dialog_avatar_observer import make_avatar_observer
     from tests.meet_dialog_browser_fixture import DialogBrowserFixture
+    from tests.meet_dialog_cadence_delay import (
+        install_cadence_delay,
+        record_cadence_delay,
+        require_cadence_complete,
+        require_cadence_profile,
+    )
     from tests.meet_dialog_cleanup import close_dialog_servers
     from tests.meet_dialog_gpu_fixture import configure_dialog_gpu
     from tests.meet_dialog_interruption import configure_interruption, finish_interruption
@@ -265,6 +271,12 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
     from worker.meet_media.dialog_screen import OwnedDialogScreen
     from worker.meet_media.dialog_screen_pump import DialogScreenPump
     from worker.meet_media.server import create_server
+
+    cadence_enabled = require_cadence_profile(
+        os.environ.get("MEET_DIALOG_CADENCE_DELAY", "off"),
+        soak_seconds=SOAK_SECONDS, spoken=spoken_mode, gpu=gpu_mode,
+    )
+    cadence_delay = None
 
     meet = Path(__file__).resolve().parents[2] / "webrtc-minimize-server"
     from tests.meet_companion_build import require_current_browser_build
@@ -428,6 +440,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         from tests.meet_dialog_soak_observer import DialogSoakObserver, record_soak_failure
 
         soak_observer = DialogSoakObserver(monkeypatch) if SOAK_SECONDS else None
+        cadence_delay = install_cadence_delay(cadence_enabled, monkeypatch, url=ready["origin"] + "/machine")
         inject_private_frame = threading.Event()
         take_frame = OwnedDialogScreen.take
 
@@ -786,6 +799,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 assert state["status"] == "cancelled"
         assert completed.wait(10), "Worker did not stop after Hub task cancellation"
         assert command("alone") == {"alone": True}
+        require_cadence_complete(cadence_delay)
         record_property(
             "dialog_gpu_observations",
             {
@@ -809,4 +823,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                     try:
                         peer_browser.close()
                     finally:
-                        gpu_cleanup.close()
+                        try:
+                            gpu_cleanup.close()
+                        finally:
+                            record_cadence_delay(cadence_delay, record_property)

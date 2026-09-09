@@ -34,6 +34,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         lambda: {"MEET_TEST_PUBLIC_DIR": "/synthetic", **dict.fromkeys(profile.image_inputs, "sha256:" + "a" * 64)},
     )
     monkeypatch.setenv("MEET_DIALOG_SOAK_SECONDS", "7200")
+    monkeypatch.setenv("MEET_DIALOG_CADENCE_DELAY", "unrecorded-ambient-fault")
     monkeypatch.setenv("PYTEST_ADDOPTS", "--ignore=tests")
     monkeypatch.setattr("scripts.run_meet_test_gate.frontend_digest", lambda _: "d" * 64)
     monkeypatch.setattr(
@@ -61,6 +62,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         assert json.loads(environment["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"]) == {"synthetic": True}
         assert environment["ANANTA_MEET_MEDIA_TIMING"] == "1"
         assert environment["MEET_DIALOG_SOAK_SECONDS"] == profile.environment()["MEET_DIALOG_SOAK_SECONDS"]
+        assert environment["MEET_DIALOG_CADENCE_DELAY"] == profile.environment()["MEET_DIALOG_CADENCE_DELAY"]
         assert environment["PYTEST_ADDOPTS"] == profile.environment()["PYTEST_ADDOPTS"]
         assert all(environment[key] == value for key, value in profile.settings)
         assert "-n" in command and "0" in command
@@ -133,6 +135,12 @@ def test_selected_soak_is_fixed_and_cannot_mutate_other_profile_environment():
     assert short.image_inputs == long.image_inputs
     assert short.reference != long.reference
     assert short.environment()["PYTHONUNBUFFERED"] == long.environment()["PYTHONUNBUFFERED"] == "1"
+    delayed = select_profile("private-dialog-cadence-delay")
+    assert delayed.environment()["MEET_DIALOG_CADENCE_DELAY"] == "paired-idle-450-v1"
+    assert delayed.environment()["MEET_DIALOG_SOAK_SECONDS"] == "300"
+    assert delayed.timeout_seconds == 660 and delayed.node == long.node
+    assert delayed.image_inputs == long.image_inputs and delayed.reference != short.reference
+    assert long.environment()["MEET_DIALOG_CADENCE_DELAY"] == "off"
 
 
 def test_existing_output_is_not_overwritten_and_preflight_failure_never_reserves(tmp_path, monkeypatch):
