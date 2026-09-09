@@ -99,6 +99,11 @@ class MeetAuthorizationClient:
 
         return self._inspect(task_id, lease_id, runtime_id, session_id, "observation", validate_observation)
 
+    def retire(self, task_id, lease_id, runtime_id, session_id):
+        from agent.models.meet_session_retirement import validate_retirement
+
+        return self._inspect(task_id, lease_id, runtime_id, session_id, "retire", validate_retirement)
+
     def _inspect(self, task_id, lease_id, runtime_id, session_id, endpoint, validate):
         if not isinstance(session_id, str) or not re.fullmatch(r"ms_[A-Za-z0-9_-]{32}", session_id):
             raise MeetError("meet_authorization_session_invalid")

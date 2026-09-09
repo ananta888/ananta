@@ -44,3 +44,21 @@ browser lifecycle remain separate narrow ports. The broad existing dialog
 composition and Meet HTTP dispatcher are preserved SRP debt; do not add a
 second scheduler to either. Retirement receipts are control-plane facts, not
 SRC/RUN release evidence. Initial tests use explicit synthetic policy only.
+
+## Retirement transport implemented
+
+Meet now confirms exact v2 session retirement only after synchronous removal
+of its owned registry member. A failed detach retains task occupancy; unknown
+IDs do not claim prior ownership. Ananta validates the closed receipt, exact
+nonce/session/immutable binding, fixed TLS origin/path, bounded body and current
+Hub authority on both sides of the call. It never retries an uncertain request
+or treats the receipt as a new lease. `membership_binding` is the shared pure
+identity projection, avoiding divergent validation between live membership and
+retirement (SRP). Existing authorization/observation consumers stay compatible.
+
+118 targeted Ananta checks passed in 49.03 seconds; 61 companion checks passed
+in 0.832 seconds, including real signed HTTP/WebSocket detachment, replacement
+admission and late old-ID replay. Logs `/tmp/ananta-meet-retirement-hub.log`
+and `/tmp/ananta-meet-retirement-final.log`. These establish the transport
+primitive, not automatic reconnect or MAP-11 completion. Durable recovery
+admission, negotiated Worker execution and actual recovery acceptance remain.

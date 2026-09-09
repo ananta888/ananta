@@ -5,8 +5,9 @@ import re
 from agent.services.meet_contract import MeetError
 
 
-def validate_membership(value, scope, issuer, session_id, nonce, now_ms, *, schema):
-    expected = {
+def membership_binding(scope, issuer):
+    """Immutable Hub/Meet identity only; no lease or receipt authority by itself."""
+    return {
         "issuer": issuer,
         "subject": "machine:" + getattr(scope, "machine_subject", "ananta"),
         "roomId": scope.room_id,
@@ -18,6 +19,10 @@ def validate_membership(value, scope, issuer, session_id, nonce, now_ms, *, sche
         "hubSessionId": scope.session_id,
         "capabilitySet": ",".join(scope.capabilities),
     }
+
+
+def validate_membership(value, scope, issuer, session_id, nonce, now_ms, *, schema):
+    expected = membership_binding(scope, issuer)
     if (
         value["schema"] != schema
         or value["nonce"] != nonce
