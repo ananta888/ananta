@@ -229,3 +229,20 @@ activity was rendered 273 times. Two screen calls exceeded 250 ms (maximum
 362.29 ms), and one idle reached 341.62 ms. This early-run baseline does not
 reproduce the sustained slow calls at the end of the failed long reference;
 it specifically does not establish CDP ACKs as that failure's cause.
+
+The corresponding optimized reference at `a0be4d513` also passed:
+`RUN_4d7674e9f23dad67bc99b5b6b8f04ea3`, under
+`SRC_d719b6bba7380fb7dbe5267dba945343`, 310.64 pytest / 315.271 controller
+seconds. The same Meet/frontend/browser/proxy inputs and 300-second profile
+remained unchanged; one pass, no errors/skips. It again observed 295 active
+seconds, four renewed generations and six screen checks; sampled peak RSS
+was 2,275,291,136 bytes / 22 processes. Its result digest is
+`ed2b2bd0344280f6bd554818eab23dad670e91bf37c49542f057ae2f1d6e196b`.
+
+Chat calls fell from 4,629 to 2,254 and activity renders from 273 to three.
+CDP ACK count stayed at 1,468, consistent with retaining the actual source
+capture instead of replaying cached pixels. Screen-call maximum was 28 ms,
+but one chat call still took 322.5 ms. These samples are not a controlled
+CPU-latency benchmark, and equal fixed task duration cannot show a faster
+task completion. They verify reduced redundant RPCs with functioning media,
+not the absence of all long-run timing failures or a repaired receiver freeze.
