@@ -59,3 +59,38 @@ closed observation immediately. Sender-only actual injection had previously
 passed in 28.63 s, and the first genuinely exercised receiver repeat in 31.81 s.
 None of these synthetic observations is GPU, public TURN or Registry-backed
 production evidence.
+
+## First-keyframe isolation and structural failure (2026-09-09)
+
+The companion `test/sframe-first-keyframe.browser.test.js` now isolates actual
+VP8 RTP and the production SFrame Worker from room/Hub authorization. Synthetic
+canvas frames and ephemeral in-memory keys require no capture permission. The
+test drops exactly the first complete receive keyframe after RTP reception.
+Both Chromium and Firefox request a replacement via native PLI and decode at
+least three subsequent frames. This experiment does **not** reproduce or explain
+the original intermittent startup failure; it does not justify speculative
+keyframe requests in production.
+
+The source audit did find a different concrete issue: structural codec/envelope
+errors reported failure but did not permanently stop the affected transform.
+Eight deterministic encrypt/decrypt regressions failed before the fix. The
+Worker now irreversibly fences that transform, destroys the context keys and
+rejects rekey until explicit context teardown. A new transform lifecycle is
+required to resume; another source remains unaffected. Unknown-key,
+authentication and replay rejections still drop the rejected packet rather than
+letting packet corruption permanently deny otherwise authorized media.
+
+The real-browser matrix also corrupts exactly the first receive envelope
+version. Both engines report one structural failure, keep receiving subsequent
+RTP packets (48 and 55 respectively), and decode zero frames for the fixed
+four-second negative observation. All four real-browser cases passed in 13.25 s.
+The codec suite passed 34 tests in 0.87 s, including five real-WebCrypto tests
+that hold an asynchronous result across destroy/remove/replace: revoked
+plaintext is wiped; another retained rotation key stays valid. These guards
+already existed in the codec and were not rewritten.
+
+SOLID: the new fence belongs to the encoded-output lifecycle and does not add
+policy or cryptographic algorithm responsibilities to it. Existing broad
+`PeerMeshService` SRP debt is preserved, not expanded. These are synthetic
+technical security observations, not public deployment or production-release
+evidence. The original startup incident remains open separately.

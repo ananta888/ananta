@@ -500,7 +500,7 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 60.0,
@@ -513,7 +513,7 @@
         "Unbekannter Codec, fehlendes ACK, Replay, Revocation oder unsupported Encoded-Transform-Fähigkeit stoppen die betroffene Quelle ohne Klartext-Fallback.",
         "Keys bleiben in der autorisierten Teilnehmer-Runtime; Hub-Orchestrierung, Signaling und blinde Relays bekommen keine zusätzliche Entschlüsselungsfähigkeit."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich.",
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich. 2026-09-09: Nach MAP-25 wird MAP-08 erneut aktiv bearbeitet. Der vorhandene Codec verwirft asynchron nach Revocation fertiggestellte Ergebnisse bereits. Deterministische echte WebCrypto-Tests sichern destroy/remove/replace und erhaltene Rotationsschlüssel ab. Ein isolierter echter Chromium-/Firefox-Transport soll den Verlust des ersten verschlüsselten Video-Keyframes am Receive-Transform getrennt von der bisher unbewiesenen Startfehler-Ursache untersuchen; keine spekulative Produktionsänderung und keine Lockerung von ACK, Policy oder Verschlüsselung.",
       "startup_investigation": "2026-09-08: Intermittenter initialer Screenempfang mit 349 RTP-Paketen/0 dekodierten Frames, 33 Senderframes und lebendem Hub/Worker; gruene Wiederholung ist kein Fix. Companion 4d40b45 verwirft Frames vor SFrame-Keyinstallation, fordert dabei aber keinen Ersatz-Keyframe an. Hypothese noch unbestaetigt; docs/contracts/meet-screen-encryption-startup.md plant feste begrenzte Zweissekunden-Senderkeyverzoegerung ohne Rechte-/Timeout-/Verschluesselungslockerung und nur numerische Diagnosen.",
       "startup_diagnostic_result": "2026-09-08: Sender-/Empfaenger-Keyverzoegerung implementiert, finale3 Tests in55.55s bestanden. Beide echten Browserpfade mit tatsaechlicher2s-Verzoegerung eines aktuellen Schluessels, bewegtem Screen, zwei Chatantworten, Secret-Marker-Sperre und Hub-Stop. Maximal drei eingehende aktuelle Keygenerationen/ein Key/Timer; verworfene Injektionen und Vorzulassungs-Netzfehler separat dokumentiert. Urspruenglicher sporadischer Decoderstartfehler damit NICHT reproduziert oder behoben; kein spekulativer Kryptofix. Numerische RTP/Keyframe/PLI/Transformdiagnose bleibt fuer weitere Vorkommnisse. MDS-Gesamtcheck folgt isoliert, keine synthetische Produktionsfreigabe.",
       "client_probe_implementation": "2026-09-08: Strict pure closed validator plus small browser observation adapter implemented; assigned ports/codec directions, all63nonempty capability sets, no native/plaintext fallback, absent legacy distinct from malformed/promise/unsupported. Session checkpoints before/after read fence navigation/expiry and prevent grant handoff. First105checks72.95s, expanded330source/media/persona/capacity/client/runtimechecks218.00s clean;81Workerboundary and Ruff green. Actual new Meet browser/full check and installed Worker integration pending. docs/contracts/meet-client-probe.md.",
@@ -1198,8 +1198,8 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 3,
-      "partial": 6,
+      "in_progress": 4,
+      "partial": 5,
       "blocked": 0,
       "done": 22
     },
@@ -1301,13 +1301,13 @@
         "total": 8,
         "by_status": {
           "todo": 0,
-          "in_progress": 1,
-          "partial": 2,
+          "in_progress": 2,
+          "partial": 1,
           "blocked": 0,
           "done": 5
         },
         "done": 5,
-        "partial": 2,
+        "partial": 1,
         "blocked": 0,
         "progress_percent": 78.1
       },
@@ -1372,8 +1372,8 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 3,
-    "partial": 6,
+    "in_progress": 4,
+    "partial": 5,
     "blocked": 0,
     "done": 22,
     "count_based_percent": 68.8,
@@ -1458,10 +1458,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T03:21:12.553769Z",
+    "generated_at": "2026-09-09T03:29:01.930816Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "cdf054057857754b07b610127499630e1c7333b07604fb89c7b93b40cf38592d",
+    "source_hash": "122cc906371654d0ebf077831a9b73c22070420a997d1948c2ece2dc21c0181d",
     "is_stale": false
   }
 }
