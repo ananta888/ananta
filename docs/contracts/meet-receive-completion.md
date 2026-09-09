@@ -142,3 +142,9 @@ Chromium/Firefox receive-only sessions decoded and closed exactly 17,600 samples
 with SFrame, send denial and revocation in 7.744 seconds combined. GPU profile
 probes above remain separate from these browser tests; a joined live ASR receive
 chain and visual analysis are not yet claimed.
+
+Companion source `b23de52` then passed its isolated full check: 775 frontend
+tests, 825 Node passes / zero failures / two explicit skips; Node phase 330.898
+seconds. Build, Go unit/vet and static gates passed; fourteen external
+infrastructure checks and the optional image scan remained explicit skips.
+The detached check worktree did not overwrite the serving build.
