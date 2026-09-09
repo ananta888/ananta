@@ -13,6 +13,29 @@ MEASUREMENTS = {
 }
 
 
+def require_media_timing_probe(value, *, decoded_video=False):
+    """A separate additive feasibility probe, never permission to open a source."""
+    if (
+        type(decoded_video) is not bool
+        or not isinstance(value, dict)
+        or set(value)
+        != {"schema", "profile", "timebase", "max_drift_us", "max_age_us", "decoded_video", "canvas_submission"}
+        or value["schema"] != "ananta.meet-media-timing-probe.v1"
+        or value["profile"] != PROFILE
+        or value["timebase"] != TIMEBASE
+        or type(value["max_drift_us"]) is not int
+        or value["max_drift_us"] != MAX_DRIFT_US
+        or type(value["max_age_us"]) is not int
+        or value["max_age_us"] != MAX_AGE_US
+        or type(value["decoded_video"]) is not bool
+        or value["canvas_submission"] is not True
+        or decoded_video
+        and not value["decoded_video"]
+    ):
+        raise ValueError("meet_media_timing_probe_invalid_or_unsupported")
+    return dict(value)
+
+
 def _integer(value, minimum=0, maximum=MAX_CLOCK_US):
     if type(value) is not int or not minimum <= value <= maximum:
         raise ValueError("meet_media_timing_invalid")

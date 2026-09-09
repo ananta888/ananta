@@ -75,3 +75,25 @@ boundary guard passed for 120 files. These are synthetic virtual-clock tests.
 The browser producer, explicit Hub negotiation, runtime composition and actual
 receiver/hardware checks are still required: these classes alone do not claim
 an active live-clock feature or completed MAP-24 acceptance.
+
+## Browser port and native-source observations
+
+Meet now implements an opt-in `timing.probe/start/snapshot` port. Its separate
+closed probe reports the fixed profile/timebase/limits and actual native
+`decoded_video` / `canvas_submission` availability without opening a source.
+Ananta's strict probe consumer and `BrowserMediaTiming` transport preserve
+authority checkpoints around each RPC, reject already-active initial sources,
+bound polling to 10 Hz and irreversibly close on failed observations. The
+browser's own 100-ms watchdog remains independent of Worker polling.
+
+62 contract, fence and transport tests passed in 31.33 s. Meet's private
+Chromium-publisher / Chromium-and-Firefox-receiver matrix passed, plus a negative
+Firefox-publisher feasibility case (three cases, 20.769 s). Firefox lacks the
+existing required canvas `requestFrame` API here; the installed Worker remains
+Chromium and there is no permissive capture fallback. Peak observed source
+drift was 147,600 / 144,000 us video and 8,200 us PCM; intentionally unrefreshed
+screen sources stopped after 799.87 / 790.14 ms. Actual loop/held-frame pixels,
+speech and screens were received without human capture or transform errors.
+These do not measure end-to-end A/V alignment and are not GPU/public/release
+evidence. Hub option admission and actual installed Worker composition remain
+next; the new Python transport is not yet called by `dialog_runtime`.
