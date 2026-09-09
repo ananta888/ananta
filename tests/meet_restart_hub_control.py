@@ -6,9 +6,11 @@ import re
 from flask import Blueprint, abort, jsonify, request
 
 
-def register_control(app, service, principal, control_key):
+def register_control(app, service, principal, control_key, *, task_count):
     if not isinstance(control_key, bytes) or len(control_key) != 32:
         raise ValueError("test_hub_control_key_invalid")
+    if not callable(task_count):
+        raise ValueError("test_hub_task_counter_required")
     routes = Blueprint("meet_restart_test", __name__, url_prefix="/__test")
 
     def authorized():
@@ -39,7 +41,7 @@ def register_control(app, service, principal, control_key):
     @routes.post("/start")
     def start():
         authorized()
-        if service.tasks.list_page("synthetic", "synthetic", 0):
+        if task_count():
             abort(409)
         result = service.start(
             principal,
@@ -84,7 +86,7 @@ def register_control(app, service, principal, control_key):
             child_status=child.status if child is not None else None,
             child_deadline=job["deadline"] if job is not None else None,
             deadline_events=sum(item.get("event_type") == "meet_dialog_deadline_expired" for item in row.history),
-            dialog_tasks=len(service.tasks.list_page("synthetic", "synthetic", 0)),
+            dialog_tasks=task_count(),
         )
 
     app.register_blueprint(routes)

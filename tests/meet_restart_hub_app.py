@@ -4,7 +4,8 @@ from pathlib import Path
 
 
 def create_restart_hub(config):
-    from sqlmodel import Session
+    from sqlalchemy import func
+    from sqlmodel import Session, select
 
     from agent.ai_agent import create_app
     from agent.database import engine, init_db
@@ -58,7 +59,19 @@ def create_restart_hub(config):
     app.extensions["meet_dialog_deadlines"] = MeetDialogDeadlines(
         SqlDialogDeadlines(engine, task_status_cas=compare_and_set_local_task_status)
     )
-    register_control(app, service, principal, Path("/test/control-key").read_bytes())
+    def task_count():
+        with Session(engine) as session:
+            return session.exec(
+                select(func.count())
+                .select_from(TaskDB)
+                .where(
+                    TaskDB.tenant_id == "synthetic",
+                    TaskDB.project_id == "synthetic",
+                    TaskDB.task_kind == "meet_dialog_session",
+                )
+            ).one()
+
+    register_control(app, service, principal, Path("/test/control-key").read_bytes(), task_count=task_count)
     # Start exactly the normal deadline service, not unrelated autonomous loops.
     start_meet_dialog_deadlines(app)
     return app
