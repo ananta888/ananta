@@ -18,7 +18,7 @@ of receiver transform failure or proof that the prior freeze is fixed.
 The final scheduling samples include a 393.45-ms screen tick containing a
 363.8-ms screen browser call, followed by a 526.84-ms tick gap. Those samples
 do not prove why the browser or host was delayed. Source inspection does show
-another avoidable delay: `DialogScreenPump` currently starts its next 200-ms
+another avoidable delay: the audited `DialogScreenPump` starts its next 200-ms
 interval **after** `frames.begin()` returns. A delayed acknowledgement can
 therefore add idle time after a frame has already reached the browser.
 
@@ -74,3 +74,71 @@ assertion. These are headless unit/process checks, not the real paired run.
 The final frame/explicit-profile set passed 30 checks in 25.76 seconds; after
 limiting activation to the observation phase, both fault-hook suites passed
 20 checks in 19.36 seconds. These counts overlap the earlier suites.
+
+## Same-runtime delayed-ack reproduction
+
+The BEFORE reference keeps the corrected test harness but restores only
+`dialog_screen_pump.py` and `screen_frame_delivery.py` to `ae6e2cd72`.
+Its private revision is `fa2607d628362ff8f3b5b4fc03d05d1b3c87834a`;
+the comparison revision is `1299b92044a894e1ef87e4b5b6cb1bdebf276ef6`.
+Both use private Meet `848a3d6075f4c876e0eea217e4367276ba048928`, identical
+frontend digest `803a77c0f5b8076bff73c6650ffc9a62c4e48db148ec5ecca43cedb2a49b85b8`,
+browser image `5d4be51c5dda` (Chromium 145) and proxy image `8fc7d306e5e4`.
+The selected Ananta source digest changes deliberately; browser/runtime,
+fault profile, media freshness and resource limits do not.
+
+Hub-reserved BEFORE `RUN_f5bb578f9dec90b000694ebf202c5b46`, under
+`SRC_6670659350f74053d75240c9b766202d`, failed in 28.81 pytest / 33.279 controller
+seconds. All intended fault steps completed exactly once. The original
+`meet_media_timing_source_failed` receipt shows screen generation two,
+observation 13503299 us, current time 14320699 us and age 817400 us, exceeding
+750000 us. Inputs remained unchanged; one failure, no errors/skips. This is
+a reproduced scheduling defect, not an unrelated startup or incomplete-hook
+failure. Its result digest is
+`eb58b52b13af884793ae7d8ce399bb2e2df35d186ca4d8dae4979d3f3f7a77d5`.
+
+AFTER `RUN_9de737dcdf1e53b97335f9b15311aba5`, admitted under
+`SRC_b5586c323128ac158005e64b8591d4af`, passed the complete five-minute profile
+in 309.22 pytest / 313.669 controller seconds: one pass, no failures/errors/skips,
+unchanged inputs and all fault steps completed exactly once. The 300-second
+Task yielded 295 active observation seconds, four renewed lease generations
+and six screen checks, with sampled peak RSS 2,257,555,456 bytes / 22 processes.
+Its result digest is
+`2cdde80f806a2030bb7979627fdbc5f74db3548c37e53fae9020df8e4d399794`.
+This paired result verifies the delayed-ack correction with unchanged limits;
+it is not a completed two-hour stability acceptance.
+
+These references execute snapshot-pinned host-side Worker code against the
+packaged browser. They do not prove that the unchanged browser image contains
+the new Worker code, that the receiver-only freeze is repaired, or that GPU,
+public TURN and the separate two-packaged-publisher gates pass. The identities
+are synthetic TEST evidence and cannot satisfy production release policy.
+
+## Packaged correction
+
+The complete existing Dockerfile built successfully from clean `1299b9204`,
+reusing the unchanged locked dependency/browser cache and copying the current
+source packages. The new local immutable image is
+`sha256:46b062604e5579f661adacfe728b776c7ca6dd710b6f9de5fbad7e3b44adccbb`.
+An isolated non-root, read-only, network/GPU-free inspection found both changed
+runtime files byte-identical to that snapshot. All 35 runtime-lock/health checks
+passed in 40.69 seconds, including actual packaged healthy/unhealthy/healthy
+transitions, no source overlays and no Hub package. This is a cached rebuild
+and current packaged liveness, not another clean dependency download or GPU
+inference result. No serving image, model job, trust or public room was changed.
+
+The separate Hub-reserved `packaged-resources` reference also passed against
+this new image: `RUN_0de0f67e6d455f86b2dd57ecf176003e`, under the same AFTER
+source identity, completed in 49.68 pytest / 53.830 controller seconds, one pass
+and no failures/errors/skips, with unchanged source/frontend inputs. It exercised
+two independently assigned packaged Workers, actual owned media delivery,
+room reconnection and independent terminal cleanup. Active cgroup memory samples
+were 272,265,216 / 264,024,064 bytes under each 1-GiB limit; PID samples were
+103 / 104 and both returned to five, with zero active dialog slots. These are
+startup/active/terminal samples, not continuous peak or GPU measurements.
+The result digest is
+`225cf26f4077ad8b7baa71feaff9ae6be59940225bc6f410edaa7ea2ad25c267`.
+
+The uninstrumented `private-dialog-soak` remains the separate two-hour
+stability gate. Neither the successful injected comparison nor this packaged
+reconnect reference replaces that remaining acceptance.
