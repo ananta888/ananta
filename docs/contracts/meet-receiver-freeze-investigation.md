@@ -120,6 +120,12 @@ Only the private receiver's served Worker response is instrumented.
 The same frozen inputs then started `private-pipeline-soak` under fresh Hub
 reservation `RUN_d69d1defb6dcb1ab5896529b37e2d274`. Its exclusive reservation
 receipt is persisted before execution in the private runtime directory.
-This is a running diagnostic checkpoint, **not** a passed two-hour result or
-a repaired receiver. Do not change its snapshot while it is active. The
-production-image/public-trust/GPU gates remain separate from this TEST run.
+That checkpoint was not a passed two-hour result or a repaired receiver.
+The run subsequently failed after 3594.392 controller seconds with
+`meet_media_timing_source_failed`: a 897800-us screen age exceeded the existing
+750000-us limit, and the waiting chat answer timed out. No receiver-failure
+receipt was produced in this run. Inputs remained unchanged; the previous
+receiver freeze is not established as fixed. See the separate
+[delayed-ack cadence audit](meet-screen-ack-cadence.md) for the measured trace
+and bounded regression plan. Production-image/public-trust/GPU gates remain
+separate from this TEST run.
