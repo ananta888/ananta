@@ -201,7 +201,7 @@ def validate_callback(value, now):
         if (
             type(value["end_sample"]) is not int
             or not 16000 <= value["end_sample"] <= 160000
-            or value["end_sample"] % 16000 != 0
+            or value["end_sample"] % 1600 != 0
             or not isinstance(value["language"], str)
             or value["language"] not in {"de", "en"}
             or not isinstance(value["text"], str)

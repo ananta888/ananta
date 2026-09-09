@@ -123,3 +123,22 @@ explicit strategy. No changed source/lease/profile may finish or publish. Cover
 headless positive/negative cursor, endpoint, wipe, reply, early-silence and
 maximum-window cases, then actual decoded browser audio. This remains part of
 MAP-25, not a separate orchestration loop.
+
+The optional strategy and sample-bound finish port are implemented. The Hub
+profile selects `energy-v1` explicitly; fixed remains the unchanged default.
+The Worker uses a small boundary port and fixed mean-absolute-amplitude threshold
+600, 300-ms consecutive onset and 500-ms trailing silence, with one-second
+minimum and original 1–10-second maximum. No extra PCM/history is retained by
+the detector. It requires the closed browser probe before opening a source and
+verifies the exact finish receipt before ASR. Unknown/changed finish receipts
+cannot trigger a transcript callback. Hub completion accepts early 100-ms
+boundaries only under the bound energy profile, never under fixed assignments.
+
+127 profile/segment/legacy tests passed in 51.96 seconds. A further 48 execution
+and endpoint cases passed in 26.54 seconds, including actual bounded PCM
+buffering to exactly 1.1 seconds, no-voice maximum closure, missing browser
+support, forged finish receipt and transient buffer cleanup. Companion actual
+Chromium/Firefox receive-only sessions decoded and closed exactly 17,600 samples
+with SFrame, send denial and revocation in 7.744 seconds combined. GPU profile
+probes above remain separate from these browser tests; a joined live ASR receive
+chain and visual analysis are not yet claimed.

@@ -57,8 +57,13 @@ Dialog start optionally accepts `audio_profile`, only with a non-off audio mode:
 
 Language is `de` or `en`; the only installed allowed model is the immutable local
 Whisper-small profile described below. VAD is `local-vad-v1` or explicitly `off`.
-Segment length is an integer 1–10 seconds. Segments currently close at that fixed
-sample count; local ASR VAD is not an early browser endpoint detector. No arbitrary
+Segment maximum is an integer 1–10 seconds. By default segments close at that
+fixed sample count. Optional `segmentation: energy-v1` enables a separate bounded
+Worker endpoint detector: mean absolute PCM amplitude at least 600, 300 ms of
+consecutive speech followed by 500 ms silence, minimum one second and the same
+hard maximum. It is not a speaker-identity or confidence classifier. It requires
+the explicitly probed `sample-boundary-v1` browser finish port; unavailable
+support fails before receiving. Local ASR VAD remains a separate setting. No arbitrary
 provider, path, download, recording or model-selection string is accepted.
 
 The original Hub context, optional preauthorization digest, signed dialog
@@ -66,7 +71,9 @@ assignment, child Task and ASR subprocess all bind the same profile. Changing
 it invalidates an already assigned child. Without the optional field, legacy
 ten-second German recognition, local VAD and the old wire shape remain unchanged.
 The callback's global bounds permit the new integer-second lengths, but the Hub
-still requires exactly the length and language delegated to that child.
+still requires the length and language delegated to that child. Only an explicit
+energy strategy permits early results aligned to 100 ms within its original
+one-second-to-maximum range; fixed and legacy assignments remain exact-length.
 
 ## Explicit setup and synthetic GPU probe
 

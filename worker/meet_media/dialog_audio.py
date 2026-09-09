@@ -7,8 +7,10 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 
 from ananta_contracts.meet_audio_profile import optional_audio_profile
+from ananta_contracts.meet_audio_segment import require_segment_finished, require_segment_probe
 from ananta_contracts.meet_dialog_audio import audio_job_current, validate_audio_job
 from worker.meet_media.audio_batch import AudioBatchCursor
+from worker.meet_media.audio_segment import segment_boundary
 
 
 class AudioLease:
@@ -100,8 +102,12 @@ class DialogAudioPump:
             raise ValueError("meet_audio_profile_mismatch")
         profile = optional_audio_profile(job)
         self.cursor = AudioBatchCursor(profile)
+        self.segment = segment_boundary(profile)
+        self.early_segments = profile.segmentation == "energy-v1"
         with ExitStack() as setup:
             setup.callback(self._close_browser)
+            if self.early_segments:
+                require_segment_probe(page.evaluate("() => window.anantaMachine?.audio?.segmentProbe?.() ?? null"))
             self.subscription = page.evaluate(
                 "([id, seconds]) => window.anantaMachine.audio.open(id, seconds)",
                 [job["publication_id"], profile.segment_seconds],
@@ -147,6 +153,16 @@ class DialogAudioPump:
                 self.receiver.push(self.binding, start_sample=chunk.start_sample, pcm=chunk.pcm)
                 self.page.evaluate("sequence => window.anantaMachine.audio.ack(sequence)", chunk.sequence)
                 self.cursor.acknowledge(chunk.sequence)
+                if self.segment.push(chunk.pcm) and self.early_segments:
+                    end_sample = chunk.sequence * 1600
+                    result = self.page.evaluate(
+                        "([id, end]) => window.anantaMachine.audio.finish(id, end)",
+                        [self.subscription["subscriptionId"], end_sample],
+                    )
+                    require_segment_finished(result, self.subscription["subscriptionId"], end_sample)
+                    self.stage = "asr"
+                    self.pending = self.pool.submit(self.receiver.finish)
+                    return
             if self.cursor.complete(batch):
                 self.stage = "asr"
                 self.pending = self.pool.submit(self.receiver.finish)

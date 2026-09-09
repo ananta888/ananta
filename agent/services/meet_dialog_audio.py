@@ -159,8 +159,7 @@ class MeetDialogAudio:
             self.current(ids, job)
             profile = optional_audio_profile(job)
             if (
-                type(payload["end_sample"]) is not int
-                or payload["end_sample"] != profile.end_sample
+                not profile.accepts_end_sample(payload["end_sample"])
                 or payload["language"] not in {"de", "en"}
                 or "audio_profile" in job
                 and payload["language"] != profile.language
