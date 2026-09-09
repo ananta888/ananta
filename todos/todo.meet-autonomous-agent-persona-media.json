@@ -1005,6 +1005,7 @@
     },
     {
       "id": "MAP-26",
+      "speaker_floor_plan": "2026-09-09 source0a1a0ecc9 audit: current native signed chat/ASR child tasks and generations bound speech publication are implemented and privately tested; the older implementation_note is historical. GPU FIFO does not serialize subsequent playback. Add separate durable Hub-owned per-room speaker resource with bounded FIFO/priority aging, exact task/input/source identity, terminal revocation and cleanup quarantine, then negotiated control/output fencing and explicit headless Hub barge-in policy. Validate SQL races/restart and real two-Worker audio turn-taking before completion. docs/contracts/meet-speaker-floor.md. MAP26 remains65%; repository-only tests cannot close it.",
       "title": "Hub-gesteuerte Sprecherwahl und Gesprächsführung implementieren",
       "repository": "ananta",
       "type": "feature",
