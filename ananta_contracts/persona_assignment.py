@@ -26,7 +26,12 @@ def validate_persona_assignment(value, now, *, schema):
         not isinstance(value, dict)
         or set(value) != ASSIGNMENT_FIELDS
         or schema
-        not in ("ananta.persona-image-task.v1", "ananta.persona-video-task.v1", "ananta.persona-voice-task.v1")
+        not in (
+            "ananta.persona-image-task.v1",
+            "ananta.persona-video-task.v1",
+            "ananta.persona-voice-task.v1",
+            "ananta.persona-generation-task.v1",
+        )
         or value["schema"] != schema
     ):
         raise ValueError("persona_assignment_invalid")

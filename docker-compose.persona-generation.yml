@@ -1,0 +1,26 @@
+# Explicit CPU procedural generation; no GPU/model/human capture or publication grant.
+services:
+  persona-generation-worker:
+    build:
+      context: .
+      dockerfile: docker/persona-generation/Dockerfile
+    init: true
+    user: "${PERSONA_GENERATION_UID:-1000}:${PERSONA_GENERATION_GID:-1000}"
+    read_only: true
+    environment:
+      PERSONA_GENERATION_WORKER_KEY_FILE: /run/secrets/persona-generation-key
+      PERSONA_GENERATION_HUB_LEASE_URL: http://persona-authorizing-hub:5000/api/persona-media/v1/internal/generation-lease
+    volumes:
+      - ${PERSONA_GENERATION_STATE_DIR:?Set an absolute private generation state directory}/worker-key:/run/secrets/persona-generation-key:ro
+      - ${PERSONA_GENERATION_STATE_DIR:?Set an absolute private generation state directory}/worker-state:/state
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    mem_limit: 256m
+    cpus: 1
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [persona-generation]
+networks:
+  persona-generation:
+    internal: true

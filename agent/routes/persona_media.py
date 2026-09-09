@@ -9,6 +9,7 @@ from agent.auth import check_user_auth, get_authenticated_source_control_princip
 from agent.models.persona_asset_policy import PersonaImagePolicy
 from agent.models.persona_media import PersonaMediaProfile
 from agent.routes.persona_generated_sources import persona_generated_sources_bp
+from agent.routes.persona_generation import persona_generation_bp
 from agent.routes.persona_inspection_lease_response import inspection_lease_response
 from agent.routes.persona_media_http import payload as _payload
 from agent.routes.persona_media_http import revision as _revision
@@ -25,6 +26,7 @@ from ananta_contracts.persona_image import MAX_REQUEST_BYTES, validate_assignmen
 
 persona_media_bp = Blueprint("persona_media", __name__, url_prefix="/api/persona-media/v1")
 persona_media_bp.register_blueprint(persona_generated_sources_bp)
+persona_media_bp.register_blueprint(persona_generation_bp)
 persona_media_bp.register_blueprint(persona_retention_bp)
 persona_media_bp.register_blueprint(persona_video_lease_bp)
 persona_media_bp.register_blueprint(persona_video_retention_bp)

@@ -1,0 +1,19 @@
+# Optional generator; inspection/image/video policies stay independently enabled.
+services:
+  ai-agent-hub:
+    environment:
+      ANANTA_PERSONA_GENERATION_ENABLED: ${ANANTA_PERSONA_GENERATION_ENABLED:-0}
+      ANANTA_PERSONA_GENERATION_WORKER_URL: http://persona-generation-worker:8098/v1/persona-generations
+      ANANTA_PERSONA_GENERATION_KEY_FILE: /run/secrets/persona-generation-key
+      ANANTA_PERSONA_GENERATION_REPOSITORY_REVISION: ${ANANTA_PERSONA_GENERATION_REPOSITORY_REVISION:-}
+      ANANTA_PERSONA_GENERATION_EXECUTION_PROFILE_DIGEST: ${ANANTA_PERSONA_GENERATION_EXECUTION_PROFILE_DIGEST:-}
+      ANANTA_PERSONA_GENERATION_ENVIRONMENT_DIGEST: ${ANANTA_PERSONA_GENERATION_ENVIRONMENT_DIGEST:-}
+    volumes:
+      - ${PERSONA_GENERATION_STATE_DIR:?Set an absolute private generation state directory}/worker-key:/run/secrets/persona-generation-key:ro
+    networks:
+      persona-generation:
+        aliases: [persona-authorizing-hub]
+networks:
+  persona-generation:
+    external: true
+    name: ${PERSONA_GENERATION_NETWORK:-ananta-persona-generation_persona-generation}

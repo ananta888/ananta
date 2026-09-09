@@ -9,7 +9,7 @@ from worker.meet_media.persona_http import signed_post
 
 class PersonaLeaseGuard:
     def __init__(self, endpoint, key, assignment, *, kind="image"):
-        if kind not in ("image", "video", "voice"):
+        if kind not in ("image", "video", "voice", "generation"):
             raise ValueError("persona_inspection_kind_invalid")
         self.domain = b"persona-lease-v1" if kind == "image" else f"persona-{kind}-lease-v1".encode()
         parsed = urlsplit(endpoint)
