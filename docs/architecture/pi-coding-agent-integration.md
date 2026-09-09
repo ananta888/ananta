@@ -115,8 +115,9 @@ Behebung der gemeinsamen Prozessgrenzen. Kein Go für unbeschränkte Host-
 Ausführung, automatische fremde Erweiterungen oder eine Pi-Control-Plane.
 Die Bereitstellung, echten CLI-Negativtests, Modellanbindung, Event-/Lease-
 Bindung und optionalen lokalen/externen Modellläufe sind noch offen.
-PI-T01 bleibt bis zur technischen Eignungsprüfung in Bearbeitung; dieser
-Quellabgleich schließt weder den Pi-Track noch die laufende Meet-Abnahme.
+Zum Zeitpunkt dieses Quellabgleichs blieb PI-T01 bis zur technischen
+Eignungsprüfung in Bearbeitung; deren späteres Ergebnis folgt unten.
+Der Quellabgleich schließt weder den Pi-Track noch die laufende Meet-Abnahme.
 Alle bisherigen Abfragen sind technische Beobachtungen ohne nachträglich
 vergebene SRC-/RUN-Identitäten.
 
@@ -150,3 +151,40 @@ für diese Regressionen erforderlich. Dies schließt die genannten gemeinsamen
 Prozessdefekte, nicht den Pi-Provider oder dessen Container-/Tool-Sicherheitsgate.
 Prozessgruppen-Cleanup ist keine Sandbox gegen absichtlich aus der Gruppe
 ausbrechende Prozesse; diese Grenze bleibt Aufgabe des Worker-Containers.
+
+## Reale Paketprüfung und endgültiger Transportentscheid
+
+Version 0.85.1 wurde anschließend ausschließlich in einem eigenen
+Runtime-Verzeichnis mit deaktivierten npm-Installationsskripten installiert.
+Der erzeugte Lock enthält die oben dokumentierte Integrität. Das echte CLI
+meldet 0.85.1 unter Node 24.13.0 in einem eigenen nicht privilegierten,
+read-only Container ohne externes Netzwerk, GPU oder Host-Credentials.
+Der vorhandene unveränderliche Test-Image-Stand `46b062604e55` lieferte hierfür
+nur die Node-Laufzeit; das ist noch kein dediziertes produktives Pi-Worker-Image.
+
+Ein ausschließlich containerlokaler HTTP-Modellstub beantwortete genau einen
+CLI/JSON-Aufruf. Projekt-/Eltern-/globale AGENTS-Dateien, globale und lokale
+Erweiterungen sowie Systemprompt-Dateien enthielten absichtlich fremde
+Testmarker. Der erste Aufruf endete technisch erfolgreich, aber das
+Kontext-Isolationskriterium schlug fehl: Die globale `SYSTEM.md` wurde trotz
+`--no-context-files` geladen. Es wurde keine fremde Erweiterung ausgeführt.
+Der installierte `resource-loader.js` bestätigt die getrennte Systemprompt-
+Erkennung; dies ist eine notwendige Adaptergrenze, kein behaupteter Pi-Bug.
+
+Die Wiederholung verwendete zusätzlich explizite eigene System- und
+Zusatzprompt-Dateien, darunter eine leere Zusatzdatei. Sie bestand: Exit 0,
+genau eine Anfrage mit dem ausgewählten Modell, ein `agent_end` und ein
+nachfolgendes `agent_settled`, keine fremden Kontextmarker, keine ausgeführte
+Erweiterung und kein stderr. Auch absichtlich vorhandene `APPEND_SYSTEM.md`
+blieben außen vor. Innere 20-s- und äußere 35-s-Fristen waren aktiv; sämtliche
+Testcontainer wurden beendet und entfernt. Die Antwort war synthetisch,
+kein echtes LLM-Ergebnis und keine Hub-registrierte Release-Evidenz.
+
+Damit ist PI-T01 abgeschlossen: Go für den optionalen CLI/JSON-Adapter über
+den bestehenden Prozessport. Der Adapter muss beide Prompt-Quellen explizit
+an eigene unveränderliche Dateien binden. Freie Prompttexte als Dateiselektor
+sind ungeeignet: Pi liest einen gleichnamigen vorhandenen Pfad bevorzugt.
+Modelle, Settings, Auth und Erweiterungsladung bleiben geschlossen; ein
+Read-only-Toolprofil oder Resume wird erst nach eigener technischer Abnahme
+angeboten. PI-T02 bis PI-T06 bleiben offen; der erfolgreiche No-Tools-Prototyp
+ist keine vollständige Coding-, Datei-Sandbox- oder Provider-Integration.
