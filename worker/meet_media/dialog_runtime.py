@@ -23,6 +23,7 @@ from worker.meet_media.dialog_screen_pump import DialogScreenPump
 from worker.meet_media.dialog_session_binding import require_dialog_session
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
 from worker.meet_media.dialog_speech_output import DialogSpeechOutput
+from worker.meet_media.dialog_visual import start_visual
 
 
 def start_audio(page, hub, assignment, state, meet_session):
@@ -104,8 +105,10 @@ def run(assignment, hub, *, progress=None):
         )
         cleanup.callback(avatar.close)
         audio = None
+        visual = None
         # Resolve the current source at teardown, not an obsolete iteration's object.
         cleanup.callback(lambda: audio.close() if audio is not None else None)
+        cleanup.callback(lambda: visual.close() if visual is not None else None)
         exchange = DialogControlExchange(hub, meet_session)
         cleanup.callback(exchange.close)
         control_revision = 0
@@ -127,6 +130,9 @@ def run(assignment, hub, *, progress=None):
                 if progress is not None:
                     progress.report(exchange.fresh_until, hub.deadline)
                 if state["renewal"]:
+                    if visual is not None:
+                        visual.close()
+                        visual = None
                     if audio is not None:
                         audio.close()
                         audio = None
@@ -140,6 +146,10 @@ def run(assignment, hub, *, progress=None):
                     audio.refresh(receipt, state["audio_job"])
                 else:
                     audio = start_audio(page, hub, assignment, state, meet_session)
+                if visual is not None:
+                    visual.refresh(receipt, state.get("visual_job"))
+                else:
+                    visual = start_visual(page, hub, assignment, state, meet_session)
                 chat.update(receipt, controls["chat"])
                 if assignment.get("voice_profiles") is True:
                     speech.update(receipt, controls, state["voice"])
@@ -170,6 +180,14 @@ def run(assignment, hub, *, progress=None):
                 except Exception:
                     audio.close()
                     audio = None
+            if visual is not None:
+                try:
+                    visual.tick()
+                    if visual.closed:
+                        visual = None
+                except Exception:
+                    visual.close()
+                    visual = None
             # PCM is consumed in 20-ms frames. The old chat/screen idle cadence
             # can starve the deliberately small audio queue over browser RPC.
             page.wait_for_timeout(20 if speech.busy else 100)
@@ -177,6 +195,8 @@ def run(assignment, hub, *, progress=None):
         # exceptional cleanup and safely repeats these idempotent closes.
         if audio is not None:
             audio.close()
+        if visual is not None:
+            visual.close()
         screen.close()
         avatar.close()
         chat.close()

@@ -78,6 +78,10 @@ class MeetDialogService:
             clock,
             replies=self.replies,
         )
+        from agent.services.meet_dialog_visual import MeetDialogVisual
+        from agent.services.meet_visual_tasks import HubVisualTasks
+
+        self.visual_coordinator = MeetDialogVisual(authority, HubVisualTasks(tasks), meet, clock=clock)
         from agent.services.meet_dialog_voice_selection import MeetDialogVoiceSelection
         from agent.services.meet_dialog_voices import MeetDialogVoices
 
@@ -403,6 +407,8 @@ class MeetDialogService:
             if self.browser_workspaces is None:
                 raise MeetError("meet_dialog_browser_workspace_unavailable", 409)
             result["browser"] = self.browser_workspaces.projection(scope, state)
+        if "video.receive" in scope.capabilities:
+            result["visual_job"] = self.visual_coordinator.projection(scope, state)
         return result
 
     def audio(self, payload):
@@ -410,6 +416,12 @@ class MeetDialogService:
 
     def transcript(self, payload):
         return self.audio_coordinator.complete(payload)
+
+    def visual(self, payload):
+        return self.visual_coordinator.start(payload)
+
+    def visual_result(self, payload):
+        return self.visual_coordinator.complete(payload)
 
     def browser_finish(self, payload):
         if self.browser_workspaces is None:

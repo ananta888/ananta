@@ -249,6 +249,11 @@ class HubDialogTasks:
             job = (task.worker_execution_context or {}).get("meet_dialog", {}).get("audio_job")
             if job:
                 self.finish_audio(scope, job, "cancelled", release=False)
+            visual = (task.worker_execution_context or {}).get("meet_visual", {}).get("job")
+            if visual is not None:
+                from agent.services.meet_visual_tasks import HubVisualTasks
+
+                HubVisualTasks(self).finish(scope, visual, "cancelled")
             browser = (task.worker_execution_context or {}).get("meet_browser", {}).get("job")
             if browser is not None:
                 from agent.services.meet_browser_tasks import HubBrowserTasks

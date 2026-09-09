@@ -12,8 +12,9 @@ from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 
 MAX_DIALOG_BYTES = 16384
+MAX_VISUAL_CONTROL_BYTES = 65536
 ID = re.compile(r"[A-Za-z0-9_.:-]{1,160}")
-OPTIONAL_CONTROL_CAPABILITIES = {"speech": "speech.publish", "avatar": "avatar.publish"}
+OPTIONAL_CONTROL_CAPABILITIES = {"speech": "speech.publish", "avatar": "avatar.publish", "visual": "video.receive"}
 
 
 def validate_controls(value):
@@ -40,6 +41,15 @@ def validate_controls(value):
 
 
 def parse(raw):
+    return _parse(raw, MAX_DIALOG_BYTES)
+
+
+def parse_visual_control(raw):
+    """Larger bounded receipts for the negotiated 19x4 visual publication matrix."""
+    return _parse(raw, MAX_VISUAL_CONTROL_BYTES)
+
+
+def _parse(raw, maximum):
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -48,7 +58,7 @@ def parse(raw):
             value[key] = item
         return value
 
-    if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_DIALOG_BYTES:
+    if not isinstance(raw, bytes) or not 0 < len(raw) <= maximum:
         raise ValueError("meet_dialog_payload_invalid")
     try:
         return json.loads(
@@ -156,6 +166,8 @@ def validate_callback(value, now):
         "finish",
         "audio",
         "transcript",
+        "visual",
+        "visual_result",
         "browser_finish",
     }:
         raise ValueError("meet_dialog_callback_invalid")
@@ -166,8 +178,10 @@ def validate_callback(value, now):
     )
     if action == "browser_finish":
         fields |= {"browser_task_id", "browser_lease_id"}
-    if action == "audio":
+    if action in {"audio", "visual"}:
         fields |= {"publication_id"}
+    if action == "visual_result":
+        fields |= {"visual_task_id", "visual_lease_id", "result"}
     if action == "transcript":
         fields |= {"audio_task_id", "audio_lease_id", "end_sample", "language", "text"}
     if set(value) != common | fields:
@@ -191,11 +205,16 @@ def validate_callback(value, now):
         raise ValueError("meet_dialog_session_invalid")
     if action == "chat" and not isinstance(value["event"], dict):
         raise ValueError("meet_dialog_event_invalid")
-    if action == "audio":
+    if action in {"audio", "visual"}:
         from ananta_contracts.meet_dialog_audio import PUBLICATION_ID
 
         if not isinstance(value["publication_id"], str) or not PUBLICATION_ID.fullmatch(value["publication_id"]):
             raise ValueError("meet_dialog_publication_invalid")
+    if action == "visual_result":
+        from ananta_contracts.meet_visual_receive import validate_visual_result
+
+        _ids(value, ("visual_task_id", "visual_lease_id"))
+        validate_visual_result(value["result"])
     if action == "transcript":
         _ids(value, ("audio_task_id", "audio_lease_id"))
         if (

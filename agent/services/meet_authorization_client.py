@@ -117,13 +117,28 @@ class MeetAuthorizationClient:
             {"Content-Type": "application/json", "Authorization": "Bearer " + meeting["grant"]},
         )
         try:
-            from ananta_contracts.meet_dialog import parse
+            from ananta_contracts.meet_dialog import (
+                MAX_DIALOG_BYTES,
+                MAX_VISUAL_CONTROL_BYTES,
+                parse,
+                parse_visual_control,
+            )
 
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
             deadline = time.monotonic() + 3
+            visual = endpoint == "authorization" and "video.receive" in scope.capabilities
             with opener.open(request, timeout=3) as response:
-                raw = read_bounded(response, maximum=16_384, deadline=deadline)
-            result = validate(parse(raw), scope, self.issuer.issuer, session_id, nonce, int(self.clock() * 1000))
+                raw = read_bounded(
+                    response, maximum=MAX_VISUAL_CONTROL_BYTES if visual else MAX_DIALOG_BYTES, deadline=deadline
+                )
+            result = validate(
+                (parse_visual_control if visual else parse)(raw),
+                scope,
+                self.issuer.issuer,
+                session_id,
+                nonce,
+                int(self.clock() * 1000),
+            )
             current = self.authority.current(task_id, lease_id, runtime_id)
             # Source CAS is checked independently by each fresh projection.
             # A profile switch must not revoke the parent membership or speech.

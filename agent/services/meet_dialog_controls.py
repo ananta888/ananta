@@ -21,6 +21,7 @@ class DialogControls:
     screen: SourceControl
     speech: SourceControl | None = None
     avatar: SourceControl | None = None
+    visual: SourceControl | None = None
 
 
 def controls_projection(value):
@@ -55,6 +56,7 @@ def initial_controls(capabilities, chat_mode, audio_mode, now_ms):
             # Permission is not activation: neutral avatar requires an explicit
             # current Hub control mutation, independently of chat or speech.
             SourceControl(False, 1, now_ms) if "avatar.publish" in capabilities else None,
+            SourceControl(False, 1, now_ms) if "video.receive" in capabilities else None,
         )
     )
 

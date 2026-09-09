@@ -103,3 +103,30 @@ The focused native/contract/audio regression passed130 tests in52.13s; subsequen
 100 Hub/contract tests in44.40s also cover original-dimension rejection. One
 actual local child executed the pinned statistical profile, not a GPU model.
 Real packaged Worker/Meet source acceptance remains pending.
+
+## Hub reservations and Worker pump
+
+Visual reception is independently default-off and requires both `video.receive`
+and an explicit, revision-bound Hub control. The Hub reserves an ordinary child
+Task bound to its parent, assigned Worker, dispatch lease and exact publication
+epoch. Completion keeps the original cooldown; source/control changes and parent
+cancellation close the child. Shared repository mutation locks serialize the
+final policy reread and completion against Hub cancellation/control updates.
+The external Meet receipt remains a point-in-time check, not a distributed
+transaction with the Meet server.
+
+The Worker owns only a bounded subscription/pump and the native calculation.
+It sends closed statistics to the Hub, never raw frames; neither frames nor
+statistics are persisted in Task context or admitted as chat instructions.
+Only negotiated visual authorization/control receipts gain a 64KiB bound for
+the existing 19-publisher/four-source maximum; callbacks and legacy controls
+retain 16KiB limits. Separate persistence, authority and execution modules
+protect SRP/DIP. The existing broad dialog composition service remains SRP debt.
+
+The final focused wiring gate passed36 tests in23.26s, including policy changes,
+parent cancellation and unavailable locks at completion admission. Earlier
+100 Hub/contract checks,33 Worker/audio checks and286 integration regressions
+also passed (one explicit runtime-inventory opt-in skip). These are technical
+observations. The next gate uses an immutable packaged Worker and real private
+Meet browsers for separately granted camera/screen sources; no public deploy,
+production trust or semantic scene understanding is claimed.

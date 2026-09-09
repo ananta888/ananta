@@ -12,7 +12,10 @@ from ananta_contracts.meet_avatar_image import validate_avatar_projection
 from ananta_contracts.meet_avatar_video import validate_video_projection
 from ananta_contracts.meet_browser_workspace import require_browser_assignment, validate_browser_source
 from ananta_contracts.meet_dialog import (
+    MAX_DIALOG_BYTES,
+    MAX_VISUAL_CONTROL_BYTES,
     parse,
+    parse_visual_control,
     request_signature,
     response_signature,
     validate_callback,
@@ -47,6 +50,7 @@ class HubDialogClient:
         self.avatar_videos = assignment.get("avatar_videos") is True
         self.voice_profiles = assignment.get("voice_profiles") is True
         self.browser_workspace = assignment.get("browser_workspace") is True
+        self.visual_receive = "video.receive" in assignment["capabilities"]
         self.browser_assignment = {
             name: assignment[name]
             for name in (
@@ -108,19 +112,26 @@ class HubDialogClient:
         )
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         deadline = time.monotonic() + budget
+        visual_control = action == "exchange" and self.visual_receive
         try:
             with opener.open(request, timeout=budget) as response:
-                raw = read_bounded(response, maximum=16384, deadline=deadline)
+                raw = read_bounded(
+                    response,
+                    maximum=MAX_VISUAL_CONTROL_BYTES if visual_control else MAX_DIALOG_BYTES,
+                    deadline=deadline,
+                )
                 signed = response.headers.get("X-Ananta-Dialog-Signature", "")
             if not hmac.compare_digest(response_signature(self.key, body, raw), signed):
                 raise ValueError()
-            value = parse(raw)
+            value = (parse_visual_control if visual_control else parse)(raw)
             schema = {
                 "exchange": "ananta.meet-dialog-state.v1",
                 "chat": "ananta.meet-dialog-answer.v1",
                 "finish": "ananta.meet-dialog-finished.v1",
                 "audio": "ananta.meet-audio-assignment.v1",
                 "transcript": "ananta.meet-audio-result.v1",
+                "visual": "ananta.meet-visual-assignment.v1",
+                "visual_result": "ananta.meet-visual-accepted.v1",
                 "browser_finish": "ananta.meet-browser-finished.v1",
             }[action]
             fields = {
@@ -129,6 +140,8 @@ class HubDialogClient:
                 "finish": set(),
                 "audio": {"job"},
                 "transcript": {"reply"},
+                "visual": {"job"},
+                "visual_result": set(),
                 "browser_finish": set(),
             }[action]
             if action == "exchange" and self.avatar_images:
@@ -137,6 +150,8 @@ class HubDialogClient:
                 fields = fields | {"voice"}
             if action == "exchange" and self.browser_workspace:
                 fields = fields | {"browser"}
+            if action == "exchange" and self.visual_receive:
+                fields = fields | {"visual_job"}
             if (
                 not isinstance(value, dict)
                 or set(value) != {"schema", "nonce"} | fields
