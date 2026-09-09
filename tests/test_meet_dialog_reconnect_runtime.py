@@ -144,3 +144,36 @@ def test_readiness_also_requires_fresh_hub_policy_and_never_hands_off_after_revo
     with pytest.raises(ValueError, match="revoked"):
         f.run()
     assert not starts(f.page) and f.session.closed and f.exchanges[0].closed
+
+
+def test_wall_clock_rollback_after_admission_cannot_extend_monotonic_recovery_window():
+    f = setup(grant_at=300)
+    with pytest.raises(ValueError, match="stale"):
+        reconnect_session(
+            f.assignment,
+            f.hub,
+            f.page,
+            f.session,
+            "synthetic-old",
+            progress=f.progress,
+            clock=lambda: f.page.now,
+            wall_clock=lambda: 1,
+            exchange_factory=f.factory,
+        )
+    assert f.page.now == pytest.approx(130) and not starts(f.page)
+    assert f.exchanges[0].closed
+
+
+def test_delayed_admission_consumes_recovery_budget_instead_of_starting_a_new_thirty_seconds():
+    f = setup(grant_at=300)
+    call = f.hub.call.side_effect
+
+    def delayed(action, **fields):
+        if fields["attempt"] == 0:
+            f.page.now += 2
+        return call(action, **fields) | {"deadline_ms": 132000}
+
+    f.hub.call.side_effect = delayed
+    with pytest.raises(ValueError, match="stale"):
+        f.run()
+    assert f.page.now == pytest.approx(130) and not starts(f.page)

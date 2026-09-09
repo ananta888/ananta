@@ -31,6 +31,7 @@ pytestmark = [
         "worker-crash",
         "terminal-control",
         "runtime-stall",
+        "room-reconnect",
         "speaker-fifo",
         "speaker-barge-in",
         pytest.param(
@@ -66,6 +67,7 @@ pytestmark = [
         "worker-crash",
         "terminal-control",
         "runtime-stall",
+        "room-reconnect",
         "speaker-fifo",
         "speaker-barge-in",
         "guarded-turn-udp",
@@ -106,6 +108,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
     from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
     from tests.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
+    from tests.meet_multi_worker_room_recovery import MultiWorkerRoomRecovery
     from tests.meet_multi_worker_speaker_floor import multi_worker_media
     from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
     from tests.meet_multi_worker_terminal_observations import terminal_observations
@@ -129,6 +132,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_crash = media_mode in {"worker-crash", "runtime-stall"}
     terminal_control = MultiWorkerTerminalControl(media_mode == "terminal-control")
     guarded_turn = MultiWorkerGuardedTurn(media_mode)
+    room_recovery = MultiWorkerRoomRecovery(media_mode == "room-reconnect")
     capabilities = media.capabilities if media is not None else ["screen.publish"]
     duration_seconds = media.start_options["duration_seconds"] if media is not None else 120
     with ExitStack() as cleanup:
@@ -140,6 +144,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
             | {
                 "MEET_TEST_HUB_PUBLIC_KEY": str(public),
                 "MEET_MULTI_WORKER_MEDIA_GATE": "1" if media is not None else "0",
+                "MEET_MULTI_WORKER_RECONNECT_GATE": "1" if room_recovery.enabled else "0",
             },
             text=True,
             stdin=subprocess.PIPE,
@@ -267,17 +272,21 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         reservations, dispatches = SqlChatReservations(engine), SqlChatDispatches(engine)
         reservations.initialize()
         dispatches.initialize()
+        meet_client = MeetAuthorizationClient(authority, issuer)
+        worker_router = MeetDialogWorkerRouter(authority, tasks, transports, origins[0])
+        room_recovery.observe_dispatch(monkeypatch, worker_router)
         service = MeetDialogService(
             authority,
             tasks,
-            MeetAuthorizationClient(authority, issuer),
+            meet_client,
             issuer,
-            MeetDialogWorkerRouter(authority, tasks, transports, origins[0]),
+            worker_router,
             transports[origins[0]],
             reservations,
             dispatches,
             **(media.service_options(binding, dispatches) if media is not None else {}),
             **browser.service_options(authority, tasks),
+            **room_recovery.service_options(engine, authority, tasks, meet_client, issuer),
         )
         exchange_failures = []
         exchange_states = {}
@@ -396,7 +405,10 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         if control_recovery.enabled:
             assert command("screens") == both, "both screens must keep moving after the actual recovery"
         browser.exercise(app, principal, started, containers, command, record_property)
-        if media_mode == "runtime-stall":
+        room_recovery.exercise(app, service, started, command)
+        if room_recovery.enabled:
+            room_recovery.exhaust(app, tasks, started, command, record_property)
+        elif media_mode == "runtime-stall":
             from tests.meet_multi_worker_runtime_stall import stall_owned_runtime
 
             stall_owned_runtime(containers[0], record_property)
@@ -416,7 +428,11 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         terminal_control.wait_stopped(app, tasks)
         with app.app_context():
             assert tasks.get_by_id(started[0]["task_id"]).status == (
-                "in_progress" if worker_crash else "failed" if terminal_control.enabled else "cancelled"
+                "in_progress"
+                if worker_crash
+                else "failed"
+                if terminal_control.enabled or room_recovery.enabled
+                else "cancelled"
             )
             assert tasks.get_by_id(started[1]["task_id"]).status == "in_progress"
         revoke_started = time.monotonic()
@@ -436,7 +452,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                 app, tasks, started[0]["task_id"], record_property, container_killed=media_mode == "worker-crash"
             )
         expected_statuses = [
-            "failed" if worker_crash or terminal_control.enabled else "cancelled",
+            "failed" if worker_crash or terminal_control.enabled or room_recovery.enabled else "cancelled",
             "failed" if preauthorization is not None else "cancelled",
         ]
         observations = terminal_observations(

@@ -193,3 +193,37 @@ pending join, policy withdrawal and resource progress fencing. Logs:
 `/tmp/ananta-meet-reconnect-{executor,lifecycle}.log`. These are synthetic
 technical checks; packaged Worker disconnect/rejoin and separate receiver
 acceptance remain required before MAP-11 is done or deployment is enabled.
+
+## Actual packaged screen recovery
+
+Full Worker build from `af4e895bd` (no source overlays), immutable image
+`sha256:e0cea0174a7e171a31df8b9fa119a5b61812643f5efc97d84d4f7ba0ea6245c2`,
+and a fresh private Meet `0d3d1ea` frontend passed the two-Worker recovery gate
+in 61.89 seconds. Native Hub SQL/phase/retirement ports, actual signed calls,
+two separate non-root read-only Workers and the separate receiver were used.
+Exact first-member socket termination led to two new memberships with later
+epochs and moving screens after 7858.77 / 7136.32 ms. Original Task, dispatch,
+runtime, owner device and deadline were retained; the actual dispatch port
+recorded only the two initial assignments. Retired sessions were rejected.
+A third interruption exhausted recovery and settled `failed` in 714.09 ms;
+the second Worker continued and was separately cancelled. No human captures,
+transform errors or proxy connection drops were observed.
+
+The first two attempts never reached admission: Docker reported its predefined
+address pools fully subnetted. Fourteen individually inspected, empty internal
+`meet-test-tls-*` networks from earlier tests were removed, without touching
+service networks, containers or persistent data. The next run completed both
+recoveries (8023.79 / 7077.65 ms) and exhausted-stop (168.78 ms), but failed an
+old fixture-only terminal expectation of `cancelled`; the new failure scenario
+must expect `failed`. The final run above includes that correction, unchanged
+runtime limits and complete cleanup. These historical failures are not hidden.
+Logs `/tmp/ananta-meet-room-reconnect{,-diagnostic,-clean-network,-final}.log`;
+the final XML contains the bounded measurement projection. A combined 233-test
+recovery/policy/phase/HTTP/progress regression also passed in 88.50 seconds
+(`/tmp/ananta-meet-reconnect-regression.log`).
+
+This verifies private screen recovery, not production release evidence, public
+TURN/HA or old-speech/receive-consent rejection in a live multimedia reconnect.
+The multimedia follow-up must interrupt active speech, verify no old audio
+replay, retain independent persona/screens, and require fresh receive consent
+before a new correlated reply. MAP-11 remains in progress pending that check.
