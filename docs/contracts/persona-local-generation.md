@@ -89,8 +89,23 @@ Their test-only injected runner now uses the explicitly provisioned private
 FFmpeg/FFprobe prefix; production container paths remain fixed and no host
 packages were installed.
 
-The immutable-image, two-container HTTP chain is the next acceptance step.
-These local component observations use explicit synthetic authority and are
+The immutable-image, two-container HTTP chain passed both image and video
+cases in 43.06 seconds, using source `97ea97b33` and image
+`sha256:66d63f5173f1b1bb943079a27923836dc33515968224020f6573ccb047b33e39`.
+Each case used a generation container and a separate inspection container,
+actual Hub project authority and API, distinct queue Tasks and reserved runs,
+immutable storage, preview-only default policy and API revocation (subsequent
+preview denied with 409). Image preview was 2,061 bytes; video was exactly 24
+frames with a 9,800-byte preview. Resource limits and exact ownership-based
+cleanup were checked; no owned containers remained. The final focused
+regression passed 230 tests in 88.93 seconds with two explicit native opt-in
+skips; those native paths passed separately in the enabled gates above.
+
+MAP-18 is complete for the bounded supported profiles: existing scoped upload,
+licensed voice-preset selection, independent rights/provenance, private
+preview, profile binding, revocation/erasure and the native generation chain.
+This does not claim voice cloning, photorealism, or completion of the remaining
+live receive/recovery/soak tasks. These local observations use synthetic authority and are
 not production release evidence. Shared management authority was extracted
 to avoid duplicating scope checks (SRP/DIP); the existing signed server and
 bounded subprocess runner are reused through their transport/execution seams.
