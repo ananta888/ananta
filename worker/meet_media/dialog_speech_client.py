@@ -22,7 +22,7 @@ from worker.meet_media.persona_http import NoRedirect, read_bounded
 
 
 class HubSpeechClient:
-    def __init__(self, dialog_url, key, identifiers, deadline):
+    def __init__(self, dialog_url, key, identifiers, deadline, *, floor_required=False):
         parsed = urlsplit(dialog_url)
         if (
             parsed.scheme not in {"http", "https"}
@@ -37,6 +37,9 @@ class HubSpeechClient:
         self.url, self.key = dialog_url + "/speech", key
         self.ids = {name: identifiers[name] for name in ("task_id", "lease_id", "runtime_id")}
         self.deadline = deadline
+        if type(floor_required) is not bool:
+            raise ValueError("meet_speaker_negotiation_invalid")
+        self.floor_required = floor_required
 
     def reply(self, event, binding):
         """Return authenticated PCM for exactly the caller's current projection."""
@@ -84,7 +87,11 @@ class HubSpeechClient:
             if not hmac.compare_digest(spoken_response_signature(self.key, raw, body), signature):
                 raise ValueError()
             result = decode_spoken_response(
-                parse_spoken(body, response=True), payload, binding, int(time.time() * 1000)
+                parse_spoken(body, response=True),
+                payload,
+                binding,
+                int(time.time() * 1000),
+                floor_required=self.floor_required,
             )
             if time.monotonic() >= deadline:
                 raise ValueError()

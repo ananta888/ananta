@@ -22,6 +22,7 @@ from ananta_contracts.meet_dialog import (
     validate_controls,
 )
 from ananta_contracts.meet_dialog_voice import validate_voice_projection
+from ananta_contracts.meet_speaker_floor import validate_speaker_permit
 from worker.meet_media.contract import encode, load_key
 from worker.meet_media.dialog_avatar_image_client import HubAvatarImageClient
 from worker.meet_media.dialog_avatar_video_client import HubAvatarVideoClient
@@ -32,6 +33,8 @@ from worker.meet_media.persona_http import read_bounded
 
 class HubDialogClient:
     def __init__(self, assignment):
+        self.speaker_floor = assignment.get("speaker_floor", False)
+        self.speech_finished = None
         self.url = os.environ.get("MEET_HUB_DIALOG_URL", "")
         parsed = urlsplit(self.url)
         if (
@@ -67,7 +70,16 @@ class HubDialogClient:
         self.deadline = time.monotonic() + min(7200, assignment["deadline"] - time.time())
 
     def spoken(self, event, binding):
-        return HubSpeechClient(self.url, self.key, self.ids, self.deadline).reply(event, binding)
+        return HubSpeechClient(self.url, self.key, self.ids, self.deadline, floor_required=self.speaker_floor).reply(
+            event, binding
+        )
+
+    def report_speech_finished(self, permit):
+        if not self.speaker_floor:
+            raise ValueError("meet_speaker_not_negotiated")
+        # One immutable local reference, not another task queue. Repeating this
+        # exact completion in control reads is safe and does not extend a permit.
+        self.speech_finished = validate_speaker_permit(permit)
 
     def report_terminal(self, observation):
         from worker.meet_media.dialog_diagnostics_client import report_terminal
@@ -103,6 +115,8 @@ class HubDialogClient:
             "sent_at": int(time.time()),
             **fields,
         }
+        if action == "exchange" and self.speaker_floor and self.speech_finished is not None:
+            payload["speech_finished"] = self.speech_finished
         validate_callback(payload, time.time())
         body = encode(payload)
         request = urllib.request.Request(
@@ -152,6 +166,8 @@ class HubDialogClient:
                 fields = fields | {"browser"}
             if action == "exchange" and self.visual_receive:
                 fields = fields | {"visual_job"}
+            if action == "exchange" and self.speaker_floor:
+                fields = fields | {"speaker_floor"}
             if (
                 not isinstance(value, dict)
                 or set(value) != {"schema", "nonce"} | fields
@@ -161,6 +177,8 @@ class HubDialogClient:
                 raise ValueError()
             if action == "exchange":
                 validate_controls(value["controls"])
+                if self.speaker_floor and value["speaker_floor"] is not None:
+                    validate_speaker_permit(value["speaker_floor"])
                 if self.avatar_images:
                     (validate_video_projection if self.avatar_videos else validate_avatar_projection)(value["avatar"])
                 if self.voice_profiles:

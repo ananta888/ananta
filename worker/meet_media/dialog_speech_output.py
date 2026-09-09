@@ -7,6 +7,7 @@ from ananta_contracts.meet_speech_source import FRAME_SAMPLES
 from ananta_contracts.meet_spoken_reply import SpokenReply, validate_spoken_binding
 from worker.meet_media.audio_output import SpeechFrame
 from worker.meet_media.browser_speech_playback import BrowserSpeechPlayback
+from worker.meet_media.speaker_permit import SpeakerPermitGate
 from worker.meet_media.speech_browser import BrowserSpeechPort
 from worker.meet_media.speech_opening import BrowserSpeechOpening
 from worker.meet_media.speech_publication import SpeechPublication, validate_publication_input
@@ -69,8 +70,10 @@ class DialogSpeechOutput:
         browser=None,
         opening_factory=_DEFAULT_OPENING,
         playback_factory=_DEFAULT_PLAYBACK,
+        finished=None,
     ):
         self.page, self.assignment, self.clock, self.monotonic = page, assignment, clock, monotonic
+        self.speaker_gate = SpeakerPermitGate(assignment.get("speaker_floor", False), clock=clock, finished=finished)
         self.browser = (
             browser
             if browser is not None
@@ -104,7 +107,12 @@ class DialogSpeechOutput:
     def busy(self):
         return self.publication is not None or self.opening is not None
 
-    def update(self, receipt, controls, voice=None):
+    def update(self, receipt, controls, voice=None, *, speaker_floor=None):
+        try:
+            self.speaker_gate.update(speaker_floor)
+        except ValueError:
+            self.invalidate()
+            raise
         if self.assignment.get("voice_profiles") is True:
             try:
                 voice = validate_voice_projection(voice)
@@ -155,6 +163,7 @@ class DialogSpeechOutput:
             != self.binding
         ):
             raise ValueError("meet_dialog_speech_authority_changed")
+        self.speaker_gate.deadline(self.binding["deadline_ms"])
         # This pure checkpoint owns Hub policy. BrowserSpeechPort checks actual
         # local membership, exact lease and chat on both sides of each source
         # operation, without separate cached browser-authority RPCs.
@@ -162,11 +171,12 @@ class DialogSpeechOutput:
     def _playback_authority(self):
         self.require_current()
         now = self.clock() * 1000
+        deadline = self.speaker_gate.deadline(self.binding["deadline_ms"])
         return {
             "url": self.url,
             "lease": dict(self.receipt["lease"]),
-            "deadline": self.binding["deadline_ms"],
-            "hubUntil": min(self.binding["deadline_ms"], int(now + (self.fresh_until - self.monotonic()) * 1000)),
+            "deadline": deadline,
+            "hubUntil": min(deadline, int(now + (self.fresh_until - self.monotonic()) * 1000)),
         }
 
     def accept(self, result, binding):
@@ -174,6 +184,7 @@ class DialogSpeechOutput:
             return False
         self.binding = binding
         try:
+            self.speaker_gate.accept(result.speaker_floor, binding["deadline_ms"])
             self.require_current()
             if type(result.pcm) is not bytes or len(result.pcm) % 2:
                 raise ValueError("meet_speech_publication_invalid")
@@ -262,10 +273,19 @@ class DialogSpeechOutput:
         publication, self.publication = self.publication, None
         opening, self.opening = self.opening, None
         self.pcm, self.binding = b"", None
-        if opening is not None:
-            opening.close()
-        if publication is not None:
-            publication.close()
+        stopped = False
+        try:
+            try:
+                if opening is not None:
+                    opening.close()
+            finally:
+                if publication is not None:
+                    publication.close()
+            stopped = True
+        finally:
+            # A failing source close is not a successful completion report.
+            # The Hub retains its hard deadline/quarantine if no report arrives.
+            self.speaker_gate.close(report=stopped)
 
     def invalidate(self):
         self.voice_epoch += 1

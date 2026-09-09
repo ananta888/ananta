@@ -96,3 +96,18 @@ integration must additionally require negotiation and exact current ownership.
 74 contract/legacy transport tests passed in 36.33 s, including expiry,
 unnegotiated/missing permit, numeric ambiguity and foreign-action completion.
 Log: `/tmp/ananta-meet-speaker-contract.log`. Runtime activation is still pending.
+
+Worker output now uses the separate `SpeakerPermitGate`: authenticated PCM
+needs an identical fresh Hub control permit, a bounded deadline and an unused
+sequence. Expiry, withdrawal, changed permit or stale ordinary control closes
+only the owned speech source. A retired sequence cannot reopen after an old
+control projection. Browser-local playback receives the shorter floor deadline.
+Only successful source cleanup hands off one content-free completion locally;
+the ordinary signed control exchange repeats that exact completion idempotently,
+without another Worker scheduler or blocking cleanup HTTP request.
+
+43 output/runtime tests passed in 24.98 s; 37 real loopback speech-HTTP and
+control-exchange tests passed in 23.05 s. A further combined 78-test run in
+38.82 s covers signed control projection/completion, legacy read behavior and
+the SQL owner projection. The Hub composition and actual two-speaker room
+test are still pending; no live floor claim is made from these tests.

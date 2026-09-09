@@ -19,11 +19,13 @@ KEY = b"synthetic-local-http-speech-key-32"
 
 
 @contextmanager
-def endpoint(mode="ok"):
+def endpoint(mode="ok", *, speaker_floor=False):
     request, binding, result = packet(22050)
     binding["deadline_ms"] = (int(time.time()) + 60) * 1000
     request["event"]["sent_at_ms"] = int(time.time() * 1000)
     result["reply"]["binding"] = copy.deepcopy(binding)
+    if speaker_floor:
+        result["reply"]["speaker_floor"] = {"id": "f" * 64, "sequence": 1, "expires_ms": binding["deadline_ms"] - 1000}
     seen = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -69,7 +71,12 @@ def endpoint(mode="ok"):
     thread.start()
     try:
         url = f"http://127.0.0.1:{server.server_port}/api/meet/v1/internal/dialog"
-        yield HubSpeechClient(url, KEY, request, time.monotonic() + 5), request["event"], binding, seen
+        yield (
+            HubSpeechClient(url, KEY, request, time.monotonic() + 5, floor_required=speaker_floor),
+            request["event"],
+            binding,
+            seen,
+        )
     finally:
         server.shutdown()
         server.server_close()
@@ -86,6 +93,30 @@ def test_real_http_receives_pcm_only_under_new_signature_and_closed_binding(monk
         assert seen[0][1].get("Authorization") is None
         assert seen[0][1].get("X-Ananta-Dialog-Signature") is None
         assert "Hallo" not in repr(result)
+
+
+def test_real_http_floor_handoff_is_authenticated_and_negotiated():
+    with endpoint(speaker_floor=True) as (client, event, binding, seen):
+        result = client.reply(event, binding)
+        assert result.speaker_floor == {"id": "f" * 64, "sequence": 1, "expires_ms": binding["deadline_ms"] - 1000}
+        assert len(result.pcm) == 44100 and len(seen) == 1
+
+
+@pytest.mark.parametrize("mode", ["signature", "request_binding", "legacy_signature"])
+def test_real_http_floor_does_not_weaken_response_authentication(mode):
+    with endpoint(mode, speaker_floor=True) as (client, event, binding, seen):
+        with pytest.raises(ValueError, match="revoked_or_unavailable"):
+            client.reply(event, binding)
+        assert len(seen) == 1
+
+
+@pytest.mark.parametrize("server_floor", [True, False])
+def test_real_http_floor_mode_mismatch_has_no_pcm_or_fallback(server_floor):
+    with endpoint(speaker_floor=server_floor) as (client, event, binding, seen):
+        client.floor_required = not server_floor
+        with pytest.raises(ValueError, match="revoked_or_unavailable"):
+            client.reply(event, binding)
+        assert len(seen) == 1
 
 
 @pytest.mark.parametrize(

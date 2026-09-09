@@ -90,7 +90,11 @@ def run(assignment, hub, *, progress=None):
         session.join(assignment["meeting"]["room_id"], assignment["meeting"]["grant"])
         local_status = "(({joined, lease}) => ({joined, lease}))(window.anantaMachine.status())"
         meet_session = page.evaluate(local_status)["lease"]["sessionId"]
-        speech = DialogSpeechOutput(page, assignment)
+        speech = DialogSpeechOutput(
+            page,
+            assignment,
+            **({"finished": hub.report_speech_finished} if assignment.get("speaker_floor") is True else {}),
+        )
         cleanup.callback(speech.close)
         chat = DialogChatPump(page, hub, assignment, speech=speech)
         cleanup.callback(chat.close)
@@ -154,10 +158,11 @@ def run(assignment, hub, *, progress=None):
                 else:
                     visual = start_visual(page, hub, assignment, state, meet_session)
                 chat.update(receipt, controls["chat"])
+                floor = {"speaker_floor": state["speaker_floor"]} if assignment.get("speaker_floor") is True else {}
                 if assignment.get("voice_profiles") is True:
-                    speech.update(receipt, controls, state["voice"])
+                    speech.update(receipt, controls, state["voice"], **floor)
                 else:
-                    speech.update(receipt, controls)
+                    speech.update(receipt, controls, **floor)
                 if assignment.get("avatar_images") is True:
                     avatar.update(receipt, controls, state["avatar"])
                 else:

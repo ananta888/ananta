@@ -17,12 +17,15 @@ from worker.meet_media.dialog_control_exchange import DialogControlExchange
 
 
 @contextmanager
-def http_hub(tmp_path, monkeypatch, responses):
+def http_hub(tmp_path, monkeypatch, responses, *, speaker_floor=False, floor_projection=None, observe=None):
     key = b"synthetic-control-read-key-material"
     key_file = tmp_path / "control.key"
     key_file.write_bytes(key)
     key_file.chmod(0o600)
     value, calls = assignment(), []
+    if speaker_floor:
+        value["speaker_floor"] = True
+        value["capabilities"] = sorted(set(value["capabilities"]) | {"speech.publish", "chat.read", "chat.send"})
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
@@ -31,6 +34,8 @@ def http_hub(tmp_path, monkeypatch, responses):
             body = self.rfile.read(size)
             assert self.headers["X-Ananta-Dialog-Signature"] == request_signature(key, body)
             payload = json.loads(body)
+            if observe is not None:
+                observe(payload)
             calls.append(payload["action"])
             result = responses.pop(0)
             if isinstance(result, tuple):
@@ -53,6 +58,7 @@ def http_hub(tmp_path, monkeypatch, responses):
                     "renewal": None,
                     "audio_job": None,
                     "controls": initial_controls(value["capabilities"], "off", "off", int(time.time()) * 1000),
+                    **({"speaker_floor": floor_projection} if speaker_floor else {}),
                 }
             )
             self.send_response(200)
