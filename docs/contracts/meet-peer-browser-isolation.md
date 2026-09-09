@@ -49,3 +49,12 @@ cross-repository fixture remains acknowledged composition debt; neither this
 adapter nor the companion gains a Hub Task queue, identity issuer or Worker
 orchestration authority. Test identities remain synthetic and production
 release-ineligible.
+# Native quality-failure diagnostics
+
+The first isolated peer smoke reached actual chat and screen execution but
+failed after 49.81 seconds with `meet_media_timing_source_failed`; it did not
+establish soak readiness. The native fixture now retains at most one strictly
+validated, content-free timing snapshot on rejection. Invalid snapshots produce
+only a fixed marker. The real irreversible quality fence, its thresholds and
+the original exception are unchanged. This observer is a separate test helper
+(SRP); the existing large cross-repository fixture remains extraction debt.

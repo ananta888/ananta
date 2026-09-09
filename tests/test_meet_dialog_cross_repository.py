@@ -418,6 +418,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         completed = threading.Event()
         chat_ready = threading.Event()
         failures = []
+        from tests.meet_media_timing_observer import observe_media_timing_failure
+
+        observe_media_timing_failure(monkeypatch, record_property)
         inject_private_frame = threading.Event()
         take_frame = OwnedDialogScreen.take
 
