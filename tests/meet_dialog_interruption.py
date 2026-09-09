@@ -24,20 +24,26 @@ class SyntheticToneWorker:
         self.seconds = seconds
 
     def execute(self, turn):
-        frame = b"".join(struct.pack("<h", round(12000 * math.sin(2 * math.pi * 500 * n / 22050))) for n in range(441))
-        output = io.BytesIO()
-        with wave.open(output, "wb") as audio:
-            audio.setframerate(22050)
-            audio.setnchannels(1)
-            audio.setsampwidth(2)
-            audio.writeframes(frame * (50 * self.seconds))
-        return speech_result(profile=turn["speech_profile"], samples=22050 * self.seconds) | {
-            "task_id": turn["task_id"],
-            "lease_id": turn["lease_id"],
-            "audio": {"mime": "audio/wav", "base64": base64.b64encode(output.getvalue()).decode()},
-            "text": "Synthetic Hub answer",
-            "usage": {"input_tokens": 20, "output_tokens": 8},
-        }
+        return synthetic_tone_result(turn, self.seconds)
+
+
+def synthetic_tone_result(turn, seconds):
+    if type(seconds) is not int or seconds not in {4, 10, 14, 20}:
+        raise ValueError("test_tone_duration_invalid")
+    frame = b"".join(struct.pack("<h", round(12000 * math.sin(2 * math.pi * 500 * n / 22050))) for n in range(441))
+    output = io.BytesIO()
+    with wave.open(output, "wb") as audio:
+        audio.setframerate(22050)
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.writeframes(frame * (50 * seconds))
+    return speech_result(profile=turn["speech_profile"], samples=22050 * seconds) | {
+        "task_id": turn["task_id"],
+        "lease_id": turn["lease_id"],
+        "audio": {"mime": "audio/wav", "base64": base64.b64encode(output.getvalue()).decode()},
+        "text": "Synthetic Hub answer",
+        "usage": {"input_tokens": 20, "output_tokens": 8},
+    }
 
 
 class HubInterruptionControl:

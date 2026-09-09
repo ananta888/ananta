@@ -302,7 +302,7 @@
     {
       "id": "MAP-M7",
       "title": "Zuhören und kontrollierte Gesprächsteilnahme",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "MAP-25",
         "MAP-26",
@@ -1011,10 +1011,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M7",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 65.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-22",
         "MAP-25"
@@ -1028,7 +1028,8 @@
         "Event-/Message-ID, Sessiongeneration, Sender und Antwortkorrelation binden; Deduplikation, per-Raum-/Sender-Rate-Limit, Cooldown, maximale Antwortlänge und LLM-/Token-/Kostenbudget testen. Eigene KI-Nachrichten und KI-zu-KI-Schleifen ohne explizite Hub-Policy ignorieren.",
         "LLM-Antwort aus begrenztem zulässigem Kontext erzeugen und über vorhandene Chat-/TTS-/Avatar-Ports publizieren. Zwischen Generierung und Ausgabe Rechte und Turn-Generation erneut prüfen; Abbruch, Barge-in und Widerruf verwerfen veraltete Ergebnisse."
       ],
-      "implementation_note": "Hub-Chat-Admission und einmalige Antwortausführung implementiert: geschlossener Draft-Eventvertrag, default-aus Policy, Self-/Machine-Input-Schutz, SQL-atomare Deduplikation/Budgets, gebundene Dispatch-Receipts und reale TaskQueue-Materialisierung. LLM-Token-/Zeichengrenzen bis zum lokalen GPU-Worker durchgesetzt; Antwort korreliert, aber published=false. Alte v1-Publikationsleases verweigern Chat-Tasks. Echte RTX-3080-Taskausführung mit synthetischer Autorität getestet. MDS-Abstimmung, produktiver Autoritäts-/Eventadapter, generationsgebundener Antworttransport und kontinuierlicher Dialog bleiben offen. Details: docs/contracts/meet-chat-admission.md."
+      "implementation_note": "Hub-Chat-Admission und einmalige Antwortausführung implementiert: geschlossener Draft-Eventvertrag, default-aus Policy, Self-/Machine-Input-Schutz, SQL-atomare Deduplikation/Budgets, gebundene Dispatch-Receipts und reale TaskQueue-Materialisierung. LLM-Token-/Zeichengrenzen bis zum lokalen GPU-Worker durchgesetzt; Antwort korreliert, aber published=false. Alte v1-Publikationsleases verweigern Chat-Tasks. Echte RTX-3080-Taskausführung mit synthetischer Autorität getestet. MDS-Abstimmung, produktiver Autoritäts-/Eventadapter, generationsgebundener Antworttransport und kontinuierlicher Dialog bleiben offen. Details: docs/contracts/meet-chat-admission.md.",
+      "speaker_floor_acceptance": "2026-09-09: MAP26 acceptance criteria audited against current native Hub chat/ASR paths and negotiated durable speaker floor. Real two immutable packaged Worker/Meet receiver gates passed FIFO90.19s and role-policy barge-in93.15s:1816/1647 fresh samples, no sampled overlap, max observation gaps51/38ms, first FIFO voice14000ms, interrupted voice13780ms of20000ms with last audio913ms after preemption; second speaker observes4s quarantine. Exactly2native replies and independent source/task cleanup per case.304focused admission/policy/contract/output/native-dialog/fixture regressions pass136.50s;23companion observer/helper tests pass0.680s. Earlier fixture failures and corrected bounded readiness phases documented, no runtime/security limit relaxed. docs/contracts/meet-speaker-floor.md. Explicit synthetic-policy/PCM technical observations, not GPU/public/soak/production evidence. MAP24/11/30/31/32 remain separate unfinished tasks; historical notes retained."
     },
     {
       "id": "MAP-27",
@@ -1213,12 +1214,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 3,
+      "in_progress": 2,
       "partial": 3,
       "blocked": 0,
-      "done": 25
+      "done": 26
     },
-    "progress_percent_done": 78.1,
+    "progress_percent_done": 81.2,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1238,9 +1239,9 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 4,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "summary_notes": [
@@ -1330,15 +1331,15 @@
         "total": 16,
         "by_status": {
           "todo": 0,
-          "in_progress": 2,
+          "in_progress": 1,
           "partial": 1,
           "blocked": 0,
-          "done": 13
+          "done": 14
         },
-        "done": 13,
+        "done": 14,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 92.5
+        "progress_percent": 94.7
       },
       "infrastructure": {
         "total": 1,
@@ -1387,20 +1388,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 3,
+    "in_progress": 2,
     "partial": 3,
     "blocked": 0,
-    "done": 25,
-    "count_based_percent": 78.1,
-    "weighted_percent": 85.9
+    "done": 26,
+    "count_based_percent": 81.2,
+    "weighted_percent": 87.1
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 50.037,
-    "remaining_weight": 8.213,
+    "done_weight": 50.737,
+    "remaining_weight": 7.513,
     "blocked_weight": 0.0,
-    "weighted_percent": 85.9
+    "weighted_percent": 87.1
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1454,11 +1455,11 @@
       },
       "MAP-M7": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 88.3,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "MAP-M8": {
         "total_tasks": 4,
@@ -1473,10 +1474,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T05:07:20.221175Z",
+    "generated_at": "2026-09-09T06:26:54.004268Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "cf0ad92e24bca802d7b2f5c576e22a17f88ecf2bec66b47352cb409a5864b27f",
+    "source_hash": "a69415f703cb3f086a8385ebbc83d1496ac6484e42041c3e05bc4673529e8202",
     "is_stale": false
   }
 }

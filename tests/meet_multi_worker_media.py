@@ -50,8 +50,8 @@ class IndependentlyRevocableImages:
 class TwoReplyToneWorker:
     """Only records bounded child execution timing/bindings, never input or PCM."""
 
-    def __init__(self):
-        self._tone = SyntheticToneWorker(seconds=20)
+    def __init__(self, *, tone=None):
+        self._tone = tone if tone is not None else SyntheticToneWorker(seconds=20)
         self._condition = threading.Condition()
         self.calls = []
 
@@ -76,9 +76,9 @@ class MultiWorkerMediaScenario:
     capabilities = ["avatar.publish", "chat.read", "chat.send", "screen.publish", "speech.publish"]
     start_options = {"avatar_images": True, "chat_mode": "mention", "duration_seconds": 180}
 
-    def __init__(self):
+    def __init__(self, *, worker=None):
         self.images = IndependentlyRevocableImages()
-        self.worker = TwoReplyToneWorker()
+        self.worker = worker if worker is not None else TwoReplyToneWorker()
 
     def initial_options(self, index):
         if type(index) is not int or index not in (0, 1):
@@ -112,7 +112,7 @@ class MultiWorkerMediaScenario:
                 },
             )
 
-    def exercise(self, app, service, principal, started, command, record_property, wait_chat_ready):
+    def prepare_inputs(self, app, service, principal, started, command, wait_chat_ready):
         task_ids = [row["task_id"] for row in started]
         for index, color in enumerate(("red", "blue")):
             with app.app_context():
@@ -135,6 +135,10 @@ class MultiWorkerMediaScenario:
         for index in range(2):
             assert command("consent", publisher=index, enabled=True) == {"consent": index, "enabled": True}
         wait_chat_ready(0)
+        return task_ids
+
+    def exercise(self, app, service, principal, started, command, record_property, wait_chat_ready):
+        task_ids = self.prepare_inputs(app, service, principal, started, command, wait_chat_ready)
         assert command("ask") == {"sent": True}
         assert command("media", phase="first-speech") == {"audio": "first", "consecutive": 3}
         self.worker.await_room_cooldown(task_ids[0])

@@ -31,6 +31,8 @@ pytestmark = [
         "worker-crash",
         "terminal-control",
         "runtime-stall",
+        "speaker-fifo",
+        "speaker-barge-in",
         pytest.param(
             "guarded-turn-udp",
             marks=pytest.mark.skipif(
@@ -64,6 +66,8 @@ pytestmark = [
         "worker-crash",
         "terminal-control",
         "runtime-stall",
+        "speaker-fifo",
+        "speaker-barge-in",
         "guarded-turn-udp",
         "guarded-turn-tcp",
         "guarded-auto-udp",
@@ -102,7 +106,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     from tests.meet_multi_worker_browser import MultiWorkerBrowserScenario
     from tests.meet_multi_worker_control_recovery import MultiWorkerControlRecovery
     from tests.meet_multi_worker_guarded_turn import MultiWorkerGuardedTurn
-    from tests.meet_multi_worker_media import MultiWorkerMediaScenario
+    from tests.meet_multi_worker_speaker_floor import multi_worker_media
     from tests.meet_multi_worker_terminal_control import MultiWorkerTerminalControl
     from tests.meet_multi_worker_terminal_observations import terminal_observations
     from tests.test_meet_dialog_cross_repository import close_bridge
@@ -119,7 +123,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
     worker_key.write_bytes(hmac_key)
     worker_key.chmod(0o600)
     principal = HubSourcePrincipal("owner", "synthetic", "synthetic", frozenset({"user"}))
-    media = MultiWorkerMediaScenario() if media_mode is True else None
+    media = multi_worker_media(media_mode)
     browser = MultiWorkerBrowserScenario(media_mode == "browser")
     control_recovery = MultiWorkerControlRecovery(media_mode == "control-recovery")
     worker_crash = media_mode in {"worker-crash", "runtime-stall"}
@@ -156,7 +160,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
         def command(name, **fields):
             bridge.stdin.write(json.dumps({"command": name, **fields}) + "\n")
             bridge.stdin.flush()
-            response = receive()
+            response = receive(48 if name == "floor-result" else 25)
             assert "bridge_error" not in response, json.dumps(
                 {
                     "bridge": response,
@@ -164,6 +168,7 @@ def test_two_role_assigned_packaged_workers_share_owned_screens_and_stop_indepen
                     "relay_errors": guarded_turn.errors(containers),
                     "exchange_failures": exchange_failures,
                     "reply_count": len(media.worker.calls) if media is not None else 0,
+                    "speaker_floor": getattr(media, "floor_diagnostic", lambda: None)(),
                 }
             )
             return response

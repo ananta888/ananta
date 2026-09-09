@@ -183,3 +183,64 @@ tracked source `82a2508e7` without source overlays, producing local image
 `sha256:3592969d5c58f71053a3f613b3365949a7f4b20dbc04bf4e448d1036569c9318`.
 Subsequent changes here affect only Hub policy and its tests. The private
 two-Worker audio acceptance is the next required verification.
+
+## Actual two-Worker acceptance
+
+The private gate now starts two immutable, separately role-assigned Worker
+containers from the image above, the ordinary Hub dialog/task path, and a
+separate Meet receiver. Both publish their own moving screen and persona.
+The receiver pins the two actual connections from decoded screens and samples
+both audio receivers in the same callback every 20 ms, independently of chat
+panel navigation. Missing connections, more than 250 ms without observation,
+overlapping non-silent samples or a 60-second observation deadline fail closed.
+The test neither grants itself a floor permit nor bypasses SFrame or captures
+human media. Each input produces exactly one native correlated child task.
+
+On 2026-09-09, using Hub `badb5ec5b` and companion `cfca893` plus the bounded
+fixture corrections recorded with this acceptance:
+
+| Private scenario | Test duration | Fresh samples | Sampled overlap | Longest sample gap | First voice | Preemption-to-last-audio |
+|---|---:|---:|---:|---:|---:|---:|
+| Default FIFO | 90.19 s | 1816 | 0 | 51 ms | 14,000 ms | not applicable |
+| Explicit second-role barge-in | 93.15 s | 1647 | 0 | 38 ms | 13,780 ms of planned 20 s | 913 ms |
+
+Both include real non-silent output from the second Worker, terminal completion
+receipts, independent task/source shutdown and owned test-resource cleanup.
+The second speaker in the interrupt case starts only after the four-second
+Hub quarantine. This is sampled receiver evidence, not a claim of mathematically
+continuous measurement or of sub-sample overlap detection. Logs and JUnit:
+`/tmp/ananta-meet-speaker-fifo-staged.{log,xml}` and
+`/tmp/ananta-meet-speaker-barge-in.{log,xml}`.
+
+Three earlier FIFO attempts failed in the fixture. One diagnostic accessed a
+missing delegated `worker` property; the scenario now preserves that interface
+(LSP). Floor installation also waits for the two already-authorized screen DOM
+nodes to render before pinning their connections. The final observed timeout
+had 700 first-speaker and 79 second-speaker samples, zero overlap, a finished
+first permit and a still-active second permit: the old 18-second combined wait
+did not cover the existing 25-second Hub response budget plus source opening
+and four-second playback. Separate bounded reply and playback phases now do.
+No production admission, output, cleanup, security or resource limit changed.
+The earlier unclassified failure is not presented as a diagnosed transport bug.
+
+The receiver helper has 23 passing deterministic checks. The remaining MAP-26
+criteria use existing native chat/ASR paths: default-off and mention/question/
+room modes; immutable sender/event/session/turn identity; SQL deduplication,
+rate/cooldown/token/character/session budgets; rejection of self/machine input;
+bounded rejection of missing input; and rechecked authority before publication.
+Current-profile multimodal isolation is separately documented in
+`meet-multimodal-input-isolation.md`. Conversation text does not activate tools,
+change roles or issue policy. No new Worker scheduling loop was introduced.
+
+These are explicit synthetic-policy/PCM technical observations. They do not
+replace MAP-24 live A/V timing, MAP-11 recovery, MAP-30 GPU quality, MAP-31 public
+TURN/two-hour soak or MAP-32 registered release evidence. Serving infrastructure
+and trust configuration were not changed for this acceptance.
+
+The final targeted Python regression passed 304 tests in 136.50 seconds,
+covering speaker SQL/admission/policy/bootstrap, signed contracts, Worker
+output, native dialog integration, chat admission/replies/budgets and both
+old/new multi-Worker fixture contracts. Log:
+`/tmp/ananta-meet-floor-acceptance-regression.log`. Counts from earlier suites
+overlap and are not additive defect counts. MAP-26 is complete against its
+own criteria; the larger media track remains unfinished.
