@@ -102,3 +102,20 @@ The exact captured private network ID was absent after automatic teardown.
 This demonstrates the correction under this actual-browser synthetic fault;
 it does not replace the normal two-hour reference or establish GPU/public
 readiness. Production eligibility remains explicitly false.
+
+## Installed Worker follow-up
+
+After the updated Meet `c4ef486` full check passed, the separate two-installed-
+Worker reference passed at Ananta `4c53b51f3` with the same immutable `5d4be51c`
+image. `RUN_40a85ee7647e098bfeba13355d7bbc26` /
+`SRC_2f8d8127957c93af4b193f1e71e529cf` completed in 58.910 seconds, one pass,
+zero failures/errors/skips and unchanged inputs. Unlike the single-dialog
+fault test, both dialog executors actually ran from their installed image,
+without source bind mounts.
+
+Both independent media publishers, room reconnection and stop passed. Active
+cgroup memory samples were 270,184,448 / 266,997,760 bytes under each 1-GiB
+limit; PID samples were 108 / 104. Both returned to zero active dialog slots
+and five PIDs after stop. These are startup/active/terminal samples, not a
+continuous peak, GPU or long-run measurement. The current broader Ananta
+regression and normal two-hour reference remain separate verification steps.
