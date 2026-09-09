@@ -129,3 +129,28 @@ receiver freeze is not established as fixed. See the separate
 [delayed-ack cadence audit](meet-screen-ack-cadence.md) for the measured trace
 and bounded regression plan. Production-image/public-trust/GPU gates remain
 separate from this TEST run.
+
+## Matched Chromium-145 fast churn
+
+A subsequent private native diagnostic used the frozen `848a3d6` fixture and
+the same `803a77c0` frontend, with the Python installation's actual Playwright
+1.58.0 Node client and local Chromium headless 145.0.7632.6. Both the local
+binary and the binary read from immutable browser image `5d4be51c5dda` have
+SHA-256 `27e55cc30e487493b89b663085d6deeb0707be201a568657c922fac9076c317c`.
+The private launcher overrides only the test launch seam in memory; it does
+not replace installed packages, public services or the frozen fixture files.
+
+It passed 80 source activations through 39 explicit lease renewals in
+99.055 seconds (100.082 seconds including Node runner overhead), no skips or
+failures. Every activation checked remote decoded red/green pixels, duplicate
+track delivery, exactly one receiver video/transceiver, stable signaling and
+SDP below 12 KiB. Final checks found no machine capture or receiver transform
+errors. No source lifetime, consent or framing bound was extended.
+
+This removes the earlier Chromium-version mismatch for this **fast source-
+count diagnostic**, not all environment differences: the binary runs natively
+on the host through the fixture's ordinary launch path, not within the
+packaged browser's resource/sandbox boundary or the real two-hour Hub runtime.
+It is an unreserved synthetic technical observation, not retroactively issued
+Hub evidence or a causal repair claim. The newer full runtime reference still
+needs its own successful elapsed-time acceptance.
