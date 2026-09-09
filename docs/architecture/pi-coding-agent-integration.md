@@ -152,7 +152,7 @@ Prozessdefekte, nicht den Pi-Provider oder dessen Container-/Tool-Sicherheitsgat
 Prozessgruppen-Cleanup ist keine Sandbox gegen absichtlich aus der Gruppe
 ausbrechende Prozesse; diese Grenze bleibt Aufgabe des Worker-Containers.
 
-## Reale Paketprüfung und endgültiger Transportentscheid
+## Reale Paketprüfung und erster Transportentscheid
 
 Version 0.85.1 wurde anschließend ausschließlich in einem eigenen
 Runtime-Verzeichnis mit deaktivierten npm-Installationsskripten installiert.
@@ -281,3 +281,40 @@ privilegierten `ananta`-Benutzer an. Mit einem vorhandenen nicht privilegierten
 Container-Benutzer bestanden echte Node-/Pi-Versionsprobe und der folgende
 isolierte Aufruf ohne HOME-Umschreibung oder fremde Credentials. Ein extern
 abgewandeltes Image ohne auflösbare Benutzeridentität bleibt nicht bereit.
+
+## Revidierter Transportentscheid: begrenzter SDK-Prozess
+
+Der tatsächliche No-Tools-CLI-Negativlauf lieferte ein wichtiges Gegenbeispiel:
+Nach einem unerwarteten Modell-Toolcall führte Pi zwar keine Dateioperation
+aus, startete aber eine zweite Modellanfrage. Der spätere JSON-Parser lehnte
+das Ergebnis korrekt ab, konnte diese bereits erfolgte zusätzliche Anfrage
+jedoch nicht verhindern. Die CLI ist deshalb nicht mehr der ausreichende
+Transport für das Ein-Turn-Profil. RPC löst diese Ausführungsgrenze ebenfalls
+nicht durch einen anderen Nachrichtenkanal.
+
+`pi_sdk_entry.mjs` verwendet stattdessen das öffentliche SDK desselben
+gepinnten Pakets in einem weiterhin begrenzten Node-Prozess. Es lädt nur den
+expliziten Modell-/Konfigurationsbereich, deaktiviert Ressourcen, Tools,
+Compaction und Retries, verwendet eine In-Memory-Sitzung und beendet nach einem
+Turn. Zusätzlich verweigert der Stream-Adapter jede zweite Modellanfrage oder
+Modell-/Provider-/Tool-Abweichung vor deren Ausführung. Die Ausgabe bleibt
+kompatibel zum geschlossenen Pi-JSON-Parser; kumulative Streaming-Snapshots
+werden nicht wiederholt gepuffert. Dies ist Ausführung eines Hub-Auftrags,
+keine zusätzliche Task Queue oder Worker-Orchestrierung.
+
+Der reale synthetische Negativlauf besteht mit diesem Adapter: genau eine
+Modellanfrage, `pi_tool_execution_denied`, kein Schreiben, keine Migration
+und vollständiges Aufräumen. Auch der normale synthetische Aufruf besteht mit
+genau einer Anfrage und dem erwarteten Antworttext. Eine weitere Wiederholung
+prüfte die tatsächlich übermittelte Obergrenze von 1024 Ausgabetokens.
+8192 Kontext-/1024 Ausgabetokens sind konservative Grenzen dieses Profils,
+keine verifizierten Kapazitätsangaben eines realen Modells. Echte lokale und
+externe Inferenz sowie die Hub-seitige Konfigurationsprojektion bleiben offen.
+
+16 deterministische Layout-/Target-Prüfungen decken den gepinnten SDK-Nachbarn,
+absolutes Node, geänderte Paketidentität, externe SDK-Symlinks und abgelehnte
+Endpoint-/Modell-/Credential-Formate ab. Der API-Key wird ausschließlich als
+`$ANANTA_PI_API_KEY` mit explizitem `authHeader` projiziert; ein bloßer
+Großbuchstabenname wäre in Pi ein Literal. Im Test wird der tatsächliche
+Authorization-Header geprüft, ohne ihn zu protokollieren. SDK-Adapter und
+Runtime-/Konfigurationsprojektion bleiben separate, kleine Verantwortungen.

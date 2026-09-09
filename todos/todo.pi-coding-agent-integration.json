@@ -97,7 +97,8 @@
         "Pi-Startmigrationen dürfen kein Benutzerprojekt verändern: No-Tools-Profil startet in eigenem leerem Laufverzeichnis statt im Projekt-cwd; direkte Datei-Tools bleiben ohne technische Sandbox unsupported. Den tatsächlichen Session-cwd getrennt vom Hub-Auftrags-/Repository-Bezug validieren."
       ],
       "provisioning_result": "Pinned optional Pi 0.85.1 catalog entry uses existing admin Hub-to-registered-Worker provision route. Bounded injected Node/npm commands, Node >=22.19.0, lifecycle scripts disabled, isolated temporary npm configuration, exact CLI version verification; no provider activation or interactive login. 36 focused Pi/existing provisioning/API tests PASS in 32.09 s; Ruff and namespace detector PASS. Real local Node/npm version-only configuration probe PASS without installation/network. Actual provider, assignment isolation, model/context and result bindings remain open. docs/architecture/pi-coding-agent-integration.md.",
-      "protocol_prerequisite_result": "Closed pure Pi single-turn/no-tools JSON parser implemented. 46 deterministic checks PASS in 35.64 s; real isolated Pi 0.85.1 synthetic-model stream accepted. Missing/duplicate/conflicting terminals, model/workdir substitutions, retries, tools and malformed JSON fail closed. Additional real negative probe confirmed startup migration .pi/commands -> .pi/prompts despite no-tools/no-approve: neutral per-run cwd required before provider activation. No user workspace affected. docs/architecture/pi-coding-agent-integration.md."
+      "protocol_prerequisite_result": "Closed pure Pi single-turn/no-tools JSON parser implemented. 46 deterministic checks PASS in 35.64 s; real isolated Pi 0.85.1 synthetic-model stream accepted. Missing/duplicate/conflicting terminals, model/workdir substitutions, retries, tools and malformed JSON fail closed. Additional real negative probe confirmed startup migration .pi/commands -> .pi/prompts despite no-tools/no-approve: neutral per-run cwd required before provider activation. No user workspace affected. docs/architecture/pi-coding-agent-integration.md.",
+      "sdk_transport_result": "Real no-tools CLI negative probe refused a write but made 2 model requests before terminal validation. Decision revised to a thin pinned SDK process: explicit resources/model, no tools, no retries/compaction, in-memory session, shouldStopAfterTurn and stream-function one-call/model guard. Real normal and malicious-tool probes PASS with exactly 1 model request, unchanged project and cleaned runtime; explicit 1024-token request ceiling checked. 16 deterministic runtime-layout/target checks PASS in combined focused suite. Provider/factory publication follows separately; Hub task/configuration wiring and actual inference remain open. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T03",
@@ -327,10 +328,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T22:09:43.447674Z",
+    "generated_at": "2026-09-09T22:33:59.404803Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "826740b670f80f12437db04812bd9e6a2092c8faf49358f319f9b37618ca84d1",
+    "source_hash": "c64d04b9cf91e46a792a80914e8dd3a82fb020554dec30090cfc04e05a712680",
     "is_stale": false
   }
 }
