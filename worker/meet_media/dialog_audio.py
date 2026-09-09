@@ -1,45 +1,23 @@
 """Execute a delegated utterance while the browser owner keeps checking authority."""
 
 import re
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 
 from ananta_contracts.meet_audio_profile import optional_audio_profile
 from ananta_contracts.meet_audio_segment import require_segment_finished, require_segment_probe
-from ananta_contracts.meet_dialog_audio import audio_job_current, validate_audio_job
+from ananta_contracts.meet_dialog_audio import validate_audio_job
 from worker.meet_media.audio_batch import AudioBatchCursor
 from worker.meet_media.audio_segment import segment_boundary
+from worker.meet_media.source_lease import SourceLease
 
 
-class AudioLease:
+class AudioLease(SourceLease):
+    """Compatibility name/error for the shared source lease, with identical policy."""
+
     def __init__(self, binding, job):
-        self.binding, self.job = binding, job
-        self.lock = threading.Lock()
-        self.closed = False
-        self.checked_at = time.monotonic()
-
-    def refresh(self, receipt, active_job):
-        with self.lock:
-            if active_job != self.job or not audio_job_current(self.job, receipt, time.time()):
-                self.closed = True
-            else:
-                self.checked_at = time.monotonic()
-
-    def require(self, binding):
-        with self.lock:
-            if (
-                self.closed
-                or binding != self.binding
-                or time.time() >= self.job["deadline"]
-                or time.monotonic() - self.checked_at > 6
-            ):
-                raise ValueError("meet_audio_lease_revoked")
-
-    def close(self):
-        with self.lock:
-            self.closed = True
+        super().__init__(binding, job, error_code="meet_audio_lease_revoked")
 
 
 def bind_subscription(subscription, assignment, job):

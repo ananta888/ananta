@@ -72,3 +72,16 @@ This removes hidden decoder side effects (SRP/LSP) without introducing Hub
 imports, storage, capture or provider access to the Worker. Eighteen extraction
 and existing semantic-worker tests passed in26.19s. The test cache emitted a
 permission warning, not a test failure; later runs use a separate temporary cache.
+
+## Shared receive identities and leases
+
+Audio and visual adapters share the pure source-job identity validator and
+execution-only `SourceLease`. The ASR contract and `AudioLease` compatibility
+name/error remain intact. The lease now copies supplied binding/job values so
+later caller mutation cannot silently change its accepted identity or deadline.
+Revocation remains irreversible; neither a fresh timer nor an unchanged receipt
+reopens a closed lease. This removes duplicated policy checks (SRP/OCP) without
+worker-side task creation. Existing audio adapters and the new visual pump
+passed33 tests in22.50s; the larger integration regression passed286 tests in
+107.52s with one explicit runtime-inventory opt-in skip. The Worker boundary
+audit passed all115 current Worker files.
