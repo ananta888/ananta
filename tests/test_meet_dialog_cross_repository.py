@@ -425,6 +425,9 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         from tests.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
 
         startup_observer = DialogStartupObserver(monkeypatch)
+        from tests.meet_dialog_soak_observer import DialogSoakObserver, record_soak_failure
+
+        soak_observer = DialogSoakObserver(monkeypatch) if SOAK_SECONDS else None
         inject_private_frame = threading.Event()
         take_frame = OwnedDialogScreen.take
 
@@ -495,6 +498,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
             except Exception as error:
                 codes = re.findall(r"\bmeet_[a-z_]{1,64}\b", str(error))
                 failures.extend(codes[:2] if codes else [type(error).__name__])
+                record_soak_failure(soak_observer, record_property)
             finally:
                 startup_observer.finished()
                 try:

@@ -76,6 +76,30 @@ policy, proxy connection limit or request timeout was enlarged. Eighty-four
 startup/network tests passed in33.87 seconds; thirteen final observer checks
 passed in12.09 seconds. Actual cause and native verification remain open.
 
+## Resolved proxy startup and remaining soak failure
+
+The later actual proxy observation identified seven capacity drops alongside
+seven blocked module fetches. Meet removed its unused local machine context
+when the real Worker is external and selected the existing bounded32-connection
+multi-client proxy profile for the receiver/browser/request-client topology.
+Ananta `1b2206db2` / Meet `66b6055` then passed the full short gate in29.32 seconds;
+the integrated Ananta `478bfac39` / Meet `21cff89` passed in28.21 seconds. Both
+used immutable browser image `6a2ac86f9209`, actual chat/moving screen/stop and
+the negotiated750-ms timing fence. These are Hub-pre-reserved TEST runs,
+not production acceptance. The proxy fix is not a causal fix for older unrelated
+decoder incidents.
+
+The subsequent7200-second-profile attempt failed after35.20 seconds, before
+its first long observation: screen generation2 had no new submission for
+1,096,801 microseconds and the real timing fence terminated the dialog. It
+overlapped the companion full frontend test stage; resource contention is an
+unconfirmed explanation, not grounds to raise quality limits. The next timed
+run is separated from large test suites. Its optional passive soak observer
+reuses existing bounded RPC/control/transport measurements and retains the last
+16 screen-tick durations/gaps on failure. No extra browser/Hub queries or source
+contents are introduced. Ten observer checks passed in15.59 seconds; a new
+actual long run remains required.
+
 The first isolated peer smoke reached actual chat and screen execution but
 failed after 49.81 seconds with `meet_media_timing_source_failed`; it did not
 establish soak readiness. The native fixture now retains at most one strictly
