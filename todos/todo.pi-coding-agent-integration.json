@@ -41,7 +41,7 @@
       "task_ids": [
         "PI-T01"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "PI-M2",
@@ -61,17 +61,18 @@
       "id": "PI-T01",
       "title": "Pi-Vertrag und Überschneidungen prüfen",
       "type": "research",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 60.0,
       "depends_on": [],
       "milestone_id": "PI-M1",
       "acceptance_criteria": [
         "Aktuelle offizielle Pi-Dokumentation, Paketname, Version, Lizenz, JSON-Ausgabe, RPC/SDK und Authentifizierung mit Quellen dokumentieren.",
         "Bestehende Pi-/OMP-Todos und CodingAgentProvider-Implementierungen prüfen; Überschneidungen referenzieren und Doppelimplementierungen vermeiden.",
         "CLI/JSON, RPC und SDK nach Integrationsaufwand vergleichen; schmalsten ausreichenden Transport wählen und Entscheidung begründen."
-      ]
+      ],
+      "source_audit": "2026-09-09: Ananta 921c7f306, official Pi commit 05c6229813414010445558db9a80c84e15d65e70, package @earendil-works/pi-coding-agent 0.85.1, MIT, Node >=22.19.0; exact package/license/CLI/provider/model sources and npm version metadata read. CLI/JSON chosen for an isolated opt-in prototype; RPC/SDK compared, OMP overlap mapped to existing ports. No installed/runtime eligibility claim. Technical readiness remains open. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T02",
@@ -80,7 +81,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "PI-T01"
       ],
@@ -88,7 +89,8 @@
       "acceptance_criteria": [
         "Pi unter agent/cli_backends als standardmäßig deaktiviertes Backend hinter CodingAgentProvider einfügen; bestehende Provider unverändert nutzbar.",
         "BoundedCodingAgentProcess für geeignete Subprozesspfade wiederverwenden; RPC nur bei nachgewiesenem Bedarf über kleinen separaten Transportadapter.",
-        "Absolute Binary-Pfade und Argumentlisten, begrenzte Ausgaben, Timeout, Abbruch und Beendigung aller Kindprozesse gewährleisten; Node-Abhängigkeiten versioniert im Worker bereitstellen."
+        "Absolute Binary-Pfade und Argumentlisten, begrenzte Ausgaben, Timeout, Abbruch und Beendigung aller Kindprozesse gewährleisten; Node-Abhängigkeiten versioniert im Worker bereitstellen.",
+        "Vor Wiederverwendung des gemeinsamen Prozessports: blockiertes stdin, Ausgabe ohne Zeilenumbruch, bereits beendeten Hauptprozess und TERM-ignorierende Kinder mit begrenzten Regressionen prüfen und gefundene Lebenszykluslücken beheben; vorhandene CLI-Clients kompatibel halten."
       ]
     },
     {
@@ -98,7 +100,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "PI-T01",
         "PI-T02"
@@ -118,7 +120,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "PI-T02",
         "PI-T03"
@@ -138,7 +140,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "PI-T03",
         "PI-T04"
@@ -158,7 +160,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "depends_on": [
         "PI-T05"
       ],
@@ -182,17 +184,21 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 6,
-      "in_progress": 0,
+      "todo": 5,
+      "in_progress": 1,
       "partial": 0,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
-      "P2": 6
+      "P0": 0,
+      "P1": 0,
+      "P2": 6,
+      "P3": 0
     },
     "by_risk": {
+      "low": 0,
       "medium": 4,
       "high": 2
     },
@@ -203,14 +209,122 @@
     },
     "milestones": {
       "total": 2,
-      "todo": 2,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 1,
       "blocked": 0,
       "done": 0
     }
   },
   "summary_notes": [
-    "Alle Tasks sind offen; dieser Track behauptet keine implementierte Pi-Unterstützung.",
+    "Pi ist noch nicht implementiert. PI-T01 ist nach gepinntem Quellabgleich in Bearbeitung; alle Implementierungs-/Verifikationstasks bleiben offen. Gemeinsame Prozesshärtung ist eine vorgezogene Voraussetzung für die technische Eignungsprüfung.",
     "PI-T02 bis PI-T06 nur nach positiver dokumentierter Eignungsentscheidung durchführen; bei Ablehnung Ergebnis und Gründe dokumentieren."
-  ]
+  ],
+  "tasks_type_summary": {
+    "total": 6,
+    "by_type": {
+      "research": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 1,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 60.0
+      },
+      "implementation": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "verification": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 10.0,
+    "done_weight": 0.9,
+    "remaining_weight": 9.1,
+    "blocked_weight": 0.0,
+    "weighted_percent": 9.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "PI-M1": {
+        "total_tasks": 1,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 60.0,
+        "status": "in_progress"
+      },
+      "PI-M2": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 5,
+    "in_progress": 1,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 9.0
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-09-09T21:14:49.155120Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "f568e95efdaae57db18386576a395821f8f529e7bf91a05d0bcbc61c23eb58ca",
+    "is_stale": false
+  }
 }
