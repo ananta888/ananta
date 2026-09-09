@@ -91,3 +91,35 @@ configured `_limits`, without altering decoder behavior. Native pinned-image
 RTX3080 profile probes are the next verification step, not yet a live-receive
 or production release claim. Early VAD segmentation and visual analysis remain
 open parts of MAP-25.
+
+The packaged RTX3080 probe subsequently passed both VAD-on and VAD-off cases
+in 26.78 seconds using committed source `730bdda73` and immutable image
+`sha256:bb558478ecf3b573a04938338714862b16eda8323df781aa386bd473b487a452`.
+Each used a separate non-root read-only network-disabled container, mounted only
+the existing models and allowlisted GPU driver files read-only, recognized the
+synthetic phrase from exactly 64,000 samples and removed its own container.
+No source mount, service key/state, microphone, provider network, or serving
+Worker restart was involved. This is real local CUDA execution, not yet live
+Meet reception or production release evidence.
+
+## Next additive segment endpoint
+
+Source audit `730bdda73` / Meet `0915ad9`: the browser audio port can select a
+1–10 second maximum, but cannot stop capture early while retaining the current
+subscription for its authorized response. Add a separately probed
+`sample-boundary-v1` finish port. Only the exact current subscription and its
+last acknowledged sample boundary (minimum one second) may finish it. Stop the
+graph, wipe all later queued/incoming samples, retain only existing bounded
+authority/reply state; do not renew or grant anything. Required-SFrame and the
+blind signaling-server boundary remain unchanged.
+
+An optional `energy-v1` segment strategy will be selected in the Hub profile,
+with fixed bounded energy/speech/silence thresholds in an interchangeable Worker
+port. It keeps counters, not extra PCM/history. Preserve fixed segmentation by
+default. The Worker first probes the required finish method before receiving,
+then validates/ACKs contiguous chunks only until the selected boundary. The Hub
+accepts a 100-ms aligned 1-second-to-profile-maximum result only for this
+explicit strategy. No changed source/lease/profile may finish or publish. Cover
+headless positive/negative cursor, endpoint, wipe, reply, early-silence and
+maximum-window cases, then actual decoded browser audio. This remains part of
+MAP-25, not a separate orchestration loop.
