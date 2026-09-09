@@ -80,9 +80,9 @@ class DialogChatPump:
             self._complete()
         if self.opened is None or self.pending is not None or self.speech is not None and self.speech.busy:
             return
-        if not self.page.evaluate("window.anantaMachine.chat.status().open"):
-            self.opened = None
-            return
+        # poll checks current browser authority itself and reports known closed
+        # queues through the existing port. A separate status RPC adds latency
+        # to every idle media tick without authorizing the later read.
         batch = self.browser_chat.poll()
         if batch is None:
             self.invalidate()

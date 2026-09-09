@@ -183,3 +183,21 @@ sum onto that evaluate. Success and failure receipts retain the projection.
 All sixteen cost/soak/RPC observer checks pass in 17.44 seconds, including
 nested ACK attribution, exact call counts, exception identity and detached
 bounded reports. No runtime repair is claimed by this instrumentation.
+
+## Remove redundant browser roundtrips without moving policy
+
+The pinned Meet `MachineChatEndpoint.poll()` checks its queue and current
+authority itself. `DialogChatBrowser` already maps only known closed-queue
+errors to a closed result. The pump's preceding `chat.status().open` RPC
+therefore does not authorize the later poll and is now removed. Idle polling
+uses one browser call instead of two; a closed poll still invalidates speech
+and cannot reopen without fresh Hub state. Two new call-count regressions
+failed before the change (8.54 seconds); all ninety chat/revocation/speech/
+runtime-composition checks pass afterward (66.54 seconds). The Worker boundary
+guard passes. Existing queue bounds, ACK-before-dispatch and model policy are
+unchanged. This removes avoidable serialized work, not proof that all slow
+browser calls or the long-run failure have been repaired.
+
+SRP/DIP: keep chat authority enforcement at its existing browser endpoint and
+closed transport port, not a second Worker-side status decision. The broad
+runtime composition remains preserved SRP debt and is not expanded here.

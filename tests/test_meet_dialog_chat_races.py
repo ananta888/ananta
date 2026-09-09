@@ -89,6 +89,38 @@ def test_poll_and_ack_positive_results_remain_explicit():
     assert port.ack(2) is False
 
 
+def test_idle_chat_poll_uses_one_authority_checked_browser_operation():
+    page, hub = Mock(), Mock()
+    page.evaluate.return_value = {"state": "ok", "value": {"events": []}}
+    pump = DialogChatPump(page, hub, assignment())
+    pump.opened = {"generation": 1}
+    try:
+        pump.tick()
+        page.evaluate.assert_called_once_with(CHAT_OPERATION, ["poll", None])
+        assert pump.opened is not None and pump.pending is None
+        hub.call.assert_not_called()
+    finally:
+        pump.close()
+
+
+def test_closed_queue_is_detected_by_poll_without_separate_status_roundtrip():
+    page, hub, speech = Mock(), Mock(), Mock(busy=False)
+    page.evaluate.return_value = {"state": "closed"}
+    pump = DialogChatPump(page, hub, assignment(), speech=speech)
+    pump.opened = {"generation": 1}
+    try:
+        pump.tick()
+        assert page.evaluate.call_count == 2  # One poll and one bounded invalidation.
+        assert page.evaluate.call_args_list[0].args == (CHAT_OPERATION, ["poll", None])
+        assert pump.opened is None and pump.pending is None
+        speech.invalidate.assert_called_once()
+        hub.call.assert_not_called()
+        pump.tick()
+        assert page.evaluate.call_count == 2  # No reopening without fresh Hub state.
+    finally:
+        pump.close()
+
+
 @pytest.mark.parametrize(
     "mutation", [{}, {"tenant_id": "other"}, {"generation": 3}, {"policy_revision": True}, {"policy_revision": 0}]
 )
