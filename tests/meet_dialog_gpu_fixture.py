@@ -33,6 +33,7 @@ def configure_dialog_gpu(observer, enabled, cleanup, record_property):
     )
     record_property("dialog_gpu_image", {"image": fixture.image, "packaged": fixture.packaged_image is not None})
     record_property("cold_model_preload_seconds", fixture.preload())
+    record_property("dialog_gpu_memory_samples", fixture.memory_observation())
     observer.worker = HttpMediaWorker(fixture.endpoint, fixture.key)
     observer.profile = speech_profile(max_seconds=20)
 
@@ -152,6 +153,8 @@ class DialogGpuFixture:
         self.temporary = None
         self.endpoint = None
         self.provider_address = None
+        self.free_gpu_mib_before_start = None
+        self.model_vram_bytes_after_preload = None
         self.key = secrets.token_hex(32).encode("ascii")
 
     def _address(self, name, port):
@@ -210,7 +213,7 @@ class DialogGpuFixture:
     def start(self):
         if self.resources or self.temporary is not None:
             raise ValueError("test_inference_already_started")
-        self.check_capacity()
+        self.free_gpu_mib_before_start = self.check_capacity()
         try:
             service = "ananta-meet-media-meet-media-worker-1"
             if self.packaged_image is not None:
@@ -265,6 +268,7 @@ class DialogGpuFixture:
 
     def preload(self):
         """Explicit cold-model readiness, separate from any measured Hub answer."""
+        self.model_vram_bytes_after_preload = None
         if self.provider_address is None or self.endpoint is None:
             raise ValueError("test_inference_not_ready")
         started = time.monotonic()
@@ -301,17 +305,32 @@ class DialogGpuFixture:
             raw = response.read(65537)
             if response.status != 200 or len(raw) > 65536 or time.monotonic() - started >= 45:
                 raise ValueError("test_inference_preload_failed")
-            if not any(
-                model.get("name") == "qwen2.5:1.5b"
+            models = json.loads(raw).get("models", [])
+            if not isinstance(models, list) or len(models) != 1:
+                raise ValueError("test_inference_preload_gpu_required")
+            matches = [
+                model["size_vram"]
+                for model in models
+                if isinstance(model, dict)
+                and model.get("name") == "qwen2.5:1.5b"
                 and model.get("digest") == MODEL_DIGEST
                 and type(model.get("size_vram")) is int
-                and model["size_vram"] > 0
-                for model in json.loads(raw).get("models", [])
-            ):
+                and 0 < model["size_vram"] <= 2**40
+            ]
+            if len(matches) != 1:
                 raise ValueError("test_inference_preload_gpu_required")
+            self.model_vram_bytes_after_preload = matches[0]
             return round(time.monotonic() - started, 2)
         finally:
             connection.close()
+
+    def memory_observation(self):
+        return {
+            "free_gpu_mib_before_start": self.free_gpu_mib_before_start,
+            "model_vram_bytes_after_preload": self.model_vram_bytes_after_preload,
+            "continuous_peak": False,
+            "exclusive_gpu": False,
+        }
 
     def close(self):
         failed = []

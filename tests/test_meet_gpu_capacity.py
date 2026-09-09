@@ -24,7 +24,7 @@ from tests.meet_gpu_capacity import require_gpu_capacity
 def test_capacity_check_is_single_gpu_bounded_and_never_terminates_other_processes(free, valid):
     run = Mock(return_value=Mock(stdout=free))
     if valid:
-        require_gpu_capacity(run=run)
+        assert require_gpu_capacity(run=run) == int(free)
     else:
         with pytest.raises(ValueError, match="gpu_capacity"):
             require_gpu_capacity(run=run)

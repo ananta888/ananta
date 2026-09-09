@@ -20,5 +20,6 @@ def require_gpu_capacity(*, run=subprocess.run):
             raise ValueError("test_inference_gpu_capacity_invalid")
         if int(raw) < MINIMUM_FREE_MIB:
             raise ValueError("test_inference_gpu_capacity_unavailable")
+        return int(raw)
     except (OSError, subprocess.SubprocessError):
         raise ValueError("test_inference_gpu_capacity_unavailable") from None

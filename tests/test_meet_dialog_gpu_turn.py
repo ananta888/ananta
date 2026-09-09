@@ -21,6 +21,7 @@ def test_current_private_worker_runs_actual_qwen_piper_and_nvenc(record_property
         # Prepare only the pinned model, as in the actual dialog fixture. The
         # request's original 60-second execution budget is never extended.
         record_property("cold_model_preload_seconds", fixture.preload())
+        record_property("dialog_gpu_memory_samples", fixture.memory_observation())
         turn = {
             "schema": SCHEMA,
             "task_id": "synthetic-gpu-component",

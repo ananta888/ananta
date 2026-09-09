@@ -129,7 +129,27 @@ def test_every_owned_resource_is_cleaned_after_partial_or_uncertain_setup(failur
     assert cleanup == expected and not instance.resources and instance.temporary is None
 
 
-@pytest.mark.parametrize("change", [None, "cpu", "digest", "status", "oversize", "incomplete"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "cpu",
+        "digest",
+        "status",
+        "oversize",
+        "incomplete",
+        "duplicate",
+        "extra_model",
+        "missing",
+        "not_list",
+        "not_object",
+        "boolean",
+        "negative",
+        "too_large",
+        "string",
+        "name",
+    ],
+)
 def test_preload_has_no_prompt_and_requires_pinned_gpu_residency(change, monkeypatch):
     instance = DialogGpuFixture()
     instance.provider_address = ("172.30.0.2", 11434)
@@ -150,6 +170,25 @@ def test_preload_has_no_prompt_and_requires_pinned_gpu_residency(change, monkeyp
             ]
         }
     ).encode()
+    payload = json.loads(second.read.return_value)
+    model = payload["models"][0]
+    if change == "duplicate":
+        payload["models"].append(dict(model))
+    elif change == "extra_model":
+        payload["models"].append({"name": "other"})
+    elif change == "missing":
+        payload["models"] = []
+    elif change == "not_list":
+        payload["models"] = None
+    elif change == "not_object":
+        payload["models"] = [None]
+    elif change in {"boolean", "negative", "too_large", "string"}:
+        model["size_vram"] = {"boolean": True, "negative": -1, "too_large": 2**40 + 1, "string": "100"}[change]
+    elif change == "name":
+        model["name"] = "other"
+    second.read.return_value = json.dumps(payload).encode()
+    # A failed new preload must not preserve any historical positive residency.
+    instance.model_vram_bytes_after_preload = 999
     connection = Mock()
     connection.getresponse.side_effect = [first, second]
     monkeypatch.setattr("tests.meet_dialog_gpu_fixture.http.client.HTTPConnection", Mock(return_value=connection))
@@ -158,6 +197,17 @@ def test_preload_has_no_prompt_and_requires_pinned_gpu_residency(change, monkeyp
             instance.preload()
     else:
         assert instance.preload() >= 0
+        assert instance.memory_observation() == {
+            "free_gpu_mib_before_start": None,
+            "model_vram_bytes_after_preload": 100,
+            "continuous_peak": False,
+            "exclusive_gpu": False,
+        }
+        observation = instance.memory_observation()
+        observation["model_vram_bytes_after_preload"] = 999
+        assert instance.memory_observation()["model_vram_bytes_after_preload"] == 100
+    if change:
+        assert instance.memory_observation()["model_vram_bytes_after_preload"] is None
     payload = json.loads(connection.request.call_args_list[0].args[2])
     assert payload["prompt"] == "" and payload["model"] == "qwen2.5:1.5b" and payload["options"]["num_gpu"] == 99
     assert "task_id" not in payload and "messages" not in payload and "tools" not in payload
