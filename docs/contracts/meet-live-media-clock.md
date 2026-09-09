@@ -139,3 +139,41 @@ startup failed closed before browser dispatch. The coordinator now preserves
 the flag. Two real SQL-Task regression cases cover startup, join, coordinator
 restart and rejection of flag removal, with and without reconnect. All 72
 phase/model/negotiation tests passed in 34.70 s; the live gate must be repeated.
+
+The repeated installed integration passed in 63.68 s at Hub `e3357e38d`, immutable
+Worker image `bd2445226c601c9b142c671979060d473d3bf92234168cf8780ead387274fb8b`
+(Worker source `d09eac538`) and private Meet frontend `95d0d4e`. Both role-bound
+containers negotiated timing, published independent moving screens/personas
+and interrupted active synthetic speech. Two actual membership recoveries took
+6,486.81 / 6,449.41 ms without redispatch, inherited consent or old audio replay.
+The third loss exhausted the original allowance and stopped in 230.62 ms; the
+other publisher remained active. No source mounts or public deployment changes.
+This is a single-host synthetic-policy integration observation, not GPU/TTS,
+end-to-end lip alignment, a two-hour soak or Registry-backed release evidence.
+
+## Remaining Hub resource admission slice
+
+Source audit after the live gate: private GPU generation already has a durable
+FIFO and the Worker independently caps concurrent browser processes at two.
+The Hub publisher router still has no cross-process dialog/session budget.
+Meet applies audio/video sender ceilings through its existing quality policy,
+but an estimated admission reservation must not be described as a packet-level
+network shaper or as guaranteed sender support.
+
+Add a separate small Hub admission port around the already-selected publisher,
+using existing WorkerSlotLease records and a database-serialized resource pool.
+Preserve the original Task, destination and all current authority checks; do
+not create another scheduler or Worker-to-Worker routing. Bound total sessions,
+per-publisher sessions and conservative aggregate publication cost (maximum
+room fanout and existing source ceilings), with four FIFO waiters and a ten-
+second wait. A caller cannot choose budgets. Persist the operator profile at
+the pool so differently configured Hubs cannot silently share it.
+
+After uncertain dispatch, retain capacity through the original deadline plus
+cleanup grace. Observing a terminal Task is not immediate proof of process
+exit: the current pre-first-progress supervisor allows 90 s, so any terminal
+reclamation must retain a conservative 95-s quarantine. Keep late/replayed
+reservations fenced, fail closed on pool-policy changes and re-read the exact
+Hub authority while waiting and immediately before dispatch. Hardware/network
+measurements must separately validate the admitted reference profile; this
+reservation does not arbitrate unrelated processes or guarantee free VRAM.
