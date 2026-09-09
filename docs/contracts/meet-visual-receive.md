@@ -85,3 +85,21 @@ worker-side task creation. Existing audio adapters and the new visual pump
 passed33 tests in22.50s; the larger integration regression passed286 tests in
 107.52s with one explicit runtime-inventory opt-in skip. The Worker boundary
 audit passed all115 current Worker files.
+
+## Closed native visual profile
+
+`image-features-v1` accepts exactly three source-bound JPEG frames, each at most
+640x360 and98,304 bytes. It reports only dimensions, average RGB and adjacent
+mean-color differences. These statistics are explicitly not OCR, object
+recognition or semantic scene understanding. No configurable model, URL,
+prompt, provider, tool or artifact output is admitted by this profile.
+
+The existing bounded subprocess runner invokes a separate native child with a
+5s wall budget,3s CPU limit and512MiB address-space limit. The decoder checks
+actual original dimensions before thumbnailing, so a declared small frame
+cannot hide an oversized JPEG. Cancellation/current source authority are checked
+before execution, while the child runs and before accepting its closed result.
+The focused native/contract/audio regression passed130 tests in52.13s; subsequent
+100 Hub/contract tests in44.40s also cover original-dimension rejection. One
+actual local child executed the pinned statistical profile, not a GPU model.
+Real packaged Worker/Meet source acceptance remains pending.
