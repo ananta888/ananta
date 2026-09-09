@@ -80,3 +80,27 @@ an older companion that ignores the opt-in cannot silently satisfy this profile.
 15 projection/startup checks passed in 16.02 seconds (overlapping coverage).
 The final companion probe checks passed nine native-stream/collector cases in
 1.153 seconds and the Chromium/Firefox receiver pair in 7.738 seconds.
+
+## Pinned integrated diagnostic checkpoint
+
+The instrumented cross-repository smoke passed at Ananta `4134b7da6` and
+private Meet derivative `848a3d6`: one pass, zero errors/failures/skips,
+32.12 pytest seconds / 36.599 controller seconds, unchanged inputs. The Hub
+reserved `RUN_905b98e6c0aad2f02937566d7031f7e8` with
+`SRC_ceb7e6cd42f89883910f536b7ef0c38f` before execution. The startup receipt
+observed one decrypted/enqueued keyframe and four delta frames, no drops or
+pipe failure; this proves the selected diagnostic was actually installed.
+
+That private Meet revision selects only the probe, fixture/bridge opt-in,
+its tests and tracking/documentation onto `c4ef486`. Production `frontend/`,
+`src/` and package inputs were compared byte-for-byte and remain unchanged.
+The fresh private build also reproduced the earlier frontend digest
+`803a77c0f5b8076bff73c6650ffc9a62c4e48db148ec5ecca43cedb2a49b85b8`.
+Only the private receiver's served Worker response is instrumented.
+
+The same frozen inputs then started `private-pipeline-soak` under fresh Hub
+reservation `RUN_d69d1defb6dcb1ab5896529b37e2d274`. Its exclusive reservation
+receipt is persisted before execution in the private runtime directory.
+This is a running diagnostic checkpoint, **not** a passed two-hour result or
+a repaired receiver. Do not change its snapshot while it is active. The
+production-image/public-trust/GPU gates remain separate from this TEST run.
