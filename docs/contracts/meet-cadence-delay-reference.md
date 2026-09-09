@@ -119,3 +119,31 @@ limit; PID samples were 108 / 104. Both returned to zero active dialog slots
 and five PIDs after stop. These are startup/active/terminal samples, not a
 continuous peak, GPU or long-run measurement. The current broader Ananta
 regression and normal two-hour reference remain separate verification steps.
+
+## Third normal reference: receiver movement failure
+
+The normal, non-fault-injected two-hour profile at frozen Ananta `d29d1780a` /
+Meet `c4ef486` / image `5d4be51c` failed after 2,166.283 runner seconds
+(2,162.03 pytest seconds), not two hours. Inputs remained unchanged, one test
+failed and none skipped or errored. Hub TEST identities:
+`RUN_4c3ab71f6f6734f21aed51c7032dbc19` /
+`SRC_1a79f19adf72bffe8407a72d1ce302c3`. The last periodic success had 2,090
+active seconds, 35 lease generations, 45 screen checks and peak sampled RSS
+2,370,232,320 bytes / 22 processes. Failure occurred at generation 36.
+
+Unlike the earlier cadence failures, the immediate assertion reported
+`screen_not_moving` from the peer's twelve-second decoded-pixel check while the
+runtime was not completed and had no recorded error. This does not yet establish
+whether the cause is source, sender, decoder or UI selection. The bridge already
+returned content-free receiver RTP/frame/state values, but pytest abbreviated
+the assertion representation and those values were not separately persisted.
+The scheduling property was recorded later during teardown, so it is not an
+atomic receiver-failure snapshot and must not be misrepresented as one.
+
+Next: persist a bounded allowlisted screen-failure projection immediately before
+the assertion, covering source activation and receiver decoded/RTP counters.
+Keep the original failure, budgets, media policy and twelve-second observation
+unchanged; no retry, wider freshness bound or optimistic pass. Verify redaction
+and exact failure behavior deterministically, then collect a fresh real reference.
+The existing large integration fixture remains SRP debt; projection belongs in
+a separate passive test adapter, not additional orchestration branches.

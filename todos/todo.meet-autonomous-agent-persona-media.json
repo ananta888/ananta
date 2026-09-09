@@ -1146,6 +1146,7 @@
     },
     {
       "id": "MAP-30",
+      "third_normal_soak_failure": "RUN_4c3ab71f6f6734f21aed51c7032dbc19/SRC_1a79f19adf72bffe8407a72d1ce302c3 failed2166.283runner/2162.03pytest seconds at frozenrootd29d1780a/Meetc4ef486/image5d4be51c,unchangedinputs,1fail0skip/error. Last2090active/35leases/45screenchecks/peak2370232320bytes22processes; failuregeneration36, receiver screen_not_moving after12s while runtimeactive/noerrors. ExactreceiverRTP/decoder/source assertiondiagnostics truncated bypytest; laterteardown schedulingnotatomicfailurestate. Causeunknown,notearliercadenceclaim. Plan separate bounded allowlisted failureproperty beforeassert, redaction/failuresemantics tests, freshnative reference with unchangedauthority/budgets/no retries. docs/contracts/meet-cadence-delay-reference.md.",
       "normal_two_hour_after_late_completion_started": "After green current root matrix4943PASS/0FAIL, updated Meet fullcheck and actual forcedTURN Chromium/Firefox dialogs UDP/TCP4PASS plus2payloadprobes, normal7200s dialog/screen profile starts18:51 Europe/Berlin 2026-09-09. Frozen Anantad29d1780a/Meetc4ef486/image5d4be51c5dda, HubTEST SRC_1a79f19adf72bffe8407a72d1ce302c3 / RUN_4c3ab71f6f6734f21aed51c7032dbc19. No paired-idle fault or other owned large suite concurrently. Ongoing,notpassed; earlier45m/88m failures retained. GPU remains unavailable afterXid79/154, publicmachineadmissiondisabled/testOIDCmissing; no restart/trust/deployment change authorized or performed. Completed reports retained outside/tmp for a possible later operator restart.",
       "unattributed_startup_followup": "Retained from MAP-29 on test-matrix completion: historical349RTPpackets/0decoded startup incident has no established cause. Two-second sender/receiver key delays and actual first-keyframe loss on Chromium/Firefox did not reproduce it; nativePLI recovered in both engines. Separate structural-envelope-resumption fix8341813 was not identified as its cause. Keep bounded startup/RTP/error diagnostics and fail any recurrence during runtime references; no blind retry or green-repeat-as-causal-fix. No historical failed run is promoted to PASS.",
       "late_completion_packaged_result": "After current Meet c4ef486 groupedcheckPASS1188frontend/1088Node0FAIL4SKIP391.134s, actual two-installedWorker profile at Ananta4c53b51f3/image5d4be51c PASS58.910s,1pass0fail/error/skip,unchangedinputs. RUN_40a85ee7647e098bfeba13355d7bbc26 / SRC_2f8d8127957c93af4b193f1e71e529cf. Independentmedia/reconnect/stopPASS, activeRAM270184448/266997760bytes,PIDs108/104,terminal0dialogs5PIDseach; no sourcebinds/continuouspeak/GPU/publicclaim. CurrentAnantamatrix and normal2h follow. docs/contracts/meet-cadence-delay-reference.md.",
@@ -1525,10 +1526,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T17:32:49.113901Z",
+    "generated_at": "2026-09-09T17:34:34.253484Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "7cf8cad7204a82cd99065f8f4eaffacc4b3f45a607194e34877357599ab7fe88",
+    "source_hash": "de5b67df91e4bdb918505d12385b8f66b0fc7bafe267e8f19e61d75147b76915",
     "is_stale": false
   }
 }
