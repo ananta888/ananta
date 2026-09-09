@@ -47,6 +47,9 @@ class ProvisioningRunner:
             return ProcessExecutionResult(self.install_rc, "", "", "completed", 1)
         assert argv[1:] == ["--version"]
         assert kwargs["timeout_seconds"] == 5
+        configuration = Path(kwargs["environment"]["PI_CODING_AGENT_DIR"])
+        assert configuration.is_dir() and configuration.stat().st_mode & 0o777 == 0o700
+        self.configurations.append(configuration)
         return ProcessExecutionResult(0, self.version, "", "completed", 1)
 
 

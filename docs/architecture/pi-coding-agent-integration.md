@@ -264,3 +264,20 @@ Datei-Tools bleiben bis zu einer nachgewiesenen technischen Sandbox unsupported.
 Der Session-Header bindet in diesem Profil das eigene Laufverzeichnis, nicht
 eine erfundene Repository- oder Evidenzidentität. Alle Teständerungen betrafen
 nur eigene Wegwerfdateien; keine Benutzer-Projekte wurden migriert.
+
+## Versionsprobe und Container-Benutzeridentität
+
+Auch die Pi-Versionsprobe verwendet jetzt ein eigenes temporäres
+`PI_CODING_AGENT_DIR`, das anschließend entfernt wird. So hängt die Probe
+nicht von globaler Pi-Konfiguration ab. 36 Provisionierungs-/API-Regressionen
+bestehen nach dieser Ergänzung in 31.83 Sekunden.
+
+Ein Test unter einer bloßen numerischen UID ohne passwd-Eintrag scheiterte
+bereits beim Pi-Import: dessen Pfadnormalisierung ruft `os.homedir()` auch bei
+einem absoluten Konfigurationspfad auf. Das war eine fehlende Voraussetzung im
+isolierten Testimage, keine fehlende Node-Installation. Der reguläre
+`Dockerfile.quickstart-no-ollama` legt bereits einen passenden nicht
+privilegierten `ananta`-Benutzer an. Mit einem vorhandenen nicht privilegierten
+Container-Benutzer bestanden echte Node-/Pi-Versionsprobe und der folgende
+isolierte Aufruf ohne HOME-Umschreibung oder fremde Credentials. Ein extern
+abgewandeltes Image ohne auflösbare Benutzeridentität bleibt nicht bereit.

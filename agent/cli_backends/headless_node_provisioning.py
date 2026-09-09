@@ -43,7 +43,10 @@ class HeadlessNodeProvisioning:
 
     def probe(self, binary: Path, version: str, minimum_node: tuple[int, int, int]) -> subprocess.CompletedProcess[str]:
         self._check_node(minimum_node)
-        result = self._run([str(binary), "--version"], cwd=binary.parent, timeout=5)
+        with TemporaryDirectory(prefix="ananta-node-version-") as directory:
+            result = self._run(
+                [str(binary), "--version"], cwd=binary.parent, timeout=5, agent_directory=Path(directory),
+            )
         valid = result.returncode == 0 and result.stdout.strip() == version and not result.stderr.strip()
         return subprocess.CompletedProcess(
             [str(binary), "--version"],
@@ -61,12 +64,17 @@ class HeadlessNodeProvisioning:
         if probe.returncode != 0 or probe.stderr.strip() or match is None or tuple(map(int, match.groups())) < minimum:
             raise HeadlessNodeProvisioningError("node_runtime_incompatible")
 
-    def _run(self, command, *, cwd: Path, timeout: int, npm_configuration: Path | None = None):
+    def _run(
+        self, command, *, cwd: Path, timeout: int, npm_configuration: Path | None = None,
+        agent_directory: Path | None = None,
+    ):
         # No provider/Hub tokens or npm user/global configuration are inherited.
         environment = {key: os.environ[key] for key in ("PATH", "LANG", "LC_ALL") if key in os.environ}
         environment.update({
             "CI": "1", "NO_COLOR": "1", "PI_OFFLINE": "1", "PI_TELEMETRY": "0",
         })
+        if agent_directory is not None:
+            environment["PI_CODING_AGENT_DIR"] = str(agent_directory)
         if npm_configuration is not None:
             environment.update({
                 "NPM_CONFIG_USERCONFIG": str(npm_configuration / "user"),
