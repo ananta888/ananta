@@ -414,3 +414,21 @@ Endpoint-/Budgetprojektion. Er entscheidet weder über Modellwahl noch über
 Hub-Autorität. DNS-/Egress-Policy, konkrete Hub-Task-/Lease-Bindung und die
 Containerkomposition bleiben separate offene Teile von PI-T03; der neue
 Guard ist keine allgemeine OS-Netzwerksandbox.
+
+### Konkrete nächste Kompositionsgrenzen
+
+Der weitere Quellabgleich findet `CodingAgentInferenceTarget` zusammen mit
+dem Aider-spezifischen Resolver und dessen globalen Hub-Konfigurationsimports
+in einer Datei. Vor Verwendung im Worker-Policy-Adapter wird der reine DTO
+in den bestehenden gemeinsamen Vertragsbereich ausgegliedert; der bisherige
+öffentliche CLI-Namespace reexportiert ihn unverändert. Das beseitigt diese
+SRP-/DIP-Kopplung, ohne Aider-Modellwahl oder globale Defaults umzuschalten.
+
+`ProviderInvocationContext.from_value(None)` ist weiterhin ein absichtlicher
+Legacy-Fallback für andere Aufrufer, keine Pi-Freigabe. Pi muss einen konkreten
+Hub-Kontext mit exaktem Modell/Endpoint, Budget und Task-/Fencing-Bezug
+verlangen. Strukturprüfung allein ersetzt weder Hub-Revalidierung noch
+Dispatch-Autorität. Die vorhandene Native-Workflow-Komposition besitzt dafür
+bereits Verify-only- und Hub-Budget-Ports; deren konkrete Bindung wird getrennt
+von DTOs und Prozessausführung implementiert. Keine produktive Pi-Aktivierung
+oder neue Autorität wird durch diese Vorbereitung eingeführt.
