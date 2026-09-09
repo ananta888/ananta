@@ -40,6 +40,7 @@ class DialogAuthority:
     initial_persona: dict | None = None
     browser_workspace: bool = False
     audio_profile: AudioReceiveProfile | None = None
+    speaker_floor: bool = False
 
     @property
     def machine_subject(self):
@@ -99,6 +100,7 @@ class MeetDialogAuthority:
                 "initial_persona",
                 "browser_workspace",
                 "audio_profile",
+                "speaker_floor",
             }
             != fields
         ):
@@ -111,6 +113,12 @@ class MeetDialogAuthority:
         if type(value["deadline"]) is not int or not self.clock() < value["deadline"] <= self.clock() + 7200:
             raise MeetError("meet_dialog_expired", 403)
         capabilities = value["capabilities"]
+        if "speaker_floor" in value and (
+            value["speaker_floor"] is not True
+            or not isinstance(capabilities, list)
+            or "speech.publish" not in capabilities
+        ):
+            raise MeetError("meet_speaker_negotiation_invalid", 403)
         if value["chat_mode"] not in {"off", "mention", "direct_question", "room"}:
             raise MeetError("meet_dialog_policy_denied", 403)
         if (
@@ -245,4 +253,5 @@ class MeetDialogAuthority:
             value.get("initial_persona"),
             value.get("browser_workspace", False),
             audio_profile,
+            value.get("speaker_floor", False),
         )

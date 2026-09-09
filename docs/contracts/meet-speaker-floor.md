@@ -111,3 +111,38 @@ control-exchange tests passed in 23.05 s. A further combined 78-test run in
 38.82 s covers signed control projection/completion, legacy read behavior and
 the SQL owner projection. The Hub composition and actual two-speaker room
 test are still pending; no live floor claim is made from these tests.
+
+## Explicit Hub activation
+
+`ANANTA_MEET_SPEAKER_FLOOR=1` now composes the durable resource and the dialog
+coordinator in the ordinary Hub bootstrap. Default `0` leaves existing legacy
+deployments unchanged; malformed values fail configuration. New speech tasks
+automatically carry the negotiated field in their stored original context,
+Worker assignment and immutable preauthorization digest. A required mode with
+no coordinator, or an unnegotiated speech task on an enforcing Hub, fails
+before model generation instead of publishing unmanaged audio. Negotiation
+is rechecked during generation as well as in control exchange.
+
+Upgrade every Hub and dialog Worker and drain legacy speech sessions before
+enabling this policy across the deployment. Mixed old/new Hub software is not
+a supported rolling-enforcement boundary: an old Hub cannot enforce a field
+it has never implemented. The enforcing coordinator also has a four-second
+monotonic startup quarantine, rejects legacy speech control reads, and retires
+its old projections during that interval. Configuration changes do not mutate
+already assigned immutable task permissions or silently migrate those tasks.
+
+The Hub now projects only the exact owner's current permit, accepts only its
+exact completion, withdraws on chat/speech control changes and voice selection,
+and retains quarantine after completion. A late completion cannot stop the
+next task's permit. The service delegates persistence and admission through
+separate small ports; no SQL or scheduler was added to dialog routes. The
+existing broad `MeetDialogService.start` remains SRP debt; pure negotiated-field
+projection was extracted rather than increasing its complexity or lint limit.
+
+100 native authority/SQL admission/old spoken-output/bootstrap checks passed
+in 46.22 s (`/tmp/ananta-meet-speaker-hub-final.log`). This includes rollback of
+the negotiated field during generation, startup denial before GPU work, exact
+completion, current speech pause and immutable preauthorization. Automatic
+role-priority interruption and real two-Worker audio acceptance remain next.
+An additional 25 ordinary bootstrap, preauthorization, route and authority
+regressions passed in 20.42 s (`/tmp/ananta-meet-speaker-composition.log`).

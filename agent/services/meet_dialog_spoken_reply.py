@@ -7,13 +7,14 @@ from agent.services.meet_chat_admission import MeetChatAdmissionService
 from agent.services.meet_chat_contract import ChatEvent
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_chat_authority import CurrentDialogChatAuthority
+from agent.services.meet_dialog_speaker_floor import require_speaker_mode
 from agent.services.meet_dialog_speech_authority import CurrentDialogSpeechAuthority, spoken_binding
 from agent.services.source_control_access_policy import HubSourcePrincipal
 from ananta_contracts.meet_spoken_reply import RESPONSE_SCHEMA, decode_spoken_response, validate_spoken_request
 
 
 class MeetDialogSpokenReply:
-    def __init__(self, authority, meet, reservations, replies, *, clock=time.time, voices=None):
+    def __init__(self, authority, meet, reservations, replies, *, clock=time.time, voices=None, speaker_floor=None):
         self.authority, self.meet, self.reservations, self.replies, self.clock = (
             authority,
             meet,
@@ -22,6 +23,7 @@ class MeetDialogSpokenReply:
             clock,
         )
         self.voices = voices
+        self.speaker_floor = speaker_floor
 
     def execute(self, payload):
         try:
@@ -30,6 +32,9 @@ class MeetDialogSpokenReply:
             raise MeetError("meet_spoken_callback_invalid", 400) from None
         identifiers = tuple(payload[k] for k in ("task_id", "lease_id", "runtime_id"))
         scope = self.authority.current(*identifiers)
+        require_speaker_mode(scope, self.speaker_floor)
+        if self.speaker_floor is not None:
+            self.speaker_floor.require_ready()
         try:
             raw = json.dumps(payload["event"], ensure_ascii=False).encode()
         except UnicodeError:
@@ -44,7 +49,13 @@ class MeetDialogSpokenReply:
                 raise MeetError("meet_dialog_voice_profiles_unavailable", 409)
             projection = self.voices.projection(scope)
         current = CurrentDialogSpeechAuthority(
-            self.authority, identifiers, chat, event.sent_at_ms, voices=self.voices, voice_projection=projection
+            self.authority,
+            identifiers,
+            chat,
+            event.sent_at_ms,
+            voices=self.voices,
+            voice_projection=projection,
+            floor_required=scope.speaker_floor,
         )
         admission = MeetChatAdmissionService(current, self.reservations, clock=self.clock).admit(raw)
         response = {"schema": RESPONSE_SCHEMA, "nonce": payload["nonce"], "code": admission.code, "reply": None}
@@ -95,4 +106,6 @@ class MeetDialogSpokenReply:
         active = current.current(scope.session_id)
         if active is None or active.scope != admission.reservation.scope:
             raise MeetError("meet_spoken_authority_changed", 409)
+        if self.speaker_floor is not None:
+            return self.speaker_floor.authorize_reply(scope, admission.reservation, response, current)
         return response

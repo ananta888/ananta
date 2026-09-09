@@ -39,6 +39,8 @@ def assignment_projection(task_id, tenant, project, origin, context):
         raise MeetError("meet_preauthorization_binding_invalid", 403)
     if "browser_workspace" in context and (context["browser_workspace"] is not True or "screen.publish" not in caps):
         raise MeetError("meet_preauthorization_binding_invalid", 403)
+    if "speaker_floor" in context and (context["speaker_floor"] is not True or "speech.publish" not in caps):
+        raise MeetError("meet_preauthorization_binding_invalid", 403)
     initial = {}
     if "audio_profile" in context:
         try:
@@ -71,6 +73,7 @@ def assignment_projection(task_id, tenant, project, origin, context):
         | initial
         | ({"avatar_videos": True} if context.get("avatar_videos") is True else {})
         | ({"browser_workspace": True} if context.get("browser_workspace") is True else {})
+        | ({"speaker_floor": True} if context.get("speaker_floor") is True else {})
         | {
             "schema": "ananta.meet-preauthorized-assignment.v1",
             "deadline": deadline,

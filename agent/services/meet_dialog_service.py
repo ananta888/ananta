@@ -17,6 +17,7 @@ from agent.services.meet_dialog_controls import (
 )
 from agent.services.meet_dialog_initial_persona import MeetDialogInitialPersona
 from agent.services.meet_dialog_replies import MeetDialogReplies
+from agent.services.meet_dialog_speaker_floor import negotiated_speaker_fields
 from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
 from agent.services.meet_turn_service import HubMediaTasks
 from ananta_contracts.meet_audio_policy import audio_mode_permitted
@@ -42,10 +43,12 @@ class MeetDialogService:
         phases=None,
         avatar_video_profiles=None,
         browser_workspaces=None,
+        speaker_floor=None,
     ):
         self.authority, self.tasks, self.meet, self.issuer = authority, tasks, meet, issuer
         self.phases = phases
         self.browser_workspaces = browser_workspaces
+        self.speaker_floor = speaker_floor
         self.worker, self.media_worker, self.reservations, self.dispatches, self.clock = (
             worker,
             media_worker,
@@ -88,7 +91,7 @@ class MeetDialogService:
         self.voices = MeetDialogVoices(voice_profiles, self.replies.speech_profile, clock=clock)
         self.voice_selections = MeetDialogVoiceSelection(authority, tasks, voice_profiles, clock=clock)
         self.spoken_replies = MeetDialogSpokenReply(
-            authority, meet, reservations, self.replies, clock=clock, voices=self.voices
+            authority, meet, reservations, self.replies, clock=clock, voices=self.voices, speaker_floor=speaker_floor
         )
         from agent.services.meet_dialog_avatar_images import MeetDialogAvatarImages
         from agent.services.meet_dialog_avatar_selection import MeetDialogAvatarSelection
@@ -218,6 +221,7 @@ class MeetDialogService:
             context["capabilities"], context["chat_mode"], audio_mode, int(self.clock() * 1000)
         )
         context.update(audio_profile_fields(audio_profile))
+        context.update(negotiated_speaker_fields(self.speaker_floor is not None, context["capabilities"]))
         if payload.get("avatar_images") is True:
             context["avatar_selection"] = {"mode": "neutral-ai-v1"}
         if payload.get("avatar_videos") is True:
@@ -268,6 +272,7 @@ class MeetDialogService:
             if "avatar_selection" in context:
                 assignment["avatar_images"] = True
             assignment.update(audio_profile_fields(scope.audio_profile))
+            assignment.update(negotiated_speaker_fields(scope.speaker_floor, scope.capabilities))
             if scope.avatar_videos:
                 assignment["avatar_videos"] = True
             if scope.browser_workspace:
@@ -355,6 +360,8 @@ class MeetDialogService:
         context = self.tasks.get_by_id(task_id).worker_execution_context["meet_dialog"]
         scope = self.authority.current(task_id, context["lease_id"], context["runtime_id"])
         self.voice_selections.select(principal, scope, payload)
+        if scope.speaker_floor and self.speaker_floor is not None:
+            self.speaker_floor.withdraw(scope)
         return self.inspect(principal, project, task_id)
 
     def control(self, principal, project, task_id, payload):
@@ -365,15 +372,29 @@ class MeetDialogService:
         controls = change_controls(scope, payload, int(self.clock() * 1000))
         if not self.tasks.set_controls(scope, controls):
             raise MeetError("meet_dialog_controls_conflict", 409)
+        if (
+            scope.speaker_floor
+            and self.speaker_floor is not None
+            and (
+                controls["chat"] != controls_projection(scope.controls)["chat"]
+                or controls.get("speech") != controls_projection(scope.controls).get("speech")
+            )
+        ):
+            self.speaker_floor.withdraw(scope)
         return self.inspect(principal, project, task_id)
 
     def exchange(self, payload):
         from agent.services.meet_dialog_audio import audio_job_current
+        from agent.services.meet_dialog_speaker_floor import require_speaker_mode
 
         ids = (payload["task_id"], payload["lease_id"], payload["runtime_id"])
         scope = self.authority.current(*ids)
+        require_speaker_mode(scope, self.speaker_floor)
+        if "speech_finished" in payload and not scope.speaker_floor:
+            raise MeetError("meet_speaker_not_negotiated", 409)
         state = self.meet.inspect(*ids, payload["meet_session_id"])
         scope = self.authority.current(*ids)
+        require_speaker_mode(scope, self.speaker_floor)
         if self.phases is not None:
             self.phases.advance(scope, "joined", state)
         task = self.tasks.get_by_id(scope.task_id)
@@ -409,6 +430,8 @@ class MeetDialogService:
             result["browser"] = self.browser_workspaces.projection(scope, state)
         if "video.receive" in scope.capabilities:
             result["visual_job"] = self.visual_coordinator.projection(scope, state)
+        if scope.speaker_floor:
+            result["speaker_floor"] = self.speaker_floor.exchange(scope, payload.get("speech_finished"))
         return result
 
     def audio(self, payload):

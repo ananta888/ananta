@@ -7,13 +7,18 @@ from agent.services.meet_dialog_controls import chat_policy_revision
 
 
 class CurrentDialogSpeechAuthority:
-    def __init__(self, authority, identifiers, chat, input_sent_at_ms, *, voices=None, voice_projection=None):
+    def __init__(
+        self, authority, identifiers, chat, input_sent_at_ms, *, voices=None, voice_projection=None, floor_required=None
+    ):
         self.authority, self.identifiers, self.chat = authority, identifiers, chat
         self.input_sent_at_ms = input_sent_at_ms
         self.voices, self.voice_projection = voices, voice_projection
+        self.floor_required = floor_required
 
     def current(self, session_id):
         scope = self.authority.current(*self.identifiers)
+        if self.floor_required is not None and scope.speaker_floor is not self.floor_required:
+            return None
         speech = scope.controls.speech
         if (
             speech is None
