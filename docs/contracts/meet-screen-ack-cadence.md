@@ -142,3 +142,34 @@ The result digest is
 The uninstrumented `private-dialog-soak` remains the separate two-hour
 stability gate. Neither the successful injected comparison nor this packaged
 reconnect reference replaces that remaining acceptance.
+
+## Uninstrumented two-hour attempt: still failed
+
+The subsequent `private-dialog-soak`, pre-reserved as
+`RUN_eb294456679c3aae2bb4d6ccc7ce9d46` under the same
+`SRC_b5586c323128ac158005e64b8591d4af`, failed in 6110.17 pytest /
+6114.352 controller seconds. Ananta `1299b9204`, private Meet `848a3d6`,
+frontend `803a77c0`, browser `5d4be51c` and proxy `8fc7d306` remained unchanged;
+one failure, no errors/skips, no cadence fault or SFrame probe enabled.
+The final printed checkpoint was 6096 active seconds, 102 renewed lease
+generations, 131 screen checks and sampled peak RSS 2,622,271,488 bytes /
+22 processes. The result digest is
+`c9b0636cb2322b7e12b6aca35e730887dca72e008e174d7694757dffd90fae3f`.
+
+The runtime again stopped with `meet_media_timing_source_failed`. The retained
+receipt has screen generation 204, current time 6097440000 us and last
+submission 6096575099 us: **864901 us**, beyond the unchanged 750000-us fence.
+The scheduling tail contains screen ticks of 382.16/383.83 ms and gaps up to
+572.52 ms; unrelated chat/browser calls also exceed 300 ms. The Hub exchange
+still accepted fresh controls and recorded no control failure. This does not
+prove the origin of the slow calls or repair of the older receiver-only freeze.
+
+The delayed-ack fix remains valid for its paired reproduction, but is not
+sufficient for the complete serial runtime. Source audit now includes the
+synchronous CDP acknowledgements invoked from source callbacks, per-loop
+control/chat/timing RPCs and the test's additional once-per-second diagnostic
+RPCs. Before another two-hour attempt, use bounded passive phase/ack/idle
+measurements and a short same-runtime reference to identify where screen
+delivery is delayed. Do not weaken freshness, skip controls, reuse stale
+frames, claim a resource cause without measurement or reset the timing gate.
+MAP-30 remains open; all receipts here remain synthetic TEST evidence.
