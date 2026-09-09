@@ -12,7 +12,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from scripts.hub_browser_test_evidence import HubBrowserTestRun
-from scripts.meet_test_gate_inputs import ROOT_PATHS, frontend_digest, native_environment, snapshot_repository
+from scripts.meet_test_gate_inputs import (
+    ROOT_PATHS,
+    frontend_digest,
+    native_environment,
+    require_immutable_test_image,
+    snapshot_repository,
+)
 from scripts.meet_test_gate_profiles import DEFAULT_PROFILE, PROFILE_NAMES, select_profile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,10 +74,8 @@ def run(
     environment = native_environment()
     bundle = frontend_digest(environment["MEET_TEST_PUBLIC_DIR"])
     profile = selected.projection()
-    if profile_name.startswith("gpu-"):
-        from scripts.meet_test_gate_inputs import require_packaged_gpu_image
-
-        require_packaged_gpu_image(environment.get("MEET_DIALOG_GPU_PACKAGED_IMAGE"))
+    for name in selected.image_inputs:
+        require_immutable_test_image(environment.get(name))
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     run = reserve(
         root=root,

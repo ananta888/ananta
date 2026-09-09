@@ -7,8 +7,8 @@ The optional closed `--profile` selector also supports `gpu-components`,
 `MEET_DIALOG_GPU_PACKAGED_IMAGE`; absence or a mutable tag fails before
 reservation, never falling back to the serving Worker. Component inference
 has a 240-second outer deadline; the browser/GPU profiles have 360 seconds.
-All profiles force the short-test soak setting to zero instead of inheriting
-an unrelated long-run opt-in. Selection, original deadlines and environment
+Short profiles force the soak setting to zero instead of inheriting an
+unrelated long-run opt-in. Selection, original deadlines and environment
 are bound into the reserved execution profile; arbitrary test nodes, command
 arguments and timeout extensions are not accepted.
 Set the existing explicit immutable `MEET_MULTI_WORKER_IMAGE`,
@@ -19,6 +19,29 @@ observations, timing, pooled WAL and the existing two-Worker test. It has a
 420-second outer deadline and terminates only its own test process group if
 that deadline is exceeded. Standard input is closed; no human gate can unblock
 the test. The fixtures retain their independent original deadlines and cleanup.
+
+`--profile private-dialog-soak` explicitly selects the existing 7,200-second
+Hub dialog/screen fixture with a 7,560-second outer execution bound. The
+fixture retains its original Task deadline, final five-second cleanup allowance,
+periodic moving-screen observations, 3-GiB observed process-RSS / eighty-process
+limits, fresh consent and bounded chat replies. It uses synthetic inference,
+private TLS/direct networking and a host-side dialog executor, not a public
+TURN, GPU or two-publisher soak. Report the actual active observation duration
+separately from the two-hour Task budget. No second Task/membership is created
+to conceal absolute expiry or extend the original run.
+
+Each profile now declares every container image input it actually uses. Browser
+profiles additionally require immutable `MEET_TEST_BROWSER_IMAGE`, preventing
+the fixture's legacy mutable-tag default from silently selecting an unbound
+browser runtime. Image inputs are captured in the Hub environment binding;
+missing/mutable references fail before reservation. This tightens subsequent
+references without rewriting the older GPU results (whose inference image was
+pinned but whose browser fixture still used its legacy selection).
+
+For a long run while development continues, use separate clean, exact-revision
+Ananta/Meet worktrees with a matching private frontend build. Do not edit those
+snapshots during execution. The runner can then detect genuine input mutation
+without treating unrelated work in the main checkouts as tested source.
 
 Before execution the controller verifies clean selected tracked Ananta inputs
 and a clean companion checkout, hashes them and the actual private frontend

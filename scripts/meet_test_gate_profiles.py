@@ -10,9 +10,10 @@ class MeetTestProfile:
     reference: str
     timeout_seconds: int
     settings: tuple[tuple[str, str], ...]
+    image_inputs: tuple[str, ...]
 
     def environment(self):
-        # Ambient opt-ins must not turn a short reference into a different test.
+        # Only the selected closed profile may override the short-run default.
         return {
             "ANANTA_TEST_DATABASE_MODE": "wal",
             "ANANTA_SQLITE_POOL_SIZE": "8",
@@ -29,6 +30,7 @@ class MeetTestProfile:
             "environment": self.environment(),
             "timeout_seconds": self.timeout_seconds,
             "reference": self.reference,
+            "image_inputs": list(self.image_inputs),
         }
 
 
@@ -41,6 +43,7 @@ _PROFILES = (
         "two-cpu-one-gib-per-publisher-independent-media-v1",
         420,
         (("MEET_MULTI_WORKER_GATE", "1"), ("MEET_WORKER_RESOURCES_GATE", "1")),
+        ("MEET_MULTI_WORKER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
     ),
     *(
         MeetTestProfile(
@@ -50,6 +53,7 @@ _PROFILES = (
             "single-host-browser-packaged-qwen-piper-owned-canvas-v1",
             360,
             (("MEET_CROSS_REPOSITORY_GATE", "1"), ("MEET_DIALOG_GPU_GATE", "1")),
+            ("MEET_DIALOG_GPU_PACKAGED_IMAGE", "MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
         )
         for name, case in (("gpu-avatar", "avatar-gpu"), ("gpu-voices", "voice-selection-gpu"))
     ),
@@ -59,6 +63,16 @@ _PROFILES = (
         "packaged-qwen-piper-nvenc-component-v1",
         240,
         (("MEET_DIALOG_GPU_GATE", "1"),),
+        ("MEET_DIALOG_GPU_PACKAGED_IMAGE",),
+    ),
+    MeetTestProfile(
+        "private-dialog-soak",
+        "tests/test_meet_dialog_cross_repository.py::"
+        "test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop[text]",
+        "synthetic-single-host-hub-dialog-screen-two-hour-v1",
+        7560,
+        (("MEET_CROSS_REPOSITORY_GATE", "1"), ("MEET_DIALOG_SOAK_SECONDS", "7200")),
+        ("MEET_TEST_BROWSER_IMAGE", "MEET_TEST_PROXY_IMAGE"),
     ),
 )
 PROFILE_NAMES = tuple(profile.name for profile in _PROFILES)

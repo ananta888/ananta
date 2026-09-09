@@ -8,10 +8,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from scripts.meet_test_gate_profiles import PROFILE_NAMES
 from scripts.run_meet_test_gate import execute, run
 
 
-@pytest.mark.parametrize("profile_name", ["packaged-resources", "gpu-avatar", "gpu-voices", "gpu-components"])
+@pytest.mark.parametrize("profile_name", PROFILE_NAMES)
 @pytest.mark.parametrize("mode", ["pass", "fail", "skip", "changed", "exception"])
 def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_inputs(
     tmp_path, monkeypatch, mode, profile_name
@@ -27,7 +28,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
     monkeypatch.setattr("scripts.run_meet_test_gate.snapshot_repository", Mock(side_effect=snapshots))
     monkeypatch.setattr(
         "scripts.run_meet_test_gate.native_environment",
-        lambda: {"MEET_TEST_PUBLIC_DIR": "/synthetic", "MEET_DIALOG_GPU_PACKAGED_IMAGE": "sha256:" + "a" * 64},
+        lambda: {"MEET_TEST_PUBLIC_DIR": "/synthetic", **dict.fromkeys(profile.image_inputs, "sha256:" + "a" * 64)},
     )
     monkeypatch.setenv("MEET_DIALOG_SOAK_SECONDS", "7200")
     monkeypatch.setattr("scripts.run_meet_test_gate.frontend_digest", lambda _: "d" * 64)
@@ -51,7 +52,7 @@ def test_reserved_test_scope_is_completed_without_promoting_failed_or_changed_in
         assert events == ["reserve", "execute"]
         assert json.loads(environment["ANANTA_HUB_EVIDENCE_ASSIGNMENT_JSON"]) == {"synthetic": True}
         assert environment["ANANTA_MEET_MEDIA_TIMING"] == "1"
-        assert environment["MEET_DIALOG_SOAK_SECONDS"] == "0"
+        assert environment["MEET_DIALOG_SOAK_SECONDS"] == profile.environment()["MEET_DIALOG_SOAK_SECONDS"]
         assert all(environment[key] == value for key, value in profile.settings)
         assert "-n" in command and "0" in command
         assert profile.node in command
@@ -87,6 +88,35 @@ def test_unlisted_profile_fails_before_reading_inputs_or_reserving(tmp_path, mon
         run(tmp_path, tmp_path, tmp_path, profile_name="arbitrary-test", reserve=reserve)
     read.assert_not_called()
     reserve.assert_not_called()
+
+
+@pytest.mark.parametrize("profile_name", PROFILE_NAMES)
+def test_profile_requires_every_actual_container_input_before_reservation(tmp_path, monkeypatch, profile_name):
+    from scripts.meet_test_gate_profiles import select_profile
+
+    profile = select_profile(profile_name)
+    monkeypatch.setattr("scripts.run_meet_test_gate.snapshot_repository", lambda *_: ({}, (Path("test.py"),)))
+    monkeypatch.setattr("scripts.run_meet_test_gate.frontend_digest", lambda _: "a" * 64)
+    reserve = Mock()
+    for missing in profile.image_inputs:
+        inputs = dict.fromkeys(profile.image_inputs, "sha256:" + "a" * 64) | {"MEET_TEST_PUBLIC_DIR": "/synthetic"}
+        inputs.pop(missing)
+        monkeypatch.setattr("scripts.run_meet_test_gate.native_environment", lambda: inputs)
+        with pytest.raises(ValueError, match="immutable_image_required"):
+            run(tmp_path, tmp_path, tmp_path, profile_name=profile_name, reserve=reserve)
+    reserve.assert_not_called()
+
+
+def test_selected_soak_is_fixed_and_cannot_mutate_other_profile_environment():
+    from scripts.meet_test_gate_profiles import select_profile
+
+    long = select_profile("private-dialog-soak")
+    assert long.environment()["MEET_DIALOG_SOAK_SECONDS"] == "7200"
+    assert long.timeout_seconds == 7560 and long.node.endswith("[text]")
+    changed = long.environment()
+    changed["MEET_DIALOG_SOAK_SECONDS"] = "1"
+    assert long.environment()["MEET_DIALOG_SOAK_SECONDS"] == "7200"
+    assert select_profile("gpu-avatar").environment()["MEET_DIALOG_SOAK_SECONDS"] == "0"
 
 
 def test_existing_output_is_not_overwritten_and_preflight_failure_never_reserves(tmp_path, monkeypatch):

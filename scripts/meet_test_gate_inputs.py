@@ -63,6 +63,7 @@ def native_environment():
         "LD_LIBRARY_PATH",
         "MEET_MULTI_WORKER_IMAGE",
         "MEET_DIALOG_GPU_PACKAGED_IMAGE",
+        "MEET_TEST_BROWSER_IMAGE",
         "MEET_TEST_PROXY_IMAGE",
         "MEET_TEST_PUBLIC_DIR",
         "ANANTA_MEET_DIALOG_CAPACITY",
@@ -71,6 +72,6 @@ def native_environment():
     return {name: os.environ.get(name) for name in names}
 
 
-def require_packaged_gpu_image(image):
+def require_immutable_test_image(image):
     if not isinstance(image, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
-        raise ValueError("meet_test_gate_packaged_gpu_image_required")
+        raise ValueError("meet_test_gate_immutable_image_required")
