@@ -74,3 +74,28 @@ or Hub production runtime. All 89 affected/resource/cleanup/container checks
 passed in WAL mode in 41.06 seconds; Ruff passed. Both repaired modules also
 passed all 20 cases under the default-memory application mode in 17.58 seconds.
 Final combined confirmation follows separately; the failed aggregate is retained.
+
+## Confirmed matrix and MAP-29 boundary
+
+The identical combined matrix at clean Ananta `1ece01072` passed with four
+workers, explicit WAL, enabled self-contained LiveKit integrations and unchanged
+case/outer deadlines: **4,943 passed, 82 explicitly skipped, zero failures or
+errors**, 5,025 total cases, 1,033.58 pytest seconds (17 min 13.58 s),
+1,036.439 controller seconds. The four added cases cover the model path negatives
+and both explicit SQLite modes. This is the final confirmation of the two
+fixture repairs; neither preceding failed aggregate is relabeled as passed.
+
+Together with Meet `c4ef486`'s passing current Human/Pair/Chromium/Firefox and
+security matrix, the actual paired-idle screen/chat/stop reference and the
+two-installed-Worker media/reconnect/resource reference, MAP-29's headless
+contract, security, lifecycle, transport-observation and compatibility criteria
+are fulfilled. All six criteria were checked; this closes the test-matrix
+implementation task, not the whole track.
+
+The older unattributed 349-RTP-packets/zero-decoder startup incident is retained
+as a historical, not causally resolved observation under MAP-30's runtime
+follow-up. Current successful cases are not claimed to explain its cause.
+GPU hardware recovery, the normal two-hour reference, public operator trust,
+OIDC/TURN/independent-receiver acceptance and staged rollout remain in MAP-30,
+MAP-31 and MAP-32. No native skip, test identity or health response is promoted
+to production evidence, and the partial track is not archived.

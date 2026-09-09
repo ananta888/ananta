@@ -1104,6 +1104,7 @@
     },
     {
       "id": "MAP-29",
+      "completion_review": "Six acceptance criteria reviewed: clean Ananta1ece01072 combined302file matrix5025cases with explicitWAL/4workers/120sdefault/3600souter and enabledself-containedLiveKitPASS4943,82explicitSKIP,0FAIL/error1033.58s(controller1036.439s). Current Meet c4ef486 fullHuman/Pair/Chromium/Firefox/securityPASS1188frontend/1088Node, plus actual paired-idle chat/screen/stop and two-installedWorker media/reconnect/resources references. Both environment-dependent fixture errors causally corrected and verified89WAL/20memory plus fullmatrix. Test-matrix implementation criteria fulfilled, not GPU/public/2h/rollout completion. Historical unattributed startup follow-up remains MAP30, not claimed causally fixed. docs/contracts/meet-matrix-regression-20260909.md.",
       "updated_matrix_fixture_repairs": "Clean private4c53b51f3 matrix302files/5021cases/4workers explicitWAL:4937PASS82SKIP2FAIL1035.90s (controller1038.762s). Two test assumptions: GPUprojectionunit needed real checkoutmodels despite mockedcapacity/Docker; shared-cachelocktest used ambientWALengine where no retry is correct. Added injected testmodeldirectory with realdefault/strictpathcheck unchanged; separate own2connection shared-cache/WAL lock cases, no globalengine or runtimepolicy change.89affected/container/resource/cleanupchecksPASS41.06s inWAL;RuffPASS. Memorymode/finalcombinedconfirmation pending. docs/contracts/meet-matrix-regression-20260909.md.",
       "private_network_cleanup": "Docker default pools exhausted on paired-idle setup; root teardown stopped bridge before Python-owned peer browser, so network removal could meet live endpoints. Separate exact-ID internal bridge network cleanup capability captured from owned setup; remove both dependent browsers before bridge, then verify/remove only exact empty network if bridge exited early. No foreign endpoint disconnect/prune/daemon change, removal failures retain capability. Focused identity/order/failure tests and actual after-fix native cleanup required. docs/contracts/meet-dialog-network-cleanup.md.",
       "companion_grouped_loopback_result": "Meet ebd78be isolated npm run check PASS:1142Frontend/140files,1066NodePASS/0FAIL/4explicitSKIP380.153s; build7.994s/Go/static/vetPASS. Both independent66150sample speech cases, real human/Pair/Chromium/Firefox andbrowser-native401framepathsPASS. Earlier same-process Pion ICEfixture failure fixedwithloopback-onlytestadapter, no productionnetwork/deadlinechange. External14gatesexplicitSKIP, notpublicreleaseorallhistoricalintermittencecauseproof. Companion docs/ananta-linux-grouped-check-20260909.md.",
@@ -1117,10 +1118,10 @@
       "repository": "both",
       "type": "test",
       "milestone_id": "MAP-M8",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-12",
         "MAP-16",
@@ -1141,10 +1142,11 @@
       "browser_launch_diagnostic_result": "2026-09-08: PackagedGPU-Browsergate24.36s vorGPUsetup mit generischem Sandboxstartfehler abgebrochen, Ursache unbekannt. Eigenes enges Node-Diagnosemodul liefert nur allowlisted timeout/sandbox/resource/executable/unknown, keineBrowserlogs/Args/Keys.15sLaunch/20sObservation, Seccomp/Sandbox/nonroot/2CPU/1GiB/256PIDs unveraendert; keinRetry.32Node-/Fixturetests22.54s und3reale separate Chromiumstarts13.44s gruen. docs/contracts/meet-browser-launch-diagnostics.md. Wiederholungen sind keine Kausalbehebung des alten Fehlers und keinGPU-/Medien-/Produktionsclaim.",
       "chat_dispatch_diagnostic_plan": "2026-09-08 Companionverlustfreiauf089c4dbaktualisiert(10Upstreamcommits, u.a.neuerE2EE-Quellpublisher); alteprivateBuildabnahmenbleibenhistorisch, naechsterGatebrauchtfrischenBuild. MeetMDS-08/docs/machine-chat-dispatch-diagnostics.md: senttruebishernurUIform, neueprivategezielteAttempt/Queued/FailedSendzaehlerundAnswerseen/Renderedboolsbei30sAnswerTimeoutmit1sSnapshotbudget. Keine Inhalte/Keys/IDs/Policy-/Retryaenderung; nochnichtUrsachedessporadischenPreinferenzfehlers. GezielteChecks, aktuellerprivaterRootGPUdialogundisolierterCompanionvollcheckgeplant, keineServing-/Trust-/Dienstveraenderung.",
       "chat_dispatch_current_source_verification": "2026-09-08: Companion 0e474ca implements bounded attempted/queued/failed send counters and one-second timeout-only closed snapshots; native bytes/returns/exceptions unchanged, no replay or policy changes. 20 deterministic checks and two real Chromium/Firefox observer checks passed. Fresh private frontend against packaged immutable Worker sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e: actual GPU voice selection passed in 101.51 s, neutral 44800 / whisper 165376 local samples, exactly two events/ACKs/prepared/spoken/replies, no chat-flow failures or human captures/transform errors, remote revoke 438.87 ms. Explicit local Go 1.24.13 and FFmpeg 8.0.1 full companion check: 741 Node passes, one pre-existing Chromium screen-decoder wait failure, two skips in 205.224 s; isolated screen repeat two passes in 4.599 s is not a causal fix. Earlier Docker native SFrame subprocess timeout remains separately recorded. Infrastructure stage separately invoked: fourteen explicit opt-in live skips. Docs/results pushed as companion c3e378a. No complete-green/production release claim; MDS-08 and MAP-29 remain open. See companion docs/machine-chat-dispatch-diagnostics.md.",
-      "open_startup_incident": "MAP-08 security criteria are verified; the independent intermittent startup incident remains open here:349RTPpackets/0decoded. Two-second sender/receiver key delays and actual first-keyframe loss on Chromium/Firefox did not reproduce it; nativePLI recovered in both engines. The separately reproduced structural-envelope-resumption bug was fixed8341813, not identified as the cause of the original incident. Keep bounded startup/RTP/error diagnostics and fail any recurrence; no blind retry or green-repeat-as-fix."
+      "startup_incident_followup": "Historical349RTPpackets/0decoded observation is retained under MAP-30 runtime follow-up; its cause is not declared fixed by current matrix passes. MAP-29 closes only its six implemented headless test/compatibility criteria; bounded diagnostics and failure on recurrence remain."
     },
     {
       "id": "MAP-30",
+      "unattributed_startup_followup": "Retained from MAP-29 on test-matrix completion: historical349RTPpackets/0decoded startup incident has no established cause. Two-second sender/receiver key delays and actual first-keyframe loss on Chromium/Firefox did not reproduce it; nativePLI recovered in both engines. Separate structural-envelope-resumption fix8341813 was not identified as its cause. Keep bounded startup/RTP/error diagnostics and fail any recurrence during runtime references; no blind retry or green-repeat-as-causal-fix. No historical failed run is promoted to PASS.",
       "late_completion_packaged_result": "After current Meet c4ef486 groupedcheckPASS1188frontend/1088Node0FAIL4SKIP391.134s, actual two-installedWorker profile at Ananta4c53b51f3/image5d4be51c PASS58.910s,1pass0fail/error/skip,unchangedinputs. RUN_40a85ee7647e098bfeba13355d7bbc26 / SRC_2f8d8127957c93af4b193f1e71e529cf. Independentmedia/reconnect/stopPASS, activeRAM270184448/266997760bytes,PIDs108/104,terminal0dialogs5PIDseach; no sourcebinds/continuouspeak/GPU/publicclaim. CurrentAnantamatrix and normal2h follow. docs/contracts/meet-cadence-delay-reference.md.",
       "late_completion_native_after": "Actual identical paired-idle profile at afc5eeb7c/Meetebd78be PASS315.847s runner/311.58s pytest, unchanged inputs,1pass0fail/error/skip. RUN_f168a00e2c54f42d27cfc6b14f1a0faf / SRC_25e80519a82b97f9b02afba8c95d39ba. All30idle/20delays,295active seconds/4leases,peak2253651968bytes22processes,chat/consent/private exclusion/stopPASS. Exact4-container private network absent after automatic cleanup. Updated image5d4be51c5dda labels full968a15c20revision. Still host executor/browsercontainer topology; packaged execution/normal2h/currentMeetgroupedcheck remain separate. docs/contracts/meet-cadence-delay-reference.md.",
       "late_completion_native_before": "Actual paired-idle fault at Ananta3ece4183f/Meetebd78be failed33.361s runner/29.04s pytest: RUN_88786bfb62746cbafefa85cd95338f90 / SRC_a8e57386d5f98b35f9f743b4442875f8, unchanged inputs,1failed/0skip,error. Four completed delayed waits, screen age915300us exceeds unchanged750000us. Implemented one due latestframe immediately after confirmed completion;108 related testsPASS46.30s and Workerboundary/RuffPASS. Updated immutable image and actual after-fix check pending. Initial run failed before media due exhausted Docker pools; separate peer-before-network cleanup fix needed. docs/contracts/meet-cadence-delay-reference.md.",
@@ -1260,12 +1262,12 @@
     "total": 32,
     "by_status": {
       "todo": 1,
-      "in_progress": 1,
+      "in_progress": 0,
       "partial": 2,
       "blocked": 0,
-      "done": 28
+      "done": 29
     },
-    "progress_percent_done": 87.5,
+    "progress_percent_done": 90.6,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1279,8 +1281,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 12,
-      "remaining": 4
+      "done": 13,
+      "remaining": 3
     },
     "milestones": {
       "total": 8,
@@ -1405,15 +1407,15 @@
         "total": 3,
         "by_status": {
           "todo": 1,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 35.0
+        "progress_percent": 50.0
       },
       "operations": {
         "total": 1,
@@ -1434,20 +1436,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 1,
+    "in_progress": 0,
     "partial": 2,
     "blocked": 0,
-    "done": 28,
-    "count_based_percent": 87.5,
-    "weighted_percent": 89.4
+    "done": 29,
+    "count_based_percent": 90.6,
+    "weighted_percent": 90.8
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 52.087,
-    "remaining_weight": 6.163,
+    "done_weight": 52.875,
+    "remaining_weight": 5.375,
     "blocked_weight": 0.0,
-    "weighted_percent": 89.4
+    "weighted_percent": 90.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1509,10 +1511,10 @@
       },
       "MAP-M8": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 33.4,
+        "count_based_percent": 25.0,
+        "weighted_percent": 41.9,
         "status": "in_progress"
       }
     }
@@ -1520,10 +1522,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T11:06:33.104478Z",
+    "generated_at": "2026-09-09T16:47:26.961315Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8dc386c8697e9b9a7b1004bdb6fffd8c55a296c8722a2e9d3312291581562ff9",
+    "source_hash": "2303125b18fd92dcd427c30f9f07d54fc0027f5d3383739cdd35fd73fb220fae",
     "is_stale": false
   }
 }
