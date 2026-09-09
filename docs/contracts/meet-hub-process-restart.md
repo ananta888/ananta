@@ -32,3 +32,14 @@ This is a **fail-closed restart/reconciliation** gate. It does not implement or
 claim automatic Meet room rejoin, Hub HA or lossless dialogue resumption. Those
 remain separate MAP-11 work. SOLID: the shared fixture owns infrastructure;
 the packaged Hub owns orchestration/state; Workers remain execution-only.
+
+## Fixture preparation
+
+The private receive infrastructure is now shared without changing host-Hub
+composition or source policy. Eight invalid-source/no-resource tests passed in
+12.00 s; the existing real packaged camera/regrant/revoke gate passed in 57.49 s.
+The private Hub control/configuration prototype passed 20 headless tests in
+19.55 s (closed private origins, key length, explicit opt-in, fixed authenticated
+operations, no repeat start or arbitrary execution options). These preparation
+checks are **not** the full process-restart result; the installed Hub and actual
+restart gate remain to be run.
