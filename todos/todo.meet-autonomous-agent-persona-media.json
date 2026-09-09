@@ -291,7 +291,7 @@
     {
       "id": "MAP-M6",
       "title": "Bild-, Sprach- und Videoausgabe",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "MAP-21",
         "MAP-22",
@@ -949,6 +949,7 @@
     },
     {
       "id": "MAP-24",
+      "completion_verification": "2026-09-09 all4criteria mapped in docs/contracts/meet-reference-quality-profile.md: independent source clocks/lifecycle with exactHubnegotiation, terminal stale/drift fences, old-generationstop/reconnectno-replay, durableHubsession/publicationplusGPUFIFOadmission and signedWorkerloadreports. Predeclared500msdrift/750msage, originalHubfreshness andstop/admissionlimits unchanged. Currentpre-reservedTESTresource/reconnect65.51sPASS; root4595543df/Meet91d9203/Worker6a2ac86f9209 actualgpu-avatar85.434s andgpu-voices94.686sPASS withtimingnegotiatedTrue.58,624avatarspeechsamples,906.42/976.56mslocal/remotepause;43,776neutral/119,552whispersamples,583.96/595.74msrevocation, exact2events/ACKs/replies,nochatfailures/capture/transformerrors andmovingownscreen. SeparateQwen/Piper/NVENCcomponent96.671sPASS. Allunchangedsourcebindings, testscopeNOTproduction; canvasclocknotRTPtimestamp, GPUbrowserfixturehostdialog+packagedinference not2GPUpublishers. Extendedhardware/soak/publicTURN/rollout remain MAP30/31/32; combinedregression/historicalunprovenstartupincidents MAP29. Oldnotesarehistorical, notcurrentopenimplementationcriteria.",
       "live_clock_packaged_result": "2026-09-09 Hub e3357e38d, immutable Worker bd2445226c601c9b142c671979060d473d3bf92234168cf8780ead387274fb8b (d09eac538), private Meet frontend95d0d4e: actual two-role/two-container timing and multimedia reconnect passed63.68s. Two recoveries6486.81/6449.41ms, third-loss bounded stop230.62ms, no redispatch/old speech/inherited receive consent, independent survivor. First31.61s run exposed missing timing flag in phase authority reconstruction; corrected and72 phase/model/negotiation checks34.70s passed. Separate router exact-option gap proved by6red cases; correction and49 related tests28.97s passed. Companion clock implementation and diagnostic follow-up pushed through28eff78. Its previous aggregate965frontend/968Node passes but5Node failures/2skips remains failed; all5affected cases passed a focused66.583s repeat without causal-fix claim. Source clocks and synthetic-policy local observations, not GPU/lipsync/public/Registry release evidence. docs/contracts/meet-live-media-clock.md.",
       "dialog_capacity_implementation": "2026-09-09 source audit after packaged timing acceptance: missing Hub session/publication admission implemented as separate strict operator policy, SQL WorkerSlotLease resource pool and bounded authority-wait port around exact publisher, including single-publisher composition. Defaults8total/2perpublisher/384Mbps conservative capability-times19fanout reservation;4FIFOwaiters/10swait, no task redispatch, profile digest pinned across Hubs, acceptance/uncertain dispatch retain capacity, terminal observation retains95s startup-cleanup quarantine capped by originaldeadline+5. Generic lease/status APIs exclude private binding metadata.86initial tests39.40s and143expanded59.31s pass; final ownership and installed capacity acceptance still pending. Reservation is not a network shaper/free-VRAM claim. docs/contracts/meet-capacity-admission.md; MAP24 remains partial pending measured hardware profile and remaining acceptance.",
       "live_clock_browser_port_result": "2026-09-09 strict additive native-capability probe and checkpoint-bound BrowserMediaTiming transport implemented,10Hz polling/irreversible gate/no source or policy ports;62Python tests31.33sPASS,121fileWorkerboundaryPASS. Meet optional page-owned100ms watchdog/actualPCM/canvas/compositorPTS adapters and3realbrowsercases20.769sPASS: Chromium publisher to Chromium/Firefox receivers30samples each, peakvideo147600/144000us/PCM8200us, stale-screen stop799.87/790.14ms, independentheldvideo/capture0/transformerrors0. Firefoxpublisher existingrequestFrame absence explicitlyprobed/denied, no automaticcapturefallback. Sourceclock and actualdecode only, not end-to-end A/V alignment/GPU/public/production. Hub option admission, runtime composition and installed image remain next; docs/contracts/meet-live-media-clock.md. MAP24 stayspartial.",
@@ -959,10 +960,10 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M6",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 50.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-12",
         "MAP-21",
@@ -1234,11 +1235,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 1,
-      "partial": 3,
+      "partial": 2,
       "blocked": 0,
-      "done": 27
+      "done": 28
     },
-    "progress_percent_done": 84.4,
+    "progress_percent_done": 87.5,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1258,9 +1259,9 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 6
+      "done": 7
     }
   },
   "summary_notes": [
@@ -1351,14 +1352,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 15
+          "done": 16
         },
-        "done": 15,
-        "partial": 1,
+        "done": 16,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 96.9
+        "progress_percent": 100.0
       },
       "infrastructure": {
         "total": 1,
@@ -1408,19 +1409,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 1,
-    "partial": 3,
+    "partial": 2,
     "blocked": 0,
-    "done": 27,
-    "count_based_percent": 84.4,
-    "weighted_percent": 87.7
+    "done": 28,
+    "count_based_percent": 87.5,
+    "weighted_percent": 89.4
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 51.087,
-    "remaining_weight": 7.163,
+    "done_weight": 52.087,
+    "remaining_weight": 6.163,
     "blocked_weight": 0.0,
-    "weighted_percent": 87.7
+    "weighted_percent": 89.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1466,11 +1467,11 @@
       },
       "MAP-M6": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 86.7,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "MAP-M7": {
         "total_tasks": 4,
@@ -1493,10 +1494,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T08:34:07.744190Z",
+    "generated_at": "2026-09-09T11:06:33.104478Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "1c36a2ce6f697654c6154fe2832ec576153f504cf7f89eaf321ec200131e9df4",
+    "source_hash": "8dc386c8697e9b9a7b1004bdb6fffd8c55a296c8722a2e9d3312291581562ff9",
     "is_stale": false
   }
 }
