@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.meet_dialog_startup_observer import DialogStartupObserver
+from tests.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
 
 
@@ -31,6 +31,7 @@ def test_real_return_precedes_join_observation_and_arguments_are_unchanged(monke
         "http_errors": [],
         "request_errors": [],
         "script_errors": [],
+        "fetch_errors": [],
     }
     observer.finished()
     assert observer.snapshot()["phase"] == "joined"
@@ -58,6 +59,7 @@ def test_failure_wakes_waiter_without_promoting_startup_or_exposing_error(monkey
         "http_errors": [],
         "request_errors": [],
         "script_errors": [],
+        "fetch_errors": [],
     }
 
 
@@ -77,3 +79,61 @@ def test_startup_transport_observation_is_bounded_redacted_and_copied(monkeypatc
     assert value["script_errors"] == ["unclassified"] * 8
     value["http_errors"].clear()
     assert len(observer.snapshot()["http_errors"]) == 8
+
+
+@pytest.mark.parametrize(
+    "message,code",
+    [
+        ("PRIVATE certificate failure", "certificate"),
+        ("PRIVATE Timeout 2000ms", "timeout"),
+        ("PRIVATE ECONNRESET", "connection"),
+        ("PRIVATE", "unclassified"),
+    ],
+)
+def test_fetch_observer_preserves_exception_and_call_without_logging_payload(monkeypatch, message, code):
+    from playwright.sync_api import Route
+
+    error = RuntimeError(message)
+    fetch = Mock(side_effect=error)
+    monkeypatch.setattr(Route, "fetch", fetch)
+    observer = DialogStartupObserver(monkeypatch)
+    route = object.__new__(Route)
+    for _ in range(10):
+        with pytest.raises(RuntimeError) as caught:
+            route.fetch(timeout=2000, max_redirects=0, max_retries=0)
+        assert caught.value is error
+    fetch.assert_called_with(route, timeout=2000, max_redirects=0, max_retries=0)
+    assert observer.snapshot()["fetch_errors"] == [code] * 8
+
+
+@pytest.mark.parametrize(
+    "resources",
+    [
+        {"members": 1, "machines": 0, "connectionDrops": 8},
+        {"PRIVATE": "TOKEN"},
+        {"members": True, "machines": 0, "connectionDrops": 0},
+    ],
+)
+def test_startup_failure_inspects_only_closed_peer_counts_and_never_claims_join(resources):
+    observer, record = Mock(), Mock()
+    observer.snapshot.return_value = {"phase": "failed"}
+    command = Mock(return_value=resources)
+    with pytest.raises(AssertionError):
+        require_observed_dialog_startup(observer, Mock(), [], command, record)
+    observer.settled.wait.assert_called_once_with(60)
+    command.assert_called_once_with("fixture_resources")
+    expected = (
+        resources
+        if resources.get("members") == 1 and type(resources.get("members")) is int
+        else {"state": "unavailable"}
+    )
+    record.assert_called_with("dialog_startup_peer_resources", expected)
+
+
+def test_confirmed_join_does_not_request_peer_diagnostics():
+    observer, command, record = Mock(), Mock(), Mock()
+    observer.snapshot.return_value = {"phase": "joined"}
+    completed = Mock(is_set=lambda: False)
+    require_observed_dialog_startup(observer, completed, [], command, record)
+    command.assert_not_called()
+    record.assert_called_once_with("dialog_startup", {"phase": "joined"})

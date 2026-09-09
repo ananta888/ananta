@@ -7,6 +7,23 @@ import time
 from worker.meet_media.dialog_session_operations import DialogSessionOperations
 
 
+def require_observed_dialog_startup(observer, completed, failures, command, record_property):
+    # Dispatch is not membership. Preserve the three existing 20-second Worker
+    # startup limits, then let the peer start its separate consent UI budget.
+    observer.settled.wait(60)
+    startup = observer.snapshot()
+    record_property("dialog_startup", startup)
+    if startup["phase"] != "joined":
+        try:
+            resources = command("fixture_resources")
+            assert set(resources) == {"members", "machines", "connectionDrops"}
+            assert all(type(value) is int and 0 <= value <= 20 for value in resources.values())
+        except Exception:
+            resources = {"state": "unavailable"}
+        record_property("dialog_startup_peer_resources", resources)
+    assert startup["phase"] == "joined" and not completed.is_set(), {"startup": startup, "runtime_errors": failures}
+
+
 class DialogStartupObserver:
     def __init__(self, monkeypatch, *, clock=time.monotonic):
         self.clock = clock
@@ -17,6 +34,7 @@ class DialogStartupObserver:
         self.http_errors = []
         self.request_errors = []
         self.script_errors = []
+        self.fetch_errors = []
         self.settled = threading.Event()
         ready, join = DialogSessionOperations.ready, DialogSessionOperations.join
 
@@ -37,6 +55,33 @@ class DialogStartupObserver:
 
         monkeypatch.setattr(DialogSessionOperations, "ready", observed_ready)
         monkeypatch.setattr(DialogSessionOperations, "join", observed_join)
+
+        from playwright.sync_api import Route
+
+        fetch = Route.fetch
+
+        def observed_fetch(route, *args, **kwargs):
+            try:
+                return fetch(route, *args, **kwargs)
+            except Exception as error:
+                if len(self.fetch_errors) < 8:
+                    message = str(error).lower()
+                    code = next(
+                        (
+                            code
+                            for code, needles in (
+                                ("certificate", ("certificate", "self-signed")),
+                                ("timeout", ("timeout", "timed out")),
+                                ("connection", ("econnreset", "econnrefused", "socket hang up")),
+                            )
+                            if any(needle in message for needle in needles)
+                        ),
+                        "unclassified",
+                    )
+                    self.fetch_errors.append(code)
+                raise
+
+        monkeypatch.setattr(Route, "fetch", observed_fetch)
 
     def start(self):
         self.started = self.clock()
@@ -70,4 +115,5 @@ class DialogStartupObserver:
             "http_errors": list(self.http_errors),
             "request_errors": list(self.request_errors),
             "script_errors": list(self.script_errors),
+            "fetch_errors": list(self.fetch_errors),
         }

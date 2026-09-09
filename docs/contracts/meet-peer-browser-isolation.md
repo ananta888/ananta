@@ -68,6 +68,14 @@ fixed failed startup phase and at most eight allowlisted HTTP/request/script
 error observations per category, using existing events without extra browser
 RPCs or raw exception/URL/token output.
 
+The next repeat (35.20 seconds) localized failure to client readiness, with six
+`ERR_BLOCKED_BY_CLIENT` request observations. The observer now classifies only
+fixed certificate/timeout/connection/unknown fetch failures and queries the
+private peer's bounded member/proxy-drop counts on startup failure. No network
+policy, proxy connection limit or request timeout was enlarged. Eighty-four
+startup/network tests passed in33.87 seconds; thirteen final observer checks
+passed in12.09 seconds. Actual cause and native verification remain open.
+
 The first isolated peer smoke reached actual chat and screen execution but
 failed after 49.81 seconds with `meet_media_timing_source_failed`; it did not
 establish soak readiness. The native fixture now retains at most one strictly

@@ -422,7 +422,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
         from tests.meet_media_timing_observer import observe_media_timing_failure
 
         observe_media_timing_failure(monkeypatch, record_property)
-        from tests.meet_dialog_startup_observer import DialogStartupObserver
+        from tests.meet_dialog_startup_observer import DialogStartupObserver, require_observed_dialog_startup
 
         startup_observer = DialogStartupObserver(monkeypatch)
         inject_private_frame = threading.Event()
@@ -577,16 +577,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                 parent=lifecycle_scenario.parent_id if lifecycle_scenario is not None else "",
             )
         started_at = time.monotonic()
-        # A dispatch receipt is not membership. Worker navigation, client
-        # readiness and join each retain their existing 20-second bound; only
-        # after the real join may the peer's 12-second consent UI budget start.
-        startup_observer.settled.wait(60)
-        startup = startup_observer.snapshot()
-        record_property("dialog_startup", startup)
-        assert startup["phase"] == "joined" and not completed.is_set(), {
-            "startup": startup,
-            "runtime_errors": failures,
-        }
+        require_observed_dialog_startup(startup_observer, completed, failures, command, record_property)
         consent = command("consent")
         assert consent == {"consent": True}, {
             "consent": consent,
