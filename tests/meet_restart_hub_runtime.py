@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import traceback
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -64,5 +65,12 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:
-        print(json.dumps({"error": "test_hub_runtime_failed", "type": type(error).__name__}), flush=True)
+        report = {"error": "test_hub_runtime_failed", "type": type(error).__name__}
+        if os.environ.get("MEET_HUB_RESTART_GATE") == "1":
+            report["frames"] = [
+                {"file": Path(frame.filename).name, "line": frame.lineno}
+                for frame in traceback.extract_tb(error.__traceback__)[-4:]
+                if re.fullmatch(r"[A-Za-z0-9_.-]{1,80}\.py", Path(frame.filename).name)
+            ]
+        print(json.dumps(report), flush=True)
         raise SystemExit(1) from None
