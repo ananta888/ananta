@@ -1035,10 +1035,10 @@
       "repository": "ananta",
       "type": "security",
       "milestone_id": "MAP-M7",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-25",
         "MAP-26"
@@ -1049,7 +1049,8 @@
         "Profile, Prompt-Kontext und Tool-Zugriff werden beim Rollen-/Raumwechsel neu geprüft; fremde Gesprächsdaten nicht in neue Sessions übernehmen.",
         "Automatisierte Angriffssequenzen testen Datenabfluss, falsche Sprecheridentität, Tool-Eskalation, Callback-Manipulation und persistierte Prompt-Injection."
       ],
-      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. MAP-27-Nachtrag nach Quellstandpruefung: Default-HTTP-Redirects und fehlende Overflowpruefung der Ollama-Modellliste erkannt. docs/contracts/meet-local-llm-transport.md vor Implementierung geplant, committet und gepusht. Kleiner operatorgebundener Zwei-Methoden-Transport trennt HTTP-Konfiguration/IO von Antwortgenerierung (SRP/DIP/ISP): feste Chat-/Modellpfade, keine Redirects/Proxyuebernahme/Provider-Fallbacks, begrenzte JSON-Koerper und Reads, keine doppelten Schluessel oder nichtendlichen Zahlen, explizites Schliessen von Fehlerantworten, redigierte Fehlercodes. Prompts bleiben reine Userdaten unter festem Systemprompt ohne Tools/History; vorhandene Token-/Zeichen-/Modell-/GPU-Pruefung unveraendert. 156 echte Loopback-HTTP-/Budget-/Fehler-/Medienregressionen in 80.88 s bestanden, Ruff gruen. Test-GPU-Metadaten sind synthetisch; keine echte Inferenz oder Produktionsfreigabe behauptet. Bestehender HTTP-Reader im historischen persona_http-Modul wiederverwendet statt dupliziert; operatorgewaehlter Host bleibt eigene Vertrauensgrenze. Weitergehende tenant-/raum-/rollenbezogene, visuelle und ASR-Angriffssequenzen sowie Produktionskriterien bleiben offen; MAP-27 bleibt partial."
+      "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. MAP-27-Nachtrag nach Quellstandpruefung: Default-HTTP-Redirects und fehlende Overflowpruefung der Ollama-Modellliste erkannt. docs/contracts/meet-local-llm-transport.md vor Implementierung geplant, committet und gepusht. Kleiner operatorgebundener Zwei-Methoden-Transport trennt HTTP-Konfiguration/IO von Antwortgenerierung (SRP/DIP/ISP): feste Chat-/Modellpfade, keine Redirects/Proxyuebernahme/Provider-Fallbacks, begrenzte JSON-Koerper und Reads, keine doppelten Schluessel oder nichtendlichen Zahlen, explizites Schliessen von Fehlerantworten, redigierte Fehlercodes. Prompts bleiben reine Userdaten unter festem Systemprompt ohne Tools/History; vorhandene Token-/Zeichen-/Modell-/GPU-Pruefung unveraendert. 156 echte Loopback-HTTP-/Budget-/Fehler-/Medienregressionen in 80.88 s bestanden, Ruff gruen. Test-GPU-Metadaten sind synthetisch; keine echte Inferenz oder Produktionsfreigabe behauptet. Bestehender HTTP-Reader im historischen persona_http-Modul wiederverwendet statt dupliziert; operatorgewaehlter Host bleibt eigene Vertrauensgrenze. Weitergehende tenant-/raum-/rollenbezogene, visuelle und ASR-Angriffssequenzen sowie Produktionskriterien bleiben offen; MAP-27 bleibt partial.",
+      "completion_note": "2026-09-09: Four current-profile input/scope/role/attack criteria source-mapped in docs/contracts/meet-multimodal-input-isolation.md.8new adversarial real-local-HTTP/ASR-reservation/native-Hub-SQL/JPEG metadata sequences54.92s WAL pass;292combined chat/transport/role/callback/renderer/visual/authority-race tests107.27s pass. Meet8f63d1a adds3claimed-human/source-pruning attacks within29tests0.175s. Fixed system/current-user messages, no history/tools/provider switch, scoped content-free Tasks, exact post-generation authority, immutable ASR sender/job and numeric-only visual results enforced. First JPEG test incorrectly demanded int averages; corrected to existing finite numeric0..255 contract, no product weakening. Human ASR classification derives from Meet authenticated non-machine-only consent/pruning, not spoken assertions. No semantic model-truth, future OCR/history/tools policy, malicious-Worker attestation or production provenance claim. Other feature/AV/recovery/public/soak tasks remain open."
     },
     {
       "id": "MAP-28",
@@ -1211,11 +1212,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 3,
-      "partial": 4,
+      "partial": 3,
       "blocked": 0,
-      "done": 24
+      "done": 25
     },
-    "progress_percent_done": 75.0,
+    "progress_percent_done": 78.1,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1314,14 +1315,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 7
+          "done": 8
         },
-        "done": 7,
-        "partial": 1,
+        "done": 8,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 90.6
+        "progress_percent": 100.0
       },
       "feature": {
         "total": 16,
@@ -1385,19 +1386,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 3,
-    "partial": 4,
+    "partial": 3,
     "blocked": 0,
-    "done": 24,
-    "count_based_percent": 75.0,
-    "weighted_percent": 84.6
+    "done": 25,
+    "count_based_percent": 78.1,
+    "weighted_percent": 85.9
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 49.287,
-    "remaining_weight": 8.963,
+    "done_weight": 50.037,
+    "remaining_weight": 8.213,
     "blocked_weight": 0.0,
-    "weighted_percent": 84.6
+    "weighted_percent": 85.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1451,10 +1452,10 @@
       },
       "MAP-M7": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 75.8,
+        "count_based_percent": 75.0,
+        "weighted_percent": 88.3,
         "status": "in_progress"
       },
       "MAP-M8": {
@@ -1470,10 +1471,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T04:52:52.743896Z",
+    "generated_at": "2026-09-09T05:07:20.221175Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "75b00cb8ba4ea53d0a3d6c714a5440efd79a5f1702e9e9fa9fb1a96d254b9eaa",
+    "source_hash": "cf0ad92e24bca802d7b2f5c576e22a17f88ecf2bec66b47352cb409a5864b27f",
     "is_stale": false
   }
 }

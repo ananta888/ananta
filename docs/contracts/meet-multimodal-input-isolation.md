@@ -54,3 +54,40 @@ not semantic truth of arbitrary model prose, malicious-Worker hardware
 attestation or Registry-grounded production provenance. SRP/DIP: retain separate
 policy, admission, transport, numeric analysis and output adapters. Existing
 large Hub dialog composition remains SRP debt; Workers gain no orchestration.
+
+## Verification
+
+Eight new actual-loopback HTTP, ASR/reservation, native Hub Task/SQL and JPEG
+metadata sequences pass with the file-backed WAL harness in **54.92 s**.
+The first run passed seven and failed one assertion that incorrectly required
+integer RGB averages; the existing closed numeric contract permits finite
+floating-point means. The corrected test preserves finite 0–255 bounds. No
+production policy/parser or decoder restriction was weakened.
+
+Five hostile inputs preserve exactly the fixed system/current-user envelope,
+fixed model/budget and four expected local HTTP operations across two requests;
+the following request contains no previous input. Provider tool-call metadata
+does not become an action or escape the bounded answer object. ASR spoof text
+cannot replace the reserved sender, scope or child and does not enter SQL
+receipts. Current source removal invalidates subsequent authority. A real Hub
+reply Task retains only its fixed execution metadata, never hostile input or
+output as future instructions, and six subsequent scope/generation changes
+cannot execute it again. A valid JPEG containing an instruction comment emits
+only numeric features; six extra authority/instruction result fields fail.
+
+The combined current-source chat admission/dispatch, HTTP transport, audio
+completion, role lifecycle, authenticated callback, browser renderer, visual
+and authorization-race matrix passes **292 tests in 107.27 s**. Meet adds three
+source-identity attack sequences; together with receive-policy/chat-queue checks
+**29 tests pass in 0.175 s** (8f63d1a). Previously admitted owners becoming
+machine or unauthenticated immediately lose media eligibility, their grants
+are pruned, and restoring attributes cannot resurrect the old consent. Forged
+owner objects, role claims, self input and added instruction fields are denied.
+Meet's chat view renders both author and message through Angular interpolation,
+not HTML or executable instructions.
+
+These boundaries satisfy MAP-27 for the currently implemented stateless local
+chat/ASR and numeric visual profile. The independent combined Meet aggregate
+at a98706f also passed 874 UI and 876 Node cases, with its documented opt-in
+external skips. No semantic model-truth guarantee, future OCR/context/tool
+policy, malicious-Worker attestation or production provenance is inferred.
