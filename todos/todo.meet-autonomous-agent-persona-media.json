@@ -247,7 +247,7 @@
     {
       "id": "MAP-M2",
       "title": "Maschinenidentität und Meet-Aufnahme",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "MAP-05",
         "MAP-06",
@@ -500,24 +500,25 @@
       "repository": "both",
       "type": "security",
       "milestone_id": "MAP-M2",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MAP-06"
       ],
       "acceptance_criteria": [
         "Capability-Probe entscheidet nachvollziehbar zwischen isoliertem Browser-Publisher und einem nachgewiesen kompatiblen nativen Adapter; keine implizite LiveKit-zu-Meet-Protokollübersetzung.",
         "Meets aktuelles SFrame-/Codec-Envelope-, Key-ACK- und Membership-Epoch-Verhalten für den gewählten Client vollständig implementieren und negativ testen.",
-        "Unbekannter Codec, fehlendes ACK, Replay, Revocation oder unsupported Encoded-Transform-Fähigkeit stoppen die betroffene Quelle ohne Klartext-Fallback.",
+        "Unbekannter Codec/Envelope oder unsupported Encoded-Transform-Fähigkeit sperren den betroffenen Transform dauerhaft. Fehlendes ACK liefert keine Medien; unbekannte Keys, Authentifizierungsfehler und Replay verwerfen ausschließlich das unzulässige Paket. Revocation entzieht den Kontext/Schlüssel. Kein Pfad besitzt einen Klartext-Fallback.",
         "Keys bleiben in der autorisierten Teilnehmer-Runtime; Hub-Orchestrierung, Signaling und blinde Relays bekommen keine zusätzliche Entschlüsselungsfähigkeit."
       ],
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich. 2026-09-09: Nach MAP-25 wird MAP-08 erneut aktiv bearbeitet. Der vorhandene Codec verwirft asynchron nach Revocation fertiggestellte Ergebnisse bereits. Deterministische echte WebCrypto-Tests sichern destroy/remove/replace und erhaltene Rotationsschlüssel ab. Ein isolierter echter Chromium-/Firefox-Transport soll den Verlust des ersten verschlüsselten Video-Keyframes am Receive-Transform getrennt von der bisher unbewiesenen Startfehler-Ursache untersuchen; keine spekulative Produktionsänderung und keine Lockerung von ACK, Policy oder Verschlüsselung.",
       "startup_investigation": "2026-09-08: Intermittenter initialer Screenempfang mit 349 RTP-Paketen/0 dekodierten Frames, 33 Senderframes und lebendem Hub/Worker; gruene Wiederholung ist kein Fix. Companion 4d40b45 verwirft Frames vor SFrame-Keyinstallation, fordert dabei aber keinen Ersatz-Keyframe an. Hypothese noch unbestaetigt; docs/contracts/meet-screen-encryption-startup.md plant feste begrenzte Zweissekunden-Senderkeyverzoegerung ohne Rechte-/Timeout-/Verschluesselungslockerung und nur numerische Diagnosen.",
       "startup_diagnostic_result": "2026-09-08: Sender-/Empfaenger-Keyverzoegerung implementiert, finale3 Tests in55.55s bestanden. Beide echten Browserpfade mit tatsaechlicher2s-Verzoegerung eines aktuellen Schluessels, bewegtem Screen, zwei Chatantworten, Secret-Marker-Sperre und Hub-Stop. Maximal drei eingehende aktuelle Keygenerationen/ein Key/Timer; verworfene Injektionen und Vorzulassungs-Netzfehler separat dokumentiert. Urspruenglicher sporadischer Decoderstartfehler damit NICHT reproduziert oder behoben; kein spekulativer Kryptofix. Numerische RTP/Keyframe/PLI/Transformdiagnose bleibt fuer weitere Vorkommnisse. MDS-Gesamtcheck folgt isoliert, keine synthetische Produktionsfreigabe.",
       "client_probe_implementation": "2026-09-08: Strict pure closed validator plus small browser observation adapter implemented; assigned ports/codec directions, all63nonempty capability sets, no native/plaintext fallback, absent legacy distinct from malformed/promise/unsupported. Session checkpoints before/after read fence navigation/expiry and prevent grant handoff. First105checks72.95s, expanded330source/media/persona/capacity/client/runtimechecks218.00s clean;81Workerboundary and Ruff green. Actual new Meet browser/full check and installed Worker integration pending. docs/contracts/meet-client-probe.md.",
-      "packaged_launch_observation": "2026-09-09 private watchdog selection2pass/1fail124.70s: third case fails at installed Chromium launch before bind/injection, original exception was redacted. Test-only closed timeout/sandbox/resource/executable/crash/unknown launch classifier added and12tests14.25s pass; standalone stall repeat159.69s and further2packaged media/browser cases120.70s pass. This is not proof of the original launch cause or a product startup fix. docs/contracts/meet-dialog-progress-watchdog.md; startup intermittence remains an open MAP08/29 observation."
+      "packaged_launch_observation": "2026-09-09 private watchdog selection2pass/1fail124.70s: third case fails at installed Chromium launch before bind/injection, original exception was redacted. Test-only closed timeout/sandbox/resource/executable/crash/unknown launch classifier added and12tests14.25s pass; standalone stall repeat159.69s and further2packaged media/browser cases120.70s pass. This is not proof of the original launch cause or a product startup fix. docs/contracts/meet-dialog-progress-watchdog.md; startup intermittence remains an open MAP08/29 observation.",
+      "completion_verification": "2026-09-09 MAP-08 security/client integration complete: strict negotiated browser probe already verified across capability sets/engines and installed Workers; no native/LiveKit translation. Companion8341813 adds sticky structural-transform fence, destroys context keys and refuses rekey until explicit teardown;8negative cases failed before fix. Five actual WebCrypto late-result guards and packet-level authenticated recovery verified. Companion951fc2c adds11exact ACK/membership/publisher-policy tests.34codec tests0.87s,23ACK/mesh/readiness1.00s,863full frontend11.09s,isolated build9.09s+fresh rebuild,111Ananta probe/publisher/lease47.42s. Actual Chromium/Firefox drop-vs-corrupt matrix4PASS13.25s; actual immutable Worker55ec5524 plus fresh private Meet build camera/screen/regrant/revoke2PASS104.99s. Initial private package setup failed18.60s because a newly added spec made the conservative build timestamp stale; fresh isolated rebuild used, no preflight bypass. Criteria now explicitly distinguish packet-level rejection from terminal structural failure to avoid an injected duplicate permanently denying an authorized source; no acceptance of replay/plaintext. Keys remain participant-local. Earlier unexplained startup incident is explicitly retained under MAP-29, not claimed fixed. No public/production claim; docs/contracts/meet-screen-encryption-startup.md."
     },
     {
       "id": "MAP-09",
@@ -606,7 +607,7 @@
       "repository": "ananta",
       "type": "feature",
       "milestone_id": "MAP-M3",
-      "status": "partial",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 65.0,
@@ -637,7 +638,8 @@
       "progress_watchdog_plan": "2026-09-09 source89fe9db32: parent executor enforces only whole assignment+5s while browser RPC may block local2.5s control checks. docs/contracts/meet-dialog-progress-watchdog.md plans separate private monotonic-deadline datagram/resource watchdog: startup<=90s/original cap, active original freshness+500ms cleanup, no heartbeat time renewal, no source/policy/Task/dispatch authority. Separate pure budget/descriptor/process seams; real child, descriptor/replay/negative tests then actual owned runtime stall and receiver/descendant cleanup. Existing source freshness unchanged; no network realtime/full MAP11 claim.",
       "control_error_packaged_result": "2026-09-09: installed89fe9db32 image547fc9e52c5a8ab28fdaae878aac9ded4241710490737984d0cb5010556d9855 and separately built current Meet92f583f pass2 real two-Worker cases81.77s: independent503 recovery then continued moving remote screens; known terminal contract502 stops after exactly1 failed read/no retry, survivor continues then independently revoked, signed terminal observations retained. Initial2cases27.95s rejected stale private frontend after parallel companion changes; fresh private build and765UItests11.08s pass, servingdist untouched. Next1pass/1fail80.58s exposed fixture cancellation before second read; explicit bounded recovery barrier plus post-recovery remote motion fixes test sequencing, no product delay/freshness change.15 final fixture tests16.48s. docs/contracts/meet-control-error-boundary.md. Synthetic/private technical observation, not full companion check/GPU/public/production proof.",
       "progress_watchdog_initial_result": "2026-09-09: independent existing parent-watch thread now consumes private8byte absolute monotonic control deadlines; pure irreversible budget, datagram/descriptor and process seams. Startup<=90s/original bound, active unchangedfreshness+500ms resource cleanup,16packet cap, no queued/duplicate/expired time renewal. Runtime reports only after local/Hub membership agreement, disables descendant inheritance; no dispatch/grant/approval retry.85 unit/channel/executor/replay regressions38.82s and12 real-child/runtime-composition checks16.67s passed;104 standalone Worker boundary files/Ruff pass. docs/contracts/meet-dialog-progress-watchdog.md. Installed browser descendants/receiver and full MAP11 recovery remain unverified pending next gate; no production claim.",
-      "progress_watchdog_packaged_result": "2026-09-09 installedbf065bdef image03e5576cc841570aae8fe80ce68975bfad2d76da2bccae40266bfc7e8ec064d2, private Meet92f583f: real runtime SIGSTOP after both remote screens move; parent removes runtime and9 browser descendants2139.86ms, no active orphan browser, container still live/native health passes. Receiver departure/survivor motion then independent revocation216.78ms; original real-clock orphan deadline settled once, report correctly missing. Gate159.69s pass. First2pass/1fail124.70s ended stall case before injection at browser launch; enum-only diagnostic added, original cause unestablished. Probe NUL collection typo corrected before execution. Final152 regressions63.47s; two complete packaged persona/simultaneous-speech and browser-workspace cases120.70s pass, no application source mounts. docs/contracts/meet-dialog-progress-watchdog.md. MAP11 assessment65percent/partial: bounded control recovery, independent stall stop and original-deadline reconciliation verified; automatic room rejoin, full Hub restart and broader recovery matrix still open. No GPU/public/production claim."
+      "progress_watchdog_packaged_result": "2026-09-09 installedbf065bdef image03e5576cc841570aae8fe80ce68975bfad2d76da2bccae40266bfc7e8ec064d2, private Meet92f583f: real runtime SIGSTOP after both remote screens move; parent removes runtime and9 browser descendants2139.86ms, no active orphan browser, container still live/native health passes. Receiver departure/survivor motion then independent revocation216.78ms; original real-clock orphan deadline settled once, report correctly missing. Gate159.69s pass. First2pass/1fail124.70s ended stall case before injection at browser launch; enum-only diagnostic added, original cause unestablished. Probe NUL collection typo corrected before execution. Final152 regressions63.47s; two complete packaged persona/simultaneous-speech and browser-workspace cases120.70s pass, no application source mounts. docs/contracts/meet-dialog-progress-watchdog.md. MAP11 assessment65percent/partial: bounded control recovery, independent stall stop and original-deadline reconciliation verified; automatic room rejoin, full Hub restart and broader recovery matrix still open. No GPU/public/production claim.",
+      "task_occupancy_fence_plan": "2026-09-09: Companion source audit shows identical active v2 Hub Task can allocate a second Meet participant using another device fingerprint. New regression reproduces missing rejection (1failed/6passed). Fence pending/attached v2 Task occupancy by issuer/tenant/project/task independently of device/runtime/session/room/capabilities; preserve v1 compatibility and distinct Tasks. Existing lease owner owns fence and close, no automatic replacement, new grant, Worker orchestration or rights recovery. Actual HTTP negative test follows. General room reconnect and full Hub restart matrix remain open."
     },
     {
       "id": "MAP-12",
@@ -1102,7 +1104,8 @@
       "implementation_note": "Lokaler begrenzter GPU-/Maschinen-Slice: docs/operations/meet-local-gpu-agent.md. Weitergehende Persona-, Browserstream-, Dialog- und Produktionskriterien bleiben maßgeblich. Fortsetzung 2026-09-07 gegen Meet 17cbdf8: eigener interner TLS-Testproxy ersetzt die Annahme eines freien Host-Ports 443. Separater nicht-root Chromium-Container unter dem vorhandenen seccomp-Profil und lokaler STUN-only-Container verbinden Host und Testbrowser ohne externe ICE-Dienste, Host-Capture oder Abschalten von Sandbox/AppArmor. Reeller Kurzgate mit Chatantwort, bewegten CDP-Bildern, Pause/Fortsetzen, privatem Markerentzug und Stop in 33,00 Sekunden bestanden. 14 Infrastruktur-/Cleanup-Tests in 19,05 Sekunden bestanden. Fuenf-Minuten-Wiederholung nach 306,20 Sekunden fehlgeschlagen: Freigabeerneuerung wirft meet_chat_authority_changed zwischen Queue-Status und Lesen/ACK. Fehlerbehebung und erneuter Soak folgen; keine GPU-/TURN-/Produktionsfreigabe, keine Archivierung. Nachfolgende Korrektur: separater Worker-Browser-Read/ACK-Port verwirft bekannte bereits geschlossene Freigaberennen ohne Dispatch; Reopening nur nach frischer exakt passender Hub-Abfrage. Browser-/HTTP-Policy-Revisionsrennen bleiben geschlossen, Identitaetsabweichungen weiterhin Fehler. Kurzgate jetzt mit zweiter Antwort nach Freigabewechsel und echtem 10s-Hub-Cooldown. Spaeterer Antwortfehler als fehlende synthetische Projekt-FK-Fixture diagnostiziert und durch echte Projektanlage behoben, keine Datenbankpruefung deaktiviert. Abschliessender Fuenf-Minuten-Lauf bestanden in 310,18s: 295s aktive Beobachtung, vier Lease-Generationen, fuenf Screen-Stichproben, drei Chatantworten, Peak 2.443.243.520 Bytes/20 Prozesse; eigene Container und Netz normal entfernt. 76 gezielte Regressionstests bestanden in 56,08s. Zwei-Stunden-/GPU-/TURN-/Produktionsabnahme bleibt offen.",
       "browser_launch_diagnostic_result": "2026-09-08: PackagedGPU-Browsergate24.36s vorGPUsetup mit generischem Sandboxstartfehler abgebrochen, Ursache unbekannt. Eigenes enges Node-Diagnosemodul liefert nur allowlisted timeout/sandbox/resource/executable/unknown, keineBrowserlogs/Args/Keys.15sLaunch/20sObservation, Seccomp/Sandbox/nonroot/2CPU/1GiB/256PIDs unveraendert; keinRetry.32Node-/Fixturetests22.54s und3reale separate Chromiumstarts13.44s gruen. docs/contracts/meet-browser-launch-diagnostics.md. Wiederholungen sind keine Kausalbehebung des alten Fehlers und keinGPU-/Medien-/Produktionsclaim.",
       "chat_dispatch_diagnostic_plan": "2026-09-08 Companionverlustfreiauf089c4dbaktualisiert(10Upstreamcommits, u.a.neuerE2EE-Quellpublisher); alteprivateBuildabnahmenbleibenhistorisch, naechsterGatebrauchtfrischenBuild. MeetMDS-08/docs/machine-chat-dispatch-diagnostics.md: senttruebishernurUIform, neueprivategezielteAttempt/Queued/FailedSendzaehlerundAnswerseen/Renderedboolsbei30sAnswerTimeoutmit1sSnapshotbudget. Keine Inhalte/Keys/IDs/Policy-/Retryaenderung; nochnichtUrsachedessporadischenPreinferenzfehlers. GezielteChecks, aktuellerprivaterRootGPUdialogundisolierterCompanionvollcheckgeplant, keineServing-/Trust-/Dienstveraenderung.",
-      "chat_dispatch_current_source_verification": "2026-09-08: Companion 0e474ca implements bounded attempted/queued/failed send counters and one-second timeout-only closed snapshots; native bytes/returns/exceptions unchanged, no replay or policy changes. 20 deterministic checks and two real Chromium/Firefox observer checks passed. Fresh private frontend against packaged immutable Worker sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e: actual GPU voice selection passed in 101.51 s, neutral 44800 / whisper 165376 local samples, exactly two events/ACKs/prepared/spoken/replies, no chat-flow failures or human captures/transform errors, remote revoke 438.87 ms. Explicit local Go 1.24.13 and FFmpeg 8.0.1 full companion check: 741 Node passes, one pre-existing Chromium screen-decoder wait failure, two skips in 205.224 s; isolated screen repeat two passes in 4.599 s is not a causal fix. Earlier Docker native SFrame subprocess timeout remains separately recorded. Infrastructure stage separately invoked: fourteen explicit opt-in live skips. Docs/results pushed as companion c3e378a. No complete-green/production release claim; MDS-08 and MAP-29 remain open. See companion docs/machine-chat-dispatch-diagnostics.md."
+      "chat_dispatch_current_source_verification": "2026-09-08: Companion 0e474ca implements bounded attempted/queued/failed send counters and one-second timeout-only closed snapshots; native bytes/returns/exceptions unchanged, no replay or policy changes. 20 deterministic checks and two real Chromium/Firefox observer checks passed. Fresh private frontend against packaged immutable Worker sha256:3444cb7d1124c52959be70043b4c66fa78bba0e55f109c18b724d2ab46dddb9e: actual GPU voice selection passed in 101.51 s, neutral 44800 / whisper 165376 local samples, exactly two events/ACKs/prepared/spoken/replies, no chat-flow failures or human captures/transform errors, remote revoke 438.87 ms. Explicit local Go 1.24.13 and FFmpeg 8.0.1 full companion check: 741 Node passes, one pre-existing Chromium screen-decoder wait failure, two skips in 205.224 s; isolated screen repeat two passes in 4.599 s is not a causal fix. Earlier Docker native SFrame subprocess timeout remains separately recorded. Infrastructure stage separately invoked: fourteen explicit opt-in live skips. Docs/results pushed as companion c3e378a. No complete-green/production release claim; MDS-08 and MAP-29 remain open. See companion docs/machine-chat-dispatch-diagnostics.md.",
+      "open_startup_incident": "MAP-08 security criteria are verified; the independent intermittent startup incident remains open here:349RTPpackets/0decoded. Two-second sender/receiver key delays and actual first-keyframe loss on Chromium/Firefox did not reproduce it; nativePLI recovered in both engines. The separately reproduced structural-envelope-resumption bug was fixed8341813, not identified as the cause of the original incident. Keep bounded startup/RTP/error diagnostics and fail any recurrence; no blind retry or green-repeat-as-fix."
     },
     {
       "id": "MAP-30",
@@ -1199,11 +1202,11 @@
     "by_status": {
       "todo": 1,
       "in_progress": 4,
-      "partial": 5,
+      "partial": 4,
       "blocked": 0,
-      "done": 22
+      "done": 23
     },
-    "progress_percent_done": 68.8,
+    "progress_percent_done": 71.9,
     "by_priority": {
       "P0": 12,
       "P1": 17,
@@ -1217,15 +1220,15 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 11,
-      "remaining": 5
+      "done": 12,
+      "remaining": 4
     },
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 5,
+      "in_progress": 4,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "summary_notes": [
@@ -1301,27 +1304,27 @@
         "total": 8,
         "by_status": {
           "todo": 0,
-          "in_progress": 2,
+          "in_progress": 1,
           "partial": 1,
           "blocked": 0,
-          "done": 5
+          "done": 6
         },
-        "done": 5,
+        "done": 6,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 78.1
+        "progress_percent": 83.1
       },
       "feature": {
         "total": 16,
         "by_status": {
           "todo": 0,
-          "in_progress": 1,
-          "partial": 2,
+          "in_progress": 2,
+          "partial": 1,
           "blocked": 0,
           "done": 13
         },
         "done": 13,
-        "partial": 2,
+        "partial": 1,
         "blocked": 0,
         "progress_percent": 92.5
       },
@@ -1373,19 +1376,19 @@
     "state": "in_progress",
     "todo_remaining": 1,
     "in_progress": 4,
-    "partial": 5,
+    "partial": 4,
     "blocked": 0,
-    "done": 22,
-    "count_based_percent": 68.8,
-    "weighted_percent": 82.6
+    "done": 23,
+    "count_based_percent": 71.9,
+    "weighted_percent": 83.6
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 58.25,
-    "done_weight": 48.087,
-    "remaining_weight": 10.163,
+    "done_weight": 48.687,
+    "remaining_weight": 9.563,
     "blocked_weight": 0.0,
-    "weighted_percent": 82.6
+    "weighted_percent": 83.6
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1399,11 +1402,11 @@
       },
       "MAP-M2": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 90.8,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "MAP-M3": {
         "total_tasks": 4,
@@ -1458,10 +1461,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T03:29:01.930816Z",
+    "generated_at": "2026-09-09T03:44:43.653988Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "122cc906371654d0ebf077831a9b73c22070420a997d1948c2ece2dc21c0181d",
+    "source_hash": "252b99e3978182d4ca0c0140bec43685715e9d6fe19802da35befa0235f97acc",
     "is_stale": false
   }
 }
