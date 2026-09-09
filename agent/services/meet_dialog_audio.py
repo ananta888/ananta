@@ -12,6 +12,7 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import chat_policy_revision
 from agent.services.meet_dialog_lifecycle import organization_tuple
 from agent.services.meet_dialog_replies import MeetDialogReplies
+from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_dialog_audio import audio_job_current
 
 
@@ -72,7 +73,8 @@ class MeetDialogAudio:
         if (
             scope.audio_mode == "off"
             or not scope.controls.audio.enabled
-            or not {"audio.receive", "chat.send"} <= set(scope.capabilities)
+            or not audio_mode_permitted(scope.audio_mode, scope.capabilities)
+            or scope.audio_mode == "dialog" and scope.chat_mode == "off"
         ):
             raise MeetError("meet_audio_policy_denied", 403)
         receipt = self.meet.inspect(*ids, payload["meet_session_id"])
@@ -111,7 +113,8 @@ class MeetDialogAudio:
         if (
             scope.audio_mode == "off"
             or not scope.controls.audio.enabled
-            or "audio.receive" not in scope.capabilities
+            or not audio_mode_permitted(scope.audio_mode, scope.capabilities)
+            or scope.audio_mode == "dialog" and scope.chat_mode == "off"
             or job["control_revision"] != scope.controls.audio.revision
         ):
             raise MeetError("meet_audio_policy_denied", 403)

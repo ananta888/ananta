@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from agent.models.meet_machine_principal import MeetMachinePrincipal, current_machine_principal
 from agent.services.meet_contract import MeetError
 from agent.services.meet_dialog_controls import DialogControls, parse_controls
+from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_dialog import OPTIONAL_CONTROL_CAPABILITIES
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 from ananta_contracts.meet_source_profile import DialogSourceProfile, dialog_source_profile
@@ -123,6 +124,8 @@ class MeetDialogAuthority:
             or any(not isinstance(item, str) for item in capabilities)
             or len(set(capabilities)) != len(capabilities)
             or not set(capabilities) <= allowed
+            or not audio_mode_permitted(value["audio_mode"], capabilities)
+            or value["audio_mode"] == "dialog" and value["chat_mode"] == "off"
         ):
             raise MeetError("meet_dialog_policy_denied", 403)
         controls = parse_controls(value["controls"])

@@ -6,6 +6,7 @@ import json
 import re
 from urllib.parse import urlsplit
 
+from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import CAPABILITIES as CAPABILITIES
 
@@ -113,12 +114,7 @@ def validate_assignment(value, now):
             avatar_videos=value.get("avatar_videos", False),
             voice_profiles=value.get("voice_profiles", False),
         )
-    if (
-        not isinstance(value["audio_mode"], str)
-        or value["audio_mode"] not in {"off", "transcribe", "dialog"}
-        or value["audio_mode"] != "off"
-        and not {"audio.receive", "chat.send"} <= set(caps)
-    ):
+    if not audio_mode_permitted(value["audio_mode"], caps):
         raise ValueError("meet_dialog_audio_policy_invalid")
     meeting = value["meeting"]
     if not isinstance(meeting, dict) or set(meeting) != {"origin", "room_id", "grant"}:

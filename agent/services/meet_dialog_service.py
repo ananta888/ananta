@@ -18,6 +18,7 @@ from agent.services.meet_dialog_initial_persona import MeetDialogInitialPersona
 from agent.services.meet_dialog_replies import MeetDialogReplies
 from agent.services.meet_dialog_spoken_reply import MeetDialogSpokenReply
 from agent.services.meet_turn_service import HubMediaTasks
+from ananta_contracts.meet_audio_policy import audio_mode_permitted
 from ananta_contracts.meet_source_profile import dialog_source_profile
 
 
@@ -165,10 +166,7 @@ class MeetDialogService:
         ChatReplyPolicy(mode=payload["chat_mode"])
         audio_mode = payload.get("audio_mode", "off")
         if (
-            not isinstance(audio_mode, str)
-            or audio_mode not in {"off", "transcribe", "dialog"}
-            or audio_mode != "off"
-            and not {"audio.receive", "chat.send"} <= set(payload["capabilities"])
+            not audio_mode_permitted(audio_mode, payload["capabilities"])
             or audio_mode == "dialog"
             and payload["chat_mode"] == "off"
         ):

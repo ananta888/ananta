@@ -43,3 +43,21 @@ Remaining work is real, rather than wholesale absence of the audio path:
 MAP-25 stays open until all acceptance criteria, including visual analysis,
 have been implemented and verified. Small reviewed commits are checkpoints,
 not completion of the overall 32-task request.
+
+## Receive-only capability separation
+
+The shared pure `audio_mode_permitted` predicate now guards Hub start,
+persisted current authority, signed Worker assignment and audio child
+admission/revalidation. Transcribe-only requires `audio.receive` and no chat
+publication right. Dialog still requires both `audio.receive` and `chat.send`,
+plus non-off Hub reply policy. Removing either required capability or disabling
+dialog reply policy invalidates persisted authority; no privilege is inferred
+from sending or from local model availability.
+
+The focused headless selection passed 143 tests in 56.67 seconds, including
+all nonempty combinations of four receive/chat/speech capabilities, invalid
+modes, actual SQL Hub Task creation, signed assignment validation, ephemeral
+receive-only child completion and revocation. Existing audio/task/transport/
+speech-control regressions remained green. The standalone boundary check passed
+all 108 Worker files. This fixes duplicated policy coupling (DIP/ISP); the
+larger browser-pump SRP extraction and remaining receive features are still open.
