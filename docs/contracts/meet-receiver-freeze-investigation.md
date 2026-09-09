@@ -54,6 +54,25 @@ phase, correlated chat, source pixels and final revocation. These unreserved
 technical observations do not prove a fix or a normal elapsed two-hour run.
 The corresponding forty-phase Firefox reference also passed in 66.197 seconds.
 
+The native fast checks use the companion's default local Playwright launcher,
+not the packaged browser used by the cross-repository reference. The installed
+companion package is Playwright `1.62.1`, whose browser manifest selects
+Chromium `151.0.7922.34` / Firefox `153.0`; the local Chromium binary also
+reports `151.0.7922.34`. Read-only inspection of immutable image
+`5d4be51c5dda` instead confirms Playwright `1.58.0` and headless Chromium
+`145.0.7632.6`. These inspections are technical observations, not retroactively
+reserved browser-version evidence for the earlier native checks.
+
+Matching frontend bytes therefore do **not** make the native churn/keyframe
+checks a same-browser-runtime comparison. Their passes cannot exclude a
+Chromium-145-specific failure. The private cross-repository driver intentionally
+pins Playwright 1.58.0 to match its server; never point a 1.62 remote client at
+that server or silently replace the active image. After the frozen run ends,
+any version comparison needs separate exact-image/driver bindings and the same
+source, policy, media and observation limits. Prefer a short same-runtime
+reproducer before paying for another long acceptance. No browser upgrade or
+causal repair is claimed by this clarification.
+
 The companion now provides a test-only SFrame pipeline probe for the private
 bridge receiver, with separate native-stream unit and Chromium/Firefox checks.
 It counts input, enqueue, drops, thrown transforms, pipe termination and key
