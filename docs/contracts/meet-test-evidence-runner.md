@@ -29,6 +29,11 @@ private TLS/direct networking and a host-side dialog executor, not a public
 TURN, GPU or two-publisher soak. Report the actual active observation duration
 separately from the two-hour Task budget. No second Task/membership is created
 to conceal absolute expiry or extend the original run.
+The separate `--profile private-dialog-soak-smoke` fixes the same fixture to
+300 seconds with a 660-second outer bound for short renewal/cadence diagnosis
+before another two-hour run. It has its own reserved reference profile and
+cannot be reported as the long acceptance. Both profiles retain the same
+resource, authority, source-freshness, immutable-image and cleanup boundaries.
 The long profile uses bounded periodic fixture reports with `tee-sys` capture,
 so progress is visible in its log without disabling failure capture. Ambient
 `PYTEST_ADDOPTS` is cleared for every other profile; it cannot inject a different

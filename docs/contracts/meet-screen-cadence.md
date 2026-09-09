@@ -57,3 +57,10 @@ Source freshness, quality polling order, frame decode timeout, Hub authority
 and browser cleanup are unchanged. Ruff and whitespace checks pass.
 Fresh private/native and installed-image verification remain pending; this
 unit result alone does not close the failed long-run acceptance.
+
+The closed test runner now also reserves an explicit five-minute intermediate
+profile (`private-dialog-soak-smoke`, 300-second fixture / 660-second process
+bound). It cannot masquerade as the two-hour profile or accept arbitrary test
+commands. All 56 runner/input checks passed in 29.90 seconds, including exact
+profile/image selection, environment isolation, mutation rejection and owned
+process timeout handling. The intermediate actual run is still separate.

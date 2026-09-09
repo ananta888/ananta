@@ -123,6 +123,12 @@ def test_selected_soak_is_fixed_and_cannot_mutate_other_profile_environment():
     changed["MEET_DIALOG_SOAK_SECONDS"] = "1"
     assert long.environment()["MEET_DIALOG_SOAK_SECONDS"] == "7200"
     assert select_profile("gpu-avatar").environment()["MEET_DIALOG_SOAK_SECONDS"] == "0"
+    short = select_profile("private-dialog-soak-smoke")
+    assert short.environment()["MEET_DIALOG_SOAK_SECONDS"] == "300"
+    assert short.timeout_seconds == 660 and short.node == long.node
+    assert short.environment()["MEET_ISOLATED_PEER_BROWSER"] == "1"
+    assert short.image_inputs == long.image_inputs
+    assert short.reference != long.reference
 
 
 def test_existing_output_is_not_overwritten_and_preflight_failure_never_reserves(tmp_path, monkeypatch):
