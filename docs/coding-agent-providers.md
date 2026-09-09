@@ -35,6 +35,16 @@ shell is involved. The common process adapter provides:
 - deterministic reason codes for timeout, cancellation, output overflow, and
   process failure.
 
+The shared adapter supervises deadlines while writing stdin. Pipe reads are
+bounded before line assembly; raw pipe output and redacted output must both
+fit the output limit. Events remain complete LF-delimited lines, including
+when a secret spans multiple reads. POSIX cleanup also closes the owned group
+after leader exit; a TERM-ignoring descendant cannot be left running merely
+because its parent stopped. Pipe failures or an incomplete bounded post-stop
+drain return `process_io_failed`. This process-group mechanism is not a sandbox
+against deliberately detached processes; the Worker container remains the
+execution isolation boundary.
+
 There is no human-in-the-loop fallback. A provider state that would require a
 question, feedback, or an unapproved plan ends as a bounded blocked/failed
 result. Explicit Hub policy may instead select an official automatic approval

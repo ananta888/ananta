@@ -72,7 +72,8 @@
         "Bestehende Pi-/OMP-Todos und CodingAgentProvider-Implementierungen prüfen; Überschneidungen referenzieren und Doppelimplementierungen vermeiden.",
         "CLI/JSON, RPC und SDK nach Integrationsaufwand vergleichen; schmalsten ausreichenden Transport wählen und Entscheidung begründen."
       ],
-      "source_audit": "2026-09-09: Ananta 921c7f306, official Pi commit 05c6229813414010445558db9a80c84e15d65e70, package @earendil-works/pi-coding-agent 0.85.1, MIT, Node >=22.19.0; exact package/license/CLI/provider/model sources and npm version metadata read. CLI/JSON chosen for an isolated opt-in prototype; RPC/SDK compared, OMP overlap mapped to existing ports. No installed/runtime eligibility claim. Technical readiness remains open. docs/architecture/pi-coding-agent-integration.md."
+      "source_audit": "2026-09-09: Ananta 921c7f306, official Pi commit 05c6229813414010445558db9a80c84e15d65e70, package @earendil-works/pi-coding-agent 0.85.1, MIT, Node >=22.19.0; exact package/license/CLI/provider/model sources and npm version metadata read. CLI/JSON chosen for an isolated opt-in prototype; RPC/SDK compared, OMP overlap mapped to existing ports. No installed/runtime eligibility claim. Technical readiness remains open. docs/architecture/pi-coding-agent-integration.md.",
+      "process_prerequisite_result": "Four bounded real-process regressions reproduced three shared adapter defects (blocked stdin, unbounded newline wait, two descendant-cleanup cases) in 13.78 s. Existing ProcessRunnerPort hardened via separate bounded I/O and line-output helpers, no Pi-specific orchestration or global environment changes. Final 35 lifecycle/output/existing-process/OpenCode/profile checks PASS in 31.34 s; Ruff and namespace detector PASS. Raw and redacted output bounded, LF events preserved, large UTF-8 prompt and partial thread-start cleanup covered. No model/network/GPU/browser used. Pi installation, technical isolation/capability eligibility and provider integration remain open. docs/architecture/pi-coding-agent-integration.md."
     },
     {
       "id": "PI-T02",
@@ -321,10 +322,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T21:14:49.155120Z",
+    "generated_at": "2026-09-09T21:25:57.425351Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "f568e95efdaae57db18386576a395821f8f529e7bf91a05d0bcbc61c23eb58ca",
+    "source_hash": "33ab0fae84eb28788f88a66208136c10708004e7bfc95e72ff22c43e9100e84f",
     "is_stale": false
   }
 }

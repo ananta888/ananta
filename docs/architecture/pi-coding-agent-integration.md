@@ -119,3 +119,34 @@ PI-T01 bleibt bis zur technischen Eignungsprüfung in Bearbeitung; dieser
 Quellabgleich schließt weder den Pi-Track noch die laufende Meet-Abnahme.
 Alle bisherigen Abfragen sind technische Beobachtungen ohne nachträglich
 vergebene SRC-/RUN-Identitäten.
+
+## Verifizierte gemeinsame Prozesshärtung
+
+Die vier gezielten Laufzeitfälle reproduzierten die drei Quellbefunde in
+13.78 Sekunden: stdin blockierte die 150-ms-Frist bis etwa 1.53 Sekunden,
+überlange Ausgabe wurde erst am Zeilen-/Prozessende erkannt, und eigene Kinder
+überlebten sowohl bereits beendete als auch auf TERM endende Hauptprozesse.
+Ein früherer Versuch hatte zusätzlich einen zu kurzen äußeren Timeout für die
+Flask-Testvorbereitung; das war ein Testaufbaufehler, kein vierter Produktfehler.
+Die unveränderten inneren Frist-/Laufzeitassertionen prüfen weiterhin den Fehler.
+
+`coding_agent_process_io.py` übernimmt begrenzte 4096-Zeichen-Leseoperationen,
+den nebenläufigen Prompt-Writer und das Aufräumen der eigenen POSIX-Gruppe
+einschließlich KILL nach Hauptprozessende. `coding_agent_process_output.py`
+setzt erst vollständige LF-Zeilen zu Events zusammen, redigiert auch über
+Lesestückgrenzen verteilte Secrets und begrenzt rohe wie redigierte Ausgabe.
+Der vorhandene Prozessport behält Frist, Abbruch und Ergebnisentscheidung.
+Pipe-Fehler/unvollständiges Nachlesen ergeben `process_io_failed`, nicht Erfolg.
+Ein gestoppter Prozess erhält höchstens eine weitere Sekunde für Pipe-Drain;
+dies erlaubt keine neue Ausführung. Cleanup kommt zur Ausführungsfrist hinzu.
+Thread-Startfehler räumen ebenfalls
+den eigenen Prozess und geöffnete Pipes auf.
+
+Alle 35 neuen und bestehenden Prozess-, OpenCode-Adapter- und CLI-Profiltests
+bestanden in 31.34 Sekunden. Die vorherigen 25/31 grünen Tests sind überlappende
+Zwischenstände, keine zusätzlichen unabhängigen Fälle. Ruff und der
+CLI-Namespace-Detektor bestehen. Kein Modell, Browser, GPU oder Netzwerk war
+für diese Regressionen erforderlich. Dies schließt die genannten gemeinsamen
+Prozessdefekte, nicht den Pi-Provider oder dessen Container-/Tool-Sicherheitsgate.
+Prozessgruppen-Cleanup ist keine Sandbox gegen absichtlich aus der Gruppe
+ausbrechende Prozesse; diese Grenze bleibt Aufgabe des Worker-Containers.
