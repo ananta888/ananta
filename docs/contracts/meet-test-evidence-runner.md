@@ -64,3 +64,13 @@ Both Workers had one active dialog during the sample and zero after cleanup.
 Observed active memory was 369,598,464 / 344,862,720 bytes under each 1-GiB
 quota; sampled PID counts were 104 / 102 and returned to five. These are sparse
 startup/active/terminal observations, not continuous CPU/RAM peak guarantees.
+
+The first pre-reserved `gpu-components` reference passed at Ananta `731d588e5`
+and Meet `28eff78` with the same immutable Worker, in 96.671 seconds including
+test setup/cleanup (one pass, zero skips/errors, unchanged inputs). Actual
+model preload took 34.59 seconds; Qwen returned thirteen output tokens, Piper
+produced 65,792 non-silent PCM samples and NVENC produced 61,558 video bytes.
+All private inference containers were removed by fixture cleanup. This is
+component acceptance, not browser delivery, exclusive host-GPU occupancy or a
+public deployment result. Foreign GPU jobs observed before/after owned gates
+were never terminated or reconfigured.

@@ -1137,6 +1137,7 @@
     },
     {
       "id": "MAP-30",
+      "reserved_current_gpu_components": "2026-09-09 root731d588e5/Meet28eff78/immutableWorker6a2ac86f9209 Hub-pre-reservedgpu-components referencePASS96.671s,1test0fail/error/skip andunchangedinputs. RealQwen13outputtokens/Piper65792non-silentPCM/NVENC61558videobytes; preload34.59s. Owncontainerscleaned; noforeignGPUjobsstopped. Componentnotbrowser/exclusiveGPU/publicevidence; browserprofilesnextwithfreshprivateMeet91d9203build afterupstreamintegration. docs/contracts/meet-test-evidence-runner.md.",
       "reserved_resource_reference": "2026-09-09: Hub10d655c6c / Meet28eff78 / immutableWorker6a2ac86f9209 passed the actual two-packaged-Worker source-timing/resource/reconnect case in65.51s,1test0fail/errors/skips. Hub Registry reserved TEST identity before execution, validated unchanged source/bundle inputs and accepted test result; production eligibility explicitly false. Active samples369598464/344862720bytes under1GiB,104/102PIDs, then0active slots/5PIDs; intervalCPU within predeclared2.25core observation bound. Sparse sampling, no continuous peak/GPU/public claim. docs/contracts/meet-test-evidence-runner.md. Next closed GPU component/avatar/voice profiles retain existing deadlines, require explicit immutable inference image and bind actual selected timing into fixtureHub; no existing service/trust changes.",
       "title": "Lokale Container-/RTX3080-Referenzläufe und Fehlerbehebung abschließen",
       "repository": "both",
@@ -1163,6 +1164,7 @@
     },
     {
       "id": "MAP-31",
+      "live_readiness_source_audit": "2026-09-09 automatedread-only scripts/check_meet_live_readiness.py distinguishesHTTPShealth/auth/SFrame/machineadmission/TURNconfiguration, localimage/revision and exactunverifiedtrust/project/publicmedia claims. Actual loopbackTLSroutehealthy,auth+SFramerequired,TURNconfigured,0rooms/participants, machineadmissionDISABLED; inspectedrunningrevision92f583f34680cbf371a83872512cd9333cc41881, notnewcheckout. EarlierordinaryDNSrequesttimedout; localTLSnotpublicDNS/NATproof. No login,trust,room,deployment or foreignGPUchanges; selectednumeric/hash/booleanprojection excludesICEcredentials/configvalues. Need scopedtrustandverifieddeployment beforeactualpublicmachine/TURN/2hsoak. docs/contracts/meet-live-readiness.md.",
       "title": "Öffentliche Meet-Maschinenintegration und erzwungenen TURN-Pfad prüfen",
       "repository": "both",
       "type": "test",
