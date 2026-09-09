@@ -4,6 +4,7 @@ import threading
 import time
 from collections import deque
 
+from tests.meet_dialog_browser_cost_observer import DialogBrowserCostObserver
 from tests.meet_dialog_control_observer import DialogControlObserver
 from tests.meet_dialog_rpc_observer import DialogRpcObserver
 from tests.meet_dialog_transport_observer import DialogTransportObserver
@@ -18,6 +19,7 @@ def record_soak_failure(observer, record_property):
 class DialogSoakObserver:
     def __init__(self, monkeypatch, *, clock=time.monotonic):
         self.rpc = DialogRpcObserver(monkeypatch, clock=clock)
+        self.browser_cost = DialogBrowserCostObserver(monkeypatch, clock=clock)
         self.control = DialogControlObserver(monkeypatch)
         self.transport = DialogTransportObserver(monkeypatch, clock=clock)
         self.lock = threading.Lock()
@@ -50,6 +52,7 @@ class DialogSoakObserver:
         return {
             "screen_ticks": screen,
             "slow_browser_calls": self.rpc.report(),
+            "browser_costs": self.browser_cost.report(),
             "controls": self.control.history(),
             "control_failure": self.control.report(),
             "transport": self.transport.report(),

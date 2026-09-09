@@ -173,3 +173,13 @@ measurements and a short same-runtime reference to identify where screen
 delivery is delayed. Do not weaken freshness, skip controls, reuse stale
 frames, claim a resource cause without measurement or reset the timing gate.
 MAP-30 remains open; all receipts here remain synthetic TEST evidence.
+
+The test-only `DialogBrowserCostObserver` now records bounded histograms and
+the last twenty slow calls without changing arguments, return values or
+exceptions. It separates CDP frame ACKs, source-content/activity checks,
+test diagnostics, media operations and idle calls. Costs are explicitly
+inclusive: an ACK invoked inside an evaluate is not an additional amount to
+sum onto that evaluate. Success and failure receipts retain the projection.
+All sixteen cost/soak/RPC observer checks pass in 17.44 seconds, including
+nested ACK attribution, exact call counts, exception identity and detached
+bounded reports. No runtime repair is claimed by this instrumentation.

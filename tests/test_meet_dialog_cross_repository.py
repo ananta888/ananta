@@ -791,6 +791,7 @@ def test_actual_hub_worker_loop_receives_chat_shares_owned_cdp_and_obeys_stop(
                     flush=True,
                 )
             assert len(generations) >= 4 and observations >= 4
+            record_property("dialog_soak_browser_costs", soak_observer.browser_cost.report())
             print(
                 json.dumps(
                     {
