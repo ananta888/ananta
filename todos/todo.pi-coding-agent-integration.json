@@ -136,6 +136,7 @@
     {
       "id": "PI-T04",
       "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "readiness_projection_result": "Completed 2026-09-10: existing admin-only registered-Worker status adds a content-free Pi projection from exact package probe and initialized runtime metadata. Actual enabled/disabled composition verified; configuration is neither auth/inference verification nor a grant. 63 backend checks PASS in 41.77s. Local Angular card reuses shared UI, closed Worker-bound projection, four concurrent/32 total status requests with 15-second timeout, cancellation and stale/error/empty handling; no secrets, installation, model call or global routing. 36 UI checks PASS in 2.21s; ESLint and full Angular compile PASS with pinned Node24.18.0, one existing unrelated RouterLink warning. Container cache/schema mounting errors corrected, no product-defect claim. PI-T04 complete for the explicit no-tools profile; evidence ingress and final acceptance remain PI-T05/06. docs/architecture/pi-coding-agent-integration.md.",
       "provider_configuration_result": "Explicit pinnedSDK compat sends max_tokens/system role,no store/reasoning/optionalstreamusage,requiresfinishreason. OpenRouter exact allow_fallbacksfalse/require_parameterstrue;HTTPguard rejects missing/broadened/localrouting,modelarrays,alternatecompletiontokenfield while preservingoneattempt/exactendpoint/model/noTools/redirectdenial. Baseline3config+NodewrapperFAIL9.80s,finalNode9of42fail0.198s;after70Pythonprovider/policy/Native checksPASS34.08s and48NodePASS0.205s. ActualPi0.85.1 networknone/nonroot/readonly/0.5CPU768MiB container source-overlay probe:all3provider-shaped synthetic requests exactlyonePOST/max_tokens37/auth/routing/noextra features;parsercomplete,2.171/2.210/2.006s. Initialprobeparserargumenterror corrected. Noactualmodel/externalpaidcall/release evidence. API/UIreadiness remainsopen. docs/architecture/pi-coding-agent-integration.md.",
       "provider_status_projection_audit": "Official docs checked2026-09-10: Ollama/LMStudio /v1/chat/completions and max_tokens; OpenRouter HTTPS/api/v1/chat/completions,Bearer,concrete model. PinnedPi supports explicit maxTokensField/openRouterRouting but current config relies on SDK defaults. Add deterministic max_tokens and no serverfallback/requireparameters for strictOpenRouter, guard exact transmitted routing; synthetic pinnedSDK request inspection, no paid/live claim. Reuse registeredWorker provision status and existing setup UI; distinguish installation, opt-in, configured profile credentials and authorized inference. NoHub-local readiness/global routing activation/credential paths. Implementation pending. docs/architecture/pi-coding-agent-integration.md.",
       "task_context_preparation_result": "Explicit context_bundle_mode=control_task prepares a child-owned bounded32chunk/24KiB snapshot through Hub ports; real same-tenant/project active controlTask and existing bundle ownership required. Whole organization tuple preserved, team uses dedicated queue argument, partialscope rejected. Original bundle never rebound; no assembled text/arbitrary metadata copied, active policy still required. Exact command/chunk/parent/selectors revalidated before read, retries and concurrent inserts accept only identical snapshot, full canonical command/type duplicate check.102 cases PASS43.99s; expanded158 had155pass/3wrong early-failure test assertions corrected; final42 preparation/realSQLbundle/TaskDB/actualqueue/Native-policy cases PASS24.46s. Tamper/foreignparent/revocation deny before credential/budget/model. Ruff/namespacePASS. No evidence IDs/grants minted; no Worker DB/retrieval. Provider and API/UI projections still open. docs/architecture/pi-coding-agent-integration.md.",
@@ -146,10 +147,10 @@
       "context_filter_prerequisite_result": "Existing Hub filter released every decision except deny, including actual mismatched approval_required. Five negative variants reproduced one shared filter defect in12.41s. Closed allow/allow_redacted/allow_summary_only selection now excludes pending/unavailable/unknown decisions immediately, no human wait; transformations and input immutability preserved.28 focused new/existing context-policy and Worker-boundary checks PASS31.17s. New test Ruff PASS; existing broad service retains14 pre-existing lint diagnostics and SRP/DIP debt. Pi task-bound ContextBundle transport remains open. docs/architecture/pi-coding-agent-integration.md.",
       "source_audit": "Against 325636c0a: explicit Native Pi profile already preserves Hub-selected provider/model and managed credential mapping, but unhydrated ContextBundle references fail closed. Reuse persisted TaskContextBundleAccessService and existing authenticated workflow Worker gateway for exact task/assignment/lease delivery; never resolve Hub repositories inside Pi Worker or treat arbitrary input_data context as approved. Existing ContextEnvelopeAdapter formats content but does not establish task authority. Keep MCP/direct tools unsupported in no-tools profile; audit existing status/provision projections and official provider endpoint configuration before completion. docs/architecture/pi-coding-agent-integration.md.",
       "type": "implementation",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 65.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "PI-T02",
         "PI-T03"
@@ -214,12 +215,12 @@
     "total": 6,
     "by_status": {
       "todo": 2,
-      "in_progress": 1,
+      "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 3
+      "done": 4
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 66.7,
     "by_priority": {
       "P0": 0,
       "P1": 0,
@@ -233,8 +234,8 @@
     },
     "critical_path": {
       "total": 6,
-      "done": 3,
-      "remaining": 3
+      "done": 4,
+      "remaining": 2
     },
     "milestones": {
       "total": 2,
@@ -245,7 +246,7 @@
     }
   },
   "summary_notes": [
-    "PI-T01 und PI-T02 sind abgeschlossen: gepinnter Quell-/Laufzeitabgleich, begrenzter Prozessport, optionale Worker-Bereitstellung und standardmäßig deaktivierter No-Tools-Pi-Provider hinter bestehenden Ports. Reale synthetische Negativtests begründeten den Wechsel vom CLI zum schmalen SDK-Prozess mit einer Modellanfrage/einem Turn. PI-T03 bis PI-T06 bleiben offen; keine produktive Aktivierung, OS-Sandbox-, Lease-Ingress- oder echte Inferenzabnahme behauptet.",
+    "PI-T01 bis PI-T04 sind abgeschlossen: gepinnter SDK-Prozess, explizite Hub-Policies und Container-Opt-in, verwaltete Anbieterprofile, aktiver Projektkontext sowie Worker-bezogene API/UI-Bereitschaft. Der No-Tools-Provider bleibt standardmäßig deaktiviert. PI-T05 und PI-T06 bleiben offen; keine produktive Aktivierung, allgemeine OS-Sandbox, verifizierte Ergebnis-Evidenz oder echte Inferenzabnahme behauptet.",
     "PI-T02 bis PI-T06 nur nach positiver dokumentierter Eignungsentscheidung durchführen; bei Ablehnung Ergebnis und Gründe dokumentieren."
   ],
   "tasks_type_summary": {
@@ -269,15 +270,15 @@
         "total": 3,
         "by_status": {
           "todo": 1,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         },
-        "done": 1,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 66.7
       },
       "security": {
         "total": 1,
@@ -312,10 +313,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 5.975,
-    "remaining_weight": 4.025,
+    "done_weight": 6.5,
+    "remaining_weight": 3.5,
     "blocked_weight": 0.0,
-    "weighted_percent": 59.7
+    "weighted_percent": 65.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -329,31 +330,31 @@
       },
       "PI-M2": {
         "total_tasks": 5,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 40.0,
-        "weighted_percent": 52.6,
+        "count_based_percent": 60.0,
+        "weighted_percent": 58.8,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "todo",
     "todo_remaining": 2,
-    "in_progress": 1,
+    "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 3,
-    "count_based_percent": 50.0,
-    "weighted_percent": 59.7
+    "done": 4,
+    "count_based_percent": 66.7,
+    "weighted_percent": 65.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-10T02:12:33.831723Z",
+    "generated_at": "2026-09-10T02:30:45.026139Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "aa6ef0a1fb98b3361ee9b56a4e82fe341955bffe048283cbe91ed429cb4aa66f",
+    "source_hash": "427f0d5303f412110fb4984ad8bf1b076d174dc8777f9ebe0e0c469658e2cea9",
     "is_stale": false
   }
 }

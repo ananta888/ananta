@@ -6,6 +6,7 @@ import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { SystemFacade } from '../features/system/system.facade';
 import { CliBackendAccountLoginComponent } from './cli-backend-account-login.component';
+import { PiBackendStatusComponent } from './pi-backend-status.component';
 
 interface BackendCardState {
   loading: boolean;
@@ -38,7 +39,7 @@ function emptyCard(): BackendCardState {
 @Component({
   standalone: true,
   selector: 'app-cli-backend-setup',
-  imports: [FormsModule, CliBackendAccountLoginComponent],
+  imports: [FormsModule, CliBackendAccountLoginComponent, PiBackendStatusComponent],
   template: `
     <div class="card">
       <div class="row flex-between">
@@ -239,6 +240,7 @@ function emptyCard(): BackendCardState {
         </div>
       </div>
     </div>
+    <app-pi-backend-status [hubUrl]="activeHubUrl" [workers]="workers" />
   `,
   styles: [`
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-top: 10px; }
@@ -269,6 +271,7 @@ export class CliBackendSetupComponent implements OnInit {
   codex: BackendCardState = emptyCard();
   claude: BackendCardState = emptyCard();
   workers: WorkerTarget[] = [];
+  activeHubUrl = '';
   selectedWorkers: Record<string, boolean> = {};
   provisioningState: Record<string, 'loading' | 'ready' | 'not_installed' | 'error'> = {};
   provisioningDetails: Record<string, any> = {};
@@ -300,6 +303,7 @@ export class CliBackendSetupComponent implements OnInit {
 
   reload() {
     const url = this.hubUrl();
+    this.activeHubUrl = url || '';
     if (!url) return;
     this.loadHealth(url, 'codex', this.codex);
     this.loadHealth(url, 'claude_code', this.claude);

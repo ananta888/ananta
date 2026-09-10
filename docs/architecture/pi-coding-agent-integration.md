@@ -944,3 +944,39 @@ They are synthetic technical observations, not production release evidence.
 SRP keeps presentation policy in a small pure module; the existing broad
 SGPT route module remains preserved structural debt with only additive
 composition wiring. The Angular consumer is a separate subsequent change.
+
+### Anzeige und Grenzen in der Oberfläche
+
+Unter den vorhandenen CLI-Backend-Einstellungen steht eine eigene Pi-Karte.
+Sie zeigt je registriertem Worker die geprüfte Paketversion, den Native-Status
+und die ausdrücklich noch ungeprüfte Anbieter-Authentifizierung. Modellwahl
+und Zugang bleiben Sache des Hub-Auftragsprofils. Die Karte zeigt keine
+Schlüssel, Credential-Pfade, Rohdiagnosen oder Modellantworten an und bietet
+keine verdeckte Installation, Inferenz oder globale Aktivierung an.
+
+Ein Klick auf „Pi-Status aktualisieren“ führt ausschließlich Statusabfragen
+über den Hub aus: höchstens vier parallel, 32 unterschiedliche Worker und
+15 Sekunden pro Anfrage. Offline-Worker werden nicht kontaktiert. Hub-Wechsel,
+erneute Abfrage und Komponentenabbau brechen alte Abonnements ab; fremde,
+verspätete, leere oder widersprüchliche Antworten bleiben unverifiziert.
+Auch eine fehlgeschlagene Aktualisierung entfernt einen früheren Bereitschafts-
+status. Kein Test benötigt einen Klick durch einen Menschen.
+
+Die reine Anzeigeprojektion ist von Netzwerk-Lebenszyklus und Template
+getrennt (SRP/DIP). Vorhandene gemeinsame Card-, Notice- und Badge-Bausteine
+werden wiederverwendet; Pi bleibt fachlich lokal statt eine neue globale
+„generische“ UI zu schaffen. Die breite bisherige Codex-/Claude-Komponente
+bleibt bestehende strukturelle Schuld; hinzu kommen nur Import und Inputs.
+
+36 gezielte UI-Prüfungen einschließlich echter Angular-Template-Darstellung,
+Timeout, Hub-Wechsel, Abbruch, Fehlerredaktion und Begrenzung bestanden in
+2,21 Sekunden. ESLint und die vollständige Angular-Template-/Typprüfung
+bestanden mit Node 24.18.0 im netzlosen Read-only-Container. Eine bestehende
+Warnung betrifft einen ungenutzten RouterLink in KnowledgeHygiene, nicht Pi.
+Die ersten Container-Aufrufe benötigten eigene temporäre Vite-Verzeichnisse
+und die vorhandenen benachbarten JSON-Schemata; das waren Prüfumgebungsfehler,
+keine Produktdefekte. Keine laufende Installation oder GPU wurde verändert.
+
+Damit ist PI-T04 abgeschlossen. PI-T05 (Hub-Evidenz-/Ergebnisbindung) und
+PI-T06 (abschließende Verifikation und Einführung) bleiben offen; weder diese
+Anzeige noch synthetische Providerprüfungen sind eine Produktionsfreigabe.
