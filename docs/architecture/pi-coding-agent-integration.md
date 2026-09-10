@@ -758,7 +758,8 @@ deren Verwendung durch Native-Worker, Hub-Budget und Pi-Prozess-Testdouble
 ein; keine menschlichen Schritte und keine Produktions-Evidenzbehauptung.
 Ruff ist für diese Änderungen grün. Die Hub-seitige automatische Vorbereitung
 neuer Pi-Aufgaben-Bundles sowie Modell-/Statusprojektionen bleiben noch offen.
-# Automatic task-context preparation audit
+
+## Automatic task-context preparation audit
 
 At `71c31f52d`, the authenticated context read and active-policy composition
 are present, but the Native Hub queue does not prepare a child-task-owned
@@ -782,3 +783,16 @@ parent/plan foreign keys. The existing queue adapter combines submission,
 polling and cancellation (preserved SRP debt); context normalization and
 persistence belong behind separate ports, not additional queue responsibilities.
 This audit is a plan for the next bounded implementation, not its completion.
+
+The follow-up audit found an actual persistence-contract defect in the new
+context reader: `TaskDB` has no `source` column. Earlier dictionary fixtures
+supplied one and hid that mismatch. A new test using the real model failed
+with `native_context_task_binding_mismatch` (7.72 seconds). The reader now
+requires the existing persisted `task_kind=pi_coding_agent`,
+`derivation_reason=native_graph_hub_delegation`, worker-context schema and
+`runtime_path=native_graph_node`, in addition to the unchanged exact command,
+registered assignment, current lease, task scope and active-policy checks.
+No database column or migration is invented. Wrong persisted markers remain
+denied before policy evaluation. All 65 gateway/Native/persistent-policy
+regressions pass in 47.79 seconds; selected Ruff passes. This corrects the
+earlier source-field claim; automatic bundle preparation remains separate.

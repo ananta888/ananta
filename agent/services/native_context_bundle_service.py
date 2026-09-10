@@ -81,9 +81,12 @@ This service cannot create a bundle, grant, task, identity or assignment.
         if (
             task.get("id") != hub_task_id or task.get("tenant_id") != binding.tenant_id
             or not isinstance(task.get("project_id"), str) or not task["project_id"].strip()
-            or task.get("source") != "workflow_runtime"
+            or task.get("task_kind") != "pi_coding_agent"
+            or task.get("derivation_reason") != "native_graph_hub_delegation"
             or task.get("status") not in {"created", "assigned", "queued", "running", "in_progress"}
             or not isinstance(worker_context, Mapping)
+            or worker_context.get("schema") != "ananta.native_graph_worker_context.v1"
+            or worker_context.get("runtime_path") != "native_graph_node"
         ):
             raise ValueError("native_context_task_binding_mismatch")
         raw = worker_context.get("native_node_command")

@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from agent.db_models import TaskDB
 from agent.services.native_context_bundle_service import NativeContextBundleService
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessService
 from ananta_contracts.native_context_bundle import NativeApprovedContext, NativeContextBundleProjection
@@ -18,8 +19,12 @@ def setup_context():
     command = task_command(context)
     task = {
         "id": "hub-task-1", "tenant_id": context.tenant_id, "project_id": "project-1",
-        "source": "workflow_runtime", "status": "running", "context_bundle_id": "bundle-1",
-        "worker_execution_context": {"native_node_command": command.to_dict()},
+        "task_kind": "pi_coding_agent", "derivation_reason": "native_graph_hub_delegation",
+        "status": "running", "context_bundle_id": "bundle-1",
+        "worker_execution_context": {
+            "schema": "ananta.native_graph_worker_context.v1", "runtime_path": "native_graph_node",
+            "native_node_command": command.to_dict(),
+        },
     }
     bundle = {"id": "bundle-1", "task_id": task["id"], "context_text": "private original"}
     tasks, bundles, policy = Mock(), Mock(), Mock()
@@ -52,6 +57,20 @@ def test_hub_returns_only_task_bound_policy_projection_and_content_free_audit():
     assert "approved context only" not in str(audit) and "private original" not in str(audit)
 
 
+def test_actual_task_model_uses_persisted_native_markers_not_an_invented_source_column():
+    client, request, task, _, policy, _ = setup_context()
+    task.update(task_kind="pi_coding_agent", derivation_reason="native_graph_hub_delegation")
+    task["worker_execution_context"].update(
+        schema="ananta.native_graph_worker_context.v1", runtime_path="native_graph_node",
+    )
+    stored = TaskDB(**task)
+    assert "source" not in stored.model_dump()
+    client.service._context_bundles._tasks.get_by_id.side_effect = lambda value: stored if value == stored.id else None
+    response = client.command("native_context_read", **request)
+    assert response["content"] == "approved context only"
+    policy.project.assert_called_once()
+
+
 @pytest.mark.parametrize("mutation", ["worker", "anonymous", "attempt", "fence", "signature", "task_id"])
 def test_gateway_denies_foreign_stale_or_unregistered_context_requests_before_policy(mutation):
     client, request, _, _, policy, _ = setup_context()
@@ -73,7 +92,8 @@ def test_gateway_denies_foreign_stale_or_unregistered_context_requests_before_po
 
 
 @pytest.mark.parametrize("mutation", [
-    "tenant", "project", "source", "terminal", "command_id", "node", "envelope",
+    "tenant", "project", "derivation", "task_kind", "schema", "runtime_path", "terminal",
+    "command_id", "node", "envelope",
     "bundle_owner", "bundle_unbound", "bundle_missing", "bundle_mismatch",
 ])
 def test_hub_rejects_persisted_task_or_bundle_mismatch(mutation):
@@ -83,8 +103,12 @@ def test_hub_rejects_persisted_task_or_bundle_mismatch(mutation):
         task["tenant_id"] = "foreign-tenant"
     elif mutation == "project":
         task["project_id"] = None
-    elif mutation == "source":
-        task["source"] = "api"
+    elif mutation == "derivation":
+        task["derivation_reason"] = "api"
+    elif mutation == "task_kind":
+        task["task_kind"] = "shell"
+    elif mutation in {"schema", "runtime_path"}:
+        task["worker_execution_context"][mutation] = "foreign"
     elif mutation == "terminal":
         task["status"] = "cancelled"
     elif mutation == "command_id":

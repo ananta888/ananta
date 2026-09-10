@@ -22,7 +22,8 @@ def context_setup(tmp_path):
     adapter, task, runner, client, credentials = native_setup(
         tmp_path, runner=runner, context_reader_factory=HubPiTaskContextReader,
         mutate_task=lambda task: task | {
-            "tenant_id": "tenant-1", "project_id": "project-1", "source": "workflow_runtime",
+            "tenant_id": "tenant-1", "project_id": "project-1",
+            "task_kind": "pi_coding_agent", "derivation_reason": "native_graph_hub_delegation",
             "status": "running", "context_bundle_id": "bundle-1",
         },
     )
