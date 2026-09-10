@@ -1015,3 +1015,21 @@ Implementation proceeds through strict result contracts, Hub admission and
 reservation, Worker projection/verified ingress, then focused automatic
 composition tests. Existing broad forwarding/runtime services remain SRP/DIP
 debt: add small ports and adapters instead of embedding the lifecycle there.
+
+The first result boundary is now implemented as `pi_native_result_validation`.
+Pi polling requires the exact complete wire schema, all eight command/Task
+correlations, an integer fencing token without boolean/string/float coercion,
+matching terminal Task status and the Hub-selected model. Its no-tools output
+is closed and bounded: no artifact or Worker-budget claims, side effects,
+extra evidence fields or failed partial output. Early failures with an empty
+payload remain valid; malformed Unicode/status values fail with a bounded
+diagnostic. Existing non-Pi Native parsing is unchanged.
+
+Before correction, 28 negative cases were wrongly accepted (three positive
+cases passed) in 20.15 seconds. After correction and added actual Native-Pi
+success/failure composition cases, all 130 focused result, Native, provider,
+protocol and context checks passed in 51.92 seconds; Ruff passed. These are
+variants of the missing result boundary, not 28 independently diagnosed
+production incidents. This pure validator is deliberately not an authority
+port: current persisted assignment/lease admission, pre-reserved registry
+evidence and atomic publication remain the next PI-T05 work.

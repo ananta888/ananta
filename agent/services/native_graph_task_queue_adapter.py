@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any, Protocol
 
 from agent.services.native_context_preparation_service import NativeContextPreparationPort
+from agent.services.pi_native_result_validation import validate_pi_native_result
 from agent.services.workflow_runtime.native_graph_contracts import (
     HubTaskReceipt,
     NativeNodeCommand,
@@ -131,7 +132,10 @@ class AnantaHubTaskQueueAdapter:
             verification = dict(getattr(task, "verification_status", None) or {})
             raw_result = verification.get("native_node_result")
             if isinstance(raw_result, dict):
-                result = NativeNodeResult.from_mapping(raw_result)
+                result = (
+                    validate_pi_native_result(raw_result, command=command, hub_task_id=task_id, task_status=status)
+                    if command.node.task_kind == "pi_coding_agent" else NativeNodeResult.from_mapping(raw_result)
+                )
                 if result.hub_task_id != task_id:
                     raise ValueError("native_hub_task_result_id_mismatch")
                 results.append(result)
