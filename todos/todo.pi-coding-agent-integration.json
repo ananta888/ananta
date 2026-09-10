@@ -136,6 +136,7 @@
     {
       "id": "PI-T04",
       "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "context_filter_prerequisite_result": "Existing Hub filter released every decision except deny, including actual mismatched approval_required. Five negative variants reproduced one shared filter defect in12.41s. Closed allow/allow_redacted/allow_summary_only selection now excludes pending/unavailable/unknown decisions immediately, no human wait; transformations and input immutability preserved.28 focused new/existing context-policy and Worker-boundary checks PASS31.17s. New test Ruff PASS; existing broad service retains14 pre-existing lint diagnostics and SRP/DIP debt. Pi task-bound ContextBundle transport remains open. docs/architecture/pi-coding-agent-integration.md.",
       "source_audit": "Against 325636c0a: explicit Native Pi profile already preserves Hub-selected provider/model and managed credential mapping, but unhydrated ContextBundle references fail closed. Reuse persisted TaskContextBundleAccessService and existing authenticated workflow Worker gateway for exact task/assignment/lease delivery; never resolve Hub repositories inside Pi Worker or treat arbitrary input_data context as approved. Existing ContextEnvelopeAdapter formats content but does not establish task authority. Keep MCP/direct tools unsupported in no-tools profile; audit existing status/provision projections and official provider endpoint configuration before completion. docs/architecture/pi-coding-agent-integration.md.",
       "type": "implementation",
       "status": "in_progress",
@@ -342,10 +343,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-10T00:57:22.818344Z",
+    "generated_at": "2026-09-10T01:01:12.155983Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "d2aeb3435ff7e01f51382bbcda75129d1ec03a804defd9dd8e4203cbab75e4be",
+    "source_hash": "40aa8f06ef15637e76d640edb60e4007d58bd1665cd2eccd2cb0d311c940fc5c",
     "is_stale": false
   }
 }

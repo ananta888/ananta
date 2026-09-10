@@ -651,3 +651,27 @@ und verifizierter Evidenz-/Result-Ingress bleiben PI-T04 bis PI-T06.
 SRP/DIP bleiben durch die vorhandenen Hub-Ports und kleinen Worker-Adapter
 erhalten; die breite bestehende Native-Kompositionswurzel wird nicht durch
 eine neue Orchestrierung ersetzt.
+
+### Kontextfilter: ausstehende Freigabe ist kein Grant
+
+Vor PI-T04 wurde der vorhandene Hub-Kontextfilter gegen automatische negative
+Fälle geprüft. Er transportierte bisher jede Entscheidung außer `deny`, also
+auch eine tatsächlich vom Evaluator wegen falschen Inhaltsbezugs als
+`approval_required` bewertete Freigabe. Fünf negative Varianten schlagen vor
+der Korrektur reproduzierbar fehl (12.41 s); das ist eine gemeinsame
+Filterlücke, nicht fünf unabhängige Fehler.
+
+Der Filter akzeptiert jetzt ausschließlich `allow`, `allow_redacted` und
+`allow_summary_only`. Ausstehende Freigaben, nicht verfügbare Entscheidungen
+und unbekannte Zustände liefern sofort keinen Kontext. Bestehende Redaktions-
+und Zusammenfassungspflichten bleiben erhalten; die Eingabeblöcke werden
+nicht verändert. Die Tests verwenden ausschließlich automatische Policy-
+Fixtures und Test-Doubles, keine menschlichen Bestätigungen.
+
+28 neue und bestehende Kontextfilter-/Policy-/Worker-Grenzprüfungen bestehen
+in 31.17 Sekunden. Ruff ist für die neue Testdatei grün; die bestehende
+breite Service-Datei hat weiterhin 14 bereits vorhandene Import-/Format-
+Meldungen. Ihr SRP-/DIP-Altschuldenstand (Persistenz, Klassifikation und
+Policy-Fassade in einem Service) bleibt ausdrücklich bestehen. Die Korrektur
+ändert nur die geschlossene Grant-Auswahl; sie führt keine neue Policy-
+Autorität ein. Der Pi-ContextBundle-Transport ist damit noch nicht fertig.

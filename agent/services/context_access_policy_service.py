@@ -161,7 +161,10 @@ class ContextAccessPolicyService:
         filtered = []
         for block in blocks:
             decision = self.get_decision(effective_policy, block, destination)
-            if decision.decision != Decision.deny:
+            # Pending approval, unavailable policy and unknown future states
+            # are not grants. Headless callers must return bounded denial,
+            # never release context or wait for interactive approval here.
+            if decision.decision in (Decision.allow, Decision.allow_redacted, Decision.allow_summary_only):
                 # Apply transformations
                 processed_block = block.copy()
                 processed_block["access_decision_hash"] = decision.decision_hash
