@@ -166,11 +166,12 @@
     {
       "id": "PI-T05",
       "title": "Sitzungen, Events und Ergebnisbindung integrieren",
+      "source_audit": "At 89ea0429a: one redacted terminal CodingAgentEvent and explicit unsupported resume already exist; no partial SDK delta is authoritative. Hub polling checks only result task ID, generic forwarding copies nested Native verification, and coercive result parsing does not prove exact Pi/model/terminal bindings. Add a small strict result validator first, then current persisted Task/assignment/lease admission and existing Hub registry source admission plus run reservation before dispatch. Ordinary workflow/result/provider-call IDs are not evidence. Immutable source/policy/revision/environment facts and closed Worker projection are required; no invented/post-hoc IDs or test-to-production promotion. Evidence ingress and final acceptance remain open. docs/architecture/pi-coding-agent-integration.md.",
       "type": "implementation",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 1.0,
       "depends_on": [
         "PI-T03",
         "PI-T04"
@@ -214,8 +215,8 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 2,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 1,
       "partial": 0,
       "blocked": 0,
       "done": 4
@@ -269,8 +270,8 @@
       "implementation": {
         "total": 3,
         "by_status": {
-          "todo": 1,
-          "in_progress": 0,
+          "todo": 0,
+          "in_progress": 1,
           "partial": 0,
           "blocked": 0,
           "done": 2
@@ -278,7 +279,7 @@
         "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 66.7
+        "progress_percent": 67.0
       },
       "security": {
         "total": 1,
@@ -313,10 +314,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 6.5,
-    "remaining_weight": 3.5,
+    "done_weight": 6.52,
+    "remaining_weight": 3.48,
     "blocked_weight": 0.0,
-    "weighted_percent": 65.0
+    "weighted_percent": 65.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -333,28 +334,28 @@
         "done": 3,
         "blocked": 0,
         "count_based_percent": 60.0,
-        "weighted_percent": 58.8,
+        "weighted_percent": 59.1,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 2,
-    "in_progress": 0,
+    "state": "in_progress",
+    "todo_remaining": 1,
+    "in_progress": 1,
     "partial": 0,
     "blocked": 0,
     "done": 4,
     "count_based_percent": 66.7,
-    "weighted_percent": 65.0
+    "weighted_percent": 65.2
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-10T02:30:45.026139Z",
+    "generated_at": "2026-09-10T02:34:35.288370Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "427f0d5303f412110fb4984ad8bf1b076d174dc8777f9ebe0e0c469658e2cea9",
+    "source_hash": "76b68e9cfa7596072d05069992be6496c3437c12903bd39f7e03469702b635a5",
     "is_stale": false
   }
 }

@@ -980,3 +980,38 @@ keine Produktdefekte. Keine laufende Installation oder GPU wurde verändert.
 Damit ist PI-T04 abgeschlossen. PI-T05 (Hub-Evidenz-/Ergebnisbindung) und
 PI-T06 (abschließende Verifikation und Einführung) bleiben offen; weder diese
 Anzeige noch synthetische Providerprüfungen sind eine Produktionsfreigabe.
+
+## PI-T05 source audit: results before evidence
+
+At `89ea0429a`, Pi's provider already emits one existing `CodingAgentEvent`
+only after complete protocol validation, post-execution authorization and
+secret redaction. Partial SDK deltas are not authoritative; malformed,
+contradictory or failed terminals are rejected. Resume remains explicitly
+unsupported in the isolated single-turn/no-tools profile, rather than
+accepting an unbound session ID or uploading it publicly.
+
+The Hub queue poller currently checks only `hub_task_id` before returning a
+stored Native result. The later orchestrator checks more correlation fields,
+but this does not validate the Pi model/output contract, a conflicting Task
+terminal state or coercive wire values such as a boolean fencing token. The
+forwarded-result path also copies the nested Native verification without a
+Pi-specific admission boundary. These are prerequisites, not successful
+evidence ingestion. Add a small strict Pi result validator with regression
+tests before wiring current persisted Task/assignment/lease acceptance.
+
+Workflow run IDs, Native result IDs and provider-call IDs are ordinary runtime
+correlations, not registry evidence. PI-T05 must separately integrate existing
+Hub source admission and pre-execution run reservation with the actual
+dispatched assignment and lease. Workers receive only the registry's closed
+projection. Source content, policy, repository revision and execution
+environment need immutable Hub-owned bindings; an arbitrary caller digest
+or a retroactively registered successful command is insufficient. Reuse the
+existing registry and assignment stores, not a new Worker registry/scheduler.
+Exact idempotent results may be accepted; changed, expired or replaced
+assignments must be rejected before publication. Test/synthetic scope cannot
+become production release evidence.
+
+Implementation proceeds through strict result contracts, Hub admission and
+reservation, Worker projection/verified ingress, then focused automatic
+composition tests. Existing broad forwarding/runtime services remain SRP/DIP
+debt: add small ports and adapters instead of embedding the lifecycle there.
