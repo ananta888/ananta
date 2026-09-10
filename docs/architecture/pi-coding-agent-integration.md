@@ -758,3 +758,27 @@ deren Verwendung durch Native-Worker, Hub-Budget und Pi-Prozess-Testdouble
 ein; keine menschlichen Schritte und keine Produktions-Evidenzbehauptung.
 Ruff ist für diese Änderungen grün. Die Hub-seitige automatische Vorbereitung
 neuer Pi-Aufgaben-Bundles sowie Modell-/Statusprojektionen bleiben noch offen.
+# Automatic task-context preparation audit
+
+At `71c31f52d`, the authenticated context read and active-policy composition
+are present, but the Native Hub queue does not prepare a child-task-owned
+bundle or copy the control task's project scope. Legacy `control_task_id`
+values are sometimes runtime identities rather than actual Task rows; do not
+turn those into unconditional relational parent references.
+
+Add an explicit `context_bundle_mode=control_task` path for Pi nodes. It must
+resolve a real same-tenant, project-scoped control Task and its existing owned
+bundle, preserve the original owner, and create an idempotent bounded child
+snapshot through a narrow Hub persistence port. Copy the complete existing
+organization scope, with `team_id` passed through the queue's dedicated
+argument. Active policy and destination selectors are references, not grants;
+the authenticated read still decides whether any text can reach the model.
+Do not permit Worker retrieval, fallback context, synthetic evidence issuance,
+or a missing preparation port to silently omit requested context.
+
+Also tighten duplicate submission checks from command ID alone to the full
+persisted command. Preserve the no-context legacy path and its lack of assumed
+parent/plan foreign keys. The existing queue adapter combines submission,
+polling and cancellation (preserved SRP debt); context normalization and
+persistence belong behind separate ports, not additional queue responsibilities.
+This audit is a plan for the next bounded implementation, not its completion.
