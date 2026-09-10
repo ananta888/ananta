@@ -400,6 +400,9 @@ class HubProviderBudgetAdapter:
                 ),
             )
             receipt = ProviderBudgetReceipt.from_mapping(response)
+            self._assert_matching_receipt(receipt, response, reservation_id=reservation_id, reconciled=False)
+            if receipt.reserved_tokens != reserved_tokens or receipt.reserved_cost_micros != reserved_cost:
+                raise WorkflowWorkerContractError("provider_budget_receipt_mismatch")
         except (WorkflowHubDecisionError, WorkflowWorkerContractError) as exc:
             return ProviderBudgetDecision(
                 False,
@@ -443,11 +446,24 @@ class HubProviderBudgetAdapter:
                     context.provider_endpoint_identity
                 ),
             )
-            ProviderBudgetReceipt.from_mapping(response)
+            receipt = ProviderBudgetReceipt.from_mapping(response)
+            self._assert_matching_receipt(receipt, response, reservation_id=reservation_id, reconciled=True)
         except (WorkflowHubDecisionError, WorkflowWorkerContractError) as exc:
             raise ProviderInvocationBlocked(
                 getattr(exc, "reason_code", "provider_budget_reconciliation_failed")
             ) from exc
+
+    @staticmethod
+    def _assert_matching_receipt(
+        receipt: ProviderBudgetReceipt, response: Mapping[str, Any], *, reservation_id: str, reconciled: bool,
+    ) -> None:
+        if (
+            receipt.reservation_id != reservation_id or response.get("reconciled") is not reconciled
+            or receipt.attempts > receipt.maximum_attempts
+            or (receipt.maximum_tokens and receipt.tokens > receipt.maximum_tokens)
+            or (receipt.maximum_cost_micros and receipt.cost_micros > receipt.maximum_cost_micros)
+        ):
+            raise WorkflowWorkerContractError("provider_budget_receipt_mismatch")
 
 
 def _tool_binding(request: ToolCallRequest) -> dict[str, Any]:

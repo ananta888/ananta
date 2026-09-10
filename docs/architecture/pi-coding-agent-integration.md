@@ -505,3 +505,12 @@ zum zweiten Server; der direkte authentifizierte POST funktioniert weiter.
 25.68 Sekunden. SRP: Der kleine HTTP-Guard ist von Gateway-Domänenadaptern
 getrennt; deren vorhandene breite gemeinsame Kompositionsdatei bleibt
 bestehende SRP-Schuld. Keine Änderung an Hub-Entscheidungen oder Lease-Eigentum.
+
+Der konkrete Budgetadapter prüft außerdem den Bezug der Hub-Antwort zur
+Anfrage: Reservierungs-ID, exakte Token-/Kostenreservierung, nicht bereits
+abgerechneter Zustand und gültige aggregierte Grenzen. Die Abrechnung darf
+ebenfalls nur dieselbe Reservierung bestätigen. Zehn synthetische negative
+Varianten wurden zuvor akzeptiert und werden jetzt geschlossen abgelehnt;
+53 Budgetbeleg-, Worker-Inferenz- und echte Hub-Gateway-Service-Prüfungen
+bestehen in 40.40 Sekunden. Die Persistenz- und Profilzähler verbleiben
+unverändert beim bestehenden Hub-Budgetdienst.
