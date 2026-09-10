@@ -534,3 +534,31 @@ Profil werden vom Hub vor Modellprozessstart abgelehnt. 58 Profilbudget-,
 Pi-Policy- und Budgetbelegprüfungen bestehen in 43.30 Sekunden. Das sind
 automatische synthetische Kompositionsprüfungen, noch keine vollständige
 registrierte Pi-Task-/Container- oder produktive Release-Abnahme.
+
+### Ausführungsadapter für einen delegierten Native-Task
+
+`NativePiNodeHandler` implementiert den vorhandenen `NativeNodeHandlerPort`.
+Er verlangt `pi_coding_agent`, die explizite Capability `coding.agent.pi`,
+den identischen Task-Snapshot und den bereits Hub-validierten Profilkontext.
+Workspace- und Credential-Zugriff erfolgen über kleine injizierte Ports;
+Modell, Endpoint, Profil, Attempt und Fence werden nicht lokal ausgewählt.
+Fristen können nur gegenüber Node-Budget und Hub-Autorisierung verkürzt werden.
+Das Ergebnis nutzt den bestehenden Native-Result-/Verification-Vertrag und
+trägt keine erfundenen Artefakte oder Verbrauchsmessungen.
+
+Die Kompositionsprüfung führt diesen Handler durch `NativeGraphWorkerTaskAdapter`,
+`NativeDelegatedNodeRuntime`, Verify-only-Nonce-Prüfung, `NativeHubExecutionScope`
+und den echten Hub-Gateway-/Budgetdienst aus. Replay und fremde Worker laufen
+nicht bis Pi; unaufgelöste Kontext-/Artefaktreferenzen, fehlendes Prompt und
+Schreibanforderungen werden ausdrücklich abgelehnt. Eine zusätzliche negative
+Prüfung reproduzierte die bisherige Umwandlung von `allowed: "false"` in eine
+Freigabe. Der gemeinsame Native-Scope akzeptiert jetzt ausschließlich Boolean
+`true`. 34 Native-/Profilbudget-/bestehende Adapterprüfungen bestehen in
+29.23 Sekunden; nach Aufteilung der Handler-Methoden bestehen dessen zehn
+Fälle erneut innerhalb eines 28er Gates inklusive Worker-Konfiguration.
+
+SRP/ISP/DIP: Taskprüfung, Ziel-/Fristprojektion und Ergebnisabbildung bleiben
+kleine Adaptermethoden; Hub-Scope, Workspace, Credentials und Provider sind
+injiziert. Es entstehen weder Task Queue noch Worker-Orchestrierung.
+Der Handler allein aktiviert noch keinen laufenden Worker: explizite
+Deployment-Konfiguration, Fabrikverdrahtung und Containerabnahme folgen.

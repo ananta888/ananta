@@ -71,7 +71,7 @@ class NativeHubExecutionScope:
             )
         except WorkflowHubDecisionError:
             return False
-        return bool(response.get("allowed", False))
+        return response.get("allowed") is True
 
     def claim(
         self,
