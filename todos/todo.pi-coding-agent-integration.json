@@ -136,6 +136,7 @@
     {
       "id": "PI-T04",
       "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "provider_configuration_result": "Explicit pinnedSDK compat sends max_tokens/system role,no store/reasoning/optionalstreamusage,requiresfinishreason. OpenRouter exact allow_fallbacksfalse/require_parameterstrue;HTTPguard rejects missing/broadened/localrouting,modelarrays,alternatecompletiontokenfield while preservingoneattempt/exactendpoint/model/noTools/redirectdenial. Baseline3config+NodewrapperFAIL9.80s,finalNode9of42fail0.198s;after70Pythonprovider/policy/Native checksPASS34.08s and48NodePASS0.205s. ActualPi0.85.1 networknone/nonroot/readonly/0.5CPU768MiB container source-overlay probe:all3provider-shaped synthetic requests exactlyonePOST/max_tokens37/auth/routing/noextra features;parsercomplete,2.171/2.210/2.006s. Initialprobeparserargumenterror corrected. Noactualmodel/externalpaidcall/release evidence. API/UIreadiness remainsopen. docs/architecture/pi-coding-agent-integration.md.",
       "provider_status_projection_audit": "Official docs checked2026-09-10: Ollama/LMStudio /v1/chat/completions and max_tokens; OpenRouter HTTPS/api/v1/chat/completions,Bearer,concrete model. PinnedPi supports explicit maxTokensField/openRouterRouting but current config relies on SDK defaults. Add deterministic max_tokens and no serverfallback/requireparameters for strictOpenRouter, guard exact transmitted routing; synthetic pinnedSDK request inspection, no paid/live claim. Reuse registeredWorker provision status and existing setup UI; distinguish installation, opt-in, configured profile credentials and authorized inference. NoHub-local readiness/global routing activation/credential paths. Implementation pending. docs/architecture/pi-coding-agent-integration.md.",
       "task_context_preparation_result": "Explicit context_bundle_mode=control_task prepares a child-owned bounded32chunk/24KiB snapshot through Hub ports; real same-tenant/project active controlTask and existing bundle ownership required. Whole organization tuple preserved, team uses dedicated queue argument, partialscope rejected. Original bundle never rebound; no assembled text/arbitrary metadata copied, active policy still required. Exact command/chunk/parent/selectors revalidated before read, retries and concurrent inserts accept only identical snapshot, full canonical command/type duplicate check.102 cases PASS43.99s; expanded158 had155pass/3wrong early-failure test assertions corrected; final42 preparation/realSQLbundle/TaskDB/actualqueue/Native-policy cases PASS24.46s. Tamper/foreignparent/revocation deny before credential/budget/model. Ruff/namespacePASS. No evidence IDs/grants minted; no Worker DB/retrieval. Provider and API/UI projections still open. docs/architecture/pi-coding-agent-integration.md.",
       "persisted_task_marker_correction": "Real TaskDB has no source column: earlier dict fixtures hid an impossible reader requirement. Actual model regression FAIL7.72s before correction. Reader now validates persisted task_kind,derivation_reason,worker context schema/runtime_path plus unchanged full command/assignment/lease/tenant/project/policy checks. Wrong markers denied, no invented DBcolumn/migration.65 gateway/Native/persistent policy cases PASS47.79s;RuffPASS. Supersedes earlier source-field claim;new task preparation still separate. docs/architecture/pi-coding-agent-integration.md.",
@@ -148,7 +149,7 @@
       "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 45.0,
+      "progress_percent": 65.0,
       "depends_on": [
         "PI-T02",
         "PI-T03"
@@ -276,7 +277,7 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 48.3
+        "progress_percent": 55.0
       },
       "security": {
         "total": 1,
@@ -311,10 +312,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 5.675,
-    "remaining_weight": 4.325,
+    "done_weight": 5.975,
+    "remaining_weight": 4.025,
     "blocked_weight": 0.0,
-    "weighted_percent": 56.8
+    "weighted_percent": 59.7
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -331,7 +332,7 @@
         "done": 2,
         "blocked": 0,
         "count_based_percent": 40.0,
-        "weighted_percent": 49.1,
+        "weighted_percent": 52.6,
         "status": "in_progress"
       }
     }
@@ -344,15 +345,15 @@
     "blocked": 0,
     "done": 3,
     "count_based_percent": 50.0,
-    "weighted_percent": 56.8
+    "weighted_percent": 59.7
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-10T02:03:32.596021Z",
+    "generated_at": "2026-09-10T02:12:33.831723Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "07c8871cab773256433b16004de1592dde885d9cecc8ed089a35de769cb9e46c",
+    "source_hash": "aa6ef0a1fb98b3361ee9b56a4e82fe341955bffe048283cbe91ed429cb4aa66f",
     "is_stale": false
   }
 }

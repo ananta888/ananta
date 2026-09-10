@@ -1,6 +1,11 @@
 /** Enforce the already-selected model endpoint at the SDK HTTP boundary. */
-export function createPiFetch({ baseUrl, modelId, maxTokens, fetchImplementation = globalThis.fetch }) {
+export function createPiFetch({ baseUrl, modelId, maxTokens, routingPolicy = null,
+  fetchImplementation = globalThis.fetch }) {
   const deny = () => { throw new Error("pi_http_request_not_authorized"); };
+  const strictRouting = value => value !== null && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === 2 && value.allow_fallbacks === false && value.require_parameters === true;
+  const requiresRouting = routingPolicy !== null;
+  if (requiresRouting && !strictRouting(routingPolicy)) deny();
   let endpoint;
   try {
     const base = new URL(baseUrl);
@@ -25,8 +30,9 @@ export function createPiFetch({ baseUrl, modelId, maxTokens, fetchImplementation
         || (body.tools !== undefined && (!Array.isArray(body.tools) || body.tools.length))
         || body.functions !== undefined || body.function_call !== undefined
         || (body.tool_choice !== undefined && body.tool_choice !== "none")
-        || ![body.max_tokens, body.max_completion_tokens].includes(maxTokens)
-        || [body.max_tokens, body.max_completion_tokens].some(value => value !== undefined && value !== maxTokens)) deny();
+        || body.max_tokens !== maxTokens || body.max_completion_tokens !== undefined
+        || body.models !== undefined || body.route !== undefined
+        || (requiresRouting ? !strictRouting(body.provider) : body.provider !== undefined)) deny();
     const response = await fetchImplementation(input, { ...init, redirect: "error" });
     if (response.redirected || (response.status >= 300 && response.status < 400)
         || (response.url && response.url !== endpoint)) {

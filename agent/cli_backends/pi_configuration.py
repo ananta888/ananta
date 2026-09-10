@@ -81,9 +81,16 @@ def isolated_pi_configuration(
             "packages": [], "extensions": [], "skills": [], "prompts": [], "themes": [], "defaultTools": [],
             "enableInstallTelemetry": False, "enableAnalytics": False,
         }
+        compatibility = {
+            "maxTokensField": "max_tokens", "supportsStore": False,
+            "supportsDeveloperRole": False, "supportsReasoningEffort": False,
+            "supportsUsageInStreaming": False, "supportsFinishReason": True,
+        }
+        if target.provider_id == "openrouter":
+            compatibility["openRouterRouting"] = {"allow_fallbacks": False, "require_parameters": True}
         models = {"providers": {PI_PROVIDER_NAME: {
             "baseUrl": target.base_url, "api": "openai-completions", "apiKey": "$ANANTA_PI_API_KEY",
-            "authHeader": True,
+            "authHeader": True, "compat": compatibility,
             "models": [{"id": target.model, "contextWindow": 8192, "maxTokens": max_tokens}],
         }}}
         files = {

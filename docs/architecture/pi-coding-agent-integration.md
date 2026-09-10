@@ -886,3 +886,35 @@ deployment opt-in, configured task-profile credentials and actual authorized
 inference are distinct states. Never probe the Hub's local binary as a
 Worker's readiness, expose credential paths/content or enable global automatic
 backend routing. Pi remains `open_source_byok`; inference cost is separate.
+
+The provider correction now explicitly selects `max_tokens`, a system role,
+no storage, no reasoning-effort field and no optional streamed-usage request.
+Finish reasons remain mandatory. OpenRouter receives exactly the two strict
+routing restrictions above. The HTTP boundary rejects missing/broadened
+routing, local routing overrides, model arrays and the alternative completion-
+token field. It retains one attempt, exact endpoint/model, cancellation,
+no-tools and redirect rejection. The routing decision is reduced to an
+immutable flag, not a mutable caller policy reference.
+
+Before correction, three configuration checks and the Node-wrapper check
+failed in 9.80 seconds; the final pre-fix Node selection failed nine of 42
+assertions in 0.198 seconds. Afterwards all 70 Python provider/policy/Native
+context checks passed in 34.08 seconds, and all 48 Node transport cases passed
+in 0.205 seconds. These overlapping gates must not be counted as 118 distinct
+independent runtime defects or complete provider acceptance.
+
+A separate restricted container then executed actual pinned Pi 0.85.1 for
+each of the three generated configurations. It had no network or GPU, UID
+65534, read-only root, no capabilities, no-new-privileges, 0.5 CPU, 768 MiB,
+64 PIDs and a 64-MiB tmpfs. Its base image was `6e70cac9216c`; the three
+changed adapter files and pinned package were mounted read-only, so this is
+explicitly a source-overlay diagnostic, not a newly packaged release image.
+A test preload supplied synthetic SSE through the HTTP seam and asserted the
+actual SDK request: one POST, selected model, Bearer value, `max_tokens=37`,
+no tools/store/extra model routing and the exact OpenRouter restrictions.
+The unchanged protocol parser accepted each complete response. Ollama-shaped,
+LM-Studio-shaped and OpenRouter-shaped checks passed in 2.171 / 2.210 / 2.006
+seconds respectively; ephemeral configuration was removed. The initial private
+probe had omitted two required parser arguments and was corrected before this
+successful run. No external server, paid account or actual model inference
+was contacted, and no retroactive evidence identity is claimed.

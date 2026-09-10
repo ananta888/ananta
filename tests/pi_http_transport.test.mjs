@@ -51,10 +51,11 @@ test("opaque Request bodies are not read or forwarded", async () => {
   await assert.rejects(fetch(new Request(endpoint, request())), /pi_http_request_not_authorized/);
   assert.equal(calls.length, 0);
 });
-test("completion-token field accepted at the same fixed ceiling", async () => {
+test("undocumented completion-token field cannot replace the required max_tokens ceiling", async () => {
   const { fetch, calls } = fixture();
-  await fetch(endpoint, request({ ...payload, max_tokens: undefined, max_completion_tokens: 1024 }));
-  assert.equal(calls.length, 1);
+  await assert.rejects(fetch(endpoint, request({ ...payload, max_tokens: undefined, max_completion_tokens: 1024 })),
+    /pi_http_request_not_authorized/);
+  assert.equal(calls.length, 0);
 });
 for (const status of [301, 302, 303, 307, 308]) {
   test(`redirect ${status} returned by a custom transport is denied`, async () => {
@@ -105,3 +106,41 @@ test("real loopback 307 never contacts its target", { timeout: 5000 }, async () 
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+const strictRouting = { allow_fallbacks: false, require_parameters: true };
+for (const routingPolicy of [{}, [], true, "strict", { allow_fallbacks: "false", require_parameters: true },
+  { ...strictRouting, only: ["unbound"] }]) {
+  test("unknown or broadened routing configuration is rejected before constructing a transport", () => {
+    assert.throws(() => createPiFetch({ baseUrl: "https://model.invalid/v1", modelId: "selected", maxTokens: 1024,
+      routingPolicy }), /pi_http_request_not_authorized/);
+  });
+}
+for (const provider of [undefined, {}, { allow_fallbacks: true, require_parameters: true },
+  { allow_fallbacks: false, require_parameters: false }, { ...strictRouting, only: ["unbound"] }]) {
+  test("OpenRouter cannot omit or broaden the configured routing restrictions", async () => {
+    let calls = 0;
+    const fetch = createPiFetch({ baseUrl: "https://model.invalid/v1", modelId: "selected", maxTokens: 1024,
+      routingPolicy: strictRouting, fetchImplementation: async () => { calls++; return new Response(""); },
+    });
+    await assert.rejects(fetch(endpoint, request({ ...payload, provider })), /pi_http_request_not_authorized/);
+    assert.equal(calls, 0);
+  });
+}
+test("exact fixed routing is preserved, independent of object key order", async () => {
+  const calls = [];
+  const routingPolicy = { ...strictRouting };
+  const fetch = createPiFetch({ baseUrl: "https://model.invalid/v1", modelId: "selected", maxTokens: 1024,
+    routingPolicy, fetchImplementation: async (...args) => { calls.push(args); return new Response(""); },
+  });
+  routingPolicy.allow_fallbacks = true; // Do not retain a mutable policy object.
+  await fetch(endpoint, request({ ...payload, provider: { require_parameters: true, allow_fallbacks: false } }));
+  assert.equal(calls.length, 1);
+  assert.deepEqual(JSON.parse(calls[0][1].body).provider, strictRouting);
+});
+for (const extra of [{ provider: strictRouting }, { models: ["other-model"] }, { route: "fallback" }]) {
+  test("undeclared provider or model routing is not accepted for a local target", async () => {
+    const { fetch, calls } = fixture();
+    await assert.rejects(fetch(endpoint, request({ ...payload, ...extra })), /pi_http_request_not_authorized/);
+    assert.equal(calls.length, 0);
+  });
+}

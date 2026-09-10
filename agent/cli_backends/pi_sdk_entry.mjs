@@ -23,7 +23,8 @@ try {
   const modelId = modelConfig.providers.ananta.models[0].id;
   const maxTokens = modelConfig.providers.ananta.models[0].maxTokens;
   if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 16384) throw new Error("pi_budget_invalid");
-  const fetch = createPiFetch({ baseUrl: modelConfig.providers.ananta.baseUrl, modelId, maxTokens });
+  const fetch = createPiFetch({ baseUrl: modelConfig.providers.ananta.baseUrl, modelId, maxTokens,
+    routingPolicy: modelConfig.providers.ananta.compat?.openRouterRouting ?? null });
   const settingsManager = sdk.SettingsManager.inMemory(settings, { projectTrusted: false });
   const modelRuntime = await sdk.ModelRuntime.create({
     authPath: join(configDirectory, "auth.json"), modelsPath: join(configDirectory, "models.json"),
