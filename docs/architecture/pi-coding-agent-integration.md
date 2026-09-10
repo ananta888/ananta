@@ -1043,3 +1043,18 @@ preparation still supplies the validated complete project/organization scope.
 The regression failed before correction in 7.77 seconds; all 91 focused
 preparation, Native adapter, real Pi context and result checks then passed in
 40.28 seconds. This is one persistence defect, not new evidence admission.
+
+The route-envelope prerequisite now validates the actual existing Worker
+formatter, not a hand-invented success shape. Route status/exit/summary,
+workflow adapter result, Native result and its duplicated verification must
+agree. Unexpected artifacts/sources, extra fields, another model/assignment
+or contradictory nested output fail closed. A framework marker is not copied
+into the candidate. Accepted candidates retain canonical JSON strings and
+return fresh DTO views, so later mutation of the response or a view cannot
+change the validated snapshot. This remains a facts-only helper pending Hub
+transactional admission, not a new Worker authority.
+
+All 74 envelope, strict-result and existing workflow-consumer tests passed in
+34.52 seconds, including actual Native-Pi success and malformed-protocol
+failure through the Worker route formatter. Ruff passed; no live provider,
+GPU or public service was contacted.
