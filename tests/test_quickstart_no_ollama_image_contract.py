@@ -64,6 +64,15 @@ def test_quickstart_dockerfile_uses_role_entrypoint_and_exposes_fullstack_ports(
     assert "--no-create-home" in dockerfile
 
 
+def test_quickstart_embedded_worker_profiles_are_explicitly_read_only() -> None:
+    dockerfile = (ROOT / "docker" / "compose-next" / "Dockerfile.quickstart-no-ollama").read_text(encoding="utf-8")
+    assert (
+        "COPY --chmod=0444 config/workflow_runtime/native_worker_profile.v1.json \\\n"
+        "    config/workflow_runtime/langgraph_worker_profile.v1.json \\\n"
+        "    config/workflow_runtime/pi_worker_profile.v1.json /app/config/workflow_runtime/"
+    ) in dockerfile
+
+
 def test_quickstart_entrypoint_supports_single_image_roles_and_openai_guard() -> None:
     entrypoint = (ROOT / "scripts" / "quickstart-single-image-entrypoint.sh").read_text(encoding="utf-8")
     worker_body = entrypoint.split("run_worker() {", 1)[1].split(

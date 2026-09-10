@@ -12,6 +12,7 @@ from typing import Any, Literal, Mapping
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from agent.providers.lc_lg import LangGraphProviderConfig
+from worker.runtime.native_graph.pi_configuration import NativePiWorkerProfile
 
 WORKFLOW_ADAPTER_WORKER_PROFILE_SCHEMA = (
     "ananta.workflow-adapter-worker-profile.v1"
@@ -33,6 +34,7 @@ class NativeGraphWorkerProfile(BaseModel):
     enabled: bool = False
     allowed_task_types: list[str] = Field(default_factory=list, max_length=128)
     capabilities: list[str] = Field(default_factory=list, max_length=128)
+    pi: NativePiWorkerProfile | None = None
 
     @field_validator("allowed_task_types", "capabilities")
     @classmethod
@@ -49,6 +51,11 @@ class NativeGraphWorkerProfile(BaseModel):
     def _enabled_requires_scope(self) -> "NativeGraphWorkerProfile":
         if self.enabled and (not self.allowed_task_types or not self.capabilities):
             raise ValueError("enabled Native profile requires task types and capabilities")
+        if self.pi is not None and self.pi.enabled and (
+            not self.enabled or "pi_coding_agent" not in self.allowed_task_types
+            or "coding.agent.pi" not in self.capabilities
+        ):
+            raise ValueError("pi_native_deployment_scope_required")
         return self
 
 
@@ -107,7 +114,7 @@ class WorkflowAdapterWorkerProfile(BaseModel):
             merged["providers"] = providers
         if self.worker_runtime.native_graph is not None:
             runtime = dict(merged.get("worker_runtime") or {})
-            runtime["native_graph"] = self.worker_runtime.native_graph.model_dump()
+            runtime["native_graph"] = self.worker_runtime.native_graph.model_dump(exclude_none=True)
             merged["worker_runtime"] = runtime
         return merged
 

@@ -562,3 +562,46 @@ kleine Adaptermethoden; Hub-Scope, Workspace, Credentials und Provider sind
 injiziert. Es entstehen weder Task Queue noch Worker-Orchestrierung.
 Der Handler allein aktiviert noch keinen laufenden Worker: explizite
 Deployment-Konfiguration, Fabrikverdrahtung und Containerabnahme folgen.
+
+### Explizite Worker-Fabrik und Deployment-Profil
+
+Die bestehende Native-Fabrik verwendet jetzt eine kleine Task-Kind-Handler-
+Zuordnung. Nur `pi_coding_agent` geht an Pi; deaktivierte Pi-Aufträge erhalten
+`pi_disabled` und werden niemals als Shell-Auftrag oder anderer Provider
+interpretiert. Bestehende Task-Kinds behalten ihren bisherigen Handler.
+Die Hub-Task-Queue, die Worker-Auswahl und der Native-Result-Ingress ändern
+sich nicht. Die Zuordnung ist lokale Operationsauswahl, keine Orchestrierung.
+
+`worker_runtime.native_graph.pi` enthält ausschließlich Deployment-Opt-in,
+Scratch-Verzeichnis und Profil-ID-zu-Schlüsseldatei-Zuordnung, keine Modellwahl.
+`enabled` muss Boolean sein; ein aktiviertes Profil benötigt Task-Kind und
+Capability explizit. Schlüssel werden nur aus der konfigurierten, begrenzten,
+gegen Symlinks/Schreibrechte abgesicherten Datei geladen. Fehlende Dateien oder
+Profile führen nicht zu einem Rückgriff auf `OPENAI_API_KEY` oder andere
+Umgebungswerte. Deaktiviertes Pi wird nicht als Capability registriert.
+Alte Worker-Profile behalten ihre bisherige Projektion ohne zusätzliches
+`pi: null`-Feld. Der gepinnte Laufzeit-Probe bleibt vor jedem Modellprozess
+Pflicht; eine deklarierte Capability ersetzt keinen erfolgreich geprüften
+Pi-Paketstand.
+
+Das separate Beispiel `config/workflow_runtime/pi_worker_profile.v1.json`
+wird nur durch ausdrückliche Auswahl über
+`ANANTA_WORKFLOW_ADAPTER_WORKER_PROFILE_FILE` aktiv. Es gehört in einen
+dedizierten Worker-Container mit eigenem `ANANTA_WORKSPACE_ROOT`, bestehender
+registrierter Hub-Service-Identität und Verify-only-Autorisierung sowie
+bereitgestelltem Pi 0.85.1. Die Profil-ID `local_ollama_phi4_mini` muss der
+Hub-Auswahl entsprechen; `/run/secrets/pi_local_provider_key` wird als
+geschützte Datei nur diesem Worker bereitgestellt. Für einen lokalen Provider
+ohne Authentifizierung ist ein expliziter unprivilegierter Platzhalterwert
+möglich, nie ein heimlich erzeugter Default. Abschalten: `pi.enabled: false`
+oder das bisherige Native-Profil wählen und den Worker neu starten.
+
+Die neue Quelldatei war im geteilten Checkout gruppenbeschreibbar; der strikte
+Profil-Ladetest lehnte sie korrekt ab. Der Quickstart-Build setzt deshalb die
+drei eingebauten Profile explizit per `COPY --chmod=0444`, unabhängig von der
+Checkout-Umask. 43 initiale Worker-/Native-Konfigurationsfälle bestehen;
+abschließend 17 Fabrik-/Registrierungsprüfungen (18.07 s), 19 Konfigurations-
+und Dateigrenzprüfungen (18.97 s) sowie 9 Image-Vertragsprüfungen (12.71 s).
+Die Gates überlappen und sind keine addierbare Fehlerzahl. Ruff, Namespace-
+und Todo-Prüfung sind grün. Ein realer, getrennt containerisierter Pi-Task
+und ContextBundle-Zuführung bleiben die nächsten Abnahmen.

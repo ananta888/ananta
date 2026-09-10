@@ -14,6 +14,7 @@ from ananta_contracts.workflow_worker_gateway import (
 )
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
 from worker.runtime.native_graph.node_runtime import NativeDelegatedNodeRuntime
+from worker.runtime.native_graph.pi_composition import build_native_node_handlers
 from worker.runtime.native_graph.ports import NativeAuthorizationVerifierPort
 from worker.runtime.native_graph.task_adapter import NativeGraphWorkerTaskAdapter
 from worker.runtime.workflow_hub_gateway import (
@@ -488,10 +489,13 @@ def build_native_graph_worker_task_adapter(
         raise ValueError("native_graph_worker_configuration_invalid")
     scope = NativeHubExecutionScope(client)
     runtime = NativeDelegatedNodeRuntime(
-        handler=NativeTaskScopedNodeHandler(
-            agent_config=agent_config,
-            task_snapshots=scope,
-            executor=executor,
+        handler=build_native_node_handlers(
+            default=NativeTaskScopedNodeHandler(
+                agent_config=agent_config,
+                task_snapshots=scope,
+                executor=executor,
+            ),
+            scope=scope, client=client, native_config=native_cfg, agent_config=agent_config,
         ),
         authorization_verifier=authorization_verifier,
         policy=ConfiguredNativeNodePolicy(allowed_task_types=allowed_task_types),

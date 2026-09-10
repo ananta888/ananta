@@ -1,0 +1,17 @@
+{
+  "schema": "ananta.workflow-adapter-worker-profile.v1",
+  "worker_runtime": {
+    "native_graph": {
+      "enabled": true,
+      "allowed_task_types": ["pi_coding_agent"],
+      "capabilities": ["coding.agent.pi", "text_generation", "structured_output"],
+      "pi": {
+        "enabled": true,
+        "runtime_root": "/tmp",
+        "credential_files": {
+          "local_ollama_phi4_mini": "/run/secrets/pi_local_provider_key"
+        }
+      }
+    }
+  }
+}

@@ -257,6 +257,9 @@ def _native_worker_capabilities(
     values = tuple(
         sorted({str(value).strip() for value in raw if str(value).strip()})
     )
+    pi = native.get("pi")
+    if not isinstance(pi, Mapping) or pi.get("enabled") is not True:
+        values = tuple(value for value in values if value != "coding.agent.pi")
     if len(values) > 128 or any(len(value) > 128 or "\x00" in value for value in values):
         raise ValueError("native_graph_worker_capabilities_invalid")
     return values

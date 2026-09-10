@@ -117,6 +117,11 @@ RUN cd services/evolver_bridge && npm ci --no-audit --no-fund
 # Den Rest des Codes kopieren
 COPY . .
 
+# Strict Worker profile loading must not depend on a checkout's shared umask.
+COPY --chmod=0444 config/workflow_runtime/native_worker_profile.v1.json \
+    config/workflow_runtime/langgraph_worker_profile.v1.json \
+    config/workflow_runtime/pi_worker_profile.v1.json /app/config/workflow_runtime/
+
 # Runtime artifact projections are written by the unprivileged application
 # user. Keep the directory present even when artifacts are excluded from the
 # Docker build context.
