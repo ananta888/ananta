@@ -605,3 +605,49 @@ und Dateigrenzprüfungen (18.97 s) sowie 9 Image-Vertragsprüfungen (12.71 s).
 Die Gates überlappen und sind keine addierbare Fehlerzahl. Ruff, Namespace-
 und Todo-Prüfung sind grün. Ein realer, getrennt containerisierter Pi-Task
 und ContextBundle-Zuführung bleiben die nächsten Abnahmen.
+
+### Getrennte Containerabnahme des begrenzten Sicherheitsprofils
+
+Die nächste Abnahme verwendet den unveränderten Quellstand
+`325636c0a4bc3d9f88fcd83c927ba9fb07ae5951`, Pi 0.85.1 und Node 24.18.0.
+Hub, Worker und synthetischer Modellserver laufen in getrennten, nicht
+privilegierten Containern: UID 65534, schreibgeschütztes Root-Dateisystem,
+keine Capabilities, `no-new-privileges`, 768 MiB, 0.5 CPU und 64 Prozesse
+je Container. Das interne Docker-Netz hat keine veröffentlichten Ports.
+Nur der Worker erhält das gepinnte Pi-Paket schreibgeschützt; weder GPU,
+Docker-Socket noch das Benutzerprojekt werden eingebunden. Die drei
+eingebauten Worker-Profile haben im Image tatsächlich Modus 0444.
+
+Die private Test-Hub-Hülle verwendet den echten Gateway-, Grant-,
+Assignment-, Ownership- und Budgetdienst. Ihr Signierschlüssel entsteht
+zufällig ausschließlich im Hub-Speicher. Der Worker hat keinen Zugriff
+darauf und verwendet Native-Fabrik, Task-Consumer, Hub-HTTP-Revalidierung,
+Budgetadapter und den tatsächlichen Pi-SDK-Prozess. Lediglich Taskzustellung,
+Uhr und Modellantwort sind deterministische Testadapter; dies ist noch keine
+Abnahme der vollständigen produktiven Flask-Registrierung/Task-Ingress-Kette.
+
+- Normalfall: bestanden in 4.010 Sekunden; genau eine Modellanfrage mit
+  Ausgabelimit 32, gebundenes Native-Ergebnis, Replay abgewiesen, fremde
+  Projektkonfiguration unverändert und temporärer Laufzustand aufgeräumt.
+- Zweiter separater Worker am selben Hub: erwartetes `pi_hub_budget_denied`
+  in 1.970 Sekunden; insgesamt weiterhin nur eine Modellanfrage. Das Limit
+  wirkt damit auch prozessübergreifend, nicht nur durch eine lokale Sperre.
+- Frischer Lauf mit bösartigem Modell-Toolvorschlag: erwartetes
+  `pi_tool_execution_denied` in 3.990 Sekunden; genau eine Modellanfrage,
+  keine angeforderte Datei, keine Artefakte/Teilantwort und vollständiges
+  Aufräumen des Laufverzeichnisses.
+
+Testimage: `sha256:6e70cac9216c9a765531e358cedfab21c044bf36f91c67620e817357acbfa8cb`.
+Reproduktionsmaterial bleibt lokal unter `data/pi-native-reference.uHZBM2bQ`;
+die fünf eigenen Testcontainer und ihr internes Netz wurden entfernt.
+Es waren ausschließlich flüchtige Testzustände, keine Benutzerdaten.
+
+PI-T03 ist damit für das ausdrücklich begrenzte No-Tools-/Read-only-Profil
+abgeschlossen. Direkte Datei-Tools bleiben unsupported; eine allgemeine
+OS-Sandbox oder freigegebene Produktionsinferenz wird nicht behauptet.
+Diese unreservierten synthetischen Beobachtungen ersetzen keine Hub-
+registrierte Release-Evidenz. ContextBundle-Transport, API-/Modellprojektion
+und verifizierter Evidenz-/Result-Ingress bleiben PI-T04 bis PI-T06.
+SRP/DIP bleiben durch die vorhandenen Hub-Ports und kleinen Worker-Adapter
+erhalten; die breite bestehende Native-Kompositionswurzel wird nicht durch
+eine neue Orchestrierung ersetzt.

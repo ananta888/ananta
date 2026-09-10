@@ -105,10 +105,10 @@
       "id": "PI-T03",
       "title": "Hub-Policies und isolierte Ausführung durchsetzen",
       "type": "security",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 5.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "PI-T01",
         "PI-T02"
@@ -122,6 +122,7 @@
         "Bestehende Hub-Provider-Kontext-, Budget- und Autorisierungsports wiederverwenden; fehlender oder legacy-kompatibler Kontext ist keine Pi-Freigabe. Keine zweite Task Queue oder Worker-eigene Signaturausstellung.",
         "Den tatsächlichen SDK-HTTP-Transport auf den freigegebenen POST-Endpunkt und eine Anfrage begrenzen; Redirects vor Kontakt zum Ziel ablehnen und dies automatisch mit echtem isoliertem SDK-Aufruf prüfen."
       ],
+      "container_acceptance_result": "Frozen 325636c0a, Pi0.85.1, Node24.18.0; separate read-only non-root Hub, Worker and synthetic-model containers on internal network, no published ports/GPU/socket, explicit limits and Worker-only read-only package mount. Real Native factory/Hub HTTP verification/budget/Pi SDK: normal PASS4.010s with one model request/output cap32, replay denied, hostile project unchanged and scratch cleaned. Second Worker process PASS1.970s by expected shared Hub pi_hub_budget_denied with total model requests still1. Fresh malicious-tool case PASS3.990s by expected pi_tool_execution_denied, one request, no file/artifact/partial output and cleanup. Actual synthetic signer randomized only inside Hub memory, never shared with Worker. Owned containers/network removed. PI-T03 complete only for explicit no-tools/read-only profile; no OS sandbox, production inference/release evidence, full serving task-intake or ContextBundle/result-ingress completion claimed. Technical synthetic observations without reserved SRC/RUN. docs/architecture/pi-coding-agent-integration.md.",
       "source_audit": "Against 359621c4a: reuse HubProviderContextSpec, ProviderInvocationContext, existing Hub provider budgets/endpoint policy and Native Hub revalidation/public Ed25519 verification. Never use legacy_compatible context or a new worker-owned signer as Pi authority. Concrete task/assignment/lease composition and container isolation still open. Pinned SDK exposes fetch injection and OpenAI-completions passes it through; add exact one-POST endpoint and redirect refusal with real synthetic negative before activation. docs/architecture/pi-coding-agent-integration.md.",
       "http_boundary_result": "Real pinned SDK 307 baseline reproduced 2 model requests, 1 redirect-target contact and incorrectly completed provider result. Injected single-attempt exact-POST fetch adapter now validates actual model/token/no-tools request and forces redirect:error. Same real negative PASS with 1 request, zero target contacts and bounded pi_assistant_failed; normal and tool-negative probes also PASS with 1 request, unchanged project and cleaned runtime. 33 Node contract cases including actual loopback 307 integrated into pytest. Synthetic local observations only. Concrete Hub authority, DNS/egress policy and container composition remain open; no general network sandbox claimed. docs/architecture/pi-coding-agent-integration.md.",
       "composition_source_audit": "Against b121395b5: CodingAgentInferenceTarget DTO is coupled to Aider resolver/global Hub configuration imports. Extract only the pure shared DTO with backward-compatible CLI reexport before worker policy use; preserve resolver/model behavior. Existing ProviderInvocationContext legacy fallback is never Pi authority. Reuse Native Hub revalidation/verify-only authorization and Hub provider budget ports for concrete task/fencing composition, not DTO validation alone. No production activation or new signing authority. docs/architecture/pi-coding-agent-integration.md.",
@@ -135,11 +136,12 @@
     {
       "id": "PI-T04",
       "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "source_audit": "Against 325636c0a: explicit Native Pi profile already preserves Hub-selected provider/model and managed credential mapping, but unhydrated ContextBundle references fail closed. Reuse persisted TaskContextBundleAccessService and existing authenticated workflow Worker gateway for exact task/assignment/lease delivery; never resolve Hub repositories inside Pi Worker or treat arbitrary input_data context as approved. Existing ContextEnvelopeAdapter formats content but does not establish task authority. Keep MCP/direct tools unsupported in no-tools profile; audit existing status/provision projections and official provider endpoint configuration before completion. docs/architecture/pi-coding-agent-integration.md.",
       "type": "implementation",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 1.0,
       "depends_on": [
         "PI-T02",
         "PI-T03"
@@ -203,13 +205,13 @@
   "tasks_status_summary": {
     "total": 6,
     "by_status": {
-      "todo": 3,
+      "todo": 2,
       "in_progress": 1,
       "partial": 0,
       "blocked": 0,
-      "done": 2
+      "done": 3
     },
-    "progress_percent_done": 33.3,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 0,
       "P1": 0,
@@ -223,8 +225,8 @@
     },
     "critical_path": {
       "total": 6,
-      "done": 2,
-      "remaining": 4
+      "done": 3,
+      "remaining": 3
     },
     "milestones": {
       "total": 2,
@@ -258,7 +260,21 @@
       "implementation": {
         "total": 3,
         "by_status": {
-          "todo": 2,
+          "todo": 1,
+          "in_progress": 1,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 33.7
+      },
+      "security": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
@@ -267,21 +283,7 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 33.3
-      },
-      "security": {
-        "total": 1,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 1,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 5.0
+        "progress_percent": 100.0
       },
       "verification": {
         "total": 1,
@@ -302,10 +304,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 3.1,
-    "remaining_weight": 6.9,
+    "done_weight": 5.015,
+    "remaining_weight": 4.985,
     "blocked_weight": 0.0,
-    "weighted_percent": 31.0
+    "weighted_percent": 50.1
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -319,31 +321,31 @@
       },
       "PI-M2": {
         "total_tasks": 5,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 20.0,
-        "weighted_percent": 18.8,
+        "count_based_percent": 40.0,
+        "weighted_percent": 41.4,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 3,
+    "todo_remaining": 2,
     "in_progress": 1,
     "partial": 0,
     "blocked": 0,
-    "done": 2,
-    "count_based_percent": 33.3,
-    "weighted_percent": 31.0
+    "done": 3,
+    "count_based_percent": 50.0,
+    "weighted_percent": 50.1
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-09T22:44:15.054503Z",
+    "generated_at": "2026-09-10T00:57:22.818344Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "3b010e46fd88c4904fe89f62cb1776cec73f2d3f325e8e47c375d53bf0df252a",
+    "source_hash": "d2aeb3435ff7e01f51382bbcda75129d1ec03a804defd9dd8e4203cbab75e4be",
     "is_stale": false
   }
 }
