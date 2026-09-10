@@ -103,6 +103,7 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
             from agent.services.approval_request_service import (
                 get_approval_request_service,
             )
+            from agent.services.native_context_bundle_composition import HubNativeContextBundleReader
             from agent.services.workflow_authorization_grant_service import (
                 SQLAlchemyWorkflowAuthorizationGrantService,
             )
@@ -133,6 +134,7 @@ def get_workflow_worker_gateway_service() -> WorkflowWorkerGatewayService:
                     get_ananta_tool_registry_service()
                 ),
                 assignments=get_workflow_worker_assignment_store(),
+                context_bundles=HubNativeContextBundleReader(engine=engine),
             )
     return _SERVICE
 

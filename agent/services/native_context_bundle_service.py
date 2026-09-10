@@ -81,7 +81,8 @@ This service cannot create a bundle, grant, task, identity or assignment.
         if (
             task.get("id") != hub_task_id or task.get("tenant_id") != binding.tenant_id
             or not isinstance(task.get("project_id"), str) or not task["project_id"].strip()
-            or task.get("source") != "workflow_runtime" or task.get("status") in {"completed", "failed", "cancelled"}
+            or task.get("source") != "workflow_runtime"
+            or task.get("status") not in {"created", "assigned", "queued", "running", "in_progress"}
             or not isinstance(worker_context, Mapping)
         ):
             raise ValueError("native_context_task_binding_mismatch")

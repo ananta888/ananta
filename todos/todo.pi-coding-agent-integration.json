@@ -136,6 +136,7 @@
     {
       "id": "PI-T04",
       "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "active_context_policy_result": "Production Gateway reader uses existing app repository registry, SQL Context Policy lifecycle and scoped Hub destination catalog. No grant/default policy issuance or Worker DB access. Task state, exact tenant/project active policy digest, registered Worker/provider/model/endpoint and catalog coordinates bound; actual CodeCompass FTS/graph/repository-map chunks normalized, conflicting fields/approval markers/secret misclassification denied, explicit send required, redaction/summary before output.73 focused cases PASS53.46s; after real chunk-shape audit86 policy/persistent Native/Pi/existing adapter/retrieval cases PASS60.13s. Real SQL policy activation/revocation is fully automatic; fake model process remains synthetic. New task-bundle preparation and model/status projections remain open. docs/architecture/pi-coding-agent-integration.md.",
       "context_transport_result": "Additive native_context_read uses existing authenticated Hub gateway, exact registered Worker/assignment hub_task_id/current lease/signature, persisted Native command tenant/project and existing task-bound bundle repository boundary. Closed24KB projection binds full command/policy/content; hashes are not evidence IDs. Worker reads only Hub projection into structured prompt and revalidates before execution/reservation/after result; mutations and revocation fail closed/discard output.30 Hub/projection cases PASS25.35s;21 Pi context+20 existing Native/factory PASS32.94s; overlapping86 Hub/budget/auth/Native PASS60.93s. Ruff PASS. Production active-project-policy/destination-catalog composition remains open and absent port returns native_context_service_unavailable. No new Worker orchestration, DB access, grants or release evidence. docs/architecture/pi-coding-agent-integration.md.",
       "context_filter_prerequisite_result": "Existing Hub filter released every decision except deny, including actual mismatched approval_required. Five negative variants reproduced one shared filter defect in12.41s. Closed allow/allow_redacted/allow_summary_only selection now excludes pending/unavailable/unknown decisions immediately, no human wait; transformations and input immutability preserved.28 focused new/existing context-policy and Worker-boundary checks PASS31.17s. New test Ruff PASS; existing broad service retains14 pre-existing lint diagnostics and SRP/DIP debt. Pi task-bound ContextBundle transport remains open. docs/architecture/pi-coding-agent-integration.md.",
       "source_audit": "Against 325636c0a: explicit Native Pi profile already preserves Hub-selected provider/model and managed credential mapping, but unhydrated ContextBundle references fail closed. Reuse persisted TaskContextBundleAccessService and existing authenticated workflow Worker gateway for exact task/assignment/lease delivery; never resolve Hub repositories inside Pi Worker or treat arbitrary input_data context as approved. Existing ContextEnvelopeAdapter formats content but does not establish task authority. Keep MCP/direct tools unsupported in no-tools profile; audit existing status/provision projections and official provider endpoint configuration before completion. docs/architecture/pi-coding-agent-integration.md.",
@@ -143,7 +144,7 @@
       "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 1.0,
+      "progress_percent": 30.0,
       "depends_on": [
         "PI-T02",
         "PI-T03"
@@ -271,7 +272,7 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 33.7
+        "progress_percent": 43.3
       },
       "security": {
         "total": 1,
@@ -306,10 +307,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 5.015,
-    "remaining_weight": 4.985,
+    "done_weight": 5.45,
+    "remaining_weight": 4.55,
     "blocked_weight": 0.0,
-    "weighted_percent": 50.1
+    "weighted_percent": 54.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -326,7 +327,7 @@
         "done": 2,
         "blocked": 0,
         "count_based_percent": 40.0,
-        "weighted_percent": 41.4,
+        "weighted_percent": 46.5,
         "status": "in_progress"
       }
     }
@@ -339,15 +340,15 @@
     "blocked": 0,
     "done": 3,
     "count_based_percent": 50.0,
-    "weighted_percent": 50.1
+    "weighted_percent": 54.5
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-10T01:13:29.002473Z",
+    "generated_at": "2026-09-10T01:30:32.065923Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "63cc64561f7d14d216f49d10b6001d36fd4c5df90c130ad35d489dad57018efa",
+    "source_hash": "90f284adb645c34a78e8d9e58ba924071bec7a0e94e11f5516bb1cef026f36c3",
     "is_stale": false
   }
 }

@@ -715,3 +715,46 @@ SRP-Schuld wird nicht durch neue Datenbank- oder Retrieval-Logik vergrößert.
 Noch offen ist die produktive Komposition mit aktiven Projekt-Policies und
 dem Hub-Zielkatalog. Ohne diesen Policy-Port liefert der Hub ausdrücklich
 `native_context_service_unavailable`, niemals eine Ersatzfreigabe.
+
+### Aktive Projekt-Policy und bestehender Hub-Zielkatalog
+
+Die produktive Gateway-Fabrik verbindet den Reader jetzt mit der bestehenden
+Repository-Registry, dem SQL-Context-Policy-Lifecycle und dem app-eigenen
+`source_control_destination_catalog`. Der aktuelle Katalog wird bei jedem
+Zugriff neu aufgelöst; ein anderer Flask-App-Kontext erbt keine Freigaben.
+Fehlt der Katalog, bleibt der Zugriff begrenzt gesperrt. Aufgaben ohne aktiven
+Ausführungsstatus werden ebenfalls vor dem Policy-Zugriff zurückgewiesen.
+
+Das Hub-gespeicherte Bundle benennt unter
+`bundle_metadata.native_context_access` ausschließlich `policy_id`,
+`destination_id` und den exakten `provider_endpoint_identity`. Dies sind
+Selektoren, keine Grants. Der Reader verlangt eine aktive, digest-konsistente
+Policy im selben Tenant/Projekt und den passenden registrierten Worker,
+Inferenzanbieter und Modellnamen. Die Antwort bindet Policy-Version,
+Policy-Digest, Zielkatalog-Digest und Endpoint gemeinsam. Es werden keine
+Policies aktiviert, Modelle ausgewählt oder Berechtigungen ausgestellt.
+
+Ein eigener kleiner Chunk-Adapter versteht sowohl die bestehende persistierte
+CodeCompass-FTS-/Graph-/Repository-Map-Form als auch bereits klassifizierte
+CAP-Blöcke. Er verwendet den bestehenden Hub-Klassifikations-/Policy-Dienst.
+Fremde Promptzusammenstellungen aus `context_text` werden nicht übernommen.
+Widersprüchliche Felder und Approval-Marker werden abgewiesen; erkannte
+Secrets können sich nicht hinter einer öffentlichen Klassifikation verstecken.
+Redaktion beziehungsweise Zusammenfassung erfolgt vor der Ausgabe. Die
+Source-Control-Ortsklassen werden ausdrücklich abgebildet: unbekannte oder
+externe Ziele dürfen nicht durch die ältere String-Heuristik lokal erscheinen.
+
+Das Pi-Profil verlangt ausdrücklich eine Sendefreigabe; reine Lese-/Schreib-
+Rechte genügen nicht. Eine passende `approval_required`-Regel liefert sofort
+einen maschinenlesbaren Fehler statt eines interaktiven Dialogs. Vollautomatisch
+erlaubte Läufe verwenden eine ausdrücklich aktive Hub-Policy ohne diese
+ausstehende Freigabe. Das erweitert keine bestehenden Berechtigungen.
+
+73 gezielte Hub-/Policy-/Persistenzfälle bestehen in 53.46 Sekunden. Nach dem
+Abgleich mit der tatsächlichen CodeCompass-Chunkform bestehen 86 Policy-,
+Native-Pi-, bestehende Taskadapter- und Retrieval-Vertragsprüfungen in
+60.13 Sekunden. Das schließt eine echte SQL-Policy-Aktivierung/Widerruf und
+deren Verwendung durch Native-Worker, Hub-Budget und Pi-Prozess-Testdouble
+ein; keine menschlichen Schritte und keine Produktions-Evidenzbehauptung.
+Ruff ist für diese Änderungen grün. Die Hub-seitige automatische Vorbereitung
+neuer Pi-Aufgaben-Bundles sowie Modell-/Statusprojektionen bleiben noch offen.
