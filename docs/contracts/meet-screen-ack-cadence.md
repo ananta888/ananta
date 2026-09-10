@@ -246,3 +246,42 @@ but one chat call still took 322.5 ms. These samples are not a controlled
 CPU-latency benchmark, and equal fixed task duration cannot show a faster
 task completion. They verify reduced redundant RPCs with functioning media,
 not the absence of all long-run timing failures or a repaired receiver freeze.
+
+## Optimized long reference: freshness failure after 112 minutes
+
+The subsequent uninstrumented `private-dialog-soak` at `a0be4d513` failed:
+`RUN_f38f19dbcf0ac93bfdb98232296340a1`, reserved before execution under
+`SRC_d719b6bba7380fb7dbe5267dba945343`, completed with one failure, no errors
+or skips in 6764.93 pytest / 6769.585 controller seconds. The same frozen
+`848a3d6`/`803a77c0`/`5d4be51c`/`8fc7d306` inputs remained unchanged. Neither
+cadence fault injection nor the SFrame pipeline probe was enabled. The result
+digest is `5c3ff57c4d642f3aad1758b259e4ca33ad14826fa5ca2fd12b9e31fed5fa82a6`;
+JUnit digest `dc5cbb5c2ca84271fbd08de11f02f815f0ae9a4319842bb7e43016768ef1c075`.
+
+The last progress checkpoint was 6720 active seconds, 112 lease generations,
+144 screen observations, sampled peak RSS 2,662,424,576 bytes and 22 processes.
+Screen generation 226 failed with `meet_media_timing_source_failed`: current
+time 6751448399 us minus observed submission 6750572500 us is **875899 us**,
+exceeding the unchanged 750000-us fence. This is not a completed two-hour
+acceptance, and the earlier RPC reductions do not establish long-run repair.
+
+The scheduling tail includes a 411.01-ms screen tick, 399.73-ms screen RPC,
+585.4-ms tick gap and 334.55/410.5-ms chat calls. Inclusive idle calls can
+contain CDP acknowledgements; their times must not be summed again. Fresh Hub
+controls continued to be accepted, without a control failure. There is no
+receiver-failure receipt here and no established GPU, memory or decoder cause.
+
+An attribution bug was also found in the passive observer: its substring
+classifier calls `ScreenFrameDelivery.POLL` a timing operation because the
+JavaScript comment contains "timing". The reported 84,193 timing-tagged calls
+therefore cannot be interpreted as 84,193 timing snapshots. Correct the closed
+operation tags without adding browser calls before comparing phase costs.
+
+The next bounded source audit targets the screen pump's pre-send status RPC.
+The delivery port already checks open state, exact generation and sequence
+atomically in its START operation before pushing. A separate earlier status
+read cannot authorize that later push. Keep source ownership/content checks,
+fresh-Hub-only reopening, the single in-flight slot and all timing fences;
+first reproduce the extra call and verify closed/stale activations still deny
+delivery. This is a candidate optimization, not yet a causal repair claim.
+All receipts remain synthetic TEST evidence; MAP-30/31/32 stay open.
