@@ -1078,3 +1078,26 @@ boundary; otherwise a lease change could interleave with a successful Task
 commit. Validate this with bounded concurrent database tests, then exercise
 the full existing forwarding-to-repository path. No replacement task store or
 Worker-owned admission loop is needed.
+
+The SQLite prerequisite is now implemented in `task_repository_session`:
+Task reads and writes share the existing workflow-store engine guard, and
+Task mutations begin an immediate SQLite transaction before reading their
+authority snapshot. PostgreSQL retains its existing transaction/row-lock
+path. Commit/rollback ownership stays with the repository; this does not
+claim to serialize unrelated raw sessions or every repository in the system.
+
+Before correction, four concurrent save/CAS cases failed and the rollback
+case passed (13.62 seconds). These reproduced missing writer exclusion and
+missing coordination with workflow stores. After correction, 113 focused
+Task, queue, context-index, Organization completion and workflow-store tests
+passed in 53.68 seconds. The final seven transaction tests, including read
+coordination and the non-SQLite branch, passed in 16.82 seconds. These runs
+overlap and are synthetic technical observations, not registered release
+evidence. Ruff passed.
+
+The expanded run separately exposed two xdist tests sharing and deleting
+the same JSON counter file. Their fixture now uses a per-test temporary path;
+thread joins have a shared deadline and report failures automatically. That
+test-only correction was committed separately. No JSON persistence behavior
+was changed. Existing broad Task repository responsibilities remain SRP
+debt; transaction mechanics are isolated in a small infrastructure adapter.

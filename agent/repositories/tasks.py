@@ -59,6 +59,7 @@ from agent.repositories.task_auxiliary_repositories import (
     TaskAuxiliaryRepositoryDependencies,
     ToolCallRepositoryMixin,
 )
+from agent.repositories.task_repository_session import task_repository_session
 
 
 @dataclass(frozen=True)
@@ -725,11 +726,11 @@ class TaskRepository:
         self._completion_policy = completion_policy
 
     def get_all(self):
-        with Session(_engine()) as session:
+        with task_repository_session(_engine()) as session:
             return session.exec(select(TaskDB)).all()
 
     def get_by_id(self, task_id: str) -> Optional[TaskDB]:
-        with Session(_engine()) as session:
+        with task_repository_session(_engine()) as session:
             return session.get(TaskDB, task_id)
 
     def list_stale_reserved_unsloth_cleanup(
@@ -739,7 +740,7 @@ class TaskRepository:
         limit: int,
     ) -> List[TaskDB]:
         bounded = max(1, min(int(limit), 500))
-        with Session(_engine()) as session:
+        with task_repository_session(_engine()) as session:
             statement = (
                 select(TaskDB)
                 .where(
@@ -753,7 +754,7 @@ class TaskRepository:
             return list(session.exec(statement).all())
 
     def get_by_goal_id(self, goal_id: str) -> List[TaskDB]:
-        with Session(_engine()) as session:
+        with task_repository_session(_engine()) as session:
             return session.exec(select(TaskDB).where(TaskDB.goal_id == goal_id)).all()
 
     def save(self, task: TaskDB):
@@ -773,7 +774,7 @@ class TaskRepository:
         # Resolve the immutable owner hint before taking locks.  Recovery
         # writers and terminal sweeps then acquire the identical sorted
         # child/source pair; neither can hold the source and wait on a child.
-        with Session(_engine()) as hint_session:
+        with task_repository_session(_engine()) as hint_session:
             authoritative_hint = hint_session.get(TaskDB, task_id)
             source_task_id = str(
                 getattr(
@@ -790,7 +791,7 @@ class TaskRepository:
         with get_task_mutation_lock_port().mutation_locks(lock_ids) as acquired:
             if not acquired:
                 raise RuntimeError(f"task_mutation_lock_unavailable:{task_id}")
-            with Session(_engine()) as session:
+            with task_repository_session(_engine(), write=True) as session:
                 statement = select(TaskDB).where(TaskDB.id == task_id)
                 if str(_engine().dialect.name or "").lower() == "postgresql":
                     statement = statement.with_for_update()
@@ -852,7 +853,7 @@ class TaskRepository:
                     "task_mutation_lock_unavailable:"
                     + normalized_task_id
                 )
-            with Session(_engine()) as session:
+            with task_repository_session(_engine(), write=True) as session:
                 statement = select(TaskDB).where(
                     TaskDB.id == normalized_task_id
                 )
@@ -933,7 +934,7 @@ class TaskRepository:
                     "task_mutation_lock_unavailable:"
                     + normalized_task_id
                 )
-            with Session(_engine()) as session:
+            with task_repository_session(_engine(), write=True) as session:
                 statement = select(TaskDB).where(
                     TaskDB.id == normalized_task_id
                 )
@@ -1065,7 +1066,7 @@ class TaskRepository:
             get_task_mutation_lock_port,
         )
 
-        with Session(_engine()) as hint_session:
+        with task_repository_session(_engine()) as hint_session:
             authoritative_hint = hint_session.get(
                 TaskDB,
                 normalized_task_id,
@@ -1088,7 +1089,7 @@ class TaskRepository:
                     task=None,
                     previous_status=None,
                 )
-            with Session(_engine()) as session:
+            with task_repository_session(_engine(), write=True) as session:
                 statement = select(TaskDB).where(TaskDB.id == normalized_task_id)
                 if str(_engine().dialect.name or "").lower() == "postgresql":
                     statement = statement.with_for_update()
@@ -1155,7 +1156,7 @@ class TaskRepository:
                 )
 
     def delete(self, task_id: str):
-        with Session(_engine()) as session:
+        with task_repository_session(_engine(), write=True) as session:
             task = session.get(TaskDB, task_id)
             if task:
                 session.delete(task)
@@ -1164,7 +1165,7 @@ class TaskRepository:
             return False
 
     def clear_team_assignments(self, team_id: str) -> int:
-        with Session(_engine()) as session:
+        with task_repository_session(_engine(), write=True) as session:
             statement = select(TaskDB).where(TaskDB.team_id == team_id)
             tasks = session.exec(statement).all()
             from agent.common.recovery_task_mutation_policy import (
@@ -1183,7 +1184,7 @@ class TaskRepository:
             return len(tasks)
 
     def get_old_tasks(self, cutoff: float):
-        with Session(_engine()) as session:
+        with task_repository_session(_engine()) as session:
             statement = select(TaskDB).where(TaskDB.created_at < cutoff)
             return session.exec(statement).all()
 
@@ -1200,7 +1201,7 @@ class TaskRepository:
         project_id: str | None = None,
         task_kind: str | None = None,
     ):
-        with Session(_engine()) as session:
+        with task_repository_session(_engine()) as session:
             statement = select(TaskDB)
             if status:
                 statement = statement.where(TaskDB.status == status)

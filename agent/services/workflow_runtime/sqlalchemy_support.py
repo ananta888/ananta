@@ -6,7 +6,7 @@ import hashlib
 import threading
 import weakref
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any
 
 from sqlalchemy import Select
@@ -29,6 +29,18 @@ def _sqlite_engine_lock(engine: Engine) -> threading.RLock:
             lock = threading.RLock()
             _SQLITE_ENGINE_LOCKS[engine] = lock
         return lock
+
+
+@contextmanager
+def sqlite_transaction_guard(engine: Engine) -> Iterator[None]:
+    """Share the existing SQLite store lock with adjacent repository sessions.
+
+    PostgreSQL continues to use database row locks. No additional cache or
+    independent lock family is introduced at a cross-repository boundary.
+    """
+    guard = _sqlite_engine_lock(engine) if engine.dialect.name == "sqlite" else nullcontext()
+    with guard:
+        yield
 
 
 def stable_row_id(namespace: str, *parts: object) -> str:
