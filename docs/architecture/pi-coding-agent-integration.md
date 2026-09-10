@@ -1058,3 +1058,23 @@ All 74 envelope, strict-result and existing workflow-consumer tests passed in
 34.52 seconds, including actual Native-Pi success and malformed-protocol
 failure through the Worker route formatter. Ruff passed; no live provider,
 GPU or public service was contacted.
+
+### Transactional admission implementation boundary
+
+The existing `TaskCompletionPolicyPort.apply` already runs inside Task
+repository save/CAS transactions. Extend that composition with a separate
+Pi policy, preserving the existing Organization policy. The Pi policy must
+validate the persisted command and canonical candidate, lock/read current
+ownership, assignment, registration and authorization grant in the same
+transaction, and preserve an immutable accepted-result receipt. It must not
+mint source/run identities or treat a valid technical result as release proof.
+The later registry reservation/result lifecycle remains explicit work.
+
+PostgreSQL can lock those rows until Task commit. SQLite currently serializes
+workflow stores using one per-engine lock, but Task writes use only per-Task
+locks and legacy deferred transactions. Reuse that existing engine lock and
+an immediate SQLite write transaction for the relevant repository save/CAS
+boundary; otherwise a lease change could interleave with a successful Task
+commit. Validate this with bounded concurrent database tests, then exercise
+the full existing forwarding-to-repository path. No replacement task store or
+Worker-owned admission loop is needed.
