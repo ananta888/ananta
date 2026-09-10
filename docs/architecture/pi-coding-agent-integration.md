@@ -1225,3 +1225,14 @@ rejected during isolation teardown; the corrected fixture replaces only the
 new adapter's database seam. No production database was accessed. Actual
 runtime-manifest admission, dispatch reservation and registry completion
 wiring remain the next steps.
+
+The shared `PiRuntimeManifest` now defines closed, immutable scheduler facts:
+tenant/project, exact Worker, immutable repository/image revision, Node
+version, pinned Pi version and the no-tools execution profile, with explicit
+evidence scope and synthetic classification. Credentials, mutable image tags,
+unsupported versions and synthetic scope broadening are rejected. Canonical
+manifest/environment digests are ordinary hashes, not evidence identities.
+Parsing a manifest does not attest that runtime; Hub source admission and
+Worker verification still have to bind it to an actual deployment. All 27
+contract checks passed in 19.21 seconds; Ruff passed. No manifest was installed
+and no model, GPU or external provider was invoked by these tests.
