@@ -441,3 +441,48 @@ der gemeinsame Import kein `agent`-Modul oder Hub-Konfiguration lädt.
 46 Zielvertrags-/Aider-/Pi-Provider-/Runtime-Prüfungen bestehen in 36.66 Sekunden;
 Ruff und Namespace-Detektor sind grün. Diese SRP-/DIP-Korrektur stellt noch
 keine Task-Autorisierung oder Budgetreservierung bereit.
+
+### Pflichtprojektion und Hub-Budget vor Pi-Ausführung
+
+`PiInvocationPolicy` verlangt jetzt einen konkreten `ProviderInvocationContext`
+mit Hub-Budgetpflicht, Workflow/Step/Attempt/Fencing, ausgewähltem Modell,
+kanonischem Endpoint und Provider-Call-ID. Ein fehlender Kontext wird niemals
+über `legacy_compatible` ergänzt. Die Policy kopiert den Kontext und nutzt den
+bestehenden `ProviderBudgetPort`; sie besitzt weder Budgetledger noch Signierer.
+Modell-/Endpoint-Abweichungen, Metadata-Ziele, nicht erlaubter externer Egress
+und unsichere DNS-Auflösung werden vor Reservierung/Prozessstart abgelehnt.
+DNS-Vorprüfung ist ausdrücklich kein Address-Pinning oder OS-Netzwerksandbox.
+
+Eine explizite endliche Deadline ist Pflicht; eine kürzere `expires_at` im
+Autorisierungsumschlag begrenzt sie zusätzlich. Der Provider revalidiert die
+injizierte Task-Autorität vor Vorbereitung, vor und nach Budgetreservierung
+sowie nach Ausführung. Abgelaufene oder widerrufene Ergebnisse werden nicht
+veröffentlicht. Die Prozessfrist umfasst auch die verbrauchte Vorbereitungs-
+und Revalidierungszeit. Unterstützt ist weiterhin genau ein No-Tools-Turn;
+zusätzliche Attempt-/Retry-Protokolle werden nicht stillschweigend übergangen,
+sondern bis zu ihrer konkreten Komposition geschlossen abgelehnt.
+
+Die Ausgabegrenze ist `min(1024, Hub-Maximum)` und wird in die tatsächliche
+SDK-Modellkonfiguration geschrieben. Die Reservierung berücksichtigt den
+UTF-8-Umfang von Prompt und gepinnter SDK-Systemrahmung plus 256 Tokens
+Framingreserve; das ist eine konservative Schätzung, keine tokenizer-exakte
+Verbrauchsmessung. Eingaben oberhalb des Hub-Budgets oder des konservativen
+8192er Kontextprofils werden abgelehnt. Unbekannter Verbrauch wird nicht
+erstattet. Eine Policy-Instanz kann nur einmal reservieren, auch nach unklarer
+Hub-Antwort; verteilte Replay-Sicherheit bleibt Aufgabe des Hub-Ports.
+
+Mit echtem Pi 0.85.1 im begrenzten, nichtprivilegierten Offline-Testcontainer
+erreicht eine synthetische Freigabe über 37 Ausgabetokens den Modellrequest
+unverändert: eine Reservierung, eine Anfrage, unverändertes Projekt, Cleanup.
+Eine synthetische Budgetablehnung erzeugt null Modellanfragen. Der echte
+307-Negativlauf bleibt bei einer Anfrage und null Redirect-Zielkontakten.
+Diese Beobachtungen sind keine produktive Hub-/Release-Evidenz.
+79 Policy-/Provider-/Runtime-/HTTP-Prüfungen bestehen in 56.63 Sekunden;
+Ruff, Namespace-Detektor und Todo-Konsistenzprüfung sind grün.
+
+SRP/DIP: Policyprojektion/Reservierung liegen getrennt von Prozesslebenszyklus
+und privater Konfigurationsmaterialisierung. Die bestehende breite
+Provider-Komposition wird nicht zu einem zweiten Orchestrator erweitert.
+Konkrete Hub-Task-/Lease-Verifikation, Containerkomposition, Kontextbundle-
+Zuführung und Result-Ingress bleiben offen; ein gültiger DTO oder synthetischer
+Budgetport ersetzt diese Bindungen nicht. Pi bleibt standardmäßig deaktiviert.

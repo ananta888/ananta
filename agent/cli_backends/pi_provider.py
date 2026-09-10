@@ -29,8 +29,10 @@ from agent.cli_backends.pi_configuration import (
     validate_pi_target,
 )
 from agent.cli_backends.pi_events import PiProtocolError, parse_pi_one_shot
+from agent.cli_backends.pi_policy import PiInvocationPolicy
 from agent.cli_backends.pi_runtime import pi_sdk_command
 from agent.cli_backends.provisioning import CliBackendProvisioningError, get_cli_backend_provisioner
+from ananta_contracts.provider_invocation import ProviderInvocationBlocked
 
 if TYPE_CHECKING:
     from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
@@ -46,6 +48,7 @@ class PiCodingAgentProvider:
     def __init__(
         self, *, enabled: bool = False, target: CodingAgentInferenceTarget | None = None,
         authorize: Callable[[CodingAgentRunRequest], bool] | None = None,
+        execution_policy: PiInvocationPolicy | None = None,
         process_runner: ProcessRunnerPort | None = None,
         runtime_probe: Callable[[], Mapping[str, object]] | None = None,
         command_builder: Callable[[str], tuple[str, ...]] | None = None,
@@ -54,6 +57,7 @@ class PiCodingAgentProvider:
         if type(enabled) is not bool:
             raise ValueError("pi_enabled_flag_invalid")
         self._enabled, self._target, self._authorize = enabled, target, authorize
+        self._execution_policy = execution_policy
         self._runner = process_runner if process_runner is not None else BoundedCodingAgentProcess()
         self._runtime_probe = runtime_probe or (lambda: get_cli_backend_provisioner().status("pi"))
         self._runtime_root = runtime_root
@@ -123,15 +127,28 @@ class PiCodingAgentProvider:
         probe = self.detect()
         if probe.state is not ProviderState.READY or probe.binary_path is None:
             return result(127, probe.reason_code)
+        if self._execution_policy is None:
+            return result(77, "pi_hub_policy_required")
         try:
+            projection = self._execution_policy.project(self._target)
             with isolated_pi_configuration(
-                self._target, project=request.workspace, runtime_root=self._runtime_root,
+                projection.target, project=request.workspace, runtime_root=self._runtime_root,
+                max_tokens=projection.max_tokens,
             ) as invocation:
                 remaining = request.timeout_seconds - (time.monotonic() - started)
                 if remaining <= 0:
                     return result(124, "timeout")
                 if not self._authorized(request):
                     return result(77, "pi_execution_not_authorized")
+                self._execution_policy.reserve(projection, prompt=request.prompt, cwd=invocation.cwd)
+                if not self._authorized(request):
+                    return result(77, "pi_execution_not_authorized")
+                remaining = min(
+                    request.timeout_seconds - (time.monotonic() - started),
+                    self._execution_policy.remaining_seconds(projection),
+                )
+                if remaining <= 0 or request.cancellation.is_set():
+                    return result(130, "cancelled") if request.cancellation.is_set() else result(124, "timeout")
                 environment = self._environment | {
                     "CI": "1", "NO_COLOR": "1", "PI_OFFLINE": "1", "PI_TELEMETRY": "0",
                     "PI_CODING_AGENT_DIR": str(invocation.config_directory), "ANANTA_PI_API_KEY": self._target.api_key,
@@ -147,6 +164,8 @@ class PiCodingAgentProvider:
                     return result(130, "cancelled")
                 if not self._authorized(request):
                     return result(77, "pi_execution_not_authorized")
+                if self._execution_policy.remaining_seconds(projection) <= 0:
+                    return result(124, "timeout")
                 if execution.return_code != 0 or execution.output_truncated or execution.reason_code != "completed":
                     reason = execution.reason_code if execution.reason_code in {
                         "timeout", "cancelled", "output_limit_exceeded", "process_io_failed",
@@ -159,6 +178,8 @@ class PiCodingAgentProvider:
                 )
                 # JSON escaping can hide a secret from the process line redactor.
                 answer = answer.replace(self._target.api_key, "<redacted>")
+        except ProviderInvocationBlocked as exc:
+            return result(77, exc.reason_code)
         except PiProtocolError as exc:
             return result(65, str(exc))
         except (OSError, ValueError):

@@ -59,11 +59,13 @@ class PiInvocation:
 
 @contextmanager
 def isolated_pi_configuration(
-    target: CodingAgentInferenceTarget, *, project: Path, runtime_root: Path | None = None,
+    target: CodingAgentInferenceTarget, *, project: Path, runtime_root: Path | None = None, max_tokens: int = 1024,
 ) -> Iterator[PiInvocation]:
     reason = validate_pi_target(target)
     if reason:
         raise ValueError(reason)
+    if type(max_tokens) is not int or not 1 <= max_tokens <= 1024:
+        raise ValueError("pi_budget_invalid")
     with TemporaryDirectory(prefix="ananta-pi-", dir=runtime_root) as directory:
         root = Path(directory).resolve()
         project = project.resolve()
@@ -82,7 +84,7 @@ def isolated_pi_configuration(
         models = {"providers": {PI_PROVIDER_NAME: {
             "baseUrl": target.base_url, "api": "openai-completions", "apiKey": "$ANANTA_PI_API_KEY",
             "authHeader": True,
-            "models": [{"id": target.model, "contextWindow": 8192, "maxTokens": 1024}],
+            "models": [{"id": target.model, "contextWindow": 8192, "maxTokens": max_tokens}],
         }}}
         files = {
             "settings.json": json.dumps(settings), "models.json": json.dumps(models), "auth.json": "{}",

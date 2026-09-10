@@ -10,14 +10,16 @@ import pytest
 from agent.cli_backends.coding_agent_contract import CodingAgentRunRequest, ProcessExecutionResult, ProviderState
 from agent.cli_backends.coding_agent_profiles import build_cli_coding_agent_provider, coding_agent_descriptors
 from agent.cli_backends.coding_agent_targets import CodingAgentInferenceTarget
+from agent.cli_backends.pi_policy import PiInvocationPolicy
 from agent.cli_backends.pi_provider import PiCodingAgentProvider
+from ananta_contracts.provider_invocation import ProviderBudgetDecision, ProviderInvocationContext
 from tests.pi_protocol_examples import pi_events
 
 
 def target(**overrides):
     value = CodingAgentInferenceTarget(
         client_id="pi", provider_id="ollama", model="selected-model", cli_model="selected-model",
-        base_url="http://model-worker:11434/v1", target_kind="local_openai", api_key="synthetic-private-key",
+        base_url="http://ollama:11434/v1", target_kind="local_openai", api_key="synthetic-private-key",
     )
     return replace(value, **overrides)
 
@@ -27,6 +29,32 @@ def runtime():
         "installed": True, "status": "ready", "version": "0.85.1", "binary_path": "/pinned/pi",
         "version_probe": {"rc": 0, "stdout": "0.85.1", "stderr": ""},
     }
+
+
+def hub_context(**overrides):
+    """Synthetic policy DTO; no claim of verified Hub authorization or evidence."""
+    return replace(ProviderInvocationContext(
+        tenant_id="test-tenant", run_id="test-workflow-run", policy_version="test-policy",
+        prompt_version="test-prompt", workflow_id="test-workflow", step_id="test-step",
+        plan_hash="test-plan", authorization_envelope={"synthetic": True},
+        attempt_id="test-attempt", fencing_token=1, require_hub_provider_budget=True,
+        selected_provider_id="ollama", selected_model_id="selected-model", provider_binding_id="test-binding",
+        provider_endpoint_identity="http://ollama:11434/v1/chat/completions", provider_transport_mode="hub_bound",
+        provider_decision_reason="synthetic-test-policy", provider_call_id="test-call",
+        max_total_tokens=8192, max_completion_tokens_per_call=1024, deadline_epoch_seconds=200,
+    ), **overrides)
+
+
+def budget_port():
+    budget = Mock()
+    budget.reserve.side_effect = lambda **kw: ProviderBudgetDecision(
+        True, "allowed", 1, kw["estimated_prompt_tokens"] + kw["context"].max_completion_tokens_per_call, 0,
+    )
+    return budget
+
+
+def policy(*, context=None, budget=None, clock=lambda: 100):
+    return PiInvocationPolicy(context=context or hub_context(), budget=budget or budget_port(), clock=clock)
 
 
 class Runner:
@@ -70,6 +98,7 @@ def request(tmp_path, **overrides):
 def provider(tmp_path, runner, **overrides):
     options = dict(
         enabled=True, target=target(), authorize=lambda _: True, process_runner=runner,
+        execution_policy=policy(),
         runtime_probe=runtime, runtime_root=tmp_path,
         command_builder=lambda _: ("/pinned/node", "/pinned/pi_sdk_entry.mjs", "/pinned/sdk.js"),
         environment={"PATH": "/usr/bin", "AGENT_TOKEN": "foreign", "HOME": "/foreign", "NODE_OPTIONS": "foreign"},
@@ -128,10 +157,10 @@ def test_pi_failure_never_publishes_partial_text_and_cleans_runtime(tmp_path, op
 
 
 def test_pi_authorization_revoked_during_execution_discards_result(tmp_path):
-    authorize, runner = Mock(side_effect=[True, True, False]), Runner()
+    authorize, runner = Mock(side_effect=[True, True, True, False]), Runner()
     result = provider(tmp_path, runner, authorize=authorize).run(request(tmp_path))
     assert result.reason_code == "pi_execution_not_authorized" and result.stdout == ""
-    assert authorize.call_count == 3
+    assert authorize.call_count == 4
 
 
 def test_pi_runtime_cannot_be_placed_inside_user_project(tmp_path):
