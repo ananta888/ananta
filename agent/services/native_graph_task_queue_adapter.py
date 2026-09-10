@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from typing import Any, Protocol
 
+from agent.services.native_context_preparation_service import NativeContextPreparationPort
 from agent.services.workflow_runtime.native_graph_contracts import (
     HubTaskReceipt,
     NativeNodeCommand,
     NativeNodeResult,
 )
+from ananta_contracts.native_context_bundle import native_context_digest
 
 
 class TaskRepositoryPort(Protocol):
@@ -33,24 +36,34 @@ class AnantaHubTaskQueueAdapter:
         task_queue: TaskQueueMutationPort,
         task_repository: TaskRepositoryPort,
         task_runtime: TaskRuntimeMutationPort,
+        context_preparer: NativeContextPreparationPort | None = None,
     ) -> None:
         self._queue = task_queue
         self._repository = task_repository
         self._runtime = task_runtime
+        self._context_preparer = context_preparer
 
     def submit(self, command: NativeNodeCommand) -> HubTaskReceipt:
         command.assert_valid()
         hub_task_id = _task_id(command.command_id)
         existing = self._repository.get_by_id(hub_task_id)
         if existing is not None:
-            context = dict(getattr(existing, "worker_execution_context", None) or {})
-            stored_id = str((context.get("native_node_command") or {}).get("command_id") or "")
+            context = (
+                existing.get("worker_execution_context") if isinstance(existing, Mapping)
+                else getattr(existing, "worker_execution_context", None)
+            )
+            stored = context.get("native_node_command") if isinstance(context, Mapping) else None
+            identical = isinstance(stored, Mapping) and native_context_digest(dict(stored)) == native_context_digest(
+                command.to_dict()
+            )
             return HubTaskReceipt(
                 hub_task_id=hub_task_id,
                 command_id=command.command_id,
-                accepted=stored_id == command.command_id,
-                reason_code="" if stored_id == command.command_id else "native_hub_task_id_conflict",
+                accepted=identical,
+                reason_code="" if identical else "native_hub_task_id_conflict",
             )
+        extra_fields = self._submission_fields(command, hub_task_id)
+        team_id = extra_fields.pop("team_id", None)
         self._queue.ingest_task(
             task_id=hub_task_id,
             status="created",
@@ -62,6 +75,7 @@ class AnantaHubTaskQueueAdapter:
             priority=str(command.node.metadata.get("priority") or "medium"),
             created_by="system:native-graph-orchestrator",
             source="workflow_runtime",
+            team_id=team_id,
             tags=["workflow-runtime", "ananta-native"],
             event_type="workflow_node_task_created",
             event_details={
@@ -70,18 +84,31 @@ class AnantaHubTaskQueueAdapter:
                 "node_id": command.node.node_id,
                 "command_id": command.command_id,
             },
-            extra_fields={
-                "task_kind": command.node.task_kind,
-                "required_capabilities": list(command.node.required_capabilities),
-                "derivation_reason": "native_graph_hub_delegation",
-                "worker_execution_context": {
-                    "schema": "ananta.native_graph_worker_context.v1",
-                    "runtime_path": "native_graph_node",
-                    "native_node_command": command.to_dict(),
-                },
-            },
+            extra_fields=extra_fields,
         )
         return HubTaskReceipt(hub_task_id, command.command_id, True)
+
+    def _submission_fields(self, command: NativeNodeCommand, hub_task_id: str) -> dict[str, Any]:
+        fields = {
+            "task_kind": command.node.task_kind,
+            "required_capabilities": list(command.node.required_capabilities),
+            "derivation_reason": "native_graph_hub_delegation",
+            "worker_execution_context": {
+                "schema": "ananta.native_graph_worker_context.v1",
+                "runtime_path": "native_graph_node", "native_node_command": command.to_dict(),
+            },
+        }
+        selectors = {"context_bundle_mode", "context_policy_id", "context_destination_id"}
+        if selectors.isdisjoint(command.node.metadata):
+            return fields
+        if command.node.metadata.get("context_bundle_mode") != "control_task":
+            raise ValueError("native_context_preparation_mode_invalid")
+        if self._context_preparer is None:
+            raise ValueError("native_context_preparer_unavailable")
+        prepared = self._context_preparer.prepare(command=command, hub_task_id=hub_task_id)
+        fields.update(prepared.scope)
+        fields.update(parent_task_id=prepared.parent_task_id, context_bundle_id=prepared.bundle_id)
+        return fields
 
     def poll(
         self, *, tenant_id: str, run_id: str, hub_task_ids: tuple[str, ...]
@@ -145,6 +172,7 @@ class AnantaHubTaskQueueAdapter:
 
 def build_native_graph_task_queue_adapter() -> AnantaHubTaskQueueAdapter:
     from agent.repository import task_repo
+    from agent.services.native_context_preparation_composition import HubNativeContextPreparer
     from agent.services.task_queue_service import get_task_queue_service
     from agent.services.task_runtime_service import TaskRuntimeService
 
@@ -152,6 +180,7 @@ def build_native_graph_task_queue_adapter() -> AnantaHubTaskQueueAdapter:
         task_queue=get_task_queue_service(),
         task_repository=task_repo,
         task_runtime=TaskRuntimeService(),
+        context_preparer=HubNativeContextPreparer(),
     )
 
 

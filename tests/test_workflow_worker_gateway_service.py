@@ -96,6 +96,7 @@ def fixture(
         ProviderProfileAttemptPlanEntry, ...
     ] = (),
     budget_overrides: dict[str, int] | None = None,
+    hub_task_id: str = "hub-task-1",
 ) -> tuple[
     WorkflowWorkerGatewayService,
     dict,
@@ -157,7 +158,7 @@ def fixture(
             step_id="step-1",
             attempt_id=claim.ownership.attempt_id,
             fencing_token=claim.ownership.fencing_token,
-            hub_task_id="hub-task-1",
+            hub_task_id=hub_task_id,
             worker_id="worker-1",
             worker_url="http://worker-1:5000",
             assigned_at=now,

@@ -58,12 +58,13 @@ def task_command(context):
 def native_setup(
     tmp_path, *, mutate=lambda command: command, mutate_task=lambda task: task, runner=None,
     context_reader_factory=lambda client: None,
+    hub_task_id="hub-task-1",
 ):
-    client, context, _ = composition()
+    client, context, _ = composition(hub_task_id=hub_task_id)
     command = mutate(task_command(context))
     task = mutate_task(
         {
-            "id": "hub-task-1",
+            "id": hub_task_id,
             "worker_execution_context": {
                 "schema": "ananta.native_graph_worker_context.v1",
                 "runtime_path": "native_graph_node",

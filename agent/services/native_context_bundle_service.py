@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol
 
+from agent.services.native_context_snapshot import validate_prepared_native_context
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessPort
 from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
 from ananta_contracts.native_context_bundle import NativeApprovedContext, NativeContextBundleProjection
@@ -56,6 +57,7 @@ This service cannot create a bundle, grant, task, identity or assignment.
         bundle = self._bundles.resolve_task_reference(task=task, task_id=hub_task_id)
         if bundle is None:
             raise ValueError("native_context_bundle_required")
+        validate_prepared_native_context(task=task, bundle=bundle, command=command.to_dict())
         bundle_id = bundle.get("id") if isinstance(bundle, Mapping) else getattr(bundle, "id", None)
         approved = self._policy.project(task=task, bundle=bundle, command=command, worker_id=worker_id)
         if not isinstance(approved, NativeApprovedContext):

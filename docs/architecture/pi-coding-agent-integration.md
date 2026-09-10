@@ -796,3 +796,49 @@ No database column or migration is invented. Wrong persisted markers remain
 denied before policy evaluation. All 65 gateway/Native/persistent-policy
 regressions pass in 47.79 seconds; selected Ruff passes. This corrects the
 earlier source-field claim; automatic bundle preparation remains separate.
+
+## Automatic task-context preparation implemented
+
+Pi nodes may now explicitly select `context_bundle_mode=control_task`,
+`context_policy_id` and `context_destination_id` in their Hub-owned node
+metadata. The existing Native queue delegates preparation to a narrow Hub
+service. It resolves an active, persisted same-tenant/project control Task,
+uses the existing task/bundle ownership boundary, and preserves the complete
+organization scope. Invalid partial scope is rejected; the queue receives
+`team_id` through its existing dedicated argument. Nodes without these
+selectors keep their legacy path without assumed Task/Plan foreign keys.
+
+The Hub writes a separate child-owned snapshot of at most 32 canonical chunks
+and 24 KiB serialized context. It never rebinds the original bundle or copies
+its assembled context, arbitrary metadata, approval overrides or secrets into
+Worker configuration. Normalization is not an LLM grant: active destination
+policy still classifies and transforms every chunk before authenticated reads.
+Snapshot metadata binds the full command and source owner/chunk digest; these
+ordinary hashes and `nctx-*` IDs are not `SRC_*`/`RUN_*` evidence identities.
+Reads revalidate snapshot content, policy selectors, parent and command before
+returning any projection. The Worker still has no repository or retrieval port.
+
+Snapshot persistence accepts only an identical existing row, including a
+concurrent insert. If task ingestion fails after the snapshot commit, a retry
+reuses the exact snapshot; a changed source fails closed instead of replacing
+it. This bounded retry behavior does not claim a new cross-repository database
+transaction. Duplicate queue submissions now compare the complete canonical
+command, including JSON value types, rather than its ID alone.
+
+Validation: the first 102 preparation/queue/Native/gateway regressions passed
+in 43.99 seconds. The expanded 158-case run passed 155 and exposed three
+incorrect test assertions about early Native failures (which correctly return
+an empty result object); these were corrected, not runtime guards weakened.
+The final 42 preparation/composition checks pass in 24.46 seconds, including
+actual SQL bundle persistence, real Task models, the real queue ingestion
+adapter and the complete prepared-task -> active SQL policy -> Native Pi
+path. Changed content, foreign parent and revoked policy produce the exact
+bounded denial before credentials, budget reservation or model execution.
+Selected Ruff and the CLI namespace detector pass. These are synthetic,
+unreserved technical tests, not production release evidence.
+
+SRP/DIP: snapshot normalization, persistence adaptation and queue orchestration
+remain separate. Existing broad queue/lifecycle services are preserved debt;
+no new Worker orchestration, global cache or security decision owner is added.
+PI-T04 remains open for explicit provider compatibility and API/UI projections;
+PI-T05/06 retain their evidence/result and final acceptance work.

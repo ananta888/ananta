@@ -136,6 +136,7 @@
     {
       "id": "PI-T04",
       "title": "Modellwahl und CodeCompass-Kontext anbinden",
+      "task_context_preparation_result": "Explicit context_bundle_mode=control_task prepares a child-owned bounded32chunk/24KiB snapshot through Hub ports; real same-tenant/project active controlTask and existing bundle ownership required. Whole organization tuple preserved, team uses dedicated queue argument, partialscope rejected. Original bundle never rebound; no assembled text/arbitrary metadata copied, active policy still required. Exact command/chunk/parent/selectors revalidated before read, retries and concurrent inserts accept only identical snapshot, full canonical command/type duplicate check.102 cases PASS43.99s; expanded158 had155pass/3wrong early-failure test assertions corrected; final42 preparation/realSQLbundle/TaskDB/actualqueue/Native-policy cases PASS24.46s. Tamper/foreignparent/revocation deny before credential/budget/model. Ruff/namespacePASS. No evidence IDs/grants minted; no Worker DB/retrieval. Provider and API/UI projections still open. docs/architecture/pi-coding-agent-integration.md.",
       "persisted_task_marker_correction": "Real TaskDB has no source column: earlier dict fixtures hid an impossible reader requirement. Actual model regression FAIL7.72s before correction. Reader now validates persisted task_kind,derivation_reason,worker context schema/runtime_path plus unchanged full command/assignment/lease/tenant/project/policy checks. Wrong markers denied, no invented DBcolumn/migration.65 gateway/Native/persistent policy cases PASS47.79s;RuffPASS. Supersedes earlier source-field claim;new task preparation still separate. docs/architecture/pi-coding-agent-integration.md.",
       "task_context_preparation_audit": "At71c31f52d Hub queue lacks child-owned ContextBundle preparation/canonical project scope. Add explicit Pi context_bundle_mode=control_task using real same-tenant project Task, existing task-owned retrieval bundle and complete inherited organization scope. Hub copies bounded canonical chunks into idempotent child snapshot without rebinding original; exact active policy/destination still evaluated on authenticated read. Missing preparer/foreign owner/conflicting duplicate fails closed. Legacy no-context runtime IDs must not become assumed Task/Plan foreign keys; team_id uses dedicated queue argument. Tighten existing duplicate command-ID check to full persisted command. Separate snapshot/persistence ports protect SRP/DIP. Implementation and model/status projections remain open. docs/architecture/pi-coding-agent-integration.md.",
       "active_context_policy_result": "Production Gateway reader uses existing app repository registry, SQL Context Policy lifecycle and scoped Hub destination catalog. No grant/default policy issuance or Worker DB access. Task state, exact tenant/project active policy digest, registered Worker/provider/model/endpoint and catalog coordinates bound; actual CodeCompass FTS/graph/repository-map chunks normalized, conflicting fields/approval markers/secret misclassification denied, explicit send required, redaction/summary before output.73 focused cases PASS53.46s; after real chunk-shape audit86 policy/persistent Native/Pi/existing adapter/retrieval cases PASS60.13s. Real SQL policy activation/revocation is fully automatic; fake model process remains synthetic. New task-bundle preparation and model/status projections remain open. docs/architecture/pi-coding-agent-integration.md.",
@@ -146,7 +147,7 @@
       "status": "in_progress",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 30.0,
+      "progress_percent": 45.0,
       "depends_on": [
         "PI-T02",
         "PI-T03"
@@ -274,7 +275,7 @@
         "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 43.3
+        "progress_percent": 48.3
       },
       "security": {
         "total": 1,
@@ -309,10 +310,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 10.0,
-    "done_weight": 5.45,
-    "remaining_weight": 4.55,
+    "done_weight": 5.675,
+    "remaining_weight": 4.325,
     "blocked_weight": 0.0,
-    "weighted_percent": 54.5
+    "weighted_percent": 56.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -329,7 +330,7 @@
         "done": 2,
         "blocked": 0,
         "count_based_percent": 40.0,
-        "weighted_percent": 46.5,
+        "weighted_percent": 49.1,
         "status": "in_progress"
       }
     }
@@ -342,15 +343,15 @@
     "blocked": 0,
     "done": 3,
     "count_based_percent": 50.0,
-    "weighted_percent": 54.5
+    "weighted_percent": 56.8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-10T01:30:32.065923Z",
+    "generated_at": "2026-09-10T02:03:32.596021Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "90f284adb645c34a78e8d9e58ba924071bec7a0e94e11f5516bb1cef026f36c3",
+    "source_hash": "07c8871cab773256433b16004de1592dde885d9cecc8ed089a35de769cb9e46c",
     "is_stale": false
   }
 }
