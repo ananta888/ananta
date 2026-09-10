@@ -4,9 +4,21 @@ import threading
 import time
 from collections import deque
 
+from worker.meet_media.screen_frame_delivery import CANCEL, CLOSE, POLL, START
+
+_SCREEN_OPERATIONS = {
+    START: "screen_delivery_start",
+    POLL: "screen_delivery_poll",
+    CANCEL: "screen_delivery_cancel",
+    CLOSE: "screen_delivery_close",
+    "window.anantaMachine.screen.status().open": "screen_status",
+}
+
 
 def operation_name(expression):
     """Closed tags distinguish source validation and test-only diagnostic RPCs."""
+    if expression in _SCREEN_OPERATIONS:
+        return _SCREEN_OPERATIONS[expression]
     if "iceCounts:window.__testIce" in expression or "window.__testPcs.map" in expression:
         return "test_diagnostics"
     if "Boolean(document.querySelector(" in expression:

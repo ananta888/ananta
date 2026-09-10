@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import CDPSession, Page
 
 from tests.meet_dialog_browser_cost_observer import DialogBrowserCostObserver, operation_name
+from worker.meet_media.screen_frame_delivery import CANCEL, CLOSE, POLL, START
 
 
 def test_inclusive_nested_ack_cost_is_separate_without_additional_calls(monkeypatch):
@@ -73,6 +74,11 @@ def test_exception_identity_and_original_arguments_preserved(monkeypatch, method
         ("window.anantaMachine.timing.snapshot()", "timing"),
         ("window.__anantaSpeechPlayback", "speech"),
         ("window.anantaMachine.screen.status()", "screen"),
+        ("window.anantaMachine.screen.status().open", "screen_status"),
+        (START, "screen_delivery_start"),
+        (POLL, "screen_delivery_poll"),
+        (CANCEL, "screen_delivery_cancel"),
+        (CLOSE, "screen_delivery_close"),
         ("private expression", "other_evaluate"),
     ],
 )

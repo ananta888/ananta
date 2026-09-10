@@ -63,11 +63,12 @@ class DialogScreenPump:
                 # one begin per call, no catch-up loop, and a 200-ms start gap.
             if self.clock() < self.next_frame:
                 return
-            if not self.page.evaluate("window.anantaMachine.screen.status().open"):
-                self.lease = None
-                return
             if self.lease is None:
                 return
+            # START checks current authority, generation and sequence atomically
+            # before pushing. A separate earlier status RPC cannot authorize it.
+            # A closed activation returns stale through the existing one-slot
+            # delivery port; only a fresh Hub update may reopen it.
             frame = self.source.take()
             # Anchor the host start floor before the RPC, not after its reply.
             # The delivery port separately retains its slot until the browser's

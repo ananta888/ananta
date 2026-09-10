@@ -285,3 +285,21 @@ fresh-Hub-only reopening, the single in-flight slot and all timing fences;
 first reproduce the extra call and verify closed/stale activations still deny
 delivery. This is a candidate optimization, not yet a causal repair claim.
 All receipts remain synthetic TEST evidence; MAP-30/31/32 stay open.
+
+The bounded correction is now implemented: the pump no longer reads status
+before taking a frame; START retains its own atomic authority/generation/
+sequence check. A stale result clears the host lease and cannot reopen it.
+The passive observer recognizes the exact existing delivery expressions before
+its broad fallback tags, separating START/POLL/CANCEL/CLOSE and status without
+adding calls or retaining arguments. Seven new assertions failed before the
+changes (49 other checks passed, 41.91 seconds); these represent two findings,
+not seven independent defects. All 111 focused pump/frame/source/lifecycle/
+observer/timing checks pass afterward in 77.69 seconds, including execution of
+the actual JavaScript against closed, wrong-generation and wrong-sequence
+sources with zero pushes. Ruff and the 123-file Worker boundary guard pass.
+
+SRP/DIP: source validation stays in the owned-source port; submission authority
+stays at the browser delivery boundary. The existing synchronous runtime loop
+is preserved debt, not expanded with a second scheduler or a frame backlog.
+A normal same-runtime short reference is still required; these unit/regression
+passes alone do not prove the 112-minute symptom has been repaired.

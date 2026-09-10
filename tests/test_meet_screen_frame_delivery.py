@@ -114,6 +114,33 @@ def test_known_closed_activation_is_not_promoted_to_success_or_retried():
     assert page.evaluate.call_count == 2
 
 
+@pytest.mark.parametrize(
+    "current,expected",
+    [
+        ({"open": False, "generation": 2, "sequence": 0}, "stale"),
+        ({"open": True, "generation": 4, "sequence": 0}, "failed"),
+        ({"open": True, "generation": 2, "sequence": 1}, "failed"),
+    ],
+)
+def test_actual_start_checks_authority_without_a_separate_preflight(current, expected):
+    script = """
+      const assert = require('node:assert/strict');
+      const [startText,pollText,current,expected] = JSON.parse(process.argv[1]);
+      const start=eval('('+startText+')'),poll=eval('('+pollText+')');
+      let pushes=0;
+      global.window={location:{href:'synthetic'},anantaMachine:{screen:{
+        status:()=>current,push:()=>{pushes++;throw new Error('must not push')}
+      }}};
+      start(['phase',2,1,'jpeg','synthetic']);
+      assert.equal(poll(['phase','synthetic']),expected);
+      assert.equal(pushes,0);assert.equal(window.__anantaScreenFrame,undefined);
+    """
+    result = subprocess.run(
+        ["node", "-e", script, json.dumps([START, POLL, current, expected])], capture_output=True, timeout=5
+    )
+    assert result.returncode == 0, result.stderr.decode()
+
+
 def test_actual_javascript_keeps_one_slot_until_browser_submission_spacing_is_safe():
     script = """
       const assert = require('node:assert/strict');
