@@ -842,3 +842,47 @@ remain separate. Existing broad queue/lifecycle services are preserved debt;
 no new Worker orchestration, global cache or security decision owner is added.
 PI-T04 remains open for explicit provider compatibility and API/UI projections;
 PI-T05/06 retain their evidence/result and final acceptance work.
+
+## Provider and status projection audit
+
+Official endpoint checks on 2026-09-10 confirm the chosen chat-completions
+transport: Ollama uses `/v1/chat/completions` (normally port 11434) and documents
+`max_tokens`; its local example requires an SDK key value which the server
+ignores. A deployment token must still come from the explicitly configured
+task profile, not ambient credentials.
+[Ollama compatibility](https://docs.ollama.com/api/openai-compatibility).
+
+LM Studio likewise documents `/v1/chat/completions`, normally port 1234, with
+`max_tokens` and streaming. Authentication is optional by default, with API
+tokens available from version 0.4.0; Ananta must not interpret a configured
+placeholder as proof that a protected server accepted it.
+[LM Studio transport](https://lmstudio.ai/docs/developer/openai-compat),
+[parameters](https://lmstudio.ai/docs/developer/openai-compat/chat-completions),
+[authentication](https://lmstudio.ai/docs/developer/core/authentication).
+
+OpenRouter documents HTTPS `/api/v1/chat/completions`, Bearer authentication
+and a concrete organization-prefixed model ID. Its default server-side
+provider fallback is independent of Pi's disabled client retries. The strict
+one-call profile therefore needs explicit `allow_fallbacks=false` and
+`require_parameters=true`, without model arrays, automatic model selection or
+unbound routing overrides. This still selects the OpenRouter service, not a
+claim that Ananta controls its physical GPU or grants regional processing.
+[API](https://openrouter.ai/docs/api_reference/overview),
+[provider routing](https://openrouter.ai/docs/guides/routing/provider-selection).
+
+The pinned Pi SDK supports `compat.maxTokensField` and passes
+`compat.openRouterRouting` into the request's provider field. The current
+Ananta configuration does not set those compatibility fields explicitly;
+hostname-based SDK defaults must not decide whether a Hub token ceiling is
+sent using the officially documented parameter. Add deterministic provider
+configuration and transport regressions, then inspect the actual pinned SDK's
+requests with synthetic responses; no paid provider contact is authorized by
+this test and no live provider acceptance is claimed.
+[Pinned Pi model contract](https://github.com/earendil-works/pi/blob/05c6229813414010445558db9a80c84e15d65e70/packages/coding-agent/docs/models.md).
+
+Status/UI remains a separate additive step. Reuse the registered-Worker
+`/backends/pi/provision` status path and existing setup surface. Installation,
+deployment opt-in, configured task-profile credentials and actual authorized
+inference are distinct states. Never probe the Hub's local binary as a
+Worker's readiness, expose credential paths/content or enable global automatic
+backend routing. Pi remains `open_source_byok`; inference cost is separate.
