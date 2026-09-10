@@ -569,6 +569,13 @@ def cli_backend_provision(backend_id: str):
             "status": result.get("status"),
         },
     )
+    if backend == "pi":
+        from agent.cli_backends.pi_readiness import pi_readiness_projection
+        from worker.runtime.workflow_adapter_runtime_composition import workflow_adapter_registration_metadata
+
+        result = {**result, "native_execution": pi_readiness_projection(
+            installation=result, runtime=workflow_adapter_registration_metadata(current_app),
+        )}
     return api_response(data={**result, "action": action})
 
 

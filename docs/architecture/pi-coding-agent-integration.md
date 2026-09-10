@@ -918,3 +918,29 @@ seconds respectively; ephemeral configuration was removed. The initial private
 probe had omitted two required parser arguments and was corrected before this
 successful run. No external server, paid account or actual model inference
 was contacted, and no retroactive evidence identity is claimed.
+
+## Worker readiness projection
+
+The existing admin-only Hub-to-registered-Worker provisioning status response
+now adds `native_execution` for Pi. A pure, content-free projection combines
+the existing exact 0.85.1 installation probe with the already initialized
+Worker runtime registration. It does not read credentials, rebuild adapters,
+start inference, install packages or inspect a local Hub binary. Disabled Pi
+is excluded by the existing runtime composition even when its capability
+appears in configuration; an actual initialized-runtime regression verifies
+both enabled and disabled cases.
+
+`ready_for_assignment` means configured, not authorized or inference-verified.
+Authentication remains `profile_configured_unverified` or
+`task_profile_required`; cost remains provider-dependent and the client is
+`open_source_byok`. Headless/structured output are supported, while tools,
+MCP, workspace writes and resume remain unsupported. Every run still needs a
+Hub assignment and policy; global automatic routing stays disabled. Unknown,
+malformed, wrong-version or absent observations cannot become ready.
+
+All 63 focused provisioning, API, capability and real runtime-composition
+checks passed in 41.77 seconds; Ruff and the CLI namespace guard passed.
+They are synthetic technical observations, not production release evidence.
+SRP keeps presentation policy in a small pure module; the existing broad
+SGPT route module remains preserved structural debt with only additive
+composition wiring. The Angular consumer is a separate subsequent change.
