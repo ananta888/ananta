@@ -486,3 +486,22 @@ Provider-Komposition wird nicht zu einem zweiten Orchestrator erweitert.
 Konkrete Hub-Task-/Lease-Verifikation, Containerkomposition, Kontextbundle-
 Zuführung und Result-Ingress bleiben offen; ein gültiger DTO oder synthetischer
 Budgetport ersetzt diese Bindungen nicht. Pi bleibt standardmäßig deaktiviert.
+
+### Hub-Transport vor konkreter Pi-Komposition
+
+Ein echter synthetischer Zwei-Server-Negativtest hat im vorhandenen
+`HttpWorkflowHubDecisionClient` eine weitere Lücke reproduziert: HTTP 302
+wurde als GET zum fremden Port verfolgt, inklusive Authorization-Header;
+die dortige `allowed: true`-Antwort erreichte den Client. Das betrifft den
+gemeinsamen Workflow-Hub-Transport, nicht den bereits gesperrten Pi-Modell-
+Redirect. `workflow_hub_http.py` kapselt jetzt einen Redirect-sperrenden
+Opener mit unverändertem TLS-Kontext und prüft zusätzlich das Antwortziel.
+3xx endet begrenzt mit `workflow_hub_redirect_denied`, ohne automatischen
+Retry und ohne Lesen einer vermeintlichen Ziel-Freigabe.
+
+Alle fünf echten 301/302/303/307/308-Negativfälle bleiben bei null Kontakten
+zum zweiten Server; der direkte authentifizierte POST funktioniert weiter.
+29 Transport- und registrierte-Worker-Service-Auth-Prüfungen bestehen in
+25.68 Sekunden. SRP: Der kleine HTTP-Guard ist von Gateway-Domänenadaptern
+getrennt; deren vorhandene breite gemeinsame Kompositionsdatei bleibt
+bestehende SRP-Schuld. Keine Änderung an Hub-Entscheidungen oder Lease-Eigentum.

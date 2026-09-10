@@ -31,6 +31,7 @@ from ananta_contracts.workflow_worker_gateway import (
 from worker.core.tool_calling_pipeline import ToolCallDecision, ToolCallRequest
 from worker.core.tool_registry import WorkerToolEntry
 from worker.runtime.workflow_adapter_task_consumer import ExecutionAuthorizationDecision
+from worker.runtime.workflow_hub_http import open_hub_command
 from worker.runtime.workflow_service_identity import WorkflowServiceIdentity
 
 
@@ -142,13 +143,16 @@ class HttpWorkflowHubDecisionClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(
+            with open_hub_command(
                 request,
                 timeout=self._timeout_seconds,
-                context=self._ssl_context,
+                ssl_context=self._ssl_context,
             ) as response:
                 raw = response.read(1_048_577)
         except urllib.error.HTTPError as exc:
+            if 300 <= int(exc.code) < 400:
+                exc.close()
+                raise WorkflowHubDecisionError("workflow_hub_redirect_denied") from exc
             retryable = int(exc.code) >= 500 or int(exc.code) in {408, 425, 429}
             raise WorkflowHubDecisionError(
                 _http_error_reason(exc), retryable=retryable

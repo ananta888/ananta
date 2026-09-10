@@ -993,11 +993,20 @@ def test_native_workflow_client_reads_own_token_and_sends_bound_identity_headers
     captured: dict[str, str | None] = {}
 
     class _Response:
+        def __init__(self, url):
+            self.url = url
+
         def __enter__(self):
             return self
 
         def __exit__(self, *_args):
             return None
+
+        def geturl(self):
+            return self.url
+
+        def getcode(self):
+            return 200
 
         @staticmethod
         def read(_limit: int) -> bytes:
@@ -1007,9 +1016,12 @@ def test_native_workflow_client_reads_own_token_and_sends_bound_identity_headers
         captured["worker_id"] = request.headers.get("X-ananta-worker-id")
         captured["worker_url"] = request.headers.get("X-ananta-worker-url")
         captured["authorization"] = request.headers.get("Authorization")
-        return _Response()
+        return _Response(request.full_url)
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    class _Opener:
+        open = staticmethod(fake_urlopen)
+
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *_handlers: _Opener())
     client = HttpWorkflowHubDecisionClient.from_environment(
         {
             "ANANTA_WORKFLOW_HUB_URL": "http://hub:5000",
