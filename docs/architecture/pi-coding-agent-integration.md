@@ -1159,3 +1159,26 @@ corruption. Receipt immutability now compares canonical JSON digests, not
 Python's coercive scalar equality, and validates a newly built receipt before
 returning it to the repository. The final run covers both direct-write and
 persisted-corruption variants.
+
+### Registry lifecycle implementation boundary
+
+At `3aec32991`, Pi has transactional technical-result admission but no
+pre-dispatch registry reservation. The existing evidence registry is the
+only identity issuer and already exposes source admission, reservation,
+closed assignment projection and terminal result recording. Its default
+SQL repository opens and commits its own sessions, so invoking it inside a
+Task completion policy would break atomicity, particularly on a shared
+SQLite connection. Add a repository-port implementation that borrows the
+caller's transaction and never commits, rolls back or opens a second session.
+Keep row projection/immutable matching shared with the standalone repository;
+test rollback and terminal replay against the real registry before wiring it.
+
+Dispatch reservation must follow the actual Hub Worker assignment and precede
+transport. It must bind the exact attempt/fencing identity, not a stable
+per-step ownership key presented as a unique dispatch lease. The source and
+runtime manifest must come from explicit Hub-owned facts and the real
+control-Task project scope. No project inference from a workflow ID, arbitrary
+hash presented as observed hardware, post-hoc reservation or synthetic-to-
+production promotion is permitted. Workers receive only the existing closed
+registry projection. These are remaining implementation requirements, not
+already completed capabilities.
