@@ -8,6 +8,7 @@ from typing import Any
 
 from worker.runtime.native_graph.handlers import NativeTaskKindHandlers, UnavailableNativeNodeHandler
 from worker.runtime.native_graph.pi_configuration import NativePiWorkerProfile, PiProfileCredentialFiles
+from worker.runtime.native_graph.pi_context import HubPiTaskContextReader
 from worker.runtime.native_graph.pi_node import (
     PI_NATIVE_CAPABILITY,
     PI_NATIVE_TASK_KIND,
@@ -46,6 +47,7 @@ def build_native_node_handlers(
             workspace_for_task=lambda task: workspaces.resolve_workspace_context(task=task).workspace_dir,
             credential_for_profile=credentials.resolve,
             runtime_root=runtime_root,
+            context_reader=HubPiTaskContextReader(client),
         )
     # Even a disabled Pi task is intercepted: never reinterpret its prompt as
     # a generic shell command or silently fall back to another coding agent.

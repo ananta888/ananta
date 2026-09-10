@@ -675,3 +675,43 @@ Meldungen. Ihr SRP-/DIP-Altschuldenstand (Persistenz, Klassifikation und
 Policy-Fassade in einem Service) bleibt ausdrücklich bestehen. Die Korrektur
 ändert nur die geschlossene Grant-Auswahl; sie führt keine neue Policy-
 Autorität ein. Der Pi-ContextBundle-Transport ist damit noch nicht fertig.
+
+### Aufgabenbezogener Hub-Transport und Worker-Revalidierung
+
+Das additive Kommando `native_context_read` verwendet den bestehenden
+authentifizierten Workflow-Worker-Gateway. Es verlangt auch dort, wo ältere
+Kommandos direkte Testkomposition erlauben, eine registrierte Worker-Identität.
+Aktive Ownership, Assignment einschließlich exakter Hub-Task-ID, Attempt,
+Fence und signierte Hub-Freigabe werden vor dem Kontextzugriff geprüft.
+`NativeContextBundleService` liest ausschließlich den gespeicherten Native-
+Auftrag mit passendem Tenant/Projekt und verwendet den vorhandenen
+`TaskContextBundleAccessService` für die persistierte Bundle-Aufgabenbindung.
+Die Ziel-Policy ist ein eigener injizierter Port, keine Worker-Entscheidung.
+
+Die geschlossene Projektion enthält höchstens 24.000 UTF-8-Bytes sowie Task-,
+Bundle-, vollständigen Command-, Policy- und Inhaltsbezug. Diese Hashes sind
+Integritätsbindungen, keine SRC-/RUN-Identitäten und keine Freigabe für sich.
+Das Audit protokolliert nur die Bezüge, nie den Kontexttext. Unbekannte,
+fehlende oder mutierte Felder werden nicht stillschweigend übernommen.
+
+Der Pi-Worker fügt den freigegebenen Text als strukturierten Prompt-Inhalt
+ein; Systemprompt, Tools und Extensions bleiben unverändert geschlossen.
+Vor Modellstart, vor/nach Budgetreservierung und nach dem Prozess wird die
+Hub-Projektion erneut gelesen und exakt verglichen. Geänderte Policy,
+geänderter Inhalt oder Widerruf stoppen den Lauf beziehungsweise verwerfen
+die Modellantwort. Fremde Projektdateien und ungebundener Kontext werden
+auch dabei nicht geladen.
+
+30 reale Hub-Gateway-/Bundle-Vertragsfälle bestehen in 25.35 Sekunden.
+21 neue Pi-Kontextfälle plus 20 bestehende Native-/Fabrikfälle bestehen in
+32.94 Sekunden; das überlappende Hub-/Budget-/Service-Auth-/Native-Gate mit
+86 Fällen besteht in 60.93 Sekunden. Alle Prüfungen sind automatisch und
+synthetisch. Ruff ist für die neuen/geänderten Transportdateien grün.
+
+SRP/ISP/DIP: Persistierte Aufgabenbindung, Ziel-Policy, Transportvertrag und
+Worker-Verbrauch sind getrennte kleine Adapter. Der bestehende breite
+Workflow-Gateway bleibt eine Kompositions-/Dispatch-Fassade; seine bestehende
+SRP-Schuld wird nicht durch neue Datenbank- oder Retrieval-Logik vergrößert.
+Noch offen ist die produktive Komposition mit aktiven Projekt-Policies und
+dem Hub-Zielkatalog. Ohne diesen Policy-Port liefert der Hub ausdrücklich
+`native_context_service_unavailable`, niemals eine Ersatzfreigabe.

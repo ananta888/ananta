@@ -55,7 +55,10 @@ def task_command(context):
     )
 
 
-def native_setup(tmp_path, *, mutate=lambda command: command, mutate_task=lambda task: task, runner=None):
+def native_setup(
+    tmp_path, *, mutate=lambda command: command, mutate_task=lambda task: task, runner=None,
+    context_reader_factory=lambda client: None,
+):
     client, context, _ = composition()
     command = mutate(task_command(context))
     task = mutate_task(
@@ -79,6 +82,7 @@ def native_setup(tmp_path, *, mutate=lambda command: command, mutate_task=lambda
         credential_for_profile=credentials,
         runtime_root=tmp_path,
         provider_factory=lambda **kwargs: provider(tmp_path, runner, **kwargs),
+        context_reader=context_reader_factory(client),
     )
     runtime = NativeDelegatedNodeRuntime(
         handler=handler,

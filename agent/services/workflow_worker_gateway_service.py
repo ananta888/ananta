@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from agent.services.native_context_bundle_service import NativeContextBundleReadPort
 from agent.services.workflow_authorization_grant_service import (
     HubAuthorizationRevalidationPort,
     UnavailableHubAuthorizationRevalidator,
@@ -143,6 +144,7 @@ class WorkflowWorkerGatewayService:
         tool_approvals: WorkflowToolApprovalPort | None = None,
         tool_descriptors: WorkflowToolDescriptorPort | None = None,
         assignments: WorkflowWorkerAssignmentStore | None = None,
+        context_bundles: NativeContextBundleReadPort | None = None,
         clock=time.time,
     ) -> None:
         self._authorization = authorization
@@ -160,6 +162,7 @@ class WorkflowWorkerGatewayService:
             tool_descriptors or UnavailableWorkflowToolDescriptorService()
         )
         self._assignments = assignments
+        self._context_bundles = context_bundles
         self._clock = clock
 
     def execute(
@@ -174,6 +177,8 @@ class WorkflowWorkerGatewayService:
         command = str(raw.get("command") or "")
         if command not in WORKFLOW_WORKER_COMMANDS:
             raise WorkflowWorkerGatewayError("workflow_worker_command_unsupported", status_code=422)
+        if command == "native_context_read" and not (authenticated_worker_id and authenticated_worker_url):
+            raise WorkflowWorkerGatewayError("native_context_registered_worker_required", status_code=403)
         try:
             binding = WorkflowWorkerBinding.from_mapping(raw.get("binding"))
         except WorkflowWorkerContractError as exc:
@@ -187,6 +192,8 @@ class WorkflowWorkerGatewayService:
         )
 
         try:
+            if command == "native_context_read":
+                return self._read_native_context(binding, raw, worker_id=authenticated_worker_id)
             if command == "consume_retry":
                 return self._consume_retry(binding, raw)
             if command == "authorize_execution":
@@ -210,6 +217,30 @@ class WorkflowWorkerGatewayService:
             reason = str(exc) or "workflow_worker_command_denied"
             status = 422 if isinstance(exc, ValueError) and not isinstance(exc, WorkflowRuntimeError) else 409
             raise WorkflowWorkerGatewayError(reason, status_code=status) from exc
+
+    def _read_native_context(
+        self, binding: WorkflowWorkerBinding, raw: Mapping[str, Any], *, worker_id: str,
+    ) -> dict[str, Any]:
+        attempt_id, fencing_token = self._ownership_binding(binding, raw)
+        self._verify_authority(binding, raw)
+        if self._context_bundles is None:
+            raise WorkflowWorkerGatewayError("native_context_service_unavailable", status_code=503)
+        projection = self._context_bundles.read(
+            binding=binding, hub_task_id=raw.get("hub_task_id"), command_id=raw.get("command_id"),
+            attempt_id=attempt_id, fencing_token=fencing_token, worker_id=worker_id,
+        )
+        result = projection.to_dict()
+        self._append_event(
+            binding, event_type="workflow.context.bundle_read",
+            dedupe_key=f"context:{projection.command_digest}:{projection.content_digest}:{projection.policy_digest}",
+            causation_id=attempt_id,
+            payload={
+                "hub_task_id": projection.hub_task_id, "bundle_id": projection.bundle_id,
+                "command_digest": projection.command_digest, "content_digest": projection.content_digest,
+                "policy_digest": projection.policy_digest,
+            },
+        )
+        return result
 
     def _assert_authenticated_worker_owns_lease(
         self,
@@ -283,6 +314,7 @@ class WorkflowWorkerGatewayService:
             or assignment.fencing_token != ownership.fencing_token
             or assignment.worker_id != worker_id
             or assignment.worker_url != worker_url
+            or (raw.get("command") == "native_context_read" and assignment.hub_task_id != raw.get("hub_task_id"))
         ):
             raise WorkflowWorkerGatewayError(
                 "workflow_worker_authenticated_owner_mismatch",

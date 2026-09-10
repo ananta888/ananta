@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import time
 import uuid
@@ -16,6 +17,7 @@ from agent.cli_backends.pi_provider import PiCodingAgentProvider
 from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
 from ananta_contracts.provider_invocation import ProviderInvocationContext
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
+from worker.runtime.native_graph.pi_context import PiTaskContextPort, pi_context_bundle_reference
 
 if TYPE_CHECKING:
     from agent.services.provider_invocation_middleware import ProviderBudgetPort
@@ -44,16 +46,25 @@ class NativePiNodeHandler:
         provider_factory: Callable[..., CodingAgentProvider] = PiCodingAgentProvider,
         runtime_root: Path | None = None,
         clock: Callable[[], float] = time.time,
+        context_reader: PiTaskContextPort | None = None,
     ) -> None:
         self._scope, self._budget = scope, budget
         self._workspace, self._credential = workspace_for_task, credential_for_profile
         self._provider_factory, self._runtime_root, self._clock = provider_factory, runtime_root, clock
+        self._context_reader = context_reader
 
     def execute(self, command: NativeNodeCommand, *, hub_task_id: str) -> NativeNodeResult:
         started_at = self._clock()
         task, prompt = self._bound_task_and_prompt(command, hub_task_id=hub_task_id)
         if self._scope.revalidate(command.authorization) is not True:
             raise ValueError("pi_execution_not_authorized")
+        approved_context = self._read_context(task, command)
+        if approved_context is not None:
+            # Context stays model input, never system/extension/tool authority.
+            prompt = json.dumps({
+                "task": prompt,
+                "context_bundle": {"id": approved_context.bundle_id, "content": approved_context.content},
+            }, ensure_ascii=True)
         context = self._invocation_context(command, started_at=started_at)
         target = self._target(context)
         workspace = self._workspace(task)
@@ -73,7 +84,10 @@ class NativePiNodeHandler:
             target=target,
             runtime_root=self._runtime_root,
             execution_policy=PiInvocationPolicy(context=context, budget=self._budget, clock=self._clock),
-            authorize=lambda candidate: candidate is request and self._scope.revalidate(command.authorization) is True,
+            authorize=lambda candidate: (
+                candidate is request and self._scope.revalidate(command.authorization) is True
+                and self._read_context(task, command) == approved_context
+            ),
         )
         return self._result(command, hub_task_id=hub_task_id, result=provider.run(request))
 
@@ -96,14 +110,24 @@ class NativePiNodeHandler:
             or (task.get("worker_execution_context") or {}).get("native_node_command") != command.to_dict()
         ):
             raise ValueError("pi_native_task_binding_mismatch")
-        if task.get("context_bundle_id") or (task.get("worker_execution_context") or {}).get("context_bundle_id"):
-            raise ValueError("pi_context_bundle_transport_required")
         workflow_input = command.input_data.get("workflow_input")
         inputs = workflow_input if isinstance(workflow_input, Mapping) else command.input_data
         prompt = inputs.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 200_000:
             raise ValueError("pi_native_prompt_required")
         return task, prompt
+
+    def _read_context(self, task: Mapping[str, Any], command: NativeNodeCommand):
+        reference = pi_context_bundle_reference(task)
+        if reference is None:
+            return None
+        if self._context_reader is None:
+            raise ValueError("pi_context_bundle_transport_required")
+        projection = self._context_reader.read(task=task, command=command)
+        if projection is None:
+            raise ValueError("pi_context_bundle_projection_required")
+        projection.assert_valid()
+        return projection
 
     def _target(self, context: ProviderInvocationContext) -> CodingAgentInferenceTarget:
         return CodingAgentInferenceTarget(

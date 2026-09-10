@@ -59,17 +59,18 @@ def policy(*, context=None, budget=None, clock=lambda: 100):
 
 class Runner:
     def __init__(self, *, return_code=0, reason="completed", truncate=False, malformed=False,
-                 key="synthetic-private-key", answer="A\u2028B"):
+                 key="synthetic-private-key", answer="A\u2028B", prompt="Explain this code."):
         self.calls = []
         self.return_code, self.reason, self.truncate, self.malformed = return_code, reason, truncate, malformed
         self.key, self.answer = key, answer
+        self.prompt = prompt
 
     def run(self, argv, **kwargs):
         self.calls.append((argv, kwargs))
         config = Path(kwargs["environment"]["PI_CODING_AGENT_DIR"])
         assert argv[:3] == ("/pinned/node", "/pinned/pi_sdk_entry.mjs", "/pinned/sdk.js")
         assert argv[3:] == (str(config),)
-        assert kwargs["input_text"] == "Explain this code.\n"
+        assert kwargs["input_text"] == self.prompt + "\n"
         assert kwargs["secret_values"] == (self.key,)
         assert "event_sink" not in kwargs
         for path in config.iterdir():
