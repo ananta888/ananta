@@ -1182,3 +1182,26 @@ hash presented as observed hardware, post-hoc reservation or synthetic-to-
 production promotion is permitted. Workers receive only the existing closed
 registry projection. These are remaining implementation requirements, not
 already completed capabilities.
+
+The caller-transaction repository is now implemented as
+`TransactionEvidenceIdentityRepository`. It requires an already active
+session, locks current rows for PostgreSQL, flushes without committing and
+leaves rollback/retry with the Hub caller. The standalone repository keeps
+its API and independent commit behavior, but shares the existing SQLite
+engine guard so it cannot interfere with a caller-owned Task transaction.
+Both adapters reuse the same row projections and terminal transition rules.
+This is an infrastructure prerequisite; Pi dispatch/result lifecycle wiring
+is still pending.
+
+All 67 focused registry, transaction, Pi admission and Task-write checks
+passed in 45.42 seconds; Ruff passed. The tests exercise source/run/Task
+rollback, a registry completion inside the real Task policy seam, exact
+terminal replay, closed test-scope projection and production-gate denial.
+An earlier 56-test run passed before additional corruption regressions.
+Those four new cases reproduced an existing idempotency weakness in
+13.19 seconds: changed source content or run environment fields were accepted
+when their stored binding digest had not changed. Shared immutable matching
+now compares every bound field canonically, excluding only defined lifecycle
+timestamps/state/result fields for run replay. The final run covers both
+standalone and caller-transaction paths. These are synthetic technical tests,
+not a production release claim.

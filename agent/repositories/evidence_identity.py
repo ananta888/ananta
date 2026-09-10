@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
-
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -16,12 +14,17 @@ from agent.ports.evidence_identity import (
     RunEvidenceIdentity,
     SourceEvidenceIdentity,
 )
-
-
-class EvidenceIdentityPersistenceError(RuntimeError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
+from agent.repositories.evidence_identity_rows import (
+    EvidenceIdentityPersistenceError,
+    apply_run_result,
+    run_identity,
+    run_row,
+    same_run,
+    same_source,
+    source_identity,
+    source_row,
+)
+from agent.services.workflow_runtime.sqlalchemy_support import sqlite_transaction_guard
 
 
 class SqlEvidenceIdentityRepository:
@@ -32,7 +35,7 @@ class SqlEvidenceIdentityRepository:
         self, identity: SourceEvidenceIdentity
     ) -> SourceEvidenceIdentity:
         row = self._source_row(identity)
-        with Session(self._database) as session:
+        with sqlite_transaction_guard(self._database), Session(self._database) as session:
             existing = session.get(
                 HubSourceEvidenceIdentityDB,
                 (identity.tenant_id, identity.project_id, identity.source_id),
@@ -59,7 +62,7 @@ class SqlEvidenceIdentityRepository:
     def get_source(
         self, *, tenant_id: str, project_id: str, source_id: str
     ) -> SourceEvidenceIdentity | None:
-        with Session(self._database) as session:
+        with sqlite_transaction_guard(self._database), Session(self._database) as session:
             row = session.exec(
                 select(HubSourceEvidenceIdentityDB).where(
                     HubSourceEvidenceIdentityDB.source_id == source_id,
@@ -71,7 +74,7 @@ class SqlEvidenceIdentityRepository:
 
     def reserve_run(self, identity: RunEvidenceIdentity) -> RunEvidenceIdentity:
         row = self._run_row(identity)
-        with Session(self._database) as session:
+        with sqlite_transaction_guard(self._database), Session(self._database) as session:
             existing = session.get(
                 HubRunEvidenceIdentityDB,
                 (identity.tenant_id, identity.project_id, identity.run_id),
@@ -110,7 +113,7 @@ class SqlEvidenceIdentityRepository:
     def get_run(
         self, *, tenant_id: str, project_id: str, run_id: str
     ) -> RunEvidenceIdentity | None:
-        with Session(self._database) as session:
+        with sqlite_transaction_guard(self._database), Session(self._database) as session:
             row = session.exec(
                 select(HubRunEvidenceIdentityDB).where(
                     HubRunEvidenceIdentityDB.run_id == run_id,
@@ -132,7 +135,7 @@ class SqlEvidenceIdentityRepository:
         result_digest: str,
         updated_at_epoch: float,
     ) -> RunEvidenceIdentity:
-        with Session(self._database) as session:
+        with sqlite_transaction_guard(self._database), Session(self._database) as session:
             row = session.exec(
                 select(HubRunEvidenceIdentityDB)
                 .where(
@@ -142,83 +145,22 @@ class SqlEvidenceIdentityRepository:
                 )
                 .with_for_update()
             ).first()
-            if row is None:
-                raise EvidenceIdentityPersistenceError(
-                    "evidence_run_identity_not_found"
-                )
-            if (
-                row.assignment_id != assignment_id
-                or row.dispatch_lease_id != dispatch_lease_id
-            ):
-                raise EvidenceIdentityPersistenceError(
-                    "evidence_run_assignment_binding_mismatch"
-                )
-            if row.state in {"succeeded", "failed", "cancelled"}:
-                if row.state != terminal_state or row.result_digest != result_digest:
-                    raise EvidenceIdentityPersistenceError(
-                        "evidence_run_terminal_replay_conflict"
-                    )
-                return self._run(row)
-            if row.state != "reserved":
-                raise EvidenceIdentityPersistenceError(
-                    "evidence_run_state_invalid"
-                )
-            row.state = terminal_state
-            row.result_digest = result_digest
-            row.updated_at_epoch = updated_at_epoch
+            apply_run_result(
+                row, assignment_id=assignment_id, dispatch_lease_id=dispatch_lease_id,
+                terminal_state=terminal_state, result_digest=result_digest, updated_at_epoch=updated_at_epoch,
+            )
             session.add(row)
             session.commit()
             session.refresh(row)
             return self._run(row)
 
-    @classmethod
-    def _same_source(
-        cls, row: HubSourceEvidenceIdentityDB, identity: SourceEvidenceIdentity
-    ) -> SourceEvidenceIdentity:
-        projected = cls._source(row)
-        if (
-            projected.source_id != identity.source_id
-            or projected.binding_digest != identity.binding_digest
-        ):
-            raise EvidenceIdentityPersistenceError(
-                "evidence_source_identity_immutable_conflict"
-            )
-        return projected
-
-    @classmethod
-    def _same_run(
-        cls, row: HubRunEvidenceIdentityDB, identity: RunEvidenceIdentity
-    ) -> RunEvidenceIdentity:
-        projected = cls._run(row)
-        if (
-            projected.run_id != identity.run_id
-            or projected.binding_digest != identity.binding_digest
-            or projected.reservation_key_digest
-            != identity.reservation_key_digest
-        ):
-            raise EvidenceIdentityPersistenceError(
-                "evidence_run_identity_immutable_conflict"
-            )
-        return projected
-
-    @staticmethod
-    def _source_row(identity: SourceEvidenceIdentity) -> HubSourceEvidenceIdentityDB:
-        return HubSourceEvidenceIdentityDB(**asdict(identity))
-
-    @staticmethod
-    def _run_row(identity: RunEvidenceIdentity) -> HubRunEvidenceIdentityDB:
-        payload = {**asdict(identity), "source_ids": list(identity.source_ids)}
-        return HubRunEvidenceIdentityDB(**payload)
-
-    @staticmethod
-    def _source(row: HubSourceEvidenceIdentityDB) -> SourceEvidenceIdentity:
-        return SourceEvidenceIdentity(**row.model_dump())
-
-    @staticmethod
-    def _run(row: HubRunEvidenceIdentityDB) -> RunEvidenceIdentity:
-        payload = row.model_dump()
-        payload["source_ids"] = tuple(payload["source_ids"])
-        return RunEvidenceIdentity(**payload)
+    # Preserve the existing private helper seam while sharing one projection.
+    _same_source = staticmethod(same_source)
+    _same_run = staticmethod(same_run)
+    _source_row = staticmethod(source_row)
+    _run_row = staticmethod(run_row)
+    _source = staticmethod(source_identity)
+    _run = staticmethod(run_identity)
 
 
 __all__ = ["EvidenceIdentityPersistenceError", "SqlEvidenceIdentityRepository"]
