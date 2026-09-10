@@ -303,3 +303,22 @@ stays at the browser delivery boundary. The existing synchronous runtime loop
 is preserved debt, not expanded with a second scheduler or a frame backlog.
 A normal same-runtime short reference is still required; these unit/regression
 passes alone do not prove the 112-minute symptom has been repaired.
+
+The normal five-minute reference at `8fc5c92a3` passed under pre-reserved
+`RUN_439ebf753397801bb73e4456e66d7431` /
+`SRC_3fc1f7a391da5e93aef000c71fda0734`: 309.32 pytest / 313.856 controller
+seconds, one pass and zero failures/errors/skips, unchanged frozen inputs.
+Meet `848a3d6`, frontend `803a77c0`, browser `5d4be51c` and proxy `8fc7d306`
+are unchanged. It measured 295 active seconds, four renewed generations,
+six screen checks and sampled peak RSS 2,270,609,408 bytes / 22 processes.
+The result digest is
+`90b6b324dffd6746e0fbb813eb1183a91bb172d4708a3b1c297c9f027aae35d1`.
+
+Corrected attribution reports 11 screen-status calls, 1,168 delivery starts,
+2,320 delivery polls and 2,366 timing snapshots. Source capture still produced
+1,467 ACKs; activity rendered three times. Maximum START cost was 24.09 ms,
+POLL 267.51 ms, timing 21.75 ms, chat 25.36 ms and ACK 13.15 ms. Three idle
+calls exceeded 250 ms (maximum 289.11 ms). This validates the removed
+per-frame status work with actual media and retained authority, not the
+absence of long-run jitter. Do not compare the old misclassified timing
+bucket directly with the new one or declare the failed two-hour gate closed.
