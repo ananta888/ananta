@@ -12,8 +12,8 @@ from agent.services.native_context_snapshot import (
     NativeContextSnapshotPort,
     bounded_context_identifier,
 )
+from agent.services.native_control_task_scope import native_control_task_scope
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessPort
-from agent.services.task_organization_scope import ORGANIZATION_SCOPE_ALL, inherited_organization_scope
 from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
 
 
@@ -50,15 +50,7 @@ class NativeContextPreparationService:
         }
         task_id = bounded_context_identifier(command.control_task_id)
         task = _task_mapping(self._tasks.get_by_id(task_id))
-        scope = inherited_organization_scope(task)
-        if (
-            task.get("id") != task_id or task.get("tenant_id") != command.tenant_id
-            or scope.get("tenant_id") != command.tenant_id or not scope.get("project_id")
-            or scope["project_id"] != task.get("project_id")
-            or any(task.get(key) is not None and task[key] != scope.get(key) for key in ORGANIZATION_SCOPE_ALL)
-            or task.get("status") not in {"created", "assigned", "queued", "running", "in_progress"}
-        ):
-            raise ValueError("native_context_control_task_binding_mismatch")
+        scope = native_control_task_scope(task, command=command)
         bundle = self._bundles.resolve_task_reference(task=task, task_id=task_id)
         if bundle is None:
             raise ValueError("native_context_bundle_required")

@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 from agent.services.native_context_preparation_service import NativeContextPreparationPort
 from agent.services.pi_native_result_validation import validate_pi_native_result
+from agent.services.pi_task_scope_preparation import PiTaskScopePreparationPort
 from agent.services.workflow_runtime.native_graph_contracts import (
     HubTaskReceipt,
     NativeNodeCommand,
@@ -38,11 +39,13 @@ class AnantaHubTaskQueueAdapter:
         task_repository: TaskRepositoryPort,
         task_runtime: TaskRuntimeMutationPort,
         context_preparer: NativeContextPreparationPort | None = None,
+        pi_scope_preparer: PiTaskScopePreparationPort | None = None,
     ) -> None:
         self._queue = task_queue
         self._repository = task_repository
         self._runtime = task_runtime
         self._context_preparer = context_preparer
+        self._pi_scope_preparer = pi_scope_preparer
 
     def submit(self, command: NativeNodeCommand) -> HubTaskReceipt:
         command.assert_valid()
@@ -64,6 +67,11 @@ class AnantaHubTaskQueueAdapter:
                 reason_code="" if identical else "native_hub_task_id_conflict",
             )
         extra_fields = self._submission_fields(command, hub_task_id)
+        if command.node.task_kind == "pi_coding_agent" and self._pi_scope_preparer is not None:
+            scope = self._pi_scope_preparer.prepare(command=command)
+            if any(key in extra_fields and extra_fields[key] != value for key, value in scope.items()):
+                raise ValueError("pi_task_scope_changed_before_ingestion")
+            extra_fields.update(scope)
         team_id = extra_fields.pop("team_id", None)
         self._queue.ingest_task(
             task_id=hub_task_id,
@@ -189,6 +197,7 @@ class AnantaHubTaskQueueAdapter:
 def build_native_graph_task_queue_adapter() -> AnantaHubTaskQueueAdapter:
     from agent.repository import task_repo
     from agent.services.native_context_preparation_composition import HubNativeContextPreparer
+    from agent.services.pi_task_scope_composition import HubPiTaskScopePreparer
     from agent.services.task_queue_service import get_task_queue_service
     from agent.services.task_runtime_service import TaskRuntimeService
 
@@ -197,6 +206,7 @@ def build_native_graph_task_queue_adapter() -> AnantaHubTaskQueueAdapter:
         task_repository=task_repo,
         task_runtime=TaskRuntimeService(),
         context_preparer=HubNativeContextPreparer(),
+        pi_scope_preparer=HubPiTaskScopePreparer(),
     )
 
 

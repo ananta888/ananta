@@ -1205,3 +1205,23 @@ now compares every bound field canonically, excluding only defined lifecycle
 timestamps/state/result fields for run replay. The final run covers both
 standalone and caller-transaction paths. These are synthetic technical tests,
 not a production release claim.
+
+Production Pi submission now resolves the actual Hub control Task even when
+no ContextBundle is requested. It inherits the complete validated tenant/
+project/organization tuple and parent identity, and requires the corresponding
+project to exist and be active. Missing, foreign, malformed or terminal parent
+scope and archived/missing projects stop before queue ingestion. If separate
+context preparation observes another scope, the projections cannot be merged.
+The command remains unchanged. The production queue builder always composes
+this preparation; portable injected queue-adapter tests can still exercise
+facts without composing Hub persistence, but confer no evidence authority.
+
+The existing ContextBundle preparer now shares its unchanged control-scope
+validation with this path. All 96 production-scope, Native queue, context and
+Pi admission checks passed in 52.63 seconds; Ruff passed. Scope tests use real
+Task/Project rows and the production builder with an injected queue boundary.
+An initial fixture replaced the global database engine and was correctly
+rejected during isolation teardown; the corrected fixture replaces only the
+new adapter's database seam. No production database was accessed. Actual
+runtime-manifest admission, dispatch reservation and registry completion
+wiring remain the next steps.
