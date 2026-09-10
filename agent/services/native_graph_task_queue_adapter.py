@@ -91,6 +91,7 @@ class AnantaHubTaskQueueAdapter:
 
     def _submission_fields(self, command: NativeNodeCommand, hub_task_id: str) -> dict[str, Any]:
         fields = {
+            "tenant_id": command.tenant_id,
             "task_kind": command.node.task_kind,
             "required_capabilities": list(command.node.required_capabilities),
             "derivation_reason": "native_graph_hub_delegation",

@@ -93,6 +93,15 @@ def test_hub_automatically_copies_owned_bundle_and_complete_scope_without_rebind
     }
 
 
+def test_native_task_without_bundle_still_persists_the_explicit_hub_tenant():
+    f = preparation_setup()
+    command = replace(f.command, node=replace(f.command.node, metadata={}))
+    receipt = f.adapter.submit(command)
+    task = TaskDB(**vars(f.tasks.get_by_id(receipt.hub_task_id)))
+    assert task.tenant_id == command.tenant_id
+    assert task.project_id is None and task.parent_task_id is None and task.plan_id is None
+
+
 def test_actual_queue_ingestion_preserves_scope_through_its_dedicated_team_argument(monkeypatch):
     f = preparation_setup()
     persist = Mock()

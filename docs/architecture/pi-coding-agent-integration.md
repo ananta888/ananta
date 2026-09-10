@@ -1033,3 +1033,13 @@ variants of the missing result boundary, not 28 independently diagnosed
 production incidents. This pure validator is deliberately not an authority
 port: current persisted assignment/lease admission, pre-reserved registry
 evidence and atomic publication remain the next PI-T05 work.
+
+A real `TaskDB` regression also exposed missing tenant persistence for Native
+tasks without a ContextBundle: the signed command carried `tenant-1`, while
+the Task column remained `None`. The shared queue projection now always
+persists the command's explicit tenant. No project, parent, plan or other
+relational identity is inferred from runtime IDs. Existing explicit context
+preparation still supplies the validated complete project/organization scope.
+The regression failed before correction in 7.77 seconds; all 91 focused
+preparation, Native adapter, real Pi context and result checks then passed in
+40.28 seconds. This is one persistence defect, not new evidence admission.
