@@ -139,6 +139,17 @@ class AnantaHubTaskQueueAdapter:
                 )
                 if result.hub_task_id != task_id:
                     raise ValueError("native_hub_task_result_id_mismatch")
+                if command.node.task_kind == "pi_coding_agent":
+                    from agent.common.pi_task_result_binding import PI_RESULT_RECEIPT
+                    from agent.services.pi_result_receipt import require_pi_result_receipt
+                    from agent.services.pi_result_task_projection import pi_task_command, pi_task_result_candidate
+
+                    if not isinstance(verification.get(PI_RESULT_RECEIPT), dict):
+                        raise ValueError("pi_native_result_receipt_required")
+                    admitted_command = pi_task_command(task)
+                    require_pi_result_receipt(
+                        task=task, command=admitted_command, candidate=pi_task_result_candidate(task, admitted_command),
+                    )
                 results.append(result)
                 continue
             results.append(_missing_result_failure(command, task_id, status))

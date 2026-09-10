@@ -1093,6 +1093,11 @@ def _ownership_exact(row: WorkflowExecutionOwnershipDB) -> ExecutionOwnership:
         ) from exc
 
 
+def execution_ownership_from_row(row: WorkflowExecutionOwnershipDB) -> ExecutionOwnership:
+    """Validate both projections for a caller that already owns its transaction."""
+    return _ownership_exact(row)
+
+
 def _history_exact(row: WorkflowExecutionAttemptHistoryDB) -> ExecutionOwnership:
     try:
         value = ExecutionOwnership.from_exact_mapping(dict(row.ownership))

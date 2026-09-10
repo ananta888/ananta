@@ -1101,3 +1101,61 @@ thread joins have a shared deadline and report failures automatically. That
 test-only correction was committed separately. No JSON persistence behavior
 was changed. Existing broad Task repository responsibilities remain SRP
 debt; transaction mechanics are isolated in a small infrastructure adapter.
+
+### Pi Task admission and polling
+
+Pi completion now composes after the existing Organization completion policy.
+The domain policy depends on a narrow current-authority port; its SQL adapter
+uses the caller's Task transaction, never an independently opened service
+session. Ownership and its JSON/scalar projections, assignment, registered
+Worker capabilities/provenance, signed authorization and the exact persisted
+grant must agree. PostgreSQL locks the authority rows; SQLite uses the shared
+writer boundary above. The original forwarding envelope is checked before
+generic projection, then persisted facts are checked again under the write
+transaction. A stale dispatch projection cannot select another Worker.
+
+An accepted terminal receives a closed, content-free
+`ananta.pi-native-result-receipt.v1` in Task verification. It binds command,
+result, tenant/project, Worker, assignment and ownership/grant revisions.
+Only exact replay preserves it; it does not renew an expired authorization.
+Result/scope/command replacement, reopening a terminal Task and post-hoc
+promotion of an unreceipted completion fail closed. Repository instances
+without the composed policy cannot terminalize Pi. Hub-owned bounded
+dispatch failures/cancellation remain possible without claiming Worker
+success. Worker terminal responses still require the complete result contract.
+
+Native polling now requires the same receipt and canonical Task projection;
+an otherwise well-formed Worker result alone is no longer accepted. Receipts
+are explicitly `technical_observation`, not `SRC_*`/`RUN_*` identities. The
+Hub registry reservation before dispatch and result-evidence lifecycle remain
+PI-T05 work. The provider stays disabled by default and no production gate is
+relaxed.
+
+SOLID review: Task/forwarding services retain their pre-existing broad SRP
+responsibilities; this change adds only composition calls there. Command and
+result projections, receipt validation, domain policy and SQL authority are
+separate small modules. The authority port has one operation and does not
+expose scheduling, mutation or registry issuance to Workers. The SQL adapter
+reuses existing exact ownership/grant validation through public transaction-
+local functions. No new global state, worker-to-worker orchestration, shared
+container filesystem requirement or hidden external call is introduced.
+
+Verification: the first integrated admission/forwarding, transaction and
+Organization-policy run passed all 72 checks in 42.97 seconds. The final
+expanded run passed 285 tests in 115.02 seconds, with one existing skip for
+a raw-SQL projection case under the in-memory grant adapter. It includes
+Pi save/CAS and original forwarding through actual status persistence,
+receipt-required polling, exact replay, tampered receipts, revoked grants,
+expired ownership, Worker/assignment changes, actual signature rejection,
+Native context preparation and existing authorization/assignment suites.
+Ruff, whitespace and Todo consistency checks passed. These are overlapping
+synthetic technical checks, not live inference or registered release evidence.
+
+During test development, the fixture initially read an expired ORM object
+after closing its session and then used a synthetic future assignment time;
+both fixture errors were corrected. The expanded negative test also needed
+an explicit JSON dirty marker to persist deliberate `1` versus `true`
+corruption. Receipt immutability now compares canonical JSON digests, not
+Python's coercive scalar equality, and validates a newly built receipt before
+returning it to the repository. The final run covers both direct-write and
+persisted-corruption variants.

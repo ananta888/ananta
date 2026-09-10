@@ -34,12 +34,12 @@ def poll(adapter, command, task):
     return adapter.poll(tenant_id=command.tenant_id, run_id=command.run_id, hub_task_ids=(task.id,))
 
 
-def test_pi_poll_preserves_exact_bounded_terminal_result_without_promoting_evidence():
+def test_pi_poll_requires_hub_admission_even_for_an_exact_bounded_terminal_result():
     adapter, command, task, candidate = pending_pi_result()
     before = copy.deepcopy(candidate)
-    accepted = poll(adapter, command, task)[0]
-    assert accepted.to_dict() == candidate == before
-    assert "evidence" not in accepted.output_data
+    with pytest.raises(ValueError, match="^pi_native_result_receipt_required$"):
+        poll(adapter, command, task)
+    assert candidate == before
 
 
 @pytest.mark.parametrize("field", [
@@ -111,14 +111,18 @@ def test_pi_poll_rejects_success_after_task_failed_or_cancelled(status):
 
 
 @pytest.mark.parametrize("early", [True, False])
-def test_pi_poll_accepts_bounded_failure_without_partial_output(early):
+def test_valid_bounded_worker_failure_still_requires_hub_admission(early):
+    from agent.services.pi_native_result_validation import validate_pi_native_result
+
     adapter, command, task, candidate = pending_pi_result()
     candidate["status"] = task.status = "failed"
     candidate["reason_code"] = "pi_execution_not_authorized"
     candidate["output_data"] = {} if early else {
         **candidate["output_data"], "output": "", "exit_code": 77,
     }
-    assert poll(adapter, command, task)[0].status == "failed"
+    assert validate_pi_native_result(candidate, command=command, hub_task_id=task.id).status == "failed"
+    with pytest.raises(ValueError, match="^pi_native_result_receipt_required$"):
+        poll(adapter, command, task)
 
 
 def test_pi_poll_rejects_partial_text_on_failure():
@@ -140,7 +144,8 @@ def test_direct_validator_closes_malformed_status_without_a_raw_type_error(value
 
 
 @pytest.mark.parametrize("malformed", [False, True])
-def test_real_native_pi_output_contract_survives_hub_polling(tmp_path, malformed):
+def test_real_native_pi_output_does_not_bypass_hub_admission(tmp_path, malformed):
+    from agent.services.pi_native_result_validation import validate_pi_native_result
     from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
     from tests.test_pi_coding_agent_provider import Runner
     from tests.test_pi_native_node import native_setup
@@ -154,5 +159,7 @@ def test_real_native_pi_output_contract_survives_hub_polling(tmp_path, malformed
         task_queue=FakeQueue(repository), task_repository=repository, task_runtime=FakeTaskRuntime(repository),
     )
     command = NativeNodeCommand.from_mapping(task["worker_execution_context"]["native_node_command"])
-    assert poll(hub, command, stored)[0] == actual
+    assert validate_pi_native_result(actual.to_dict(), command=command, hub_task_id=stored.id) == actual
+    with pytest.raises(ValueError, match="^pi_native_result_receipt_required$"):
+        poll(hub, command, stored)
     assert actual.status == ("failed" if malformed else "completed")

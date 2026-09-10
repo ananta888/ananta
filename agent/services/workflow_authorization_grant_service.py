@@ -385,6 +385,19 @@ def workflow_authorization_grant_digest(
     return sha256_json(envelope.to_dict())
 
 
+def require_current_workflow_grant_row(
+    row: WorkflowAuthorizationGrantDB,
+    envelope: RuntimeAuthorizationEnvelope,
+    *,
+    now: float,
+) -> WorkflowAuthorizationGrant:
+    """Reuse exact grant checks without opening another caller transaction."""
+    grant = _grant_from_row(row)
+    if not _grant_matches(grant, envelope, now=now):
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_not_current")
+    return grant
+
+
 def _grant_read_binding(
     *,
     tenant_id: str,

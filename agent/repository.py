@@ -115,6 +115,26 @@ class _OrganizationWorkflowTaskCompletionPolicy:
             )
         return candidate_task
 
+
+class _HubTaskCompletionPolicy:
+    """Compose independent domain policies in the existing repository seam."""
+
+    def apply(self, *, authoritative_task, candidate_task, session):
+        from agent.common.pi_task_result_binding import is_pi_task
+
+        candidate_task = _OrganizationWorkflowTaskCompletionPolicy().apply(
+            authoritative_task=authoritative_task, candidate_task=candidate_task, session=session,
+        )
+        if is_pi_task(authoritative_task) or is_pi_task(candidate_task):
+            from agent.repositories.pi_result_authority import SQLAlchemyPiResultAuthority
+            from agent.services.pi_result_completion_policy import PiResultCompletionPolicy
+            from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
+
+            candidate_task = PiResultCompletionPolicy(authority=SQLAlchemyPiResultAuthority(
+                key_ring=get_workflow_authorization_key_ring,
+            )).apply(authoritative_task=authoritative_task, candidate_task=candidate_task, session=session)
+        return candidate_task
+
 # Singletons für Repositories
 playbook_repo = PlaybookRepository()
 action_pack_repo = ActionPackRepository()
@@ -143,7 +163,7 @@ memory_entry_repo = MemoryEntryRepository()
 team_repo = TeamRepository()
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
-task_repo = TaskRepository(completion_policy=_OrganizationWorkflowTaskCompletionPolicy())
+task_repo = TaskRepository(completion_policy=_HubTaskCompletionPolicy())
 archived_task_repo = ArchivedTaskRepository()
 config_repo = ConfigRepository()
 goal_repo = GoalRepository()

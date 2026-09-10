@@ -1558,6 +1558,12 @@ def persist_forwarded_execution(
     last_proposal: dict | None = None,
     transport_deadline: WorkerTransportDeadline | None = None,
 ) -> None:
+    from agent.services.pi_result_forwarding import validate_forwarded_pi_result
+
+    validate_forwarded_pi_result(
+        task_id=tid, dispatched_task=task, response=response,
+        load_task=get_repository_registry().task_repo.get_by_id,
+    )
     if accept_bound_forwarded_vector_index_result(
         job_id=tid,
         response=response,
