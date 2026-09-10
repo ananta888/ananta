@@ -459,7 +459,7 @@ injizierte Task-Autorität vor Vorbereitung, vor und nach Budgetreservierung
 sowie nach Ausführung. Abgelaufene oder widerrufene Ergebnisse werden nicht
 veröffentlicht. Die Prozessfrist umfasst auch die verbrauchte Vorbereitungs-
 und Revalidierungszeit. Unterstützt ist weiterhin genau ein No-Tools-Turn;
-zusätzliche Attempt-/Retry-Protokolle werden nicht stillschweigend übergangen,
+zusätzliche kombinierte Retry-Protokolle werden nicht stillschweigend übergangen,
 sondern bis zu ihrer konkreten Komposition geschlossen abgelehnt.
 
 Die Ausgabegrenze ist `min(1024, Hub-Maximum)` und wird in die tatsächliche
@@ -514,3 +514,23 @@ Varianten wurden zuvor akzeptiert und werden jetzt geschlossen abgelehnt;
 53 Budgetbeleg-, Worker-Inferenz- und echte Hub-Gateway-Service-Prüfungen
 bestehen in 40.40 Sekunden. Die Persistenz- und Profilzähler verbleiben
 unverändert beim bestehenden Hub-Budgetdienst.
+
+### Signiertes Hub-Profilbudget konkret angeschlossen
+
+Der Quellabgleich des bestehenden `provider_budget_reserve`-Kommandos zeigt:
+Es reserviert Profilversuch, Node- und Run-Budget bereits atomar unter dem
+signierten `provider_attempt_plan`. Dafür ist kein weiterer Worker-Zähler
+und kein separates Retry-Kommando nötig. Pi akzeptiert nun auch den von
+`HubProviderContextSpec` ausgegebenen Pflicht-Profilkontext; kombinierte
+Retries bleiben abgelehnt, das SDK führt weiterhin genau eine Anfrage aus.
+
+Die neue Kompositionsprüfung verbindet Pi mit `HubProviderBudgetAdapter` und
+dem tatsächlichen `WorkflowWorkerGatewayService`, inklusive Hub-seitigem
+Testsignierer, Grant-, Ownership-, Assignment-, Event- und Budgetdienst.
+Der Worker-Testadapter erhält keine Signierschlüssel. Ein Profilversuch
+funktioniert; eine zweite Pi-Instanz erhält keinen zweiten Versuch. Fremder
+Worker, falscher Attempt/Fence, manipulierte Signatur und nicht gewähltes
+Profil werden vom Hub vor Modellprozessstart abgelehnt. 58 Profilbudget-,
+Pi-Policy- und Budgetbelegprüfungen bestehen in 43.30 Sekunden. Das sind
+automatische synthetische Kompositionsprüfungen, noch keine vollständige
+registrierte Pi-Task-/Container- oder produktive Release-Abnahme.

@@ -35,7 +35,7 @@ def test_pi_never_creates_legacy_context(context):
         {"deadline_epoch_seconds": float("inf")},
         {"deadline_epoch_seconds": 100},
         {"retry_attempt": 1},
-        {"require_hub_provider_attempt_budget": True, "provider_profile_id": "test-profile"},
+        {"require_hub_provider_attempt_budget": True, "provider_profile_id": ""},
         {"require_hub_retry_budget": True, "combined_retry_maximum": 2},
     ],
 )

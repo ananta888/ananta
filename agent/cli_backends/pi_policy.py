@@ -72,8 +72,9 @@ class PiInvocationPolicy:
             or context.provider_transport_mode != "hub_bound"
         ):
             raise ProviderInvocationBlocked("pi_hub_context_required")
-        # These additional protocols are deliberately unsupported, never ignored.
-        if context.require_hub_provider_attempt_budget or context.require_hub_retry_budget or context.retry_attempt:
+        # Profile attempts are reserved atomically by the existing Hub budget
+        # port under the signed profile plan. No Worker retry loop is added.
+        if context.require_hub_retry_budget or context.retry_attempt:
             raise ProviderInvocationBlocked("pi_retry_policy_unsupported")
         for value in (
             context.max_total_tokens,
