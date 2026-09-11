@@ -1,36 +1,36 @@
 {
-  "version": 1,
+  "version": 2,
   "owner": "ananta",
   "track": "FLY-CONNECTOME",
-  "purpose": "Ein reales Drosophila-Connectome als optionalen lernfähigen Policy-/Routing-/Loop-Controller für Ananta evaluieren, gezielt trainieren und kontrolliert erweitern, ohne biologische Plausibilität mit technischer Überlegenheit zu verwechseln.",
-  "goal": "Prüfen, ob ein spärliches spikendes Connectome bzw. daraus abgeleitete hybride Controller LLM-Aufrufe, Fehlentscheidungen, Latenz oder Kosten in Ananta reduzieren können und ob sich das Netz durch begrenzte Plastizität, trainierbare Adapter, zusätzliche künstliche Neuronen oder modulare Erweiterungen zuverlässig an Software-Agenten-Aufgaben anpassen lässt.",
+  "purpose": "Ein reales Drosophila-Connectome als experimentellen, stark anpassbaren Policy-/Routing-/Loop-Controller für Ananta erforschen. Anders als DoomFly soll nicht nur ein einzelner biologisch motivierter Lernpfad verändert werden, sondern systematisch untersucht werden, wie weit lernende Adapter, mehrere plastische Subgraphen, künstliche Zusatzneuronen, rekurrentes Gedächtnis und kontrollierte Topologie-Erweiterungen die Leistungsfähigkeit für Software-Agenten-Aufgaben steigern können.",
+  "goal": "Prüfen, ob ein hybrider Fly-Controller LLM-Aufrufe, Tokenverbrauch, Latenz und Fehlentscheidungen reduziert und dabei mindestens die Erfolgsrate klassischer Controller erreicht oder übertrifft. Die biologische Struktur ist dabei ein zu testender Ausgangspunkt, keine Annahme über Überlegenheit.",
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high"],
   "sources": [
     {
       "url": "https://flywire.ai/",
-      "note": "Primärquelle für das FlyWire-Connectome; ca. 139k proofread neurons und 50M+ Synapsen. Konkrete Dataset-Versionen und Nutzungsbedingungen vor Implementierung pinnen."
+      "note": "Primärquelle für das FlyWire-Connectome; konkrete Dataset-Version, Nutzungsbedingungen und Hashes vor Implementierung pinnen."
     },
     {
       "url": "https://codex.flywire.ai/",
-      "note": "Explorer und Metadaten für FAFB v783 und weitere Drosophila-Connectomes; Zelltypen, Verbindungen und Dataset-Versionen für reproduzierbare Experimente dokumentieren."
+      "note": "Zelltypen, neuronale Gruppen, Verbindungen und Metadaten zur Auswahl biologischer Subgraphen nutzen."
     },
     {
       "url": "https://github.com/eonfathom/FastFly",
-      "note": "GPU-beschleunigte LIF-Simulation des FlyWire-Connectomes; als technische Referenz und optionaler Prototyp-Backend prüfen, nicht ungeprüft als wissenschaftliche Ground Truth übernehmen."
+      "note": "GPU-beschleunigte Referenz für Whole-Connectome-Simulation und RTX-30xx-Prototyping prüfen."
     },
     {
       "url": "https://github.com/nftechie/doomfly",
-      "note": "Aktuelles Experiment mit Drosophila-Connectome, Doom-Anbindung und begrenzter dopamine-gated Plastizität; besonders wegen der dokumentierten Negativergebnisse und Validierungsgates als Referenz nutzen."
+      "note": "Referenz für Whole-Connectome-Steuerung mit begrenzter dopamine-gated Plastizität. DoomFly bewusst als konservative Vergleichslinie verwenden, nicht als Zielarchitektur."
     },
     {
       "url": "https://github.com/chaobrain/fitting_drosophila_whole_brain_spiking_model",
-      "note": "Referenz für das Fitten von Whole-Brain-Aktivität und mögliche trainierbare Parameterisierung."
+      "note": "Referenz für trainierbare Whole-Brain-Spiking-Modelle und mögliche Parameter-Fitting-Ansätze."
     },
     {
       "url": "https://www.nature.com/articles/s41586-024-07763-9",
-      "note": "Shiu et al. 2024: Whole-brain LIF computational model auf Basis des Drosophila-Connectomes; wissenschaftliche Basis für Simulatorannahmen und Sensorimotorik."
+      "note": "Wissenschaftliche Referenz für Whole-Brain-LIF-Modellierung auf Basis des Drosophila-Connectomes."
     }
   ],
   "related_todos": [
@@ -38,24 +38,32 @@
     "todos/ananta-herdr-runtime-adapter.todo.json"
   ],
   "architecture_constraints": [
-    "Hub bleibt alleinige Control Plane. Der Fly-Controller darf keine eigene globale Task Queue, Worker-Orchestrierung oder unabhängige Rechteverwaltung einführen.",
-    "Das biologische Basis-Connectome wird unverändert und reproduzierbar als immutable Baseline gespeichert. Jede trainierte oder erweiterte Variante erhält eigene Version, Digest, Seed, Dataset-Version und Konfiguration.",
-    "Kein produktiver Tool-Aufruf darf allein aufgrund eines experimentellen Fly-Controllers Sicherheits-, Berechtigungs-, Budget- oder Policy-Gates umgehen.",
+    "Hub bleibt alleinige Control Plane; der Fly-Controller erzeugt keine eigene globale Task Queue und keine unabhängige Worker-Orchestrierung.",
+    "Das originale Connectome wird immutable und reproduzierbar gespeichert. Jede Mutation ist ein Overlay mit eigener Version, Digest, Seed und Provenienz.",
+    "Experimentelle Controller dürfen Sicherheits-, Berechtigungs-, Budget- oder Policy-Gates niemals umgehen.",
     "Deterministische Gates bleiben letzte Instanz für irreversible oder sicherheitskritische Aktionen.",
-    "Alle lernenden Varianten müssen jederzeit auf deterministic-only oder klassische Controller-Baselines zurückschaltbar sein.",
-    "Biologische Begriffe wie Lernen, Gedächtnis oder Dopamin nur verwenden, wenn die konkrete simulierte Regel benannt wird; keine Behauptung, dass die Simulation ein vollständiges lebendes Fliegengehirn rekonstruiert.",
-    "Keine automatische Online-Selbstmodifikation ohne versionierte Checkpoints, begrenzte Änderungsräume, Evaluationsgates und atomaren Rollback.",
-    "RTX 3080 10 GB als Zielhardware nur nach realen Messungen deklarieren; Sparse-Repräsentationen erzwingen und Dense-Materialisierung großer Adjazenzmatrizen verhindern."
+    "Jede lernende Variante muss atomar auf Frozen-Connectome, klassischen Controller oder deterministic-only zurückschaltbar sein.",
+    "Keine Behauptung biologischer Plausibilität aus technischer Performance ableiten.",
+    "Keine Online-Selbstmodifikation ohne begrenzten Änderungsraum, Checkpoint, Shadow-Evaluation, Promotion-Gate und Rollback.",
+    "Sparse-Datenstrukturen erzwingen; keine Dense-Materialisierung des gesamten Connectomes.",
+    "RTX 3080 10 GB gilt als Zielhardware für den ersten lokalen Prototyp, Unterstützung aber nur nach realen Messungen deklarieren."
   ],
+  "core_hypothesis": {
+    "statement": "Die biologische Topologie kann als strukturierter rekurrenter Reservoir-/Policy-Kern nützlich sein, wenn Ein-/Ausgabe, ausgewählte interne Teilnetze und zusätzliche künstliche Module gezielt trainierbar gemacht werden.",
+    "must_be_falsifiable": true,
+    "rejection_condition": "Wenn MLP, GRU, kleines SNN oder deterministische Regeln bei gleichem oder kleinerem Compute-/Parameterbudget konsistent gleich gut oder besser sind, wird keine technische Überlegenheit des Fly-Ansatzes behauptet."
+  },
   "research_questions": [
-    "Kann ein festes Drosophila-Connectome mit nur trainierbaren Input-/Output-Adaptern als brauchbarer Policy-Controller für Agenten-Loops dienen?",
-    "Bringt begrenzte synaptische Plastizität gegenüber einem eingefrorenen Connectome messbare Vorteile?",
-    "Welche Teilnetze oder Zellgruppen sind für Routing, Zustandsintegration, Exploration oder Fehlerreaktion besonders nützlich?",
-    "Ist ein hybrides Modell aus biologischem Kern plus kleinen trainierbaren Erweiterungsnetzen besser als das reine Connectome?",
-    "Kann der Controller LLM-Aufrufe, Tokenverbrauch und Latenz reduzieren, ohne Erfolgsrate und Sicherheit zu verschlechtern?",
-    "Ist ein klassisches MLP, GRU, kleines SNN oder tabellarischer Policy-Controller bei gleichem Parameter-/Compute-Budget besser?",
-    "Kann Online-Anpassung zwischen Agentenläufen sicher stattfinden, ohne Catastrophic Forgetting oder instabile Policies zu erzeugen?",
-    "Lassen sich erfolgreiche Anpassungen auf neue Repositories, Tools und Aufgaben übertragen oder sind sie stark task-spezifisch?"
+    "Welche Teile des Connectomes liefern für Agenten-Routing überhaupt verwertbare Dynamik?",
+    "Reicht ein eingefrorenes Connectome mit lernbaren Ein-/Ausgabe-Adaptern?",
+    "Bringen mehrere gleichzeitig plastische Subgraphen mehr als DoomFly-artige Einzelpfad-Plastizität?",
+    "Welche Lernregel ist für Agenten-Loops stabiler: surrogate gradients, STDP, reward-modulated STDP, Hebbian oder Policy-Gradient auf Adaptern?",
+    "Kann das Netz neue künstliche Neuronen oder Module aufnehmen, ohne bestehende Fähigkeiten zu zerstören?",
+    "Kann Topologie-Wachstum kontrolliert nach Bedarf erfolgen?",
+    "Hilft rekurrentes Zusatzgedächtnis bei Long-Running-Workflows?",
+    "Kann Online-Anpassung task- oder repository-spezifisch erfolgen und danach wieder konsolidiert werden?",
+    "Reduziert der Controller ASK_LLM-Aufrufe, Tokens und Latenz bei gleicher oder besserer Erfolgsrate?",
+    "Welche Fähigkeiten stammen wirklich aus dem biologischen Kern und welche nur aus den trainierten Adaptern/Extensions?"
   ],
   "controller_actions": [
     "CONTINUE",
@@ -89,37 +97,96 @@
     "diff_size",
     "policy_risk_level",
     "previous_action",
-    "recent_action_history_embedding_or_one_hot"
+    "recent_action_history"
   ],
-  "experiment_variants": [
+  "experiment_ladder": [
     {
-      "id": "FROZEN_CONNECTOME",
-      "description": "Biologisches Connectome vollständig eingefroren; nur Input-Encoding und Output-Readout trainierbar."
+      "id": "E0",
+      "name": "Frozen Connectome",
+      "trainable": ["output_readout_only"],
+      "purpose": "Prüfen, ob die unveränderte Topologie überhaupt brauchbare Zustandsdynamik liefert."
     },
     {
-      "id": "PLASTIC_SUBGRAPH",
-      "description": "Nur klar begrenzte vorhandene Synapsen bzw. ausgewählte Subgraphen trainierbar; Rest unverändert."
+      "id": "E1",
+      "name": "Trainable I/O Adapters",
+      "trainable": ["sparse_input_projection", "output_readout"],
+      "purpose": "Task-Signale gezielt in geeignete Zellgruppen einprägen und Aktionen auslesen."
     },
     {
-      "id": "GLOBAL_WEIGHT_TUNING_LIMITED",
-      "description": "Gewichte global anpassbar, aber mit harten Änderungsgrenzen, Regularisierung zur Baseline und vollständigem Rollback."
+      "id": "E2",
+      "name": "Single Plastic Subgraph",
+      "trainable": ["one_selected_internal_subgraph"],
+      "purpose": "Direkter DoomFly-artiger Referenzpunkt."
     },
     {
-      "id": "CONNECTOME_PLUS_ADAPTER",
-      "description": "Connectome eingefroren; kleine trainierbare Encoder-, Memory- oder Readout-Netze davor/dahinter."
+      "id": "E3",
+      "name": "Multi-Subgraph Plasticity",
+      "trainable": ["multiple_internal_subgraphs", "input_adapter", "output_adapter"],
+      "purpose": "Mehrere funktional unterschiedliche Regionen parallel an Agenten-Aufgaben anpassen."
     },
     {
-      "id": "CONNECTOME_PLUS_EXTENSION_NEURONS",
-      "description": "Zusätzliche künstliche spikende Neuronen/Module ergänzen den biologischen Kern, ohne originale Kanten zu überschreiben."
+      "id": "E4",
+      "name": "Sparse Global Plasticity",
+      "trainable": ["selected_edges_across_whole_connectome"],
+      "purpose": "Nicht auf anatomisch vorgewählte Regionen beschränkt sein; trainierbare Kanten über Maskierung auswählen."
     },
     {
-      "id": "CONNECTOME_PLUS_RECURRENT_MEMORY",
-      "description": "Biologischer Kern plus kleines GRU/SNN/State-Memory-Modul für längere Agenten-Loops."
+      "id": "E5",
+      "name": "Extension Neurons",
+      "trainable": ["added_spiking_neurons", "bridge_edges", "readout"],
+      "purpose": "Neue künstliche SNN-Strukturen an den biologischen Kern anhängen."
     },
     {
-      "id": "DISTILLED_FLY_POLICY",
-      "description": "Nach erfolgreichem Training Verhalten des Fly-Controllers in einen kleineren deterministischen oder neuronalen Controller destillieren."
+      "id": "E6",
+      "name": "Hybrid Memory",
+      "trainable": ["fly_core", "small_gru_or_snn_memory", "bridges"],
+      "purpose": "Long-Running-Agenten-Loops und episodischen Zustand besser abbilden."
+    },
+    {
+      "id": "E7",
+      "name": "Dynamic Growth",
+      "trainable": ["new_neurons", "new_sparse_edges", "module_router"],
+      "purpose": "Bei wiederkehrenden Fehlermustern kontrolliert zusätzliche Kapazität hinzufügen."
+    },
+    {
+      "id": "E8",
+      "name": "Task-Specific Online Adaptation",
+      "trainable": ["allowlisted_overlays_only"],
+      "purpose": "Während vieler Agentenepisoden lokal weiterlernen, ohne den stabilen Basiskern direkt zu überschreiben."
+    },
+    {
+      "id": "E9",
+      "name": "Distilled Fly Policy",
+      "trainable": ["student_controller"],
+      "purpose": "Falls das Fly-System gute Policies lernt, diese in einen kleineren schnellen Controller destillieren."
     }
+  ],
+  "plasticity_strategies": [
+    "surrogate_gradient_subset_training",
+    "stdp",
+    "reward_modulated_stdp",
+    "dopamine_or_reward_gated_hebbian",
+    "policy_gradient_on_adapters",
+    "evolution_strategy_for_sparse_masks",
+    "straight_through_estimator_for_edge_selection"
+  ],
+  "subgraph_selection_strategies": [
+    "biology_guided_cell_types",
+    "activity_based_selection",
+    "gradient_or_saliency_based_selection",
+    "graph_centrality_based_selection",
+    "random_matched_control",
+    "evolutionary_search",
+    "learned_binary_sparse_mask"
+  ],
+  "extension_strategies": [
+    "append_lif_neuron_pool",
+    "append_small_snn_module",
+    "append_gru_memory_module",
+    "append_context_encoder",
+    "append_action_specialist_head",
+    "append_error_recovery_module",
+    "append_repository_specific_overlay"
   ],
   "baseline_controllers": [
     "deterministic_rule_controller",
@@ -127,32 +194,34 @@
     "small_mlp",
     "small_gru",
     "small_spiking_neural_network",
+    "random_sparse_graph_same_size_subset",
+    "connectome_degree_shuffled_control",
     "contextual_bandit",
     "llm_only_controller"
   ],
   "milestones": [
     {
       "id": "FLY-M1",
-      "title": "Reproduzierbare Connectome-Simulation und Ananta-Schnittstelle",
+      "title": "Reproduzierbare Simulation und Ananta-Interface",
       "task_ids": ["FLY-T01", "FLY-T02", "FLY-T03"],
       "status": "todo"
     },
     {
       "id": "FLY-M2",
-      "title": "Trainierbare Adapter und begrenzte Plastizität",
-      "task_ids": ["FLY-T04", "FLY-T05", "FLY-T06"],
+      "title": "Aggressives Training: Adapter und mehrere plastische Subgraphen",
+      "task_ids": ["FLY-T04", "FLY-T05", "FLY-T06", "FLY-T07"],
       "status": "todo"
     },
     {
       "id": "FLY-M3",
-      "title": "Dynamische Erweiterung und Online-Anpassung",
-      "task_ids": ["FLY-T07", "FLY-T08"],
+      "title": "Künstliche Erweiterung, Wachstum und Online-Anpassung",
+      "task_ids": ["FLY-T08", "FLY-T09", "FLY-T10"],
       "status": "todo"
     },
     {
       "id": "FLY-M4",
-      "title": "Ananta-Integration, Benchmark und Promotion-Gates",
-      "task_ids": ["FLY-T09", "FLY-T10", "FLY-T11", "FLY-T12"],
+      "title": "Ananta-Integration und belastbare Vergleichsmessung",
+      "task_ids": ["FLY-T11", "FLY-T12", "FLY-T13", "FLY-T14"],
       "status": "todo"
     }
   ],
@@ -168,16 +237,16 @@
       "depends_on": [],
       "milestone_id": "FLY-M1",
       "acceptance_criteria": [
-        "FlyWire/FAFB v783 oder begründet gewählte alternative Dataset-Version mit Downloadquelle, Lizenz/Nutzungsbedingungen, Hashes und Metadaten pinnen.",
-        "FastFly, Shiu-LIF-Implementierungen, doomfly und mindestens eine weitere unabhängige Simulatorbasis hinsichtlich Datenformat, Synapsenzahl, Vorzeichen/Neurotransmitter, Zeitschritt, Gewichtsskalierung und GPU-Anforderungen vergleichen.",
-        "Klären, welche Synapsenzahlen jeweils gemeint sind: anatomische Synapsen versus aggregierte neuron-to-neuron connections; Kennzahlen nicht vermischen.",
-        "Eine minimale reproduzierbare RTX-3080-Ausführung mit gemessener VRAM-Nutzung, Steps/s, Spike-Rate und deterministischem Seed dokumentieren.",
-        "Originaldaten unverändert in read-only Cache/Artifact-Layer halten; transformierte CSR/COO/FP16-Dateien erhalten eigene Digests und Provenienz."
+        "FlyWire/FAFB-Dataset und konkrete Revision mit Hashes pinnen.",
+        "FastFly, DoomFly und mindestens eine wissenschaftliche Whole-Brain-LIF-Implementierung vergleichen.",
+        "Neuronenzahl, anatomische Synapsen und aggregierte neuron-to-neuron edges sauber auseinanderhalten.",
+        "RTX-3080-Probelauf mit VRAM, Steps/s, Spike-Rate, CPU-RAM und Latenz messen.",
+        "Original-Connectome read-only halten; alle Transformationen erhalten Digests und Provenienz."
       ]
     },
     {
       "id": "FLY-T02",
-      "title": "FlyController-Port und versionierten Zustandsvertrag definieren",
+      "title": "FlyController-Port und versionierten Zustand definieren",
       "type": "design",
       "status": "todo",
       "priority": "P1",
@@ -186,16 +255,15 @@
       "depends_on": ["FLY-T01"],
       "milestone_id": "FLY-M1",
       "acceptance_criteria": [
-        "Kleine injizierbare Schnittstelle definieren: reset(), encode_observation(), step(), read_action(), checkpoint(), restore() und diagnostics().",
-        "InputObservation mit normalisierten Features, Missing-Value-Maske, Zeitbezug und Version definieren; keine freien Prompts direkt in das Connectome einspeisen.",
-        "ControllerDecision enthält action, confidence/calibration proxy, spike_summary, policy_version, latency_ms und fallback_reason.",
-        "Controller als optionalen Backend-Typ behandeln; bestehende Ananta-Gates und Agenten bleiben ohne Fly-Komponente vollständig lauffähig.",
-        "State-Snapshots müssen begrenzte Größe, Seed, Simulatorzeit, dynamische Gewichte, Adaptergewichte und Extension-Topology eindeutig versionieren."
+        "Interface für reset, encode_observation, step, read_action, checkpoint, restore und diagnostics definieren.",
+        "ControllerDecision enthält Aktion, Confidence-Proxy, Policy-Version, Latenz und Fallback-Grund.",
+        "State-Snapshot umfasst dynamische Gewichte, Plastizitätsmasken, Adapter, Extension-Topology und Simulatorzustand.",
+        "Controller bleibt optional; Ananta funktioniert ohne Fly-Komponente unverändert."
       ]
     },
     {
       "id": "FLY-T03",
-      "title": "Ananta-Agentenloop als kontrollierte Trainingsumgebung instrumentieren",
+      "title": "Replay-fähige Agentenepisoden für Training und Evaluation erfassen",
       "type": "implementation",
       "status": "todo",
       "priority": "P1",
@@ -204,16 +272,16 @@
       "depends_on": ["FLY-T02"],
       "milestone_id": "FLY-M1",
       "acceptance_criteria": [
-        "Replay-fähige Episoden aus Ananta-Runs erzeugen: Observation, zulässige Aktionen, gewählte Aktion, Tool-Ergebnis, Verifier-Ergebnis, Kosten, Laufzeit und finaler Task-Erfolg.",
-        "Datenschutz/Secrets vor Persistenz redigieren; Controllertraining soll überwiegend strukturierte Telemetrie statt Rohprompts erhalten.",
-        "Train/validation/test strikt nach Task/Repository/Run trennen, um Leakage durch fast identische Agentenläufe zu verhindern.",
-        "Mindestens vier Taskklassen vorsehen: Tool-Routing, Retry/Backtrack, Verify-or-Continue und Stop-Entscheidung.",
-        "Offline-Replay muss identische Policy-Eingaben erzeugen können, ohne externe APIs oder reale Tool-Seiteneffekte auszulösen."
+        "Observation, erlaubte Aktionen, gewählte Aktion, Tool-Ergebnis, Verifier-Ergebnis, Kosten, Laufzeit und Task-Erfolg speichern.",
+        "Secrets vor Persistenz entfernen; strukturierte Telemetrie gegenüber Rohprompts bevorzugen.",
+        "Train/Validation/Test nach Repository, Task und Run trennen.",
+        "Mindestens Tool-Routing, Retry/Backtrack, Verify-or-Continue und Stop als erste Taskklassen abdecken.",
+        "Offline-Replay ohne externe Seiteneffekte ermöglichen."
       ]
     },
     {
       "id": "FLY-T04",
-      "title": "Trainierbare Input-Encoder und Output-Readouts implementieren",
+      "title": "Lernende Input- und Output-Adapter als minimale Anpassung implementieren",
       "type": "implementation",
       "status": "todo",
       "priority": "P1",
@@ -222,16 +290,16 @@
       "depends_on": ["FLY-T03"],
       "milestone_id": "FLY-M2",
       "acceptance_criteria": [
-        "Mehrere Encoder vergleichen: feste Feature-to-Neuron-Gruppen, random sparse projection, lernbare sparse projection und rate/latency coding.",
-        "Outputvarianten vergleichen: feste Zellgruppen, lernbares lineares Readout, population voting und zeitfensterbasierte Spike-Decoder.",
-        "Zunächst ausschließlich Encoder/Readout trainieren; biologischer Kern bleibt byte-identisch zur Baseline.",
-        "Training mit Cross-Entropy bzw. taskgerechter Policy-Loss-Funktion und optionalem Cost-Aware-Term implementieren; Hyperparameter und Seeds vollständig protokollieren.",
-        "Kalibrierung prüfen: niedrige Sicherheit muss zuverlässig in ASK_LLM oder deterministischen Fallback führen statt zufällige Hochrisikoaktion auszulösen."
+        "Feste, random-sparse und lernbare sparse Input-Projektionen vergleichen.",
+        "Rate-, latency- und population-based coding vergleichen.",
+        "Lineares Readout, Population Voting und zeitfensterbasiertes Spike-Decoding vergleichen.",
+        "Biologischen Kern in dieser Stufe vollständig einfrieren.",
+        "Ergebnis als E0/E1-Baseline dokumentieren."
       ]
     },
     {
       "id": "FLY-T05",
-      "title": "Gezielte synaptische Plastizität und Weitertraining erforschen",
+      "title": "Mehrere plastische Subgraphen statt nur eines DoomFly-Lernpfads trainieren",
       "type": "research_implementation",
       "status": "todo",
       "priority": "P1",
@@ -240,18 +308,17 @@
       "depends_on": ["FLY-T04"],
       "milestone_id": "FLY-M2",
       "acceptance_criteria": [
-        "Mindestens vier Lernregeln hinter gemeinsamer Strategy-Schnittstelle implementieren/evaluieren: supervised surrogate-gradient subset tuning, STDP, reward-modulated STDP und dopamine/reward-gated Hebbian update.",
-        "Plastizität standardmäßig nur für allowlistete Synapsen/Subgraphen aktivieren; jede Änderung relativ zum biologischen Ausgangsgewicht begrenzen und loggen.",
-        "Mushroom-body-nahe Lernschaltkreise als biologisch motivierte Option untersuchen, aber gegen zufällig ausgewählte gleich große Subgraphen kontrollieren, damit strukturelle Vorteile nicht nur aus Parameterzahl entstehen.",
-        "Frozen core, plastic subset und global limited tuning auf identischen Episoden vergleichen.",
-        "Catastrophic Forgetting mit früheren Tasksets messen; bei Online-Weitertraining Rehearsal/Replay, EWC-artige Regularisierung oder weight-to-baseline penalty optional testen.",
-        "Checkpoint pro Trainingsepoche inklusive Delta zum Originalconnectome speichern; vollständiges Restore auf unveränderte Baseline automatisiert testen."
+        "Mindestens drei funktional unterschiedliche Subgraphen parallel trainierbar machen.",
+        "Biology-guided, activity-guided, saliency-guided und random-matched Auswahl vergleichen.",
+        "Subgraphen separat einfrierbar, resetbar und versionierbar machen.",
+        "Pro Subgraph Änderungsbudget für Anzahl Kanten und maximale Gewichtsabweichung erzwingen.",
+        "E2 gegen E3 direkt messen, damit der Nutzen mehrerer plastischer Regionen sichtbar wird."
       ]
     },
     {
       "id": "FLY-T06",
-      "title": "Reward-Design und Verifier-gekoppeltes Lernen absichern",
-      "type": "design_verification",
+      "title": "Mehrere Lernregeln und Trainingsmethoden austauschbar machen",
+      "type": "implementation",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
@@ -259,110 +326,108 @@
       "depends_on": ["FLY-T05"],
       "milestone_id": "FLY-M2",
       "acceptance_criteria": [
-        "Reward nie direkt aus selbstberichteter LLM-Confidence ableiten; unabhängige Signale wie Tests, Verifier, Tool-Exitcode, Taskabschluss und Budget verwenden.",
-        "Reward-Komponenten getrennt loggen: task_success, correctness, safety, latency, token_cost, unnecessary_llm_calls, loop_penalty und irreversible_action_penalty.",
-        "Reward-Hacking-Cases erzeugen: früh STOP trotz unvollständiger Aufgabe, Endlosschleife für dichte Rewards, Verifier umgehen, billigste aber falsche Aktion, künstlich hohe Confidence.",
-        "Hard safety constraints außerhalb des Rewards technisch erzwingen; Safety darf nicht nur eine negative Belohnung sein.",
-        "Prime/Verifier-Infrastruktur falls vorhanden wiederverwenden, aber Fly-Training darf nicht von Prime-Diensten abhängig werden."
+        "Gemeinsame PlasticityStrategy-Schnittstelle implementieren.",
+        "Surrogate-gradient subset training, STDP, reward-modulated STDP und reward-gated Hebbian mindestens prototypisch unterstützen.",
+        "Policy-Gradient nur auf Adapter-/Overlay-Parameter als zusätzliche Vergleichsvariante erlauben.",
+        "Learning-rate, Weight-Clipping, Homeostasis, Decay und Reward-Zeitfenster vollständig protokollieren.",
+        "Instabile Spike-Raten, NaN/Inf, Kollaps auf Einzelaktion und oszillierende Policies automatisch erkennen."
       ]
     },
     {
       "id": "FLY-T07",
-      "title": "Fliegenhirn kontrolliert durch künstliche Neuronen und Module erweitern",
+      "title": "Sparse globale Plastizität und lernbare Kantenmasken untersuchen",
       "type": "research_implementation",
       "status": "todo",
       "priority": "P2",
       "risk": "high",
       "progress_percent": 0,
       "depends_on": ["FLY-T06"],
-      "milestone_id": "FLY-M3",
+      "milestone_id": "FLY-M2",
       "acceptance_criteria": [
-        "Originalconnectome als immutable Core behandeln; Erweiterungen ausschließlich als Overlay-Graph mit eigener Namespace-/ID-Domain speichern.",
-        "Extension-Typen evaluieren: zusätzliche LIF-Neuronen, kleine recurrent SNN-Blöcke, GRU-State-Adapter, differentiable memory cells und task-spezifische readout hubs.",
-        "Neue Kanten Core→Extension, Extension→Core und Extension↔Extension getrennt budgetieren; maximale Zusatzparameter und Fan-in/Fan-out konfigurieren.",
-        "Wachstum nicht ungezügelt erlauben: neue Neuronen nur bei messbarem Validierungsgewinn; Pruning von nutzlosen Extensions implementieren.",
-        "Architecture Search zunächst einfach halten: random/progressive growth plus validation selection; komplexe NAS nur nach positiver Baseline-Evidenz.",
-        "Ablation: gleiche Zusatzparameter einmal an biologischen Core gekoppelt und einmal als eigenständiges SNN/GRU trainieren, um echten Nutzen des Connectomes zu messen."
+        "Trainierbare Edge-Masken implementieren, ohne das gesamte Connectome dense trainierbar zu machen.",
+        "Top-K-, saliency-, evolutionary- und learned-binary-mask Auswahl vergleichen.",
+        "Maximaler Anteil veränderbarer Kanten pro Experiment hart begrenzen.",
+        "Randomisierte Sparse-Graph-Kontrolle mit gleicher Zahl trainierbarer Kanten mitführen.",
+        "Prüfen, ob Vorteile aus Fly-Topologie oder nur aus zusätzlicher Parameterzahl entstehen."
       ]
     },
     {
       "id": "FLY-T08",
-      "title": "Dynamische Online-Anpassung zwischen und während Agentenläufen ermöglichen",
-      "type": "implementation",
-      "status": "todo",
-      "priority": "P2",
-      "risk": "high",
-      "progress_percent": 0,
-      "depends_on": ["FLY-T07"],
-      "milestone_id": "FLY-M3",
-      "acceptance_criteria": [
-        "Drei Modi implementieren: inference_only, adapt_between_runs und bounded_online_adaptation.",
-        "bounded_online_adaptation darf nur erlaubte Parameter innerhalb definierter Delta-/Norm-Grenzen ändern; keine Topologieänderung innerhalb eines produktiven Runs.",
-        "Shadow-Policy einsetzen: neue Policy zunächst parallel beobachten lassen und Entscheidungen gegen aktive Policy vergleichen, ohne Tool-Aktionen auszulösen.",
-        "Promotion nur nach Mindestanzahl Episoden und statistisch belastbarer Verbesserung auf Holdout-Tasks; bei Regression automatisches Rollback auf letzten freigegebenen Checkpoint.",
-        "Drift-Metriken implementieren: weight_delta, action_distribution_shift, entropy, fallback_rate, failure_rate und task-family-specific performance.",
-        "Optional per Repository/Taskfamilie kleine Adapter statt globaler Gehirnänderung lernen; Shared Core plus task-spezifische Adapter vergleichen."
-      ]
-    },
-    {
-      "id": "FLY-T09",
-      "title": "FlyController in Ananta-Routing und Loop-Gates integrieren",
+      "title": "Künstliche Zusatzneuronen und Brückenkanten als Overlay hinzufügen",
       "type": "implementation",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["FLY-T04", "FLY-T06"],
-      "milestone_id": "FLY-M4",
+      "depends_on": ["FLY-T07"],
+      "milestone_id": "FLY-M3",
       "acceptance_criteria": [
-        "Zunächst nur nicht-kritische Entscheidungen übernehmen: CONTINUE/VERIFY/ASK_LLM/RETRY/STOP unter bestehenden Budget- und Safety-Gates.",
-        "Tool- oder Agentenwahl erst nach erfolgreichem Phase-1-Benchmark aktivieren; irreversible Aktionen bleiben deterministic-gated.",
-        "Timeout/Fault des Simulators führt sofort zu definierter klassischer Fallback-Policy, niemals zu blockiertem Agentenloop.",
-        "Feature-Extraktion aus bestehenden Ananta-Ereignissen zentralisieren statt Fly-spezifische Telemetriepfade überall zu verteilen.",
-        "Konfiguration pro Workspace/Task deaktivierbar; Default bleibt zunächst off."
+        "Zusätzliche LIF-Neuronenpools hinzufügen, ohne originale Knoten oder Kanten zu überschreiben.",
+        "Bridge-Edges Fly→Extension, Extension→Fly und Extension→Readout getrennt konfigurierbar machen.",
+        "Kapazitätsstufen z.B. 128, 512, 2048, 8192 Zusatzneuronen benchmarken.",
+        "Jede Erweiterung als eigenes Overlay speichern und vollständig entfernbar machen.",
+        "E5 gegen gleich großes unabhängiges SNN ohne Fly-Kern vergleichen."
+      ]
+    },
+    {
+      "id": "FLY-T09",
+      "title": "Rekurrentes Zusatzgedächtnis für Long-Running-Workflows koppeln",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["FLY-T08"],
+      "milestone_id": "FLY-M3",
+      "acceptance_criteria": [
+        "Kleines SNN-Memory und kleines GRU-Memory als alternative Extension-Module implementieren.",
+        "Explizite Episoden-/Schrittgrenzen und Reset-Strategien definieren.",
+        "Prüfen, ob längere Retry-/Backtrack-Sequenzen und Tool-Historie besser gehandhabt werden.",
+        "Memory darf keine Secrets oder Rohprompts implizit dauerhaft persistieren.",
+        "E6 gegen Fly ohne Zusatzmemory sowie gleich großes GRU-only kontrollieren."
       ]
     },
     {
       "id": "FLY-T10",
-      "title": "Faire Benchmarks gegen klassische kleine Controller durchführen",
-      "type": "verification",
+      "title": "Kontrolliertes dynamisches Wachstum und Online-Weiterlernen ermöglichen",
+      "type": "research_implementation",
       "status": "todo",
-      "priority": "P0",
-      "risk": "medium",
+      "priority": "P2",
+      "risk": "high",
       "progress_percent": 0,
       "depends_on": ["FLY-T09"],
-      "milestone_id": "FLY-M4",
+      "milestone_id": "FLY-M3",
       "acceptance_criteria": [
-        "Alle Varianten auf identischen Holdout-Episoden, Feature-Sets und Aktionsräumen testen.",
-        "Mindestens deterministic rules, linear policy, kleines MLP, GRU, kleines SNN, Fly frozen, Fly plastic und Fly+extension vergleichen.",
-        "Messgrößen: Task-Erfolgsrate, falsche STOPs, unnötige Retries, Verifier-Nutzung, LLM-Aufrufe, Tokens, End-to-End-Latenz, Controller-Latenz, GPU/CPU/RAM/VRAM und Energieproxy.",
-        "Compute-/Parameter-Budget soweit möglich angleichen oder Ergebnisse zusätzlich normalisiert nach Kosten/Parameter berichten.",
-        "Mehrere Seeds und Konfidenzintervalle verwenden; ein einzelner Showcase-Run gilt nicht als Verbesserung.",
-        "Explizit testen, ob das Connectome Vorteile gegenüber einem gleich großen zufälligen sparse graph besitzt."
+        "Neue Neuronen/Edges nur bei messbarem wiederkehrendem Fehlermuster und freiem Kapazitätsbudget erzeugen.",
+        "Wachstum zunächst in Shadow-Policy trainieren; keine direkte Live-Promotion.",
+        "Task-/Repository-spezifische Overlays getrennt vom globalen Basismodell halten.",
+        "Replay-Buffer mit alten Aufgaben zur Vermeidung von Catastrophic Forgetting nutzen.",
+        "Vor Promotion Regressionstest auf alten, neuen und adversarialen Episoden erzwingen.",
+        "Rollback auf letzten stabilen Checkpoint in einem Schritt ermöglichen."
       ]
     },
     {
       "id": "FLY-T11",
-      "title": "Reliability-, Safety- und Failure-Mode-Suite aufbauen",
-      "type": "verification",
+      "title": "Fly-Controller in Anantas Gates und Loops integrieren",
+      "type": "implementation",
       "status": "todo",
-      "priority": "P0",
+      "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
       "depends_on": ["FLY-T10"],
       "milestone_id": "FLY-M4",
       "acceptance_criteria": [
-        "OOD-Tasks, neue Tools, fehlende Features, extreme Werte, lange Loops, widersprüchliche Verifier-Signale und Tool-Ausfälle testen.",
-        "Controller muss bei Unsicherheit häufiger auf sichere Fallbacks wechseln statt aggressiver zu handeln.",
-        "Fuzzing für Observation-Schema und numerische Stabilität; NaN/Inf/Spike-Explosion/kein Spike/VRAM-OOM sauber behandeln.",
-        "Replay eines freigegebenen frozen Checkpoints muss bei gleichem Seed und gleichem Backend reproduzierbare Entscheidungen liefern oder dokumentierte Toleranzen besitzen.",
-        "Online-Learning kann per Kill-Switch sofort deaktiviert werden; Baseline-Policy bleibt geladen und verfügbar."
+        "Controller darf nur aus aktuell erlaubten Aktionen wählen.",
+        "Unsicherheit oder OOD-Eingaben führen deterministisch zu ASK_LLM oder ESCALATE_TO_DETERMINISTIC_GATE.",
+        "Kein direkter Tool-Zugriff aus dem Fly-Backend; Ausführung bleibt bei bestehenden Ananta-Komponenten.",
+        "Feature-Flag für off, shadow, advisory und active bereitstellen.",
+        "Shadow-Modus muss identische Runs bewerten können, ohne Verhalten zu verändern."
       ]
     },
     {
       "id": "FLY-T12",
-      "title": "Promotion-Kriterien, Dokumentation und langfristige Forschungsoptionen festlegen",
-      "type": "decision_documentation",
+      "title": "Sauberes Benchmark- und Ablationssystem aufbauen",
+      "type": "verification",
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
@@ -370,75 +435,65 @@
       "depends_on": ["FLY-T11"],
       "milestone_id": "FLY-M4",
       "acceptance_criteria": [
-        "Vor Benchmark feste Promotion-Gates definieren, z. B. keine signifikante Erfolgsratenverschlechterung, messbare Reduktion von LLM-Aufrufen/Kosten und keine Safety-Regression.",
-        "Wenn Fly-Varianten klassische Controller nicht schlagen, Ergebnis dokumentieren und optional nur als Forschungs-/Lehrdemo behalten statt produktiv integrieren.",
-        "Wenn nur Fly+Adapter/Extension gewinnt, klar trennen, welcher Anteil vom biologischen Connectome und welcher von trainierten Zusatzmodulen stammt.",
-        "Deutsche technische Dokumentation zu Datenquelle, Simulator, Training, Plastizität, Extension-Overlay, Checkpoints, Benchmark, Grenzen und Rollback erstellen.",
-        "Optional nächste Phase skizzieren: circuit-level routing, Mushroom-Body-spezifische Lernmodule, Neuromorphic Hardware, Distillation erfolgreicher Policies und Vergleich weiterer biologischer Connectomes."
+        "E0 bis E9 auf identischen held-out Episoden vergleichen.",
+        "Baselines MLP, GRU, kleines SNN, Regeln, contextual bandit, random sparse graph und degree-shuffled Connectome mitführen.",
+        "Metriken: Task-Erfolg, falsche Stop-Entscheidungen, unnötige Retries, Verifier-Nutzung, LLM-Aufrufe, Tokens, Walltime, GPU-Zeit, VRAM und Energieproxy.",
+        "Parameterzahl und Compute-Budget pro Variante dokumentieren.",
+        "Mindestens drei Seeds pro lernender Variante vor Schlussfolgerung verwenden.",
+        "Keine Aussage über Fly-Vorteil ohne Ablation gegen randomisierte Topologien."
+      ]
+    },
+    {
+      "id": "FLY-T13",
+      "title": "Promotion-, Sicherheits- und Stabilitätsgates definieren",
+      "type": "verification",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["FLY-T12"],
+      "milestone_id": "FLY-M4",
+      "acceptance_criteria": [
+        "Keine Promotion bei schlechterer Task-Erfolgsrate als aktuelle Baseline.",
+        "Keine Promotion bei höherer Rate sicherheitskritischer Fehlentscheidungen.",
+        "LLM-/Token-Einsparung allein reicht nicht als Erfolg.",
+        "Neue Policy zuerst shadow, dann advisory, erst danach optional active.",
+        "Drift-, Spike-Rate-, Action-Entropy- und OOD-Monitoring vorsehen.",
+        "Automatischer Fallback bei Instabilität, Timeout oder unbekannter Policy-Version."
+      ]
+    },
+    {
+      "id": "FLY-T14",
+      "title": "Erfolgreiche Fly-Policy optional destillieren und Nutzen der Biologie isolieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["FLY-T13"],
+      "milestone_id": "FLY-M4",
+      "acceptance_criteria": [
+        "Besten Fly-Controller als Teacher für kleinen MLP/GRU/SNN-Student verwenden.",
+        "Prüfen, ob Student gleiche Entscheidungen mit deutlich weniger Compute reproduziert.",
+        "Wenn Distillation ohne Qualitätsverlust gelingt, Fly-System als Trainings-/Explorationssystem statt zwingenden Runtime-Controller bewerten.",
+        "Ablation: biologischen Kern entfernen und Adapter/Extensions identisch weiterverwenden.",
+        "Endbericht klassifiziert Ergebnis ausdrücklich als: Fly-Struktur hilft, Fly-Struktur neutral, Fly-Struktur schadet oder Ergebnis unklar."
       ]
     }
   ],
-  "training_pipeline": {
-    "phase_0_baseline": [
-      "Connectome laden und unverändert simulieren",
-      "Input-/Output-Gruppen definieren",
-      "keine Gewichtsanpassung"
+  "success_criteria": {
+    "minimum": [
+      "Mindestens eine Fly-Variante erreicht auf held-out Agentenepisoden mindestens die Task-Erfolgsrate des aktuellen einfachen Controllers.",
+      "Kein messbarer Anstieg sicherheitskritischer Fehlentscheidungen.",
+      "Reproduzierbarer RTX-3080-Betrieb ohne OOM."
     ],
-    "phase_1_adapter_training": [
-      "Encoder und Readout trainieren",
-      "Core eingefroren",
-      "Offline-Replay aus Ananta-Runs"
+    "strong": [
+      "Mindestens 20 Prozent weniger ASK_LLM-/LLM-Controller-Aufrufe bei gleicher oder besserer Task-Erfolgsrate.",
+      "Mindestens 15 Prozent geringere Controller-bezogene Walltime oder messbar geringere Gesamtkosten.",
+      "Multi-Subgraph- oder Extension-Variante schlägt E1 Trainable-I/O-Adapter und mindestens zwei klassische Baselines."
     ],
-    "phase_2_plasticity": [
-      "kleine allowlistete Subgraphen freigeben",
-      "supervised oder reward-modulated Lernregeln vergleichen",
-      "Gewichtsänderungen hart begrenzen"
-    ],
-    "phase_3_extensions": [
-      "Overlay-Neuronen/Memory hinzufügen",
-      "Validation-gesteuertes Growth/Pruning",
-      "Core bleibt separat versioniert"
-    ],
-    "phase_4_online_adaptation": [
-      "Shadow-Modus",
-      "bounded adaptation",
-      "holdout re-evaluation",
-      "promotion oder rollback"
-    ]
+    "scientific_guardrail": "Gewichtsänderung, Spike-Aktivität oder erfolgreiche Trainings-Loss-Reduktion allein gilt nicht als Nachweis sinnvoller Anpassung."
   },
-  "promotion_metrics": {
-    "primary": [
-      "task_success_rate",
-      "unsafe_or_invalid_action_rate",
-      "llm_calls_per_successful_task",
-      "tokens_per_successful_task",
-      "end_to_end_latency_ms"
-    ],
-    "secondary": [
-      "controller_latency_ms",
-      "verify_call_rate",
-      "retry_rate",
-      "false_stop_rate",
-      "fallback_rate",
-      "peak_vram_bytes",
-      "cpu_time_ms",
-      "gpu_time_ms",
-      "policy_drift"
-    ]
-  },
-  "success_definition": [
-    "Ein Fly-basierter Controller gilt nur dann als technisch sinnvoll, wenn er auf Holdout-Aufgaben mindestens die Erfolgsrate der besten kleinen Baseline hält und gleichzeitig mindestens eine relevante Ressource wie LLM-Aufrufe, Tokens oder End-to-End-Latenz messbar reduziert.",
-    "Zuverlässigkeit muss über mehrere Seeds und Taskfamilien bestehen; Demo-Erfolg allein reicht nicht.",
-    "Ein biologischer Mehrwert gilt erst dann als gezeigt, wenn Fly-Connectome-Varianten einen gleich budgetierten zufälligen sparse graph und klassische Controller schlagen oder klar ergänzen.",
-    "Produktive Nutzung setzt jederzeitigen deterministischen Fallback, reproduzierbare Checkpoints und getesteten Rollback voraus."
-  ],
-  "non_goals": [
-    "Das Drosophila-Connectome als Ersatz für Sprachmodelle oder semantisches Reasoning verwenden.",
-    "Behaupten, dass biologische Struktur automatisch intelligenter, schneller oder zuverlässiger als klassische ML-Controller ist.",
-    "Das Originalconnectome unversioniert zu überschreiben oder Trainingsänderungen ohne Provenienz zu speichern.",
-    "Unbegrenztes selbstständiges Wachstum oder Selbstmodifikation im produktiven Betrieb erlauben.",
-    "Safety-, Permission- oder Budget-Gates durch gelernte Policies ersetzen."
-  ],
   "critical_path_tasks": [
     "FLY-T01",
     "FLY-T02",
@@ -446,54 +501,40 @@
     "FLY-T04",
     "FLY-T05",
     "FLY-T06",
+    "FLY-T07",
+    "FLY-T08",
     "FLY-T09",
     "FLY-T10",
     "FLY-T11",
-    "FLY-T12"
+    "FLY-T12",
+    "FLY-T13",
+    "FLY-T14"
   ],
   "tasks_status_summary": {
-    "total": 12,
+    "total": 14,
     "by_status": {
-      "todo": 12,
+      "todo": 14,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
-    "by_priority": {
-      "P0": 2,
-      "P1": 8,
-      "P2": 2,
-      "P3": 0
-    },
-    "by_risk": {
-      "low": 0,
-      "medium": 5,
-      "high": 7
-    }
+    "progress_percent_done": 0
   },
-  "meta": {
-    "created": "2026-09-12",
-    "updated": "2026-09-12",
-    "notes": [
-      "Das Vorhaben ist bewusst experimentell. Die zentrale Frage ist nicht, ob ein Fly-Connectome faszinierend ist, sondern ob es bei gleicher Evaluationshärte einen messbaren Vorteil für Ananta liefert.",
-      "Doomfly dokumentiert aktuell auch negative Lernresultate; genau diese Art von Negativkontrollen soll in Ananta übernommen werden.",
-      "Erweiterungen des Fliegenhirns werden als Overlay modelliert, damit der biologische Core immer unverändert rekonstruierbar bleibt."
-    ],
-    "recommended_order": [
-      "FLY-T01",
-      "FLY-T02",
-      "FLY-T03",
-      "FLY-T04",
-      "FLY-T05",
-      "FLY-T06",
-      "FLY-T09",
-      "FLY-T10",
-      "FLY-T07",
-      "FLY-T08",
-      "FLY-T11",
-      "FLY-T12"
-    ]
-  }
+  "recommended_order": [
+    "FLY-T01",
+    "FLY-T02",
+    "FLY-T03",
+    "FLY-T04",
+    "FLY-T05",
+    "FLY-T06",
+    "FLY-T07",
+    "FLY-T08",
+    "FLY-T09",
+    "FLY-T10",
+    "FLY-T11",
+    "FLY-T12",
+    "FLY-T13",
+    "FLY-T14"
+  ]
 }
