@@ -1,0 +1,222 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "created": "2026-09-15",
+  "goal": "Nex-N2.5-mini lokal in Ananta evaluieren und gegen Qwen3.5-35B-A3B sowie Phi-3.5-mini vergleichen. Schwerpunkt sind Tool-Use, deterministische Gates, Parser, Loops, Plan.md und Long-Running-Workflows auf begrenzter Consumer-Hardware.",
+  "owner": "Peter Stuiber / Ananta",
+  "priority": "P1",
+  "priority_scale": ["P0", "P1", "P2"],
+  "purpose": "Prüfen, ob Nex-N2.5-mini durch agentisches Post-Training gegenüber der Qwen3.5-Basis einen messbaren Vorteil für Ananta liefert und wie viel zusätzlicher Nutzen durch Anantas Gates, Parser und Workflow-Orchestrierung verbleibt.",
+  "status": "todo",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "risk_scale": ["low", "medium", "high"],
+  "hardware": {
+    "gpu": "RTX 5060 Ti 16 GB",
+    "ram": "64 GB",
+    "target_runtimes": ["llama.cpp", "Ollama", "LM Studio"]
+  },
+  "models": [
+    {
+      "name": "Nex-N2.5-mini",
+      "role": "primary_candidate",
+      "notes": "35B-MoE-Klasse mit ca. 3B aktiven Parametern; agentisch post-trainiert. Exakte Upstream-Version, Lizenz und Quantisierung vor Umsetzung verifizieren."
+    },
+    {
+      "name": "Qwen3.5-35B-A3B",
+      "role": "architecture_baseline",
+      "notes": "Nahe bzw. zugrunde liegende Architektur-Baseline; exakte Modellbeziehung vor Benchmark dokumentieren."
+    },
+    {
+      "name": "Phi-3.5-mini-instruct",
+      "role": "small_model_control",
+      "notes": "Bestehende kleine Ananta-Baseline für Parser/Gates und ressourcenschonenden Tool-Use."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "NEX25-M1",
+      "title": "Modell, Runtime und lokale Machbarkeit",
+      "status": "todo",
+      "task_ids": ["NEX25-001", "NEX25-002"]
+    },
+    {
+      "id": "NEX25-M2",
+      "title": "Ananta-Integration und Agent-Loop",
+      "status": "todo",
+      "task_ids": ["NEX25-003", "NEX25-004", "NEX25-005", "NEX25-006"]
+    },
+    {
+      "id": "NEX25-M3",
+      "title": "Benchmark, Evolver und Entscheidung",
+      "status": "todo",
+      "task_ids": ["NEX25-007", "NEX25-008", "NEX25-009", "NEX25-010"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "NEX25-001",
+      "milestone_id": "NEX25-M1",
+      "title": "Upstream, Lizenz und Quantisierungen verifizieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Offizielles Nex-N2.5-mini-Repository, exakte Modellkarte, Basis-/Ableitungsbeziehung, Lizenz und unterstützte Tool-/Reasoning-Formate dokumentieren.",
+        "Verfügbare GGUF-, FP8-, FP4- oder andere lokale Quantisierungen erfassen und zwischen offiziellen und Community-Artefakten unterscheiden.",
+        "Q4_K_M, Q4_K_S, IQ4 und bei Bedarf Q3-Varianten hinsichtlich Dateigröße, RAM/VRAM-Bedarf und erwartbarer Qualitätsverluste vergleichen.",
+        "Keine unbestätigten Modellparameter, Hardwareanforderungen oder Kompatibilitätsaussagen als Fakt übernehmen."
+      ]
+    },
+    {
+      "id": "NEX25-002",
+      "milestone_id": "NEX25-M1",
+      "title": "Lokale Runtime-Machbarkeit auf 16 GB VRAM + 64 GB RAM prüfen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["NEX25-001"],
+      "acceptance_criteria": [
+        "llama.cpp, Ollama und LM Studio praktisch auf Unterstützung für Architektur, MoE, Kontext, Tool-Calling und optional Vision prüfen.",
+        "GPU-Offload-Varianten mit 16 GB VRAM messen; vollständige Modellgröße, tatsächlich belegter VRAM, System-RAM und Startzeit dokumentieren.",
+        "Mindestens eine reproduzierbare lokale Startkonfiguration liefern oder den Track mit belegtem technischen Blocker kennzeichnen.",
+        "Tokens/s für kurze und längere Kontexte messen; Prompt-Processing und Generation getrennt ausweisen."
+      ]
+    },
+    {
+      "id": "NEX25-003",
+      "milestone_id": "NEX25-M2",
+      "title": "Natives Tool-Calling in Ananta anbinden",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["NEX25-002"],
+      "acceptance_criteria": [
+        "Nex-Ausgabeformat für Tool-Calls und Reasoning anhand realer Antworten erfassen und Parser nur für belegte Formate implementieren.",
+        "Vorhandene Ananta-Provider-, Parser- und Tool-Verträge wiederverwenden; keine Nex-spezifische Sonderarchitektur außerhalb klarer Adaptergrenzen.",
+        "Ungültige, unvollständige oder halluzinierte Tool-Calls weiterhin über bestehende Validierungs- und Repair-Pfade behandeln.",
+        "Native Tool-Calling-Qualität ohne zusätzliche Ananta-Reparatur separat messbar machen."
+      ]
+    },
+    {
+      "id": "NEX25-004",
+      "milestone_id": "NEX25-M2",
+      "title": "Deterministische Ananta-Gates als Sicherheitsschicht testen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["NEX25-003"],
+      "acceptance_criteria": [
+        "Schema-, Tool-Allowlist-, Argument-, Pfad- und Dateisystem-Gates auf Nex-Tool-Calls anwenden.",
+        "Halluzinierte Tools, ungültige Argumente und unerlaubte Pfade deterministisch blockieren.",
+        "Retry- und Repair-Mechanismen mit klaren Maximalgrenzen betreiben; keine unendlichen Reparaturschleifen.",
+        "Erfassen, welche Fehler bereits nativ vermieden werden und welche erst durch Ananta-Gates verhindert werden."
+      ]
+    },
+    {
+      "id": "NEX25-005",
+      "milestone_id": "NEX25-M2",
+      "title": "Mehrstufigen Agent-Loop verifizieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["NEX25-004"],
+      "acceptance_criteria": [
+        "Prompt -> Tool-Call -> Gate -> Tool -> Result -> LLM als reproduzierbaren Loop testen.",
+        "Mehrere Tool-Aufrufe über mindestens 10 und optional 20+ Schritte ohne manuelle Eingriffe ausführen.",
+        "Max-Steps, Token-Budget, Fehlerbudget und Abbruchbedingungen explizit konfigurieren.",
+        "Infinite-Loops, wiederholte identische Tool-Aufrufe und stagnierende Pläne deterministisch erkennen."
+      ]
+    },
+    {
+      "id": "NEX25-006",
+      "milestone_id": "NEX25-M2",
+      "title": "Plan.md und persistente Zwischenzustände testen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["NEX25-005"],
+      "acceptance_criteria": [
+        "Kleinen persistenten Plan zwischen LLM-Aufrufen verwenden und Fortschritt, offene Schritte und erledigte Schritte getrennt speichern.",
+        "Prüfen, ob Nex sinnvolle Planänderungen vorschlägt und ob Ananta diese über deterministische Regeln begrenzen kann.",
+        "Planänderungen, Tool-Ergebnisse und Fehler so speichern, dass ein unterbrochener Workflow reproduzierbar fortgesetzt werden kann.",
+        "Plan.md darf keine Instruktionsautorität gegenüber Tool-Policy, Gates oder Sicherheitsregeln erhalten."
+      ]
+    },
+    {
+      "id": "NEX25-007",
+      "milestone_id": "NEX25-M3",
+      "title": "Long-Running-Workflow-Benchmark erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": ["NEX25-006"],
+      "acceptance_criteria": [
+        "Feste Szenarien für Repository-Analyse, Fehlerfindung, Patch-Erstellung, Multi-File-Änderungen, Testausführung und Fehlerreparatur definieren.",
+        "Mindestens ein Szenario mit Recherche/API-Nutzung und anschließendem strukturiertem Ergebnis aufnehmen.",
+        "Mindestens ein 20+-Schritt-Szenario für Kontext-, Plan- und Loop-Stabilität aufnehmen.",
+        "Testdaten, Tool-Set, Prompts, Seeds soweit verfügbar und Budgets einfrieren, damit Modellvarianten vergleichbar bleiben."
+      ]
+    },
+    {
+      "id": "NEX25-008",
+      "milestone_id": "NEX25-M3",
+      "title": "A/B-Vergleich gegen Qwen3.5 und Phi-3.5 durchführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": ["NEX25-007"],
+      "acceptance_criteria": [
+        "Nex-N2.5-mini ohne und mit Ananta-Gates vergleichen.",
+        "Qwen3.5-35B-A3B ohne und mit denselben Ananta-Gates vergleichen.",
+        "Phi-3.5-mini mit bestehendem Ananta-System als kleine ressourcenschonende Kontrollgruppe messen.",
+        "Bei nicht identischen Tool-Templates oder Chat-Formaten Unterschiede explizit dokumentieren statt Ergebnisse als vollständig äquivalent darzustellen."
+      ]
+    },
+    {
+      "id": "NEX25-009",
+      "milestone_id": "NEX25-M3",
+      "title": "Qualität, Geschwindigkeit und Ressourcen messen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": ["NEX25-008"],
+      "acceptance_criteria": [
+        "Task success rate, Tool-call success rate, ungültige Tool-Calls, halluzinierte Tools, Parser-Reparaturen, Gate-Rejections und Retries erfassen.",
+        "Steps bis Abschluss, Tokens pro Task, Tokens/s und Time-to-completion messen.",
+        "VRAM, RAM und CPU-Auslastung je Konfiguration erfassen.",
+        "Mehrere Läufe für stochastische Varianten wiederholen und Streuung statt nur Einzelwerte berichten."
+      ]
+    },
+    {
+      "id": "NEX25-010",
+      "milestone_id": "NEX25-M3",
+      "title": "Evolver-Integration und Modellentscheidung abschließen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": ["NEX25-009"],
+      "acceptance_criteria": [
+        "Benchmark-Fehler als Feedback für Prompt-, Parser- und Gate-Optimierung nutzbar machen.",
+        "Nur Änderungen übernehmen, die auf eingefrorenen Benchmarks reproduzierbar verbessern und keine Sicherheitsregression verursachen.",
+        "Abschlussentscheidung dokumentieren: Nex als Standard, optionaler Provider, Spezialmodell oder keine Integration.",
+        "Empfohlene lokale Standardkonfiguration für RTX 5060 Ti 16 GB + 64 GB RAM inklusive Runtime, Quantisierung und Offload festhalten."
+      ]
+    }
+  ],
+  "success_criteria": [
+    "Nex-N2.5-mini läuft reproduzierbar lokal auf RTX 5060 Ti 16 GB plus 64 GB System-RAM oder die technische Grenze ist belastbar dokumentiert.",
+    "Tool-Calls funktionieren über mehrere Agent-Schritte und sind durch dieselben Ananta-Policies absicherbar.",
+    "Der zusätzliche Nutzen der Ananta-Gates gegenüber rein nativem Nex-Tool-Calling ist messbar.",
+    "Der Vergleich zu Qwen3.5-35B-A3B trennt nach Möglichkeit Basismodell-Effekt von agentischem Post-Training.",
+    "Phi-3.5 bleibt als ressourcenschonende Kontrollgruppe erhalten.",
+    "Eine klare Empfehlung für Integration, Nicht-Integration oder optionalen Einsatz liegt vor."
+  ],
+  "deliverables": [
+    "Nex Runtime-/Provider-Adapter oder dokumentierter Blocker",
+    "Tool-Call-Parser/Adapter",
+    "Benchmark-Suite",
+    "Benchmark-Ergebnisse als JSON",
+    "Modellvergleich Nex vs. Qwen3.5 vs. Phi-3.5",
+    "Empfohlene Standardkonfiguration für lokale Nutzung in Ananta"
+  ]
+}
