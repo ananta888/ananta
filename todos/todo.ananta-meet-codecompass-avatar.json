@@ -1,15 +1,22 @@
 {
   "id": "ananta-meet-codecompass-avatar",
-  "title": "Ananta Meet Avatar – selbst-erklärende Ananta-Schlange mit CodeCompass",
+  "title": "Ananta Meet Avatar – selbst-erklärende, sprechende Ananta-Schlange mit CodeCompass",
   "status": "todo",
   "priority": "medium",
-  "goal": "Einen freundlichen, fröhlichen Schlangen-Avatar passend zum Ananta-Logo als sichtbaren Agenten in Ananta Meet integrieren. Der Avatar erklärt Ananta, Ananta Meet und seine eigene Funktionsweise anhand des aktuellen Repository-Zustands über CodeCompass.",
+  "goal": "Einen freundlichen, fröhlichen Schlangen-Avatar passend zum Ananta-Logo als sichtbaren Agenten in Ananta Meet integrieren. Die Schlange spricht mit synchroner Mund-, Kopf-, Augen- und Körperbewegung und erklärt Ananta sowie ihre eigene Funktionsweise anhand des aktuellen Repository-Zustands über CodeCompass.",
   "requirements": [
     "Avatar visuell an das bestehende Ananta-Logo anlehnen; freundlich, fröhlich, neugierig und auch als kleines Meet-Teilnehmerbild gut erkennbar.",
-    "Leichtgewichtige SVG/Web-Umsetzung bevorzugen; kein 3D-System für den MVP erforderlich.",
+    "Leichtgewichtige SVG/Canvas/Web-Umsetzung bevorzugen; kein 3D-System für den MVP erforderlich.",
     "Mindestens die Zustände idle, listening, thinking und speaking darstellen; später optional happy und error/confused.",
     "Avatar als sichtbaren Agenten-/Maschinen-Teilnehmer in Ananta Meet integrieren.",
-    "Bestehende Meet-Dialog-, Speech- und Audio-Pfade wiederverwenden statt parallele Infrastruktur aufzubauen.",
+    "Audio und Avatar-Video müssen synchron aus derselben Zeitbasis erzeugt werden; kein unabhängiges Starten zweier ungefähr synchroner Abläufe.",
+    "Während TTS-Audio abgespielt wird, muss dasselbe Audiosignal die Sprechbewegung des Avatars steuern.",
+    "Mundöffnung im MVP mindestens aus Audio-Level/Envelope ableiten; später echte Phonem-/Visem-Zuordnung für A/O/M/F/S usw. ermöglichen.",
+    "Während des Sprechens natürliche Kopf- und Körperbewegungen ergänzen, die nicht zufällig hektisch wirken und den Lip-Sync nicht beeinträchtigen.",
+    "Blinzeln und dezente Augenbewegungen unabhängig vom Mund ermöglichen; listening/thinking/speaking sollen unterschiedliche Körpersprache besitzen.",
+    "Bei Sprachpausen muss der Mund passend schließen; Idle-Bewegungen dürfen weiterlaufen.",
+    "Audio und gerenderter Avatar sollen als zusammengehörige WebRTC Audio- und Video-Tracks an Ananta Meet publiziert werden, sodass die Schlange wie ein normaler sprechender Teilnehmer erscheint.",
+    "Bestehende Meet-Dialog-, Speech-, Publication-, Audio- und WebRTC-Pfade wiederverwenden statt parallele Infrastruktur aufzubauen.",
     "Repository- und Architekturfragen über CodeCompass routen und vorhandene Tools wie codecompass.resolve_context und codecompass.search_symbols wiederverwenden.",
     "Symbolgraph, Repository Intelligence, Dokumentation, Dateien und Relationen als Quellen für Erklärungen verwenden.",
     "Der Avatar soll Fragen wie 'Was ist Ananta?', 'Wie funktioniert Ananta Meet?', 'Wie funktioniert deine Sprachausgabe?', 'Welche Datei macht das?' und 'Wie hast du diese Antwort erzeugt?' beantworten können.",
@@ -23,16 +30,25 @@
     "Feature Flags für Avatar und CodeCompass-Self-Knowledge vorsehen."
   ],
   "architecture": {
-    "flow": [
+    "dialog_flow": [
       "Meet user speech/chat",
       "Ananta Meet dialog",
       "Avatar assistant/router",
       "CodeCompass retrieval for Ananta/self questions",
       "repository context + runtime evidence",
       "configured LLM",
-      "answer + sources",
-      "Meet speech output",
-      "animated Ananta snake avatar"
+      "answer text",
+      "TTS"
+    ],
+    "synchronized_media_flow": [
+      "TTS audio with monotonic media timeline",
+      "same audio -> WebRTC audio track",
+      "same audio -> Web Audio/PCM analyzer",
+      "analyzer -> amplitude/envelope and optional phoneme/viseme timestamps",
+      "animation controller combines speech timing with avatar state",
+      "SVG/Canvas renderer generates snake frames",
+      "renderer -> WebRTC video track",
+      "audio and video published together to Ananta Meet"
     ],
     "routing": {
       "ananta_code_architecture": "CodeCompass",
@@ -40,26 +56,60 @@
       "general_question": "normal configured LLM"
     }
   },
+  "avatar_state_machine": {
+    "idle": "dezent atmen/wippen, gelegentlich blinzeln, Mund geschlossen",
+    "listening": "aufmerksame Haltung und Blickreaktion auf aktiven Sprecher",
+    "thinking": "ruhige erkennbare Denkbewegung ohne Sprechbewegung",
+    "speaking": "Lip-Sync plus dezente Kopf-/Körpergestik und Blinzeln",
+    "transition_rule": "Zustandswechsel mit kurzen weichen Übergängen; TTS-Start und -Ende steuern speaking deterministisch"
+  },
+  "lip_sync": {
+    "mvp": "Audio-Level/Envelope aus dem tatsächlich publizierten TTS-Signal steuert kontinuierlich die Mundöffnung; Silence-Gate schließt den Mund in Pausen.",
+    "advanced": "Wenn TTS oder Alignment Phonem-Zeitstempel liefern kann, diese in wenige robuste Viseme/Mundformen mappen und auf derselben Media-Timeline abspielen.",
+    "fallback": "Fehlen Phoneme/Viseme, immer Audio-Level-Lip-Sync verwenden statt unsynchronisierte vorgefertigte Mundanimationen.",
+    "sync_requirement": "Audio- und Videoerzeugung müssen dieselbe monotone Media-Clock bzw. gemeinsame Zeitstempel verwenden, damit Drift vermieden bzw. korrigierbar bleibt."
+  },
+  "rendering": {
+    "preferred_mvp": "SVG oder Canvas im Web-Renderer",
+    "components": [
+      "snake body/head",
+      "eyes/eyelids",
+      "mouth with continuous opening parameter",
+      "optional viseme mouth shapes",
+      "head/body transform",
+      "state animation controller"
+    ],
+    "video_output": "Canvas/SVG composition to MediaStream/video track suitable for the existing Meet/WebRTC publication path"
+  },
   "implementation_hints": [
-    "Prüfe agent/routes/meet.py und agent/bootstrap/meet.py sowie bestehende Meet-Dialog-, Speech-Output- und Publication-Komponenten.",
+    "Prüfe agent/routes/meet.py und agent/bootstrap/meet.py sowie bestehende Meet-Dialog-, Speech-Output-, Publication- und WebRTC-Komponenten.",
+    "TTS-Audio nur einmal erzeugen und denselben PCM/Audio-Stream sowohl publizieren als auch zur Animationsanalyse verwenden.",
+    "Im Browser/Web-Renderer Web Audio API AnalyserNode oder äquivalente PCM-Analyse für Envelope/RMS verwenden.",
+    "Für Video Canvas captureStream bzw. den im Meet-Stack bereits vorgesehenen Video-Publication-Pfad prüfen; keine zweite unabhängige Medienpipeline einführen, wenn bestehende Infrastruktur nutzbar ist.",
+    "Audio-/Video-Timestamps messen und einen Drift-Test vorsehen; Ziel ist sichtbar lippensynchrones Sprechen auch bei längeren Antworten.",
     "Prüfe docs/codecompass.md und docs/codecompass-tools.md und verwende bestehende CodeCompass-Verträge statt eines separaten RAG-Systems.",
-    "Avatar-Animation zunächst über Zustandswechsel und Audio-Level realisieren; Lip-Sync kann später erweitert werden.",
     "Vorgeschlagene Flags: ANANTA_MEET_AVATAR_ENABLED=1 und ANANTA_MEET_AVATAR_CODECOMPASS=1."
   ],
   "acceptance_criteria": [
-    "In Ananta Meet ist ein sichtbarer Ananta-Schlangen-Avatar vorhanden.",
+    "In Ananta Meet ist ein sichtbarer Ananta-Schlangen-Avatar als Teilnehmer vorhanden.",
     "idle, listening, thinking und speaking sind visuell unterscheidbar.",
+    "Wenn TTS spricht, bewegt sich der Mund synchron zum tatsächlich hörbaren Audiosignal.",
+    "Bei hörbaren Sprachpausen schließt sich der Mund zuverlässig.",
+    "Die Schlange bewegt während des Sprechens zusätzlich Kopf/Körper und blinzelt natürlich.",
+    "Audio und Video werden gemeinsam über den Meet/WebRTC-Medienpfad publiziert und bleiben bei längeren Antworten synchron.",
+    "Ein automatisierter oder reproduzierbarer Test misst Audio-/Video-Drift und verhindert deutlich auseinanderlaufende Streams.",
     "Text- und Sprachfragen können beantwortet werden.",
     "Ananta-/Repository-Fragen verwenden CodeCompass.",
     "Antworten können die wichtigsten tatsächlich verwendeten Repository-Quellen nennen.",
     "Der Avatar kann Ananta und Ananta Meet erklären.",
-    "Der Avatar kann seine eigene Sprachausgabe anhand des Codes erklären.",
+    "Der Avatar kann seine eigene Sprachausgabe und Avatar-Pipeline anhand des Codes erklären.",
     "Der Avatar kann für die letzte Antwort eine nachvollziehbare Self-Explanation liefern.",
     "Fehlende Retrieval-Evidenz führt nicht zu erfundenen Dateien oder Symbolen.",
     "Lokale Modelle bleiben nutzbar."
   ],
   "future": [
-    "Audio-Level-Lip-Sync und ausdrucksstärkere Animation",
+    "Phonem-/Visem-Lip-Sync statt ausschließlich Audio-Level",
+    "ausdrucksstärkere prozedurale Gestik und Emotionen",
     "CodeCompass-Graph während einer Erklärung visualisieren",
     "Zeig-mir-deinen-Code-Modus mit Dateien, Symbolen und Codeausschnitten",
     "Beginner-, Developer- und Architect-Erklärmodi",
