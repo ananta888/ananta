@@ -6,6 +6,7 @@ message with live speech (Piper PCM) plus a chat reply.
 """
 
 import base64
+import hashlib
 import json
 import os
 import tempfile
@@ -48,6 +49,14 @@ def fetch_grant(identity=None):
     )
     with urllib.request.urlopen(request, timeout=10) as response:
         return json.load(response)
+
+
+AVATAR_PNG = os.environ.get("MEET_AVATAR_PNG", "/state/ananta-avatar.png")
+
+
+def avatar_image():
+    data = Path(AVATAR_PNG).read_bytes()
+    return {"png": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest()}
 
 
 def generate_reply(text):
@@ -170,7 +179,8 @@ def run():
                         pass
                     try:
                         receipt = page.evaluate(
-                            "(s) => window.anantaMachine.avatar.open(s, 'neutral-ai-v1')", avatar_source
+                            "(a) => window.anantaMachine.avatar.open(a[0], 'persona-image-v1', a[1])",
+                            [avatar_source, avatar_image()],
                         )
                         avatar_generation = receipt["generation"]
                         avatar_opened = now
