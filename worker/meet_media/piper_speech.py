@@ -1,6 +1,7 @@
 """Local Piper sentence adapter; fixed PCM format and no cloud/CPU fallback."""
 
 import json
+import os
 
 import numpy as np
 
@@ -52,11 +53,49 @@ def load_cuda_voice(profile=None):
     return voice
 
 
+def load_cpu_voice(profile=None):
+    """Dev-only CPU fallback: structurally identical to load_cuda_voice without CUDA gates."""
+    import onnxruntime as ort
+    from piper import PiperVoice
+    from piper.config import PiperConfig
+
+    profile = validate_speech_profile(profile if profile is not None else speech_profile())
+    preset = voice_preset(profile["voice_id"])
+    model, config = load_pinned_assets(profile)
+    configuration = json.loads(config)
+    if preset.model.speakers and (
+        not isinstance(configuration, dict)
+        or type(configuration.get("num_speakers")) is not int
+        or configuration["num_speakers"] != len(preset.model.speakers)
+        or configuration.get("speaker_id_map") != dict(preset.model.speakers)
+        or any(type(value) is not int for value in configuration["speaker_id_map"].values())
+    ):
+        raise ValueError("meet_piper_speaker_map_invalid")
+    voice = PiperVoice(
+        config=PiperConfig.from_dict(configuration),
+        session=ort.InferenceSession(
+            model,
+            sess_options=ort.SessionOptions(),
+            providers=[("CPUExecutionProvider", {})],
+        ),
+        use_tashkeel=False,
+    )
+    if voice.config.sample_rate != SAMPLE_RATE:
+        raise ValueError("meet_speech_sample_rate_unsupported")
+    return voice
+
+
 class PiperSpeechSource:
     def __init__(self, *, loader=None, profile=None):
         self.profile = validate_speech_profile(profile if profile is not None else speech_profile())
         self.preset = voice_preset(self.profile["voice_id"])
-        self.loader = loader if loader is not None else lambda: load_cuda_voice(self.profile)
+        self.loader = loader if loader is not None else lambda: self._load(self.profile)
+
+    @staticmethod
+    def _load(profile):
+        if os.environ.get("ANANTA_CPU_FALLBACK") == "1":
+            return load_cpu_voice(profile)
+        return load_cuda_voice(profile)
 
     def synthesize(self, text, *, max_samples, require_current):
         require_current()

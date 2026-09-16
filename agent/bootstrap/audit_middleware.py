@@ -22,6 +22,10 @@ def _request_target() -> dict[str, Any]:
 def register_audit_middleware(app: Flask) -> None:
     @app.before_request
     def _audit_before_request() -> None:
+        import os
+
+        if os.environ.get("ANANTA_DISABLE_HTTP_AUDIT") == "1":
+            return
         g._audit_started_at = time.time()
         decision = get_http_audit_policy().request_started(
             method=request.method,
@@ -44,6 +48,10 @@ def register_audit_middleware(app: Flask) -> None:
 
     @app.after_request
     def _audit_after_request(response):
+        import os
+
+        if os.environ.get("ANANTA_DISABLE_HTTP_AUDIT") == "1":
+            return response
         started = float(getattr(g, "_audit_started_at", time.time()))
         duration_ms = int((time.time() - started) * 1000)
         decision = get_http_audit_policy().request_completed(

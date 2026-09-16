@@ -1,11 +1,18 @@
 """One bounded fixed-format frame sequence; encoding is independent of its source."""
 
 import math
+import os
 import subprocess
 
 from ananta_contracts.meet_media_failures import MediaCapabilityError
 from worker.meet_media.av_quality import MAX_VIDEO_BYTES, verify_encoded_media
-from worker.meet_media.video_encoder_profile import NVENC_OPTIONS
+from worker.meet_media.video_encoder_profile import CPU_OPTIONS, NVENC_OPTIONS
+
+
+def _encoder_options():
+    if os.environ.get("ANANTA_CPU_FALLBACK") == "1":
+        return CPU_OPTIONS
+    return NVENC_OPTIONS
 
 
 def encode_frames(audio, duration, directory, *, frame_source, require_current):
@@ -40,7 +47,7 @@ def encode_frames(audio, duration, directory, *, frame_source, require_current):
             str(raw_path),
             "-i",
             str(audio),
-            *NVENC_OPTIONS,
+            *_encoder_options(),
             "-c:a",
             "aac",
             "-b:a",

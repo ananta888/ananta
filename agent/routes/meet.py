@@ -108,6 +108,40 @@ def media_turn(project, task=""):
     )
 
 
+@meet_bp.post("/internal/companion")
+def media_companion_grant():
+    """Worker-only companion grant; authenticated by the scoped worker key."""
+    import json
+
+    from worker.meet_media.contract import authenticate
+
+    _runtime()
+    runtime = current_app.extensions.get("meet_turn_service")
+    key = current_app.extensions.get("meet_media_worker_key")
+    if runtime is None or key is None:
+        raise MeetError("meet_media_disabled", 404)
+    if request.args or request.content_length is None or not 0 < request.content_length <= 512:
+        raise MeetError("meet_lease_invalid")
+    raw = request.get_data(cache=False)
+    try:
+        authenticate(key, raw, request.headers.get("X-Ananta-Task-Signature", ""))
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        raise MeetError("meet_lease_unauthorized", 401) from None
+    project = payload.get("project_id")
+    if not isinstance(project, str) or not project:
+        raise MeetError("meet_lease_unauthorized", 401)
+    capabilities = payload.get("capabilities")
+    identity = {
+        key: payload[key]
+        for key in ("task_id", "lease_id", "runtime_id", "session_id")
+        if isinstance(payload.get(key), str) and payload.get(key)
+    }
+    result = runtime.companion_grant_service(project, capabilities, identity)
+    result["schema"] = "ananta.meet-companion-grant.v1"
+    return jsonify(result)
+
+
 @meet_bp.post("/internal/lease")
 def media_lease():
     """Read-only worker capability endpoint; never accepts a user/service JWT."""
@@ -135,8 +169,6 @@ def media_lease():
     except (ValueError, TypeError):
         raise MeetError("meet_lease_unauthorized", 401) from None
     if isinstance(payload, dict) and set(payload) == {"task_id", "lease_id"}:
-        # V1 signed only {allowed:true}; a recorded result could authorize a
-        # different/revoked lease. Never silently downgrade to that protocol.
         raise MeetError("meet_lease_protocol_upgrade_required", 409)
     try:
         validate_lease_request(payload)

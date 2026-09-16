@@ -79,6 +79,54 @@ class MeetTurnService:
             video_profiles=self.persona_video_profiles,
         )
 
+    def companion_grant_service(self, project, capabilities=None, identity=None):
+        """Worker-key authenticated companion grant (no human session required)."""
+        from agent.services.source_control_access_policy import HubSourcePrincipal
+
+        tenant_id = next(
+            (tenant for tenant, scoped in self.allowed_scopes if scoped == project), "admin"
+        )
+        principal = HubSourcePrincipal(
+            subject_id="ananta-companion", tenant_id=tenant_id, project_id=project, roles=frozenset({"admin"})
+        )
+        return self.companion_grant(principal, project, capabilities, identity)
+
+    def companion_grant(self, principal, project, capabilities=None, identity=None):
+        """Mint a v2 machine grant for a persistent companion (no turn dispatch).
+
+        The room server renews a session only for the same (issuer, tenant,
+        project, taskId, runtimeId, hubSessionId) binding, so a renewal must
+        reuse the identity of the first grant; a fresh identity starts a new
+        session. Grants stay bounded by the room server (<= 600s).
+        """
+        self.binding.require_write_access(principal, project, "")
+        if (principal.tenant_id, project) not in self.allowed_scopes:
+            raise MeetError("meet_media_policy_denied", 403)
+        if self.grant_issuer is None:
+            raise MeetError("meet_machine_publication_disabled", 403)
+        caps = tuple(capabilities) if capabilities else (
+            "avatar.publish", "speech.publish", "chat.send", "chat.read",
+        )
+        identity = identity or {}
+        now = self.clock()
+        task_id = identity.get("task_id") or str(uuid.uuid4())
+        turn = {
+            "schema": SCHEMA,
+            "task_id": task_id,
+            "lease_id": identity.get("lease_id") or str(uuid.uuid4()),
+            "tenant_id": principal.tenant_id,
+            "project_id": project,
+            "deadline": int(now) + 600,
+            "text": "companion",
+        }
+        if self.speech_profile is not None:
+            turn["speech_profile"] = dict(self.speech_profile)
+        runtime_id = identity.get("runtime_id") or "companion-runtime"
+        session_id = identity.get("session_id") or ("companion-" + task_id[:24])
+        return self.grant_issuer.issue_companion(
+            turn, self.binding, principal, now, caps, runtime_id, session_id
+        )
+
     def execute(self, principal, project, payload, task=""):
         # This is generation authority, not authority to join or publish in Meet.
         self.binding.require_write_access(principal, project, task)
@@ -156,8 +204,6 @@ class MeetTurnService:
         context = (task.worker_execution_context or {}).get("meet_media", {})
 
         if "chat_reply" in context:
-            # The v1 publisher does not implement dialog generation/key fencing.
-            # A generated chat reply needs the separate MDS publication path.
             return False
         if (
             context.get("lease_id") != lease_id
@@ -166,8 +212,6 @@ class MeetTurnService:
             or context.get("speech_profile") != self.speech_profile
         ):
             return False
-        # Publication requires explicit project membership even for an admin who
-        # can use the local preview. Role escalation is not part of this lease.
         principal = HubSourcePrincipal(
             context.get("owner_subject", ""), task.tenant_id, task.project_id, frozenset({"user"})
         )

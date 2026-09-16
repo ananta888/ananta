@@ -2,7 +2,7 @@
 
 from ananta_contracts.meet_source_profile import CAPABILITIES
 
-PORTS = frozenset({"session", "mp4", "chat", "audio", "screen", "screenAudio", "speech", "avatar"})
+PORTS = frozenset({"session", "mp4", "chat", "audio", "screen", "screenAudio", "speech", "avatar", "visual"})
 CODECS = frozenset({"vp8Send", "vp8Receive", "opusSend", "opusReceive"})
 FIELDS = frozenset(
     {"schema", "client", "frameEnvelope", "nativeAdapter", "secureContext", "encodedTransform", "codecs", "ports"}

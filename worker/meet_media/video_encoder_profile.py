@@ -29,3 +29,17 @@ NVENC_OPTIONS = (
     "-b:v",
     "350k",
 )
+
+
+CPU_OPTIONS = (
+    "-c:v",
+    "libx264",
+    "-preset",
+    "ultrafast",
+    "-tune",
+    "zerolatency",
+    "-pix_fmt",
+    "yuv420p",
+    "-b:v",
+    "350k",
+)

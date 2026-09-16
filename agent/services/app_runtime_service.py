@@ -12,6 +12,7 @@ def build_base_app_config(agent: str) -> dict[str, Any]:
     agent_name = settings.agent_name if settings.agent_name != "default" else agent
     return {
         "AGENT_NAME": agent_name,
+        "ROLE": settings.role,
         "AGENT_TOKEN": settings.agent_token,
         "AGENT_TOKEN_FILE": settings.agent_token_file,
         "APP_STARTED_AT": time.time(),

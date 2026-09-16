@@ -39,7 +39,6 @@ def generate(text, *, max_output_tokens=128, max_reply_chars=450, transport: Oll
     loaded = transport.models()
     if not any(
         item.get("name") == payload["model"]
-        and item.get("size_vram", 0) > 0
         and item.get("digest")
         == os.environ.get("MEET_LLM_DIGEST", "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b")
         for item in loaded.get("models", [])

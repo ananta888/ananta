@@ -54,6 +54,45 @@ class MeetMachineGrantIssuer:
         )
         return {"origin": scope.origin, "room_id": scope.room_id, "grant": token}
 
+    def issue_companion(
+        self, turn, binding, principal, now, capabilities, runtime_id, session_id, *, ttl=300
+    ):
+        """Long-lived-automation v2 grant carrying explicit capabilities.
+
+        The room server only grants chat.read / receive capabilities to v2 grants;
+        v1 grants are fixed to publish + chat.send. The token stays within the
+        room server's bounded windows (exp - iat <= 600) and is renewed often.
+        """
+        stored = binding.read(principal, turn["project_id"], "")
+        if not stored["invite_url"]:
+            raise MeetError("meet_room_binding_required", 409)
+        room = binding.profile.parse_invite(stored["invite_url"])
+        issued = int(now)
+        expiry = min(issued + int(ttl), int(turn["deadline"]))
+        if expiry <= issued:
+            raise MeetError("meet_companion_grant_expired", 403)
+        token = jwt.encode(
+            {
+                "iss": self.issuer,
+                "aud": "ananta-meet-machine-v2",
+                "sub": "ananta",
+                "iat": issued,
+                "exp": expiry,
+                "jti": secrets.token_hex(16),
+                "roomId": room,
+                "taskId": turn["task_id"],
+                "tenantId": turn["tenant_id"],
+                "projectId": turn["project_id"],
+                "runtimeId": runtime_id,
+                "sessionId": session_id,
+                "capabilities": list(capabilities),
+            },
+            self.key,
+            algorithm="EdDSA",
+            headers=self._headers("ananta-meet-machine-v2+jwt"),
+        )
+        return {"origin": binding.profile.origin, "room_id": room, "grant": token, "expires_at": expiry}
+
     def issue(self, turn, binding, principal, now, task=""):
         stored = binding.read(principal, turn["project_id"], task)
         if not stored["invite_url"]:

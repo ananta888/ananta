@@ -38,7 +38,8 @@ class HubLeaseGuard:
             def redirect_request(self, *_args, **_kwargs):
                 raise ValueError("meet_lease_redirect_denied")
 
-        remaining = min(3, self.deadline - time.monotonic())
+        _cap = 30 if os.environ.get("ANANTA_CPU_FALLBACK") == "1" else 3
+        remaining = min(_cap, self.deadline - time.monotonic())
         if remaining <= 0:
             raise ValueError("meet_hub_lease_revoked_or_unavailable")
         deadline = time.monotonic() + remaining
