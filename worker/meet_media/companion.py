@@ -60,9 +60,10 @@ def avatar_image():
 
 
 def generate_reply(text):
+    from worker.meet_media.assist import build_context
     from worker.meet_media.llm import answer
 
-    return answer(text)
+    return answer(text, context=build_context(text))
 
 
 def synthesize_pcm(reply):

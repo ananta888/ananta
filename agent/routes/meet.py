@@ -142,6 +142,56 @@ def media_companion_grant():
     return jsonify(result)
 
 
+@meet_bp.post("/internal/assist/retrieve")
+def media_assist_retrieve():
+    """Worker-only CodeCompass context lookup for the companion session.
+
+    Authenticated by the same scoped worker key as the companion grant, so the
+    media worker never holds user or backend retrieval credentials.
+    """
+    import json
+
+    from worker.meet_media.contract import authenticate
+
+    _runtime()
+    key = current_app.extensions.get("meet_media_worker_key")
+    if key is None:
+        raise MeetError("meet_media_disabled", 404)
+    if request.args or request.content_length is None or not 0 < request.content_length <= 4096:
+        raise MeetError("meet_retrieve_invalid")
+    raw = request.get_data(cache=False)
+    try:
+        authenticate(key, raw, request.headers.get("X-Ananta-Task-Signature", ""))
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        raise MeetError("meet_retrieve_unauthorized", 401) from None
+    query = payload.get("query")
+    if not isinstance(query, str) or not query.strip() or len(query) > 1000:
+        raise MeetError("meet_retrieve_query_invalid")
+    limit = payload.get("limit")
+    limit = 5 if not isinstance(limit, int) else max(1, min(int(limit), 8))
+
+    from agent.services.knowledge_index_retrieval_service import (
+        KnowledgeIndexRetrievalService,
+    )
+
+    snippets = []
+    for record in KnowledgeIndexRetrievalService().search_records(
+        query.strip(), limit=limit
+    ):
+        if not isinstance(record, dict):
+            continue
+        content = str(record.get("content") or "")
+        snippets.append(
+            {
+                "path": str(record.get("path") or record.get("file") or ""),
+                "score": record.get("score"),
+                "excerpt": content[:1200],
+            }
+        )
+    return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": snippets})
+
+
 @meet_bp.post("/internal/lease")
 def media_lease():
     """Read-only worker capability endpoint; never accepts a user/service JWT."""
