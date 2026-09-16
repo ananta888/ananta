@@ -515,7 +515,14 @@ def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeC
                     extractor_version="1",
                 )
                 continue
-            content, was_redacted = _redact_sensitive_values(content)
+            content, was_redacted = _redact_sensitive_values(
+                content,
+                language=(
+                    "python"
+                    if candidate.relative_path.endswith(".py")
+                    else None
+                ),
+            )
             tags = _file_tags(candidate.relative_path)
             header = f"# {candidate.relative_path}"
             if tags:

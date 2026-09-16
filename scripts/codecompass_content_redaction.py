@@ -4,18 +4,33 @@ from __future__ import annotations
 
 import re
 
-_ASSIGNMENT = re.compile(
-    r"(?im)^(?P<indent>\s*)(?P<quote>[\"']?)(?P<key>[a-z_][a-z0-9_.-]*)"
-    r"(?P=quote)(?P<separator>\s*(?::(?!=)|(?<![=!<>])=(?!=))\s*)"
-    r"(?P<value>[^\n(){}\[\]]+)$"
-)
+_SEPARATOR = r"\s*(?::(?!=)|(?<![=!<>])=(?!=))\s*"
+_ASSIGNMENT_SEPARATOR = r"\s*(?<![=!<>])=(?!=)\s*"
+
+
+def _assignment_pattern(separator: str) -> re.Pattern[str]:
+    return re.compile(
+        r"(?im)^(?P<indent>\s*)(?P<quote>[\"']?)(?P<key>[a-z_][a-z0-9_.-]*)"
+        r"(?P=quote)(?P<separator>" + separator + r")"
+        r"(?P<value>[^\n(){}\[\]]+)$"
+    )
+
+
+_ASSIGNMENT = _assignment_pattern(_SEPARATOR)
+# In Python a ``key: value`` line is a type annotation, never a sensitive
+# assignment. Redacting the annotation turns ``param: Type`` into a default
+# value and produces invalid syntax (non-default argument follows default
+# argument), so Python only ever uses the ``=`` form.
+_PYTHON_ASSIGNMENT = _assignment_pattern(_ASSIGNMENT_SEPARATOR)
 _PRIVATE_KEY = re.compile(
     r"-----BEGIN [^-\n]*PRIVATE KEY-----.*?-----END [^-\n]*PRIVATE KEY-----",
     re.DOTALL,
 )
 
 
-def redact_sensitive_values(content: str) -> tuple[str, bool]:
+def redact_sensitive_values(
+    content: str, *, language: str | None = None
+) -> tuple[str, bool]:
     redaction_count = 0
 
     def redact_assignment(match: re.Match[str]) -> str:
@@ -50,6 +65,7 @@ def redact_sensitive_values(content: str) -> tuple[str, bool]:
         )
         return f'{prefix}"[REDACTED]"{suffix}'
 
-    redacted = _ASSIGNMENT.sub(redact_assignment, content)
+    pattern = _PYTHON_ASSIGNMENT if language == "python" else _ASSIGNMENT
+    redacted = pattern.sub(redact_assignment, content)
     redacted, private_count = _PRIVATE_KEY.subn("[REDACTED PRIVATE KEY]", redacted)
     return redacted, bool(redaction_count or private_count)
