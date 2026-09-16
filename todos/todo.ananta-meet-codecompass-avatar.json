@@ -1,0 +1,69 @@
+{
+  "id": "ananta-meet-codecompass-avatar",
+  "title": "Ananta Meet Avatar – selbst-erklärende Ananta-Schlange mit CodeCompass",
+  "status": "todo",
+  "priority": "medium",
+  "goal": "Einen freundlichen, fröhlichen Schlangen-Avatar passend zum Ananta-Logo als sichtbaren Agenten in Ananta Meet integrieren. Der Avatar erklärt Ananta, Ananta Meet und seine eigene Funktionsweise anhand des aktuellen Repository-Zustands über CodeCompass.",
+  "requirements": [
+    "Avatar visuell an das bestehende Ananta-Logo anlehnen; freundlich, fröhlich, neugierig und auch als kleines Meet-Teilnehmerbild gut erkennbar.",
+    "Leichtgewichtige SVG/Web-Umsetzung bevorzugen; kein 3D-System für den MVP erforderlich.",
+    "Mindestens die Zustände idle, listening, thinking und speaking darstellen; später optional happy und error/confused.",
+    "Avatar als sichtbaren Agenten-/Maschinen-Teilnehmer in Ananta Meet integrieren.",
+    "Bestehende Meet-Dialog-, Speech- und Audio-Pfade wiederverwenden statt parallele Infrastruktur aufzubauen.",
+    "Repository- und Architekturfragen über CodeCompass routen und vorhandene Tools wie codecompass.resolve_context und codecompass.search_symbols wiederverwenden.",
+    "Symbolgraph, Repository Intelligence, Dokumentation, Dateien und Relationen als Quellen für Erklärungen verwenden.",
+    "Der Avatar soll Fragen wie 'Was ist Ananta?', 'Wie funktioniert Ananta Meet?', 'Wie funktioniert deine Sprachausgabe?', 'Welche Datei macht das?' und 'Wie hast du diese Antwort erzeugt?' beantworten können.",
+    "Self-Explanation muss zwischen tatsächlich beobachteten Runtime-Schritten, aus dem Repository abgeleiteter Architektur und LLM-generierter Erklärung unterscheiden.",
+    "Keine Dateien, Symbole oder Runtime-Schritte erfinden, wenn CodeCompass bzw. Runtime-Kontext dafür keine Evidenz liefert.",
+    "Zu Repository-Erklärungen kompakte Quellen mit Datei/Symbol und nach Möglichkeit Commit-SHA bereitstellen.",
+    "Persona: freundlich, fröhlich, technisch kompetent, standardmäßig kurz und einfach; technische Tiefe auf Nachfrage.",
+    "Smalltalk und allgemeine Fragen nicht unnötig über CodeCompass routen.",
+    "Lokale und OpenAI-kompatible Modellprovider beibehalten; kein Cloud-LLM-Zwang. Ollama und LM Studio sollen weiterhin möglich sein.",
+    "Bestehende Project-Scope-, Berechtigungs- und Datenschutzregeln respektieren.",
+    "Feature Flags für Avatar und CodeCompass-Self-Knowledge vorsehen."
+  ],
+  "architecture": {
+    "flow": [
+      "Meet user speech/chat",
+      "Ananta Meet dialog",
+      "Avatar assistant/router",
+      "CodeCompass retrieval for Ananta/self questions",
+      "repository context + runtime evidence",
+      "configured LLM",
+      "answer + sources",
+      "Meet speech output",
+      "animated Ananta snake avatar"
+    ],
+    "routing": {
+      "ananta_code_architecture": "CodeCompass",
+      "meet_runtime_current_dialog": "Meet/runtime context plus CodeCompass when useful",
+      "general_question": "normal configured LLM"
+    }
+  },
+  "implementation_hints": [
+    "Prüfe agent/routes/meet.py und agent/bootstrap/meet.py sowie bestehende Meet-Dialog-, Speech-Output- und Publication-Komponenten.",
+    "Prüfe docs/codecompass.md und docs/codecompass-tools.md und verwende bestehende CodeCompass-Verträge statt eines separaten RAG-Systems.",
+    "Avatar-Animation zunächst über Zustandswechsel und Audio-Level realisieren; Lip-Sync kann später erweitert werden.",
+    "Vorgeschlagene Flags: ANANTA_MEET_AVATAR_ENABLED=1 und ANANTA_MEET_AVATAR_CODECOMPASS=1."
+  ],
+  "acceptance_criteria": [
+    "In Ananta Meet ist ein sichtbarer Ananta-Schlangen-Avatar vorhanden.",
+    "idle, listening, thinking und speaking sind visuell unterscheidbar.",
+    "Text- und Sprachfragen können beantwortet werden.",
+    "Ananta-/Repository-Fragen verwenden CodeCompass.",
+    "Antworten können die wichtigsten tatsächlich verwendeten Repository-Quellen nennen.",
+    "Der Avatar kann Ananta und Ananta Meet erklären.",
+    "Der Avatar kann seine eigene Sprachausgabe anhand des Codes erklären.",
+    "Der Avatar kann für die letzte Antwort eine nachvollziehbare Self-Explanation liefern.",
+    "Fehlende Retrieval-Evidenz führt nicht zu erfundenen Dateien oder Symbolen.",
+    "Lokale Modelle bleiben nutzbar."
+  ],
+  "future": [
+    "Audio-Level-Lip-Sync und ausdrucksstärkere Animation",
+    "CodeCompass-Graph während einer Erklärung visualisieren",
+    "Zeig-mir-deinen-Code-Modus mit Dateien, Symbolen und Codeausschnitten",
+    "Beginner-, Developer- und Architect-Erklärmodi",
+    "Meet-Screen-Sharing bzw. sichtbaren Code kontextbezogen erklären",
+    "eigene Architektur als Mermaid-/Graph-Ansicht darstellen"
+  ]
+}
