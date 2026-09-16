@@ -74,13 +74,19 @@ def speak(page, source_id, pcm):
     receipt = page.evaluate("(a) => window.anantaMachine.speech.open(a[0], a[1])", [source_id, total])
     generation = receipt["generation"]
     log("speech open gen=%s samples=%s" % (generation, total))
-    for start in range(0, total, FRAME_SAMPLES):
-        chunk = pcm[start * 2:(start + FRAME_SAMPLES) * 2]
+    started = time.monotonic()
+    for offset in range(0, total, FRAME_SAMPLES):
+        chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
         page.evaluate(
             "(a) => window.anantaMachine.speech.push(a[0], a[1], a[2])",
-            [generation, start, base64.b64encode(chunk).decode()],
+            [generation, offset, base64.b64encode(chunk).decode()],
         )
-        time.sleep(0.02)
+        # Keep ~120ms of lead over real-time playback: enough to survive jitter,
+        # within the bounded queue (never "meet_speech_buffer_exceeded").
+        target = started + (offset / SPEECH_RATE) - 0.12
+        delay = target - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
     return generation
 
 
@@ -121,11 +127,20 @@ def run():
                     break
                 time.sleep(1)
             log("joined=%s" % json.dumps(page.evaluate("() => window.anantaMachine.status()"))[:260])
-            try:
-                page.evaluate("() => window.anantaMachine.chat.open()")
-                log("chat opened")
-            except Exception as error:  # noqa: BLE001
-                log("chat_open_err %r" % (error,))
+            # Keep the avatar controller alive from inside the page: the Python
+            # loop blocks during LLM/TTS, which would starve the 2.5s heartbeat.
+            page.evaluate("""() => {
+              if (!window.__avatarTimer) {
+                window.__avatarTimer = setInterval(() => {
+                  try { if (window.__avatarGen) window.anantaMachine.avatar.pulse(window.__avatarGen); }
+                  catch (error) { window.__avatarGen = 0; }
+                }, 1500);
+              }
+            }""")
+            chat_opened = False
+            last_chat_attempt = 0.0
+            last_status_log = 0.0
+            processed = set()
 
             last_seen = 0
             last_renew = time.time()
@@ -141,6 +156,10 @@ def run():
                 if not state or not state.get("joined"):
                     log("left")
                     break
+                if now - last_status_log > 10:
+                    last_status_log = now
+                    log("STATE peers=%s e2ee=%s chat=%s" % (
+                        state.get("peers"), state.get("e2ee"), len(state.get("chat") or [])))
 
                 # Keep the synthetic avatar published so the tile is always visible.
                 if avatar_generation is None or now - avatar_opened > 22:
@@ -155,40 +174,58 @@ def run():
                         )
                         avatar_generation = receipt["generation"]
                         avatar_opened = now
+                        page.evaluate("(g) => { window.__avatarGen = g; }", avatar_generation)
                         log("avatar open gen=%s" % avatar_generation)
                     except Exception as error:  # noqa: BLE001
                         log("avatar_open_err %r" % (error,))
                         avatar_generation = None
-                if avatar_generation is not None:
+                if not chat_opened and now - last_chat_attempt > 3:
+                    last_chat_attempt = now
                     try:
-                        page.evaluate("(g) => window.anantaMachine.avatar.pulse(g)", avatar_generation)
+                        page.evaluate("() => window.anantaMachine.chat.open()")
+                        chat_opened = True
+                        log("chat opened")
                     except Exception as error:  # noqa: BLE001
-                        log("avatar_pulse_err %r" % (error,))
-                        avatar_generation = None
+                        log("chat_open_err %r" % (error,))
 
-                for message in state.get("chat", []):
-                    message_id = message.get("id", 0)
-                    if message_id <= last_seen:
-                        continue
-                    last_seen = message_id
-                    author = str(message.get("author", ""))
-                    text = str(message.get("text", "") or "")
-                    if not text or author in (DISPLAY_NAME, "System"):
-                        continue
-                    log("RECV %s: %s" % (author, text[:140]))
+                if chat_opened:
                     try:
-                        reply = generate_reply(text)
-                        log("REPLY %s" % reply[:140])
-                        try:
-                            page.evaluate(
-                                "(a) => window.anantaMachine.chat.reply(a[0], a[1])", [str(message_id), reply]
-                            )
-                        except Exception as error:  # noqa: BLE001
-                            log("chat_reply_err %r" % (error,))
-                        pcm = synthesize_pcm(reply)
-                        speak(page, speech_source, pcm)
+                        batch = page.evaluate("() => window.anantaMachine.chat.poll()")
                     except Exception as error:  # noqa: BLE001
-                        log("reply_err %r" % (error,))
+                        log("chat_poll_err %r" % (error,))
+                        batch = None
+                        # The chat queue closes on session renewal (lease
+                        # generation changes); reopen it on the next loop.
+                        chat_opened = False
+                    if batch and batch.get("events"):
+                        for item in batch["events"]:
+                            event = item.get("event", {}) or {}
+                            text = str(event.get("text", "") or "")
+                            message_id = str(event.get("message_id", "") or "")
+                            sender = str(event.get("sender_peer_id", "") or "")
+                            if not text or not message_id or message_id in processed:
+                                continue
+                            processed.add(message_id)
+                            if len(processed) > 512:
+                                processed.clear()
+                            log("RECV %s: %s" % (sender, text[:140]))
+                            try:
+                                reply = generate_reply(text)
+                                log("REPLY %s" % reply[:140])
+                                try:
+                                    page.evaluate(
+                                        "(a) => window.anantaMachine.chat.reply(a[0], a[1])", [message_id, reply]
+                                    )
+                                except Exception as error:  # noqa: BLE001
+                                    log("chat_reply_err %r" % (error,))
+                                pcm = synthesize_pcm(reply)
+                                speak(page, speech_source, pcm)
+                            except Exception as error:  # noqa: BLE001
+                                log("reply_err %r" % (error,))
+                        try:
+                            page.evaluate("(c) => window.anantaMachine.chat.ack(c)", batch.get("cursor"))
+                        except Exception as error:  # noqa: BLE001
+                            log("chat_ack_err %r" % (error,))
 
                 if now - last_renew > RENEW_INTERVAL:
                     try:
