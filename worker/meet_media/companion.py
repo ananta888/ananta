@@ -22,7 +22,7 @@ HUB = os.environ.get(
     "MEET_HUB_COMPANION_URL", "http://meet-authorizing-hub:5000/api/meet/v1/internal/companion"
 )
 CAPABILITIES = ["avatar.publish", "speech.publish", "chat.send", "chat.read"]
-DISPLAY_NAME = "Ananta (KI)"
+DISPLAY_NAME = "ai-snake"
 RENEW_INTERVAL = float(os.environ.get("MEET_COMPANION_RENEW", "40"))
 SPEECH_RATE = 22050
 FRAME_SAMPLES = 441
@@ -57,6 +57,38 @@ AVATAR_PNG = os.environ.get("MEET_AVATAR_PNG", "/state/ananta-avatar.png")
 def avatar_image():
     data = Path(AVATAR_PNG).read_bytes()
     return {"png": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest()}
+
+
+_IDLE_VIDEO = None
+
+
+def _snake_video(samples, seconds, repeat):
+    import numpy as np
+
+    from worker.meet_media.snake_avatar import build_video, video_payload
+
+    with tempfile.TemporaryDirectory(prefix="snake-") as temporary:
+        data, frames = build_video(np.asarray(samples, dtype=np.float32), SPEECH_RATE, seconds, temporary)
+    return video_payload(data, frames, repeat=repeat)
+
+
+def avatar_idle():
+    """Looping snake clip with a closed, smiling mouth."""
+    global _IDLE_VIDEO
+    if _IDLE_VIDEO is None:
+        import numpy as np
+
+        _IDLE_VIDEO = _snake_video(np.zeros(SPEECH_RATE, dtype=np.float32), 2.0, "loop")
+    return _IDLE_VIDEO
+
+
+def avatar_speaking(pcm):
+    """Snake clip whose mouth follows the reply audio envelope."""
+    import numpy as np
+
+    samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
+    seconds = min(10.0, max(0.25, len(samples) / SPEECH_RATE))
+    return _snake_video(samples, seconds, "hold_last")
 
 
 def generate_reply(text):
@@ -120,7 +152,13 @@ def run():
                     except Exception as error:  # noqa: BLE001
                         log("RENEWERR %r" % (error,))
 
+            def _on_console(message):
+                text = str(message.text)[:300]
+                if "[e2eedbg]" in text or message.type in ("error", "warning"):
+                    log("CONSOLE %s %s" % (message.type, text))
+
             page.on("response", _on_response)
+            page.on("console", _on_console)
             page.goto(ORIGIN + "/machine", wait_until="domcontentloaded")
             page.wait_for_function(
                 "() => window.anantaMachine && typeof window.anantaMachine.join === 'function'", timeout=30000
@@ -168,8 +206,9 @@ def run():
                     break
                 if now - last_status_log > 10:
                     last_status_log = now
-                    log("STATE peers=%s e2ee=%s chat=%s" % (
-                        state.get("peers"), state.get("e2ee"), len(state.get("chat") or [])))
+                    log("STATE peers=%s e2ee=%s chat=%s %s" % (
+                        state.get("peers"), state.get("e2ee"), len(state.get("chat") or []),
+                        json.dumps(state.get("chat") or [], default=str)[:400]))
 
                 # Keep the synthetic avatar published so the tile is always visible.
                 if avatar_generation is None or now - avatar_opened > 22:
@@ -180,8 +219,8 @@ def run():
                         pass
                     try:
                         receipt = page.evaluate(
-                            "(a) => window.anantaMachine.avatar.open(a[0], 'persona-image-v1', a[1])",
-                            [avatar_source, avatar_image()],
+                            "(a) => window.anantaMachine.avatar.open(a[0], 'persona-video-v1', a[1])",
+                            [avatar_source, avatar_idle()],
                         )
                         avatar_generation = receipt["generation"]
                         avatar_opened = now
@@ -230,6 +269,18 @@ def run():
                                 except Exception as error:  # noqa: BLE001
                                     log("chat_reply_err %r" % (error,))
                                 pcm = synthesize_pcm(reply)
+                                try:
+                                    if avatar_generation is not None:
+                                        page.evaluate("(g) => window.anantaMachine.avatar.close(g)", avatar_generation)
+                                    receipt = page.evaluate(
+                                        "(a) => window.anantaMachine.avatar.open(a[0], 'persona-video-v1', a[1])",
+                                        [avatar_source, avatar_speaking(pcm)],
+                                    )
+                                    avatar_generation = receipt["generation"]
+                                    avatar_opened = time.time()
+                                    page.evaluate("(g) => { window.__avatarGen = g; }", avatar_generation)
+                                except Exception as error:  # noqa: BLE001
+                                    log("avatar_talk_err %r" % (error,))
                                 speak(page, speech_source, pcm)
                             except Exception as error:  # noqa: BLE001
                                 log("reply_err %r" % (error,))
