@@ -1,0 +1,334 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-17",
+  "updated_at": "2026-09-17",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "gate_benchmark_specialized_model_factory",
+  "title": "Gate + Benchmark Model Factory: kleine spezialisierte Modelle automatisch mit ML-Intern, LoRA und QLoRA erzeugen",
+  "status": "todo",
+  "priority": "P1",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "purpose": "Die bereits vorhandenen deterministischen Ananta-Gates, Benchmark-/Eval-Ergebnisse und ML-Intern-Trainingsinfrastruktur zu einem geschlossenen Post-Training-Kreislauf verbinden. Aus realen Gate-Entscheidungen, Fehlerfaellen und reproduzierbaren Benchmarks sollen kleine auf einzelne Entscheidungen spezialisierte Modelle entstehen, die ueber vorhandenes LoRA-/QLoRA-Training trainiert, erneut evaluiert und nur bei nachgewiesener Verbesserung freigegeben werden.",
+  "goal": "Ananta kann fuer klar abgegrenzte Aufgaben wie Tool-Routing, Risk-Gates, Plan-Validierung, JSON-/Schema-Repair, Retrieval-Relevanz oder Task-Completion automatisch Trainingskandidaten erzeugen, mit ML-Intern trainieren, gegen eingefrorene Holdout-Benchmarks messen und erfolgreiche Adapter bzw. Spezialmodelle versioniert in die bestehende Modell-Registry uebernehmen.",
+  "architecture_decisions": [
+    "Deterministische Gates und verifizierbare Benchmark-Oracles bleiben Ground Truth bzw. Kontrollinstanz; ein trainiertes Modell darf Sicherheits- oder Policy-Gates nicht selbst ersetzen, solange deren Aequivalenz nicht separat bewiesen wurde.",
+    "ML-Intern bleibt die einzige Control Plane fuer Dataset-Versionierung, Training, Evaluation, Artefakte, Approval, Promotion und Rollback.",
+    "Vorhandene LoRA-/QLoRA-, PEFT/TRL-, Unsloth- und weitere bereits integrierte Training-Backends werden wiederverwendet; keine zweite Fine-Tuning-Pipeline bauen.",
+    "Jeder Spezialmodell-Track besitzt einen kleinen, expliziten Decision Contract mit typisiertem Input, typisiertem Output, erlaubten Klassen und optional kalibrierter Confidence.",
+    "Trainings-, Validierungs- und finaler Holdout-Datensatz werden strikt getrennt. Benchmark-Faelle des finalen Holdouts duerfen weder in Training noch Hyperparameter-Optimierung einfliessen.",
+    "Fehlerfaelle aus produktionsnahen Gate-Laeufen duerfen erst nach Redaction, Deduplizierung, Lizenz-/Datenschutzpruefung und reproduzierbarer Label-Zuordnung in Trainingsdaten uebernommen werden.",
+    "Ein neues Modell wird nur promoted, wenn es gegen Baseline und vorherige Version reproduzierbar besser oder bei gleicher Qualitaet messbar kleiner, schneller oder guenstiger ist und keine definierte Safety-Metrik regressiert.",
+    "Confidence darf nicht mit Korrektheit gleichgesetzt werden. Falls Confidence verwendet wird, muss Calibration separat mit Brier Score, ECE oder vergleichbarer Metrik gemessen werden.",
+    "Modell, Adapter, Base-Model-Digest, Dataset-Digest, Trainingskonfiguration, Benchmark-Version und Ergebnis-Metriken werden gemeinsam versioniert."
+  ],
+  "initial_specialist_candidates": [
+    {
+      "name": "tool-router",
+      "decision": "Welches erlaubte Tool bzw. kein Tool soll fuer den naechsten Schritt verwendet werden?",
+      "preferred_output": "enum(tool_id | no_tool) + confidence"
+    },
+    {
+      "name": "code-risk-gate",
+      "decision": "Ist eine vorgeschlagene Code-/Tool-Aktion innerhalb der definierten Risikoklassen zulaessig?",
+      "preferred_output": "risk_class + allow/deny/escalate + confidence"
+    },
+    {
+      "name": "plan-validator",
+      "decision": "Ist der naechste geplante Schritt mit Ziel, aktuellem Zustand und Policies konsistent?",
+      "preferred_output": "valid/repair/escalate + reason_code + confidence"
+    },
+    {
+      "name": "structured-output-repair",
+      "decision": "Welche minimale Reparatur bringt einen bekannten Output in den erwarteten Vertrag?",
+      "preferred_output": "typed repair action; kein freier Shell-Code"
+    },
+    {
+      "name": "retrieval-relevance",
+      "decision": "Ist ein Chunk fuer eine konkrete Frage relevant genug fuer den nachgelagerten Kontext?",
+      "preferred_output": "relevant/not_relevant + confidence"
+    },
+    {
+      "name": "task-completion-gate",
+      "decision": "Ist die Aufgabe anhand expliziter Acceptance Criteria tatsaechlich abgeschlossen?",
+      "preferred_output": "complete/incomplete/escalate + failed_criteria + confidence"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "GBMF-M1",
+      "title": "Decision Contracts und Datenerzeugung",
+      "status": "todo",
+      "task_ids": ["GBMF-001", "GBMF-002", "GBMF-003"]
+    },
+    {
+      "id": "GBMF-M2",
+      "title": "Training ueber bestehendes ML-Intern",
+      "status": "todo",
+      "task_ids": ["GBMF-004", "GBMF-005", "GBMF-006"]
+    },
+    {
+      "id": "GBMF-M3",
+      "title": "Benchmark, Calibration und Promotion",
+      "status": "todo",
+      "task_ids": ["GBMF-007", "GBMF-008", "GBMF-009"]
+    },
+    {
+      "id": "GBMF-M4",
+      "title": "Geschlossener Evolver-Loop",
+      "status": "todo",
+      "task_ids": ["GBMF-010", "GBMF-011"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "GBMF-001",
+      "milestone_id": "GBMF-M1",
+      "title": "Generischen Specialist Decision Contract definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [],
+      "implementation": [
+        "Schema fuer specialist_id, contract_version, input_schema, output_schema, allowed_labels, abstain/escalate-Verhalten und optionale Confidence definieren.",
+        "Contracts so klein halten, dass ein Spezialmodell nur eine klar abgegrenzte Entscheidung lernt.",
+        "Deterministische Gates, Policy-Regeln und menschliche Labels als getrennte Label-Quellen kennzeichnen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens Tool-Router, Risk-Gate und Task-Completion koennen denselben generischen Vertrag verwenden.",
+        "Freitext ist fuer sicherheitskritische Entscheidungen nicht der primaere Maschinenvertrag.",
+        "Contract-Version wird in Dataset, Training Job und Modellartefakt mitgefuehrt."
+      ]
+    },
+    {
+      "id": "GBMF-002",
+      "milestone_id": "GBMF-M1",
+      "title": "Gate- und Benchmark-Laeufe als versionierte Trainingsbeispiele erfassen",
+      "type": "data",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["GBMF-001"],
+      "implementation": [
+        "Input, Modellentscheidung, Gate-Entscheidung, Oracle-/Ground-Truth-Label, Fehlerklasse und Kontext-Metadaten strukturiert speichern.",
+        "Nur Daten mit nachvollziehbarer Herkunft und reproduzierbarem Label fuer Training zulassen.",
+        "PII, Secrets, Tokens, private Repository-Inhalte und ungeeignete Trainingsdaten vor Persistenz redigieren oder blockieren."
+      ],
+      "acceptance_criteria": [
+        "Jedes Trainingsbeispiel besitzt provenance, contract_version und label_source.",
+        "Deterministisch falsch gelabelte oder widerspruechliche Samples koennen automatisch quarantiniert werden.",
+        "Deduplizierung verhindert, dass derselbe Benchmarkfall mehrfach Gewicht erhaelt."
+      ]
+    },
+    {
+      "id": "GBMF-003",
+      "milestone_id": "GBMF-M1",
+      "title": "Leakage-sicheren Train/Validation/Holdout-Split aufbauen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["GBMF-002"],
+      "implementation": [
+        "Finalen Holdout vor Training einfrieren und hashbasiert versionieren.",
+        "Semantisch nahe Varianten derselben Aufgabe gruppenweise splitten statt zufaellig ueber Train und Test zu verteilen.",
+        "Evolver und Hyperparameter-Suche duerfen nur Train und Validation sehen."
+      ],
+      "acceptance_criteria": [
+        "Kein finaler Holdout-Fall befindet sich direkt oder als bekannte Near-Duplicate-Variante im Training.",
+        "Dataset-Digests und Split-Manifeste sind reproduzierbar.",
+        "Leakage-Test ist Teil des Admission-Gates fuer jeden Training Job."
+      ]
+    },
+    {
+      "id": "GBMF-004",
+      "milestone_id": "GBMF-M2",
+      "title": "Specialist-Training an bestehenden ML-Intern-Vertrag anbinden",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["GBMF-003"],
+      "implementation": [
+        "Bestehenden ananta.lora-training.v1- bzw. aktuellen ML-Intern-Trainingsvertrag wiederverwenden und nur benoetigte Specialist-Metadaten ergaenzen.",
+        "LoRA und QLoRA als erste Trainingsmethoden anbieten; Backend-Auswahl weiterhin ueber vorhandene Capability-/Policy-Logik.",
+        "Kein direkter Zugriff des Specialist-Workflows auf Trainer-CLIs oder Backend-WebUIs."
+      ],
+      "acceptance_criteria": [
+        "Ein Specialist-Dataset kann ohne neue Control Plane als normaler ML-Intern-Job trainiert werden.",
+        "Job-Manifest enthaelt specialist_id, contract_version, base_model, dataset_digest und benchmark_version.",
+        "Cancellation, Isolation, Approval und Rollback bleiben unveraendert nutzbar."
+      ]
+    },
+    {
+      "id": "GBMF-005",
+      "milestone_id": "GBMF-M2",
+      "title": "Kleine Base-Model-Kandidaten automatisch gegeneinander trainieren",
+      "type": "training",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["GBMF-004"],
+      "implementation": [
+        "Mehrere lokal geeignete kleine Open-Weight-Basemodelle konfigurierbar gegeneinander testen; keine Modellfamilie hart verdrahten.",
+        "Je Kandidat gleiche Datenbasis und vergleichbare Trainingsbudgets verwenden.",
+        "QLoRA fuer groessere Kandidaten und LoRA fuer Modelle, die effizient voll bzw. hoeher praezise geladen werden koennen, benchmarkbasiert waehlen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens zwei Basemodelle koennen fuer denselben Specialist reproduzierbar verglichen werden.",
+        "Trainingsbudget und Hardwareverbrauch werden mit den Ergebnis-Metriken gespeichert.",
+        "Der billigste oder kleinste Kandidat kann gewinnen, wenn die Qualitaets-/Safety-Schwellen erreicht werden."
+      ]
+    },
+    {
+      "id": "GBMF-006",
+      "milestone_id": "GBMF-M2",
+      "title": "Adapter- und optionalen Merge/Export-Lifecycle normalisieren",
+      "type": "artifact",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": ["GBMF-005"],
+      "implementation": [
+        "LoRA-/QLoRA-Adapter als primaeres Artefakt behandeln und optionalen Merge/Quantisierungs-Export getrennt ausfuehren.",
+        "Base-Model-Digest, Adapter-Digest, Merge-Konfiguration und Exportformat in Provenance speichern.",
+        "Optional GGUF-/lokale Runtime-Exporte erst nach bestandener Evaluation erzeugen."
+      ],
+      "acceptance_criteria": [
+        "Jedes freigegebene Artefakt laesst sich eindeutig auf Base Model, Adapter, Dataset und Training Job zurueckfuehren.",
+        "Ungepruefte Merge- oder Quantisierungsartefakte werden nicht automatisch promoted."
+      ]
+    },
+    {
+      "id": "GBMF-007",
+      "milestone_id": "GBMF-M3",
+      "title": "Specialist-Benchmark-Metriken standardisieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "depends_on": ["GBMF-005"],
+      "implementation": [
+        "Accuracy, Macro-F1, Precision/Recall pro Klasse und Confusion Matrix erfassen.",
+        "Fuer Gate-Aufgaben False-Allow und False-Deny getrennt ausweisen; sicherheitskritische Klassen koennen eigene harte Grenzwerte besitzen.",
+        "Latency, Tokens bzw. Inputgroesse, RAM/VRAM und Time-to-decision erfassen.",
+        "Baseline gegen untrainiertes Basemodell, bestehenden Prompt/Gate-Stack und vorherige Specialist-Version vergleichen."
+      ],
+      "acceptance_criteria": [
+        "Benchmark-Ergebnisse liegen maschinenlesbar als versioniertes JSON vor.",
+        "Safety-relevante Fehlertypen werden nicht in einer einzigen Accuracy-Zahl versteckt.",
+        "Qualitaet und Ressourcenverbrauch koennen gemeinsam fuer Promotion ausgewertet werden."
+      ]
+    },
+    {
+      "id": "GBMF-008",
+      "milestone_id": "GBMF-M3",
+      "title": "Confidence Calibration und Abstention messen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "depends_on": ["GBMF-007"],
+      "implementation": [
+        "Nur Modelle mit sinnvoll extrahierbarer Confidence fuer Calibration verwenden.",
+        "Brier Score und Expected Calibration Error oder aequivalente Metriken berechnen.",
+        "Abstain-/Escalate-Schwelle auf Validation-Daten bestimmen und final nur auf Holdout pruefen.",
+        "Reliability Diagram bzw. Calibration-Bins als Benchmarkartefakt speichern."
+      ],
+      "acceptance_criteria": [
+        "Ein Modell mit hoher Accuracy aber schlechter Calibration kann nicht allein wegen Confidence automatisch freigegeben werden.",
+        "Escalation-Rate und Fehlerquote unterhalb/oberhalb des Confidence-Thresholds sind sichtbar."
+      ]
+    },
+    {
+      "id": "GBMF-009",
+      "milestone_id": "GBMF-M3",
+      "title": "Automatisches Promotion-Gate fuer Spezialmodelle implementieren",
+      "type": "governance",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": ["GBMF-007", "GBMF-008"],
+      "implementation": [
+        "Pro Specialist harte Mindestwerte und No-Regression-Regeln definieren.",
+        "Promotion nur erlauben, wenn eingefrorener Holdout bestanden, Provenance vollstaendig und keine Safety-Metrik regressiert ist.",
+        "Modelle, die nur Speed/Kosten verbessern, duerfen nur promoted werden, wenn definierte Qualitaets-Toleranzen eingehalten werden.",
+        "Bestehende ML-Intern Approval-, Registry- und Rollback-Mechanismen verwenden."
+      ],
+      "acceptance_criteria": [
+        "Ein schlechterer Kandidat kann trotz erfolgreichem Training nicht promoted werden.",
+        "Promotion-Entscheidung ist anhand gespeicherter Metriken und Regeln reproduzierbar.",
+        "Rollback auf die vorherige Specialist-Version bleibt moeglich."
+      ]
+    },
+    {
+      "id": "GBMF-010",
+      "milestone_id": "GBMF-M4",
+      "title": "Fehlerfaelle automatisch in kuratierte Retraining-Kandidaten ueberfuehren",
+      "type": "evolver",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": ["GBMF-009"],
+      "implementation": [
+        "False-Allow, False-Deny, Abstention-Fehler, Parser-/Schema-Fehler und robuste Gegenbeispiele in einer Candidate Queue sammeln.",
+        "Nur verifizierte Labels nach Redaction, Deduplizierung und Policy-Pruefung in die naechste Dataset-Version uebernehmen.",
+        "Hard-negative Mining aus Benchmark- und realen Fehlerclustern unter Leakage-Schutz ermoeglichen."
+      ],
+      "acceptance_criteria": [
+        "Produktionsfehler fuehren nicht ungeprueft direkt zu Training.",
+        "Jede neue Dataset-Version dokumentiert, welche Fehlerklassen hinzugekommen sind.",
+        "Wiederholte Fehler derselben Klasse koennen gezielt hoeher priorisiert werden, ohne Holdout-Daten zu kontaminieren."
+      ]
+    },
+    {
+      "id": "GBMF-011",
+      "milestone_id": "GBMF-M4",
+      "title": "End-to-End Model-Factory-Loop demonstrieren",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": ["GBMF-010"],
+      "implementation": [
+        "Mindestens einen Specialist von Gate-/Benchmark-Daten ueber QLoRA/LoRA-Training bis Evaluation und Promotion vollstaendig durchlaufen lassen.",
+        "Zweiten Trainingszyklus aus neuen verifizierten Fehlerfaellen starten und gegen Version 1 vergleichen.",
+        "Alle Zwischenschritte ueber bestehende Ananta-/ML-Intern-APIs und Artefaktvertraege abbilden."
+      ],
+      "acceptance_criteria": [
+        "Gate/Benchmark -> Dataset -> ML-Intern -> LoRA/QLoRA -> Eval -> Promotion -> Runtime ist reproduzierbar demonstriert.",
+        "Version 2 wird nur promoted, wenn sie die definierten Regeln gegen Version 1 besteht.",
+        "Der gesamte Prozess benoetigt keine manuelle Trainer-Konfiguration ausser explizitem Approval an vorgesehenen Governance-Gates."
+      ]
+    }
+  ],
+  "success_criteria": [
+    "Mindestens ein kleines Spezialmodell wird aus verifizierten Gate-/Benchmark-Daten ueber die bestehende ML-Intern-LoRA/QLoRA-Pipeline erzeugt.",
+    "Train/Validation/Holdout sind leakage-sicher getrennt und versionsgebunden reproduzierbar.",
+    "Das Spezialmodell wird auf einem eingefrorenen Benchmark gegen Baseline und vorherige Version bewertet.",
+    "Safety-relevante False-Allow/False-Deny-Metriken besitzen harte Promotion-Gates.",
+    "Optional ausgegebene Confidence ist separat kalibriert und kann fuer Abstain/Escalate genutzt werden.",
+    "Ein zweiter Iterationszyklus kann verifizierte Fehlerfaelle aufnehmen und ein neues Adapter-/Modellartefakt erzeugen.",
+    "Kein Trainingskandidat kann allein durch erfolgreichen Jobabschluss produktiv aktiviert werden."
+  ],
+  "deliverables": [
+    "Specialist Decision Contract Schema",
+    "Gate/Benchmark Training Example Schema",
+    "Dataset Builder mit Redaction, Deduplizierung und Leakage-Pruefung",
+    "ML-Intern Specialist Training Adapter/Metadaten",
+    "LoRA-/QLoRA-Training ueber vorhandene Backends",
+    "Specialist Benchmark Result Schema",
+    "Calibration- und Abstention-Auswertung",
+    "Automatisches Promotion-/No-Regression-Gate",
+    "Versionierte Specialist Registry-Eintraege",
+    "End-to-End Referenzlauf fuer mindestens einen Spezialmodell-Typ"
+  ],
+  "related_existing_work": [
+    "todos/active/todo.mlintern-multi-training-backends-axolotl-llamafactory-autotrain-torchtune.json",
+    "todos/active/todo.ml-intern-dendritic-memory-experiment-workbench.json",
+    "todos/todo.nex-n2-5-mini-ananta-evaluation.json"
+  ]
+}
