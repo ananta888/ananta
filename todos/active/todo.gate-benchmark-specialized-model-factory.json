@@ -6,11 +6,26 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "gate_benchmark_specialized_model_factory",
   "title": "Gate + Benchmark Model Factory: kleine spezialisierte Modelle automatisch mit ML-Intern, LoRA und QLoRA erzeugen",
-  "status": "todo",
+  "status": "partial",
   "priority": "P1",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "Die bereits vorhandenen deterministischen Ananta-Gates, Benchmark-/Eval-Ergebnisse und ML-Intern-Trainingsinfrastruktur zu einem geschlossenen Post-Training-Kreislauf verbinden. Aus realen Gate-Entscheidungen, Fehlerfaellen und reproduzierbaren Benchmarks sollen kleine auf einzelne Entscheidungen spezialisierte Modelle entstehen, die ueber vorhandenes LoRA-/QLoRA-Training trainiert, erneut evaluiert und nur bei nachgewiesener Verbesserung freigegeben werden.",
   "goal": "Ananta kann fuer klar abgegrenzte Aufgaben wie Tool-Routing, Risk-Gates, Plan-Validierung, JSON-/Schema-Repair, Retrieval-Relevanz oder Task-Completion automatisch Trainingskandidaten erzeugen, mit ML-Intern trainieren, gegen eingefrorene Holdout-Benchmarks messen und erfolgreiche Adapter bzw. Spezialmodelle versioniert in die bestehende Modell-Registry uebernehmen.",
   "architecture_decisions": [
@@ -60,26 +75,41 @@
     {
       "id": "GBMF-M1",
       "title": "Decision Contracts und Datenerzeugung",
-      "status": "todo",
-      "task_ids": ["GBMF-001", "GBMF-002", "GBMF-003"]
+      "status": "done",
+      "task_ids": [
+        "GBMF-001",
+        "GBMF-002",
+        "GBMF-003"
+      ]
     },
     {
       "id": "GBMF-M2",
       "title": "Training ueber bestehendes ML-Intern",
-      "status": "todo",
-      "task_ids": ["GBMF-004", "GBMF-005", "GBMF-006"]
+      "status": "done",
+      "task_ids": [
+        "GBMF-004",
+        "GBMF-005",
+        "GBMF-006"
+      ]
     },
     {
       "id": "GBMF-M3",
       "title": "Benchmark, Calibration und Promotion",
-      "status": "todo",
-      "task_ids": ["GBMF-007", "GBMF-008", "GBMF-009"]
+      "status": "done",
+      "task_ids": [
+        "GBMF-007",
+        "GBMF-008",
+        "GBMF-009"
+      ]
     },
     {
       "id": "GBMF-M4",
       "title": "Geschlossener Evolver-Loop",
-      "status": "todo",
-      "task_ids": ["GBMF-010", "GBMF-011"]
+      "status": "partial",
+      "task_ids": [
+        "GBMF-010",
+        "GBMF-011"
+      ]
     }
   ],
   "tasks": [
@@ -88,7 +118,7 @@
       "milestone_id": "GBMF-M1",
       "title": "Generischen Specialist Decision Contract definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "depends_on": [],
@@ -101,17 +131,23 @@
         "Mindestens Tool-Router, Risk-Gate und Task-Completion koennen denselben generischen Vertrag verwenden.",
         "Freitext ist fuer sicherheitskritische Entscheidungen nicht der primaere Maschinenvertrag.",
         "Contract-Version wird in Dataset, Training Job und Modellartefakt mitgefuehrt."
-      ]
+      ],
+      "implemented_in": [
+        "ananta_contracts/specialist_decision.py"
+      ],
+      "implementation_note": "SpecialistDecisionContract + builtin_contracts(); contract_version in Example, Job-Manifest und Lineage mitgefuehrt."
     },
     {
       "id": "GBMF-002",
       "milestone_id": "GBMF-M1",
       "title": "Gate- und Benchmark-Laeufe als versionierte Trainingsbeispiele erfassen",
       "type": "data",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "depends_on": ["GBMF-001"],
+      "depends_on": [
+        "GBMF-001"
+      ],
       "implementation": [
         "Input, Modellentscheidung, Gate-Entscheidung, Oracle-/Ground-Truth-Label, Fehlerklasse und Kontext-Metadaten strukturiert speichern.",
         "Nur Daten mit nachvollziehbarer Herkunft und reproduzierbarem Label fuer Training zulassen.",
@@ -121,17 +157,23 @@
         "Jedes Trainingsbeispiel besitzt provenance, contract_version und label_source.",
         "Deterministisch falsch gelabelte oder widerspruechliche Samples koennen automatisch quarantiniert werden.",
         "Deduplizierung verhindert, dass derselbe Benchmarkfall mehrfach Gewicht erhaelt."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_training_examples.py"
+      ],
+      "implementation_note": "Provenance/label_source/contract_version, Redaction, Dedup, Quarantaene. Persistenz im Hub-Katalog offen (in-memory Ledger mit Digests)."
     },
     {
       "id": "GBMF-003",
       "milestone_id": "GBMF-M1",
       "title": "Leakage-sicheren Train/Validation/Holdout-Split aufbauen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "depends_on": ["GBMF-002"],
+      "depends_on": [
+        "GBMF-002"
+      ],
       "implementation": [
         "Finalen Holdout vor Training einfrieren und hashbasiert versionieren.",
         "Semantisch nahe Varianten derselben Aufgabe gruppenweise splitten statt zufaellig ueber Train und Test zu verteilen.",
@@ -141,17 +183,23 @@
         "Kein finaler Holdout-Fall befindet sich direkt oder als bekannte Near-Duplicate-Variante im Training.",
         "Dataset-Digests und Split-Manifeste sind reproduzierbar.",
         "Leakage-Test ist Teil des Admission-Gates fuer jeden Training Job."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_dataset_split.py"
+      ],
+      "implementation_note": "Gruppenweiser Split, FrozenHoldout, check_leakage, admit_training_partitions; Folgeversionen behalten den Holdout."
     },
     {
       "id": "GBMF-004",
       "milestone_id": "GBMF-M2",
       "title": "Specialist-Training an bestehenden ML-Intern-Vertrag anbinden",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "depends_on": ["GBMF-003"],
+      "depends_on": [
+        "GBMF-003"
+      ],
       "implementation": [
         "Bestehenden ananta.lora-training.v1- bzw. aktuellen ML-Intern-Trainingsvertrag wiederverwenden und nur benoetigte Specialist-Metadaten ergaenzen.",
         "LoRA und QLoRA als erste Trainingsmethoden anbieten; Backend-Auswahl weiterhin ueber vorhandene Capability-/Policy-Logik.",
@@ -161,17 +209,25 @@
         "Ein Specialist-Dataset kann ohne neue Control Plane als normaler ML-Intern-Job trainiert werden.",
         "Job-Manifest enthaelt specialist_id, contract_version, base_model, dataset_digest und benchmark_version.",
         "Cancellation, Isolation, Approval und Rollback bleiben unveraendert nutzbar."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_training_task_family.py",
+        "agent/services/ml_intern_training_contract.py",
+        "agent/services/ml_intern_lora_eval_service.py"
+      ],
+      "implementation_note": "Task-Family specialist_decision im bestehenden CreateTrainingJobCommand; specialist-Metadaten im Job-Manifest; Scorer registriert."
     },
     {
       "id": "GBMF-005",
       "milestone_id": "GBMF-M2",
       "title": "Kleine Base-Model-Kandidaten automatisch gegeneinander trainieren",
       "type": "training",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "depends_on": ["GBMF-004"],
+      "depends_on": [
+        "GBMF-004"
+      ],
       "implementation": [
         "Mehrere lokal geeignete kleine Open-Weight-Basemodelle konfigurierbar gegeneinander testen; keine Modellfamilie hart verdrahten.",
         "Je Kandidat gleiche Datenbasis und vergleichbare Trainingsbudgets verwenden.",
@@ -181,17 +237,23 @@
         "Mindestens zwei Basemodelle koennen fuer denselben Specialist reproduzierbar verglichen werden.",
         "Trainingsbudget und Hardwareverbrauch werden mit den Ergebnis-Metriken gespeichert.",
         "Der billigste oder kleinste Kandidat kann gewinnen, wenn die Qualitaets-/Safety-Schwellen erreicht werden."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_candidates.py"
+      ],
+      "implementation_note": "CandidatePlan/TrainingBudget/compare_candidates; billigster Kandidat gewinnt bei erfuellten Schwellen; choose_method LoRA/QLoRA."
     },
     {
       "id": "GBMF-006",
       "milestone_id": "GBMF-M2",
       "title": "Adapter- und optionalen Merge/Export-Lifecycle normalisieren",
       "type": "artifact",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "depends_on": ["GBMF-005"],
+      "depends_on": [
+        "GBMF-005"
+      ],
       "implementation": [
         "LoRA-/QLoRA-Adapter als primaeres Artefakt behandeln und optionalen Merge/Quantisierungs-Export getrennt ausfuehren.",
         "Base-Model-Digest, Adapter-Digest, Merge-Konfiguration und Exportformat in Provenance speichern.",
@@ -200,17 +262,23 @@
       "acceptance_criteria": [
         "Jedes freigegebene Artefakt laesst sich eindeutig auf Base Model, Adapter, Dataset und Training Job zurueckfuehren.",
         "Ungepruefte Merge- oder Quantisierungsartefakte werden nicht automatisch promoted."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_candidates.py"
+      ],
+      "implementation_note": "ArtifactLineage mit Base/Adapter/Dataset/Job-Digests; Exporte nur nach Evaluation und als unverifiziert markiert."
     },
     {
       "id": "GBMF-007",
       "milestone_id": "GBMF-M3",
       "title": "Specialist-Benchmark-Metriken standardisieren",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "depends_on": ["GBMF-005"],
+      "depends_on": [
+        "GBMF-005"
+      ],
       "implementation": [
         "Accuracy, Macro-F1, Precision/Recall pro Klasse und Confusion Matrix erfassen.",
         "Fuer Gate-Aufgaben False-Allow und False-Deny getrennt ausweisen; sicherheitskritische Klassen koennen eigene harte Grenzwerte besitzen.",
@@ -221,17 +289,23 @@
         "Benchmark-Ergebnisse liegen maschinenlesbar als versioniertes JSON vor.",
         "Safety-relevante Fehlertypen werden nicht in einer einzigen Accuracy-Zahl versteckt.",
         "Qualitaet und Ressourcenverbrauch koennen gemeinsam fuer Promotion ausgewertet werden."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_benchmark.py"
+      ],
+      "implementation_note": "ananta.specialist-benchmark-result.v1 inkl. False-Allow/False-Deny, Ressourcen, Baseline-Deltas."
     },
     {
       "id": "GBMF-008",
       "milestone_id": "GBMF-M3",
       "title": "Confidence Calibration und Abstention messen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "depends_on": ["GBMF-007"],
+      "depends_on": [
+        "GBMF-007"
+      ],
       "implementation": [
         "Nur Modelle mit sinnvoll extrahierbarer Confidence fuer Calibration verwenden.",
         "Brier Score und Expected Calibration Error oder aequivalente Metriken berechnen.",
@@ -241,17 +315,24 @@
       "acceptance_criteria": [
         "Ein Modell mit hoher Accuracy aber schlechter Calibration kann nicht allein wegen Confidence automatisch freigegeben werden.",
         "Escalation-Rate und Fehlerquote unterhalb/oberhalb des Confidence-Thresholds sind sichtbar."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_calibration.py"
+      ],
+      "implementation_note": "Brier, ECE, Reliability Bins, Abstain-Schwelle aus Validation, Holdout-Abstention-Report."
     },
     {
       "id": "GBMF-009",
       "milestone_id": "GBMF-M3",
       "title": "Automatisches Promotion-Gate fuer Spezialmodelle implementieren",
       "type": "governance",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "depends_on": ["GBMF-007", "GBMF-008"],
+      "depends_on": [
+        "GBMF-007",
+        "GBMF-008"
+      ],
       "implementation": [
         "Pro Specialist harte Mindestwerte und No-Regression-Regeln definieren.",
         "Promotion nur erlauben, wenn eingefrorener Holdout bestanden, Provenance vollstaendig und keine Safety-Metrik regressiert ist.",
@@ -262,17 +343,23 @@
         "Ein schlechterer Kandidat kann trotz erfolgreichem Training nicht promoted werden.",
         "Promotion-Entscheidung ist anhand gespeicherter Metriken und Regeln reproduzierbar.",
         "Rollback auf die vorherige Specialist-Version bleibt moeglich."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_promotion_gate.py"
+      ],
+      "implementation_note": "decide_promotion reproduzierbar ueber Digests; Registry approve/reject/rollback ueber MlInternAdapterRegistryService."
     },
     {
       "id": "GBMF-010",
       "milestone_id": "GBMF-M4",
       "title": "Fehlerfaelle automatisch in kuratierte Retraining-Kandidaten ueberfuehren",
       "type": "evolver",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "depends_on": ["GBMF-009"],
+      "depends_on": [
+        "GBMF-009"
+      ],
       "implementation": [
         "False-Allow, False-Deny, Abstention-Fehler, Parser-/Schema-Fehler und robuste Gegenbeispiele in einer Candidate Queue sammeln.",
         "Nur verifizierte Labels nach Redaction, Deduplizierung und Policy-Pruefung in die naechste Dataset-Version uebernehmen.",
@@ -282,17 +369,23 @@
         "Produktionsfehler fuehren nicht ungeprueft direkt zu Training.",
         "Jede neue Dataset-Version dokumentiert, welche Fehlerklassen hinzugekommen sind.",
         "Wiederholte Fehler derselben Klasse koennen gezielt hoeher priorisiert werden, ohne Holdout-Daten zu kontaminieren."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_retraining_queue.py"
+      ],
+      "implementation_note": "RetrainingCandidateQueue mit Fehlerklassen, Priorisierung, Holdout-Schutz, DatasetVersion-Changelog."
     },
     {
       "id": "GBMF-011",
       "milestone_id": "GBMF-M4",
       "title": "End-to-End Model-Factory-Loop demonstrieren",
       "type": "integration",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "depends_on": ["GBMF-010"],
+      "depends_on": [
+        "GBMF-010"
+      ],
       "implementation": [
         "Mindestens einen Specialist von Gate-/Benchmark-Daten ueber QLoRA/LoRA-Training bis Evaluation und Promotion vollstaendig durchlaufen lassen.",
         "Zweiten Trainingszyklus aus neuen verifizierten Fehlerfaellen starten und gegen Version 1 vergleichen.",
@@ -302,7 +395,12 @@
         "Gate/Benchmark -> Dataset -> ML-Intern -> LoRA/QLoRA -> Eval -> Promotion -> Runtime ist reproduzierbar demonstriert.",
         "Version 2 wird nur promoted, wenn sie die definierten Regeln gegen Version 1 besteht.",
         "Der gesamte Prozess benoetigt keine manuelle Trainer-Konfiguration ausser explizitem Approval an vorgesehenen Governance-Gates."
-      ]
+      ],
+      "implemented_in": [
+        "agent/services/specialist_model_factory.py",
+        "tests/test_specialist_model_factory_e2e.py"
+      ],
+      "implementation_note": "Referenzlauf v1 -> v2 (rejected) -> v3 (efficiency promoted) -> rollback mit Mock-Trainer/Predictor hinter Ports und realer Registry. Offen: Ports an realen ML-Intern-Worker-Transport binden."
     }
   ],
   "success_criteria": [
@@ -330,5 +428,84 @@
     "todos/active/todo.mlintern-multi-training-backends-axolotl-llamafactory-autotrain-torchtune.json",
     "todos/active/todo.ml-intern-dendritic-memory-experiment-workbench.json",
     "todos/todo.nex-n2-5-mini-ananta-evaluation.json"
+  ],
+  "tasks_status_summary": {
+    "total": 11,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 1,
+      "blocked": 0,
+      "done": 10
+    },
+    "progress_percent_done": 90.9,
+    "by_priority": {
+      "P1": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 1,
+        "blocked": 0,
+        "done": 6
+      },
+      "P0": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 2
+      },
+      "P2": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 2
+      }
+    },
+    "by_risk": {
+      "medium": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 1,
+        "blocked": 0,
+        "done": 5
+      },
+      "high": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 4
+      },
+      "low": {
+        "todo": 0,
+        "in_progress": 0,
+        "partial": 0,
+        "blocked": 0,
+        "done": 1
+      }
+    },
+    "critical_path": {
+      "total": 2,
+      "done": 2,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 1,
+      "blocked": 0,
+      "done": 3
+    }
+  },
+  "documentation": "docs/specialist-model-factory.md",
+  "tests": [
+    "tests/test_specialist_model_factory.py",
+    "tests/test_specialist_model_factory_e2e.py"
+  ],
+  "critical_path_tasks": [
+    "GBMF-003",
+    "GBMF-009"
   ]
 }
