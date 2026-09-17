@@ -182,11 +182,16 @@ def media_assist_retrieve():
         if not isinstance(record, dict):
             continue
         content = str(record.get("content") or "")
+        metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
         snippets.append(
             {
                 "path": str(record.get("path") or record.get("file") or ""),
                 "score": record.get("score"),
                 "excerpt": content[:1200],
+                # Additive: lets the companion cite file/symbol and, when the
+                # index carries it, the immutable source revision (commit).
+                "symbol": str(record.get("symbol") or ""),
+                "revision": str(metadata.get("source_revision") or metadata.get("revision") or "")[:64],
             }
         )
     return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": snippets})

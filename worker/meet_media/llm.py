@@ -37,8 +37,8 @@ class GeneratedAnswer:
     output_tokens: int
 
 
-def answer(text, *, context=""):
-    return generate(text, context=context).text
+def answer(text, *, context="", system=None):
+    return generate(text, context=context, system=system).text
 
 
 def generate(
@@ -48,13 +48,17 @@ def generate(
     max_output_tokens=128,
     max_reply_chars=450,
     transport: OllamaJsonPort | None = None,
+    system=None,
 ):
     validate_response_limits({"max_output_tokens": max_output_tokens, "max_reply_chars": max_reply_chars})
     num_ctx = int(os.environ.get("MEET_LLM_NUM_CTX", "16384"))
     user_content = f"{CONTEXT_PREFIX}\n{context}\n\nFrage: {text}" if context else text
     payload = {
         "model": os.environ.get("MEET_LLM_MODEL", "spark-x2.5-4b-q8-128k:latest"),
-        "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user_content}],
+        "messages": [
+            {"role": "system", "content": SYSTEM if system is None else str(system)},
+            {"role": "user", "content": user_content},
+        ],
         "stream": False,
         # Reasoning models otherwise spend the whole output budget on hidden
         # thinking and leave the answer content empty.

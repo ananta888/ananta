@@ -31,7 +31,18 @@ def fetch_snippets(query, *, limit=5, timeout=10):
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = json.load(response)
     snippets = payload.get("snippets") if isinstance(payload, dict) else None
-    return [item for item in (snippets or []) if isinstance(item, dict)]
+    return [_snippet(item) for item in (snippets or []) if isinstance(item, dict)]
+
+
+def _snippet(item):
+    """Keep only the bounded fields the companion consumes (path, symbol, revision)."""
+    return {
+        "path": str(item.get("path") or "").strip()[:512],
+        "symbol": str(item.get("symbol") or "").strip()[:256],
+        "revision": str(item.get("revision") or "").strip()[:64],
+        "score": item.get("score") if isinstance(item.get("score"), (int, float)) else None,
+        "excerpt": str(item.get("excerpt") or "")[:1200],
+    }
 
 
 def build_context(query, *, limit=5, max_chars=None):
