@@ -42,10 +42,17 @@ def _score_spreadsheet_actions(output_text: str) -> dict[str, Any]:
     return SpreadsheetTrainingTaskFamilyStrategy().score_output(output_text)
 
 
+def _score_specialist_decision(output_text: str) -> dict[str, Any]:
+    from agent.services.specialist_training_task_family import score_specialist_output
+
+    return score_specialist_output(output_text)
+
+
 _SCORERS = {
     "todo_json": _score_todo_json,
     "ananta_todo_json": _score_todo_json,
     "spreadsheet_actions": _score_spreadsheet_actions,
+    "specialist_decision": _score_specialist_decision,
 }
 
 

@@ -72,7 +72,11 @@ UNSLOTH_GGUF_QUANTIZATION_METHODS = frozenset({"q4_k_m", "q5_k_m", "q8_0"})
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _CAPABILITY_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,95}$")
 _DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
-TASK_FAMILIES = frozenset({"spreadsheet_actions"})
+SPECIALIST_TASK_FAMILY = "specialist_decision"
+TASK_FAMILIES = frozenset({"spreadsheet_actions", SPECIALIST_TASK_FAMILY})
+_SPECIALIST_FIELDS = frozenset(
+    {"specialist_id", "contract_version", "contract_digest", "dataset_digest", "holdout_digest", "benchmark_version"}
+)
 
 _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "queued": frozenset({"claimed", "running", "cancel_requested", "failed"}),
@@ -242,7 +246,7 @@ def idempotency_digest(*, tenant_id: str, subject: str, key: str) -> str:
 
 def _normalize_task_family_fields(value: Mapping[str, Any], request_spec: dict[str, Any]) -> None:
     task_family = str(value.get("task_family") or "").strip()
-    family_fields = {"task_family", "task_kinds", "output_schema_digest", "serializer_digest"}
+    family_fields = {"task_family", "task_kinds", "output_schema_digest", "serializer_digest", "specialist"}
     if set(value) & family_fields and not task_family:
         raise MlInternTrainingContractError(
             "training_task_family_invalid",
@@ -254,6 +258,14 @@ def _normalize_task_family_fields(value: Mapping[str, Any], request_spec: dict[s
         raise MlInternTrainingContractError(
             "training_task_family_invalid",
             "task_family is not supported",
+        )
+    if task_family == SPECIALIST_TASK_FAMILY:
+        _normalize_specialist_family_fields(value, request_spec)
+        return
+    if value.get("specialist") is not None:
+        raise MlInternTrainingContractError(
+            "training_specialist_invalid",
+            "specialist metadata is only valid for the specialist_decision task family",
         )
     task_kinds = value.get("task_kinds")
     if (
@@ -275,6 +287,61 @@ def _normalize_task_family_fields(value: Mapping[str, Any], request_spec: dict[s
     request_spec["task_kinds"] = list(task_kinds)
     request_spec["output_schema_digest"] = str(value["output_schema_digest"])
     request_spec["serializer_digest"] = str(value["serializer_digest"])
+
+
+def _normalize_specialist_family_fields(value: Mapping[str, Any], request_spec: dict[str, Any]) -> None:
+    """Additive GBMF-004 metadata: the job manifest carries the specialist identity.
+
+    ``specialist_id``, ``contract_version``, ``dataset_digest`` and
+    ``benchmark_version`` travel with the job so dataset, training job and
+    adapter artifact share one contract version.
+    """
+    task_kinds = value.get("task_kinds")
+    if not isinstance(task_kinds, list) or task_kinds != [SPECIALIST_TASK_FAMILY]:
+        raise MlInternTrainingContractError(
+            "training_task_kinds_invalid",
+            "specialist task family requires the exact specialist_decision task kind",
+        )
+    for field in ("output_schema_digest", "serializer_digest"):
+        if _DIGEST_RE.fullmatch(str(value.get(field) or "")) is None:
+            raise MlInternTrainingContractError(
+                f"{field}_invalid",
+                f"{field} must be a SHA-256 digest",
+            )
+    specialist = value.get("specialist")
+    if not isinstance(specialist, Mapping) or set(specialist) != _SPECIALIST_FIELDS:
+        raise MlInternTrainingContractError(
+            "training_specialist_invalid",
+            "specialist metadata requires exactly " + ", ".join(sorted(_SPECIALIST_FIELDS)),
+        )
+    specialist_id = str(specialist.get("specialist_id") or "")
+    contract_version = str(specialist.get("contract_version") or "")
+    benchmark_version = str(specialist.get("benchmark_version") or "")
+    if (
+        re.fullmatch(r"^[a-z][a-z0-9_-]{0,63}$", specialist_id) is None
+        or re.fullmatch(r"^v[0-9]{1,4}(?:\.[0-9]{1,4}){0,2}$", contract_version) is None
+        or re.fullmatch(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$", benchmark_version) is None
+    ):
+        raise MlInternTrainingContractError(
+            "training_specialist_invalid",
+            "specialist_id, contract_version or benchmark_version is invalid",
+        )
+    for field in ("contract_digest", "dataset_digest", "holdout_digest"):
+        if _DIGEST_RE.fullmatch(str(specialist.get(field) or "")) is None:
+            raise MlInternTrainingContractError(
+                "training_specialist_invalid",
+                f"specialist.{field} must be a SHA-256 digest",
+            )
+    if str(specialist["contract_digest"]) != str(value.get("output_schema_digest")):
+        raise MlInternTrainingContractError(
+            "training_specialist_invalid",
+            "output_schema_digest must equal the specialist contract digest",
+        )
+    request_spec["task_family"] = SPECIALIST_TASK_FAMILY
+    request_spec["task_kinds"] = [SPECIALIST_TASK_FAMILY]
+    request_spec["output_schema_digest"] = str(value["output_schema_digest"])
+    request_spec["serializer_digest"] = str(value["serializer_digest"])
+    request_spec["specialist"] = {key: str(specialist[key]) for key in sorted(_SPECIALIST_FIELDS)}
 
 
 def _normalize_training_admission(
@@ -440,6 +507,7 @@ class CreateTrainingJobCommand:
             "training_admission_digest",
             "spreadsheet_governance",
             "resume_allowed",
+            "specialist",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
