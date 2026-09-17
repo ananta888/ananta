@@ -1,7 +1,7 @@
 {
   "id": "ananta-meet-codecompass-avatar",
   "title": "Ananta Meet Avatar – selbst-erklärende, sprechende Ananta-Schlange mit CodeCompass",
-  "status": "todo",
+  "status": "partial",
   "priority": "medium",
   "goal": "Einen freundlichen, fröhlichen Schlangen-Avatar passend zum Ananta-Logo als sichtbaren Agenten in Ananta Meet integrieren. Die Schlange spricht mit synchroner Mund-, Kopf-, Augen- und Körperbewegung und erklärt Ananta sowie ihre eigene Funktionsweise anhand des aktuellen Repository-Zustands über CodeCompass.",
   "requirements": [
@@ -115,5 +115,48 @@
     "Beginner-, Developer- und Architect-Erklärmodi",
     "Meet-Screen-Sharing bzw. sichtbaren Code kontextbezogen erklären",
     "eigene Architektur als Mermaid-/Graph-Ansicht darstellen"
-  ]
+  ],
+  "updated_at": "2026-09-17",
+  "implementation_status": {
+    "summary": "MVP umgesetzt: Snake-Avatar mit Zustandsautomat, Envelope-Lip-Sync auf gemeinsamer Media-Timeline, segmentierte Clips fuer lange Antworten mit Drift-Messung, CodeCompass-Routing und deterministische Self-Explanation, Feature Flags.",
+    "files": [
+      "worker/meet_media/snake_avatar_state.py",
+      "worker/meet_media/snake_avatar_timeline.py",
+      "worker/meet_media/snake_avatar.py",
+      "worker/meet_media/companion_media.py",
+      "worker/meet_media/companion_router.py",
+      "worker/meet_media/companion_explanation.py",
+      "worker/meet_media/companion_dialog.py",
+      "worker/meet_media/companion_flags.py",
+      "worker/meet_media/companion.py",
+      "worker/meet_media/assist.py",
+      "agent/routes/meet.py",
+      "docs/meet-companion-avatar.md"
+    ],
+    "tests": [
+      "tests/test_meet_snake_avatar_sync.py",
+      "tests/test_meet_companion_dialog.py",
+      "tests/test_meet_assist_retrieve_route.py"
+    ],
+    "acceptance": {
+      "avatar_participant": "done (companion publiziert persona-video-v1 Clips)",
+      "states_distinguishable": "done (idle/listening/thinking/speaking, Test signatures)",
+      "lip_sync_from_published_audio": "done (SpeechMediaTimeline envelope, silence gate)",
+      "mouth_closes_in_pauses": "done (Test test_mouth_opens_on_voiced_audio_and_closes_reliably_in_pauses)",
+      "head_body_blink": "done (AnimationController, BlinkSchedule)",
+      "joint_publication_long_answers": "done (ClipSegment + SpeechAvatarPublisher, 31s Test)",
+      "drift_test": "done (measure_drift, MAX_FRAME_DRIFT_US = 41ms)",
+      "text_and_voice_questions": "done (Chat-Pfad; Sprach-Eingang ueber bestehenden Meet-ASR-Pfad, nicht Teil des Companions)",
+      "codecompass_for_repository_questions": "done (Router + Hub assist/retrieve)",
+      "sources_named": "done (path/symbol/revision in AnswerTrace)",
+      "self_explanation": "done (companion_explanation.explain)",
+      "no_invented_evidence": "done (Trace-basiert, Test test_missing_retrieval_evidence_never_names_files)",
+      "local_models": "done (llm.py unveraendert lokal, nur optionaler Persona-Systemprompt)"
+    },
+    "open": [
+      "listening-Zustand ist implementiert, wird im Companion aber noch nicht aus einem Active-Speaker-Signal getriggert",
+      "Phonem-/Visem-Lip-Sync (future)",
+      "Sprach-Eingang (ASR) fuer den persistenten Companion; aktuell Chat-Eingang"
+    ]
+  }
 }
