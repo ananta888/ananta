@@ -1,8 +1,11 @@
-"""Persistent Ananta companion.
+"""Persistent Ananta companion (ai-snake).
 
 Stays in the room with one renewed machine session and a continuously published
-synthetic avatar (always visible), reads the room chat, and answers each user
-message with live speech (Piper PCM) plus a chat reply.
+synthetic snake avatar (always visible), reads the room chat, and answers each
+user message with live speech (Piper PCM) plus a chat reply. Audio and avatar
+clips are published from one shared media timeline (``companion_media``);
+answers are routed and traced by ``companion_dialog`` so the snake can explain
+how it produced them.
 """
 
 import base64
@@ -14,7 +17,16 @@ import time
 import urllib.request
 from pathlib import Path
 
+from worker.meet_media.companion_flags import avatar_enabled, codecompass_enabled
+from worker.meet_media.companion_media import (
+    FRAME_SAMPLES,
+    SPEECH_RATE,
+    AvatarPorts,
+    IdleClips,
+    SpeechAvatarPublisher,
+)
 from worker.meet_media.contract import encode, load_key, signature
+from worker.meet_media.snake_avatar_state import IDLE, THINKING
 
 ORIGIN = os.environ.get("MEET_ORIGIN", "https://webrtc.ananta.de")
 PROJECT = os.environ.get("MEET_COMPANION_PROJECT", "ca1388ef-6be0-4d97-9f07-d7a7d877a89e")
@@ -24,8 +36,6 @@ HUB = os.environ.get(
 CAPABILITIES = ["avatar.publish", "speech.publish", "chat.send", "chat.read"]
 DISPLAY_NAME = "ai-snake"
 RENEW_INTERVAL = float(os.environ.get("MEET_COMPANION_RENEW", "40"))
-SPEECH_RATE = 22050
-FRAME_SAMPLES = 441
 STOP_FILE = Path(os.environ.get("MEET_COMPANION_STOP", "/state/companion-stop"))
 LOG = open(os.environ.get("MEET_COMPANION_LOG", "/state/companion.log"), "a", buffering=1)
 
@@ -59,43 +69,45 @@ def avatar_image():
     return {"png": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest()}
 
 
-_IDLE_VIDEO = None
+_IDLE_CLIPS = IdleClips()
 
 
-def _snake_video(samples, seconds, repeat):
-    import numpy as np
-
-    from worker.meet_media.snake_avatar import build_video, video_payload
-
-    with tempfile.TemporaryDirectory(prefix="snake-") as temporary:
-        data, frames = build_video(np.asarray(samples, dtype=np.float32), SPEECH_RATE, seconds, temporary)
-    return video_payload(data, frames, repeat=repeat)
-
-
-def avatar_idle():
-    """Looping snake clip with a closed, smiling mouth."""
-    global _IDLE_VIDEO
-    if _IDLE_VIDEO is None:
-        import numpy as np
-
-        _IDLE_VIDEO = _snake_video(np.zeros(SPEECH_RATE, dtype=np.float32), 2.0, "loop")
-    return _IDLE_VIDEO
+def avatar_idle(state=IDLE):
+    """Looping snake clip for a non-speaking state (closed, smiling mouth)."""
+    return _IDLE_CLIPS.payload(state)
 
 
 def avatar_speaking(pcm):
-    """Snake clip whose mouth follows the reply audio envelope."""
-    import numpy as np
+    """Compatibility: first speaking clip whose mouth follows the reply audio."""
+    publisher = SpeechAvatarPublisher(AvatarPorts(None, None, None, None))
+    _timeline, clips = publisher.prepare(pcm)
+    return clips[0]
 
-    samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
-    seconds = min(10.0, max(0.25, len(samples) / SPEECH_RATE))
-    return _snake_video(samples, seconds, "hold_last")
+
+_DIALOG = None
+
+
+def dialog():
+    """Process-wide companion dialog (router + CodeCompass grounding + trace)."""
+    global _DIALOG
+    if _DIALOG is None:
+        from worker.meet_media.assist import fetch_snippets
+        from worker.meet_media.companion_dialog import CompanionDialog
+        from worker.meet_media.llm import answer
+
+        _DIALOG = CompanionDialog(
+            llm=lambda text, context, system: answer(text, context=context, system=system),
+            retriever=lambda query: fetch_snippets(query, limit=5),
+            codecompass_enabled=codecompass_enabled(),
+            model_name=os.environ.get("MEET_LLM_MODEL", ""),
+        )
+    return _DIALOG
 
 
 def generate_reply(text):
-    from worker.meet_media.assist import build_context
-    from worker.meet_media.llm import answer
-
-    return answer(text, context=build_context(text))
+    reply, trace = dialog().answer(text)
+    log("TRACE route=%s sources=%s" % (trace.route, trace.source_labels()[:4]))
+    return reply
 
 
 def synthesize_pcm(reply):
@@ -111,24 +123,75 @@ def synthesize_pcm(reply):
         return data[start:]
 
 
-def speak(page, source_id, pcm):
-    total = len(pcm) // 2
-    receipt = page.evaluate("(a) => window.anantaMachine.speech.open(a[0], a[1])", [source_id, total])
-    generation = receipt["generation"]
-    log("speech open gen=%s samples=%s" % (generation, total))
-    started = time.monotonic()
-    for offset in range(0, total, FRAME_SAMPLES):
-        chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
+def avatar_ports(page, avatar_source, speech_source):
+    """Narrow browser ports for the shared-timeline publisher."""
+
+    def avatar_open(payload):
+        receipt = page.evaluate(
+            "(a) => window.anantaMachine.avatar.open(a[0], 'persona-video-v1', a[1])", [avatar_source, payload]
+        )
+        page.evaluate("(g) => { window.__avatarGen = g; }", receipt["generation"])
+        return receipt["generation"]
+
+    def avatar_close(generation):
+        page.evaluate("(g) => window.anantaMachine.avatar.close(g)", generation)
+
+    def speech_open(total):
+        receipt = page.evaluate("(a) => window.anantaMachine.speech.open(a[0], a[1])", [speech_source, total])
+        log("speech open gen=%s samples=%s" % (receipt["generation"], total))
+        return receipt["generation"]
+
+    def speech_push(generation, offset, chunk):
         page.evaluate(
             "(a) => window.anantaMachine.speech.push(a[0], a[1], a[2])",
             [generation, offset, base64.b64encode(chunk).decode()],
         )
-        # Keep ~120ms of lead over real-time playback: enough to survive jitter,
-        # within the bounded queue (never "meet_speech_buffer_exceeded").
-        target = started + (offset / SPEECH_RATE) - 0.12
-        delay = target - time.monotonic()
-        if delay > 0:
-            time.sleep(delay)
+
+    return AvatarPorts(avatar_open, avatar_close, speech_open, speech_push)
+
+
+def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
+    """Publish speech (and, when the avatar is enabled, synced clips)."""
+    if ports is None or not avatar_enabled():
+        total = len(pcm) // 2
+        receipt = page.evaluate("(a) => window.anantaMachine.speech.open(a[0], a[1])", [source_id, total])
+        generation = receipt["generation"]
+        log("speech open gen=%s samples=%s" % (generation, total))
+        started = time.monotonic()
+        for offset in range(0, total, FRAME_SAMPLES):
+            chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
+            page.evaluate(
+                "(a) => window.anantaMachine.speech.push(a[0], a[1], a[2])",
+                [generation, offset, base64.b64encode(chunk).decode()],
+            )
+            target = started + (offset / SPEECH_RATE) - 0.12
+            delay = target - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+        return avatar_generation
+    publisher = SpeechAvatarPublisher(ports, log=log)
+    try:
+        generation, report = publisher.speak(pcm, current_generation=avatar_generation)
+        log("SYNC max_drift_us=%s segments=%s" % (report["max_drift_us"], len(report["segments"])))
+        return generation
+    except ValueError as error:
+        # Drift beyond the bound is reported, never hidden; the clip generation
+        # stays valid so the tile does not drop.
+        log("SYNC_ERR %s" % (error,))
+        return publisher.generation if publisher.generation is not None else avatar_generation
+
+
+def show_state(ports, generation, state, enabled=True):
+    """Swap the idle clip for ``state``; returns the new avatar generation."""
+    if not enabled:
+        return generation
+    try:
+        if generation is not None:
+            ports.avatar_close(generation)
+        generation = ports.avatar_open(avatar_idle(state))
+        log("avatar state=%s gen=%s" % (state, generation))
+    except Exception as error:  # noqa: BLE001
+        log("avatar_state_err %r" % (error,))
     return generation
 
 
@@ -167,6 +230,9 @@ def run():
             identity = decode_identity(grant["grant"])
             avatar_source = "avatar:" + identity["session_id"]
             speech_source = "speech:" + identity["session_id"]
+            ports = avatar_ports(page, avatar_source, speech_source)
+            avatar_on = avatar_enabled()
+            log("flags avatar=%s codecompass=%s" % (avatar_on, codecompass_enabled()))
             log("grant room=%s exp=%s" % (grant["room_id"], grant.get("expires_at")))
             page.evaluate("(a) => window.anantaMachine.join(a[0], a[1])", [grant["room_id"], grant["grant"]])
             for _ in range(30):
@@ -211,20 +277,15 @@ def run():
                         json.dumps(state.get("chat") or [], default=str)[:400]))
 
                 # Keep the synthetic avatar published so the tile is always visible.
-                if avatar_generation is None or now - avatar_opened > 90:
+                if avatar_on and (avatar_generation is None or now - avatar_opened > 90):
                     try:
                         if avatar_generation is not None:
-                            page.evaluate("(g) => window.anantaMachine.avatar.close(g)", avatar_generation)
+                            ports.avatar_close(avatar_generation)
                     except Exception:  # noqa: BLE001
                         pass
                     try:
-                        receipt = page.evaluate(
-                            "(a) => window.anantaMachine.avatar.open(a[0], 'persona-video-v1', a[1])",
-                            [avatar_source, avatar_idle()],
-                        )
-                        avatar_generation = receipt["generation"]
+                        avatar_generation = ports.avatar_open(avatar_idle(IDLE))
                         avatar_opened = now
-                        page.evaluate("(g) => { window.__avatarGen = g; }", avatar_generation)
                         log("avatar open gen=%s" % avatar_generation)
                     except Exception as error:  # noqa: BLE001
                         log("avatar_open_err %r" % (error,))
@@ -260,6 +321,9 @@ def run():
                                 processed.clear()
                             log("RECV %s: %s" % (sender, text[:140]))
                             try:
+                                # thinking -> speaking -> idle: the state is
+                                # visible while the model and TTS are working.
+                                avatar_generation = show_state(ports, avatar_generation, THINKING, avatar_on)
                                 reply = generate_reply(text)
                                 log("REPLY %s" % reply[:140])
                                 try:
@@ -269,19 +333,11 @@ def run():
                                 except Exception as error:  # noqa: BLE001
                                     log("chat_reply_err %r" % (error,))
                                 pcm = synthesize_pcm(reply)
-                                try:
-                                    if avatar_generation is not None:
-                                        page.evaluate("(g) => window.anantaMachine.avatar.close(g)", avatar_generation)
-                                    receipt = page.evaluate(
-                                        "(a) => window.anantaMachine.avatar.open(a[0], 'persona-video-v1', a[1])",
-                                        [avatar_source, avatar_speaking(pcm)],
-                                    )
-                                    avatar_generation = receipt["generation"]
-                                    avatar_opened = time.time()
-                                    page.evaluate("(g) => { window.__avatarGen = g; }", avatar_generation)
-                                except Exception as error:  # noqa: BLE001
-                                    log("avatar_talk_err %r" % (error,))
-                                speak(page, speech_source, pcm)
+                                avatar_generation = speak(
+                                    page, speech_source, pcm, ports=ports, avatar_generation=avatar_generation
+                                )
+                                avatar_opened = time.time()
+                                avatar_generation = show_state(ports, avatar_generation, IDLE, avatar_on)
                             except Exception as error:  # noqa: BLE001
                                 log("reply_err %r" % (error,))
                         try:
