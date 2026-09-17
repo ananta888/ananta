@@ -187,3 +187,8 @@ scripts/dyndns.conf
 /.coverage*
 /.*
 /frontend-angular/out-tsc/
+# Local live-test / debugging artefacts (never committed)
+/live_turn*.json
+/lr_*.txt
+/lr_out*.json
+/worker/probe2.py

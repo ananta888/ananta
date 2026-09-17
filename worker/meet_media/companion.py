@@ -211,7 +211,7 @@ def run():
                         json.dumps(state.get("chat") or [], default=str)[:400]))
 
                 # Keep the synthetic avatar published so the tile is always visible.
-                if avatar_generation is None or now - avatar_opened > 22:
+                if avatar_generation is None or now - avatar_opened > 90:
                     try:
                         if avatar_generation is not None:
                             page.evaluate("(g) => window.anantaMachine.avatar.close(g)", avatar_generation)
