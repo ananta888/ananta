@@ -1,0 +1,326 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-21",
+  "updated_at": "2026-09-21",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "jeff_local_specialist_gate_adapter",
+  "title": "Jeff: lokaler TypeSafe/Jev-kompatibler Entscheider fuer Ananta-Gates und Benchmarks",
+  "status": "todo",
+  "priority": "P1",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "purpose": "Jeff mit GLiFormer als optionalen lokalen Klassifizierungsdienst evaluieren und ueber bestehende Specialist-Vertraege anbinden. Keine zweite Orchestrierungs- oder Trainingsplattform aufbauen.",
+  "goal": "Choice, Score und Noul fuer eng begrenzte Routing-/Relevanzentscheidungen nutzen; Qualitaet, Kalibrierung, Latenz und Ressourcen deutsch/englisch messen und nur nach Hub-seitiger Policy-Pruefung freischalten.",
+  "related_todos": ["todos/active/todo.gate-benchmark-specialized-model-factory.json"],
+  "existing_integration_points": [
+    "ananta_contracts/specialist_decision.py",
+    "agent/services/specialist_training_examples.py",
+    "agent/services/specialist_dataset_split.py",
+    "agent/services/specialist_training_task_family.py",
+    "agent/services/ml_intern_training_contract.py",
+    "agent/services/ml_intern_lora_eval_service.py"
+  ],
+  "source_references": [
+    {
+      "url": "https://github.com/logan-markewich/jeff",
+      "document": "README.md",
+      "readme_blob_sha": "6a476fda061665dfc182eee83274295de7f7ff10",
+      "checked_at": "2026-09-21",
+      "note": "API-Nachbau mit GLiFormer; nicht das originale Jev-Modell. Upstream-Benchmarks sind Fremdmessungen, keine Ananta-Ergebnisse."
+    },
+    {
+      "url": "https://huggingface.co/knowledgator/gliformer-large-v1",
+      "note": "Modellkarte, Gewichtslizenz, Tokenizer-Limits und genaue Revision vor Integration gesondert verifizieren."
+    },
+    {"path": "AGENTS.md", "blob_sha": "63f03a38350d23d0cdb77040ad850c1fe23fa259"},
+    {"path": "docs/planning-pipeline.md", "blob_sha": "d1c5eba3b8395737402c7d07f8ebd53d4fcfdb4e"},
+    {"path": "ananta_contracts/specialist_decision.py", "blob_sha": "89f8cc2c649ac3531d615940e399f0d79dba2043"}
+  ],
+  "architecture_decisions": [
+    "Der Hub bleibt alleiniger Besitzer von Queue, Routing, Policy, Freigaben und Fallbacks. Jeff bzw. sein Worker liefert nur zugewiesene Klassifizierungsergebnisse; keine Worker-zu-Worker-Auftraege.",
+    "Optionaler separater Dienst/Worker-Container mit kleinem Provider-Port und austauschbarem Adapter. Keine GLiFormer-Abhaengigkeiten im Hub und kein Chat-/CLI-Backend vortaeuschen.",
+    "Deterministische Sicherheits-, Rechte-, Schema- und Release-Gates bleiben verbindlich. Modellvorschlaege und Confidence erteilen niemals Berechtigungen oder ersetzen verifizierte Belege.",
+    "Zuerst Shadow-Modus; Aktivierung je Specialist und Sprache nur nach bestandenen eigenen Benchmarks. Lokal-only ist Standard; externer Fallback braucht explizite Hub-Policy.",
+    "Bestehende Specialist-Contracts und ML-Intern-Lifecycle wiederverwenden. GLiFormer-Training ist ein separater Capability-Check, keine vorausgesetzte LoRA-/QLoRA- oder GGUF-Kompatibilitaet.",
+    "SRP/DIP: Transport, Response-Mapping, Calibration, Hub-Policy und Benchmark-Auswertung getrennt halten; vorhandene Schnittstellen nur additiv erweitern.",
+    "Alle Tests laufen headless und begrenzt. Nicht erlaubte automatische Freigaben liefern blocked statt endlos zu warten; optionale interaktive Freigaben umgehen keine Policy.",
+    "Nur der Hub vergibt und prueft SRC_*/RUN_*-Identitaeten. Lokale Testmessungen und synthetische Fixtures bleiben als solche gekennzeichnet und sind keine produktive Release-Evidenz."
+  ],
+  "non_goals": [
+    "Kein Chatbot, Coding-Agent oder autonomes Multi-Agent-System.",
+    "Keine automatische Uebernahme von TypeSafe-Qualitaets-/Kostenversprechen und keine garantierte deutsche Sprachqualitaet.",
+    "Kein Ersatz harter Sicherheitsregeln, keine ungefragten Cloud-Aufrufe, keine zweite Trainings-Control-Plane."
+  ],
+  "milestones": [
+    {"id": "JEFF-M1", "title": "Bestandsaufnahme, lokale Laufzeit und Adapter", "status": "todo", "task_ids": ["JEFF-001", "JEFF-002", "JEFF-003"]},
+    {"id": "JEFF-M2", "title": "Kalibrierung, Hub-Governance und Datenschutz", "status": "todo", "task_ids": ["JEFF-004", "JEFF-005", "JEFF-006"]},
+    {"id": "JEFF-M3", "title": "DE/EN-Qualitaet und lokale Ressourcen messen", "status": "todo", "task_ids": ["JEFF-007", "JEFF-008", "JEFF-009"]},
+    {"id": "JEFF-M4", "title": "Model-Factory, Tests und kontrollierter Rollout", "status": "todo", "task_ids": ["JEFF-010", "JEFF-011", "JEFF-012"]}
+  ],
+  "tasks": [
+    {
+      "id": "JEFF-001",
+      "milestone_id": "JEFF-M1",
+      "title": "Upstream und vorhandene Specialist-Anbindung abgleichen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "Jeff-Commit, Python-/Dependency-Lock, GLiFormer-Modellrevision und Code-/Gewichtslizenzen erfassen; README nennt rund 400M Parameter, keine Jev-Originalgewichte.",
+        "SpecialistDecisionContract und bestehenden Model-Factory-Track gegen tatsaechlichen Code pruefen; Erweiterungspunkte und noch offene Integrationsluecken dokumentieren.",
+        "Erste Specialists: erlaubte Tool-Kategorie oder no_tool, Retrieval-Relevanz, Prioritaet; Risiko-/Freigabebewertung nur beratend."
+      ],
+      "acceptance_criteria": [
+        "Revisionen, Lizenzen und bestehende Ports sind nachvollziehbar dokumentiert; keine neue Parallelarchitektur.",
+        "Jeder Pilot besitzt Input-Schema, feste Labels, Sprache, Abstain-Regel und vorab festgelegte Qualitaets-/Safety-Grenzen."
+      ]
+    },
+    {
+      "id": "JEFF-002",
+      "milestone_id": "JEFF-M1",
+      "title": "Optionale lokale Jeff-Laufzeit bereitstellen",
+      "type": "infrastructure",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-001"],
+      "implementation": [
+        "Reproduzierbaren separaten Docker-Dienst fuer CPU und optional CUDA planen; Gewichte versioniert als lokales Volume, kein Download bei jeder Anfrage.",
+        "Base URL, Secret-Referenz, Modell, Device, Dtype, Batch-/Queue-Grenzen und Timeouts konfigurierbar machen; Healthcheck ueber /healthz.",
+        "Kein oeffentlicher Port als Standard; internes Netz und verpflichtende JEFF_API_KEYS fuer den Service. MPS nur optional fuer geeignete Host-Umgebungen."
+      ],
+      "acceptance_criteria": [
+        "CPU-Smoke-Test funktioniert mit bereitgestellten Gewichten; fehlende GPU/Weights liefern begrenzte klare Diagnosen.",
+        "Feature deaktiviert startet weder Jeff noch Modelldownloads; nach Modellbereitstellung sind lokale Requests ohne Internet moeglich."
+      ]
+    },
+    {
+      "id": "JEFF-003",
+      "milestone_id": "JEFF-M1",
+      "title": "Typisierten Choice-/Score-/Noul-Adapter implementieren",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-001"],
+      "implementation": [
+        "POST /v1/systemone hinter einem kleinen Provider-Port anbinden; offizielles typesafe-sdk optional im Adapter nutzen, Hub-Domaene SDK-frei halten.",
+        "Choice-Labels, geordnete Score-Kriterien und Noul-Ja-Wert strikt validieren und ueber versionierte Mappings auf bestehende Specialist-Outputs abbilden.",
+        "Rohwerte, angezeigte Wahrscheinlichkeiten, Confidence, Modellrevision und Laufzeit getrennt speichern; unbekannte Labels, NaN/Infinity und Schemaabweichungen ablehnen.",
+        "401/422 nicht blind wiederholen; 429/529 und Transportfehler nur mit begrenztem Backoff, Deadline und Circuit Breaker behandeln."
+      ],
+      "acceptance_criteria": [
+        "Contract-Tests decken alle drei Antworttypen sowie fehlerhafte Payloads ab; bestehende Provider funktionieren unveraendert.",
+        "Jede Anfrage liefert fristgerecht validiertes Ergebnis oder typisierten Fehler/Abstain, niemals stillschweigend allow."
+      ]
+    },
+    {
+      "id": "JEFF-004",
+      "milestone_id": "JEFF-M2",
+      "title": "Fragen-Isolation und Wahrscheinlichkeiten kalibrieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-002", "JEFF-003"],
+      "implementation": [
+        "Fuer Gate-Profile JEFF_ISOLATE=all oder getrennte Einzelrequests vorsehen; none/nouls/all mit umgeordneten und zusaetzlichen Fragen vergleichen.",
+        "Upstream-Semantik explizit testen: Score beruht auf Rohverteilung, angezeigte Wahrscheinlichkeiten sind temperaturtransformiert; nicht ungeprueft auseinander berechnen.",
+        "Temperatur, Noul-Modus, Label-Anordnung und Abstain-Schwellen nur auf Validation-Daten abstimmen. Bei gliformer-base-v1 eigenen Noul-Modus pruefen."
+      ],
+      "acceptance_criteria": [
+        "Keine unerwartete gegenseitige Beeinflussung isolierter Gate-Fragen innerhalb dokumentierter numerischer Toleranzen.",
+        "Brier Score/ECE und Risk-Coverage je Sprache/Aufgabe dokumentiert; unkalibrierte Confidence wird nicht als verlaessliche Korrektheitswahrscheinlichkeit verwendet."
+      ]
+    },
+    {
+      "id": "JEFF-005",
+      "milestone_id": "JEFF-M2",
+      "title": "Hub-Gates und begrenzten Fallback anschliessen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-003", "JEFF-004"],
+      "implementation": [
+        "Jeff-Ergebnisse nur als Vorschlag nach Schema-/Policy-Pruefung auswerten; Hub prueft erlaubte Tools, Tenant-/Projektbindung und aktuelle Freigabepolicy.",
+        "Bei Unsicherheit, widerspruechlichen Outputs oder Ausfall: abstain, zugelassenes groesseres Modell oder bounded blocked; keine rekursiven Fallback-Schleifen.",
+        "Automatische Freigaben nur durch explizite Hub-Policy, optionale manuelle Freigaben ueber bestehende Mechanismen; Modell darf keine Pflichtfreigabe abschalten."
+      ],
+      "acceptance_criteria": [
+        "Ein noch so sicherer Jeff-allow-Vorschlag kann ein deterministisches deny niemals ueberschreiben.",
+        "Headless-Tests fuer allow/deny/escalate, Timeout und fehlende Auto-Freigabe enden deterministisch; kein Worker disponiert Folgeauftraege."
+      ]
+    },
+    {
+      "id": "JEFF-006",
+      "milestone_id": "JEFF-M2",
+      "title": "Datenschutz, Endpoint-Schutz und Audit absichern",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-002", "JEFF-003"],
+      "implementation": [
+        "Konfigurierte Endpoints administrativ erlaubnislisten, Secrets nur referenzieren und sensible Inhalte vor Logging/Training redigieren; keine freie URL aus Modelloutput.",
+        "Lokal-only-Profile ohne externen Fallback erzwingen; Datenumfang, Aufbewahrung, Tenant-Trennung und Zugriff auf /stats begrenzen.",
+        "Hub-reservierten Run und zugelassene Quellen an Input-/Config-/Modell-Digests binden; Worker-Ergebnisse nur unter passender Assignment-/Dispatch-Lease akzeptieren."
+      ],
+      "acceptance_criteria": [
+        "Tests beweisen: keine Secrets/PII in Standardlogs, keine ungefragten Cloud-Aufrufe und keine Tenant-uebergreifenden Daten.",
+        "Unbekannte, veraenderte oder synthetische Evidenz wird nicht als produktive Release-Evidenz akzeptiert; keine selbst vergebenen SRC_*/RUN_*-Werte."
+      ]
+    },
+    {
+      "id": "JEFF-007",
+      "milestone_id": "JEFF-M3",
+      "title": "Deutschen und englischen Benchmark-Datensatz aufbauen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-001"],
+      "implementation": [
+        "Versionierte DE/EN-Faelle fuer Tool-Routing, Retrieval-Relevanz und Prioritaet erstellen; Negation, Ironie, Mehrdeutigkeit, Fachbegriffe und Prompt-Injection-Versuche aufnehmen.",
+        "Vorhandenen Split-/Redaction-Code nutzen: Train, Validation und eingefrorenen Holdout gruppenweise trennen; Label-Quelle, Rechte und Provenance angeben.",
+        "Leere/lange Texte und viele Labels testen; Encoder-Tokenlimit inkl. Instruktionen/Labels separat von JEFF_MAX_STATE_CHARS behandeln und stille Trunkierung verhindern."
+      ],
+      "acceptance_criteria": [
+        "DE und EN werden getrennt ausgewertet; ungepruefte Modellantworten gelten nicht als Ground Truth.",
+        "Leakage-/Near-Duplicate-Pruefungen bestehen; Holdout beeinflusst weder Training noch Prompt-/Threshold-Optimierung."
+      ]
+    },
+    {
+      "id": "JEFF-008",
+      "milestone_id": "JEFF-M3",
+      "title": "Reproduzierbaren Vergleich im vorhandenen Eval-System integrieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-004", "JEFF-005", "JEFF-006", "JEFF-007"],
+      "implementation": [
+        "Jeff gegen bestehende Regel-/Modellbaselines vergleichen, optional GLiFormer base vs. large; offizielles Jev nur bei expliziter Daten- und Budgetfreigabe.",
+        "Accuracy, Macro-F1, Klassen-Precision/Recall, False-Allow/False-Deny, Abstain-Rate, Kalibrierung und bei Scores Rang-/Ordinalfehler erfassen.",
+        "Identische Inputs/Splits, Revisionen und Konfigurationen festhalten; Cold/Warm p50/p95, HTTP-Ende-zu-Ende-Latenz, Durchsatz und Fehlerquote getrennt berichten.",
+        "Kosten nach realen Laufzeit-/Hardwareannahmen ausweisen; Jeff-Tokenzaehler nicht mit Jev-Abrechnung gleichsetzen."
+      ],
+      "acceptance_criteria": [
+        "Ein headless Benchmark-Lauf erzeugt maschinenlesbaren Bericht mit Fallzahl, Unsicherheit, Baselines, Hardware und Rohmesswerten.",
+        "Ergebnisse gelten je Specialist/Sprache; Upstream-Werte sind als Fremdmessung getrennt und garantieren keine Ananta-Performance."
+      ]
+    },
+    {
+      "id": "JEFF-009",
+      "milestone_id": "JEFF-M3",
+      "title": "Speicher- und Lastprofile fuer lokale Hardware vermessen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-002", "JEFF-008"],
+      "implementation": [
+        "CPU/Torch und optional CPU/ONNX sowie vorhandene CUDA-Hardware vergleichen; 16-GB-Profil priorisieren, 10-GB-Profil nur bei verfuegbarer Hardware.",
+        "RAM, Peak-VRAM, Modell-/Cache-Speicher, Batchgroesse, Text-/Label-Laenge, Queue-Wartezeit und Isolation unter identischer Last messen.",
+        "Optionale Quantisierung nur bei nachgewiesenem Nutzen uebernehmen; ONNX-Encoder nicht mit vollstaendigem ONNX-Modell gleichsetzen."
+      ],
+      "acceptance_criteria": [
+        "Keine pauschale VRAM-/Geschwindigkeitszusage aus Parameterzahl; Profilgrenzen stammen aus eigenen Messungen.",
+        "OOM/volle Queue fuehren zu kontrolliertem Fehler oder konfiguriertem Fallback, nicht zum Hub-Ausfall."
+      ]
+    },
+    {
+      "id": "JEFF-010",
+      "milestone_id": "JEFF-M4",
+      "title": "Jeff an Model-Factory und ML-Intern anschliessen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-008", "JEFF-009"],
+      "implementation": [
+        "Jeff als eingefrorene Inferenz-/Benchmark-Baseline in bestehende Specialist-Registry eintragen; freigegebene Fehlerfaelle ueber vorhandene Provenance-/Redaction-Pipeline uebergeben.",
+        "Model-Factory-, ML-Intern- und vorhandenen Optimierungs-Lifecycle fuer Dataset, Evaluation, Promotion und Rollback wiederverwenden; kein zweiter Lernloop.",
+        "GLiFormer/Encoder-Training und PEFT-/LoRA-/QLoRA-Unterstuetzung separat pruefen. Bei fehlender Unterstuetzung Jeff unveraendert als Baseline belassen und geeignete bestehende Specialist-Backends nutzen."
+      ],
+      "acceptance_criteria": [
+        "Modell-, Dataset-, Contract- und Benchmark-Version sind verknuepft; keine unvalidierten Jeff-Labels als automatische Trainingswahrheit.",
+        "Inferenzintegration funktioniert ohne GLiFormer-Fine-Tuning; unsupported Training/Export wird explizit gemeldet statt als vorhanden ausgegeben."
+      ]
+    },
+    {
+      "id": "JEFF-011",
+      "milestone_id": "JEFF-M4",
+      "title": "Headless Vertrags-, Sicherheits- und Regressionstests absichern",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-005", "JEFF-006", "JEFF-008", "JEFF-010"],
+      "implementation": [
+        "Default-CI mit deterministischen Fake-Backends ohne GPU, Netzwerk oder menschliche Eingaben ausfuehren; lokale Modell-Smokes separat kennzeichnen.",
+        "Auth, Request-/Response-Limits, Label-Reihenfolge, Isolation, NaN, Timeout, 429/529, Fallback-Budgets, Tenant-Trennung und unveraenderte harte Gates testen.",
+        "Feature-off-Kompatibilitaet und Hub-Worker-Grenzen pruefen; fehlende Modellgewichte als klaren Skip/Not-Run statt bestandenen Modelltest ausweisen."
+      ],
+      "acceptance_criteria": [
+        "Tests sind reproduzierbar, headless und zeitlich begrenzt; erforderliche Sicherheitsregeln werden nicht fuer Tests deaktiviert.",
+        "Synthetic/Test-Evidence erfuellt keine produktiven Release-Gates; Modelltest und Adaptertest sind im Bericht eindeutig getrennt."
+      ]
+    },
+    {
+      "id": "JEFF-012",
+      "milestone_id": "JEFF-M4",
+      "title": "Konfiguration, Shadow-Rollout und Rueckfall dokumentieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEFF-009", "JEFF-010", "JEFF-011"],
+      "implementation": [
+        "Provider-/Modellwahl, Sprachen, Abstain-Schwellen, Isolation und erlaubte Fallbacks in vorhandene Konfiguration integrieren; keine fest verdrahtete Modellwahl.",
+        "Zuerst Shadow-Modus ohne operative Entscheidung; Aktivierung je Specialist nur bei vorab definierten Qualitaets-/Safety-/Ressourcengrenzen.",
+        "Offline-Start, Limits, Kostenannahmen, bekannte Reasoning-/Sprachgrenzen, Deaktivierung und Rollback beschreiben; scheiternder Pilot bleibt shadow oder disabled."
+      ],
+      "acceptance_criteria": [
+        "Ein Konfigurationswechsel kann Jeff deaktivieren und zur zuvor freigegebenen Baseline zurueckkehren.",
+        "Promotion folgt Hub-Policy und verifizierter Evidenz; beim Anlegen dieser Todo sind keine Implementierung oder Benchmarks als erledigt markiert."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["JEFF-001", "JEFF-002", "JEFF-004", "JEFF-005", "JEFF-008", "JEFF-009", "JEFF-010", "JEFF-011", "JEFF-012"],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {"todo": 12, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 3, "P1": 7, "P2": 2},
+    "by_risk": {"low": 2, "medium": 6, "high": 4, "critical": 0},
+    "critical_path": {"total": 9, "done": 0, "remaining": 9},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {"architecture": 1, "infrastructure": 1, "integration": 3, "evaluation": 4, "security": 1, "testing": 1, "documentation": 1}
+  },
+  "progress_summary": {"state": "todo", "todo_remaining": 12, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "tasks[] ist die einzige Statusquelle; Summary-Bloecke wurden aus den 12 offenen Tasks abgeleitet.",
+    "Nur Planungsartefakt: keine Implementierung, kein Modelldownload und kein echter Modell-Benchmark in diesem Commit.",
+    "Alle Performance-/Qualitaetsschwellen vor Evaluation festlegen; fehlende lokale Evidenz bleibt offen."
+  ]
+}
