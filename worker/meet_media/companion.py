@@ -17,7 +17,15 @@ import time
 import urllib.request
 from pathlib import Path
 
-from worker.meet_media.avatar_service import LipSyncClient, health, service_enabled, service_url
+from worker.meet_media.avatar_idle_clip import IdleClipSource
+from worker.meet_media.avatar_service import (
+    LipSyncClient,
+    health_report,
+    load_portrait,
+    portrait_path,
+    service_enabled,
+    service_url,
+)
 from worker.meet_media.companion_flags import avatar_enabled, codecompass_enabled
 from worker.meet_media.companion_media import (
     FRAME_SAMPLES,
@@ -74,26 +82,15 @@ def avatar_image():
     return {"png": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest()}
 
 
-PORTRAIT_PNG = os.environ.get("MEET_AVATAR_PORTRAIT_PNG", "/state/ananta-snake-portrait.png")
-
-
 def portrait_png():
-    """Static snake portrait for the lip-sync service; rendered once into /state."""
-    from worker.meet_media.snake_avatar import portrait_png as render
+    """Reference portrait asset for the lip-sync service (``MEET_AVATAR_SERVICE_PORTRAIT``).
 
-    path = Path(PORTRAIT_PNG)
-    try:
-        data = path.read_bytes()
-        if data[:8] == b"\x89PNG\r\n\x1a\n":
-            return data
-    except OSError:
-        pass
-    data = render()
-    try:
-        path.write_bytes(data)
-        log("portrait rendered %s bytes=%s sha256=%s" % (path, len(data), hashlib.sha256(data).hexdigest()[:12]))
-    except OSError as error:
-        log("portrait_write_err %r" % (error,))
+    Never rendered here: the service detects the face from this exact image.
+    A missing asset raises and disables lip-sync (local renderer fallback).
+    """
+    path = portrait_path()
+    data = load_portrait(path)
+    log("portrait %s bytes=%s sha256=%s" % (path, len(data), hashlib.sha256(data).hexdigest()[:12]))
     return data
 
 
@@ -118,16 +115,20 @@ def log_lipsync_service():
         log("lipsync service disabled")
         return
     try:
-        log("lipsync service=%s ready=%s" % (service_url(), health(service_url())))
+        report = health_report(service_url()) or {}
+        log("lipsync service=%s ready=%s last_face_method=%s" % (
+            service_url(), report.get("ready") is True, (report.get("last_inference") or {}).get("face_method")))
     except Exception as error:  # noqa: BLE001
         log("lipsync service_err %r" % (error,))
 
 
-_IDLE_CLIPS = IdleClips()
+# Pre-rendered idle loop (MEET_AVATAR_IDLE_CLIP); the procedural renderer only
+# answers when the asset is unusable.
+_IDLE_CLIPS = IdleClipSource(fallback=IdleClips(), log=log)
 
 
 def avatar_idle(state=IDLE):
-    """Looping snake clip for a non-speaking state (closed, smiling mouth)."""
+    """Looping snake clip for a non-speaking state (gentle breathing, mouth closed)."""
     return _IDLE_CLIPS.payload(state)
 
 

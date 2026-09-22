@@ -19,7 +19,8 @@ Track: `todos/todo.ananta-meet-codecompass-avatar.json`.
 |---|---|---|
 | `MEET_AVATAR_SERVICE_ENABLED` | `1` | Sprech-Clips über den lokalen MuseTalk-Lippensync-Dienst rendern (`0` = nur lokaler Renderer). |
 | `MEET_AVATAR_SERVICE_URL` | `http://172.18.112.1:8189` | Basis-URL des Dienstes (`GET /health`, `POST /avatar`). |
-| `MEET_AVATAR_PORTRAIT_PNG` | `/state/ananta-snake-portrait.png` | Referenzportrait; wird beim ersten Bedarf gerendert, falls die Datei fehlt. |
+| `MEET_AVATAR_SERVICE_PORTRAIT` | `/state/ananta-snake-portrait.png` | Referenzportrait (Asset, 512×512 PNG), das der Dienst als `image_png_b64` erhält. Fehlt es, bleibt Lippensync aus (lokaler Renderer). |
+| `MEET_AVATAR_IDLE_CLIP` | `/state/ananta-snake-idle.mp4` | Vorgerenderter, nahtlos loopender Idle-Clip (3 s, 36 Frames, 256×256, 12 fps), publiziert als `persona-video-v1` mit `repeatMode="loop"`. Fehlt er, rendert der lokale `IdleClips`-Renderer. |
 | `MEET_COMPANION_AVATAR_REFRESH` | `25` | Sekunden, nach denen der Idle-Clip neu geöffnet wird (Client-Aktivierung läuft nach ~30 s ab). |
 
 ## Lippensync über den MuseTalk-Dienst
@@ -41,15 +42,30 @@ Track: `todos/todo.ananta-meet-codecompass-avatar.json`.
   genau dessen PCM-Fenster (≤ 10 s, die Dienstgrenze) auf. `None` wählt für
   dieses Segment den lokalen Schlangen-Renderer; die Timeline, die
   Swap-Zeitpunkte und die Drift-Messung bleiben unverändert.
-* Das Portrait (`snake_avatar.render_portrait`, 512×512, Mund in der unteren
-  Hälfte) wird vom Companion nach `/state/ananta-snake-portrait.png` gerendert.
+* Das Portrait ist ein **Asset** (`avatar_service.load_portrait(portrait_path())`,
+  `MEET_AVATAR_SERVICE_PORTRAIT`), nicht mehr ein vom Worker gerendertes Bild:
+  der Dienst bestimmt die Gesichtsregion aus genau diesem Bild (`face_method`
+  im `/health`-Feld `last_inference`; `avatar_service.health_report`). Das
+  aktuelle Portrait (`data/meet-media/worker-state/ananta-snake-portrait.png`,
+  siehe `snake-README.md` dort) wird vom Detektor nicht als Gesicht erkannt
+  (`centered_fallback`, Stand 2026-09-22); ein Face-Box-Override
+  (`AVATAR_FACE_BOX`) ist Dienst-seitig und wird vom Worker nicht gesetzt.
+  Fehlt das Asset, wird der Lippensync deaktiviert und der lokale Renderer
+  übernimmt die Sprech-Clips.
+* Im Leerlauf (`idle`, `thinking`, `listening`) publiziert der Companion den
+  vorgerenderten Idle-Loop (`avatar_idle_clip.IdleClipSource`,
+  `MEET_AVATAR_IDLE_CLIP`) als `persona-video-v1` mit `repeatMode="loop"`; die
+  Frame-Zahl wird aus dem MP4 (`stsz`) gelesen. Der prozedurale
+  `IdleClips`-Renderer ist nur noch Fallback, wenn das Asset fehlt oder
+  ungültig ist (`idle clip fallback reason=…` im Log).
 
 Gemessen (RTX 5060 Ti): 2 s Audio → 24 Frames in ≈ 4,6 s, 10 s → 120 Frames
 in ≈ 9,8 s. Die Clips werden vor dem Sprechen gerendert, d. h. eine 40-s-Antwort
-wartet bis zu ≈ 40 s im Zustand `thinking`. Bekannte Grenze: MuseTalk erkennt
-das Cartoon-Gesicht nicht (`face_method: centered_fallback`) und malt den
-Mundbereich unscharf; für ein sauberes Ergebnis braucht der Dienst ein
-gesichtsähnlicheres Referenzbild oder ein Cartoon-fähiges Modell.
+wartet bis zu ≈ 40 s im Zustand `thinking`. Bekannte Grenze: MuseTalks
+Detektor erkennt weder das prozedurale noch das neue Cartoon-Portrait als
+Gesicht (`centered_fallback`); der generierte Mundbereich bleibt sichtbar
+weicher als die Illustration. Eine manuelle Gesichtsbox ist Dienst-seitig
+möglich (siehe `snake-README.md`).
 
 ## Synchronisierte Audio/Video-Pipeline
 
@@ -129,6 +145,11 @@ docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm t-infra \
 `tests/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,
 Fallback-Policy); der markierte Integrationstest ruft den echten Dienst nur mit
 `RUN_INTEGRATION_TESTS=1` und erreichbarem `/health` auf, sonst wird er übersprungen.
+`tests/test_meet_avatar_assets.py` deckt Portrait-Auswahl (Env, fehlend,
+ungültig) und den Idle-Clip-Pfad (MP4-Frame-Zählung, Loop-Payload, Cache,
+Fallback) mit synthetischen Dateien ab; der Integrationsteil lädt die echten
+Assets aus `data/meet-media/worker-state/` und ruft den Dienst mit dem Portrait
+auf, sofern erreichbar.
 
 Die Tests laufen ohne FFmpeg (injizierter Encoder) und ohne Browser (Ports als
 Fakes mit deterministischer Uhr).

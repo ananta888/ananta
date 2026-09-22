@@ -14,6 +14,11 @@ Two layers (SRP):
                       an unreachable service costs one timeout, not one per
                       clip, and ``persona-video-v1`` payloads via
                       ``snake_avatar.video_payload``.
+
+The reference portrait is an *asset* (``MEET_AVATAR_SERVICE_PORTRAIT``, default
+``/state/ananta-snake-portrait.png``), never rendered by the worker: the
+service detects the face (``face_method``) from this exact image, so what the
+worker sends must be what was verified against the service.
 """
 
 import base64
@@ -25,6 +30,7 @@ import time
 import urllib.error
 import urllib.request
 import wave
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from worker.meet_media.snake_avatar import video_payload
@@ -33,6 +39,9 @@ from worker.meet_media.snake_avatar_timeline import MAX_CLIP_FRAMES
 DEFAULT_URL = "http://172.18.112.1:8189"
 URL_ENV = "MEET_AVATAR_SERVICE_URL"
 ENABLED_ENV = "MEET_AVATAR_SERVICE_ENABLED"
+PORTRAIT_ENV = "MEET_AVATAR_SERVICE_PORTRAIT"
+DEFAULT_PORTRAIT = "/state/ananta-snake-portrait.png"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # Connect + response deadline for one clip (<= 10 s of audio). Measured
 # inference on the reference GPU is a few seconds; anything slower would
 # delay the reply more than the local renderer does.
@@ -69,6 +78,29 @@ def service_url(environ=None):
 def service_enabled(environ=None):
     environ = os.environ if environ is None else environ
     return str(environ.get(ENABLED_ENV, "1")).strip().lower() not in _FALSE
+
+
+def portrait_path(environ=None):
+    """Path of the reference portrait the service receives as ``image_png_b64``."""
+    environ = os.environ if environ is None else environ
+    return str(environ.get(PORTRAIT_ENV, "") or DEFAULT_PORTRAIT).strip()
+
+
+def load_portrait(path):
+    """PNG bytes of the reference portrait asset at ``path``.
+
+    Raises ``meet_avatar_service_portrait_missing`` when the asset is absent and
+    ``meet_avatar_service_portrait_invalid`` when it is not a bounded PNG. There
+    is deliberately no procedural fallback: a different image would change the
+    face the service detects.
+    """
+    try:
+        data = Path(path).read_bytes()
+    except (OSError, TypeError, ValueError):
+        raise AvatarServiceError("meet_avatar_service_portrait_missing", path) from None
+    if not 0 < len(data) <= MAX_PORTRAIT_BYTES or data[:8] != PNG_SIGNATURE:
+        raise AvatarServiceError("meet_avatar_service_portrait_invalid", path)
+    return data
 
 
 def wav_bytes(pcm_s16le, rate):
@@ -145,6 +177,8 @@ def _decode(payload):
         "fps": document.get("fps"),
         "width": document.get("width"),
         "height": document.get("height"),
+        # Diagnostic only: how the service located the face (e.g. "dwpose").
+        "face_method": document.get("face_method"),
     }
 
 
@@ -158,7 +192,7 @@ def render(portrait_png_bytes, wav_bytes_, *, base_url, timeout=DEFAULT_TIMEOUT_
     """
     if not isinstance(portrait_png_bytes, (bytes, bytearray)) or not 0 < len(portrait_png_bytes) <= MAX_PORTRAIT_BYTES:
         raise AvatarServiceError("meet_avatar_service_portrait_invalid")
-    if portrait_png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
+    if portrait_png_bytes[:8] != PNG_SIGNATURE:
         raise AvatarServiceError("meet_avatar_service_portrait_invalid")
     if not isinstance(wav_bytes_, (bytes, bytearray)) or len(wav_bytes_) < 44 or wav_bytes_[:4] != b"RIFF":
         raise AvatarServiceError("meet_avatar_service_audio_invalid")
@@ -195,15 +229,21 @@ def render(portrait_png_bytes, wav_bytes_, *, base_url, timeout=DEFAULT_TIMEOUT_
     raise AvatarServiceError("meet_avatar_service_busy")
 
 
-def health(base_url, *, timeout=HEALTH_TIMEOUT_SECONDS, opener=None):
-    """``True`` when the service answers ``/health`` with ``ready: true``."""
+def health_report(base_url, *, timeout=HEALTH_TIMEOUT_SECONDS, opener=None):
+    """The ``/health`` document (incl. ``last_inference.face_method``), or ``None``."""
     request = urllib.request.Request(base_url.rstrip("/") + "/health", headers={"Accept": "application/json"})
     try:
         with _open(request, timeout, opener) as response:
             document = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, OSError, ValueError, AvatarServiceError):
-        return False
-    return isinstance(document, dict) and document.get("ready") is True
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def health(base_url, *, timeout=HEALTH_TIMEOUT_SECONDS, opener=None):
+    """``True`` when the service answers ``/health`` with ``ready: true``."""
+    document = health_report(base_url, timeout=timeout, opener=opener)
+    return document is not None and document.get("ready") is True
 
 
 class LipSyncClient:
@@ -259,7 +299,9 @@ class LipSyncClient:
             self._log("lipsync fallback reason=%s detail=%s" % (error.reason_code, error.detail))
             return None
         self.rendered += 1
+        face = result.get("face_method")
         self._log(
-            "lipsync clip frames=%s bytes=%s seconds=%s" % (result["frames"], len(result["mp4"]), result.get("seconds"))
+            "lipsync clip frames=%s bytes=%s seconds=%s%s"
+            % (result["frames"], len(result["mp4"]), result.get("seconds"), " face_method=%s" % face if face else "")
         )
         return video_payload(result["mp4"], result["frames"], repeat=repeat)
