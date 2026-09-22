@@ -53,6 +53,10 @@ MAX_RETRY_AFTER_SECONDS = 2.0
 # Matches the service's "<= 2 MB base64" promise and the client contract.
 MAX_MP4_BASE64_CHARS = 2_000_000
 MAX_AUDIO_SECONDS = 10.0
+# The timeline folds a 1-frame tail into the previous segment (121 frames for a
+# 10.04 s reply); the service truncates such audio to 120 frames and hold_last
+# covers the tail, so one frame beyond the limit is still a service clip.
+AUDIO_TOLERANCE_SECONDS = 1.0 / 12
 MAX_PORTRAIT_BYTES = 4 * 1024 * 1024
 _FALSE = frozenset({"0", "false", "off", "no"})
 
@@ -284,8 +288,8 @@ class LipSyncClient:
         if not self.available:
             return None
         seconds = len(pcm_s16le) / 2 / self.rate
-        if seconds > MAX_AUDIO_SECONDS + 1e-6:
-            # The service truncates at 10 s; the caller must segment first.
+        if seconds > MAX_AUDIO_SECONDS + AUDIO_TOLERANCE_SECONDS + 1e-6:
+            # Beyond one folded frame the caller must segment first.
             self._log("lipsync skip reason=meet_avatar_service_audio_too_long seconds=%.2f" % seconds)
             return None
         try:

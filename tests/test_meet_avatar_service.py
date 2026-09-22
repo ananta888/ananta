@@ -237,6 +237,17 @@ def test_lipsync_client_is_the_publisher_port():
 def test_lipsync_client_refuses_audio_longer_than_the_service_limit():
     client = LipSyncClient(PORTRAIT, base_url="http://svc:8189", renderer=lambda *a, **k: pytest.fail("must not call"))
     assert client.clip(tone_pcm(10.5)) is None and client.available is True
+    assert client.clip(tone_pcm(10.0 + 2 / 12)) is None and client.failed == 0
+
+
+def test_lipsync_client_accepts_the_folded_one_frame_tail_segment():
+    # A 10.04 s reply is one 121-frame segment; the service truncates it to 120.
+    pcm = tone_pcm(10.0 + 0.5 / 12)
+    segments = SpeechMediaTimeline(np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0, SPEECH_RATE).segments()
+    assert [segment.frames for segment in segments] == [MAX_CLIP_FRAMES + 1]
+    renderer = lambda *_a, **_k: {"mp4": MP4, "frames": MAX_CLIP_FRAMES, "seconds": 0.1}  # noqa: E731
+    client = LipSyncClient(PORTRAIT, base_url="http://svc:8189", renderer=renderer)
+    assert client.clip(pcm)["frames"] == MAX_CLIP_FRAMES and client.rendered == 1
 
 
 def fake_encoder(raw_path, video_path, frames):
