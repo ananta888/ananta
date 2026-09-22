@@ -1,0 +1,416 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-22",
+  "updated_at": "2026-09-22",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "jev_llamacpp_parallel_decision_mode",
+  "title": "Jev-Modus fuer llama.cpp: parallele typisierte Entscheidungen als lokaler System-1-Pfad",
+  "status": "todo",
+  "priority": "P1",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "purpose": "Den im Quellmaterial beschriebenen offenen Jev-aehnlichen Inferenzansatz fuer normale llama.cpp-kompatible Open-Weight-Modelle reproduzieren, technisch verifizieren und als optionalen schnellen Specialist-/Gate-Pfad in Ananta integrieren.",
+  "goal": "Fuer kleine, voneinander unabhaengige Entscheidungen nicht mehr komplettes JSON autoregressiv erzeugen, sondern pro Feld nur erlaubte Kandidatenwerte bewerten, diese Felder soweit technisch moeglich parallel abfragen, Confidence/Kalibrierung messen und unsichere oder abhaengige Faelle kontrolliert an einen langsameren System-2-Pfad eskalieren.",
+  "related_todos": [
+    "todos/active/todo.jeff-local-specialist-gate-adapter.json",
+    "todos/active/todo.gate-benchmark-specialized-model-factory.json"
+  ],
+  "source_basis": {
+    "kind": "user_supplied_transcript",
+    "checked_at": "2026-09-22",
+    "supported_claims": [
+      "Der beschriebene offene Nachbau verwendet keine neuen Spezialgewichte, sondern einen anderen Inferenzmodus fuer bestehende Modelle.",
+      "Statt komplettes JSON Token fuer Token zu schreiben, werden erlaubte Feldwerte direkt ueber Token-Scores bzw. Kandidaten bewertet.",
+      "Mehrere unabhaengige Felder koennen ueber gemeinsamen Prompt-/KV-Cache und Batching parallel bzw. gemeinsam ausgewertet werden.",
+      "Im beschriebenen llama.cpp-Prototyp existiert dafuer ein zusaetzlicher Decision-Endpunkt neben normalem Chat.",
+      "Schema- bzw. Wertegueltigkeit verhindert keine inhaltlich falsche Entscheidung.",
+      "Felder mit Abhaengigkeiten untereinander sind fuer diesen isolierten Parallelmodus problematisch und benoetigen einen anderen Pfad.",
+      "Attention-only-, Hybrid-/Recurrent- und teilweise ausgelagerte MoE-Modelle koennen sich bei der Performance deutlich unterschiedlich verhalten."
+    ],
+    "not_supported_or_still_to_verify": [
+      "Exakter Upstream-Fork, Commit, Branch, API-Pfad und Lizenz des im Transkript gezeigten llama.cpp-Prototyps.",
+      "Ob und in welcher Form der Ansatz inzwischen upstream in llama.cpp oder anderen Runtimes angekommen ist.",
+      "Welche Modelle auf Ananta-Hardware tatsaechlich die beste Latenz-, Qualitaets- und Kalibrierungsbalance liefern.",
+      "Dass Confidence-Werte ohne eigene Kalibrierung als echte Korrektheitswahrscheinlichkeit interpretiert werden koennen."
+    ]
+  },
+  "architecture_decisions": [
+    "Jev-Modus ist in Ananta ein optionaler Inferenzmodus bzw. Specialist, kein neues Basismodell und kein Ersatz fuer die bestehende Orchestrierung.",
+    "Der Hub bleibt Besitzer von Routing, Policy, Berechtigungen, Tool-Allowlists, Freigaben und Fallbacks; ein Jev-Entscheider liefert nur typisierte Vorschlaege plus Messwerte.",
+    "Nur geschlossene oder explizit begrenzte Kandidatenraeume sind erlaubt. Freitext-Generierung bleibt ausserhalb dieses Modus.",
+    "Schema-valid oder kandidaten-valid bedeutet nur, dass ein erlaubter Wert geliefert wurde; fachliche Korrektheit muss separat evaluiert werden.",
+    "Voneinander abhaengige Felder duerfen nicht blind parallel-isoliert behandelt werden. Abhaengigkeiten muessen erkannt, gruppiert, sequenziell verarbeitet oder an System-2 eskaliert werden.",
+    "Confidence ist ohne nachgewiesene Kalibrierung kein Freigabesignal. Schwellen werden pro Aufgabe/Modell/Sprache auf Validation-Daten bestimmt.",
+    "KV-Cache-, Prefix-Reuse- und Batch-Optimierungen duerfen keine Tenant-, Request- oder Sicherheitsgrenzen vermischen.",
+    "Der bestehende Jeff/GLiFormer-Track bleibt eine separate Alternative. Dieser Track prueft bewusst den llama.cpp/Open-Weight-Inferenzweg."
+  ],
+  "non_goals": [
+    "Kein Nachbau oder Reverse Engineering proprietaerer TypeSafe-Jev-Gewichte.",
+    "Keine Behauptung, dass falsche Entscheidungen ausgeschlossen sind.",
+    "Kein universeller Ersatz fuer autoregressive LLM-Ausgabe, Reasoning, Tool-Planung oder komplexe mehrstufige Aufgaben.",
+    "Keine automatische Freigabe sicherheitsrelevanter Aktionen allein aufgrund hoher Modell-Confidence.",
+    "Keine Festlegung auf ein einzelnes Modell, bevor lokale Benchmarks vorliegen."
+  ],
+  "target_hardware": {
+    "primary": "RTX 5060 Ti 16 GB + 64 GB RAM",
+    "secondary": "RTX 3080 10 GB + 64 GB RAM, soweit verfuegbar",
+    "cpu_fallback": true,
+    "runtimes": ["llama.cpp"]
+  },
+  "milestones": [
+    {
+      "id": "JEVCPP-M1",
+      "title": "Upstream, Semantik und reproduzierbare Runtime",
+      "status": "todo",
+      "task_ids": ["JEVCPP-001", "JEVCPP-002", "JEVCPP-003"]
+    },
+    {
+      "id": "JEVCPP-M2",
+      "title": "Ananta-Adapter, Isolation und System-1/System-2-Routing",
+      "status": "todo",
+      "task_ids": ["JEVCPP-004", "JEVCPP-005", "JEVCPP-006", "JEVCPP-007"]
+    },
+    {
+      "id": "JEVCPP-M3",
+      "title": "Modelle, Kalibrierung und Performance benchmarken",
+      "status": "todo",
+      "task_ids": ["JEVCPP-008", "JEVCPP-009", "JEVCPP-010"]
+    },
+    {
+      "id": "JEVCPP-M4",
+      "title": "Tests, Rollout und Entscheidung",
+      "status": "todo",
+      "task_ids": ["JEVCPP-011", "JEVCPP-012"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "JEVCPP-001",
+      "milestone_id": "JEVCPP-M1",
+      "title": "Offenen llama.cpp-Jev-Prototyp und Upstream-Zustand verifizieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "Den im Quellmaterial erwaehnten Fork, die Branch parallel-decision bzw. tatsaechliche Schreibweise, Commit-SHA, Autor, Lizenz und zugehoeriges Playground-Repository eindeutig identifizieren.",
+        "Pruefen, ob der Code inzwischen gemergt, ersetzt, weiterentwickelt oder in einem Issue/PR von llama.cpp diskutiert wurde.",
+        "API-Request, Response, Confidence-Semantik, Kandidatenformat, Batch-Mechanismus und Cache-Verhalten aus Code statt aus Marketing-/Videoaussagen dokumentieren.",
+        "Jeff/GLiFormer und den llama.cpp-Ansatz fachlich klar trennen: separates Modell/Encoder versus alternativer Inferenzmodus fuer bestehende Decoder-Modelle."
+      ],
+      "acceptance_criteria": [
+        "Fork/Branch/Commit/Lizenz und API-Vertrag sind mit konkreten Quellen festgehalten.",
+        "Es ist dokumentiert, welche Teile belegt, welche nur experimentell und welche nicht mehr aktuell sind."
+      ]
+    },
+    {
+      "id": "JEVCPP-002",
+      "milestone_id": "JEVCPP-M1",
+      "title": "CUDA- und CPU-Build reproduzierbar bereitstellen",
+      "type": "infrastructure",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-001"],
+      "implementation": [
+        "Verifizierte llama.cpp-Revision reproduzierbar fuer CUDA und CPU bauen; Build-Flags und Compiler-Versionen festhalten.",
+        "Decision-Endpunkt neben normalem llama-server starten, ohne bestehende Chat-Endpunkte zu veraendern.",
+        "Mindestens ein kleines GGUF-Modell laden und einen minimalen Choice-Test mit mehreren Feldern ausfuehren.",
+        "Feature-off bzw. Standard-llama.cpp muss unveraendert nutzbar bleiben."
+      ],
+      "acceptance_criteria": [
+        "Reproduzierbare Startanweisung fuer mindestens CUDA und CPU vorhanden.",
+        "Smoke-Test liefert fuer jedes definierte Feld genau einen erlaubten Kandidaten oder einen typisierten Fehler.",
+        "Normaler Chat-Endpunkt funktioniert parallel weiterhin."
+      ]
+    },
+    {
+      "id": "JEVCPP-003",
+      "milestone_id": "JEVCPP-M1",
+      "title": "Kandidaten-Scoring und Tokenisierungsgrenzen verifizieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-002"],
+      "implementation": [
+        "Nachvollziehen, an welcher Tokenposition Kandidaten gegeneinander bewertet werden und wie gemeinsamer Prefix behandelt wird.",
+        "Faelle testen, in denen Kandidaten denselben ersten Token teilen und erst spaeter auseinanderlaufen.",
+        "Whitespace-, Quote-, Colon- und Chat-Template-Effekte explizit testen, da falsche Cut-Positionen die Scores verzerren koennen.",
+        "Nicht nur normalisierte Confidence speichern, sondern soweit moeglich Rohlogits/Rohscores und exakte Kandidaten-/Tokenizer-Version."
+      ],
+      "acceptance_criteria": [
+        "Unit-Tests decken Single-Token-, Multi-Token- und Shared-Prefix-Kandidaten ab.",
+        "Gleiche Eingabe, Modellrevision und Tokenizer-Konfiguration erzeugen reproduzierbare Kandidatenentscheidung innerhalb definierter Toleranzen.",
+        "Keine Confidence wird aus einer nachweislich falschen Token-Grenze abgeleitet."
+      ]
+    },
+    {
+      "id": "JEVCPP-004",
+      "milestone_id": "JEVCPP-M2",
+      "title": "Typisierten Ananta-ParallelDecision-Adapter definieren",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-003"],
+      "implementation": [
+        "Additiven Provider-/Specialist-Vertrag fuer state/context, questions/fields, allowed_values, result, raw_score/confidence, model_revision und latency definieren.",
+        "Bestehende SpecialistDecision-Vertraege wiederverwenden, wo semantisch passend; keine zweite Orchestrierungs-Control-Plane.",
+        "Unbekannte Labels, fehlende Felder, NaN/Infinity, doppelte Kandidaten und inkonsistente Antworten strikt ablehnen.",
+        "Adapter muss lokalen llama.cpp-Endpunkt ueber konfigurierbare Base-URL erreichen und mit Deadline/Circuit-Breaker arbeiten."
+      ],
+      "acceptance_criteria": [
+        "Contract-Tests decken gueltige und ungueltige Decision-Responses ab.",
+        "Hub-Domaenenlogik bleibt von llama.cpp-spezifischen Payloaddetails getrennt.",
+        "Fehler fuehren zu abstain/fallback/blocked nach Policy, niemals stillschweigend allow."
+      ]
+    },
+    {
+      "id": "JEVCPP-005",
+      "milestone_id": "JEVCPP-M2",
+      "title": "Unabhaengige Felder und Abhaengigkeiten explizit modellieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-004"],
+      "implementation": [
+        "Jedes Decision-Schema muss Felder als independent, sequential oder grouped kennzeichnen koennen.",
+        "Parallelmodus nur fuer Entscheidungen zulassen, deren fachliche Antwort nicht von einem anderen Feld desselben Requests abhaengt.",
+        "Gezielte Tests mit abhaengigen Feldern erstellen, bei denen normales autoregressives JSON bzw. sequenzielle Auswertung erwartbar im Vorteil ist.",
+        "Bei unbekannter Abhaengigkeit konservativ System-2 oder explizit sequenziellen Pfad waehlen."
+      ],
+      "acceptance_criteria": [
+        "Abhaengige Felder werden nicht ungeprueft als voneinander isolierte Parallelfragen ausgefuehrt.",
+        "Mindestens ein Negativtest zeigt, dass der schnelle Modus bei Cross-Field-Abhaengigkeiten bewusst nicht verwendet wird.",
+        "Der Routinggrund ist im Audit nachvollziehbar."
+      ]
+    },
+    {
+      "id": "JEVCPP-006",
+      "milestone_id": "JEVCPP-M2",
+      "title": "System-1/System-2-Eskalation mit Confidence und Policy anbinden",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-004", "JEVCPP-005"],
+      "implementation": [
+        "Schnellen ParallelDecision-Pfad fuer begrenzte Routing-, Prioritaets-, Relevanz- und Gate-Fragen bereitstellen.",
+        "Unsichere, widerspruechliche, ausserhalb erlaubter Profile liegende oder abhaengige Faelle an konfigurierten System-2-Provider eskalieren.",
+        "Confidence-Schwelle nicht global hart codieren, sondern pro Task-Profil/Modell/Sprache aus Validation-Messungen ableiten.",
+        "Deterministische Policy-Gates bleiben nach beiden Modellpfaden verbindlich und koennen ein Modell-Allow immer ueberschreiben."
+      ],
+      "acceptance_criteria": [
+        "Low-Confidence-Testfall eskaliert reproduzierbar.",
+        "High-Confidence-Modellausgabe kann kein deterministisches Deny ueberschreiben.",
+        "Fallback-Loops sind durch Step-/Retry-/Deadline-Budgets begrenzt."
+      ]
+    },
+    {
+      "id": "JEVCPP-007",
+      "milestone_id": "JEVCPP-M2",
+      "title": "KV-Cache, Prefix-Reuse und Multi-Request-Batching sicher integrieren",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-004"],
+      "implementation": [
+        "Statische Instruktionen, Felddefinitionen und Kandidaten so strukturieren, dass Prefix-/KV-Reuse messbar wird.",
+        "Parallelfragen und mehrere Requests kontrolliert batchen; Batchgroesse und Parallel-Slots konfigurierbar machen.",
+        "Tenant-, Nutzer- und Request-Grenzen bei Cache-Reuse strikt trennen; kein Kontext darf zwischen unzulaessigen Requests sichtbar werden.",
+        "Cold/Warm sowie Single-/Batch-Latenz getrennt erfassen."
+      ],
+      "acceptance_criteria": [
+        "Messung weist Cache-/Batch-Effekt getrennt von Modellgroesse und Netzwerk-Overhead aus.",
+        "Isolationstests zeigen keine Cross-Request-Datenleckage.",
+        "Ueberlastete Queue fuehrt kontrolliert zu Backpressure/Fehler/Fallback statt ungebremstem Speicherwachstum."
+      ]
+    },
+    {
+      "id": "JEVCPP-008",
+      "milestone_id": "JEVCPP-M3",
+      "title": "Modellarchitekturen fuer ParallelDecision vergleichen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-003", "JEVCPP-007"],
+      "implementation": [
+        "Mindestens ein kleines Attention-only-Modell, ein groesseres Attention-only-Modell und soweit praktisch ein Hybrid-/Recurrent- sowie MoE-Modell vergleichen.",
+        "Bei Hybrid-/Recurrent-Modellen pruefen, ob ungleich lange Fragen Batch-Fusion verhindern oder zu mehreren internen Laeufen fuehren.",
+        "Bei teilweisem CPU-Offload/MoE getrennt messen, wie stark kleine Batches durch Gewichtsbewegung zwischen RAM und GPU gebremst werden.",
+        "Modellgroesse nicht als alleinige Geschwindigkeitsprognose verwenden."
+      ],
+      "acceptance_criteria": [
+        "Kompatibilitaetsmatrix nennt Modell, Quantisierung, Architekturtyp, VRAM/RAM, Prompt-Processing, Decision-Latenz und Batch-Skalierung.",
+        "Nicht reproduzierbare oder nur aus Fremdbenchmarks stammende Performancewerte sind klar getrennt."
+      ]
+    },
+    {
+      "id": "JEVCPP-009",
+      "milestone_id": "JEVCPP-M3",
+      "title": "Qualitaet und Kalibrierung gegen normale JSON-Ausgabe benchmarken",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-006", "JEVCPP-008"],
+      "implementation": [
+        "Identische Aufgaben mit ParallelDecision und normaler autoregressiver JSON-/Grammar-Ausgabe desselben Modells vergleichen.",
+        "Accuracy, Macro-F1, Klassen-Precision/Recall, Abstain-Rate, False-Allow/False-Deny, Brier Score/ECE und Risk-Coverage erfassen.",
+        "Separat messen: syntaktische Gueltigkeit, Kandidaten-Gueltigkeit und fachliche Richtigkeit.",
+        "Ein Benchmarkset mit einfachen Routing-/Moderationsfragen sowie schwierigeren Urteilsfragen und Cross-Field-Abhaengigkeiten einfrieren."
+      ],
+      "acceptance_criteria": [
+        "Bericht macht sichtbar, dass 100 Prozent erlaubte Werte nicht 100 Prozent fachliche Richtigkeit bedeuten.",
+        "Confidence-Schwellen werden nur aus Validation-Daten gewaehlt; Holdout bleibt unangetastet.",
+        "System-2-Eskalation zeigt ihren Nutzen gegen einen reinen Always-Fast-Pfad."
+      ]
+    },
+    {
+      "id": "JEVCPP-010",
+      "milestone_id": "JEVCPP-M3",
+      "title": "Latenz und Durchsatz auf lokaler Ananta-Hardware vermessen",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-008", "JEVCPP-009"],
+      "implementation": [
+        "RTX 5060 Ti 16 GB als Primaerprofil vermessen; RTX 3080 10 GB optional als zweite Consumer-GPU.",
+        "CPU-Fallback separat messen.",
+        "p50/p95/p99 fuer Cold/Warm, einzelne Requests und Batches erfassen; Prompt-Prefill, Decision-Berechnung, Queue und HTTP-Ende-zu-Ende trennen.",
+        "VRAM, RAM, GPU-Auslastung, Batchgroesse, Slots, Kontextlaenge und Anzahl Felder mitloggen."
+      ],
+      "acceptance_criteria": [
+        "Es gibt keine pauschale Millisekunden-Zusage ohne Modell-/Hardware-/Batch-Kontext.",
+        "Benchmark ist maschinenlesbar und reproduzierbar.",
+        "Empfohlene Profile fuer low-latency, balanced und quality-first sind aus Messwerten ableitbar."
+      ]
+    },
+    {
+      "id": "JEVCPP-011",
+      "milestone_id": "JEVCPP-M4",
+      "title": "Headless Sicherheits-, Contract- und Regressionstests integrieren",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-005", "JEVCPP-006", "JEVCPP-007", "JEVCPP-009"],
+      "implementation": [
+        "Deterministische Fake-Backend-Tests fuer CI bereitstellen, damit Standardtests keine GPU oder Modellgewichte brauchen.",
+        "Schemafehler, falsche Kandidaten, Shared-Prefix-Faelle, niedrige Confidence, Timeout, Queue-Full, Modellfehler und Fallback-Budget testen.",
+        "Cross-Tenant-/Cross-Request-Cache-Isolation und unveraenderte harte Hub-Gates als Pflichtregressionen aufnehmen.",
+        "Echte lokale Modell-Smokes separat kennzeichnen und niemals als bestanden vortaeuschen, wenn Gewichte oder Hardware fehlen."
+      ],
+      "acceptance_criteria": [
+        "CI ist headless, zeitlich begrenzt und ohne externen Modelldownload lauffaehig.",
+        "Sicherheits- und Routingregeln koennen fuer Tests nicht stillschweigend deaktiviert werden.",
+        "Feature-off behaelt bestehendes Ananta-Verhalten."
+      ]
+    },
+    {
+      "id": "JEVCPP-012",
+      "milestone_id": "JEVCPP-M4",
+      "title": "Shadow-Rollout und Einsatzentscheidung dokumentieren",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["JEVCPP-010", "JEVCPP-011"],
+      "implementation": [
+        "Zuerst Shadow-Modus gegen reale Ananta-Routing-/Gate-Faelle, ohne operative Entscheidung zu beeinflussen.",
+        "Je Task-Profil Qualitaets-, Kalibrierungs-, Latenz- und Ressourcen-Schwellen vor Promotion festlegen.",
+        "Jev-Modus, Jeff/GLiFormer, klassischer kleiner LLM-Specialist und deterministische Regeln als alternative Backends in derselben Benchmark-Sicht vergleichen.",
+        "Abschlussstatus festhalten: Standard-System-1, optionaler Specialist, experimentell/shadow oder nicht uebernehmen."
+      ],
+      "acceptance_criteria": [
+        "Rollout ist pro Profil deaktivierbar und besitzt dokumentierten Rueckfallpfad.",
+        "Kein Backend wird allein aufgrund Upstream-/Video-Benchmarks promoted.",
+        "Entscheidung basiert auf eigenen eingefrorenen Benchmarks und reproduzierbarer lokaler Evidenz."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "JEVCPP-001",
+    "JEVCPP-002",
+    "JEVCPP-003",
+    "JEVCPP-004",
+    "JEVCPP-005",
+    "JEVCPP-006",
+    "JEVCPP-009",
+    "JEVCPP-011",
+    "JEVCPP-012"
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {"todo": 12, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 5, "P1": 7, "P2": 0},
+    "by_risk": {"low": 2, "medium": 4, "high": 6, "critical": 0},
+    "critical_path": {"total": 9, "done": 0, "remaining": 9},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {
+      "research": 1,
+      "infrastructure": 1,
+      "evaluation": 3,
+      "integration": 2,
+      "architecture": 1,
+      "performance": 2,
+      "testing": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "success_criteria": [
+    "Der offene Jev-aehnliche llama.cpp-Inferenzmodus ist reproduzierbar lokal gestartet oder sein aktueller technischer Blocker ist konkret dokumentiert.",
+    "Ananta kann unabhaengige geschlossene Entscheidungen ueber einen typisierten ParallelDecision-Adapter abfragen.",
+    "Abhaengige oder unsichere Entscheidungen werden kontrolliert an System-2 bzw. sequenzielle Verarbeitung eskaliert.",
+    "Schema-/Kandidaten-Gueltigkeit und fachliche Korrektheit werden in Benchmarks strikt getrennt.",
+    "Eigene Messungen zeigen, fuer welche Modelle und Hardwareprofile der Ansatz gegen normale JSON-Generierung tatsaechlich Latenz-/Durchsatzvorteile liefert.",
+    "Bestehende deterministische Ananta-Gates und Tenant-Isolation bleiben unveraendert verbindlich."
+  ],
+  "deliverables": [
+    "Verifizierte Upstream-/Fork-Dokumentation",
+    "Reproduzierbarer llama.cpp-Decision-Build",
+    "Ananta ParallelDecision-Provider-/Specialist-Adapter",
+    "Dependency-aware System-1/System-2-Routing",
+    "DE/EN Benchmark-Suite fuer schnelle geschlossene Entscheidungen",
+    "Calibration- und Accuracy-Bericht",
+    "Latenz-/Durchsatz-/VRAM-/RAM-Benchmark",
+    "Shadow-Rollout-Konfiguration und Abschlussentscheidung"
+  ],
+  "summary_notes": [
+    "Nur Planungsartefakt: keine Implementierung und keine Benchmarkwerte werden in diesem Commit als erledigt behauptet.",
+    "Dieser Track behandelt Jev als Inferenzmuster fuer bestehende Open-Weight-Modelle und nicht als nachgebautes proprietaeres TypeSafe-Modell.",
+    "Der bereits vorhandene Jeff/GLiFormer-Track bleibt bestehen und wird spaeter als alternative Specialist-Baseline mitverglichen."
+  ]
+}
