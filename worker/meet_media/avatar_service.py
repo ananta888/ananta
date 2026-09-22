@@ -236,6 +236,10 @@ class LipSyncClient:
     def available(self):
         return self._clock() >= self._quiet_until
 
+    def __call__(self, pcm_s16le):
+        """The ``lipsync`` port of ``SpeechAvatarPublisher``."""
+        return self.clip(pcm_s16le)
+
     def clip(self, pcm_s16le, *, repeat="hold_last"):
         if not self.available:
             return None

@@ -226,6 +226,14 @@ def test_lipsync_client_returns_contract_payload_and_falls_back_quietly_after_fa
     assert any("lipsync fallback reason=meet_avatar_service_unreachable" in line for line in logs)
 
 
+def test_lipsync_client_is_the_publisher_port():
+    renderer = lambda *_a, **_k: {"mp4": MP4, "frames": 24, "seconds": 0.1}  # noqa: E731
+    client = LipSyncClient(PORTRAIT, base_url="http://svc:8189", renderer=renderer)
+    publisher = SpeechAvatarPublisher(AvatarPorts(None, None, None, None), encoder=fake_encoder, lipsync=client)
+    _timeline, clips = publisher.prepare(tone_pcm(2.0))
+    assert len(clips) == 1 and base64.b64decode(clips[0]["mp4"]) == MP4 and client.rendered == 1
+
+
 def test_lipsync_client_refuses_audio_longer_than_the_service_limit():
     client = LipSyncClient(PORTRAIT, base_url="http://svc:8189", renderer=lambda *a, **k: pytest.fail("must not call"))
     assert client.clip(tone_pcm(10.5)) is None and client.available is True
