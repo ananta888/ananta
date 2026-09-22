@@ -7,6 +7,11 @@ so a new endpoint is an added adapter instead of another branch in ``generate``.
 Selected by ``MEET_LLM_BACKEND``: ``ollama`` (default, unchanged behaviour) or
 ``openai``. Both backends gate on the model actually being served before a reply
 is accepted; neither ever falls back to a cloud provider or to hidden reasoning.
+
+Both also run the same bounded tool loop when a ``ToolBox`` is offered: the
+model may answer with ``tool_calls``, the tools run here, their results go back
+as ``role: "tool"`` messages, and after ``MEET_LLM_TOOL_ROUNDS`` rounds the
+tools are withdrawn so the last request can only produce an answer.
 """
 
 import json
@@ -15,6 +20,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from worker.meet_media import llm_tools
 from worker.meet_media.ollama_http import OllamaHttp
 from worker.meet_media.openai_http import OpenAiHttp
 
@@ -70,7 +76,9 @@ class ChatBackend(Protocol):
     name: str
     description: str
 
-    def generate(self, *, system: str, user: str, max_output_tokens: int) -> RawAnswer: ...
+    def generate(
+        self, *, system: str, user: str, max_output_tokens: int, tools=None
+    ) -> RawAnswer: ...
 
 
 def _usage(input_tokens, output_tokens, *, max_output_tokens):
@@ -82,6 +90,41 @@ def _usage(input_tokens, output_tokens, *, max_output_tokens):
     ):
         raise ValueError("meet_llm_usage_invalid")
     return input_tokens, output_tokens
+
+
+def _tool_calls(message):
+    """Well-formed tool calls the model asked for, bounded in number."""
+    calls = message.get("tool_calls")
+    if not isinstance(calls, list):
+        return []
+    usable = [
+        call for call in calls if isinstance(call, dict) and isinstance(call.get("function"), dict)
+    ]
+    return usable[: llm_tools.MAX_CALLS_PER_REPLY]
+
+
+def _tool_results(tools, calls):
+    """Run each call and render its result as a ``role: "tool"`` message.
+
+    ``tool_call_id`` is echoed when the server supplied one (OpenAI); Ollama
+    correlates by name instead, so the id is simply absent there.
+    """
+    messages = []
+    for call in calls:
+        function = call["function"]
+        name = function.get("name")
+        content = tools.run(name, function.get("arguments"))
+        message = {"role": "tool", "name": str(name or "")[:64], "content": content}
+        identifier = call.get("id")
+        if isinstance(identifier, str) and identifier:
+            message["tool_call_id"] = identifier[:128]
+        messages.append(message)
+    return messages
+
+
+def _rounds(tools):
+    """Tool rounds available for this reply (0 when no tool is offered)."""
+    return llm_tools.max_rounds() if tools is not None and tools.definitions() else 0
 
 
 class OllamaBackend:
@@ -101,36 +144,58 @@ class OllamaBackend:
             self.model,
         )
 
-    def generate(self, *, system, user, max_output_tokens):
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "stream": False,
-            # Reasoning models otherwise spend the whole output budget on hidden
-            # thinking and leave the answer content empty.
-            "think": False,
-            "keep_alive": "5m",
-            "options": {
-                "num_ctx": context_limit(),
-                "num_predict": max_output_tokens,
-                "temperature": temperature(),
-                "num_gpu": int(os.environ.get("MEET_LLM_NUM_GPU", "99")),
-            },
-        }
-        result = self.transport.chat(payload)
-        self._require_loaded()
-        content = result.get("message", {}).get("content")
-        if not isinstance(content, str) or not content.strip() or result.get("done") is not True:
-            raise ValueError("meet_llm_response_invalid")
-        input_tokens, output_tokens = _usage(
-            result.get("prompt_eval_count"),
-            result.get("eval_count"),
-            max_output_tokens=max_output_tokens,
-        )
-        return RawAnswer(content, input_tokens, output_tokens, self.model)
+    def generate(self, *, system, user, max_output_tokens, tools=None):
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        gated = False
+        # Reported usage is summed over the rounds; each single round is still
+        # validated against the same per-request budget.
+        input_total = output_total = 0
+        for remaining in range(_rounds(tools), -1, -1):
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "stream": False,
+                # Reasoning models otherwise spend the whole output budget on hidden
+                # thinking and leave the answer content empty.
+                "think": False,
+                "keep_alive": "5m",
+                "options": {
+                    "num_ctx": context_limit(),
+                    "num_predict": max_output_tokens,
+                    "temperature": temperature(),
+                    "num_gpu": int(os.environ.get("MEET_LLM_NUM_GPU", "99")),
+                },
+            }
+            if remaining > 0:
+                payload["tools"] = tools.definitions()
+            result = self.transport.chat(payload)
+            if not gated:
+                self._require_loaded()
+                gated = True
+            message = result.get("message")
+            if not isinstance(message, dict) or result.get("done") is not True:
+                raise ValueError("meet_llm_response_invalid")
+            input_tokens, output_tokens = _usage(
+                result.get("prompt_eval_count"),
+                result.get("eval_count"),
+                max_output_tokens=max_output_tokens,
+            )
+            input_total += input_tokens
+            output_total += output_tokens
+            calls = _tool_calls(message)
+            if calls and remaining > 0:
+                messages.append(
+                    {"role": "assistant", "content": message.get("content") or "", "tool_calls": calls}
+                )
+                messages.extend(_tool_results(tools, calls))
+                continue
+            content = message.get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("meet_llm_response_invalid")
+            return RawAnswer(content, input_total, output_total, self.model)
 
     def _require_loaded(self):
         digest = os.environ.get("MEET_LLM_DIGEST", DEFAULT_OLLAMA_DIGEST)
@@ -188,30 +253,48 @@ class OpenAiBackend:
             configured_model() or "<first listed>",
         )
 
-    def generate(self, *, system, user, max_output_tokens):
+    def generate(self, *, system, user, max_output_tokens, tools=None):
         model = self._serving_model()
-        payload = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "stream": False,
-            "max_tokens": max_output_tokens,
-            "temperature": temperature(),
-            **_reasoning_controls(),
-        }
-        result = self.transport.chat(payload)
-        content = _content(result)
-        usage = result.get("usage")
-        if not isinstance(usage, dict):
-            raise ValueError("meet_llm_usage_invalid")
-        input_tokens, output_tokens = _usage(
-            usage.get("prompt_tokens"),
-            usage.get("completion_tokens"),
-            max_output_tokens=max_output_tokens,
-        )
-        return RawAnswer(content, input_tokens, output_tokens, model)
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        # Reported usage is summed over the rounds; each single round is still
+        # validated against the same per-request budget.
+        input_total = output_total = 0
+        for remaining in range(_rounds(tools), -1, -1):
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "max_tokens": max_output_tokens,
+                "temperature": temperature(),
+                **_reasoning_controls(),
+            }
+            if remaining > 0:
+                # Withdrawn on the last round: the final request can only answer.
+                payload["tools"] = tools.definitions()
+                payload["tool_choice"] = "auto"
+            result = self.transport.chat(payload)
+            message = _message(result)
+            usage = result.get("usage")
+            if not isinstance(usage, dict):
+                raise ValueError("meet_llm_usage_invalid")
+            input_tokens, output_tokens = _usage(
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                max_output_tokens=max_output_tokens,
+            )
+            input_total += input_tokens
+            output_total += output_tokens
+            calls = _tool_calls(message)
+            if calls and remaining > 0:
+                messages.append(
+                    {"role": "assistant", "content": message.get("content") or "", "tool_calls": calls}
+                )
+                messages.extend(_tool_results(tools, calls))
+                continue
+            return RawAnswer(_require_content(message), input_total, output_total, model)
 
     def _serving_model(self):
         """Readiness gate: the endpoint must already serve the chosen model."""
@@ -235,13 +318,22 @@ class OpenAiBackend:
         return served[0]
 
 
-def _content(result):
+def _message(result):
+    """The single assistant message of a non-streamed completion."""
     choices = result.get("choices")
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         raise ValueError("meet_llm_response_invalid")
     message = choices[0].get("message")
     if not isinstance(message, dict):
         raise ValueError("meet_llm_response_invalid")
+    return message
+
+
+def _content(result):
+    return _require_content(_message(result))
+
+
+def _require_content(message):
     content = message.get("content")
     if not isinstance(content, str) or not content.strip():
         # A reasoning-only reply (``reasoning_content`` without ``content``) is

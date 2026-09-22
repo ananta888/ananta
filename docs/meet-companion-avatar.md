@@ -12,8 +12,16 @@ Track: `todos/todo.ananta-meet-codecompass-avatar.json`.
 |---|---|---|
 | `ANANTA_MEET_AVATAR_ENABLED` | `1` | Avatar-Clips (idle/thinking/speaking) publizieren; bei `0` nur Sprache + Chat. |
 | `ANANTA_MEET_AVATAR_CODECOMPASS` | `1` | Ananta-/Repository-Fragen über den Hub-CodeCompass-Kontext grounden. |
+| `MEET_COMPANION_TOOLS` | `1` | CodeCompass dem Chat-Modell als aufrufbares Werkzeug (`codecompass_search`) anbieten – das Modell entscheidet selbst. |
+| `MEET_COMPANION_RAG_PREFIX` | `0` | Bisheriges Verhalten: abgerufene Snippets jeder gerouteten Frage voranstellen. Lässt sich mit dem Tool kombinieren. |
 
-`0`, `false`, `off`, `no` deaktivieren; alles andere aktiviert.
+`0`, `false`, `off`, `no` deaktivieren; alles andere aktiviert. `ANANTA_MEET_AVATAR_CODECOMPASS=0`
+schaltet beide Wege ab; sind Tool und Prefix aus, antwortet das Modell ungegroundet.
+
+| Variable | Default | Wirkung |
+|---|---|---|
+| `MEET_LLM_TOOL_ROUNDS` | `2` | Werkzeug-Runden pro Antwort (0..4). Die letzte Anfrage wird ohne `tools` gestellt. |
+| `MEET_LLM_TOOL_RESULT_CHARS` | `1400` | Obergrenze eines Werkzeug-Ergebnisses im Prompt. |
 
 | Variable | Default | Wirkung |
 |---|---|---|
@@ -126,11 +134,43 @@ Teilnehmerbild erkennbar ist.
    der Index sie führt) und werden als `[pfad#symbol] excerpt` in den Kontext
    gestellt.
 3. Generierung über das lokale Ollama-/OpenAI-kompatible Modell
-   (`llm.answer`, Persona-Systemprompt `PERSONA_SYSTEM`).
+   (`llm.answer`, Persona-Systemprompt `PERSONA_SYSTEM`, mit Werkzeug
+   `PERSONA_SYSTEM_WITH_TOOLS`).
 4. `companion_explanation.AnswerTrace` protokolliert getrennt **beobachtete
    Runtime-Schritte**, **Repository-Quellen** und **den generierten Text**.
    "Wie hast du diese Antwort erzeugt?" wird daraus deterministisch beantwortet;
    fehlt Evidenz, sagt die Schlange das, statt Dateien zu nennen.
+
+## CodeCompass als Werkzeug (Function Calling)
+
+Seit `MEET_COMPANION_TOOLS=1` (Default) bekommt das Chat-Modell den Wissensindex
+nicht mehr vorgekaut, sondern als eine aufrufbare Funktion; es entscheidet selbst,
+ob es sie braucht. Das Backend ist Bonsai 2 27B über llama-server
+(`MEET_LLM_BACKEND=openai`), das native `tool_calls` liefert.
+
+* `llm_tools.DEFINITION` – genau ein Werkzeug, `codecompass_search(query, limit)`.
+* `llm_tools.CodeCompassTool` – führt es über einen injizierten Retriever aus
+  (im Companion `assist.fetch_snippets`, also Hub + Worker-Key; der Index und
+  jedes Credential bleiben hinter dem Hub). Das Ergebnis ist derselbe begrenzte
+  `[pfad#symbol] excerpt`-Block wie beim Prefix-Weg.
+* `llm_backends` fährt die Schleife für beide Backends: `tools` mitsenden →
+  `tool_calls` ausführen → Ergebnis als `role: "tool"` (mit `tool_call_id`, wo
+  der Server eine liefert) anhängen → erneut anfragen. Nach
+  `MEET_LLM_TOOL_ROUNDS` Runden werden die `tools` weggelassen, die letzte
+  Anfrage kann also nur noch antworten.
+* Alles ist gedeckelt: Query ≤ 200 Zeichen, `limit` 1..8, ≤ 4 Aufrufe pro
+  Antwort, Ergebnis ≤ `MEET_LLM_TOOL_RESULT_CHARS`. Ein unerreichbarer Index
+  wird zu einem kurzen Werkzeug-Ergebnis, nicht zu einer verlorenen Antwort;
+  ein Werkzeugname, den der Companion nicht anbietet, wird abgelehnt.
+* Das Ergebnis bleibt untrusted Referenzmaterial: Systemprompt, Markdown-Strip
+  und `max_reply_chars` gelten unverändert, Reasoning bleibt aus
+  (`MEET_LLM_OPENAI_REASONING_EFFORT=none`).
+* Was das Modell tatsächlich nachgeschlagen hat, geht in dieselbe `AnswerTrace`
+  (`TOOL codecompass_search query=… snippets=…` im Companion-Log), damit
+  "Wie hast du diese Antwort erzeugt?" weiterhin die Wahrheit sagt.
+
+Ollama (`/api/chat`) unterstützt dieselbe Schleife; dort gibt es keine
+`tool_call_id`, die Zuordnung läuft über den Namen.
 
 Der Worker importiert kein Hub-`agent`-Paket (`scripts/check_meet_worker_boundaries.py`).
 
@@ -139,7 +179,7 @@ Der Worker importiert kein Hub-`agent`-Paket (`scripts/check_meet_worker_boundar
 ```bash
 cd docker/compose-next
 docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm t-infra \
-  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py"
+  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_llm_tools.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py"
 ```
 
 `tests/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,

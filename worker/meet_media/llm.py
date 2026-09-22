@@ -1,10 +1,16 @@
-"""Bounded local chat adapter; no tools or cloud fallbacks.
+"""Bounded local chat adapter; local tools only, no cloud fallbacks.
 
 The wire protocol is chosen by ``MEET_LLM_BACKEND`` (``ollama`` by default, or
 ``openai`` for an OpenAI-compatible server such as llama-server) and lives in
 ``llm_backends``. Everything that bounds a reply — the system prompt, the
 untrusted-context framing, the Markdown strip and ``max_reply_chars`` — stays
 here and applies to every backend.
+
+``tools`` is optional: pass an ``llm_tools.ToolBox`` and the backend runs the
+bounded tool loop, so the model can look something up itself instead of being
+handed a context block it did not ask for. Whatever a tool returns is
+untrusted reference material and is bounded by the tool, exactly like
+``context``.
 """
 
 import re
@@ -43,8 +49,8 @@ class GeneratedAnswer:
     output_tokens: int
 
 
-def answer(text, *, context="", system=None):
-    return generate(text, context=context, system=system).text
+def answer(text, *, context="", system=None, tools=None):
+    return generate(text, context=context, system=system, tools=tools).text
 
 
 def generate(
@@ -55,6 +61,7 @@ def generate(
     max_reply_chars=450,
     transport=None,
     system=None,
+    tools=None,
 ):
     validate_response_limits({"max_output_tokens": max_output_tokens, "max_reply_chars": max_reply_chars})
     user_content = f"{CONTEXT_PREFIX}\n{context}\n\nFrage: {text}" if context else text
@@ -63,6 +70,7 @@ def generate(
         system=SYSTEM if system is None else str(system),
         user=user_content,
         max_output_tokens=max_output_tokens,
+        tools=tools,
     )
     # Speech and chat always use this exact bounded string.
     content = _plain_text(raw.text).strip()

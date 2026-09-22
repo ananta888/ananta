@@ -26,7 +26,12 @@ from worker.meet_media.avatar_service import (
     service_enabled,
     service_url,
 )
-from worker.meet_media.companion_flags import avatar_enabled, codecompass_enabled
+from worker.meet_media.companion_flags import (
+    avatar_enabled,
+    codecompass_enabled,
+    rag_prefix_enabled,
+    tools_enabled,
+)
 from worker.meet_media.companion_media import (
     FRAME_SAMPLES,
     SPEECH_RATE,
@@ -140,28 +145,63 @@ def avatar_speaking(pcm):
 
 
 _DIALOG = None
+_TOOLBOX = None
 
 
 def dialog():
-    """Process-wide companion dialog (router + CodeCompass grounding + trace)."""
-    global _DIALOG
+    """Process-wide companion dialog (router + CodeCompass + trace).
+
+    CodeCompass reaches the model two ways, chosen by flags: as a tool the
+    model calls itself (``MEET_COMPANION_TOOLS``, default on) and/or as the
+    previous prefix of retrieved snippets (``MEET_COMPANION_RAG_PREFIX``,
+    default off). The knowledge flag still gates both.
+    """
+    global _DIALOG, _TOOLBOX
     if _DIALOG is None:
         from worker.meet_media.assist import fetch_snippets
-        from worker.meet_media.companion_dialog import CompanionDialog
+        from worker.meet_media.companion_dialog import (
+            PERSONA_SYSTEM,
+            PERSONA_SYSTEM_WITH_TOOLS,
+            CompanionDialog,
+        )
         from worker.meet_media.llm import answer
+        from worker.meet_media.llm_tools import codecompass_toolbox
 
+        knowledge = codecompass_enabled()
+        tools = knowledge and tools_enabled()
+        prefix = knowledge and rag_prefix_enabled()
+        log("flags codecompass=%s tools=%s rag_prefix=%s" % (knowledge, tools, prefix))
+        _TOOLBOX = codecompass_toolbox(lambda query, limit: fetch_snippets(query, limit=limit)) if tools else None
         _DIALOG = CompanionDialog(
-            llm=lambda text, context, system: answer(text, context=context, system=system),
-            retriever=lambda query: fetch_snippets(query, limit=5),
-            codecompass_enabled=codecompass_enabled(),
+            llm=lambda text, context, system: answer(text, context=context, system=system, tools=_TOOLBOX),
+            retriever=(lambda query: fetch_snippets(query, limit=5)) if prefix else None,
+            codecompass_enabled=prefix,
             model_name=os.environ.get("MEET_LLM_MODEL", ""),
+            system=PERSONA_SYSTEM_WITH_TOOLS if tools else PERSONA_SYSTEM,
         )
     return _DIALOG
 
 
 def generate_reply(text):
-    reply, trace = dialog().answer(text)
-    log("TRACE route=%s sources=%s" % (trace.route, trace.source_labels()[:4]))
+    conversation = dialog()
+    toolbox = _TOOLBOX
+    if toolbox is not None:
+        toolbox.reset()
+    reply, trace = conversation.answer(text)
+    if toolbox is not None:
+        # What the model actually looked up belongs in the same trace the snake
+        # explains itself from, so "wie hast du das erzeugt?" stays truthful.
+        for call in toolbox.calls:
+            trace.codecompass_used = True
+            trace.observe(
+                "codecompass_search aufgerufen (query=%s) -> %d Auszug/Auszüge"
+                % (call["query"][:60], call["snippets"])
+            )
+            log("TOOL codecompass_search query=%r snippets=%s failed=%s"
+                % (call["query"][:80], call["snippets"], call["failed"]))
+        trace.add_sources(toolbox.sources)
+    log("TRACE route=%s tools=%s sources=%s" % (
+        trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))
     return reply
 
 
@@ -287,7 +327,8 @@ def run():
             speech_source = "speech:" + identity["session_id"]
             ports = avatar_ports(page, avatar_source, speech_source)
             avatar_on = avatar_enabled()
-            log("flags avatar=%s codecompass=%s" % (avatar_on, codecompass_enabled()))
+            log("flags avatar=%s codecompass=%s tools=%s rag_prefix=%s" % (
+                avatar_on, codecompass_enabled(), tools_enabled(), rag_prefix_enabled()))
             log_lipsync_service()
             log("grant room=%s exp=%s" % (grant["room_id"], grant.get("expires_at")))
             page.evaluate("(a) => window.anantaMachine.join(a[0], a[1])", [grant["room_id"], grant["grant"]])
