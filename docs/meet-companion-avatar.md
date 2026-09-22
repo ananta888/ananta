@@ -15,6 +15,42 @@ Track: `todos/todo.ananta-meet-codecompass-avatar.json`.
 
 `0`, `false`, `off`, `no` deaktivieren; alles andere aktiviert.
 
+| Variable | Default | Wirkung |
+|---|---|---|
+| `MEET_AVATAR_SERVICE_ENABLED` | `1` | Sprech-Clips über den lokalen MuseTalk-Lippensync-Dienst rendern (`0` = nur lokaler Renderer). |
+| `MEET_AVATAR_SERVICE_URL` | `http://172.18.112.1:8189` | Basis-URL des Dienstes (`GET /health`, `POST /avatar`). |
+| `MEET_AVATAR_PORTRAIT_PNG` | `/state/ananta-snake-portrait.png` | Referenzportrait; wird beim ersten Bedarf gerendert, falls die Datei fehlt. |
+| `MEET_COMPANION_AVATAR_REFRESH` | `25` | Sekunden, nach denen der Idle-Clip neu geöffnet wird (Client-Aktivierung läuft nach ~30 s ab). |
+
+## Lippensync über den MuseTalk-Dienst
+
+`worker/meet_media/avatar_service.py` kapselt den Dienst:
+
+* `render(portrait_png, wav, base_url=…)` – ein begrenzter HTTP-Roundtrip
+  (`POST /avatar` mit `image_png_b64`/`audio_wav_b64`, Timeout 20 s, ein Retry
+  bei 429 nach gedeckeltem `Retry-After`). Jeder Fehler wird zu
+  `AvatarServiceError` mit `reason_code`
+  (`meet_avatar_service_{busy,rejected,failed,timeout,unreachable,response_invalid,clip_invalid,clip_too_large,frames_invalid}`).
+  Die Antwort wird validiert (ftyp-Container, 1..120 Frames, ≤ 2 MB base64).
+* `LipSyncClient` – hält das Portrait, liefert `persona-video-v1`-Payloads
+  (`video_payload`: mp4, sha256, frames, `repeatMode="hold_last"`,
+  `originKind="generated"`, `classification="synthetic"`) und gibt bei
+  Fehlern `None` zurück. Nach einem Fehler bleibt er 30 s still, damit ein
+  unerreichbarer Dienst höchstens einen Timeout pro Antwort kostet.
+* `SpeechAvatarPublisher(lipsync=…)` ruft den Port **pro `ClipSegment`** mit
+  genau dessen PCM-Fenster (≤ 10 s, die Dienstgrenze) auf. `None` wählt für
+  dieses Segment den lokalen Schlangen-Renderer; die Timeline, die
+  Swap-Zeitpunkte und die Drift-Messung bleiben unverändert.
+* Das Portrait (`snake_avatar.render_portrait`, 512×512, Mund in der unteren
+  Hälfte) wird vom Companion nach `/state/ananta-snake-portrait.png` gerendert.
+
+Gemessen (RTX 5060 Ti): 2 s Audio → 24 Frames in ≈ 4,6 s, 10 s → 120 Frames
+in ≈ 9,8 s. Die Clips werden vor dem Sprechen gerendert, d. h. eine 40-s-Antwort
+wartet bis zu ≈ 40 s im Zustand `thinking`. Bekannte Grenze: MuseTalk erkennt
+das Cartoon-Gesicht nicht (`face_method: centered_fallback`) und malt den
+Mundbereich unscharf; für ein sauberes Ergebnis braucht der Dienst ein
+gesichtsähnlicheres Referenzbild oder ein Cartoon-fähiges Modell.
+
 ## Synchronisierte Audio/Video-Pipeline
 
 ```text
@@ -87,8 +123,12 @@ Der Worker importiert kein Hub-`agent`-Paket (`scripts/check_meet_worker_boundar
 ```bash
 cd docker/compose-next
 docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm t-infra \
-  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_assist_retrieve_route.py"
+  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py"
 ```
+
+`tests/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,
+Fallback-Policy); der markierte Integrationstest ruft den echten Dienst nur mit
+`RUN_INTEGRATION_TESTS=1` und erreichbarem `/health` auf, sonst wird er übersprungen.
 
 Die Tests laufen ohne FFmpeg (injizierter Encoder) und ohne Browser (Ports als
 Fakes mit deterministischer Uhr).

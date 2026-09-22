@@ -7,7 +7,10 @@ offset, so audio and video are two projections of one clock and drift is
 measured instead of assumed.
 
 Browser access is behind small callables (ports) so the coordination logic is
-testable without Playwright or FFmpeg.
+testable without Playwright or FFmpeg. An optional ``lipsync`` port (see
+``avatar_service.LipSyncClient``) replaces the locally rendered speaking clip
+of a segment with a service-rendered one; any failure falls back per segment
+to the local renderer, so the reply is never blocked by the service.
 """
 
 import tempfile
@@ -68,25 +71,53 @@ class IdleClips:
 class SpeechAvatarPublisher:
     """Speaks ``pcm`` while swapping avatar clips on the same timeline."""
 
-    def __init__(self, ports, *, encoder=None, log=lambda message: None):
+    def __init__(self, ports, *, encoder=None, log=lambda message: None, lipsync=None):
         self.ports = ports
         self._encoder = encoder
         self._log = log
+        # (segment_pcm_bytes) -> persona-video-v1 payload or None (fallback).
+        self._lipsync = lipsync
         self.generation = None
 
     def prepare(self, pcm):
-        """Render every clip segment of the reply before any media starts."""
+        """Render every clip segment of the reply before any media starts.
+
+        With a ``lipsync`` port each segment (<= 10 s, the service limit) is
+        rendered from the segment's own PCM window, so the service clip covers
+        exactly the audio the timeline schedules it for. ``None`` from the
+        port selects the local renderer for that segment.
+        """
         samples = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
         timeline = SpeechMediaTimeline(samples, SPEECH_RATE)
-        clips = [
-            _clip(
-                samples, segment.frames / timeline.fps,
-                state=SPEAKING, repeat="hold_last",
-                start_frame=segment.first_frame, frames=segment.frames, encoder=self._encoder,
-            )
-            for segment in timeline.segments()
-        ]
+        clips = []
+        for segment in timeline.segments():
+            clip = self._lipsync_clip(pcm, segment)
+            if clip is None:
+                clip = _clip(
+                    samples, segment.frames / timeline.fps,
+                    state=SPEAKING, repeat="hold_last",
+                    start_frame=segment.first_frame, frames=segment.frames, encoder=self._encoder,
+                )
+            clips.append(clip)
         return timeline, clips
+
+    def _lipsync_clip(self, pcm, segment):
+        if self._lipsync is None:
+            return None
+        try:
+            clip = self._lipsync(pcm[segment.start_sample * 2:segment.end_sample * 2])
+        except Exception as error:  # noqa: BLE001
+            # The port is expected to return None on failure; a raise is still
+            # only a fallback, never a dropped reply.
+            self._log("lipsync_err segment=%s %r" % (segment.index, error))
+            return None
+        if clip is None:
+            return None
+        if clip["frames"] != segment.frames:
+            # hold_last keeps the tile stable when the service rounds the
+            # frame count differently; the audio schedule is unaffected.
+            self._log("lipsync frames segment=%s expected=%s got=%s" % (segment.index, segment.frames, clip["frames"]))
+        return clip
 
     def speak(self, pcm, *, current_generation=None):
         """Publish audio and clips together; returns (avatar_generation, drift_report).

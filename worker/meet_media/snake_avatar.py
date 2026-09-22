@@ -173,6 +173,62 @@ def build_video(samples, rate, seconds, directory, *, state=SPEAKING, start_fram
     return data, frames
 
 
+PORTRAIT_SIZE = 512
+
+
+def render_portrait(size=PORTRAIT_SIZE):
+    """Static, front-facing head portrait for a lip-sync reference image.
+
+    The head fills the frame and the closed mouth sits in the lower half
+    (about 67 % down), where face-driven lip-sync models such as MuseTalk
+    expect the mouth region of a centered face crop. Deterministic.
+    """
+    if type(size) is not int or not 128 <= size <= 1024:
+        raise ValueError("meet_avatar_portrait_size_invalid")
+    scale = size / PORTRAIT_SIZE
+
+    def box(x0, y0, x1, y1):
+        return tuple(int(round(value * scale)) for value in (x0, y0, x1, y1))
+
+    img = Image.new("RGB", (size, size), _BG)
+    draw = ImageDraw.Draw(img)
+    # Coils peek in at the bottom so the portrait still reads as the snake.
+    draw.ellipse(box(40, 430, 472, 560), fill=_OUTLINE)
+    draw.ellipse(box(48, 438, 464, 552), fill=_BODY)
+    draw.ellipse(box(120, 456, 392, 540), fill=_BODY_LIGHT)
+    neck = ((196, 470), (316, 470), (300, 360), (212, 360))
+    draw.polygon([box(x, y, 0, 0)[:2] for x, y in neck], fill=_BODY)
+
+    # Head: outline, base and highlight, same palette as the animated frames.
+    draw.ellipse(box(88, 72, 424, 408), fill=_OUTLINE)
+    draw.ellipse(box(100, 84, 412, 396), fill=_HEAD)
+    draw.ellipse(box(136, 120, 376, 320), fill=_HEAD_LIGHT)
+
+    # Eyes at ~38 % height, straight friendly gaze.
+    for cx in (196, 316):
+        draw.ellipse(box(cx - 36, 160, cx + 36, 236), fill=_EYE)
+        draw.ellipse(box(cx - 15, 178, cx + 15, 220), fill=_PUPIL)
+        draw.ellipse(box(cx - 6, 184, cx + 6, 196), fill=_EYE)
+
+    # Nostrils.
+    draw.ellipse(box(236, 268, 248, 280), fill=_OUTLINE)
+    draw.ellipse(box(264, 268, 276, 280), fill=_OUTLINE)
+
+    # Closed, smiling mouth in the lower half of the portrait.
+    draw.arc(box(172, 296, 340, 372), start=20, end=160, fill=_OUTLINE, width=int(max(3, round(6 * scale))))
+    draw.text(box(216, 476, 0, 0)[:2], "ai-snake", fill=_OUTLINE)
+    return img
+
+
+def portrait_png(size=PORTRAIT_SIZE):
+    """PNG bytes of ``render_portrait``."""
+    from io import BytesIO
+
+    buffer = BytesIO()
+    render_portrait(size).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def video_payload(data, frames, *, repeat="hold_last"):
     import base64
 

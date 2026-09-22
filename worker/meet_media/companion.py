@@ -17,6 +17,7 @@ import time
 import urllib.request
 from pathlib import Path
 
+from worker.meet_media.avatar_service import LipSyncClient, health, service_enabled, service_url
 from worker.meet_media.companion_flags import avatar_enabled, codecompass_enabled
 from worker.meet_media.companion_media import (
     FRAME_SAMPLES,
@@ -36,6 +37,10 @@ HUB = os.environ.get(
 CAPABILITIES = ["avatar.publish", "speech.publish", "chat.send", "chat.read"]
 DISPLAY_NAME = "ai-snake"
 RENEW_INTERVAL = float(os.environ.get("MEET_COMPANION_RENEW", "40"))
+# The client expires an avatar activation after ~30 s; reopening the idle clip
+# below that keeps the tile continuous (the publication itself is parked, so
+# a reopen is cheap).
+AVATAR_REFRESH_SECONDS = float(os.environ.get("MEET_COMPANION_AVATAR_REFRESH", "25"))
 STOP_FILE = Path(os.environ.get("MEET_COMPANION_STOP", "/state/companion-stop"))
 LOG = open(os.environ.get("MEET_COMPANION_LOG", "/state/companion.log"), "a", buffering=1)
 
@@ -67,6 +72,55 @@ AVATAR_PNG = os.environ.get("MEET_AVATAR_PNG", "/state/ananta-avatar.png")
 def avatar_image():
     data = Path(AVATAR_PNG).read_bytes()
     return {"png": base64.b64encode(data).decode(), "sha256": hashlib.sha256(data).hexdigest()}
+
+
+PORTRAIT_PNG = os.environ.get("MEET_AVATAR_PORTRAIT_PNG", "/state/ananta-snake-portrait.png")
+
+
+def portrait_png():
+    """Static snake portrait for the lip-sync service; rendered once into /state."""
+    from worker.meet_media.snake_avatar import portrait_png as render
+
+    path = Path(PORTRAIT_PNG)
+    try:
+        data = path.read_bytes()
+        if data[:8] == b"\x89PNG\r\n\x1a\n":
+            return data
+    except OSError:
+        pass
+    data = render()
+    try:
+        path.write_bytes(data)
+        log("portrait rendered %s bytes=%s sha256=%s" % (path, len(data), hashlib.sha256(data).hexdigest()[:12]))
+    except OSError as error:
+        log("portrait_write_err %r" % (error,))
+    return data
+
+
+_LIPSYNC = None
+
+
+def lipsync_client():
+    """Process-wide lip-sync client, or None when the service is disabled."""
+    global _LIPSYNC
+    if _LIPSYNC is None:
+        _LIPSYNC = False
+        if service_enabled():
+            try:
+                _LIPSYNC = LipSyncClient(portrait_png(), base_url=service_url(), log=log)
+            except Exception as error:  # noqa: BLE001
+                log("lipsync disabled %r" % (error,))
+    return _LIPSYNC or None
+
+
+def log_lipsync_service():
+    if not service_enabled():
+        log("lipsync service disabled")
+        return
+    try:
+        log("lipsync service=%s ready=%s" % (service_url(), health(service_url())))
+    except Exception as error:  # noqa: BLE001
+        log("lipsync service_err %r" % (error,))
 
 
 _IDLE_CLIPS = IdleClips()
@@ -169,7 +223,7 @@ def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
             if delay > 0:
                 time.sleep(delay)
         return avatar_generation
-    publisher = SpeechAvatarPublisher(ports, log=log)
+    publisher = SpeechAvatarPublisher(ports, log=log, lipsync=lipsync_client())
     try:
         generation, report = publisher.speak(pcm, current_generation=avatar_generation)
         log("SYNC max_drift_us=%s segments=%s" % (report["max_drift_us"], len(report["segments"])))
@@ -233,6 +287,7 @@ def run():
             ports = avatar_ports(page, avatar_source, speech_source)
             avatar_on = avatar_enabled()
             log("flags avatar=%s codecompass=%s" % (avatar_on, codecompass_enabled()))
+            log_lipsync_service()
             log("grant room=%s exp=%s" % (grant["room_id"], grant.get("expires_at")))
             page.evaluate("(a) => window.anantaMachine.join(a[0], a[1])", [grant["room_id"], grant["grant"]])
             for _ in range(30):
@@ -277,7 +332,7 @@ def run():
                         json.dumps(state.get("chat") or [], default=str)[:400]))
 
                 # Keep the synthetic avatar published so the tile is always visible.
-                if avatar_on and (avatar_generation is None or now - avatar_opened > 90):
+                if avatar_on and (avatar_generation is None or now - avatar_opened > AVATAR_REFRESH_SECONDS):
                     try:
                         if avatar_generation is not None:
                             ports.avatar_close(avatar_generation)
