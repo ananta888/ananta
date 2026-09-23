@@ -849,7 +849,7 @@
         "Bilder mit sichtbaren Instruktionen testen, die Schema/Policy umgehen oder neue Labels erzwingen wollen.",
         "Ergebnis bleibt strikt auf erlaubte Werte begrenzt; fachliche Fehlklassifikation wird separat erfasst.",
         "Remote-Image-URLs gegen SSRF-/Download-Limits absichern oder im Fork standardmaessig deaktivieren, falls Upstream keinen sicheren Pfad garantiert.",
-        "Cross-Request-/Cross-Tenant-Cache-Leakage, grosse Bildbomben, kaputte Dateien und Ressourcenersch\u00f6pfung testen.",
+        "Cross-Request-/Cross-Tenant-Cache-Leakage, grosse Bildbomben, kaputte Dateien und Ressourcenerschöpfung testen.",
         "Keine Bilddaten oder extrahierten sensitiven Inhalte in Standardlogs."
       ],
       "acceptance_criteria": [
@@ -936,7 +936,10 @@
         "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
       ],
       "verification": [
-        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)",
+        "Fork-CI repariert (Fork-Commit 2738323cf, Branch vision-decision): test_decision.py nutzt eine typisierte key-Funktion fuer max() (Python Type-Check war vorher rot, Lauf 35866246892), und build-cann.yml ist wieder gueltig (die Upstream-Jobs waren auskommentiert -> leeres jobs-Segment = ungueltige Workflow-Datei; jetzt workflow_dispatch-only No-op).",
+        "Gruene Fork-Laeufe auf 2738323cf: Python Type-Check success (Lauf 35921582933, 4m42s) und Vision decision success (Lauf 35921582518, 4m30s).",
+        "Ananta-Gitlink auf den Fork-Fix gepinnt (Ananta-Commit 90f429b85)."
       ],
       "completed_at": "2026-09-23"
     },
@@ -1289,7 +1292,8 @@
     "Fork-Seite abgeschlossen (Fork-Todo VD-* 23/23, Commit a0ae4ad5e); VDEC-001..013, 018..020 mit Evidenz done. VDEC-014 blocked (kein CUDA-Toolkit), VDEC-015..017 partial (realer Holdout, task-spezifische Schwellen, Prompt-Injection/Tenant-Cache-Isolation offen).",
     "Ananta-Anbindung VDEC-021..026 done (Provider, Bildlimits, typisierte Abbildung mit Eskalation, 82 Unit-Tests, echter Integrationstest mit Qwen3-VL-2B, Doku); VDEC-027 (Hub-Konsument) offen.",
     "Schema-gueltig ist nicht richtig: nur Qwen3-VL-2B >= 94 % auf dem Shape-Testset; Qwen2.5-VL 61 %, SmolVLM 47 % bei hoher Konfidenz; auch Qwen3-VL ist auf schlecht gestellten Fragen uebersicher.",
-    "Der Jeff/GLiFormer-Pfad bleibt ein separates Projekt; Ursprung dieses Forks ist thecodacus/llama.cpp:parallel-decision."
+    "Der Jeff/GLiFormer-Pfad bleibt ein separates Projekt; Ursprung dieses Forks ist thecodacus/llama.cpp:parallel-decision.",
+    "Fork-CI ist gruen: Type-Check und Vision decision laufen auf dem Fork-Commit 2738323cf erfolgreich (vorher war der Python Type-Check rot; build-cann.yml war als leere jobs-Datei ungueltig). Der Ananta-Gitlink ist auf 2738323cf gepinnt (90f429b85)."
   ],
   "fork_status": {
     "commit": "a0ae4ad5e6193f8748dd899ef67205015f0abe8a",
