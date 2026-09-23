@@ -472,7 +472,6 @@
     "Kalibrierter Nachweis nur fuer speech-commands-en mit einem Holdout-Clip (stop); home-control-en nur synthetische Stimmen, confirm-en-de Deutsch nicht validiert.",
     "Hub-Routentests im Container nur mit env -u AGENT_TOKEN_FILE gruen (vorbestehende Kollision Token-File vs. Inline-Testtoken, betrifft auch tests/test_voice_api_contract.py).",
     "Integrationstests brauchen einen manuell gestarteten Server (Host-Build des Forks); im Standard-CI SKIPPED.",
-    "Bestaetigungsspeicher liegt im Prozessspeicher (Hub = ein Prozess); bei mehreren Hub-Prozessen braeuchte er einen geteilten Speicher.",
     "Idempotency-Key wird im Decision-Pfad nicht ausgewertet: ein wiederholter act-Request fuehrt die (nicht-destruktive) Direktive erneut aus.",
     "home.* (home-control-en) hat keine Handler: confirm wird dort fail-closed zu deny.",
     "docs/route-inventory.json nicht regeneriert (enthielt auch die Fassade bisher nicht)."
@@ -480,6 +479,7 @@
   "summary_notes": [
     "Route POST /v1/voice/audio-decisions/command, Policy VoiceCommandAudioDecisionPolicy (P0..P12), Stream-Sessions AudioDecisionStreamSession + gate_stream_event.",
     "Echter Server 2026-09-23: kalibrierter ok-Fall stop (confidence 0.9994) -> proposal -> act; Stream final ok; Abbruch schliesst Sitzung serverseitig (404).",
-    "Konsument: /v1/voice/command nutzt die AudioDecision als primaeren Pfad (decision_profile), Executor fuer voice.control/navigate/dialog.*, einmalige gebundene Bestaetigungen ueber /v1/voice/command/confirm."
+    "Konsument: /v1/voice/command nutzt die AudioDecision als primaeren Pfad (decision_profile), Executor fuer voice.control/navigate/dialog.*, einmalige gebundene Bestaetigungen ueber /v1/voice/command/confirm.",
+    "Betriebs-Invariante (Auslegung, kein offener Punkt): der Hub laeuft als EINE manuell verwaltete Instanz; der Betreiber legt keine mehrfachen Replicas/Worker an. Der Bestaetigungsspeicher bleibt daher bewusst im Prozessspeicher (wie die Hub-Stream-Sessions) und braucht keinen geteilten Speicher. Bestaetigungen sind kurzlebig und einmalig; Neustart/Deploy verwirft offene Bestaetigungen -> deny (fail-closed), nie allow."
   ]
 }

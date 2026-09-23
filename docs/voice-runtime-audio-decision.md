@@ -134,8 +134,11 @@ Client-Direktive als `effect` (z. B. `{kind: "navigate", direction: "left"}`). E
 - `deny`/`ask_again`/`normal_path`: typisierte Antworten, nichts wird ausgefuehrt. `system2`: Uebergabe an den
   Goal-Pfad `/v1/voice/goal` (dort explizite Freigabe `approved=true`); das Transkript steht nur im
   `system2`-Block der Antwort an den authentifizierten Aufrufer, nie in Audits/Logs.
-- Der Bestaetigungsspeicher liegt im Prozessspeicher (wie die Hub-Stream-Sessions); der Hub laeuft als ein
-  Prozess. Ein Neustart verwirft offene Bestaetigungen (fail-closed).
+- Betriebs-Invariante: der Hub laeuft als EINE manuell verwaltete Instanz (der Betreiber legt keine mehrfachen
+  Replicas oder Worker-Prozesse an). Der Bestaetigungsspeicher liegt daher bewusst im Prozessspeicher (wie die
+  Hub-Stream-Sessions) und braucht keinen geteilten Speicher wie Redis oder eine DB. Bestaetigungen sind
+  kurzlebig und einmalig; ein Neustart/Deploy verwirft offene Bestaetigungen und fuehrt zu `deny` (fail-closed),
+  nie zu `allow`. Kein offener Punkt, sondern Auslegung.
 
 Audit (ohne Audio, Transkript, Label, Effekt, Bestaetigungs-ID): `voice_audio_decision_command`
 (`HubAudioDecision.as_audit_dict()` + Profil + Policy-Regel + Aktionstyp + `execution`/`confirmation`) und
