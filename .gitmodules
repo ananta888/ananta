@@ -1,0 +1,4 @@
+[submodule "vendor/llama.cpp-vision-decision"]
+	path = vendor/llama.cpp-vision-decision
+	url = https://github.com/ananta888/llama.cpp-vision-decision.git
+	branch = vision-decision
