@@ -7,6 +7,7 @@ import uuid
 from flask import Flask, g, jsonify, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
+from .backends.audio_decision import build_audio_decision_provider
 from .backends.router import build_voice_backend_resolver
 from .config import VoiceRuntimeConfig
 from .metrics import VoiceRuntimeMetrics, operation_for_endpoint
@@ -60,6 +61,9 @@ def create_app(config: VoiceRuntimeConfig | None = None) -> Flask:
     app.config["voice_runtime_backend_resolver"] = backend_resolver
     app.config["voice_runtime_pipeline"] = pipeline
     app.config["voice_runtime_metrics"] = runtime_metrics
+    # Optional AudioDecision specialist; None (and never contacted) unless
+    # VOICE_AUDIO_DECISION_ENABLED=true.
+    app.config["voice_runtime_audio_decision"] = build_audio_decision_provider()
     if runtime_config.enable_streaming:
         incremental_factory = getattr(backend, "streaming_recognizer_factory", None)
         recognizer_factory = container_safe_recognizer_factory(
