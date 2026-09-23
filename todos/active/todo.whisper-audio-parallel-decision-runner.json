@@ -1,0 +1,1108 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-23",
+  "updated_at": "2026-09-23",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "whisper_audio_parallel_decision_runner",
+  "title": "Whisper Audio Parallel Decision: wiederverwendbarer typisierter Decision-Runner direkt auf Whisper-Audio",
+  "status": "todo",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "purpose": "whisper.cpp um einen produktionsnahen, wiederverwendbaren Audio-Decision-Pfad erweitern, der Audio einmal encodiert und anschliessend endliche Kandidatenpfade direkt im Whisper-Decoder bewertet, anstatt zuerst eine vollstaendige Transkription zu erzeugen. Das bestehende whisper-command-Beispiel dient nur als Proof of Principle; die Zielimplementierung erhaelt einen eigenen Decision-Engine, Server-API, CLI, Streaming/VAD, exaktes Tokenpfad-Scoring, Kalibrierung, Benchmarks, Security und Ananta-Integration.",
+  "goal": "Ein separater whisper.cpp-Fork soll fuer Audio dieselbe System-One-Idee sauber umsetzen: PCM/Audio -> Mel -> Whisper Encoder einmal -> wiederverwendbarer Audio/Cross-Attention-Zustand -> mehrere voneinander unabhaengige finite Decisions -> value + probability + timings. Der Runner soll Commands, begrenzte Phrasen-/Keyword-Entscheidungen und empirisch validierte Klassifikationsprofile schnell behandeln; ungeeignete, offene oder unsichere Aufgaben gehen kontrolliert an normale Transkription bzw. einen System-2-Pfad.",
+  "proposed_repository": {
+    "owner": "ananta888",
+    "name": "whisper.cpp-audio-decision",
+    "full_name": "ananta888/whisper.cpp-audio-decision",
+    "repository_kind": "fork",
+    "fork_source": "ggml-org/whisper.cpp",
+    "fork_source_branch": "master",
+    "fork_source_commit_at_planning": "a44e07845931421bb6f3447ce0010ed9dc76a118",
+    "default_work_branch": "audio-decision",
+    "license": "MIT",
+    "preferred_ananta_submodule_path": "vendor/whisper.cpp-audio-decision",
+    "notes": [
+      "Als echter GitHub-Fork anlegen, damit Upstream-Sync und spaetere Rueck-PRs erhalten bleiben.",
+      "Eigene Decision-Logik modular halten und normale whisper.cpp-Transkription nicht veraendern, wenn das Feature nicht genutzt wird.",
+      "Fork/Agent muss alle hier genannten Quellcodeannahmen erneut gegen den dann aktuellen Upstream pruefen."
+    ]
+  },
+  "related_todos": [
+    "todos/active/todo.vision-parallel-decision-llamacpp.json",
+    "todos/active/todo.jev-llamacpp-parallel-decision-mode.json",
+    "todos/active/todo.jeff-local-specialist-gate-adapter.json"
+  ],
+  "source_references": [
+    {
+      "repository": "ggml-org/whisper.cpp",
+      "ref": "master",
+      "commit": "a44e07845931421bb6f3447ce0010ed9dc76a118",
+      "path": "examples/command/command.cpp",
+      "blob_sha": "ff7c037417f6b39f92f08caf641ca2b7bc55200f",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "Das offizielle command-Beispiel setzt max_tokens=1, ruft whisper_full auf und liest danach whisper_get_logits.",
+        "Erlaubte Commands werden anhand von Token-Wahrscheinlichkeiten bewertet und normalisiert.",
+        "Der Beispielcode kennzeichnet diese Probability-Schaetzung selbst mit 'NOTE: not optimal'.",
+        "Die Zielimplementierung darf dieses naive Mittelungsverfahren daher nicht als produktive Decision-Methode uebernehmen."
+      ]
+    },
+    {
+      "repository": "ggml-org/whisper.cpp",
+      "ref": "master",
+      "commit": "a44e07845931421bb6f3447ce0010ed9dc76a118",
+      "path": "include/whisper.h",
+      "blob_sha": "545084ef26ee80af25db1d43479d0187abd979c4",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "Die C-API exponiert whisper_init_state/whisper_free_state.",
+        "Die API exponiert whisper_pcm_to_mel_with_state und whisper_set_mel_with_state.",
+        "Die API exponiert whisper_encode/whisper_encode_with_state sowie whisper_decode/whisper_decode_with_state.",
+        "Die API exponiert whisper_get_logits und whisper_get_logits_from_state.",
+        "Tokenisierung und Token->String stehen ueber whisper_tokenize und whisper_token_to_str zur Verfuegung."
+      ]
+    },
+    {
+      "repository": "ggml-org/whisper.cpp",
+      "ref": "master",
+      "commit": "a44e07845931421bb6f3447ce0010ed9dc76a118",
+      "path": "src/whisper.cpp",
+      "blob_sha": "771c1149cdb7cf738d9767fdbd80669d73b90f42",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "whisper_state besitzt getrennte Decoder-/Cross-Attention-Zustaende und interne KV-Caches.",
+        "whisper_decode_with_state bereitet Decoder-Batches mit n_past und seq_id vor.",
+        "Die produktive Branch-/Cache-Strategie muss anhand der aktuellen internen KV-Implementierung entworfen werden; kein llama.cpp-Sequence-Verhalten ungeprueft auf whisper.cpp uebertragen."
+      ]
+    },
+    {
+      "repository": "ggml-org/whisper.cpp",
+      "ref": "master",
+      "commit": "a44e07845931421bb6f3447ce0010ed9dc76a118",
+      "path": "examples/server/server.cpp",
+      "blob_sha": "b745f4d7b093ae597048ef6c1e824ad5230cd336",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "whisper.cpp besitzt bereits einen HTTP-Server fuer Audio-Inferenz.",
+        "Die neue Decision-API soll vorhandene Audio-Upload-/Decoding-Helfer wiederverwenden, statt einen zweiten HTTP-/Audio-Stack aufzubauen."
+      ]
+    },
+    {
+      "repository": "ggml-org/whisper.cpp",
+      "ref": "master",
+      "commit": "a44e07845931421bb6f3447ce0010ed9dc76a118",
+      "path": "LICENSE",
+      "blob_sha": "e7dca554bcb802f98408383a864404e3aa4eacca",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "MIT-Lizenz; Forking und Modifikation sind erlaubt, Lizenz-/Copyright-Hinweise bleiben erhalten."
+      ]
+    }
+  ],
+  "architecture_decisions": [
+    "Der Decision-Runner ist eine additive whisper.cpp-Funktion. Normale Transkription, Translation, Server und bestehende APIs bleiben ohne Feature-Nutzung unveraendert.",
+    "Audio wird einmal zu Mel verarbeitet und encodiert. Mehrere Decision-Felder sollen denselben Encoder-/Cross-Attention-Zustand wiederverwenden; ein erneutes Audio-Encoding pro Feld ist kein akzeptabler Endzustand.",
+    "Der produktive Decision-Engine bewertet komplette Tokenpfade konditional und nicht nur First-Token-Scores oder den arithmetischen Mittelwert unabhaengiger Token-Wahrscheinlichkeiten.",
+    "Kandidaten mit gemeinsamen Token-Prefixes werden ueber einen Trie/Token-Tree oder aequivalente exakte Pfadlogik disambiguiert.",
+    "Unterschiedlich lange Kandidaten brauchen eine dokumentierte Scoring-/Normalisierungsstrategie. Raw path log-probability, length-normalized score und ggf. task-spezifische Verbalizer werden benchmarked; keine willkuerliche Heuristik als universell korrekt annehmen.",
+    "Whisper bleibt primaer ASR. Direkte Audio-Decisions sind zuerst fuer constrained speech/commands/phrases/keywords gedacht. Abstrakte semantische Labels werden nur fuer Profile aktiviert, deren eigene Benchmarks die Eignung belegen.",
+    "Fuer semantisch schwierige oder offene Aufgaben ist Transkription -> nachgelagerter System-2-/LLM-Pfad der verbindliche Fallback.",
+    "Mehrere Decision-Felder muessen logisch unabhaengig sein oder explizit sequenziell verarbeitet werden. Ein Feld darf nicht stillschweigend von der vorher gewaehlteten Antwort eines anderen Felds abhaengen.",
+    "Probability/Confidence ist ohne Kalibrierung keine Korrektheitswahrscheinlichkeit und keine Berechtigung.",
+    "VAD/Streaming wird als eigener Zustandspfad ueber denselben Decision-Engine realisiert; keine zweite Command-Engine fuer Live-Audio.",
+    "Audio- und Decoderzustand werden strikt pro Request/Session isoliert. Kein Cross-Request-Cache von Audioinhalt als Default.",
+    "Der Decision-Kern soll als Bibliothekskomponente unterhalb von CLI und Server liegen, damit Tests, C-API/Bindings und spaetere Integration denselben Code nutzen.",
+    "Bestehende whisper.cpp-Hardwarebackends und Encoder-Offloads werden wiederverwendet. Keine eigene CUDA-/Metal-/OpenVINO-Audioimplementierung.",
+    "Upstream-Faehigkeit ist Designziel: whisper.cpp-spezifischer generischer Decision-Code bleibt frei von Ananta-spezifischer Orchestrierung."
+  ],
+  "non_goals": [
+    "Kein allgemeines Audio-Verstaendnismodell aus Whisper machen.",
+    "Keine Behauptung, dass Whisper zuverlaessig Emotion, Sprecheridentitaet, Musik- oder Umgebungsgeraeuschklassen erkennt.",
+    "Keine freie Transkription durch riesige Kandidatenlisten ersetzen.",
+    "Kein neues Whisper-Training als Voraussetzung fuer den Baseline-Runner.",
+    "Keine automatische sicherheitskritische Freigabe allein aufgrund eines Decision-Scores.",
+    "Kein eigener VAD-, Audio-Codec- oder HTTP-Stack, wenn whisper.cpp bereits geeignete Komponenten besitzt."
+  ],
+  "target_capabilities": [
+    "finite phrase/command selection",
+    "boolean yes/no bzw. presence decisions mit klaren spoken verbalizers",
+    "keyword/phrase family routing",
+    "bounded ordinal/numeric choices nur wenn sie als endliche gesprochene Kandidaten sinnvoll verbalisiert werden koennen",
+    "language detection als separate Whisper-Baseline/Meta-Decision",
+    "multi-field independent decisions from one audio encode",
+    "batch/multi-request server scheduling",
+    "streaming/VAD decision sessions",
+    "calibrated abstain and fallback to transcription/System-2"
+  ],
+  "target_models": [
+    {
+      "name": "tiny / tiny.en",
+      "role": "latency_baseline",
+      "notes": "Sehr kleine Kontrollgruppe; multilingual und English-only getrennt messen."
+    },
+    {
+      "name": "base / base.en",
+      "role": "small_baseline",
+      "notes": "Command-/Phrase-Baseline mit geringem Ressourcenbedarf."
+    },
+    {
+      "name": "small",
+      "role": "balanced_baseline",
+      "notes": "Qualitaet/Latenz-Balance."
+    },
+    {
+      "name": "medium",
+      "role": "quality_baseline",
+      "notes": "Groessere ASR-Kontrollgruppe."
+    },
+    {
+      "name": "large-v3-turbo",
+      "role": "high_quality_reference",
+      "notes": "Aktuelle Verfuegbarkeit/Support beim Implementierungsstart erneut verifizieren."
+    }
+  ],
+  "target_hardware": {
+    "primary": "RTX 5060 Ti 16 GB + 64 GB RAM",
+    "secondary": "RTX 3080 10 GB + 64 GB RAM, soweit verfuegbar",
+    "cpu": true,
+    "platforms": [
+      "Linux",
+      "WSL2/Linux soweit Audio/GPU-Pfad sinnvoll",
+      "optional Windows native",
+      "optional macOS/Metal als Upstream-Kompatibilitaet"
+    ]
+  },
+  "api_target": {
+    "preferred_endpoint": "POST /v1/audio/decisions",
+    "server_compatibility": "Vor Implementierung aktuellen whisper-server pruefen und dessen Upload-/Audio-Decoding-Helfer wiederverwenden.",
+    "request_concept": {
+      "audio": "<multipart file or existing whisper-server compatible audio input>",
+      "instructions": "Optional task profile / prompt context; nicht als allgemeine Instruction-Following-Faehigkeit von Whisper behandeln.",
+      "schema": {
+        "command": {
+          "type": "enum",
+          "choices": [
+            "lights on",
+            "lights off",
+            "stop"
+          ]
+        },
+        "confirmed": {
+          "type": "boolean",
+          "verbalizers": {
+            "true": [
+              "yes",
+              "correct"
+            ],
+            "false": [
+              "no",
+              "wrong"
+            ]
+          }
+        }
+      },
+      "options": {
+        "language": "auto",
+        "mode": "auto",
+        "abstain_threshold": "profile-defined"
+      }
+    },
+    "response_concept": {
+      "object": "audio.decision",
+      "decision": {
+        "command": "lights on",
+        "confirmed": true
+      },
+      "fields": {
+        "command": {
+          "probability": 0,
+          "candidates": {}
+        }
+      },
+      "usage": {
+        "audio_ms": 0,
+        "scored_nodes": 0
+      },
+      "timings": {
+        "mel_ms": 0,
+        "encode_ms": 0,
+        "scoring_ms": 0,
+        "total_ms": 0
+      }
+    }
+  },
+  "milestones": [
+    {
+      "id": "WADEC-M1",
+      "title": "Fork, Baseline und Architekturaufnahme",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-001",
+        "WADEC-002",
+        "WADEC-003"
+      ]
+    },
+    {
+      "id": "WADEC-M2",
+      "title": "Wiederverwendbarer Audio Decision Core",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-004",
+        "WADEC-005",
+        "WADEC-006",
+        "WADEC-007",
+        "WADEC-008"
+      ]
+    },
+    {
+      "id": "WADEC-M3",
+      "title": "CLI, Server und Streaming",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-009",
+        "WADEC-010",
+        "WADEC-011",
+        "WADEC-012"
+      ]
+    },
+    {
+      "id": "WADEC-M4",
+      "title": "Faehigkeitsgrenzen, Qualitaet und Hybrid-Fallback",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-013",
+        "WADEC-014",
+        "WADEC-015",
+        "WADEC-016"
+      ]
+    },
+    {
+      "id": "WADEC-M5",
+      "title": "Modelle, Parallelitaet und Performance",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-017",
+        "WADEC-018",
+        "WADEC-019",
+        "WADEC-020"
+      ]
+    },
+    {
+      "id": "WADEC-M6",
+      "title": "Kalibrierung, Security und Regression",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-021",
+        "WADEC-022",
+        "WADEC-023",
+        "WADEC-024"
+      ]
+    },
+    {
+      "id": "WADEC-M7",
+      "title": "Ananta-Integration, Dokumentation und Release",
+      "status": "todo",
+      "task_ids": [
+        "WADEC-025",
+        "WADEC-026",
+        "WADEC-027"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WADEC-001",
+      "milestone_id": "WADEC-M1",
+      "title": "Echten whisper.cpp-Fork anlegen, Upstreams pinnen und Wartungsstrategie dokumentieren",
+      "type": "repository",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "ananta888/whisper.cpp-audio-decision als echten Fork von ggml-org/whisper.cpp anlegen.",
+        "Planungsbaseline a44e07845931421bb6f3447ce0010ed9dc76a118 gegen aktuellen master pruefen und tatsaechlich verwendeten Start-SHA in UPSTREAM.md festhalten.",
+        "Arbeitsbranch audio-decision anlegen; MIT-Lizenz/Copyright unveraendert erhalten.",
+        "Upstream-Sync-/Rebase-/PR-Strategie dokumentieren und Ananta-spezifische Integration aus dem generischen Fork fernhalten."
+      ],
+      "acceptance_criteria": [
+        "Fork-Historie und Upstream-Beziehung sind nachvollziehbar.",
+        "UPSTREAM.md beschreibt Start-SHA, Remotes, Sync und Rueck-PR-Strategie."
+      ]
+    },
+    {
+      "id": "WADEC-002",
+      "milestone_id": "WADEC-M1",
+      "title": "Bestehende Transkriptions-, Server- und Command-Baselines reproduzieren",
+      "type": "baseline",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-001"
+      ],
+      "implementation": [
+        "whisper-cli, whisper-server und whisper-command auf mindestens CPU und primaerer CUDA-Hardware bauen und smoke-testen.",
+        "Normale Transkription, Sprache, Timings und vorhandene Command-Demo als eingefrorene Regression-Fixtures erfassen.",
+        "Command-Demo inklusive ihres naiven Probability-Verfahrens dokumentieren, aber nicht als Zielalgorithmus uebernehmen."
+      ],
+      "acceptance_criteria": [
+        "Alle Baselines sind vor Core-Aenderungen reproduzierbar.",
+        "Spaetere Tests koennen Regressionen gegen Transkription und Server erkennen."
+      ]
+    },
+    {
+      "id": "WADEC-003",
+      "milestone_id": "WADEC-M1",
+      "title": "Encoder-, Decoder-, State-, KV- und Batchpfade quellcodegenau kartieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-001"
+      ],
+      "implementation": [
+        "whisper_state, Mel-Pipeline, whisper_encode_with_state, whisper_decode_with_state, logits, self-/cross-KV und Batch-/seq_id-Logik im aktuellen Code untersuchen.",
+        "Feststellen, welche Encoder-/Cross-Attention-Daten sicher zwischen Decision-Branches geteilt, kopiert oder referenziert werden koennen.",
+        "Beam-Search-/Sampling-Code auf bereits vorhandene State-/KV-Klon- oder Branch-Mechanismen untersuchen.",
+        "Architektur in docs/audio-decision-architecture.md mit konkreten Symbolen und Dateipfaden dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Branching-/Reuse-Strategie ist aus aktuellem Code belegt und nicht von llama.cpp abgeleitet.",
+        "Kritische interne APIs und Upstream-Risiken sind dokumentiert."
+      ]
+    },
+    {
+      "id": "WADEC-004",
+      "milestone_id": "WADEC-M2",
+      "title": "Stabiles Schema-, Profil- und Result-Contract fuer Audio Decisions definieren",
+      "type": "api",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-003"
+      ],
+      "implementation": [
+        "Finite Felder fuer enum/boolean und optional begrenzte ordinale/numerische Werte definieren; Choices koennen explizite spoken verbalizers/aliases besitzen.",
+        "Task-Profil trennt constrained_asr, keyword/phrase, experimental_semantic und andere belegte Modi.",
+        "Resultat enthaelt winner, candidate probabilities/scores, scoring mode, model/language, audio duration, tokens/nodes und Timings.",
+        "Abstain/unsupported/ambiguous sind explizite Resultate, keine versteckten Ersatzlabels."
+      ],
+      "acceptance_criteria": [
+        "Contract kann ohne Server intern getestet werden.",
+        "Offene Textausgabe ist nicht versehentlich als Decision-Feld modelliert."
+      ]
+    },
+    {
+      "id": "WADEC-005",
+      "milestone_id": "WADEC-M2",
+      "title": "Kanonischen Whisper-Decoder-Prompt und Kandidaten-Verbalizer implementieren",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-003",
+        "WADEC-004"
+      ],
+      "implementation": [
+        "SOT-, Language-, Task-, Timestamp- und Prompt-Token-Aufbau anhand des aktuellen Whisper-Decoders wiederverwenden statt nachzubauen.",
+        "Kandidaten als tatsaechliche Whisper-Tokenpfade mit korrekter Boundary-/Whitespace-Semantik tokenisieren.",
+        "Optional mehrere spoken verbalizers pro logischem Label unter einem Feld unterstuetzen und Aggregationsstrategie explizit machen.",
+        "Language-auto und explizite Sprache reproduzierbar behandeln."
+      ],
+      "acceptance_criteria": [
+        "Tokenpfade stimmen mit normalem Whisper-Decoding fuer kontrollierte Phrasen ueberein.",
+        "Mehrtoken-, Whitespace- und gemeinsame Prefix-Faelle sind getestet."
+      ]
+    },
+    {
+      "id": "WADEC-006",
+      "milestone_id": "WADEC-M2",
+      "title": "Exakten Candidate-Trie/Token-Tree-Scorer bauen",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-005"
+      ],
+      "implementation": [
+        "Komplette bedingte Tokenpfade bewerten: jeder Folgetoken wird mit dem korrekten Decoderzustand nach seinem Prefix gescored.",
+        "Gemeinsame Prefixe nur einmal auswerten und als Trie/Tree weiterverzweigen.",
+        "Raw cumulative log-probability, mean/length-normalized Varianten und ggf. priors als klar benannte Modi implementieren; Defaults aus Benchmarks ableiten.",
+        "Keine Mittelung unabhaengiger Vokabularwahrscheinlichkeiten wie im command-Demo.",
+        "Numerisch stabile log-softmax/normalization und deterministische Tie-Break-Regeln verwenden."
+      ],
+      "acceptance_criteria": [
+        "Synthetische Tests mit bekannten Logits validieren exakte Pfadwahrscheinlichkeiten.",
+        "Kandidaten verschiedener Tokenlaenge werden korrekt und nachvollziehbar behandelt.",
+        "First-token-only ist nur optionaler expliziter Fast-Approx-Modus, nicht produktiver Default."
+      ]
+    },
+    {
+      "id": "WADEC-007",
+      "milestone_id": "WADEC-M2",
+      "title": "Audio einmal encodieren und Cross-Attention-Zustand sicher ueber Decision-Branches wiederverwenden",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-003",
+        "WADEC-006"
+      ],
+      "implementation": [
+        "PCM->Mel->Encoder exakt einmal pro Audio-Kontext ausfuehren.",
+        "Auf Basis der tatsaechlichen whisper_state/KV-Implementierung einen sicheren Branching-Mechanismus fuer Decoder-Self-State entwickeln, waehrend Encoder/Cross-Attention-Zustand geteilt oder effizient kopiert wird.",
+        "Falls noetig kleine interne whisper.cpp-State-/KV-APIs additiv erweitern statt komplette States oder Audio mehrfach zu berechnen.",
+        "State-Lifetime, Reset, Fehlerpfade und Speicherfreigabe RAII-sicher gestalten.",
+        "Gleiche Audio-Encoderergebnisse duerfen innerhalb eines Requests fuer viele Felder genutzt werden, aber standardmaessig nicht request-uebergreifend persistieren."
+      ],
+      "acceptance_criteria": [
+        "Profiler/Counter belegt genau einen Audio-Encode pro Multi-Field-Request.",
+        "Mehrere Branches liefern reproduzierbare Scores ohne State-Kontamination.",
+        "Memory-/ASAN-Tests zeigen keine Leaks/Use-after-free."
+      ]
+    },
+    {
+      "id": "WADEC-008",
+      "milestone_id": "WADEC-M2",
+      "title": "Multi-Field Decision Engine als wiederverwendbare Bibliothekskomponente abschliessen",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-004",
+        "WADEC-006",
+        "WADEC-007"
+      ],
+      "implementation": [
+        "Decision-Engine unterhalb von CLI/Server kapseln; kein Business-Code in examples/command.",
+        "Mehrere unabhaengige Felder aus demselben Audio-State auswerten und Resultate in Eingabereihenfolge liefern.",
+        "Abhaengige Felder explizit sequenziell markieren oder ablehnen.",
+        "Engine-Konfiguration fuer scoring mode, max candidates, max path tokens, language, threads und resource budgets bereitstellen."
+      ],
+      "acceptance_criteria": [
+        "Library-Tests koennen Engine direkt ohne HTTP ausfuehren.",
+        "Ein Audio-Encode speist mehrere Felder und Kandidatenbaeume.",
+        "Transkriptionscode bleibt getrennt und wiederverwendbar."
+      ]
+    },
+    {
+      "id": "WADEC-009",
+      "milestone_id": "WADEC-M3",
+      "title": "Produktionsfaehige whisper-decision CLI erstellen",
+      "type": "cli",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-008"
+      ],
+      "implementation": [
+        "CLI fuer Datei/PCM, Schema/Profile, Language, Scoring-Mode, Abstain und maschinenlesbares JSON implementieren.",
+        "Timings fuer load, mel, encode, scoring und total sowie candidate diagnostics optional ausgeben.",
+        "Batchdateien/mehrere Audios ohne Prozessneustart unterstuetzen, damit Benchmarks keine Model-Load-Zeit vermischen."
+      ],
+      "acceptance_criteria": [
+        "CLI ist skriptbar, headless und liefert stabiles JSON.",
+        "Mindestens command/phrase und boolean verbalizer Profile laufen End-to-End."
+      ]
+    },
+    {
+      "id": "WADEC-010",
+      "milestone_id": "WADEC-M3",
+      "title": "Whisper-Server um POST /v1/audio/decisions erweitern",
+      "type": "server",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-008"
+      ],
+      "implementation": [
+        "Vorhandene whisper-server Audio-Upload-/Decode-Helfer und Auth/HTTP-Strukturen wiederverwenden.",
+        "Multipart/JSON-Metadaten fuer Schema/Profile definieren; keine Remote-URL-Fetches einfuehren, wenn Upstream das nicht bereits sicher kann.",
+        "Model-/Engine-Instanz zwischen Requests wiederverwenden, aber Request-States strikt isolieren.",
+        "Resource limits, request size, audio duration, fields, candidates und token path limits validieren.",
+        "Response enthaelt decisions, probabilities, usage, timings und typisierte errors."
+      ],
+      "acceptance_criteria": [
+        "Server kann Transkription und Decision-Endpunkt parallel bedienen.",
+        "Ein fehlerhafter Decision-Request beeinflusst normale /inference Requests nicht."
+      ]
+    },
+    {
+      "id": "WADEC-011",
+      "milestone_id": "WADEC-M3",
+      "title": "Multi-Request Scheduler und begrenztes Batching implementieren",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-010"
+      ],
+      "implementation": [
+        "Concurrent Requests kontrolliert ueber Worker/State-Pool ausfuehren; Modellgewichte gemeinsam, mutable whisper_state getrennt.",
+        "Decoder-Scoring innerhalb kompatibler Felder/Branches soweit vom aktuellen Backend sinnvoll batchen.",
+        "Queue, deadlines, cancellation, max concurrency und backpressure implementieren.",
+        "Keine Performanceoptimierung ueber Korrektheit oder State-Isolation stellen."
+      ],
+      "acceptance_criteria": [
+        "Parallelrequests liefern identische Resultate wie serielle Referenz innerhalb Toleranz.",
+        "Volle Queue endet kontrolliert und Speicherverbrauch bleibt begrenzt."
+      ]
+    },
+    {
+      "id": "WADEC-012",
+      "milestone_id": "WADEC-M3",
+      "title": "Streaming/VAD Decision Sessions vollstaendig integrieren",
+      "type": "streaming",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-008",
+        "WADEC-010"
+      ],
+      "implementation": [
+        "Bestehende VAD-/stream Komponenten wiederverwenden und einen Session-Lifecycle fuer Rolling Audio Windows definieren.",
+        "Decisions nur fuer abgeschlossene bzw. ausreichend stabile Speech-Segmente ausloesen; Debounce/Hysterese fuer Commands bereitstellen.",
+        "Partial vs final decisions kennzeichnen und veraltete Ergebnisse widerrufbar machen.",
+        "Session timeouts, reset, language/profile pinning und cancellation implementieren.",
+        "CLI-Demo und Server-Streamingpfad sollen denselben Decision-Core nutzen."
+      ],
+      "acceptance_criteria": [
+        "Live-Mikrofon-Test erkennt definierte Commands ohne Volltranskript als Pflichtzwischenschritt.",
+        "Silence/noise erzeugt keine ungebremsten Decisions.",
+        "Session-State leakt nicht zwischen Clients."
+      ]
+    },
+    {
+      "id": "WADEC-013",
+      "milestone_id": "WADEC-M4",
+      "title": "Constrained-Speech-/Command-Benchmark als Primaerfaehigkeit aufbauen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-009"
+      ],
+      "implementation": [
+        "Versionierte Audiofaelle mit Commands/Phrasen, Synonym-Verbalizern, Akzenten, Sprechtempo, Lautstaerke und Hintergrundgeraeusch erstellen.",
+        "Direct Decision gegen normale Whisper-Transkription + exakten String-/Grammar-Matcher vergleichen.",
+        "Top-1, Top-k, false accept/reject, abstain, calibration und Latenz messen.",
+        "Holdout strikt von Scoring-/Threshold-Tuning trennen."
+      ],
+      "acceptance_criteria": [
+        "Primaerfaehigkeit ist reproduzierbar quantifiziert.",
+        "Demo-Command-Algorithmus wird als eigene Baseline mitgemessen, nicht als Ground Truth."
+      ]
+    },
+    {
+      "id": "WADEC-014",
+      "milestone_id": "WADEC-M4",
+      "title": "Language Detection und sprachspezifische Decision-Profile validieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-013"
+      ],
+      "implementation": [
+        "Whispers vorhandene Language-Detection als Referenz verwenden und nicht unnoetig neu implementieren.",
+        "Multilingual vs .en Modelle getrennt behandeln.",
+        "DE/EN und weitere verfuegbare Testsprachen fuer Kandidaten-Tokenisierung, Phrasen und Kalibrierung getrennt messen.",
+        "Language-auto darf nicht unbemerkt Profile mit inkompatiblen Verbalizern verwenden."
+      ],
+      "acceptance_criteria": [
+        "Sprachprofile sind explizit versioniert.",
+        "Unsupported language/profile Kombinationen liefern abstain/validation error."
+      ]
+    },
+    {
+      "id": "WADEC-015",
+      "milestone_id": "WADEC-M4",
+      "title": "Semantische Intent-/Routing-Faehigkeit empirisch pruefen statt voraussetzen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-013",
+        "WADEC-014"
+      ],
+      "implementation": [
+        "Benchmarks unterscheiden wörtlich gesprochene Kandidaten von abstrakten Labels, deren Wortlaut nicht im Audio vorkommt.",
+        "Alternative Verbalizer-/Promptstrategien kontrolliert evaluieren, ohne Whisper als Instruction-Modell zu behandeln.",
+        "Nur Profile promoten, deren Holdout-Qualitaet und Calibration festgelegte Grenzen erreichen.",
+        "Bei nicht tragfaehiger direkter Semantik Transkription -> Ananta/System-2 als Standardweg dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Kein abstraktes Intent-Profil wird ohne eigene Evidenz aktiviert.",
+        "Capability-Matrix nennt direct, experimental, fallback oder unsupported."
+      ]
+    },
+    {
+      "id": "WADEC-016",
+      "milestone_id": "WADEC-M4",
+      "title": "Hybrid Decision/Transcription/System-2 Fallback-Vertrag definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-015"
+      ],
+      "implementation": [
+        "Direct Decision fuer geeignete Profile, normale Whisper-Transkription fuer offene Sprache und externer System-2 fuer komplexe Semantik sauber trennen.",
+        "Ein Request kann bei low confidence/unsupported kontrolliert eine Transkription als Fallback anfordern, ohne rekursive Endlosschleifen.",
+        "Fallback-Grund, Transkript-Provenance und Kosten/Timing im Resultat markieren.",
+        "Keine stillschweigende Umdeutung von Decision zu Transcription."
+      ],
+      "acceptance_criteria": [
+        "Fallback ist bounded, auditierbar und per Policy deaktivierbar.",
+        "Caller kann direct decision und fallback result eindeutig unterscheiden."
+      ]
+    },
+    {
+      "id": "WADEC-017",
+      "milestone_id": "WADEC-M5",
+      "title": "Whisper-Modellmatrix systematisch benchmarken",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-013",
+        "WADEC-015"
+      ],
+      "implementation": [
+        "tiny/tiny.en, base/base.en, small, medium und large-v3-turbo soweit aktuell unterstuetzt mit gepinnten Modellen testen.",
+        "Command/Phrase, Language und freigegebene Semantic-Profile pro Modell getrennt bewerten.",
+        "Quantisierte Varianten nur mit exakter Revision/Quantisierung dokumentieren.",
+        "Qualitaet, Calibration, Memory und Speed nicht aus Modellgroesse ableiten, sondern messen."
+      ],
+      "acceptance_criteria": [
+        "Maschinenlesbare Modellmatrix mit Hardware/Backend/Revision vorhanden.",
+        "Empfohlene Modelle sind task- statt pauschal modellbasiert."
+      ]
+    },
+    {
+      "id": "WADEC-018",
+      "milestone_id": "WADEC-M5",
+      "title": "CPU/CUDA/Metal/Encoder-Offload-Kompatibilitaet erhalten",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-008",
+        "WADEC-017"
+      ],
+      "implementation": [
+        "Decision-Core darf keine CUDA-only Annahmen enthalten.",
+        "CPU und CUDA als Pflichtprofile testen; Metal/OpenVINO/CoreML/NPU Pfade soweit CI/Hardware vorhanden zumindest build-/smoke-kompatibel halten.",
+        "Encoder-Offload darf die einmalige Encode-Semantik und Decoder-Decision-Resultate nicht veraendern.",
+        "Hardware-spezifische Fastpaths hinter klaren Capability Checks halten."
+      ],
+      "acceptance_criteria": [
+        "CPU und CUDA laufen funktional identisch innerhalb numerischer Toleranzen.",
+        "Upstream-Backends werden nicht durch Decision-Code hart deaktiviert."
+      ]
+    },
+    {
+      "id": "WADEC-019",
+      "milestone_id": "WADEC-M5",
+      "title": "RTX 5060 Ti 16 GB und CPU Performanceprofil erstellen",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-011",
+        "WADEC-017"
+      ],
+      "implementation": [
+        "Cold/warm load, mel, encode, decision scoring, full transcription und end-to-end getrennt messen.",
+        "Anzahl Felder, Kandidaten, Pfadtiefe und Audio-Laenge variieren.",
+        "p50/p95/p99, realtime factor, throughput, VRAM, RAM, CPU/GPU utilization erfassen.",
+        "Direkten Decision-Pfad gegen full transcript + matcher und transcript + LLM-Fallback benchmarken."
+      ],
+      "acceptance_criteria": [
+        "Reproduzierbare Benchmarkartefakte vorhanden.",
+        "Performanceclaims nennen Modell, Quantisierung, Audio-Laenge, Hardware und Scoringmodus."
+      ]
+    },
+    {
+      "id": "WADEC-020",
+      "milestone_id": "WADEC-M5",
+      "title": "Candidate-/Prefix-/Profile-Caching sicher optimieren",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-006",
+        "WADEC-011",
+        "WADEC-019"
+      ],
+      "implementation": [
+        "Tokenisierte Kandidaten-Tries, statische Profile und Decoder-Promptbestandteile zwischen Requests cachen.",
+        "Audio-/Cross-Attention-Zustaende standardmaessig nicht persistent cachen.",
+        "Cache-Key an Modellrevision, Sprache, Task-/timestamp settings und Profile-Version binden.",
+        "Cache deaktivierbar und thread-safe implementieren."
+      ],
+      "acceptance_criteria": [
+        "Geaendertes Profil/Modell erzeugt Cache-Miss.",
+        "Caching veraendert Scores nicht und bringt messbaren Nutzen."
+      ]
+    },
+    {
+      "id": "WADEC-021",
+      "milestone_id": "WADEC-M6",
+      "title": "Probability/Confidence kalibrieren und Abstain-Policy implementieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-013",
+        "WADEC-015",
+        "WADEC-017"
+      ],
+      "implementation": [
+        "Brier Score, ECE, risk-coverage, false accept/reject und selective accuracy messen.",
+        "Temperature/Platt/isotonic oder andere Calibration nur task-/model-/language-spezifisch auf Validation-Daten fitten.",
+        "Abstain bei low confidence, geringem Margin, OOD-/Silence-Indikatoren oder unsupported profile.",
+        "Rohscores und kalibrierte Werte getrennt speichern/ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Holdout wird nicht zur Threshold-/Calibration-Wahl verwendet.",
+        "Probability wird nicht als Wahrheit ausgegeben, wenn Profil unkalibriert ist."
+      ]
+    },
+    {
+      "id": "WADEC-022",
+      "milestone_id": "WADEC-M6",
+      "title": "Robustheit gegen Noise, Adversarial Speech und Prompt/Context Bias testen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-012",
+        "WADEC-021"
+      ],
+      "implementation": [
+        "Noise, clipping, silence, music, overlapping speech, accents, TTS und absichtlich aehnliche Commands testen.",
+        "Prompt/context Tokens duerfen Kandidaten nicht unkontrolliert dominieren; Bias-Effekte messen.",
+        "Unknown/OOD Audio muss abstain koennen statt immer eine erlaubte Klasse zu erzwingen.",
+        "Adversarial Audio bleibt Security-Test; keine Behauptung vollstaendiger Robustheit."
+      ],
+      "acceptance_criteria": [
+        "OOD/silence false-accept ist quantifiziert und durch Policy begrenzt.",
+        "Robustness-Report benennt bekannte Failure Modes."
+      ]
+    },
+    {
+      "id": "WADEC-023",
+      "milestone_id": "WADEC-M6",
+      "title": "Server-Security, Datenschutz und Ressourcenlimits absichern",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-010",
+        "WADEC-011",
+        "WADEC-012"
+      ],
+      "implementation": [
+        "Audio size/duration, sample rate, field/candidate count, token path, concurrency und session duration hart limitieren.",
+        "Tempfiles sicher behandeln und nach Request entfernen; keine Audioinhalte/Transkripte in Standardlogs.",
+        "Keine beliebigen Remote-URLs/SSRF einfuehren.",
+        "Malformed audio, decompression bombs, disconnect/cancel und queue exhaustion testen.",
+        "Auth/CORS/Bind-Verhalten des aktuellen whisper-server respektieren und dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Fuzz-/negative Tests crashen den Server nicht.",
+        "Sensitive Audioinhalte erscheinen nicht in Defaultlogs.",
+        "Resource exhaustion endet kontrolliert."
+      ]
+    },
+    {
+      "id": "WADEC-024",
+      "milestone_id": "WADEC-M6",
+      "title": "Umfassende Unit-, Integration-, Regression-, Fuzz- und CI-Suite aufbauen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-008",
+        "WADEC-010",
+        "WADEC-021",
+        "WADEC-022",
+        "WADEC-023"
+      ],
+      "implementation": [
+        "Pure scorer tests mit synthetischen Logits, Token-Trie tests, state isolation, server contracts und fallback logic abdecken.",
+        "Standard-CI ohne grosse Modellgewichte mit Fakes/kleinen Fixtures ausfuehren; echte Modell/GPU-Smokes separat markieren.",
+        "Normale whisper-cli/server/command Regressionen erhalten.",
+        "ASAN/UBSAN wo sinnvoll, thread/concurrency tests und Fuzzing fuer schema/request parser einfuehren.",
+        "Fehlende Modelle/GPU als skip/not-run, niemals als bestandenen Modelltest berichten."
+      ],
+      "acceptance_criteria": [
+        "CI ist headless und zeitlich begrenzt.",
+        "Decision-Code kann nicht mergen, wenn Text-/Server-Baselines regressieren.",
+        "Test-/Modellevidenz ist klar getrennt."
+      ]
+    },
+    {
+      "id": "WADEC-025",
+      "milestone_id": "WADEC-M7",
+      "title": "Ananta AudioDecision Provider/Specialist anbinden",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-016",
+        "WADEC-021",
+        "WADEC-023",
+        "WADEC-024"
+      ],
+      "implementation": [
+        "Fork als separaten lokalen Dienst/Submodule optional in Ananta einbindbar machen; keine Ananta-Abhaengigkeit in generischen Whisper-Core schreiben.",
+        "Provider-Contract fuer audio/profile/schema -> typed decision/fallback definieren.",
+        "Hub bleibt Besitzer von Policy, Berechtigungen, fallback und Freigaben.",
+        "Feature-off startet Ananta ohne Whisper-Decision-Dienst unveraendert."
+      ],
+      "acceptance_criteria": [
+        "Ananta kann Audio -> Decision -> Gate/Fallback reproduzierbar ausfuehren.",
+        "Provider-Ausfall oder abstain wird typisiert behandelt und niemals implizit allow."
+      ]
+    },
+    {
+      "id": "WADEC-026",
+      "milestone_id": "WADEC-M7",
+      "title": "Playground, Dokumentation und reproduzierbare Beispiele fertigstellen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-009",
+        "WADEC-010",
+        "WADEC-012",
+        "WADEC-017",
+        "WADEC-019"
+      ],
+      "implementation": [
+        "README mit Architektur, Build, CLI, Server, Schema, Scoring, Grenzen und Beispielen erstellen.",
+        "Kleines Browser-/CLI-Playground: Audio aufnehmen/hochladen, Kandidaten definieren, direct decision vs normale Transkription side-by-side mit Timings anzeigen.",
+        "Capabilities klar trennen: constrained speech, validated semantic, fallback transcription.",
+        "Benchmarks und RTX-5060-Ti-Profile dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Neuer Entwickler kann das System aus README reproduzieren.",
+        "Demo verschleiert keine Unsicherheit oder Capability-Grenze."
+      ]
+    },
+    {
+      "id": "WADEC-027",
+      "milestone_id": "WADEC-M7",
+      "title": "Upstream-Readiness, Releaseprofil und Wartungsplan abschliessen",
+      "type": "release",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WADEC-024",
+        "WADEC-025",
+        "WADEC-026"
+      ],
+      "implementation": [
+        "Generische Aenderungen in kleine upstream-faehige Commits/PRs zerlegen; Ananta-Adapter getrennt halten.",
+        "API-Versionierung und backward compatibility festhalten.",
+        "Profile einzeln als experimental/beta/stable markieren, nicht den ganzen Runner pauschal.",
+        "Sync gegen aktuellen ggml-org/whisper.cpp master durchfuehren und Konflikt-/Patch-Flaeche dokumentieren.",
+        "Release-/Rollback- und Modellrevisionsstrategie definieren."
+      ],
+      "acceptance_criteria": [
+        "Fork ist wartbar und Upstream-Abweichungen sind transparent.",
+        "Release enthaelt keine unvalidierten semantic profiles als stable.",
+        "Rollback auf normalen whisper.cpp-Betrieb ist dokumentiert."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "WADEC-001",
+    "WADEC-002",
+    "WADEC-003",
+    "WADEC-004",
+    "WADEC-005",
+    "WADEC-006",
+    "WADEC-007",
+    "WADEC-008",
+    "WADEC-010",
+    "WADEC-013",
+    "WADEC-015",
+    "WADEC-016",
+    "WADEC-021",
+    "WADEC-022",
+    "WADEC-023",
+    "WADEC-024",
+    "WADEC-025",
+    "WADEC-027"
+  ],
+  "tasks_status_summary": {
+    "total": 27,
+    "by_status": {
+      "todo": 27,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 17,
+      "P1": 9,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 6,
+      "high": 11,
+      "medium": 9,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 18,
+      "done": 0,
+      "remaining": 18
+    },
+    "milestones": {
+      "total": 7,
+      "todo": 7,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 27,
+    "by_type": {
+      "repository": 1,
+      "baseline": 1,
+      "research": 1,
+      "api": 1,
+      "core": 4,
+      "cli": 1,
+      "server": 1,
+      "performance": 4,
+      "streaming": 1,
+      "evaluation": 5,
+      "architecture": 1,
+      "security": 2,
+      "testing": 1,
+      "integration": 1,
+      "documentation": 1,
+      "release": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 27,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "success_criteria": [
+    "Ein Audiofile wird genau einmal encodiert und speist mehrere unabhaengige finite Decision-Felder ohne Pflicht-Volltranskript.",
+    "Candidate-Pfade werden konditional ueber ihre vollstaendigen Whisper-Tokenpfade bewertet; gemeinsame Prefixe werden effizient wiederverwendet.",
+    "Normale whisper.cpp-Transkription, Server und bestehende Hardwarepfade regressieren nicht.",
+    "Constrained speech/command tasks sind gegen normale Transkription reproduzierbar benchmarked und kalibriert.",
+    "Abstrakte semantische Profile werden nur nach eigener Holdout-Evidenz aktiviert; sonst funktioniert bounded fallback zu Transkription/System-2.",
+    "Streaming/VAD, concurrent server use, cancellation, resource limits und state isolation sind implementiert und getestet.",
+    "CPU und CUDA funktionieren; weitere Upstream-Backends bleiben soweit moeglich kompatibel.",
+    "Ananta kann den Fork optional als lokalen AudioDecision-Specialist verwenden, ohne Hub-Policies zu umgehen.",
+    "Fork, CI, Dokumentation, Benchmarkartefakte und Upstream-Sync sind wartbar."
+  ],
+  "deliverables": [
+    "GitHub-Fork ananta888/whisper.cpp-audio-decision",
+    "UPSTREAM.md und docs/audio-decision-architecture.md",
+    "wiederverwendbarer Audio Decision Core",
+    "Candidate Trie/Token-Tree Scorer",
+    "Encoder/Cross-Attention reuse und sichere Decoder-Branch-States",
+    "whisper-decision CLI",
+    "POST /v1/audio/decisions",
+    "Streaming/VAD Decision Sessions",
+    "Constrained-Speech-, Semantic-Capability- und Calibration-Benchmarks",
+    "Model-/Hardware-Kompatibilitaetsmatrix",
+    "Security/Robustness/CI-Suite",
+    "Playground und Beispiele",
+    "Ananta AudioDecision Provider/Specialist",
+    "Upstream-/Release- und Rollback-Plan"
+  ],
+  "summary_notes": [
+    "Nur Planungsartefakt: keine Implementierung oder Benchmarkwerte werden mit dieser Todo als erledigt behauptet.",
+    "Das offizielle whisper-command-Beispiel belegt direkten Zugriff auf Logits fuer erlaubte Commands, ist aber selbst als nicht optimale Probability-Schaetzung kommentiert; die Zielimplementierung ersetzt dieses Verfahren.",
+    "Whisper ist primaer Speech-to-Text. Der Track trennt daher robuste constrained-speech Decisions von nur experimentell zu pruefender abstrakter Semantik."
+  ]
+}
