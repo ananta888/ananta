@@ -10,6 +10,11 @@ the number of snippets and the size of the returned text block. Only the query
 leaves the worker; the knowledge index and the worker key stay behind the Hub
 (``assist.fetch_snippets``), and a failed lookup becomes a short, harmless
 sentence for the model rather than an exception that loses the turn.
+
+For knowledge questions the router does not leave the call to the model:
+``ToolBox.force`` runs ``codecompass_search`` before the first request and the
+backends replay it as an ordinary tool round (``forced_messages``), so the
+model always answers with the result in front of it and may still refine it.
 """
 
 import json
@@ -145,6 +150,7 @@ class ToolBox:
 
     def __init__(self, tools):
         self._tools = {tool.name: tool for tool in tools}
+        self.forced = []
 
     def definitions(self):
         return [tool.definition for tool in self._tools.values()]
@@ -156,7 +162,45 @@ class ToolBox:
             return UNKNOWN_TOOL
         return str(tool.run(arguments))[: max_result_chars() or 1]
 
+    def force(self, name, arguments):
+        """Run a call the router decided on; the backends replay it as round zero."""
+        if not isinstance(arguments, dict):
+            arguments = {}
+        content = self.run(name, arguments)
+        tool = self._tools.get(name if isinstance(name, str) else "")
+        if tool is not None and tool.calls:
+            tool.calls[-1]["forced"] = True
+        self.forced.append(
+            {
+                "id": "forced-%d" % len(self.forced),
+                "name": str(name or "")[:64],
+                "arguments": arguments,
+                "content": content,
+            }
+        )
+        return content
+
+    def forced_messages(self, *, json_arguments):
+        """The forced calls as an assistant ``tool_calls`` turn plus its results.
+
+        OpenAI servers expect the arguments as a JSON string and correlate by
+        id; Ollama takes an object and correlates by name.
+        """
+        if not self.forced:
+            return []
+        calls, results = [], []
+        for call in self.forced:
+            arguments = json.dumps(call["arguments"], ensure_ascii=False) if json_arguments else call["arguments"]
+            entry = {"type": "function", "function": {"name": call["name"], "arguments": arguments}}
+            result = {"role": "tool", "name": call["name"], "content": call["content"]}
+            if json_arguments:
+                entry["id"] = result["tool_call_id"] = call["id"]
+            calls.append(entry)
+            results.append(result)
+        return [{"role": "assistant", "content": "", "tool_calls": calls}, *results]
+
     def reset(self):
+        self.forced = []
         for tool in self._tools.values():
             tool.reset()
 

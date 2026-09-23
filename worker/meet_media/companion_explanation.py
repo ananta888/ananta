@@ -25,9 +25,16 @@ class RepositorySource:
     symbol: str = ""
     revision: str = ""
     score: float | None = None
+    line: int | None = None
+
+    def location(self):
+        """``datei:zeile`` when the line is known, else the bare path."""
+        if self.path and self.line:
+            return f"{self.path}:{self.line}"
+        return self.path
 
     def label(self):
-        text = self.path or "(ohne Pfad)"
+        text = self.location() or "(ohne Pfad)"
         if self.symbol:
             text += f" · {self.symbol}"
         if self.revision:
@@ -62,8 +69,13 @@ class AnswerTrace:
             score = item.get("score")
             if not path and not symbol:
                 continue
+            line = item.get("line")
             source = RepositorySource(
-                path, symbol, revision, float(score) if isinstance(score, (int, float)) else None
+                path,
+                symbol,
+                revision,
+                float(score) if isinstance(score, (int, float)) else None,
+                line if type(line) is int and line > 0 else None,
             )
             if source not in self.repository:
                 self.repository.append(source)

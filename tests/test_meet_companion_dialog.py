@@ -69,7 +69,9 @@ def test_context_block_prefixes_path_and_symbol_and_stays_bounded():
 
 def test_assist_snippet_projection_keeps_only_bounded_locator_fields():
     projected = _snippet({"path": "a.py", "symbol": "f", "revision": "abc", "score": 0.3, "excerpt": "x" * 2000, "content": "private"})
-    assert set(projected) == {"path", "symbol", "revision", "score", "excerpt"}
+    assert set(projected) == {"path", "line", "symbol", "revision", "score", "excerpt"}
+    assert projected["line"] is None and _snippet({"line": 12})["line"] == 12
+    assert _snippet({"line": True})["line"] is None
     assert len(projected["excerpt"]) == 1200 and projected["score"] == 0.3
     assert _snippet({"score": "high"})["score"] is None
 
@@ -91,7 +93,10 @@ def dialog(retriever=lambda query: SNIPPETS, **kwargs):
 def test_repository_question_is_grounded_and_sources_are_cited_with_file_symbol_and_sha():
     companion, llm = dialog()
     reply, trace = companion.answer("Wie funktioniert deine Sprachausgabe?")
-    assert reply == "Klar! Ich bin die Ananta-Schlange."
+    # The fake reply names no source, so the best one is appended (Quellenpflicht).
+    assert reply == (
+        "Klar! Ich bin die Ananta-Schlange. Quelle: worker/meet_media/companion_media.py, SpeechAvatarPublisher."
+    )
     assert llm.calls[0][2] == PERSONA_SYSTEM and "[worker/meet_media/companion_media.py#SpeechAvatarPublisher]" in llm.calls[0][1]
     assert trace.route == ANANTA_CODE_ARCHITECTURE and trace.codecompass_used
     assert trace.source_labels() == [

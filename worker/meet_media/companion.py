@@ -194,6 +194,8 @@ def dialog():
             codecompass_enabled=prefix,
             model_name=os.environ.get("MEET_LLM_MODEL", ""),
             system=PERSONA_SYSTEM_WITH_TOOLS if tools else PERSONA_SYSTEM,
+            # Knowledge questions get codecompass_search forced by the router.
+            tools=_TOOLBOX,
         )
     return _DIALOG
 
@@ -210,11 +212,11 @@ def generate_reply(text):
         for call in toolbox.calls:
             trace.codecompass_used = True
             trace.observe(
-                "codecompass_search aufgerufen (query=%s) -> %d Auszug/Auszüge"
-                % (call["query"][:60], call["snippets"])
+                "codecompass_search %s (query=%s) -> %d Auszug/Auszüge"
+                % ("vom Router erzwungen" if call.get("forced") else "aufgerufen", call["query"][:60], call["snippets"])
             )
-            log("TOOL codecompass_search query=%r snippets=%s failed=%s"
-                % (call["query"][:80], call["snippets"], call["failed"]))
+            log("TOOL codecompass_search query=%r snippets=%s failed=%s forced=%s"
+                % (call["query"][:80], call["snippets"], call["failed"], bool(call.get("forced"))))
         trace.add_sources(toolbox.sources)
     log("TRACE route=%s tools=%s sources=%s" % (
         trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))

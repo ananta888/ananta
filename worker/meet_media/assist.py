@@ -35,8 +35,10 @@ def fetch_snippets(query, *, limit=5, timeout=10):
 
 
 def _snippet(item):
-    """Keep only the bounded fields the companion consumes (path, symbol, revision)."""
+    """Keep only the bounded fields the companion consumes (path, line, symbol, revision)."""
+    line = item.get("line")
     return {
+        "line": line if type(line) is int and line > 0 else None,
         "path": str(item.get("path") or "").strip()[:512],
         "symbol": str(item.get("symbol") or "").strip()[:256],
         "revision": str(item.get("revision") or "").strip()[:64],

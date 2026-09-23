@@ -1,0 +1,138 @@
+{
+  "$schema": "../todo.schema.json",
+  "version": "1.0",
+  "created": "2026-09-23",
+  "updated": "2026-09-23",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "7c72bce52..working-tree",
+    "review_goal": "Companion-Chat (ai-snake) beantwortet Code-/Repo-/Architektur-/Selbst-Fragen belegt: Router-erzwungener CodeCompass-Tool-Call, Quellenpflicht, gutes knappes Deutsch ohne Meta-Saetze.",
+    "reviewed_paths": [
+      "worker/meet_media/companion_dialog.py",
+      "worker/meet_media/companion_router.py",
+      "worker/meet_media/companion_flags.py",
+      "worker/meet_media/llm_tools.py",
+      "worker/meet_media/llm_backends.py",
+      "worker/meet_media/companion_explanation.py",
+      "worker/meet_media/companion.py",
+      "worker/meet_media/assist.py",
+      "agent/routes/meet.py"
+    ],
+    "parent_tracks": [
+      "todos/todo.ananta-meet-codecompass-avatar.json"
+    ]
+  },
+  "categories": [
+    {
+      "name": "companion_knowledge_answers",
+      "label": "Companion-Wissensantworten: Tool-Zwang, Quellen, Stil",
+      "items": [
+        {
+          "id": "MCK-001",
+          "status": "completed",
+          "title": "Persona: bei Code-/Repo-/Architektur-/Selbst-Fragen zuerst codecompass_search, dann antworten",
+          "problem": "Live-Frage 'was weisst du ueber den rag-helper wie der funktioniert?' wurde ohne Tool-Call beantwortet (flags tools=True rag_prefix=False).",
+          "implemented_solution": "PERSONA_SYSTEM_WITH_TOOLS nennt die Frageformen (was ist X, wie funktioniert X, was weisst du ueber X, welche Datei ...) und verlangt den Aufruf vor der Antwort; Smalltalk/allgemeine Fragen explizit ausgenommen; 'rate nie'.",
+          "affected_files": [
+            "worker/meet_media/companion_dialog.py"
+          ],
+          "verification": [
+            "tests/test_meet_companion_knowledge.py::test_the_tool_persona_demands_the_lookup_first_and_keeps_smalltalk_out"
+          ]
+        },
+        {
+          "id": "MCK-002",
+          "status": "completed",
+          "title": "Router erzwingt den CodeCompass-Tool-Call fuer Wissensfragen deterministisch",
+          "implemented_solution": "companion_router.classify setzt RouteDecision.knowledge/query (Wissensphrase + Bezeichner wie rag-helper, RagHelperIndexService, docs/rag-helper.md; bestehende Code-Signale). CompanionDialog ruft dafuer ToolBox.force(codecompass_search) vor dem Modell auf; beide Backends (OpenAI, Ollama) spielen den Aufruf als regulaere Tool-Runde ein, das Modell darf danach weiter nachschlagen. '\\bfunktion' matcht nicht mehr 'funktioniert' (Kuehlschrank-Fragen bleiben allgemein).",
+          "affected_files": [
+            "worker/meet_media/companion_router.py",
+            "worker/meet_media/companion_dialog.py",
+            "worker/meet_media/llm_tools.py",
+            "worker/meet_media/llm_backends.py",
+            "worker/meet_media/companion.py"
+          ],
+          "depends_on": [
+            "MCK-001"
+          ],
+          "verification": [
+            "tests/test_meet_companion_knowledge.py (forced round OpenAI/Ollama, Smalltalk ohne Tool, Reset pro Antwort)"
+          ]
+        },
+        {
+          "id": "MCK-003",
+          "status": "completed",
+          "title": "Quellenpflicht: mindestens eine Quelle als datei:zeile bzw. Datei + Symbol; ohne Evidenz 'nicht belegt' + Suchangebot",
+          "implemented_solution": "Hub-Retrieve liefert additiv 'line' (line_start/start_line aus dem Index), assist._snippet/RepositorySource/context_block fuehren datei:zeile. enforce_sources haengt bei unzitierter Antwort die beste Quelle an bzw. ohne Evidenz 'Im Projektindex ist das nicht belegt; soll ich gezielt nach ... suchen?', innerhalb des 450-Zeichen-Budgets.",
+          "affected_files": [
+            "agent/routes/meet.py",
+            "worker/meet_media/assist.py",
+            "worker/meet_media/companion_explanation.py",
+            "worker/meet_media/companion_dialog.py"
+          ],
+          "depends_on": [
+            "MCK-002"
+          ],
+          "verification": [
+            "tests/test_meet_companion_knowledge.py",
+            "tests/test_meet_assist_retrieve_route.py",
+            "tests/test_meet_companion_dialog.py"
+          ]
+        },
+        {
+          "id": "MCK-004",
+          "status": "completed",
+          "title": "Deutsch/Stil: knapp, direkt, keine Meta-Saetze ueber die eigene Antwort",
+          "implemented_solution": "Persona fordert knappes, natuerliches Deutsch und verbietet Meta-Saetze; strip_meta entfernt Saetze wie 'Ich habe keine Details ... geliefert' oder 'Meine Antwort ...' deterministisch.",
+          "affected_files": [
+            "worker/meet_media/companion_dialog.py"
+          ],
+          "verification": [
+            "tests/test_meet_companion_knowledge.py::test_meta_sentences_about_the_reply_are_dropped",
+            "tests/test_meet_companion_knowledge.py::test_the_live_meta_reply_becomes_a_plain_statement_with_an_offer"
+          ]
+        },
+        {
+          "id": "MCK-005",
+          "status": "open",
+          "title": "Live-Nachweis im Meet nach Deploy",
+          "acceptance": "Im Meet-Chat loest die rag-helper-Frage im Worker-Log 'TOOL codecompass_search ... forced=True' aus, die Antwort nennt z.B. agent/services/rag_helper_index_service.py (RagHelperIndexService) oder docs/rag-helper.md; Smalltalk bleibt ohne TOOL-Zeile.",
+          "depends_on": [
+            "MCK-002",
+            "MCK-003",
+            "MCK-004"
+          ]
+        },
+        {
+          "id": "MCK-006",
+          "status": "open",
+          "title": "Index-Abdeckung pruefen: rag_helper-Dateien und line_start im Wissensindex",
+          "acceptance": "KnowledgeIndexRetrievalService.search_records('rag-helper') liefert rag_helper_index_service.py, rag_helper_file_type_policy.py, _rag_helper_profile_catalog.py bzw. docs/rag-helper.md; Records tragen line_start, sonst wird nur Datei + Symbol zitiert.",
+          "depends_on": [
+            "MCK-003"
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 6,
+    "by_status": {
+      "completed": 4,
+      "partial": 0,
+      "open": 2
+    },
+    "notes": [
+      "Nicht deployt; Deploy und Live-Nachweis (MCK-005) macht der Betreiber.",
+      "Flags unveraendert: MEET_COMPANION_TOOLS=1 aktiviert auch den Router-Zwang; mit MEET_COMPANION_TOOLS=0 und RAG-Prefix aus bleibt das Modell ungegroundet wie bisher."
+    ],
+    "recommended_order": [
+      "MCK-001",
+      "MCK-002",
+      "MCK-003",
+      "MCK-004",
+      "MCK-006",
+      "MCK-005"
+    ]
+  }
+}

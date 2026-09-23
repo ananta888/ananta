@@ -206,9 +206,24 @@ def media_assist_retrieve():
                 # index carries it, the immutable source revision (commit).
                 "symbol": str(record.get("symbol") or ""),
                 "revision": str(metadata.get("source_revision") or metadata.get("revision") or "")[:64],
+                # Additive: first line of the excerpt when the index records it, so the
+                # companion can cite ``datei:zeile``; ``None`` when unknown.
+                "line": _snippet_line(record, metadata),
             }
         )
     return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": snippets})
+
+
+def _snippet_line(record, metadata):
+    for value in (
+        record.get("line_start"),
+        record.get("start_line"),
+        metadata.get("line_start"),
+        metadata.get("start_line"),
+    ):
+        if type(value) is int and 0 < value < 10_000_000:
+            return value
+    return None
 
 
 @meet_bp.post("/internal/lease")

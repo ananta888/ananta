@@ -28,7 +28,11 @@ def app(monkeypatch):
             "content": "x" * 2000,
             "score": 0.8,
             "symbol": "speak",
-            "metadata": {"source_revision": "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a", "private_host_path": "/srv/x"},
+            "metadata": {
+                "source_revision": "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a",
+                "private_host_path": "/srv/x",
+                "line_start": 42,
+            },
         },
         {"path": "", "content": "no symbol", "score": 0.1, "metadata": {}},
         "not-a-record",
@@ -53,7 +57,8 @@ def test_snippets_carry_path_symbol_revision_and_bounded_excerpt(app):
     payload = json.loads(response.data)
     assert payload["schema"] == "ananta.meet-assist-retrieve.v1"
     first, second = payload["snippets"]
-    assert set(first) == {"path", "score", "excerpt", "symbol", "revision"}
+    assert set(first) == {"path", "score", "excerpt", "symbol", "revision", "line"}
+    assert first["line"] == 42 and second["line"] is None
     assert first["symbol"] == "speak" and first["revision"] == "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a"
     assert len(first["excerpt"]) == 1200 and "private_host_path" not in json.dumps(payload)
     assert second["symbol"] == "" and second["revision"] == ""

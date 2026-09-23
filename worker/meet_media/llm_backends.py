@@ -8,7 +8,8 @@ Selected by ``MEET_LLM_BACKEND``: ``ollama`` (default, unchanged behaviour) or
 ``openai``. Both backends gate on the model actually being served before a reply
 is accepted; neither ever falls back to a cloud provider or to hidden reasoning.
 
-Both also run the same bounded tool loop when a ``ToolBox`` is offered: the
+Both also run the same bounded tool loop when a ``ToolBox`` is offered (and
+first replay any call the router forced, see ``ToolBox.force``): the
 model may answer with ``tool_calls``, the tools run here, their results go back
 as ``role: "tool"`` messages, and after ``MEET_LLM_TOOL_ROUNDS`` rounds the
 tools are withdrawn so the last request can only produce an answer.
@@ -122,6 +123,12 @@ def _tool_results(tools, calls):
     return messages
 
 
+def _forced(tools, *, json_arguments):
+    """Router-forced tool round (``ToolBox.force``), replayed before the first request."""
+    forced = getattr(tools, "forced_messages", None)
+    return forced(json_arguments=json_arguments) if forced is not None else []
+
+
 def _rounds(tools):
     """Tool rounds available for this reply (0 when no tool is offered)."""
     return llm_tools.max_rounds() if tools is not None and tools.definitions() else 0
@@ -148,6 +155,7 @@ class OllamaBackend:
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
+            *_forced(tools, json_arguments=False),
         ]
         gated = False
         # Reported usage is summed over the rounds; each single round is still
@@ -258,6 +266,7 @@ class OpenAiBackend:
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
+            *_forced(tools, json_arguments=True),
         ]
         # Reported usage is summed over the rounds; each single round is still
         # validated against the same per-request budget.
