@@ -8,9 +8,24 @@
   "title": "Vision Parallel Decision: multimodaler Jev-artiger /v1/decision-Pfad fuer llama.cpp und Ananta",
   "status": "todo",
   "priority": "P0",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "Den bestehenden parallel-decision-Fork von llama.cpp um echte multimodale Vision-Eingaben erweitern. Bilder sollen ueber den vorhandenen libmtmd-/mmproj-Pfad in den Modellkontext gelangen; anschliessend soll der bestehende Decision-Engine auf dem bereits vorgefuellten KV-Trunk endliche, typisierte Entscheidungen fuer mehrere Felder parallel bewerten. Der Visionpfad soll keine Bildbeschreibung als Zwischentext erzwingen.",
   "goal": "Ein separates, wartbares GitHub-Fork-Projekt bereitstellen, in dem Open-Weight-Visionmodelle wie Qwen2.5-VL, Gemma 3 oder SmolVLM direkt Bild + optionalen Text als Kontext fuer POST /v1/decision nutzen koennen. Der Output bleibt auf endliche Schemawerte beschraenkt und enthaelt Feldwerte, Scores/Probabilities, Nutzungs- und Timingdaten. Unsichere, abhaengige oder offene Extraktionsaufgaben werden kontrolliert an einen normalen VLM-/System-2-Pfad eskaliert.",
   "proposed_repository": {
@@ -80,7 +95,9 @@
       "path": "LICENSE",
       "blob_sha": "e7dca554bcb802f98408383a864404e3aa4eacca",
       "verified_at": "2026-09-23",
-      "facts": ["MIT-Lizenz; Forking und Modifikation sind erlaubt, Copyright-/Lizenzhinweis muss erhalten bleiben."]
+      "facts": [
+        "MIT-Lizenz; Forking und Modifikation sind erlaubt, Copyright-/Lizenzhinweis muss erhalten bleiben."
+      ]
     },
     {
       "repository": "ggml-org/llama.cpp",
@@ -137,7 +154,11 @@
     "primary": "RTX 5060 Ti 16 GB + 64 GB RAM",
     "secondary": "RTX 3080 10 GB + 64 GB RAM, soweit verfuegbar",
     "cpu_smoke": true,
-    "platforms": ["Linux", "WSL2/Linux soweit GPU-Passthrough stabil", "optional Windows native nach PoC"]
+    "platforms": [
+      "Linux",
+      "WSL2/Linux soweit GPU-Passthrough stabil",
+      "optional Windows native nach PoC"
+    ]
   },
   "api_target": {
     "endpoint": "POST /v1/decision",
@@ -145,15 +166,38 @@
     "proposed_multimodal_shape": {
       "instructions": "Klassifiziere das Dokument.",
       "schema": {
-        "document_type": {"type": "enum", "choices": ["invoice", "delivery_note", "contract", "other"]},
-        "damaged": {"type": "boolean"},
-        "priority": {"type": "enum", "choices": ["low", "medium", "high"]}
+        "document_type": {
+          "type": "enum",
+          "choices": [
+            "invoice",
+            "delivery_note",
+            "contract",
+            "other"
+          ]
+        },
+        "damaged": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "enum",
+          "choices": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
       },
       "contexts": [
         {
           "content": [
-            {"type": "text", "text": "Bewerte dieses Dokument."},
-            {"type": "image", "image": "<llama.cpp-compatible image payload>"}
+            {
+              "type": "text",
+              "text": "Bewerte dieses Dokument."
+            },
+            {
+              "type": "image",
+              "image": "<llama.cpp-compatible image payload>"
+            }
           ]
         }
       ]
@@ -165,37 +209,63 @@
       "id": "VDEC-M1",
       "title": "Fork, Baseline und Upstream-Grenzen",
       "status": "todo",
-      "task_ids": ["VDEC-001", "VDEC-002", "VDEC-003"]
+      "task_ids": [
+        "VDEC-001",
+        "VDEC-002",
+        "VDEC-003"
+      ]
     },
     {
       "id": "VDEC-M2",
       "title": "Multimodaler Prefill und KV-Trunk",
       "status": "todo",
-      "task_ids": ["VDEC-004", "VDEC-005", "VDEC-006", "VDEC-007"]
+      "task_ids": [
+        "VDEC-004",
+        "VDEC-005",
+        "VDEC-006",
+        "VDEC-007"
+      ]
     },
     {
       "id": "VDEC-M3",
       "title": "Single-Image Vision Decision PoC",
       "status": "todo",
-      "task_ids": ["VDEC-008", "VDEC-009", "VDEC-010"]
+      "task_ids": [
+        "VDEC-008",
+        "VDEC-009",
+        "VDEC-010"
+      ]
     },
     {
       "id": "VDEC-M4",
       "title": "Modelle, Batching, Cache und Performance",
       "status": "todo",
-      "task_ids": ["VDEC-011", "VDEC-012", "VDEC-013", "VDEC-014"]
+      "task_ids": [
+        "VDEC-011",
+        "VDEC-012",
+        "VDEC-013",
+        "VDEC-014"
+      ]
     },
     {
       "id": "VDEC-M5",
       "title": "Qualitaet, Sicherheit und System-2-Fallback",
       "status": "todo",
-      "task_ids": ["VDEC-015", "VDEC-016", "VDEC-017"]
+      "task_ids": [
+        "VDEC-015",
+        "VDEC-016",
+        "VDEC-017"
+      ]
     },
     {
       "id": "VDEC-M6",
       "title": "Ananta-Integration, CI und Release",
       "status": "todo",
-      "task_ids": ["VDEC-018", "VDEC-019", "VDEC-020"]
+      "task_ids": [
+        "VDEC-018",
+        "VDEC-019",
+        "VDEC-020"
+      ]
     }
   ],
   "tasks": [
@@ -231,7 +301,9 @@
       "priority": "P0",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["VDEC-001"],
+      "depends_on": [
+        "VDEC-001"
+      ],
       "implementation": [
         "CUDA-Build und CPU-Smoke des Forks reproduzierbar dokumentieren.",
         "llama-server mit --decision-seqs starten und vorhandenes README-Beispiel gegen /v1/decision ausfuehren.",
@@ -252,7 +324,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-001"],
+      "depends_on": [
+        "VDEC-001"
+      ],
       "implementation": [
         "Aktuelle Serverpfade fuer OpenAI-kompatible multimodale Content-Parts, Bild-Download/Base64, mtmd-Chunking, mmproj-Initialisierung und Decode erfassen.",
         "Ermitteln, wo Texttokens und multimodale Embeddings in gemeinsame Batch-/Positionsdaten ueberfuehrt werden.",
@@ -274,7 +348,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-002", "VDEC-003"],
+      "depends_on": [
+        "VDEC-002",
+        "VDEC-003"
+      ],
       "implementation": [
         "Bestehende contexts:[string]-Semantik erhalten.",
         "Multimodale contexts an vorhandene llama-server/OpenAI-Content-Parts anlehnen: text + image/image_url bzw. die tatsaechlich upstream unterstuetzte Struktur.",
@@ -297,7 +374,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-003", "VDEC-004"],
+      "depends_on": [
+        "VDEC-003",
+        "VDEC-004"
+      ],
       "implementation": [
         "Vision-Kontext mit vorhandener mtmd-Pipeline verarbeiten und auf einer reservierten Decision-Trunk-Sequenz prefillen.",
         "Textanteile, Bild-Chunks/Embeddings und modellabhaengige Positionsdaten genau ueber vorhandene llama.cpp-Helfer aufbauen.",
@@ -320,7 +400,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-005"],
+      "depends_on": [
+        "VDEC-005"
+      ],
       "implementation": [
         "Neue Engine-Schnittstelle entwerfen, die einen existierenden llama_seq_id/KV-Trunk und korrekte Fortsetzungsposition akzeptiert.",
         "Bestehende decide/decide_batch-Text-APIs auf denselben internen Branch-Scoring-Kern fuehren, ohne duplizierte Tree-/Greedy-Logik.",
@@ -342,7 +424,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-005", "VDEC-006"],
+      "depends_on": [
+        "VDEC-005",
+        "VDEC-006"
+      ],
       "implementation": [
         "Tests fuer Bild vor Text, Text vor Bild und die upstream-zulaessigen Mischformen erstellen.",
         "Modellabhaengige Positionslogik nicht aus token_count ableiten, sondern gegen normalen llama-server-Visionpfad vergleichen.",
@@ -364,7 +449,9 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-007"],
+      "depends_on": [
+        "VDEC-007"
+      ],
       "implementation": [
         "Aktuell funktionierende GGUF-/mmproj-Kombination fuer Qwen2.5-VL-3B verifizieren und Revision pinnen.",
         "Ein Bild + optionaler kurzer Text + drei unabhaengige Decision-Felder ausfuehren.",
@@ -386,7 +473,9 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-008"],
+      "depends_on": [
+        "VDEC-008"
+      ],
       "implementation": [
         "Identische Bildfaelle einmal ueber /v1/decision und einmal ueber normale Chat-/Grammar-/JSON-Ausgabe desselben VLMs laufen lassen.",
         "Syntax-/Schema-Gueltigkeit, fachliche Korrektheit, Latenz, Prefill, Decode/Scoring und VRAM getrennt erfassen.",
@@ -408,7 +497,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-008", "VDEC-009"],
+      "depends_on": [
+        "VDEC-008",
+        "VDEC-009"
+      ],
       "implementation": [
         "Decision-freundliche Aufgaben definieren: Dokumenttyp, Zustand, boolesche Merkmale, begrenzte Skalen, Routing, Moderation.",
         "Offene Extraktion explizit ausnehmen: Rechnungsnummer, IBAN, Name, frei variabler Betrag/String, lange OCR.",
@@ -429,7 +521,9 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-008"],
+      "depends_on": [
+        "VDEC-008"
+      ],
       "implementation": [
         "Aktuelle llama.cpp/libmtmd-Unterstuetzung fuer mindestens ein Gemma-3-Visionmodell und ein kleines SmolVLM verifizieren.",
         "Decision-Sequenzbedarf, Sliding-Window-/Attention-Verhalten, VRAM und Branch-Batching messen.",
@@ -449,7 +543,10 @@
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-008", "VDEC-011"],
+      "depends_on": [
+        "VDEC-008",
+        "VDEC-011"
+      ],
       "implementation": [
         "Zuerst mehrere unabhaengige Single-Image-Kontexte in einem Request batchen.",
         "Danach optional mehrere Bilder innerhalb eines Kontexts nur falls der jeweilige VLM-/mtmd-Pfad dies sauber unterstuetzt.",
@@ -471,7 +568,9 @@
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-012"],
+      "depends_on": [
+        "VDEC-012"
+      ],
       "implementation": [
         "Bestehendes statisches Schema-/Instructions-Prefix weiterverwenden.",
         "Pruefen, ob identische Bild-Embeddings oder multimodale Prefills innerhalb klarer Request-/Cache-Grenzen wiederverwendet werden koennen.",
@@ -493,7 +592,11 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["VDEC-009", "VDEC-011", "VDEC-012"],
+      "depends_on": [
+        "VDEC-009",
+        "VDEC-011",
+        "VDEC-012"
+      ],
       "implementation": [
         "Qwen2.5-VL-3B primaer auf RTX 5060 Ti 16 GB messen; optional 7B und RTX 3080 10 GB als Vergleich.",
         "Vision-Encoding, Text-Prefill, Decision-Scoring, Gesamt-p50/p95, VRAM-Peak, RAM, Batchgroesse und Decision-Sequenzen erfassen.",
@@ -514,7 +617,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-009", "VDEC-010"],
+      "depends_on": [
+        "VDEC-009",
+        "VDEC-010"
+      ],
       "implementation": [
         "Versionierte Bildfaelle fuer Dokumenttyp, sichtbares Merkmal, Zustand, einfache Prioritaet und Routing erstellen.",
         "DE/EN-Instruktionen getrennt testen, sofern die Aufgabe sprachabhaengig ist.",
@@ -535,7 +641,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-015"],
+      "depends_on": [
+        "VDEC-015"
+      ],
       "implementation": [
         "Accuracy/Macro-F1/Precision/Recall sowie Brier Score/ECE und Risk-Coverage pro Modell/Aufgabe messen.",
         "Abstain-Schwellen nur auf Validation-Daten bestimmen.",
@@ -557,7 +665,11 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["VDEC-013", "VDEC-015", "VDEC-016"],
+      "depends_on": [
+        "VDEC-013",
+        "VDEC-015",
+        "VDEC-016"
+      ],
       "implementation": [
         "Bilder mit sichtbaren Instruktionen testen, die Schema/Policy umgehen oder neue Labels erzwingen wollen.",
         "Ergebnis bleibt strikt auf erlaubte Werte begrenzt; fachliche Fehlklassifikation wird separat erfasst.",
@@ -580,7 +692,10 @@
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-016", "VDEC-017"],
+      "depends_on": [
+        "VDEC-016",
+        "VDEC-017"
+      ],
       "implementation": [
         "Optionalen lokalen Provider fuer /v1/decision anbinden; Base-URL, Modellprofil, Timeout, Limits und Fallback konfigurierbar.",
         "Bestehende Specialist-/Gate-Vertraege wiederverwenden und Vision-spezifische Metadaten additiv ergaenzen.",
@@ -602,7 +717,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["VDEC-017", "VDEC-018"],
+      "depends_on": [
+        "VDEC-017",
+        "VDEC-018"
+      ],
       "implementation": [
         "CPU/Text-only Tests in Standard-CI ohne Modellgewichte laufen lassen.",
         "Vision-Contracttests mit Fake/Fixture-Pfaden und optionale echte GPU-Smokes getrennt markieren.",
@@ -625,7 +743,11 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["VDEC-014", "VDEC-018", "VDEC-019"],
+      "depends_on": [
+        "VDEC-014",
+        "VDEC-018",
+        "VDEC-019"
+      ],
       "implementation": [
         "README mit Build, Visionmodellstart, curl-Beispiel, Limitierungen und Decision-vs-Extraction-Abgrenzung erstellen.",
         "Bestehenden decision-playground optional um Bild-Upload und Side-by-Side VisionDecision vs normal VLM erweitern oder separates kleines Demo-Frontend bereitstellen.",
@@ -659,12 +781,38 @@
   ],
   "tasks_status_summary": {
     "total": 20,
-    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
     "progress_percent_done": 0,
-    "by_priority": {"P0": 10, "P1": 10, "P2": 0},
-    "by_risk": {"low": 4, "medium": 9, "high": 7, "critical": 0},
-    "critical_path": {"total": 15, "done": 0, "remaining": 15},
-    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+    "by_priority": {
+      "P0": 10,
+      "P1": 10,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 4,
+      "medium": 9,
+      "high": 7,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 0,
+      "remaining": 15
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
   },
   "tasks_type_summary": {
     "total": 20,
@@ -676,7 +824,7 @@
       "core": 3,
       "testing": 2,
       "poc": 1,
-      "evaluation": 5,
+      "evaluation": 4,
       "architecture": 1,
       "performance": 2,
       "security": 1,
