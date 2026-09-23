@@ -12,6 +12,7 @@ import pytest
 
 from worker.meet_media import llm, llm_tools
 from worker.meet_media.companion_dialog import (
+    MAX_REPLY_CHARS,
     PERSONA_SYSTEM,
     PERSONA_SYSTEM_WITH_TOOLS,
     CompanionDialog,
@@ -256,8 +257,18 @@ def test_a_reply_that_already_admits_missing_evidence_is_left_alone():
 def test_the_appended_source_keeps_the_reply_within_the_budget():
     source = RepositorySource("agent/services/rag_helper_index_service.py", "RagHelperIndexService", line=31)
     reply = enforce_sources("x" * 600, [source], knowledge=True)
-    assert len(reply) <= 450
+    assert len(reply) <= MAX_REPLY_CHARS < 450
     assert reply.endswith("Quelle: agent/services/rag_helper_index_service.py:31, RagHelperIndexService.")
+
+
+def test_a_long_reply_without_a_source_is_still_clamped_below_the_client_limit():
+    port = Port("Ein sehr langer Satz ohne Quelle. " * 40)
+    dialog, _tools, _retriever = companion(port)
+
+    reply, _trace = dialog.answer("Hallo! Wie geht es dir heute?")
+
+    assert len(reply) <= MAX_REPLY_CHARS < 450
+    assert reply.endswith("…")
 
 
 # 4) German style: no meta talk about the reply itself

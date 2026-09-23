@@ -111,20 +111,36 @@
           "depends_on": [
             "MCK-003"
           ]
+        },
+        {
+          "id": "MCK-007",
+          "status": "completed",
+          "title": "Chat-Text abgelehnt (meet_chat_reply_denied): Antwortlaenge immer unter dem Client-Limit kappen",
+          "problem": "Live-Regression, intermittierend: die Audio-Antwort lief, der Chat-Text fehlte. Ursache: der Client lehnt einen Reply mit leerem Text oder '[...text].length > 450' ab (frontend machine-chat-endpoint.ts). enforce_sources (mit Laengen-Cap) lief nur 'if grounded', normale Antworten wurden nicht gekappt, und MAX_REPLY_CHARS lag mit 450 exakt auf der Client-Grenze ohne Puffer.",
+          "implemented_solution": "MAX_REPLY_CHARS von 450 auf 400 gesenkt (Puffer unter der Client-Grenze) und der finale Reply wird immer gekappt (unabhaengig von grounded), nach Quellen-Anhang und Leertext-Fallback.",
+          "affected_files": [
+            "worker/meet_media/companion_dialog.py",
+            "tests/test_meet_companion_knowledge.py"
+          ],
+          "verification": [
+            "tests/test_meet_companion_knowledge.py::test_a_long_reply_without_a_source_is_still_clamped_below_the_client_limit",
+            "tests/test_meet_companion_knowledge.py::test_the_appended_source_keeps_the_reply_within_the_budget"
+          ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 6,
+    "total_items": 7,
     "by_status": {
-      "completed": 4,
+      "completed": 5,
       "partial": 0,
       "open": 2
     },
     "notes": [
-      "Nicht deployt; Deploy und Live-Nachweis (MCK-005) macht der Betreiber.",
-      "Flags unveraendert: MEET_COMPANION_TOOLS=1 aktiviert auch den Router-Zwang; mit MEET_COMPANION_TOOLS=0 und RAG-Prefix aus bleibt das Modell ungegroundet wie bisher."
+      "Flags unveraendert: MEET_COMPANION_TOOLS=1 aktiviert auch den Router-Zwang; mit MEET_COMPANION_TOOLS=0 und RAG-Prefix aus bleibt das Modell ungegroundet wie bisher.",
+      "Live-Nachweis MCK-005 offen: verbesserte rag-helper-Antwort (erzwungener Lookup + Quelle) im Meet pruefen.",
+      "Update 2026-09-23: MCK-007 (Laengen-Clamp gegen meet_chat_reply_denied) ergaenzt nach Live-Regression."
     ],
     "recommended_order": [
       "MCK-001",
