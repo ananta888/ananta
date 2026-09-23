@@ -6,7 +6,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "vision_parallel_decision_llamacpp",
   "title": "Vision Parallel Decision: multimodaler Jev-artiger /v1/decision-Pfad fuer llama.cpp und Ananta",
-  "status": "todo",
+  "status": "partial",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -208,7 +208,7 @@
     {
       "id": "VDEC-M1",
       "title": "Fork, Baseline und Upstream-Grenzen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VDEC-001",
         "VDEC-002",
@@ -218,7 +218,7 @@
     {
       "id": "VDEC-M2",
       "title": "Multimodaler Prefill und KV-Trunk",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VDEC-004",
         "VDEC-005",
@@ -229,7 +229,7 @@
     {
       "id": "VDEC-M3",
       "title": "Single-Image Vision Decision PoC",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VDEC-008",
         "VDEC-009",
@@ -239,7 +239,7 @@
     {
       "id": "VDEC-M4",
       "title": "Modelle, Batching, Cache und Performance",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "VDEC-011",
         "VDEC-012",
@@ -250,7 +250,7 @@
     {
       "id": "VDEC-M5",
       "title": "Qualitaet, Sicherheit und System-2-Fallback",
-      "status": "todo",
+      "status": "partial",
       "task_ids": [
         "VDEC-015",
         "VDEC-016",
@@ -260,11 +260,25 @@
     {
       "id": "VDEC-M6",
       "title": "Ananta-Integration, CI und Release",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "VDEC-018",
         "VDEC-019",
         "VDEC-020"
+      ]
+    },
+    {
+      "id": "VDEC-M7",
+      "title": "Ananta-Anbindung: Provider, Hub-Gate, Tests, Doku",
+      "status": "partial",
+      "task_ids": [
+        "VDEC-021",
+        "VDEC-022",
+        "VDEC-023",
+        "VDEC-024",
+        "VDEC-025",
+        "VDEC-026",
+        "VDEC-027"
       ]
     }
   ],
@@ -274,10 +288,10 @@
       "milestone_id": "VDEC-M1",
       "title": "Standalone-Fork aus parallel-decision anlegen und Baseline pinnen",
       "type": "repository",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "implementation": [
         "Repository ananta888/llama.cpp-vision-decision als echten Fork von thecodacus/llama.cpp anlegen.",
@@ -290,17 +304,27 @@
         "Fork ist erreichbar und besitzt nachvollziehbare Fork-Historie.",
         "UPSTREAM.md nennt beide Upstreams, Baseline-Commit und Sync-/Rebase-Verfahren.",
         "Keine Source-Datei ist beim initialen Fork bereits funktional veraendert."
-      ]
+      ],
+      "implemented_solution": "Fork ananta888/llama.cpp-vision-decision (Branch vision-decision) mit voller Historie aus thecodacus/llama.cpp:parallel-decision; als Submodule vendor/llama.cpp-vision-decision eingebunden. Upstream-/Sync-Strategie steht in AGENT.md#upstream-relationship statt in einer eigenen UPSTREAM.md.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "AGENT.md#upstream-relationship",
+        "Fork VD-001/VD-003"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-002",
       "milestone_id": "VDEC-M1",
       "title": "Text-only Decision-Baseline reproduzieren",
       "type": "baseline",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-001"
       ],
@@ -313,17 +337,27 @@
       "acceptance_criteria": [
         "Text-only /v1/decision funktioniert unveraendert vor jeder Vision-Aenderung.",
         "Ein automatisierter Baseline-Test kann spaetere Regressionen erkennen."
-      ]
+      ],
+      "implemented_solution": "Text-only-Baseline vor den Vision-Aenderungen gebaut und gemessen; Regression bitgenau (0 Abweichungen).",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "Fork VD-003, VD-011",
+        "unit/test_decision.py::test_decision_text"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-003",
       "milestone_id": "VDEC-M1",
       "title": "Aktuellen libmtmd- und llama-server-Visionpfad quellcodegenau kartieren",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-001"
       ],
@@ -337,17 +371,27 @@
         "Der vorhandene Visionpfad ist als konkreter Call-Flow dokumentiert.",
         "Der exakte Integrationspunkt vor bzw. nach multimodalem Prefill ist identifiziert.",
         "Keine eigene Parallel-Implementierung von Bild-Decoding oder Vision-Encoding ist geplant."
-      ]
+      ],
+      "implemented_solution": "handle_decision, handle_media, mtmd_tokenize, mtmd_helper_decode_image_chunk, M-RoPE-Positionen und Unified-KV quellcodegenau kartiert (Tabelle 'Verified facts').",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "AGENT.md#verified-facts-checked-in-this-tree-not-assumed",
+        "Fork VD-002"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-004",
       "milestone_id": "VDEC-M2",
       "title": "Rueckwaertskompatibles multimodales Decision-Request-Schema definieren",
       "type": "api",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-002",
         "VDEC-003"
@@ -363,17 +407,28 @@
         "Alte Textrequests laufen ohne Aenderung.",
         "Ein einzelner Vision-Request kann syntaktisch validiert werden, auch bevor der Backendpfad implementiert ist.",
         "API erfindet keine separate Bildsemantik, wenn vorhandene llama.cpp-Semantik wiederverwendbar ist."
-      ]
+      ],
+      "implemented_solution": "contexts[i] ist String (unveraendert) oder OpenAI-Content-Array mit text/image_url; Medienregeln von handle_media wiederverwendet.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "tools/parallel-decision/README.md#images",
+        "unit/test_decision.py::test_decision_vision_errors",
+        "Fork VD-020"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-005",
       "milestone_id": "VDEC-M2",
       "title": "Multimodalen Prefill in den Decision-Pfad integrieren",
       "type": "core",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-003",
         "VDEC-004"
@@ -389,17 +444,29 @@
         "Ein Bild wird vom VLM verarbeitet und hinterlaesst einen gueltigen multimodalen KV-Trunk.",
         "Der Trunk kann ohne erneutes Bild-Encoding fuer mehrere Decision-Felder verwendet werden.",
         "Text-only Pfad bleibt unveraendert."
-      ]
+      ],
+      "implemented_solution": "Multimodaler Prefill ueber libmtmd in die Trunk-Sequenz; Felder werden vom selben KV-Trunk verzweigt, ohne Bild neu zu encoden.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "unit/test_decision.py::test_decision_vision_matches_completion",
+        "Fork VD-021",
+        "GitHub Actions 'Vision decision' run 35866246741 auf a0ae4ad5e: success (CPU-Build, unit/test_decision.py)",
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-006",
       "milestone_id": "VDEC-M2",
       "title": "Decision-Engine um Prefilled-Trunk-API erweitern",
       "type": "core",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-005"
       ],
@@ -413,17 +480,28 @@
         "Decision-Scoring funktioniert auf einem extern vorgefuellten Text-Trunk und einem multimodalen Trunk.",
         "Tree-, Greedy- und Auto-Modus liefern weiterhin konsistente Kandidatenscores.",
         "Keine doppelte Decision-Engine fuer Vision entsteht."
-      ]
+      ],
+      "implemented_solution": "Engine: Kontext als Text oder als vom Aufrufer vorgefuellter Trunk (pos_next pro Trunk); keine libmtmd-Abhaengigkeit in der Engine; Tree == Greedy im DoD-Lauf.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "tools/parallel-decision/decision-engine.{h,cpp}",
+        "bench/results/dod-qwen3.txt",
+        "Fork VD-010, VD-035"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-007",
       "milestone_id": "VDEC-M2",
       "title": "Positions-, Sequenz- und Cache-Korrektheit fuer VLMs absichern",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-005",
         "VDEC-006"
@@ -438,17 +516,28 @@
         "Keine Off-by-one- oder Positionsregression in kontrollierten Logit-Vergleichen.",
         "Wiederholte Requests liefern reproduzierbare Entscheidungen und keine Cross-Request-Kontamination.",
         "Fehlende/inkompatible Positionierungsunterstuetzung wird als harter Modellblocker ausgewiesen."
-      ]
+      ],
+      "implemented_solution": "Aequivalenz gegen /completion: Qwen3-VL-2B Q8_0 5e-10..3e-7, Qwen2.5-VL-3B 2e-5..8e-4; Negativkontrolle mit falscher Position 0.21..0.27. Split-Instabilitaet von Q4_K_M auf CPU dokumentiert.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "bench/equivalence.py",
+        "README.md#supported-vision-models",
+        "Fork VD-022"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-008",
       "milestone_id": "VDEC-M3",
       "title": "Qwen2.5-VL-3B Single-Image PoC implementieren",
       "type": "poc",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-007"
       ],
@@ -462,17 +551,27 @@
         "End-to-End POST /v1/decision akzeptiert ein reales Bild und liefert ausschliesslich erlaubte Werte.",
         "Keine autoregressive Bildbeschreibung wird erzeugt.",
         "Normaler Qwen2.5-VL Chat funktioniert mit derselben geladenen Modellinstanz weiterhin."
-      ]
+      ],
+      "implemented_solution": "Qwen2.5-VL-3B Single-Image End-to-End ueber POST /v1/decision; nur erlaubte Werte; normaler Chat-/Vision-Pfad ohne Regression (test_vision_api).",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "Fork VD-022",
+        "unit/test_vision_api.py"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-009",
       "milestone_id": "VDEC-M3",
       "title": "Vision-Decision gegen normale VLM-JSON-Ausgabe funktional vergleichen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-008"
       ],
@@ -486,17 +585,28 @@
         "Ein maschinenlesbarer Vergleichsreport existiert.",
         "Der Geschwindigkeitsgewinn wird getrennt fuer Vision-Prefill und eingesparte autoregressive Ausgabe ausgewiesen.",
         "Schema-Gueltigkeit wird nicht mit fachlicher Richtigkeit verwechselt."
-      ]
+      ],
+      "implemented_solution": "bench.py: Decision vs Chat mit json_schema (Qwen3-VL 4.4 s vs 18.1 s, Agreement 1.00), prefill/scoring getrennt ausgewiesen, Accuracy getrennt von Schema-Gueltigkeit.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "bench/results/bench-*.json",
+        "README.md#benchmarks",
+        "Fork VD-040"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-010",
       "milestone_id": "VDEC-M3",
       "title": "Grenze zwischen Decision und freier Vision-Extraktion festschreiben",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-008",
         "VDEC-009"
@@ -510,17 +620,27 @@
       "acceptance_criteria": [
         "README und API-Doku enthalten klare Positiv-/Negativbeispiele.",
         "Kein Entwickler muss freie Strings in kuenstliche riesige Enums pressen."
-      ]
+      ],
+      "implemented_solution": "Runner waehlt nur endliche Werte; keine OCR/Freitext, dafuer Chat-Completion. Ananta lehnt type=string lokal ab.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "README.md#images",
+        "docs/vision-decision-llamacpp.md#grenzen-unbedingt-lesen"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-011",
       "milestone_id": "VDEC-M4",
       "title": "Gemma 3 und SmolVLM als Architektur-Baselines testen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-008"
       ],
@@ -532,17 +652,27 @@
       "acceptance_criteria": [
         "Kompatibilitaetsmatrix fuer mindestens drei Visionmodellfamilien oder belegte technische Blocker vorhanden.",
         "Qwen-spezifische Annahmen sind aus generischer Engine-Logik entfernt."
-      ]
+      ],
+      "implemented_solution": "Matrix: Qwen3-VL-2B (IMROPE), Qwen2.5-VL-3B (M-RoPE), SmolVLM-500M (idefics3, Slices), tinygemma3 (Gemma 3, nicht-kausal; nur Testmodell, echtes Gemma 3 4B nicht gemessen).",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "README.md#supported-vision-models",
+        "Fork VD-034"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-012",
       "milestone_id": "VDEC-M4",
       "title": "Multi-Context- und Multi-Image-Semantik schrittweise erweitern",
       "type": "core",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-008",
         "VDEC-011"
@@ -557,17 +687,27 @@
         "Ergebnisreihenfolge entspricht Eingabereihenfolge.",
         "Jedes Bild beeinflusst nur seinen eigenen Kontext.",
         "Batching kann deaktiviert werden, um Referenzresultate seriell zu reproduzieren."
-      ]
+      ],
+      "implemented_solution": "Mehrere Bilder pro Kontext und mehrere Bildkontexte pro Request; Reihenfolge erhalten; hoechstens ein Bildkontext pro Gruppe, Batch == Einzel bitgenau (SmolVLM).",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "unit/test_decision.py::test_decision_vision_batch_and_modes",
+        "Fork VD-030, VD-031, VD-032"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-013",
       "milestone_id": "VDEC-M4",
       "title": "Vision-/Prefix-/KV-Caching sicher optimieren",
       "type": "performance",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-012"
       ],
@@ -581,14 +721,24 @@
         "Cache-Hit liefert dasselbe Decision-Ergebnis innerhalb definierter numerischer Toleranzen.",
         "Geaendertes Bild oder geaenderter mmproj erzwingt Cache-Miss.",
         "Cache kann global deaktiviert werden."
-      ]
+      ],
+      "implemented_solution": "Bild-Embedding-Cache (Schluessel Bild-Hash + Slice), --decision-media-cache 0 schaltet ab; warm == kalt. mmproj-Wechsel erfordert Serverneustart (Cache ist prozesslokal).",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "unit/test_decision.py::test_decision_media_cache_and_limit",
+        "Fork VD-033"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-014",
       "milestone_id": "VDEC-M4",
       "title": "RTX 5060 Ti 16 GB Performance- und Speicherprofil erstellen",
       "type": "performance",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
@@ -606,17 +756,23 @@
       "acceptance_criteria": [
         "Reproduzierbare Benchmarkdatei mit Hardware, Modellrevision, Quantisierung und Runtime-Flags vorhanden.",
         "Es gibt keine pauschale Millisekundenbehauptung ohne Bildgroesse/Modell/Hardware-Kontext."
-      ]
+      ],
+      "implemented_solution": "Nicht gemessen: auf dem Dev-Rechner fehlen CUDA-Toolkit (nvcc) und Vulkan-SDK, daher nur CPU-Build (Ryzen 9 7940HS). Alle Zahlen im README sind CPU-Zahlen.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "AGENT.md#environment-notes"
+      ],
+      "verification": []
     },
     {
       "id": "VDEC-015",
       "milestone_id": "VDEC-M5",
       "title": "Vision-Decision-Benchmarkdatensatz fuer Ananta aufbauen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "VDEC-009",
         "VDEC-010"
@@ -630,6 +786,15 @@
       "acceptance_criteria": [
         "Datensatz besitzt Provenance/Rechte/Labels und eingefrorenen Holdout.",
         "Mindestens einfache und bewusst ambige/abstain-wuerdige Faelle enthalten."
+      ],
+      "implemented_solution": "Synthetischer, reproduzierbarer Datensatz (bench/shapes.py, Seed, labels.jsonl) mit einfachen Faellen; Ananta-Integrationstest ergaenzt einen ambigen Fall (leeres Bild). Offen: realer Ananta-Datensatz mit Provenance/Rechten und eingefrorenem Holdout.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "bench/shapes.py",
+        "tests/test_vision_decision_integration.py::test_real_ambiguous_image_escalates"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
       ]
     },
     {
@@ -637,10 +802,10 @@
       "milestone_id": "VDEC-M5",
       "title": "Probability/Confidence kalibrieren und System-2-Abstain definieren",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "VDEC-015"
       ],
@@ -654,6 +819,16 @@
         "Kalibrierungsreport und task-spezifische Schwellen vorhanden.",
         "Holdout bleibt bei Threshold-Wahl unangetastet.",
         "Fallback ist bounded und erzeugt keine rekursiven Schleifen."
+      ],
+      "implemented_solution": "Kalibrierung (evaluate.py: Accuracy/NLL/ECE/fitted T) und Abstain (min_probability/min_margin, abstained-Liste) im Fork; Ananta sendet immer Schwellen (Default 0.8/0.3) und eskaliert typisiert, ohne Rekursion. Offen: task-spezifische Schwellen auf einem Holdout.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "bench/results/eval-*.json",
+        "unit/test_decision.py::test_decision_calibration_and_abstain",
+        "agent/services/vision_decision_hub_gate.py"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
       ]
     },
     {
@@ -661,10 +836,10 @@
       "milestone_id": "VDEC-M5",
       "title": "Security, Prompt-Injection und Tenant-/Cache-Isolation testen",
       "type": "security",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "VDEC-013",
         "VDEC-015",
@@ -674,13 +849,22 @@
         "Bilder mit sichtbaren Instruktionen testen, die Schema/Policy umgehen oder neue Labels erzwingen wollen.",
         "Ergebnis bleibt strikt auf erlaubte Werte begrenzt; fachliche Fehlklassifikation wird separat erfasst.",
         "Remote-Image-URLs gegen SSRF-/Download-Limits absichern oder im Fork standardmaessig deaktivieren, falls Upstream keinen sicheren Pfad garantiert.",
-        "Cross-Request-/Cross-Tenant-Cache-Leakage, grosse Bildbomben, kaputte Dateien und Ressourcenerschöpfung testen.",
+        "Cross-Request-/Cross-Tenant-Cache-Leakage, grosse Bildbomben, kaputte Dateien und Ressourcenersch\u00f6pfung testen.",
         "Keine Bilddaten oder extrahierten sensitiven Inhalte in Standardlogs."
       ],
       "acceptance_criteria": [
         "Adversarial Tests erzeugen keine Schemaausbrueche und keine unerlaubten Netzwerkzugriffe.",
         "Cache-/Tenant-Isolation ist durch Tests belegt.",
         "Ressourcenlimits enden mit typisiertem Fehler statt Prozessabsturz."
+      ],
+      "implemented_solution": "Fork: Ressourcenlimits (--decision-max-media, KV-Budget-400, handle_media-Regeln, Audio/Video abgewiesen) mit Tests. Ananta: nur data:-URIs, lokale Bildvalidierung, Antwort-Schemapruefung. Offen: Prompt-Injection-Tests und Tenant-Isolation des prozessweiten Bild-Caches.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "unit/test_decision.py::test_decision_vision_errors",
+        "tests/test_vision_decision_provider.py"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
       ]
     },
     {
@@ -688,10 +872,10 @@
       "milestone_id": "VDEC-M6",
       "title": "Ananta VisionDecision Provider/Specialist anbinden",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-016",
         "VDEC-017"
@@ -706,17 +890,27 @@
       "acceptance_criteria": [
         "Ein Ananta-Test kann Bild -> lokaler VisionDecision-Specialist -> Hub-Gate -> Ergebnis reproduzierbar ausfuehren.",
         "Provider-Ausfall fuehrt zu konfiguriertem fallback/blocked, nicht zu implizitem allow."
-      ]
+      ],
+      "implemented_solution": "Ananta-Provider und Hub-Gate: siehe VDEC-021..VDEC-026.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "agent/services/vision_decision_provider.py",
+        "agent/services/vision_decision_hub_gate.py"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-019",
       "milestone_id": "VDEC-M6",
       "title": "CI, Upstream-Sync und Regression-Suite einrichten",
       "type": "testing",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-017",
         "VDEC-018"
@@ -732,17 +926,29 @@
         "CI ist headless und ohne GPU reproduzierbar.",
         "Fehlende Gewichte gelten als skip/not-run, niemals als bestandener Visionmodelltest.",
         "Upstream-Sync kann ohne Verlust eigener Commits nachvollzogen werden."
-      ]
+      ],
+      "implemented_solution": "Fork-CI .github/workflows/vision-decision.yml (CPU, headless). Fehlende Gewichte werden nicht als bestanden gewertet (Ananta-IT: SKIPPED). Offen (Fork): 'Python Type-Check' rot, u. a. tools/server/tests/unit/test_decision.py:128 no-matching-overload (max) und geerbte conversion/base.py-Warnungen; build-cann.yml mit Workflow-Datei-Fehler (Upstream).",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "GitHub Actions 'Vision decision' run 35866246741 auf a0ae4ad5e: success (CPU-Build, unit/test_decision.py)",
+        "Run 35866246892 Python Type-Check: failure",
+        "GitHub Actions 'Vision decision' run 35866246741 auf a0ae4ad5e: success (CPU-Build, unit/test_decision.py)",
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
     },
     {
       "id": "VDEC-020",
       "milestone_id": "VDEC-M6",
       "title": "Dokumentation, Playground und Release-/Upstream-Entscheidung abschliessen",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-014",
         "VDEC-018",
@@ -759,7 +965,213 @@
         "Ein neuer Entwickler kann Fork bauen, Modell starten und einen Bild-Decision-Request ohne internes Wissen reproduzieren.",
         "Bekannte Grenzen und Sicherheitsannahmen sind sichtbar dokumentiert.",
         "Upstream-/Fork-Strategie fuer weitere Wartung ist entschieden."
+      ],
+      "implemented_solution": "README (Build, Server, Bilder-API, Optionen, Kalibrierung, Matrix, Benchmarks), Playground playground/index.html, AGENT.md mit Upstream-Strategie; Ananta-Betriebsdoku docs/vision-decision-llamacpp.md.",
+      "evidence": [
+        "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
+        "tools/parallel-decision/README.md",
+        "tools/parallel-decision/playground/index.html",
+        "Fork VD-043, VD-044",
+        "GitHub Actions 'Vision decision' run 35866246741 auf a0ae4ad5e: success (CPU-Build, unit/test_decision.py)",
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "verification": [
+        "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+      ],
+      "completed_at": "2026-09-23"
+    },
+    {
+      "id": "VDEC-021",
+      "milestone_id": "VDEC-M7",
+      "title": "Ananta VisionDecision-Provider mit validierter Konfiguration und Feature-Flag",
+      "type": "integration",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "VDEC-018"
+      ],
+      "acceptance_criteria": [
+        "VISION_DECISION_ENABLED=false (Default): keine weitere Variable gelesen, kein Dienstkontakt.",
+        "URL/Timeout/MAX_MEDIA/Bildlimits/Schwellen/Allowlists validiert; Fehlkonfiguration ist ein typisierter Fehler."
+      ],
+      "implemented_solution": "VisionDecisionConfig.from_env: ENABLED, URL (nur scheme://host[:port], http nur lokal/privat/Compose), API_KEY(_FILE aus /run/secrets, optional), TIMEOUT_MS 100..300000, MAX_MEDIA 1..16, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, MODELS- und SCHEMAS-Allowlist, MIN_PROBABILITY/MIN_MARGIN in (0,1]. get_vision_decision_provider mit Cache pro Env-Stand. Stdlib-HTTP ohne Redirects/Proxy, Antwort auf 4 MiB begrenzt.",
+      "affected_files": [
+        "agent/services/vision_decision_provider.py",
+        "tests/test_vision_decision_provider.py"
+      ],
+      "verification": [
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed (test_disabled_reads_nothing_else_and_contacts_nothing, test_invalid_config_is_rejected)"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): add optional VisionDecision provider and hub gate for llama.cpp-vision-decision) (main, lokal, nicht deployed)"
       ]
+    },
+    {
+      "id": "VDEC-022",
+      "milestone_id": "VDEC-M7",
+      "title": "Bilder lokal validieren und begrenzen, nur data:-URIs senden",
+      "type": "security",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "VDEC-021"
+      ],
+      "acceptance_criteria": [
+        "Anzahl, Bytes, Pixel, Format werden vor dem Upload geprueft; abgelehnte Bilder verlassen den Prozess nicht.",
+        "Es werden keine URLs weitergereicht."
+      ],
+      "implemented_solution": "prepare_image: Pillow-Dekodierung, nur PNG/JPEG/WebP ohne Animation, <= 40 MP, Rohbytes <= MAX_IMAGE_BYTES, Verkleinerung auf MAX_IMAGE_SIDE, Neukodierung als PNG (ohne EXIF). Ohne Pillow fail-closed (image_decoder_unavailable).",
+      "affected_files": [
+        "agent/services/vision_decision_provider.py",
+        "tests/test_vision_decision_provider.py"
+      ],
+      "verification": [
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed (test_invalid_images_rejected_before_upload, test_image_byte_and_pixel_limits, test_image_is_downscaled_and_reencoded_without_metadata)"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): add optional VisionDecision provider and hub gate for llama.cpp-vision-decision) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "VDEC-023",
+      "milestone_id": "VDEC-M7",
+      "title": "Typisierte Abbildung mit Eskalation abstained Felder und ohne implizites allow",
+      "type": "integration",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "VDEC-021"
+      ],
+      "acceptance_criteria": [
+        "Abstained Felder tragen keinen Wert und eskalieren typisiert (chat_completion/larger_model/human).",
+        "Fehler/Timeout/4xx/5xx/kaputte Antwort -> no_decision ohne Default-Label; grants_permission immer False; act nur aus Hub-Policy."
+      ],
+      "implemented_solution": "parse_decision_response prueft Ergebnisanzahl, Feldmenge, erlaubte Werte, decision==fields.value, Modell-Allowlist; abstain aus Server-Liste, Feld-Flag, fehlendem Flag oder lokaler Schwellenpruefung. gate_vision_decision: no_decision->normal_path, abstain->escalate mit VisionEscalation{target,reasons,probability,margin,entropy}, sonst proposal->Policy (ohne Policy confirm, Fehler deny). Pro Feld probability/margin/entropy/abstain; usage inkl. media_tokens/media_cached und timings in der Provenienz.",
+      "affected_files": [
+        "agent/services/vision_decision_provider.py",
+        "agent/services/vision_decision_hub_gate.py",
+        "tests/test_vision_decision_provider.py"
+      ],
+      "verification": [
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed (test_abstained_field_escalates_and_carries_no_value, test_http_errors_are_no_decision, test_broken_responses_are_no_decision, test_gate_ok_needs_policy_to_act)"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): add optional VisionDecision provider and hub gate for llama.cpp-vision-decision) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "VDEC-024",
+      "milestone_id": "VDEC-M7",
+      "title": "Unit-Tests mit gemocktem HTTP fuer alle Faelle",
+      "type": "testing",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "VDEC-022",
+        "VDEC-023"
+      ],
+      "acceptance_criteria": [
+        "ok, abstained, 400, 401/403, 429/503, Timeout, kaputte Antwort, Feature aus abgedeckt.",
+        "Logs/Audit ohne Bild, Base64, Prompt, Wert und Schluessel."
+      ],
+      "implemented_solution": "82 Tests: Fake-Transport fuer Statuscodes und Antworten, echter lokaler HTTP-Server fuer Timeout, freier Port fuer connection refused, Logger-Handler fuer Log-Inhalte.",
+      "affected_files": [
+        "tests/test_vision_decision_provider.py"
+      ],
+      "verification": [
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): add optional VisionDecision provider and hub gate for llama.cpp-vision-decision) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "VDEC-025",
+      "milestone_id": "VDEC-M7",
+      "title": "Integrationstest gegen echten llama-server mit echtem Bild",
+      "type": "testing",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "VDEC-024"
+      ],
+      "acceptance_criteria": [
+        "Ohne Server/URL SKIPPED, nie bestanden.",
+        "Mit Server: echte Bilder, Schema-Gueltigkeit, Eskalation auf ambigem Bild, Cache und 400-Abbildung belegt."
+      ],
+      "implemented_solution": "Qwen3-VL-2B Q8_0 auf 172.17.0.1:8096 aus dem Hub-Container: 8 Shape-Bilder 32/32 akzeptierte Felder korrekt (0 abstained, media_tokens 64, 1.2-2.5 s); 2 Bildkontexte kalt 2.41 s / warm 1.43 s mit media_cached=2; leeres graues Bild: shape/color/count abstained und eskaliert, dark_background=true mit p=1.0 (uebersicher); 11_truck.png->vehicle, 91_cat.png->animal. Server danach beendet.",
+      "affected_files": [
+        "tests/test_vision_decision_integration.py",
+        "docs/vision-decision-llamacpp.md"
+      ],
+      "verification": [
+        "RUN_INTEGRATION_TESTS=1 VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf ... tests/test_vision_decision_integration.py -> 5 passed (Qwen3-VL-2B Q8_0, CPU); ohne Server/URL: 5 skipped"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): add optional VisionDecision provider and hub gate for llama.cpp-vision-decision) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "VDEC-026",
+      "milestone_id": "VDEC-M7",
+      "title": "Betriebs- und Grenzen-Doku",
+      "type": "documentation",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 100,
+      "depends_on": [
+        "VDEC-025"
+      ],
+      "acceptance_criteria": [
+        "Konfiguration, Abbildung, Fehlercodes, Modellmatrix-Warnung, keine OCR, nur Bilder, CPU-Zahlen dokumentiert."
+      ],
+      "implemented_solution": "docs/vision-decision-llamacpp.md: Start, Env-Tabelle, Ablauf, Hub-Tabelle, Fehlercodes; Matrix (nur Qwen3-VL-2B >= 94 %, Qwen2.5-VL 61 %, SmolVLM 47 % trotz hoher Konfidenz), eigene Befunde zur Uebersicherheit, keine OCR/kein Freitext, Audio/Video abgelehnt, CPU ohne CUDA; Testbefehle und Ergebnis.",
+      "affected_files": [
+        "docs/vision-decision-llamacpp.md"
+      ],
+      "verification": [
+        "Review der Doku gegen README/Evaluate-Daten des Forks"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): add optional VisionDecision provider and hub gate for llama.cpp-vision-decision) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "VDEC-027",
+      "milestone_id": "VDEC-M7",
+      "title": "Konsument im Hub: Route/Task mit Policy und Ausfuehrung der Eskalation",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "VDEC-023"
+      ],
+      "acceptance_criteria": [
+        "Ein konkreter Hub-Task nutzt VisionDecision hinter einer Policy; Eskalation an Chat-Completion/Mensch ist verdrahtet und begrenzt.",
+        "Feature aus: Hub verhaelt sich unveraendert."
+      ],
+      "implemented_solution": "Offen: bisher nur Provider + Gate als Bibliothek; keine Route, keine Policy-Regeln pro Task, kein Eskalations-Executor.",
+      "affected_files": [],
+      "verification": []
     }
   ],
   "critical_path_tasks": [
@@ -777,68 +1189,75 @@
     "VDEC-017",
     "VDEC-018",
     "VDEC-019",
-    "VDEC-020"
+    "VDEC-020",
+    "VDEC-021",
+    "VDEC-022",
+    "VDEC-023",
+    "VDEC-024",
+    "VDEC-025"
   ],
   "tasks_status_summary": {
-    "total": 20,
+    "total": 27,
     "by_status": {
-      "todo": 20,
+      "todo": 1,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "partial": 3,
+      "blocked": 1,
+      "done": 22
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 81.5,
     "by_priority": {
-      "P0": 10,
-      "P1": 10,
+      "P0": 15,
+      "P1": 12,
       "P2": 0
     },
     "by_risk": {
-      "low": 4,
-      "medium": 9,
-      "high": 7,
+      "low": 5,
+      "medium": 13,
+      "high": 9,
       "critical": 0
     },
     "critical_path": {
-      "total": 15,
-      "done": 0,
-      "remaining": 15
+      "total": 20,
+      "done": 17,
+      "remaining": 3
     },
     "milestones": {
-      "total": 6,
-      "todo": 6,
+      "total": 7,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 3,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
-    "total": 20,
+    "total": 27,
     "by_type": {
       "repository": 1,
       "baseline": 1,
       "research": 1,
       "api": 1,
       "core": 3,
-      "testing": 2,
+      "testing": 4,
       "poc": 1,
       "evaluation": 4,
       "architecture": 1,
       "performance": 2,
-      "security": 1,
-      "integration": 1,
-      "documentation": 1
+      "security": 2,
+      "integration": 4,
+      "documentation": 2
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 20,
+    "state": "partial",
+    "todo_remaining": 1,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 0,
-    "done": 0
+    "partial": 3,
+    "blocked": 1,
+    "done": 22,
+    "milestones_done": 4,
+    "milestones_total": 7
   },
   "success_criteria": [
     "Der separate Fork baut reproduzierbar und behaelt Text-only /v1/decision sowie normalen multimodalen llama-server-Betrieb.",
@@ -867,8 +1286,27 @@
     "README/Playground-Beispiel und Releaseentscheidung"
   ],
   "summary_notes": [
-    "Nur Planungsartefakt: keine Vision-Implementierung und keine Benchmarkergebnisse werden mit dieser Todo als erledigt behauptet.",
-    "Der passende technische Fork-Ursprung ist thecodacus/llama.cpp:parallel-decision. Jeff/GLiFormer bleibt ein separates Projekt und ist nicht die Source-Basis dieses Forks.",
-    "Der Kern des Vorhabens ist nicht ein neuer Vision-Encoder, sondern die saubere Verbindung des vorhandenen libmtmd-Prefills mit dem vorhandenen parallelen Decision-Scoring auf einem geteilten KV-Trunk."
+    "Fork-Seite abgeschlossen (Fork-Todo VD-* 23/23, Commit a0ae4ad5e); VDEC-001..013, 018..020 mit Evidenz done. VDEC-014 blocked (kein CUDA-Toolkit), VDEC-015..017 partial (realer Holdout, task-spezifische Schwellen, Prompt-Injection/Tenant-Cache-Isolation offen).",
+    "Ananta-Anbindung VDEC-021..026 done (Provider, Bildlimits, typisierte Abbildung mit Eskalation, 82 Unit-Tests, echter Integrationstest mit Qwen3-VL-2B, Doku); VDEC-027 (Hub-Konsument) offen.",
+    "Schema-gueltig ist nicht richtig: nur Qwen3-VL-2B >= 94 % auf dem Shape-Testset; Qwen2.5-VL 61 %, SmolVLM 47 % bei hoher Konfidenz; auch Qwen3-VL ist auf schlecht gestellten Fragen uebersicher.",
+    "Der Jeff/GLiFormer-Pfad bleibt ein separates Projekt; Ursprung dieses Forks ist thecodacus/llama.cpp:parallel-decision."
+  ],
+  "fork_status": {
+    "commit": "a0ae4ad5e6193f8748dd899ef67205015f0abe8a",
+    "branch": "origin/vision-decision",
+    "fork_todo": "vendor/llama.cpp-vision-decision/todos/todo.vision-decision.json (VD-*: 23/23 done)",
+    "ci": [
+      "GitHub Actions 'Vision decision' run 35866246741 auf a0ae4ad5e: success (CPU-Build, unit/test_decision.py)",
+      "Python Type-Check run 35866246892: failure (test_decision.py:128, conversion/base.py)",
+      "build-cann.yml run 35866241612: workflow file issue (Upstream)"
+    ],
+    "tests": "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
+  },
+  "open_points": [
+    "VDEC-027: Hub-Konsument (Route/Task, Policy-Regeln, Eskalations-Executor).",
+    "VDEC-014: GPU-Messung auf RTX 5060 Ti nach Installation des CUDA-Toolkits.",
+    "VDEC-015/016: realer Datensatz mit Holdout, task-spezifische Temperaturen und Schwellen.",
+    "VDEC-017: Prompt-Injection-Tests; der Bild-Embedding-Cache des Servers ist prozessweit (Schluessel Bild-Hash), Tenant-Trennung nur ueber getrennte Serverprozesse.",
+    "Fork-CI: Python Type-Check rot (test_decision.py:128); Fix nur im Fork durch den Nutzer."
   ]
 }
