@@ -8,11 +8,14 @@ Grundlage ist der Provider-Vertrag `docs/audio-decision-ananta.md` im Fork (WADE
   Stream-Sessions `AudioDecisionStreamSession`)
 - Hub-Abbildung: `agent/services/audio_decision_hub_gate.py` (`gate_audio_decision`, `gate_stream_event`)
 - Hub-Policy: `agent/services/audio_decision_command_policy.py` (`VoiceCommandAudioDecisionPolicy`)
-- Sprachkommando-Ablauf: `agent/services/audio_decision_command_service.py`, Route
-  `agent/routes/voice_audio_decision.py` (`POST /v1/voice/audio-decisions/command`)
+- Sprachkommando-Ablauf: `agent/services/audio_decision_command_service.py`; primaerer Pfad von
+  `POST /v1/voice/command` und Fassade `POST /v1/voice/audio-decisions/command` in
+  `agent/routes/voice_audio_decision.py`
+- Ausfuehrung mit Bestaetigung: `agent/services/audio_decision_command_executor.py`
+  (`VoiceCommandExecutor`, `VoiceCommandConfirmationStore`), Route `POST /v1/voice/command/confirm`
 - Tests: `tests/test_voice_audio_decision_provider.py`, `tests/test_voice_audio_decision_command_policy.py`,
   `tests/test_voice_audio_decision_stream.py`, `tests/test_voice_audio_decision_route.py`,
-  `tests/test_voice_audio_decision_integration.py`
+  `tests/test_voice_audio_decision_execution.py`, `tests/test_voice_audio_decision_integration.py`
 - Todo-Track: `todos/active/todo.whisper-audio-decision-hub-integration.json`
 
 ## Betrieb
@@ -66,15 +69,32 @@ Transkript + System-2 nutzbar; muss explizit in die Allowlist).
 - Logs enthalten nur Profil-ID, ok/Fehlercode, Feldanzahl, `n_encode` und Latenz - kein Audio, keine
   Transkripte, keine Labels, keinen Schluessel. `HubAudioDecision.as_audit_dict()` ist transkriptfrei.
 
-## Sprachkommando-Route
+## Sprachkommando: primaerer Pfad von `/v1/voice/command`
 
-`POST /v1/voice/audio-decisions/command` (Auth wie `/v1/voice/command`, Exposure-Operation `command`),
-multipart `file` plus optional `profile` (Default `speech-commands-en`), `field` (Default: erstes Feld des
-Profils), `language` (Default: Profilsprache, `en`), `fallback` (`transcribe` Default, oder `none`).
-Header `X-Ananta-Deadline-Seconds` wird zur `BackendCancellationToken`-Deadline (sonst 30 s).
+`POST /v1/voice/command` (bestehende Route, Auth + Exposure-Operation `command` immer zuerst) nutzt die
+AudioDecision als primaeren Pfad, wenn `VOICE_AUDIO_DECISION_ENABLED` an ist **und** die Anfrage ein
+`decision_profile` traegt (optional `decision_field`, `decision_language`, `decision_fallback`
+`transcribe`/`none`). Header `X-Ananta-Deadline-Seconds` wird zur `BackendCancellationToken`-Deadline
+(sonst 30 s).
+
+- Ohne `decision_profile` oder mit Feature aus verhaelt sich die Route exakt wie vorher: keine
+  Konfiguration gelesen, kein Dienstkontakt, gleiche Antwortfelder, nur das Audit `voice_command`.
+- `normal_path` (Dienst nicht erreichbar, Timeout, `unauthorized`, ...): die Route laeuft mit demselben
+  Audio in ihre regulaere Voice-Runtime-Pipeline weiter; die Antwort traegt zusaetzlich
+  `audio_decision: {hub_action: "normal_path", error_code, audit_id, grants_permission: false}`.
+- Sonst beantwortet der Decision-Pfad die Anfrage selbst (`path: "audio_decision"`), Voice-Runtime wird
+  nicht aufgerufen.
+- Fehlkonfiguriert: `503 audio_decision.misconfigured` ohne Key-Material; nicht freigegebene
+  Profile/Felder/Fallbacks: `422`, bevor der Dienst kontaktiert wird.
+
+`POST /v1/voice/audio-decisions/command` bleibt als duenne Fassade ueber denselben Helfern (Felder
+`profile`, `field`, `language`, `fallback`; Default-Profil `speech-commands-en`) fuer Aufrufer, die nur die
+typisierte Entscheidung wollen: sie beantwortet `normal_path`, statt zu transkribieren, und antwortet bei
+Feature aus `200 {enabled: false, hub_action: "normal_path", error_code: "audio_decision_disabled"}` ohne das
+Audio zu lesen.
 
 Ablauf: Audio -> `AudioDecisionProvider.decide` -> `DecisionOutcome` -> `gate_audio_decision` mit
-`VoiceCommandAudioDecisionPolicy` -> typisierte Antwort:
+`VoiceCommandAudioDecisionPolicy` -> `dispatch_audio_decision` (Executor/Bestaetigung) -> typisierte Antwort:
 
 | Feld | Inhalt |
 |---|---|
@@ -82,17 +102,44 @@ Ablauf: Audio -> `AudioDecisionProvider.decide` -> `DecisionOutcome` -> `gate_au
 | `decision_kind` | `proposal` / `ranking` / `no_value` / `system2` / `no_decision` |
 | `action` | nur bei `act`/`confirm`: `{type, command, field, profile, confidence, requires_confirmation}` |
 | `policy` | `{verdict, rule}` (Regel-ID aus der Tabelle unten; `policy_error` wenn die Policy warf) |
+| `execution` | bei `act` bzw. Ablehnung durch den Executor: `{status: executed/denied, action_type, error_code, effect, grants_permission: false}` |
+| `confirmation` | nur bei `confirm`: `{confirmation_id, action_type, expires_in_seconds, confirm_route, single_use: true, grants_permission: false}` |
 | `system2` | nur bei `system2`: `{transcript, proposed_goal, matched_from_transcript, requires_approval: true, goal_route: "/v1/voice/goal"}` |
-| `fallback_route` | bei `normal_path`: `/v1/voice/command` (regulaerer Voice-Runtime-Pfad) |
+| `fallback_route` | bei `normal_path`: `/v1/voice/command` |
 | `grants_permission` | immer `false` |
 
-- Feature aus: `200 {enabled: false, hub_action: "normal_path", error_code: "audio_decision_disabled"}`; das
-  Audio wird nicht gelesen, der Dienst nicht kontaktiert, es entsteht kein Audit-Eintrag.
-- Fehlkonfiguriert (aktiviert, aber z. B. ohne Key): `503 audio_decision.misconfigured` ohne Key-Material.
-- Nicht freigegebene Profile/Felder/Fallbacks: `422`, bevor der Dienst kontaktiert wird.
-- Audit `voice_audio_decision_command`: `HubAudioDecision.as_audit_dict()` + Profil + Policy-Regel +
-  Aktionstyp; kein Transkript, kein Label, kein Audio. Das Transkript geht nur in der Antwort an den
-  authentifizierten Aufrufer (wie bei `/v1/voice/command`).
+## Ausfuehrung und Bestaetigung
+
+`VoiceCommandExecutor` (`agent/services/audio_decision_command_executor.py`) ist eine Registry
+`action_type -> Handler` mit exakten Namen: `voice.control.{stop,start,switch_on,switch_off}`,
+`voice.navigate.{up,down,left,right}`, `voice.dialog.{affirm,reject}`. Jeder Handler liefert eine typisierte
+Client-Direktive als `effect` (z. B. `{kind: "navigate", direction: "left"}`). Ein unbekannter Aktionstyp
+(auch `home.*`, Praefixe, Wildcards) wird abgelehnt (`executor.unknown_action_type`), nie geraten.
+
+- `act` (nur aus Policy-Regel P12): unmittelbar vor dem Handler wird die Exposure-Policy (Operation `command`)
+  erneut geprueft; nur ein literales `True` erlaubt die Ausfuehrung (`executor.not_authorized` sonst, auch bei
+  Ausnahmen). Ein `act` ohne Policy-Verdikt `allow`, ohne Aktion oder mit `grants_permission` wird `deny`.
+  Handler-Fehler -> `deny` (`executor.handler_failed`).
+- `confirm`: fuer einen registrierten Aktionstyp entsteht eine Bestaetigung (`vcc-...`, 24 Zufallsbytes),
+  einmal verwendbar, TTL `VOICE_AUDIO_DECISION_CONFIRM_TTL_SECONDS` (Default 30 s, begrenzt auf 5..300),
+  gebunden an Tenant, Subject und die konkrete Aktion (Typ, Wert, Profil, Feld); hoechstens 256 offen. Fuer
+  nicht registrierte Aktionstypen wird keine Bestaetigung ausgestellt (`deny`). Eine offene Bestaetigung ist
+  nie ein allow.
+- `POST /v1/voice/command/confirm` (Auth + Exposure-Operation `command`), JSON
+  `{confirmation_id, action_type, confirmed}`: nur `confirmed: true` (literales Boolean) fuehrt aus,
+  `false` verwirft (`confirmation.rejected`, 200), alles andere ist `422` ohne die Bestaetigung zu
+  verbrauchen. Jede sonstige Verwendung verbraucht die ID: unbekannt `403 confirmation.unknown`, wiederverwendet
+  `403 confirmation.already_used`, abgelaufen `410 confirmation.expired`, fremder Principal
+  `403 confirmation.foreign_binding`, anderer Aktionstyp `403 confirmation.action_mismatch`.
+- `deny`/`ask_again`/`normal_path`: typisierte Antworten, nichts wird ausgefuehrt. `system2`: Uebergabe an den
+  Goal-Pfad `/v1/voice/goal` (dort explizite Freigabe `approved=true`); das Transkript steht nur im
+  `system2`-Block der Antwort an den authentifizierten Aufrufer, nie in Audits/Logs.
+- Der Bestaetigungsspeicher liegt im Prozessspeicher (wie die Hub-Stream-Sessions); der Hub laeuft als ein
+  Prozess. Ein Neustart verwirft offene Bestaetigungen (fail-closed).
+
+Audit (ohne Audio, Transkript, Label, Effekt, Bestaetigungs-ID): `voice_audio_decision_command`
+(`HubAudioDecision.as_audit_dict()` + Profil + Policy-Regel + Aktionstyp + `execution`/`confirmation`) und
+`voice_audio_decision_confirmation` (`confirmed`, `execution: {status, action_type, error_code}`).
 
 ## Hub-Policy (`VoiceCommandAudioDecisionPolicy`)
 
@@ -118,8 +165,8 @@ Katalog: `speech-commands-en` - `stop`, `no`, `up`, `down`, `left`, `right` sind
 (`voice.control.stop`, `voice.dialog.reject`, `voice.navigate.*`); `yes`, `go`, `on`, `off` bestaetigen oder
 aendern Zustand und brauchen immer eine Bestaetigung. `home-control-en` (nur synthetische Stimmen) und
 `confirm-en-de` (experimentell) sind confirm-only; `intent-semantic-experimental` hat keine Aktionen und
-laeuft nur ueber Transkript + System-2. `allow` erzeugt nur eine typisierte Aktion in der Antwort; die Hub-
-Route fuehrt nichts selbst aus.
+laeuft nur ueber Transkript + System-2. `allow` erlaubt nur dem Hub-Executor, eine registrierte Aktion
+mit niedrigem Risiko nach erneuter Exposure-Pruefung auszufuehren; der Wert selbst ist keine Berechtigung.
 
 ## Stream-Sessions
 

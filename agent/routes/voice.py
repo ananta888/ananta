@@ -1412,6 +1412,13 @@ def command():
     (filename, payload), error = _read_audio_field("file")
     if error:
         return error
+    # Primary AudioDecision path; a no-op unless enabled and the request names a decision_profile.
+    # Imported here: voice_audio_decision builds on voice_http_adapter, which imports this module.
+    from agent.routes.voice_audio_decision import audio_decision_primary_path
+
+    decided, audio_decision_note = audio_decision_primary_path(filename, payload)
+    if decided is not None:
+        return decided
     audit_id = f"audit-voice-{uuid.uuid4()}"
     principal = _principal()
     profile_id = str(request.form.get("profile_id") or "default")
@@ -1470,6 +1477,8 @@ def command():
         "result_digest": execution.result_digest,
         "idempotent_replay": execution.idempotent_replay,
     }
+    if audio_decision_note is not None:
+        response["audio_decision"] = audio_decision_note
     log_audit(
         "voice_command",
         {

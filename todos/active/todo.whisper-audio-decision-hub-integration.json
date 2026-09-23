@@ -5,7 +5,7 @@
   "updated_at": "2026-09-23",
   "owner": "Peter Stuiber / Ananta",
   "track": "whisper_audio_decision_hub_integration",
-  "title": "AudioDecision im Hub: Sprachkommando-Route mit Policy, kalibrierter Server-Nachweis, Stream-Sessions",
+  "title": "AudioDecision im Hub: primaerer Pfad von /v1/voice/command, Executor mit Bestaetigung, Policy, kalibrierter Server-Nachweis, Stream-Sessions",
   "status": "done",
   "priority": "P0",
   "status_scale": [
@@ -34,7 +34,7 @@
   "goal": "Audio -> AudioDecisionProvider -> DecisionOutcome -> Hub-Gate + VoiceCommandAudioDecisionPolicy -> typisierte Aktion; ein Decision-Wert erteilt nie eine Berechtigung, Fehler/Enthaltungen werden nie allow, Feature aus bleibt ohne Dienstkontakt.",
   "non_goals": [
     "Fork aendern (nur lesen)",
-    "Aktionen serverseitig ausfuehren (Route liefert nur typisierte Aktionen)",
+    "Geraete-/Heimsteuerung (home.*) ausfuehren: keine Handler registriert, fail-closed",
     "Deployment"
   ],
   "milestones": [
@@ -70,6 +70,16 @@
       "title": "Doku und Nachweis",
       "task_ids": [
         "WADHI-007"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WADHI-M5",
+      "title": "Konsument: Einhaengen in /v1/voice/command und Ausfuehrungspfad mit Bestaetigung",
+      "task_ids": [
+        "WADHI-008",
+        "WADHI-009",
+        "WADHI-010"
       ],
       "status": "done"
     }
@@ -289,6 +299,107 @@
       "evidence": [
         "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
       ]
+    },
+    {
+      "id": "WADHI-008",
+      "milestone_id": "WADHI-M5",
+      "title": "AudioDecision als primaeren Pfad in die bestehende Route POST /v1/voice/command einhaengen",
+      "type": "integration",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-002"
+      ],
+      "acceptance_criteria": [
+        "Feature an + decision_profile: Decision-Pfad beantwortet act/confirm/deny/ask_again/system2; normal_path laeuft mit demselben Audio in die regulaere Voice-Runtime-Pipeline weiter.",
+        "Feature aus oder ohne decision_profile: Route exakt wie vorher (gleiche Antwortfelder, kein Dienstkontakt, keine Konfiguration gelesen).",
+        "Exposure-Policy (Operation command) bleibt immer vorgeschaltet; keine zweite parallele Route-Logik."
+      ],
+      "implemented_solution": "agent/routes/voice.py command(): nach _enforce_voice_policy(\"command\") und dem einmaligen Lesen des Audios ruft die Route audio_decision_primary_path (agent/routes/voice_audio_decision.py, lazy importiert wegen voice_http_adapter -> voice). Ohne decision_profile wird nichts gelesen/gebaut; mit Feature aus None; sonst Validierung (422 vor Dienstkontakt), Entscheidung, dispatch_audio_decision und Audit voice_audio_decision_command (endpoint /v1/voice/command). normal_path faellt in den regulaeren Pfad durch und haengt audio_decision {hub_action, error_code, audit_id, grants_permission:false} an. POST /v1/voice/audio-decisions/command bleibt als duenne Fassade ueber denselben Helfern (_provider_or_error, _decision_parameters, _decide_and_dispatch): bestehende Aufrufer/Tests behalten ihren Vertrag (normal_path beantwortet statt transkribiert), die Logik existiert nur einmal.",
+      "affected_files": [
+        "agent/routes/voice.py",
+        "agent/routes/voice_audio_decision.py",
+        "docs/voice-runtime-audio-decision.md"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_execution.py::test_feature_off_keeps_the_command_route_unchanged (gleiche Antwortfelder, kein Socket, nur Audit voice_command)",
+        "::test_enabled_feature_without_decision_profile_never_builds_the_provider",
+        "::test_exposure_policy_is_enforced_before_the_decision_path",
+        "::test_unusable_decision_falls_through_to_the_regular_pipeline (gleiches Audio an Voice-Runtime)",
+        "::test_invalid_decision_parameters_are_rejected_before_any_contact, ::test_misconfigured_feature_is_a_503_on_the_command_route",
+        "tests/test_voice_audio_decision_route.py (Fassade, 17 passed unveraendert)"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): make AudioDecision the primary path of /v1/voice/command with a confirmed executor) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-009",
+      "milestone_id": "WADHI-M5",
+      "title": "Hub-Command-Executor (Registry action_type -> Handler) mit einmaliger, gebundener Bestaetigung",
+      "type": "integration",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-001",
+        "WADHI-008"
+      ],
+      "acceptance_criteria": [
+        "Unbekannter action_type -> deny (fail-closed, nie raten).",
+        "act nur aus P12 und nur nach erneuter Exposure-Pruefung; jede Ausfuehrung auditiert ohne Audio/Transkript.",
+        "confirm: kurzlebige, einmal verwendbare Bestaetigung gebunden an Principal/Tenant und Aktion; nur ein expliziter Bestaetigungs-Request fuehrt aus; abgelaufen/wiederverwendet/fremd -> deny.",
+        "Decision-Wert erteilt nie eine Berechtigung; Fehler/Timeout/Enthaltung nie allow; grants_permission ueberall False."
+      ],
+      "implemented_solution": "agent/services/audio_decision_command_executor.py: VoiceCommandExecutor mit exakten Handlern fuer voice.control.{stop,start,switch_on,switch_off}, voice.navigate.{up,down,left,right}, voice.dialog.{affirm,reject} (typisierte Client-Direktive als effect); execute prueft Registry, dann authorize() is True (Ausnahme -> nicht autorisiert), Handler-Fehler/Nicht-Mapping -> deny. VoiceCommandConfirmationStore (Prozessspeicher, Lock, vcc-<token_urlsafe(24)>, TTL VOICE_AUDIO_DECISION_CONFIRM_TTL_SECONDS 30 s geklemmt 5..300, max. 256 offen, jede Verwendung verbraucht die ID, Replay-Marker) mit Fehlercodes unknown/already_used/expired/foreign_binding/action_mismatch. dispatch_audio_decision: act nur bei Policy-Verdikt allow, vorhandener Aktion und grants_permission False; confirm nur fuer registrierte Typen (home.* -> deny ohne Bestaetigung); deny/ask_again/system2/normal_path typisiert ohne Ausfuehrung. Route POST /v1/voice/command/confirm (check_auth + Exposure command, JSON {confirmation_id, action_type, confirmed}; nur literales true fuehrt aus, false verwirft, sonst 422 ohne Verbrauch; 410 abgelaufen, 403 sonst) mit Audit voice_audio_decision_confirmation. Audits ohne Audio, Transkript, Label, Effekt und Bestaetigungs-ID.",
+      "affected_files": [
+        "agent/services/audio_decision_command_executor.py",
+        "agent/routes/voice_audio_decision.py",
+        "docs/voice-runtime-audio-decision.md"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_execution.py::test_calibrated_direct_command_is_executed_and_audited",
+        "::test_confirm_issues_a_single_use_confirmation_and_only_an_explicit_request_executes (inkl. Replay)",
+        "::test_expired_confirmation_is_denied, ::test_foreign_principal_cannot_use_and_burns_the_confirmation, ::test_confirmation_is_bound_to_the_concrete_action, ::test_only_a_literal_boolean_confirms, ::test_confirm_route_enforces_auth_and_exposure_policy",
+        "::test_unknown_action_type_is_denied_and_never_guessed, ::test_confirm_for_an_unregistered_action_type_is_denied_without_a_confirmation",
+        "::test_dispatch_never_executes_what_the_hub_policy_did_not_allow, ::test_errors_and_timeouts_never_become_an_allow, ::test_execution_requires_a_positive_authorization",
+        "::test_system2_hands_off_to_the_goal_path_without_logging_the_transcript"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): make AudioDecision the primary path of /v1/voice/command with a confirmed executor) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-010",
+      "milestone_id": "WADHI-M5",
+      "title": "Tests und Regression fuer Einhaengung und Ausfuehrungspfad",
+      "type": "test",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-008",
+        "WADHI-009"
+      ],
+      "acceptance_criteria": [
+        "Unit-Tests fuer an/aus, act, confirm inkl. Ablauf/Replay/fremde Bindung, unbekannter action_type, Audit ohne Audio/Transkript.",
+        "Integrationstests ohne Server SKIPPED; bestehende Voice-Tests gruen."
+      ],
+      "implemented_solution": "tests/test_voice_audio_decision_execution.py (57 Tests): Route-Tests ueber /v1/voice/command, /v1/voice/command/confirm und die Fassade mit gemocktem AudioDecision-HTTP und gemockter Voice-Runtime; Unit-Tests fuer Executor, Store (Uhr injiziert), dispatch und TTL.",
+      "affected_files": [
+        "tests/test_voice_audio_decision_execution.py"
+      ],
+      "verification": [],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): make AudioDecision the primary path of /v1/voice/command with a confirmed executor) (main, lokal, nicht deployed)"
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -296,49 +407,51 @@
     "WADHI-002",
     "WADHI-003",
     "WADHI-004",
-    "WADHI-005"
+    "WADHI-005",
+    "WADHI-008",
+    "WADHI-009"
   ],
   "tasks_status_summary": {
-    "total": 7,
+    "total": 10,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 10
     },
     "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 4,
+      "P0": 7,
       "P1": 3,
       "P2": 0,
       "P3": 0
     },
     "by_risk": {
       "low": 2,
-      "medium": 2,
-      "high": 3
+      "medium": 3,
+      "high": 5
     },
     "critical_path": {
-      "total": 5,
-      "done": 5,
+      "total": 7,
+      "done": 7,
       "remaining": 0
     },
     "milestones": {
-      "total": 4,
+      "total": 5,
       "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "tasks_type_summary": {
-    "total": 7,
+    "total": 10,
     "by_type": {
       "policy": 1,
-      "integration": 2,
-      "test": 2,
+      "integration": 4,
+      "test": 3,
       "integration_test": 1,
       "documentation": 1
     }
@@ -349,19 +462,24 @@
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 7,
-    "milestones_done": 4,
-    "milestones_total": 4
+    "done": 10,
+    "milestones_done": 5,
+    "milestones_total": 5
   },
   "open_points": [
-    "Kein Client/UI nutzt die Route bisher; confirm-Aktionen brauchen einen Bestaetigungsdialog im Client, der die bestaetigte Aktion ueber einen berechtigten Hub-Pfad ausfuehrt.",
+    "Kein Frontend/Client nutzt decision_profile bzw. /v1/voice/command/confirm bisher; die Executor-Handler liefern typisierte Client-Direktiven, der Client muss sie umsetzen.",
     "Stream-Sessions sind im Provider angebunden, aber noch nicht an den Hub-Voice-Stream (/v1/voice/streams) bzw. einen Live-Audio-Pfad gekoppelt.",
     "Kalibrierter Nachweis nur fuer speech-commands-en mit einem Holdout-Clip (stop); home-control-en nur synthetische Stimmen, confirm-en-de Deutsch nicht validiert.",
     "Hub-Routentests im Container nur mit env -u AGENT_TOKEN_FILE gruen (vorbestehende Kollision Token-File vs. Inline-Testtoken, betrifft auch tests/test_voice_api_contract.py).",
-    "Integrationstests brauchen einen manuell gestarteten Server (Host-Build des Forks); im Standard-CI SKIPPED."
+    "Integrationstests brauchen einen manuell gestarteten Server (Host-Build des Forks); im Standard-CI SKIPPED.",
+    "Bestaetigungsspeicher liegt im Prozessspeicher (Hub = ein Prozess); bei mehreren Hub-Prozessen braeuchte er einen geteilten Speicher.",
+    "Idempotency-Key wird im Decision-Pfad nicht ausgewertet: ein wiederholter act-Request fuehrt die (nicht-destruktive) Direktive erneut aus.",
+    "home.* (home-control-en) hat keine Handler: confirm wird dort fail-closed zu deny.",
+    "docs/route-inventory.json nicht regeneriert (enthielt auch die Fassade bisher nicht)."
   ],
   "summary_notes": [
     "Route POST /v1/voice/audio-decisions/command, Policy VoiceCommandAudioDecisionPolicy (P0..P12), Stream-Sessions AudioDecisionStreamSession + gate_stream_event.",
-    "Echter Server 2026-09-23: kalibrierter ok-Fall stop (confidence 0.9994) -> proposal -> act; Stream final ok; Abbruch schliesst Sitzung serverseitig (404)."
+    "Echter Server 2026-09-23: kalibrierter ok-Fall stop (confidence 0.9994) -> proposal -> act; Stream final ok; Abbruch schliesst Sitzung serverseitig (404).",
+    "Konsument: /v1/voice/command nutzt die AudioDecision als primaeren Pfad (decision_profile), Executor fuer voice.control/navigate/dialog.*, einmalige gebundene Bestaetigungen ueber /v1/voice/command/confirm."
   ]
 }
