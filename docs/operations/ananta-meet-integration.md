@@ -65,6 +65,84 @@ Hub/Meet machine trust and all current project/source policies. No existing
 production flag is enabled by installing this feature. Rollback disables this
 allocation flag and retains existing bindings/tombstones and their audit trail.
 
+### Optional public room directory entry
+
+The room server, not the Hub, owns the public room directory and generates every
+room id. `ANANTA_MEET_PUBLIC_ROOM=1` lets the Hub carry an **operator identity**
+to that server, ask it for one public room per project/task, remember the id it
+returned (table `meet_public_rooms`) and write the resulting invite into the
+ordinary Meet binding. The companion then joins that room through its normal
+grant, with no companion change. There is no fallback: an unreachable room
+server or token endpoint is an error, never a silently private or locally
+invented room.
+
+```text
+ANANTA_MEET_PUBLIC_ROOM=1
+MEET_PUBLIC_ROOM_TITLE=Ananta ai-snake
+MEET_ROOM_SERVER_URL=https://webrtc.ananta.de
+MEET_ROOM_TOKEN_URL=https://keycloak.ananta.de/realms/ananta/protocol/openid-connect/token
+MEET_ROOM_CLIENT_ID=webrtc-browser
+MEET_ROOM_SCOPE=openid
+MEET_ROOM_TIMEOUT=10
+ANANTA_MEET_PUBLIC_ROOM_SCOPES=[["EXACT-TENANT","EXACT-PROJECT"]]
+```
+
+Credentials are supplied by the operator and **never** committed — either
+`MEET_ROOM_USERNAME` + `MEET_ROOM_PASSWORD` (resource-owner password grant) or
+`MEET_ROOM_CLIENT_SECRET` (client-credentials grant). Without one of those pairs
+the Hub refuses to start with `meet_public_room_credentials_missing`; without
+the flag the feature simply stays absent. `MEET_ROOM_SERVER_URL` must equal
+`ANANTA_MEET_ORIGIN`, otherwise startup fails with
+`meet_public_room_origin_mismatch` — a directory on a foreign origin would hand
+out an invite this Hub cannot mint. `ANANTA_MEET_PUBLIC_ROOM_SCOPES` is
+optional; unset means every project the calling user may already write to.
+
+The Keycloak client must actually be allowed to issue the chosen grant and must
+carry the `webrtc-room-server` audience. As verified on 2026-09-23, the stock
+`webrtc-browser` client rejects the password grant with `unauthorized_client`
+("Client not allowed for direct access grants"), so the operator either enables
+direct access grants on it or — preferred — registers a dedicated confidential
+client with a service account and an audience mapper and configures that client
+id plus `MEET_ROOM_CLIENT_SECRET`.
+
+Publication runs on the existing authorized Hub user API, with an empty body:
+
+```text
+POST /api/meet/v1/projects/{project}/public-room
+POST /api/meet/v1/projects/{project}/tasks/{task}/public-room
+```
+
+```json
+{"schema":"ananta.meet-public-room.v1","roomId":"room-<18hex>",
+ "inviteUrl":"https://webrtc.ananta.de/?room=room-<18hex>&mode=room",
+ "visibility":"public","reused":false,"revision":1,
+ "project_id":"...","task_id":null}
+```
+
+The call is idempotent. A remembered room that is still listed under
+`publicRooms` is reused; a remembered room the operator turned private is
+re-published with `PATCH /api/rooms/{roomId}`; a room that vanished from the
+directory is re-created. The binding is only written when it does not already
+name that room, so repeating the call burns no revision. A room-server failure
+raises a reason code (`meet_public_room_token_unavailable`,
+`meet_public_room_directory_unavailable`, `meet_public_room_unauthorized`,
+`meet_public_room_visibility_denied`, `meet_public_room_unavailable`) and leaves
+the binding untouched. Disabled publication returns
+`404 meet_public_room_disabled`, a scope outside the allowlist returns
+`403 meet_public_room_denied`.
+
+The companion derives its room from the **project-level** binding
+(`issue_companion` reads task `""`), so only the project form of this route
+changes which room the companion joins; the task form publishes a separate
+public room for human use and leaves the companion where it is.
+
+Creating the directory entry uses the operator identity, but **writing it into
+the binding deliberately stays on the authenticated change path** — the caller
+needs the same project write access (and task-read authority for task bindings)
+as a manual attach. No startup job repoints a project at a public room on its
+own; that is what this route is for. Rollback clears the flag and leaves
+existing bindings, tombstones and the audit trail intact.
+
 ### Capability matrix
 
 | Capability | Version 1 |

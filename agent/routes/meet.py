@@ -93,6 +93,20 @@ def room_allocation(project, task=""):
     return allocate_binding(project, task)
 
 
+@meet_bp.post("/projects/<project>/public-room")
+@meet_bp.post("/projects/<project>/tasks/<task>/public-room")
+@check_user_auth
+def public_room(project, task=""):
+    """Create or refresh the room server's public entry and bind the project."""
+    _runtime()
+    service = current_app.extensions.get("meet_public_room_publication")
+    if service is None:
+        raise MeetError("meet_public_room_disabled", 404)
+    if request.args or request.content_length not in (None, 0) or request.stream.read(1):
+        raise MeetError("meet_public_room_payload_invalid")
+    return jsonify(service.publish(get_authenticated_source_control_principal(), project, task))
+
+
 @meet_bp.post("/projects/<project>/turns")
 @meet_bp.post("/projects/<project>/tasks/<task>/turns")
 @check_user_auth
