@@ -6,7 +6,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "whisper_audio_parallel_decision_runner",
   "title": "Whisper Audio Parallel Decision: wiederverwendbarer typisierter Decision-Runner direkt auf Whisper-Audio",
-  "status": "todo",
+  "status": "in_progress",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -319,7 +319,7 @@
     {
       "id": "WADEC-M7",
       "title": "Ananta-Integration, Dokumentation und Release",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "WADEC-025",
         "WADEC-026",
@@ -913,10 +913,10 @@
       "milestone_id": "WADEC-M7",
       "title": "Ananta AudioDecision Provider/Specialist anbinden",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WADEC-016",
         "WADEC-021",
@@ -932,6 +932,22 @@
       "acceptance_criteria": [
         "Ananta kann Audio -> Decision -> Gate/Fallback reproduzierbar ausfuehren.",
         "Provider-Ausfall oder abstain wird typisiert behandelt und niemals implizit allow."
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit c750f166b (main, lokal, nicht deployed): voice_runtime/backends/audio_decision.py (AudioDecisionProvider, HTTP-only gegen whisper-server des Forks ananta888/whisper.cpp-audio-decision@0c0a00e8, audio.decision.v1; Regeln des Referenz-Clients fail-closed nachgebildet), agent/services/audio_decision_hub_gate.py (typisierte Hub-Abbildung), voice_runtime/app.py (Provider None bei Feature aus), docs/voice-runtime-audio-decision.md.",
+        "Konfiguration: VOICE_AUDIO_DECISION_ENABLED (Default false), VOICE_AUDIO_DECISION_URL, VOICE_AUDIO_DECISION_API_KEY_FILE (Secret-Store /run/secrets) bzw. VOICE_AUDIO_DECISION_API_KEY, VOICE_AUDIO_DECISION_TIMEOUT_MS, VOICE_AUDIO_DECISION_PROFILES (Allowlist), VOICE_AUDIO_DECISION_SEMANTIC_PROFILES (erzwingt fallback=transcribe).",
+        "SafeAudioDecoder/AudioDecodeLimits laufen vor dem Upload; Clips > 30 s, leere/kaputte Audios und nicht erlaubte Profile werden lokal abgelehnt und nie gesendet; BackendCancellationToken senkt Timeout und timeout_ms.",
+        "Hub-Abbildung: ok=false -> no_decision/normal_path; ok+calibrated -> proposal fuer die Hub-Policy (allow/confirm/deny, Policy-Fehler -> deny); ok ohne Kalibrierung -> ranking (hoechstens confirm); abstain/ambiguous/unsupported -> no_value; transcript+system2_required -> system2. grants_permission immer False; Provenienz model/profile id-version-status/n_encode/n_encode_total/fallback.provenance wird mitgefuehrt; Logs nur Metadaten.",
+        "tests/test_voice_audio_decision_provider.py: 51 passed im Container compose-next-ai-agent-hub-1 am 2026-09-23 (gemocktes HTTP fuer alle Ergebnisfaelle und Fehlercodes, Stub-HTTP-Server fuer Auth/Timeout/Unreachable, Feature-aus-Test ohne Dienstkontakt, Log-Privacy).",
+        "tests/test_voice_audio_decision_integration.py: ohne Server/Modell 5 skipped; gegen echten whisper-server (Fork-Build, ggml-base.en.bin, examples/decision/profiles, samples/jfk.wav) 5 passed am 2026-09-23: Profil-Allowlist, Stille -> abstain(no_speech), jfk -> abstain(out_of_set) + Fallback-Transkript -> system2, intent-semantic-experimental -> unsupported + erzwungener Transcribe-Fallback -> system2, falscher Key -> unauthorized -> normal_path.",
+        "Regression: tests/test_voice_runtime_*.py, test_voice_configuration_api.py 234 passed; tests/test_voice_api_contract.py 18 failed (HTTP 401) identisch auch ohne diese Aenderung, also vorbestehend."
+      ],
+      "open_points": [
+        "Hub-Gate ist als Port vorhanden, aber noch in keinen produktiven Voice-Command-/Goal-Flow des Hubs eingehaengt; dafuer braucht es eine konkrete Hub-Policy und eine Route.",
+        "Kein positiver calibrated-ok-Fall gegen den echten Server getestet (kein Kommando-Clip im Repo); home-control-en nur mit synthetischen Stimmen kalibriert, confirm-en-de Deutsch nicht validiert.",
+        "Stream-Sessions (/v1/audio/decisions/sessions) nicht angebunden.",
+        "Fork nicht als Submodule eingebunden (HTTP-only reicht; erstes Submodule wuerde CI/Container-Builds/Indexer betreffen). Wuensche an den Fork in docs/voice-runtime-audio-decision.md."
       ]
     },
     {
@@ -1012,13 +1028,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 27,
+      "todo": 26,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 3.7,
     "by_priority": {
       "P0": 17,
       "P1": 9,
@@ -1032,13 +1048,13 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 0,
-      "remaining": 18
+      "done": 1,
+      "remaining": 17
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 6,
+      "in_progress": 1,
       "partial": 0,
       "blocked": 0,
       "done": 0
@@ -1066,12 +1082,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 27,
+    "state": "in_progress",
+    "todo_remaining": 26,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 1
   },
   "success_criteria": [
     "Ein Audiofile wird genau einmal encodiert und speist mehrere unabhaengige finite Decision-Felder ohne Pflicht-Volltranskript.",
