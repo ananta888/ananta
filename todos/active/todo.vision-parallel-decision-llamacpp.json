@@ -1,0 +1,726 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-23",
+  "updated_at": "2026-09-23",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "vision_parallel_decision_llamacpp",
+  "title": "Vision Parallel Decision: multimodaler Jev-artiger /v1/decision-Pfad fuer llama.cpp und Ananta",
+  "status": "todo",
+  "priority": "P0",
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "purpose": "Den bestehenden parallel-decision-Fork von llama.cpp um echte multimodale Vision-Eingaben erweitern. Bilder sollen ueber den vorhandenen libmtmd-/mmproj-Pfad in den Modellkontext gelangen; anschliessend soll der bestehende Decision-Engine auf dem bereits vorgefuellten KV-Trunk endliche, typisierte Entscheidungen fuer mehrere Felder parallel bewerten. Der Visionpfad soll keine Bildbeschreibung als Zwischentext erzwingen.",
+  "goal": "Ein separates, wartbares GitHub-Fork-Projekt bereitstellen, in dem Open-Weight-Visionmodelle wie Qwen2.5-VL, Gemma 3 oder SmolVLM direkt Bild + optionalen Text als Kontext fuer POST /v1/decision nutzen koennen. Der Output bleibt auf endliche Schemawerte beschraenkt und enthaelt Feldwerte, Scores/Probabilities, Nutzungs- und Timingdaten. Unsichere, abhaengige oder offene Extraktionsaufgaben werden kontrolliert an einen normalen VLM-/System-2-Pfad eskaliert.",
+  "proposed_repository": {
+    "owner": "ananta888",
+    "name": "llama.cpp-vision-decision",
+    "full_name": "ananta888/llama.cpp-vision-decision",
+    "repository_kind": "fork",
+    "fork_source": "thecodacus/llama.cpp",
+    "fork_source_branch": "parallel-decision",
+    "default_work_branch": "vision-decision",
+    "license": "MIT",
+    "notes": [
+      "Der technische Ausgangspunkt ist thecodacus/llama.cpp:parallel-decision, nicht logan-markewich/jeff.",
+      "Der Fork soll die gesamte Upstream-Historie erhalten, damit Rebase/Sync mit llama.cpp und dem parallel-decision-Ursprung moeglich bleibt.",
+      "Vision-Aenderungen moeglichst modular halten, damit spaeter ein Upstream-PR gegen den parallel-decision-Fork oder llama.cpp vorbereitet werden kann."
+    ]
+  },
+  "related_todos": [
+    "todos/active/todo.jev-llamacpp-parallel-decision-mode.json",
+    "todos/active/todo.jeff-local-specialist-gate-adapter.json",
+    "todos/active/todo.gate-benchmark-specialized-model-factory.json"
+  ],
+  "source_references": [
+    {
+      "repository": "thecodacus/llama.cpp",
+      "ref": "parallel-decision",
+      "path": "tools/parallel-decision/README.md",
+      "blob_sha": "69c0dd1191e7fd5eb0f6f75581236b308ac6e9a5",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "Der Fork beschreibt parallele finite JSON-Entscheidungen statt tokenweiser JSON-Generation.",
+        "Felder werden als erlaubte Tokenpfade von demselben KV-Kontext abgezweigt.",
+        "llama-server stellt POST /v1/decision bereit.",
+        "--decision-seqs reserviert Sequenzen und aktiviert Unified-KV fuer geteilte Kontextzellen.",
+        "Schemafelder umfassen enum, boolean, begrenzte integer und number Werte.",
+        "Attention-only, Sliding-Window und Hybrid/Recurrent Modelle haben unterschiedliche Sequenz-/Batch-Eigenschaften."
+      ]
+    },
+    {
+      "repository": "thecodacus/llama.cpp",
+      "ref": "parallel-decision",
+      "path": "tools/server/server-context.cpp",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "Der Server bindet bereits mtmd.h und mtmd-helper.h ein.",
+        "handle_decision akzeptiert aktuell contexts als 1-256 nichtleere Strings.",
+        "handle_decision rendert pro Kontext einen Text-Prompt und ruft decision_engine->decide_batch(shared, dynamic, cs.inputs, opt) auf.",
+        "Der aktuelle Decision-Pfad besitzt daher noch keine multimodale Request-Verarbeitung."
+      ]
+    },
+    {
+      "repository": "thecodacus/llama.cpp",
+      "ref": "parallel-decision",
+      "path": "tools/parallel-decision/decision-engine.cpp",
+      "verified_at": "2026-09-23",
+      "facts": [
+        "decide_batch tokenisiert shared_text und context_text selbst.",
+        "Branches kopieren den KV-Zustand vom Trunk ueber llama_memory_seq_cp.",
+        "Candidate-Scores werden direkt aus llama_get_logits_ith gelesen.",
+        "Tokenpfade mit gemeinsamem Prefix werden ueber Tree-/Greedy-Modi aufgeloest.",
+        "Der Engine ist derzeit textzentriert und braucht fuer Vision einen Einstiegspunkt ab bereits vorgefuelltem multimodalem Trunk."
+      ]
+    },
+    {
+      "repository": "thecodacus/llama.cpp",
+      "ref": "parallel-decision",
+      "path": "LICENSE",
+      "blob_sha": "e7dca554bcb802f98408383a864404e3aa4eacca",
+      "verified_at": "2026-09-23",
+      "facts": ["MIT-Lizenz; Forking und Modifikation sind erlaubt, Copyright-/Lizenzhinweis muss erhalten bleiben."]
+    },
+    {
+      "repository": "ggml-org/llama.cpp",
+      "area": "multimodal/libmtmd",
+      "verified_at": "2026-09-23",
+      "note": "Vor Implementierung gegen den dann aktuellen Upstream-Stand pruefen; keine API-Signaturen aus dieser Todo als eingefroren behandeln."
+    }
+  ],
+  "architecture_decisions": [
+    "Vision wird nicht als separater OCR-Text-Vorlauf implementiert. Das Bild soll direkt ueber libmtmd/mmproj in den VLM-Kontext gelangen.",
+    "Der Decision-Engine soll nicht selbst Bilddateien dekodieren. Multimodales Preprocessing, Vision-Encoding und Prompt-/Embedding-Aufbau bleiben Aufgabe des vorhandenen llama.cpp/mtmd-Pfads.",
+    "Die zentrale neue Schnittstelle ist ein Decision-Einstiegspunkt fuer einen bereits vorgefuellten Kontext/KV-Trunk inklusive korrekter naechster Position und Sequenzidentitaet.",
+    "Text-only /v1/decision muss unveraendert funktionsfaehig bleiben. Vision ist additive Funktionalitaet.",
+    "Fuer den PoC zuerst genau ein Bild pro Kontext und ein VLM. Multi-Image, Multi-Context-Batching und Cache-Optimierungen kommen erst nach korrekter Single-Image-Semantik.",
+    "Erlaubte Decision-Werte bleiben endlich: enum, boolean, bounded integer/number. Freie OCR-/Extraktionswerte wie Rechnungsnummern oder IBAN gehoeren nicht in den Decision-Pfad.",
+    "Schema-valid bedeutet nicht fachlich korrekt. Confidence/Probability wird evaluiert und darf ohne Kalibrierung keine sicherheitsrelevante Freigabe erteilen.",
+    "Cross-Field-Abhaengigkeiten bleiben explizit verboten oder werden sequenziell/System-2 verarbeitet; parallele Felder duerfen einander nicht implizit sehen.",
+    "Keine eigene multimodale Modellabstraktion neben llama.cpp aufbauen. Modellunterstuetzung folgt libmtmd/llama.cpp und wird pro Modell durch Integrationstests verifiziert.",
+    "Image-/Embedding-/KV-Caches muessen Request- und Tenant-Grenzen respektieren. Kein Cache-Key nur aus Dateiname oder URL.",
+    "Der Fork behaelt Upstream-Kompatibilitaet als Designziel: moeglichst wenige invasive Aenderungen in allgemeinen Serverpfaden, neue Logik in klaren Adapter-/Engine-Grenzen.",
+    "Ananta integriert das Projekt als optionalen lokalen Specialist/Provider. Hub-Policies, Berechtigungen und harte Gates bleiben ausserhalb des Forks und autoritativ."
+  ],
+  "non_goals": [
+    "Kein Reverse Engineering oder Nachbau proprietaerer TypeSafe-Jev-Gewichte.",
+    "Kein Ersatz fuer normale multimodale Chat-/Reasoning-Ausgabe.",
+    "Keine freie OCR-Extraktion beliebiger Strings im ersten Decision-Pfad.",
+    "Kein Training eines neuen Visionmodells.",
+    "Keine automatische Klassifikation sicherheitskritischer oder rechtlich folgenreicher Inhalte ohne Ananta-Policy/Fallback.",
+    "Kein Multi-Video-/Realtime-Streaming im ersten Release."
+  ],
+  "target_models": [
+    {
+      "name": "Qwen2.5-VL-3B-Instruct",
+      "role": "primary_poc",
+      "reason": "Kleines VLM als erste lokale Referenz fuer 16 GB VRAM; exakte aktuelle GGUF/mmproj-Verfuegbarkeit vor Implementierung verifizieren."
+    },
+    {
+      "name": "Qwen2.5-VL-7B-Instruct",
+      "role": "quality_baseline",
+      "reason": "Groessere Qwen2.5-VL-Kontrollgruppe fuer Qualitaet/Latenz."
+    },
+    {
+      "name": "Gemma 3 4B",
+      "role": "architecture_baseline",
+      "reason": "Alternative multimodale Architektur und Sliding-Window-/Sequenzverhalten im Decision-Modus testen."
+    },
+    {
+      "name": "SmolVLM2",
+      "role": "small_model_baseline",
+      "reason": "Sehr kleines Visionmodell als Latenz-/Ressourcen-Kontrollgruppe, sofern vom aktuellen llama.cpp/libmtmd sauber unterstuetzt."
+    }
+  ],
+  "target_hardware": {
+    "primary": "RTX 5060 Ti 16 GB + 64 GB RAM",
+    "secondary": "RTX 3080 10 GB + 64 GB RAM, soweit verfuegbar",
+    "cpu_smoke": true,
+    "platforms": ["Linux", "WSL2/Linux soweit GPU-Passthrough stabil", "optional Windows native nach PoC"]
+  },
+  "api_target": {
+    "endpoint": "POST /v1/decision",
+    "backward_compatibility": "Bestehende contexts: [string] Requests bleiben gueltig.",
+    "proposed_multimodal_shape": {
+      "instructions": "Klassifiziere das Dokument.",
+      "schema": {
+        "document_type": {"type": "enum", "choices": ["invoice", "delivery_note", "contract", "other"]},
+        "damaged": {"type": "boolean"},
+        "priority": {"type": "enum", "choices": ["low", "medium", "high"]}
+      },
+      "contexts": [
+        {
+          "content": [
+            {"type": "text", "text": "Bewerte dieses Dokument."},
+            {"type": "image", "image": "<llama.cpp-compatible image payload>"}
+          ]
+        }
+      ]
+    },
+    "note": "Die genaue Wire-Form soll nach Analyse der aktuellen llama-server-Multimodal-API festgelegt werden; vorhandene OpenAI-kompatible Content-Part-Semantik bevorzugen statt ein proprietaeres Ananta-Format zu erfinden."
+  },
+  "milestones": [
+    {
+      "id": "VDEC-M1",
+      "title": "Fork, Baseline und Upstream-Grenzen",
+      "status": "todo",
+      "task_ids": ["VDEC-001", "VDEC-002", "VDEC-003"]
+    },
+    {
+      "id": "VDEC-M2",
+      "title": "Multimodaler Prefill und KV-Trunk",
+      "status": "todo",
+      "task_ids": ["VDEC-004", "VDEC-005", "VDEC-006", "VDEC-007"]
+    },
+    {
+      "id": "VDEC-M3",
+      "title": "Single-Image Vision Decision PoC",
+      "status": "todo",
+      "task_ids": ["VDEC-008", "VDEC-009", "VDEC-010"]
+    },
+    {
+      "id": "VDEC-M4",
+      "title": "Modelle, Batching, Cache und Performance",
+      "status": "todo",
+      "task_ids": ["VDEC-011", "VDEC-012", "VDEC-013", "VDEC-014"]
+    },
+    {
+      "id": "VDEC-M5",
+      "title": "Qualitaet, Sicherheit und System-2-Fallback",
+      "status": "todo",
+      "task_ids": ["VDEC-015", "VDEC-016", "VDEC-017"]
+    },
+    {
+      "id": "VDEC-M6",
+      "title": "Ananta-Integration, CI und Release",
+      "status": "todo",
+      "task_ids": ["VDEC-018", "VDEC-019", "VDEC-020"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "VDEC-001",
+      "milestone_id": "VDEC-M1",
+      "title": "Standalone-Fork aus parallel-decision anlegen und Baseline pinnen",
+      "type": "repository",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "Repository ananta888/llama.cpp-vision-decision als echten Fork von thecodacus/llama.cpp anlegen.",
+        "Als technische Baseline den aktuellen Stand von Branch parallel-decision dokumentieren und exakten Commit-SHA im neuen README/UPSTREAM.md festhalten.",
+        "Arbeitsbranch vision-decision aus der gepinnten Baseline erzeugen; main/default branch nicht fuer experimentelle Zwischenstaende missbrauchen.",
+        "MIT-Lizenz, Copyright und Upstream-Hinweise unveraendert erhalten.",
+        "Remote-/Sync-Strategie dokumentieren: ggml-org/llama.cpp als upstream-main und thecodacus/llama.cpp als upstream-decision."
+      ],
+      "acceptance_criteria": [
+        "Fork ist erreichbar und besitzt nachvollziehbare Fork-Historie.",
+        "UPSTREAM.md nennt beide Upstreams, Baseline-Commit und Sync-/Rebase-Verfahren.",
+        "Keine Source-Datei ist beim initialen Fork bereits funktional veraendert."
+      ]
+    },
+    {
+      "id": "VDEC-002",
+      "milestone_id": "VDEC-M1",
+      "title": "Text-only Decision-Baseline reproduzieren",
+      "type": "baseline",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-001"],
+      "implementation": [
+        "CUDA-Build und CPU-Smoke des Forks reproduzierbar dokumentieren.",
+        "llama-server mit --decision-seqs starten und vorhandenes README-Beispiel gegen /v1/decision ausfuehren.",
+        "Text-only Decision-Ergebnis, timings, usage, cache_prompt und tree/greedy-Modi als Regression-Fixture speichern.",
+        "Normalen Chat-Endpunkt parallel pruefen."
+      ],
+      "acceptance_criteria": [
+        "Text-only /v1/decision funktioniert unveraendert vor jeder Vision-Aenderung.",
+        "Ein automatisierter Baseline-Test kann spaetere Regressionen erkennen."
+      ]
+    },
+    {
+      "id": "VDEC-003",
+      "milestone_id": "VDEC-M1",
+      "title": "Aktuellen libmtmd- und llama-server-Visionpfad quellcodegenau kartieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-001"],
+      "implementation": [
+        "Aktuelle Serverpfade fuer OpenAI-kompatible multimodale Content-Parts, Bild-Download/Base64, mtmd-Chunking, mmproj-Initialisierung und Decode erfassen.",
+        "Ermitteln, wo Texttokens und multimodale Embeddings in gemeinsame Batch-/Positionsdaten ueberfuehrt werden.",
+        "Modellabhaengige Positionslogik insbesondere fuer Qwen2.5-VL dokumentieren; keine Positionswerte aus reinen Texttoken-Zahlen rekonstruieren.",
+        "Relevante interne Strukturen/Funktionen mit Datei, Symbol und Upstream-Commit in docs/vision-decision-architecture.md festhalten."
+      ],
+      "acceptance_criteria": [
+        "Der vorhandene Visionpfad ist als konkreter Call-Flow dokumentiert.",
+        "Der exakte Integrationspunkt vor bzw. nach multimodalem Prefill ist identifiziert.",
+        "Keine eigene Parallel-Implementierung von Bild-Decoding oder Vision-Encoding ist geplant."
+      ]
+    },
+    {
+      "id": "VDEC-004",
+      "milestone_id": "VDEC-M2",
+      "title": "Rueckwaertskompatibles multimodales Decision-Request-Schema definieren",
+      "type": "api",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-002", "VDEC-003"],
+      "implementation": [
+        "Bestehende contexts:[string]-Semantik erhalten.",
+        "Multimodale contexts an vorhandene llama-server/OpenAI-Content-Parts anlehnen: text + image/image_url bzw. die tatsaechlich upstream unterstuetzte Struktur.",
+        "Serverseitige Limits fuer Anzahl Bilder, Bildgroesse, Payloadgroesse und Context-Anzahl einfuehren.",
+        "Remote-URLs nur nutzen, wenn der allgemeine llama-server-Pfad sie bereits sicher unterstuetzt; sonst Base64/Upload oder explizit lokales Testformat.",
+        "Fehlerfaelle fuer unsupported model, missing mmproj, invalid image und mixed unsupported content typisieren."
+      ],
+      "acceptance_criteria": [
+        "Alte Textrequests laufen ohne Aenderung.",
+        "Ein einzelner Vision-Request kann syntaktisch validiert werden, auch bevor der Backendpfad implementiert ist.",
+        "API erfindet keine separate Bildsemantik, wenn vorhandene llama.cpp-Semantik wiederverwendbar ist."
+      ]
+    },
+    {
+      "id": "VDEC-005",
+      "milestone_id": "VDEC-M2",
+      "title": "Multimodalen Prefill in den Decision-Pfad integrieren",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-003", "VDEC-004"],
+      "implementation": [
+        "Vision-Kontext mit vorhandener mtmd-Pipeline verarbeiten und auf einer reservierten Decision-Trunk-Sequenz prefillen.",
+        "Textanteile, Bild-Chunks/Embeddings und modellabhaengige Positionsdaten genau ueber vorhandene llama.cpp-Helfer aufbauen.",
+        "Nach dem Prefill die tatsaechliche naechste Position/Sequenzinformation an den Decision-Engine uebergeben.",
+        "Keine Zwischen-Bildbeschreibung generieren.",
+        "Prefill-/Vision-Encode-Zeit getrennt von Decision-Scoring messen."
+      ],
+      "acceptance_criteria": [
+        "Ein Bild wird vom VLM verarbeitet und hinterlaesst einen gueltigen multimodalen KV-Trunk.",
+        "Der Trunk kann ohne erneutes Bild-Encoding fuer mehrere Decision-Felder verwendet werden.",
+        "Text-only Pfad bleibt unveraendert."
+      ]
+    },
+    {
+      "id": "VDEC-006",
+      "milestone_id": "VDEC-M2",
+      "title": "Decision-Engine um Prefilled-Trunk-API erweitern",
+      "type": "core",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-005"],
+      "implementation": [
+        "Neue Engine-Schnittstelle entwerfen, die einen existierenden llama_seq_id/KV-Trunk und korrekte Fortsetzungsposition akzeptiert.",
+        "Bestehende decide/decide_batch-Text-APIs auf denselben internen Branch-Scoring-Kern fuehren, ohne duplizierte Tree-/Greedy-Logik.",
+        "llama_memory_seq_cp nur auf gueltige multimodale Sequenzbereiche anwenden.",
+        "Branch-Sequenzen nach jedem Request sicher entfernen und keine mtmd-/KV-Reste zwischen Requests leaken."
+      ],
+      "acceptance_criteria": [
+        "Decision-Scoring funktioniert auf einem extern vorgefuellten Text-Trunk und einem multimodalen Trunk.",
+        "Tree-, Greedy- und Auto-Modus liefern weiterhin konsistente Kandidatenscores.",
+        "Keine doppelte Decision-Engine fuer Vision entsteht."
+      ]
+    },
+    {
+      "id": "VDEC-007",
+      "milestone_id": "VDEC-M2",
+      "title": "Positions-, Sequenz- und Cache-Korrektheit fuer VLMs absichern",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-005", "VDEC-006"],
+      "implementation": [
+        "Tests fuer Bild vor Text, Text vor Bild und die upstream-zulaessigen Mischformen erstellen.",
+        "Modellabhaengige Positionslogik nicht aus token_count ableiten, sondern gegen normalen llama-server-Visionpfad vergleichen.",
+        "Sequence-copy nach multimodalem Prefill auf identische bzw. erwartbar aequivalente Logits fuer kontrollierte Kandidaten pruefen.",
+        "Cache-Hit darf nur bei identischem statischem Prefix und korrektem multimodalem Zustand gelten."
+      ],
+      "acceptance_criteria": [
+        "Keine Off-by-one- oder Positionsregression in kontrollierten Logit-Vergleichen.",
+        "Wiederholte Requests liefern reproduzierbare Entscheidungen und keine Cross-Request-Kontamination.",
+        "Fehlende/inkompatible Positionierungsunterstuetzung wird als harter Modellblocker ausgewiesen."
+      ]
+    },
+    {
+      "id": "VDEC-008",
+      "milestone_id": "VDEC-M3",
+      "title": "Qwen2.5-VL-3B Single-Image PoC implementieren",
+      "type": "poc",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-007"],
+      "implementation": [
+        "Aktuell funktionierende GGUF-/mmproj-Kombination fuer Qwen2.5-VL-3B verifizieren und Revision pinnen.",
+        "Ein Bild + optionaler kurzer Text + drei unabhaengige Decision-Felder ausfuehren.",
+        "Beispiel: document_type enum, damaged boolean, priority enum.",
+        "Ausgabe muss decision, fields/probabilities, image/prompt usage und getrennte timings enthalten."
+      ],
+      "acceptance_criteria": [
+        "End-to-End POST /v1/decision akzeptiert ein reales Bild und liefert ausschliesslich erlaubte Werte.",
+        "Keine autoregressive Bildbeschreibung wird erzeugt.",
+        "Normaler Qwen2.5-VL Chat funktioniert mit derselben geladenen Modellinstanz weiterhin."
+      ]
+    },
+    {
+      "id": "VDEC-009",
+      "milestone_id": "VDEC-M3",
+      "title": "Vision-Decision gegen normale VLM-JSON-Ausgabe funktional vergleichen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-008"],
+      "implementation": [
+        "Identische Bildfaelle einmal ueber /v1/decision und einmal ueber normale Chat-/Grammar-/JSON-Ausgabe desselben VLMs laufen lassen.",
+        "Syntax-/Schema-Gueltigkeit, fachliche Korrektheit, Latenz, Prefill, Decode/Scoring und VRAM getrennt erfassen.",
+        "Mindestens Kategorien, Ja/Nein und mehrklassige Priorisierung testen.",
+        "Keine Schlussfolgerung aus Einzelbeispielen; reproduzierbare Fixtures verwenden."
+      ],
+      "acceptance_criteria": [
+        "Ein maschinenlesbarer Vergleichsreport existiert.",
+        "Der Geschwindigkeitsgewinn wird getrennt fuer Vision-Prefill und eingesparte autoregressive Ausgabe ausgewiesen.",
+        "Schema-Gueltigkeit wird nicht mit fachlicher Richtigkeit verwechselt."
+      ]
+    },
+    {
+      "id": "VDEC-010",
+      "milestone_id": "VDEC-M3",
+      "title": "Grenze zwischen Decision und freier Vision-Extraktion festschreiben",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-008", "VDEC-009"],
+      "implementation": [
+        "Decision-freundliche Aufgaben definieren: Dokumenttyp, Zustand, boolesche Merkmale, begrenzte Skalen, Routing, Moderation.",
+        "Offene Extraktion explizit ausnehmen: Rechnungsnummer, IBAN, Name, frei variabler Betrag/String, lange OCR.",
+        "Optionalen Hybridpfad dokumentieren: Decision entscheidet, ob/wofuer anschliessend normale VLM-/OCR-Extraktion benoetigt wird.",
+        "Ananta-Contracts sollen Decision-Resultate und Extraction-Resultate typseitig unterscheiden."
+      ],
+      "acceptance_criteria": [
+        "README und API-Doku enthalten klare Positiv-/Negativbeispiele.",
+        "Kein Entwickler muss freie Strings in kuenstliche riesige Enums pressen."
+      ]
+    },
+    {
+      "id": "VDEC-011",
+      "milestone_id": "VDEC-M4",
+      "title": "Gemma 3 und SmolVLM als Architektur-Baselines testen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-008"],
+      "implementation": [
+        "Aktuelle llama.cpp/libmtmd-Unterstuetzung fuer mindestens ein Gemma-3-Visionmodell und ein kleines SmolVLM verifizieren.",
+        "Decision-Sequenzbedarf, Sliding-Window-/Attention-Verhalten, VRAM und Branch-Batching messen.",
+        "Inkompatible Modelle nicht durch Sonderpfade erzwingen; Blocker mit exaktem llama.cpp-/mtmd-Grund dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Kompatibilitaetsmatrix fuer mindestens drei Visionmodellfamilien oder belegte technische Blocker vorhanden.",
+        "Qwen-spezifische Annahmen sind aus generischer Engine-Logik entfernt."
+      ]
+    },
+    {
+      "id": "VDEC-012",
+      "milestone_id": "VDEC-M4",
+      "title": "Multi-Context- und Multi-Image-Semantik schrittweise erweitern",
+      "type": "core",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-008", "VDEC-011"],
+      "implementation": [
+        "Zuerst mehrere unabhaengige Single-Image-Kontexte in einem Request batchen.",
+        "Danach optional mehrere Bilder innerhalb eines Kontexts nur falls der jeweilige VLM-/mtmd-Pfad dies sauber unterstuetzt.",
+        "Shared Schema/Instructions weiter cachen, aber Bildzustand niemals versehentlich zwischen Kontexten teilen.",
+        "Gruppierung nach kompatiblen Shapes/Architekturen nur als Performance-Optimierung einfuehren, nicht als Korrektheitsvoraussetzung."
+      ],
+      "acceptance_criteria": [
+        "Ergebnisreihenfolge entspricht Eingabereihenfolge.",
+        "Jedes Bild beeinflusst nur seinen eigenen Kontext.",
+        "Batching kann deaktiviert werden, um Referenzresultate seriell zu reproduzieren."
+      ]
+    },
+    {
+      "id": "VDEC-013",
+      "milestone_id": "VDEC-M4",
+      "title": "Vision-/Prefix-/KV-Caching sicher optimieren",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-012"],
+      "implementation": [
+        "Bestehendes statisches Schema-/Instructions-Prefix weiterverwenden.",
+        "Pruefen, ob identische Bild-Embeddings oder multimodale Prefills innerhalb klarer Request-/Cache-Grenzen wiederverwendet werden koennen.",
+        "Cache-Key muss Modellrevision, mmproj, Bildinhalt-Digest, Preprocessingparameter, Promptanteile und relevante Runtime-Konfiguration binden.",
+        "Keine persistenten Image-Caches als Default; Datenschutz und Speicherbedarf dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Cache-Hit liefert dasselbe Decision-Ergebnis innerhalb definierter numerischer Toleranzen.",
+        "Geaendertes Bild oder geaenderter mmproj erzwingt Cache-Miss.",
+        "Cache kann global deaktiviert werden."
+      ]
+    },
+    {
+      "id": "VDEC-014",
+      "milestone_id": "VDEC-M4",
+      "title": "RTX 5060 Ti 16 GB Performance- und Speicherprofil erstellen",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-009", "VDEC-011", "VDEC-012"],
+      "implementation": [
+        "Qwen2.5-VL-3B primaer auf RTX 5060 Ti 16 GB messen; optional 7B und RTX 3080 10 GB als Vergleich.",
+        "Vision-Encoding, Text-Prefill, Decision-Scoring, Gesamt-p50/p95, VRAM-Peak, RAM, Batchgroesse und Decision-Sequenzen erfassen.",
+        "Warm/Cold und Single/Batch separat ausweisen.",
+        "OOM-/Queue-Full-/Context-Full-Verhalten kontrolliert testen."
+      ],
+      "acceptance_criteria": [
+        "Reproduzierbare Benchmarkdatei mit Hardware, Modellrevision, Quantisierung und Runtime-Flags vorhanden.",
+        "Es gibt keine pauschale Millisekundenbehauptung ohne Bildgroesse/Modell/Hardware-Kontext."
+      ]
+    },
+    {
+      "id": "VDEC-015",
+      "milestone_id": "VDEC-M5",
+      "title": "Vision-Decision-Benchmarkdatensatz fuer Ananta aufbauen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-009", "VDEC-010"],
+      "implementation": [
+        "Versionierte Bildfaelle fuer Dokumenttyp, sichtbares Merkmal, Zustand, einfache Prioritaet und Routing erstellen.",
+        "DE/EN-Instruktionen getrennt testen, sofern die Aufgabe sprachabhaengig ist.",
+        "Schwierige Faelle aufnehmen: schlechte Beleuchtung, Rotation, kleine Schrift, mehrere Objekte, unklare Klasse, adversariale sichtbare Texte/Prompt-Injection.",
+        "Train/Validation/Holdout trennen; kein automatisches VLM-Label als Ground Truth akzeptieren."
+      ],
+      "acceptance_criteria": [
+        "Datensatz besitzt Provenance/Rechte/Labels und eingefrorenen Holdout.",
+        "Mindestens einfache und bewusst ambige/abstain-wuerdige Faelle enthalten."
+      ]
+    },
+    {
+      "id": "VDEC-016",
+      "milestone_id": "VDEC-M5",
+      "title": "Probability/Confidence kalibrieren und System-2-Abstain definieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-015"],
+      "implementation": [
+        "Accuracy/Macro-F1/Precision/Recall sowie Brier Score/ECE und Risk-Coverage pro Modell/Aufgabe messen.",
+        "Abstain-Schwellen nur auf Validation-Daten bestimmen.",
+        "Bei Unsicherheit, nicht erlaubter Aufgabenklasse, Cross-Field-Abhaengigkeit oder offenem Extraktionsbedarf an normalen VLM-/System-2-Pfad eskalieren.",
+        "Hohe Confidence darf harte Ananta-Policies nicht ueberschreiben."
+      ],
+      "acceptance_criteria": [
+        "Kalibrierungsreport und task-spezifische Schwellen vorhanden.",
+        "Holdout bleibt bei Threshold-Wahl unangetastet.",
+        "Fallback ist bounded und erzeugt keine rekursiven Schleifen."
+      ]
+    },
+    {
+      "id": "VDEC-017",
+      "milestone_id": "VDEC-M5",
+      "title": "Security, Prompt-Injection und Tenant-/Cache-Isolation testen",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-013", "VDEC-015", "VDEC-016"],
+      "implementation": [
+        "Bilder mit sichtbaren Instruktionen testen, die Schema/Policy umgehen oder neue Labels erzwingen wollen.",
+        "Ergebnis bleibt strikt auf erlaubte Werte begrenzt; fachliche Fehlklassifikation wird separat erfasst.",
+        "Remote-Image-URLs gegen SSRF-/Download-Limits absichern oder im Fork standardmaessig deaktivieren, falls Upstream keinen sicheren Pfad garantiert.",
+        "Cross-Request-/Cross-Tenant-Cache-Leakage, grosse Bildbomben, kaputte Dateien und Ressourcenerschöpfung testen.",
+        "Keine Bilddaten oder extrahierten sensitiven Inhalte in Standardlogs."
+      ],
+      "acceptance_criteria": [
+        "Adversarial Tests erzeugen keine Schemaausbrueche und keine unerlaubten Netzwerkzugriffe.",
+        "Cache-/Tenant-Isolation ist durch Tests belegt.",
+        "Ressourcenlimits enden mit typisiertem Fehler statt Prozessabsturz."
+      ]
+    },
+    {
+      "id": "VDEC-018",
+      "milestone_id": "VDEC-M6",
+      "title": "Ananta VisionDecision Provider/Specialist anbinden",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-016", "VDEC-017"],
+      "implementation": [
+        "Optionalen lokalen Provider fuer /v1/decision anbinden; Base-URL, Modellprofil, Timeout, Limits und Fallback konfigurierbar.",
+        "Bestehende Specialist-/Gate-Vertraege wiederverwenden und Vision-spezifische Metadaten additiv ergaenzen.",
+        "Input-Bilder nur fuer explizit zugelassene Tasks an den Provider senden.",
+        "DecisionResult, Confidence, Modell-/mmproj-Revision, timings und Provenance im Ananta-Audit erfassen.",
+        "Feature-off muss Ananta ohne den Fork unveraendert starten und funktionieren lassen."
+      ],
+      "acceptance_criteria": [
+        "Ein Ananta-Test kann Bild -> lokaler VisionDecision-Specialist -> Hub-Gate -> Ergebnis reproduzierbar ausfuehren.",
+        "Provider-Ausfall fuehrt zu konfiguriertem fallback/blocked, nicht zu implizitem allow."
+      ]
+    },
+    {
+      "id": "VDEC-019",
+      "milestone_id": "VDEC-M6",
+      "title": "CI, Upstream-Sync und Regression-Suite einrichten",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-017", "VDEC-018"],
+      "implementation": [
+        "CPU/Text-only Tests in Standard-CI ohne Modellgewichte laufen lassen.",
+        "Vision-Contracttests mit Fake/Fixture-Pfaden und optionale echte GPU-Smokes getrennt markieren.",
+        "Regelmaessigen Upstream-Vergleich mit ggml-org/llama.cpp und thecodacus/parallel-decision dokumentieren; keine automatischen blind rebase/force-push.",
+        "Konflikt-sensitive Dateien und erwartete Integrationspunkte in UPSTREAM.md pflegen.",
+        "Text-only Decision- und normaler multimodaler Chatpfad als Pflichtregression behalten."
+      ],
+      "acceptance_criteria": [
+        "CI ist headless und ohne GPU reproduzierbar.",
+        "Fehlende Gewichte gelten als skip/not-run, niemals als bestandener Visionmodelltest.",
+        "Upstream-Sync kann ohne Verlust eigener Commits nachvollzogen werden."
+      ]
+    },
+    {
+      "id": "VDEC-020",
+      "milestone_id": "VDEC-M6",
+      "title": "Dokumentation, Playground und Release-/Upstream-Entscheidung abschliessen",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["VDEC-014", "VDEC-018", "VDEC-019"],
+      "implementation": [
+        "README mit Build, Visionmodellstart, curl-Beispiel, Limitierungen und Decision-vs-Extraction-Abgrenzung erstellen.",
+        "Bestehenden decision-playground optional um Bild-Upload und Side-by-Side VisionDecision vs normal VLM erweitern oder separates kleines Demo-Frontend bereitstellen.",
+        "Benchmarkresultate und empfohlene RTX-5060-Ti-Konfiguration dokumentieren.",
+        "Pruefen, welche Teile als sauberer Upstream-PR geeignet sind; projektspezifische Ananta-Integration nicht in llama.cpp mischen.",
+        "Release-Status festlegen: experimental, beta oder production-ready pro Modellprofil."
+      ],
+      "acceptance_criteria": [
+        "Ein neuer Entwickler kann Fork bauen, Modell starten und einen Bild-Decision-Request ohne internes Wissen reproduzieren.",
+        "Bekannte Grenzen und Sicherheitsannahmen sind sichtbar dokumentiert.",
+        "Upstream-/Fork-Strategie fuer weitere Wartung ist entschieden."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "VDEC-001",
+    "VDEC-002",
+    "VDEC-003",
+    "VDEC-004",
+    "VDEC-005",
+    "VDEC-006",
+    "VDEC-007",
+    "VDEC-008",
+    "VDEC-009",
+    "VDEC-015",
+    "VDEC-016",
+    "VDEC-017",
+    "VDEC-018",
+    "VDEC-019",
+    "VDEC-020"
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 10, "P1": 10, "P2": 0},
+    "by_risk": {"low": 4, "medium": 9, "high": 7, "critical": 0},
+    "critical_path": {"total": 15, "done": 0, "remaining": 15},
+    "milestones": {"total": 6, "todo": 6, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "repository": 1,
+      "baseline": 1,
+      "research": 1,
+      "api": 1,
+      "core": 3,
+      "testing": 2,
+      "poc": 1,
+      "evaluation": 5,
+      "architecture": 1,
+      "performance": 2,
+      "security": 1,
+      "integration": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 20,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "success_criteria": [
+    "Der separate Fork baut reproduzierbar und behaelt Text-only /v1/decision sowie normalen multimodalen llama-server-Betrieb.",
+    "Mindestens Qwen2.5-VL-3B kann ein reales Bild direkt in einen typisierten /v1/decision-Request einspeisen, ohne vorgelagerte Bildbeschreibung.",
+    "Multimodaler Prefill und Decision-Branches teilen denselben korrekten KV-Trunk und nutzen modellgerechte Positionen.",
+    "Enum/Boolean/bounded numeric Ergebnisse bleiben schema-gueltig; fachliche Genauigkeit und Kalibrierung werden separat gemessen.",
+    "Unsichere oder ungeeignete Aufgaben eskalieren kontrolliert an System-2/normalen VLM-Pfad.",
+    "Auf RTX 5060 Ti 16 GB liegen reproduzierbare Latenz-, VRAM- und Qualitaetsmessungen fuer mindestens ein Visionmodell vor.",
+    "Ananta kann den lokalen VisionDecision-Provider optional verwenden, ohne Hub-Policies oder deterministische Gates zu umgehen.",
+    "CI, Upstream-Sync, Dokumentation und Lizenz-/Fork-Provenance sind wartbar."
+  ],
+  "deliverables": [
+    "GitHub-Fork ananta888/llama.cpp-vision-decision",
+    "UPSTREAM.md mit Fork-/Rebase-Strategie",
+    "docs/vision-decision-architecture.md",
+    "Rueckwaertskompatibles multimodales /v1/decision-Request-Schema",
+    "Prefilled-Trunk-API im Decision-Engine",
+    "libmtmd-basierter Vision-Prefill fuer Decision-Requests",
+    "Qwen2.5-VL-3B End-to-End PoC",
+    "VisionDecision-vs-normal-VLM Benchmark-Suite",
+    "Modellkompatibilitaetsmatrix",
+    "Kalibrierungs-/Abstain-Report",
+    "Security-/Isolation-Tests",
+    "Ananta VisionDecision Provider/Specialist",
+    "CI-/GPU-Smoke-Konfiguration",
+    "README/Playground-Beispiel und Releaseentscheidung"
+  ],
+  "summary_notes": [
+    "Nur Planungsartefakt: keine Vision-Implementierung und keine Benchmarkergebnisse werden mit dieser Todo als erledigt behauptet.",
+    "Der passende technische Fork-Ursprung ist thecodacus/llama.cpp:parallel-decision. Jeff/GLiFormer bleibt ein separates Projekt und ist nicht die Source-Basis dieses Forks.",
+    "Der Kern des Vorhabens ist nicht ein neuer Vision-Encoder, sondern die saubere Verbindung des vorhandenen libmtmd-Prefills mit dem vorhandenen parallelen Decision-Scoring auf einem geteilten KV-Trunk."
+  ]
+}
