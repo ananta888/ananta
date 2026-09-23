@@ -14,6 +14,9 @@ module turns its outcome into a typed route; the hub's own policy decides what m
 
 A decision value never grants a permission; errors, timeouts and abstentions never become
 an implicit allow or a default label.
+
+Stream sessions (``gate_stream_event``): only a non-debounced ``final`` event reaches the gate;
+``partial`` results are provisional, and ``speech_start``/``revoked``/``dropped`` carry no value.
 """
 from __future__ import annotations
 
@@ -21,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Mapping, Protocol
 
-from voice_runtime.backends.audio_decision import DecisionOutcome, FieldOutcome
+from voice_runtime.backends.audio_decision import DecisionOutcome, FieldOutcome, StreamEvent
 
 
 class AudioDecisionKind(str, Enum):
@@ -182,3 +185,16 @@ def gate_audio_decision(
         reasons=reasons,
         provenance=provenance,
     )
+
+
+def gate_stream_event(
+    event: StreamEvent,
+    *,
+    field_name: str,
+    policy: PolicyLike,
+) -> HubAudioDecision | None:
+    """Gate one stream event; ``None`` means "no hub action" (not final, or a debounced repeat)."""
+    if not event.is_final or event.debounced:
+        return None
+    outcome = event.outcome if event.outcome is not None else DecisionOutcome.failure("bad_response")
+    return gate_audio_decision(outcome, field_name=field_name, policy=policy)

@@ -7,6 +7,14 @@ Reported as SKIPPED (never as passed) unless a real server is available:
   ``VOICE_AUDIO_DECISION_IT_PROFILES_DIR``: the test starts the server on 127.0.0.1 itself.
 
 Optional: ``VOICE_AUDIO_DECISION_IT_AUDIO`` (a speech clip <= 30 s, e.g. the fork's samples/jfk.wav).
+
+Calibrated ok case (``speech-commands-en`` on ``ggml-base.en.bin``): ``VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO``
+is a single spoken command word, ideally a Speech Commands v0.02 clip from the holdout split (the
+profile's calibration used the other speakers), and ``VOICE_AUDIO_DECISION_IT_COMMAND_LABEL`` its label
+(default ``stop``). Without a clip the test is SKIPPED, never passed.
+
+Stream sessions need a VAD model on the server (``--decision-vad-model``; for a self-started server
+``VOICE_AUDIO_DECISION_IT_VAD_MODEL``); a server without one answers ``not_configured`` -> SKIPPED.
 """
 from __future__ import annotations
 
@@ -22,8 +30,22 @@ from pathlib import Path
 
 import pytest
 
-from agent.services.audio_decision_hub_gate import AudioDecisionKind, HubAction, gate_audio_decision
-from voice_runtime.backends.audio_decision import FIELD_STATUSES, AudioDecisionConfig, AudioDecisionProvider
+from agent.services.audio_decision_command_policy import VoiceCommandAudioDecisionPolicy
+from agent.services.audio_decision_command_service import run_audio_decision_command
+from agent.services.audio_decision_hub_gate import (
+    AudioDecisionKind,
+    HubAction,
+    PolicyVerdict,
+    gate_audio_decision,
+    gate_stream_event,
+)
+from voice_runtime.backends.audio_decision import (
+    FIELD_STATUSES,
+    AudioDecisionConfig,
+    AudioDecisionProvider,
+    StreamOptions,
+)
+from voice_runtime.execution_control import BackendCancellationToken
 
 pytestmark = pytest.mark.integration
 
@@ -65,9 +87,13 @@ def server():
         pytest.skip("no real whisper-server/model available (set VOICE_AUDIO_DECISION_IT_* to run)")
     key = secrets.token_urlsafe(24)
     port = _free_port()
+    command = [binary, "-m", model, "--host", "127.0.0.1", "--port", str(port), "--decision-profiles", profiles,
+               "--decision-api-key", key, "--decision-workers", "2"]
+    vad_model = os.environ.get("VOICE_AUDIO_DECISION_IT_VAD_MODEL", "").strip()
+    if vad_model and Path(vad_model).is_file():
+        command += ["--decision-vad-model", vad_model]
     process = subprocess.Popen(
-        [binary, "-m", model, "--host", "127.0.0.1", "--port", str(port), "--decision-profiles", profiles,
-         "--decision-api-key", key, "--decision-workers", "2"],
+        command,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -168,3 +194,102 @@ def test_wrong_key_is_unauthorized_and_takes_the_normal_path(server):
     )
     assert outcome.ok is False and outcome.error_code == "unauthorized"
     assert gate_audio_decision(outcome, field_name="command", policy=_allow).action is HubAction.NORMAL_PATH
+
+
+# --- calibrated ok case (speech-commands-en on base.en) -------------------------------------------
+
+CALIBRATED_MODEL = "base/v51864/l6/f1"  # ggml-base.en.bin, the profile's calibration entry
+
+
+def _command_clip() -> tuple[bytes, str]:
+    path = os.environ.get("VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO", "").strip()
+    if not path or not Path(path).is_file():
+        pytest.skip(
+            "no spoken command clip available (set VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO to a Speech Commands "
+            "clip, e.g. sc/stop/<speaker>_nohash_<n>.wav, and VOICE_AUDIO_DECISION_IT_COMMAND_LABEL)"
+        )
+    label = os.environ.get("VOICE_AUDIO_DECISION_IT_COMMAND_LABEL", "stop").strip()
+    return Path(path).read_bytes(), label
+
+
+def test_calibrated_ok_command_is_a_policy_checked_proposal(server):
+    clip, label = _command_clip()
+    outcome = _provider(*server).decide(
+        filename="command.wav", content=clip, profile="speech-commands-en", fields=("command",), language="en"
+    )
+    assert outcome.ok, outcome.error_code
+    if outcome.provenance.model != CALIBRATED_MODEL:
+        pytest.skip(f"server model {outcome.provenance.model} has no calibration entry (needs ggml-base.en.bin)")
+    command = outcome.fields["command"]
+    assert command.status == "ok", command.reasons
+    assert command.value == label
+    assert command.calibrated is True and command.confidence is not None and 0.0 < command.confidence <= 1.0
+    assert outcome.provenance.profile_id == "speech-commands-en" and outcome.provenance.n_encode == 1
+
+    policy = VoiceCommandAudioDecisionPolicy()
+    hub = gate_audio_decision(outcome, field_name="command", policy=policy)
+    assert hub.kind is AudioDecisionKind.PROPOSAL and hub.value == label and hub.grants_permission is False
+    # The same calibrated value is still only a proposal: the hub policy decides.
+    assert gate_audio_decision(outcome, field_name="command", policy=lambda _p: "deny").action is HubAction.DENY
+    action = policy.action_for("speech-commands-en", "command", label)
+    assert action is not None
+    confident = command.confidence >= policy.allow_min_confidence
+    expected = HubAction.ACT if action.direct and confident else HubAction.CONFIRM
+    assert hub.action is expected
+
+    flow = run_audio_decision_command(
+        _provider(*server), filename="command.wav", content=clip, profile="speech-commands-en",
+        field_name="command", language="en", fallback="transcribe", policy=policy,
+    ).as_response()
+    assert flow["decision_kind"] == "proposal" and flow["hub_action"] == expected.value
+    assert flow["action"]["type"] == action.action_type and flow["grants_permission"] is False
+    assert flow["policy"]["verdict"] in {PolicyVerdict.ALLOW.value, PolicyVerdict.CONFIRM.value}
+
+
+# --- stream sessions ---------------------------------------------------------------------------------
+
+
+def _open_stream(provider: AudioDecisionProvider, **kwargs):
+    opened = provider.open_stream(profile="speech-commands-en", fields=("command",), language="en", **kwargs)
+    if not opened.ok and opened.error_code == "not_configured":
+        pytest.skip("server has no --decision-vad-model; stream sessions are not configured")
+    assert opened.ok, opened.error_code
+    return opened.session
+
+
+def test_stream_session_finalizes_the_command_clip(server):
+    clip, label = _command_clip()
+    provider = _provider(*server)
+    pcm = provider.decode_pcm(filename="command.wav", content=clip)
+    assert isinstance(pcm, bytes), getattr(pcm, "error_code", None)
+    silence = b"\x00\x00" * 16_000  # 1 s
+    with _open_stream(provider, options=StreamOptions(min_silence_ms=300)) as session:
+        pushed = session.push(silence + pcm + silence, flush=True)
+        assert pushed.ok, pushed.error_code
+        finals = [event for event in pushed.events if event.is_final]
+        assert finals, [event.type for event in pushed.events]
+        final = finals[0]
+        assert final.outcome is not None and final.outcome.ok, final.outcome
+        assert final.outcome.provenance.profile_id == "speech-commands-en"
+        hub = gate_stream_event(final, field_name="command", policy=VoiceCommandAudioDecisionPolicy())
+        assert hub is not None and hub.grants_permission is False
+        if final.outcome.fields["command"].status == "ok":
+            assert hub.value == label and hub.action in {HubAction.ACT, HubAction.CONFIRM}
+        else:
+            assert hub.value is None and hub.action in {HubAction.ASK_AGAIN, HubAction.SYSTEM2}
+    assert session.closed
+    # A closed session refuses further pushes locally (remote deletion: see the cancellation test).
+    assert session.push(silence).error_code == "session_closed"
+
+
+def test_stream_session_cancellation_closes_the_server_session(server):
+    provider = _provider(*server)
+    session = _open_stream(provider)
+    token = BackendCancellationToken(deadline_monotonic=time.monotonic() + 10)
+    token.cancel()
+    result = session.push(b"\x00\x00" * 1600, cancellation_token=token)
+    assert result.ok is False and result.error_code == "cancelled" and result.events == () and session.closed
+    status, _body = provider._send(
+        "GET", f"/v1/audio/decisions/sessions/{session.session_id}", body=None, content_type=None, timeout_s=5
+    )
+    assert status == 404

@@ -117,6 +117,7 @@ from agent.routes.vector_store_control import vector_store_control_bp
 from agent.routes.visual_process import vp_bp
 from agent.routes.visual_process_assistant import visual_process_assistant_bp
 from agent.routes.voice import voice_bp
+from agent.routes.voice_audio_decision import voice_audio_decision_bp
 from agent.routes.voice_configuration import voice_configuration_bp
 from agent.routes.voice_governance import voice_governance_bp
 from agent.routes.voice_live_runs import voice_live_runs_bp
@@ -183,6 +184,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(ml_intern_speech_adapters_bp)
     app.register_blueprint(openai_compat_bp)
     app.register_blueprint(voice_bp)
+    app.register_blueprint(voice_audio_decision_bp)
     app.register_blueprint(voice_configuration_bp)
     app.register_blueprint(voice_governance_bp)
     app.register_blueprint(voice_live_runs_bp)

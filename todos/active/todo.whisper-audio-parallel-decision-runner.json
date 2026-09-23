@@ -948,7 +948,9 @@
         "Kein positiver calibrated-ok-Fall gegen den echten Server getestet (kein Kommando-Clip im Repo); home-control-en nur mit synthetischen Stimmen kalibriert, confirm-en-de Deutsch nicht validiert.",
         "Stream-Sessions (/v1/audio/decisions/sessions) nicht angebunden.",
         "Fork nicht als Submodule eingebunden (HTTP-only reicht; erstes Submodule wuerde CI/Container-Builds/Indexer betreffen). Wuensche an den Fork in docs/voice-runtime-audio-decision.md."
-      ]
+      ],
+      "follow_up_track": "todos/active/todo.whisper-audio-decision-hub-integration.json",
+      "open_points_status": "Punkte 1-3 (Hub-Route + Policy, kalibrierter ok-Fall gegen echten Server, Stream-Sessions) umgesetzt in WADHI-001..007 (2026-09-23); Punkt 4 (Submodule) bleibt bewusst offen."
     },
     {
       "id": "WADEC-026",

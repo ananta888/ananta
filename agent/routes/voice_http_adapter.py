@@ -6,6 +6,9 @@ its private names while the monolith is reduced incrementally.
 """
 
 from agent.routes.voice import (
+    _deadline_seconds as deadline_seconds,
+)
+from agent.routes.voice import (
     _enforce_voice_policy as enforce_voice_policy,
 )
 from agent.routes.voice import (
@@ -31,6 +34,7 @@ from agent.routes.voice import (
 )
 
 __all__ = [
+    "deadline_seconds",
     "enforce_voice_policy",
     "execute_hub_voice_request",
     "governance_error",

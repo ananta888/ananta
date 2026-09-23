@@ -1,0 +1,367 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-23",
+  "updated_at": "2026-09-23",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "whisper_audio_decision_hub_integration",
+  "title": "AudioDecision im Hub: Sprachkommando-Route mit Policy, kalibrierter Server-Nachweis, Stream-Sessions",
+  "status": "done",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "parent": {
+    "track": "todos/active/todo.whisper-audio-parallel-decision-runner.json",
+    "task_id": "WADEC-025"
+  },
+  "purpose": "Die offenen Punkte 1-3 aus WADEC-025 umsetzen: gate_audio_decision in einen echten Voice-Command-Ablauf des Hubs mit konkreter Policy einhaengen, einen kalibrierten ok-Fall gegen den echten whisper-server nachweisen und die Stream-Sessions des Servers typisiert anbinden.",
+  "goal": "Audio -> AudioDecisionProvider -> DecisionOutcome -> Hub-Gate + VoiceCommandAudioDecisionPolicy -> typisierte Aktion; ein Decision-Wert erteilt nie eine Berechtigung, Fehler/Enthaltungen werden nie allow, Feature aus bleibt ohne Dienstkontakt.",
+  "non_goals": [
+    "Fork aendern (nur lesen)",
+    "Aktionen serverseitig ausfuehren (Route liefert nur typisierte Aktionen)",
+    "Deployment"
+  ],
+  "milestones": [
+    {
+      "id": "WADHI-M1",
+      "title": "Hub-Verdrahtung, Policy und Route",
+      "task_ids": [
+        "WADHI-001",
+        "WADHI-002",
+        "WADHI-003"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WADHI-M2",
+      "title": "Kalibrierter ok-Fall gegen echten Server",
+      "task_ids": [
+        "WADHI-004"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WADHI-M3",
+      "title": "Stream-Sessions",
+      "task_ids": [
+        "WADHI-005",
+        "WADHI-006"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "WADHI-M4",
+      "title": "Doku und Nachweis",
+      "task_ids": [
+        "WADHI-007"
+      ],
+      "status": "done"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WADHI-001",
+      "milestone_id": "WADHI-M1",
+      "title": "Konkrete Hub-Policy VoiceCommandAudioDecisionPolicy (AudioDecisionPolicy-Implementierung) mit Regeltabelle",
+      "type": "policy",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Jede Entscheidung nennt eine Regel-ID (P0..P12); erste passende Regel gewinnt.",
+        "allow nur fuer kalibrierte, sichere, direkte Aktionen mit niedrigem Risiko; alles andere confirm/deny.",
+        "Policy-Fehler -> deny; ein Decision-Wert erteilt nie selbst eine Berechtigung."
+      ],
+      "implemented_solution": "agent/services/audio_decision_command_policy.py: deterministische Regeltabelle P0 permission-claim deny, P1 kein Wert deny, P2 unbekanntes Profil/Feld deny, P3 unbekanntes Label deny (exakter Typvergleich, 1 != True), P4 Aktionstyp nicht freigegeben deny, P5 unbekannter Profilstatus deny, P6 ranking confirm, P7 ohne Konfidenz deny, P8 experimentell/confirm-only confirm, P9 Modell nicht kalibriert confirm, P10 Konfidenz < 0.9 confirm, P11 Aktion braucht Bestaetigung confirm, P12 allow. Katalog: speech-commands-en (stop/no/up/down/left/right direkt; yes/go/on/off nur confirm), home-control-en und confirm-en-de confirm-only, intent-semantic-experimental ohne Aktionen (nur System-2).",
+      "affected_files": [
+        "agent/services/audio_decision_command_policy.py"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_command_policy.py::test_policy_rules_are_deterministic_and_named (20 Faelle)",
+        "tests/test_voice_audio_decision_command_policy.py::test_permitted_action_types_restrict_the_catalog"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-002",
+      "milestone_id": "WADHI-M1",
+      "title": "Hub-Verdrahtung: Sprachkommando-Route POST /v1/voice/audio-decisions/command (Audio -> Provider -> DecisionOutcome -> Gate -> typisierte Aktion)",
+      "type": "integration",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-001"
+      ],
+      "acceptance_criteria": [
+        "Route fuehrt Audio ueber Provider und gate_audio_decision mit der Hub-Policy zu einer typisierten Aktion (act/confirm/deny/ask_again/system2/normal_path).",
+        "Feature aus: Route antwortet normal_path ohne Dienstkontakt und ohne Audio zu lesen; Ananta-Start unveraendert.",
+        "Audit/Logs ohne Audio, Transkript, Label, Key."
+      ],
+      "implemented_solution": "agent/services/audio_decision_command_service.py (lazy get_audio_decision_provider aus der Umgebung, bei Feature aus None ohne weitere Konfiguration; run_audio_decision_command zeichnet die Policy-Regel auf; AudioDecisionCommandResult.as_response/as_audit_dict) und agent/routes/voice_audio_decision.py (Blueprint voice_audio_decision_bp, registriert in agent/bootstrap/routes.py; check_auth + Exposure-Operation command; Body-Limit; 422 fuer nicht freigegebene Profile/Felder/Fallbacks vor Dienstkontakt; 503 audio_decision.misconfigured ohne Key; Deadline ueber X-Ananta-Deadline-Seconds -> BackendCancellationToken). System-2: Transkript + proposed_goal mit requires_approval=true und goal_route /v1/voice/goal; normal_path verweist auf /v1/voice/command. voice_http_adapter exportiert deadline_seconds. Die Route importiert kein voice_runtime (Architekturgrenze tests/test_voice_restricted_architecture_boundaries.py); Token und Konfigurationsfehler kommen ueber den Service.",
+      "affected_files": [
+        "agent/services/audio_decision_command_service.py",
+        "agent/routes/voice_audio_decision.py",
+        "agent/routes/voice_http_adapter.py",
+        "agent/bootstrap/routes.py"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_route.py (17 passed): Feature aus ohne Socket-Kontakt und ohne Audit, 401 ohne Auth, 503 fehlkonfiguriert, act/confirm/ranking, Fehler/Timeout/abstain nie act, System-2 mit Transkript nur in der Antwort, 422 vor Dienstkontakt",
+        "tests/test_voice_audio_decision_command_policy.py::test_command_flow_*"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-003",
+      "milestone_id": "WADHI-M1",
+      "title": "Harte Regeln des Gates testen: keine Berechtigung aus Werten, Fehler/Enthaltung nie allow, calibrated nur Vorschlag, uncalibrated hoechstens confirm, System-2",
+      "type": "test",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-001",
+        "WADHI-002"
+      ],
+      "acceptance_criteria": [
+        "Jede harte Regel hat mindestens einen gezielten Test ueber gate_audio_decision und die Route."
+      ],
+      "implemented_solution": "Gezielte Tests: grants_permission immer False und nur Policy-allow ergibt act; 7 Fehlercodes -> normal_path ohne Policy-Aufruf; abstain/ambiguous/unsupported/kaputter Status mit Streuwert -> ask_again ohne Wert; Policy-Exception und unbekanntes Verdikt -> deny; unkalibriertes ok mit allow-Policy -> confirm; Transkript + system2_required -> system2, Audit transkriptfrei.",
+      "affected_files": [
+        "tests/test_voice_audio_decision_command_policy.py",
+        "tests/test_voice_audio_decision_route.py"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_command_policy.py: 43 passed (Container compose-next-ai-agent-hub-1, 2026-09-23)"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-004",
+      "milestone_id": "WADHI-M2",
+      "title": "Kalibrierter ok-Fall (speech-commands-en, base.en) gegen echten whisper-server",
+      "type": "integration_test",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-002"
+      ],
+      "acceptance_criteria": [
+        "Echter Server mit ggml-base.en.bin liefert fuer einen Kommando-Clip status=ok, calibrated=true, confidence; Gate -> proposal; Policy entscheidet.",
+        "Ohne Clip/Server ehrlich SKIPPED, nie bestanden."
+      ],
+      "implemented_solution": "tests/test_voice_audio_decision_integration.py::test_calibrated_ok_command_is_a_policy_checked_proposal: Clip ueber VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO/_LABEL (Speech Commands v0.02, Holdout-Split, nicht im Repo), prueft ok/calibrated/confidence/Provenienz, proposal, deny-Policy -> deny, erwartete Aktion aus Policy-Regeln, und den kompletten run_audio_decision_command-Ablauf. Anderes Server-Modell -> SKIPPED (keine Kalibrierung). Fork unveraendert.",
+      "affected_files": [
+        "tests/test_voice_audio_decision_integration.py",
+        "docs/voice-runtime-audio-decision.md"
+      ],
+      "verification": [
+        "2026-09-23: Fork-Build build/bin/whisper-server (ananta888/whisper.cpp-audio-decision@0c0a00e8) mit ggml-base.en.bin, examples/decision/profiles, ggml-silero-v6.2.0.bin auf 172.19.0.1:8081 gestartet, Test im Container: 8 passed; Server danach beendet.",
+        "Clip sc/stop/f9643d42_nohash_3.wav (holdout): status=ok value=stop calibrated=true confidence=0.99942 model=base/v51864/l6/f1 profile speech-commands-en 0.2.0 beta -> proposal -> P12_direct_low_risk -> act voice.control.stop.",
+        "Ohne Server: 8 skipped (RUN_INTEGRATION_TESTS=1, keine VOICE_AUDIO_DECISION_IT_*)."
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-005",
+      "milestone_id": "WADHI-M3",
+      "title": "Stream-Sessions des Servers anbinden (typisierte Events, Abbruch per BackendCancellationToken, keine impliziten Werte)",
+      "type": "integration",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [],
+      "acceptance_criteria": [
+        "open/push/flush/close typisiert, jeder Fehler ok=False ohne Werte.",
+        "Abbruch vor/waehrend Push verwirft Ergebnisse und schliesst die Sitzung.",
+        "Nur nicht-entprellte final-Events erreichen das Hub-Gate.",
+        "Logs ohne Audio/Transkript/Label/Key."
+      ],
+      "implemented_solution": "voice_runtime/backends/audio_decision.py: StreamOptions (lokal validiert), AudioDecisionProvider.open_stream/decode_pcm, AudioDecisionStreamSession.push/flush/close (Chunking auf max_chunk_bytes <= 1 MiB, flush nur am letzten Chunk, lokales Audio-Limit, 404 -> session_expired, 409/413/429 lassen offen, Transport/Timeout/kaputte Antwort schliessen), StreamEvent/StreamPushResult/StreamOpenResult; Event-Ergebnisse ueber parse_decision_response (fail-closed, Profilabgleich). Gemeinsame Request-Validierung _request_body fuer decide und Streams. HttpClientTransport reicht den Query-String weiter (vorher verworfen). agent/services/audio_decision_hub_gate.py: gate_stream_event.",
+      "affected_files": [
+        "voice_runtime/backends/audio_decision.py",
+        "agent/services/audio_decision_hub_gate.py"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_stream.py (gemocktes HTTP + Stub-HTTP-Server fuer den Query-String)",
+        "tests/test_voice_audio_decision_integration.py::test_stream_session_finalizes_the_command_clip, ::test_stream_session_cancellation_closes_the_server_session: gegen echten Server passed (speech_start, final ok confidence=0.9994; nach Abbruch GET -> 404)"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-006",
+      "milestone_id": "WADHI-M3",
+      "title": "Unit-Tests fuer Stream-Session-Faelle mit gemocktem HTTP; Integrationstests ohne Server skippen",
+      "type": "test",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-005"
+      ],
+      "acceptance_criteria": [
+        "Open-/Push-/Close-Fehler, Event-Typen, Abbruch, Timeout, Chunking, Privacy abgedeckt.",
+        "Ohne Server SKIPPED."
+      ],
+      "implemented_solution": "tests/test_voice_audio_decision_stream.py: Request-Body, semantischer Fallback, ungueltige Optionen lokal, Allowlist, Open-Fehler (not_configured, too_many_sessions, unauthorized, kaputte ID/JSON, Timeout, unreachable), Sample-Rate-Mismatch schliesst, Event-Typen inkl. unbekannter/ohne seq ignoriert, final ohne/kaputtes Ergebnis -> no_decision, gate_stream_event (partial/debounced -> None), Chunking/flush, lokale Limits, Abbruch vor/waehrend Push, abgelaufene Deadline, Timeout-Begrenzung, Push-Fehlercodes, idempotentes close, Log-Privacy.",
+      "affected_files": [
+        "tests/test_voice_audio_decision_stream.py",
+        "tests/test_voice_audio_decision_integration.py"
+      ],
+      "verification": [
+        "tests/test_voice_audio_decision_stream.py: 41 passed (Container, 2026-09-23)",
+        "Integration ohne Server: SKIPPED"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    },
+    {
+      "id": "WADHI-007",
+      "milestone_id": "WADHI-M4",
+      "title": "Doku, Regression und Todo-Nachweis",
+      "type": "documentation",
+      "status": "done",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 100,
+      "depends_on": [
+        "WADHI-002",
+        "WADHI-004",
+        "WADHI-005"
+      ],
+      "acceptance_criteria": [
+        "docs/voice-runtime-audio-decision.md beschreibt Route, Policy, Stream-Sessions und Integrationstest-Lauf.",
+        "Bestehende Voice-Tests bleiben gruen; Validatoren gruen."
+      ],
+      "implemented_solution": "docs/voice-runtime-audio-decision.md um Sprachkommando-Route, Policy-Regeltabelle, Stream-Sessions und Server-Start fuer den Container-Lauf ergaenzt; Hinweis env -u AGENT_TOKEN_FILE fuer Hub-Routentests im Container. Parent-Track WADEC-025 verweist auf diesen Track.",
+      "affected_files": [
+        "docs/voice-runtime-audio-decision.md",
+        "todos/active/todo.whisper-audio-decision-hub-integration.json",
+        "todos/active/todo.whisper-audio-parallel-decision-runner.json"
+      ],
+      "verification": [
+        "Regression 2026-09-23 im Container (env -u AGENT_TOKEN_FILE): tests/test_voice_*.py 616 passed, 9 skipped (inkl. test_voice_api_contract.py, test_voice_restricted_architecture_boundaries.py, test_voice_runtime_*); tests/test_voice_audio_decision_provider.py weiterhin gruen.",
+        "python3 devtools/validate_todo_schema.py todos/active/todo.whisper-audio-decision-hub-integration.json",
+        "python3 scripts/validate_todo_consistency.py --todo todos/active/todo.whisper-audio-decision-hub-integration.json"
+      ],
+      "completed_at": "2026-09-23",
+      "evidence": [
+        "Commit: dieser Commit (feat(voice): wire AudioDecision into a hub voice command route ...) (main, lokal, nicht deployed)"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "WADHI-001",
+    "WADHI-002",
+    "WADHI-003",
+    "WADHI-004",
+    "WADHI-005"
+  ],
+  "tasks_status_summary": {
+    "total": 7,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 7
+    },
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P0": 4,
+      "P1": 3,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 2,
+      "high": 3
+    },
+    "critical_path": {
+      "total": 5,
+      "done": 5,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 4
+    }
+  },
+  "tasks_type_summary": {
+    "total": 7,
+    "by_type": {
+      "policy": 1,
+      "integration": 2,
+      "test": 2,
+      "integration_test": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "done",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 7,
+    "milestones_done": 4,
+    "milestones_total": 4
+  },
+  "open_points": [
+    "Kein Client/UI nutzt die Route bisher; confirm-Aktionen brauchen einen Bestaetigungsdialog im Client, der die bestaetigte Aktion ueber einen berechtigten Hub-Pfad ausfuehrt.",
+    "Stream-Sessions sind im Provider angebunden, aber noch nicht an den Hub-Voice-Stream (/v1/voice/streams) bzw. einen Live-Audio-Pfad gekoppelt.",
+    "Kalibrierter Nachweis nur fuer speech-commands-en mit einem Holdout-Clip (stop); home-control-en nur synthetische Stimmen, confirm-en-de Deutsch nicht validiert.",
+    "Hub-Routentests im Container nur mit env -u AGENT_TOKEN_FILE gruen (vorbestehende Kollision Token-File vs. Inline-Testtoken, betrifft auch tests/test_voice_api_contract.py).",
+    "Integrationstests brauchen einen manuell gestarteten Server (Host-Build des Forks); im Standard-CI SKIPPED."
+  ],
+  "summary_notes": [
+    "Route POST /v1/voice/audio-decisions/command, Policy VoiceCommandAudioDecisionPolicy (P0..P12), Stream-Sessions AudioDecisionStreamSession + gate_stream_event.",
+    "Echter Server 2026-09-23: kalibrierter ok-Fall stop (confidence 0.9994) -> proposal -> act; Stream final ok; Abbruch schliesst Sitzung serverseitig (404)."
+  ]
+}
