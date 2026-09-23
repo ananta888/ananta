@@ -69,6 +69,22 @@ def decode_identity(grant):
     return {"task_id": claims["taskId"], "runtime_id": claims["runtimeId"], "session_id": claims["sessionId"]}
 
 
+ROOM_JSON = os.environ.get("MEET_COMPANION_ROOM_JSON", "/state/room.json")
+
+
+def advertise_room(room_id):
+    """Log and persist the room id + invite url so it can be found without the log."""
+    url = "%s/?room=%s&mode=room" % (ORIGIN, room_id)
+    log("ROOM %s %s" % (room_id, url))
+    try:
+        Path(ROOM_JSON).write_text(
+            json.dumps({"room_id": room_id, "invite_url": url, "project": PROJECT}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError as error:  # noqa: BLE001
+        log("room_write_err %r" % (error,))
+
+
 def fetch_grant(identity=None):
     key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
     body = encode({"project_id": PROJECT, "capabilities": CAPABILITIES, **(identity or {})})
@@ -242,7 +258,10 @@ def avatar_ports(page, avatar_source, speech_source):
             [generation, offset, base64.b64encode(chunk).decode()],
         )
 
-    return AvatarPorts(avatar_open, avatar_close, speech_open, speech_push)
+    def speech_status():
+        return page.evaluate("() => window.anantaMachine.speech.status()")
+
+    return AvatarPorts(avatar_open, avatar_close, speech_open, speech_push, speech_status=speech_status)
 
 
 def speak(page, source_id, pcm, *, ports=None, avatar_generation=None):
@@ -311,7 +330,7 @@ def run():
                         log("RENEWERR %r" % (error,))
 
             def _on_console(message):
-                text = str(message.text)[:300]
+                text = str(message.text)[:1200]
                 if "[e2eedbg]" in text or message.type in ("error", "warning"):
                     log("CONSOLE %s %s" % (message.type, text))
 
@@ -331,6 +350,7 @@ def run():
                 avatar_on, codecompass_enabled(), tools_enabled(), rag_prefix_enabled()))
             log_lipsync_service()
             log("grant room=%s exp=%s" % (grant["room_id"], grant.get("expires_at")))
+            advertise_room(grant["room_id"])
             page.evaluate("(a) => window.anantaMachine.join(a[0], a[1])", [grant["room_id"], grant["grant"]])
             for _ in range(30):
                 state = page.evaluate("() => window.anantaMachine.status()")
@@ -374,6 +394,9 @@ def run():
                         json.dumps(state.get("chat") or [], default=str)[:400]))
 
                 # Keep the synthetic avatar published so the tile is always visible.
+                # The open itself creates the camera publication that drives the
+                # media-key handshake, so it must run even while e2ee is pending;
+                # the client-side setup timeout gives the handshake time to land.
                 if avatar_on and (avatar_generation is None or now - avatar_opened > AVATAR_REFRESH_SECONDS):
                     try:
                         if avatar_generation is not None:

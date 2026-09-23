@@ -25,9 +25,16 @@ from worker.meet_media.snake_avatar_timeline import MICROSECONDS, SpeechMediaTim
 
 SPEECH_RATE = 22050
 FRAME_SAMPLES = 441
-# Keep ~120 ms of lead over real-time playback: enough to survive jitter,
-# within the bounded queue (never "meet_speech_buffer_exceeded").
-PUSH_LEAD_SECONDS = 0.12
+# The client accepts at most 4410 queued samples (200 ms). Keep a much smaller
+# steady lead, never push past the client queue, and swap avatar clips slightly
+# early so the (blocking) browser call falls inside the buffered audio instead
+# of stalling the audio loop.
+PUSH_LEAD_SECONDS = 0.06
+PRE_SWAP_SECONDS = 0.18
+QUEUE_LIMIT_SAMPLES = 4410
+QUEUE_MARGIN_SAMPLES = 2 * FRAME_SAMPLES
+# If a swap unavoidably stalls us, re-anchor instead of bursting to catch up.
+REANCHOR_AFTER_SECONDS = 0.35
 
 
 @dataclass
@@ -40,6 +47,7 @@ class AvatarPorts:
     speech_push: object  # (generation, offset, chunk_bytes) -> None
     clock: object = time.monotonic
     sleep: object = time.sleep
+    speech_status: object = None  # () -> {bufferedSamples, ...}
 
 
 def _clip(samples, seconds, *, state, repeat, start_frame=0, frames=None, encoder=None):
@@ -140,21 +148,31 @@ class SpeechAvatarPublisher:
         offset = 0
         while offset < total or pending:
             now = ports.clock()
-            if pending and now >= anchor + pending[0][0].start_sample / SPEECH_RATE:
-                segment, clip = pending.pop(0)
+            # Swap the avatar *before* the segment boundary so the blocking
+            # browser call is covered by already buffered audio.
+            if pending and now >= anchor + pending[0][0].start_sample / SPEECH_RATE - PRE_SWAP_SECONDS:
+                _segment, clip = pending.pop(0)
                 generation = self._swap_clip(generation, clip)
                 video_started.append(int(ports.clock() * MICROSECONDS))
+            # Never push past the client queue, and never burst after a stall.
+            buffered = self._buffered_samples()
+            if buffered is not None and buffered + FRAME_SAMPLES > QUEUE_LIMIT_SAMPLES - QUEUE_MARGIN_SAMPLES:
+                ports.sleep(FRAME_SAMPLES / SPEECH_RATE)
+                continue
             if offset < total:
                 if segments and len(audio_pushed) < len(segments) and offset >= segments[len(audio_pushed)].start_sample:
                     audio_pushed.append(int(now * MICROSECONDS))
                 chunk = pcm[offset * 2:(offset + FRAME_SAMPLES) * 2]
                 ports.speech_push(speech_generation, offset, chunk)
                 offset += FRAME_SAMPLES
+                if (now - anchor) - offset / SPEECH_RATE > REANCHOR_AFTER_SECONDS:
+                    # A stalled swap ran long: re-anchor instead of catching up.
+                    anchor = now - offset / SPEECH_RATE
                 target = anchor + (offset / SPEECH_RATE) - PUSH_LEAD_SECONDS
             else:
                 target = anchor + pending[0][0].start_sample / SPEECH_RATE
             if pending:
-                target = min(target, anchor + pending[0][0].start_sample / SPEECH_RATE)
+                target = min(target, anchor + pending[0][0].start_sample / SPEECH_RATE - PRE_SWAP_SECONDS)
             delay = target - ports.clock()
             if delay > 0:
                 ports.sleep(delay)
@@ -172,6 +190,18 @@ class SpeechAvatarPublisher:
             push_lead_us=int(PUSH_LEAD_SECONDS * MICROSECONDS),
         )
         return generation, report
+
+    def _buffered_samples(self):
+        """Client-side queued samples, or None when the port is unavailable."""
+        status = self.ports.speech_status
+        if not callable(status):
+            return None
+        try:
+            report = status()
+        except Exception:  # noqa: BLE001
+            return None
+        value = report.get("bufferedSamples") if isinstance(report, dict) else None
+        return value if isinstance(value, int) and value >= 0 else None
 
     def _swap_clip(self, generation, clip):
         if generation is not None:
