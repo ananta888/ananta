@@ -26,6 +26,7 @@ from worker.meet_media.avatar_service import (
     service_enabled,
     service_url,
 )
+from worker.meet_media.companion_chat_ledger import ChatLedger, port_closed, serve_batch
 from worker.meet_media.companion_flags import (
     avatar_enabled,
     codecompass_enabled,
@@ -373,7 +374,7 @@ def run():
             chat_opened = False
             last_chat_attempt = 0.0
             last_status_log = 0.0
-            processed = set()
+            ledger = ChatLedger()
 
             last_seen = 0
             last_renew = time.time()
@@ -394,6 +395,11 @@ def run():
                     log("STATE peers=%s e2ee=%s chat=%s %s" % (
                         state.get("peers"), state.get("e2ee"), len(state.get("chat") or []),
                         json.dumps(state.get("chat") or [], default=str)[:400]))
+                # Reconcile with the client's chat state: answers already shown
+                # count as answered; delivered-never inputs are reported by ID.
+                ledger.observe(state.get("chat"))
+                for missing in ledger.gaps():
+                    log("chat_gap id=%s undelivered" % missing[:8])
 
                 # Keep the synthetic avatar published so the tile is always visible.
                 # The open itself creates the camera publication that drives the
@@ -428,44 +434,42 @@ def run():
                         log("chat_poll_err %r" % (error,))
                         batch = None
                         # The chat queue closes on session renewal (lease
-                        # generation changes); reopen it on the next loop.
+                        # generation changes). Reopen at once: the client holds
+                        # unacknowledged inputs only until the next open().
                         chat_opened = False
+                        if port_closed(error):
+                            last_chat_attempt = 0.0
                     if batch and batch.get("events"):
-                        for item in batch["events"]:
-                            event = item.get("event", {}) or {}
+
+                        def answer(event, deliver):
+                            nonlocal avatar_generation, avatar_opened
                             text = str(event.get("text", "") or "")
-                            message_id = str(event.get("message_id", "") or "")
-                            sender = str(event.get("sender_peer_id", "") or "")
-                            if not text or not message_id or message_id in processed:
-                                continue
-                            processed.add(message_id)
-                            if len(processed) > 512:
-                                processed.clear()
-                            log("RECV %s: %s" % (sender, text[:140]))
-                            try:
-                                # thinking -> speaking -> idle: the state is
-                                # visible while the model and TTS are working.
-                                avatar_generation = show_state(ports, avatar_generation, THINKING, avatar_on)
-                                reply = generate_reply(text)
-                                log("REPLY %s" % reply[:140])
-                                try:
-                                    page.evaluate(
-                                        "(a) => window.anantaMachine.chat.reply(a[0], a[1])", [message_id, reply]
-                                    )
-                                except Exception as error:  # noqa: BLE001
-                                    log("chat_reply_err %r" % (error,))
-                                pcm = synthesize_pcm(reply)
-                                avatar_generation = speak(
-                                    page, speech_source, pcm, ports=ports, avatar_generation=avatar_generation
-                                )
-                                avatar_opened = time.time()
-                                avatar_generation = show_state(ports, avatar_generation, IDLE, avatar_on)
-                            except Exception as error:  # noqa: BLE001
-                                log("reply_err %r" % (error,))
-                        try:
-                            page.evaluate("(c) => window.anantaMachine.chat.ack(c)", batch.get("cursor"))
-                        except Exception as error:  # noqa: BLE001
-                            log("chat_ack_err %r" % (error,))
+                            log("RECV %s: %s" % (event.get("sender_peer_id", ""), text[:140]))
+                            # thinking -> speaking -> idle: the state is
+                            # visible while the model and TTS are working.
+                            avatar_generation = show_state(ports, avatar_generation, THINKING, avatar_on)
+                            reply = generate_reply(text)
+                            log("REPLY %s" % reply[:140])
+                            deliver(reply)
+                            pcm = synthesize_pcm(reply)
+                            avatar_generation = speak(
+                                page, speech_source, pcm, ports=ports, avatar_generation=avatar_generation
+                            )
+                            avatar_opened = time.time()
+                            avatar_generation = show_state(ports, avatar_generation, IDLE, avatar_on)
+
+                        serve_batch(
+                            batch,
+                            ledger,
+                            send=lambda message_id, reply: page.evaluate(
+                                "(a) => window.anantaMachine.chat.reply(a[0], a[1])", [message_id, reply]
+                            ),
+                            # The batch has no top-level cursor: ACK the highest
+                            # delivered one, only after the inputs were handled.
+                            ack=lambda cursor: page.evaluate("(c) => window.anantaMachine.chat.ack(c)", cursor),
+                            answer=answer,
+                            log=log,
+                        )
 
                 if now - last_renew > RENEW_INTERVAL:
                     try:

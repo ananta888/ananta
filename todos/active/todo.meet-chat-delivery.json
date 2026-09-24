@@ -1,0 +1,161 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.meet-chat-delivery",
+  "title": "Meet-Chat: keine verlorenen Nutzernachrichten bei Session-Erneuerung",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "meet-chat-delivery",
+  "status": "in_progress",
+  "created_at": "2026-09-24",
+  "updated_at": "2026-09-24",
+  "purpose": "Eine Chat-Nachricht des Menschen ging verloren, weil der Machine-Chat-Kanal bei jeder Lease-Erneuerung (~40 s) geschlossen, geleert und neu geoeffnet wurde (Log: chat_poll_err meet_chat_closed -> chat opened).",
+  "goal": "Unbeantwortete Human-Nachrichten ueberleben Close/Reopen, werden nach dem Reopen genau einmal verarbeitet und beantwortet, ohne Scope-/Autoritaets-/Limitregeln aufzuweichen und ohne Texte zu loggen.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "MCD-M1",
+      "title": "Zustellung ueber Renewal-Fences",
+      "task_ids": [
+        "MCD-001",
+        "MCD-002",
+        "MCD-003"
+      ],
+      "status": "in_progress"
+    }
+  ],
+  "critical_path_tasks": [
+    "MCD-001",
+    "MCD-002"
+  ],
+  "tasks": [
+    {
+      "id": "MCD-001",
+      "title": "Client (webrtc-minimize-server): unbestaetigte Human-Eingaben und delivered/replied-Identitaet ueberleben einen Renewal-Fence",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "problem": "Alle ~40 s (RENEW_INTERVAL) wechselt die Lease-Generation. MachineChatEndpoint.open() rief close(), das delivered/replied leerte und die ephemere MachineChatQueue verwarf; queue.check() warf beim Generationswechsel -> fail() -> close(). Eine Nachricht ('rag-helper erklaeren') im Fenster bis zum Reopen erreichte keinen Subscriber: Client-State chat=2, aber kein RECV/Trace/Reply im Companion-Log.",
+      "implemented_solution": "Ein Fence (meet_chat_authority_changed) suspendiert statt zu leeren (max. 30 s): unquittierte Eingaben, delivered und replied bleiben; ein Standby-Listener haelt Eingaben im Fenster (Quelle freigegeben, kein replyTo, nicht beantwortet, <=32, gleiche ID-Senderbindung). open() uebernimmt nur bei gleicher origin/tenant/project/task/session/runtime/lease_id/room/own_peer und nicht sinkender Generation und laesst jede Eingabe erneut durch Quellen-, Alters- und Queuepruefung. Beantwortete IDs werden nie erneut geliefert; Widerruf leert binnen 250 ms, close() sofort.",
+      "affected_files": [
+        "webrtc-minimize-server: frontend/src/app/features/machine/machine-chat-endpoint.ts",
+        "webrtc-minimize-server: frontend/src/app/features/machine/machine-chat-endpoint.spec.ts",
+        "webrtc-minimize-server: docs/machine-chat-correlation.md"
+      ],
+      "acceptance_criteria": [
+        "Nachricht im/kurz vor dem Fence wird nach dem Reopen mit neuer Generation geliefert",
+        "Genau eine Antwort je message_id ueber mehrere Fences",
+        "Andere Konversation (Raum/Session/Lease/Peer) oder Widerruf erbt nichts",
+        "450-Zeichen-, Quellen-, 32er- und ID-Konflikt-Grenzen unveraendert"
+      ],
+      "verification": [
+        "webrtc-minimize-server Commit 15ca1d5: vitest machine-chat-endpoint.spec.ts 26/26 gruen (11 neu); tsc -p frontend/tsconfig.app.json sauber; npm run todos:validate gruen"
+      ]
+    },
+    {
+      "id": "MCD-002",
+      "title": "Companion: at-most-once Antworten ueber Reopens, Abgleich mit dem Client-Chat-Stand, korrektes ACK",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "problem": "companion.py verliess sich allein auf chat.poll(); processed war eine message_id-Menge, die bei 512 komplett geleert wurde (Doppelantworten moeglich). ack() bekam batch.get('cursor') - das Batch hat kein Top-Level-Cursor, das ACK schlug daher immer fehl. Ein Reply, der auf einen Fence traf, ging verloren. Nach chat_poll_err wartete der Reopen bis zu 3 s.",
+      "implemented_solution": "worker/meet_media/companion_chat_ledger.py: ChatLedger (begrenzte answered/handled-IDs FIFO statt clear, observe() uebernimmt im Client-Chat-Stand sichtbare Antworten (machine+replyTo) als beantwortet, gaps() meldet nie gelieferte Human-IDs einmalig nur per ID), reply_failed() behaelt eine Antwort nur bei geschlossenem Port und sendet sie nach Re-Delivery ohne zweite Modell-/TTS-Runde erneut; serve_batch() und ack_cursor() (hoechster gelieferter Cursor, erst nach Verarbeitung). companion.py nutzt das und oeffnet nach meet_chat_closed sofort neu. Unzugestellte IDs werden nicht beantwortet, weil der Client nur fuer selbst gelieferte IDs eine Antwort annimmt.",
+      "affected_files": [
+        "worker/meet_media/companion_chat_ledger.py",
+        "worker/meet_media/companion.py",
+        "tests/test_meet_companion_chat_ledger.py"
+      ],
+      "acceptance_criteria": [
+        "Nachricht im Renewal-Fenster wird nach dem Reopen genau einmal beantwortet und ge-ackt",
+        "Fence zwischen Poll und Reply: Antwort wird einmal nachgesendet, keine zweite Modell-/TTS-Runde",
+        "Abgelehnte/unsichere Antwort wird nie wiederholt; bereits im Chat-Stand beantwortete IDs werden auch von einem frischen Ledger nicht beantwortet",
+        "Gap-Log enthaelt nur gekuerzte IDs, keine Texte"
+      ],
+      "verification": [
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q tests/test_meet_companion_chat_ledger.py tests/test_meet_companion_dialog.py tests/test_meet_companion_knowledge.py -> 59 passed"
+      ]
+    },
+    {
+      "id": "MCD-003",
+      "title": "Live-Nachweis im Meet nach Deployment (Client + Companion)",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "problem": "Die Faelle sind nur deterministisch mit Fakes/Unit-Tests belegt; nicht deployt.",
+      "acceptance_criteria": [
+        "Eine Nachricht kurz vor/waehrend eines Renewals erzeugt genau einen RECV/Trace und eine Antwort",
+        "Ueber mehrere Renewals kein Doppel-Reply, keine chat_gap-Meldung im Normalbetrieb"
+      ],
+      "affected_files": [
+        "worker/meet_media/companion.py"
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 3,
+    "by_status": {
+      "todo": 1,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 2
+    },
+    "progress_percent_done": 66.7,
+    "by_priority": {
+      "P0": 2,
+      "P1": 1,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 2,
+      "high": 1,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 2,
+      "done": 2,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 1,
+      "todo": 0,
+      "in_progress": 1,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 1,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 2
+  },
+  "summary_notes": [
+    "Nicht deployt. Webrtc-Client-Aenderung: webrtc-minimize-server 15ca1d5 (Track todos/active/todo.meet-chat-renewal-continuity.json dort).",
+    "Offen/bestehend, nicht Teil dieses Tracks: companion.py loggt weiterhin RECV/REPLY-Textausschnitte und STATE mit Chat-Inhalt; ein Human-Event mit veralteter membership_epoch schliesst den Client-Chatport weiterhin (meet_chat_event_scope_invalid)."
+  ]
+}
