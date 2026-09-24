@@ -19,6 +19,7 @@ model always answers with the result in front of it and may still refine it.
 
 import json
 import os
+import re
 
 NAME = "codecompass_search"
 
@@ -31,6 +32,18 @@ EMPTY_RESULT = "codecompass_search: keine passende Stelle im Wissensindex gefund
 FAILED_RESULT = "codecompass_search: der Wissensindex ist gerade nicht erreichbar."
 MISSING_QUERY = "codecompass_search: Aufruf ohne 'query' – bitte mit einem Suchbegriff erneut aufrufen."
 UNKNOWN_TOOL = "unbekanntes Werkzeug – nur codecompass_search steht zur Verfügung."
+
+# Sent as the last user turn of the tool-free final request. Withdrawing the
+# tools alone is not enough: a model that has just seen several tool rounds
+# imitates them and writes the next call as plain ``<tool_call>`` text.
+FINAL_ANSWER = (
+    "Keine weiteren Werkzeugaufrufe. Antworte jetzt direkt als Text auf die Frage, "
+    "gestützt auf die Suchergebnisse oben."
+)
+
+_LEAKED_BLOCK = re.compile(r"<tool_call>(.*?)(?:</tool_call>|$)", re.IGNORECASE | re.DOTALL)
+_LEAKED_FUNCTION = re.compile(r"<function=([A-Za-z0-9_.-]{1,64})>(.*?)(?:</function>|$)", re.IGNORECASE | re.DOTALL)
+_LEAKED_PARAMETER = re.compile(r"<parameter=([A-Za-z0-9_]{1,32})>(.*?)(?:</parameter>|$)", re.IGNORECASE | re.DOTALL)
 
 DEFINITION = {
     "type": "function",
@@ -88,6 +101,35 @@ def parse_arguments(raw):
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+def leaked_calls(text):
+    """Tool calls a model wrote as plain text instead of ``tool_calls``.
+
+    Two shapes are recognised inside ``<tool_call>`` blocks: the XML style
+    (``<function=name><parameter=query>…``) and the JSON style
+    (``{"name": …, "arguments": {…}}``). Returns ``[(name, arguments)]``,
+    bounded like a structured reply; anything else yields ``[]``.
+    """
+    text = str(text or "")[:4096]
+    if "<tool_call" not in text.lower():
+        return []
+    calls = []
+    for block in _LEAKED_BLOCK.findall(text):
+        function = _LEAKED_FUNCTION.search(block)
+        if function is not None:
+            arguments = {}
+            for key, value in _LEAKED_PARAMETER.findall(function.group(2)):
+                value = " ".join(value.split())
+                arguments[key] = int(value) if value.isdigit() else value
+            calls.append((function.group(1), arguments))
+        else:
+            parsed = parse_arguments(block.strip())
+            if isinstance(parsed.get("name"), str) and parsed["name"]:
+                calls.append((parsed["name"][:64], parse_arguments(parsed.get("arguments"))))
+        if len(calls) >= MAX_CALLS_PER_REPLY:
+            break
+    return calls
 
 
 class CodeCompassTool:

@@ -190,6 +190,106 @@ def test_a_model_that_only_calls_tools_is_bounded_and_must_answer_last(openai_ba
     assert "tools" not in port.payloads[-1] and "tool_choice" not in port.payloads[-1]
 
 
+def test_the_last_round_is_sent_without_tools_and_tells_the_model_to_answer(openai_backend):
+    retriever = Retriever()
+    tools = llm_tools.ToolBox([llm_tools.CodeCompassTool(retriever)])
+    port = Port(calling(tool_call()), calling(tool_call(identifier="call-2")), answering())
+
+    generated = llm.generate("Wie funktioniert der Machine Trust?", max_output_tokens=8, transport=port, tools=tools)
+
+    assert generated.text == "Synthetische Antwort."
+    assert len(port.payloads) == llm_tools.max_rounds() + 1 == 3
+    for payload in port.payloads[:-1]:
+        assert payload["tool_choice"] == "auto" and payload["tools"]
+        assert llm_tools.FINAL_ANSWER not in json.dumps(payload, ensure_ascii=False)
+    last = port.payloads[-1]
+    # No tools and no tool_choice: the model can only answer with text ...
+    assert "tools" not in last and "tool_choice" not in last
+    # ... and is told so, because withdrawing the tools alone does not stop a
+    # model from imitating the tool rounds above as ``<tool_call>`` text.
+    assert last["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
+    assert [message["role"] for message in last["messages"]] == [
+        "system", "user", "assistant", "tool", "assistant", "tool", "user"
+    ]
+
+
+def test_a_reply_without_a_tool_round_gets_no_final_instruction(openai_backend):
+    port = Port(answering())
+    llm.generate("frage", max_output_tokens=8, transport=port, tools=llm_tools.codecompass_toolbox(Retriever()))
+    llm.generate("frage", max_output_tokens=8, transport=port)
+    for payload in port.payloads:
+        assert [message["role"] for message in payload["messages"]] == ["system", "user"]
+
+
+LEAKED_XML = (
+    "<tool_call>\n<function=codecompass_search>\n<parameter=query>\nrag_helper semantic translation contracts\n"
+    "</parameter>\n<parameter=limit>\n5\n</parameter>\n</function>\n</tool_call>"
+)
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (LEAKED_XML, [(llm_tools.NAME, {"query": "rag_helper semantic translation contracts", "limit": 5})]),
+        (
+            '<tool_call>{"name": "codecompass_search", "arguments": {"query": "Machine Trust"}}</tool_call>',
+            [(llm_tools.NAME, {"query": "Machine Trust"})],
+        ),
+        (
+            "<tool_call><function=codecompass_search><parameter=query>abgeschnitten",
+            [(llm_tools.NAME, {"query": "abgeschnitten"})],
+        ),
+        ("Eine normale Antwort ohne Werkzeug.", []),
+        ("<tool_call>kein gültiger Aufruf</tool_call>", []),
+        ("<tool_call><function=codecompass_search></function></tool_call>" * 9, [(llm_tools.NAME, {})] * 4),
+    ],
+)
+def test_a_tool_call_written_as_text_is_recognised(text, expected):
+    assert llm_tools.leaked_calls(text) == expected
+
+
+def test_a_leaked_call_on_the_final_round_is_run_and_the_answer_requested_again(openai_backend):
+    retriever = Retriever()
+    tools = llm_tools.ToolBox([llm_tools.CodeCompassTool(retriever)])
+    port = Port(calling(tool_call()), calling(tool_call()), answering(LEAKED_XML), answering())
+
+    generated = llm.generate("frage", max_output_tokens=8, transport=port, tools=tools)
+
+    assert generated.text == "Synthetische Antwort."
+    assert retriever.queries[-1] == ("rag_helper semantic translation contracts", 5)
+    assert len(port.payloads) == 4
+    repair = port.payloads[-1]
+    assert "tools" not in repair and "tool_choice" not in repair
+    leaked, result = repair["messages"][-3:-1]
+    assert leaked["role"] == "assistant" and leaked["content"] == ""
+    assert json.loads(leaked["tool_calls"][0]["function"]["arguments"]) == {
+        "query": "rag_helper semantic translation contracts", "limit": 5
+    }
+    assert result["role"] == "tool" and result["tool_call_id"] == leaked["tool_calls"][0]["id"]
+    assert repair["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
+    assert (generated.input_tokens, generated.output_tokens) == (60 + 60 + 90 + 90, 32)
+
+
+def test_a_model_that_keeps_leaking_gets_exactly_one_repair_request(openai_backend):
+    retriever = Retriever()
+    port = Port(answering(LEAKED_XML))
+    tools = llm_tools.ToolBox([llm_tools.CodeCompassTool(retriever)])
+
+    generated = llm.generate("frage", max_output_tokens=8, transport=port, tools=tools)
+
+    # Rounds, final request, one repair: never an open loop. The markup that
+    # comes back is removed by the companion (``strip_tool_calls``).
+    assert len(port.payloads) == llm_tools.max_rounds() + 2
+    assert len(retriever.queries) == llm_tools.max_rounds() + 1
+    assert "<tool_call>" in generated.text
+
+
+def test_without_a_toolbox_leaked_markup_triggers_no_request(openai_backend):
+    port = Port(answering(LEAKED_XML))
+    llm.generate("frage", max_output_tokens=8, transport=port)
+    assert len(port.payloads) == 1
+
+
 def test_the_tool_result_and_the_query_stay_bounded(openai_backend, monkeypatch):
     monkeypatch.setenv("MEET_LLM_TOOL_RESULT_CHARS", "120")
     retriever = Retriever(snippets=[{"path": "p.py", "symbol": "", "excerpt": "x" * 5000}])
@@ -338,6 +438,31 @@ def test_the_ollama_backend_runs_the_same_loop_with_object_arguments(ollama_back
     result = port.payloads[1]["messages"][3]
     # Ollama has no call id to echo back; it correlates by name.
     assert result["role"] == "tool" and result["name"] == llm_tools.NAME and "tool_call_id" not in result
+
+
+def test_the_ollama_backend_repairs_a_leaked_final_call_with_object_arguments(ollama_backend, monkeypatch):
+    monkeypatch.setenv("MEET_LLM_TOOL_ROUNDS", "0")
+    retriever = Retriever()
+    tools = llm_tools.ToolBox([llm_tools.CodeCompassTool(retriever)])
+    tools.force(llm_tools.NAME, {"query": "rag-helper"})
+
+    def reply(content):
+        message = {"role": "assistant", "content": content}
+        return {"message": message, "done": True, "prompt_eval_count": 90, "eval_count": 8}
+
+    port = OllamaPort(reply(LEAKED_XML), reply("Synthetische Antwort."))
+
+    generated = llm.generate("frage", max_output_tokens=8, transport=port, tools=tools)
+
+    assert generated.text == "Synthetische Antwort."
+    assert all("tools" not in payload for payload in port.payloads)
+    assert port.payloads[0]["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
+    leaked = port.payloads[1]["messages"][-3]
+    assert leaked["tool_calls"][0]["function"]["arguments"] == {
+        "query": "rag_helper semantic translation contracts", "limit": 5
+    }
+    assert "id" not in leaked["tool_calls"][0]
+    assert [query for query, _limit in retriever.queries] == ["rag-helper", "rag_helper semantic translation contracts"]
 
 
 def test_the_tool_switch_defaults_on_and_the_rag_prefix_defaults_off():

@@ -72,3 +72,29 @@ def test_snippets_carry_path_symbol_revision_and_bounded_excerpt(app):
 def test_unsigned_or_invalid_queries_are_rejected(app, body, signed, status):
     response = post(app.test_client(), body, signed=signed)
     assert response.status_code == status
+
+
+def test_citable_hits_come_first_and_the_display_path_is_used(app, monkeypatch):
+    """MCK-008: a pathless blob must not displace hits the companion can cite."""
+    retrieval = Mock()
+    retrieval.search_records.return_value = [
+        {"path": "", "content": "registry blob", "score": 242.4, "metadata": {}},
+        {
+            "path": "",
+            "content": "class RagHelperIndexService",
+            "score": 16.2,
+            "metadata": {"display_path": "agent/services/rag_helper_index_service.py"},
+        },
+        {"path": "docs/rag-helper.md", "content": "RAG-Helper", "score": 8.4, "metadata": {}},
+    ]
+    monkeypatch.setattr(
+        "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
+        lambda *args, **kwargs: retrieval,
+    )
+
+    response = post(app.test_client(), encode({"query": "rag-helper", "limit": 2}))
+
+    paths = [snippet["path"] for snippet in json.loads(response.data)["snippets"]]
+    assert paths == ["agent/services/rag_helper_index_service.py", "docs/rag-helper.md"]
+    # Over-fetched so the pathless hit can be dropped without losing a slot.
+    assert retrieval.search_records.call_args.kwargs["limit"] == 4

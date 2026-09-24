@@ -12,7 +12,10 @@ Both also run the same bounded tool loop when a ``ToolBox`` is offered (and
 first replay any call the router forced, see ``ToolBox.force``): the
 model may answer with ``tool_calls``, the tools run here, their results go back
 as ``role: "tool"`` messages, and after ``MEET_LLM_TOOL_ROUNDS`` rounds the
-tools are withdrawn so the last request can only produce an answer.
+tools are withdrawn and the model is told to answer now, so the last request
+can only produce an answer. A call the model writes as ``<tool_call>`` text
+instead is run like a structured one; on the final request that buys exactly
+one more tool-free request, never an open loop.
 """
 
 import json
@@ -134,6 +137,38 @@ def _rounds(tools):
     return llm_tools.max_rounds() if tools is not None and tools.definitions() else 0
 
 
+def _final_messages(messages):
+    """History for the tool-free final request.
+
+    After a tool round the model still tends to write the next call as
+    ``<tool_call>`` text even though no tool is offered any more, so the
+    request closes with the explicit instruction to answer now. A reply
+    without any tool round is sent unchanged.
+    """
+    if any(message.get("role") == "tool" for message in messages):
+        return [*messages, {"role": "user", "content": llm_tools.FINAL_ANSWER}]
+    return messages
+
+
+def _leaked(tools, message, *, json_arguments, turn):
+    """A tool call the model wrote as text, shaped like a structured one."""
+    if tools is None:
+        return []
+    calls = []
+    for index, (name, arguments) in enumerate(llm_tools.leaked_calls(message.get("content"))):
+        entry = {
+            "type": "function",
+            "function": {
+                "name": name,
+                "arguments": json.dumps(arguments, ensure_ascii=False) if json_arguments else arguments,
+            },
+        }
+        if json_arguments:
+            entry["id"] = "leaked-%d-%d" % (turn, index)
+        calls.append(entry)
+    return calls
+
+
 class OllamaBackend:
     """Local Ollama ``/api/chat``, gated on the model being resident on the GPU."""
 
@@ -161,10 +196,14 @@ class OllamaBackend:
         # Reported usage is summed over the rounds; each single round is still
         # validated against the same per-request budget.
         input_total = output_total = 0
-        for remaining in range(_rounds(tools), -1, -1):
+        remaining = _rounds(tools)
+        # One extra tool-free request if the final answer is a leaked call.
+        repair = tools is not None
+        while True:
+            final = remaining <= 0
             payload = {
                 "model": self.model,
-                "messages": messages,
+                "messages": _final_messages(messages) if final else messages,
                 "stream": False,
                 # Reasoning models otherwise spend the whole output budget on hidden
                 # thinking and leave the answer content empty.
@@ -177,7 +216,7 @@ class OllamaBackend:
                     "num_gpu": int(os.environ.get("MEET_LLM_NUM_GPU", "99")),
                 },
             }
-            if remaining > 0:
+            if not final:
                 payload["tools"] = tools.definitions()
             result = self.transport.chat(payload)
             if not gated:
@@ -193,12 +232,17 @@ class OllamaBackend:
             )
             input_total += input_tokens
             output_total += output_tokens
-            calls = _tool_calls(message)
-            if calls and remaining > 0:
-                messages.append(
-                    {"role": "assistant", "content": message.get("content") or "", "tool_calls": calls}
-                )
+            # Structured calls are only honoured while tools are offered; the
+            # final request may buy one repair round for a leaked text call.
+            calls = [] if final else _tool_calls(message)
+            # A leaked call's text is the call itself, never part of an answer.
+            said = (message.get("content") or "") if calls else ""
+            calls = calls or _leaked(tools, message, json_arguments=False, turn=len(messages))
+            if calls and (not final or repair):
+                repair = repair and not final
+                messages.append({"role": "assistant", "content": said, "tool_calls": calls})
                 messages.extend(_tool_results(tools, calls))
+                remaining -= 1
                 continue
             content = message.get("content")
             if not isinstance(content, str) or not content.strip():
@@ -271,17 +315,22 @@ class OpenAiBackend:
         # Reported usage is summed over the rounds; each single round is still
         # validated against the same per-request budget.
         input_total = output_total = 0
-        for remaining in range(_rounds(tools), -1, -1):
+        remaining = _rounds(tools)
+        # One extra tool-free request if the final answer is a leaked call.
+        repair = tools is not None
+        while True:
+            final = remaining <= 0
             payload = {
                 "model": model,
-                "messages": messages,
+                "messages": _final_messages(messages) if final else messages,
                 "stream": False,
                 "max_tokens": max_output_tokens,
                 "temperature": temperature(),
                 **_reasoning_controls(),
             }
-            if remaining > 0:
-                # Withdrawn on the last round: the final request can only answer.
+            if not final:
+                # Withdrawn on the last round (no ``tools``, no ``tool_choice``):
+                # the final request can only answer, see ``_final_messages``.
                 payload["tools"] = tools.definitions()
                 payload["tool_choice"] = "auto"
             result = self.transport.chat(payload)
@@ -296,12 +345,17 @@ class OpenAiBackend:
             )
             input_total += input_tokens
             output_total += output_tokens
-            calls = _tool_calls(message)
-            if calls and remaining > 0:
-                messages.append(
-                    {"role": "assistant", "content": message.get("content") or "", "tool_calls": calls}
-                )
+            # Structured calls are only honoured while tools are offered; the
+            # final request may buy one repair round for a leaked text call.
+            calls = [] if final else _tool_calls(message)
+            # A leaked call's text is the call itself, never part of an answer.
+            said = (message.get("content") or "") if calls else ""
+            calls = calls or _leaked(tools, message, json_arguments=True, turn=len(messages))
+            if calls and (not final or repair):
+                repair = repair and not final
+                messages.append({"role": "assistant", "content": said, "tool_calls": calls})
                 messages.extend(_tool_results(tools, calls))
+                remaining -= 1
                 continue
             return RawAnswer(_require_content(message), input_total, output_total, model)
 

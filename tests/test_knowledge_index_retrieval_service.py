@@ -615,3 +615,69 @@ def test_file_kind_buckets_follow_canonical_registry_families_and_selectors():
     assert service._file_kind_bucket("docs/architecture/system.mmd") == "doc"
     assert service._file_kind_bucket("README.md") == "doc"
     assert service._file_kind_bucket("unknown.custom") == "other"
+
+
+def _records_index(tmp_path, records):
+    output_dir = tmp_path / "records-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+    repository = SimpleNamespace(
+        list_completed=lambda: [
+            SimpleNamespace(
+                id="idx-records",
+                artifact_id=None,
+                source_scope="repo_path",
+                profile_name="deep_code",
+                output_dir=str(output_dir),
+            )
+        ]
+    )
+    return KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
+
+
+def test_records_ingestion_path_is_citable_and_a_repetitive_blob_no_longer_wins(tmp_path):
+    """Live regression (MCK-008): "rag-helper" returned a pathless registry blob first.
+
+    Records ingestion keeps the file only in ``metadata.relative_path``; the blob
+    repeats the query tokens (and substrings like "rag" in "storage") hundreds
+    of times, which the linear count formula used to reward without bound.
+    """
+    registry = json.dumps({"schema": "codecompass.file-type-support-registry.v1"}) + (
+        ' {"parser_strategy": "rag_helper", "storage": "rag-helper helper"}' * 400
+    )
+    service = _records_index(
+        tmp_path,
+        [
+            {
+                "id": "config/codecompass/file_type_support.v1.json",
+                "content": registry,
+                "metadata": {"file_type": "json", "relative_path": "config/codecompass/file_type_support.v1.json"},
+            },
+            {
+                "id": "agent/services/rag_helper_index_service.py",
+                "content": "class RagHelperIndexService: indexes a repository path with the rag-helper profile",
+                "metadata": {"file_type": "python", "relative_path": "agent/services/rag_helper_index_service.py"},
+            },
+            {
+                "id": "docs/rag-helper.md",
+                "content": "# RAG-Helper\nWhat the rag-helper is good for.",
+                "metadata": {"file_type": "md", "relative_path": "docs/rag-helper.md"},
+            },
+        ],
+    )
+
+    records = service.search_records("rag-helper", limit=3)
+
+    display = [record["metadata"]["display_path"] for record in records]
+    assert set(display[:2]) == {"agent/services/rag_helper_index_service.py", "docs/rag-helper.md"}
+    assert display[2] == "config/codecompass/file_type_support.v1.json"
+    # The hydration locator is unchanged: these records carry no top-level path.
+    assert all(record["path"] == "" for record in records)
+    assert records[0]["metadata"]["retrieval_score_breakdown"]["path_stem_bonus"] > 0
+
+
+def test_repeated_token_hits_saturate():
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=lambda: []))
+    capped = service._weighted_token_hits(["rag"], "rag " * 9, 1.0)
+    assert capped == service._weighted_token_hits(["rag"], "rag " * 900, 1.0)
+    assert service._weighted_token_hits(["rag"], "rag " * 2, 1.0) < capped

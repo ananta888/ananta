@@ -190,8 +190,10 @@ def media_assist_retrieve():
     )
 
     snippets = []
+    # Over-fetch so a hit the companion cannot cite (no path) never displaces a
+    # citable code or doc hit; pathless hits only fill the remaining slots.
     for record in KnowledgeIndexRetrievalService().search_records(
-        query.strip(), limit=limit
+        query.strip(), limit=min(2 * limit, 16)
     ):
         if not isinstance(record, dict):
             continue
@@ -199,7 +201,7 @@ def media_assist_retrieve():
         metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
         snippets.append(
             {
-                "path": str(record.get("path") or record.get("file") or ""),
+                "path": str(record.get("path") or record.get("file") or metadata.get("display_path") or ""),
                 "score": record.get("score"),
                 "excerpt": content[:1200],
                 # Additive: lets the companion cite file/symbol and, when the
@@ -211,7 +213,8 @@ def media_assist_retrieve():
                 "line": _snippet_line(record, metadata),
             }
         )
-    return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": snippets})
+    snippets.sort(key=lambda snippet: not snippet["path"])
+    return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": snippets[:limit]})
 
 
 def _snippet_line(record, metadata):

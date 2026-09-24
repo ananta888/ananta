@@ -29,6 +29,10 @@ class KnowledgeIndexRetrievalService:
     MAX_BOUND_RECORDS = 400
     MAX_BOUND_INDEX_FILE_BYTES = 512 * 1024 * 1024
     MAX_BOUND_RECORD_LINE_BYTES = 2 * 1024 * 1024
+    # Repeats of one query token beyond this count add no further score.
+    MAX_COUNTED_REPEATS = 8
+    # Score per query token that names the record's file (its stem).
+    PATH_STEM_TOKEN_WEIGHT = 2.5
     FIELD_EXCLUDE_KEYS = {"id", "parent_id", "node_id", "edge_id", "hash", "sha1", "sha256"}
     TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
     SYMBOL_SPLIT_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
@@ -621,8 +625,30 @@ class KnowledgeIndexRetrievalService:
             count = haystack.count(token)
             if count <= 0:
                 continue
-            score += weight * (1.0 + (count - 1) * 0.2)
+            # Saturated: a large blob that repeats a token (or merely contains
+            # it as a substring, e.g. "rag" in "storage") must not outrank a
+            # file whose path and content actually name the query.
+            score += weight * (1.0 + min(count - 1, self.MAX_COUNTED_REPEATS) * 0.2)
         return score
+
+    @staticmethod
+    def _nested(record: dict[str, Any], key: str) -> Any:
+        metadata = record.get("metadata")
+        return metadata.get(key) if isinstance(metadata, dict) else None
+
+    @classmethod
+    def _display_path(cls, record: dict[str, Any]) -> str:
+        """Repository path of a record, wherever the producer put it."""
+        for value in (
+            record.get("file"),
+            record.get("path"),
+            cls._nested(record, "relative_path"),
+            cls._nested(record, "path"),
+            cls._nested(record, "file"),
+        ):
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
 
     def _score_record(
         self,
@@ -663,6 +689,13 @@ class KnowledgeIndexRetrievalService:
         if normalized_query and normalized_query in compact_haystack:
             phrase_bonus = 1.8
 
+        # A file named after the query ("docs/rag-helper.md",
+        # "rag_helper_index_service.py") is about it; a file that merely sits
+        # in a matching directory is not, so only the file stem counts here.
+        stem = str(field_texts.get("path") or "").replace("\\", "/").rsplit("/", 1)[-1].split(".", 1)[0]
+        stem_tokens = {token for token in re.split(r"[^a-z0-9]+", stem.lower()) if token}
+        path_stem_bonus = self.PATH_STEM_TOKEN_WEIGHT * sum(1 for token in query_tokens if token in stem_tokens)
+
         relation_signal = 0.0
         if field_texts.get("relations"):
             relation_signal += 0.7 + float(profile.get("relation_bonus", 0.0))
@@ -673,7 +706,9 @@ class KnowledgeIndexRetrievalService:
         file_bucket = self._file_kind_bucket(source_hint)
         record_multiplier = float((profile.get("record_kind_weights") or {}).get(record_bucket, 1.0))
         file_multiplier = float((profile.get("file_kind_weights") or {}).get(file_bucket, 1.0))
-        base_score = sum(weighted_hits.values()) + symbol_hit_score + phrase_bonus + relation_signal
+        base_score = (
+            sum(weighted_hits.values()) + symbol_hit_score + phrase_bonus + path_stem_bonus + relation_signal
+        )
         importance_score = float(record.get("importance_score") or 0.0)
         importance_boost = min(0.45, importance_score * float(profile.get("importance_weight", 0.0)))
         record_id = str(record.get("id") or "").strip()
@@ -700,6 +735,7 @@ class KnowledgeIndexRetrievalService:
             "symbol_hit_score": round(symbol_hit_score, 4),
             "relation_signal": round(relation_signal, 4),
             "phrase_bonus": round(phrase_bonus, 4),
+            "path_stem_bonus": round(path_stem_bonus, 4),
             "importance_boost": round(importance_boost, 4),
             "duplicate_penalty": round(duplicate_penalty, 4),
             "generated_penalty": round(generated_penalty, 4),
@@ -773,9 +809,9 @@ class KnowledgeIndexRetrievalService:
             for filename, record in output_records:
                 if record_predicate is not None and not record_predicate(record):
                     continue
+                display_path = self._display_path(record)
                 source = str(
-                    record.get("file")
-                    or record.get("path")
+                    display_path
                     or record.get("id")
                     or artifact_id
                     or "knowledge-index"
@@ -832,7 +868,11 @@ class KnowledgeIndexRetrievalService:
                         record.get("start_line") is not None and record.get("end_line") is not None
                     ) else "unknown",
                     "repo_relative_path": str(record.get("path") or record.get("file") or "").strip() or None,
-                    "symbol": str(record.get("symbol") or "").strip() or None,
+                    # Citable file path, also when the record keeps it only in
+                    # ``metadata.relative_path`` (records ingestion). Display
+                    # only: ``repo_relative_path`` stays the hydration locator.
+                    "display_path": display_path or None,
+                    "symbol": str(record.get("symbol") or self._nested(record, "symbol") or "").strip() or None,
                     # Provider-issued identity remains unverified here and is
                     # released only after SourceCatalogAuthority validation.
                     "source_id": str(record.get("source_id") or "").strip() or None,

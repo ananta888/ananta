@@ -326,4 +326,61 @@ def test_a_leaked_tool_call_never_reaches_the_chat():
 
     assert "<tool_call" not in reply and "codecompass_search" not in reply
     assert "nicht belegt" not in reply
-    assert retriever.queries == ["rag-helper"] and tools.calls and tools.calls[0]["snippets"] == 1
+    assert retriever.queries[0] == "rag-helper" and tools.calls and tools.calls[0]["snippets"] == 1
+    # A model that only ever leaks calls stays bounded: the two granted rounds,
+    # the final request and exactly one repair request, the last two tool-free.
+    assert len(port.payloads) == 4
+    assert all("tools" not in payload for payload in port.payloads[2:])
+
+
+class ScriptedPort(Port):
+    """OpenAI JSON port replaying the live sequence reply by reply."""
+
+    def __init__(self, *replies):
+        super().__init__("")
+        self._replies = list(replies)
+
+    def chat(self, payload):
+        self.payloads.append(json.loads(json.dumps(payload)))
+        return self._replies[len(self.payloads) - 1]
+
+
+def calling(query):
+    function = {"name": llm_tools.NAME, "arguments": json.dumps({"query": query})}
+    call = {"id": "c-%s" % query, "type": "function", "function": function}
+    return {
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "", "tool_calls": [call]}}],
+        "usage": {"prompt_tokens": 60, "completion_tokens": 8},
+    }
+
+
+def test_the_live_sequence_ends_in_an_answer_instead_of_tool_markup():
+    """Forced lookup, two self-chosen rounds, then the leaked call of the live log."""
+    port = ScriptedPort(
+        calling("rag_helper purpose semantic translation"),
+        calling("rag_helper semantic translation contracts"),
+        answering(LEAKED_TOOL_CALL.replace(" <", "\n<")),
+        answering("Der RAG-Helper indexiert Repository-Pfade mit einem Profil."),
+    )
+    dialog, tools, retriever = companion(port)
+
+    reply, trace = dialog.answer("erklaere mir wofuer der rag-helper gut ist?")
+
+    assert reply == (
+        "Der RAG-Helper indexiert Repository-Pfade mit einem Profil. "
+        "Quelle: agent/services/rag_helper_index_service.py:31, RagHelperIndexService."
+    )
+    assert retriever.queries == [
+        "rag-helper",
+        "rag_helper purpose semantic translation",
+        "rag_helper semantic translation contracts",
+        "rag_helper semantic translation contracts",
+    ]
+    final, repair = port.payloads[2:]
+    for payload in (final, repair):
+        assert "tools" not in payload and "tool_choice" not in payload
+        assert payload["messages"][-1] == {"role": "user", "content": llm_tools.FINAL_ANSWER}
+    # The leaked call became a real tool round, not text in the history.
+    assert repair["messages"][-3]["tool_calls"][0]["function"]["name"] == llm_tools.NAME
+    assert repair["messages"][-3]["content"] == ""
+    assert "agent/services/rag_helper_index_service.py:31" in trace.source_labels()[0]

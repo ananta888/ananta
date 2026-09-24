@@ -2,7 +2,7 @@
   "$schema": "../todo.schema.json",
   "version": "1.0",
   "created": "2026-09-23",
-  "updated": "2026-09-23",
+  "updated": "2026-09-24",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "7c72bce52..working-tree",
@@ -16,7 +16,8 @@
       "worker/meet_media/companion_explanation.py",
       "worker/meet_media/companion.py",
       "worker/meet_media/assist.py",
-      "agent/routes/meet.py"
+      "agent/routes/meet.py",
+      "agent/services/knowledge_index_retrieval_service.py"
     ],
     "parent_tracks": [
       "todos/todo.ananta-meet-codecompass-avatar.json"
@@ -126,21 +127,66 @@
             "tests/test_meet_companion_knowledge.py::test_a_long_reply_without_a_source_is_still_clamped_below_the_client_limit",
             "tests/test_meet_companion_knowledge.py::test_the_appended_source_keeps_the_reply_within_the_budget"
           ]
+        },
+        {
+          "id": "MCK-008",
+          "status": "completed",
+          "title": "Retrieval/Index: rag_helper-Anfragen liefern zitierbare Treffer mit Pfad statt pfadloser Registry-/Schema-Blobs",
+          "problem": "Live (Meet-Chat, 'erklaere mir wofuer der rag-helper gut ist?'): codecompass_search lieferte Treffer mit leerem path/symbol, Top-Treffer der JSON-Blob config/codecompass/file_type_support.v1.json (score 242.4). Ursache 1: der aktive repo_path-Index (records ingestion, strategy identity+codecompass_graph, 9703 Records) speichert Records als {id, content, metadata:{relative_path, file_type}}; KnowledgeIndexRetrievalService las den Pfad nur aus top-level path/file, daher path='' im Meet-Retrieve. Ursache 2: _weighted_token_hits zaehlte Teilstring-Treffer linear ohne Obergrenze ('rag' auch in 'storage', 'coverage'), so dass grosse Registry-/Lockfile-/Todo-Blobs die rag_helper-Module verdraengten.",
+          "implemented_solution": "Kein Re-Index noetig, der Index traegt die Pfade (metadata.relative_path). KnowledgeIndexRetrievalService._display_path loest den Pfad aus path/file/metadata.relative_path/metadata.path/metadata.file auf und liefert ihn als metadata.display_path (auch als source); repo_relative_path/search_records()['path'] bleiben unveraendert der Hydrations-Lokator fuer load_bound_records. Token-Wiederholungen saettigen bei MAX_COUNTED_REPEATS=8; neuer path_stem_bonus (2.5 je Query-Token im Dateinamen-Stamm) hebt nach der Anfrage benannte Dateien (rag_helper_index_service.py, docs/rag-helper.md). Meet-Route /internal/assist/retrieve nutzt display_path, holt 2x limit (max 16) und sortiert pfadlose Treffer hinter zitierbare, bevor auf limit gekuerzt wird.",
+          "affected_files": [
+            "agent/services/knowledge_index_retrieval_service.py",
+            "agent/routes/meet.py",
+            "tests/test_knowledge_index_retrieval_service.py",
+            "tests/test_meet_assist_retrieve_route.py"
+          ],
+          "verification": [
+            "tests/test_knowledge_index_retrieval_service.py::test_records_ingestion_path_is_citable_and_a_repetitive_blob_no_longer_wins",
+            "tests/test_knowledge_index_retrieval_service.py::test_repeated_token_hits_saturate",
+            "tests/test_meet_assist_retrieve_route.py::test_citable_hits_come_first_and_the_display_path_is_used",
+            "Live-Index im Hub-Container (search_records): 'rag-helper' vorher Top-1 path='' config/codecompass/file_type_support.v1.json score 242.4; nachher Top-6 alle mit Pfad (agent/services/rag_helper_index_service.py, rag_helper_file_type_policy.py, rag_helper_file_type_migration.py, tests/test_rag_helper_*), Registry-Blob auf Rang ~120.",
+            "Regression: 18 Retrieval-/CodeCompass-Testdateien gruen bis auf 3 vorbestehende Fehler in tests/test_deerflow_integration.py (identisch ohne diese Aenderung)."
+          ]
+        },
+        {
+          "id": "MCK-009",
+          "status": "completed",
+          "title": "Tool-Runden: letzte Runde erzwingt Text, geleakter <tool_call>-Text wird ausgefuehrt statt ausgegeben",
+          "problem": "Live: nach 1 erzwungener + 2 selbst gewaehlten codecompass_search-Runden antwortete das Modell (llama-server, Bonsai-2-27B, MEET_LLM_BACKEND=openai) mit <tool_call><function=codecompass_search>... als Text. Repro gegen den Live-Server: die letzte Anfrage ging bereits ohne tools; das Modell imitiert trotzdem die Tool-Runden im Verlauf. Auch tools + tool_choice='none' lieferte in 2/2 Laeufen wieder Tool-Markup. Erst eine abschliessende Nutzeranweisung ('Keine weiteren Werkzeugaufrufe. Antworte jetzt direkt als Text ...') lieferte in 4/4 Laeufen (ohne tools und mit tool_choice none) eine Textantwort.",
+          "implemented_solution": "llm_backends (OpenAI und Ollama): die letzte Anfrage schickt weiterhin weder tools noch tool_choice und haengt nach mindestens einem Tool-Ergebnis llm_tools.FINAL_ANSWER als letzte user-Nachricht an (_final_messages); ohne Tool-Runde bleibt der Request unveraendert (Voice-/Avatar-Pfad). llm_tools.leaked_calls erkennt als Text geschriebene Aufrufe (XML <function=..><parameter=..> und JSON {name, arguments}); in Runden mit tools werden sie wie strukturierte Calls ausgefuehrt, auf der finalen Runde genau einmal (ein Reparatur-Request, wieder tool-frei mit FINAL_ANSWER). Harte Grenze: rounds + 2 Requests, Calls weiterhin MAX_CALLS_PER_REPLY; verbleibendes Markup entfernt companion_dialog.strip_tool_calls (ab07baa05).",
+          "affected_files": [
+            "worker/meet_media/llm_tools.py",
+            "worker/meet_media/llm_backends.py",
+            "tests/test_meet_llm_tools.py",
+            "tests/test_meet_companion_knowledge.py"
+          ],
+          "verification": [
+            "tests/test_meet_llm_tools.py::test_the_last_round_is_sent_without_tools_and_tells_the_model_to_answer",
+            "tests/test_meet_llm_tools.py::test_a_reply_without_a_tool_round_gets_no_final_instruction",
+            "tests/test_meet_llm_tools.py::test_a_tool_call_written_as_text_is_recognised",
+            "tests/test_meet_llm_tools.py::test_a_leaked_call_on_the_final_round_is_run_and_the_answer_requested_again",
+            "tests/test_meet_llm_tools.py::test_a_model_that_keeps_leaking_gets_exactly_one_repair_request",
+            "tests/test_meet_llm_tools.py::test_the_ollama_backend_repairs_a_leaked_final_call_with_object_arguments",
+            "tests/test_meet_companion_knowledge.py::test_the_live_sequence_ends_in_an_answer_instead_of_tool_markup",
+            "Live-Smoke (Worker-Container, neuer Code in frischem Prozess, echter llama-server): 3/3 Antworten Text mit Quelle agent/services/rag_helper_index_service.py, kein Tool-Markup; kein Deploy/Restart.",
+            "172 Meet-Tests gruen (test_meet_llm_tools, test_meet_companion_knowledge, test_meet_companion_dialog, test_meet_openai_llm)."
+          ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 7,
+    "total_items": 9,
     "by_status": {
-      "completed": 5,
+      "completed": 7,
       "partial": 0,
       "open": 2
     },
     "notes": [
       "Flags unveraendert: MEET_COMPANION_TOOLS=1 aktiviert auch den Router-Zwang; mit MEET_COMPANION_TOOLS=0 und RAG-Prefix aus bleibt das Modell ungegroundet wie bisher.",
       "Live-Nachweis MCK-005 offen: verbesserte rag-helper-Antwort (erzwungener Lookup + Quelle) im Meet pruefen.",
-      "Update 2026-09-23: MCK-007 (Laengen-Clamp gegen meet_chat_reply_denied) ergaenzt nach Live-Regression."
+      "Update 2026-09-23: MCK-007 (Laengen-Clamp gegen meet_chat_reply_denied) ergaenzt nach Live-Regression.",
+      "Update 2026-09-24: MCK-008 (pfadlose Index-Treffer, Blob-Ranking) und MCK-009 (letzte Tool-Runde erzwingt Text, geleakte Tool-Calls) nach Live-Befund 'wofuer ist der rag-helper gut' ergaenzt und abgeschlossen."
     ],
     "recommended_order": [
       "MCK-001",
@@ -148,7 +194,9 @@
       "MCK-003",
       "MCK-004",
       "MCK-006",
-      "MCK-005"
+      "MCK-005",
+      "MCK-008",
+      "MCK-009"
     ]
   }
 }
