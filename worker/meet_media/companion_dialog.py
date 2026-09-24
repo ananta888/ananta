@@ -72,6 +72,13 @@ _META = re.compile(
 _NOT_EVIDENCED = re.compile(
     r"(nicht belegt|nicht belegen|kein(en)? beleg|keine (passende )?(quelle|stelle)|nichts gefunden)", re.IGNORECASE
 )
+_TOOL_MARKUP = re.compile(
+    r"<tool_call\b.*?</tool_call>"
+    r"|<function\b.*?</function>"
+    r"|<parameter\b.*?</parameter>"
+    r"|</?(?:tool_call|function|parameter)\b[^>]*>",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def context_block(snippets, *, max_chars=1400):
@@ -107,6 +114,15 @@ def strip_meta(reply):
     return " ".join(kept)
 
 
+def strip_tool_calls(reply):
+    """Drop tool-call markup the model may leak into its plain-text reply."""
+    text = str(reply or "")
+    lowered = text.lower()
+    if "<tool_call" not in lowered and "<function" not in lowered and "<parameter" not in lowered:
+        return text
+    return _TOOL_MARKUP.sub(" ", text)
+
+
 def _cites(reply, source):
     lowered = reply.lower()
     name = source.path.rsplit("/", 1)[-1].lower()
@@ -122,13 +138,15 @@ def _fit(body, suffix, max_chars=MAX_REPLY_CHARS):
     return (body + " " + suffix).strip()
 
 
-def enforce_sources(reply, sources, *, knowledge, query=""):
+def enforce_sources(reply, sources, *, knowledge, query="", had_hits=False):
     """Quellenpflicht, deterministically.
 
     With evidence, a reply that names none of the sources gets the best one
-    appended (``Quelle: datei:zeile, Symbol.``). Without evidence for a
-    knowledge question, a reply that does not say so gets the plain statement
-    and the offer to search appended. Every other reply passes unchanged.
+    appended (``Quelle: datei:zeile, Symbol.``). A lookup that returned hits the
+    reply cannot name (empty path and symbol) is still evidence, so the reply is
+    left alone instead of claiming the project does not evidence it. Without any
+    hit for a knowledge question, a reply that does not say so gets the plain
+    statement and the offer to search appended. Every other reply passes unchanged.
     """
     reply = " ".join(str(reply or "").split())
     sources = [source for source in sources if isinstance(source, RepositorySource) and source.path]
@@ -137,7 +155,7 @@ def enforce_sources(reply, sources, *, knowledge, query=""):
             return reply
         best = sources[0]
         return _fit(reply, "Quelle: " + best.location() + (f", {best.symbol}" if best.symbol else "") + ".")
-    if knowledge and not _NOT_EVIDENCED.search(reply):
+    if knowledge and not had_hits and not _NOT_EVIDENCED.search(reply):
         topic = " ".join(str(query or "").split())[:60]
         offer = f"nach „{topic}“ suchen?" if topic else "danach suchen?"
         return _fit(reply, "Im Projektindex ist das nicht belegt; soll ich gezielt " + offer)
@@ -204,11 +222,15 @@ class CompanionDialog:
             if runtime:
                 trace.observe("meet runtime context attached")
                 context = (context + "\n" if context else "") + "[meet-runtime] " + runtime[:400]
-        reply = strip_meta(self._llm(text, context, self._system))
+        reply = strip_meta(strip_tool_calls(self._llm(text, context, self._system)))
+        had_hits = False
         if self._tools is not None:
             trace.add_sources(self._tools.sources)
+            had_hits = any(int(call.get("snippets") or 0) > 0 for call in self._tools.calls)
         if grounded:
-            reply = enforce_sources(reply, trace.repository, knowledge=decision.knowledge, query=decision.query)
+            reply = enforce_sources(
+                reply, trace.repository, knowledge=decision.knowledge, query=decision.query, had_hits=had_hits
+            )
         if not reply:
             reply = "Dazu kann ich gerade nichts Belegtes sagen; frag gern noch einmal konkreter."
         reply = _fit(reply, "", max_chars=MAX_REPLY_CHARS)

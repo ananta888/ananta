@@ -18,6 +18,7 @@ from worker.meet_media.companion_dialog import (
     CompanionDialog,
     enforce_sources,
     strip_meta,
+    strip_tool_calls,
 )
 from worker.meet_media.companion_explanation import RepositorySource
 from worker.meet_media.companion_router import ANANTA_CODE_ARCHITECTURE, GENERAL_QUESTION, classify, search_query
@@ -290,3 +291,39 @@ def test_the_live_meta_reply_becomes_a_plain_statement_with_an_offer():
     reply, _trace = dialog.answer(QUESTION)
     assert "geliefert" not in reply
     assert reply == "Im Projektindex ist das nicht belegt; soll ich gezielt nach „rag-helper“ suchen?"
+
+
+# 5) Leaked tool-call markup, and a hit without a path is still evidence
+
+LEAKED_TOOL_CALL = (
+    "<tool_call> <function=codecompass_search> "
+    "<parameter=query> rag_helper semantic translation contracts </parameter> "
+    "<parameter=limit> 5 </parameter> </function> </tool_call>"
+)
+
+
+def test_a_leaked_tool_call_is_removed_from_the_reply():
+    assert strip_tool_calls(LEAKED_TOOL_CALL).strip() == ""
+    mixed = strip_tool_calls(f"Kurz: {LEAKED_TOOL_CALL} der Rest.")
+    assert "tool_call" not in mixed and "Kurz:" in mixed and "der Rest." in mixed
+    assert strip_tool_calls("Ein ganz normaler Satz.") == "Ein ganz normaler Satz."
+
+
+def test_a_lookup_with_hits_without_a_path_is_still_evidence():
+    reply = "Der RAG-Helper indexiert Repository-Pfade."
+    assert enforce_sources(reply, [], knowledge=True, query="rag-helper", had_hits=True) == reply
+    assert enforce_sources(reply, [], knowledge=True, query="rag-helper").endswith(
+        "Im Projektindex ist das nicht belegt; soll ich gezielt nach „rag-helper“ suchen?"
+    )
+
+
+def test_a_leaked_tool_call_never_reaches_the_chat():
+    port = Port(LEAKED_TOOL_CALL)
+    snippets = [{"path": "", "symbol": "", "line": None, "revision": "", "score": 242.4, "excerpt": "registry blob"}]
+    dialog, tools, retriever = companion(port, Retriever(snippets=snippets))
+
+    reply, _trace = dialog.answer(QUESTION)
+
+    assert "<tool_call" not in reply and "codecompass_search" not in reply
+    assert "nicht belegt" not in reply
+    assert retriever.queries == ["rag-helper"] and tools.calls and tools.calls[0]["snippets"] == 1
