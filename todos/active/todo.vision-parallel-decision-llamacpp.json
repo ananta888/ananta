@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-23",
-  "updated_at": "2026-09-23",
+  "updated_at": "2026-09-24",
   "owner": "Peter Stuiber / Ananta",
   "track": "vision_parallel_decision_llamacpp",
   "title": "Vision Parallel Decision: multimodaler Jev-artiger /v1/decision-Pfad fuer llama.cpp und Ananta",
@@ -270,7 +270,7 @@
     {
       "id": "VDEC-M7",
       "title": "Ananta-Anbindung: Provider, Hub-Gate, Tests, Doku",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "VDEC-021",
         "VDEC-022",
@@ -1161,10 +1161,10 @@
       "milestone_id": "VDEC-M7",
       "title": "Konsument im Hub: Route/Task mit Policy und Ausfuehrung der Eskalation",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "VDEC-023"
       ],
@@ -1172,9 +1172,28 @@
         "Ein konkreter Hub-Task nutzt VisionDecision hinter einer Policy; Eskalation an Chat-Completion/Mensch ist verdrahtet und begrenzt.",
         "Feature aus: Hub verhaelt sich unveraendert."
       ],
-      "implemented_solution": "Offen: bisher nur Provider + Gate als Bibliothek; keine Route, keine Policy-Regeln pro Task, kein Eskalations-Executor.",
-      "affected_files": [],
-      "verification": []
+      "implemented_solution": "POST /v1/vision/decision (check_auth, Exposure-Policy exposure_policy.vision_decision vorgeschaltet und vor jeder Aktion erneut): Task aus Hub-Katalog (shapes-v1 beta/informativ, document-intake-v1 experimentell mit Aktionen vision.document.rotate.*/route.*), nur data:image/png|jpeg|webp;base64-URIs, Anzahl <= MAX_MEDIA, Bytes/Body begrenzt, Pillow-Pruefung vor Upload (422, kein Kontakt). Feature aus: normal_path/vision_decision_disabled, nur das Flag gelesen, kein Kontakt. VisionTaskPolicy mit Regeln V0-V13 (grants_permission-Anspruch/unbekannt -> deny, Mensch -> allow, Chat -> confirm, experimentell/confirm-only/unkalibriert/p<0.9/zustandsaendernd -> confirm); Policy-Fehler -> deny (policy_error). act: Wert freigeben oder Aktion ueber VoiceCommandExecutor (eigene Instanz); confirm: einmalige, kurzlebige Bestaetigung (VoiceCommandConfirmationStore) an Tenant+Subject+Aktionstyp, POST /v1/vision/decision/confirm. VisionEscalationExecutor: chat_completion/larger_model ueber OpenAI-kompatibles /v1/chat/completions mit json_schema nur fuer eskalierte Felder (max. 8, validiert, nur suggestion -> confirm), sonst/bei Fehler/Timeout/4xx/5xx/kaputter Antwort/Overflow einmaliges Human-Review-Ticket (Tenant+Subject+Task+Feld, TTL 600 s), POST /v1/vision/decision/escalations/resolve. Dienstfehler -> normal_path ohne Wert. Audit nur Metadaten (Feldnamen, hub_action, Regel, Scores, Eskalationsstatus, error_code, usage inkl. media_tokens/media_cached, timings); keine Bilder/Base64/Prompts/Werte/Aktionstypen/IDs/Schluessel.",
+      "affected_files": [
+        "agent/routes/vision_decision.py",
+        "agent/services/vision_decision_hub_service.py",
+        "agent/services/vision_decision_task_policy.py",
+        "agent/services/vision_decision_escalation_executor.py",
+        "agent/bootstrap/routes.py",
+        "tests/test_vision_decision_route.py",
+        "tests/test_vision_decision_task_policy.py",
+        "tests/test_vision_decision_route_integration.py",
+        "docs/vision-decision-llamacpp.md"
+      ],
+      "verification": [
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_task_policy.py tests/test_vision_decision_route.py -> 90 passed (42 + 48: ok, Eskalation Mensch/Chat/Chat-Fehler, ungueltiges Bild, zu viele Bilder, 400/401/403/429/503/500, Timeout, kaputte Antwort, Feature aus ohne Config/Kontakt, Policy-Fehler, Bestaetigung/Ticket Replay/fremd/abgelaufen)",
+        "RUN_INTEGRATION_TESTS=1 VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf [VISION_DECISION_IT_CHAT=1] ... tests/test_vision_decision_route_integration.py -> 2 passed (mit und ohne Chat-Eskalation, Qwen3-VL-2B Q8_0, CPU); ohne Opt-in/Server: 2 skipped",
+        "Regression: alle tests/test_voice*.py und tests/test_vision*.py (62 Dateien) -> 845 passed, 16 skipped (Integrationstests ohne Opt-in)"
+      ],
+      "completed_at": "2026-09-24",
+      "evidence": [
+        "Commit: dieser Commit (feat(vision): wire VisionDecision into the hub with route, task policy and escalation executor) (main, lokal, nicht deployed)",
+        "Route-Integration: 4 Shape-Bilder, 11 per V13 freigegebene Werte alle korrekt, count einmal eskaliert; graues Bild: shape/color/count eskaliert, per Chat-Completion answered (suggestion/confirm) bzw. Review-Ticket ohne Chat. Server danach beendet."
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -1202,13 +1221,13 @@
   "tasks_status_summary": {
     "total": 27,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "partial": 3,
       "blocked": 1,
-      "done": 22
+      "done": 23
     },
-    "progress_percent_done": 81.5,
+    "progress_percent_done": 85.2,
     "by_priority": {
       "P0": 15,
       "P1": 12,
@@ -1229,9 +1248,9 @@
       "total": 7,
       "todo": 0,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 2,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -1254,12 +1273,12 @@
   },
   "progress_summary": {
     "state": "partial",
-    "todo_remaining": 1,
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 3,
     "blocked": 1,
-    "done": 22,
-    "milestones_done": 4,
+    "done": 23,
+    "milestones_done": 5,
     "milestones_total": 7
   },
   "success_criteria": [
@@ -1286,11 +1305,12 @@
     "Security-/Isolation-Tests",
     "Ananta VisionDecision Provider/Specialist",
     "CI-/GPU-Smoke-Konfiguration",
-    "README/Playground-Beispiel und Releaseentscheidung"
+    "README/Playground-Beispiel und Releaseentscheidung",
+    "Hub-Route /v1/vision/decision mit Task-Policy und Eskalations-Executor"
   ],
   "summary_notes": [
     "Fork-Seite abgeschlossen (Fork-Todo VD-* 23/23, Commit a0ae4ad5e); VDEC-001..013, 018..020 mit Evidenz done. VDEC-014 blocked (kein CUDA-Toolkit), VDEC-015..017 partial (realer Holdout, task-spezifische Schwellen, Prompt-Injection/Tenant-Cache-Isolation offen).",
-    "Ananta-Anbindung VDEC-021..026 done (Provider, Bildlimits, typisierte Abbildung mit Eskalation, 82 Unit-Tests, echter Integrationstest mit Qwen3-VL-2B, Doku); VDEC-027 (Hub-Konsument) offen.",
+    "Ananta-Anbindung VDEC-021..027 done: Provider, Bildlimits, typisierte Abbildung, Unit- und Integrationstests, Doku sowie Hub-Konsument POST /v1/vision/decision mit Task-Policy (V0-V13), einmaligen Bestaetigungen und Eskalations-Executor (Chat-Completion/groesseres Modell/Mensch).",
     "Schema-gueltig ist nicht richtig: nur Qwen3-VL-2B >= 94 % auf dem Shape-Testset; Qwen2.5-VL 61 %, SmolVLM 47 % bei hoher Konfidenz; auch Qwen3-VL ist auf schlecht gestellten Fragen uebersicher.",
     "Der Jeff/GLiFormer-Pfad bleibt ein separates Projekt; Ursprung dieses Forks ist thecodacus/llama.cpp:parallel-decision.",
     "Fork-CI ist gruen: Type-Check und Vision decision laufen auf dem Fork-Commit 2738323cf erfolgreich (vorher war der Python Type-Check rot; build-cann.yml war als leere jobs-Datei ungueltig). Der Ananta-Gitlink ist auf 2738323cf gepinnt (90f429b85)."
@@ -1307,10 +1327,10 @@
     "tests": "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
   },
   "open_points": [
-    "VDEC-027: Hub-Konsument (Route/Task, Policy-Regeln, Eskalations-Executor).",
     "VDEC-014: GPU-Messung auf RTX 5060 Ti nach Installation des CUDA-Toolkits.",
     "VDEC-015/016: realer Datensatz mit Holdout, task-spezifische Temperaturen und Schwellen.",
     "VDEC-017: Prompt-Injection-Tests; der Bild-Embedding-Cache des Servers ist prozessweit (Schluessel Bild-Hash), Tenant-Trennung nur ueber getrennte Serverprozesse.",
-    "Fork-CI: Python Type-Check rot (test_decision.py:128); Fix nur im Fork durch den Nutzer."
+    "Fork-CI: Python Type-Check rot (test_decision.py:128); Fix nur im Fork durch den Nutzer.",
+    "VDEC-027-Folge: Review-Tickets und Bestaetigungen sind prozesslokal im Speicher (kein Multi-Worker-/Neustart-Bestand); exposure_policy.vision_decision wird beim Speichern ueber die Settings-API noch nicht normalisiert; document-intake-v1 ist auf echten Scans nicht gemessen (experimentell, alles confirm)."
   ]
 }
