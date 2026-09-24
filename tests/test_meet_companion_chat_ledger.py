@@ -23,9 +23,14 @@ class FakeClientChat:
     """Mirrors the client port: fenced on renewal, carries unacknowledged inputs
     into the next open(), replies only to delivered IDs and at most once."""
 
-    def __init__(self):
-        self.open_, self.cursor = True, 0
-        self.pending, self.delivered, self.replied, self.chat = [], set(), set(), []
+    # webrtc 2f40686: a delivered input stays answerable 120 s after its latest
+    # delivery (poll), independent of the sender's sentAt.
+    REPLY_WINDOW = 120.0
+
+    def __init__(self, clock=None):
+        self.open_, self.cursor, self.clock = True, 0, clock
+        self.pending, self.delivered, self.replied, self.chat = [], {}, set(), []
+        self.sent = []
 
     def human(self, message_id, text="Frage"):
         self.chat.append({"id": len(self.chat) + 1, "author": "Mensch", "text": text, "system": False,
@@ -50,7 +55,8 @@ class FakeClientChat:
                 self.cursor += 1
                 item["cursor"] = self.cursor
         batch = [dict(item) for item in self.pending[:8]]
-        self.delivered.update(item["event"]["message_id"] for item in batch)
+        now = self.clock() if self.clock else 0.0
+        self.delivered.update((item["event"]["message_id"], now) for item in batch)
         return {"schema": "ananta.meet-chat-batch.draft1", "acknowledged": 0, "events": batch}
 
     def ack(self, cursor):
@@ -59,9 +65,12 @@ class FakeClientChat:
 
     def reply(self, message_id, text):
         self._require_open()
-        if message_id not in self.delivered or message_id in self.replied:
+        at = self.delivered.get(message_id)
+        expired = at is not None and self.clock is not None and self.clock() - at > self.REPLY_WINDOW
+        if at is None or expired or message_id in self.replied:
             raise RuntimeError("Error: meet_chat_reply_denied")
         self.replied.add(message_id)
+        self.sent.append(message_id)
         self.chat.append({"id": len(self.chat) + 1, "author": "ai-snake", "text": text, "system": False,
                           "machine": True, "messageId": "f" * 32, "replyTo": message_id})
 
@@ -72,11 +81,14 @@ class Companion:
     def __init__(self, client, *, clock=None):
         self.client, self.logs, self.answered, self.spoken = client, [], [], []
         self.ledger = ChatLedger(clock=clock) if clock else ChatLedger()
+        self.clock_advance = getattr(clock, "advance", lambda seconds: None)
         self.reply_hook = None
+        self.model_seconds = 0.0
 
     def answer(self, event, deliver):
         self.answered.append(event["message_id"])
         reply = "Antwort auf %s" % event["message_id"][:4]
+        self.clock_advance(self.model_seconds)
         if self.reply_hook:
             self.reply_hook()
         deliver(reply)
@@ -127,6 +139,59 @@ def test_a_reply_that_met_a_fence_is_resent_once_without_a_second_model_round():
     assert client.replied == {mid("b")}
     assert len(companion.spoken) == 1
     assert any(line.startswith("chat_reply_resent id=bbbbbbbb") for line in companion.logs)
+
+
+class Clock:
+    def __init__(self):
+        self.now = 1790239989.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
+def test_a_carried_input_is_answered_once_after_a_long_model_round_live_regression():
+    """Live 1790240011: RECV right after the reopen, 21.6 s model round, reply denied."""
+    clock = Clock()
+    client = FakeClientChat(clock)
+    companion = Companion(client, clock=clock)
+    companion.model_seconds = 21.6
+    client.human(mid("d"), "rag-helper")  # sent while the companion was speaking
+    clock.advance(20)
+    client.fence()
+    companion.tick()  # meet_chat_closed -> reopen; the client carries the input
+    client.pending.append(dict(client.pending[0]))  # plus the same input once more live
+    companion.tick()
+    for _ in range(3):
+        clock.advance(0.5)
+        companion.tick()
+    assert companion.answered == [mid("d")]
+    assert client.sent == [mid("d")]
+    assert not any("chat_reply_err" in line for line in companion.logs)
+    assert client.pending == []
+
+
+def test_a_resent_reply_after_a_fence_in_the_model_round_is_sent_exactly_once():
+    clock = Clock()
+    client = FakeClientChat(clock)
+    companion = Companion(client, clock=clock)
+    companion.model_seconds = 21.6
+    client.human(mid("e"))
+    companion.reply_hook = client.fence
+    companion.tick()
+    companion.reply_hook = None
+    for _ in range(4):
+        clock.advance(0.5)
+        companion.tick()
+    client.fence()
+    for _ in range(3):
+        companion.tick()
+    assert client.sent == [mid("e")]
+    assert len(companion.spoken) == 1 and companion.answered == [mid("e")]
+    assert sum(line.startswith("chat_reply_resent") for line in companion.logs) == 1
+    assert not any("reply_denied" in line for line in companion.logs)
 
 
 def test_a_denied_reply_is_never_retried_or_answered_again():

@@ -36,14 +36,16 @@
       "task_ids": [
         "MCD-001",
         "MCD-002",
-        "MCD-003"
+        "MCD-003",
+        "MCD-004"
       ],
       "status": "in_progress"
     }
   ],
   "critical_path_tasks": [
     "MCD-001",
-    "MCD-002"
+    "MCD-002",
+    "MCD-004"
   ],
   "tasks": [
     {
@@ -109,20 +111,45 @@
       "affected_files": [
         "worker/meet_media/companion.py"
       ]
+    },
+    {
+      "id": "MCD-004",
+      "title": "Live-Regression meet_chat_reply_denied: eine ueber den Fence getragene, zugestellte Eingabe wird nach langer Modellrunde genau einmal beantwortet",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100,
+      "problem": "Live (Worker-Log): 1790239989.521 chat opened, .524 RECV 'rag-helper', 1790240011.158 REPLY, .163 chat_reply_err meet_chat_reply_denied, obwohl der Port zwischen RECV und Reply offen war (poll_err 989.014 davor, 051.700 danach). Die Eingabe kam waehrend des Sprechens (Loop blockiert 954-988), wurde ueber den Renewal-Fence (Generation 3) getragen und erst ~20 s nach dem sentAt des Senders zugestellt; die Modellrunde dauerte 21,6 s. Der Client liess delivered 30 s nach sentAt verfallen (expire() in check()), reply() fand die ID nicht mehr. Dieselbe Frage frisch zugestellt (RECV 871.995 -> REPLY 898.410, 26,4 s) wurde im gleichen Senderecht angenommen. Die Ledger war nicht die Ursache: reply_denied wird als answered verbucht, kein Doppel-Versuch; das Nachsenden (RETRY) nutzt dieselbe message_id nach erneuter Zustellung.",
+      "implemented_solution": "webrtc-minimize-server 2f40686: delivered speichert den Zustellzeitpunkt (bei erneuter Zustellung aktualisiert) und bleibt 120 s beantwortbar; sentAt begrenzt weiter nur die Annahme (30 s). Companion unveraendert. Der Test-Fake der Ledger-Tests bildet das Antwortfenster jetzt mit Uhr ab (vorher ohne Ablauf, daher blieb die Regression unentdeckt).",
+      "affected_files": [
+        "webrtc-minimize-server: frontend/src/app/features/machine/machine-chat-endpoint.ts",
+        "webrtc-minimize-server: frontend/src/app/features/machine/machine-chat-endpoint.spec.ts",
+        "webrtc-minimize-server: docs/machine-chat-correlation.md",
+        "tests/test_meet_companion_chat_ledger.py"
+      ],
+      "acceptance_criteria": [
+        "Eine ueber einen Fence getragene, auch doppelt (getragen + live) empfangene Eingabe wird nach einer 21,6-s-Runde genau einmal beantwortet, ohne chat_reply_err",
+        "Trifft ein Fence die Modellrunde, wird die gehaltene Antwort nach Neuzustellung genau einmal nachgesendet, ohne zweite Modell-/TTS-Runde und ohne Ablehnung",
+        "Quellen-Allowlist, aktuelles Senderecht, <=450 Zeichen, 32/512-Grenzen und Rechteentzug unveraendert"
+      ],
+      "verification": [
+        "webrtc 2f40686: vitest machine-chat-endpoint.spec.ts 29/29 gruen; ohne Fix 2 Faelle rot mit meet_chat_reply_denied (Live-Fall reproduziert); tsc sauber; todos validate gruen",
+        "tests/test_meet_companion_chat_ledger.py 9/9 gruen (neu: test_a_carried_input_is_answered_once_after_a_long_model_round_live_regression, test_a_resent_reply_after_a_fence_in_the_model_round_is_sent_exactly_once)"
+      ]
     }
   ],
   "tasks_status_summary": {
-    "total": 3,
+    "total": 4,
     "by_status": {
       "todo": 1,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 2
+      "done": 3
     },
-    "progress_percent_done": 66.7,
+    "progress_percent_done": 75.0,
     "by_priority": {
-      "P0": 2,
+      "P0": 3,
       "P1": 1,
       "P2": 0,
       "P3": 0
@@ -130,12 +157,12 @@
     "by_risk": {
       "low": 0,
       "medium": 2,
-      "high": 1,
+      "high": 2,
       "critical": 0
     },
     "critical_path": {
-      "total": 2,
-      "done": 2,
+      "total": 3,
+      "done": 3,
       "remaining": 0
     },
     "milestones": {
@@ -152,10 +179,12 @@
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 2
+    "done": 3
   },
   "summary_notes": [
     "Nicht deployt. Webrtc-Client-Aenderung: webrtc-minimize-server 15ca1d5 (Track todos/active/todo.meet-chat-renewal-continuity.json dort).",
-    "Offen/bestehend, nicht Teil dieses Tracks: companion.py loggt weiterhin RECV/REPLY-Textausschnitte und STATE mit Chat-Inhalt; ein Human-Event mit veralteter membership_epoch schliesst den Client-Chatport weiterhin (meet_chat_event_scope_invalid)."
+    "Offen/bestehend, nicht Teil dieses Tracks: companion.py loggt weiterhin RECV/REPLY-Textausschnitte und STATE mit Chat-Inhalt; ein Human-Event mit veralteter membership_epoch schliesst den Client-Chatport weiterhin (meet_chat_event_scope_invalid).",
+    "MCD-004 (2026-09-24): Live meet_chat_reply_denied nach getragener Eingabe; Ursache Client-Antwortfenster ab sentAt, Fix webrtc 2f40686 (120 s ab Zustellung). Nicht deployt.",
+    "Offen (nicht Teil von MCD-004): der Companion-Loop pollt waehrend Modell-+TTS-Runde (~50 s) nicht; eine in dieser Zeit gesendete Eingabe kann im Client die 30-s-Frische ueberschreiten und vor dem ersten Poll verworfen werden (dann chat_gap). Mehrere Eingaben in einem Batch werden nacheinander beantwortet; ab ~3 wartenden Eingaben kann das 120-s-Antwortfenster knapp werden."
   ]
 }
