@@ -681,3 +681,45 @@ def test_repeated_token_hits_saturate():
     capped = service._weighted_token_hits(["rag"], "rag " * 9, 1.0)
     assert capped == service._weighted_token_hits(["rag"], "rag " * 900, 1.0)
     assert service._weighted_token_hits(["rag"], "rag " * 2, 1.0) < capped
+
+
+def test_underscore_hyphen_and_space_variants_name_the_same_file_stem(tmp_path):
+    service = _records_index(
+        tmp_path,
+        [
+            {
+                "id": "agent/services/rag_helper_index_service.py",
+                "content": "class RagHelperIndexService: indexes a repository path",
+                "metadata": {"file_type": "python", "relative_path": "agent/services/rag_helper_index_service.py"},
+            },
+            {
+                "id": ".hermes/plans/e2e-pipeline.md",
+                "content": "pipeline stages of the pipeline",
+                "metadata": {"file_type": "text", "relative_path": ".hermes/plans/e2e-pipeline.md"},
+            },
+        ],
+    )
+    for query in ("rag-helper", "rag_helper", "rag helper", "rag_helper pipeline"):
+        first = service.search_records(query, limit=2)[0]
+        assert first["metadata"]["display_path"] == "agent/services/rag_helper_index_service.py", query
+        assert first["metadata"]["retrieval_score_breakdown"]["path_stem_bonus"] == 5.0, query
+
+
+def test_tests_follow_the_module_for_explanations_but_not_for_test_tasks(tmp_path):
+    content = "RagHelperIndexService rag_helper index service"
+    service = _records_index(
+        tmp_path,
+        [
+            {"id": path, "content": content, "metadata": {"file_type": "python", "relative_path": path}}
+            for path in ("tests/test_rag_helper_index_service.py", "agent/services/rag_helper_index_service.py")
+        ],
+    )
+    explained = service.search_records("rag_helper", limit=2)
+    assert [record["metadata"]["display_path"] for record in explained] == [
+        "agent/services/rag_helper_index_service.py",
+        "tests/test_rag_helper_index_service.py",
+    ]
+    assert explained[1]["metadata"]["retrieval_score_breakdown"]["test_penalty"] == 0.2
+    tested = service.search_records("rag_helper", limit=2, task_kind="test")
+    assert len({record["score"] for record in tested}) == 1
+    assert tested[0]["metadata"]["retrieval_score_breakdown"]["test_penalty"] == 0.0

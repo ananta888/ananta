@@ -432,8 +432,11 @@ class KnowledgeIndexRetrievalService:
             "duplicate_penalty": 0.12,
             "generated_penalty": 0.18,
             "boilerplate_penalty": 0.08,
+            # An explanation asks what a component is; its tests only restate it.
+            "test_penalty": 0.2,
         }
         if normalized_kind in {"bugfix", "implement", "coding", "refactor", "test", "testing"}:
+            profile["test_penalty"] = 0.0
             profile["record_kind_weights"]["code"] = 1.25
             profile["record_kind_weights"]["relation"] = 1.15
             profile["file_kind_weights"]["code"] = 1.2
@@ -619,7 +622,8 @@ class KnowledgeIndexRetrievalService:
     def _weighted_token_hits(self, tokens: list[str], text: str, weight: float) -> float:
         if not tokens or not text:
             return 0.0
-        haystack = text.lower()
+        # Tokens never contain "-": "rag_helper" must also find "rag-helper".
+        haystack = text.lower().replace("-", "_")
         score = 0.0
         for token in tokens:
             count = haystack.count(token)
@@ -630,6 +634,19 @@ class KnowledgeIndexRetrievalService:
             # file whose path and content actually name the query.
             score += weight * (1.0 + min(count - 1, self.MAX_COUNTED_REPEATS) * 0.2)
         return score
+
+    @staticmethod
+    def _is_test_path(source_hint: str) -> bool:
+        parts = str(source_hint or "").replace("\\", "/").lower().split("/")
+        name = parts[-1]
+        stem = name.split(".", 1)[0]
+        return (
+            any(part in {"test", "tests", "__tests__", "spec"} for part in parts[:-1])
+            or stem.startswith("test_")
+            or stem.endswith("_test")
+            or ".spec." in name
+            or ".test." in name
+        )
 
     @staticmethod
     def _nested(record: dict[str, Any], key: str) -> Any:
@@ -684,17 +701,19 @@ class KnowledgeIndexRetrievalService:
             profile.get("symbol_multiplier", 1.0)
         )
         phrase_bonus = 0.0
-        compact_haystack = " ".join(field_texts.values()).lower()
-        normalized_query = re.sub(r"\s+", " ", str(query or "").strip().lower())
+        compact_haystack = re.sub(r"[\s_-]+", " ", " ".join(field_texts.values()).lower())
+        normalized_query = re.sub(r"[\s_-]+", " ", str(query or "").strip().lower())
         if normalized_query and normalized_query in compact_haystack:
             phrase_bonus = 1.8
 
         # A file named after the query ("docs/rag-helper.md",
         # "rag_helper_index_service.py") is about it; a file that merely sits
         # in a matching directory is not, so only the file stem counts here.
+        # "rag_helper", "rag-helper" and "rag helper" name the same stem parts.
         stem = str(field_texts.get("path") or "").replace("\\", "/").rsplit("/", 1)[-1].split(".", 1)[0]
         stem_tokens = {token for token in re.split(r"[^a-z0-9]+", stem.lower()) if token}
-        path_stem_bonus = self.PATH_STEM_TOKEN_WEIGHT * sum(1 for token in query_tokens if token in stem_tokens)
+        query_parts = {part for token in query_tokens for part in token.split("_") if len(part) >= 3}
+        path_stem_bonus = self.PATH_STEM_TOKEN_WEIGHT * len(query_parts & stem_tokens)
 
         relation_signal = 0.0
         if field_texts.get("relations"):
@@ -723,9 +742,10 @@ class KnowledgeIndexRetrievalService:
             if self._is_boilerplate_candidate(record, source_hint=source_hint, record_kind=record_kind)
             else 0.0
         )
+        test_penalty = float(profile.get("test_penalty", 0.0)) if self._is_test_path(source_hint) else 0.0
         quality_multiplier = max(
             0.35,
-            1.0 + importance_boost - duplicate_penalty - generated_penalty - boilerplate_penalty,
+            1.0 + importance_boost - duplicate_penalty - generated_penalty - boilerplate_penalty - test_penalty,
         )
         score = base_score * record_multiplier * file_multiplier * quality_multiplier
         return score, {
@@ -740,6 +760,7 @@ class KnowledgeIndexRetrievalService:
             "duplicate_penalty": round(duplicate_penalty, 4),
             "generated_penalty": round(generated_penalty, 4),
             "boilerplate_penalty": round(boilerplate_penalty, 4),
+            "test_penalty": round(test_penalty, 4),
             "quality_multiplier": round(quality_multiplier, 4),
             "final_score": round(score, 4),
         }

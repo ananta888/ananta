@@ -171,14 +171,33 @@
             "Live-Smoke (Worker-Container, neuer Code in frischem Prozess, echter llama-server): 3/3 Antworten Text mit Quelle agent/services/rag_helper_index_service.py, kein Tool-Markup; kein Deploy/Restart.",
             "172 Meet-Tests gruen (test_meet_llm_tools, test_meet_companion_knowledge, test_meet_companion_dialog, test_meet_openai_llm)."
           ]
+        },
+        {
+          "id": "MCK-010",
+          "status": "completed",
+          "title": "Live-Regression: 'rag-helper' liefert weiter Registry-Blob ohne Pfad; Varianten rag_helper/rag helper gleichwertig, Module/Doku vor Tests und Registry",
+          "problem": "Live 1790240011: codecompass_search 'rag-helper', 'rag_helper pipeline', 'RAG helper Ananta' -> sources=['ci-artifacts/client-surface-release-gate.json'], Antwort 'Suche zeigt nur die Registry-Struktur'. Beleg 1 (Hauptursache): der vom Worker aufgerufene Hub (meet-authorizing-hub = compose-next-ai-agent-hub-1, PID 1 'python -m agent.ai_agent', gestartet 2026-09-23T08:31:45Z) laeuft mit dem vor MCK-008 (eeb79ee3f, 2026-09-24 09:50 +0200) geladenen Code: fetch_snippets() ueber die echte Route liefert fuer alle drei Varianten Top-1 den Registry-Blob (score 242.4/54.6/240.6) mit path='' und fast nur pfadlose Treffer; derselbe Index mit dem aktuellen Code im selben Container liefert zitierbare Module. Der Code ist per Bind-Mount vorhanden, der Prozess laedt ihn ohne Neustart nicht. Beleg 2 (verbleibende Rankingluecken im aktuellen Code): 'rag_helper' und die vom Modell erzeugte Query 'rag_helper pipeline' bekamen keinen Dateistamm-Bonus (Token 'rag_helper' wurde nicht in rag/helper zerlegt), so dass bei 'rag_helper pipeline' .hermes/plans/*pipeline*.md und agent/pipeline_trace.py vorne lagen; Tests (tests/test_rag_helper_*.py) verdraengten docs/rag-helper.md aus den 5 Companion-Slots.",
+          "implemented_solution": "KnowledgeIndexRetrievalService: Query-Tokens werden fuer den Dateistamm-Bonus an '_' zerlegt (rag-helper = rag_helper = rag helper), die Phrase ist trennzeichen-unabhaengig, '-' im Heuhaufen zaehlt fuer '_'-Tokens; Testdateien (tests/, test_*, *_test, .spec./.test.) erhalten im Standard-/Erklaerprofil test_penalty 0.2 im quality_multiplier, bei task_kind bugfix/implement/coding/refactor/test/testing 0. Kein Re-Index noetig. Index-Abdeckung: docs/rag-helper.md ist im aktiven repo_path-Index (e8e7bf28..., 9703 Records) enthalten, im Repo aber nur ein 56-Byte-Platzhalter ('Placeholder for RAG helper documentation.'); deshalb traegt die Doku inhaltlich wenig.",
+          "affected_files": [
+            "agent/services/knowledge_index_retrieval_service.py",
+            "tests/test_knowledge_index_retrieval_service.py",
+            "tests/test_meet_assist_retrieve_route.py"
+          ],
+          "verification": [
+            "Echter Index, aktueller Code, Route-Projektion (limit 5): 'rag-helper' und 'rag helper' -> rag_helper_file_type_migration.py, rag_helper_file_type_policy.py, rag_helper_index_service.py, rag-helper/codecompass_rag.py, docs/rag-helper.md; 'rag_helper' -> rag_helper_file_type_policy.py, rag_helper_index_service.py, rag_helper_file_type_migration.py, tests/test_rag_helper_index_service.py, rag-helper/tests/...; 'rag_helper pipeline' -> rag_helper_file_type_policy.py, rag_helper_index_service.py, rag_helper_file_type_migration.py, tests/..., .hermes/plans/...; alle mit Pfad, Registry-Blob in keinem Top-5 (vorher bei 'rag_helper pipeline' Plaene/pipeline_trace vorne)",
+            "tests/test_meet_assist_retrieve_route.py::test_rag_helper_variants_return_citable_modules_and_docs_before_tests_and_registry (5 Varianten, echte Service-Instanz ueber die Route)",
+            "tests/test_knowledge_index_retrieval_service.py::test_underscore_hyphen_and_space_variants_name_the_same_file_stem, ::test_tests_follow_the_module_for_explanations_but_not_for_test_tasks",
+            "Ohne Fix 7 der neuen Faelle rot; mit Fix 27/27 in beiden Dateien; 258 weitere Tests mit Retrieval-Bezug gruen; 3 tests/test_deerflow_integration.py-Faelle auch ohne diese Aenderung rot (vorbestehend)",
+            "Live erst nach Neustart des Hub-Prozesses wirksam (nicht Teil dieses Auftrags: kein Deploy)"
+          ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 9,
+    "total_items": 10,
     "by_status": {
-      "completed": 7,
+      "completed": 8,
       "partial": 0,
       "open": 2
     },
@@ -186,7 +205,8 @@
       "Flags unveraendert: MEET_COMPANION_TOOLS=1 aktiviert auch den Router-Zwang; mit MEET_COMPANION_TOOLS=0 und RAG-Prefix aus bleibt das Modell ungegroundet wie bisher.",
       "Live-Nachweis MCK-005 offen: verbesserte rag-helper-Antwort (erzwungener Lookup + Quelle) im Meet pruefen.",
       "Update 2026-09-23: MCK-007 (Laengen-Clamp gegen meet_chat_reply_denied) ergaenzt nach Live-Regression.",
-      "Update 2026-09-24: MCK-008 (pfadlose Index-Treffer, Blob-Ranking) und MCK-009 (letzte Tool-Runde erzwingt Text, geleakte Tool-Calls) nach Live-Befund 'wofuer ist der rag-helper gut' ergaenzt und abgeschlossen."
+      "Update 2026-09-24: MCK-008 (pfadlose Index-Treffer, Blob-Ranking) und MCK-009 (letzte Tool-Runde erzwingt Text, geleakte Tool-Calls) nach Live-Befund 'wofuer ist der rag-helper gut' ergaenzt und abgeschlossen.",
+      "Update 2026-09-24: MCK-010 nach Live-Befund (sources=['ci-artifacts/client-surface-release-gate.json']): Hub-Prozess seit 2026-09-23 08:31Z ohne MCK-008-Code; Varianten rag_helper/rag helper und Test-Abwertung ergaenzt. Wirksam erst nach Hub-Neustart (nicht deployt)."
     ],
     "recommended_order": [
       "MCK-001",
@@ -196,7 +216,8 @@
       "MCK-006",
       "MCK-005",
       "MCK-008",
-      "MCK-009"
+      "MCK-009",
+      "MCK-010"
     ]
   }
 }

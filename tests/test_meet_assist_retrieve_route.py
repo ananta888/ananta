@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 
 from agent.routes.meet import meet_bp
+from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 from worker.meet_media.contract import encode, signature
 
 pytestmark = pytest.mark.timeout(15)
@@ -98,3 +99,60 @@ def test_citable_hits_come_first_and_the_display_path_is_used(app, monkeypatch):
     assert paths == ["agent/services/rag_helper_index_service.py", "docs/rag-helper.md"]
     # Over-fetched so the pathless hit can be dropped without losing a slot.
     assert retrieval.search_records.call_args.kwargs["limit"] == 4
+
+
+def _live_shaped_index(tmp_path):
+    """The shape of the live repo_path index: records ingestion keeps the file
+    only in ``metadata.relative_path``; a registry blob repeats the query."""
+    from types import SimpleNamespace
+
+    def record(path, content, file_type="python"):
+        return {"id": path, "content": content, "metadata": {"file_type": file_type, "relative_path": path}}
+
+    registry = json.dumps({"schema": "codecompass.file-type-support-registry.v1"}) + (
+        ' {"parser_strategy": "rag_helper", "storage": "rag-helper helper pipeline"}' * 400
+    )
+    records = [
+        record("config/codecompass/file_type_support.v1.json", registry, "json"),
+        {"id": "registry-without-path", "content": registry},
+        record("agent/services/rag_helper_index_service.py",
+               "class RagHelperIndexService: runs the rag_helper pipeline for a repository path"),
+        record("agent/services/rag_helper_file_type_policy.py",
+               "class RagHelperFileTypePolicy: which files the rag_helper pipeline reads"),
+        record("tests/test_rag_helper_index_service.py",
+               "def test_rag_helper_index_service(): RagHelperIndexService rag_helper pipeline"),
+        record("docs/rag-helper.md", "# RAG Helper\n\nWhat the rag-helper is good for.", "text"),
+        record(".hermes/plans/e2e-pipeline.md", "# E2E pipeline plan: pipeline stages of the pipeline", "text"),
+    ]
+    output_dir = tmp_path / "records-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text("\n".join(json.dumps(item) for item in records), encoding="utf-8")
+    repository = SimpleNamespace(list_completed=lambda: [SimpleNamespace(
+        id="idx-live-shape", artifact_id=None, source_scope="repo_path", profile_name="deep_code",
+        output_dir=str(output_dir))])
+    return KnowledgeIndexRetrievalService(knowledge_index_repository=repository)
+
+
+@pytest.mark.parametrize("query", ["rag-helper", "rag_helper", "rag helper", "rag_helper pipeline", "RAG helper Ananta"])
+def test_rag_helper_variants_return_citable_modules_and_docs_before_tests_and_registry(app, monkeypatch, tmp_path, query):
+    """Live regression: "rag-helper" answered from a registry blob without a citable path."""
+    service = _live_shaped_index(tmp_path)
+    monkeypatch.setattr(
+        "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
+        lambda *args, **kwargs: service,
+    )
+
+    response = post(app.test_client(), encode({"query": query, "limit": 5}))
+
+    paths = [snippet["path"] for snippet in json.loads(response.data)["snippets"]]
+    assert all(paths), paths
+    # The modules named after the query lead, their tests follow them, and
+    # the doc page always makes the five slots the companion sees.
+    assert set(paths[:2]) == {
+        "agent/services/rag_helper_index_service.py",
+        "agent/services/rag_helper_file_type_policy.py",
+    }, paths
+    assert "docs/rag-helper.md" in paths
+    assert paths.index("tests/test_rag_helper_index_service.py") > 1
+    blob = "config/codecompass/file_type_support.v1.json"
+    assert blob not in paths or paths.index(blob) > paths.index("docs/rag-helper.md")
