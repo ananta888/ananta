@@ -1,0 +1,189 @@
+{
+ "$schema": "../todo.track.schema.json",
+ "id": "todo.meet-companion-codecompass-mcp-tools",
+ "title": "Meet: ai-snake nutzt alle lesenden CodeCompass-MCP-Werkzeuge ueber einen Worker-Key-Weg",
+ "version": "1.0",
+ "owner": "Peter Stuiber / Ananta",
+ "track": "meet-companion-codecompass-mcp-tools",
+ "status": "in_progress",
+ "created_at": "2026-09-25",
+ "updated_at": "2026-09-25",
+ "purpose": "Die ai-snake im Meet-Chat konnte nur codecompass_search nutzen; die uebrigen CodeCompass-MCP-Werkzeuge waren dem credential-losen Meet-Worker nicht zugaenglich.",
+ "goal": "Alle lesenden CodeCompass-MCP-Werkzeuge stehen dem Companion-Modell zur Verfuegung, ausgefuehrt serverseitig ueber einen worker-key-signierten Hub-Endpoint mit Allowlist, Operator-Operation-Policy, Media-Scope, Bounds und Audit wie beim Hub-MCP.",
+ "status_scale": [
+  "todo",
+  "in_progress",
+  "partial",
+  "blocked",
+  "done"
+ ],
+ "priority_scale": [
+  "P0",
+  "P1",
+  "P2",
+  "P3"
+ ],
+ "risk_scale": [
+  "low",
+  "medium",
+  "high",
+  "critical"
+ ],
+ "milestones": [
+  {
+   "id": "MCT-M1",
+   "title": "CodeCompass-Werkzeuge fuer den Companion",
+   "task_ids": [
+    "MCT-001",
+    "MCT-002",
+    "MCT-003",
+    "MCT-004"
+   ],
+   "status": "in_progress"
+  }
+ ],
+ "critical_path_tasks": [
+  "MCT-001",
+  "MCT-002",
+  "MCT-003"
+ ],
+ "tasks": [
+  {
+   "id": "MCT-001",
+   "title": "Hub: worker-key-authentifizierter Endpoint POST /api/meet/v1/internal/assist/tool fuer die CodeCompass-MCP-Lesewerkzeuge",
+   "status": "done",
+   "priority": "P0",
+   "risk": "high",
+   "progress_percent": 100,
+   "problem": "Der Meet-Worker haelt bewusst keine User-/Backend-Credentials und kann /v1/mcp nicht nutzen; die ai-snake hatte nur codecompass_search (/internal/assist/retrieve).",
+   "implemented_solution": "Neues Modul agent/routes/meet_companion_tools.py (registriert am meet_bp). HMAC mit dem Meet-Media-Worker-Key wie /internal/assist/retrieve; geschlossener Payload {project_id, tool, arguments} <= 16 KiB, keine Query. Drei fail-closed Gates: harte Allowlist der 8 lesenden codecompass.*-Tools (per ANANTA_MEET_COMPANION_MCP_TOOLS einschraenkbar, nie erweiterbar), Companion-Identitaet nur fuer ein Projekt in ANANTA_MEET_MEDIA_ALLOWED_SCOPES (MeetTurnService.companion_principal), Operator-Operation-Policy (OperationPolicyService.decide auf dem registrierten mcp.tool-Descriptor, auth_source agent_auth, ohne Admin/Approval) plus Pruefung read/nicht side_effecting. Argumente je Tool geschlossen und begrenzt (analytics_query nur Template-Enum, rlm max_depth<=2/max_fanout<=3, keine Client-Authority-Felder). Dispatch ueber get_mcp_registry_service().call_tool mit minimalem Kontext {codecompass_capability}; codecompass.retrieve nutzt den gemeinsamen Knowledge-Index-Pfad (assist_snippets) von /internal/assist/retrieve. Timeout (ANANTA_MEET_COMPANION_TOOL_TIMEOUT_SECONDS, Standard 15 s, Pool 2), Ergebnis geprunt und auf 6000 Zeichen serialisiert, zitierbare Quellen (path/line/symbol) extrahiert. Fehlercodes: meet_tool_unauthorized 401, meet_tool_denied 403, meet_tool_arguments_invalid/meet_tool_payload_invalid 400, meet_tool_not_found 404, meet_tool_error 502, meet_tool_timeout 504. Audit: log_audit meet_companion_tool_called + Execution-Audit (actor_role meet_companion) + Policy-Observability (surface meet_companion). /internal/assist/retrieve unveraendert (nur Snippet-Aufbau in assist_snippets extrahiert).",
+   "affected_files": [
+    "agent/routes/meet_companion_tools.py",
+    "agent/routes/meet.py",
+    "tests/test_meet_companion_tools_route.py"
+   ],
+   "acceptance_criteria": [
+    "Falscher/fehlender Worker-Key und User-Bearer: 401, kein Tool-Aufruf",
+    "Nicht erlaubte Tools (Schreib-/Admin-/Nicht-CodeCompass): 403 meet_tool_denied, Registry unberuehrt",
+    "Operator-Policy (deny_operations/fehlende Allow-Gruppe/ungueltige Policy) sperrt auch den Companion",
+    "Jedes der 7 Registry-Tools wird mit normalisierten Argumenten dispatcht; retrieve liefert zitierbare Snippets",
+    "Groesse, Argumente, Timeout und Fehler liefern klare Codes ohne Reason-Leak"
+   ],
+   "verification": [
+    "pytest tests/test_meet_companion_tools_route.py: 54 passed (Hub-Image ananta-quickstart-no-ollama-qdrant-hub:local, env -i); tests/test_meet_assist_retrieve_route.py unveraendert gruen"
+   ]
+  },
+  {
+   "id": "MCT-002",
+   "title": "Worker: Multi-Tool-Toolbox mit allen CodeCompass-Lesewerkzeugen ueber den neuen Endpoint",
+   "status": "done",
+   "priority": "P0",
+   "risk": "medium",
+   "progress_percent": 100,
+   "problem": "llm_tools.py bot genau ein Werkzeug (codecompass_search) an.",
+   "implemented_solution": "llm_tools.HUB_TOOL_SPECS: codecompass_architecture_overview/_expand/_intelligence, codecompass_layers_heads/_plan, codecompass_analytics_query, codecompass_rlm_analyze als Function-Definitionen (Unterstrich-Namen, da OpenAI-Funktionsnamen keine Punkte erlauben; die MCP-Namen mit Punkt und codecompass_retrieve werden als Alias angenommen). codecompass_search bleibt das Retrieve-Werkzeug (Alias codecompass.retrieve) und laeuft jetzt ueber /internal/assist/tool (assist.retrieve_snippets), mit Rueckfall auf /internal/assist/retrieve, falls der Hub die neue Route noch nicht kennt (404 ohne meet_tool_*-Code). Argumente werden weiter untrusted geparst, auf Schema-Felder reduziert und begrenzt; fehlende Pflichtfelder liefern einen Usage-Hinweis statt eines Hub-Aufrufs. Architektur-Handles (hac:...) und snapshot_refs werden ueber Antworten hinweg gemerkt (ToolMemory) und im Usage-Hinweis bzw. am Anfang des Ergebnisses angeboten. Hub-Fehlercodes werden zu kurzen Tool-Ergebnissen. Budget: MEET_LLM_TOOL_ROUNDS (unveraendert), neu MEET_LLM_TOOL_CALLS (Standard 6, toolboxweit), MEET_LLM_TOOL_RESULT_CHARS; MEET_LLM_TOOLSET=search stellt das bisherige Ein-Werkzeug-Verhalten her. leaked_calls erkennt alle Toolnamen.",
+   "affected_files": [
+    "worker/meet_media/llm_tools.py",
+    "worker/meet_media/assist.py",
+    "worker/meet_media/companion.py",
+    "tests/test_meet_llm_tools_hub.py"
+   ],
+   "acceptance_criteria": [
+    "Alle Tools als gueltige Function-Definitionen angeboten; Ausfuehrung ueber den Hub-Port mit begrenzten Argumenten",
+    "Alias codecompass_search/codecompass_retrieve/codecompass.retrieve und Punkt-Namen funktionieren",
+    "Leaked Calls (XML und JSON) fuer alle Toolnamen erkannt und ausgefuehrt",
+    "Fehlende Pflichtfelder: Usage-Hinweis, kein Hub-Aufruf; expand bietet gemerkte Handles an",
+    "Budget ueber alle Tools, Ergebnis begrenzt, Fehler ohne Reason-Leak"
+   ],
+   "verification": [
+    "pytest tests/test_meet_llm_tools_hub.py: 53 passed; tests/test_meet_llm_tools.py unveraendert gruen (Hub-Image, env -i)"
+   ]
+  },
+  {
+   "id": "MCT-003",
+   "title": "Dialog: Router/Force unveraendert, Systemprompt nennt die verfuegbaren Werkzeuge",
+   "status": "done",
+   "priority": "P1",
+   "risk": "low",
+   "progress_percent": 100,
+   "problem": "Der Systemprompt sprach von genau einem Werkzeug.",
+   "implemented_solution": "companion_dialog.PERSONA_SYSTEM_WITH_ALL_TOOLS (Suche bleibt erste Wahl, die weiteren Werkzeuge mit Einsatzzweck; kein erfundenes Ergebnis bei Fehler/fehlenden Angaben; Quellenpflicht unveraendert). persona_for(toolbox) waehlt den Prompt passend zum tatsaechlich angebotenen Set. Wissensfragen erzwingen weiterhin codecompass_search.",
+   "affected_files": [
+    "worker/meet_media/companion_dialog.py",
+    "worker/meet_media/companion.py"
+   ],
+   "acceptance_criteria": [
+    "Wissensfrage: erzwungenes codecompass_search, kein Hub-Tool",
+    "Smalltalk: kein Werkzeug",
+    "Prompt nennt genau die angebotenen Werkzeuge"
+   ],
+   "verification": [
+    "tests/test_meet_llm_tools_hub.py (Router/Persona) sowie tests/test_meet_companion_knowledge.py und tests/test_meet_companion_dialog.py unveraendert gruen"
+   ]
+  },
+  {
+   "id": "MCT-004",
+   "title": "Live-Nachweis nach Deploy: ai-snake nutzt ein Architektur-/Analytics-Werkzeug im Meet-Chat",
+   "status": "todo",
+   "priority": "P1",
+   "risk": "medium",
+   "progress_percent": 0,
+   "problem": "Nicht deployt; ob das lokale Modell die zusaetzlichen Werkzeuge sinnvoll waehlt und ob Architektur-Graph/Analytics im Hub befuellt sind, ist nur live pruefbar.",
+   "acceptance_criteria": [
+    "Hub vor oder mit Companion deployt (Companion faellt sonst fuer die Suche auf /internal/assist/retrieve zurueck)",
+    "Companion-Log zeigt TOOL codecompass_architecture_overview bzw. codecompass_analytics_query mit failed=False",
+    "Kein meet_tool_denied im Log, solange keine Operator-Policy die Tools sperrt"
+   ]
+  }
+ ],
+ "tasks_status_summary": {
+  "total": 4,
+  "by_status": {
+   "todo": 1,
+   "in_progress": 0,
+   "partial": 0,
+   "blocked": 0,
+   "done": 3
+  },
+  "progress_percent_done": 75.0,
+  "by_priority": {
+   "P0": 2,
+   "P1": 2,
+   "P2": 0,
+   "P3": 0
+  },
+  "by_risk": {
+   "low": 1,
+   "medium": 2,
+   "high": 1,
+   "critical": 0
+  },
+  "critical_path": {
+   "total": 3,
+   "done": 3,
+   "remaining": 0
+  },
+  "milestones": {
+   "total": 1,
+   "todo": 0,
+   "in_progress": 1,
+   "blocked": 0,
+   "done": 0
+  }
+ },
+ "progress_summary": {
+  "state": "in_progress",
+  "todo_remaining": 1,
+  "in_progress": 0,
+  "partial": 0,
+  "blocked": 0,
+  "done": 3
+ },
+ "summary_notes": [
+  "Nicht deployt. Deploy-Reihenfolge egal: ein Companion vor dem Hub faellt fuer die Suche auf /internal/assist/retrieve zurueck; die weiteren Werkzeuge melden bis zum Hub-Deploy 'nicht erreichbar'.",
+  "Abweichung: keine neue Registry-Gruppe (die Operation-Policy ist nicht principal-spezifisch, eine Gruppe haette das Gate-Artefakt mcp-api-operation-allowlists geaendert ohne Mehrwert); stattdessen harte Meet-Allowlist + Env-Einschraenkung + unveraenderte Operator-Policy.",
+  "Abweichung: codecompass.retrieve laeuft im Companion-Endpoint ueber den Knowledge-Index-Pfad von /internal/assist/retrieve statt ueber die capability-versiegelte agentische Retrieval-Strecke, die ohne registrierten codecompass_retrieval_capability_resolver fail-closed leer bleibt.",
+  "Die externe MCP-Exposure-Policy (exposure_policy.mcp, Standard aus) gilt fuer /v1/mcp und wird hier bewusst nicht ausgewertet; sie regelt externe MCP-Clients, nicht den Hub-internen Worker-Key-Weg.",
+  "Regression (Hub-Image, env -i): 19 Testdateien (Meet-Companion/assist/llm_tools/MCP/public-room): 450 passed, 5 failed. Die 5 Fehler in tests/test_meet_untrusted_llm_input.py sind vorbestehend und unabhaengig (Ollama-Payload enthaelt 'think', der Test erwartet es nicht; llm_backends.py ist nicht geaendert)."
+ ]
+}

@@ -245,11 +245,10 @@ def dialog():
     """
     global _DIALOG, _TOOLBOX
     if _DIALOG is None:
-        from worker.meet_media.assist import fetch_snippets
+        from worker.meet_media.assist import call_tool, fetch_snippets, retrieve_snippets
         from worker.meet_media.companion_dialog import (
-            PERSONA_SYSTEM,
-            PERSONA_SYSTEM_WITH_TOOLS,
             CompanionDialog,
+            persona_for,
         )
         from worker.meet_media.llm import answer
         from worker.meet_media.llm_tools import codecompass_toolbox
@@ -258,13 +257,22 @@ def dialog():
         tools = knowledge and tools_enabled()
         prefix = knowledge and rag_prefix_enabled()
         log("flags codecompass=%s tools=%s rag_prefix=%s" % (knowledge, tools, prefix))
-        _TOOLBOX = codecompass_toolbox(lambda query, limit: fetch_snippets(query, limit=limit)) if tools else None
+        # Every CodeCompass tool runs on the Hub over the worker key
+        # (/internal/assist/tool); codecompass_search is codecompass.retrieve.
+        _TOOLBOX = (
+            codecompass_toolbox(
+                lambda query, limit: retrieve_snippets(query, limit=limit, project=PROJECT),
+                lambda tool, arguments: call_tool(tool, arguments, project=PROJECT),
+            )
+            if tools
+            else None
+        )
         _DIALOG = CompanionDialog(
             llm=lambda text, context, system: answer(text, context=context, system=system, tools=_TOOLBOX),
             retriever=(lambda query: fetch_snippets(query, limit=5)) if prefix else None,
             codecompass_enabled=prefix,
             model_name=os.environ.get("MEET_LLM_MODEL", ""),
-            system=PERSONA_SYSTEM_WITH_TOOLS if tools else PERSONA_SYSTEM,
+            system=persona_for(_TOOLBOX),
             # Knowledge questions get codecompass_search forced by the router.
             tools=_TOOLBOX,
         )
@@ -281,13 +289,21 @@ def generate_reply(text):
         # What the model actually looked up belongs in the same trace the snake
         # explains itself from, so "wie hast du das erzeugt?" stays truthful.
         for call in toolbox.calls:
+            name = call.get("tool") or "codecompass_search"
             trace.codecompass_used = True
             trace.observe(
-                "codecompass_search %s (query=%s) -> %d Auszug/Auszüge"
-                % ("vom Router erzwungen" if call.get("forced") else "aufgerufen", call["query"][:60], call["snippets"])
+                "%s %s (query=%s) -> %d Auszug/Auszüge%s"
+                % (
+                    name,
+                    "vom Router erzwungen" if call.get("forced") else "aufgerufen",
+                    call["query"][:60],
+                    call["snippets"],
+                    ", fehlgeschlagen" if call["failed"] else "",
+                )
             )
-            log("TOOL codecompass_search query=%r snippets=%s failed=%s forced=%s"
-                % (call["query"][:80], call["snippets"], call["failed"], bool(call.get("forced"))))
+            log("TOOL %s query=%r snippets=%s failed=%s code=%s forced=%s"
+                % (name, call["query"][:80], call["snippets"], call["failed"], call.get("code", ""),
+                   bool(call.get("forced"))))
         trace.add_sources(toolbox.sources)
     log("TRACE route=%s tools=%s sources=%s" % (
         trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))

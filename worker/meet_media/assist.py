@@ -6,6 +6,7 @@ asks the Hub over the scoped worker key for a small, bounded context block.
 
 import json
 import os
+import urllib.error
 import urllib.request
 
 from worker.meet_media.contract import encode, load_key, signature
@@ -14,7 +15,17 @@ RETRIEVE_URL = os.environ.get(
     "MEET_HUB_ASSIST_URL",
     "http://meet-authorizing-hub:5000/api/meet/v1/internal/assist/retrieve",
 )
+TOOL_URL = os.environ.get("MEET_HUB_ASSIST_TOOL_URL") or RETRIEVE_URL.rsplit("/", 1)[0] + "/tool"
 MAX_CONTEXT_CHARS = int(os.environ.get("MEET_ASSIST_MAX_CHARS", "1400"))
+MAX_TOOL_TEXT_CHARS = 6000
+
+
+class ToolCallError(Exception):
+    """A coded Hub refusal or failure of ``/internal/assist/tool`` (no reason text leaks)."""
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
 
 
 def fetch_snippets(query, *, limit=5, timeout=10):
@@ -32,6 +43,69 @@ def fetch_snippets(query, *, limit=5, timeout=10):
         payload = json.load(response)
     snippets = payload.get("snippets") if isinstance(payload, dict) else None
     return [_snippet(item) for item in (snippets or []) if isinstance(item, dict)]
+
+
+def call_tool(tool, arguments, *, project, timeout=20):
+    """Run one CodeCompass MCP read tool on the Hub over the worker key.
+
+    Returns ``{"text", "truncated", "sources"}`` bounded again on this side;
+    a Hub refusal raises ``ToolCallError(code)`` with the Hub's reason code
+    (``meet_tool_denied``, ``meet_tool_arguments_invalid``, ...), transport
+    failures raise ``ToolCallError("meet_tool_unreachable")``.
+    """
+    key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
+    body = encode({"project_id": project, "tool": tool, "arguments": arguments})
+    request = urllib.request.Request(
+        TOOL_URL,
+        body,
+        {
+            "Content-Type": "application/json",
+            "X-Ananta-Task-Signature": signature(key, body),
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read(64 * 1024))
+    except urllib.error.HTTPError as error:
+        raise ToolCallError(_error_code(error)) from None
+    except (OSError, ValueError):
+        raise ToolCallError("meet_tool_unreachable") from None
+    if not isinstance(payload, dict):
+        raise ToolCallError("meet_tool_unreachable")
+    sources = payload.get("sources") if isinstance(payload.get("sources"), list) else []
+    return {
+        "text": str(payload.get("text") or "")[:MAX_TOOL_TEXT_CHARS],
+        "truncated": payload.get("truncated") is True,
+        "sources": [_snippet(item) for item in sources[:8] if isinstance(item, dict)],
+    }
+
+
+def _error_code(error):
+    try:
+        code = json.loads(error.read(4096))["error"]["code"]
+    except Exception:  # noqa: BLE001 -- any unreadable error body is just "HTTP <status>"
+        code = ""
+    if isinstance(code, str) and code.startswith("meet_") and len(code) <= 64:
+        return code
+    return "meet_tool_http_%d" % int(getattr(error, "code", 0) or 0)
+
+
+def retrieve_snippets(query, *, limit=5, project, timeout=20):
+    """``codecompass.retrieve`` over ``/internal/assist/tool``.
+
+    A Hub that predates the tool route answers 404 without a ``meet_tool_*``
+    code; then the unchanged ``/internal/assist/retrieve`` path is used, so a
+    worker deployed ahead of the Hub keeps its knowledge lookups.
+    """
+    try:
+        result = call_tool(
+            "codecompass.retrieve", {"query": query, "limit": limit}, project=project, timeout=timeout
+        )
+    except ToolCallError as error:
+        if error.code in ("meet_tool_http_404", "meet_media_disabled"):
+            return fetch_snippets(query, limit=limit)
+        raise
+    return result["sources"]
 
 
 def _snippet(item):

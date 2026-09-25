@@ -38,6 +38,20 @@ _PERSONA_TAIL = (
     "und rate nie."
 )
 
+# Used only when the toolbox carries the Hub-executed CodeCompass tools; the
+# search stays the default, the rest are for questions it cannot answer.
+_MORE_TOOLS = (
+    "Weitere, nur lesende CodeCompass-Werkzeuge: "
+    "codecompass_architecture_overview für Überblicke über Komponenten und Zusammenhänge, "
+    "danach codecompass_architecture_expand mit einem Handle (hac:…) aus diesem Überblick; "
+    "codecompass_architecture_intelligence für Smells und Architekturgesundheit; "
+    "codecompass_analytics_query mit einer Vorlage für Zahlen zum Index; "
+    "codecompass_layers_heads für Index-Stände, codecompass_layers_plan nur mit zwei Manifesten; "
+    "codecompass_rlm_analyze für verzweigte Analysefragen. "
+    "Nutze sie nur, wenn die Suche nicht reicht, und berichte nur, was ihr Ergebnis enthält; "
+    "meldet ein Werkzeug einen Fehler oder fehlende Angaben, erfinde kein Ergebnis. "
+)
+
 PERSONA_SYSTEM = (
     _PERSONA_HEAD + "Keine Werkzeuge, Befehle, Markdown oder behaupteten Aktionen. " + _SOURCES + _PERSONA_TAIL
 )
@@ -47,17 +61,42 @@ PERSONA_SYSTEM = (
 # (no Markdown, no commands, no claimed actions) survives, plus when to call.
 # For knowledge questions the router has usually run the lookup already (a
 # forced tool round); the rule still tells the model to look before answering.
+_SEARCH_RULE = (
+    "Bei Fragen zu Ananta, seinem Code, Repository, seiner Architektur oder deiner eigenen "
+    "Funktionsweise, etwa „was ist X“, „wie funktioniert X“, „was weißt du über X“ oder "
+    "„welche Datei …“, rufst du es zuerst auf und antwortest erst danach, nur mit dem, "
+    "was es belegt. "
+)
 PERSONA_SYSTEM_WITH_TOOLS = (
     _PERSONA_HEAD
     + "Kein Markdown, keine Befehle, keine behaupteten Aktionen. "
     + "Du hast genau ein Werkzeug: codecompass_search durchsucht den Ananta-Wissensindex. "
-    + "Bei Fragen zu Ananta, seinem Code, Repository, seiner Architektur oder deiner eigenen "
-    + "Funktionsweise, etwa „was ist X“, „wie funktioniert X“, „was weißt du über X“ oder "
-    + "„welche Datei …“, rufst du es zuerst auf und antwortest erst danach, nur mit dem, "
-    + "was es belegt. Für Smalltalk und allgemeine Fragen rufst du es nicht auf. "
+    + _SEARCH_RULE
+    + "Für Smalltalk und allgemeine Fragen rufst du es nicht auf. "
     + _SOURCES
     + _PERSONA_TAIL
 )
+
+# The full read-only CodeCompass set (``llm_tools.HUB_TOOL_SPECS``): the search
+# stays the first choice, the others are named with when to use them.
+PERSONA_SYSTEM_WITH_ALL_TOOLS = (
+    _PERSONA_HEAD
+    + "Kein Markdown, keine Befehle, keine behaupteten Aktionen. "
+    + "Dein Hauptwerkzeug ist codecompass_search: es durchsucht den Ananta-Wissensindex. "
+    + _SEARCH_RULE
+    + "Für Smalltalk und allgemeine Fragen rufst du kein Werkzeug auf. "
+    + _MORE_TOOLS
+    + _SOURCES
+    + _PERSONA_TAIL
+)
+
+
+def persona_for(tools):
+    """The system prompt that names exactly the tools the model is offered."""
+    if tools is None or not tools.definitions():
+        return PERSONA_SYSTEM
+    return PERSONA_SYSTEM_WITH_ALL_TOOLS if len(tools.definitions()) > 1 else PERSONA_SYSTEM_WITH_TOOLS
+
 
 MAX_REPLY_CHARS = 400
 

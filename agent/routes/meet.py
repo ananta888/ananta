@@ -9,6 +9,7 @@ import re
 from flask import Blueprint, current_app, jsonify, request
 
 from agent.auth import check_user_auth, get_authenticated_source_control_principal
+from agent.routes.meet_companion_tools import register_routes as register_companion_tool_routes
 from agent.routes.meet_dialog_avatar_video import register_routes as register_avatar_video_routes
 from agent.routes.meet_dialog_diagnostics import register_routes as register_diagnostic_routes
 from agent.services.meet_contract import MeetError
@@ -19,6 +20,7 @@ meet_bp = Blueprint("meet", __name__, url_prefix="/api/meet/v1")
 
 register_diagnostic_routes(meet_bp)
 register_avatar_video_routes(meet_bp)
+register_companion_tool_routes(meet_bp)
 
 
 @meet_bp.before_request
@@ -225,7 +227,11 @@ def media_assist_retrieve():
         raise MeetError("meet_retrieve_query_invalid")
     limit = payload.get("limit")
     limit = 5 if not isinstance(limit, int) else max(1, min(int(limit), 8))
+    return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": assist_snippets(query, limit)})
 
+
+def assist_snippets(query, limit):
+    """Bounded, citable knowledge-index snippets (shared with ``/internal/assist/tool``)."""
     from agent.services.knowledge_index_retrieval_service import (
         KnowledgeIndexRetrievalService,
     )
@@ -255,7 +261,7 @@ def media_assist_retrieve():
             }
         )
     snippets.sort(key=lambda snippet: not snippet["path"])
-    return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": snippets[:limit]})
+    return snippets[:limit]
 
 
 def _snippet_line(record, metadata):
