@@ -1,0 +1,190 @@
+{
+ "$schema": "../todo.track.schema.json",
+ "id": "todo.meet-public-room-self-heal",
+ "title": "Meet: oeffentlicher ai-snake-Raum verschwindet nicht und heilt sich selbst",
+ "version": "1.0",
+ "owner": "Peter Stuiber / Ananta",
+ "track": "meet-public-room-self-heal",
+ "status": "in_progress",
+ "created_at": "2026-09-25",
+ "updated_at": "2026-09-25",
+ "purpose": "Der oeffentliche Meet-Raum der ai-snake verschwand aus dem Room-Directory (in-memory, jeder room-server-Neustart leert es) und liess sich nur ueber die user-authentifizierte Hub-Route wiederherstellen.",
+ "goal": "Der oeffentliche Eintrag ueberlebt Neustarts mit stabiler Room-ID; fehlt er dennoch, stellt der Companion ihn ueber einen worker-key-authentifizierten Hub-Weg selbst wieder her und folgt einer ggf. neuen Room-ID -- ohne Operator-Handgriff und ohne Scope-, Titel- oder Origin-Grenzen aufzuweichen.",
+ "status_scale": [
+  "todo",
+  "in_progress",
+  "partial",
+  "blocked",
+  "done"
+ ],
+ "priority_scale": [
+  "P0",
+  "P1",
+  "P2",
+  "P3"
+ ],
+ "risk_scale": [
+  "low",
+  "medium",
+  "high",
+  "critical"
+ ],
+ "milestones": [
+  {
+   "id": "MPR-M1",
+   "title": "Persistenz und Selbstheilung des oeffentlichen Raums",
+   "task_ids": [
+    "MPR-001",
+    "MPR-002",
+    "MPR-003",
+    "MPR-004"
+   ],
+   "status": "in_progress"
+  }
+ ],
+ "critical_path_tasks": [
+  "MPR-001",
+  "MPR-002",
+  "MPR-003"
+ ],
+ "tasks": [
+  {
+   "id": "MPR-001",
+   "title": "Hub: interner Worker-Key-Weg POST /api/meet/v1/internal/public-room fuer die Selbstheilung des oeffentlichen Raums",
+   "status": "done",
+   "priority": "P0",
+   "risk": "high",
+   "progress_percent": 100,
+   "problem": "POST /projects/<p>/public-room ist check_user_auth; der Keycloak-Bot-Token und jeder Worker werden mit 401 abgelehnt. Ein verlorener Directory-Eintrag liess sich nur durch einen Operator mit Hub-Session erneuern.",
+   "implemented_solution": "Neue Route /internal/public-room, HMAC-authentifiziert mit dem Meet-Media-Worker-Key wie /internal/companion. Sie ruft unveraendert MeetPublicRoomPublication.publish (ensure_public_room + revisionsgepruefter Binding-Change) auf. Die Companion-Identitaet liefert MeetTurnService.companion_principal nur fuer ein Projekt aus ANANTA_MEET_MEDIA_ALLOWED_SCOPES (sonst 403 meet_media_policy_denied); ANANTA_MEET_PUBLIC_ROOM_SCOPES, konfigurierter Titel und Origin-Pruefung gelten weiter. Payload geschlossen ({project_id, task_id?}, <=512 B, keine Query), kein Decision-Wert gewaehrt Rechte. Die Tenantwahl fuer Grant und Public-Room ist jetzt deterministisch (sortiert), damit beide dieselbe Binding-Zeile lesen/schreiben. Operator-Route unveraendert.",
+   "affected_files": [
+    "agent/routes/meet.py",
+    "agent/services/meet_turn_service.py",
+    "agent/services/meet_public_room_binding.py",
+    "tests/test_meet_public_room_internal.py"
+   ],
+   "acceptance_criteria": [
+    "Gueltiger Worker-Key: Eintrag ensured, Binding auf die Invite-URL gesetzt, wiederholter Aufruf idempotent ohne Revision",
+    "Falscher/fehlender Key und User-Bearer: 401, kein Room-Server-Aufruf",
+    "Public-Room oder Media deaktiviert: 404 mit Reason-Code",
+    "Projekt ausserhalb der Media-Scopes: 403; Public-Room-Scope-Liste begrenzt weiter (403)",
+    "Fehlender Directory-Eintrag: Neuanlage, Binding folgt (Revision+1), gelisteter Eintrag wird ohne Binding-Aenderung wiederverwendet",
+    "Operator-Route bleibt user-only"
+   ],
+   "verification": [
+    "pytest tests/test_meet_public_room_internal.py: 20 passed; tests/test_meet_public_room.py unveraendert gruen (Hub-Image ananta-quickstart-no-ollama-qdrant-hub:local, env -i)"
+   ]
+  },
+  {
+   "id": "MPR-002",
+   "title": "Companion: Selbstheilung beim Join und periodisch, Uebernahme von Room-ID/Invite in room.json und ROOM-Log",
+   "status": "done",
+   "priority": "P0",
+   "risk": "medium",
+   "progress_percent": 100,
+   "problem": "Der Companion erstellte nie einen Raum; er joint nur die Room-ID aus dem Grant. Nach Verlust des Directory-Eintrags blieb der Raum nur per Link erreichbar.",
+   "implemented_solution": "ensure_public_room() ruft vor dem ersten Grant /internal/public-room (MEET_HUB_PUBLIC_ROOM_URL, Default neben MEET_HUB_COMPANION_URL). Der Hub prueft das Directory selbst und legt nur bei fehlendem Eintrag neu an; der folgende Grant nennt dann den neu gebundenen Raum. advertise_room schreibt die Hub-Invite-URL (nur wenn sie denselben Raum nennt) nach /state/room.json und ROOM-Log. Alle MEET_COMPANION_PUBLIC_ROOM_CHECK s (Default 300, 0 = nur beim Join) wird erneut geheilt; nennt der Hub einen anderen Raum, verlaesst der Companion den alten (ROOM_MOVED) und tritt im selben Prozess mit frischem Grant dem neuen bei. Fehler sind nie fatal; 404 disabled stoppt weitere Aufrufe.",
+   "affected_files": [
+    "worker/meet_media/companion.py",
+    "tests/test_meet_companion_public_room.py"
+   ],
+   "acceptance_criteria": [
+    "Reihenfolge Ensure vor Grant; Join in den (neu) gebundenen Raum; room.json/ROOM-Log mit oeffentlicher Invite-URL",
+    "Hub nicht erreichbar/deaktiviert: Join in den gebundenen Raum wie bisher",
+    "Fremde/fehlerhafte Antworten (Origin, Room-ID-Form) werden verworfen",
+    "Verlorener Eintrag waehrend des Joins: Wechsel in den neuen Raum mit neuer Session, ohne externen Neustart"
+   ],
+   "verification": [
+    "pytest tests/test_meet_companion_public_room.py: 14 passed (Playwright und Hub als Test-Doubles)"
+   ]
+  },
+  {
+   "id": "MPR-003",
+   "title": "Room-Server: oeffentlicher Directory-Eintrag ueberlebt Neustarts mit stabiler Room-ID",
+   "status": "done",
+   "priority": "P0",
+   "risk": "high",
+   "progress_percent": 100,
+   "problem": "webrtc-minimize-server src/room-directory.js hielt das Directory nur im Speicher; jeder Container-Neustart leerte publicRooms. Zusaetzlich entfernt prune() Eintraege nach ROOM_IDLE_TTL_MS (1 h) ohne Mitglieder, und die HTTP-API vergibt IDs nur serverseitig -- eine Neuanlage aendert zwangslaeufig den Link.",
+   "implemented_solution": "Siehe webrtc-minimize-server Track todos/active/todo.room-directory-persistence.json: optionaler node:sqlite-Store (ROOM_DIRECTORY_DB, write-through, Schema-Version, manipulierte Zeilen werden verworfen, Idle-Uhr startet beim Restore neu), Limit ROOM_DIRECTORY_MAX_PER_OWNER, und operator-gepinnte Eintraege (ROOM_DIRECTORY_PINNED_JSON) mit fester Room-ID, die bei jedem Start wiederhergestellt und nie idle-geprunt werden. Damit findet ensure_public_room den gemerkten Raum wieder (reused=True) statt neu anzulegen.",
+   "affected_files": [
+    "webrtc-minimize-server: src/room-directory.js",
+    "webrtc-minimize-server: src/config.js",
+    "webrtc-minimize-server: src/server.js",
+    "webrtc-minimize-server: compose.yaml",
+    "webrtc-minimize-server: test/room-directory.test.js",
+    "webrtc-minimize-server: test/server.integration.test.js"
+   ],
+   "acceptance_criteria": [
+    "Eintrag und Room-ID ueberleben einen Neustart (Unit + HTTP-Integration)",
+    "Gepinnter room-f83fb2149cf761cbee wird auch nach Verlust wiederhergestellt und nie idle-geprunt",
+    "Bestehende Directory-Tests gruen"
+   ],
+   "verification": [
+    "webrtc-minimize-server Commit 85b7365 (docker node:22): room-directory + config 23/23; server.integration inkl. Neustart mit gleicher DB, machine-trust-container: 64 pass, 1 skipped, 0 fail; npm run todos:validate gruen"
+   ]
+  },
+  {
+   "id": "MPR-004",
+   "title": "Live-Nachweis nach Deploy: Raum wieder oeffentlich, Neustart des room-server ohne Operator-Handgriff",
+   "status": "todo",
+   "priority": "P1",
+   "risk": "medium",
+   "progress_percent": 0,
+   "problem": "Der heutige Eintrag room-f83fb2149cf761cbee ist bereits verloren (publicRooms: []). Ohne Pin legt die erste Selbstheilung eine neue Room-ID an.",
+   "acceptance_criteria": [
+    "Room-Server mit ROOM_DIRECTORY_DB und ROOM_DIRECTORY_PINNED_JSON=[{roomId: room-f83fb2149cf761cbee, title: Ananta ai-snake, visibility: public, ownerPrincipal: <Keycloak-Issuer>|<Subject von ananta-meet-bot>}] deployt; GET /api/rooms listet den Raum",
+    "Hub + Companion deployt; Companion-Log zeigt public_room room=room-f83fb2149cf761cbee reused=True und ROOM mit derselben Invite-URL",
+    "docker restart des room-server: Raum bleibt gelistet, Companion-Selbstheilung meldet reused=True, keine neue Room-ID"
+   ]
+  }
+ ],
+ "tasks_status_summary": {
+  "total": 4,
+  "by_status": {
+   "todo": 1,
+   "in_progress": 0,
+   "partial": 0,
+   "blocked": 0,
+   "done": 3
+  },
+  "progress_percent_done": 75.0,
+  "by_priority": {
+   "P0": 3,
+   "P1": 1,
+   "P2": 0,
+   "P3": 0
+  },
+  "by_risk": {
+   "low": 0,
+   "medium": 2,
+   "high": 2,
+   "critical": 0
+  },
+  "critical_path": {
+   "total": 3,
+   "done": 3,
+   "remaining": 0
+  },
+  "milestones": {
+   "total": 1,
+   "todo": 0,
+   "in_progress": 1,
+   "blocked": 0,
+   "done": 0
+  }
+ },
+ "progress_summary": {
+  "state": "in_progress",
+  "todo_remaining": 1,
+  "in_progress": 0,
+  "partial": 0,
+  "blocked": 0,
+  "done": 3
+ },
+ "summary_notes": [
+  "Nicht deployt. Deploy-Reihenfolge: room-server (ROOM_DIRECTORY_DB + Pin) vor Hub/Companion, sonst legt die erste Selbstheilung eine neue Room-ID an (Binding und room.json folgen dann automatisch).",
+  "Der Companion wird ausserhalb dieses Repos gestartet; ein Raumwechsel wird im Prozess behandelt, ein 'left' (z. B. room-server-Neustart) beendet den Prozess wie bisher und braucht den bestehenden externen Neustart.",
+  "Regression (Hub-Image, env -i): 32 Meet-Testdateien, die meet_turn_service/routes.meet/companion_grant/public_room beruehren: 553 passed, 21 skipped, 0 failed. 10 Meet-Testdateien sind im Image nicht sammelbar (fehlende Module playwright/hypothesis), unabhaengig von dieser Aenderung."
+ ]
+}

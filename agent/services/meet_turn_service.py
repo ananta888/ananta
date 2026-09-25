@@ -79,17 +79,34 @@ class MeetTurnService:
             video_profiles=self.persona_video_profiles,
         )
 
-    def companion_grant_service(self, project, capabilities=None, identity=None):
-        """Worker-key authenticated companion grant (no human session required)."""
+    def _companion_tenant(self, project):
+        # Sorted, so the grant and the public-room callback always resolve the
+        # same tenant and therefore read and write the same binding row.
+        return next((tenant for tenant, scoped in sorted(self.allowed_scopes) if scoped == project), None)
+
+    @staticmethod
+    def _companion(project, tenant_id):
         from agent.services.source_control_access_policy import HubSourcePrincipal
 
-        tenant_id = next(
-            (tenant for tenant, scoped in self.allowed_scopes if scoped == project), "admin"
-        )
-        principal = HubSourcePrincipal(
+        return HubSourcePrincipal(
             subject_id="ananta-companion", tenant_id=tenant_id, project_id=project, roles=frozenset({"admin"})
         )
-        return self.companion_grant(principal, project, capabilities, identity)
+
+    def companion_grant_service(self, project, capabilities=None, identity=None):
+        """Worker-key authenticated companion grant (no human session required)."""
+        tenant_id = self._companion_tenant(project) or "admin"
+        return self.companion_grant(self._companion(project, tenant_id), project, capabilities, identity)
+
+    def companion_principal(self, project):
+        """Companion identity for worker-key callbacks, only inside a preauthorized media scope.
+
+        The operator's media scope list is the sole authority: a project the
+        companion may not serve never receives a synthetic principal.
+        """
+        tenant_id = self._companion_tenant(project)
+        if tenant_id is None:
+            raise MeetError("meet_media_policy_denied", 403)
+        return self._companion(project, tenant_id)
 
     def companion_grant(self, principal, project, capabilities=None, identity=None):
         """Mint a v2 machine grant for a persistent companion (no turn dispatch).

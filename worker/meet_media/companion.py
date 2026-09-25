@@ -12,8 +12,10 @@ import base64
 import hashlib
 import json
 import os
+import re
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -71,11 +73,15 @@ def decode_identity(grant):
 
 
 ROOM_JSON = os.environ.get("MEET_COMPANION_ROOM_JSON", "/state/room.json")
+PUBLIC_ROOM_URL = os.environ.get("MEET_HUB_PUBLIC_ROOM_URL") or HUB.rsplit("/", 1)[0] + "/public-room"
+# Seconds between self-heal checks while joined; 0 checks only at join time.
+PUBLIC_ROOM_CHECK = float(os.environ.get("MEET_COMPANION_PUBLIC_ROOM_CHECK", "300"))
+ROOM_ID = re.compile(r"room-[a-f0-9]{18}")
 
 
-def advertise_room(room_id):
+def advertise_room(room_id, invite_url=None):
     """Log and persist the room id + invite url so it can be found without the log."""
-    url = "%s/?room=%s&mode=room" % (ORIGIN, room_id)
+    url = invite_url or "%s/?room=%s&mode=room" % (ORIGIN, room_id)
     log("ROOM %s %s" % (room_id, url))
     try:
         Path(ROOM_JSON).write_text(
@@ -94,6 +100,70 @@ def fetch_grant(identity=None):
     )
     with urllib.request.urlopen(request, timeout=10) as response:
         return json.load(response)
+
+
+_PUBLIC_ROOM_DISABLED = False
+
+
+def ensure_public_room():
+    """Self-heal: have the Hub keep this project's public directory entry.
+
+    The Hub reuses an entry that is still listed, re-publishes one turned
+    private, or creates a new one and rebinds the project to it; the next grant
+    then names that room. Never fatal: with the public room disabled or the
+    room server unreachable the companion still joins the bound room.
+    Returns ``{"room_id", "invite_url"}`` or None.
+    """
+    global _PUBLIC_ROOM_DISABLED
+    if _PUBLIC_ROOM_DISABLED:
+        return None
+    try:
+        key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
+        body = encode({"project_id": PROJECT})
+        request = urllib.request.Request(
+            PUBLIC_ROOM_URL,
+            body,
+            {"Content-Type": "application/json", "X-Ananta-Task-Signature": signature(key, body)},
+        )
+        # The Hub fetches an operator token and reads the directory first.
+        with urllib.request.urlopen(request, timeout=45) as response:
+            result = json.load(response)
+    except urllib.error.HTTPError as error:
+        try:
+            code = (json.loads(error.read(4096) or b"{}").get("error") or {}).get("code")
+        except (ValueError, AttributeError, OSError):
+            code = None
+        log("public_room_err status=%s code=%s" % (error.code, code))
+        if code in ("meet_public_room_disabled", "meet_media_disabled"):
+            # Operator left it off: stop asking until the next process start.
+            _PUBLIC_ROOM_DISABLED = True
+        return None
+    except Exception as error:  # noqa: BLE001
+        log("public_room_err %r" % (error,))
+        return None
+    room_id = result.get("roomId") if isinstance(result, dict) else None
+    invite = result.get("inviteUrl") if isinstance(result, dict) else None
+    if (
+        not isinstance(room_id, str)
+        or not ROOM_ID.fullmatch(room_id)
+        or not isinstance(invite, str)
+        or not invite.startswith("%s/?room=%s&" % (ORIGIN, room_id))
+    ):
+        log("public_room_err invalid_response")
+        return None
+    log("public_room room=%s reused=%s revision=%s" % (room_id, result.get("reused"), result.get("revision")))
+    return {"room_id": room_id, "invite_url": invite}
+
+
+def public_invite(public, room_id):
+    """Invite link for the joined room: the Hub's public link when it names that room."""
+    if public is None:
+        return None
+    if public["room_id"] != room_id:
+        # A concurrent rebind won; the grant stays authoritative for the join.
+        log("public_room_mismatch bound=%s public=%s" % (room_id, public["room_id"]))
+        return None
+    return public["invite_url"]
 
 
 AVATAR_PNG = os.environ.get("MEET_AVATAR_PNG", "/state/ananta-avatar.png")
@@ -343,6 +413,7 @@ def run():
             page.wait_for_function(
                 "() => window.anantaMachine && typeof window.anantaMachine.join === 'function'", timeout=30000
             )
+            public = ensure_public_room()
             grant = fetch_grant()
             identity = decode_identity(grant["grant"])
             avatar_source = "avatar:" + identity["session_id"]
@@ -353,7 +424,8 @@ def run():
                 avatar_on, codecompass_enabled(), tools_enabled(), rag_prefix_enabled()))
             log_lipsync_service()
             log("grant room=%s exp=%s" % (grant["room_id"], grant.get("expires_at")))
-            advertise_room(grant["room_id"])
+            room_id = grant["room_id"]
+            advertise_room(room_id, public_invite(public, room_id))
             page.evaluate("(a) => window.anantaMachine.join(a[0], a[1])", [grant["room_id"], grant["grant"]])
             for _ in range(30):
                 state = page.evaluate("() => window.anantaMachine.status()")
@@ -378,6 +450,8 @@ def run():
 
             last_seen = 0
             last_renew = time.time()
+            last_public_check = time.time()
+            outcome = None
             avatar_generation = None
             avatar_opened = 0.0
             while not STOP_FILE.exists():
@@ -471,6 +545,15 @@ def run():
                             log=log,
                         )
 
+                if PUBLIC_ROOM_CHECK > 0 and now - last_public_check > PUBLIC_ROOM_CHECK:
+                    last_public_check = now
+                    public = ensure_public_room()
+                    if public is not None and public["room_id"] != room_id:
+                        # The directory entry was lost and re-created: the
+                        # binding now names a new room; follow it there.
+                        log("ROOM_MOVED %s -> %s" % (room_id, public["room_id"]))
+                        outcome = "moved"
+                        break
                 if now - last_renew > RENEW_INTERVAL:
                     try:
                         fresh = fetch_grant(identity)
@@ -484,9 +567,16 @@ def run():
                 page.evaluate("() => window.anantaMachine.leave()")
             except Exception:  # noqa: BLE001
                 pass
+            return outcome
         finally:
             browser.close()
 
 
+def main():
+    """Run the companion; a room move re-joins in-process with a fresh grant."""
+    while run() == "moved" and not STOP_FILE.exists():
+        log("rejoin after room move")
+
+
 if __name__ == "__main__":
-    run()
+    main()

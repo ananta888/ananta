@@ -1,4 +1,8 @@
-"""User-only API; no service token can operate the meeting association."""
+"""User API plus scoped worker-key callbacks (``/internal/*``).
+
+No service token can operate the meeting association; worker callbacks are
+HMAC-authenticated with the media worker key and bounded by operator scopes.
+"""
 
 import re
 
@@ -105,6 +109,43 @@ def public_room(project, task=""):
     if request.args or request.content_length not in (None, 0) or request.stream.read(1):
         raise MeetError("meet_public_room_payload_invalid")
     return jsonify(service.publish(get_authenticated_source_control_principal(), project, task))
+
+
+@meet_bp.post("/internal/public-room")
+def media_public_room():
+    """Worker-only self-heal of the public directory entry; no human session.
+
+    Authenticated by the scoped worker key like the companion grant. It reuses
+    the operator publication unchanged, so the public-room scopes, the
+    configured title and the origin check still bound it; the companion
+    identity exists only for a project in the media scope list.
+    """
+    import json
+
+    from worker.meet_media.contract import authenticate
+
+    _runtime()
+    publication = current_app.extensions.get("meet_public_room_publication")
+    if publication is None:
+        raise MeetError("meet_public_room_disabled", 404)
+    turns = current_app.extensions.get("meet_turn_service")
+    key = current_app.extensions.get("meet_media_worker_key")
+    if turns is None or key is None:
+        raise MeetError("meet_media_disabled", 404)
+    if request.args or request.content_length is None or not 0 < request.content_length <= 512:
+        raise MeetError("meet_public_room_payload_invalid")
+    raw = request.get_data(cache=False)
+    try:
+        authenticate(key, raw, request.headers.get("X-Ananta-Task-Signature", ""))
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        raise MeetError("meet_public_room_unauthorized", 401) from None
+    if not isinstance(payload, dict) or not set(payload) <= {"project_id", "task_id"}:
+        raise MeetError("meet_public_room_payload_invalid")
+    project, task = payload.get("project_id"), payload.get("task_id", "")
+    if not isinstance(project, str) or not project or not isinstance(task, str):
+        raise MeetError("meet_public_room_payload_invalid")
+    return jsonify(publication.publish(turns.companion_principal(project), project, task))
 
 
 @meet_bp.post("/projects/<project>/turns")

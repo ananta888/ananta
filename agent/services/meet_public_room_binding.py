@@ -1,8 +1,11 @@
-"""Bind a project to the room server's public directory entry, under user authority.
+"""Bind a project to the room server's public directory entry.
 
 Creating the directory entry uses an operator identity; writing it into the Meet
-binding stays on the ordinary authenticated change path, so no background job can
-silently repoint a project at a public room.
+binding stays on the ordinary authorized change path with a revision check. Two
+callers reach it: an operator with a Hub session, and the worker-key companion
+self-heal (``/internal/public-room``). The latter can only repoint a project it
+is media-scoped for, and only at that project's own operator-titled public entry
+on the configured origin -- never at an arbitrary room.
 """
 
 from agent.services.meet_contract import MeetError
