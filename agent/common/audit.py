@@ -337,8 +337,11 @@ def log_audit(action: str, details: dict = None):
         with _AUDIT_CHAIN_THREAD_LOCK:
             with Session(_engine()) as session:
                 _acquire_database_audit_chain_lock(session)
-                previous = session.exec(select(AuditLogDB).order_by(AuditLogDB.id.desc())).first()
-                prev_hash = previous.record_hash if previous else None
+                # LIMIT 1 and only the hash: without a limit the driver fetched the
+                # whole audit table (~2.7 s at 65k rows) for every entry.
+                prev_hash = session.exec(
+                    select(AuditLogDB.record_hash).order_by(AuditLogDB.id.desc()).limit(1)
+                ).first()
                 hash_payload = {
                     "username": username,
                     "ip": ip,
