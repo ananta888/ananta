@@ -15,6 +15,8 @@ def tool(name, description="d"):
 
 
 TOOLS = [tool("codecompass_search", "search code"), tool("codecompass_layers_heads", "index layers")]
+TOOLS[0]["function"]["parameters"] = {"type": "object", "properties": {"query": {"type": "string"}},
+                                      "required": ["query"]}
 
 
 def answer(value, probability=0.93, margin=0.8):
@@ -41,9 +43,10 @@ class Sink:
         self.records.append(record)
 
 
-def observe(client, calls=(), question="Welche Index-Layer gibt es?"):
+def observe(client, calls=(), question="Welche Index-Layer gibt es?", with_argument=False):
     sink = Sink()
-    record = shadow.ToolDecisionShadow(client, sink, clock=iter([1.0, 1.25]).__next__, wall=lambda: 1000.0) \
+    record = shadow.ToolDecisionShadow(client, sink, clock=iter([1.0, 1.25]).__next__, wall=lambda: 1000.0,
+                                       with_argument=with_argument) \
         .observe(question, TOOLS, route="ananta_code_architecture", calls=list(calls))
     assert sink.records == [record]
     return record
@@ -115,3 +118,37 @@ def test_the_sink_appends_lines_and_swallows_write_errors(tmp_path):
     sink.write({"a": 2})
     assert [json.loads(line)["a"] for line in target.read_text().splitlines()] == [1, 2]
     shadow.JsonLinesSink(str(tmp_path / "missing" / "s.jsonl")).write({"a": 3})
+
+
+def with_text(response, value, skipped=False, truncated=False):
+    response["results"][0]["fields"]["text_argument"] = {
+        "value": value, "generated": not skipped, "skipped": skipped, "tokens": 3, "truncated": truncated}
+    return response
+
+
+def test_the_argument_field_is_offered_only_for_single_free_string_tools():
+    schema = shadow.decision_schema(TOOLS, with_argument=True)
+    assert schema["text_argument"]["when"] == {"tool": ["codecompass_search"]}
+    assert "text_argument" not in shadow.decision_schema(TOOLS)
+    assert "text_argument" not in shadow.decision_schema(TOOLS[1:], with_argument=True)
+
+
+def test_the_generated_argument_is_compared_without_keeping_its_text():
+    client = Client(with_text(answer("codecompass_search"), " circuitbreaker "))
+    record = observe(client, calls=[{"query": "CircuitBreaker", "forced": True}], with_argument=True)
+    assert record["argument_equal"] is True and record["argument_chars"] == 14
+    assert "ircuit" not in json.dumps(record)
+    assert client.requests[0][1]["schema"]["text_argument"]["type"] == "string"
+
+
+@pytest.mark.parametrize("kwargs", [{"skipped": True}, {"truncated": True}])
+def test_a_skipped_or_truncated_argument_is_not_compared(kwargs):
+    record = observe(Client(with_text(answer("codecompass_search"), "x", **kwargs)),
+                     calls=[{"query": "x"}], with_argument=True)
+    assert record["argument_chars"] == 0 and "argument_equal" not in record
+
+
+def test_the_argument_switch_reads_the_environment(tmp_path):
+    env = {shadow.URL_ENV: "http://h:1", shadow.LOG_ENV: str(tmp_path / "s.jsonl")}
+    assert shadow.from_env(env)._with_argument is True
+    assert shadow.from_env({**env, shadow.ARGUMENT_ENV: "off"})._with_argument is False

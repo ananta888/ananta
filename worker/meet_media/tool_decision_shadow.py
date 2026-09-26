@@ -12,6 +12,12 @@ path). Records go to ``MEET_TOOL_DECISION_SHADOW_LOG`` (JSON lines, default
 ``/state/tool-decision-shadow.jsonl``) and hold no question text: only its
 hash and length, so meeting content does not end up in the calibration log.
 
+With ``MEET_TOOL_DECISION_SHADOW_ARGUMENT`` (default on) a tool whose only
+required argument is one free string also gets that argument generated in the
+same call (a bounded open field, generated only when such a tool wins); the
+record then says whether it equals the argument of the call that really ran,
+and how long it is, again without the text.
+
 Independent of the Hub's ``agent.services.tiny_router.parallel_decision``
 adapter on purpose: this image does not ship the Hub package.
 """
@@ -33,6 +39,9 @@ DECISION_PATH = "/v1/decision"
 BUDGET_SECONDS = 10.0
 NO_TOOL = "none"
 TOOL_FIELD = "tool"
+TEXT_FIELD = "text_argument"
+TEXT_MAX_TOKENS = 48
+ARGUMENT_ENV = "MEET_TOOL_DECISION_SHADOW_ARGUMENT"
 DEFAULT_TOOL = "codecompass_search"  # CodeCompassTool calls carry no "tool" key
 INSTRUCTIONS = (
     "Decide how an agent should handle the user's request with the tools below. "
@@ -40,22 +49,57 @@ INSTRUCTIONS = (
 )
 
 
-def decision_schema(definitions):
-    """One enum field: the offered tool names plus ``none``, described by the tool descriptions."""
-    names, descriptions = [], []
+def text_argument(definition):
+    """The name of a tool's single required free-string argument, or ``None``."""
+    parameters = (definition.get("function") or {}).get("parameters") or {}
+    properties = parameters.get("properties") or {}
+    required = list(parameters.get("required") or [])
+    if len(required) != 1:
+        return None
+    spec = properties.get(required[0])
+    return required[0] if isinstance(spec, dict) and spec.get("type") == "string" and "enum" not in spec else None
+
+
+def decision_schema(definitions, *, with_argument=False):
+    """An enum field of the offered tool names plus ``none``; optionally the open text-argument field."""
+    names, descriptions, texts = [], [], []
     for definition in definitions:
         function = definition.get("function") or {}
         name = str(function.get("name") or "").strip()
         if name and name != NO_TOOL and name not in names:
             names.append(name)
             descriptions.append(f"{name}: {str(function.get('description') or '').strip()[:200]}")
+            argument = text_argument(definition)
+            if argument:
+                texts.append((name, argument))
     if not names:
         raise ValueError("tool_decision_no_tools")
-    return {TOOL_FIELD: {
+    schema = {TOOL_FIELD: {
         "type": "enum",
         "choices": [*names, NO_TOOL],
         "description": ("Which tool should handle the request? " + " | ".join(descriptions))[:1500],
     }}
+    if with_argument and texts:
+        schema[TEXT_FIELD] = {
+            "type": "string", "max_tokens": TEXT_MAX_TOKENS,
+            "when": {TOOL_FIELD: [name for name, _argument in texts]},
+            "description": ("The text argument of the chosen tool. "
+                            + "; ".join(f"{name}: its '{argument}'" for name, argument in texts))[:1200],
+        }
+    return schema
+
+
+def read_argument(response):
+    """The generated text argument, or ``None`` when it was skipped, truncated or not a string."""
+    field = ((response.get("results") or [{}])[0].get("fields") or {}).get(TEXT_FIELD)
+    if not isinstance(field, dict) or field.get("skipped") or field.get("truncated") is not False:
+        return None
+    value = field.get("value")
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _normalized(text):
+    return " ".join(str(text or "").split()).casefold()
 
 
 def read_decision(response, choices):
@@ -74,6 +118,12 @@ def read_decision(response, choices):
     margin = float(margin) if isinstance(margin, (int, float)) and not isinstance(margin, bool) \
         and math.isfinite(margin) else None
     return field["value"], float(probability), margin
+
+
+def first_argument(calls):
+    """The argument of the first call that ran (forced calls first); tools record it as ``query``."""
+    ordered = [call for call in calls if call.get("forced")] + [call for call in calls if not call.get("forced")]
+    return str(ordered[0].get("query") or "") if ordered else ""
 
 
 def call_names(calls):
@@ -102,7 +152,8 @@ class JsonLinesSink:
 
 
 class ToolDecisionShadow:
-    def __init__(self, client, sink, *, clock=time.monotonic, wall=time.time, model=""):
+    def __init__(self, client, sink, *, clock=time.monotonic, wall=time.time, model="", with_argument=True):
+        self._with_argument = with_argument
         self._client = client
         self._sink = sink
         self._clock = clock
@@ -126,7 +177,7 @@ class ToolDecisionShadow:
         }
         started = self._clock()
         try:
-            schema = decision_schema(definitions)
+            schema = decision_schema(definitions, with_argument=self._with_argument)
             response = self._client.exchange(DECISION_PATH, {
                 "model": self._model, "instructions": INSTRUCTIONS, "schema": schema,
                 "contexts": [str(question or "")], "mode": "tree", "cache_context": False,
@@ -134,6 +185,11 @@ class ToolDecisionShadow:
             tool, probability, margin = read_decision(response, schema[TOOL_FIELD]["choices"])
             record.update(decision=tool, probability=round(probability, 6), margin=margin,
                           agrees=tool == record["actual_first"])
+            if TEXT_FIELD in schema:
+                argument = read_argument(response)
+                record["argument_chars"] = len(argument) if argument else 0
+                if argument and record["agrees"] and tool != NO_TOOL:
+                    record["argument_equal"] = _normalized(argument) == _normalized(first_argument(calls))
         except ValueError as error:
             record.update(decision=None, error=str(error)[:80])
         record["decision_ms"] = round((self._clock() - started) * 1000.0, 1)
@@ -166,4 +222,5 @@ def from_env(environ=None):
         BoundedJsonClient(base_url, opener=opener),
         JsonLinesSink(str(environ.get(LOG_ENV) or DEFAULT_LOG)),
         model=str(environ.get("MEET_LLM_MODEL") or ""),
+        with_argument=str(environ.get(ARGUMENT_ENV, "1")).strip().lower() not in {"0", "false", "off", "no"},
     )
