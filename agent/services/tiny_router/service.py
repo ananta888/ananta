@@ -12,6 +12,7 @@ from agent.services.tiny_router.base import (
     TinyRouterTelemetrySink,
 )
 from agent.services.tiny_router.observability import TinyRouterObserver
+from agent.services.tiny_router.parallel_decision import ParallelDecisionAdapter
 from agent.services.tiny_router.preselection import AllowedToolPreselector
 from agent.services.tiny_router.profiles import ProfileCatalog
 from agent.services.tiny_router.types import (
@@ -53,7 +54,8 @@ class TinyToolRouterService:
 
             registry = get_ananta_tool_registry_service()
         self._catalog = catalog or ProfileCatalog.load()
-        adapter_rows = adapters or (NeedleCandidateAdapter(), OpenAICompatibleActionAdapter())
+        adapter_rows = adapters or (
+            NeedleCandidateAdapter(), OpenAICompatibleActionAdapter(), ParallelDecisionAdapter())
         self._adapters = {item.adapter_id: item for item in adapter_rows}
         self._schema_adapter = schema_adapter
         self._registry = registry

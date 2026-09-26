@@ -45,7 +45,9 @@
       "local_only": true,
       "enabled_by_default": false,
       "artifact_sha256": "",
-      "metadata": {"requires_task_specific_evaluation": true}
+      "metadata": {
+        "requires_task_specific_evaluation": true
+      }
     },
     {
       "profile_id": "lfm2.5-350m",
@@ -65,7 +67,9 @@
       "local_only": true,
       "enabled_by_default": false,
       "artifact_sha256": "",
-      "metadata": {"profile_status": "evaluation"}
+      "metadata": {
+        "profile_status": "evaluation"
+      }
     },
     {
       "profile_id": "lfm2.5-1.2b",
@@ -85,7 +89,9 @@
       "local_only": true,
       "enabled_by_default": false,
       "artifact_sha256": "",
-      "metadata": {"profile_status": "evaluation"}
+      "metadata": {
+        "profile_status": "evaluation"
+      }
     },
     {
       "profile_id": "lfm2.5-2.6b-agentic",
@@ -130,7 +136,35 @@
       "local_only": true,
       "enabled_by_default": false,
       "artifact_sha256": "",
-      "metadata": {"profile_status": "research_only"}
+      "metadata": {
+        "profile_status": "research_only"
+      }
+    },
+    {
+      "profile_id": "bonsai2-27b-parallel-decision",
+      "model_id": "Ternary-Bonsai-2-27B-PQ2_0",
+      "tier": "decision",
+      "adapter": "parallel_decision",
+      "dialect": "openai",
+      "license_id": "Apache-2.0",
+      "source_url": "https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf",
+      "commercial_use_allowed": true,
+      "research_only": false,
+      "supports_confidence": true,
+      "supports_parallel_tools": false,
+      "max_tools": 16,
+      "context_window": 65536,
+      "min_confidence": 0.8,
+      "local_only": true,
+      "enabled_by_default": false,
+      "metadata": {
+        "profile_status": "evaluation",
+        "provider_id": "llamacpp-parallel-decision",
+        "endpoint_env": "ANANTA_PARALLEL_DECISION_URL",
+        "base_model": "Qwen/Qwen3.8-27B (hybrid attention)",
+        "runtime": "ananta888/llama.cpp-vision-decision@bonsai-decision, llama-server --decision-seqs",
+        "docs": "docs/jev-llamacpp-decision-mode.md"
+      }
     }
   ]
 }

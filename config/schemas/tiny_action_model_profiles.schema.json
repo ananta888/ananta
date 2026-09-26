@@ -21,8 +21,8 @@
         "properties": {
           "profile_id": {"type": "string", "minLength": 1},
           "model_id": {"type": "string", "minLength": 1},
-          "tier": {"enum": ["tiny", "small"]},
-          "adapter": {"enum": ["needle", "openai_compatible"]},
+          "tier": {"enum": ["tiny", "small", "decision"]},
+          "adapter": {"enum": ["needle", "openai_compatible", "parallel_decision"]},
           "dialect": {"enum": ["needle", "openai", "functiongemma", "xlam"]},
           "license_id": {"type": "string", "minLength": 1},
           "source_url": {"type": "string", "format": "uri"},
