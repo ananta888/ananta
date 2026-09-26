@@ -1,0 +1,392 @@
+{
+  "schema": "ananta.tiny_tool_router_cases.v1",
+  "version": "1.0",
+  "purpose": "Labelled calibration prompts for decision-based tool choice over the Meet companion tool set (worker.meet_media.llm_tools.codecompass_toolbox). Labels follow the tool descriptions; some cases are intentionally near the boundary between search, overview and rlm_analyze. Evaluation-only, synthetic, never release evidence.",
+  "toolset": "worker.meet_media.llm_tools.codecompass_toolbox",
+  "cases": [
+    {
+      "id": "jevcal-001",
+      "lang": "de",
+      "prompt": "Wo wird der CircuitBreaker definiert?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-002",
+      "lang": "de",
+      "prompt": "In welcher Datei steht die Funktion build_tool_decision_schema?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-003",
+      "lang": "de",
+      "prompt": "Wie funktioniert der Keep-Alive im Raumserver?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-004",
+      "lang": "de",
+      "prompt": "Was macht die Klasse KnowledgeIndexRetrievalService?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-005",
+      "lang": "de",
+      "prompt": "Zeig mir, wo der Audit-Hash berechnet wird.",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-006",
+      "lang": "de",
+      "prompt": "Welche Umgebungsvariable setzt den Endpunkt für den Decision-Adapter?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-007",
+      "lang": "de",
+      "prompt": "Gibt es einen Test für den Post-Commit-Hook?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-008",
+      "lang": "de",
+      "prompt": "Wo wird MEET_LLM_TOOL_CALLS gelesen?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-009",
+      "lang": "en",
+      "prompt": "Where is the companion router implemented?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-010",
+      "lang": "en",
+      "prompt": "Which file handles the layer sync API?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-011",
+      "lang": "en",
+      "prompt": "How does the tiny tool router validate a candidate?",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-012",
+      "lang": "en",
+      "prompt": "Find the definition of recover-after-wsl-restart.",
+      "expected": {
+        "tool_name": "codecompass_search"
+      }
+    },
+    {
+      "id": "jevcal-013",
+      "lang": "de",
+      "prompt": "Gib mir einen Architekturüberblick über die Meet-Companion-Pipeline.",
+      "expected": {
+        "tool_name": "codecompass_architecture_overview"
+      }
+    },
+    {
+      "id": "jevcal-014",
+      "lang": "de",
+      "prompt": "Wie ist Ananta grob aufgebaut, welche Komponenten gibt es?",
+      "expected": {
+        "tool_name": "codecompass_architecture_overview"
+      }
+    },
+    {
+      "id": "jevcal-015",
+      "lang": "de",
+      "prompt": "Welche Bausteine gehören zum Hub und wie hängen sie zusammen?",
+      "expected": {
+        "tool_name": "codecompass_architecture_overview"
+      }
+    },
+    {
+      "id": "jevcal-016",
+      "lang": "de",
+      "prompt": "Erklär mir die Architektur vom inkrementellen CodeCompass-Index im Überblick.",
+      "expected": {
+        "tool_name": "codecompass_architecture_overview"
+      }
+    },
+    {
+      "id": "jevcal-017",
+      "lang": "en",
+      "prompt": "Give me an architecture overview of the hub-worker orchestration.",
+      "expected": {
+        "tool_name": "codecompass_architecture_overview"
+      }
+    },
+    {
+      "id": "jevcal-018",
+      "lang": "en",
+      "prompt": "What are the main components of the planning pipeline and how do they relate?",
+      "expected": {
+        "tool_name": "codecompass_architecture_overview"
+      }
+    },
+    {
+      "id": "jevcal-019",
+      "lang": "de",
+      "prompt": "Vertiefe bitte den Handle hac:1a2b3c4d5e6f:agent/services/audit aus dem Überblick.",
+      "expected": {
+        "tool_name": "codecompass_architecture_expand"
+      }
+    },
+    {
+      "id": "jevcal-020",
+      "lang": "en",
+      "prompt": "Expand hac:0f9e8d7c6b5a:worker/meet_media from the previous overview.",
+      "expected": {
+        "tool_name": "codecompass_architecture_expand"
+      }
+    },
+    {
+      "id": "jevcal-021",
+      "lang": "de",
+      "prompt": "Geh tiefer in hac:abcdef012345:agent/routes/tasks.",
+      "expected": {
+        "tool_name": "codecompass_architecture_expand"
+      }
+    },
+    {
+      "id": "jevcal-022",
+      "lang": "de",
+      "prompt": "Welche Architektur-Smells hat das Repository?",
+      "expected": {
+        "tool_name": "codecompass_architecture_intelligence"
+      }
+    },
+    {
+      "id": "jevcal-023",
+      "lang": "de",
+      "prompt": "Wie gesund ist die Architektur insgesamt, gibt es problematische Communities?",
+      "expected": {
+        "tool_name": "codecompass_architecture_intelligence"
+      }
+    },
+    {
+      "id": "jevcal-024",
+      "lang": "en",
+      "prompt": "Show me architecture health and code smells.",
+      "expected": {
+        "tool_name": "codecompass_architecture_intelligence"
+      }
+    },
+    {
+      "id": "jevcal-025",
+      "lang": "en",
+      "prompt": "Which module communities does the architecture analysis find?",
+      "expected": {
+        "tool_name": "codecompass_architecture_intelligence"
+      }
+    },
+    {
+      "id": "jevcal-026",
+      "lang": "de",
+      "prompt": "Welche Index-Layer hat CodeCompass gerade und was ist der aktuelle Head?",
+      "expected": {
+        "tool_name": "codecompass_layers_heads"
+      }
+    },
+    {
+      "id": "jevcal-027",
+      "lang": "de",
+      "prompt": "Auf welchem Stand ist der inkrementelle Index?",
+      "expected": {
+        "tool_name": "codecompass_layers_heads"
+      }
+    },
+    {
+      "id": "jevcal-028",
+      "lang": "en",
+      "prompt": "List the CodeCompass index layers and their heads.",
+      "expected": {
+        "tool_name": "codecompass_layers_heads"
+      }
+    },
+    {
+      "id": "jevcal-029",
+      "lang": "en",
+      "prompt": "What generation is the current layer head at?",
+      "expected": {
+        "tool_name": "codecompass_layers_heads"
+      }
+    },
+    {
+      "id": "jevcal-030",
+      "lang": "de",
+      "prompt": "Wie viele Dokumente gibt es je Art im Index?",
+      "expected": {
+        "tool_name": "codecompass_analytics_query"
+      }
+    },
+    {
+      "id": "jevcal-031",
+      "lang": "de",
+      "prompt": "Wie viele Graph-Beziehungen gibt es pro Typ?",
+      "expected": {
+        "tool_name": "codecompass_analytics_query"
+      }
+    },
+    {
+      "id": "jevcal-032",
+      "lang": "de",
+      "prompt": "Welche Snapshot-Identität hat der Index?",
+      "expected": {
+        "tool_name": "codecompass_analytics_query"
+      }
+    },
+    {
+      "id": "jevcal-033",
+      "lang": "en",
+      "prompt": "Count the indexed documents by kind.",
+      "expected": {
+        "tool_name": "codecompass_analytics_query"
+      }
+    },
+    {
+      "id": "jevcal-034",
+      "lang": "en",
+      "prompt": "List all paths of kind python in the index.",
+      "expected": {
+        "tool_name": "codecompass_analytics_query"
+      }
+    },
+    {
+      "id": "jevcal-035",
+      "lang": "de",
+      "prompt": "Analysiere rekursiv, wie Tasks vom Hub über die Queue zu den Workern laufen und wo sie scheitern können.",
+      "expected": {
+        "tool_name": "codecompass_rlm_analyze"
+      }
+    },
+    {
+      "id": "jevcal-036",
+      "lang": "en",
+      "prompt": "Do a recursive analysis of how evidence identities flow from the registry into release gates.",
+      "expected": {
+        "tool_name": "codecompass_rlm_analyze"
+      }
+    },
+    {
+      "id": "jevcal-037",
+      "lang": "de",
+      "prompt": "Untersuche verzweigt, welche Pfade vom Autopilot bis zum Layer-Build führen.",
+      "expected": {
+        "tool_name": "codecompass_rlm_analyze"
+      }
+    },
+    {
+      "id": "jevcal-038",
+      "lang": "de",
+      "prompt": "Erzähl mir einen Witz.",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-039",
+      "lang": "de",
+      "prompt": "Wie geht es dir?",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-040",
+      "lang": "de",
+      "prompt": "Was ist die Hauptstadt von Frankreich?",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-041",
+      "lang": "de",
+      "prompt": "Danke, das war hilfreich!",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-042",
+      "lang": "de",
+      "prompt": "Kannst du etwas lauter sprechen?",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-043",
+      "lang": "de",
+      "prompt": "Wie spät ist es ungefähr in Tokio, wenn es hier Mittag ist?",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-044",
+      "lang": "en",
+      "prompt": "Hi there, nice to meet you.",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-045",
+      "lang": "en",
+      "prompt": "What's a good name for a cat?",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-046",
+      "lang": "en",
+      "prompt": "Summarise what we just talked about in one sentence.",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-047",
+      "lang": "en",
+      "prompt": "Translate 'good morning' into Spanish.",
+      "expected": {
+        "tool_name": null
+      }
+    },
+    {
+      "id": "jevcal-048",
+      "lang": "de",
+      "prompt": "Wer hat die Relativitätstheorie entwickelt?",
+      "expected": {
+        "tool_name": null
+      }
+    }
+  ]
+}

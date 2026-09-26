@@ -210,6 +210,20 @@ def decision_to_payload(response: Any, decision: ToolDecisionSchema, *, min_conf
 # --- runtime --------------------------------------------------------------------------------------
 
 
+def decision_request_body(decision: ToolDecisionSchema, prompt: str, *, model_id: str) -> dict[str, Any]:
+    """The ``/v1/decision`` request for one prompt (shared by the adapter and calibration)."""
+    return {
+        "model": model_id,
+        "instructions": _INSTRUCTIONS,
+        "schema": decision.schema,
+        "contexts": [prompt],
+        "mode": "tree",
+        # A context is never reused across requests (tenant/request isolation);
+        # the cached prefix is only the instructions and the schema.
+        "cache_context": False,
+    }
+
+
 class CircuitBreaker:
     """Open after ``threshold`` consecutive failures, for ``cooldown`` seconds."""
 
@@ -286,16 +300,7 @@ class ParallelDecisionAdapter:
     def propose(self, request: AdapterRequest) -> AdapterResult:
         started = self._clock()
         decision = build_tool_decision_schema(request.tools)
-        body = {
-            "model": request.profile.model_id,
-            "instructions": _INSTRUCTIONS,
-            "schema": decision.schema,
-            "contexts": [request.prompt],
-            "mode": "tree",
-            # A context is never reused across requests (tenant/request isolation);
-            # the cached prefix is only the instructions and the schema.
-            "cache_context": False,
-        }
+        body = decision_request_body(decision, request.prompt, model_id=request.profile.model_id)
         try:
             response = self._runtime.decide(request.profile, body, timeout_ms=request.timeout_ms)
             payload = decision_to_payload(response, decision, min_confidence=request.profile.min_confidence)
