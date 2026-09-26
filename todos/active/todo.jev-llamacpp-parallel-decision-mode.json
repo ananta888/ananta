@@ -80,7 +80,7 @@
     {
       "id": "JEVCPP-M1",
       "title": "Upstream, Semantik und reproduzierbare Runtime",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "JEVCPP-001",
         "JEVCPP-002",
@@ -90,7 +90,7 @@
     {
       "id": "JEVCPP-M2",
       "title": "Ananta-Adapter, Isolation und System-1/System-2-Routing",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "JEVCPP-004",
         "JEVCPP-005",
@@ -208,10 +208,10 @@
       "milestone_id": "JEVCPP-M2",
       "title": "Typisierten Ananta-ParallelDecision-Adapter definieren",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-003"
       ],
@@ -225,6 +225,13 @@
         "Contract-Tests decken gueltige und ungueltige Decision-Responses ab.",
         "Hub-Domaenenlogik bleibt von llama.cpp-spezifischen Payloaddetails getrennt.",
         "Fehler fuehren zu abstain/fallback/blocked nach Policy, niemals stillschweigend allow."
+      ],
+      "evidence": [
+        "agent/services/tiny_router/parallel_decision.py: ParallelDecisionAdapter im Tiny-Tool-Router (Adapter-Vertrag is_available/propose, keine zweite Control-Plane), HttpParallelDecisionRuntime (Base-URL aus endpoint_env, nur http/https), CircuitBreaker, Deadline = Router-Budget",
+        "tests/services/tiny_router/test_tiny_router_parallel_decision.py: strikte Ablehnung unbekannter Labels/Tools, fehlender oder zusaetzlicher Felder, NaN/>1, mehrerer Ergebnisse; doppelte Kandidaten werden gar nicht erst als Feld gebaut",
+        "Fehler -> Router-Status escalate (normaler Chat-Tool-Call), nie allow",
+        "config/models/tiny_action_model_profiles.v1.json: Profil bonsai2-27b-parallel-decision (enabled_by_default false)",
+        "Live 2026-09-26 gegen Bonsai 27B (:18150): 4 von 4 Prompts richtig geroutet (hub.status, service.restart service=companion, repo.search -> free_text_arguments, Witz -> respond), 0,18-0,55 s"
       ]
     },
     {
@@ -232,10 +239,10 @@
       "milestone_id": "JEVCPP-M2",
       "title": "Unabhaengige Felder und Abhaengigkeiten explizit modellieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "JEVCPP-004"
       ],
@@ -249,6 +256,11 @@
         "Abhaengige Felder werden nicht ungeprueft als voneinander isolierte Parallelfragen ausgefuehrt.",
         "Mindestens ein Negativtest zeigt, dass der schnelle Modus bei Cross-Field-Abhaengigkeiten bewusst nicht verwendet wird.",
         "Der Routinggrund ist im Audit nachvollziehbar."
+      ],
+      "evidence": [
+        "agent/services/tiny_router/parallel_decision.py: Tool-Wahl ist Feld \"tool\" (independent); Argumentfelder \"grouped:<tool>\" und werden nur fuer das gewaehlte Tool gelesen",
+        "Tools mit Pflicht-Freitextargumenten werden nicht erraten, sondern als free_text_arguments an den Chat-Pfad gegeben",
+        "Offen: allgemeine sequential-Kennzeichnung fuer Nicht-Tool-Schemata und ein Negativtest mit echter Cross-Field-Abhaengigkeit; Routinggrund steht bisher nur in der Router-Telemetrie, nicht im Audit"
       ]
     },
     {
@@ -256,10 +268,10 @@
       "milestone_id": "JEVCPP-M2",
       "title": "System-1/System-2-Eskalation mit Confidence und Policy anbinden",
       "type": "integration",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "depends_on": [
         "JEVCPP-004",
         "JEVCPP-005"
@@ -274,6 +286,11 @@
         "Low-Confidence-Testfall eskaliert reproduzierbar.",
         "High-Confidence-Modellausgabe kann kein deterministisches Deny ueberschreiben.",
         "Fallback-Loops sind durch Step-/Retry-/Deadline-Budgets begrenzt."
+      ],
+      "evidence": [
+        "tests/services/tiny_router/test_tiny_router_parallel_decision.py: Low-Confidence und Endpunktfehler eskalieren; ein Write-Tool erreicht im read_only-Scope das Schema gar nicht (deterministisches Gate vor dem Scoring)",
+        "Budgets: max_hops/max_total_ms des Tiny-Routers begrenzen den Pfad",
+        "Offen: Schwelle (min_confidence 0.8) ist pro Profil, noch nicht aus Validation-Messungen kalibriert (JEVCPP-009); Aktivierung im Tool-Loop erst im Shadow-Modus"
       ]
     },
     {
@@ -298,6 +315,9 @@
         "Messung weist Cache-/Batch-Effekt getrennt von Modellgroesse und Netzwerk-Overhead aus.",
         "Isolationstests zeigen keine Cross-Request-Datenleckage.",
         "Ueberlastete Queue fuehrt kontrolliert zu Backpressure/Fehler/Fallback statt ungebremstem Speicherwachstum."
+      ],
+      "notes": [
+        "Stand 2026-09-26: Der Adapter sendet cache_context=false, damit kein Kontext zwischen Requests wiederverwendet wird; Prefix-Messung und Batching stehen aus."
       ]
     },
     {
@@ -441,13 +461,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 12,
+      "todo": 7,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 2,
       "blocked": 0,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 25,
     "by_priority": {
       "P0": 5,
       "P1": 7,
@@ -461,13 +481,13 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 3,
+      "remaining": 6
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 2,
       "partial": 0,
       "blocked": 0,
       "done": 0
@@ -487,12 +507,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 12,
+    "state": "in_progress",
+    "todo_remaining": 7,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 2,
     "blocked": 0,
-    "done": 0
+    "done": 3
   },
   "success_criteria": [
     "Der offene Jev-aehnliche llama.cpp-Inferenzmodus ist reproduzierbar lokal gestartet oder sein aktueller technischer Blocker ist konkret dokumentiert.",

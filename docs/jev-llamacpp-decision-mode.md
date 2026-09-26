@@ -125,3 +125,35 @@ die 8 Test-Tokens für Reasoning). `urgency` kam mit p = 0,51: bei `min_probabil
 dabei den GPU-Zugang (`dxgk … Ioctl failed: -19`), der llama-server hing bzw. lief danach nur auf der CPU. Abhilfe:
 `powercfg /change standby-timeout-ac 0` (gesetzt 2026-09-26); nach einem Ausfall `wsl --shutdown`, dann das lokale
 Wiederherstellungs-Skript `data/meet-media/recover-after-wsl-restart.sh`.
+
+## Tool-Auswahl über `/v1/decision` (JEVCPP-004…006, Etappe 2)
+
+Der schnelle Pfad ist ein **Adapter im vorhandenen Tiny-Tool-Router** (`agent/services/tiny_router/parallel_decision.py`,
+`adapter_id` `parallel_decision`), keine neue Steuerlogik. Der Router filtert die Tools vorher deterministisch
+(Allowlist, Risikoklassen, `read_only`), der Adapter bewertet nur, was danach übrig ist, und der `CandidateValidator`
+prüft das Ergebnis wie bei jedem anderen Tiny-Modell.
+
+**Schema:** Feld `tool` = Enum der erlaubten Tool-Namen + `none`. Jedes Argument mit festem Wertebereich (Enum ≤ 255,
+Boolean, Integer mit min/max/Schritt) wird ein Feld `<tool>__<arg>`, das nur gelesen wird, wenn das Tool gewählt ist.
+
+**Ergebnis → Router:**
+
+| Decision | Payload | Router |
+|---|---|---|
+| Tool sicher (≥ `min_confidence`), alle Argumente fest und sicher | ein `tool_call` | `candidate` |
+| `none` sicher | `type: respond` | `respond` (Antwort ohne Tool) |
+| Tool unsicher oder Abstain | leer, `tool_uncertain` | `escalate` → normaler Chat-Tool-Call |
+| Tool braucht Freitext (z. B. `repo.search.query`) | leer, `free_text_arguments` + `tool_hint` | `escalate` |
+| Argument unsicher | leer, `argument_uncertain` | `escalate` |
+| ungültige Antwort, Fehler, Timeout | Ausnahme | `escalate`; nach 3 Fehlern 60 s Circuit offen |
+
+**Profil:** `bonsai2-27b-parallel-decision` in `config/models/tiny_action_model_profiles.v1.json`, standardmäßig aus.
+Endpunkt über `ANANTA_PARALLEL_DECISION_URL` (nur http/https). Jeder Request sendet `cache_context: false`.
+
+**Live-Probe** (2026-09-26, Bonsai 27B auf der RTX 5060 Ti): „Wie geht es dem Hub?“ → `hub.status` (0,55 s kalt),
+„Starte den Companion neu“ → `service.restart {service: companion}`, „Wo wird der CircuitBreaker definiert?“ →
+`free_text_arguments` (Hinweis `repo.search`), „Erzähl einen Witz“ → `respond`; warm je 0,18–0,19 s.
+
+**Offen:** Die Schwelle 0,8 ist nicht kalibriert (JEVCPP-009). Aktivierung im Tool-Loop zuerst im Shadow-Modus
+(`tiny_router.mode: shadow`, `profile_order: [bonsai2-27b-parallel-decision]`). Freitextargumente decken erst die
+Upstream-PR #14 (hybride Entscheidung) oder der Chat-Pfad ab.
