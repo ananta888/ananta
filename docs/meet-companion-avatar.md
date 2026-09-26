@@ -144,30 +144,85 @@ Teilnehmerbild erkennbar ist.
 ## CodeCompass als Werkzeug (Function Calling)
 
 Seit `MEET_COMPANION_TOOLS=1` (Default) bekommt das Chat-Modell den Wissensindex
-nicht mehr vorgekaut, sondern als eine aufrufbare Funktion; es entscheidet selbst,
-ob es sie braucht. Das Backend ist Bonsai 2 27B über llama-server
+nicht vorgekaut, sondern als aufrufbare Funktionen; es entscheidet selbst, ob
+und wie oft es nachschlägt. Backend ist Bonsai 2 27B über llama-server
 (`MEET_LLM_BACKEND=openai`), das native `tool_calls` liefert.
 
-* `llm_tools.DEFINITION` – genau ein Werkzeug, `codecompass_search(query, limit)`.
-* `llm_tools.CodeCompassTool` – führt es über einen injizierten Retriever aus
-  (im Companion `assist.fetch_snippets`, also Hub + Worker-Key; der Index und
-  jedes Credential bleiben hinter dem Hub). Das Ergebnis ist derselbe begrenzte
-  `[pfad#symbol] excerpt`-Block wie beim Prefix-Weg.
-* `llm_backends` fährt die Schleife für beide Backends: `tools` mitsenden →
-  `tool_calls` ausführen → Ergebnis als `role: "tool"` (mit `tool_call_id`, wo
-  der Server eine liefert) anhängen → erneut anfragen. Nach
-  `MEET_LLM_TOOL_ROUNDS` Runden werden die `tools` weggelassen, die letzte
-  Anfrage kann also nur noch antworten.
-* Alles ist gedeckelt: Query ≤ 200 Zeichen, `limit` 1..8, ≤ 4 Aufrufe pro
-  Antwort, Ergebnis ≤ `MEET_LLM_TOOL_RESULT_CHARS`. Ein unerreichbarer Index
-  wird zu einem kurzen Werkzeug-Ergebnis, nicht zu einer verlorenen Antwort;
-  ein Werkzeugname, den der Companion nicht anbietet, wird abgelehnt.
-* Das Ergebnis bleibt untrusted Referenzmaterial: Systemprompt, Markdown-Strip
-  und `max_reply_chars` gelten unverändert, Reasoning bleibt aus
-  (`MEET_LLM_OPENAI_REASONING_EFFORT=none`).
-* Was das Modell tatsächlich nachgeschlagen hat, geht in dieselbe `AnswerTrace`
-  (`TOOL codecompass_search query=… snippets=…` im Companion-Log), damit
-  "Wie hast du diese Antwort erzeugt?" weiterhin die Wahrheit sagt.
+### Ablauf einer Chat-Frage
+
+```text
+Chat-Nachricht → companion.py (Playwright, chat.poll)
+  → companion_router.classify: Wissensfrage? → erzwungene codecompass_search
+    mit RouteDecision.query (Identifier zuerst, sonst die Frage ohne Frage-/Füllwörter)
+  → Modell mit 8 Tools, ≤ MEET_LLM_TOOL_ROUNDS Runden, ≤ MEET_LLM_TOOL_CALLS Aufrufe
+  → jeder Aufruf: Worker → Hub (HMAC mit dem Worker-Key)
+       codecompass_search  → /internal/assist/tool (codecompass.retrieve)
+                             Fallback /internal/assist/retrieve bei älterem Hub
+       die 7 anderen Tools → /internal/assist/tool → Hub-MCP-Registry
+  → Hub: KnowledgeIndexRetrievalService.search_records_page
+  → Ergebnis als role:"tool" → Antwort → Chat + Sprache
+```
+
+Der Worker spricht nie MCP und hält weder Index noch Credential. Der Hub prüft
+jede Anfrage: feste Allowlist von 8 Nur-Lese-Tools
+(`ANANTA_MEET_COMPANION_MCP_TOOLS` kann einengen, nie erweitern), Companion-
+Identität nur für Projekte im Media-Scope, Operation-Policy, Audit je Aufruf.
+
+### Die Werkzeuge (`llm_tools`)
+
+| Modell-Name | MCP-Tool | Zweck |
+|---|---|---|
+| `codecompass_search` | `codecompass.retrieve` | Auszüge aus dem Wissensindex |
+| `codecompass_architecture_overview` / `_expand` | `codecompass.architecture_*` | gestufter Architekturüberblick, Handles (`hac:…`) vertiefen |
+| `codecompass_architecture_intelligence` | `codecompass.architecture_intelligence` | Communities, Smells, Gesundheit |
+| `codecompass_layers_heads` / `_plan` | `codecompass.layers_*` | Index-Layer lesen, Update-Trockenlauf |
+| `codecompass_analytics_query` | `codecompass.analytics_query` | benannte Vorlagen, kein freies SQL |
+| `codecompass_rlm_analyze` | `codecompass.rlm_analyze` | rekursive Analyse, Tiefe ≤ 2, Fanout ≤ 3 |
+
+`MEET_LLM_TOOLSET=search` bietet nur `codecompass_search` an.
+
+### Was das Modell von einer Suche sieht
+
+```text
+codecompass_search 'companion supervisor': 5 von 37 Treffern, die besten folgen (Datei:Zeilen, Score).
+[worker/meet_media/companion_supervisor.py:30-44#supervise score=9.4]
+def supervise(run, stop_requested, *, clock, sleep, log, backoff=RejoinBackoff()):
+    …
+```
+
+* **Trefferzahl:** `total` zählt alle passenden Datensätze im Projekt-Scope,
+  nicht nur die gelieferten (`search_records_page`).
+* **Passage statt Dateianfang:** Der Hub wählt je Treffer das Fenster der
+  Datei, das die Suchbegriffe enthält (`knowledge_passage.best_passage`,
+  ≤ 1200 Zeichen), mit Zeilenbereich `line`–`line_end`. Den `# pfad`-Kopf,
+  den `setup_codecompass_index.py` voranstellt, rechnet er heraus; ein Index
+  mit eigenen `start_line`-Angaben verschiebt den Bereich entsprechend.
+  Zeilenumbrüche bleiben erhalten, Code bleibt lesbar.
+* **Budget:** ein Tool-Ergebnis ≤ `MEET_LLM_TOOL_RESULT_CHARS` (Default 6000,
+  wie die Hub-Kürzung), sodass alle 5 Standard-Auszüge ankommen. Query ≤ 200
+  Zeichen, `limit` 1..8.
+* **Grenzen, die bleiben:** Die Suche ist lexikalisch (Token-Treffer, keine
+  Embeddings). Zeilen sind so aktuell wie der Index: ein veralteter Index
+  liefert die Zeilen seines Stands.
+
+### Projekt-Scope
+
+`ANANTA_MEET_COMPANION_KNOWLEDGE_SOURCES` (Hub) bindet Projekte an
+Indexquellen, z. B.
+`{"ca1388ef-…": ["ananta-project"], "*": ["ananta-project"]}`. Ein Selektor
+trifft Index-ID, `source_id` oder `connection_source_id`. Gebundene Projekte
+(und `"*"`) sind strikt, auch für Legacy-Indizes; eine leere Menge durchsucht
+nichts. Ohne Bindung bleibt die bisherige, ungefilterte Suche über alle
+fertigen Indizes, inklusive synthetischer Test-Indizes. Deshalb im Betrieb
+setzen.
+
+### Nachvollziehbarkeit
+
+Jeder Aufruf landet in der `AnswerTrace` und im Companion-Log
+(`TOOL codecompass_search query=… snippets=5 total=37 …`), damit
+"Wie hast du diese Antwort erzeugt?" die Wahrheit sagt. Das Ergebnis bleibt
+untrusted Referenzmaterial: Systemprompt, Markdown-Strip und
+`max_reply_chars` gelten unverändert.
 
 Ollama (`/api/chat`) unterstützt dieselbe Schleife; dort gibt es keine
 `tool_call_id`, die Zuordnung läuft über den Namen.
@@ -197,7 +252,7 @@ docker exec -d ananta-meet-media-meet-media-worker-1 python -m worker.meet_media
 ```bash
 cd docker/compose-next
 docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm t-infra \
-  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_llm_tools.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py tests/test_meet_companion_supervisor.py tests/test_meet_companion_public_room.py"
+  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_llm_tools.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py tests/test_meet_companion_supervisor.py tests/test_meet_companion_public_room.py tests/test_meet_companion_knowledge_scope.py tests/test_meet_llm_tools_hub.py"
 ```
 
 `tests/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,
