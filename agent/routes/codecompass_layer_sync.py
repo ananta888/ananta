@@ -91,3 +91,20 @@ def sync_commit():
     _audit("commit", profile_id=str(body.get("profile_id") or ""), commit_sha=str(body.get("commit_sha") or ""),
            status=str(result.get("status") or ""), task_id=str(result.get("task_id") or ""))
     return api_response(result)
+
+
+@codecompass_layer_sync_bp.route(f"{PREFIX}/gc", methods=["POST"])
+@check_auth
+@admin_required
+def sync_garbage_collect():
+    """Collect unreachable layers, snapshots, contents and old dispatches (``dry_run`` default true)."""
+    collector = current_app.extensions.get("codecompass_layer_gc")
+    body = _body() or {}
+    if collector is None:
+        return _error("codecompass_layers_disabled", 404)
+    if "dry_run" in body and not isinstance(body["dry_run"], bool):
+        return _error("dry_run_boolean_required", 400)
+    report = collector.collect(dry_run=body.get("dry_run", True))
+    _audit("gc", dry_run=report["dry_run"], swept_layers=report["layers"]["swept"],
+           swept_contents=report["contents"]["swept"])
+    return api_response(report)

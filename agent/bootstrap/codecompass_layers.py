@@ -72,6 +72,7 @@ def initialize_codecompass_layers(
     from agent.services.codecompass_layer_job_gateway import CodeCompassLayerJobGateway
     from agent.services.codecompass_layer_query_backend import ChunkPlanPolicy, CodeCompassLayerQueryBackend
     from agent.services.codecompass_layer_service import CodeCompassLayerDispatchBackend, CodeCompassLayerService
+    from agent.services.codecompass_layer_storage_gc import GarbageCollectionObserver, LayerStorageGarbageCollector
     from agent.services.codecompass_layer_sync_service import (
         CodeCompassLayerSyncService,
         SyncCatchUpObserver,
@@ -99,6 +100,7 @@ def initialize_codecompass_layers(
             observers=[
                 *_publication_observers(root, layers, heads, pointer_repository),
                 SyncCatchUpObserver(lambda: app.extensions["codecompass_layer_sync_service"]),
+                GarbageCollectionObserver(_Lazy(lambda: app.extensions["codecompass_layer_gc"])),
             ],
         ),
         writes_enabled=lambda: _flag(WRITES_ENV, environ),
@@ -109,8 +111,13 @@ def initialize_codecompass_layers(
     app.extensions["codecompass_layer_job_gateway"] = CodeCompassLayerJobGateway(
         job_lookup=service.job, contents=contents, layers=layers
     )
+    sync_state = SyncStateStore(root)
+    app.extensions["codecompass_layer_gc"] = LayerStorageGarbageCollector(
+        layers=layers, heads=heads, snapshots=snapshots, contents=contents,
+        dispatches=FileLayerDispatchRepository(root), sync_state=sync_state,
+    )
     app.extensions["codecompass_layer_sync_service"] = CodeCompassLayerSyncService(
-        snapshots=snapshots, contents=contents, layer_service=service, state=SyncStateStore(root),
+        snapshots=snapshots, contents=contents, layer_service=service, state=sync_state,
         task_status=task_status or _hub_task_status,
     )
     return CodeCompassLayerWiringStatus(True, "codecompass_layers_enabled", str(root))

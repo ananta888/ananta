@@ -48,6 +48,17 @@ class SyncStateStore:
         path = self._path(profile_id)
         return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
+    def all(self) -> list[dict[str, Any]]:
+        if not self._root.exists():
+            return []
+        states = []
+        for path in self._root.glob("*.json"):
+            try:
+                states.append(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                continue
+        return states
+
     def update(self, profile_id: str, **values: Any) -> dict[str, Any]:
         state = {**self.get(profile_id), **values}
         _atomic_write(self._path(profile_id), json.dumps(state, sort_keys=True).encode("utf-8"))

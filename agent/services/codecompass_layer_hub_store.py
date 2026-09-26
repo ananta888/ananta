@@ -71,6 +71,13 @@ class SnapshotManifestStore:
             return None
         return json.loads(gzip.decompress(path.read_bytes()))
 
+    def iter_entries(self):
+        """``(revision, size_bytes, mtime)`` of stored manifests."""
+        yield from _iter_blobs(self._root, ".json.gz")
+
+    def delete(self, revision: str) -> bool:
+        return _unlink(self._path(revision))
+
 
 class ContentBlobStore:
     """Redacted file texts addressed by the sha256 of their UTF-8 bytes."""
@@ -105,6 +112,13 @@ class ContentBlobStore:
             return None
         return gzip.decompress(path.read_bytes()).decode("utf-8")
 
+    def iter_entries(self):
+        """``(sha256, size_bytes, mtime)`` of stored contents."""
+        yield from _iter_blobs(self._root, ".gz")
+
+    def delete(self, digest: str) -> bool:
+        return _unlink(self._path(digest))
+
 
 class FileLayerDispatchRepository:
     """``CodeCompassLayerDispatchRepositoryPort`` backed by one JSON file per task."""
@@ -127,3 +141,34 @@ class FileLayerDispatchRepository:
     def save(self, record: Mapping[str, Any]) -> None:
         payload = json.dumps(dict(record), sort_keys=True, indent=2).encode("utf-8")
         _atomic_write(self._path(str(record.get("task_id") or "")), payload)
+
+    def iter_records(self):
+        """``(record, mtime)`` of every stored dispatch."""
+        if not self._root.exists():
+            return
+        for path in self._root.glob("*.json"):
+            try:
+                yield json.loads(path.read_text(encoding="utf-8")), float(path.stat().st_mtime)
+            except (OSError, ValueError):
+                continue
+
+    def delete(self, task_id: str) -> bool:
+        return _unlink(self._path(task_id))
+
+
+def _iter_blobs(root: Path, suffix: str):
+    if not root.exists():
+        return
+    for path in root.glob(f"*/*{suffix}"):
+        key = path.name[: -len(suffix)]
+        if _SHA256.fullmatch(key):
+            stat = path.stat()
+            yield key, int(stat.st_size), float(stat.st_mtime)
+
+
+def _unlink(path: Path) -> bool:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True

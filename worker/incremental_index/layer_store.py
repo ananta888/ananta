@@ -137,6 +137,15 @@ class ArtifactLayerStore:
             )
         return rows
 
+    def iter_layer_files(self):
+        """``(layer_id, size_bytes, mtime)`` of stored layers without reading them."""
+        root = self.base_path / "layers"
+        if not root.exists():
+            return
+        for path in root.glob("*/*/*.json.gz"):
+            stat = path.stat()
+            yield path.parent.name, int(stat.st_size), float(stat.st_mtime)
+
     def get_layer_artifact_path(self, layer_id: str, artifact_type: str) -> Path:
         return self._artifacts_path(layer_id) / artifact_type
 
