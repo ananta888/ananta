@@ -8,6 +8,7 @@
 .ananta/
 .cache/
 frontend-angular/dist
+packages/ananta-game-core/dist
 frontend-angular/.angular
 frontend-angular/test-results*/
 

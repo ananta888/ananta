@@ -254,6 +254,7 @@ services:
     volumes:
       - ../../frontend-angular:/app
       - ../../schemas:/schemas:ro
+      - ../../packages/ananta-game-core/src:/packages/ananta-game-core/src:ro
       - ../../config/sfu_broadcast_data_limits.json:/config/sfu_broadcast_data_limits.json:ro
       - /app/node_modules
       - /ms-playwright

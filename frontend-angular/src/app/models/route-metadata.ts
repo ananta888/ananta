@@ -73,6 +73,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   sources: { label: 'Quellen & Indexierung', area: 'Operate', navGroup: 'Arbeiten', navOrder: 26, simpleNav: true, projectScoped: true },
   'goal-artifacts': { label: 'Goal Artifacts', area: 'Operate', navGroup: 'Betrieb', navOrder: 27, expertOnly: true },
   'strategy-game-demo': { label: 'Strategy Game Demo', area: 'Operate', navGroup: 'Betrieb', navOrder: 28, expertOnly: true },
+  'strategy-game': { label: 'Ananta Strategiespiel', area: 'Operate', navGroup: 'Betrieb', navOrder: 29 },
   board: { label: 'Aufgaben', area: 'Operate', navGroup: 'Arbeiten', navOrder: 20, simpleNav: true, projectScoped: true },
   operations: { label: 'Operationen', area: 'Operate', navGroup: 'Betrieb', navOrder: 40, expertOnly: true },
   artifacts:  { label: 'Ergebnisse', area: 'Operate', navGroup: 'Arbeiten', navOrder: 30, simpleNav: true, projectScoped: true },

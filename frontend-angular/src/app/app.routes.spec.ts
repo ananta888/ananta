@@ -11,6 +11,14 @@ function flattenRoutes(items: typeof routes): any[] {
 }
 
 describe('app routes', () => {
+  it('offers the local hex game below the authenticated shell alongside the architecture demo', () => {
+    const hubShell = routes.find(route => route.path === '' && route.children);
+    const game = hubShell?.children?.find(route => route.path === 'strategy-game');
+    expect(typeof game?.loadComponent).toBe('function');
+    expect(game?.data?.['breadcrumb']).toBe('Ananta Strategiespiel');
+    expect(hubShell?.canActivate).toEqual([authGuard]);
+  });
+
   it('keeps Public Pair outside the Hub-authenticated route tree', () => {
     const pairRoute = routes.find((route) => route.path === 'pair-dev');
     const hubShell = routes.find((route) => route.path === '' && route.children);

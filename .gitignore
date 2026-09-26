@@ -1,5 +1,7 @@
 # Angular specific
 /dist/
+/packages/ananta-game-core/dist/
+/packages/ananta-game-core/node_modules/
 /out-tsc/
 /tmp/
 /coverage/

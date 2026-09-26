@@ -154,5 +154,6 @@ services:
     # node_modules is read-only; only the separate .angular cache is writable.
     volumes:
       - ../../frontend-angular:/app/frontend-angular:ro
+      - ../../packages/ananta-game-core/src:/app/packages/ananta-game-core/src:ro
       - frontend-node-modules:/app/frontend-angular/node_modules:ro
       - frontend-angular-cache:/app/frontend-angular/.angular

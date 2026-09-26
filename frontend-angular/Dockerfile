@@ -11,6 +11,7 @@ RUN npx playwright install --with-deps chromium
 
 COPY frontend-angular/ ./
 COPY schemas/ /schemas/
+COPY packages/ananta-game-core/src/ /packages/ananta-game-core/src/
 COPY config/sfu_broadcast_data_limits.json /config/sfu_broadcast_data_limits.json
 
 EXPOSE 4200

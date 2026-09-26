@@ -28,6 +28,7 @@ export const systemRoutes: Routes = [
   },
   { path: 'goal-artifacts', data: routeDataFor('goal-artifacts'), loadComponent: () => import('../../components/goal-artifacts.component').then(m => m.GoalArtifactsComponent) },
   { path: 'strategy-game-demo', data: routeDataFor('strategy-game-demo'), loadComponent: () => import('../../components/strategy-game-demo.component').then(m => m.StrategyGameDemoComponent) },
+  { path: 'strategy-game', data: routeDataFor('strategy-game'), loadComponent: () => import('../strategy-game/strategy-game.component').then(m => m.StrategyGameComponent) },
   { path: 'panel/:name', data: routeDataFor('panel'), loadComponent: () => import('../../components/agent-panel.component').then(m => m.AgentPanelComponent) },
   { path: 'webhooks', data: routeDataFor('webhooks'), loadComponent: () => import('../../components/webhooks.component').then(m => m.WebhooksComponent) },
 ];

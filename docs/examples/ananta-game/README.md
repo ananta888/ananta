@@ -4,6 +4,26 @@
 **Rolle:** Showcase, Entwicklungsbeispiel und Stresstest fuer Ananta selbst  
 **Wichtig:** Das Spiel ist nicht als ungeplanter zweiter Produktstrang gedacht. Es ist ein kontrolliertes Beispiel, um Anantas Hub-Worker-Orchestrierung an einem komplexen, realistischen Projekt zu zeigen.
 
+## Spielbarer lokaler Prototyp
+
+Im Angular-Frontend ist nach der Anmeldung **`/strategy-game`** verfügbar:
+zwei lokale Spieler, 19 Hexfelder, Naga/Rishi/Deva, Ashrams, Soma, 6 AP,
+deterministischer Kampf, Nagabanda, Rekrutierung und Zugprotokoll mit Replay.
+Die bestehende `/strategy-game-demo` verlinkt die Partie und zeigt weiterhin
+die Architektur-Territorien.
+
+Der unabhängige [TypeScript-Core](../../../packages/ananta-game-core/README.md)
+enthält die Regeln und automatisierte Tests; die Oberfläche ist dessen lokaler
+Spielclient. [Kurzregel](brutal_mvp_rules.md), [Karte](paper_map_19_hex.md),
+[Nagabanda-Beispiele](nagabanda_examples.md), [Modell](game_core_model.md),
+[Replay](action_log_replay_model.md) und [Testplan](test_plan.md) beschreiben den Stand.
+Die bisher offenen Werte wurden als **vorläufige Prototyp-Regeln** präzisiert.
+Eine menschliche Balancebewertung ist noch offen. Economy, Online-Spiel,
+KI-Figuren, Arenen und Hardware bleiben geparkt.
+
+Die folgenden Planungsabschnitte dokumentieren die ursprüngliche Reihenfolge;
+Core und eine einfache Spieloberfläche sind jetzt umgesetzt.
+
 ## 1. Warum dieses Spiel im Ananta-Projekt liegt
 
 Das Ananta Strategie-Game ist ein bewusst komplexes Beispielprojekt. Es kombiniert Brettspielregeln, Simulation, deterministische Aktionen, Playtesting, spaetere UI, moegliche E-Ink-/Hardware-Ziele und ein wachsendes Economy-/Policy-Modell.

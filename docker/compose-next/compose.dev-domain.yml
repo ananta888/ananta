@@ -17,6 +17,7 @@ services:
     # This is development-only; production keeps immutable frontend sources.
     volumes: !override
       - ../../frontend-angular:/app/frontend-angular:rw
+      - ../../packages/ananta-game-core/src:/app/packages/ananta-game-core/src:ro
       - frontend-node-modules:/app/frontend-angular/node_modules
       - frontend-angular-cache:/app/frontend-angular/.angular
 

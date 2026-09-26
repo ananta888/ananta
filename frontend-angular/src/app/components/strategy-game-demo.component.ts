@@ -1,16 +1,18 @@
 
 import { Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import { DEMO_GAME_MAP, GameMapUiContract, GameMapTerritoryView } from '../features/strategy-game/game-map.contract';
 
 @Component({
   standalone: true,
   selector: 'app-strategy-game-demo',
-  imports: [],
+  imports: [RouterLink],
   template: `
     <section class="card strategy-demo">
       <h2>{{ map.title }}</h2>
       <p class="muted">2D Demo-Ansicht auf Basis des GameMap-JSON-Vertrags, ohne Live-Agenten-Ausfuehrung.</p>
+      <p><a routerLink="/strategy-game">Lokales Ananta-Strategiespiel starten →</a></p>
 
       <div class="grid cols-3 mt-md">
         @for (territory of map.territories; track territory.id) {
