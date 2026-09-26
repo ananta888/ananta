@@ -170,10 +170,12 @@ def job_spec(dispatch: Mapping[str, Any]) -> dict[str, Any]:
 class HubCodeCompassLayerPublisher:
     """``CodeCompassLayerPublisherPort``: verify the uploaded layer and advance the head."""
 
-    def __init__(self, *, layers: Any, heads: Any, evidence: LayerRunEvidencePort) -> None:
+    def __init__(self, *, layers: Any, heads: Any, evidence: LayerRunEvidencePort,
+                 observers: list[Any] | None = None) -> None:
         self._layers = layers
         self._heads = heads
         self._evidence = evidence
+        self._observers = list(observers or [])
 
     def publish(self, *, dispatch: Mapping[str, Any], result: Mapping[str, Any]) -> Mapping[str, Any]:
         spec = job_spec(dispatch)
@@ -183,6 +185,9 @@ class HubCodeCompassLayerPublisher:
             self._complete(spec, result, succeeded=False)
             raise
         self._complete(spec, result, succeeded=True)
+        from agent.services.codecompass_layer_publication_observers import notify
+
+        notify(self._observers, publication)
         return publication
 
     def reject(self, *, dispatch: Mapping[str, Any], result: Mapping[str, Any]) -> None:

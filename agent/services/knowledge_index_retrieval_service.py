@@ -802,6 +802,7 @@ class KnowledgeIndexRetrievalService:
         authoritative_scope: Mapping[str, Any] | None = None,
         record_predicate: Callable[[dict[str, Any]], bool] | None = None,
         index_ids: set[str] | None = None,
+        unscored_matches: list[int] | None = None,
     ) -> list[tuple[ContextChunk, dict[str, Any]]]:
         """Every scoring candidate with its raw record, best first (``search`` keeps the head).
 
@@ -851,13 +852,20 @@ class KnowledgeIndexRetrievalService:
                 # source scope (repo, wiki, registered workspace, ...).
                 continue
             collection_ids, collection_names = self._collection_metadata(artifact_id)
-            output_dir_raw = getattr(knowledge_index, "output_dir", None)
-            if not output_dir_raw:
-                continue
-            output_dir = Path(output_dir_raw)
-            if not output_dir.exists():
-                continue
-            output_records = list(self._iter_output_records(output_dir))
+            layered = self._layered_candidates(knowledge_index, query)
+            if layered is not None:
+                # A layer-head pointer: the FTS projection preselects the chunks to score.
+                output_records, unscored = layered
+                if unscored_matches is not None:
+                    unscored_matches.append(unscored)
+            else:
+                output_dir_raw = getattr(knowledge_index, "output_dir", None)
+                if not output_dir_raw:
+                    continue
+                output_dir = Path(output_dir_raw)
+                if not output_dir.exists():
+                    continue
+                output_records = list(self._iter_output_records(output_dir))
             duplicate_ids = self._duplicate_candidate_ids(output_records)
             for filename, record in output_records:
                 if record_predicate is not None and not record_predicate(record):
@@ -1005,6 +1013,7 @@ class KnowledgeIndexRetrievalService:
         ``passage = {text, line_start, line_end}``: the window of its raw
         content that matches the query, instead of the record's beginning.
         """
+        unscored: list[int] = []
         ranked = self._ranked_candidates(
             query,
             task_kind=task_kind,
@@ -1013,9 +1022,10 @@ class KnowledgeIndexRetrievalService:
             allowed_index_ids=allowed_index_ids,
             authoritative_scope=authoritative_scope,
             index_ids=index_ids,
+            unscored_matches=unscored,
         )
         records: list[dict[str, Any]] = []
-        total = 0
+        total = sum(unscored)
         for chunk, raw_record in ranked:
             record = self._record_projection(chunk, authoritative_scope)
             if record is None:
@@ -1027,6 +1037,20 @@ class KnowledgeIndexRetrievalService:
                 record["passage"] = self._passage(raw_record, query, int(passage_chars))
             records.append(record)
         return {"records": records, "total": total}
+
+    LAYER_CANDIDATES = 400
+
+    def _layered_candidates(
+        self, knowledge_index: Any, query: str
+    ) -> tuple[list[tuple[str, dict[str, Any]]], int] | None:
+        """``(records, unscored match count)`` for a layer-head pointer index, else ``None``."""
+        from agent.services.codecompass_layer_record_source import layer_record_source
+
+        source = layer_record_source(knowledge_index)
+        if source is None:
+            return None
+        records, total = source.candidates(query, limit=self.LAYER_CANDIDATES)
+        return [("layer:chunks", record) for record in records], max(0, total - len(records))
 
     @staticmethod
     def _passage(raw_record: dict[str, Any], query: str, max_chars: int) -> dict[str, Any] | None:

@@ -48,6 +48,7 @@ def initialize_codecompass_layers(
     data_dir: str | Path | None = None,
     task_queue: Any = None,
     evidence: Any = None,
+    pointer_repository: Any = None,
 ) -> CodeCompassLayerWiringStatus:
     environ = os.environ if environ is None else environ
     if str(app.config.get("ROLE") or "").strip().lower() != "hub":
@@ -79,7 +80,10 @@ def initialize_codecompass_layers(
         query_backend=CodeCompassLayerQueryBackend(layers=layers, heads=heads, snapshots=SnapshotManifestStore(root)),
         task_queue=HubTaskQueueLayerDispatcher(queue=task_queue or _Lazy(_hub_task_queue), evidence=evidence),
         dispatch_repository=FileLayerDispatchRepository(root),
-        publisher=HubCodeCompassLayerPublisher(layers=layers, heads=heads, evidence=evidence),
+        publisher=HubCodeCompassLayerPublisher(
+            layers=layers, heads=heads, evidence=evidence,
+            observers=_publication_observers(root, layers, heads, pointer_repository),
+        ),
         writes_enabled=lambda: _flag(WRITES_ENV, environ),
     )
     service = CodeCompassLayerService(backend=backend)
@@ -89,6 +93,24 @@ def initialize_codecompass_layers(
         job_lookup=service.job, contents=ContentBlobStore(root), layers=layers
     )
     return CodeCompassLayerWiringStatus(True, "codecompass_layers_enabled", str(root))
+
+
+def _publication_observers(root: Path, layers: Any, heads: Any, pointer_repository: Any) -> list[Any]:
+    from agent.db_models.knowledge import KnowledgeIndexDB
+    from agent.services.codecompass_layer_publication_observers import (
+        KnowledgeIndexPointerObserver,
+        SearchIndexSyncObserver,
+    )
+
+    repository = pointer_repository or _Lazy(_knowledge_index_repository)
+    return [KnowledgeIndexPointerObserver(repository, KnowledgeIndexDB),
+            SearchIndexSyncObserver(root=root, layers=layers, heads=heads)]
+
+
+def _knowledge_index_repository() -> Any:
+    from agent.repository import knowledge_index_repo
+
+    return knowledge_index_repo
 
 
 class _Lazy:

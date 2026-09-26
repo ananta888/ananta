@@ -7,6 +7,9 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+# Mirrors agent.services.codecompass_layer_record_source (kept import-free here).
+CODECOMPASS_LAYER_POINTER_KEY = "codecompass_layer_head"
+CODECOMPASS_LAYER_POINTER_SCHEMA = "ananta.codecompass_layer_pointer.v1"
 KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY = (
     "knowledge_index_execution_binding"
 )
@@ -53,6 +56,18 @@ class KnowledgeIndexConsumptionPolicy:
         if not isinstance(metadata, Mapping):
             metadata = {}
 
+        pointer = metadata.get(CODECOMPASS_LAYER_POINTER_KEY)
+        if pointer is not None:
+            # A Hub-created pointer to a layer head: its content is admitted by
+            # the Hub's own publish path (bound results, verified layers).
+            if (
+                not isinstance(pointer, Mapping)
+                or pointer.get("schema") != CODECOMPASS_LAYER_POINTER_SCHEMA
+                or not str(pointer.get("profile_id") or "").strip()
+                or str(getattr(knowledge_index, "status", "") or "") != "completed"
+            ):
+                return self._deny("codecompass_layer_pointer_invalid")
+            return self._allow("codecompass_layer_head_pointer", bound_v2=False)
         if KNOWLEDGE_INDEX_EXECUTION_BINDING_METADATA_KEY not in metadata:
             return self._allow("knowledge_index_legacy_compatible", bound_v2=False)
 
