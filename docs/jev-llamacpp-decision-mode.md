@@ -117,6 +117,11 @@ erlaubter Wert; ein ungültiges Schema ergibt einen typisierten `invalid_request
 daneben. Ergebnis CPU (Qwen3-VL-2B Q8_0, 6 Threads): alle Felder gültig in 1 Runde, 1,1 s (Prefill 0,98 s, Scoring
 0,13 s), Chat „pong“ in 0,16 s.
 
-**CUDA-Smoke offen:** Am 2026-09-26 um 19:40 verlor WSL den Zugriff auf die eGPU (`dxgk … Ioctl failed: -19`,
-danach „GPU access blocked by the operating system“), kurz nach dem Start von Vision-Integrationstests gegen den
-27B-Server. Der Server läuft seitdem auf der CPU. Der CUDA-Smoke folgt, sobald die GPU wieder verfügbar ist.
+**CUDA-Smoke** (2026-09-26, nach WSL-Neustart, RTX 5060 Ti, Bonsai 27B PQ2_0): alle Felder gültig in 1 Runde,
+0,59 s (Prefill 0,41 s, Scoring 0,19 s), typisierter Fehler, Chat erreichbar (Antworttext leer: das Modell verbraucht
+die 8 Test-Tokens für Reasoning). `urgency` kam mit p = 0,51: bei `min_probability` 0,8 ein Abstain-Fall.
+
+**Betriebshinweis:** Windows Modern Standby (Netzbetrieb nach 10 min) trennte die eGPU (USB4) kurz; WSL verlor
+dabei den GPU-Zugang (`dxgk … Ioctl failed: -19`), der llama-server hing bzw. lief danach nur auf der CPU. Abhilfe:
+`powercfg /change standby-timeout-ac 0` (gesetzt 2026-09-26); nach einem Ausfall `wsl --shutdown`, dann das lokale
+Wiederherstellungs-Skript `data/meet-media/recover-after-wsl-restart.sh`.

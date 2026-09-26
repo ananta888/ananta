@@ -154,10 +154,10 @@
       "milestone_id": "JEVCPP-M1",
       "title": "CUDA- und CPU-Build reproduzierbar bereitstellen",
       "type": "infrastructure",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 80,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-001"
       ],
@@ -175,10 +175,8 @@
       "evidence": [
         "docs/jev-llamacpp-decision-mode.md#build-und-start-jevcpp-002",
         "scripts/jev_decision_smoke.py",
-        "CPU-Smoke 2026-09-26: Qwen3-VL-2B Q8_0, alle Felder gültig, typisierter Fehler, Chat parallel ok"
-      ],
-      "open": [
-        "CUDA-Smoke nach Rückkehr der eGPU (WSL-GPU-Zugriff seit 2026-09-26 19:40 verloren)"
+        "CPU-Smoke 2026-09-26: Qwen3-VL-2B Q8_0, alle Felder gültig, typisierter Fehler, Chat parallel ok",
+        "CUDA-Smoke 2026-09-26: RTX 5060 Ti, Bonsai 27B PQ2_0, alle Felder gültig, 0,59 s, Chat parallel ok"
       ]
     },
     {
