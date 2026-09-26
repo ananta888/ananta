@@ -1,0 +1,15 @@
+#!/bin/sh
+# Index the new commit into the Hub's incremental CodeCompass layers.
+# Runs detached and never blocks or fails the commit; output goes to
+# .git/codecompass-layer-sync.log. Install: scripts/install_codecompass_layer_hook.sh
+repo=$(git rev-parse --show-toplevel) || exit 0
+git_dir=$(git rev-parse --git-dir) || exit 0
+[ "${ANANTA_CODECOMPASS_LAYER_SYNC:-1}" = "0" ] && exit 0
+commit=$(git rev-parse HEAD) || exit 0
+(
+  cd "$repo" || exit 0
+  echo "=== $(date -Iseconds) $commit"
+  timeout 1800 python3 scripts/codecompass_layer_sync.py --commit "$commit"
+  echo "exit $?"
+) >> "$git_dir/codecompass-layer-sync.log" 2>&1 < /dev/null &
+exit 0

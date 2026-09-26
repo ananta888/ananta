@@ -183,6 +183,7 @@ class HubCodeCompassLayerPublisher:
             publication = self._publish(spec, result)
         except Exception:
             self._complete(spec, result, succeeded=False)
+            self._notify_failed(spec)
             raise
         self._complete(spec, result, succeeded=True)
         from agent.services.codecompass_layer_publication_observers import notify
@@ -192,7 +193,20 @@ class HubCodeCompassLayerPublisher:
 
     def reject(self, *, dispatch: Mapping[str, Any], result: Mapping[str, Any]) -> None:
         """A bound Worker failure: the reserved run ends as failed, the head stays."""
-        self._complete(job_spec(dispatch), result, succeeded=False)
+        spec = job_spec(dispatch)
+        self._complete(spec, result, succeeded=False)
+        self._notify_failed(spec)
+
+    def _notify_failed(self, spec: Mapping[str, Any]) -> None:
+        import logging
+
+        for observer in self._observers:
+            failed = getattr(observer, "failed", None)
+            if callable(failed):
+                try:
+                    failed(spec["profile_id"])
+                except Exception:  # noqa: BLE001 -- a failure notice must not mask the failure
+                    logging.exception("codecompass layer failure observer failed")
 
     def _publish(self, spec: Mapping[str, Any], result: Mapping[str, Any]) -> dict[str, Any]:
         artifact = dict((result.get("artifact_set") or {}).get("chunks") or {})

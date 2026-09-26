@@ -23,6 +23,7 @@ ENABLED_ENV = "ANANTA_CODECOMPASS_LAYERS_ENABLED"
 WRITES_ENV = "ANANTA_CODECOMPASS_LAYER_WRITES"
 TENANT_ENV = "ANANTA_CODECOMPASS_LAYER_TENANT_ID"
 PROJECT_ENV = "ANANTA_CODECOMPASS_LAYER_PROJECT_ID"
+MAX_DELTAS_ENV = "ANANTA_CODECOMPASS_LAYER_MAX_DELTAS"
 ROOT_DIRNAME = "codecompass_layers"
 
 
@@ -67,22 +68,34 @@ def initialize_codecompass_layers(
         SnapshotManifestStore,
     )
     from agent.services.codecompass_layer_job_gateway import CodeCompassLayerJobGateway
-    from agent.services.codecompass_layer_query_backend import CodeCompassLayerQueryBackend
+    from agent.services.codecompass_layer_query_backend import ChunkPlanPolicy, CodeCompassLayerQueryBackend
     from agent.services.codecompass_layer_service import CodeCompassLayerDispatchBackend, CodeCompassLayerService
+    from agent.services.codecompass_layer_sync_service import (
+        CodeCompassLayerSyncService,
+        SyncCatchUpObserver,
+        SyncStateStore,
+    )
     from worker.incremental_index.head_registry import LayerHeadRegistry
     from worker.incremental_index.layer_store import ArtifactLayerStore
 
     root = layer_root(settings.data_dir if data_dir is None else data_dir)
     root.mkdir(parents=True, exist_ok=True)
     layers, heads = ArtifactLayerStore(root), LayerHeadRegistry(root)
+    snapshots, contents = SnapshotManifestStore(root), ContentBlobStore(root)
     evidence = evidence or _Lazy(lambda: _hub_evidence(environ))
     backend = CodeCompassLayerDispatchBackend(
-        query_backend=CodeCompassLayerQueryBackend(layers=layers, heads=heads, snapshots=SnapshotManifestStore(root)),
+        query_backend=CodeCompassLayerQueryBackend(
+            layers=layers, heads=heads, snapshots=snapshots,
+            policy=ChunkPlanPolicy(max_delta_depth=_max_deltas(environ)),
+        ),
         task_queue=HubTaskQueueLayerDispatcher(queue=task_queue or _Lazy(_hub_task_queue), evidence=evidence),
         dispatch_repository=FileLayerDispatchRepository(root),
         publisher=HubCodeCompassLayerPublisher(
             layers=layers, heads=heads, evidence=evidence,
-            observers=_publication_observers(root, layers, heads, pointer_repository),
+            observers=[
+                *_publication_observers(root, layers, heads, pointer_repository),
+                SyncCatchUpObserver(lambda: app.extensions["codecompass_layer_sync_service"]),
+            ],
         ),
         writes_enabled=lambda: _flag(WRITES_ENV, environ),
     )
@@ -90,9 +103,20 @@ def initialize_codecompass_layers(
     app.extensions["codecompass_layer_service"] = service
     app.extensions["codecompass_layer_root"] = str(root)
     app.extensions["codecompass_layer_job_gateway"] = CodeCompassLayerJobGateway(
-        job_lookup=service.job, contents=ContentBlobStore(root), layers=layers
+        job_lookup=service.job, contents=contents, layers=layers
+    )
+    app.extensions["codecompass_layer_sync_service"] = CodeCompassLayerSyncService(
+        snapshots=snapshots, contents=contents, layer_service=service, state=SyncStateStore(root)
     )
     return CodeCompassLayerWiringStatus(True, "codecompass_layers_enabled", str(root))
+
+
+def _max_deltas(environ: Mapping[str, str]) -> int:
+    """Deltas before the next update is built as a new base by a Worker (compaction by rebuild)."""
+    try:
+        return max(1, min(512, int(environ.get(MAX_DELTAS_ENV) or 32)))
+    except ValueError:
+        return 32
 
 
 def _publication_observers(root: Path, layers: Any, heads: Any, pointer_repository: Any) -> list[Any]:
