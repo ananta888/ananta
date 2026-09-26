@@ -114,3 +114,26 @@ def test_audit_hash_chain_is_serialized_before_pool_checkout(monkeypatch) -> Non
     assert entries[0].prev_hash is None
     for previous, current in zip(entries, entries[1:]):
         assert current.prev_hash == previous.record_hash
+
+
+def test_a_foreign_row_without_a_hash_cannot_head_the_chain() -> None:
+    """Live regression: a probe row (id 999999999, record_hash NULL) made every later entry start a new chain."""
+    log_audit("chain_anchor", {"task_id": "task-chain"})
+    anchor = _all_audit_entries()[-1]
+    with Session(engine) as session:
+        session.add(AuditLogDB(id=999_999_999, username="probe", ip="probe", action="probe", trace_id="x",
+                               timestamp=1.0, prev_hash=None, record_hash=None))
+        session.commit()
+    try:
+        log_audit("after_probe", {"task_id": "task-chain"})
+        with Session(engine) as session:
+            entry = session.exec(
+                select(AuditLogDB).where(AuditLogDB.action == "after_probe").order_by(AuditLogDB.id.desc())
+            ).first()
+        assert entry.prev_hash == anchor.record_hash
+    finally:
+        with Session(engine) as session:
+            probe = session.get(AuditLogDB, 999_999_999)
+            if probe is not None:
+                session.delete(probe)
+                session.commit()

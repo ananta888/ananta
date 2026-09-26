@@ -338,9 +338,15 @@ def log_audit(action: str, details: dict = None):
             with Session(_engine()) as session:
                 _acquire_database_audit_chain_lock(session)
                 # LIMIT 1 and only the hash: without a limit the driver fetched the
-                # whole audit table (~2.7 s at 65k rows) for every entry.
+                # whole audit table (~2.7 s at 65k rows) for every entry. Only a
+                # hashed record can head the chain: a foreign row without a hash
+                # (seen live: id 999999999, "probe") made every later entry start
+                # a new chain with prev_hash NULL.
                 prev_hash = session.exec(
-                    select(AuditLogDB.record_hash).order_by(AuditLogDB.id.desc()).limit(1)
+                    select(AuditLogDB.record_hash)
+                    .where(AuditLogDB.record_hash.is_not(None))
+                    .order_by(AuditLogDB.id.desc())
+                    .limit(1)
                 ).first()
                 hash_payload = {
                     "username": username,
