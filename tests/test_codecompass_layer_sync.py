@@ -77,7 +77,9 @@ def hub(tmp_path):
     initialize_codecompass_layers(
         app, environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1"},
         data_dir=tmp_path, task_queue=app.queue, evidence=Evidence(), pointer_repository=Pointers(),
+        task_status=lambda task_id: app.task_statuses.get(task_id, "todo"),
     )
+    app.task_statuses = {}
     app.sync = app.extensions["codecompass_layer_sync_service"]
     return app
 
@@ -191,3 +193,13 @@ def test_client_uploads_in_bounded_batches(monkeypatch):
 
     assert client.upload(FakeHub(), list(sources), sources) == 5
     assert len(calls) > 1 and sum(calls) == 5
+
+
+def test_a_build_the_queue_already_ended_does_not_keep_the_profile_busy(hub):
+    """Live regression: the autopilot failed the task outside result admission; later commits waited 2 h."""
+    _, first = push(hub, {"a.py": "A = 1\n"})
+    _, deferred = push(hub, {"a.py": "A = 2\n"})
+    assert deferred["status"] == "deferred"
+    hub.task_statuses[first["task_id"]] = "failed"
+    _, again = push(hub, {"a.py": "A = 3\n"})
+    assert again["status"] == "queued" and len(hub.queue.tasks) == 2

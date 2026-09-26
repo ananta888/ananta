@@ -8,6 +8,8 @@ from agent.services.knowledge_index_forward_timeout import (
 )
 
 KNOWLEDGE_INDEX_SUPERVISOR_GRACE_SECONDS = 30
+# Task kinds only a Worker advertising the capability can execute (task_kind -> capability).
+CAPABILITY_BOUND_TASK_KINDS = {"codecompass_layer_build": "codecompass_layer_build"}
 
 
 def _safe_int(value: Any, default: int) -> int:
@@ -171,6 +173,18 @@ def resolve_target_worker_for_task(
                 True,
                 "destination_worker_binding",
             )
+
+    required_capability = CAPABILITY_BOUND_TASK_KINDS.get(task_kind)
+    if required_capability:
+        # Only a Worker with the registered handler can execute these kinds;
+        # round-robin would also pick the Hub itself or a Worker without it.
+        eligible_workers = [
+            worker
+            for worker in eligible_workers
+            if required_capability in set(getattr(worker, "capabilities", None) or [])
+        ]
+        if not eligible_workers:
+            return None, worker_cursor, False, "required_capability_unavailable"
 
     target_worker = eligible_workers[worker_cursor % len(eligible_workers)]
     return target_worker, worker_cursor + 1, True, None

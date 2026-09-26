@@ -196,3 +196,25 @@ def test_bound_knowledge_index_fails_closed_when_destination_worker_is_absent():
     assert cursor == 3
     assert was_assigned is False
     assert reason == "destination_worker_unavailable"
+
+
+def test_layer_builds_go_only_to_workers_with_the_handler():
+    hub = SimpleNamespace(url="http://localhost:5000", capabilities=["coding"])
+    plain = SimpleNamespace(url="http://ai-agent-beta:5000", capabilities=["coding", "retrieval"])
+    layered = SimpleNamespace(url="http://ai-agent-alpha:5000",
+                              capabilities=["retrieval", "index_write", "codecompass_layer_build"])
+    task = SimpleNamespace(task_kind="codecompass_layer_build", assigned_agent_url=None,
+                           _hub_can_be_worker=True, _local_worker_url="http://localhost:5000")
+    for cursor in range(4):
+        target, _cursor, assigned, reason = resolve_target_worker_for_task(
+            task=task, workers=[hub, plain, layered], worker_cursor=cursor)
+        assert target is layered and assigned is True and reason is None
+    missing = resolve_target_worker_for_task(task=task, workers=[hub, plain], worker_cursor=0)
+    assert missing[0] is None and missing[3] == "required_capability_unavailable"
+
+
+def test_other_task_kinds_keep_round_robin_over_all_workers():
+    workers = [SimpleNamespace(url=f"http://{name}:5000", capabilities=[]) for name in ("a", "b")]
+    task = SimpleNamespace(task_kind="coding", assigned_agent_url=None, _hub_can_be_worker=True, _local_worker_url="")
+    picks = {resolve_target_worker_for_task(task=task, workers=workers, worker_cursor=c)[0].url for c in range(2)}
+    assert picks == {"http://a:5000", "http://b:5000"}

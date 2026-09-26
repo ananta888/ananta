@@ -51,6 +51,7 @@ def initialize_codecompass_layers(
     task_queue: Any = None,
     evidence: Any = None,
     pointer_repository: Any = None,
+    task_status: Any = None,
 ) -> CodeCompassLayerWiringStatus:
     environ = os.environ if environ is None else environ
     if str(app.config.get("ROLE") or "").strip().lower() != "hub":
@@ -109,7 +110,8 @@ def initialize_codecompass_layers(
         job_lookup=service.job, contents=contents, layers=layers
     )
     app.extensions["codecompass_layer_sync_service"] = CodeCompassLayerSyncService(
-        snapshots=snapshots, contents=contents, layer_service=service, state=SyncStateStore(root)
+        snapshots=snapshots, contents=contents, layer_service=service, state=SyncStateStore(root),
+        task_status=task_status or _hub_task_status,
     )
     return CodeCompassLayerWiringStatus(True, "codecompass_layers_enabled", str(root))
 
@@ -132,6 +134,13 @@ def _publication_observers(root: Path, layers: Any, heads: Any, pointer_reposito
     repository = pointer_repository or _Lazy(_knowledge_index_repository)
     return [KnowledgeIndexPointerObserver(repository, KnowledgeIndexDB),
             SearchIndexSyncObserver(root=root, layers=layers, heads=heads)]
+
+
+def _hub_task_status(task_id: str) -> str | None:
+    from agent.repository import task_repo
+
+    task = task_repo.get_by_id(task_id)
+    return None if task is None else str(getattr(task, "status", "") or "")
 
 
 def _knowledge_index_repository() -> Any:

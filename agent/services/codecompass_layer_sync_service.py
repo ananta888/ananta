@@ -24,6 +24,7 @@ SNAPSHOT_SCHEMA = "codecompass.layer_snapshot.v1"
 MAX_MANIFEST_FILES = 200_000
 MAX_CONTENT_BATCH_CHARS = 32 * 1024 * 1024
 STALE_INFLIGHT_SECONDS = 2 * 60 * 60
+TERMINAL_TASK_STATUSES = frozenset({"completed", "failed", "cancelled", "canceled", "archived"})
 _PROFILE = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
 _COMMIT = re.compile(r"[0-9a-f]{7,64}")
 
@@ -55,12 +56,15 @@ class SyncStateStore:
 
 class CodeCompassLayerSyncService:
     def __init__(self, *, snapshots: Any, contents: Any, layer_service: Any, state: SyncStateStore,
-                 clock: Any = time.time) -> None:
+                 clock: Any = time.time, task_status: Any = None) -> None:
         self._snapshots = snapshots
         self._contents = contents
         self._layers = layer_service
         self._state = state
         self._clock = clock
+        # Hub task status by id: a build the queue already ended (e.g. failed by the
+        # autopilot, never admitted here) must not keep the profile busy.
+        self._task_status = task_status
 
     # --- ingestion ---------------------------------------------------------------------
 
@@ -97,9 +101,20 @@ class CodeCompassLayerSyncService:
         state = self._state.update(profile_id, requested_snapshot=snapshot_ref, requested_commit=commit_sha,
                                    requested_at=self._clock())
         inflight = state.get("inflight_task") or ""
-        if inflight and self._clock() - float(state.get("inflight_at") or 0) < STALE_INFLIGHT_SECONDS:
+        if inflight and self._still_running(inflight, float(state.get("inflight_at") or 0)):
             return {"status": "deferred", "inflight_task": inflight, "snapshot_ref": snapshot_ref}
         return self._dispatch(profile_id)
+
+    def _still_running(self, task_id: str, since: float) -> bool:
+        if self._clock() - since >= STALE_INFLIGHT_SECONDS:
+            return False
+        if self._task_status is None:
+            return True
+        try:
+            status = str(self._task_status(task_id) or "").strip().lower()
+        except Exception:  # noqa: BLE001 -- unknown status: keep the safe default (busy)
+            return True
+        return status not in TERMINAL_TASK_STATUSES
 
     def catch_up(self, profile_id: str) -> dict[str, Any]:
         """After a build finished: clear it, and index the newest requested snapshot if the head lags."""
