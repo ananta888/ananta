@@ -10,6 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 from cryptography.fernet import Fernet
 
@@ -820,3 +821,36 @@ def test_bootstrap_module_has_no_import_time_file_writes(tmp_path):
     spec.loader.exec_module(module)
 
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("missing", [
+    {"codecompass_layer_build"},
+    {"local_runtime_capability_discovery"},
+    {"codecompass_layer_build", "local_runtime_capability_discovery"},
+])
+def test_bootstrap_adds_the_codecompass_layer_capability_without_rotating_credentials(
+    tmp_path, missing,
+):
+    """Keyrings written before these Worker capabilities existed are upgraded in place."""
+    root = (tmp_path / "workflow-secrets").resolve()
+    assert _run(root).returncode == 0
+    registration_path = root / "hub/worker-registration-keyring.json"
+    registration = json.loads(registration_path.read_text(encoding="utf-8"))
+    for row in registration["workers"].values():
+        row["allowed_capabilities"] = [
+            capability for capability in row["allowed_capabilities"] if capability not in missing
+        ]
+    registration_path.write_text(json.dumps(registration, sort_keys=True, separators=(",", ":")) + "\n",
+                                 encoding="utf-8")
+    registration_path.chmod(0o600)
+    private_paths = tuple(path for path in root.rglob("*") if path.is_file() and path != registration_path)
+    before = {path: _digest(path) for path in private_paths}
+
+    upgraded = _run(root)
+
+    assert upgraded.returncode == 0, upgraded.stderr
+    assert upgraded.stdout.strip() == "development workflow keyrings upgraded"
+    assert {path: _digest(path) for path in private_paths} == before
+    for row in json.loads(registration_path.read_text(encoding="utf-8"))["workers"].values():
+        assert missing <= set(row["allowed_capabilities"])
+    assert _run(root).stdout.strip() == "development workflow keyrings reused"

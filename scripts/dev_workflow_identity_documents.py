@@ -29,28 +29,38 @@ WORKER_CAPABILITIES = [
     "subgraphs",
     "tool_calling",
     "vector_index_operation",
+    # Worker handlers added after the first keyrings (read-only runtime model
+    # discovery, Hub-delegated CodeCompass chunk layer builds).
+    "local_runtime_capability_discovery",
+    "codecompass_layer_build",
 ]
+# Capabilities a keyring written before they existed may lack; such keyrings
+# are upgraded in place (same credentials) by the bootstrap.
+ADDED_WORKER_CAPABILITIES = frozenset({"local_runtime_capability_discovery", "codecompass_layer_build"})
 LEGACY_WORKER_CAPABILITIES = [
     capability
     for capability in WORKER_CAPABILITIES
-    if capability not in {"index_write", "vector_index_operation"}
+    if capability not in {"index_write", "vector_index_operation", *ADDED_WORKER_CAPABILITIES}
 ]
+
+
+def _subsets(values: frozenset[str]) -> list[frozenset[str]]:
+    items = sorted(values)
+    return [frozenset(item for bit, item in enumerate(items) if mask >> bit & 1) for mask in range(1 << len(items))]
+
+
 UPGRADABLE_WORKER_CAPABILITY_SETS = tuple(
-    tuple(
-        capability
-        for capability in WORKER_CAPABILITIES
-        if capability not in omitted
-    )
-    for omitted in (
-        frozenset({"source_analysis"}),
-        frozenset({"index_write", "vector_index_operation"}),
-        frozenset(
-            {
-                "source_analysis",
-                "index_write",
-                "vector_index_operation",
-            }
-        ),
+    tuple(capability for capability in WORKER_CAPABILITIES if capability not in omitted)
+    for omitted in dict.fromkeys(
+        previous | added
+        for previous in (
+            frozenset(),
+            frozenset({"source_analysis"}),
+            frozenset({"index_write", "vector_index_operation"}),
+            frozenset({"source_analysis", "index_write", "vector_index_operation"}),
+        )
+        for added in _subsets(ADDED_WORKER_CAPABILITIES)
+        if previous | added
     )
 )
 
