@@ -2,15 +2,30 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-22",
-  "updated_at": "2026-09-22",
+  "updated_at": "2026-09-26",
   "owner": "Peter Stuiber / Ananta",
   "track": "jev_llamacpp_parallel_decision_mode",
   "title": "Jev-Modus fuer llama.cpp: parallele typisierte Entscheidungen als lokaler System-1-Pfad",
-  "status": "todo",
+  "status": "in_progress",
   "priority": "P1",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "Den im Quellmaterial beschriebenen offenen Jev-aehnlichen Inferenzansatz fuer normale llama.cpp-kompatible Open-Weight-Modelle reproduzieren, technisch verifizieren und als optionalen schnellen Specialist-/Gate-Pfad in Ananta integrieren.",
   "goal": "Fuer kleine, voneinander unabhaengige Entscheidungen nicht mehr komplettes JSON autoregressiv erzeugen, sondern pro Feld nur erlaubte Kandidatenwerte bewerten, diese Felder soweit technisch moeglich parallel abfragen, Confidence/Kalibrierung messen und unsichere oder abhaengige Faelle kontrolliert an einen langsameren System-2-Pfad eskalieren.",
   "related_todos": [
@@ -57,32 +72,50 @@
     "primary": "RTX 5060 Ti 16 GB + 64 GB RAM",
     "secondary": "RTX 3080 10 GB + 64 GB RAM, soweit verfuegbar",
     "cpu_fallback": true,
-    "runtimes": ["llama.cpp"]
+    "runtimes": [
+      "llama.cpp"
+    ]
   },
   "milestones": [
     {
       "id": "JEVCPP-M1",
       "title": "Upstream, Semantik und reproduzierbare Runtime",
       "status": "todo",
-      "task_ids": ["JEVCPP-001", "JEVCPP-002", "JEVCPP-003"]
+      "task_ids": [
+        "JEVCPP-001",
+        "JEVCPP-002",
+        "JEVCPP-003"
+      ]
     },
     {
       "id": "JEVCPP-M2",
       "title": "Ananta-Adapter, Isolation und System-1/System-2-Routing",
       "status": "todo",
-      "task_ids": ["JEVCPP-004", "JEVCPP-005", "JEVCPP-006", "JEVCPP-007"]
+      "task_ids": [
+        "JEVCPP-004",
+        "JEVCPP-005",
+        "JEVCPP-006",
+        "JEVCPP-007"
+      ]
     },
     {
       "id": "JEVCPP-M3",
       "title": "Modelle, Kalibrierung und Performance benchmarken",
       "status": "todo",
-      "task_ids": ["JEVCPP-008", "JEVCPP-009", "JEVCPP-010"]
+      "task_ids": [
+        "JEVCPP-008",
+        "JEVCPP-009",
+        "JEVCPP-010"
+      ]
     },
     {
       "id": "JEVCPP-M4",
       "title": "Tests, Rollout und Entscheidung",
       "status": "todo",
-      "task_ids": ["JEVCPP-011", "JEVCPP-012"]
+      "task_ids": [
+        "JEVCPP-011",
+        "JEVCPP-012"
+      ]
     }
   ],
   "tasks": [
@@ -91,10 +124,10 @@
       "milestone_id": "JEVCPP-M1",
       "title": "Offenen llama.cpp-Jev-Prototyp und Upstream-Zustand verifizieren",
       "type": "research",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "implementation": [
         "Den im Quellmaterial erwaehnten Fork, die Branch parallel-decision bzw. tatsaechliche Schreibweise, Commit-SHA, Autor, Lizenz und zugehoeriges Playground-Repository eindeutig identifizieren.",
@@ -105,6 +138,15 @@
       "acceptance_criteria": [
         "Fork/Branch/Commit/Lizenz und API-Vertrag sind mit konkreten Quellen festgehalten.",
         "Es ist dokumentiert, welche Teile belegt, welche nur experimentell und welche nicht mehr aktuell sind."
+      ],
+      "evidence": [
+        "docs/jev-llamacpp-decision-mode.md",
+        "thecodacus/llama.cpp@parallel-decision ad129b08d (2026-09-25); Prototyp-Commits b9244f893, 14d04e755, ad129b08d",
+        "vendor/llama.cpp-vision-decision @ 34d778a3e (Merge-Basis 14d04e755, 43 eigene Commits)",
+        "ggml-org/llama.cpp: kein PR/Issue von thecodacus; verwandt offen #29321 (system-one), #29363 (laya)"
+      ],
+      "verification": [
+        "git fetch upstream-decision + gh pr/repo view, 2026-09-26"
       ]
     },
     {
@@ -112,11 +154,13 @@
       "milestone_id": "JEVCPP-M1",
       "title": "CUDA- und CPU-Build reproduzierbar bereitstellen",
       "type": "infrastructure",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
-      "depends_on": ["JEVCPP-001"],
+      "progress_percent": 80,
+      "depends_on": [
+        "JEVCPP-001"
+      ],
       "implementation": [
         "Verifizierte llama.cpp-Revision reproduzierbar fuer CUDA und CPU bauen; Build-Flags und Compiler-Versionen festhalten.",
         "Decision-Endpunkt neben normalem llama-server starten, ohne bestehende Chat-Endpunkte zu veraendern.",
@@ -127,6 +171,14 @@
         "Reproduzierbare Startanweisung fuer mindestens CUDA und CPU vorhanden.",
         "Smoke-Test liefert fuer jedes definierte Feld genau einen erlaubten Kandidaten oder einen typisierten Fehler.",
         "Normaler Chat-Endpunkt funktioniert parallel weiterhin."
+      ],
+      "evidence": [
+        "docs/jev-llamacpp-decision-mode.md#build-und-start-jevcpp-002",
+        "scripts/jev_decision_smoke.py",
+        "CPU-Smoke 2026-09-26: Qwen3-VL-2B Q8_0, alle Felder gültig, typisierter Fehler, Chat parallel ok"
+      ],
+      "open": [
+        "CUDA-Smoke nach Rückkehr der eGPU (WSL-GPU-Zugriff seit 2026-09-26 19:40 verloren)"
       ]
     },
     {
@@ -138,7 +190,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-002"],
+      "depends_on": [
+        "JEVCPP-002"
+      ],
       "implementation": [
         "Nachvollziehen, an welcher Tokenposition Kandidaten gegeneinander bewertet werden und wie gemeinsamer Prefix behandelt wird.",
         "Faelle testen, in denen Kandidaten denselben ersten Token teilen und erst spaeter auseinanderlaufen.",
@@ -160,7 +214,9 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-003"],
+      "depends_on": [
+        "JEVCPP-003"
+      ],
       "implementation": [
         "Additiven Provider-/Specialist-Vertrag fuer state/context, questions/fields, allowed_values, result, raw_score/confidence, model_revision und latency definieren.",
         "Bestehende SpecialistDecision-Vertraege wiederverwenden, wo semantisch passend; keine zweite Orchestrierungs-Control-Plane.",
@@ -182,7 +238,9 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-004"],
+      "depends_on": [
+        "JEVCPP-004"
+      ],
       "implementation": [
         "Jedes Decision-Schema muss Felder als independent, sequential oder grouped kennzeichnen koennen.",
         "Parallelmodus nur fuer Entscheidungen zulassen, deren fachliche Antwort nicht von einem anderen Feld desselben Requests abhaengt.",
@@ -204,7 +262,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-004", "JEVCPP-005"],
+      "depends_on": [
+        "JEVCPP-004",
+        "JEVCPP-005"
+      ],
       "implementation": [
         "Schnellen ParallelDecision-Pfad fuer begrenzte Routing-, Prioritaets-, Relevanz- und Gate-Fragen bereitstellen.",
         "Unsichere, widerspruechliche, ausserhalb erlaubter Profile liegende oder abhaengige Faelle an konfigurierten System-2-Provider eskalieren.",
@@ -226,7 +287,9 @@
       "priority": "P1",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-004"],
+      "depends_on": [
+        "JEVCPP-004"
+      ],
       "implementation": [
         "Statische Instruktionen, Felddefinitionen und Kandidaten so strukturieren, dass Prefix-/KV-Reuse messbar wird.",
         "Parallelfragen und mehrere Requests kontrolliert batchen; Batchgroesse und Parallel-Slots konfigurierbar machen.",
@@ -248,7 +311,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-003", "JEVCPP-007"],
+      "depends_on": [
+        "JEVCPP-003",
+        "JEVCPP-007"
+      ],
       "implementation": [
         "Mindestens ein kleines Attention-only-Modell, ein groesseres Attention-only-Modell und soweit praktisch ein Hybrid-/Recurrent- sowie MoE-Modell vergleichen.",
         "Bei Hybrid-/Recurrent-Modellen pruefen, ob ungleich lange Fragen Batch-Fusion verhindern oder zu mehreren internen Laeufen fuehren.",
@@ -269,7 +335,10 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-006", "JEVCPP-008"],
+      "depends_on": [
+        "JEVCPP-006",
+        "JEVCPP-008"
+      ],
       "implementation": [
         "Identische Aufgaben mit ParallelDecision und normaler autoregressiver JSON-/Grammar-Ausgabe desselben Modells vergleichen.",
         "Accuracy, Macro-F1, Klassen-Precision/Recall, Abstain-Rate, False-Allow/False-Deny, Brier Score/ECE und Risk-Coverage erfassen.",
@@ -291,7 +360,10 @@
       "priority": "P1",
       "risk": "low",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-008", "JEVCPP-009"],
+      "depends_on": [
+        "JEVCPP-008",
+        "JEVCPP-009"
+      ],
       "implementation": [
         "RTX 5060 Ti 16 GB als Primaerprofil vermessen; RTX 3080 10 GB optional als zweite Consumer-GPU.",
         "CPU-Fallback separat messen.",
@@ -313,7 +385,12 @@
       "priority": "P0",
       "risk": "high",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-005", "JEVCPP-006", "JEVCPP-007", "JEVCPP-009"],
+      "depends_on": [
+        "JEVCPP-005",
+        "JEVCPP-006",
+        "JEVCPP-007",
+        "JEVCPP-009"
+      ],
       "implementation": [
         "Deterministische Fake-Backend-Tests fuer CI bereitstellen, damit Standardtests keine GPU oder Modellgewichte brauchen.",
         "Schemafehler, falsche Kandidaten, Shared-Prefix-Faelle, niedrige Confidence, Timeout, Queue-Full, Modellfehler und Fallback-Budget testen.",
@@ -335,7 +412,10 @@
       "priority": "P1",
       "risk": "medium",
       "progress_percent": 0,
-      "depends_on": ["JEVCPP-010", "JEVCPP-011"],
+      "depends_on": [
+        "JEVCPP-010",
+        "JEVCPP-011"
+      ],
       "implementation": [
         "Zuerst Shadow-Modus gegen reale Ananta-Routing-/Gate-Faelle, ohne operative Entscheidung zu beeinflussen.",
         "Je Task-Profil Qualitaets-, Kalibrierungs-, Latenz- und Ressourcen-Schwellen vor Promotion festlegen.",
@@ -362,12 +442,38 @@
   ],
   "tasks_status_summary": {
     "total": 12,
-    "by_status": {"todo": 12, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
     "progress_percent_done": 0,
-    "by_priority": {"P0": 5, "P1": 7, "P2": 0},
-    "by_risk": {"low": 2, "medium": 4, "high": 6, "critical": 0},
-    "critical_path": {"total": 9, "done": 0, "remaining": 9},
-    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+    "by_priority": {
+      "P0": 5,
+      "P1": 7,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 4,
+      "high": 6,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
   },
   "tasks_type_summary": {
     "total": 12,
