@@ -1,0 +1,44 @@
+# Standalone frontend rollout into an existing Hub network. No Hub/Worker restart.
+services:
+  angular-frontend:
+    image: ananta-frontend-static:caddy-2.10.2
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend-static
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [caddy, run, --config, /etc/caddy/Caddyfile, --adapter, caddyfile]
+    environment:
+      ANANTA_FRONTEND_TRUSTED_PROXY: ${ANANTA_FRONTEND_TRUSTED_PROXY:-172.18.0.1/32}
+    ports:
+      - "127.0.0.1:${ANANTA_FRONTEND_STATIC_PORT:-4200}:4200"
+    volumes:
+      - type: bind
+        source: ${ANANTA_FRONTEND_DIST_DIR:?Set the immutable frontend browser build directory}
+        target: /srv
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${ANANTA_FRONTEND_CADDYFILE:-./Caddyfile.frontend-static}
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: [CMD, wget, -q, --spider, --header=Accept:text/html, http://127.0.0.1:4200/strategy-game]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks: [hub]
+
+networks:
+  hub:
+    external: true
+    name: ${ANANTA_FRONTEND_HUB_NETWORK:-compose-next_default}

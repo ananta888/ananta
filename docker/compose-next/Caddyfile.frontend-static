@@ -1,0 +1,37 @@
+{
+	admin off
+	persist_config off
+	auto_https off
+	servers {
+		trusted_proxies static {$ANANTA_FRONTEND_TRUSTED_PROXY:172.18.0.1/32}
+		trusted_proxies_strict
+	}
+}
+
+http://:4200 {
+	encode gzip zstd
+
+	# Preserve the same navigation/API boundary as the existing development edge.
+	@navigation {
+		method GET HEAD
+		header Accept *text/html*
+	}
+	handle @navigation {
+		root * /srv
+		try_files {path} /index.html
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	@assets path /assets/* /*.js /*.mjs /*.css /*.map /*.ico /*.png /*.svg /*.woff /*.woff2
+	handle @assets {
+		root * /srv
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# Authentication and authorization remain enforced by the existing Hub.
+	handle {
+		reverse_proxy ai-agent-hub:5000
+	}
+}

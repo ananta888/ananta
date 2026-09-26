@@ -100,6 +100,32 @@ Freigabeschranke gesetzt werden. Für den Versand müssen
 SMTP-Benutzer/Passwort gesetzt sein; ohne funktionsfähigen Versand schlägt die
 Registrierung sicher fehl und hinterlässt kein halbfertiges Konto.
 
+## Statisches Frontend in einem vorhandenen Stack
+
+`compose.frontend-static.yml` rollt ausschließlich einen bereits gebauten
+Angular-Browser-Build aus. Der Hub bleibt im bestehenden Docker-Netzwerk;
+Anmeldung und API-Autorisierung laufen unverändert über den Hub. Das Frontend
+bindet nur `127.0.0.1:4200`, die öffentliche HTTPS-Adresse wird am vorhandenen
+Edge auf diesen Port weitergeleitet. Bestehende andere Edge-Routen bleiben bestehen.
+
+```bash
+# Nach npm ci und npm run build in frontend-angular:
+ANANTA_FRONTEND_DIST_DIR=/absolute/path/to/immutable/browser-build \
+docker compose --project-name compose-next \
+  -f docker/compose-next/compose.frontend-static.yml \
+  up -d --build --no-deps angular-frontend
+```
+
+Voraussetzungen: Hub läuft als `ai-agent-hub:5000`, Netzwerk
+`compose-next_default` existiert und das Build-Verzeichnis ist für UID 1000
+lesbar. Optional passen `ANANTA_FRONTEND_HUB_NETWORK`,
+`ANANTA_FRONTEND_STATIC_PORT` und `ANANTA_FRONTEND_CADDYFILE` die Umgebung an.
+`ANANTA_FRONTEND_TRUSTED_PROXY` benennt ausschließlich die Gateway-IP des
+Host-Edges im Docker-Netz (Default `172.18.0.1/32`), damit HTTPS- und Client-IP-
+Header des vorgeschalteten Edges erhalten bleiben. Bei anderen Subnetzen anpassen.
+Für Rollbacks aufbewahrte, unveränderliche Build-Verzeichnisse verwenden und
+nur den Frontend-Service mit der vorherigen Auswahl neu erstellen.
+
 ## WSL2-Docker-Daemon
 
 Unter aktuellem WSL2 soll genau das native, über `/etc/wsl.conf` aktivierte
