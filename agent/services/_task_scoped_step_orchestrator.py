@@ -109,6 +109,29 @@ def _knowledge_index_handler_unavailable(
     )
 
 
+# Task kinds only a registered Worker handler may propose/execute (never an LLM).
+HANDLER_ONLY_TASK_KINDS = frozenset({"codecompass_layer_build"})
+
+
+def _handler_only_unavailable(*, task: dict, task_kind: str, phase: str):
+    from agent.services.task_scoped_execution_service import (
+        TaskScopedRouteResponse,
+    )
+
+    return TaskScopedRouteResponse(
+        data={
+            "status": "unavailable",
+            "reason_code": "worker_handler_unavailable",
+            "task_id": str(task.get("id") or ""),
+            "task_kind": task_kind,
+            "phase": str(phase),
+        },
+        status="error",
+        message="Worker handler unavailable",
+        code=503,
+    )
+
+
 def _publish_recovery_artifact_receipts(
     *,
     task: dict[str, Any],
@@ -769,6 +792,24 @@ def _run_propose_step_admitted(
             task=task,
             phase="propose",
         )
+    if task_kind in HANDLER_ONLY_TASK_KINDS:
+        # Deterministic Worker handlers: an LLM proposal (e.g. the autopilot's
+        # model comparisons) must never replace them.
+        handler_response = try_handler_propose(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            base_prompt=base_prompt,
+            cli_runner=cli_runner,
+            forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+            service=service,
+            build_review_state=service._build_review_state,
+        )
+        if handler_response is not None:
+            return handler_response
+        return _handler_only_unavailable(task=task, task_kind=task_kind, phase="propose")
     if task_kind == "research" and not str(getattr(request_data, "strategy_mode", "") or "").strip():
         return propose_single_task_step(
             tid=tid,

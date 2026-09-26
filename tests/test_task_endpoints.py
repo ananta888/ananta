@@ -1252,3 +1252,39 @@ def test_task_execute_timeout_can_disable_retry(client, app, admin_auth_header):
         assert loop_signals[0]["failure_type"] == "timeout"
         approval_decision = dict(latest.get("approval_decision") or {})
         assert approval_decision.get("classification") in {"allow", "confirm_required"}
+
+
+def test_layer_build_propose_never_falls_back_to_an_llm_even_with_a_model(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+):
+    """Live regression: the autopilot's model comparisons proposed a layer build via the LLM."""
+    from agent.config import settings
+
+    task_id = "cc_layer_" + "a" * 32
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            task_id,
+            "proposing",
+            task_kind="codecompass_layer_build",
+            description="Hub-delegated CodeCompass chunks layer build",
+            worker_execution_context={"codecompass_layer_job": {"schema": "ananta.codecompass_layer_ticket.v1"}},
+        )
+    monkeypatch.setattr(settings, "role", "worker")
+    monkeypatch.setattr(
+        "agent.services._task_scoped_adapters.get_task_handler_registry",
+        lambda: types.SimpleNamespace(resolve=lambda _kind: None),
+    )
+
+    response = client.post(
+        f"/tasks/{task_id}/step/propose",
+        json={"prompt": "attempt generic proposal", "model": "some-model", "strategy_mode": "autopilot_no_human_review"},
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 503
+    assert response.get_json()["data"]["reason_code"] == "worker_handler_unavailable"
