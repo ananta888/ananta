@@ -308,7 +308,27 @@ def generate_reply(text):
         trace.add_sources(toolbox.sources)
     log("TRACE route=%s tools=%s sources=%s" % (
         trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))
+    shadow = tool_decision_shadow()
+    if shadow is not None and toolbox is not None:
+        # Record only; runs after the reply is final and never changes it.
+        shadow.observe_later(text, toolbox.definitions(), route=trace.route, calls=toolbox.calls)
     return reply
+
+
+_SHADOW = None
+_SHADOW_LOADED = False
+
+
+def tool_decision_shadow():
+    """The decision-based tool-choice shadow (``MEET_TOOL_DECISION_SHADOW_URL``), or ``None``."""
+    global _SHADOW, _SHADOW_LOADED
+    if not _SHADOW_LOADED:
+        from worker.meet_media.tool_decision_shadow import from_env
+
+        _SHADOW = from_env()
+        _SHADOW_LOADED = True
+        log("tool decision shadow %s" % ("on" if _SHADOW is not None else "off"))
+    return _SHADOW
 
 
 def synthesize_pcm(reply):
