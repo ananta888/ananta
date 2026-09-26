@@ -48,6 +48,7 @@ class CompactionPlan:
             "total_estimated_savings_bytes": self.total_estimated_savings_bytes,
             "strategy": self.strategy,
         }
+        return compacted
 
 
 class CompactionPlanner:
@@ -74,17 +75,17 @@ class CompactionPlanner:
         )
 
     def compact_layers(self, layers: list[dict[str, Any]]) -> dict[str, Any]:
+        """Merge a chain (base first) into one base layer with the same effective view."""
         records = overlay_records(*[list(layer.get("records") or []) for layer in layers])
-        parent = None
         snapshot = ""
         if layers:
-            parent = layers[0].get("parent_layer_id")
             snapshot = str(layers[-1].get("snapshot_revision") or layers[0].get("snapshot_revision") or "")
-        return {
+        compacted = {
             "schema": "codecompass.artifact_layer.v1",
             "layer_kind": "base",
             "artifact_kind": str((layers[-1] if layers else {}).get("artifact_kind") or "records"),
-            "parent_layer_id": parent,
+            # A compacted base replaces the whole chain; it has no parent.
+            "parent_layer_id": None,
             "snapshot_revision": snapshot,
             "source_revision": snapshot,
             "records": records,

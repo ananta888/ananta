@@ -37,8 +37,29 @@ class ArtifactLayerStore:
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _compute_layer_id(self, layer_data: dict[str, Any]) -> str:
+        return self.compute_layer_id(layer_data)
+
+    @staticmethod
+    def compute_layer_id(layer_data: dict[str, Any]) -> str:
+        """The content address of a layer: its canonical digest without id and timestamp."""
         body = {key: value for key, value in layer_data.items() if key not in {"layer_id", "created_at"}}
         return canonical_digest(body)
+
+    def store_verified_blob(self, blob: bytes, *, expected_layer_id: str | None = None) -> tuple[str, bool]:
+        """Store a gzipped layer received from elsewhere after recomputing its address.
+
+        A blob whose content does not hash to ``expected_layer_id`` (or to its
+        own ``layer_id``) is rejected, so a transported layer cannot claim an
+        identity it does not have.
+        """
+        payload = json.loads(gzip.decompress(blob))
+        if not isinstance(payload, dict):
+            raise ValueError("layer_blob_invalid")
+        layer_id = self.compute_layer_id(payload)
+        claimed = str(expected_layer_id or payload.get("layer_id") or layer_id)
+        if claimed != layer_id:
+            raise ValueError("digest_mismatch")
+        return self.store_layer(payload)
 
     def _layer_dir(self, layer_id: str) -> Path:
         return self.base_path / "layers" / layer_id[:2] / layer_id

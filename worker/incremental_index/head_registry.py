@@ -6,6 +6,7 @@ import json
 import hashlib
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,15 +59,35 @@ class LayerHeadRegistry:
     def _lock_path(self, profile_id: str) -> Path:
         return self._head_path(profile_id).with_suffix(".lock")
 
+    # A lock older than this belongs to a crashed writer: head updates take
+    # milliseconds, so waiting longer only blocks every later publish forever.
+    STALE_LOCK_SECONDS = 60.0
+
     def _acquire_lock(self, profile_id: str) -> bool:
         lock = self._lock_path(profile_id)
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        for _attempt in range(2):
+            try:
+                with lock.open("x") as handle:
+                    handle.write("%d %.3f" % (os.getpid(), time.time()))
+                return True
+            except FileExistsError:
+                if not self._remove_stale_lock(lock):
+                    return False
+        return False
+
+    def _remove_stale_lock(self, lock: Path) -> bool:
         try:
-            fd = lock.open("x")
-            fd.write("1")
-            fd.close()
+            age = time.time() - lock.stat().st_mtime
+        except FileNotFoundError:
             return True
-        except FileExistsError:
+        if age < self.STALE_LOCK_SECONDS:
             return False
+        try:
+            lock.unlink()
+        except FileNotFoundError:
+            pass
+        return True
 
     def _release_lock(self, profile_id: str) -> None:
         lock = self._lock_path(profile_id)

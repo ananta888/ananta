@@ -67,7 +67,15 @@ class DependencyImpactAnalyzer:
                 nodes[target].dependents.add(source)
         return nodes
 
-    def analyze_impact(self, changed_files: list[str], changeset_id: str = "") -> ImpactResult:
+    def analyze_impact(
+        self, changed_files: list[str], changeset_id: str = "", *, universe_size: int | None = None
+    ) -> ImpactResult:
+        """Impact of ``changed_files``; ``universe_size`` is the snapshot's file count.
+
+        Without a symbol graph the severity is the changed share of the
+        snapshot. Dividing by the changed files themselves made every change
+        look total (severity 1.0) and turned each update into a rebuild.
+        """
         changed = {str(item) for item in changed_files}
         direct = {node.artifact_id for node in self.nodes.values() if node.file_path in changed or node.artifact_id in changed}
         if not self.nodes:
@@ -83,7 +91,7 @@ class DependencyImpactAnalyzer:
                 if dependent not in direct and dependent not in transitive:
                     transitive.add(dependent)
                     frontier.add(dependent)
-        total = max(1, len(self.nodes) or len(changed))
+        total = max(1, len(self.nodes) or int(universe_size or 0) or len(changed))
         severity = min(1.0, (len(direct) + 0.5 * len(transitive)) / total)
         action = "delta_build" if severity < 0.45 else "partial_base_rebuild"
         if not changed:

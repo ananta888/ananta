@@ -35,7 +35,9 @@ class IncrementalIndexCoordinator:
         symbol_graph: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         diff = diff_snapshots(old_manifest, new_manifest, workspace_id, repository_id)
-        impact = DependencyImpactAnalyzer(symbol_graph).analyze_impact(diff.changed_paths, diff.changeset_id)
+        impact = DependencyImpactAnalyzer(symbol_graph).analyze_impact(
+            diff.changed_paths, diff.changeset_id, universe_size=len(list(new_manifest.get("files") or []))
+        )
         head = self.heads.get_head(profile_id) or {}
         delta_depth = len(list(head.get("ordered_delta_sets") or []))
         decision = self.engine.decide(

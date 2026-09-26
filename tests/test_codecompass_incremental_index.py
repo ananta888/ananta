@@ -8,7 +8,8 @@ import jsonschema
 from worker.incremental_index.compatibility import profile_digest, profiles_share_artifact
 from worker.incremental_index.coordinator import IncrementalIndexCoordinator
 from worker.incremental_index.decision_engine import DecisionType, IncrementalBuildDecisionEngine
-from worker.incremental_index.effective_view import overlay_records
+from worker.incremental_index.compaction import CompactionPlanner
+from worker.incremental_index.effective_view import LayeredEffectiveViewResolver, overlay_records
 from worker.incremental_index.head_registry import LayerHeadRegistry
 from worker.incremental_index.layer_store import ArtifactLayerStore
 from worker.incremental_index.snapshot_diff import diff_snapshots
@@ -116,17 +117,87 @@ def test_decision_engine_delta_vs_embedding_rebase() -> None:
 def test_coordinator_incremental_then_compact(tmp_path) -> None:
     coord = IncrementalIndexCoordinator(tmp_path)
     profile = {"profile_id": "default", "embedding_profile": {"model": "local", "dimensions": 8}}
-    old = _manifest("1" * 64, [_file("a.py", "c" * 64)])
-    new = _manifest("2" * 64, [_file("a.py", "d" * 64), _file("b.py", "e" * 64)])
-    plan = coord.plan(old_manifest=old, new_manifest=new, profile=profile)
+    import hashlib
+
+    stable = [_file("m%d.py" % n, hashlib.sha256(b"m%d" % n).hexdigest()) for n in range(20)]
+    old = _manifest("1" * 64, [_file("a.py", "c" * 64), *stable])
+    new = _manifest("2" * 64, [_file("a.py", "d" * 64), _file("b.py", "e" * 64), *stable])
+    base = coord.plan(old_manifest=_manifest("0" * 64, []), new_manifest=old, profile=profile)
+    assert coord.apply(plan=base, profile=profile)["status"] == "published"
+    plan = coord.plan(old_manifest=old, new_manifest=new, profile=profile, previous_profile=profile)
+    assert plan["decision"]["decision_type"] == "delta_build"
     applied = coord.apply(plan=plan, profile=profile)
     assert applied["status"] == "published"
-    later = _manifest("3" * 64, [_file("a.py", "d" * 64)])
+    later = _manifest("3" * 64, [_file("a.py", "d" * 64), *stable])
     plan2 = coord.plan(old_manifest=new, new_manifest=later, profile=profile, previous_profile=profile)
+    assert plan2["decision"]["decision_type"] == "delta_build"
     applied2 = coord.apply(plan=plan2, profile=profile)
     assert applied2["status"] == "published"
+    assert len(coord.heads.get_head("default")["ordered_delta_sets"]) == 2
+    resolver = LayeredEffectiveViewResolver(coord.store, coord.heads)
+    before = resolver.resolve_effective_view("default")
     compacted = coord.compact("default", dry_run=False)
-    assert compacted["status"] in {"executed", "noop", "planned"}
+    assert compacted["status"] == "executed", compacted
+    after = resolver.resolve_effective_view("default")
+    # Compaction is lossless: same records, same content, one layer per kind.
+    assert {key: item.content_hash for key, item in after.artifacts.items()} == {
+        key: item.content_hash for key, item in before.artifacts.items()
+    }
+    assert coord.heads.get_head("default")["ordered_delta_sets"] == []
+    for layer_id in compacted["layers"].values():
+        layer = coord.store.get_layer(layer_id)
+        assert layer["parent_layer_id"] is None and len(layer["content_digest"]) == 64
+
+
+def test_small_change_in_a_large_snapshot_is_a_delta_without_a_symbol_graph() -> None:
+    from worker.incremental_index.dependency_impact import DependencyImpactAnalyzer
+
+    impact = DependencyImpactAnalyzer().analyze_impact(["a.py"], "cs", universe_size=100)
+    assert impact.severity_score == 0.01 and impact.recommended_action == "delta_build"
+    # Without the snapshot size the old behaviour (everything changed) stays.
+    assert DependencyImpactAnalyzer().analyze_impact(["a.py"], "cs").severity_score == 1.0
+
+
+def test_compaction_plan_serializes() -> None:
+    plan = CompactionPlanner().create_plan("default", delta_ids=["a", "b"])
+    payload = plan.to_dict()
+    assert payload["schema"] == "codecompass.compaction_plan.v1"
+    assert payload["candidates"][0]["layer_ids"] == ["a", "b"]
+
+
+def test_store_verified_blob_recomputes_the_layer_address(tmp_path) -> None:
+    import gzip
+
+    store = ArtifactLayerStore(tmp_path)
+    layer = {"schema": "codecompass.artifact_layer.v1", "records": [{"id": "r1", "text": "x"}]}
+    layer_id = ArtifactLayerStore.compute_layer_id(layer)
+    blob = gzip.compress(json.dumps({**layer, "layer_id": layer_id}).encode("utf-8"))
+    assert store.store_verified_blob(blob, expected_layer_id=layer_id) == (layer_id, True)
+    assert store.store_verified_blob(blob) == (layer_id, False)
+    tampered = gzip.compress(json.dumps({**layer, "records": [], "layer_id": layer_id}).encode("utf-8"))
+    try:
+        store.store_verified_blob(tampered, expected_layer_id=layer_id)
+    except ValueError as error:
+        assert str(error) == "digest_mismatch"
+    else:
+        raise AssertionError("a tampered layer must be rejected")
+
+
+def test_a_stale_head_lock_from_a_crashed_writer_is_recovered(tmp_path) -> None:
+    import os
+    import time
+
+    registry = LayerHeadRegistry(tmp_path)
+    assert registry.create_head("p", layer_id="l1", snapshot_revision="r1").success
+    lock = registry._lock_path("p")
+    lock.write_text("123 0")
+    # A fresh foreign lock still blocks the writer ...
+    assert registry.update_head("p", expected_generation=1, new_layer_id="l2").error == "lock_unavailable"
+    # ... an old one is a crashed writer and is taken over.
+    old = time.time() - LayerHeadRegistry.STALE_LOCK_SECONDS - 5
+    os.utime(lock, (old, old))
+    assert registry.update_head("p", expected_generation=1, new_layer_id="l2").success
+    assert not lock.exists()
 
 
 def test_compatible_profiles_share_keys() -> None:
