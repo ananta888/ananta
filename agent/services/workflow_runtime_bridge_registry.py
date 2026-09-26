@@ -139,6 +139,9 @@ class WorkflowRuntimeBridgeRegistry(HubWorkflowTaskBridge):
         command_id: str,
         command_type: str,
         payload: dict[str, Any],
+        expected_revision: int | None = None,
+        step_id: str | None = None,
+        checkpoint_ref: str | None = None,
     ) -> dict[str, Any] | None:
         """Route an idempotent retry to the bridge bound by the Hub."""
 
@@ -151,6 +154,9 @@ class WorkflowRuntimeBridgeRegistry(HubWorkflowTaskBridge):
             command_id=command_id,
             command_type=command_type,
             payload=payload,
+            **({"expected_revision": expected_revision} if expected_revision is not None else {}),
+            **({"step_id": step_id} if step_id is not None else {}),
+            **({"checkpoint_ref": checkpoint_ref} if checkpoint_ref is not None else {}),
         )
         return dict(value) if value is not None else None
 

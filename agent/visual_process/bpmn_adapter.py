@@ -4,14 +4,23 @@ The adapter deliberately stays inside the hub-side visual-process boundary:
 it translates BPMN XML into the canonical ``VisualProcessGraph`` contract and
 back. It does not execute workflows or make worker-routing decisions.
 """
+
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Any
 
+from agent.visual_process.bpmn_execution_support import (
+    SOURCE_KEY,
+    assert_bpmn_source_supported,
+    execution_report,
+    parse_ananta_metadata,
+    parse_bpmn,
+)
 from agent.visual_process.models import (
     ArtifactRef,
     StepIOContract,
@@ -21,7 +30,6 @@ from agent.visual_process.models import (
     VisualProcessGraph,
     VisualProcessStep,
 )
-
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI"
@@ -50,8 +58,11 @@ STEP_TAG_KIND = {
     f"{{{BPMN_NS}}}businessRuleTask": "review",
     f"{{{BPMN_NS}}}exclusiveGateway": "decision",
     f"{{{BPMN_NS}}}parallelGateway": "parallel",
+    f"{{{BPMN_NS}}}intermediateCatchEvent": "bpmn_wait",
+    f"{{{BPMN_NS}}}subProcess": "task",
 }
 KIND_BPMN_TAG = {
+    "task": "task",
     "start": "startEvent",
     "end": "endEvent",
     "tool_task": "serviceTask",
@@ -62,6 +73,7 @@ KIND_BPMN_TAG = {
     "review": "businessRuleTask",
     "decision": "exclusiveGateway",
     "parallel": "parallelGateway",
+    "bpmn_wait": "intermediateCatchEvent",
 }
 
 
@@ -79,10 +91,14 @@ def import_bpmn_xml(bpmn_xml: str) -> BpmnConversionResult:
     incrementally normalized instead of rejected wholesale.
     """
     warnings: list[str] = []
-    try:
-        root = ET.fromstring(bpmn_xml)
-    except ET.ParseError as exc:
-        raise ValueError(f"invalid BPMN XML: {exc}") from exc
+    root = parse_bpmn(bpmn_xml)
+    report = execution_report(root)
+    source_sha256 = hashlib.sha256(bpmn_xml.encode("utf-8")).hexdigest()
+    from agent.visual_process.bpmn_xml_regions import expand_xml_regions, has_xml_regions
+
+    region_manifest = None
+    if report["supported"] and has_xml_regions(root):
+        root, region_manifest = expand_xml_regions(root, source_sha256=source_sha256)
 
     process = root.find("bpmn:process", NS)
     if process is None:
@@ -96,6 +112,11 @@ def import_bpmn_xml(bpmn_xml: str) -> BpmnConversionResult:
         metadata={
             "source_format": "bpmn",
             "bpmn_process_id": process.attrib.get("id", ""),
+            "bpmn_process_metadata": _read_ananta_metadata(process),
+            SOURCE_KEY: bpmn_xml,
+            "bpmn_execution_report": report,
+            "bpmn_source_sha256": source_sha256,
+            **({"bpmn_xml_regions": region_manifest} if region_manifest is not None else {}),
         },
     )
 
@@ -108,6 +129,10 @@ def import_bpmn_xml(bpmn_xml: str) -> BpmnConversionResult:
                 warnings.append(f"Unsupported BPMN element ignored: {_local_name(element.tag)}")
             continue
         metadata = _read_ananta_metadata(element)
+        if element.tag == f"{{{BPMN_NS}}}intermediateCatchEvent" and report["supported"]:
+            from agent.visual_process.bpmn_event_definitions import parse_event_definition
+
+            metadata["bpmn_wait"] = parse_event_definition(element, root)
         io = _io_from_metadata(metadata)
         step_id = _clean_id(element.attrib.get("id") or f"step-{len(graph.steps) + 1}")
         kind = str(metadata.get("kind") or STEP_TAG_KIND[element.tag])
@@ -120,11 +145,12 @@ def import_bpmn_xml(bpmn_xml: str) -> BpmnConversionResult:
                 agent_skill_profile_id=_optional_str(metadata.get("agent_skill_profile_id")),
                 io=io,
                 position=positions.get(step_id, StepPosition()),
-                policy_hints=[str(item) for item in metadata.get("policy_hints", []) if str(item).strip()],
+                policy_hints=_metadata_strings(metadata, "policy_hints"),
                 gate=bool(metadata.get("gate", kind == "human_task")),
                 metadata={
                     **{k: v for k, v in metadata.items() if k not in {"io", "policy_hints"}},
                     "bpmn_element_type": _local_name(element.tag),
+                    "bpmn_default_flow": element.get("default", ""),
                 },
             )
         )
@@ -140,7 +166,13 @@ def import_bpmn_xml(bpmn_xml: str) -> BpmnConversionResult:
             continue
         metadata = _read_ananta_metadata(flow)
         edge_id = _clean_id(flow.attrib.get("id") or f"edge-{source}-{target}")
-        condition = _condition_from_metadata(flow, metadata)
+        try:
+            condition = _condition_from_metadata(flow, metadata)
+        except ValueError:
+            # The source support report is authoritative for admission. Keep a
+            # lossy preview editable without interpreting invalid expressions.
+            warnings.append(f"Condition of {edge_id} is not representable; execution is blocked")
+            condition = TransitionCondition()
         graph.edges.append(
             VisualProcessEdge(
                 id=edge_id,
@@ -157,6 +189,16 @@ def import_bpmn_xml(bpmn_xml: str) -> BpmnConversionResult:
 
 def export_bpmn_xml(graph: VisualProcessGraph) -> BpmnConversionResult:
     """Convert an Ananta visual process graph into BPMN XML for bpmn-js."""
+    # A normalized graph cannot reconstruct ignored XML. Keep the original XML
+    # editable in the modeler, but never export a silently reduced definition.
+    assert_bpmn_source_supported(graph)
+    if graph.metadata.get("bpmn_xml_regions") or any(step.kind == "bpmn_wait" for step in graph.steps):
+        from agent.visual_process.bpmn_execution_compiler import compile_bpmn_graph
+
+        compile_bpmn_graph(graph)
+        # Flattened node IDs and synthetic controls are execution projections,
+        # never a replacement for the editable structured source document.
+        return BpmnConversionResult(bpmn_xml=graph.metadata[SOURCE_KEY])
     warnings: list[str] = []
     definitions = ET.Element(
         _q("bpmn", "definitions"),
@@ -174,9 +216,11 @@ def export_bpmn_xml(graph: VisualProcessGraph) -> BpmnConversionResult:
     if graph.description:
         documentation = ET.SubElement(process, _q("bpmn", "documentation"))
         documentation.text = graph.description
+    if graph.metadata.get("bpmn_process_metadata"):
+        _append_ananta_metadata(process, graph.metadata["bpmn_process_metadata"])
 
     for step in graph.steps:
-        tag = KIND_BPMN_TAG.get(step.kind, "serviceTask")
+        tag = step.metadata.get("bpmn_element_type") or KIND_BPMN_TAG.get(step.kind, "serviceTask")
         if tag == "serviceTask" and step.kind not in {"tool_task", "service_task"}:
             warnings.append(f"Step {step.id} kind '{step.kind}' exported as serviceTask")
         element = ET.SubElement(
@@ -184,16 +228,22 @@ def export_bpmn_xml(graph: VisualProcessGraph) -> BpmnConversionResult:
             _q("bpmn", tag),
             {"id": _xml_id(step.id), "name": step.label or step.id},
         )
+        if tag == "exclusiveGateway" and step.metadata.get("bpmn_default_flow"):
+            element.set("default", _xml_id(step.metadata["bpmn_default_flow"]))
         _append_ananta_metadata(
             element,
             {
+                **(step.metadata or {}),
                 "kind": step.kind,
-                "role": step.role,
-                "agent_skill_profile_id": step.agent_skill_profile_id,
+                **({"role": step.role} if step.role is not None else {}),
+                **(
+                    {"agent_skill_profile_id": step.agent_skill_profile_id}
+                    if step.agent_skill_profile_id is not None
+                    else {}
+                ),
                 "policy_hints": step.policy_hints,
                 "gate": step.gate,
                 "io": step.io.model_dump(),
-                **(step.metadata or {}),
             },
         )
 
@@ -208,9 +258,9 @@ def export_bpmn_xml(graph: VisualProcessGraph) -> BpmnConversionResult:
         flow = ET.SubElement(process, _q("bpmn", "sequenceFlow"), attrs)
         if edge.condition.kind in {"expression", "on_output"}:
             expression = edge.condition.expression or edge.condition.output_name or ""
-            expr = ET.SubElement(flow, _q("bpmn", "conditionExpression"), {"type": "ananta"})
+            expr = ET.SubElement(flow, _q("bpmn", "conditionExpression"), {"language": "ananta-condition-v1"})
             expr.text = expression
-        _append_ananta_metadata(flow, {"condition": edge.condition.model_dump(), **(edge.metadata or {})})
+        _append_ananta_metadata(flow, {**(edge.metadata or {}), "condition": edge.condition.model_dump()})
 
     _append_diagram(definitions, graph)
     return BpmnConversionResult(
@@ -283,19 +333,18 @@ def _read_ananta_metadata(element: ET.Element) -> dict[str, Any]:
     if metadata is None or not metadata.text:
         return {}
     try:
-        value = json.loads(metadata.text)
-    except json.JSONDecodeError:
+        value = parse_ananta_metadata(metadata.text)
+    except (ValueError, TypeError, RecursionError):
         return {"raw_metadata": metadata.text}
     return value if isinstance(value, dict) else {"raw_metadata": value}
 
 
 def _append_ananta_metadata(element: ET.Element, metadata: dict[str, Any]) -> None:
-    clean = {k: v for k, v in metadata.items() if v not in (None, "", [], {})}
-    if not clean:
+    if not metadata:
         return
     extension = ET.SubElement(element, _q("bpmn", "extensionElements"))
     meta = ET.SubElement(extension, _q("ananta", "metadata"))
-    meta.text = json.dumps(clean, sort_keys=True)
+    meta.text = json.dumps(metadata, sort_keys=True, allow_nan=False)
 
 
 def _condition_from_metadata(flow: ET.Element, metadata: dict[str, Any]) -> TransitionCondition:
@@ -318,9 +367,14 @@ def _io_from_metadata(metadata: dict[str, Any]) -> StepIOContract:
             return StepIOContract.model_validate(io)
         except Exception:
             return StepIOContract()
-    inputs = [ArtifactRef(name=str(item)) for item in metadata.get("inputs", []) if str(item).strip()]
-    outputs = [ArtifactRef(name=str(item)) for item in metadata.get("outputs", []) if str(item).strip()]
+    inputs = [ArtifactRef(name=item) for item in _metadata_strings(metadata, "inputs")]
+    outputs = [ArtifactRef(name=item) for item in _metadata_strings(metadata, "outputs")]
     return StepIOContract(inputs=inputs, outputs=outputs)
+
+
+def _metadata_strings(metadata, key):
+    value = metadata.get(key)
+    return [str(item) for item in value if str(item).strip()] if isinstance(value, list) else []
 
 
 def _process_description(process: ET.Element) -> str:

@@ -28,6 +28,47 @@ approval cannot override a deterministic security or contract failure.
 
 ## Scope and policy precedence
 
+### BPMN core rollout boundary
+
+`ANANTA_BPMN_EXECUTION_ENABLED=0` remains the shipped default. Opt-in advertises
+Native's `bpmn_control_v1`, `bpmn_activation_v1` and `bpmn_events_v1`; it does
+not approve a tenant, bypass release admission or make another backend
+semantically equivalent. The catalog separates compilation from verification.
+
+Before any separately authorized production rollout:
+
+1. Run the isolated [BPMN checks](../blueprints/bpmn-blueprint-editor.md#local-headless-checks).
+   The extended service-level container suite covers real queue/assignment,
+   Worker authorization and result handling, bounded loops, embedded subprocesses,
+   timer/message catches, SQL recomposition, public start/replay, and real
+   `/login` plus the Angular editor in Chromium. It is not full application boot,
+   the Autopilot dispatch loop, a container-loss drill or a production-image test.
+2. Close the remaining [security/ingress gaps](../security/bpmn-completion-review.md).
+   Artifact-bearing BPMN plans fail before execution with
+   `bpmn_artifact_ingress_unavailable`: no assignment-bound upload/Hub receipt
+   contract exists yet. Generic Task forwarding still stores a result before
+   Native checks its attempt/fence. Canonical rejection is not ingress admission.
+3. Have the Hub admit immutable sources and reserve correctly classified runs
+   before execution. Synthetic runs cannot satisfy production release gates.
+   No local log or caller-invented `SRC_*`/`RUN_*` is evidence.
+4. Admit only capabilities covered by the exact candidate's policy, evidence and
+   runtime health. Arbitrary cycles, callActivity, boundary/start events,
+   multi-instance and unsupported gateways remain rejected. XML regions require
+   finite budgets; event catches require explicit project scope.
+5. Reimport legacy BPMN definitions lacking original bound XML. Preserve legacy
+   dependency-only workflows; never flatten richer semantics for an old backend.
+6. Disable the flag or enter drain/disabled mode to prevent new selections.
+   Retain the compatible binary, persisted bindings, signed checkpoints, policy
+   and keys for existing pinned runs. No flag change migrates or cancels them.
+   Synthetic drain/shadow/disable and repeated rollback-denial tests are present;
+   they do not replace an actual deployment/restore rehearsal.
+
+No deployment, production database migration or minipc change is performed by
+this track. Production remains **unverified/blocked** until the missing contracts,
+PostgreSQL/concurrency and full-stack operational gates are independently met.
+
+### General scope rules
+
 Rollout is controlled independently by project, tenant, profile and workflow.
 More-specific scopes may only narrow an inherited policy; they cannot add a
 runtime, capability, fallback, egress destination or side-effect class denied

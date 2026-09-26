@@ -220,6 +220,16 @@ class TelemetryEventStore:
 
     def append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int) -> CanonicalWorkflowEvent:
         stored = self._inner.append(event, expected_sequence=expected_sequence)
+        return self._export_committed(stored)
+
+    def append_fenced(self, event: CanonicalWorkflowEvent, *, expected_sequence: int, lease) -> CanonicalWorkflowEvent:
+        append = getattr(self._inner, "append_fenced", None)
+        if not callable(append):
+            raise RuntimeError("bpmn_event_recipient_fencing_unavailable")
+        stored = append(event, expected_sequence=expected_sequence, lease=lease)
+        return self._export_committed(stored)
+
+    def _export_committed(self, stored: CanonicalWorkflowEvent) -> CanonicalWorkflowEvent:
         try:
             context = self._trace_context_factory(stored)
             self._projector.export(stored, context)

@@ -975,6 +975,24 @@ class ExecutionOwnershipStore(RetryBudgetOwner, Protocol):
 
 
 class InMemoryExecutionOwnershipStore:
+    def acknowledge_result_fenced(self, *, lease, **values):
+        from agent.services.workflow_runtime.lease_fencing import ownership_lease_recipient
+
+        return lease.store.mutate_fenced(
+            lease=lease,
+            recipient=ownership_lease_recipient(values, lease),
+            mutation=lambda: self.acknowledge_result(**values),
+        )
+
+    def fail_attempt_fenced(self, *, lease, **values):
+        from agent.services.workflow_runtime.lease_fencing import ownership_lease_recipient
+
+        return lease.store.mutate_fenced(
+            lease=lease,
+            recipient=ownership_lease_recipient(values, lease),
+            mutation=lambda: self.fail_attempt(**values),
+        )
+
     def __init__(self) -> None:
         self._current: dict[tuple[str, str, str], ExecutionOwnership] = {}
         self._history: dict[tuple[str, str, str], list[ExecutionOwnership]] = {}
@@ -1383,6 +1401,19 @@ class InMemoryExecutionOwnershipStore:
 
 
 class SQLiteExecutionOwnershipStore:
+    def acknowledge_result_fenced(self, *, lease, **values):
+        return self.acknowledge_result(**values, _control_lease=lease)
+
+    def fail_attempt_fenced(self, *, lease, **values):
+        return self.fail_attempt(**values, _control_lease=lease)
+
+    def _validate_control_lease(self, values):
+        from agent.services.workflow_runtime.lease_fencing import ownership_lease_recipient, validate_sqlite_lease
+
+        lease = values.get("_control_lease")
+        if lease is not None:
+            validate_sqlite_lease(self._connection, lease, ownership_lease_recipient(values, lease))
+
     """SQLite lease store; ownership and combined retry budget mutate atomically."""
 
     def __init__(self, database: str | Path):
@@ -2029,6 +2060,7 @@ class SQLiteExecutionOwnershipStore:
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
+                self._validate_control_lease(values)
                 current = self._read_required(values)
                 _assert_owner_from_values(current, values)
                 if current.status == "completed" and current.result_ack_key == result_ack_key:
@@ -2183,6 +2215,7 @@ class SQLiteExecutionOwnershipStore:
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
+                self._validate_control_lease(values)
                 current = self._read_required(values)
                 _assert_owner_from_values(current, values)
                 updated = mutate(current)

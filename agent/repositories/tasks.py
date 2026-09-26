@@ -827,6 +827,17 @@ class TaskRepository:
                 session.refresh(persisted)
                 return persisted
 
+    def insert_native_task_fenced(self, task: TaskDB, *, lease) -> tuple[TaskDB, bool]:
+        """Optional creation port; existing generic Task writes stay unchanged."""
+        from agent.repositories.native_workflow_ingestion import insert_native_task_fenced
+
+        return insert_native_task_fenced(
+            engine=_engine(), task=task, lease=lease,
+            prepare_new=lambda candidate, session: _apply_task_completion_policy(
+                None, candidate, session=session, completion_policy=self._completion_policy
+            ),
+        )
+
     def replace_bound_knowledge_index_envelope(
         self,
         task_id: str,

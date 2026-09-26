@@ -7,11 +7,18 @@ Output schema mirrors BlueprintWorkflowStepDB fields:
   step_id, role_name, task_kind, title, description,
   produces, consumes, depends_on, gate, sort_order
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
+from agent.visual_process.bpmn_execution_compiler import compile_bpmn_graph
+from agent.visual_process.bpmn_execution_support import (
+    BpmnExecutionError,
+    BpmnExecutionIssue,
+    assert_bpmn_source_supported,
+)
 from agent.visual_process.definition_snapshot_contract import (
     VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY,
 )
@@ -24,24 +31,36 @@ from agent.visual_process.models import ModelRoutingConfig, VisualProcessGraph, 
 
 def graph_to_blueprint_steps(graph: VisualProcessGraph) -> list[dict[str, Any]]:
     """Return a list of workflow step dicts compatible with BlueprintWorkflowStepDB."""
+    if compile_bpmn_graph(graph) is not None:
+        raise BpmnExecutionError(
+            [
+                BpmnExecutionIssue(
+                    "bpmn_legacy_blueprint_unsupported",
+                    graph.id,
+                    "Use the canonical WorkflowRequest path; blueprint steps cannot preserve BPMN control semantics.",
+                )
+            ]
+        )
     order = _topological_order(graph)
     steps: list[dict[str, Any]] = []
     for sort_idx, step in enumerate(order):
         predecessors = [e.source for e in graph.edges_to(step.id) if not e.is_back_edge()]
-        steps.append({
-            "step_id": step.id,
-            "role_name": step.role or "default",
-            "task_kind": step.kind,
-            "title": step.label,
-            "description": step.metadata.get("description") or "",
-            "produces": step.io.output_names(),
-            "consumes": step.io.input_names(),
-            "depends_on": predecessors,
-            "gate": step.gate,
-            "sort_order": sort_idx,
-            "checks": _build_checks(step),
-            "model_routing": _effective_model_routing(graph, step),
-        })
+        steps.append(
+            {
+                "step_id": step.id,
+                "role_name": step.role or "default",
+                "task_kind": step.kind,
+                "title": step.label,
+                "description": step.metadata.get("description") or "",
+                "produces": step.io.output_names(),
+                "consumes": step.io.input_names(),
+                "depends_on": predecessors,
+                "gate": step.gate,
+                "sort_order": sort_idx,
+                "checks": _build_checks(step),
+                "model_routing": _effective_model_routing(graph, step),
+            }
+        )
     return steps
 
 
@@ -91,29 +110,55 @@ def graph_to_workflow_request(
     requested_by: str = "visual_process_designer",
 ) -> WorkflowRequest:
     """Compile a VisualProcessGraph into the neutral WorkflowBackend request."""
+    assert_bpmn_source_supported(graph)
+    execution_graph = compile_bpmn_graph(graph)
     steps = []
     for step in _topological_order(graph):
+        if graph.metadata.get("bpmn_xml_regions") and set(step.metadata.get("allowed_tools") or []) - set(
+            allowed_tools or []
+        ):
+            raise BpmnExecutionError(
+                [
+                    BpmnExecutionIssue(
+                        "bpmn_region_tool_escalation", step.id, "Child tools must fit the Hub request allowlist."
+                    )
+                ]
+            )
         predecessors = [e.source for e in graph.edges_to(step.id) if not e.is_back_edge()]
         step_scope = dict(policy_scope or {})
         step_scope.update(dict(step.metadata.get("policy_scope") or step.metadata.get("policyScope") or {}))
-        steps.append(WorkflowStepRequest(
-            step_id=step.id,
-            title=step.label,
-            task_kind=step.kind,
-            role=step.role or step.agent_skill_profile_id or "default",
-            depends_on=tuple(predecessors),
-            gate=step.gate,
-            allowed_tools=tuple(str(v) for v in list(step.metadata.get("allowed_tools") or allowed_tools or [])),
-            policy_scope=step_scope,
-            input_artifacts=tuple(step.io.input_names()),
-            output_artifacts=tuple(step.io.output_names()),
-            metadata={
-                **dict(step.metadata or {}),
-                "model_routing": _effective_model_routing(graph, step),
-                "agent_skill_profile_id": step.agent_skill_profile_id,
-                "policy_hints": list(step.policy_hints),
-            },
-        ))
+        steps.append(
+            WorkflowStepRequest(
+                step_id=step.id,
+                title=step.label,
+                task_kind=step.kind,
+                role=step.role or step.agent_skill_profile_id or "default",
+                depends_on=tuple(predecessors),
+                gate=step.gate,
+                allowed_tools=tuple(
+                    str(v)
+                    for v in list(
+                        step.metadata.get("allowed_tools")
+                        or (
+                            []
+                            if execution_graph
+                            and (step.id in execution_graph["controls"] or step.id in execution_graph.get("waits", {}))
+                            else allowed_tools
+                        )
+                        or []
+                    )
+                ),
+                policy_scope=step_scope,
+                input_artifacts=tuple(step.io.input_names()),
+                output_artifacts=tuple(step.io.output_names()),
+                metadata={
+                    **dict(step.metadata or {}),
+                    "model_routing": _effective_model_routing(graph, step),
+                    "agent_skill_profile_id": step.agent_skill_profile_id,
+                    "policy_hints": list(step.policy_hints),
+                },
+            )
+        )
     return WorkflowRequest(
         workflow_id=graph.id,
         workflow_type=workflow_type,
@@ -125,6 +170,8 @@ def graph_to_workflow_request(
         allowed_tools=tuple(str(v) for v in list(allowed_tools or [])),
         policy_scope=dict(policy_scope or {}),
         requested_by=requested_by,
+        **({"correlation_id": str(graph.metadata.get("run_id") or graph.id)} if execution_graph else {}),
+        execution_graph=execution_graph,
         metadata={
             "source": "visual_process_graph",
             **dict(graph.metadata or {}),
@@ -133,18 +180,18 @@ def graph_to_workflow_request(
             # VisualProcess edge identity.  The bounded catalog lets Hub-owned
             # read models correlate exact directions without reconstructing or
             # inventing edge IDs; execution adapters continue to use steps.
-            CASEFLOW_EDGE_CATALOG_METADATA_KEY: (
-                build_caseflow_edge_catalog_for_workflow(graph.edges)
-            ),
+            CASEFLOW_EDGE_CATALOG_METADATA_KEY: (build_caseflow_edge_catalog_for_workflow(graph.edges)),
         },
     )
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 def _topological_order(graph: VisualProcessGraph) -> list[VisualProcessStep]:
     """Kahn's algorithm on forward edges."""
     from collections import deque
+
     forward = [(e.source, e.target) for e in graph.edges if not e.is_back_edge()]
     in_degree: dict[str, int] = {s.id: 0 for s in graph.steps}
     for _, tgt in forward:

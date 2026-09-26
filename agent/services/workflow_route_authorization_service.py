@@ -4,6 +4,7 @@ This is a containment layer until the signed runtime authorization envelope
 and persistent workflow read model are available.  Losing this in-memory
 index after a restart denies access instead of exposing an unbound run.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,9 +26,7 @@ class WorkflowRoutePrincipal:
             raise ValueError("workflow_authenticated_principal_required")
         raw_roles = context.get("roles") or context.get("role") or ()
         if isinstance(raw_roles, str):
-            roles = tuple(
-                sorted({value.strip() for value in raw_roles.split(",") if value.strip()})
-            )
+            roles = tuple(sorted({value.strip() for value in raw_roles.split(",") if value.strip()}))
         elif isinstance(raw_roles, (list, tuple, set, frozenset)):
             roles = tuple(sorted({str(value).strip() for value in raw_roles if str(value).strip()}))
         else:
@@ -83,6 +82,15 @@ class WorkflowRouteAuthorizationService:
         normalized_id = str(workflow_id or "").strip()
         owner = self._owner(normalized_id)
         return owner is not None and owner.is_owned_by(principal)
+
+    def can_reserve(self, workflow_id: str, principal: WorkflowRoutePrincipal) -> bool:
+        """Inspect start ownership eligibility without reserving or caching it."""
+        with self._lock:
+            owner = self._owners.get(workflow_id)
+            resolver = self._resolver
+        if owner is None and resolver is not None:
+            owner = resolver.resolve(workflow_id)
+        return owner is None or (owner.workflow_id == workflow_id and owner.is_owned_by(principal))
 
     def release(self, workflow_id: str, principal: WorkflowRoutePrincipal) -> None:
         normalized_id = str(workflow_id or "").strip()

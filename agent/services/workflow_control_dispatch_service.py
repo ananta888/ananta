@@ -133,6 +133,9 @@ class WorkflowControlDispatchService:
         command_id: str,
         command_type: str,
         payload: dict[str, Any],
+        expected_revision: int | None = None,
+        step_id: str | None = None,
+        checkpoint_ref: str | None = None,
     ) -> dict[str, Any] | None:
         """Resolve an explicit client idempotency key without reissuing it."""
 
@@ -151,6 +154,9 @@ class WorkflowControlDispatchService:
             command.command_type != str(command_type)
             or command.payload != dict(payload)
             or command.actor_id != binding.subject_id
+            or (expected_revision is not None and expected_revision != command.expected_revision)
+            or (step_id is not None and step_id != command.step_id)
+            or (checkpoint_ref is not None and checkpoint_ref != command.checkpoint_id)
         ):
             raise RuntimeError("workflow_control_dispatch_stage_conflict")
         if intent.state == DISPATCH_STATE_REJECTED:

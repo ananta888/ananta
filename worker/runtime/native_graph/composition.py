@@ -28,17 +28,15 @@ class NativeHubExecutionScope:
 
     def __init__(self, client: HttpWorkflowHubDecisionClient) -> None:
         self._client = client
-        self._command: contextvars.ContextVar[NativeNodeCommand | None] = (
-            contextvars.ContextVar("native_graph_hub_command", default=None)
+        self._command: contextvars.ContextVar[NativeNodeCommand | None] = contextvars.ContextVar(
+            "native_graph_hub_command", default=None
         )
-        self._task: contextvars.ContextVar[dict[str, Any] | None] = (
-            contextvars.ContextVar("native_graph_hub_task", default=None)
+        self._task: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+            "native_graph_hub_task", default=None
         )
 
     @contextlib.contextmanager
-    def bind(
-        self, command: NativeNodeCommand, *, task: Mapping[str, Any]
-    ) -> Iterator[None]:
+    def bind(self, command: NativeNodeCommand, *, task: Mapping[str, Any]) -> Iterator[None]:
         snapshot = dict(task)
         if str(snapshot.get("id") or "").strip() == "":
             raise WorkflowHubDecisionError("native_hub_task_snapshot_invalid")
@@ -52,9 +50,7 @@ class NativeHubExecutionScope:
 
     def task_snapshot(self, *, hub_task_id: str) -> dict[str, Any]:
         task = self._task.get()
-        if task is None or str(task.get("id") or "").strip() != str(
-            hub_task_id
-        ).strip():
+        if task is None or str(task.get("id") or "").strip() != str(hub_task_id).strip():
             raise WorkflowHubDecisionError("native_hub_task_snapshot_binding_mismatch")
         return dict(task)
 
@@ -183,9 +179,7 @@ class NativeHubExecutionScope:
             raise WorkflowHubDecisionError("native_hub_execution_scope_missing")
         return command
 
-    def _assert_execution_binding(
-        self, *, operation_id: str, fencing_token: int, attempt_id: str
-    ) -> NativeNodeCommand:
+    def _assert_execution_binding(self, *, operation_id: str, fencing_token: int, attempt_id: str) -> NativeNodeCommand:
         command = self._bound_command()
         if (
             command.operation_id != operation_id
@@ -206,9 +200,10 @@ class NativeHubExecutionScope:
                 "plan_hash": command.plan_hash,
                 "policy_version": command.policy_version,
                 "authorization_envelope": command.authorization.to_dict(),
-                "correlation_id": command.run_id,
+                "correlation_id": command.correlation_id or command.run_id,
             }
         )
+
 
 class ConfiguredNativeNodePolicy:
     def __init__(self, *, allowed_task_types: frozenset[str]) -> None:
@@ -281,16 +276,12 @@ class NativeTaskScopedNodeHandler:
         self._task_snapshots = task_snapshots
         self._executor = executor
 
-    def execute(
-        self, command: NativeNodeCommand, *, hub_task_id: str
-    ) -> NativeNodeResult:
+    def execute(self, command: NativeNodeCommand, *, hub_task_id: str) -> NativeNodeResult:
         raw_command = self._command_text(command)
         if not raw_command:
             return self._failed(command, hub_task_id, "native_node_command_input_required")
         try:
-            task_payload = self._task_snapshots.task_snapshot(
-                hub_task_id=hub_task_id
-            )
+            task_payload = self._task_snapshots.task_snapshot(hub_task_id=hub_task_id)
             agent_config = self._hub_bound_agent_config(command)
             budget = command.node.budget
             result = self._executor.execute(
@@ -298,9 +289,7 @@ class NativeTaskScopedNodeHandler:
                 task=task_payload,
                 command=raw_command,
                 trace_id=f"native-graph:{command.command_id}",
-                timeout_seconds=int(
-                    max(1, min(float(budget.timeout_seconds if budget else 300), 3600))
-                ),
+                timeout_seconds=int(max(1, min(float(budget.timeout_seconds if budget else 300), 3600))),
                 agent_config=agent_config,
             )
         except Exception as exc:  # noqa: BLE001 - runtime adapter must fail closed
@@ -310,9 +299,7 @@ class NativeTaskScopedNodeHandler:
                 _reason(exc, "native_node_handler_failed"),
             )
         status = "completed" if str(result.get("status") or "") == "completed" else "failed"
-        reason = "" if status == "completed" else _reason(
-            result.get("failure_type"), "native_node_execution_failed"
-        )
+        reason = "" if status == "completed" else _reason(result.get("failure_type"), "native_node_execution_failed")
         artifacts = (
             self._artifact_refs(
                 command,
@@ -321,11 +308,7 @@ class NativeTaskScopedNodeHandler:
             if status == "completed"
             else {}
         )
-        if (
-            status == "completed"
-            and set(artifacts)
-            != set(command.node.output_artifacts)
-        ):
+        if status == "completed" and set(artifacts) != set(command.node.output_artifacts):
             return self._failed(
                 command,
                 hub_task_id,
@@ -335,9 +318,7 @@ class NativeTaskScopedNodeHandler:
             "status": status,
             "exit_code": int(result.get("exit_code") or 0),
             "output": str(result.get("output") or "")[:16_384],
-            "policy_classification_summary": str(
-                result.get("policy_classification_summary") or ""
-            )[:512],
+            "policy_classification_summary": str(result.get("policy_classification_summary") or "")[:512],
         }
         value = NativeNodeResult(
             result_id=f"nres-{uuid.uuid4().hex}",
@@ -358,9 +339,7 @@ class NativeTaskScopedNodeHandler:
         value.assert_valid()
         return value
 
-    def _hub_bound_agent_config(
-        self, command: NativeNodeCommand
-    ) -> dict[str, Any]:
+    def _hub_bound_agent_config(self, command: NativeNodeCommand) -> dict[str, Any]:
         config = dict(self._agent_config)
         binding = command.provider_binding
         if binding is None:
@@ -371,23 +350,16 @@ class NativeTaskScopedNodeHandler:
         config["default_model"] = binding.model_id
         llm_config = config.get("llm_config")
         llm_config = dict(llm_config) if isinstance(llm_config, Mapping) else {}
-        llm_config.update(
-            {"provider": binding.provider_id, "model": binding.model_id}
-        )
+        llm_config.update({"provider": binding.provider_id, "model": binding.model_id})
         config["llm_config"] = llm_config
         if command.provider_profile_bindings:
             # These values were produced and validated by the Hub contract.
             # The Worker only transports exact copies to invocation seams.
             config["provider_context"] = dict(command.provider_context)
             config["provider_contexts_by_profile_id"] = {
-                profile_id: dict(context)
-                for profile_id, context in (
-                    command.provider_contexts_by_profile_id.items()
-                )
+                profile_id: dict(context) for profile_id, context in (command.provider_contexts_by_profile_id.items())
             }
-            config["provider_attempt_plan"] = [
-                item.to_dict() for item in command.provider_attempt_plan
-            ]
+            config["provider_attempt_plan"] = [item.to_dict() for item in command.provider_attempt_plan]
         return config
 
     @staticmethod
@@ -395,10 +367,7 @@ class NativeTaskScopedNodeHandler:
         workflow_input = command.input_data.get("workflow_input")
         source = workflow_input if isinstance(workflow_input, Mapping) else command.input_data
         return str(
-            source.get("command")
-            or source.get("shell_command")
-            or source.get(command.node.node_id)
-            or ""
+            source.get("command") or source.get("shell_command") or source.get(command.node.node_id) or ""
         ).strip()
 
     @staticmethod
@@ -420,20 +389,14 @@ class NativeTaskScopedNodeHandler:
                 not isinstance(reference, str)
                 or not reference.startswith("artifact://")
                 or len(reference) > 2_048
-                or any(
-                    character.isspace()
-                    or ord(character) < 32
-                    for character in reference
-                )
+                or any(character.isspace() or ord(character) < 32 for character in reference)
             ):
                 return {}
             normalized[artifact_id] = reference
         return normalized
 
     @staticmethod
-    def _failed(
-        command: NativeNodeCommand, hub_task_id: str, reason_code: str
-    ) -> NativeNodeResult:
+    def _failed(command: NativeNodeCommand, hub_task_id: str, reason_code: str) -> NativeNodeResult:
         return NativeNodeResult(
             result_id=f"nres-{uuid.uuid4().hex}",
             command_id=command.command_id,
@@ -460,31 +423,18 @@ def build_native_graph_worker_task_adapter(
     runtime_cfg = dict(runtime_cfg) if isinstance(runtime_cfg, Mapping) else {}
     native_cfg = runtime_cfg.get("native_graph")
     native_cfg = dict(native_cfg) if isinstance(native_cfg, Mapping) else {}
-    if (
-        not bool(native_cfg.get("enabled", False))
-        or executor is None
-        or authorization_verifier is None
-    ):
+    if not bool(native_cfg.get("enabled", False)) or executor is None or authorization_verifier is None:
         return None
     allowed_task_types = frozenset(
-        str(item).strip()
-        for item in native_cfg.get("allowed_task_types", ())
-        if str(item).strip()
+        str(item).strip() for item in native_cfg.get("allowed_task_types", ()) if str(item).strip()
     )
-    capabilities = frozenset(
-        str(item).strip()
-        for item in native_cfg.get("capabilities", ())
-        if str(item).strip()
-    )
+    capabilities = frozenset(str(item).strip() for item in native_cfg.get("capabilities", ()) if str(item).strip())
     if not allowed_task_types or not capabilities:
         return None
     if (
         len(allowed_task_types) > 128
         or len(capabilities) > 128
-        or any(
-            len(value) > 128 or "\x00" in value
-            for value in (*allowed_task_types, *capabilities)
-        )
+        or any(len(value) > 128 or "\x00" in value for value in (*allowed_task_types, *capabilities))
     ):
         raise ValueError("native_graph_worker_configuration_invalid")
     scope = NativeHubExecutionScope(client)
@@ -495,7 +445,10 @@ def build_native_graph_worker_task_adapter(
                 task_snapshots=scope,
                 executor=executor,
             ),
-            scope=scope, client=client, native_config=native_cfg, agent_config=agent_config,
+            scope=scope,
+            client=client,
+            native_config=native_cfg,
+            agent_config=agent_config,
         ),
         authorization_verifier=authorization_verifier,
         policy=ConfiguredNativeNodePolicy(allowed_task_types=allowed_task_types),
@@ -504,6 +457,7 @@ def build_native_graph_worker_task_adapter(
         hub_revalidator=scope,
     )
     return NativeGraphWorkerTaskAdapter(runtime, execution_scope=scope)
+
 
 def _reason(value: object, fallback: str) -> str:
     text = str(getattr(value, "reason_code", value) or "").strip()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -48,10 +49,9 @@ class NativeNodeCommand:
     provider_attempt_plan: tuple[ProviderProfileAttemptPlanEntry, ...] = ()
     provider_maximum_attempts: int = 0
     provider_context: dict[str, Any] = field(default_factory=dict)
-    provider_contexts_by_profile_id: dict[str, dict[str, Any]] = field(
-        default_factory=dict
-    )
+    provider_contexts_by_profile_id: dict[str, dict[str, Any]] = field(default_factory=dict)
     schema: str = NATIVE_NODE_COMMAND_SCHEMA
+    correlation_id: str = ""
 
     def assert_valid(self) -> None:
         required = (
@@ -95,15 +95,11 @@ class NativeNodeCommand:
             plan_hash=str(raw.get("plan_hash") or ""),
             policy_version=str(raw.get("policy_version") or ""),
             node=ExecutionNode.from_mapping(dict(raw.get("node") or {})),
-            authorization=RuntimeAuthorizationEnvelope.from_mapping(
-                dict(raw.get("authorization") or {})
-            ),
+            authorization=RuntimeAuthorizationEnvelope.from_mapping(dict(raw.get("authorization") or {})),
             attempt_id=str(raw.get("attempt_id") or ""),
             fencing_token=int(raw.get("fencing_token") or 0),
             input_data=dict(raw.get("input_data") or {}),
-            artifact_refs={
-                str(key): str(item) for key, item in dict(raw.get("artifact_refs") or {}).items()
-            },
+            artifact_refs={str(key): str(item) for key, item in dict(raw.get("artifact_refs") or {}).items()},
             operation_id=str(raw.get("operation_id") or ""),
             side_effect_revision=int(raw.get("side_effect_revision") or 0),
             provider_binding=(
@@ -111,32 +107,23 @@ class NativeNodeCommand:
                 if raw.get("provider_binding") is not None
                 else None
             ),
-            primary_profile_id=str(
-                raw.get("primary_profile_id") or ""
-            ).strip(),
+            primary_profile_id=str(raw.get("primary_profile_id") or "").strip(),
             provider_profile_bindings=tuple(
                 ProviderProfileExecutionBinding.from_mapping(item)
-                for item in _profile_binding_items(
-                    raw.get("provider_profile_bindings")
-                )
+                for item in _profile_binding_items(raw.get("provider_profile_bindings"))
             ),
             provider_attempt_plan=tuple(
                 ProviderProfileAttemptPlanEntry.from_mapping(item)
-                for item in _profile_binding_items(
-                    raw.get("provider_attempt_plan")
-                )
+                for item in _profile_binding_items(raw.get("provider_attempt_plan"))
             ),
-            provider_maximum_attempts=int(
-                raw.get("provider_maximum_attempts") or 0
-            ),
+            provider_maximum_attempts=int(raw.get("provider_maximum_attempts") or 0),
             provider_context=dict(raw.get("provider_context") or {}),
             provider_contexts_by_profile_id={
                 str(key): dict(item)
-                for key, item in _profile_context_items(
-                    raw.get("provider_contexts_by_profile_id")
-                ).items()
+                for key, item in _profile_context_items(raw.get("provider_contexts_by_profile_id")).items()
             },
             schema=str(raw.get("schema") or NATIVE_NODE_COMMAND_SCHEMA),
+            correlation_id=str(raw.get("correlation_id") or ""),
         )
         value.assert_valid()
         return value
@@ -145,6 +132,7 @@ class NativeNodeCommand:
         self.assert_valid()
         return {
             "schema": self.schema,
+            **({"correlation_id": self.correlation_id} if self.correlation_id else {}),
             "command_id": self.command_id,
             "control_task_id": self.control_task_id,
             "tenant_id": self.tenant_id,
@@ -160,23 +148,14 @@ class NativeNodeCommand:
             "artifact_refs": dict(sorted(self.artifact_refs.items())),
             "operation_id": self.operation_id,
             "side_effect_revision": self.side_effect_revision,
-            "provider_binding": (
-                self.provider_binding.to_dict() if self.provider_binding else None
-            ),
+            "provider_binding": (self.provider_binding.to_dict() if self.provider_binding else None),
             "primary_profile_id": self.primary_profile_id,
-            "provider_profile_bindings": [
-                item.to_dict() for item in self.provider_profile_bindings
-            ],
-            "provider_attempt_plan": [
-                item.to_dict() for item in self.provider_attempt_plan
-            ],
+            "provider_profile_bindings": [item.to_dict() for item in self.provider_profile_bindings],
+            "provider_attempt_plan": [item.to_dict() for item in self.provider_attempt_plan],
             "provider_maximum_attempts": self.provider_maximum_attempts,
             "provider_context": dict(self.provider_context),
             "provider_contexts_by_profile_id": {
-                key: dict(item)
-                for key, item in sorted(
-                    self.provider_contexts_by_profile_id.items()
-                )
+                key: dict(item) for key, item in sorted(self.provider_contexts_by_profile_id.items())
             },
         }
 
@@ -196,18 +175,9 @@ class NativeNodeCommand:
         if self.provider_binding is None or not self.primary_profile_id:
             raise ValueError("provider_primary_profile_binding_missing")
         if (
-            len(self.provider_attempt_plan)
-            != len(self.provider_profile_bindings)
-            or sum(
-                item.maximum_attempts
-                for item in self.provider_attempt_plan
-            )
-            != self.provider_maximum_attempts
-            or not (
-                len(self.provider_profile_bindings)
-                <= self.provider_maximum_attempts
-                <= 33
-            )
+            len(self.provider_attempt_plan) != len(self.provider_profile_bindings)
+            or sum(item.maximum_attempts for item in self.provider_attempt_plan) != self.provider_maximum_attempts
+            or not (len(self.provider_profile_bindings) <= self.provider_maximum_attempts <= 33)
         ):
             raise ValueError("provider_profile_retry_budget_invalid")
         bindings: dict[str, ProviderExecutionBinding] = {}
@@ -218,9 +188,7 @@ class NativeNodeCommand:
             bindings[item.profile_id] = item.binding
         if bindings.get(self.primary_profile_id) != self.provider_binding:
             raise ValueError("provider_primary_profile_binding_mismatch")
-        if tuple(
-            item.profile_id for item in self.provider_attempt_plan
-        ) != tuple(
+        if tuple(item.profile_id for item in self.provider_attempt_plan) != tuple(
             item.profile_id for item in self.provider_profile_bindings
         ):
             raise ValueError("provider_attempt_plan_order_mismatch")
@@ -237,10 +205,7 @@ class NativeNodeCommand:
                 raise ValueError("provider_attempt_plan_binding_mismatch")
         expected_authorizations = tuple(
             sorted(
-                (
-                    ProviderBindingAuthorization.from_binding(item.binding)
-                    for item in self.provider_profile_bindings
-                ),
+                (ProviderBindingAuthorization.from_binding(item.binding) for item in self.provider_profile_bindings),
                 key=lambda item: (
                     item.binding_id,
                     item.provider_id,
@@ -249,18 +214,14 @@ class NativeNodeCommand:
             )
         )
         if (
-            self.authorization.allowed_provider_bindings
-            != expected_authorizations
-            or self.authorization.provider_attempt_plan
-            != self.provider_attempt_plan
+            self.authorization.allowed_provider_bindings != expected_authorizations
+            or self.authorization.provider_attempt_plan != self.provider_attempt_plan
         ):
             raise ValueError("native_provider_authorization_mismatch")
         if set(self.provider_contexts_by_profile_id) != set(bindings):
             raise ValueError("native_provider_profile_contexts_mismatch")
         try:
-            primary = ProviderInvocationContext.from_value(
-                self.provider_context
-            )
+            primary = ProviderInvocationContext.from_value(self.provider_context)
             primary.assert_valid()
         except ProviderInvocationBlocked as exc:
             raise ValueError(exc.reason_code) from exc
@@ -286,9 +247,7 @@ class NativeNodeCommand:
         parsed: dict[str, ProviderInvocationContext] = {}
         for profile_id, binding in bindings.items():
             try:
-                context = ProviderInvocationContext.from_value(
-                    self.provider_contexts_by_profile_id[profile_id]
-                )
+                context = ProviderInvocationContext.from_value(self.provider_contexts_by_profile_id[profile_id])
                 context.assert_valid()
             except ProviderInvocationBlocked as exc:
                 raise ValueError(exc.reason_code) from exc
@@ -296,15 +255,12 @@ class NativeNodeCommand:
                 context.selected_provider_id != binding.provider_id
                 or context.selected_model_id != binding.model_id
                 or context.provider_binding_id != binding.binding_id
-                or context.provider_endpoint_identity
-                != binding.endpoint_identity
+                or context.provider_endpoint_identity != binding.endpoint_identity
                 or context.provider_profile_id != profile_id
                 or not context.require_hub_provider_budget
                 or context.provider_transport_mode != "hub_bound"
             ):
-                raise ValueError(
-                    "native_provider_profile_binding_mismatch"
-                )
+                raise ValueError("native_provider_profile_binding_mismatch")
             _assert_same_provider_scope(primary, context)
             parsed[profile_id] = context
         if parsed.get(self.primary_profile_id) != primary:
@@ -360,10 +316,7 @@ def _assert_same_provider_scope(
         "retry_id",
         "authorization_envelope",
     )
-    if any(
-        getattr(primary, field) != getattr(candidate, field)
-        for field in fields
-    ):
+    if any(getattr(primary, field) != getattr(candidate, field) for field in fields):
         raise ValueError("native_provider_profile_context_scope_mismatch")
 
 
@@ -374,10 +327,7 @@ def native_node_requires_provider(node: ExecutionNode) -> bool:
     mode = str(metadata.get("provider_transport") or "").strip().lower()
     if mode == "required" or metadata.get("provider_required") is True:
         return True
-    return bool(
-        set(node.required_capabilities)
-        & {"llm", "model_inference", "text_generation"}
-    )
+    return bool(set(node.required_capabilities) & {"llm", "model_inference", "text_generation"})
 
 
 @dataclass(frozen=True)
@@ -423,7 +373,7 @@ class NativeNodeResult:
         if self.reason_code and not _REASON_CODE.fullmatch(self.reason_code):
             raise ValueError("native_node_result_reason_code_invalid")
         if any(
-            isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0
+            isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0
             for value in self.budget_usage.values()
         ):
             raise ValueError("native_node_result_budget_invalid")
@@ -442,12 +392,8 @@ class NativeNodeResult:
             fencing_token=int(raw.get("fencing_token") or 0),
             status=str(raw.get("status") or ""),
             output_data=dict(raw.get("output_data") or {}),
-            artifact_refs={
-                str(key): str(item) for key, item in dict(raw.get("artifact_refs") or {}).items()
-            },
-            budget_usage={
-                str(key): item for key, item in dict(raw.get("budget_usage") or {}).items()
-            },
+            artifact_refs={str(key): str(item) for key, item in dict(raw.get("artifact_refs") or {}).items()},
+            budget_usage={str(key): item for key, item in dict(raw.get("budget_usage") or {}).items()},
             reason_code=str(raw.get("reason_code") or ""),
             side_effect_status=str(raw.get("side_effect_status") or ""),
             schema=str(raw.get("schema") or NATIVE_NODE_RESULT_SCHEMA),

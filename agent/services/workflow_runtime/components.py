@@ -200,15 +200,19 @@ class WorkflowComponentCompiler:
             component_versions[node.node_id] = f"{component.component_id}@{component.version}"
 
         nodes = tuple(node for root_node in plan.nodes for node in fragments[root_node.node_id].nodes)
-        edges: list[ExecutionEdge] = [
-            edge for root_node in plan.nodes for edge in fragments[root_node.node_id].edges
-        ]
+        edges: list[ExecutionEdge] = [edge for root_node in plan.nodes for edge in fragments[root_node.node_id].edges]
         for edge in plan.edges:
             source_fragment = fragments[edge.source]
             target_fragment = fragments[edge.target]
             for source in source_fragment.exits:
                 for target in target_fragment.entries:
-                    edges.append(ExecutionEdge(source=source, target=target, condition=dict(edge.condition)))
+                    expanded = source != edge.source or target != edge.target
+                    edge_id = edge.edge_id
+                    if edge_id and expanded:
+                        edge_id = f"{edge_id}:{source}:{target}"
+                    edges.append(
+                        ExecutionEdge(source=source, target=target, condition=dict(edge.condition), edge_id=edge_id)
+                    )
 
         metadata = dict(plan.metadata)
         if component_versions:
@@ -230,9 +234,7 @@ class WorkflowComponentCompiler:
         return compiled
 
     @staticmethod
-    def _assert_narrowing(
-        *, plan: ExecutionPlan, placeholder: ExecutionNode, component: WorkflowComponent
-    ) -> None:
+    def _assert_narrowing(*, plan: ExecutionPlan, placeholder: ExecutionNode, component: WorkflowComponent) -> None:
         if component.policy_version != plan.policy_version:
             raise ValueError("workflow_component_policy_escalation")
         if set(component.required_capabilities) - set(plan.capabilities):
@@ -305,6 +307,7 @@ def _prefix_component(
             source=node_map[edge.source],
             target=node_map[edge.target],
             condition=dict(edge.condition),
+            edge_id=f"{placeholder.node_id}:{edge.edge_id}" if edge.edge_id else "",
         )
         for edge in compiled_plan.edges
     )

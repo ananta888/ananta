@@ -146,6 +146,7 @@ def test_visual_process_bpmn_and_workflow_routes(
 
     del workflow_runtime_auth_keyring_file
     monkeypatch.setenv("ANANTA_ORCHESTRATION_BACKEND", "local")
+    monkeypatch.setenv("ANANTA_BPMN_EXECUTION_ENABLED", "true")
     # BPMN conversion and legacy route compatibility are the concern here.
     # Dedicated rollout tests retain mandatory scopes and fail-closed policy.
     monkeypatch.setattr(
@@ -178,6 +179,22 @@ def test_visual_process_bpmn_and_workflow_routes(
     assert compiled.status_code == 200
     payload = compiled.get_json()
     assert payload["workflow_request"]["schema"] == "ananta.workflow_request.v1"
+
+    # Surface composition errors directly instead of hiding them behind the
+    # deliberately generic HTTP 503 security response.
+    from agent.services.workflow_control_composition import get_workflow_backend_control_facade
+
+    get_workflow_backend_control_facade()
+    from agent.routes import visual_process as routes
+
+    original_error = routes.backend_error
+
+    def diagnostic_backend_error(reason, **kwargs):
+        if reason == "workflow_backend_unavailable":
+            raise AssertionError("BPMN test backend failed; inspect chained exception")
+        return original_error(reason, **kwargs)
+
+    monkeypatch.setattr(routes, "backend_error", diagnostic_backend_error)
 
     started = client.post(
         "/api/visual-process/workflow/start",

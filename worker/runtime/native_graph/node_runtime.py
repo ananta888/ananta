@@ -6,6 +6,7 @@ import re
 import time
 import uuid
 
+from worker.runtime.native_graph.command_authorization import assert_command_resource_scope
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
 from worker.runtime.native_graph.ports import (
     HubAuthorizationRevalidationPort,
@@ -51,6 +52,7 @@ class NativeDelegatedNodeRuntime:
             return self._failed(command, hub_task_id, reason or "native_policy_denied")
         writing = command.node.side_effect_class in {"idempotent_write", "non_idempotent_write"}
         try:
+            assert_command_resource_scope(command)
             self._authorization.authorize(
                 command.authorization,
                 tenant_id=command.tenant_id,
@@ -62,9 +64,7 @@ class NativeDelegatedNodeRuntime:
                 requested_budget=_requested_budget(command),
                 consume_nonce=True,
                 writing=writing,
-                hub_revalidator=(
-                    self._hub_revalidator.revalidate if self._hub_revalidator is not None else None
-                ),
+                hub_revalidator=(self._hub_revalidator.revalidate if self._hub_revalidator is not None else None),
                 now=float(self._clock()),
             )
         except Exception as exc:
@@ -185,9 +185,7 @@ def _requested_budget(command: NativeNodeCommand) -> dict[str, int | float]:
     return values
 
 
-def _assert_handler_result_binding(
-    result: NativeNodeResult, command: NativeNodeCommand, hub_task_id: str
-) -> None:
+def _assert_handler_result_binding(result: NativeNodeResult, command: NativeNodeCommand, hub_task_id: str) -> None:
     expected = {
         "command_id": command.command_id,
         "hub_task_id": hub_task_id,

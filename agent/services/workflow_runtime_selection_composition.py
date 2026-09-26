@@ -24,9 +24,7 @@ from agent.services.workflow_runtime_selection_service import (
     WorkflowRuntimeSelectionService,
 )
 
-PROTECTED_COMPATIBILITY_CAPABILITIES = frozenset(
-    {"audit", "authorization", "policy", "side_effect_guard"}
-)
+PROTECTED_COMPATIBILITY_CAPABILITIES = frozenset({"audit", "authorization", "policy", "side_effect_guard"})
 
 
 class ConfiguredRuntimeHealth:
@@ -90,12 +88,22 @@ class ProtectedConfiguredRuntimeSelection:
 
     def select(
         self,
+        **values: Any,
+    ) -> Any:
+        return self._select(**values, read_only=False)
+
+    def preview(self, **values: Any) -> Any:
+        return self._select(**values, read_only=True)
+
+    def _select(
+        self,
         *,
         plan: Any,
         preferred_runtime: str,
         allowed_runtimes: tuple[str, ...],
         profile: Any | None = None,
         context: Any | None = None,
+        read_only: bool,
     ) -> Any:
         if profile is None:
             preferred = str(preferred_runtime)
@@ -104,9 +112,7 @@ class ProtectedConfiguredRuntimeSelection:
                 profile_id="configured-backend-protected",
                 preferred_runtime=preferred,
                 allowed_runtimes=allowed,
-                required_capabilities=tuple(
-                    sorted(PROTECTED_COMPATIBILITY_CAPABILITIES)
-                ),
+                required_capabilities=tuple(sorted(PROTECTED_COMPATIBILITY_CAPABILITIES)),
                 explicit_fallback_policy=ExplicitFallbackPolicy(),
             )
         elif isinstance(profile, RuntimeSelectionProfile):
@@ -115,23 +121,22 @@ class ProtectedConfiguredRuntimeSelection:
                 preferred_runtime=profile.preferred_runtime,
                 allowed_runtimes=profile.allowed_runtimes,
                 required_capabilities=tuple(
-                    sorted(
-                        set(profile.required_capabilities)
-                        | set(PROTECTED_COMPATIBILITY_CAPABILITIES)
-                    )
+                    sorted(set(profile.required_capabilities) | set(PROTECTED_COMPATIBILITY_CAPABILITIES))
                 ),
                 explicit_fallback_policy=profile.explicit_fallback_policy,
             )
         else:
             parsed = RuntimeSelectionProfile.from_mapping(profile)
-            return self.select(
+            return self._select(
                 plan=plan,
                 preferred_runtime=preferred_runtime,
                 allowed_runtimes=allowed_runtimes,
                 profile=parsed,
                 context=context,
+                read_only=read_only,
             )
-        return self._selection.select(
+        select = self._selection.preview if read_only else self._selection.select
+        return select(
             plan=plan,
             preferred_runtime="",
             allowed_runtimes=(),
@@ -166,23 +171,13 @@ def build_configured_workflow_runtime_selection(
     runtime_id = configured_runtime_id(backend_id)
     registered = tuple(dict.fromkeys(registered_runtime_ids or (runtime_id,)))
     if capability_catalog is None:
-        candidates = [
-            _candidate(value, native_production=native_production)
-            for value in registered
-        ]
+        candidates = [_candidate(value, native_production=native_production) for value in registered]
     else:
-        by_id = {
-            candidate.runtime_id: candidate
-            for candidate in capability_catalog.list_candidates()
-        }
+        by_id = {candidate.runtime_id: candidate for candidate in capability_catalog.list_candidates()}
         missing = set(registered) - set(by_id)
         if missing:
-            raise ValueError(
-                "registered_runtime_capability_missing:" + ",".join(sorted(missing))
-            )
-        source_build = str(
-            os.getenv("ANANTA_SOURCE_REVISION") or "development-unverified"
-        ).strip()
+            raise ValueError("registered_runtime_capability_missing:" + ",".join(sorted(missing)))
+        source_build = str(os.getenv("ANANTA_SOURCE_REVISION") or "development-unverified").strip()
         candidates = [
             replace(
                 by_id[value],
@@ -255,6 +250,8 @@ def _candidate(runtime_id: str, *, native_production: bool) -> RuntimeCandidate:
                     "tool_calling",
                 }
             )
+            if os.getenv("ANANTA_BPMN_EXECUTION_ENABLED", "").strip().lower() in {"1", "true", "yes"}:
+                capabilities.update({"bpmn_control_v1", "bpmn_activation_v1", "bpmn_events_v1"})
         return RuntimeCandidate(
             runtime_id="ananta-native",
             version="1.0.0",

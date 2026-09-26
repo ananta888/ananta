@@ -21,6 +21,11 @@ from secrets import token_bytes
 from typing import Any
 
 from agent.common.audit import log_audit
+from agent.services.bpmn_workflow_preflight import (
+    BpmnWorkflowPreflight,
+    assert_workflow_start_hashes,
+    workflow_start_plan,
+)
 from agent.services.workflow_authorization_grant_service import (
     WorkflowAuthorizationGrantPort,
 )
@@ -200,6 +205,43 @@ _FAILED_START_STATUSES = frozenset({"degraded", "unavailable", "not_found"})
 _TRANSITION_DRIVE_ATTEMPTS = 4
 
 
+def _assert_client_command_bindings(
+    binding: WorkflowControlRunBinding,
+    *,
+    command_type: str,
+    command_id: str,
+    expected_revision: int | None,
+    plan_hash: str | None,
+    step_id: str | None,
+    run_id: str | None,
+) -> None:
+    """Validate caller bindings before signing, including required message scope."""
+    if expected_revision is not None and (type(expected_revision) is not int or expected_revision < 0):
+        raise WorkflowControlCommandRejectedError("workflow_control_revision_invalid")
+    if plan_hash is not None and plan_hash != binding.plan_hash:
+        raise WorkflowControlCommandRejectedError("workflow_control_plan_binding_mismatch")
+    if run_id is not None and run_id != binding.run_id:
+        raise WorkflowControlCommandRejectedError("workflow_control_run_binding_mismatch")
+    if command_type == "bpmn_message":
+        if not command_id or expected_revision is None or plan_hash is None:
+            raise WorkflowControlCommandRejectedError("bpmn_message_command_binding_required")
+        if not isinstance(step_id, str) or not step_id or step_id != step_id.strip():
+            raise WorkflowControlCommandRejectedError("bpmn_message_target_required")
+
+
+def _assert_client_command_snapshot(
+    binding: WorkflowControlRunBinding,
+    status: Mapping[str, Any],
+    *,
+    expected_revision: int | None,
+    checkpoint_ref: str | None,
+) -> None:
+    if checkpoint_ref is not None and checkpoint_ref != str(status.get("checkpoint_ref") or binding.checkpoint_id):
+        raise WorkflowControlCommandRejectedError("workflow_control_checkpoint_binding_mismatch")
+    if expected_revision is not None and expected_revision != status.get("revision", 0):
+        raise WorkflowControlCommandRejectedError("stale_workflow_revision")
+
+
 def _resolve_command_step_id(
     binding: WorkflowControlRunBinding,
     *,
@@ -216,11 +258,7 @@ def _resolve_command_step_id(
         return current
 
     open_gates = status.get("open_gates")
-    open_gate = (
-        str(open_gates[0] or "").strip()
-        if isinstance(open_gates, list) and open_gates
-        else ""
-    )
+    open_gate = str(open_gates[0] or "").strip() if isinstance(open_gates, list) and open_gates else ""
     if open_gate:
         request_step_ids = {step.step_id for step in binding.request.steps}
         if open_gate in request_step_ids:
@@ -461,6 +499,9 @@ class ConfiguredWorkflowBackendBridge:
         command_id: str,
         command_type: str,
         payload: dict[str, Any],
+        expected_revision: int | None = None,
+        step_id: str | None = None,
+        checkpoint_ref: str | None = None,
     ) -> dict[str, Any] | None:
         if self._dispatcher is None:
             return None
@@ -469,6 +510,9 @@ class ConfiguredWorkflowBackendBridge:
             command_id=command_id,
             command_type=command_type,
             payload=payload,
+            expected_revision=expected_revision,
+            step_id=step_id,
+            checkpoint_ref=checkpoint_ref,
         )
 
     def signal(
@@ -1196,16 +1240,15 @@ class AuthorizedWorkflowBackend:
         request: WorkflowRequest,
         *,
         command_id: str = "",
+        expected_plan_hash: str | None = None,
+        expected_definition_hash: str | None = None,
     ) -> dict[str, Any]:
-        policy_version = str(
-            request.metadata.get("policy_version")
-            or request.policy_scope.get("policy_version")
-            or "legacy-workflow-policy-v1"
-        ).strip()
-        plan = WorkflowRequestExecutionPlanAdapter.adapt(
+        plan = workflow_start_plan(request, tenant_id=self._principal.tenant_id)
+        assert_workflow_start_hashes(
             request,
-            tenant_id=self._principal.tenant_id,
-            policy_version=policy_version,
+            plan,
+            expected_plan_hash=expected_plan_hash,
+            expected_definition_hash=expected_definition_hash,
         )
         run_id = str(request.metadata.get("run_id") or request.workflow_id).strip()
         binding = WorkflowControlRunBinding(
@@ -1268,6 +1311,13 @@ class AuthorizedWorkflowBackend:
             self._bindings.discard(request.workflow_id, plan_hash=plan.plan_hash)
         return self._public_status(binding, status)
 
+    def preflight_workflow(self, request: WorkflowRequest) -> dict[str, Any]:
+        return BpmnWorkflowPreflight(self._control).evaluate(
+            request,
+            principal=self._principal,
+            preferred_runtime=self._bridge.selection_runtime_id,
+        )
+
     def get_workflow_status(self, workflow_id: str) -> dict[str, Any]:
         self._receipt_reconciler.reconcile_workflow(workflow_id)
         binding = self._bindings.get(workflow_id)
@@ -1304,12 +1354,26 @@ class AuthorizedWorkflowBackend:
         command_type: str,
         payload: dict[str, Any] | None = None,
         command_id: str = "",
+        expected_revision: int | None = None,
+        plan_hash: str | None = None,
+        step_id: str | None = None,
+        run_id: str | None = None,
+        checkpoint_ref: str | None = None,
     ) -> dict[str, Any]:
         """Submit one canonical command through the sole Hub control service."""
 
         binding = self._bindings.get(workflow_id)
         if binding is None:
             return self._not_found(workflow_id)
+        _assert_client_command_bindings(
+            binding,
+            command_type=command_type,
+            command_id=command_id,
+            expected_revision=expected_revision,
+            plan_hash=plan_hash,
+            step_id=step_id,
+            run_id=run_id,
+        )
         normalized_command_id = str(command_id or "").strip()
         runtime_id = configured_runtime_id(binding.runtime_id)
         if command_type in {"edit", "request_changes"}:
@@ -1317,6 +1381,12 @@ class AuthorizedWorkflowBackend:
         if normalized_command_id and runtime_id != "temporal":
             existing_receipt = self._command_receipts.get(normalized_command_id)
             if existing_receipt is not None:
+                if expected_revision is not None and expected_revision != existing_receipt.expected_revision:
+                    raise WorkflowControlCommandRejectedError("workflow_control_command_id_conflict")
+                if step_id is not None and step_id != existing_receipt.request_payload.get("step_id"):
+                    raise WorkflowControlCommandRejectedError("workflow_control_command_id_conflict")
+                if checkpoint_ref is not None and checkpoint_ref != existing_receipt.checkpoint_ref:
+                    raise WorkflowControlCommandRejectedError("workflow_control_command_id_conflict")
                 try:
                     assert_stable_receipt_retry(
                         existing_receipt,
@@ -1337,6 +1407,9 @@ class AuthorizedWorkflowBackend:
                     command_id=normalized_command_id,
                     command_type=command_type,
                     payload=dict(payload or {}),
+                    **({"expected_revision": expected_revision} if expected_revision is not None else {}),
+                    **({"step_id": step_id} if step_id is not None else {}),
+                    **({"checkpoint_ref": checkpoint_ref} if checkpoint_ref is not None else {}),
                 )
             except RuntimeError as exc:
                 if str(exc) == "workflow_control_dispatch_stage_conflict":
@@ -1346,11 +1419,21 @@ class AuthorizedWorkflowBackend:
                 return dict(repeated)
         if runtime_id == "temporal":
             self.get_workflow_status(workflow_id)
+        status = self._bindings.last_status(workflow_id) or {}
+        _assert_client_command_snapshot(
+            binding,
+            status,
+            expected_revision=expected_revision,
+            checkpoint_ref=checkpoint_ref,
+        )
         command = self._command(
             binding,
             command_type=command_type,
             payload=dict(payload or {}),
             command_id=normalized_command_id,
+            expected_revision=expected_revision,
+            step_id=step_id,
+            checkpoint_ref=checkpoint_ref,
         )
         try:
             signed_command = self._control.prepare_command(
@@ -1587,18 +1670,25 @@ class AuthorizedWorkflowBackend:
         command_type: str,
         payload: dict[str, Any],
         command_id: str = "",
+        expected_revision: int | None = None,
+        step_id: str | None = None,
+        checkpoint_ref: str | None = None,
     ) -> WorkflowControlCommand:
         status = self._bindings.last_status(binding.workflow_id) or {}
-        step_id = _resolve_command_step_id(
-            binding,
-            status=status,
-            payload=payload,
+        if step_id is None:
+            step_id = _resolve_command_step_id(binding, status=status, payload=payload)
+        if expected_revision is None:
+            try:
+                expected_revision = int(status.get("revision", 0))
+            except (TypeError, ValueError) as exc:
+                raise ValueError("workflow_control_revision_invalid") from exc
+        if command_type == "bpmn_message":
+            nodes = (binding.execution_plan or {}).get("nodes") or []
+            if step_id not in {node.get("node_id") for node in nodes}:
+                raise WorkflowControlCommandRejectedError("bpmn_message_target_invalid")
+        checkpoint_id = (
+            checkpoint_ref if checkpoint_ref is not None else str(status.get("checkpoint_ref") or binding.checkpoint_id)
         )
-        try:
-            expected_revision = int(status.get("revision", 0))
-        except (TypeError, ValueError) as exc:
-            raise ValueError("workflow_control_revision_invalid") from exc
-        checkpoint_id = str(status.get("checkpoint_ref") or binding.checkpoint_id)
         return WorkflowControlCommand(
             command_id=str(command_id or f"legacy-control-{uuid.uuid4().hex}"),
             command_type=command_type,

@@ -107,6 +107,42 @@ with no lost capability. Authorization, policy, audit, durability, resume and
 side-effect guarding are protected capabilities. Missing a safe runtime results
 in `blocked`/`incompatible`, never an implicit local fallback.
 
+### BPMN core opt-in
+
+The [BPMN editor contract](../blueprints/bpmn-blueprint-editor.md) compiles an
+XML-bound, single-activation DAG into the same `ExecutionPlan`. Stable edge IDs,
+typed conditions, Hub-only `bpmn_control` nodes and a definition hash are additive;
+legacy dependency-only requests retain their existing wire format. Native is
+the only candidate with `bpmn_control_v1`, and only when
+`ANANTA_BPMN_EXECUTION_ENABLED=1`; the default is disabled. Runtime health, Hub
+policy and release admission are still mandatory.
+
+Start/end, XOR and AND controls execute in the Hub. Task/serviceTask/userTask
+work still crosses the real queue/assignment/worker/result boundary. Signed
+checkpoints bind the input snapshot, selected edge and whole-run deadline.
+BPMN run definitions cannot be edited in place. Authorization observations share
+the canonical event stream; bounded observation-only cursor catch-up preserves
+concurrent control conflicts instead of silently treating them as audit events.
+
+Bounded standard loops and embedded subprocesses lower source-bound XML into the
+existing finite DAG (`bpmn_activation_v1`), with explicit local input/output
+projections. One-shot intermediate timer/message catches use signed durable wait
+aggregates and authenticated Hub commands (`bpmn_events_v1`). All three BPMN
+capabilities share the disabled-by-default opt-in and existing release/policy gates.
+Separate-container synthetic cases now exercise all these families.
+
+BPMN queue creation, event/checkpoint/wait commits and result acknowledgements
+check the current signed control lease inside their recipient transaction.
+Production composition shares the authority database; a separate database cannot
+silently stand in for that authority. Exact Task receipts recover admission after
+checkpoint interruption; cancellation also adopts admitted-but-uncheckpointed work.
+
+Artifact-bearing BPMN plans are deliberately blocked until an assignment-bound
+Hub transfer/receipt contract exists. Generic result ingress, remaining lease
+mutation recipients and PostgreSQL/full-stack recovery still need hardening.
+No Camunda/Zeebe, Worker orchestration or production release evidence is introduced.
+See the [rollout boundary](../operations/workflow-runtime-rollout.md#bpmn-core-rollout-boundary).
+
 ## State and lifecycle
 
 The canonical lifecycle is reconstructed from events rather than mutable worker

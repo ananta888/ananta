@@ -9,6 +9,9 @@
       "contract_version": "ananta.execution_plan.v1",
       "mode": "live",
       "capabilities": [
+        "bpmn_control_v1",
+        "bpmn_activation_v1",
+        "bpmn_events_v1",
         "approval",
         "audit",
         "authorization",
@@ -23,6 +26,7 @@
         "tool_calling"
       ],
       "restrictions": [
+        "bpmn_events_require_enabled_native_bpmn_composition",
         "process_local_scheduler_not_durable",
         "runtime_restart_requires_hub_checkpoint"
       ],

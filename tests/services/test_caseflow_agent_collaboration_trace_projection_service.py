@@ -27,6 +27,7 @@ from agent.visual_process.edge_catalog_contract import (
     CASEFLOW_EDGE_CATALOG_SCHEMA,
     MAX_CASEFLOW_EDGE_CATALOG_SIZE,
     build_caseflow_edge_catalog,
+    build_caseflow_edge_catalog_for_workflow,
 )
 from agent.visual_process.models import (
     VisualProcessEdge,
@@ -66,11 +67,7 @@ def _binding(
     workflow_id: str = "workflow-a",
     run_id: str = "run-a",
 ) -> WorkflowControlRunBinding:
-    metadata = (
-        {CASEFLOW_EDGE_CATALOG_METADATA_KEY: catalog}
-        if catalog is not None
-        else {}
-    )
+    metadata = {CASEFLOW_EDGE_CATALOG_METADATA_KEY: catalog} if catalog is not None else {}
     catalog_edges = list(catalog.get("edges") or []) if catalog else []
     step_ids = sorted(
         {
@@ -82,11 +79,9 @@ def _binding(
         or {"agent-a"}
     )
     dependencies = {
-        step_id: tuple(sorted({
-            str(edge["source_step_id"])
-            for edge in catalog_edges
-            if edge.get("target_step_id") == step_id
-        }))
+        step_id: tuple(
+            sorted({str(edge["source_step_id"]) for edge in catalog_edges if edge.get("target_step_id") == step_id})
+        )
         for step_id in step_ids
     }
     request = WorkflowRequest(
@@ -121,7 +116,7 @@ def _service(binding: WorkflowControlRunBinding):
     return CaseflowAgentCollaborationTraceProjectionService(store)
 
 
-def test_graph_mapper_preserves_exact_directional_edge_catalog_without_replacing_metadata() -> None:
+def test_legacy_read_model_retains_directional_edges_but_compiler_rejects_loss() -> None:
     graph = VisualProcessGraph(
         id="workflow-a",
         name="Agent collaboration",
@@ -144,9 +139,21 @@ def test_graph_mapper_preserves_exact_directional_edge_catalog_without_replacing
         ],
     )
 
+    with pytest.raises(ValueError, match="bpmn_lossy_legacy_conditions"):
+        graph_to_workflow_request(graph, policy_scope={"source": "caseflow-test"})
+
+    # A historical binding remains readable. New execution may not silently
+    # turn its back-edge into a forward-only dependency request.
     workflow = graph_to_workflow_request(
-        graph,
+        graph.model_copy(update={"edges": [graph.edges[1]]}),
         policy_scope={"source": "caseflow-test"},
+    )
+    workflow = replace(
+        workflow,
+        metadata={
+            **workflow.metadata,
+            CASEFLOW_EDGE_CATALOG_METADATA_KEY: build_caseflow_edge_catalog_for_workflow(graph.edges),
+        },
     )
 
     assert workflow.metadata["existing_extension"] == {"enabled": True}
@@ -183,9 +190,7 @@ def test_graph_mapper_preserves_exact_directional_edge_catalog_without_replacing
 
 def test_edge_catalog_rejects_lossy_or_ambiguous_identity() -> None:
     with pytest.raises(ValueError, match="caseflow_edge_id_invalid"):
-        build_caseflow_edge_catalog(
-            [{"edge_id": " edge-a-b", "source": "agent-a", "target": "agent-b"}]
-        )
+        build_caseflow_edge_catalog([{"edge_id": " edge-a-b", "source": "agent-a", "target": "agent-b"}])
     with pytest.raises(ValueError, match="caseflow_edge_catalog_duplicate_edge_id"):
         build_caseflow_edge_catalog(
             [
@@ -256,9 +261,7 @@ def test_directional_projection_uses_only_explicit_existing_evidence_and_redacts
     assert edges["edge-b-a"]["messages"][0]["correlation_ref"] == "trace-existing"
     assert "do-not-return" not in str(edges["edge-b-a"])
     assert "api_key=***" in edges["edge-b-a"]["messages"][0]["content"]
-    assert edges["edge-b-a"]["telemetry"][0]["token_usage"] == {
-        "input_tokens": 3
-    }
+    assert edges["edge-b-a"]["telemetry"][0]["token_usage"] == {"input_tokens": 3}
     assert "plain-leaked-value" not in str(projection)
     assert "api_key" not in str(edges["edge-b-a"]["telemetry"])
     assert edges["edge-a-b"]["activity_status"] == "unknown"
@@ -308,9 +311,7 @@ def test_unique_incoming_dependency_requires_source_and_target_events_not_curren
     assert missing_source["edges"][0]["activity_status"] == "unknown"
     assert missing_source["edges"][0]["verification_status"] == "unverified"
     assert correlated["edges"][0]["activity_status"] == "active"
-    assert correlated["edges"][0]["correlation_basis"] == (
-        "unique_dependency_event_sequence"
-    )
+    assert correlated["edges"][0]["correlation_basis"] == ("unique_dependency_event_sequence")
     assert correlated["edges"][0]["event_refs"] == [
         "event-source-completed",
         "event-target-delegated",
@@ -374,9 +375,7 @@ def test_projection_order_and_output_limits_are_deterministic() -> None:
     assert len(edge["messages"]) == MAX_CASEFLOW_EDGE_MESSAGES
     assert len(edge["telemetry"]) == MAX_CASEFLOW_EDGE_TELEMETRY
     assert edge["messages"][0]["content"] == "message-000"
-    assert edge["limits"]["messages_truncated"] == (
-        len(events) - MAX_CASEFLOW_EDGE_MESSAGES
-    )
+    assert edge["limits"]["messages_truncated"] == (len(events) - MAX_CASEFLOW_EDGE_MESSAGES)
     assert edge["limits"]["telemetry_truncated"] == 5
 
 
@@ -404,9 +403,7 @@ def test_equal_event_order_keys_are_content_deterministic() -> None:
     reverse = _service(binding).project(binding=binding, raw_events=list(reversed(events)))
 
     assert forward == reverse
-    assert sorted(
-        item["content"] for item in forward["edges"][0]["messages"]
-    ) == ["first", "second"]
+    assert sorted(item["content"] for item in forward["edges"][0]["messages"]) == ["first", "second"]
 
 
 @pytest.mark.parametrize(
@@ -544,9 +541,7 @@ def test_history_is_windowed_before_projection_work() -> None:
 
     assert projection["telemetry"]["source_event_count"] == len(events)
     assert projection["telemetry"]["processed_event_count"] == MAX_CASEFLOW_TRACE_EVENTS
-    assert projection["telemetry"]["truncated_event_count"] == (
-        len(events) - MAX_CASEFLOW_TRACE_EVENTS
-    )
+    assert projection["telemetry"]["truncated_event_count"] == (len(events) - MAX_CASEFLOW_TRACE_EVENTS)
 
 
 def test_read_validates_tenant_subject_workflow_and_run_before_history_access() -> None:

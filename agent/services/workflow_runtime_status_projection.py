@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 
+from agent.services.bpmn_runtime_provenance import bpmn_step_provenance
 from agent.services.workflow_backend import (
     WORKFLOW_EVENT_SCHEMA,
     WORKFLOW_STATUS_SCHEMA,
@@ -19,6 +20,7 @@ from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.events import CANONICAL_WORKFLOW_EVENT_SCHEMA
 from agent.visual_process.definition_snapshot_contract import definition_snapshot_hash
 from ananta_contracts.temporal_workflow import STATUS_SCHEMA as TEMPORAL_STATUS_SCHEMA
+from ananta_contracts.temporal_workflow import WorkflowCommandType
 
 _PUBLIC_STATUS_ALIASES = {
     "waiting_approval": "waiting_for_approval",
@@ -788,7 +790,7 @@ def _project_public_steps(
     binding: WorkflowControlRunBinding,
     allow_missing: bool,
 ) -> list[dict[str, Any]]:
-    requested_ids = tuple(step.step_id for step in binding.request.steps)
+    requested_ids = _canonical_step_ids(binding)
     known_ids = frozenset(requested_ids)
     if "steps" not in raw:
         if not allow_missing:
@@ -809,7 +811,28 @@ def _project_public_steps(
         if step_id in by_id:
             raise ValueError("workflow_runtime_source_step_duplicate")
         by_id[step_id] = _project_public_step(item, step_id=step_id)
-    return [by_id.get(step_id, {"step_id": step_id, "status": "pending"}) for step_id in requested_ids]
+    # Source/iteration identity comes exclusively from the admitted plan. Never
+    # copy an infrastructure adapter's or Worker's claimed activation lineage.
+    provenance = bpmn_step_provenance(binding.execution_plan or {})
+    return [
+        {**by_id.get(step_id, {"step_id": step_id, "status": "pending"}), **provenance.get(step_id, {})}
+        for step_id in requested_ids
+    ]
+
+
+def _canonical_step_ids(binding: WorkflowControlRunBinding) -> tuple[str, ...]:
+    plan = binding.execution_plan or {}
+    if not (plan.get("metadata") or {}).get("bpmn_definition_hash"):
+        return tuple(step.step_id for step in binding.request.steps)
+    # Expanded BPMN activations are identified by the persisted Hub plan.
+    # The submitted source graph cannot define the runtime's node namespace.
+    nodes = plan.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError("workflow_runtime_canonical_nodes_required")
+    ids = tuple(_identity(node.get("node_id"), field_name="canonical_step_id") for node in nodes)
+    if len(ids) != len(set(ids)):
+        raise ValueError("workflow_runtime_canonical_nodes_invalid")
+    return ids
 
 
 def _assert_projected_step_consistency(
@@ -1039,6 +1062,23 @@ def _project_optional_public_fields(
     source_schema: str,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
+    definition_hash = ((binding.execution_plan or {}).get("metadata") or {}).get("bpmn_definition_hash")
+    if definition_hash:
+        if not isinstance(definition_hash, str) or re.fullmatch(r"[a-f0-9]{64}", definition_hash) is None:
+            raise ValueError("workflow_runtime_definition_hash_invalid")
+        result["definition_hash"] = definition_hash
+    if raw.get("definition_hash") is not None and raw["definition_hash"] != definition_hash:
+        raise ValueError("workflow_runtime_source_definition_hash_mismatch")
+    if definition_hash or "allowed_commands" in raw:
+        commands = raw.get("allowed_commands", [])
+        known_commands = {command.value for command in WorkflowCommandType}
+        if not isinstance(commands, list) or any(
+            not isinstance(value, str) or value not in known_commands for value in commands
+        ):
+            raise ValueError("workflow_runtime_source_allowed_commands_invalid")
+        # Only the authoritative runtime policy/checkpoint may supply hints.
+        # Missing hints never authorize a control; ingress still revalidates.
+        result["allowed_commands"] = list(dict.fromkeys(commands))
     expected_snapshot_hash = definition_snapshot_hash(dict(binding.request.metadata))
     if "snapshot_hash" in raw and raw["snapshot_hash"] is not None:
         source_snapshot_hash = (
@@ -1166,7 +1206,7 @@ def _project_event(
         "workflow_id": binding.workflow_id,
         "run_id": binding.run_id,
     }
-    known_step_ids = frozenset(step.step_id for step in binding.request.steps)
+    known_step_ids = frozenset(_canonical_step_ids(binding))
     details = raw.get("details")
     step_candidates = [raw.get("step_id")]
     if isinstance(details, Mapping):

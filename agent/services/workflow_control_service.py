@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from agent.services.workflow_runtime._serialization import contains_sensitive_keys
-from agent.services.workflow_runtime.commands import SignedWorkflowCommand
+from agent.services.workflow_runtime.commands import SignedWorkflowCommand, validate_bpmn_message_payload
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 
 CONTROL_COMMAND_SCHEMA = "ananta.workflow_control_command.v1"
@@ -21,6 +21,7 @@ CONTROL_COMMAND_TYPES = frozenset(
         "retry",
         "cancel",
         "parameter_update",
+        "bpmn_message",
     }
 )
 
@@ -97,6 +98,11 @@ class WorkflowControlCommand:
             issues.append("control_command_revision_invalid")
         if contains_sensitive_keys(self.payload):
             issues.append("control_command_embedded_secret_denied")
+        if self.command_type == "bpmn_message":
+            try:
+                validate_bpmn_message_payload(self.payload)
+            except ValueError:
+                issues.append("bpmn_message_payload_invalid")
         return tuple(issues)
 
 
@@ -218,16 +224,57 @@ class WorkflowControlService:
         allowed_runtimes: tuple[str, ...] = (),
         runtime_profile_id: str = "",
     ) -> WorkflowRunHandle:
+        selected = self._select_start(
+            principal=principal,
+            plan=plan,
+            run_id=run_id,
+            preferred_runtime=preferred_runtime,
+            allowed_runtimes=allowed_runtimes,
+            runtime_profile_id=runtime_profile_id,
+            read_only=False,
+        )
+        self._assert_executable_selection(plan, selected)
+        return self._bridge.start(
+            principal=principal,
+            plan=plan,
+            run_id=str(run_id),
+            selection=selected,
+            authorization_envelope=dict(authorization_envelope),
+        )
+
+    def preflight(self, **values: Any) -> tuple[RuntimeSelection, tuple[str, ...]]:
+        """Read-only start decision; never reserves ownership or delegates work."""
+        selected = self._select_start(**values, runtime_profile_id="", read_only=True)
+        try:
+            self._assert_executable_selection(values["plan"], selected)
+        except RuntimeError as exc:
+            return selected, (str(exc),)
+        return selected, ()
+
+    def _select_start(
+        self,
+        *,
+        principal: WorkflowPrincipal,
+        plan: ExecutionPlan,
+        run_id: str,
+        preferred_runtime: str,
+        allowed_runtimes: tuple[str, ...],
+        runtime_profile_id: str,
+        read_only: bool,
+    ) -> RuntimeSelection:
         plan.assert_valid()
         self._require_binding(principal, tenant_id=plan.tenant_id)
         reason = self._authorization.authorize(
             principal=principal,
-            action="start",
+            action="preflight" if read_only else "start",
             workflow_id=plan.workflow_id,
             run_id=run_id,
         )
         if reason != "allowed":
             raise PermissionError(reason or "workflow_start_denied")
+        select = getattr(self._selection, "preview", None) if read_only else self._selection.select
+        if not callable(select):
+            raise RuntimeError("workflow_runtime_read_only_selection_unavailable")
         profile_id = str(runtime_profile_id or "").strip()
         if profile_id:
             if preferred_runtime or allowed_runtimes:
@@ -238,7 +285,7 @@ class WorkflowControlService:
                 profile = self._runtime_profiles.resolve(profile_id)
             except KeyError as exc:
                 raise ValueError("runtime_selection_profile_not_found") from exc
-            selected = self._selection.select(
+            selected = select(
                 plan=plan,
                 preferred_runtime="",
                 allowed_runtimes=(),
@@ -248,11 +295,15 @@ class WorkflowControlService:
         else:
             # Keep the established explicit-selection call shape compatible for
             # existing adapters while profiles are rolled out incrementally.
-            selected = self._selection.select(
+            selected = select(
                 plan=plan,
                 preferred_runtime=preferred_runtime,
                 allowed_runtimes=allowed_runtimes,
             )
+        return selected
+
+    @staticmethod
+    def _assert_executable_selection(plan: ExecutionPlan, selected: RuntimeSelection) -> None:
         if selected.mode == "incompatible" and any(
             "runtime_capabilities_missing:" in str(rejected.get("detail") or "") for rejected in selected.rejected
         ):
@@ -272,13 +323,6 @@ class WorkflowControlService:
             raise RuntimeError("workflow_runtime_incompatible:" + ",".join(sorted(missing)))
         if selected.mode not in {"live", "durable"}:
             raise RuntimeError("workflow_runtime_not_executable")
-        return self._bridge.start(
-            principal=principal,
-            plan=plan,
-            run_id=str(run_id),
-            selection=selected,
-            authorization_envelope=dict(authorization_envelope),
-        )
 
     def query(self, *, principal: WorkflowPrincipal, workflow_id: str, run_id: str) -> dict[str, Any]:
         self._authorize_bound(principal, "query", workflow_id, run_id)

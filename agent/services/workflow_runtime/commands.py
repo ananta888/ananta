@@ -42,6 +42,22 @@ WORKFLOW_COMMAND_SCHEMA = COMMAND_SCHEMA
 WORKFLOW_COMMAND_TYPES = frozenset(command_type.value for command_type in WorkflowCommandType)
 
 
+def validate_bpmn_message_payload(payload: Any) -> None:
+    """Closed, bounded message data; all command authority is in the envelope."""
+    from agent.services.bpmn_event_wait_contracts import identity, payload_copy, seconds
+
+    fields = {"activation_id", "message_id", "name", "correlation_key", "schema_id", "sent_at", "expires_at", "payload"}
+    if type(payload) is not dict or set(payload) != fields:
+        raise ValueError("bpmn_message_payload_invalid")
+    for name in ("activation_id", "message_id", "name", "correlation_key", "schema_id"):
+        identity(payload[name], name)
+    for name in ("sent_at", "expires_at"):
+        seconds(payload[name], name)
+    if payload["expires_at"] <= payload["sent_at"]:
+        raise ValueError("bpmn_message_timestamp_invalid")
+    payload_copy(payload["payload"], max_bytes=16384)
+
+
 @dataclass(frozen=True)
 class SignedWorkflowCommand:
     """String-compatible Hub adapter over the neutral command contract."""

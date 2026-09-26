@@ -12,6 +12,7 @@ from agent.services.native_graph_models import (
     native_budget_mapping,
     safe_native_reason_code,
 )
+from agent.services.native_submission_recovery import recover_submission
 from agent.services.workflow_authorization_grant_service import (
     WorkflowAuthorizationGrantPort,
 )
@@ -76,9 +77,7 @@ class NativeGraphDelegationService:
                     runtime_kind="ananta-native",
                     requires_provider=requires_provider,
                     required_capabilities=tuple(node.required_capabilities),
-                    model_routing=trusted_model_routing_from_metadata(
-                        node.metadata
-                    ),
+                    model_routing=trusted_model_routing_from_metadata(node.metadata),
                 )
             )
         except Exception:
@@ -106,24 +105,44 @@ class NativeGraphDelegationService:
             now=float(self._clock()),
         )
         if not claim.acquired:
+            if state.control_lease is not None and claim.reason in {"already_owned", "already_completed"}:
+                state.control_lease.ensure_valid()
+                recovered = recover_submission(
+                    queue=self._queue,
+                    grants=self._authorization_grants,
+                    plan=plan,
+                    request=request,
+                    node=node,
+                    ownership=claim.ownership,
+                    input_data=input_data,
+                )
+                if recovered is not None:
+                    state.attempts[node.node_id] = max(
+                        state.attempts.get(node.node_id, 0), claim.ownership.fencing_token
+                    )
+                    self._record_submission(
+                        plan=plan,
+                        request=request,
+                        state=state,
+                        node=node,
+                        command=recovered.command,
+                        receipt=recovered.receipt,
+                        ownership=claim.ownership,
+                        emit=emit,
+                    )
+                    return
             fail(plan, request, state, f"native_ownership_{claim.reason}")
             return
         ownership = claim.ownership
         state.attempts[node.node_id] = state.attempts.get(node.node_id, 0) + 1
         authorization_budgets = native_budget_mapping(budget)
         if provider_decision.maximum_provider_attempts:
-            authorization_budgets["provider_attempts"] = (
-                provider_decision.maximum_provider_attempts
-            )
+            authorization_budgets["provider_attempts"] = provider_decision.maximum_provider_attempts
         if provider_decision.binding is not None:
             if plan.budget.max_tokens is not None:
-                authorization_budgets["provider_run_tokens"] = int(
-                    plan.budget.max_tokens
-                )
+                authorization_budgets["provider_run_tokens"] = int(plan.budget.max_tokens)
             if plan.budget.max_cost_micros is not None:
-                authorization_budgets[
-                    "provider_run_cost_micros"
-                ] = int(plan.budget.max_cost_micros)
+                authorization_budgets["provider_run_cost_micros"] = int(plan.budget.max_cost_micros)
         authorization = RuntimeAuthorizationEnvelope.issue(
             key_ring=self._key_ring,
             tenant_id=plan.tenant_id,
@@ -133,19 +152,12 @@ class NativeGraphDelegationService:
             plan_hash=plan.plan_hash,
             policy_version=plan.policy_version,
             allowed_tools=node.allowed_tools,
-            allowed_artifacts=tuple(
-                sorted(set(node.input_artifacts + node.output_artifacts))
-            ),
+            allowed_artifacts=tuple(sorted(set(node.input_artifacts + node.output_artifacts))),
             allowed_provider_bindings=tuple(
-                ProviderBindingAuthorization.from_binding(item.binding)
-                for item in provider_decision.profile_bindings
+                ProviderBindingAuthorization.from_binding(item.binding) for item in provider_decision.profile_bindings
             )
             or (
-                (
-                    ProviderBindingAuthorization.from_binding(
-                        provider_decision.binding
-                    ),
-                )
+                (ProviderBindingAuthorization.from_binding(provider_decision.binding),)
                 if provider_decision.binding is not None
                 else ()
             ),
@@ -179,15 +191,9 @@ class NativeGraphDelegationService:
                 policy_version=plan.policy_version,
                 prompt_version="native-node-prompt-v1",
                 correlation_id=request.run_id,
-                max_attempts=(
-                    provider_decision.maximum_provider_attempts
-                ),
+                max_attempts=(provider_decision.maximum_provider_attempts),
                 max_total_tokens=total_tokens,
-                max_completion_tokens_per_call=(
-                    min(1_024, max(1, total_tokens // 2))
-                    if total_tokens > 0
-                    else 0
-                ),
+                max_completion_tokens_per_call=(min(1_024, max(1, total_tokens // 2)) if total_tokens > 0 else 0),
                 max_cost_micros=int(budget.max_cost_micros or 0),
                 combined_retry_maximum=0,
                 authorization_envelope=authorization.to_dict(),
@@ -200,14 +206,13 @@ class NativeGraphDelegationService:
                 decision_reason=provider_decision.reason_code,
                 profile_id=provider_decision.primary_profile_id,
             )
-            provider_contexts_by_profile_id = (
-                context_spec.build_profile_contexts(
-                    provider_decision.profile_bindings,
-                    decision_reason=provider_decision.reason_code,
-                )
+            provider_contexts_by_profile_id = context_spec.build_profile_contexts(
+                provider_decision.profile_bindings,
+                decision_reason=provider_decision.reason_code,
             )
         command = NativeNodeCommand(
             command_id=f"ncmd:{request.run_id}:{node.node_id}:{ownership.attempt_id}",
+            correlation_id=request.correlation_id or request.run_id,
             control_task_id=request.control_task_id,
             tenant_id=plan.tenant_id,
             workflow_id=plan.workflow_id,
@@ -219,31 +224,27 @@ class NativeGraphDelegationService:
             attempt_id=ownership.attempt_id,
             fencing_token=ownership.fencing_token,
             input_data=input_data,
-            artifact_refs={
-                key: state.artifact_refs[key]
-                for key in node.input_artifacts
-                if key in state.artifact_refs
-            },
+            artifact_refs={key: state.artifact_refs[key] for key in node.input_artifacts if key in state.artifact_refs},
             operation_id=operation_id,
             side_effect_revision=side_effect_revision,
             provider_binding=provider_decision.binding,
             primary_profile_id=provider_decision.primary_profile_id,
             provider_profile_bindings=provider_decision.profile_bindings,
             provider_attempt_plan=provider_decision.profile_attempt_plan,
-            provider_maximum_attempts=(
-                provider_decision.maximum_provider_attempts
-            ),
+            provider_maximum_attempts=(provider_decision.maximum_provider_attempts),
             provider_context=provider_context,
-            provider_contexts_by_profile_id=(
-                provider_contexts_by_profile_id
-            ),
+            provider_contexts_by_profile_id=(provider_contexts_by_profile_id),
         )
-        receipt = self._queue.submit(command)
-        if (
-            not receipt.accepted
-            or receipt.command_id != command.command_id
-            or not receipt.hub_task_id
-        ):
+        if state.control_lease is not None:
+            state.control_lease.ensure_valid()
+        if state.control_lease is not None:
+            submit = getattr(self._queue, "submit_fenced", None)
+            if not callable(submit):
+                raise RuntimeError("bpmn_queue_recipient_fencing_unavailable")
+            receipt = submit(command, lease=state.control_lease)
+        else:
+            receipt = self._queue.submit(command)
+        if not receipt.accepted or receipt.command_id != command.command_id or not receipt.hub_task_id:
             fail(
                 plan,
                 request,
@@ -251,17 +252,30 @@ class NativeGraphDelegationService:
                 receipt.reason_code or "native_hub_task_rejected",
             )
             return
+        self._record_submission(
+            plan=plan,
+            request=request,
+            state=state,
+            node=node,
+            command=command,
+            receipt=receipt,
+            ownership=ownership,
+            emit=emit,
+        )
+
+    @staticmethod
+    def _record_submission(*, plan, request, state, node, command, receipt, ownership, emit):
         state.running[node.node_id] = {
             "hub_task_id": receipt.hub_task_id,
             "command_id": command.command_id,
             "attempt_id": ownership.attempt_id,
             "fencing_token": ownership.fencing_token,
-            "owner_id": owner_id,
+            "owner_id": ownership.owner_id,
             "ownership_revision": ownership.revision,
-            "operation_id": operation_id,
+            "operation_id": command.operation_id,
             # Opaque reference only.  The signed authorization contract stays
             # outside checkpoint business state and is persisted in Hub grants.
-            "grant_ref": authorization.envelope_id,
+            "grant_ref": command.authorization.envelope_id,
         }
         emit(
             state,
@@ -270,10 +284,7 @@ class NativeGraphDelegationService:
             step_id=node.node_id,
             attempt=ownership.fencing_token,
             event_type="workflow.step.delegated",
-            dedupe_key=(
-                f"native:{request.run_id}:{node.node_id}:"
-                f"{ownership.attempt_id}:delegated"
-            ),
+            dedupe_key=(f"native:{request.run_id}:{node.node_id}:{ownership.attempt_id}:delegated"),
             payload={
                 "hub_task_id": receipt.hub_task_id,
                 "attempt_id": ownership.attempt_id,
@@ -287,13 +298,48 @@ class NativeGraphDelegationService:
         request: NativeGraphRequest,
         state: NativeRunState,
         reason: str,
+        input_for: Callable[[ExecutionNode, NativeRunState], dict[str, Any]] | None = None,
+        emit: Callable[..., Any] | None = None,
     ) -> None:
         """Fence all active delegations and revoke their persisted grants."""
 
+        if state.control_lease is not None:
+            # A queue receipt may have committed before Native's running-state
+            # checkpoint. Adopt exact admitted work for cancellation only; do
+            # not dispatch it, grant rights or synthesize missing task receipts.
+            if input_for is None or emit is None:
+                raise RuntimeError("bpmn_cancel_recovery_ports_required")
+            for node in plan.nodes:
+                if node.node_id in state.running or node.node_id in state.completed or node.node_id in state.skipped:
+                    continue
+                state.control_lease.ensure_valid()
+                owner = self._ownership.get(tenant_id=plan.tenant_id, run_id=request.run_id, step_id=node.node_id)
+                if owner is None or owner.status not in {"active", "completed"}:
+                    continue
+                admitted = recover_submission(
+                    queue=self._queue,
+                    grants=self._authorization_grants,
+                    plan=plan,
+                    request=request,
+                    node=node,
+                    ownership=owner,
+                    input_data=input_for(node, state),
+                    require_active_grant=False,
+                )
+                if admitted is not None:
+                    self._record_submission(
+                        plan=plan,
+                        request=request,
+                        state=state,
+                        node=node,
+                        command=admitted.command,
+                        receipt=admitted.receipt,
+                        ownership=owner,
+                        emit=emit,
+                    )
+
         running = tuple(state.running.items())
-        task_ids = tuple(
-            sorted(item["hub_task_id"] for _node_id, item in running)
-        )
+        task_ids = tuple(sorted(item["hub_task_id"] for _node_id, item in running))
         if task_ids:
             self._queue.cancel(
                 tenant_id=plan.tenant_id,
@@ -316,7 +362,14 @@ class NativeGraphDelegationService:
                 except KeyError:
                     pass
             try:
-                self._ownership.fail_attempt(
+                fail_attempt = self._ownership.fail_attempt
+                arguments = {}
+                if state.control_lease is not None:
+                    fail_attempt = getattr(self._ownership, "fail_attempt_fenced", None)
+                    if not callable(fail_attempt):
+                        raise RuntimeError("bpmn_ownership_recipient_fencing_unavailable")
+                    arguments["lease"] = state.control_lease
+                fail_attempt(
                     tenant_id=plan.tenant_id,
                     run_id=request.run_id,
                     step_id=node_id,
@@ -327,9 +380,11 @@ class NativeGraphDelegationService:
                     failure_code=safe_native_reason_code(reason),
                     dead_letter=False,
                     now=float(self._clock()),
+                    **arguments,
                 )
             except (KeyError, RuntimeError, ValueError):
-                pass
+                if state.control_lease is not None:
+                    state.control_lease.ensure_valid()
         state.running.clear()
 
     def _authorize_side_effect(
@@ -348,11 +403,7 @@ class NativeGraphDelegationService:
             "non_idempotent_write",
         }:
             return "", 0
-        operation = str(
-            node.metadata.get("operation_name")
-            or node.metadata.get("declared_operation")
-            or ""
-        ).strip()
+        operation = str(node.metadata.get("operation_name") or node.metadata.get("declared_operation") or "").strip()
         record = self._ledger.plan(
             tenant_id=plan.tenant_id,
             workflow_id=plan.workflow_id,

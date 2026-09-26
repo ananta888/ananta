@@ -9,11 +9,20 @@ ownership and persistence).  Every executable task node is submitted through
 from __future__ import annotations
 
 import hashlib
+import math
 import time
 from typing import Any
 
+from agent.services.bpmn_control_nodes import decide_control
+from agent.services.bpmn_event_wait_contracts import EventWaitError
+from agent.services.bpmn_event_wait_store import CheckpointEventWaitStore
+from agent.services.bpmn_input_projection import PROJECTION_KEY, project_bpmn_inputs
+from agent.services.bpmn_native_event_runtime import BpmnNativeEventRuntime, event_plan_scope
+from agent.services.bpmn_projection_control import project_control_result
+from agent.services.bpmn_run_lease import BpmnRunLeaseService
 from agent.services.native_graph_checkpoint_service import NativeGraphCheckpointService
 from agent.services.native_graph_delegation_service import NativeGraphDelegationService
+from agent.services.native_graph_event_appender import append_native_event
 from agent.services.native_graph_models import (
     NATIVE_GRAPH_RUNTIME_ID,
     NATIVE_GRAPH_RUNTIME_VERSION,
@@ -34,7 +43,7 @@ from agent.services.workflow_provider_selection_service import (
     WorkflowProviderDecisionPort,
     build_workflow_provider_decision_service,
 )
-from agent.services.workflow_runtime._serialization import canonical_json
+from agent.services.workflow_runtime._serialization import canonical_json, sha256_json
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand, WorkflowCommandVerifier
 from agent.services.workflow_runtime.components import (
     WorkflowComponentCompiler,
@@ -92,6 +101,9 @@ class NativeGraphOrchestrator:
     runtime_version = NATIVE_GRAPH_RUNTIME_VERSION
     capabilities = frozenset(
         {
+            "bpmn_control_v1",
+            "bpmn_activation_v1",
+            "bpmn_events_v1",
             "approval",
             "bounded_parallel",
             "checkpoint",
@@ -117,6 +129,7 @@ class NativeGraphOrchestrator:
         component_compiler: WorkflowComponentCompiler | None = None,
         plan_artifacts: WorkflowPlanArtifactPort | None = None,
         provider_decisions: WorkflowProviderDecisionPort | None = None,
+        bpmn_events: BpmnNativeEventRuntime | None = None,
         clock=time.time,
     ) -> None:
         self._queue = queue
@@ -131,6 +144,11 @@ class NativeGraphOrchestrator:
         self._components = component_compiler
         self._plan_artifacts = plan_artifacts
         self._clock = clock
+        self._run_leases = BpmnRunLeaseService(checkpoints=checkpoints, keys=key_ring, clock=clock)
+        self._bpmn_events = bpmn_events or BpmnNativeEventRuntime(
+            store=CheckpointEventWaitStore(checkpoints, key_ring),
+            clock=clock,
+        )
         self._delegation = NativeGraphDelegationService(
             queue=queue,
             ownership=ownership,
@@ -154,6 +172,11 @@ class NativeGraphOrchestrator:
 
     def validate(self, plan: ExecutionPlan) -> NativeGraphValidation:
         reasons = [issue.code for issue in plan.validate()]
+        if any(node.node_type == "bpmn_wait" for node in plan.nodes):
+            try:
+                event_plan_scope(plan)
+            except ValueError as exc:
+                reasons.append(str(exc))
         unsupported = (
             set(plan.capabilities)
             - set(self.capabilities)
@@ -165,7 +188,7 @@ class NativeGraphOrchestrator:
         )
         reasons.extend(f"native_capability_unsupported:{value}" for value in sorted(unsupported))
         for node in plan.nodes:
-            if node.node_type not in {"task", "merge", "checkpoint", "component"}:
+            if node.node_type not in {"task", "merge", "checkpoint", "component", "bpmn_control", "bpmn_wait"}:
                 reasons.append(f"native_node_type_unsupported:{node.node_type}")
             if (
                 node.side_effect_class in {"idempotent_write", "non_idempotent_write"}
@@ -186,6 +209,11 @@ class NativeGraphOrchestrator:
 
     def start(self, request: NativeGraphRequest) -> NativeGraphResult:
         request.assert_valid()
+        with self._run_leases.acquire(request) as lease:
+            return self._start_owned(request, lease)
+
+    def _start_owned(self, request: NativeGraphRequest, lease) -> NativeGraphResult:
+        request.assert_valid()
         plan = self._compile(request.plan)
         validation = self.validate(plan)
         if not validation.valid:
@@ -205,7 +233,15 @@ class NativeGraphOrchestrator:
             worker_parallel_limit=request.worker_parallel_limit,
             base_plan_hash=plan.plan_hash,
             effective_plan=plan.to_dict(),
+            control_lease=lease,
         )
+        if plan.metadata.get("bpmn_definition_hash") or plan.metadata.get("bpmn_activation_expansion"):
+            state.bpmn_started_at = float(self._clock())
+            if not math.isfinite(state.bpmn_started_at) or state.bpmn_started_at < 0:
+                raise ValueError("bpmn_clock_invalid")
+            state.bpmn_deadline_at = state.bpmn_started_at + plan.budget.timeout_seconds
+            if not math.isfinite(state.bpmn_deadline_at):
+                raise ValueError("bpmn_deadline_invalid")
         self._emit(
             state,
             plan=plan,
@@ -220,11 +256,19 @@ class NativeGraphOrchestrator:
 
     def advance(self, request: NativeGraphRequest) -> NativeGraphResult:
         request.assert_valid()
+        with self._run_leases.acquire(request) as lease:
+            return self._advance_owned(request, lease)
+
+    def _advance_owned(self, request: NativeGraphRequest, lease) -> NativeGraphResult:
+        request.assert_valid()
         requested_plan = self._compile(request.plan)
         checkpoint, state, plan = self._load_verified(requested_plan, request)
+        state.control_lease = lease
         self._assert_request_state_binding(request, checkpoint, state)
         if state.status in _TERMINAL:
             return self._result(plan, request, state, checkpoint)
+        if self._expire_bpmn_run(plan, request, state):
+            return self._result(plan, request, state, self._save_checkpoint(plan, request, state))
         if state.status != "running":
             return self._result(plan, request, state, checkpoint)
         self._tick(plan, request, state)
@@ -249,14 +293,37 @@ class NativeGraphOrchestrator:
         admitted_replay: bool = False,
     ) -> NativeGraphResult:
         request.assert_valid()
+        with self._run_leases.acquire(request) as lease:
+            return self._resume_owned(
+                request, command=command, checkpoint=checkpoint, admitted_replay=admitted_replay, lease=lease
+            )
+
+    def _resume_owned(
+        self,
+        request: NativeGraphRequest,
+        *,
+        command: SignedWorkflowCommand,
+        checkpoint: SignedCheckpoint | None,
+        admitted_replay: bool,
+        lease,
+    ) -> NativeGraphResult:
+        request.assert_valid()
         requested_plan = self._compile(request.plan)
         if checkpoint is None:
             current, state, plan = self._load_verified(requested_plan, request)
         else:
             current = checkpoint
+            if lease is not None:
+                authoritative = self._checkpoints.get_latest(
+                    tenant_id=requested_plan.tenant_id, run_id=request.run_id, task_id=request.control_task_id
+                )
+                if authoritative is None or authoritative.checkpoint_id != current.checkpoint_id:
+                    raise ValueError("bpmn_checkpoint_revision_stale")
             state = NativeRunState.from_workflow_state(current.state)
             plan = self._effective_plan(requested_plan, state, current)
             self._verify_checkpoint(current, plan, request)
+        state.control_lease = lease
+        state.checkpoint_revision = current.revision
         self._assert_request_state_binding(request, current, state)
         command_fingerprint = _command_fingerprint(command)
         if state.last_command_id == command.command_id:
@@ -295,7 +362,8 @@ class NativeGraphOrchestrator:
         allowed, reason = self._policy.authorize_command(command, plan=plan, state=state)
         if not allowed:
             raise PermissionError(reason or "native_control_policy_denied")
-        plan = self._apply_command(plan, request, state, command)
+        if not self._expire_bpmn_run(plan, request, state):
+            plan = self._apply_command(plan, request, state, command)
         if state.status == "running":
             self._tick(plan, request, state)
         state.last_command_id = command.command_id
@@ -306,6 +374,12 @@ class NativeGraphOrchestrator:
     def checkpoint(self, request: NativeGraphRequest) -> SignedCheckpoint:
         checkpoint, _state, _plan = self._load_verified(self._compile(request.plan), request)
         return checkpoint
+
+    def available_commands(self, *, plan: ExecutionPlan, checkpoint: SignedCheckpoint) -> tuple[str, ...]:
+        hints = getattr(self._policy, "available_commands", None)
+        if not callable(hints):
+            return ()
+        return tuple(hints(plan=plan, state=NativeRunState.from_workflow_state(checkpoint.state)))
 
     def stream(
         self, request: NativeGraphRequest, *, after_sequence: int = 0, limit: int | None = None
@@ -331,6 +405,12 @@ class NativeGraphOrchestrator:
     ) -> None:
         if state.input_data != request.input_data:
             raise ValueError("native_graph_input_binding_mismatch")
+        if request.plan.metadata.get("bpmn_definition_hash") or request.plan.metadata.get("bpmn_activation_expansion"):
+            start, deadline = state.bpmn_started_at, state.bpmn_deadline_at
+            if any(type(value) not in {int, float} or not math.isfinite(value) for value in (start, deadline)):
+                raise ValueError("bpmn_deadline_binding_required")
+            if start < 0 or deadline != start + request.plan.budget.timeout_seconds:
+                raise ValueError("bpmn_deadline_binding_mismatch")
         if tuple(sorted(checkpoint.state.secret_refs)) != tuple(sorted(request.secret_refs)):
             raise ValueError("native_graph_secret_refs_binding_mismatch")
         if (
@@ -342,6 +422,8 @@ class NativeGraphOrchestrator:
     def _tick(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> None:
         if state.status != "running":
             return
+        if self._expire_bpmn_run(plan, request, state):
+            return
         self._collect_results(plan, request, state)
         if state.status != "running":
             return
@@ -351,8 +433,19 @@ class NativeGraphOrchestrator:
         self._execute_ready_merges(plan, request, state)
         if state.status != "running":
             return
+        self._reconcile_bpmn_events(plan, request, state)
+        if state.status != "running":
+            return
         self._dispatch_ready(plan, request, state)
         self._finish_if_terminal(plan, request, state)
+
+    def _expire_bpmn_run(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> bool:
+        if state.status in _TERMINAL or state.bpmn_deadline_at is None:
+            return False
+        if float(self._clock()) < state.bpmn_deadline_at:
+            return False
+        self._fail_run(plan, request, state, "bpmn_run_deadline_exceeded")
+        return True
 
     def _collect_results(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> None:
         if not state.running:
@@ -369,6 +462,12 @@ class NativeGraphOrchestrator:
                 continue
             self._assert_result_binding(plan, request, result, running)
             node = nodes[result.node_id]
+            if state.control_lease is not None:
+                state.control_lease.ensure_valid()
+            exceeded = self._budget_exceeded(plan, state, result)
+            if exceeded:
+                self._fail_run(plan, request, state, exceeded)
+                return
             owner_values = {
                 "tenant_id": plan.tenant_id,
                 "run_id": request.run_id,
@@ -379,14 +478,28 @@ class NativeGraphOrchestrator:
                 "expected_revision": int(running["ownership_revision"]),
                 "now": float(self._clock()),
             }
-            state.running.pop(result.node_id, None)
             if result.status == "completed":
                 validate_compiled_component_output(node, result.output_data)
-                acknowledged = self._ownership.acknowledge_result(
-                    **owner_values,
-                    result_ack_key=result.result_id,
-                )
                 self._validate_artifacts(node, result)
+                if state.control_lease is not None:
+                    state.control_lease.ensure_valid()
+                acknowledge = self._ownership.acknowledge_result
+                lease_values = {}
+                if state.control_lease is not None:
+                    acknowledge = getattr(self._ownership, "acknowledge_result_fenced", None)
+                    if not callable(acknowledge):
+                        raise RuntimeError("bpmn_result_recipient_fencing_unavailable")
+                    lease_values["lease"] = state.control_lease
+                acknowledged = acknowledge(
+                    **owner_values,
+                    **lease_values,
+                    result_ack_key=(
+                        "bpmn-result:" + sha256_json({**result.to_dict(), "output_data": result.output_data})
+                        if state.control_lease is not None
+                        else result.result_id
+                    ),
+                )
+                state.running.pop(result.node_id, None)
                 self._consume_budget(plan, state, result)
                 state.completed.add(result.node_id)
                 state.node_results[result.node_id] = dict(result.output_data)
@@ -406,15 +519,22 @@ class NativeGraphOrchestrator:
                 )
                 self._emit_side_effect_if_present(plan, request, state, result, running)
                 continue
+            state.running.pop(result.node_id, None)
             failure = result.reason_code or f"native_node_{result.status}"
             fail_attempt = getattr(self._ownership, "fail_attempt", None)
+            lease_values = {}
+            if state.control_lease is not None:
+                fail_attempt = getattr(self._ownership, "fail_attempt_fenced", None)
+                lease_values["lease"] = state.control_lease
             if fail_attempt is None:
                 raise RuntimeError("native_ownership_failure_transition_unavailable")
             failed_owner = fail_attempt(
                 **owner_values,
+                **lease_values,
                 failure_code=failure,
                 dead_letter=False,
             )
+            self._consume_budget(plan, state, result)
             attempt_count = state.attempts.get(result.node_id, 1)
             maximum = (node.budget or plan.budget).max_attempts
             if attempt_count < maximum:
@@ -455,18 +575,25 @@ class NativeGraphOrchestrator:
         while changed:
             changed = False
             terminal = state.completed | state.skipped | set(state.failed)
-            context = self._condition_context(state)
             for node in sorted(plan.nodes, key=lambda item: item.node_id):
                 if node.node_id in terminal or node.node_id in state.running or not incoming[node.node_id]:
                     continue
                 if not all(edge.source in terminal for edge in incoming[node.node_id]):
                     continue
-                evaluations = [self._conditions.evaluate(edge.condition, context) for edge in incoming[node.node_id]]
+                evaluations = [self._edge_result(edge, state) for edge in incoming[node.node_id]]
                 if any(result.value is None for result in evaluations):
                     reason = next(result.reason_code for result in evaluations if result.value is None)
                     self._fail_run(plan, request, state, reason)
                     return
                 mode = str(node.metadata.get("join_mode") or "any")
+                control = node.metadata.get("bpmn_control", {})
+                active = sum(result.matches for result in evaluations)
+                if control.get("kind") == "parallel" and 0 < active < len(evaluations):
+                    self._fail_run(plan, request, state, "bpmn_parallel_incomplete_activation")
+                    return
+                if control.get("kind") == "exclusive" and active > 1:
+                    self._fail_run(plan, request, state, "bpmn_exclusive_multiple_arrivals")
+                    return
                 route_matches = (
                     all(result.matches for result in evaluations)
                     if mode == "all"
@@ -538,12 +665,15 @@ class NativeGraphOrchestrator:
             plan,
             completed_node_ids=state.completed | state.skipped,
             running_node_ids=set(state.running),
+            waiting_node_ids=set(state.bpmn_waits) - state.completed,
             failed_node_ids=set(state.failed),
             tenant_limit=request.tenant_parallel_limit,
             worker_limit=request.worker_parallel_limit,
         )
         nodes = {node.node_id: node for node in plan.nodes}
         for candidate in batch.candidates:
+            if self._expire_bpmn_run(plan, request, state):
+                return
             node = nodes[candidate.node_id]
             if node.node_type == "merge":
                 continue
@@ -551,6 +681,65 @@ class NativeGraphOrchestrator:
                 continue
             if node.gate_id and node.gate_id not in state.approved_gates:
                 self._open_gate(plan, request, state, node)
+                continue
+            if node.node_type == "bpmn_wait":
+                try:
+                    view = self._bpmn_events.arm(**self._bpmn_event_hooks(plan, request, state), node=node)
+                except EventWaitError as exc:
+                    state.failed[node.node_id] = str(exc)
+                    self._fail_run(plan, request, state, str(exc))
+                    return
+                self._emit(
+                    state,
+                    plan=plan,
+                    request=request,
+                    step_id=node.node_id,
+                    event_type="workflow.bpmn.catch.waiting",
+                    dedupe_key=view.wakeup_id + ":waiting",
+                    payload={
+                        "kind": view.kind,
+                        "activation_id": view.target.activation_id,
+                        "wakeup_id": view.wakeup_id,
+                        "expires_at": view.expires_at,
+                        "due_at": view.due_at,
+                    },
+                )
+                continue
+            if node.node_type == "bpmn_control":
+                try:
+                    context = self._condition_context(state, node=node)
+                    output = (
+                        project_control_result(
+                            node,
+                            input_data=state.input_data,
+                            results=state.node_results,
+                            completed_node_ids=state.completed,
+                            skipped_node_ids=state.skipped,
+                        )
+                        if node.metadata["bpmn_control"]["kind"] == "projection"
+                        else decide_control(node.metadata["bpmn_control"], context)
+                    )
+                except ValueError as exc:
+                    self._fail_run(plan, request, state, str(exc))
+                    return
+                state.node_results[node.node_id] = output
+                state.completed.add(node.node_id)
+                self._emit(
+                    state,
+                    plan=plan,
+                    request=request,
+                    step_id=node.node_id,
+                    event_type="workflow.step.completed",
+                    dedupe_key=f"native:{request.run_id}:{node.node_id}:bpmn-control",
+                    payload={
+                        "control_kind": node.metadata["bpmn_control"]["kind"],
+                        "selected_edge": (
+                            output.get("selected_edge")
+                            if node.metadata["bpmn_control"]["kind"] == "exclusive"
+                            else None
+                        ),
+                    },
+                )
                 continue
             if node.node_type == "checkpoint":
                 state.completed.add(node.node_id)
@@ -578,12 +767,24 @@ class NativeGraphOrchestrator:
     def _submit_node(
         self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState, node: ExecutionNode
     ) -> None:
+        if state.control_lease is not None:
+            state.control_lease.ensure_valid()
+            # Commit control decisions and input bindings before any task leaves
+            # the Hub. A post-ingest interruption can then adopt the exact task.
+            previous_owner = self._ownership.get(tenant_id=plan.tenant_id, run_id=request.run_id, step_id=node.node_id)
+            if previous_owner is None or previous_owner.status not in {"active", "completed"}:
+                self._save_checkpoint(plan, request, state)
+        try:
+            node_input = self._node_input(node, state)
+        except ValueError as exc:
+            self._fail_run(plan, request, state, str(exc))
+            return
         self._delegation.submit(
             plan=plan,
             request=request,
             state=state,
             node=node,
-            input_data=self._node_input(node, state),
+            input_data=node_input,
             fail=self._fail_run,
             emit=self._emit,
         )
@@ -625,6 +826,26 @@ class NativeGraphOrchestrator:
         state: NativeRunState,
         command: SignedWorkflowCommand,
     ) -> ExecutionPlan:
+        if command.command_type == "bpmn_message":
+            delivery = self._bpmn_events.deliver_message(
+                **self._bpmn_event_hooks(plan, request, state),
+                command=command,
+            )
+            self._emit(
+                state,
+                plan=plan,
+                request=request,
+                step_id=command.step_id,
+                actor=command.actor_id,
+                event_type="workflow.bpmn.message.accepted",
+                dedupe_key=f"native:{request.run_id}:{command.command_id}:message",
+                payload={
+                    "message_id": delivery.message_id,
+                    "status": delivery.status,
+                    "activation_id": delivery.target.activation_id,
+                },
+            )
+            return plan
         if command.command_type in {"approve", "reject", "resume"}:
             gate_id = next((gate for gate, node in state.open_gates.items() if node == command.step_id), "")
             if command.command_type == "resume" and not gate_id and state.status == "paused":
@@ -721,6 +942,8 @@ class NativeGraphOrchestrator:
             )
             return plan
         if command.command_type == "retry":
+            if any(node.node_type == "bpmn_wait" for node in plan.nodes):
+                raise ValueError("bpmn_wait_closed_run_retry_denied")
             if state.status not in {"failed", "cancelled"}:
                 raise ValueError("native_retry_terminal_failure_required")
             target = str(command.step_id or "").strip()
@@ -784,6 +1007,10 @@ class NativeGraphOrchestrator:
 
     @staticmethod
     def _assert_safe_plan_edit(current: ExecutionPlan, replacement: ExecutionPlan, state: NativeRunState) -> None:
+        if (
+            current.metadata.get("bpmn_definition_hash") or current.metadata.get("bpmn_activation_expansion")
+        ) and replacement.plan_hash != current.plan_hash:
+            raise ValueError("bpmn_running_definition_immutable")
         if replacement.tenant_id != current.tenant_id or replacement.workflow_id != current.workflow_id:
             raise ValueError("native_plan_edit_binding_mismatch")
         if replacement.policy_version != current.policy_version:
@@ -802,7 +1029,7 @@ class NativeGraphOrchestrator:
         edges = [edge for edge in plan.edges if edge.target == node.node_id]
         if not edges:
             return True
-        results = [self._conditions.evaluate(edge.condition, self._condition_context(state)) for edge in edges]
+        results = [self._edge_result(edge, state) for edge in edges]
         if any(result.value is None for result in results):
             return False
         return (
@@ -811,8 +1038,20 @@ class NativeGraphOrchestrator:
             else any(result.matches for result in results)
         )
 
+    def _edge_result(self, edge, state):
+        from agent.services.workflow_runtime.condition_evaluator import ConditionResult
+
+        if edge.source in state.skipped:
+            return ConditionResult(False, "native_source_skipped")
+        return self._conditions.evaluate(edge.condition, self._condition_context(state))
+
     @staticmethod
-    def _condition_context(state: NativeRunState) -> dict[str, Any]:
+    def _condition_context(state: NativeRunState, *, node: ExecutionNode | None = None) -> dict[str, Any]:
+        if node is not None and PROJECTION_KEY in node.metadata:
+            projected = project_bpmn_inputs(
+                node.metadata[PROJECTION_KEY], input_data=state.input_data, results=state.node_results
+            )
+            return {"input": projected["workflow_input"], "results": projected["dependency_results"], "artifacts": {}}
         return {
             "input": dict(state.input_data),
             "results": dict(state.node_results),
@@ -822,6 +1061,11 @@ class NativeGraphOrchestrator:
 
     @staticmethod
     def _node_input(node: ExecutionNode, state: NativeRunState) -> dict[str, Any]:
+        if PROJECTION_KEY in node.metadata:
+            projected = project_bpmn_inputs(
+                node.metadata[PROJECTION_KEY], input_data=state.input_data, results=state.node_results
+            )
+            return {**projected, "requested_artifacts": list(node.input_artifacts)}
         return {
             "workflow_input": dict(state.input_data),
             "dependency_results": {key: state.node_results[key] for key in sorted(state.node_results)},
@@ -840,13 +1084,22 @@ class NativeGraphOrchestrator:
     def _consume_budget(self, plan: ExecutionPlan, state: NativeRunState, result: NativeNodeResult) -> None:
         for key, value in result.budget_usage.items():
             state.budget_usage[key] = state.budget_usage.get(key, 0) + value
+
+    @staticmethod
+    def _budget_exceeded(plan: ExecutionPlan, state: NativeRunState, result: NativeNodeResult) -> str:
+        combined = dict(state.budget_usage)
+        for key, value in result.budget_usage.items():
+            combined[key] = combined.get(key, 0) + value
+            if not math.isfinite(combined[key]):
+                return "native_budget_exceeded:" + key
         limits = {
             "tokens": plan.budget.max_tokens,
             "cost_micros": plan.budget.max_cost_micros,
         }
         for key, limit in limits.items():
-            if limit is not None and state.budget_usage.get(key, 0) > limit:
-                raise ValueError(f"native_budget_exceeded:{key}")
+            if limit is not None and combined.get(key, 0) > limit:
+                return f"native_budget_exceeded:{key}"
+        return ""
 
     @staticmethod
     def _assert_result_binding(
@@ -888,8 +1141,10 @@ class NativeGraphOrchestrator:
             causation_id=result.result_id,
             actor="native-worker",
         )
-        stored = self._events.append(event, expected_sequence=state.event_sequence)
-        state.event_sequence = stored.sequence
+        stored = append_native_event(
+            self._events, event, observed_sequence=state.event_sequence, lease=state.control_lease
+        )
+        state.event_sequence = max(state.event_sequence, stored.sequence)
 
     def _finish_if_terminal(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> None:
         if state.status != "running" or state.running or state.open_gates:
@@ -928,12 +1183,43 @@ class NativeGraphOrchestrator:
     def _cancel_running(
         self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState, reason: str
     ) -> None:
+        if any(node.node_type == "bpmn_wait" for node in plan.nodes):
+            self._bpmn_events.cancel_run(**self._bpmn_event_hooks(plan, request, state))
         self._delegation.cancel_running(
             plan=plan,
             request=request,
             state=state,
             reason=reason,
+            input_for=self._node_input,
+            emit=self._emit,
         )
+
+    def _bpmn_event_hooks(self, plan, request, state):
+        if state.control_lease is None:
+            raise EventWaitError("bpmn_wait_run_lease_required")
+        return dict(
+            plan=plan,
+            request=request,
+            state=state,
+            fencing_token=state.control_lease.fencing_token,
+            guard=state.control_lease.ensure_valid,
+            persist=lambda: self._save_checkpoint(plan, request, state),
+        )
+
+    def _reconcile_bpmn_events(self, plan, request, state):
+        if not state.bpmn_waits:
+            return
+        try:
+            receipts = self._bpmn_events.reconcile(**self._bpmn_event_hooks(plan, request, state))
+        except EventWaitError as exc:
+            self._fail_run(plan, request, state, str(exc))
+            return
+        for receipt in receipts:
+            state.control_lease.ensure_valid()
+            stored = append_native_event(
+                self._events, receipt.to_event(), observed_sequence=state.event_sequence, lease=state.control_lease
+            )
+            state.event_sequence = max(state.event_sequence, stored.sequence)
 
     def _save_checkpoint(
         self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState
@@ -989,6 +1275,8 @@ class NativeGraphOrchestrator:
         actor: str = "hub",
         payload: dict[str, Any] | None = None,
     ) -> CanonicalWorkflowEvent:
+        if state.control_lease is not None:
+            state.control_lease.ensure_valid()
         event = CanonicalWorkflowEvent.build(
             tenant_id=plan.tenant_id,
             workflow_id=plan.workflow_id,
@@ -1013,8 +1301,10 @@ class NativeGraphOrchestrator:
             },
             occurred_at=float(self._clock()),
         )
-        stored = self._events.append(event, expected_sequence=state.event_sequence)
-        state.event_sequence = stored.sequence
+        stored = append_native_event(
+            self._events, event, observed_sequence=state.event_sequence, lease=state.control_lease
+        )
+        state.event_sequence = max(state.event_sequence, stored.sequence)
         return stored
 
     @staticmethod

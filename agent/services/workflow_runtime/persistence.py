@@ -83,6 +83,34 @@ class InMemoryCheckpointStore:
             self._ids[checkpoint_key] = stored
             return _clone_checkpoint(stored)
 
+    def save_fenced(self, checkpoint: SignedCheckpoint, *, expected_revision: int, lease) -> SignedCheckpoint:
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        return self.mutate_fenced(
+            lease=lease,
+            recipient=checkpoint,
+            mutation=lambda: self.save(checkpoint, expected_revision=expected_revision),
+        )
+
+    def mutate_fenced(self, *, lease, recipient, mutation):
+        """Reference-only lock across in-memory recipients; never durable I/O."""
+        # The reference implementation requires the exact authority instance.
+        if lease.store is not self:
+            raise OptimisticConcurrencyError("bpmn_recipient_lease_authority_unavailable")
+        with self._lock:
+            current = self.get_latest(
+                tenant_id=lease.checkpoint.tenant_id,
+                run_id=lease.checkpoint.run_id,
+                task_id=lease.checkpoint.task_id,
+            )
+            lease.assert_current(
+                current,
+                tenant_id=recipient.tenant_id,
+                workflow_id=recipient.workflow_id,
+                run_id=recipient.run_id,
+            )
+            return mutation()
+
     def get_latest(self, *, tenant_id: str, run_id: str, task_id: str) -> SignedCheckpoint | None:
         with self._lock:
             history = self._history.get((str(tenant_id), str(run_id), str(task_id)), [])
@@ -174,10 +202,22 @@ class SQLiteEventStore(_SQLiteStore, EventStore):
             )
 
     def append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int) -> CanonicalWorkflowEvent:
+        return self._append(event, expected_sequence=expected_sequence)
+
+    def append_fenced(self, event: CanonicalWorkflowEvent, *, expected_sequence: int, lease) -> CanonicalWorkflowEvent:
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        return self._append(event, expected_sequence=expected_sequence, lease=lease)
+
+    def _append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int, lease=None) -> CanonicalWorkflowEvent:
         event.assert_valid(allow_unsequenced=True)
         with self._lock:
             self._begin()
             try:
+                if lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlite_lease
+
+                    validate_sqlite_lease(self._connection, lease, event)
                 duplicate = self._connection.execute(
                     """
                     SELECT event_json, content_hash FROM workflow_runtime_events
@@ -478,10 +518,22 @@ class SQLiteCheckpointStore(_SQLiteStore, CheckpointStore):
             )
 
     def save(self, checkpoint: SignedCheckpoint, *, expected_revision: int) -> SignedCheckpoint:
+        return self._save(checkpoint, expected_revision=expected_revision)
+
+    def save_fenced(self, checkpoint: SignedCheckpoint, *, expected_revision: int, lease) -> SignedCheckpoint:
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        return self._save(checkpoint, expected_revision=expected_revision, lease=lease)
+
+    def _save(self, checkpoint: SignedCheckpoint, *, expected_revision: int, lease=None) -> SignedCheckpoint:
         checkpoint._assert_structure()
         with self._lock:
             self._begin()
             try:
+                if lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlite_lease
+
+                    validate_sqlite_lease(self._connection, lease, checkpoint)
                 duplicate = self._connection.execute(
                     """
                     SELECT checkpoint_json FROM workflow_runtime_checkpoints

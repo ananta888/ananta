@@ -1,0 +1,938 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-24",
+  "updated_at": "2026-09-24",
+  "owner": "Ananta",
+  "track": "bpmn_execution_semantics_hardening",
+  "title": "BPMN-Ausfuehrung in Ananta: Semantik erhalten, Grenzen sichtbar machen und echte Hub-/Worker-Laeufe absichern",
+  "status": "in_progress",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "purpose": "Den vorhandenen bpmn-js-Editor mit einer verlaesslichen Ausfuehrung des ausdruecklich unterstuetzten BPMN-Teilumfangs verbinden. Ein darstellbares oder importierbares Diagramm darf nicht automatisch als ausfuehrbar gelten.",
+  "goal": "BPMN-Bedingungen, Gateway-Verhalten, Freigaben und schrittweise ergaenzte Ereignisse bleiben bis zum kanonischen ExecutionPlan erhalten. Der Hub validiert und orchestriert, Worker fuehren ausschliesslich delegierte Aufgaben aus. Nicht unterstuetzte oder nicht autorisierte Semantik blockiert den Start vor jeder Task-Erzeugung.",
+  "planning_boundary": "Vom Benutzer zur lokalen Implementierung freigegeben; parallele Coding-Agenten ausdruecklich erlaubt. Keine automatische Hub-Task-Materialisierung und kein produktiver Rollout. Lokale Tests bleiben technische Beobachtungen ohne Hub-registrierte Release-Evidence.",
+  "review_basis": {
+    "review_date": "2026-09-24",
+    "kind": "local_code_inspection",
+    "evidence_status": "unverified",
+    "live_bpmn_execution_tested": false,
+    "notes": [
+      "Die folgenden Beobachtungen sind Codebefunde, keine Hub-registrierten Produktionsnachweise.",
+      "Vor Umsetzung am dann aktuellen Repository-Stand reproduzieren; archivierte Done-Todos belegen keine vollstaendige BPMN-Ausfuehrungssemantik.",
+      "Historische Baseline vor dieser Implementierung; aktueller Umfang und Tests stehen in implementation_review und tasks[].implementation_notes."
+    ],
+    "observations": [
+      {
+        "path": "agent/visual_process/bpmn_adapter.py",
+        "symbols": [
+          "STEP_TAG_KIND",
+          "import_bpmn_xml",
+          "_condition_from_metadata"
+        ],
+        "finding": "BPMN-Knoten und conditionExpression werden in VisualProcessGraph uebernommen. Nicht unterstuetzte direkte Prozesselemente werden mit Warnungen ausgelassen; verschachtelte Event-Definitionen und Ausfuehrungsattribute sind gesondert zu auditieren."
+      },
+      {
+        "path": "agent/visual_process/blueprint_mapper.py",
+        "symbols": [
+          "graph_to_workflow_request",
+          "_topological_order"
+        ],
+        "finding": "Der WorkflowRequest-Pfad erzeugt depends_on aus Vorwaertskanten. Kantenbedingungen werden nicht als ausfuehrbare Bedingungen uebertragen; Rueckkanten werden aus diesen Abhaengigkeiten ausgeschlossen. Der Edge-Katalog dient der Zuordnung in Read Models."
+      },
+      {
+        "path": "agent/services/workflow_runtime/execution_plan.py",
+        "symbols": [
+          "WorkflowRequestExecutionPlanAdapter.adapt",
+          "ExecutionEdge"
+        ],
+        "finding": "Der Kompatibilitaetsadapter erzeugt ExecutionEdge aus depends_on ohne explizite Bedingung; der Default ist always. Das bestehende ExecutionPlan-Modell kennt hingegen deklarative Bedingungen und soll wiederverwendet werden."
+      },
+      {
+        "path": "agent/services/local_workflow_backend.py",
+        "symbols": [
+          "LocalWorkflowBackend"
+        ],
+        "finding": "Der Legacy-Backend modelliert Status und Signale, fuehrt selbst aber keine Worker-Geschaeftslogik aus. Ein running-Status oder ein isolierter Backend-Test ist deshalb kein Ende-zu-Ende-Ausfuehrungsnachweis."
+      },
+      {
+        "path": "tests/test_visual_process_bpmn_workflow.py",
+        "finding": "Vorhandene Tests decken Import, Export, Kompilierung, Status und Routen ab. Einzelne Routentests verwenden explizite Test-Freigaben; diese ersetzen keinen produktiven Policy-/Release-Nachweis."
+      }
+    ]
+  },
+  "related_todos": [
+    "todos/archiv/todo.bpmn-js-ananta-blueprint-editor.json",
+    "todos/archiv/todo.workflow-blueprint-bpmn-temporal-integration.json",
+    "todos/archiv/todo.visual-process-step-runtime-truth-and-execution.json",
+    "todos/archiv/todo.production-ai-workflow-runtime-ananta-native-langchain-langgraph-temporal.json"
+  ],
+  "architecture_constraints": [
+    "bpmn-js bleibt Editor und Austauschoberflaeche. Weder Browser noch Worker erhalten eine eigene Orchestrierungsschleife.",
+    "Der Hub bleibt alleiniger Besitzer von Taskqueue, Routing, Policy, Freigaben, Budgets, Workflow-Entscheidungen und kanonischen Read Models.",
+    "Vorhandene VisualProcessGraph-, ExecutionPlan-, WorkflowControlService-, Runtime-Capability- und Event-/Checkpoint-Vertraege wiederverwenden; keinen parallelen Workflow-Stack aufbauen.",
+    "Hub und Worker bleiben getrennte Container. Persistenz, Nachrichten, Wiederaufnahme und Tests duerfen keinen gemeinsamen Prozessspeicher voraussetzen.",
+    "WorkflowRequest und bestehende API-Routen additiv weiterentwickeln. Alte einfache Abhaengigkeits-Workflows bleiben kompatibel; reichere Semantik darf niemals stillschweigend zu einem einfacheren Ablauf werden.",
+    "Temporal bleibt optionale Infrastruktur hinter Hub-eigenen Ports. Weder Camunda/Zeebe noch ein anderer Engine wird mit diesem Track als zweite Control Plane eingefuehrt.",
+    "BPMN-Metadaten sind untrusted Eingaben. Rollen, Tools, Tenant/Projekt, Quellenzugriff, Egress und Freigaben entstehen nur aus effektiver Hub-Policy.",
+    "SRC_* und RUN_* werden ausschliesslich durch den Hub Evidence Registry aus unveraenderlichen Bindungen zugelassen beziehungsweise vor Ausfuehrung reserviert. Diagramm-IDs, lokale Testlogs und Worker-Strings sind keine Evidence-Identitaeten."
+  ],
+  "solid_review": {
+    "preserve": [
+      "SRP: Editor, XML-Konvertierung, semantische Kompilierung, Policy, Persistenz und Worker-Ausfuehrung bleiben getrennt.",
+      "DIP/ISP: Compiler und Hub-Steuerung nutzen kleine Capability-, Expression-, Clock-, Event- und Persistenz-Ports statt konkreter Runtime-Clients."
+    ],
+    "problems_to_address": [
+      {
+        "problem": "Die reduzierte Abhaengigkeitsprojektion kann fuer ein Diagramm mit bedingten Kanten ein anderes Ausfuehrungsverhalten erzeugen.",
+        "principle": "LSP / Vertragstreue",
+        "proposed_structure": "Ein semantikerhaltender, versionierter Compiler-Vertrag mit Capability-Pruefung; verlustbehaftete Kompatibilitaetskonvertierung vor dem Start ablehnen."
+      },
+      {
+        "problem": "Weitere BPMN-Sonderfaelle direkt in Routen oder die grosse Angular-Komponente einzubauen wuerde Transport, Editorzustand und Ablaufregeln vermischen.",
+        "principle": "SRP/OCP",
+        "proposed_structure": "Fokussierte Mapper und Validatoren pro unterstuetzter Elementfamilie sowie eine schmale Editor-Fassade; keine pauschale Umstrukturierung bestehender Routen."
+      }
+    ],
+    "review_gate": "Vor Abschluss jedes Implementierungstasks SRP, Kopplung, fehlende Abstraktionen, Interface-Breite, Substituierbarkeit, versteckte Seiteneffekte und Testbarkeit pruefen; bewusst erhaltene Altlasten dokumentieren."
+  },
+  "scope": {
+    "core": [
+      "Einfache Start-/Endereignisse, Sequenzfluesse, delegierte Tasks und policy-kontrollierte User-Task-Gates.",
+      "Exklusive Verzweigungen mit typisierten Bedingungen und Default-Pfad sowie klar definierte parallele Split-/Join-Regeln.",
+      "Verlustfreie Ananta-Metadaten, ehrliche Capability-Anzeige und fail-closed Startvalidierung."
+    ],
+    "incremental_extensions": [
+      "Begrenzte Schleifen mit Hub-eigenem Iterationszustand und Budgets.",
+      "Dauerhafte Timer-Catch-Ereignisse und gezielte Message-Catch-Ereignisse mit Tenant-gebundener Korrelation.",
+      "Versioniert gebundene Unterprozesse mit begrenzter Tiefe und Hub-eigener Eltern-/Kind-Beziehung."
+    ],
+    "non_goals": [
+      "Keine Behauptung einer vollstaendigen BPMN-2.0-Konformitaet oder Funktionsgleichheit mit Camunda 8.",
+      "Keine Camunda-/Zeebe-Installation oder neue Lizenzabhaengigkeit.",
+      "Kein vollstaendiger FEEL-/DMN-Interpreter und keine Ausfuehrung von JavaScript, Python oder Shell allein aus BPMN-Ausdruecken oder scriptTask-Inhalten.",
+      "Komplexe/inklusive/eventbasierte Gateways, Event-Subprozesse, Boundary-Events, Multi-Instance, Compensation und Choreografien sind bis zu eigenen geprueften Implementierungen nicht ausfuehrbar.",
+      "Kein Umbau bestehender Hub-/Worker-Architektur, keine Worker-zu-Worker-Delegation und kein automatisches Deployment durch diese TODO."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "BPMNX-M1",
+      "title": "Ist-Verhalten reproduzieren und semantischen Verlust beim Start verhindern",
+      "status": "done",
+      "task_ids": [
+        "BPMNX-001",
+        "BPMNX-002",
+        "BPMNX-003"
+      ]
+    },
+    {
+      "id": "BPMNX-M2",
+      "title": "Kernsemantik bis zur Hub-/Worker-Ausfuehrung erhalten",
+      "status": "in_progress",
+      "task_ids": [
+        "BPMNX-004",
+        "BPMNX-005",
+        "BPMNX-006",
+        "BPMNX-007"
+      ]
+    },
+    {
+      "id": "BPMNX-M3",
+      "title": "Begrenzte Schleifen, Ereignisse und Unterprozesse ergaenzen",
+      "status": "done",
+      "task_ids": [
+        "BPMNX-008",
+        "BPMNX-009",
+        "BPMNX-010",
+        "BPMNX-011"
+      ]
+    },
+    {
+      "id": "BPMNX-M4",
+      "title": "Editor, Metadaten und Laufzeitdarstellung an die reale Semantik anbinden",
+      "status": "in_progress",
+      "task_ids": [
+        "BPMNX-012",
+        "BPMNX-013"
+      ]
+    },
+    {
+      "id": "BPMNX-M5",
+      "title": "Headless-Abnahme, Sicherheitsnachweise und kontrollierter Rollout",
+      "status": "in_progress",
+      "task_ids": [
+        "BPMNX-014",
+        "BPMNX-015",
+        "BPMNX-016"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "BPMNX-001",
+      "milestone_id": "BPMNX-M1",
+      "type": "design",
+      "title": "BPMN-Capability-Matrix und verbindlichen Ausfuehrungsvertrag festlegen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [],
+      "description": "Den gesamten Pfad vom XML ueber VisualProcessGraph und WorkflowRequest bis ExecutionPlan und Hub-Runtime auditieren. Vorhandene Runtime-Faehigkeiten von tatsaechlich durchgaengig angebundener BPMN-Semantik unterscheiden.",
+      "files": [
+        "agent/visual_process/bpmn_adapter.py",
+        "agent/visual_process/blueprint_mapper.py",
+        "agent/services/workflow_runtime/execution_plan.py",
+        "docs/blueprints/bpmn-blueprint-editor.md"
+      ],
+      "acceptance_criteria": [
+        "Eine versionierte Matrix unterscheidet pro Element, Attribut, Event-Definition und Runtime zwischen darstellbar, verlustfrei austauschbar, kompilierbar und nachgewiesen ausfuehrbar.",
+        "XOR-Auswahlreihenfolge, Default-Pfad, AND-Join, Variablensicht, fehlende Werte, Schleifenlimits und Fehlerzustaende sind vor Implementierung eindeutig definiert.",
+        "Der ExecutionPlan bleibt kanonischer Ausfuehrungsvertrag; der Migrationsweg fuer alte WorkflowRequests und gespeicherte Definitionen ist dokumentiert."
+      ],
+      "test_expectations": [
+        "Schema-/Katalogtests verhindern unbekannte Capability-Zustaende und widerspruechliche Ausfuehrbarkeitsangaben."
+      ],
+      "implementation_notes": [
+        "Versionierter Katalog, dokumentierte DAG-/XOR-/AND-Grenzen und ausgeschalteter Opt-in fuer Native; Runtime-Verifikation bleibt getrennt."
+      ]
+    },
+    {
+      "id": "BPMNX-002",
+      "milestone_id": "BPMNX-M1",
+      "type": "test",
+      "title": "Bedingungsverlust und scheinbare Ausfuehrbarkeit als Regressionstests festhalten",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-001"
+      ],
+      "description": "Minimale deterministische BPMN-Beispiele fuer XOR mit zwei Ausgaengen, Default-Pfad, Rueckkante, verschachtelte Timer-Definition und unbekanntes Element erstellen. Den heutigen Konvertierungsverlust bis ExecutionPlan reproduzieren.",
+      "files": [
+        "tests/test_visual_process_bpmn_workflow.py",
+        "agent/visual_process/blueprint_mapper.py",
+        "agent/services/workflow_runtime/execution_plan.py"
+      ],
+      "acceptance_criteria": [
+        "Tests zeigen konkret, an welcher Grenze Bedingungen oder Rueckkanten verloren gehen; sie pruefen nicht nur XML-Parsing oder HTTP 200.",
+        "Nach der Korrektur pruefen dieselben Beispiele den gewaehlten Pfad sowie null Delegationen fuer nicht ausgewaehlte oder nicht ausfuehrbare Schritte.",
+        "Fixtures sind minimal, synthetisch, ohne volatile IDs/Zeitstempel und mit dokumentiertem Testzweck; keine produktiven Daten oder bestehenden Worker werden verwendet."
+      ],
+      "test_expectations": [
+        "Red-green-Nachweis fuer den XOR-Verlust; unbekannte Event-Definitionen und Rueckkanten duerfen nicht unbemerkt zu always-Kanten werden."
+      ],
+      "implementation_notes": [
+        "Red/Green fuer XML-Admisson und bedingte Ausfuehrung; synthetische Hub-Runtime-Tests pruefen tatsaechliche Delegationen statt Status allein."
+      ]
+    },
+    {
+      "id": "BPMNX-003",
+      "milestone_id": "BPMNX-M1",
+      "type": "implementation",
+      "title": "Nicht unterstuetzte Semantik vor Task-Erzeugung fail-closed ablehnen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-001",
+        "BPMNX-002"
+      ],
+      "description": "Bearbeitung und verlustbehaftete Vorschau von einer ausfuehrbaren Definition trennen. Ein Warnungs- oder Provenienzverlust zwischen Import und direktem Graph-/WorkflowRequest-Start darf die Sperre nicht umgehen.",
+      "files": [
+        "agent/visual_process/bpmn_adapter.py",
+        "agent/visual_process/validator.py",
+        "agent/routes/visual_process.py"
+      ],
+      "acceptance_criteria": [
+        "Nicht unterstuetzte Elemente, Attribute, Expressions und verschachtelte Event-Definitionen liefern strukturierte Fehler mit Element-/Kanten-ID und reason_code; Compile-for-execution und Start erzeugen keine Tasks.",
+        "Der Hub bindet den validierten Bericht an eine unveraenderliche Definitionsrevision und revalidiert direkte Graph-/WorkflowRequest-Eingaben; ein entfernter Client-Warnhinweis oder nachtraeglich manipuliertes XML hebt die Sperre nicht auf.",
+        "Vorhandener Import/Export bleibt fuer Bearbeitung nutzbar, ohne entfernte Semantik als erhalten darzustellen. XML-Groesse, Tiefe und Elementzahl sind begrenzt; DTD/Entity-Aufloesung und externe Nachladezugriffe sind ausgeschlossen."
+      ],
+      "test_expectations": [
+        "API-Tests fuer jeden Startpfad, manipulierte Importberichte, Boundary-/Timer-Definitionen, uebergrosse XML-Eingaben und null Queue-Writes bei Ablehnung."
+      ],
+      "implementation_notes": [
+        "Bounded XML-/Metadateninspektion und unveraenderliche Quellbindung; direkte Graph-/WorkflowRequest-, Blueprint- und Exportpfade lehnen Semantikverlust vor Runtime-Auswahl/Queue ab. Strukturierte Elementfehler, inklusive rekursiver JSON-/ungueltiger Expression-Eingaben."
+      ]
+    },
+    {
+      "id": "BPMNX-004",
+      "milestone_id": "BPMNX-M2",
+      "type": "implementation",
+      "title": "Verlustfreien Compiler zum kanonischen ExecutionPlan integrieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-003"
+      ],
+      "description": "Kantenidentitaet, Bedingungen, Gateway-Typen, Default-Flows, Variablenbindung und Definitionsrevision explizit in den bestehenden Ausfuehrungsvertrag uebertragen. API und Legacy-Adapter bleiben kompatibel.",
+      "files": [
+        "agent/visual_process/blueprint_mapper.py",
+        "agent/services/workflow_backend.py",
+        "agent/services/workflow_runtime/execution_plan.py",
+        "agent/services/workflow_control_composition.py"
+      ],
+      "acceptance_criteria": [
+        "BPMN -> VisualProcessGraph -> akzeptierter Request -> ExecutionPlan erhaelt alle als ausfuehrbar deklarierten Semantikfelder und bindet sie in den kanonischen Hash ein.",
+        "Eine additive versionierte Erweiterung oder ein dedizierter Graph-Compiler ersetzt die verlustbehaftete Reduktion; kein zweites unabhaengiges Prozessmodell und keine Ausfuehrungslogik in Routen.",
+        "Legacy-Requests mit reinen Abhaengigkeiten behalten ihr Verhalten. Nicht darstellbare Semantik wird abgewiesen statt stillschweigend herabgestuft; unpassende Runtime-Capabilities blockieren ohne impliziten Fallback."
+      ],
+      "test_expectations": [
+        "Roundtrip-/Contracttests, Hash-Aenderung bei Bedingungswechsel, Legacy-Kompatibilitaet und negative Runtime-Substitutionstests."
+      ],
+      "implementation_notes": [
+        "Additive execution_graph-Projektion auf den bestehenden ExecutionPlan. Kanten-IDs, Bedingungen, Controls, Default-Flows, Quell- und Requesthash bleiben erhalten; Wire-/Schema-/Hash-Roundtrip und Legacy-/Runtime-Substitution sind getestet."
+      ]
+    },
+    {
+      "id": "BPMNX-005",
+      "milestone_id": "BPMNX-M2",
+      "type": "implementation",
+      "title": "Sichere Bedingungen und deterministische XOR-Verzweigungen ausfuehren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-004"
+      ],
+      "description": "Den vorhandenen deklarativen Bedingungsvertrag fuer einen klar begrenzten BPMN-Ausdrucksdialekt nutzen. Eine Gateway-Entscheidung bleibt eine deterministische Hub-Entscheidung auf einem gebundenen Variablensnapshot.",
+      "acceptance_criteria": [
+        "Genau ein Ausgang wird gemaess dokumentierter stabiler Reihenfolge gewaehlt; der Default gilt nur ohne passenden regulaeren Ausgang. Kein Treffer ohne Default erzeugt einen erklaerten Incident-/Fehlerzustand.",
+        "Datentypen, null/fehlende Werte und ungueltige Ausdruecke sind definiert. Keine eval-/exec-Ausfuehrung, keine Modellabfrage, kein Datei-/Netzwerkzugriff und keine pauschale FEEL-Kompatibilitaetsbehauptung.",
+        "Entscheidung, Variablensnapshot-Bindung und Edge-ID werden persistiert; Replay/Restart entscheidet nicht gegen spaeter veraenderte Daten neu. Nicht gewaehlte Zweige erzeugen keine Worker-Tasks."
+      ],
+      "test_expectations": [
+        "True/false, mehrere Treffer, Default, kein Treffer, falscher Typ, fehlendes Feld, Ausdrucksinjektion, Replay und Restart mit inzwischen geaenderten Eingabedaten."
+      ],
+      "implementation_notes": [
+        "Begrenzter typisierter Ausdrucksdialekt ohne eval/exec. Hub-XOR waehlt in XML-Reihenfolge, persistiert die Edge-ID und propagiert Skips ohne Delegation. Restart bindet Eingaben/Entscheidung; getrennte Container pruefen true, false und Default."
+      ]
+    },
+    {
+      "id": "BPMNX-006",
+      "milestone_id": "BPMNX-M2",
+      "type": "implementation",
+      "title": "Parallele Split-/Join-Semantik mit Hub-eigener Aktivierungsidentitaet absichern",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-004"
+      ],
+      "description": "Vorhandene Native-Fan-out-/Merge-Funktionen fuer den deklarierten BPMN-AND-Teilumfang verwenden. Ein Join darf nicht nur auf statische depends_on-Listen vertrauen.",
+      "acceptance_criteria": [
+        "Ein Split aktiviert jeden vorgesehenen Zweig genau einmal; ein Join schaltet erst bei den erforderlichen Ankuenften derselben Aktivierung weiter, auch bei verschachtelten Splits und Wiederholungen.",
+        "Doppelte, verspätete oder fremde Worker-Ergebnisse koennen keinen zweiten Join oder verfruehten Nachfolger erzeugen. Branch-Fehler und Cancellation besitzen definierte Terminalregeln.",
+        "Parallelitaetsgrenzen und Ergebnis-Merge sind Hub-kontrolliert und deterministisch; Variablenkonflikte werden nicht durch zufaellige Fertigstellungsreihenfolge entschieden."
+      ],
+      "test_expectations": [
+        "Zwei und verschachtelte Zweige, vertauschte Ergebnisreihenfolge, doppelte Rueckmeldung, Restart vor Join und konflikthafte Branch-Ausgaben."
+      ],
+      "implementation_notes": [
+        "Hub-eigene AND-Barrieren mit verschachtelten Splits/Joins, umgekehrter Resultatreihenfolge, Branch-Fehlern, Cancellation und Neustart abgesichert; getrennte Container beobachten einen noch wartenden Zweig.",
+        "Neuer XML-Integrationstest prueft zwei verschachtelte AND-Barrieren in drei Iterationen eines eingebetteten Unterprozesses mit zurueckgehaltener Ankunft je Iteration. Neun eindeutige Delegationen; fremde/stale Resultate bleiben abgewiesen."
+      ]
+    },
+    {
+      "id": "BPMNX-007",
+      "milestone_id": "BPMNX-M2",
+      "type": "implementation",
+      "title": "Service-/User-Tasks an echte Delegation und Hub-Freigabepolicy binden",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 90.0,
+      "depends_on": [
+        "BPMNX-004",
+        "BPMNX-005"
+      ],
+      "description": "ServiceTasks erzeugen bestehende Hub-Tasks mit geschlossenem Assignment; UserTasks nutzen die vorhandene Approval-Steuerung. Modellierte Tasks duerfen nicht durch blossen Statuswechsel als erledigt gelten.",
+      "acceptance_criteria": [
+        "Task-Art, Eingaben, erlaubte Tools, Seiteneffekte und Ergebnisvertrag werden Hub-seitig validiert; scriptTask/businessRuleTask starten keinen beliebigen Code oder impliziten Regelinterpreter.",
+        "Nur ein Resultat des aktuellen Assignments und Dispatch-Lease kann den Schritt abschliessen. Retry, Timeout und Cancellation respektieren Budgets, Idempotenz und unklare Seiteneffekte.",
+        "User-Task-Freigaben binden Akteur, Tenant, Definitions-/Planrevision und Gate. Headless-Freigabe erfolgt nur durch explizite Hub-Auto-Approval-Policy; sonst bounded blocked statt unbegrenztem Warten.",
+        "Workers koennen weder Folgeaufgaben erzeugen noch weitere Worker ansteuern; effektive Rechte werden niemals allein aus BPMN-Metadaten abgeleitet."
+      ],
+      "test_expectations": [
+        "Getrennte Hub-/Worker-Container mit deterministischem Worker, positive und verweigerte Auto-Freigabe, stale Lease, Rechteausweitung und Timeout ohne doppelte Seiteneffekte."
+      ],
+      "implementation_notes": [
+        "Realer oeffentlicher Start/Login, TaskQueueService, SQL-Task-Persistenz, Assignment, Worker-Autorisierung und Native-Resultatannahme in isolierten Containern gruen. User-Tasks erfordern signierte Hub-Policyentscheidungen; fehlende Auto-Policy liefert bounded blocked.",
+        "Tool-/Artefakt-Scope und endliche Verbrauchswerte werden vor Annahme geprueft; auch fehlgeschlagene Arbeit verbraucht das Run-Budget. Fenced Queue-Erstellung und Resultatquittierung sowie Abbruch-Recovery ohne erneute Delegation integriert.",
+        "Offen: generischer Result-Ingress schreibt derzeit Worker-Felder auf den Task, bevor Native Attempt/Fence prueft. Artefakt-Transfer/Hub-Receipts fehlen; entsprechende BPMN-Plaene werden vor Start explizit gesperrt. Vollstaendiges Claim/Grant/Cancel/Seiteneffekt-Fencing bleibt eigener Sicherheitsabschluss."
+      ]
+    },
+    {
+      "id": "BPMNX-008",
+      "milestone_id": "BPMNX-M3",
+      "type": "implementation",
+      "title": "Begrenzte Schleifen statt verworfener Rueckkanten unterstuetzen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-005",
+        "BPMNX-006",
+        "BPMNX-007"
+      ],
+      "description": "Einen ausdruecklich unterstuetzten Schleifentyp auf vorhandene Hub-eigene Aktivierungs-/Iterationsvertraege abbilden. Task-Abhaengigkeiten duerfen dadurch keinen unbehandelbaren Zyklus erhalten.",
+      "acceptance_criteria": [
+        "Rueckkanten und Abbruchbedingungen gehen nicht verloren. Schrittidentitaeten unterscheiden Iterationen; ein Ergebnis aus Iteration n kann Iteration n+1 nicht abschliessen.",
+        "Iterationszahl, Laufzeit und Kosten haben endliche Hub-Limits; Limitueberschreitung, Cancellation und Restart liefern reproduzierbare Zustaende.",
+        "Nicht unterstuetzte unstrukturierte Zyklen werden vor dem Start mit Elementbezug abgewiesen; es entsteht keine Worker-eigene Schleifensteuerung."
+      ],
+      "test_expectations": [
+        "Null/eine/mehrere Iterationen, Endlosschleifenbudget, stale Resultat und Wiederaufnahme innerhalb einer Iteration."
+      ],
+      "implementation_notes": [
+        "StandardLoopCharacteristics mit testBefore=true, loopMaximum 1..32 und typisiertem loopCondition sind XML-/Request-/ExecutionPlan-seitig integriert. Explizite Anfangs-/Wiederholungsprojektionen und quellengebundene DAG-Knoten trennen Iterationen.",
+        "Finite Hub-Laufzeit-/Kosten-/Tokenbudgets, Nulliteration, Maximum, stale Resultate, Restart, Cancellation und Schleifen um Unterprozesse sind getestet. Container-Fall prueft drei echte Worker-Delegationen nach SQL-Neuaufbau. Beliebige Rueckkanten und test-after/Multi-Instance bleiben gesperrt.",
+        "Der separate Component-Expansion-Preview bleibt gesperrt; er ist nicht der implementierte XML-Regionenpfad."
+      ]
+    },
+    {
+      "id": "BPMNX-009",
+      "milestone_id": "BPMNX-M3",
+      "type": "implementation",
+      "title": "Dauerhafte, begrenzte Timer-Catch-Ereignisse integrieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-004",
+        "BPMNX-007"
+      ],
+      "description": "Zunaechst intermediate timer catch mit begrenzter Dauer oder eindeutigem Zeitpunkt unterstuetzen. Bestehende persistente Timer-/Runtime-Ports verwenden; keine langen Sleeps in Hub-Requests oder Worker-Prozessen.",
+      "acceptance_criteria": [
+        "Faelligkeit, Zeitzonenbehandlung, Aktivierungsidentitaet und Timerzustand sind persistent; Restart und mehrfache Zustellung aktivieren den Nachfolger hoechstens einmal wirksam.",
+        "Cancellation und Faelligkeit werden atomar gegeneinander entschieden; ein stornierter Timer startet keinen Task. Tests verwenden injizierbare Uhr statt realer Wartezeiten.",
+        "Fehlt der ausgewaehlten Runtime dauerhafte Timer-Unterstuetzung, ist der Workflow nicht ausfuehrbar. Zyklische, Start- und Boundary-Timer bleiben bis zur separaten Freigabe gesperrt."
+      ],
+      "test_expectations": [
+        "Uhrvorspulen, ueberfaelliger Timer nach Restart, doppelte Timerzustellung, Cancel-Rennen und Capability-Mismatch."
+      ],
+      "implementation_notes": [
+        "Intermediate Timer-Catch mit begrenzter ISO-Dauer oder zonengebundenem absolutem Zeitpunkt bis in Native integriert; Hub-eigene signierte Wait-Aggregate und aktuelle Control-Lease statt Worker-Schleife.",
+        "Verbrauchsreceipt und Native-Anwendung werden vor Nachfolgerdelegation persistent. Injizierte Uhr prueft Ablauf/Cancel, SQL-Restart, Duplikate, Lease-Verlust und Crash vor/nach Anwendung. Reale getrennte Container pruefen einen Zero-Duration-Timer und SQL-Neuaufbau ohne reale Timer-Schlafzeit.",
+        "Start-/Boundary-/zyklische Timer bleiben nicht ausfuehrbar; Projektbindung ist zwingend und Retry geschlossener Wait-Laeufe wird abgewiesen."
+      ]
+    },
+    {
+      "id": "BPMNX-010",
+      "milestone_id": "BPMNX-M3",
+      "type": "implementation",
+      "title": "Persistente Message-Catch-Korrelation ohne Rechteausweitung ergaenzen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-007",
+        "BPMNX-009"
+      ],
+      "description": "Gezielte Nachrichten ueber einen authentifizierten Hub-Eingang an bestehende Instanzen korrelieren. Vorhandene Event-/Inbox-/Outbox-Ports wiederverwenden und Korrelation von Task-Ausfuehrung trennen.",
+      "acceptance_criteria": [
+        "Nachrichtenname, Korrelationsschluessel, Tenant/Projekt, Instanz, Payload-Schema, Nachricht-ID und TTL bilden einen validierten Vertrag; unberechtigte Nachrichten veraendern keinen Lauf.",
+        "Fruehe Nachrichten werden nur gemaess expliziter begrenzter Pufferpolicy zugelassen. Deduplizierung, Ablauf und Verbrauch sind persistent und verhindern Cross-Tenant-Zustellung sowie Mehrfachaktivierung.",
+        "Payloads sind Daten, keine Tools, Befehle oder Freigaben. Nicht unterstuetzte Start-/Boundary-/Broadcast-Semantik bleibt als nicht ausfuehrbar markiert."
+      ],
+      "test_expectations": [
+        "Nachricht vor/nach Subscription, Duplikate, Ablauf, parallele Consumer, Hub-Restart, falscher Tenant und manipulierte Korrelation."
+      ],
+      "implementation_notes": [
+        "Geschlossener Message-Catch-Vertrag mit Name, Schluessel, Schemahash, skalarem Payload, Message-ID, TTL sowie Tenant/Projekt/Run/Plan/Aktivierungsbindung in Native integriert.",
+        "Authentifizierter bpmn_message-Eingang signiert die explizite Plan-/Run-/Checkpoint-/Revisionsbindung. Unberechtigte, stale, manipulierte und fruehe Nachrichten bleiben abgewiesen; allgemeine Signals umgehen die Pruefung nicht.",
+        "Persistente Deduplizierung und genau einmal wirksame Anwendung vor Task-Delegation sind ueber Crash-/Cancel-/SQLite-Tests und separate Container mit SQL-Neuaufbau geprueft. Kein Broadcast/Start/Boundary-Message-Support."
+      ]
+    },
+    {
+      "id": "BPMNX-011",
+      "milestone_id": "BPMNX-M3",
+      "type": "implementation",
+      "title": "Unterprozesse versioniert und ausschliesslich Hub-gesteuert ausfuehren",
+      "status": "done",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-005",
+        "BPMNX-006",
+        "BPMNX-007",
+        "BPMNX-008"
+      ],
+      "description": "Zunaechst eingebettete, nicht ereignisgesteuerte Unterprozesse auf bestehende Hub-Subgraph-Vertraege abbilden. Call Activities nur bei nachgewiesener versionierter Definitionsaufloesung aktivieren.",
+      "acceptance_criteria": [
+        "Eltern-/Kind-Bindung, Definitionsrevision, lokale Variablen sowie Input-/Output-Mapping sind explizit; Kindschritte koennen keine Elternrechte oder Budgets erweitern.",
+        "Verschachtelung und Rekursion sind begrenzt. Kindfehler, Cancellation, Join und Restart propagieren nach dokumentierten Regeln ohne verwaiste Tasks.",
+        "Ein Worker fordert keine Kind-Workflows eigenstaendig an. Fehlende oder geaenderte referenzierte Definitionen sowie Event-Subprozesse blockieren vor Delegation."
+      ],
+      "test_expectations": [
+        "Input-/Output-Isolation, maximale Tiefe, Referenzdrift, Cancel des Elternlaufs und Wiederaufnahme eines laufenden Unterprozesses."
+      ],
+      "implementation_notes": [
+        "Eingebettete subProcess-XML-Regionen mit einem Ein-/Ausgang werden quellengebunden in den bestehenden Hub-DAG abgesenkt. Explizite lokale Input-/Output-Projektionen ersetzen ambienten Elternzugriff; Kinder erweitern keine Tools, Policy oder Budgets.",
+        "Begrenzte Tiefe, Schleifen um Unterprozesse, namespaced Ergebnisse, Fehler-/Cancel-Propagation, source/plan drift und SQL-Neuaufbau mit echter Worker-Delegation getestet. Lokale Kinddaten werden nur explizit exportiert.",
+        "callActivity, externe Definitionen und Event-Subprozesse bleiben bewusst gesperrt; keine zweite Runtime und keine Worker-Kindorchestrierung."
+      ]
+    },
+    {
+      "id": "BPMNX-012",
+      "milestone_id": "BPMNX-M4",
+      "type": "implementation",
+      "title": "bpmn-js-Eigenschaften, Roundtrip und Ausfuehrbarkeitsanzeige vervollstaendigen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-003",
+        "BPMNX-004",
+        "BPMNX-005"
+      ],
+      "description": "Ananta-Metadaten dauerhaft statt nur als fluechtigen Editor-Sidecar speichern. BPMN-Support und konkrete Runtime-Bereitschaft aus dem Hub beziehen, nicht aus einer zweiten Frontend-Liste ableiten.",
+      "files": [
+        "frontend-angular/src/app/features/visual-process/bpmn-blueprint-editor.component.ts",
+        "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+        "agent/visual_process/bpmn_adapter.py"
+      ],
+      "acceptance_criteria": [
+        "Bedingungen, Default-Flows, Task-/Gate-/Policy-Hinweise und spaeter freigegebene Eventparameter ueberstehen Speichern, Reload sowie XML-Export/-Import ohne Verlust; Undo/Redo, Kopieren und Loeschen halten Metadaten konsistent.",
+        "Der Editor unterscheidet modellierbar, nicht unterstuetzt, nicht konfiguriert und ausfuehrbar und zeigt Fehler direkt am betroffenen Element. Start bleibt bei fehlender Hub-Bestaetigung gesperrt; Backend validiert unabhaengig davon.",
+        "Aenderungen invalidieren vorherige Compile-Ergebnisse. bpmn.io-Wasserzeichen und Lizenzhinweise bleiben sichtbar; keine zusaetzliche Runtime oder Businesslogik im Editor."
+      ],
+      "test_expectations": [
+        "Angular- und Playwright-Tests fuer Metadaten-Roundtrip, Default-Flow, Undo/Redo, fehlende Runtime, deaktivierten Start und serverseitige Ablehnung trotz manipuliertem Client."
+      ],
+      "implementation_notes": [
+        "Echte moddle-Metadaten, Undo/Redo, Kopieren/Loeschen, Bedingungen/Defaults und XML-Roundtrips sind in Unit- und Chromium-Tests geprueft. Editieren invalidiert Compile/Preflight; stale Antworten oder Importwarnungen schalten Start nicht frei.",
+        "Authentifizierter read-only Preflight prueft dieselben Plan-/Runtime-/Policy-/Releaseports wie Start, ohne Besitzer, Tasks oder Bindings anzulegen. Plan-/Definitionshashes bleiben ueber erneute Graph-Kompilierung stabil.",
+        "Reale Anmeldung und Editorbedienung gegen den isolierten Hub mit anschliessendem Worker-Abschluss gruen. Acht zusaetzliche Browserfaelle mit API-Doubles decken Negativpfade ab; bpmn.io-Hinweise bleiben sichtbar. Erweiterte Ereignis-/Mappingdefinitionen sind per XML editierbar, ohne dedizierte Spezialformulare."
+      ]
+    },
+    {
+      "id": "BPMNX-013",
+      "milestone_id": "BPMNX-M4",
+      "type": "implementation",
+      "title": "BPMN-Schritte und Kanten an kanonische Laufzeitereignisse und Wiederaufnahme binden",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 90.0,
+      "depends_on": [
+        "BPMNX-004",
+        "BPMNX-007"
+      ],
+      "description": "Bestehende Workflow-Status-/Event- und CaseFlow-Read-Models fuer BPMN-Elemente nutzen. Die UI darf einen Lauf weder aus erfolgreichem Kompilieren noch aus einem Legacy-running-Status als ausgefuehrt darstellen.",
+      "acceptance_criteria": [
+        "Element-/Kanten-ID, Definitionsrevision, Aktivierung/Iteration und delegierter Task sind eindeutig zugeordnet. Darstellung unterscheidet ausgewählt, wartend, uebersprungen, erledigt, fehlgeschlagen und blockiert.",
+        "Variablen werden zugriffsgeschuetzt und redigiert dargestellt. Ein UI-Reload, Hub-Restart oder Worker-Ausfall rekonstruiert den Zustand aus Persistenz statt Browser- oder Prozessspeicher.",
+        "Resume, Retry und Cancel laufen ueber vorhandene authentifizierte Hub-Kommandos mit Ownership-/Revisionspruefung; Laufzeitdefinitionen sind unveraenderlich an ihren Start gebunden."
+      ],
+      "test_expectations": [
+        "Event-/Read-Model-Contracttests, Reload/Restart, stale UI-Revision, fremder Tenant und doppelte Zustellung ohne doppelte Abschlussanzeige."
+      ],
+      "implementation_notes": [
+        "Geschlossene Hub-Status-/Eventprojektion zeigt Task, Originalelement, quellengebundene Aktivierung/Iteration, Definition, Plan und Revision. Provenienz stammt aus dem unveraenderlichen Hub-Plan, nicht aus Worker-Behauptungen; kein Variablen-/Nachrichten-/Tool-Payloaddump.",
+        "Ausgewaehlte Kanten und Statusmarker sind definitionsgebunden; Snapshot-Doppelabfrage verwirft konkurrierende Revisionen. Resume/Retry/Cancel behalten authentifizierte Run-/Plan-/Checkpoint-/Revisionsbindung und sind nur nach Hub-Hinweisen bedienbar.",
+        "Offen: vollstaendige CaseFlow-Trace-Komposition fuer expandierte Originalkanten und eine echte Browser-Recovery/Command-Matrix fuer alle Erweiterungen. Der schmale Container-Hub meldet fuer CaseFlow-Trace weiterhin unavailable; die UI erfindet daraus keinen Nachweis."
+      ]
+    },
+    {
+      "id": "BPMNX-014",
+      "milestone_id": "BPMNX-M5",
+      "type": "test",
+      "title": "Headless-Referenzprozesse mit echter Hub-/Worker-Delegation abnehmen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 90.0,
+      "depends_on": [
+        "BPMNX-005",
+        "BPMNX-006",
+        "BPMNX-007",
+        "BPMNX-008",
+        "BPMNX-009",
+        "BPMNX-010",
+        "BPMNX-011",
+        "BPMNX-012",
+        "BPMNX-013"
+      ],
+      "description": "Eine automatisch ausfuehrbare Testsuite pro freigegebenem Capability-Teilumfang bauen. Native ist Pflicht; optionale Backends laufen nur mit ihrem deklarierten Umfang und separaten Tests.",
+      "acceptance_criteria": [
+        "BPMN-Import -> Compile -> Hub-Start -> echte Queue/Assignment -> deterministischer Worker -> Resultatannahme -> kanonischer Terminalzustand wird in isolierten Containern nachgewiesen; kein Mock ersetzt diese gesamte Kette.",
+        "Referenzprozesse pruefen beide XOR-Ausgaenge und Default, AND-Join, erlaubte/verweigerte Freigabe, begrenzte Schleife, Timer, Message-Catch und Unterprozess. Assertions vergleichen tatsaechliche Task-/Edge-Ereignisse und Artefakte statt nur HTTP-Codes.",
+        "Browser-Tests nutzen echte Anmeldung und Editorbedienung mit synthetischen Daten. Keine externen LLMs, echten Zugangsdaten, menschlichen Klicks oder unbegrenzten Wartezeiten sind erforderlich.",
+        "Jeder Test hat Zeit-/Ressourcenlimits und isoliertes Cleanup. Ausstehende Erweiterungen bleiben als nicht unterstuetzt sichtbar und koennen nicht durch einen gruennen Kern-Smoke als fertig gelten."
+      ],
+      "test_expectations": [
+        "Unit-, API-, Container-Integrations- und Playwright-Gates mit deterministischen Policies, virtueller Uhr und maschinenlesbaren Ergebnissen je Capability."
+      ],
+      "implementation_notes": [
+        "21/21 getrennte Hub-/Worker-/Chromium-Containerfaelle gruen: XOR/Default, AND-Barriere, erlaubte/verweigerte/fehlende Freigabe, Schleife, Timer, Nachricht, Unterprozess, SQL-Neuaufbau, oeffentlicher Start/Replay, echte Anmeldung und Editorabschluss.",
+        "71 Frontend-Unit-Tests, acht Browserfaelle mit API-Doubles und sieben Runner-Cleanup-/Timeouttests gruen. Ein ausgewaehlter Container-Teiltest wird im Bericht ausdruecklich als partial markiert; volle Abnahme nutzte keine Auswahl.",
+        "Offen: positive Artefakterzeugung mit Hub-Ingress/Receipt sowie Full-App-/Autopilot-Dispatch-/Containerverlust- und Packaging-Abnahme. Artefaktfall ist ein negativer Zero-Task-Test; kein gruener Ersatz fuer fehlenden Transfer."
+      ]
+    },
+    {
+      "id": "BPMNX-015",
+      "milestone_id": "BPMNX-M5",
+      "type": "test",
+      "title": "Sicherheits-, Recovery- und Evidence-Grenzen gegen Fehlklassifikation absichern",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 90.0,
+      "depends_on": [
+        "BPMNX-014"
+      ],
+      "description": "Fail-closed Verhalten, Neustarts und Ergebniswahrheit fuer denselben BPMN-Ausfuehrungspfad pruefen. Synthetische Tests und produktive Release-Evidence bleiben strikt getrennt.",
+      "acceptance_criteria": [
+        "Cross-Tenant-Zugriffe, unregistrierte/manipulierte Evidence-IDs, stale Leases, geaenderte Definitions-/Plan-Hashes, fehlende Freigaben und manipulierte Tool-/Policy-Metadaten fuehren zu null unberechtigten Delegationen.",
+        "Crash-Grenzen vor/nach Task-Persistenz, Dispatch, Resultatannahme, Gateway-Entscheidung und Event-Verbrauch werden automatisiert geprueft; keine doppelten wirksamen Seiteneffekte und keine verlorenen blockierten Zustaende.",
+        "Der Hub reserviert Test-Laeufe vor Ausfuehrung und klassifiziert synthetische Quellen/Resultate explizit. Diese koennen Produktionsfreigaben niemals erfuellen; lokale ungeplante Testkommandos bleiben technische Beobachtungen.",
+        "Alle Freigabe- und Releasepfade sind headless testbar. Ohne ausreichende Policy oder Evidence entsteht ein begrenztes blocked/failed-Ergebnis statt Bypass oder manuellem Pflichtschritt."
+      ],
+      "test_expectations": [
+        "Negative Autorisierungs-/Evidence-Tests, Fault-Injection, Dispatch-/Cancel-Rennen, Idempotenz sowie Runtime-Capability- und Fallback-Konformitaet."
+      ],
+      "implementation_notes": [
+        "Signed-CAS-Run-Leases, atomare Empfaengerpruefung fuer Queue-Erstellung, Events, Checkpoints/Waits und Resultatquittierung/Fehlversuche integriert. Adversariale Tests pausieren innerhalb des Empfaengers und erzwingen Ablauf/Uebernahme; stale Mutationen scheitern.",
+        "Task-Receipt-Recovery, Abbruch nach Taskcommit vor Checkpoint, immutable Resultatdigest, finite Verbrauchswerte/Budgetfailure, stale Checkpoints sowie Tool-/Datencontainment getestet. Evidence-Registry-Tests reservieren klassifizierte synthetische Runs vor simuliertem Ausfuehren und verweigern Produktionspromotion.",
+        "Offen: lueckenloses Empfaengerfencing fuer Ownership-Claims, Grant-Erstellung/Widerruf, Queue-Cancel und Seiteneffekte; generischer Result-Ingress vor Taskmutation; PostgreSQL-Konkurrenz und durchgaengige Produktions-/Dispatch-Outbox-Recovery. Keine Cross-Store-Atomaritaet behauptet."
+      ]
+    },
+    {
+      "id": "BPMNX-016",
+      "milestone_id": "BPMNX-M5",
+      "type": "documentation",
+      "title": "Supportumfang, Migration und policy-kontrollierten Rollout dokumentieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "BPMNX-015"
+      ],
+      "description": "Eine schrittweise Einfuehrung pro Capability mit kompatiblen Altdefinitionen, unveraenderlichen Laufdefinitionen, automatisierten Gates und nachvollziehbarem Rollback beschreiben.",
+      "files": [
+        "docs/blueprints/bpmn-blueprint-editor.md",
+        "docs/architecture/workflow-runtime.md",
+        "docs/operations/workflow-runtime-rollout.md"
+      ],
+      "acceptance_criteria": [
+        "Dokumentation und UI benennen denselben getesteten BPMN-Teilumfang samt Grenzen, Ausdrucksdialekt, Backend-Voraussetzungen und Migration; keine Camunda-Paritaetsbehauptung.",
+        "Rollout aktiviert nur explizit gepruefte Capabilities. Alte laufende Instanzen behalten ihre gebundene Semantik; Downgrade oder Rollback interpretiert neuere Definitionen niemals stillschweigend anders.",
+        "Ein spaeter autorisierter minipc-Abnahmelauf nutzt vorab Hub-reservierte, korrekt klassifizierte Evidence und prueft den vollstaendigen Workflow-Pfad. Ohne diese Nachweise bleibt der Produktivstatus unverified/blocked.",
+        "Abschlussbericht nennt Tests, verbleibende SOLID-Altlasten, deaktivierte Faehigkeiten und Rollback-Grenzen; tasks und abgeleitete Summaries werden konsistent aktualisiert."
+      ],
+      "test_expectations": [
+        "Dokumentierte Befehle headless pruefen; Upgrade-/Downgrade-Proben mit alten und neuen Definitionen, Policy-Sperre und wiederholtem Rollback."
+      ],
+      "implementation_notes": [
+        "Editorvertrag, XML-Regionen, Event-Waits, Architektur, Security-Review, Containervertrag und Rollout-Runbook an den verifizierten Stand angepasst. Kern, Erweiterungen, negative Artefaktsperre und verbleibende Ingress-/Recovery-Luecken sind getrennt dokumentiert.",
+        "Synthetische Drain/Disabled/Shadow-, Faehigkeits-/Fallback- und wiederholte Rollback-Denial-Tests gruen. Bestehende Laeufe bleiben unveraenderlich gepinnt; keine Downgrade-Neuinterpretation. Kanonische Summary-Engine und Trackschema validieren die TODO.",
+        "ANANTA_BPMN_EXECUTION_ENABLED bleibt produktiv unveraendert/deaktiviert; kein Deployment oder minipc-Eingriff. Spaeterer Produktivnachweis erfordert separate Autorisierung und vorab Hub-registrierte, passend klassifizierte Quellen/Runs; bis dahin unverified/blocked."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "BPMNX-001",
+    "BPMNX-002",
+    "BPMNX-003",
+    "BPMNX-004",
+    "BPMNX-005",
+    "BPMNX-007",
+    "BPMNX-008",
+    "BPMNX-011",
+    "BPMNX-014",
+    "BPMNX-015",
+    "BPMNX-016"
+  ],
+  "definition_of_done": [
+    "Jede als ausfuehrbar angebotene BPMN-Faehigkeit besitzt semantikerhaltende Konvertierung und einen bestandenen, isolierten Hub-/Worker-Referenzlauf.",
+    "Unsupported- und Policy-Fehler verhindern Starts auf allen API-Pfaden vor Task-/Queue-Seiteneffekten.",
+    "Speichern, Export/Import, UI-Reload, Hub-Restart, Retry und Cancellation erhalten Definition, Semantik und Rechtebindung.",
+    "Sicherheits- und Approvaltests sind vollautomatisch; produktive Freigaben verlangen passende Hub-registrierte Evidence und akzeptieren keine synthetischen Ersatznachweise.",
+    "Hub-/Worker- und Containergrenzen, API-Kompatibilitaet, SOLID-Verantwortlichkeiten und bpmn-js-Lizenzhinweise bleiben erhalten.",
+    "Alle 16 Tasks sind nach ihren Kriterien verifiziert oder der Track bleibt offen; Dokumentation trennt implementierten Umfang von ausdruecklichen Nicht-Zielen."
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 4,
+      "blocked": 0,
+      "done": 12
+    },
+    "progress_percent_done": 75.0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 7,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 9,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 8,
+      "remaining": 3
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 0,
+      "in_progress": 3,
+      "blocked": 0,
+      "done": 2
+    }
+  },
+  "tasks_type_summary": {
+    "total": 16,
+    "by_type": {
+      "design": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "test": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 93.3
+      },
+      "implementation": {
+        "total": 11,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 9
+        },
+        "done": 9,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 98.2
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 4,
+    "blocked": 0,
+    "done": 12,
+    "count_based_percent": 75.0,
+    "weighted_percent": 97.5
+  },
+  "summary_notes": [
+    "tasks[] ist die einzige Statusquelle; Summary-Bloecke sind durch PlanningSummaryEngine abgeleitete Caches.",
+    "5 Kern-Tasks abgeschlossen, 11 Tasks teilweise umgesetzt. Der gesamte Track bleibt offen; getestete Bausteine fuer Erweiterungen sind keine aktivierten BPMN-Faehigkeiten.",
+    "Alle aufgefuehrten Tests sind synthetische technische Beobachtungen. Keine Hub-registrierte Release-Evidence und kein produktiver Rollout.",
+    "Archivierte Editor-/Runtime-Todos bleiben unveraendert; vorbestehende Strategiespiel-/Deployment-Aenderungen wurden nicht in diesen Track aufgenommen."
+  ],
+  "implementation_review": {
+    "date": "2026-09-24",
+    "kind": "local_headless_synthetic_verification",
+    "evidence_status": "unverified",
+    "production_release_evidence": false,
+    "deployment_performed": false,
+    "production_bpmn_enabled": false,
+    "implemented_core": [
+      "Source-bound compiler and deterministic public graph preflight/start/replay",
+      "Hub-owned XOR, nested/repeated AND and bounded standard-loop/embedded-subprocess DAGs",
+      "Explicit isolated input/output projections and finite runtime budgets",
+      "Durable signed timer/message waits with authenticated revision-bound ingress",
+      "Actual TaskQueueService SQL admission with recipient lease fencing and exact crash/cancel recovery",
+      "Content-bound result acknowledgement, finite metering and bounded observation-event coordination",
+      "Real authenticated Chromium editor run with actual Worker completion",
+      "Canonical activation provenance and guarded Resume/Retry/Cancel UI"
+    ],
+    "disabled_extensions": [
+      "Artifact-bearing BPMN execution until assignment-bound Hub ingress/receipt exists",
+      "Arbitrary cycles, test-after and multi-instance loops, external callActivity",
+      "Start/boundary/cyclic events, broadcast messages, event subprocesses, unsupported gateways",
+      "Separate component expansion preview execution",
+      "All production BPMN capabilities remain disabled by default and lack release evidence"
+    ],
+    "verification": [
+      {
+        "suite": "tests/bpmn",
+        "passed": 579,
+        "scope": "Final full synthetic compiler/runtime/recovery/security/provenance/telemetry suite; all passed, no production evidence"
+      },
+      {
+        "suite": "Existing Native/production-bridge/task-adapter/worker-boundary/gateway/telemetry regression subset",
+        "passed": 67,
+        "scope": "Isolated backend with application fixtures; includes two provenance cases, overlaps the BPMN suite"
+      },
+      {
+        "suite": "BPMN editor and visual-process API Angular unit tests",
+        "passed": 71,
+        "scope": "Cached frontend image: older Angular/Vitest than current lockfile; no full locked-dependency build claim"
+      },
+      {
+        "suite": "BPMN headless Chromium with API doubles",
+        "passed": 8,
+        "scope": "Actual bpmn-js and editor, negative/stale/controls paths; distinct from real-login container case"
+      },
+      {
+        "suite": "Separate Hub/Worker/Chromium container acceptance",
+        "passed": 21,
+        "scope": "Full unfiltered run; real production login and public routes, bounded extensions and SQL recomposition; synthetic admission, no full-app/Autopilot or positive artifact-transfer claim"
+      },
+      {
+        "suite": "Container runner safety",
+        "passed": 7,
+        "scope": "Bounded timeout, exact-project cleanup, browser/case selection; not extra runtime-chain cases"
+      },
+      {
+        "suite": "workflow-runtime docs validator",
+        "status": "passed",
+        "scope": "Isolated backend dependency image"
+      }
+    ],
+    "solid_review": {
+      "protected": [
+        "SRP: source compiler, conditions, projections, waits, leases, receipt recovery, fenced Task ingestion and status lineage separated",
+        "DIP/ISP: narrow fenced/read ports on existing Hub-owned persistence/task boundaries; no unfenced BPMN fallback",
+        "LSP/OCP: additive wire fields and capabilities; legacy dependency flows preserved; explicit unsupported artifacts"
+      ],
+      "preserved_debt": [
+        "Large Native orchestrator, Worker gateway and Angular editor still coordinate multiple concerns",
+        "Neutral WorkflowRequest calls separate BPMN admission facade as explicit compatibility seam",
+        "TaskQueueService still has transitive route-ordering imports; only new ingestion helper was separated"
+      ],
+      "not_claimed": [
+        "Distributed cross-store atomicity or complete recipient fencing",
+        "Positive artifact ingress and pre-write generic result admission",
+        "PostgreSQL/full-app/Autopilot/container-loss recovery or production image/locked frontend build",
+        "Production release readiness or Camunda parity"
+      ]
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 30.25,
+    "done_weight": 29.5,
+    "remaining_weight": 0.75,
+    "blocked_weight": 0.0,
+    "weighted_percent": 97.5
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "BPMNX-M1": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "BPMNX-M2": {
+        "total_tasks": 4,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 75.0,
+        "weighted_percent": 98.0,
+        "status": "in_progress"
+      },
+      "BPMNX-M3": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "BPMNX-M4": {
+        "total_tasks": 2,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 50.0,
+        "weighted_percent": 94.3,
+        "status": "in_progress"
+      },
+      "BPMNX-M5": {
+        "total_tasks": 3,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 33.3,
+        "weighted_percent": 93.3,
+        "status": "in_progress"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-09-24T14:10:53.393655Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "8ccdab6440dc3e25134a598f8e0a4bc57e89e5e2c47ee6c3c0604488610c114b",
+    "is_stale": false
+  }
+}

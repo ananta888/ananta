@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 from agent.services.workflow_runtime.native_graph_contracts import (
@@ -9,6 +10,18 @@ from agent.services.workflow_runtime.native_graph_contracts import (
     NativeNodeCommand,
     NativeNodeResult,
 )
+
+
+@dataclass(frozen=True)
+class HubTaskSubmission:
+    command: NativeNodeCommand
+    receipt: HubTaskReceipt
+
+
+class HubTaskSubmissionReadPort(Protocol):
+    """Optional exact submission recovery, independent of queue mutation."""
+
+    def get_submission(self, *, command_id: str, tenant_id: str, run_id: str) -> HubTaskSubmission | None: ...
 
 
 class HubTaskQueuePort(Protocol):

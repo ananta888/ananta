@@ -494,10 +494,7 @@ class InMemoryWorkflowControlBindingStore:
     ) -> None:
         normalized = str(workflow_id or "").strip()
         with self._lock:
-            if (
-                self._command_claims.get(normalized) != str(command_id)
-                or self.active_transition_id(normalized)
-            ):
+            if self._command_claims.get(normalized) != str(command_id) or self.active_transition_id(normalized):
                 raise RuntimeError("workflow_control_command_finish_conflict")
             self._assert_command_observation_fence(normalized, status)
             self._record_status(normalized, status)
@@ -521,10 +518,7 @@ class InMemoryWorkflowControlBindingStore:
         status = _command_observation_status(expected_status)
         ready = _command_observation_readiness(reconciliation_ready)
         with self._lock:
-            if (
-                self._command_claims.get(normalized) != str(command_id)
-                or self.active_transition_id(normalized)
-            ):
+            if self._command_claims.get(normalized) != str(command_id) or self.active_transition_id(normalized):
                 raise RuntimeError("workflow_control_command_pending_conflict")
             current_minimum = self._command_observation_min_revision.get(normalized, 0)
             current_status = self._command_observation_expected_status.get(normalized, "")
@@ -710,11 +704,13 @@ class WorkflowRouteControlAuthorization:
         workflow_id: str,
         run_id: str = "",
     ) -> str:
-        del action, run_id
+        del run_id
         route_principal = WorkflowRoutePrincipal(
             tenant_id=principal.tenant_id,
             subject=principal.subject_id,
         )
+        if action == "preflight":
+            return "allowed" if self._ownership.can_reserve(workflow_id, route_principal) else "workflow_id_unavailable"
         if self._ownership.is_authorized(workflow_id, route_principal):
             return "allowed"
         return "workflow_run_not_found"

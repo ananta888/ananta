@@ -297,6 +297,7 @@ class WorkflowCommandType(str, Enum):
     CANCEL = "cancel"
     RETRY = "retry"
     PARAMETER_UPDATE = "parameter_update"
+    BPMN_MESSAGE = "bpmn_message"
 
 
 class ActivityClass(str, Enum):

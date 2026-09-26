@@ -472,6 +472,19 @@ class InMemoryEventStore:
             raise OptimisticConcurrencyError("workflow_transition_event_identity_conflict")
         return stored
 
+    def append_fenced(self, event: CanonicalWorkflowEvent, *, expected_sequence: int, lease) -> CanonicalWorkflowEvent:
+        from agent.services.workflow_runtime.persistence import InMemoryCheckpointStore
+
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        if not isinstance(lease.store, InMemoryCheckpointStore):
+            raise OptimisticConcurrencyError("bpmn_recipient_lease_authority_unavailable")
+        return lease.store.mutate_fenced(
+            lease=lease,
+            recipient=event,
+            mutation=lambda: self.append(event, expected_sequence=expected_sequence),
+        )
+
     def list_events(
         self,
         *,

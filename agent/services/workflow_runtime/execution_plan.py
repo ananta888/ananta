@@ -6,6 +6,7 @@ hub compiles and validates a plan before delegating nodes to worker runtimes.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -20,7 +21,7 @@ from agent.services.workflow_runtime.errors import ContractIssue, ContractValida
 
 EXECUTION_PLAN_SCHEMA = "ananta.execution_plan.v1"
 SIDE_EFFECT_CLASSES = frozenset({"none", "read", "idempotent_write", "non_idempotent_write"})
-CONDITION_OPERATORS = frozenset({"always", "all", "any", "not", "eq", "ne", "in", "exists"})
+CONDITION_OPERATORS = frozenset({"always", "all", "any", "not", "eq", "ne", "in", "exists", "gt", "ge", "lt", "le"})
 MERGE_STRATEGIES = frozenset({"object-by-node-id", "ordered-by-node-id"})
 MERGE_PARTIAL_FAILURE_POLICIES = frozenset({"fail", "omit"})
 JOIN_MODES = frozenset({"all", "any"})
@@ -51,16 +52,18 @@ class ExecutionBudget:
             max_attempts=int(value.get("max_attempts", 1)),
             timeout_seconds=float(value.get("timeout_seconds", 300.0)),
             max_tokens=int(value["max_tokens"]) if value.get("max_tokens") is not None else None,
-            max_cost_micros=(
-                int(value["max_cost_micros"]) if value.get("max_cost_micros") is not None else None
-            ),
+            max_cost_micros=(int(value["max_cost_micros"]) if value.get("max_cost_micros") is not None else None),
         )
 
     def validate(self, path: str = "budget") -> tuple[ContractIssue, ...]:
         issues: list[ContractIssue] = []
         if self.max_attempts < 1:
             issues.append(ContractIssue("budget_max_attempts_invalid", path))
-        if self.timeout_seconds <= 0:
+        if (
+            type(self.timeout_seconds) not in {int, float}
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             issues.append(ContractIssue("budget_timeout_invalid", path))
         if self.max_tokens is not None and self.max_tokens < 0:
             issues.append(ContractIssue("budget_max_tokens_invalid", path))
@@ -116,9 +119,7 @@ class ExecutionGate:
             gate_type=str(raw.get("gate_type") or "approval").strip(),
             required_roles=tuple(sorted({str(v).strip() for v in raw.get("required_roles", []) if str(v).strip()})),
             expires_after_seconds=(
-                float(raw["expires_after_seconds"])
-                if raw.get("expires_after_seconds") is not None
-                else None
+                float(raw["expires_after_seconds"]) if raw.get("expires_after_seconds") is not None else None
             ),
         )
 
@@ -182,6 +183,7 @@ class ExecutionEdge:
     source: str
     target: str
     condition: dict[str, Any] = field(default_factory=lambda: {"op": "always"})
+    edge_id: str = ""
 
     @classmethod
     def from_mapping(cls, raw: dict[str, Any]) -> "ExecutionEdge":
@@ -189,10 +191,16 @@ class ExecutionEdge:
             source=str(raw.get("source") or raw.get("from") or "").strip(),
             target=str(raw.get("target") or raw.get("to") or "").strip(),
             condition=dict(raw.get("condition") or {"op": "always"}),
+            edge_id=str(raw.get("edge_id") or "").strip(),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {"source": self.source, "target": self.target, "condition": dict(self.condition)}
+        return {
+            "source": self.source,
+            "target": self.target,
+            "condition": dict(self.condition),
+            **({"edge_id": self.edge_id} if self.edge_id else {}),
+        }
 
 
 @dataclass(frozen=True)
@@ -273,8 +281,15 @@ class ExecutionPlan:
             self.nodes,
         )
         issues.extend(artifact_issues)
+        issues.extend(_validate_bpmn_artifact_admission(self))
 
         declared_capabilities = set(self.capabilities)
+        issues.extend(_validate_bpmn_event_bindings(self.nodes, declared_capabilities, self.metadata))
+        if (
+            any(node.node_type == "bpmn_control" for node in self.nodes)
+            and "bpmn_control_v1" not in declared_capabilities
+        ):
+            issues.append(ContractIssue("bpmn_capability_required", "capabilities"))
         for index, node in enumerate(self.nodes):
             path = f"nodes[{index}]"
             if node.side_effect_class not in SIDE_EFFECT_CLASSES:
@@ -297,6 +312,18 @@ class ExecutionPlan:
             issues.extend(_validate_node_runtime_metadata(node, path))
 
         edge_pairs: set[tuple[str, str]] = set()
+        issues.extend(_validate_bpmn_projection_bindings(self.nodes, self.edges, self.capabilities))
+        from agent.services.bpmn_projection_control import validate_projection_control, validate_region_budget
+
+        issues.extend(ContractIssue(code, "budget") for code in validate_region_budget(self))
+        for index, node in enumerate(self.nodes):
+            issues.extend(
+                ContractIssue(code, f"nodes[{index}].metadata")
+                for code in validate_projection_control(
+                    node, incoming_sources=[edge.source for edge in self.edges if edge.target == node.node_id]
+                )
+            )
+        issues.extend(_validate_edge_identities(self.edges))
         adjacency: dict[str, set[str]] = {node_id: set() for node_id in known_nodes}
         indegree: dict[str, int] = {node_id: 0 for node_id in known_nodes}
         for index, edge in enumerate(self.edges):
@@ -376,6 +403,14 @@ class WorkflowRequestExecutionPlanAdapter:
         policy_version: str,
         default_budget: ExecutionBudget | None = None,
     ) -> ExecutionPlan:
+        from agent.services.bpmn_workflow_admission import validate_bpmn_request
+
+        bpmn_errors = validate_bpmn_request(request)
+        if bpmn_errors:
+            raise ValueError(",".join(bpmn_errors))
+        bpmn_graph = getattr(request, "execution_graph", None)
+        bpmn_controls = bpmn_graph["controls"] if bpmn_graph else {}
+        bpmn_waits = bpmn_graph.get("waits", {}) if bpmn_graph else {}
         steps = tuple(getattr(request, "steps", ()) or ())
         nodes: list[ExecutionNode] = []
         edges: list[ExecutionEdge] = []
@@ -387,6 +422,12 @@ class WorkflowRequestExecutionPlanAdapter:
             raise ValueError("legacy_execution_budget_invalid")
         resolved_budget = default_budget or ExecutionBudget.from_mapping(legacy_budget)
         declared_capabilities: set[str] = set(_clean_tuple(request_metadata.get("capabilities")))
+        if bpmn_graph:
+            declared_capabilities.add("bpmn_control_v1")
+            if bpmn_waits:
+                declared_capabilities.add("bpmn_events_v1")
+            if any("bpmn_input_projection" in (getattr(step, "metadata", {}) or {}) for step in steps):
+                declared_capabilities.add("bpmn_activation_v1")
         for step in steps:
             step_id = str(getattr(step, "step_id", "")).strip()
             step_metadata = dict(getattr(step, "metadata", {}) or {})
@@ -403,6 +444,9 @@ class WorkflowRequestExecutionPlanAdapter:
             nodes.append(
                 ExecutionNode(
                     node_id=step_id,
+                    node_type=(
+                        "bpmn_wait" if step_id in bpmn_waits else "bpmn_control" if step_id in bpmn_controls else "task"
+                    ),
                     task_kind=str(getattr(step, "task_kind", "coding") or "coding"),
                     required_capabilities=required_capabilities,
                     allowed_tools=_clean_tuple(getattr(step, "allowed_tools", ())),
@@ -411,26 +455,42 @@ class WorkflowRequestExecutionPlanAdapter:
                     gate_id=gate_id,
                     side_effect_class=_legacy_side_effect_class(step_metadata),
                     metadata={
+                        **({"bpmn_wait": bpmn_waits[step_id]} if step_id in bpmn_waits else {}),
+                        **{
+                            key: value
+                            for key, value in (
+                                bpmn_graph.get("node_metadata", {}).get(step_id, {}) if bpmn_graph else {}
+                            ).items()
+                        },
+                        **(
+                            {
+                                "bpmn_control": bpmn_controls[step_id],
+                                "join_mode": "all" if bpmn_controls[step_id]["kind"] == "parallel" else "any",
+                            }
+                            if step_id in bpmn_controls
+                            else {}
+                        ),
                         "legacy_role": str(getattr(step, "role", "") or ""),
                         "legacy_policy_scope_hash": sha256_json(
                             redact_json(dict(getattr(step, "policy_scope", {}) or {}))
                         ),
                         "legacy_metadata_hash": sha256_json(redact_json(step_metadata)),
                         "declared_operation": str(
-                            step_metadata.get("operation_name")
-                            or step_metadata.get("declared_operation")
-                            or ""
+                            step_metadata.get("operation_name") or step_metadata.get("declared_operation") or ""
                         ),
-                        **(
-                            {"model_routing": model_routing.as_metadata()}
-                            if model_routing is not None
-                            else {}
-                        ),
+                        **({"model_routing": model_routing.as_metadata()} if model_routing is not None else {}),
                     },
                 )
             )
             for dependency in getattr(step, "depends_on", ()) or ():
                 edges.append(ExecutionEdge(source=str(dependency), target=step_id))
+        if bpmn_graph:
+            edges = [
+                ExecutionEdge(
+                    source=edge["source"], target=edge["target"], condition=edge["condition"], edge_id=edge["id"]
+                )
+                for edge in bpmn_graph["edges"]
+            ]
         artifacts = tuple(ArtifactContract(artifact_id=value) for value in sorted(artifact_ids))
         request_serializer = getattr(request, "to_dict", None)
         request_payload = (
@@ -454,6 +514,7 @@ class WorkflowRequestExecutionPlanAdapter:
             budget=resolved_budget,
             metadata={
                 "adapted_from": "ananta.workflow_request.v1",
+                **({"bpmn_definition_hash": bpmn_graph["definition_hash"]} if bpmn_graph else {}),
                 "legacy_request_hash": sha256_json(redact_json(request_payload)),
                 **_legacy_rollout_scope(
                     request_metadata,
@@ -464,6 +525,16 @@ class WorkflowRequestExecutionPlanAdapter:
         )
         plan.assert_valid()
         return plan
+
+
+def _validate_bpmn_artifact_admission(plan: ExecutionPlan) -> tuple[ContractIssue, ...]:
+    # Native BPMN has no assignment-bound transfer/Hub receipt admission yet.
+    # A Worker-local artifact:// ID cannot establish Hub-owned bytes. Preserve
+    # editing/roundtrip and legacy plans; fail execution closed until this port
+    # is supplied and verified, instead of fabricating receipt references.
+    bpmn = plan.metadata.get("bpmn_definition_hash") or plan.metadata.get("bpmn_activation_expansion")
+    artifacts = plan.artifacts or any(node.input_artifacts or node.output_artifacts for node in plan.nodes)
+    return (ContractIssue("bpmn_artifact_ingress_unavailable", "artifacts"),) if bpmn and artifacts else ()
 
 
 def _clean_tuple(values: Any) -> tuple[str, ...]:
@@ -487,8 +558,7 @@ def _legacy_rollout_scope(
     elif metadata.get("project_id"):
         candidate = {
             "project_id": metadata.get("project_id"),
-            "profile_id": metadata.get("runtime_profile_id")
-            or metadata.get("profile_id"),
+            "profile_id": metadata.get("runtime_profile_id") or metadata.get("profile_id"),
         }
     else:
         return {}
@@ -504,7 +574,19 @@ def _legacy_rollout_scope(
     return {"workflow_rollout_scope": bounded}
 
 
-def _validate_condition(condition: Any, path: str) -> tuple[ContractIssue, ...]:
+def _validate_edge_identities(edges: tuple[ExecutionEdge, ...]) -> tuple[ContractIssue, ...]:
+    seen: set[str] = set()
+    issues = []
+    for index, edge in enumerate(edges):
+        if edge.edge_id and edge.edge_id in seen:
+            issues.append(ContractIssue("duplicate_edge_id", f"edges[{index}]"))
+        seen.add(edge.edge_id)
+    return tuple(issues)
+
+
+def _validate_condition(condition: Any, path: str, depth: int = 0) -> tuple[ContractIssue, ...]:
+    if depth > 16:
+        return (ContractIssue("condition_depth_exceeded", path),)
     if not isinstance(condition, dict):
         return (ContractIssue("condition_mapping_required", path),)
     operator = str(condition.get("op") or "").strip()
@@ -513,19 +595,64 @@ def _validate_condition(condition: Any, path: str) -> tuple[ContractIssue, ...]:
     issues: list[ContractIssue] = []
     if operator in {"all", "any"}:
         children = condition.get("conditions")
-        if not isinstance(children, list) or not children:
+        if not isinstance(children, list) or not children or len(children) > 128:
             issues.append(ContractIssue("condition_children_required", f"{path}.conditions"))
         else:
             for index, child in enumerate(children):
-                issues.extend(_validate_condition(child, f"{path}.conditions[{index}]"))
+                issues.extend(_validate_condition(child, f"{path}.conditions[{index}]", depth + 1))
     elif operator == "not":
-        issues.extend(_validate_condition(condition.get("condition"), f"{path}.condition"))
-    elif operator in {"eq", "ne", "in", "exists"}:
+        issues.extend(_validate_condition(condition.get("condition"), f"{path}.condition", depth + 1))
+    elif operator in {"eq", "ne", "in", "exists", "gt", "ge", "lt", "le"}:
         field_name = condition.get("field")
         if not isinstance(field_name, str) or not field_name.strip():
             issues.append(ContractIssue("condition_field_required", f"{path}.field"))
         if operator != "exists" and "value" not in condition:
             issues.append(ContractIssue("condition_value_required", f"{path}.value"))
+    return tuple(issues)
+
+
+def _validate_bpmn_event_bindings(nodes, capabilities, metadata):
+    if not any(node.node_type == "bpmn_wait" for node in nodes):
+        return ()
+    issues = []
+    if "bpmn_events_v1" not in capabilities:
+        issues.append(ContractIssue("bpmn_events_capability_required", "capabilities"))
+    if not metadata.get("bpmn_definition_hash"):
+        issues.append(ContractIssue("bpmn_wait_definition_binding_required", "metadata"))
+    return tuple(issues)
+
+
+def _validate_bpmn_projection_bindings(nodes, edges, capabilities):
+    from agent.services.bpmn_input_projection import (
+        PROJECTION_KEY,
+        projection_result_dependencies,
+        validate_input_projection,
+    )
+
+    issues = []
+    parents = {}
+    for edge in edges:
+        parents.setdefault(edge.target, set()).add(edge.source)
+    for index, node in enumerate(nodes):
+        if PROJECTION_KEY not in node.metadata:
+            continue
+        path = f"nodes[{index}].metadata.{PROJECTION_KEY}"
+        errors = validate_input_projection(node.metadata[PROJECTION_KEY])
+        if errors:
+            issues.extend(ContractIssue(code, path) for code in errors)
+            continue
+        if "bpmn_activation_v1" not in capabilities:
+            issues.append(ContractIssue("bpmn_activation_capability_required", path))
+        ancestors = set()
+        pending = list(parents.get(node.node_id, ()))
+        while pending:
+            parent = pending.pop()
+            if parent not in ancestors:
+                ancestors.add(parent)
+                pending.extend(parents.get(parent, ()))
+        dependencies = projection_result_dependencies(node.metadata[PROJECTION_KEY])
+        if node.node_id in dependencies or not dependencies <= ancestors:
+            issues.append(ContractIssue("bpmn_input_projection_dependency_unbound", path))
     return tuple(issues)
 
 
@@ -542,6 +669,16 @@ def _validate_node_runtime_metadata(
 
     issues: list[ContractIssue] = []
     metadata = node.metadata
+    from agent.services.bpmn_control_nodes import validate_control_node
+    from agent.visual_process.bpmn_event_definitions import validate_event_node
+
+    issues.extend(ContractIssue(code, path) for code in validate_control_node(node))
+    issues.extend(ContractIssue(code, path) for code in validate_event_node(node))
+    if node.node_type == "bpmn_control" and not issues:
+        for index, edge in enumerate(metadata["bpmn_control"]["outgoing"]):
+            issues.extend(
+                _validate_condition(edge["condition"], f"{path}.metadata.bpmn_control.outgoing[{index}].condition")
+            )
     if "parallel_limit" in metadata:
         issues.extend(
             _validate_positive_integer(
@@ -768,9 +905,7 @@ EXECUTION_PLAN_JSON_SCHEMA: dict[str, Any] = {
                         "join_mode": {"enum": sorted(JOIN_MODES)},
                         "failure_policy": {"enum": sorted(NODE_FAILURE_POLICIES)},
                         "merge_strategy": {"enum": sorted(MERGE_STRATEGIES)},
-                        "partial_failure": {
-                            "enum": sorted(MERGE_PARTIAL_FAILURE_POLICIES)
-                        },
+                        "partial_failure": {"enum": sorted(MERGE_PARTIAL_FAILURE_POLICIES)},
                         "model_routing": MODEL_ROUTING_JSON_SCHEMA,
                     },
                 },
@@ -781,11 +916,7 @@ EXECUTION_PLAN_JSON_SCHEMA: dict[str, Any] = {
                         "properties": {"node_type": {"const": "merge"}},
                         "required": ["node_type"],
                     },
-                    "then": {
-                        "properties": {
-                            "metadata": {"required": ["merge_strategy"]}
-                        }
-                    },
+                    "then": {"properties": {"metadata": {"required": ["merge_strategy"]}}},
                 }
             ],
             "additionalProperties": False,

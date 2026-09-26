@@ -4,6 +4,7 @@ Core data model for the Visual Process Designer.  All classes are pure
 Pydantic v2 (no SQLModel table=True) — persistence is handled separately
 via JSON blobs or a future migration.
 """
+
 from __future__ import annotations
 
 import copy
@@ -20,17 +21,26 @@ from agent.services.model_routing_contract import (
     ModelRoutingConfig as ModelRoutingConfig,
 )
 
-
 # ── Artifact / I-O (VPDF-001) ─────────────────────────────────────────────────
 
 ArtifactKind = Literal[
-    "file", "json", "text", "code", "report", "dataset",
-    "image", "audio", "binary", "vector", "unknown",
+    "file",
+    "json",
+    "text",
+    "code",
+    "report",
+    "dataset",
+    "image",
+    "audio",
+    "binary",
+    "vector",
+    "unknown",
 ]
 
 
 class ArtifactRef(BaseModel):
     """A named artifact slot on a step (input or output)."""
+
     name: str
     kind: ArtifactKind = "text"
     required: bool = True
@@ -44,6 +54,7 @@ class ArtifactRef(BaseModel):
 
 class StepIOContract(BaseModel):
     """Declares what a step consumes and what it produces (VPDF-001)."""
+
     inputs: list[ArtifactRef] = Field(default_factory=list)
     outputs: list[ArtifactRef] = Field(default_factory=list)
 
@@ -65,9 +76,10 @@ TransitionKind = Literal["always", "on_success", "on_failure", "on_output", "exp
 
 class LoopPolicy(BaseModel):
     """Loop semantics for a back-edge (VPAD-014 + VPAD-016)."""
+
     kind: LoopKind = "none"
     max_iterations: int = 1
-    condition: Optional[str] = None   # Python-style boolean expression string
+    condition: Optional[str] = None  # Python-style boolean expression string
     break_on_output: Optional[str] = None  # artifact name whose presence breaks the loop
 
     @model_validator(mode="after")
@@ -81,9 +93,10 @@ class LoopPolicy(BaseModel):
 
 class TransitionCondition(BaseModel):
     """Condition on a directed edge (VPAD-013)."""
+
     kind: TransitionKind = "always"
-    expression: Optional[str] = None      # for kind="expression"
-    output_name: Optional[str] = None     # for kind="on_output"
+    expression: Optional[str] = None  # for kind="expression"
+    output_name: Optional[str] = None  # for kind="on_output"
     loop_policy: Optional[LoopPolicy] = None  # only meaningful on back_edge
 
     @model_validator(mode="after")
@@ -99,9 +112,10 @@ class TransitionCondition(BaseModel):
 
 class VisualProcessEdge(BaseModel):
     """Directed connection between two steps (VPAD-013 + VPAD-015)."""
+
     id: str = Field(default_factory=lambda: f"edge-{uuid.uuid4().hex[:8]}")
-    source: str           # step id
-    target: str           # step id
+    source: str  # step id
+    target: str  # step id
     condition: TransitionCondition = Field(default_factory=TransitionCondition)
     label: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -116,6 +130,7 @@ class VisualProcessEdge(BaseModel):
 
 # ── Step (VPAD-001 + VPDF-001) ────────────────────────────────────────────────
 
+
 class StepPosition(BaseModel):
     x: float = 0.0
     y: float = 0.0
@@ -123,15 +138,16 @@ class StepPosition(BaseModel):
 
 class VisualProcessStep(BaseModel):
     """A single node in the visual process graph."""
+
     id: str = Field(default_factory=lambda: f"step-{uuid.uuid4().hex[:8]}")
     label: str
-    kind: str = "coding"            # maps to task_kind
-    role: Optional[str] = None      # blueprint role_name
+    kind: str = "coding"  # maps to task_kind
+    role: Optional[str] = None  # blueprint role_name
     agent_skill_profile_id: Optional[str] = None
     io: StepIOContract = Field(default_factory=StepIOContract)
     position: StepPosition = Field(default_factory=StepPosition)
     policy_hints: list[str] = Field(default_factory=list)
-    gate: bool = False              # if True: requires human approval before proceeding
+    gate: bool = False  # if True: requires human approval before proceeding
     metadata: dict[str, Any] = Field(default_factory=dict)
     # Runtime state (VPAD-011) — set during execution, not persisted in design
     run_state: Optional[str] = None  # "pending" | "running" | "done" | "failed" | "skipped"
@@ -144,8 +160,10 @@ class VisualProcessStep(BaseModel):
 
 # ── Graph (VPAD-001) ──────────────────────────────────────────────────────────
 
+
 class VisualProcessGraph(BaseModel):
     """Complete visual process definition."""
+
     id: str = Field(default_factory=lambda: f"vp-{uuid.uuid4().hex[:8]}")
     name: str
     description: str = ""
@@ -248,25 +266,25 @@ class VisualProcessGraph(BaseModel):
 
     def has_cycles(self) -> bool:
         """True if the graph contains a cycle (ignoring back_edges)."""
+        from collections import deque
+
         forward_edges = {(e.source, e.target) for e in self.edges if not e.is_back_edge()}
-        visited: set[str] = set()
-        path: set[str] = set()
-
-        def dfs(node: str) -> bool:
-            if node in path:
-                return True
-            if node in visited:
-                return False
-            visited.add(node)
-            path.add(node)
-            for src, tgt in forward_edges:
-                if src == node:
-                    if dfs(tgt):
-                        return True
-            path.discard(node)
-            return False
-
-        return any(dfs(s.id) for s in self.steps if s.id not in visited)
+        nodes = {step.id for step in self.steps} | {value for edge in forward_edges for value in edge}
+        outgoing = {node: [] for node in nodes}
+        indegree = dict.fromkeys(nodes, 0)
+        for source, target in forward_edges:
+            outgoing[source].append(target)
+            indegree[target] += 1
+        ready = deque(node for node in nodes if indegree[node] == 0)
+        visited = 0
+        while ready:
+            node = ready.popleft()
+            visited += 1
+            for target in outgoing[node]:
+                indegree[target] -= 1
+                if indegree[target] == 0:
+                    ready.append(target)
+        return visited != len(nodes)
 
 
 def _normalize_json_strings(value: Any) -> Any:
@@ -277,8 +295,5 @@ def _normalize_json_strings(value: Any) -> Any:
     if isinstance(value, list):
         return [_normalize_json_strings(item) for item in value]
     if isinstance(value, dict):
-        return {
-            unicodedata.normalize("NFC", str(key)): _normalize_json_strings(item)
-            for key, item in value.items()
-        }
+        return {unicodedata.normalize("NFC", str(key)): _normalize_json_strings(item) for key, item in value.items()}
     return value

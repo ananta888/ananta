@@ -3,13 +3,13 @@
 The hub owns planning, routing and policy decisions.  Workflow backends
 only execute an already validated WorkflowRequest and report status/events.
 """
+
 from __future__ import annotations
 
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-
 
 WORKFLOW_REQUEST_SCHEMA = "ananta.workflow_request.v1"
 WORKFLOW_STATUS_SCHEMA = "ananta.workflow_backend_status.v1"
@@ -46,8 +46,12 @@ class WorkflowStepRequest:
             gate=bool(raw.get("gate", False)),
             allowed_tools=tuple(str(v).strip() for v in list(raw.get("allowed_tools") or []) if str(v).strip()),
             policy_scope=dict(raw.get("policy_scope") or raw.get("policyScope") or {}),
-            input_artifacts=tuple(str(v).strip() for v in list(raw.get("input_artifacts") or raw.get("consumes") or []) if str(v).strip()),
-            output_artifacts=tuple(str(v).strip() for v in list(raw.get("output_artifacts") or raw.get("produces") or []) if str(v).strip()),
+            input_artifacts=tuple(
+                str(v).strip() for v in list(raw.get("input_artifacts") or raw.get("consumes") or []) if str(v).strip()
+            ),
+            output_artifacts=tuple(
+                str(v).strip() for v in list(raw.get("output_artifacts") or raw.get("produces") or []) if str(v).strip()
+            ),
             metadata=dict(raw.get("metadata") or {}),
         )
 
@@ -82,6 +86,7 @@ class WorkflowRequest:
     correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     requested_by: str = "hub"
     metadata: dict[str, Any] = field(default_factory=dict)
+    execution_graph: dict[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, raw: dict[str, Any]) -> "WorkflowRequest":
@@ -97,16 +102,28 @@ class WorkflowRequest:
             blueprint_id=str(raw.get("blueprint_id") or raw.get("blueprintId") or "").strip(),
             blueprint_version=str(raw.get("blueprint_version") or raw.get("blueprintVersion") or "").strip(),
             steps=steps,
-            allowed_tools=tuple(str(v).strip() for v in list(raw.get("allowed_tools") or raw.get("allowedTools") or []) if str(v).strip()),
+            allowed_tools=tuple(
+                str(v).strip()
+                for v in list(raw.get("allowed_tools") or raw.get("allowedTools") or [])
+                if str(v).strip()
+            ),
             policy_scope=dict(raw.get("policy_scope") or raw.get("policyScope") or {}),
-            input_artifacts=tuple(str(v).strip() for v in list(raw.get("input_artifacts") or raw.get("inputArtifacts") or []) if str(v).strip()),
+            input_artifacts=tuple(
+                str(v).strip()
+                for v in list(raw.get("input_artifacts") or raw.get("inputArtifacts") or [])
+                if str(v).strip()
+            ),
             correlation_id=str(raw.get("correlation_id") or raw.get("correlationId") or uuid.uuid4()).strip(),
             requested_by=str(raw.get("requested_by") or raw.get("requestedBy") or "hub").strip() or "hub",
             metadata=dict(raw.get("metadata") or {}),
+            execution_graph=raw.get("execution_graph"),
         )
 
     def validate(self) -> list[str]:
         errors: list[str] = []
+        from agent.services.bpmn_workflow_admission import validate_bpmn_request
+
+        errors.extend(validate_bpmn_request(self))
         if not self.workflow_id:
             errors.append("workflow_id_required")
         if not self.steps:
@@ -141,6 +158,7 @@ class WorkflowRequest:
             "correlation_id": self.correlation_id,
             "requested_by": self.requested_by,
             "metadata": dict(self.metadata),
+            **({"execution_graph": self.execution_graph} if self.execution_graph is not None else {}),
         }
 
 
@@ -163,20 +181,15 @@ class WorkflowSignal:
 class WorkflowBackend(Protocol):
     backend_id: str
 
-    def start_workflow(self, request: WorkflowRequest) -> dict[str, Any]:
-        ...
+    def start_workflow(self, request: WorkflowRequest) -> dict[str, Any]: ...
 
-    def get_workflow_status(self, workflow_id: str) -> dict[str, Any]:
-        ...
+    def get_workflow_status(self, workflow_id: str) -> dict[str, Any]: ...
 
-    def cancel_workflow(self, workflow_id: str, reason: str = "") -> dict[str, Any]:
-        ...
+    def cancel_workflow(self, workflow_id: str, reason: str = "") -> dict[str, Any]: ...
 
-    def signal_workflow(self, workflow_id: str, signal: WorkflowSignal) -> dict[str, Any]:
-        ...
+    def signal_workflow(self, workflow_id: str, signal: WorkflowSignal) -> dict[str, Any]: ...
 
-    def list_workflow_events(self, workflow_id: str) -> list[dict[str, Any]]:
-        ...
+    def list_workflow_events(self, workflow_id: str) -> list[dict[str, Any]]: ...
 
 
 def workflow_backend_event(

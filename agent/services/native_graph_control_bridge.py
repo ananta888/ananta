@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from agent.common.audit import log_audit
+from agent.services.bpmn_runtime_provenance import bpmn_step_provenance
 from agent.services.native_graph_models import NativeGraphRequest, NativeGraphResult
 from agent.services.native_graph_orchestration_service import NativeGraphOrchestrator
 from agent.services.workflow_control_bindings import (
@@ -304,6 +305,8 @@ class NativeGraphWorkflowControlBridge:
             dict(result.checkpoint.state.business_data.get("effective_plan") or {})
         )
         steps = []
+        provenance = bpmn_step_provenance(plan.to_dict())
+        waits = dict(runtime.get("bpmn_waits") or {})
         for node in plan.nodes:
             if node.node_id in completed:
                 state = "completed"
@@ -315,6 +318,8 @@ class NativeGraphWorkflowControlBridge:
                 state = "running"
             elif node.node_id in gate_nodes:
                 state = "waiting_for_approval"
+            elif node.node_id in waits:
+                state = "waiting"
             else:
                 state = "pending"
             steps.append(
@@ -326,6 +331,7 @@ class NativeGraphWorkflowControlBridge:
                     "reason_code": failed.get(node.node_id, ""),
                     "consumes": list(node.input_artifacts),
                     "produces": list(node.output_artifacts),
+                    **provenance.get(node.node_id, {}),
                 }
             )
         events = self._orchestrator.stream(
@@ -356,6 +362,16 @@ class NativeGraphWorkflowControlBridge:
             "revision": result.checkpoint.revision,
             "checkpoint_ref": result.checkpoint.checkpoint_id,
             "plan_hash": result.checkpoint.plan_hash,
+            **(
+                {
+                    "definition_hash": plan.metadata["bpmn_definition_hash"],
+                    "allowed_commands": list(
+                        self._orchestrator.available_commands(plan=plan, checkpoint=result.checkpoint)
+                    ),
+                }
+                if plan.metadata.get("bpmn_definition_hash")
+                else {}
+            ),
             "event_cursor": result.event_cursor,
             "hub_task_id": result.control_task_id,
             "steps": steps,

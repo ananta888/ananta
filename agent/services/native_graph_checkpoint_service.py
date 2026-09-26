@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from agent.services.native_graph_models import NativeGraphRequest, NativeRunState
+from agent.services.workflow_runtime.errors import OptimisticConcurrencyError
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 from agent.services.workflow_runtime.persistence import CheckpointStore
 from agent.services.workflow_runtime.security import HmacKeyRing, SignedCheckpoint
@@ -44,14 +45,16 @@ class NativeGraphCheckpointService:
             run_id=request.run_id,
             task_id=request.control_task_id,
         )
+        if state.control_lease is not None:
+            state.control_lease.ensure_valid()
+            if (latest.revision if latest else 0) != state.checkpoint_revision:
+                raise OptimisticConcurrencyError("bpmn_checkpoint_revision_stale")
         revision = (latest.revision + 1) if latest else 1
         fence = max(
             [
                 latest.fencing_token if latest else 1,
-                *[
-                    int(value.get("fencing_token") or 0)
-                    for value in state.running.values()
-                ],
+                state.control_lease.fencing_token if state.control_lease is not None else 1,
+                *[int(value.get("fencing_token") or 0) for value in state.running.values()],
             ],
         )
         emit(
@@ -77,7 +80,17 @@ class NativeGraphCheckpointService:
             fencing_token=fence,
             now=float(self._clock()),
         )
-        return self._checkpoints.save(checkpoint, expected_revision=revision - 1)
+        if state.control_lease is not None:
+            state.control_lease.ensure_valid()
+        if state.control_lease is not None:
+            save = getattr(self._checkpoints, "save_fenced", None)
+            if not callable(save):
+                raise RuntimeError("bpmn_checkpoint_recipient_fencing_unavailable")
+            saved = save(checkpoint, expected_revision=revision - 1, lease=state.control_lease)
+        else:
+            saved = self._checkpoints.save(checkpoint, expected_revision=revision - 1)
+        state.checkpoint_revision = saved.revision
+        return saved
 
     def load_verified(
         self,
@@ -93,6 +106,7 @@ class NativeGraphCheckpointService:
         if checkpoint is None:
             raise KeyError("native_graph_checkpoint_not_found")
         state = NativeRunState.from_workflow_state(checkpoint.state)
+        state.checkpoint_revision = checkpoint.revision
         plan = self.effective_plan(
             requested_plan=requested_plan,
             state=state,
@@ -111,11 +125,7 @@ class NativeGraphCheckpointService:
         base_plan_hash = state.base_plan_hash or checkpoint.plan_hash
         if requested_plan.plan_hash != base_plan_hash:
             raise ValueError("native_graph_base_plan_binding_mismatch")
-        effective = (
-            ExecutionPlan.from_mapping(dict(state.effective_plan))
-            if state.effective_plan
-            else requested_plan
-        )
+        effective = ExecutionPlan.from_mapping(dict(state.effective_plan)) if state.effective_plan else requested_plan
         if (
             effective.tenant_id != requested_plan.tenant_id
             or effective.workflow_id != requested_plan.workflow_id

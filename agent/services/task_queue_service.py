@@ -11,15 +11,15 @@ from agent.services.recovery_dispatch_gate_service import (
 from agent.services.recovery_task_mutation_policy import (
     recovery_task_role,
 )
-from agent.services.task_runtime_service import (
-    compare_and_set_local_task_status,
-    update_local_task_status,
-)
 from agent.services.task_organization_scope import (
     goal_reference,
     parent_reference,
     resolve_ingest_scope,
     states_any_scope,
+)
+from agent.services.task_runtime_service import (
+    compare_and_set_local_task_status,
+    update_local_task_status,
 )
 from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.task_status_service import normalize_task_status
@@ -197,6 +197,16 @@ class TaskQueueService:
             event_actor=created_by or "unknown",
             event_details=details,
             **fields,
+        )
+
+    def ingest_task_fenced(self, *, lease, **values: Any) -> None:
+        """Native BPMN task creation with recipient-side durable lease fencing."""
+        from agent.services.native_task_ingestion import ingest_native_task_fenced
+        from agent.services.task_runtime_service import run_external_task_status_post_commit
+
+        ingest_native_task_fenced(
+            repository=task_repo, source_resolver=self._scope_source,
+            post_commit=run_external_task_status_post_commit, lease=lease, **values,
         )
 
     def _scope_source(self, fields: Dict[str, Any]) -> Any:

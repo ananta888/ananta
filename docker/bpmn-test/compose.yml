@@ -1,0 +1,104 @@
+# Standalone project. Invoke through scripts/test_bpmn_container.py.
+x-runtime: &runtime
+  image: ${BPMN_TEST_IMAGE:-ananta-backend-tests:local}
+  pull_policy: never
+  working_dir: /sandbox
+  entrypoint: [python]
+  read_only: true
+  user: "65534:65534"
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 1536m
+  cpus: 2
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    - /sandbox/secrets:rw,nosuid,nodev,noexec,size=1m,mode=1777
+  volumes:
+    - ${BPMN_TEST_ROOT:?}/agent:/sandbox/agent:ro
+    - ${BPMN_TEST_ROOT:?}/ananta_contracts:/sandbox/ananta_contracts:ro
+    - ${BPMN_TEST_ROOT:?}/worker:/sandbox/worker:ro
+    - ${BPMN_TEST_ROOT:?}/schemas:/sandbox/schemas:ro
+    - ${BPMN_TEST_ROOT:?}/config/codecompass:/sandbox/config/codecompass:ro
+    - ${BPMN_TEST_ROOT:?}/config/workflow_runtime:/sandbox/config/workflow_runtime:ro
+    - ${BPMN_TEST_ROOT:?}/tests/bpmn_container:/sandbox/tests/bpmn_container:ro
+  networks: [acceptance]
+
+x-environment: &environment
+  PYTHONPATH: /sandbox:/sandbox/tests
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  HOME: /tmp
+  DATA_DIR: /tmp
+  DATABASE_URL: sqlite:////tmp/runtime.sqlite
+  REDIS_URL: ""
+  DEFAULT_PROVIDER: mock
+  DEFAULT_MODEL: mock
+  ANANTA_BPMN_EXECUTION_ENABLED: "1"
+  BPMN_CONTAINER_ACCEPTANCE: "1"
+  BPMN_WORKER_TOKEN: ${BPMN_WORKER_TOKEN:?}
+  BPMN_DISPATCH_TOKEN: ${BPMN_DISPATCH_TOKEN:?}
+
+services:
+  worker:
+    <<: *runtime
+    command: [-m, bpmn_container.worker]
+    environment:
+      <<: *environment
+      ROLE: worker
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2).read()"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  hub:
+    <<: *runtime
+    command: [-m, bpmn_container.acceptance]
+    environment:
+      <<: *environment
+      ROLE: hub
+      BPMN_BROWSER_ENABLED: ${BPMN_BROWSER_ENABLED:-0}
+      BPMN_BROWSER_TOKEN: ${BPMN_BROWSER_TOKEN:?}
+      BPMN_CASES: ${BPMN_CASES:-[]}
+    depends_on:
+      worker:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8080/test/ready', timeout=2).read()"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+  browser:
+    profiles: [browser]
+    image: ${BPMN_BROWSER_IMAGE:-ananta-frontend-tests:local}
+    pull_policy: never
+    working_dir: /app
+    entrypoint: [node]
+    command: [bpmn-container/browser.mjs]
+    read_only: true
+    user: "65534:65534"
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1536m
+    cpus: 2
+    shm_size: 256m
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    environment:
+      HOME: /tmp
+      BPMN_BROWSER_TOKEN: ${BPMN_BROWSER_TOKEN:?}
+    volumes:
+      - ${BPMN_TEST_ROOT:?}/frontend-angular/src:/app/src:ro
+      - ${BPMN_TEST_ROOT:?}/frontend-angular/tsconfig.json:/app/tsconfig.json:ro
+      - ${BPMN_TEST_ROOT:?}/tests/bpmn_container:/app/bpmn-container:ro
+    networks: [acceptance]
+    depends_on:
+      hub:
+        condition: service_healthy
+
+networks:
+  acceptance:
+    internal: true

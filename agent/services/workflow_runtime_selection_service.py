@@ -350,12 +350,23 @@ class WorkflowRuntimeSelectionService:
 
     def select(
         self,
+        **values: Any,
+    ) -> RuntimeSelection:
+        return self._select(**values, record_audit=True)
+
+    def preview(self, **values: Any) -> RuntimeSelection:
+        """Evaluate the identical decision without persisting selection audit."""
+        return self._select(**values, record_audit=False)
+
+    def _select(
+        self,
         *,
         plan: ExecutionPlan,
         preferred_runtime: str = "",
         allowed_runtimes: tuple[str, ...] = (),
         profile: RuntimeSelectionProfile | Mapping[str, Any] | None = None,
         context: RuntimeSelectionContext | Mapping[str, Any] | None = None,
+        record_audit: bool,
     ) -> RuntimeSelection:
         plan.assert_valid()
         resolved_profile = self._profile(profile, preferred_runtime, allowed_runtimes)
@@ -432,10 +443,11 @@ class WorkflowRuntimeSelectionService:
             required=required,
             evaluations=ordered_evaluations,
         )
-        try:
-            self._audit.record(audit_record)
-        except Exception as exc:
-            raise RuntimeError("runtime_selection_audit_failed") from exc
+        if record_audit:
+            try:
+                self._audit.record(audit_record)
+            except Exception as exc:
+                raise RuntimeError("runtime_selection_audit_failed") from exc
         rejected = tuple(
             {
                 "runtime_id": evaluation.runtime_id,
@@ -452,7 +464,7 @@ class WorkflowRuntimeSelectionService:
             reason_code=decision_reason,
             rejected=rejected,
             profile_id=resolved_profile.profile_id,
-            audit_ref=audit_record.audit_id,
+            audit_ref=audit_record.audit_id if record_audit else "",
             runtime_version=(selected_candidate.version if selected_candidate else ""),
             runtime_build=(selected_candidate.build_id if selected_candidate else ""),
         )

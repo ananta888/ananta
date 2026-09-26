@@ -111,6 +111,10 @@ class ImmediateHubQueue:
         self.results: dict[str, NativeNodeResult] = {}
         self.cancelled: list[str] = []
 
+    def submit_fenced(self, command: NativeNodeCommand, *, lease) -> HubTaskReceipt:
+        """In-memory test recipient; no production durability is claimed."""
+        return lease.store.mutate_fenced(lease=lease, recipient=command, mutation=lambda: self.submit(command))
+
     def submit(self, command: NativeNodeCommand) -> HubTaskReceipt:
         self.submissions.append(command)
         task_id = f"hub-task-{len(self.submissions)}"
@@ -262,17 +266,13 @@ def provider_plan() -> ExecutionPlan:
 
 
 def test_native_provider_node_fails_closed_without_hub_decision() -> None:
-    decisions = StaticProviderDecisions(
-        WorkflowProviderDecision("denied", "provider_binding_required")
-    )
+    decisions = StaticProviderDecisions(WorkflowProviderDecision("denied", "provider_binding_required"))
     orchestrator, queue, _, _, _, _ = runtime(provider_decisions=decisions)
 
     result = orchestrator.start(request(provider_plan()))
 
     assert result.status == "failed"
-    assert result.reason_code == (
-        "native_provider_selection_unavailable:provider_binding_required"
-    )
+    assert result.reason_code == ("native_provider_selection_unavailable:provider_binding_required")
     assert queue.submissions == []
     assert decisions.requirements[0].runtime_kind == "ananta-native"
 
@@ -284,9 +284,7 @@ def test_native_provider_node_receives_immutable_hub_binding() -> None:
         source="hub_profile.workflow_runtime.provider_selection",
         reason_code="hub_provider_policy_selected",
     )
-    decisions = StaticProviderDecisions(
-        WorkflowProviderDecision("selected", "hub_provider_policy_selected", binding)
-    )
+    decisions = StaticProviderDecisions(WorkflowProviderDecision("selected", "hub_provider_policy_selected", binding))
     orchestrator, queue, _, _, _, _ = runtime(provider_decisions=decisions)
 
     result = orchestrator.start(request(provider_plan()))
@@ -302,39 +300,25 @@ def test_native_provider_node_uses_compiled_gemma_route_and_separate_budget() ->
         "provider_transport": "required",
         "model_routing": {
             "model_role": "reasoning",
-            "preferred_profile_id": (
-                "local_ollama_gemma4_e4b_reasoning"
-            ),
+            "preferred_profile_id": ("local_ollama_gemma4_e4b_reasoning"),
             "fallback_group_id": "local_phi_to_gemma_reasoning",
         },
     }
     routed_plan = ExecutionPlan.from_mapping(value)
     decisions = HubConfiguredWorkflowProviderDecisionService(
         lambda: {
-            "model_profiles_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-            ),
-            "model_routing_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_routing.json"
-            ),
+            "model_profiles_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"),
+            "model_routing_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"),
         }
     )
-    orchestrator, queue, _, _, _, _ = runtime(
-        provider_decisions=decisions
-    )
+    orchestrator, queue, _, _, _, _ = runtime(provider_decisions=decisions)
 
     result = orchestrator.start(request(routed_plan))
 
     assert result.status == "running"
     command = queue.submissions[0]
-    assert command.primary_profile_id == (
-        "local_ollama_gemma4_e4b_reasoning"
-    )
-    assert command.provider_binding.model_id == (
-        "ananta-gemma4-reasoning-8k"
-    )
+    assert command.primary_profile_id == ("local_ollama_gemma4_e4b_reasoning")
+    assert command.provider_binding.model_id == ("ananta-gemma4-reasoning-8k")
     assert [item.profile_id for item in command.provider_profile_bindings] == [
         "local_ollama_gemma4_e4b_reasoning",
         "local_ollama_phi4_mini",
@@ -433,9 +417,7 @@ def test_native_provider_nodes_keep_node_caps_and_share_signed_run_ceiling() -> 
     started = orchestrator.start(request(two_node_plan))
 
     assert started.status == "running"
-    commands = {
-        command.node.node_id: command for command in queue.submissions
-    }
+    commands = {command.node.node_id: command for command in queue.submissions}
     assert set(commands) == {"small", "large"}
     for node_id, node_tokens, node_cost in (
         ("small", 30, 300),
@@ -445,10 +427,7 @@ def test_native_provider_nodes_keep_node_caps_and_share_signed_run_ceiling() -> 
         assert command.authorization.budgets["tokens"] == node_tokens
         assert command.authorization.budgets["cost_micros"] == node_cost
         assert command.authorization.budgets["provider_run_tokens"] == 100
-        assert (
-            command.authorization.budgets["provider_run_cost_micros"]
-            == 1_000
-        )
+        assert command.authorization.budgets["provider_run_cost_micros"] == 1_000
         assert command.provider_context["max_total_tokens"] == node_tokens
         assert command.provider_context["max_cost_micros"] == node_cost
 
@@ -509,19 +488,11 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
 
     decisions = HubConfiguredWorkflowProviderDecisionService(
         lambda: {
-            "model_profiles_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
-            ),
-            "model_routing_path": (
-                "config/models/"
-                "local-ollama-phi-gemma-rtx3080.model_routing.json"
-            ),
+            "model_profiles_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_profiles.yaml"),
+            "model_routing_path": ("config/models/local-ollama-phi-gemma-rtx3080.model_routing.json"),
         }
     )
-    orchestrator, queue, _handler, _keys, _ledger, _stores = runtime(
-        provider_decisions=decisions
-    )
+    orchestrator, queue, _handler, _keys, _ledger, _stores = runtime(provider_decisions=decisions)
     started = orchestrator.start(request(provider_plan()))
     assert started.status == "running"
     command = queue.submissions[0]
@@ -532,9 +503,7 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
         executor=SimpleNamespace(),
     )
     effective_config = native_handler._hub_bound_agent_config(command)
-    assert effective_config["provider_attempt_plan"] == [
-        entry.to_dict() for entry in command.provider_attempt_plan
-    ]
+    assert effective_config["provider_attempt_plan"] == [entry.to_dict() for entry in command.provider_attempt_plan]
 
     # The Worker has the opposite order and deliberately incorrect retry
     # budgets. Only the Hub-signed plan transported by the Native command may
@@ -614,13 +583,7 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
                 terminal_reason="provider_timeout",
             )
         return {
-            "choices": [
-                {
-                    "message": {
-                        "content": '{"command":"echo native-plan-ok"}'
-                    }
-                }
-            ],
+            "choices": [{"message": {"content": '{"command":"echo native-plan-ok"}'}}],
             "metadata": {},
             "model": attempt["model"],
             "usage": {},
@@ -641,18 +604,11 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
 
     result = FlexibleLLMNormalizationStrategy().run(context)
 
-    expected_profiles = (
-        ["local_ollama_phi4_mini"] * 3
-        + ["local_ollama_gemma4_e4b_reasoning"] * 2
-    )
+    expected_profiles = ["local_ollama_phi4_mini"] * 3 + ["local_ollama_gemma4_e4b_reasoning"] * 2
     assert result.proposal is not None
     assert result.proposal.command == "echo native-plan-ok"
-    assert [profile for profile, _context_profile in calls] == (
-        expected_profiles
-    )
-    assert [
-        context_profile for _profile, context_profile in calls
-    ] == expected_profiles
+    assert [profile for profile, _context_profile in calls] == (expected_profiles)
+    assert [context_profile for _profile, context_profile in calls] == expected_profiles
 
 
 def signed_control(

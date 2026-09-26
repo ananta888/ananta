@@ -47,6 +47,7 @@ class BoundedFanOutScheduler:
         *,
         completed_node_ids: set[str] | frozenset[str],
         running_node_ids: set[str] | frozenset[str] = frozenset(),
+        waiting_node_ids: set[str] | frozenset[str] = frozenset(),
         failed_node_ids: set[str] | frozenset[str] = frozenset(),
         tenant_limit: int,
         worker_limit: int,
@@ -58,9 +59,10 @@ class BoundedFanOutScheduler:
             raise ValueError("parallel_limit_invalid")
         completed = set(completed_node_ids)
         running = set(running_node_ids)
+        waiting = set(waiting_node_ids)
         failed = set(failed_node_ids)
         node_ids = {node.node_id for node in plan.nodes}
-        if (completed | running | failed) - node_ids:
+        if (completed | running | waiting | failed) - node_ids:
             raise ValueError("parallel_state_node_unknown")
 
         dependencies: dict[str, set[str]] = {node.node_id: set() for node in plan.nodes}
@@ -69,18 +71,14 @@ class BoundedFanOutScheduler:
         candidates = [
             node
             for node in plan.nodes
-            if node.node_id not in completed | running | failed
+            if node.node_id not in completed | running | waiting | failed
             and dependencies[node.node_id].issubset(completed)
             and not dependencies[node.node_id].intersection(failed)
         ]
         candidates.sort(key=lambda node: node.node_id)
         raw_plan_limit = plan.metadata.get("parallel_limit")
-        declared_plan_limit = (
-            int(raw_plan_limit) if raw_plan_limit is not None else max(tenant_limit, worker_limit)
-        )
-        effective_plan_limit = min(
-            value for value in (declared_plan_limit, plan_limit) if value is not None
-        )
+        declared_plan_limit = int(raw_plan_limit) if raw_plan_limit is not None else max(tenant_limit, worker_limit)
+        effective_plan_limit = min(value for value in (declared_plan_limit, plan_limit) if value is not None)
         if effective_plan_limit < 1:
             raise ValueError("parallel_limit_invalid")
         available = min(effective_plan_limit, tenant_limit, worker_limit)

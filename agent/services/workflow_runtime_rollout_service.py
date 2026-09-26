@@ -400,12 +400,22 @@ class RolloutAwareRuntimeSelection:
 
     def select(
         self,
+        **values: Any,
+    ) -> RuntimeSelection:
+        return self._select(**values, read_only=False)
+
+    def preview(self, **values: Any) -> RuntimeSelection:
+        return self._select(**values, read_only=True)
+
+    def _select(
+        self,
         *,
         plan: ExecutionPlan,
         preferred_runtime: str,
         allowed_runtimes: tuple[str, ...],
         profile: Any | None = None,
         context: Any | None = None,
+        read_only: bool,
     ) -> RuntimeSelection:
         del preferred_runtime, allowed_runtimes, profile
         scope = rollout_scope_from_plan(plan)
@@ -420,7 +430,8 @@ class RolloutAwareRuntimeSelection:
                 reason_code=f"workflow_rollout_{policy.mode}_active_run_denied",
                 profile_id=f"rollout:{policy.scope.scope_key}:{policy.policy_version}",
             )
-        return self._selection.select(
+        select = self._selection.preview if read_only else self._selection.select
+        return select(
             plan=plan,
             preferred_runtime="",
             allowed_runtimes=(),

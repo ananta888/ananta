@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Any
 
-_FIELD_PATH = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*$")
+_FIELD_PATH = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)*$")
 _UNKNOWN = object()
 
 
@@ -52,10 +53,7 @@ class DeclarativeConditionEvaluator:
             children = condition.get("conditions")
             if not isinstance(children, list) or not children:
                 return ConditionResult(None, "condition_children_required")
-            results = [
-                self._evaluate(child, state, depth=depth + 1, remaining=remaining)
-                for child in children
-            ]
+            results = [self._evaluate(child, state, depth=depth + 1, remaining=remaining) for child in children]
             bounded_failure = next(
                 (
                     result
@@ -87,7 +85,7 @@ class DeclarativeConditionEvaluator:
                     return result
                 return ConditionResult(None, "condition_not_unknown")
             return ConditionResult(not result.value, "condition_not_evaluated")
-        if operator not in {"eq", "ne", "in", "exists"}:
+        if operator not in {"eq", "ne", "in", "exists", "gt", "ge", "lt", "le"}:
             return ConditionResult(None, "condition_operator_invalid")
 
         field_name = str(condition.get("field") or "").strip()
@@ -101,6 +99,9 @@ class DeclarativeConditionEvaluator:
         if "value" not in condition:
             return ConditionResult(None, "condition_value_required")
         expected = condition["value"]
+        values = [actual, expected] if not isinstance(expected, list) else [actual, *expected]
+        if any(type(value) is float and not math.isfinite(value) for value in values):
+            return ConditionResult(None, "condition_finite_number_required")
         if operator == "in":
             if not isinstance(expected, list):
                 return ConditionResult(None, "condition_in_collection_required")
@@ -109,6 +110,16 @@ class DeclarativeConditionEvaluator:
             return ConditionResult(actual in expected, "condition_in_evaluated")
         if type(actual) is not type(expected):
             return ConditionResult(None, "condition_type_mismatch")
+        if operator in {"gt", "ge", "lt", "le"}:
+            if type(actual) not in {int, float}:
+                return ConditionResult(None, "condition_numeric_required")
+            matches = {
+                "gt": actual > expected,
+                "ge": actual >= expected,
+                "lt": actual < expected,
+                "le": actual <= expected,
+            }[operator]
+            return ConditionResult(matches, "condition_order_evaluated")
         if operator == "eq":
             return ConditionResult(actual == expected, "condition_eq_evaluated")
         return ConditionResult(actual != expected, "condition_ne_evaluated")

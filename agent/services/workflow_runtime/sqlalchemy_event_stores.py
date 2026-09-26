@@ -275,9 +275,21 @@ class SQLAlchemyEventStore(SQLAlchemyStoreSupport, EventStore):
         self._outbox_topic = str(outbox_topic)
 
     def append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int) -> CanonicalWorkflowEvent:
+        return self._append(event, expected_sequence=expected_sequence)
+
+    def append_fenced(self, event: CanonicalWorkflowEvent, *, expected_sequence: int, lease) -> CanonicalWorkflowEvent:
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        return self._append(event, expected_sequence=expected_sequence, lease=lease)
+
+    def _append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int, lease=None) -> CanonicalWorkflowEvent:
         event.assert_valid(allow_unsequenced=True)
         try:
             with self._transaction() as session:
+                if lease is not None:
+                    from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+
+                    validate_sqlalchemy_lease(session, lease, event)
                 duplicate = session.execute(
                     sa.select(WorkflowRuntimeEventDB).where(
                         WorkflowRuntimeEventDB.tenant_id == event.tenant_id,
@@ -307,6 +319,8 @@ class SQLAlchemyEventStore(SQLAlchemyStoreSupport, EventStore):
                 session.flush()
                 return CanonicalWorkflowEvent.from_mapping(stored.to_dict())
         except IntegrityError as exc:
+            if lease is not None:
+                raise OptimisticConcurrencyError("bpmn_fenced_event_conflict") from exc
             return self._resolve_append_integrity(event, expected_sequence=expected_sequence, cause=exc)
 
     def append_transition_event(
@@ -592,9 +606,26 @@ class SQLAlchemyCheckpointStore(SQLAlchemyStoreSupport, CheckpointStore):
     """Immutable, revisioned checkpoint history with CAS and fencing."""
 
     def save(self, checkpoint: SignedCheckpoint, *, expected_revision: int) -> SignedCheckpoint:
+        return self._save(checkpoint, expected_revision=expected_revision)
+
+    def save_fenced(self, checkpoint: SignedCheckpoint, *, expected_revision: int, lease) -> SignedCheckpoint:
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        return self._save(checkpoint, expected_revision=expected_revision, lease=lease)
+
+    def _save(self, checkpoint: SignedCheckpoint, *, expected_revision: int, lease=None) -> SignedCheckpoint:
         checkpoint._assert_structure()
         try:
             with self._transaction() as session:
+                from agent.services.workflow_runtime.lease_fencing import (
+                    lock_sqlalchemy_lease_anchor,
+                    validate_sqlalchemy_lease,
+                )
+
+                if lease is not None:
+                    validate_sqlalchemy_lease(session, lease, checkpoint)
+                elif checkpoint.task_id == "bpmn-control-lease:v1":
+                    lock_sqlalchemy_lease_anchor(session, checkpoint)
                 duplicate = session.execute(
                     sa.select(WorkflowRuntimeCheckpointDB).where(
                         WorkflowRuntimeCheckpointDB.tenant_id == checkpoint.tenant_id,
@@ -625,6 +656,8 @@ class SQLAlchemyCheckpointStore(SQLAlchemyStoreSupport, CheckpointStore):
                 session.flush()
                 return SignedCheckpoint.from_mapping(checkpoint.to_dict())
         except IntegrityError as exc:
+            if lease is not None:
+                raise OptimisticConcurrencyError("bpmn_fenced_checkpoint_conflict") from exc
             with self._read_session() as session:
                 duplicate = session.execute(
                     sa.select(WorkflowRuntimeCheckpointDB).where(

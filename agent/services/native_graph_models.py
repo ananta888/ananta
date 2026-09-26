@@ -109,6 +109,13 @@ class NativeRunState:
     effective_plan: dict[str, Any] = field(default_factory=dict)
     last_command_id: str = ""
     last_command_fingerprint: str = ""
+    bpmn_started_at: float | None = None
+    bpmn_deadline_at: float | None = None
+    bpmn_waits: dict[str, dict[str, Any]] = field(default_factory=dict)
+    bpmn_applied_wakeups: set[str] = field(default_factory=set)
+    # Per-invocation collaborators/cursor, not checkpoint payload authority.
+    control_lease: Any = field(default=None, repr=False, compare=False)
+    checkpoint_revision: int = 0
 
     @classmethod
     def from_workflow_state(cls, state: WorkflowState) -> "NativeRunState":
@@ -136,6 +143,10 @@ class NativeRunState:
             effective_plan=dict(business.get("effective_plan") or {}),
             last_command_id=str(runtime.get("last_command_id") or ""),
             last_command_fingerprint=str(runtime.get("last_command_fingerprint") or ""),
+            bpmn_started_at=runtime.get("bpmn_started_at"),
+            bpmn_deadline_at=runtime.get("bpmn_deadline_at"),
+            bpmn_waits={key: dict(value) for key, value in dict(runtime.get("bpmn_waits") or {}).items()},
+            bpmn_applied_wakeups=set(runtime.get("bpmn_applied_wakeups") or ()),
         )
 
     def to_workflow_state(self, *, secret_refs: tuple[str, ...]) -> WorkflowState:
@@ -164,6 +175,19 @@ class NativeRunState:
                 "base_plan_hash": self.base_plan_hash,
                 "last_command_id": self.last_command_id,
                 "last_command_fingerprint": self.last_command_fingerprint,
+                **(
+                    {
+                        "bpmn_waits": {key: dict(value) for key, value in sorted(self.bpmn_waits.items())},
+                        "bpmn_applied_wakeups": sorted(self.bpmn_applied_wakeups),
+                    }
+                    if self.bpmn_waits or self.bpmn_applied_wakeups
+                    else {}
+                ),
+                **(
+                    {"bpmn_started_at": self.bpmn_started_at, "bpmn_deadline_at": self.bpmn_deadline_at}
+                    if self.bpmn_deadline_at is not None
+                    else {}
+                ),
             },
             secret_refs=secret_refs,
             artifact_refs=tuple(sorted(set(self.artifact_refs.values()))),

@@ -61,6 +61,7 @@ class HubGovernedNativeControlPolicy:
             "retry",
             "cancel",
             "parameter_update",
+            "bpmn_message",
         }
     )
 
@@ -94,6 +95,18 @@ class HubGovernedNativeControlPolicy:
         if set(node.required_capabilities) - set(plan.capabilities):
             return False, "native_delegation_capability_not_declared"
         return True, "native_delegation_hub_policy_admitted"
+
+    def available_commands(self, *, plan: ExecutionPlan, state: NativeRunState) -> tuple[str, ...]:
+        """Advisory hints; authenticated command admission is still mandatory."""
+        if state.status == "running":
+            return ("pause", "cancel")
+        if state.status == "paused":
+            return ("resume", "cancel")
+        if state.status == "waiting_for_approval":
+            return ("approve", "reject", "cancel")
+        if state.status in {"failed", "cancelled"} and not any(node.node_type == "bpmn_wait" for node in plan.nodes):
+            return ("retry",)
+        return ()
 
 
 def build_native_graph_workflow_control_bridge(

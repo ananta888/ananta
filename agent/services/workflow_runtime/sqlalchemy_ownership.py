@@ -741,6 +741,7 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
             raise ValueError("result_ack_key_required")
         timestamp = _timestamp(values.get("now"))
         with self._transaction() as session:
+            self._validate_control_lease(session, values)
             row, current = self._required_owned(session, values)
             if current.status == "completed" and current.result_ack_key == result_ack_key:
                 return current
@@ -756,6 +757,20 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
             )
             self._write(session, row=row, value=updated)
             return updated
+
+    def acknowledge_result_fenced(self, *, lease, **values):
+        return self.acknowledge_result(**values, _control_lease=lease)
+
+    def fail_attempt_fenced(self, *, lease, **values):
+        return self.fail_attempt(**values, _control_lease=lease)
+
+    @staticmethod
+    def _validate_control_lease(session, values):
+        from agent.services.workflow_runtime.lease_fencing import ownership_lease_recipient, validate_sqlalchemy_lease
+
+        lease = values.get("_control_lease")
+        if lease is not None:
+            validate_sqlalchemy_lease(session, lease, ownership_lease_recipient(values, lease))
 
     def fail_attempt(self, *, failure_code: str, dead_letter: bool = False, **values: Any) -> ExecutionOwnership:
         def mutate(current: ExecutionOwnership) -> ExecutionOwnership:
@@ -950,6 +965,7 @@ class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnersh
         mutate: Callable[[ExecutionOwnership], ExecutionOwnership],
     ) -> ExecutionOwnership:
         with self._transaction() as session:
+            self._validate_control_lease(session, values)
             row, current = self._required_owned(session, values)
             updated = mutate(current)
             self._write(session, row=row, value=updated)

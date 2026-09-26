@@ -27,6 +27,7 @@ _MAX_REQUEST_BYTES = 80_000
 _MAX_RESULT_BYTES = 524_288
 _PUBLIC_STATUS_KEYS = frozenset(
     {
+        "allowed_commands",
         "active_step_ids",
         "backend",
         "checkpoint_ref",
@@ -34,6 +35,7 @@ _PUBLIC_STATUS_KEYS = frozenset(
         "correlation_id",
         "created_at",
         "current_step_id",
+        "definition_hash",
         "error",
         "event_cursor",
         "events",
@@ -145,11 +147,7 @@ class WorkflowControlCommandReceipt:
             raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_attribution_invalid")
         if self.outcome_fingerprint and self.state != COMMAND_RECEIPT_COMPLETED:
             raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_outcome_invalid")
-        if (
-            self.transition_id
-            and self.state == COMMAND_RECEIPT_COMPLETED
-            and not self.outcome_fingerprint
-        ):
+        if self.transition_id and self.state == COMMAND_RECEIPT_COMPLETED and not self.outcome_fingerprint:
             raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_outcome_invalid")
         _bounded_mapping(
             self.request_payload,
@@ -177,9 +175,7 @@ class WorkflowControlCommandReceipt:
                 not self.transition_id and self.dispatch_generation == 0 and self.last_heartbeat_at == 0
             )
             generation_fenced_lease = self.dispatch_generation >= 1 and self.last_heartbeat_at > 0
-            if self.dispatch_lease_expires_at <= 0 or not (
-                legacy_pre_generation_lease or generation_fenced_lease
-            ):
+            if self.dispatch_lease_expires_at <= 0 or not (legacy_pre_generation_lease or generation_fenced_lease):
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_lease_invalid")
         elif self.dispatch_owner or self.dispatch_lease_expires_at != 0:
             raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_lease_invalid")
@@ -380,8 +376,7 @@ def assert_exact_receipt_request(
         or _semantic_request(receipt.request_payload) != _semantic_request(request_payload)
         or not isinstance(admitted, dict)
         or not isinstance(requested_admitted, dict)
-        or workflow_admitted_command_digest(admitted)
-        != workflow_admitted_command_digest(requested_admitted)
+        or workflow_admitted_command_digest(admitted) != workflow_admitted_command_digest(requested_admitted)
     ):
         raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_conflict")
     if receipt.request_fingerprint and receipt.request_fingerprint != workflow_transition_request_fingerprint(

@@ -128,10 +128,50 @@ export interface DryRunResult {
   per_step_model_plan?: PerStepModelPlan[];
   model_routing_summary?: Record<string, unknown>;
 }
-export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validation: ValidationResult; }
+export interface BpmnExecutionSupport {
+  schema: string;
+  supported: boolean;
+  runtime_verified: boolean;
+  definition_hash?: string;
+  issues: { reason_code: string; element_id: string; detail: string }[];
+}
+export interface BpmnCapabilities {
+  schema: string;
+  version: string;
+  runtime_verified: boolean;
+  expression_language: string;
+  required_capability: string;
+  required_feature_flag: string;
+  runtimes: Record<string, string>;
+  elements: { element: string; modelable: boolean; execution_contract_supported: boolean }[];
+  unsupported: string[];
+}
+export interface BpmnImportResult { graph: VpGraph; warnings: string[]; validation: ValidationResult; execution_support?: BpmnExecutionSupport; }
 export interface BpmnExportResult { bpmn_xml: string; warnings: string[]; }
 export interface WorkflowRequestResult { workflow_request: Record<string, unknown>; validation: ValidationResult; errors: string[]; }
 export interface WorkflowStatus { schema: string; backend: string; workflow_id: string; status: string; steps?: unknown[]; events?: unknown[]; [key: string]: unknown; }
+export interface WorkflowPreflight {
+  ready: boolean;
+  workflow_id: string;
+  runtime_id: string | null;
+  plan_hash: string;
+  definition_hash: string;
+  reason_codes: string[];
+}
+export type BpmnWorkflowCommand = 'resume' | 'retry' | 'cancel';
+export interface BpmnCommandBinding {
+  expected_revision: number;
+  run_id: string;
+  plan_hash: string;
+  checkpoint_ref: string;
+}
+export interface BpmnEdgeTrace {
+  schema: string;
+  workflow_id: string;
+  run_id: string;
+  source_revision?: number;
+  edges: unknown[];
+}
 export interface VpRuntimeStepOverlay {
   step_id: string; status: 'pending'|'running'|'awaiting_approval'|'succeeded'|'failed'|'skipped'|'cancelled'|'unknown';
   started_at?: number; finished_at?: number; duration_ms?: number; error?: string; gate?: Record<string, unknown>;
@@ -290,6 +330,10 @@ export class VisualProcessApiService {
 
   // ── BPMN ─────────────────────────────────────────────────────────────────────
 
+  getBpmnCapabilities(): Observable<BpmnCapabilities> {
+    return this.http.get<BpmnCapabilities>(`${this.baseUrl}/api/visual-process/bpmn/capabilities`);
+  }
+
   importBpmn(bpmnXml: string): Observable<BpmnImportResult> {
     return this.http.post<BpmnImportResult>(`${this.baseUrl}/api/visual-process/bpmn/import`, { bpmn_xml: bpmnXml });
   }
@@ -306,6 +350,27 @@ export class VisualProcessApiService {
 
   startWorkflowFromGraph(graph: VpGraph, options: Record<string, unknown> = {}): Observable<WorkflowStatus> {
     return this.http.post<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/start`, { graph, ...options });
+  }
+
+  preflightWorkflowFromGraph(graph: VpGraph, options: Record<string, unknown> = {}): Observable<WorkflowPreflight> {
+    return this.http.post<WorkflowPreflight>(`${this.baseUrl}/api/visual-process/workflow/preflight`, { graph, ...options });
+  }
+
+  controlBpmnWorkflow(workflowId: string, command: BpmnWorkflowCommand, binding: BpmnCommandBinding, commandId: string): Observable<WorkflowStatus> {
+    return this.http.post<WorkflowStatus>(
+      `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/${command}`,
+      command === 'cancel'
+        ? { ...binding, reason: 'BPMN editor cancellation', command_id: commandId }
+        : { expected_revision: binding.expected_revision, plan_hash: binding.plan_hash,
+          payload: { run_id: binding.run_id, checkpoint_ref: binding.checkpoint_ref }, command_id: commandId },
+    );
+  }
+
+  getBpmnEdgeTrace(workflowId: string, runId: string): Observable<BpmnEdgeTrace> {
+    return this.http.post<BpmnEdgeTrace>(
+      `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/caseflow-edge-trace`,
+      { schema: 'ananta.caseflow_edge_trace_query.v1', run_id: runId },
+    );
   }
 
   getWorkflowStatus(workflowId: string): Observable<WorkflowStatus> {

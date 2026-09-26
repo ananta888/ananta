@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from agent.services.native_context_bundle_service import NativeContextBundleReadPort
+from agent.services.native_graph_event_appender import append_gateway_observation
 from agent.services.workflow_authorization_grant_service import (
     HubAuthorizationRevalidationPort,
     UnavailableHubAuthorizationRevalidator,
@@ -1457,13 +1458,7 @@ class WorkflowWorkerGatewayService:
             correlation_id=binding.correlation_id or binding.run_id,
             causation_id=causation_id,
         )
-        current = self._events.list_events(
-            tenant_id=binding.tenant_id,
-            run_id=binding.run_id,
-        )
-        if any(item.dedupe_key == event.dedupe_key for item in current):
-            return
-        self._events.append(event, expected_sequence=len(current))
+        append_gateway_observation(self._events, event)
 
     def _append_event(
         self,
@@ -1474,12 +1469,6 @@ class WorkflowWorkerGatewayService:
         causation_id: str,
         payload: dict[str, Any],
     ) -> None:
-        current = self._events.list_events(
-            tenant_id=binding.tenant_id,
-            run_id=binding.run_id,
-        )
-        if any(item.dedupe_key == dedupe_key for item in current):
-            return
         event = CanonicalWorkflowEvent.build(
             tenant_id=binding.tenant_id,
             workflow_id=binding.workflow_id,
@@ -1492,7 +1481,7 @@ class WorkflowWorkerGatewayService:
             actor="hub",
             payload=payload,
         )
-        self._events.append(event, expected_sequence=len(current))
+        append_gateway_observation(self._events, event)
 
     @staticmethod
     def _side_effect_receipt(record: Any, *, acquired: bool, reason: str) -> dict[str, Any]:

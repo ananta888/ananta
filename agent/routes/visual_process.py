@@ -13,7 +13,9 @@ POST /api/visual-process/assemble-context       — context for one step
 POST /api/visual-process/bpmn/import            — BPMN XML to graph
 POST /api/visual-process/bpmn/export            — graph to BPMN XML
 POST /api/visual-process/workflow-request       — graph to canonical workflow request
+POST /api/visual-process/workflow/preflight     — authenticated read-only start advisory
 POST /api/visual-process/workflow/start         — start through configured backend
+POST /api/visual-process/workflow/<id>/message   — signed BPMN message through Hub receipts
 POST /api/visual-process/workflow/<id>/resume   — resume through Hub control
 POST /api/visual-process/workflow/<id>/retry    — retry through Hub control
 POST /api/visual-process/workflow/<id>/caseflow-edge-trace — authorized edge trace read model
@@ -47,6 +49,7 @@ from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
 from agent.services.alias_catalog import default_alias_registry
 from agent.services.alias_registry import ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET
+from agent.services.bpmn_workflow_preflight import assert_workflow_start_hashes, workflow_start_plan
 from agent.services.caseflow_agent_collaboration_trace_projection_service import (
     CASEFLOW_EDGE_CATALOG_METADATA_KEY,
     MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES,
@@ -68,6 +71,7 @@ from agent.services.workflow_control_command_receipts import (
 )
 from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
 from agent.services.workflow_runtime._serialization import redact_json
+from agent.services.workflow_runtime.commands import validate_bpmn_message_payload
 from agent.services.workflow_runtime.streaming import (
     WorkflowStreamError,
     WorkflowStreamRequest,
@@ -479,8 +483,14 @@ def dry_run():
     policy = policy_summary(annotated)
 
     blueprint = None
+    blueprint_issues = []
     if validation.valid:
-        blueprint = graph_to_blueprint_dict(annotated)
+        from agent.visual_process.bpmn_execution_support import BpmnExecutionError
+
+        try:
+            blueprint = graph_to_blueprint_dict(annotated)
+        except BpmnExecutionError as exc:
+            blueprint_issues = exc.as_dict()["issues"]
 
     executor = get_step_executor()
     step_execution_plan = [p.as_dict() for p in executor.execution_plan(graph.steps)]
@@ -493,6 +503,7 @@ def dry_run():
             "validation": validation.as_dict(),
             "policy_summary": policy,
             "blueprint": blueprint,
+            "blueprint_issues": blueprint_issues,
             "step_count": len(graph.steps),
             "edge_count": len(graph.edges),
             "step_execution_plan": step_execution_plan,
@@ -873,7 +884,12 @@ def save_blueprint():
     if not validation.valid:
         return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
     annotated = annotate_graph(graph)
-    blueprint = graph_to_blueprint_dict(annotated)
+    from agent.visual_process.bpmn_execution_support import BpmnExecutionError
+
+    try:
+        blueprint = graph_to_blueprint_dict(annotated)
+    except BpmnExecutionError as exc:
+        return jsonify(exc.as_dict()), 422
     # Store the blueprint in the visual process graphs table using the graph's id
     # as a stable identifier, prefixed to distinguish blueprints from raw graphs.
     bp_id = f"bp-{graph.id}"
@@ -914,9 +930,19 @@ def save_blueprint():
 # ── BPMN import/export ───────────────────────────────────────────────────────
 
 
+@vp_bp.get("/bpmn/capabilities")
+@check_strict_auth
+def bpmn_capabilities():
+    from agent.visual_process.bpmn_execution_support import capability_catalog
+
+    return jsonify(capability_catalog())
+
+
 @vp_bp.post("/bpmn/import")
 def bpmn_import():
-    body = request.get_json(silent=True) or {}
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
+    if body_error is not None:
+        return body_error
     xml = str(body.get("bpmn_xml") or body.get("xml") or "").strip()
     if not xml:
         return jsonify({"error": "bpmn_xml_required"}), 400
@@ -925,10 +951,23 @@ def bpmn_import():
     except ValueError as exc:
         return jsonify({"error": "invalid_bpmn", "detail": str(exc)}), 400
     validation = _validator.validate(result.graph) if result.graph else None
+    from agent.visual_process.bpmn_execution_compiler import compile_bpmn_graph
+    from agent.visual_process.bpmn_execution_support import BpmnExecutionError
+
+    support = dict(result.graph.metadata["bpmn_execution_report"]) if result.graph else None
+    if support is not None:
+        support["stage"] = "execution_compile"
+        try:
+            projection = compile_bpmn_graph(result.graph)
+            support["definition_hash"] = projection["definition_hash"]
+        except BpmnExecutionError as exc:
+            support["supported"] = False
+            support["issues"] = exc.as_dict()["issues"]
     return jsonify(
         {
             "graph": result.graph.model_dump() if result.graph else None,
             "warnings": result.warnings,
+            "execution_support": support,
             "validation": validation.as_dict() if validation else None,
         }
     ), 200 if validation is None or validation.valid else 422
@@ -942,7 +981,12 @@ def bpmn_export():
     validation = _validator.validate(graph)
     if not validation.valid:
         return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
-    result = export_bpmn_xml(graph)
+    from agent.visual_process.bpmn_execution_support import BpmnExecutionError
+
+    try:
+        result = export_bpmn_xml(graph)
+    except BpmnExecutionError as exc:
+        return jsonify(exc.as_dict()), 422
     return jsonify({"bpmn_xml": result.bpmn_xml, "warnings": result.warnings}), 200
 
 
@@ -962,7 +1006,12 @@ def workflow_request():
     validation = _validator.validate(graph)
     if not validation.valid:
         return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
-    workflow = _compile_workflow_request(graph, body)
+    from agent.visual_process.bpmn_execution_support import BpmnExecutionError
+
+    try:
+        workflow = _compile_workflow_request(graph, body)
+    except BpmnExecutionError as exc:
+        return jsonify(exc.as_dict()), 422
     errors = workflow.validate()
     return jsonify(
         {
@@ -973,26 +1022,21 @@ def workflow_request():
     ), 200 if not errors else 422
 
 
-@vp_bp.post("/workflow/start")
-@check_strict_auth
-def workflow_start():
-    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
-    if body_error is not None:
-        return body_error
-    assert body is not None
-    command_id, command_id_error = _workflow_command_id(body.get("command_id"))
+def _workflow_start_request(body: dict[str, Any]):
+    """Identical bounded source admission for start and its read-only preview."""
+    _, command_id_error = _workflow_command_id(body.get("command_id"))
     if command_id_error is not None:
-        return command_id_error
+        return None, command_id_error
     workflow_body = dict(body)
     workflow_body.pop("command_id", None)
     if "workflow_request" in workflow_body:
         try:
             workflow = WorkflowRequest.from_mapping(workflow_body.get("workflow_request") or {})
         except Exception as exc:
-            return jsonify({"error": "invalid_workflow_request", "detail": str(exc)}), 400
+            return None, (jsonify({"error": "invalid_workflow_request", "detail": str(exc)}), 400)
         errors = workflow.validate()
         if errors:
-            return jsonify({"error": "invalid_workflow_request", "errors": errors}), 422
+            return None, (jsonify({"error": "invalid_workflow_request", "errors": errors}), 422)
         # Canonical edge identity is Hub-derived from a validated graph. A
         # direct neutral WorkflowRequest may not assert that internal catalog.
         direct_metadata = dict(workflow.metadata)
@@ -1002,14 +1046,72 @@ def workflow_start():
     else:
         graph, err = _parse_graph()
         if err:
-            return jsonify(err), 400
+            return None, (jsonify(err), 400)
         validation = _validator.validate(graph)
         if not validation.valid:
-            return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
-        workflow = _compile_workflow_request(graph, workflow_body)
+            return None, (jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422)
+        from agent.visual_process.bpmn_execution_support import BpmnExecutionError
+
+        try:
+            workflow = _compile_workflow_request(graph, workflow_body)
+        except BpmnExecutionError as exc:
+            return None, (jsonify(exc.as_dict()), 422)
+        errors = workflow.validate()
+        if errors:
+            return None, (jsonify({"error": "invalid_workflow_request", "errors": errors}), 422)
     invalid_id = validate_workflow_id(workflow.workflow_id)
     if invalid_id is not None:
-        return invalid_id
+        return None, invalid_id
+    return workflow, None
+
+
+def _principal_workflow_request(workflow: WorkflowRequest, principal) -> WorkflowRequest:
+    return replace(
+        workflow,
+        requested_by=principal.subject,
+        metadata={
+            **dict(workflow.metadata),
+            "authorization_scope": {"tenant_id": principal.tenant_id, "subject": principal.subject},
+        },
+    )
+
+
+@vp_bp.post("/workflow/preflight")
+@check_strict_auth
+def workflow_preflight():
+    body, error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
+    if error is not None:
+        return error
+    workflow, error = _workflow_start_request(body)
+    if error is not None:
+        return error
+    try:
+        principal = workflow_principal()
+    except ValueError:
+        return backend_error("workflow_principal_required", code=401)
+    backend, error = configured_workflow_backend(principal)
+    if error is not None:
+        return error
+    try:
+        result = backend.preflight_workflow(_principal_workflow_request(workflow, principal))
+    except ValueError:
+        return backend_error("workflow_execution_plan_invalid", code=422)
+    except Exception as exc:
+        log_audit("workflow_preflight_failed", {"exception_type": type(exc).__name__})
+        return backend_error("workflow_preflight_unavailable", code=503)
+    return jsonify(result), 200
+
+
+@vp_bp.post("/workflow/start")
+@check_strict_auth
+def workflow_start():
+    body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
+    if body_error is not None:
+        return body_error
+    workflow, error = _workflow_start_request(body)
+    if error is not None:
+        return error
+    command_id, _ = _workflow_command_id(body.get("command_id"))
     try:
         principal = workflow_principal()
     except ValueError:
@@ -1019,6 +1121,24 @@ def workflow_start():
             data={"reason_code": "workflow_principal_required"},
             code=401,
         )
+    workflow = _principal_workflow_request(workflow, principal)
+    preconditions = {}
+    for key in ("expected_plan_hash", "expected_definition_hash"):
+        if key not in body:
+            continue
+        value = body[key]
+        if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+            return backend_error("workflow_start_hash_invalid", code=422)
+        preconditions[key] = value
+    if preconditions:
+        try:
+            plan = workflow_start_plan(workflow, tenant_id=principal.tenant_id)
+        except ValueError:
+            return backend_error("workflow_execution_plan_invalid", code=422)
+        try:
+            assert_workflow_start_hashes(workflow, plan, **preconditions)
+        except ValueError as exc:
+            return backend_error(str(exc), code=409)
     backend, backend_failure = configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
@@ -1033,21 +1153,9 @@ def workflow_start():
     if reservation not in {"reserved", "duplicate"}:
         return backend_error("workflow_id_invalid", code=400)
 
-    workflow = replace(
-        workflow,
-        requested_by=principal.subject,
-        metadata={
-            **dict(workflow.metadata),
-            "authorization_scope": {
-                "tenant_id": principal.tenant_id,
-                "subject": principal.subject,
-            },
-        },
-    )
     try:
-        status = (
-            backend.start_workflow(workflow, command_id=command_id) if command_id else backend.start_workflow(workflow)
-        )
+        start_options = {**preconditions, **({"command_id": command_id} if command_id else {})}
+        status = backend.start_workflow(workflow, **start_options)
     except Exception as exc:  # noqa: BLE001
         pending = str(exc) == "workflow_control_start_observation_pending"
         if not pending and reservation != "duplicate":
@@ -1104,6 +1212,12 @@ def workflow_cancel(workflow_id: str):
     if body_error is not None:
         return body_error
     assert body is not None
+    target_bindings, binding_error = _workflow_command_target_bindings(body)
+    if binding_error is not None:
+        return binding_error
+    expected_revision = body.get("expected_revision")
+    if "expected_revision" in body and (type(expected_revision) is not int or expected_revision < 0):
+        return backend_error("workflow_control_revision_invalid", code=422)
     reason = str(body.get("reason") or "").strip()
     command_id, command_id_error = _workflow_command_id(body.get("command_id"))
     if command_id_error is not None:
@@ -1121,14 +1235,22 @@ def workflow_cancel(workflow_id: str):
         return backend_failure
     try:
         command = getattr(backend, "command_workflow", None)
+        bindings = dict(target_bindings)
+        if expected_revision is not None:
+            bindings["expected_revision"] = expected_revision
+        if body.get("plan_hash") is not None:
+            bindings["plan_hash"] = body["plan_hash"]
+        if bindings and not callable(command):
+            return backend_error("workflow_control_command_unavailable", code=503)
         status = (
             command(
                 workflow_id,
                 command_type="cancel",
                 payload={"reason": reason},
                 command_id=command_id,
+                **bindings,
             )
-            if command_id and callable(command)
+            if (command_id or bindings) and callable(command)
             else backend.cancel_workflow(workflow_id, reason=reason)
         )
     except WorkflowControlCommandRejectedError as exc:
@@ -1163,6 +1285,13 @@ def workflow_signal(workflow_id: str):
     if body_error is not None:
         return body_error
     assert body is not None and principal is not None
+    if body.get("name") == "bpmn_message":
+        return backend_error("bpmn_message_endpoint_required", code=422)
+    if "expected_revision" in body and (type(body["expected_revision"]) is not int or body["expected_revision"] < 0):
+        return backend_error("workflow_control_revision_invalid", code=422)
+    target_bindings, binding_error = _workflow_command_target_bindings(body)
+    if binding_error is not None:
+        return binding_error
     if not isinstance(body.get("payload", {}), dict):
         return api_response(
             status="error",
@@ -1199,6 +1328,49 @@ def workflow_signal(workflow_id: str):
         principal,
         signal,
         command_id=command_id,
+        expected_revision=body.get("expected_revision"),
+        plan_hash=body.get("plan_hash"),
+        **target_bindings,
+    )
+
+
+@vp_bp.post("/workflow/<workflow_id>/message")
+@check_strict_auth
+def workflow_message(workflow_id: str):
+    principal, error = require_workflow_owner(workflow_id)
+    if error is not None:
+        return error
+    body, error = workflow_json_body(max_bytes=MAX_WORKFLOW_SIGNAL_BYTES)
+    if error is not None:
+        return error
+    required = {"command_id", "expected_revision", "plan_hash", "step_id", "payload"}
+    if not required.issubset(body) or set(body) - required - {"run_id", "checkpoint_ref"}:
+        return backend_error("bpmn_message_envelope_invalid", code=422)
+    target_bindings, error = _workflow_command_target_bindings(body)
+    if error is not None:
+        return error
+    command_id, error = _workflow_command_id(body["command_id"])
+    if error is not None:
+        return error
+    if not command_id:
+        return backend_error("bpmn_message_command_binding_required", code=422)
+    if type(body["expected_revision"]) is not int or body["expected_revision"] < 0:
+        return backend_error("workflow_control_revision_invalid", code=422)
+    if not isinstance(body["step_id"], str) or not body["step_id"] or body["step_id"] != body["step_id"].strip():
+        return backend_error("bpmn_message_target_required", code=422)
+    plan_hash = body["plan_hash"]
+    if not isinstance(plan_hash, str) or len(plan_hash) != 64 or any(c not in "0123456789abcdef" for c in plan_hash):
+        return backend_error("workflow_control_plan_binding_mismatch", code=422)
+    try:
+        validate_bpmn_message_payload(body["payload"])
+    except (ValueError, TypeError, OverflowError):
+        return backend_error("bpmn_message_payload_invalid", code=422)
+    return _dispatch_workflow_signal(
+        workflow_id, principal,
+        WorkflowSignal(name="bpmn_message", payload=body["payload"], actor=principal.subject),
+        command_id=command_id, expected_revision=body["expected_revision"],
+        plan_hash=plan_hash, step_id=body["step_id"],
+        **target_bindings,
     )
 
 
@@ -1222,6 +1394,11 @@ def _named_workflow_control(workflow_id: str, command_name: str):
     if body_error is not None:
         return body_error
     assert body is not None and principal is not None
+    if "expected_revision" in body and (type(body["expected_revision"]) is not int or body["expected_revision"] < 0):
+        return backend_error("workflow_control_revision_invalid", code=422)
+    target_bindings, binding_error = _workflow_command_target_bindings(body)
+    if binding_error is not None:
+        return binding_error
     command_id, command_id_error = _workflow_command_id(body.get("command_id"))
     if command_id_error is not None:
         return command_id_error
@@ -1235,6 +1412,8 @@ def _named_workflow_control(workflow_id: str, command_name: str):
         )
     safe_payload = dict(payload)
     safe_payload.pop("command_id", None)
+    safe_payload.pop("expected_revision", None)
+    safe_payload.pop("plan_hash", None)
     signal = WorkflowSignal(
         name=command_name,
         payload=dict(redact_json(redact(safe_payload, VisibilityLevel.PUBLIC)) or {}),
@@ -1245,7 +1424,27 @@ def _named_workflow_control(workflow_id: str, command_name: str):
         principal,
         signal,
         command_id=command_id,
+        expected_revision=body.get("expected_revision"),
+        plan_hash=body.get("plan_hash"),
+        **target_bindings,
     )
+
+
+def _workflow_command_target_bindings(body: dict[str, Any]):
+    """Accept the established nested control form and the top-level envelope."""
+    nested = body.get("payload")
+    nested = nested if isinstance(nested, dict) else {}
+    bindings = {}
+    for key in ("run_id", "checkpoint_ref"):
+        if key not in body and key not in nested:
+            continue
+        if key in body and key in nested and body[key] != nested[key]:
+            return None, backend_error("workflow_control_target_binding_conflict", code=422)
+        value = body[key] if key in body else nested[key]
+        if not isinstance(value, str) or not value or value != value.strip() or len(value) > 512:
+            return None, backend_error("workflow_control_target_binding_invalid", code=422)
+        bindings[key] = value
+    return bindings, None
 
 
 def _dispatch_workflow_signal(
@@ -1254,20 +1453,41 @@ def _dispatch_workflow_signal(
     signal: WorkflowSignal,
     *,
     command_id: str = "",
+    expected_revision: int | None = None,
+    plan_hash: str | None = None,
+    step_id: str | None = None,
+    run_id: str | None = None,
+    checkpoint_ref: str | None = None,
 ):
+    if expected_revision is not None and (type(expected_revision) is not int or expected_revision < 0):
+        return backend_error("workflow_control_revision_invalid", code=422)
     backend, backend_failure = configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
         command = getattr(backend, "command_workflow", None)
+        bindings = {}
+        if expected_revision is not None:
+            bindings["expected_revision"] = expected_revision
+        if plan_hash is not None:
+            bindings["plan_hash"] = plan_hash
+        if step_id is not None:
+            bindings["step_id"] = step_id
+        if run_id is not None:
+            bindings["run_id"] = run_id
+        if checkpoint_ref is not None:
+            bindings["checkpoint_ref"] = checkpoint_ref
+        if (bindings or signal.name == "bpmn_message") and not callable(command):
+            return backend_error("workflow_control_command_unavailable", code=503)
         status = (
             command(
                 workflow_id,
                 command_type=signal.name,
                 payload=dict(signal.payload),
                 command_id=command_id,
+                **bindings,
             )
-            if command_id and callable(command)
+            if (command_id or bindings) and callable(command)
             else backend.signal_workflow(workflow_id, signal)
         )
     except WorkflowControlCommandRejectedError as exc:
@@ -1334,6 +1554,11 @@ def _workflow_command_id(raw: Any):
 
 def _public_command_rejection_reason(reason_code: str) -> str:
     allowed = {
+        "bpmn_message_command_binding_required",
+        "bpmn_message_payload_invalid",
+        "bpmn_message_target_required",
+        "bpmn_message_target_invalid",
+        "workflow_control_revision_invalid",
         "approval_gate_not_open",
         "authorization_binding_mismatch",
         "command_expired",

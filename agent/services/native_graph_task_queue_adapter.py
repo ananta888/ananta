@@ -14,6 +14,7 @@ from agent.services.workflow_runtime.native_graph_contracts import (
     NativeNodeCommand,
     NativeNodeResult,
 )
+from agent.services.workflow_runtime.native_graph_ports import HubTaskSubmission
 from ananta_contracts.native_context_bundle import native_context_digest
 
 
@@ -23,6 +24,16 @@ class TaskRepositoryPort(Protocol):
 
 class TaskQueueMutationPort(Protocol):
     def ingest_task(self, **values: Any) -> None: ...
+
+
+class LeaseFencedTaskQueueMutationPort(Protocol):
+    """Compare the lease and ingest in one authority-database transaction.
+
+    The legacy ingest_task method does not supply this guarantee. The fenced
+    recipient must also bind duplicate task bytes before returning success.
+    """
+
+    def ingest_task_fenced(self, *, lease, **values: Any) -> None: ...
 
 
 class TaskRuntimeMutationPort(Protocol):
@@ -48,12 +59,24 @@ class AnantaHubTaskQueueAdapter:
         self._pi_scope_preparer = pi_scope_preparer
 
     def submit(self, command: NativeNodeCommand) -> HubTaskReceipt:
+        return self._submit(command)
+
+    def submit_fenced(self, command: NativeNodeCommand, *, lease) -> HubTaskReceipt:
+        if lease is None:
+            raise ValueError("bpmn_recipient_lease_required")
+        if not callable(getattr(self._queue, "ingest_task_fenced", None)):
+            raise RuntimeError("bpmn_queue_recipient_fencing_unavailable")
+        return self._submit(command, lease=lease)
+
+    def _submit(self, command: NativeNodeCommand, *, lease=None) -> HubTaskReceipt:
         command.assert_valid()
         hub_task_id = _task_id(command.command_id)
-        existing = self._repository.get_by_id(hub_task_id)
+        # Fenced duplicate admission belongs inside the recipient transaction.
+        existing = self._repository.get_by_id(hub_task_id) if lease is None else None
         if existing is not None:
             context = (
-                existing.get("worker_execution_context") if isinstance(existing, Mapping)
+                existing.get("worker_execution_context")
+                if isinstance(existing, Mapping)
                 else getattr(existing, "worker_execution_context", None)
             )
             stored = context.get("native_node_command") if isinstance(context, Mapping) else None
@@ -73,13 +96,14 @@ class AnantaHubTaskQueueAdapter:
                 raise ValueError("pi_task_scope_changed_before_ingestion")
             extra_fields.update(scope)
         team_id = extra_fields.pop("team_id", None)
-        self._queue.ingest_task(
+        ingest = self._queue.ingest_task if lease is None else self._queue.ingest_task_fenced
+        ingest(
+            **({"lease": lease} if lease is not None else {}),
             task_id=hub_task_id,
             status="created",
             title=f"Workflow {command.workflow_id}: {command.node.node_id}",
             description=(
-                "Execute one Hub-delegated Native workflow node. "
-                f"run={command.run_id} node={command.node.node_id}"
+                f"Execute one Hub-delegated Native workflow node. run={command.run_id} node={command.node.node_id}"
             ),
             priority=str(command.node.metadata.get("priority") or "medium"),
             created_by="system:native-graph-orchestrator",
@@ -105,7 +129,8 @@ class AnantaHubTaskQueueAdapter:
             "derivation_reason": "native_graph_hub_delegation",
             "worker_execution_context": {
                 "schema": "ananta.native_graph_worker_context.v1",
-                "runtime_path": "native_graph_node", "native_node_command": command.to_dict(),
+                "runtime_path": "native_graph_node",
+                "native_node_command": command.to_dict(),
             },
         }
         selectors = {"context_bundle_mode", "context_policy_id", "context_destination_id"}
@@ -120,9 +145,25 @@ class AnantaHubTaskQueueAdapter:
         fields.update(parent_task_id=prepared.parent_task_id, context_bundle_id=prepared.bundle_id)
         return fields
 
-    def poll(
-        self, *, tenant_id: str, run_id: str, hub_task_ids: tuple[str, ...]
-    ) -> tuple[NativeNodeResult, ...]:
+    def get_submission(self, *, command_id: str, tenant_id: str, run_id: str) -> HubTaskSubmission | None:
+        task_id = _task_id(command_id)
+        task = self._repository.get_by_id(task_id)
+        if task is None:
+            return None
+        context = (
+            task.get("worker_execution_context")
+            if isinstance(task, Mapping)
+            else getattr(task, "worker_execution_context", None)
+        )
+        raw = context.get("native_node_command") if isinstance(context, Mapping) else None
+        if not isinstance(raw, Mapping):
+            raise ValueError("native_submission_command_missing")
+        command = NativeNodeCommand.from_mapping(dict(raw))
+        if (command.command_id, command.tenant_id, command.run_id) != (command_id, tenant_id, run_id):
+            raise ValueError("native_submission_binding_mismatch")
+        return HubTaskSubmission(command, HubTaskReceipt(task_id, command_id, True))
+
+    def poll(self, *, tenant_id: str, run_id: str, hub_task_ids: tuple[str, ...]) -> tuple[NativeNodeResult, ...]:
         results: list[NativeNodeResult] = []
         for task_id in sorted(set(hub_task_ids)):
             task = self._repository.get_by_id(task_id)
@@ -143,7 +184,8 @@ class AnantaHubTaskQueueAdapter:
             if isinstance(raw_result, dict):
                 result = (
                     validate_pi_native_result(raw_result, command=command, hub_task_id=task_id, task_status=status)
-                    if command.node.task_kind == "pi_coding_agent" else NativeNodeResult.from_mapping(raw_result)
+                    if command.node.task_kind == "pi_coding_agent"
+                    else NativeNodeResult.from_mapping(raw_result)
                 )
                 if result.hub_task_id != task_id:
                     raise ValueError("native_hub_task_result_id_mismatch")
@@ -156,7 +198,9 @@ class AnantaHubTaskQueueAdapter:
                         raise ValueError("pi_native_result_receipt_required")
                     admitted_command = pi_task_command(task)
                     require_pi_result_receipt(
-                        task=task, command=admitted_command, candidate=pi_task_result_candidate(task, admitted_command),
+                        task=task,
+                        command=admitted_command,
+                        candidate=pi_task_result_candidate(task, admitted_command),
                     )
                 results.append(result)
                 continue
@@ -215,9 +259,7 @@ def _task_id(command_id: str) -> str:
     return f"wfn-{digest}"
 
 
-def _missing_result_failure(
-    command: NativeNodeCommand, hub_task_id: str, task_status: str
-) -> NativeNodeResult:
+def _missing_result_failure(command: NativeNodeCommand, hub_task_id: str, task_status: str) -> NativeNodeResult:
     return NativeNodeResult(
         result_id=f"nres-missing-{hub_task_id}",
         command_id=command.command_id,
