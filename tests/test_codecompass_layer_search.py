@@ -218,3 +218,16 @@ def test_without_layer_wiring_a_pointer_row_is_skipped(hub):
     other = Flask("plain")
     with other.app_context():
         assert service.search_records_page("supervise", limit=5)["records"] == []
+
+
+def test_identifiers_are_matched_as_phrases_before_common_words(tmp_path):
+    from agent.services.codecompass_layer_search_index import identifier_phrases
+
+    assert identifier_phrases("was ist HANDLER_ONLY_TASK_KINDS und rag-helper, RagHelper") == [
+        '"handler only task kinds"', '"rag helper"']
+    index = LayerSearchIndex(tmp_path / "p.sqlite")
+    noise = [row(str(n), f"misc/f{n}.py", "handler for the task, only some kinds " * 5) for n in range(50)]
+    target = row("t", "agent/orchestrator.py", "HANDLER_ONLY_TASK_KINDS = frozenset()")
+    index.sync(generation=1, chain=["l"], load_layer={"l": layer([*noise, target])}.get)
+    rows, total = index.search("HANDLER_ONLY_TASK_KINDS", limit=3)
+    assert rows[0]["id"] == "t" and total == 51

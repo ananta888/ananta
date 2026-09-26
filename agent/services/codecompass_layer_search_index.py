@@ -23,10 +23,28 @@ _TOKEN = re.compile(r"[0-9A-Za-zÀ-ɏ]+")
 _SCHEMA_VERSION = "1"
 
 
+_IDENTIFIER = re.compile(r"[A-Za-z0-9]+(?:[_.\-/][A-Za-z0-9]+)+|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+")
+
+
 def fts_query(query: str) -> str:
     """OR of the query's word tokens, each quoted: no FTS syntax reaches SQLite."""
     tokens = list(dict.fromkeys(token.lower() for token in _TOKEN.findall(str(query or "")) if len(token) >= 2))
     return " OR ".join(f'"{token}"' for token in tokens[:32])
+
+
+def identifier_phrases(query: str) -> list[str]:
+    """Identifiers (snake/kebab/dotted/CamelCase) as FTS phrases of their word tokens.
+
+    The tokenizer splits ``HANDLER_ONLY_TASK_KINDS`` into four common words; as
+    an OR query the defining chunk drowns among thousands of matches. As a
+    phrase it matches exactly where the identifier is written.
+    """
+    phrases = []
+    for identifier in _IDENTIFIER.findall(str(query or "")):
+        words = [word.lower() for word in _TOKEN.findall(identifier)]
+        if len(words) > 1:
+            phrases.append('"' + " ".join(words) + '"')
+    return list(dict.fromkeys(phrases))[:8]
 
 
 class LayerSearchIndex:
@@ -122,17 +140,22 @@ class LayerSearchIndex:
         match = fts_query(query)
         if not match:
             return [], 0
+        limit = max(1, int(limit))
+        select = (
+            "SELECT c.id, c.path, c.symbol, c.kind, c.start_line, c.end_line, c.content, c.content_hash"
+            " FROM chunks_fts JOIN chunks c ON c.rowid = chunks_fts.rowid"
+            " WHERE chunks_fts MATCH ? ORDER BY bm25(chunks_fts, 4.0, 3.0, 1.0) LIMIT ?"
+        )
         with closing(self._connect()) as connection, connection:
             total = int(connection.execute("SELECT count(*) FROM chunks_fts WHERE chunks_fts MATCH ?",
                                            (match,)).fetchone()[0])
-            rows = connection.execute(
-                "SELECT c.id, c.path, c.symbol, c.kind, c.start_line, c.end_line, c.content, c.content_hash"
-                " FROM chunks_fts JOIN chunks c ON c.rowid = chunks_fts.rowid"
-                " WHERE chunks_fts MATCH ? ORDER BY bm25(chunks_fts, 4.0, 3.0, 1.0) LIMIT ?",
-                (match, max(1, int(limit))),
-            ).fetchall()
+            rows = []
+            for phrase in identifier_phrases(query):
+                rows.extend(connection.execute(select, (phrase, limit)).fetchall())
+            rows.extend(connection.execute(select, (match, limit)).fetchall())
         keys = ("id", "path", "symbol", "kind", "start_line", "end_line", "content", "content_hash")
-        return [dict(zip(keys, row)) for row in rows], total
+        unique = list({row[0]: row for row in rows}.values())[:limit]
+        return [dict(zip(keys, row)) for row in unique], total
 
     def count(self) -> int:
         with closing(self._connect()) as connection, connection:
