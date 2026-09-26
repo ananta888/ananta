@@ -218,3 +218,33 @@ def test_a_result_for_another_task_is_rejected():
 def test_content_parts_are_bounded_and_deterministic():
     parts = partition_by_size([("c", 5), ("a", 5), ("b", 5), ("big", 50)], max_chars=10)
     assert parts == [["a", "b"], ["big"], ["c"]]
+
+
+def test_the_worker_endpoint_returns_real_paths_without_a_user_context(hub, monkeypatch):
+    """Live regression: api_response masked every path for the worker, collapsing all files into one."""
+    from agent.routes.codecompass_layer_jobs import codecompass_layer_jobs_bp
+
+    monkeypatch.setattr("agent.auth._strict_registered_worker_bearer_error", lambda **_kwargs: None)
+    hub.register_blueprint(codecompass_layer_jobs_bp)
+    commit(hub, A, "commit-a")
+    task_id = hub.queue.tasks[0]["task_id"]
+    response = hub.test_client().get(f"/internal/codecompass/layer-jobs/{task_id}")
+    assert response.status_code == 200
+    paths = [change["path"] for change in response.get_json()["file_changes"]]
+    assert sorted(paths) == sorted(A)
+
+
+def test_a_spec_with_collapsed_paths_fails_instead_of_building(hub):
+    commit(hub, A, "commit-a")
+    gateway = hub.extensions["codecompass_layer_job_gateway"]
+
+    class MaskingClient(GatewayClient):
+        def fetch_spec(self, task_id):
+            spec = dict(self.gateway.spec(task_id))
+            spec["file_changes"] = [{**change, "path": "***REDACTED_PATH***"} for change in spec["file_changes"]]
+            return spec
+
+    task = hub.queue.tasks[0]
+    view = {"task_kind": TASK_KIND, "worker_execution_context": task["extra_fields"]["worker_execution_context"]}
+    result = CodeCompassLayerJobHandler(MaskingClient(gateway)).execute(task=view, tid=task["task_id"])
+    assert result["status"] == "failed" and result["reason_code"] == "codecompass_layer_job_spec_paths_invalid"

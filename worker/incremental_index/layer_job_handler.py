@@ -111,6 +111,10 @@ class CodeCompassLayerJobHandler:
             texts.update({str(key): str(value) for key, value in dict(payload.get("texts") or {}).items()})
         changes = [FileChange(**{key: item.get(key) for key in _CHANGE_FIELDS})
                    for item in list(spec.get("file_changes") or [])]
+        targets = [change.new_path or change.path for change in changes]
+        if any(not path for path in targets) or len(set(targets)) != len(targets):
+            # Never build a layer from a spec whose paths collapsed (e.g. masked in transit).
+            raise ValueError("codecompass_layer_job_spec_paths_invalid")
         content: dict[str, str] = {}
         for change in changes:
             if change.operation == "delete":

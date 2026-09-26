@@ -5,7 +5,7 @@ from __future__ import annotations
 import gzip
 import json
 
-from flask import Blueprint, Response, current_app, request
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from agent.auth import check_registered_worker_auth
 from agent.common.errors import api_response
@@ -29,6 +29,13 @@ def _error(code: str, status: int):
     return api_response(status="error", message=code, data={"error": code}, code=status)
 
 
+def _machine_json(payload: dict):
+    """Worker payloads are data, not a user view: ``api_response`` would mask fields
+    such as ``path`` for a request without a user, and every file would collapse
+    into one redacted path."""
+    return jsonify(payload)
+
+
 def _flask_path(template: str) -> str:
     return template.replace("{task_id}", "<task_id>")
 
@@ -42,7 +49,7 @@ def layer_job_spec(task_id: str):
     if gateway is None:
         return _error("codecompass_layers_disabled", 404)
     try:
-        return api_response(gateway.spec(task_id))
+        return _machine_json(gateway.spec(task_id))
     except (LayerJobNotFound, ValueError) as error:
         return _error(str(error), 404)
 
@@ -78,7 +85,7 @@ def layer_job_upload(task_id: str):
     if length is None or not 0 < length <= LAYER_UPLOAD_MAX_BYTES:
         return _error("codecompass_layer_upload_size_invalid", 413)
     try:
-        return api_response(gateway.receive_layer(task_id, request.get_data(cache=False)))
+        return _machine_json(gateway.receive_layer(task_id, request.get_data(cache=False)))
     except LayerJobNotFound as error:
         return _error(str(error), 404)
     except (ValueError, OSError) as error:
