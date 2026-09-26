@@ -717,6 +717,8 @@ class KnowledgeIndexRetrievalService:
         query_parts = {part for token in query_tokens for part in token.split("_") if len(part) >= 3}
         path_stem_bonus = self.PATH_STEM_TOKEN_WEIGHT * len(query_parts & stem_tokens)
 
+        definition_bonus = self._definition_bonus(query, record)
+
         relation_signal = 0.0
         if field_texts.get("relations"):
             relation_signal += 0.7 + float(profile.get("relation_bonus", 0.0))
@@ -729,6 +731,7 @@ class KnowledgeIndexRetrievalService:
         file_multiplier = float((profile.get("file_kind_weights") or {}).get(file_bucket, 1.0))
         base_score = (
             sum(weighted_hits.values()) + symbol_hit_score + phrase_bonus + path_stem_bonus + relation_signal
+            + definition_bonus
         )
         importance_score = float(record.get("importance_score") or 0.0)
         importance_boost = min(0.45, importance_score * float(profile.get("importance_weight", 0.0)))
@@ -758,6 +761,7 @@ class KnowledgeIndexRetrievalService:
             "relation_signal": round(relation_signal, 4),
             "phrase_bonus": round(phrase_bonus, 4),
             "path_stem_bonus": round(path_stem_bonus, 4),
+            "definition_bonus": round(definition_bonus, 4),
             "importance_boost": round(importance_boost, 4),
             "duplicate_penalty": round(duplicate_penalty, 4),
             "generated_penalty": round(generated_penalty, 4),
@@ -766,6 +770,29 @@ class KnowledgeIndexRetrievalService:
             "quality_multiplier": round(quality_multiplier, 4),
             "final_score": round(score, 4),
         }
+
+    # A record that defines an identifier from the query ("def X", "class X",
+    # "X = ...", "const X") or is named by it is the answer to "where is X";
+    # scattered hits of its word parts elsewhere must not outrank it.
+    DEFINITION_BONUS = 60.0
+    _QUERY_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:_[A-Za-z0-9]+|[a-z0-9][A-Z][A-Za-z0-9]*)")
+
+    def _definition_bonus(self, query: str, record: dict[str, Any]) -> float:
+        identifiers = [value for value in self._QUERY_IDENTIFIER.findall(str(query or "")) if len(value) >= 6]
+        if not identifiers:
+            return 0.0
+        symbol = str(record.get("symbol") or self._nested(record, "symbol") or "")
+        content = str(record.get("content") or record.get("text") or "")[:200_000]
+        for identifier in identifiers[:4]:
+            if symbol == identifier or symbol.endswith("." + identifier):
+                return self.DEFINITION_BONUS
+            pattern = (
+                r"(?m)^[ \t]*(?:export[ \t]+)?(?:(?:async[ \t]+)?def|class|const|let|var|function|interface|type)?"
+                r"[ \t]*" + re.escape(identifier) + r"\b[ \t]*(?::[^=\n]*)?[=(:]"
+            )
+            if re.search(pattern, content):
+                return self.DEFINITION_BONUS
+        return 0.0
 
     def search(
         self,

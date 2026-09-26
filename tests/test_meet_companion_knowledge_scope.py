@@ -195,3 +195,20 @@ def test_all_caps_identifiers_do_not_become_single_letter_symbols():
     assert all(len(symbol) >= 3 for symbol in symbols)
     assert "handler_only_task_kinds" in symbols
     assert {"rag", "helper", "index", "service"} <= set(features._query_features("RagHelperIndexService")["symbols"])
+
+
+@pytest.mark.parametrize("content, symbol, expected", [
+    ("HANDLER_ONLY_TASK_KINDS = frozenset()", "", True),
+    ("    def chunk_records(path, text):", "", True),
+    ("class RagHelperIndexService:", "", True),
+    ("export const layerRoot: string = x", "", True),
+    ("if task_kind in HANDLER_ONLY_TASK_KINDS:", "", False),
+    ("", "RagHelperIndexService", True),
+    ("", "RagHelperIndexService.index_artifact", False),
+])
+def test_records_defining_a_query_identifier_get_the_definition_bonus(content, symbol, expected):
+    service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=list))
+    query = {"HANDLER_ONLY_TASK_KINDS": "HANDLER_ONLY_TASK_KINDS"}.get(content.split(" ")[0].strip(), "")
+    query = query or "HANDLER_ONLY_TASK_KINDS chunk_records RagHelperIndexService layerRoot"
+    bonus = service._definition_bonus(query, {"content": content, "symbol": symbol})
+    assert (bonus > 0) is expected
