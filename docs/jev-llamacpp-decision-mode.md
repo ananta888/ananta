@@ -154,7 +154,7 @@ Endpunkt über `ANANTA_PARALLEL_DECISION_URL` (nur http/https). Jeder Request se
 „Starte den Companion neu“ → `service.restart {service: companion}`, „Wo wird der CircuitBreaker definiert?“ →
 `free_text_arguments` (Hinweis `repo.search`), „Erzähl einen Witz“ → `respond`; warm je 0,18–0,19 s.
 
-**Offen:** Freitextargumente decken erst die Upstream-PR #14 (hybride Entscheidung) oder der Chat-Pfad ab. Der
+**Freitext:** siehe Abschnitt „Freitext-Argumente“ unten (Profil-Flag `open_field`). Der
 Hub-Tool-Loop (`ananta_worker_tool_loop`) ist auf den Workern aus; `tiny_router.mode: shadow` sammelt dort also
 nichts, solange der Loop aus ist. Echte Tool-Calls macht derzeit der Meet-Companion, darum läuft der Shadow dort.
 
@@ -189,3 +189,38 @@ gelinkt, eine Kopie nur von `llama-server` ist kein Rollback; Rollback = Checkou
   `actual_first` (erster wirklich gelaufener Call) und Decision; ohne Fragetext (nur Hash und Länge). Auswertung:
   `python3 scripts/jev_tool_decision_calibration.py --from-shadow data/meet-media/worker-state/tool-decision-shadow.jsonl`.
   Gemessen: 0,16 s je Shadow-Entscheidung.
+
+## Freitext-Argumente (Upstream-PR #14, portiert)
+
+Der Kern bewertet nur geschlossene Felder. PR #14 (thecodacus/llama.cpp, akudo7, offen) ergänzt **ein begrenztes
+offenes Feld** (`{"type":"string","max_tokens":N}`, 1–1024): Es wird im selben Aufruf nach dem Scoring auf dem Trunk
+erzeugt, mit den gewählten geschlossenen Werten davor. Der Text sieht also das gewählte Tool; die Feldabhängigkeit ist
+gelöst statt verboten. Portiert auf `bonsai-decision` (`0f9f9ff10`) plus zwei eigene Ergänzungen:
+
+- **Stopp am Wertende** (`c2a4426ce`): Das Modell schließt den String und erfindet danach weitere Felder bis
+  `max_tokens`. Die Erzeugung stoppt am ersten unmaskierten `"` (sonst an Komma, Zeilenende oder Klammer).
+  Erzeugung 550–800 ms → 63–235 ms.
+- **`when`** (`b8d5823a3`): `"when": {"tool": [...]}` erzeugt das Feld nur, wenn das geschlossene Feld einen der Werte
+  gewonnen hat, sonst `"skipped": true` ohne Kosten. Spart ~155 ms bei jeder Antwort ohne Tool.
+
+**Adapter:** Mit `metadata.open_field: true` im Profil bekommt ein Tool, dessen einziges freies Argument ein
+Pflicht-String ist (`query`, `handle`), dieses aus dem Feld `text_argument` (48 Tokens, `when` = diese Tools). Geprüft:
+String, vollständig, nicht leer, höchstens 200 Zeichen, keine Steuerzeichen; sonst `text_argument_invalid` → Chat-Pfad.
+Tools mit mehr Freitext (z. B. zwei Manifeste) eskalieren weiter. Der Payload markiert erzeugte Argumente
+(`generated_arguments`), weil sie keine Wahrscheinlichkeit haben; der `CandidateValidator` prüft sie gegen das
+Tool-Schema.
+
+**Messung** (2026-09-27, RTX 5060 Ti, Bonsai 27B, 48 Kalibrier-Prompts, 8 Companion-Tools): 48/48 Tools richtig,
+**24/24 erzeugte Argumente passend** (`CircuitBreaker`, `build_tool_decision_schema`, `hac:…`-Handles, Architekturfragen).
+Warm-Median eines vollständigen Tool-Calls mit Text 0,625 s, ohne Text 0,268 s.
+
+**Companion-Shadow:** Er erzeugt das Argument mit (`MEET_TOOL_DECISION_SHADOW_ARGUMENT`, Standard an) und protokolliert
+nur, ob es dem Argument des wirklich gelaufenen Calls entspricht (`argument_equal`) und wie lang es ist, ohne Text.
+Erster End-to-End-Lauf: „CircuitBreaker“ gleich dem vom Router erzwungenen Suchbegriff. Bei „Welche Index-Layer hat
+CodeCompass?“ erzwang der Router eine Suche, das Modell rief danach selbst `codecompass_layers_heads`, und der
+Jev-Modus wählte `layers_heads` direkt. `actual_first` ist deshalb nicht immer das bessere Label; die Auswertung soll
+`model_first` mitlesen.
+
+**Offen:** Die Fork-Testsuite `tools/server/tests/unit/test_decision.py` ist für das offene Feld noch nicht erweitert
+und nicht gelaufen (sie startet eigene Server, braucht die GPU frei). Die PR ist upstream offen; bei einem Merge dort ist
+unser Port abzugleichen.

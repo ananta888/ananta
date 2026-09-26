@@ -242,7 +242,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 65,
       "depends_on": [
         "JEVCPP-004"
       ],
@@ -260,7 +260,8 @@
       "evidence": [
         "agent/services/tiny_router/parallel_decision.py: Tool-Wahl ist Feld \"tool\" (independent); Argumentfelder \"grouped:<tool>\" und werden nur fuer das gewaehlte Tool gelesen",
         "Tools mit Pflicht-Freitextargumenten werden nicht erraten, sondern als free_text_arguments an den Chat-Pfad gegeben",
-        "Offen: allgemeine sequential-Kennzeichnung fuer Nicht-Tool-Schemata und ein Negativtest mit echter Cross-Field-Abhaengigkeit; Routinggrund steht bisher nur in der Router-Telemetrie, nicht im Audit"
+        "Offen: allgemeine sequential-Kennzeichnung fuer Nicht-Tool-Schemata und ein Negativtest mit echter Cross-Field-Abhaengigkeit; Routinggrund steht bisher nur in der Router-Telemetrie, nicht im Audit",
+        "2026-09-27: Freitext-Argumente über ein offenes Feld (Upstream-PR #14 portiert), erzeugt nach den geschlossenen Feldern und nur, wenn \"when\" (gewähltes Tool) es erlaubt: die Abhängigkeit Argument -> Tool wird aufgelöst statt parallel-isoliert behandelt"
       ]
     },
     {
@@ -378,7 +379,8 @@
         "benchmarks/tiny_tool_router/decision_calibration.v1.json: 48 DE/EN-Fälle über das Companion-Toolset (synthetisch, nie Release-Evidenz); scripts/jev_tool_decision_calibration.py",
         "Ergebnis 2026-09-27 (Bonsai 27B): 48/48 richtig, ECE 0,027 - das Set ist zu leicht, um Schwellen zu trennen; keine Empfehlung, min_confidence bleibt 0,8",
         "Companion-Shadow (worker/meet_media/tool_decision_shadow.py) sammelt echte Referenzen: Decision neben dem ersten wirklich gelaufenen Tool-Call, ohne Fragetext; Auswertung mit --from-shadow",
-        "Offen: Vergleich mit normaler JSON-/Grammar-Ausgabe desselben Modells, schwierigere Fälle, Validation/Holdout-Trennung"
+        "Offen: Vergleich mit normaler JSON-/Grammar-Ausgabe desselben Modells, schwierigere Fälle, Validation/Holdout-Trennung",
+        "2026-09-27 mit offenem Feld: 48/48 Tools, 24/24 erzeugte Argumente passend (expected.argument_contains); Warm-Median 0,625 s mit Text, 0,268 s ohne"
       ]
     },
     {
@@ -406,7 +408,8 @@
         "Empfohlene Profile fuer low-latency, balanced und quality-first sind aus Messwerten ableitbar."
       ],
       "notes": [
-        "Erste Einzelwerte (nicht p95/p99): RTX 5060 Ti, Bonsai 27B PQ2_0, 8 Tools: 0,27 s warm je Tool-Entscheidung, im Companion-Shadow 0,16 s; 4 Tools: 0,18 s."
+        "Erste Einzelwerte (nicht p95/p99): RTX 5060 Ti, Bonsai 27B PQ2_0, 8 Tools: 0,27 s warm je Tool-Entscheidung, im Companion-Shadow 0,16 s; 4 Tools: 0,18 s.",
+        "Offenes Feld (Bonsai 27B): Erzeugung 63-610 ms je nach Textlänge, ~90 ms/Token; mit \"when\" 0 ms, wenn das Tool keinen Text braucht."
       ]
     },
     {
