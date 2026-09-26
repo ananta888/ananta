@@ -64,6 +64,7 @@ Search: KnowledgeIndexRetrievalService → pointer row → FTS candidates → ex
 | `ANANTA_CODECOMPASS_LAYER_WRITES` | off | dispatch of builds (sync API returns errors without it) |
 | `ANANTA_CODECOMPASS_LAYER_TENANT_ID` / `_PROJECT_ID` | `default` / `ananta` | evidence registry scope of the RUN_* |
 | `ANANTA_CODECOMPASS_LAYER_MAX_DELTAS` | 32 | deltas before the next base |
+| `ANANTA_CODECOMPASS_LAYER_TEAM_ID` | unset | team of the build tasks; a team-scoped autopilot only dispatches its team's tasks |
 
 Workers register the `codecompass_layer_build` handler when Hub URL, token and
 a complete worker identity are configured (scope `codecompass.layers.jobs`).

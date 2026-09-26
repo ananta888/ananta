@@ -24,6 +24,7 @@ WRITES_ENV = "ANANTA_CODECOMPASS_LAYER_WRITES"
 TENANT_ENV = "ANANTA_CODECOMPASS_LAYER_TENANT_ID"
 PROJECT_ENV = "ANANTA_CODECOMPASS_LAYER_PROJECT_ID"
 MAX_DELTAS_ENV = "ANANTA_CODECOMPASS_LAYER_MAX_DELTAS"
+TEAM_ENV = "ANANTA_CODECOMPASS_LAYER_TEAM_ID"
 ROOT_DIRNAME = "codecompass_layers"
 
 
@@ -88,7 +89,9 @@ def initialize_codecompass_layers(
             layers=layers, heads=heads, snapshots=snapshots,
             policy=ChunkPlanPolicy(max_delta_depth=_max_deltas(environ)),
         ),
-        task_queue=HubTaskQueueLayerDispatcher(queue=task_queue or _Lazy(_hub_task_queue), evidence=evidence),
+        task_queue=HubTaskQueueLayerDispatcher(
+            queue=task_queue or _Lazy(_hub_task_queue), evidence=evidence, team_id=environ.get(TEAM_ENV)
+        ),
         dispatch_repository=FileLayerDispatchRepository(root),
         publisher=HubCodeCompassLayerPublisher(
             layers=layers, heads=heads, evidence=evidence,

@@ -248,3 +248,25 @@ def test_a_spec_with_collapsed_paths_fails_instead_of_building(hub):
     view = {"task_kind": TASK_KIND, "worker_execution_context": task["extra_fields"]["worker_execution_context"]}
     result = CodeCompassLayerJobHandler(MaskingClient(gateway)).execute(task=view, tid=task["task_id"])
     assert result["status"] == "failed" and result["reason_code"] == "codecompass_layer_job_spec_paths_invalid"
+
+
+def test_layer_tasks_can_be_bound_to_the_autopilot_team(tmp_path):
+    app = Flask("team")
+    app.config["ROLE"] = "hub"
+    queue = Queue()
+    initialize_codecompass_layers(
+        app,
+        environ={"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1", "ANANTA_CODECOMPASS_LAYER_WRITES": "1",
+                 "ANANTA_CODECOMPASS_LAYER_TEAM_ID": "live-smoke"},
+        data_dir=tmp_path, task_queue=queue, evidence=Evidence(),
+    )
+    app.queue, app.evidence = queue, Evidence()
+    root = tmp_path / "codecompass_layers"
+    app.snapshots, app.contents = SnapshotManifestStore(root), ContentBlobStore(root)
+    commit(app, A, "commit-a")
+    assert queue.tasks[0]["team_id"] == "live-smoke"
+
+
+def test_without_a_team_setting_layer_tasks_stay_unscoped(hub):
+    commit(hub, A, "commit-a")
+    assert hub.queue.tasks[0]["team_id"] is None

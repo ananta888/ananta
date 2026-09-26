@@ -92,9 +92,11 @@ class HubEvidenceLayerRuns:
 class HubTaskQueueLayerDispatcher:
     """``CodeCompassLayerTaskQueuePort``: one Hub task per layer build."""
 
-    def __init__(self, *, queue: TaskIngressPort, evidence: LayerRunEvidencePort) -> None:
+    def __init__(self, *, queue: TaskIngressPort, evidence: LayerRunEvidencePort, team_id: str | None = None) -> None:
         self._queue = queue
         self._evidence = evidence
+        # A team-scoped autopilot only dispatches tasks of its team.
+        self._team_id = str(team_id or "").strip() or None
 
     def dispatch(self, *, envelope: Mapping[str, Any]) -> Mapping[str, Any]:
         task_id = str(envelope["task_id"])
@@ -113,6 +115,7 @@ class HubTaskQueueLayerDispatcher:
             priority="medium",
             created_by="codecompass-layers",
             source="codecompass_layers",
+            team_id=self._team_id,
             tags=["codecompass_layers", "hub_delegated"],
             event_channel="hub_task_queue",
             event_details={
