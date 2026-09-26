@@ -30,6 +30,7 @@ from agent.routes.chat import chat_bp  # New: Chat API
 from agent.routes.classroom import classroom_bp
 from agent.routes.codecompass_domain_scope import codecompass_domain_scope_bp
 from agent.routes.codecompass_graph import codecompass_graph_bp
+from agent.routes.codecompass_layer_jobs import codecompass_layer_jobs_bp
 from agent.routes.codecompass_layers import codecompass_layers_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.codecompass_retrieve import codecompass_retrieve_bp
@@ -172,6 +173,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(codecompass_reload_bp)
     app.register_blueprint(codecompass_retrieve_bp)
     app.register_blueprint(codecompass_layers_bp)
+    app.register_blueprint(codecompass_layer_jobs_bp)
     app.register_blueprint(worker_tool_loop_diagnostics_bp)
     app.register_blueprint(hub_direct_diagnostics_bp)
     app.register_blueprint(approvals_bp)

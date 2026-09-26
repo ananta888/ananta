@@ -163,6 +163,53 @@ def _advertise_worker_capabilities(
     app.extensions["workflow_adapter_worker_registration"] = registration
 
 
+def _register_codecompass_layer_handler(app: Flask) -> None:
+    """Worker handler for Hub-delegated CodeCompass chunk layer builds."""
+
+    from agent.auth import resolve_configured_agent_token
+    from ananta_contracts.codecompass_layer_job import REQUIRED_CAPABILITIES, TASK_KIND
+    from worker.incremental_index.layer_job_handler import CodeCompassLayerJobHandler, HttpLayerJobHubClient
+    from worker.runtime.workflow_service_identity import WorkflowServiceIdentity
+
+    token = resolve_configured_agent_token(
+        {"AGENT_TOKEN": settings.agent_token, "AGENT_TOKEN_FILE": settings.agent_token_file}
+    )
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        identity = WorkflowServiceIdentity.optional(
+            worker_id=settings.agent_name, worker_url=str(settings.agent_url or "")
+        )
+        if identity is not None:
+            headers.update(identity.headers())
+        client = HttpLayerJobHubClient(hub_url=str(settings.hub_url or ""), headers=headers)
+    except ValueError as error:
+        # A Worker without a complete Hub identity simply does not offer layer builds.
+        app.extensions["codecompass_layer_worker_registration"] = {"ready": False, "reason_code": str(error)}
+        return
+    if not token:
+        app.extensions["codecompass_layer_worker_registration"] = {
+            "ready": False,
+            "reason_code": "codecompass_layer_worker_token_required",
+        }
+        return
+    register_task_handler(
+        TASK_KIND,
+        CodeCompassLayerJobHandler(client),
+        app=app,
+        capabilities=list(REQUIRED_CAPABILITIES),
+        safety_flags={
+            "requires_review": False,
+            "worker_only": True,
+            "hub_delegation_required": True,
+            "worker_orchestration_forbidden": True,
+            "client_filesystem_paths_forbidden": True,
+        },
+        verification_hooks=["codecompass_layer_ticket_binding", "layer_address_verification"],
+    )
+    _advertise_worker_capabilities(app, list(REQUIRED_CAPABILITIES))
+    app.extensions["codecompass_layer_worker_registration"] = {"ready": True, "reason_code": None}
+
+
 def _load_governed_knowledge_index_security_from_environment():
     """Compose the worker boundary without importing Hub implementations."""
 
@@ -321,6 +368,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         "ready": sira_registered,
         "reason_code": None if sira_registered else "sira_index_worker_paths_required",
     }
+    _register_codecompass_layer_handler(app)
 
     knowledge_index_registered = False
     try:

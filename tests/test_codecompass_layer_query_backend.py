@@ -192,10 +192,28 @@ def test_layers_stay_unavailable_by_default_and_outside_the_hub(tmp_path):
     assert "codecompass_layer_service" not in worker_app.extensions
 
 
-def test_enabled_layers_answer_reads_and_refuse_writes_without_dispatch(tmp_path):
+class _Queue:
+    def __init__(self):
+        self.tasks = []
+
+    def ingest_task(self, **kwargs):
+        self.tasks.append(kwargs)
+
+
+class _Evidence:
+    def reserve(self, **_kwargs):
+        return "RUN_test"
+
+    def complete(self, **_kwargs):
+        pass
+
+
+def test_enabled_layers_answer_reads_and_gate_writes(tmp_path):
     hub = app()
     environ = {"ANANTA_CODECOMPASS_LAYERS_ENABLED": "1"}
-    status = initialize_codecompass_layers(hub, environ=environ, data_dir=tmp_path)
+    queue = _Queue()
+    status = initialize_codecompass_layers(hub, environ=environ, data_dir=tmp_path, task_queue=queue,
+                                           evidence=_Evidence())
     assert status.enabled and status.root == str(tmp_path / "codecompass_layers")
     service = hub.extensions["codecompass_layer_service"]
     assert service.list_profiles() == []
@@ -204,6 +222,7 @@ def test_enabled_layers_answer_reads_and_refuse_writes_without_dispatch(tmp_path
              "idempotency_key": "k"}
     with pytest.raises(RuntimeError, match="codecompass_layer_writes_disabled"):
         service.apply_update(**apply)
+    assert queue.tasks == []
     environ["ANANTA_CODECOMPASS_LAYER_WRITES"] = "1"
-    with pytest.raises(RuntimeError, match="codecompass_layer_worker_dispatch_required"):
-        service.apply_update(**apply)
+    assert service.apply_update(**apply)["status"] == "queued" and len(queue.tasks) == 1
+    assert "codecompass_layer_job_gateway" in hub.extensions

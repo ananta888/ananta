@@ -1549,6 +1549,27 @@ def _accept_local_runtime_capability_result(
     return {"local_runtime_capability_refresh": accepted} if accepted is not None else {}
 
 
+def _accept_codecompass_layer_result(
+    *,
+    tid: str,
+    task: Mapping[str, Any],
+    response: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Admit a delegated layer build only for the task it was dispatched as."""
+    from ananta_contracts.codecompass_layer_job import TASK_KIND
+
+    if str(task.get("task_kind") or "").strip() != TASK_KIND:
+        return {}
+    from agent.services.codecompass_layer_service import get_codecompass_layer_service
+
+    if str(response.get("task_id") or "") != str(tid):
+        return {TASK_KIND: {"status": "rejected", "reason_code": "codecompass_layer_result_task_mismatch"}}
+    try:
+        return {TASK_KIND: get_codecompass_layer_service().admit_result(response)}
+    except (RuntimeError, ValueError) as error:
+        return {TASK_KIND: {"status": "rejected", "reason_code": str(error)[:160]}}
+
+
 def persist_forwarded_execution(
     *,
     tid: str,
@@ -1617,6 +1638,9 @@ def persist_forwarded_execution(
         )
     verification_status.update(
         _accept_local_runtime_capability_result(task=task, response=response)
+    )
+    verification_status.update(
+        _accept_codecompass_layer_result(tid=tid, task=task, response=response)
     )
     raw_artifacts = response.get("artifacts")
     artifacts = (

@@ -184,6 +184,11 @@ class CodeCompassLayerDispatchBackend:
         }
 
     def apply_update(self, **kwargs: Any) -> dict[str, Any]:
+        plan = kwargs["plan"] if isinstance(kwargs.get("plan"), Mapping) else {}
+        decision = plan.get("decision") if isinstance(plan.get("decision"), Mapping) else {}
+        if str(decision.get("decision_type") or "") == "noop":
+            # Nothing to build: no task, no Worker, no run.
+            return {"status": "noop", "task_id": "", "input_revision": str(plan.get("input_revision") or "")}
         return self._dispatch(
             action="apply_update",
             plan=dict(kwargs["plan"]),
@@ -230,6 +235,10 @@ class CodeCompassLayerDispatchBackend:
         }
         if any(str(result.get(field) or "") != expected for field, expected in comparisons.items()):
             raise ValueError("codecompass_layer_result_binding_invalid")
+        if str(result.get("status") or "") != "completed":
+            # A bound failure carries no artifacts; admit it as failed instead of
+            # rejecting it for an incomplete artifact set.
+            return self._fail(record, result)
         expected_kinds = list(intent.get("artifact_kinds") or [])
         result_kinds = sorted({str(kind) for kind in list(result.get("artifact_kinds") or [])})
         artifact_set = result.get("artifact_set")
@@ -245,14 +254,29 @@ class CodeCompassLayerDispatchBackend:
                 raise ValueError("codecompass_layer_result_artifact_digest_invalid")
         if str(result.get("artifact_set_digest") or "") != _canonical_digest(artifact_set):
             raise ValueError("codecompass_layer_result_artifact_set_digest_invalid")
-        if str(result.get("status") or "") != "completed":
-            failed = {**record, "state": "failed", "reason_code": str(result.get("reason_code") or "worker_failed")}
+        try:
+            publication = dict(self._publisher.publish(dispatch=record, result=result))
+        except ValueError as error:
+            failed = {**record, "state": "failed", "reason_code": str(error)[:160]}
             self._dispatches.save(failed)
             return {"status": "failed", "task_id": task_id, "reason_code": failed["reason_code"]}
-        publication = dict(self._publisher.publish(dispatch=record, result=result))
         published = {**record, "state": "published", "publication": publication}
         self._dispatches.save(published)
         return publication
+
+    def _fail(self, record: Mapping[str, Any], result: Mapping[str, Any]) -> dict[str, Any]:
+        task_id = str(record.get("task_id") or "")
+        failed = {**record, "state": "failed", "reason_code": str(result.get("reason_code") or "worker_failed")[:160]}
+        self._dispatches.save(failed)
+        reject = getattr(self._publisher, "reject", None)
+        if callable(reject):
+            reject(dispatch=record, result=result)
+        return {"status": "failed", "task_id": task_id, "reason_code": failed["reason_code"]}
+
+    def job(self, task_id: str) -> Mapping[str, Any] | None:
+        """The dispatch record of an active (dispatched) layer job, for its Worker."""
+        record = self._dispatches.get(str(task_id))
+        return record if record and record.get("state") == "dispatched" else None
 
 
 class CodeCompassLayerService:
@@ -266,6 +290,11 @@ class CodeCompassLayerService:
     def apply_update(self, **kwargs: Any) -> dict[str, Any]: return self._backend.apply_update(**kwargs)
     def compact(self, **kwargs: Any) -> dict[str, Any]: return self._backend.compact(**kwargs)
     def admit_result(self, result: Mapping[str, Any]) -> dict[str, Any]: return self._backend.admit_result(result)
+
+    def job(self, task_id: str) -> Mapping[str, Any] | None:
+        """The active dispatch record of a delegated layer job, if the backend dispatches."""
+        lookup = getattr(self._backend, "job", None)
+        return lookup(task_id) if callable(lookup) else None
 
 
 _layer_service = CodeCompassLayerService()
