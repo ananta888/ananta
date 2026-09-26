@@ -14,6 +14,12 @@ from agent.services.meet_contract import MeetError
 from agent.services.operation_registry_service import get_operation_registry_service, mcp_tool_operation_id
 from worker.meet_media.contract import encode, signature
 
+
+def page(records):
+    """The ``search_records_page`` shape: records plus the total hit count."""
+    return {"records": records, "total": len(records) + 30}
+
+
 pytestmark = pytest.mark.timeout(30)
 KEY = b"synthetic-companion-tool-key-000000"
 PATH = "/api/meet/v1/internal/assist/tool"
@@ -72,11 +78,11 @@ def app(monkeypatch, registry):
     app.extensions["meet_media_worker_key"] = KEY
     app.extensions["meet_turn_service"] = Mock(companion_principal=Mock(side_effect=_principal))
     retrieval = Mock()
-    retrieval.search_records.return_value = [
+    retrieval.search_records_page.return_value = page([
         {"path": "", "content": "pathless", "score": 9.0, "metadata": {}},
         {"path": "worker/meet_media/llm_tools.py", "content": "class ToolBox", "score": 0.8,
          "symbol": "ToolBox", "metadata": {"line_start": 12}},
-    ]
+    ])
     monkeypatch.setattr(
         "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
         lambda *args, **kwargs: retrieval,
@@ -226,7 +232,7 @@ def test_retrieve_uses_the_assist_retrieval_path_and_returns_citable_snippets(ap
     payload = json.loads(response.data)
     assert [source["path"] for source in payload["sources"]] == ["worker/meet_media/llm_tools.py"]
     assert payload["sources"][0]["line"] == 12 and payload["sources"][0]["symbol"] == "ToolBox"
-    assert app.retrieval.search_records.call_args.kwargs["limit"] == 2
+    assert app.retrieval.search_records_page.call_args.kwargs["limit"] == 2
     assert registry.calls == []
 
 

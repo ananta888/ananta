@@ -197,7 +197,7 @@ def test_the_router_forces_codecompass_even_when_the_model_would_not_call_it():
     assert call["id"] == "forced-0" and call["function"]["name"] == llm_tools.NAME
     assert json.loads(call["function"]["arguments"]) == {"query": "rag-helper"}
     assert first[3]["tool_call_id"] == "forced-0"
-    assert "[agent/services/rag_helper_index_service.py:31#RagHelperIndexService]" in first[3]["content"]
+    assert "[agent/services/rag_helper_index_service.py:31#RagHelperIndexService score=" in first[3]["content"]
     # The model may still refine: the tools stay offered on the first request.
     assert port.payloads[0]["tools"][0]["function"]["name"] == llm_tools.NAME
     assert "codecompass_search forced by the router before the model call" in trace.observed

@@ -120,25 +120,37 @@ _TOOL_MARKUP = re.compile(
 )
 
 
-def context_block(snippets, *, max_chars=1400):
-    """Bounded plain-text context from retrieved snippets (path-prefixed)."""
+def context_block(snippets, *, max_chars=1400, preserve_lines=False, show_score=False):
+    """Bounded plain-text context from retrieved snippets (path-prefixed).
+
+    ``preserve_lines`` keeps the excerpt's line breaks (code stays readable for
+    a tool result); ``show_score`` adds the ranking score to each head.
+    """
     parts, used = [], 0
     for item in snippets:
         if not isinstance(item, dict):
             continue
         path = str(item.get("path") or "").strip()
         symbol = str(item.get("symbol") or "").strip()
-        line = item.get("line")
-        excerpt = " ".join(str(item.get("excerpt") or "").split())
-        if not excerpt:
+        line, line_end = item.get("line"), item.get("line_end")
+        raw = str(item.get("excerpt") or "")
+        excerpt = "\n".join(part.rstrip() for part in raw.strip("\n").splitlines()) if preserve_lines else " ".join(
+            raw.split()
+        )
+        if not excerpt.strip():
             continue
         remaining = max_chars - used
         if remaining <= 0:
             break
         if path and type(line) is int and line > 0:
             path = f"{path}:{line}"
+            if type(line_end) is int and line_end > line:
+                path = f"{path}-{line_end}"
         head = path + (f"#{symbol}" if symbol else "")
-        block = f"[{head}] {excerpt}" if head else excerpt
+        score = item.get("score")
+        if show_score and isinstance(score, (int, float)) and not isinstance(score, bool):
+            head = f"{head} score={score:.1f}" if head else f"score={score:.1f}"
+        block = f"[{head}]\n{excerpt}" if head and preserve_lines else (f"[{head}] {excerpt}" if head else excerpt)
         block = block[:remaining]
         parts.append(block)
         used += len(block)

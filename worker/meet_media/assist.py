@@ -29,6 +29,11 @@ class ToolCallError(Exception):
 
 
 def fetch_snippets(query, *, limit=5, timeout=10):
+    return fetch_retrieval(query, limit=limit, timeout=timeout)["snippets"]
+
+
+def fetch_retrieval(query, *, limit=5, timeout=10):
+    """``{"snippets", "total"}`` from ``/internal/assist/retrieve``; ``total`` is ``None`` on an older Hub."""
     key = load_key(os.environ["MEET_WORKER_KEY_FILE"])
     body = encode({"query": query, "limit": limit})
     request = urllib.request.Request(
@@ -42,7 +47,15 @@ def fetch_snippets(query, *, limit=5, timeout=10):
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = json.load(response)
     snippets = payload.get("snippets") if isinstance(payload, dict) else None
-    return [_snippet(item) for item in (snippets or []) if isinstance(item, dict)]
+    return {
+        "snippets": [_snippet(item) for item in (snippets or []) if isinstance(item, dict)],
+        "total": _total(payload),
+    }
+
+
+def _total(payload):
+    total = payload.get("total") if isinstance(payload, dict) else None
+    return total if type(total) is int and total >= 0 else None
 
 
 def call_tool(tool, arguments, *, project, timeout=20):
@@ -77,6 +90,7 @@ def call_tool(tool, arguments, *, project, timeout=20):
         "text": str(payload.get("text") or "")[:MAX_TOOL_TEXT_CHARS],
         "truncated": payload.get("truncated") is True,
         "sources": [_snippet(item) for item in sources[:8] if isinstance(item, dict)],
+        "total": _total(payload),
     }
 
 
@@ -91,7 +105,7 @@ def _error_code(error):
 
 
 def retrieve_snippets(query, *, limit=5, project, timeout=20):
-    """``codecompass.retrieve`` over ``/internal/assist/tool``.
+    """``codecompass.retrieve`` over ``/internal/assist/tool``: ``{"snippets", "total"}``.
 
     A Hub that predates the tool route answers 404 without a ``meet_tool_*``
     code; then the unchanged ``/internal/assist/retrieve`` path is used, so a
@@ -103,16 +117,18 @@ def retrieve_snippets(query, *, limit=5, project, timeout=20):
         )
     except ToolCallError as error:
         if error.code in ("meet_tool_http_404", "meet_media_disabled"):
-            return fetch_snippets(query, limit=limit)
+            return fetch_retrieval(query, limit=limit)
         raise
-    return result["sources"]
+    return {"snippets": result["sources"], "total": result["total"]}
 
 
 def _snippet(item):
     """Keep only the bounded fields the companion consumes (path, line, symbol, revision)."""
     line = item.get("line")
+    line_end = item.get("line_end")
     return {
         "line": line if type(line) is int and line > 0 else None,
+        "line_end": line_end if type(line_end) is int and type(line) is int and line_end >= line > 0 else None,
         "path": str(item.get("path") or "").strip()[:512],
         "symbol": str(item.get("symbol") or "").strip()[:256],
         "revision": str(item.get("revision") or "").strip()[:64],

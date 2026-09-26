@@ -302,9 +302,9 @@ def generate_reply(text):
                     ", fehlgeschlagen" if call["failed"] else "",
                 )
             )
-            log("TOOL %s query=%r snippets=%s failed=%s code=%s forced=%s"
-                % (name, call["query"][:80], call["snippets"], call["failed"], call.get("code", ""),
-                   bool(call.get("forced"))))
+            log("TOOL %s query=%r snippets=%s total=%s failed=%s code=%s forced=%s"
+                % (name, call["query"][:80], call["snippets"], call.get("total"), call["failed"],
+                   call.get("code", ""), bool(call.get("forced"))))
         trace.add_sources(toolbox.sources)
     log("TRACE route=%s tools=%s sources=%s" % (
         trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))

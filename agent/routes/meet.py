@@ -227,41 +227,68 @@ def media_assist_retrieve():
         raise MeetError("meet_retrieve_query_invalid")
     limit = payload.get("limit")
     limit = 5 if not isinstance(limit, int) else max(1, min(int(limit), 8))
-    return jsonify({"schema": "ananta.meet-assist-retrieve.v1", "snippets": assist_snippets(query, limit)})
+    result = assist_retrieval(query, limit)
+    return jsonify(
+        {"schema": "ananta.meet-assist-retrieve.v1", "snippets": result["snippets"], "total": result["total"]}
+    )
 
 
-def assist_snippets(query, limit):
+def assist_snippets(query, limit, *, project_id=None):
     """Bounded, citable knowledge-index snippets (shared with ``/internal/assist/tool``)."""
+    return assist_retrieval(query, limit, project_id=project_id)["snippets"]
+
+
+ASSIST_EXCERPT_CHARS = 1200
+
+
+def assist_retrieval(query, limit, *, project_id=None):
+    """``{"snippets", "total"}``: the best matching passages plus the total hit count.
+
+    ``total`` counts every matching record in the project's knowledge scope
+    (``meet_knowledge_scope``), so the companion can say "5 of 37". Each
+    excerpt is the passage that matches the query, with its line range,
+    instead of the first characters of the file.
+    """
     from agent.services.knowledge_index_retrieval_service import (
         KnowledgeIndexRetrievalService,
     )
+    from agent.services.meet_knowledge_scope import allowed_index_ids
 
-    snippets = []
+    service = KnowledgeIndexRetrievalService()
+    index_ids = allowed_index_ids(project_id, lambda: service._iter_completed_indices(allowed_index_ids=None))
+    if index_ids is not None and not index_ids:
+        return {"snippets": [], "total": 0}
     # Over-fetch so a hit the companion cannot cite (no path) never displaces a
     # citable code or doc hit; pathless hits only fill the remaining slots.
-    for record in KnowledgeIndexRetrievalService().search_records(
-        query.strip(), limit=min(2 * limit, 16)
-    ):
+    page = service.search_records_page(
+        query.strip(),
+        limit=min(2 * limit, 16),
+        passage_chars=ASSIST_EXCERPT_CHARS,
+        index_ids=index_ids,
+    )
+    snippets = []
+    for record in page["records"]:
         if not isinstance(record, dict):
             continue
-        content = str(record.get("content") or "")
         metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+        passage = record.get("passage") if isinstance(record.get("passage"), dict) else None
         snippets.append(
             {
                 "path": str(record.get("path") or record.get("file") or metadata.get("display_path") or ""),
                 "score": record.get("score"),
-                "excerpt": content[:1200],
+                "excerpt": (passage["text"] if passage else str(record.get("content") or ""))[:ASSIST_EXCERPT_CHARS],
                 # Additive: lets the companion cite file/symbol and, when the
                 # index carries it, the immutable source revision (commit).
                 "symbol": str(record.get("symbol") or ""),
                 "revision": str(metadata.get("source_revision") or metadata.get("revision") or "")[:64],
-                # Additive: first line of the excerpt when the index records it, so the
-                # companion can cite ``datei:zeile``; ``None`` when unknown.
-                "line": _snippet_line(record, metadata),
+                # Additive: first/last line of the excerpt so the companion can
+                # cite ``datei:zeile``; ``None`` when unknown.
+                "line": passage["line_start"] if passage else _snippet_line(record, metadata),
+                "line_end": passage["line_end"] if passage else None,
             }
         )
     snippets.sort(key=lambda snippet: not snippet["path"])
-    return snippets[:limit]
+    return {"snippets": snippets[:limit], "total": int(page["total"])}
 
 
 def _snippet_line(record, metadata):

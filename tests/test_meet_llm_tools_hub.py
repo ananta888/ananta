@@ -467,8 +467,13 @@ def test_retrieve_falls_back_to_the_legacy_route_on_a_hub_without_the_tool_route
         raise _http_error(404, b"<html>Not Found</html>")
 
     monkeypatch.setattr(assist.urllib.request, "urlopen", urlopen)
-    monkeypatch.setattr(assist, "fetch_snippets", lambda query, limit: [{"path": "legacy.py", "query": query}])
-    assert assist.retrieve_snippets("q", limit=2, project="project-a") == [{"path": "legacy.py", "query": "q"}]
+    def legacy(query, limit):
+        return {"snippets": [{"path": "legacy.py", "query": query}], "total": 7}
+
+    monkeypatch.setattr(assist, "fetch_retrieval", legacy)
+    assert assist.retrieve_snippets("q", limit=2, project="project-a") == {
+        "snippets": [{"path": "legacy.py", "query": "q"}], "total": 7,
+    }
 
 
 def test_retrieve_does_not_fall_back_when_the_hub_denies(key_file, monkeypatch):

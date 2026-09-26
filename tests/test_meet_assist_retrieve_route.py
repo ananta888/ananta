@@ -10,6 +10,12 @@ from agent.routes.meet import meet_bp
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 from worker.meet_media.contract import encode, signature
 
+
+def page(records):
+    """The ``search_records_page`` shape: records plus the total hit count."""
+    return {"records": records, "total": len(records) + 30}
+
+
 pytestmark = pytest.mark.timeout(15)
 KEY = b"synthetic-assist-test-key-00000000"
 PATH = "/api/meet/v1/internal/assist/retrieve"
@@ -23,7 +29,7 @@ def app(monkeypatch):
     app.extensions["meet_binding_service"] = Mock()
     app.extensions["meet_media_worker_key"] = KEY
     retrieval = Mock()
-    retrieval.search_records.return_value = [
+    retrieval.search_records_page.return_value = page([
         {
             "path": "worker/meet_media/companion.py",
             "content": "x" * 2000,
@@ -37,7 +43,7 @@ def app(monkeypatch):
         },
         {"path": "", "content": "no symbol", "score": 0.1, "metadata": {}},
         "not-a-record",
-    ]
+    ])
     monkeypatch.setattr(
         "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
         lambda *args, **kwargs: retrieval,
@@ -58,7 +64,7 @@ def test_snippets_carry_path_symbol_revision_and_bounded_excerpt(app):
     payload = json.loads(response.data)
     assert payload["schema"] == "ananta.meet-assist-retrieve.v1"
     first, second = payload["snippets"]
-    assert set(first) == {"path", "score", "excerpt", "symbol", "revision", "line"}
+    assert set(first) == {"path", "score", "excerpt", "symbol", "revision", "line", "line_end"}
     assert first["line"] == 42 and second["line"] is None
     assert first["symbol"] == "speak" and first["revision"] == "26aa8f8763891e8190b2a13ec18a2a27d73ddd8a"
     assert len(first["excerpt"]) == 1200 and "private_host_path" not in json.dumps(payload)
@@ -78,7 +84,7 @@ def test_unsigned_or_invalid_queries_are_rejected(app, body, signed, status):
 def test_citable_hits_come_first_and_the_display_path_is_used(app, monkeypatch):
     """MCK-008: a pathless blob must not displace hits the companion can cite."""
     retrieval = Mock()
-    retrieval.search_records.return_value = [
+    retrieval.search_records_page.return_value = page([
         {"path": "", "content": "registry blob", "score": 242.4, "metadata": {}},
         {
             "path": "",
@@ -87,7 +93,7 @@ def test_citable_hits_come_first_and_the_display_path_is_used(app, monkeypatch):
             "metadata": {"display_path": "agent/services/rag_helper_index_service.py"},
         },
         {"path": "docs/rag-helper.md", "content": "RAG-Helper", "score": 8.4, "metadata": {}},
-    ]
+    ])
     monkeypatch.setattr(
         "agent.services.knowledge_index_retrieval_service.KnowledgeIndexRetrievalService",
         lambda *args, **kwargs: retrieval,
@@ -98,7 +104,7 @@ def test_citable_hits_come_first_and_the_display_path_is_used(app, monkeypatch):
     paths = [snippet["path"] for snippet in json.loads(response.data)["snippets"]]
     assert paths == ["agent/services/rag_helper_index_service.py", "docs/rag-helper.md"]
     # Over-fetched so the pathless hit can be dropped without losing a slot.
-    assert retrieval.search_records.call_args.kwargs["limit"] == 4
+    assert retrieval.search_records_page.call_args.kwargs["limit"] == 4
 
 
 def _live_shaped_index(tmp_path):

@@ -69,9 +69,12 @@ def test_context_block_prefixes_path_and_symbol_and_stays_bounded():
 
 def test_assist_snippet_projection_keeps_only_bounded_locator_fields():
     projected = _snippet({"path": "a.py", "symbol": "f", "revision": "abc", "score": 0.3, "excerpt": "x" * 2000, "content": "private"})
-    assert set(projected) == {"path", "line", "symbol", "revision", "score", "excerpt"}
+    assert set(projected) == {"path", "line", "line_end", "symbol", "revision", "score", "excerpt"}
     assert projected["line"] is None and _snippet({"line": 12})["line"] == 12
     assert _snippet({"line": True})["line"] is None
+    assert _snippet({"line": 12, "line_end": 40})["line_end"] == 40
+    assert _snippet({"line": 12, "line_end": 3})["line_end"] is None
+    assert _snippet({"line_end": 40})["line_end"] is None
     assert len(projected["excerpt"]) == 1200 and projected["score"] == 0.3
     assert _snippet({"score": "high"})["score"] is None
 

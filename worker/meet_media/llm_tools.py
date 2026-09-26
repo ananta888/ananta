@@ -88,9 +88,20 @@ DEFINITION = {
 }
 
 
+DEFAULT_RESULT_CHARS = 6000
+
+
 def max_result_chars():
-    """Size of one tool result block; the same budget the RAG prefix used."""
-    return max(0, int(os.environ.get("MEET_LLM_TOOL_RESULT_CHARS", "1400")))
+    """Size of one tool result block (``MEET_LLM_TOOL_RESULT_CHARS``).
+
+    6000 matches the Hub's pruned tool result, so an architecture or analytics
+    answer is not cut a second time here; with 5 excerpts of up to 1200
+    characters the model sees every returned passage, not only the first.
+    """
+    try:
+        return max(0, int(os.environ.get("MEET_LLM_TOOL_RESULT_CHARS", str(DEFAULT_RESULT_CHARS))))
+    except ValueError:
+        return DEFAULT_RESULT_CHARS
 
 
 def max_rounds():
@@ -173,17 +184,22 @@ class CodeCompassTool:
         if len(self.calls) >= MAX_CALLS_PER_REPLY:
             return EMPTY_RESULT
         try:
-            snippets = [item for item in (self._retrieve(query, limit) or []) if isinstance(item, dict)]
+            snippets, total = _retrieval(self._retrieve(query, limit))
         except Exception:  # noqa: BLE001 -- an unreachable index is a tool result, not a lost turn
             self.calls.append({"query": query, "limit": limit, "snippets": 0, "failed": True})
             return FAILED_RESULT
-        self.calls.append({"query": query, "limit": limit, "snippets": len(snippets), "failed": False})
+        self.calls.append(
+            {"query": query, "limit": limit, "snippets": len(snippets), "total": total, "failed": False}
+        )
         self.sources.extend(snippets[:MAX_LIMIT])
         from worker.meet_media.companion_dialog import context_block
 
         budget = max_result_chars() if self._max_chars is None else int(self._max_chars)
-        block = context_block(snippets, max_chars=budget)
-        return block or EMPTY_RESULT
+        block = context_block(snippets, max_chars=budget, preserve_lines=True, show_score=True)
+        if not block:
+            return EMPTY_RESULT
+        # The head goes first and the whole result stays inside the budget.
+        return (hit_summary(query, len(snippets), total) + "\n" + block)[:budget]
 
     def _retrieve(self, query, limit):
         if self._retriever is not None:
@@ -191,6 +207,29 @@ class CodeCompassTool:
         from worker.meet_media.assist import fetch_snippets
 
         return fetch_snippets(query, limit=limit)
+
+
+def _retrieval(result):
+    """``(snippets, total)`` from a retriever answering a list or ``{"snippets", "total"}``."""
+    total = None
+    if isinstance(result, dict):
+        total = result.get("total") if type(result.get("total")) is int else None
+        result = result.get("snippets")
+    snippets = [item for item in (result or []) if isinstance(item, dict)]
+    if total is not None and total < len(snippets):
+        total = None
+    return snippets, total
+
+
+def hit_summary(query, shown, total):
+    """One head line: how many passages follow and how many hits exist in total."""
+    if total is None:
+        return "codecompass_search '%s': %d Auszüge (Datei:Zeilen, Score)." % (query, shown)
+    return "codecompass_search '%s': %d von %d Treffern, die besten folgen (Datei:Zeilen, Score)." % (
+        query,
+        shown,
+        total,
+    )
 
 
 def _limit(value):

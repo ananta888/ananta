@@ -264,16 +264,16 @@ def _audit(name, *, outcome, trace_id, project, details):
     )
 
 
-def _execute(name, arguments, capability):
+def _execute(name, arguments, capability, project=None):
     """Dispatch through the Hub-MCP registry, or the assist retrieval path for retrieve."""
     if name == "codecompass.retrieve":
         # Same knowledge-index path as /internal/assist/retrieve: citable
         # snippets (path/line/symbol/revision) instead of the capability-sealed
         # agentic retrieval, which fails closed for a machine principal.
-        from agent.routes.meet import assist_snippets
+        from agent.routes.meet import assist_retrieval
 
-        snippets = assist_snippets(arguments["query"], arguments.get("limit", 5))
-        return {"snippets": snippets}, snippets
+        result = assist_retrieval(arguments["query"], arguments.get("limit", 5), project_id=project)
+        return result, result["snippets"]
     from agent.services.mcp_registry_service import get_mcp_registry_service
 
     result = get_mcp_registry_service().call_tool(
@@ -338,7 +338,7 @@ def companion_tool():
 
     def run():
         with app.app_context():
-            return _execute(name, arguments, capability)
+            return _execute(name, arguments, capability, project)
 
     details = {"arguments_keys": sorted(arguments), "operation_id": descriptor.operation_id if descriptor else None}
     try:
@@ -366,6 +366,9 @@ def companion_tool():
         "sources": snippets if snippets is not None else evidence(result),
         "trace_id": trace_id,
     }
+    if isinstance(result, dict) and type(result.get("total")) is int:
+        # Additive: total matching records for a retrieve, beyond the returned head.
+        response["total"] = result["total"]
     return jsonify(response)
 
 
