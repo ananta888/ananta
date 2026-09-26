@@ -1,0 +1,570 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "id": "todo.self-evolving-harness",
+  "title": "Self-Evolving Harness: automatische Optimierung der Agent-Steuerungsschicht",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "self-evolving-harness",
+  "status": "todo",
+  "created_at": "2026-09-26",
+  "updated_at": "2026-09-26",
+  "purpose": "Ananta soll nicht nur Prompts und Modellparameter optimieren, sondern die komplette Agent-Steuerungsschicht (Harness) reproduzierbar, messbar und sicher weiterentwickeln. Referenzen sind insbesondere NVIDIA SoL-Pi sowie Meta-Harness/automatische Harness-Optimierung. Bestehende Prompt-Evolver-, Benchmark-, Gate-, Worker-, MCP- und Observability-Komponenten sollen wiederverwendet statt dupliziert werden.",
+  "goal": "Ein produktionsreifer Self-Evolving-Harness-Stack, der Harness-Varianten als versionierte Genome erzeugt, isoliert ausführt, gegen Benchmarks und harte Gates prüft, mehrdimensional auf einer Pareto-Front selektiert, modell-/task-spezifische Varianten verwaltet, sichere Rollbacks erlaubt und SoL-Pi-artige Effizienzmechanismen wie Action Fusion, ObservationPack, evidence-preserving reduction und Online Context Compaction integriert.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "design_principles": [
+    "Kein MVP-/Demo-Code als Endzustand; produktionsreife, wiederverwendbare Module und stabile Interfaces.",
+    "Harness-Evolution darf niemals direkt unbewertete Änderungen in produktive Agent-Runtimes übernehmen.",
+    "Alle Varianten sind deterministisch identifizierbar, versioniert, reproduzierbar und auf Baseline/Parent zurückführbar.",
+    "Harte Safety-/Correctness-Gates sind nicht durch Fitness-Gewinne übersteuerbar.",
+    "Mehrdimensionale Pareto-Selektion statt eines einzigen gewichteten Scores.",
+    "Modell-, Task-, Tool- und Runtime-Abhängigkeiten werden explizit erfasst; kein globaler 'bester Harness' wird angenommen.",
+    "Bestehende Ananta-Komponenten für Prompt-Evolver, Worker, Planner, Gates, Benchmarks, Tracing, MCP und TODO-Verträge werden integriert, nicht parallel neu gebaut.",
+    "Externe Referenzimplementierungen werden nur lizenzkonform und mit klarer Herkunft übernommen."
+  ],
+  "reference_projects": [
+    {
+      "name": "NVIDIA SoL-Pi",
+      "url": "https://github.com/NVlabs/SoL-Pi",
+      "role": "Referenz für Harness-Effizienzoptimierung, Action Fusion, ObservationPack, evidence-preserving reduction und Online Context Compaction"
+    },
+    {
+      "name": "Meta-Harness / Harness Optimization",
+      "url": "https://github.com/JoelNiklaus/harness-optimization",
+      "role": "Referenz für automatische, modellabhängige Harness-Optimierung und Evaluationsdesign"
+    }
+  ],
+  "target_architecture": {
+    "components": [
+      "Harness Runtime",
+      "Harness Genome Registry",
+      "Mutation/Evolution Engine",
+      "Sandbox Runner",
+      "Benchmark Runner",
+      "Gate Engine",
+      "Pareto Selector",
+      "Lineage/Experiment Store",
+      "Model/Task Harness Router",
+      "Observation Archive",
+      "Context Reducer/Compactor",
+      "Action Fusion Planner",
+      "Rollback/Promotion Controller",
+      "Operator UI/API"
+    ],
+    "fitness_dimensions": [
+      "task_correctness",
+      "benchmark_score",
+      "token_input",
+      "token_output",
+      "total_token_cost",
+      "latency_p50",
+      "latency_p95",
+      "tool_call_count",
+      "context_peak_tokens",
+      "context_compaction_ratio",
+      "hallucination_rate",
+      "evidence_verification_score",
+      "security_gate_score",
+      "reproducibility_score",
+      "runtime_failure_rate"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "SEH-M1",
+      "title": "Bestandsaufnahme, Verträge und Harness-Genome",
+      "task_ids": [
+        "SEH-001",
+        "SEH-002",
+        "SEH-003",
+        "SEH-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SEH-M2",
+      "title": "SoL-Pi-artige Effizienzmechanismen",
+      "task_ids": [
+        "SEH-005",
+        "SEH-006",
+        "SEH-007",
+        "SEH-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SEH-M3",
+      "title": "Evolution Engine und isolierte Ausführung",
+      "task_ids": [
+        "SEH-009",
+        "SEH-010",
+        "SEH-011",
+        "SEH-012"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SEH-M4",
+      "title": "Benchmarks, Gates und Pareto-Selektion",
+      "task_ids": [
+        "SEH-013",
+        "SEH-014",
+        "SEH-015",
+        "SEH-016"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SEH-M5",
+      "title": "Routing, Promotion, Rollback und Betrieb",
+      "task_ids": [
+        "SEH-017",
+        "SEH-018",
+        "SEH-019",
+        "SEH-020"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SEH-M6",
+      "title": "Tests, Reproduzierbarkeit, Sicherheit und Dokumentation",
+      "task_ids": [
+        "SEH-021",
+        "SEH-022",
+        "SEH-023",
+        "SEH-024"
+      ],
+      "status": "todo"
+    }
+  ],
+  "critical_path_tasks": [
+    "SEH-001",
+    "SEH-002",
+    "SEH-003",
+    "SEH-009",
+    "SEH-010",
+    "SEH-013",
+    "SEH-014",
+    "SEH-015",
+    "SEH-018",
+    "SEH-021"
+  ],
+  "tasks": [
+    {
+      "id": "SEH-001",
+      "title": "Bestehende Evolver-, Planner-, Worker-, Gate-, Benchmark- und Tracing-Pfade inventarisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": "Repositoryweit konkrete Integrationspunkte ermitteln, insbesondere vorhandene planning_prompt_evolver/optimizer-Services, Worker-Todo-Verträge, Simulation-Harness, Tool/MCP-Pfade, Kosten-/Tokenmessung, Traces und vorhandene Gate-Logik. Ergebnis ist eine Quellcode-Mapping-Tabelle mit Ownership und Wiederverwendungsentscheidung.",
+      "acceptance_criteria": [
+        "Keine neue Kernkomponente wird eingeführt, bevor vorhandene äquivalente Funktionalität identifiziert oder ausgeschlossen wurde",
+        "Mapping nennt konkrete Dateien/Module, Datenflüsse und Erweiterungspunkte",
+        "Duplikationsrisiken und Migrationspfade sind dokumentiert"
+      ]
+    },
+    {
+      "id": "SEH-002",
+      "title": "Versioniertes Harness-Genome-Schema definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Ein kanonisches, serialisierbares Genome modelliert Prompt-Strategien, Context Policy, Memory Policy, Retrieval, Tool-Auswahl, Tool-Parameter, Action-Fusion-Regeln, Delegation, Agent-Loop, Stopbedingungen, Modellrouting, Reducer/Compactor, Verification und Gate-Konfiguration. Genome enthält immutable ID, Parent(s), Mutation-Operatoren, Code-/Config-Hashes, Runtime- und Modellanforderungen.",
+      "acceptance_criteria": [
+        "JSON-Schema/Pydantic-Modell mit stabiler Versionierung und Migrationspfad",
+        "Semantisch identische Genome ergeben dieselbe kanonische ID",
+        "Genome ist vollständig diffbar und reproduzierbar",
+        "Sensitive Secrets sind ausschließlich Referenzen und nie Bestandteil des Genomes"
+      ]
+    },
+    {
+      "id": "SEH-003",
+      "title": "Harness Runtime mit klaren Erweiterungspunkten abstrahieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Agent-Steuerungsschicht so kapseln, dass Genome-Parameter Laufzeitverhalten kontrollieren können, ohne Business-Logik oder Sicherheitsgrenzen zu umgehen. Strategy-/Policy-Interfaces für Context, Tools, Memory, Delegation, Verification und Stop/Retry.",
+      "acceptance_criteria": [
+        "Baseline-Harness reproduziert bestehendes Verhalten ohne Regression",
+        "Alle evolvierbaren Bereiche sind explizite, typisierte Erweiterungspunkte",
+        "Nicht evolvierbare Sicherheitsinvarianten sind technisch außerhalb der mutierbaren Oberfläche verankert"
+      ]
+    },
+    {
+      "id": "SEH-004",
+      "title": "Experiment- und Lineage-Store implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": "Persistenz für Genome, Parent/Child-Lineage, Mutationen, Hypothesen, Benchmark-Runs, Gates, Artefakte, Traces, Kosten und Promotion-Status. Append-only Audit-Trail mit Content-Hashes.",
+      "acceptance_criteria": [
+        "Jeder Benchmarkwert ist auf Genome, Code-Commit, Modell, Dataset-Version und Runtime zurückführbar",
+        "Lineage kann vollständig rekonstruiert werden",
+        "Experimentdaten unterstützen Query nach Modell, Task, Mutation, Gate und Pareto-Status"
+      ]
+    },
+    {
+      "id": "SEH-005",
+      "title": "Action Fusion als allgemeine Tool-/MCP-Optimierung integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "SoL-Pi-Prinzip generalisieren: sichere Sequenzen mehrerer Tool-Aktionen dürfen zu einer atomaren/kompakten Operation fusioniert werden. Fusion nur bei deklarierter Semantik, Idempotenz-/Rollback-Eigenschaften und Kostenmodell.",
+      "acceptance_criteria": [
+        "Fusionierbare Sequenzen werden deklarativ beschrieben",
+        "Semantik bleibt gegenüber ungefusionierter Baseline äquivalent",
+        "Fehler, Partial Failure und Retry sind definiert",
+        "Messung zeigt Tool-Call-, Token- und Latenzunterschied pro Variante"
+      ]
+    },
+    {
+      "id": "SEH-006",
+      "title": "ObservationPack/Observation Archive implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Große Tool-Ausgaben werden unverändert archiviert; der aktive Kontext enthält kompakte Handles, strukturierte Metadaten und gezielte Ausschnitte. Agent kann exakte Originalbereiche bedarfsgesteuert wieder laden.",
+      "acceptance_criteria": [
+        "Originalbeobachtung bleibt unverändert und per Hash referenzierbar",
+        "Handles sind scopesicher und nicht zwischen Tasks/Tenants verwechselbar",
+        "Selektiver Recall liefert exakt die angeforderte Quelle",
+        "Tokenersparnis wird pro Observation gemessen"
+      ]
+    },
+    {
+      "id": "SEH-007",
+      "title": "Evidence-Preserving Reducer mit Verifikations-Fallback bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Reducer darf Logs/Tool-Output komprimieren, muss aber alle übernommenen Belege auf Originalquelle zurückführen. Zitate/Spans werden maschinell gegen Original validiert; bei Unsicherheit oder fehlender Evidenz wird das Original bzw. größerer Kontext verwendet.",
+      "acceptance_criteria": [
+        "Keine reduzierte Evidenz ohne überprüfbare Source-Referenz",
+        "Automatische Span-/Zitat-Verifikation gegen Original",
+        "Fail-closed/Fallback auf ungekürzte Observation",
+        "Benchmark umfasst adversariale Fälle mit fast identischen oder widersprüchlichen Textstellen"
+      ]
+    },
+    {
+      "id": "SEH-008",
+      "title": "Online Context Compaction mit Zustandsinvarianten implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Erledigte Arbeit, redundante Tool-Outputs und alte Zwischenschritte aus aktivem Kontext entfernen, während Plan, offene Verpflichtungen, Fehlerzustände, Evidence-Handles und Benutzeranforderungen erhalten bleiben. Kein stilles Vergessen offener Todos.",
+      "acceptance_criteria": [
+        "Offene Tasks/Constraints bleiben nach beliebig vielen Compactions erhalten",
+        "Kompaktion ist nachvollziehbar und rückverfolgbar",
+        "Originalquellen bleiben über Handles zugänglich",
+        "Property-Tests prüfen Invarianten über lange Agent-Loops"
+      ]
+    },
+    {
+      "id": "SEH-009",
+      "title": "Mutation Engine für Genome und kontrollierte Code-Patches implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Mehrere Mutationsklassen: parametrisch, strukturell, Prompt, Routing, Tool Policy, Context Policy sowie optional agent-generierte Code-Patches. Code-Patches nur in explizit freigegebenen Harness-Modulen und niemals in Gate-/Sandbox-/Security-Enforcement.",
+      "acceptance_criteria": [
+        "Jede Mutation hat Typ, Begründung, Parent und maschinenlesbaren Diff",
+        "Mutation Budgets und erlaubte Zielbereiche sind erzwingbar",
+        "Ungültige Genome/Patches werden vor Ausführung verworfen",
+        "Deterministische Seed-/Replay-Unterstützung vorhanden"
+      ]
+    },
+    {
+      "id": "SEH-010",
+      "title": "Isolierten Sandbox Runner für Harness-Kandidaten bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Jeder Kandidat läuft in reproduzierbarer Isolation mit Resource Limits, Netzwerk-/Filesystem-Policy, Tool-Allowlist, Secrets-Scoping und Run-Timeouts. Keine Mutation darf Host oder Baseline-Artefakte verändern.",
+      "acceptance_criteria": [
+        "Kandidaten sind gegeneinander und vom Host isoliert",
+        "CPU/RAM/GPU/Token/API-Kosten-Limits erzwingbar",
+        "Netzwerk und Tool-Zugriffe sind deny-by-default",
+        "Run kann aus Manifest reproduziert werden"
+      ]
+    },
+    {
+      "id": "SEH-011",
+      "title": "Hypothesis Generator und Evolutions-Loop implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Agent generiert aus Telemetrie konkrete Hypothesen, wählt Mutationstyp, erzeugt Kandidaten, startet Evaluation, analysiert Resultat und entscheidet über nächste Generation. Explizite Exploration/Exploitation-Strategie mit Budgetgrenzen.",
+      "acceptance_criteria": [
+        "Jede Mutation ist an eine Hypothese gebunden",
+        "Loop respektiert maximale Runs, Kosten, Zeit und Parallelität",
+        "Fehlgeschlagene Ideen werden nicht blind erneut erzeugt",
+        "Exploration ist reproduzierbar und auditierbar"
+      ]
+    },
+    {
+      "id": "SEH-012",
+      "title": "Crossover/Composition kompatibler Harness-Verbesserungen unterstützen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Pareto-starke, unabhängige Verbesserungen können kontrolliert kombiniert werden. Konflikte in denselben Genome-Feldern oder Codebereichen werden erkannt und müssen neu evaluiert werden.",
+      "acceptance_criteria": [
+        "Kompatibilitätsprüfung vor Crossover",
+        "Keine Performancewerte werden von Eltern auf Kind übernommen",
+        "Kombination wird vollständig neu gegated und benchmarked"
+      ]
+    },
+    {
+      "id": "SEH-013",
+      "title": "Kanonische Harness-Benchmark-Suite definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Repräsentative Coding-, RAG-, Tool-, MCP-, Planning-, Delegation-, Long-Context-, Failure-Recovery- und Security-Aufgaben. Train/Explore- und Holdout-Sets strikt trennen, damit der Evolver den Benchmark nicht überfitten kann.",
+      "acceptance_criteria": [
+        "Datasets versioniert und immutable referenzierbar",
+        "Holdout bleibt der Mutation Engine verborgen",
+        "Baselinewerte pro Modell/Harness gespeichert",
+        "Benchmarks messen Qualität plus Ressourcenverbrauch"
+      ]
+    },
+    {
+      "id": "SEH-014",
+      "title": "Harte Gates für Correctness, Security und Regression integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Bestehende Gates wiederverwenden und um Harness-spezifische Checks ergänzen: Tests, Schema, Tool-Rechte, Prompt Injection, Secret Leakage, Evidence Integrity, Timeout/Loop Detection, Retry Storms, Cost Caps und Regression gegen Baseline.",
+      "acceptance_criteria": [
+        "Hard-Gate-Failure disqualifiziert Kandidat unabhängig von Fitness",
+        "Gate-Ergebnisse sind strukturiert und reproduzierbar",
+        "Security-Gates liegen außerhalb mutierbarer Harness-Fläche",
+        "Baseline-Regressionstoleranzen sind pro Benchmarkklasse konfigurierbar"
+      ]
+    },
+    {
+      "id": "SEH-015",
+      "title": "Pareto-Front und Multi-Objective-Selektion implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Keine Reduktion aller Ziele auf einen einzigen Score. Kandidaten werden nach Dominanz, Constraints und optionalen Betriebsprofilen wie quality, balanced, cheap, low-latency verwaltet.",
+      "acceptance_criteria": [
+        "Pareto-Dominanz korrekt getestet",
+        "Mehrere nicht-dominierte Kandidaten bleiben erhalten",
+        "Betriebsprofile wählen aus Pareto-Menge ohne Historie zu zerstören",
+        "Konfidenz/Varianz aus Wiederholungsläufen wird berücksichtigt"
+      ]
+    },
+    {
+      "id": "SEH-016",
+      "title": "Statistische Robustheit und Benchmark-Noise berücksichtigen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": "Mehrfachläufe, Seeds, Konfidenzintervalle und Signifikanz-/Practical-Significance-Regeln, damit zufällige LLM-Schwankungen nicht als Verbesserung promoted werden.",
+      "acceptance_criteria": [
+        "Promotion benötigt konfigurierbare Mindestzahl von Runs",
+        "Varianz und CI werden gespeichert",
+        "Tiny wins innerhalb Noise-Band führen nicht automatisch zu Promotion"
+      ]
+    },
+    {
+      "id": "SEH-017",
+      "title": "Modell-/Task-spezifischen Harness Router implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Harness-Auswahl anhand von Modellfamilie/Version, Taskklasse, Tools, Context-Bedarf, Kosten-/Latenzprofil und Hardware. Kein implizites Übertragen eines auf Modell A optimierten Harness auf Modell B.",
+      "acceptance_criteria": [
+        "Routingentscheidung ist nachvollziehbar und geloggt",
+        "Fallback auf zertifizierte Baseline bei unbekannter Kombination",
+        "Model-Version-Änderung invalidiert oder revalidiert abhängige Kandidaten"
+      ]
+    },
+    {
+      "id": "SEH-018",
+      "title": "Promotion-, Canary- und Rollback-Controller bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Mehrstufige Promotion: experiment -> validated -> canary -> production. Automatischer Rollback bei Gate-/Runtime-/Kostenregression. Human approval konfigurierbar für produktive Promotion.",
+      "acceptance_criteria": [
+        "Unvalidierter Kandidat kann nie direkt production werden",
+        "Rollback ist atomar und auf letzte zertifizierte Version möglich",
+        "Canary-Metriken sind von Offline-Benchmark getrennt",
+        "Promotion-Entscheidungen vollständig auditierbar"
+      ]
+    },
+    {
+      "id": "SEH-019",
+      "title": "Operator API/UI für Genome, Runs, Pareto-Front und Lineage bereitstellen",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": "Übersicht über Baselines, Varianten, Kosten, Qualitätsmetriken, Gates, Mutationen, Lineage, Modellzuordnung und Promotionstatus. Vergleichsansicht für zwei oder mehr Harnesses.",
+      "acceptance_criteria": [
+        "Operator kann Parent/Child-Lineage visuell oder strukturiert nachvollziehen",
+        "Pareto-Front und dominierte Kandidaten unterscheidbar",
+        "Keine Secrets oder rohe sensitive Observations in UI-Standardansicht"
+      ]
+    },
+    {
+      "id": "SEH-020",
+      "title": "Budget-, Quota- und Kill-Switch-Mechanismen integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Globale und pro Experiment definierte Limits für API-Kosten, Tokens, Laufzeit, Parallelität und GPU/CPU. Harte Kill-Switches auf System- und Experimentebene.",
+      "acceptance_criteria": [
+        "Kostenlimit kann nicht durch Mutation überschrieben werden",
+        "Budgetüberschreitung stoppt neue Runs und beendet definierte aktive Runs",
+        "Operator kann Evolution sofort deaktivieren, ohne produktive Baseline zu beeinträchtigen"
+      ]
+    },
+    {
+      "id": "SEH-021",
+      "title": "Umfassende Unit-, Property-, Integration- und End-to-End-Tests erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Tests für Genome-Kanonisierung, Lineage, Reducer-Evidenz, Compaction-Invarianten, Sandbox, Mutation-Scopes, Pareto-Selektion, Routing, Promotion/Rollback sowie vollständige Evolutionszyklen.",
+      "acceptance_criteria": [
+        "Property-Tests decken Context-/Evidence-Invarianten ab",
+        "E2E-Test kann aus Baseline mehrere Kandidaten erzeugen und korrekt selektieren",
+        "Failure-Injection für Tool-, Modell-, Netzwerk- und Storage-Fehler vorhanden",
+        "Tests laufen deterministisch genug für CI"
+      ]
+    },
+    {
+      "id": "SEH-022",
+      "title": "Security-/Red-Team-Suite speziell für Self-Modification bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Angriffe auf Gate-Bypass, Prompt-Injection in Benchmarks/Observations, Manipulation von Fitnessdaten, Secret Exfiltration, Sandbox Escape, malicious tool output, reward hacking und Benchmark gaming.",
+      "acceptance_criteria": [
+        "Evolver kann seine Evaluations- oder Sicherheitslogik nicht verändern",
+        "Benchmarkdaten können nicht zur Laufzeit manipuliert werden",
+        "Malicious Observation kann keine privilegierte Mutation auslösen",
+        "Alle Red-Team-Fälle besitzen reproduzierbare Regressionstests"
+      ]
+    },
+    {
+      "id": "SEH-023",
+      "title": "Reproduzierbare Artefakt- und Provenance-Manifeste erzeugen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": "Für jeden Run Manifest mit Git SHA, Genome SHA, Container/Image, Modell-ID/Version, Dataset-Version, Seeds, Tool-Versionen, Environment-Fingerprint und relevanten Feature Flags.",
+      "acceptance_criteria": [
+        "Ein historischer Run kann aus Manifest nachgestellt werden",
+        "Unbekannte/volatile Abhängigkeiten werden explizit markiert",
+        "Artefakte sind content-addressed und manipulationsdetektierbar"
+      ]
+    },
+    {
+      "id": "SEH-024",
+      "title": "Architektur-, Betriebs- und Entwicklerdokumentation fertigstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "details": "Dokumentation zu Architektur, Genome, Mutationsflächen, Sicherheitsgrenzen, Benchmarking, Pareto-Selektion, Kostensteuerung, SoL-Pi-Referenzmechanismen, Betrieb, Recovery und Erweiterung um neue Policies.",
+      "acceptance_criteria": [
+        "Neue Entwickler können einen neuen evolvierbaren Policy-Typ ohne Änderungen am Kernloop hinzufügen",
+        "Operator-Runbook enthält Kill-Switch, Rollback, Budgetvorfall und beschädigte Experimentdaten",
+        "Abgrenzung zwischen Prompt-Evolver und Harness-Evolver klar dokumentiert"
+      ]
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 14,
+      "P1": 7,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 5,
+      "high": 9,
+      "critical": 9
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 24,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Dieser Track erweitert die bestehende Prompt-Evolution auf die vollständige Agent-Steuerungsschicht.",
+    "SoL-Pi dient als technische Referenz, nicht als 1:1-Kopie. Die Mechanismen sollen an Anantas bestehende Architektur und Gates angepasst werden.",
+    "Die Evolutionslogik darf Security-Gates, Sandbox Enforcement, Kostenlimits oder Audit-Mechanismen niemals selbst modifizieren.",
+    "Bevor Implementierung beginnt, muss SEH-001 konkrete vorhandene Module und Wiederverwendungspfade dokumentieren."
+  ]
+}
