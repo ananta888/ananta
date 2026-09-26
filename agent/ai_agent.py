@@ -777,6 +777,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     from agent.bootstrap.geomaps import initialize_geomaps
 
     run_startup_phase("geomaps", initialize_geomaps, app)
+    from agent.bootstrap.codecompass_layers import initialize_codecompass_layers
+
+    run_startup_phase("codecompass_layers", initialize_codecompass_layers, app)
     from agent.bootstrap.codecompass_sira_rollout import (
         initialize_codecompass_sira_rollout,
     )
