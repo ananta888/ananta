@@ -10,6 +10,7 @@ import pytest
 
 from agent.services.tiny_router.parallel_decision import (
     NO_TOOL,
+    TEXT_FIELD,
     CircuitBreaker,
     HttpParallelDecisionRuntime,
     ParallelDecisionAdapter,
@@ -268,3 +269,85 @@ def test_an_endpoint_failure_escalates_instead_of_allowing():
     decision = router(Runtime(error=OSError("down"))).route(
         prompt="status", allowed_tools=["hub.status"], config=CONFIG)
     assert decision.status == "escalate" and decision.candidate is None
+
+
+# --- one generated free-text argument (bounded open field) -----------------------------------------------
+
+
+NOTE = tool("notes.write", {"title": {"type": "string"}, "body": {"type": "string"}}, required=("title", "body"))
+MANIFEST = tool("layers.plan", {"manifest": {"type": "object"}}, required=("manifest",))
+
+
+def text(value, truncated=False, generated=True):
+    return {"value": value, "generated": generated, "tokens": 3, "truncated": truncated}
+
+
+def test_the_open_field_fills_single_free_string_arguments_only():
+    decision = build_tool_decision_schema([*TOOLS, NOTE, MANIFEST], open_field=True)
+    assert decision.schema[TEXT_FIELD]["type"] == "string" and decision.schema[TEXT_FIELD]["max_tokens"] == 48
+    assert "repo.search: its 'query'" in decision.schema[TEXT_FIELD]["description"]
+    assert list(decision.schema)[-1] == TEXT_FIELD  # generated after the closed fields
+    assert decision.text_argument_of("repo.search").argument == "query"
+    assert decision.free_text_tools == {"notes.write", "layers.plan"}  # two strings / not a string
+    assert decision.dependencies[TEXT_FIELD] == "conditional:closed_fields"
+    assert decision.schema[TEXT_FIELD]["when"] == {"tool": ["repo.search"]}
+
+
+def test_without_the_profile_flag_there_is_no_open_field():
+    decision = build_tool_decision_schema(TOOLS)
+    assert TEXT_FIELD not in decision.schema and decision.free_text_tools == {"repo.search"}
+
+
+@pytest.fixture
+def text_decision():
+    return build_tool_decision_schema(TOOLS, open_field=True)
+
+
+def test_a_generated_query_completes_the_call(text_decision):
+    payload = decision_to_payload(response(
+        text_decision, tool=field("repo.search", 0.96), text_argument=text("  CircuitBreaker "),
+    ), text_decision, min_confidence=0.8)
+    assert payload == {"tool_calls": [{"name": "repo.search", "arguments": {"query": "CircuitBreaker"},
+                                       "confidence": 0.96}], "generated_arguments": ["query"]}
+
+
+def test_a_tool_without_text_ignores_the_open_field(text_decision):
+    payload = decision_to_payload(response(text_decision, tool=field("hub.status", 0.9), text_argument=text("")),
+                                  text_decision, min_confidence=0.8)
+    assert payload == {"tool_calls": [{"name": "hub.status", "arguments": {}, "confidence": 0.9}]}
+
+
+@pytest.mark.parametrize("raw", [
+    text(""), text("   "), text("x" * 201), text("a\nb"), text("Circuit", truncated=True), text(None),
+    {**text("q"), "skipped": True},
+])
+def test_unusable_text_escalates(text_decision, raw):
+    payload = decision_to_payload(response(text_decision, tool=field("repo.search"), text_argument=raw),
+                                  text_decision, min_confidence=0.8)
+    assert payload["tool_calls"] == [] and payload["reason"] == "text_argument_invalid"
+
+
+def test_an_open_field_that_was_not_generated_is_rejected(text_decision):
+    with pytest.raises(ParallelDecisionResponseError, match="open_field_invalid"):
+        decision_to_payload(response(text_decision, tool=field("repo.search"), text_argument=field("q")),
+                            text_decision, min_confidence=0.8)
+
+
+def test_a_missing_open_field_is_rejected(text_decision):
+    raw = response(text_decision, tool=field("repo.search"))
+    raw["results"][0]["fields"].pop(TEXT_FIELD)
+    with pytest.raises(ParallelDecisionResponseError, match="fields_mismatch"):
+        decision_to_payload(raw, text_decision, min_confidence=0.8)
+
+
+def test_a_generated_query_passes_the_router_validator():
+    open_profile = profile(metadata={"endpoint_env": "PD_URL", "open_field": True})
+    runtime = Runtime(lambda d: response(d, tool=field("repo.search", 0.97), text_argument=text("CircuitBreaker")))
+    service = TinyToolRouterService(catalog=ProfileCatalog.from_profiles([open_profile]),
+                                    adapters=[ParallelDecisionAdapter(runtime)], schema_adapter=SchemaAdapter(),
+                                    registry=Registry())
+    decision = service.route(prompt="where is the CircuitBreaker?", allowed_tools=["repo.search", "hub.status"],
+                             config=CONFIG)
+    assert decision.status == "candidate" and decision.candidate.tool_name == "repo.search"
+    assert dict(decision.candidate.arguments) == {"query": "CircuitBreaker"}
+    assert runtime.bodies[0][0]["schema"][TEXT_FIELD]["type"] == "string"

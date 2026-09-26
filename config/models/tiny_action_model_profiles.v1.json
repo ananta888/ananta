@@ -162,8 +162,9 @@
         "provider_id": "llamacpp-parallel-decision",
         "endpoint_env": "ANANTA_PARALLEL_DECISION_URL",
         "base_model": "Qwen/Qwen3.8-27B (hybrid attention)",
-        "runtime": "ananta888/llama.cpp-vision-decision@bonsai-decision, llama-server --decision-seqs",
-        "docs": "docs/jev-llamacpp-decision-mode.md"
+        "runtime": "ananta888/llama.cpp-vision-decision@bonsai-decision (>= c2a4426ce: bounded open field), llama-server --decision-seqs",
+        "docs": "docs/jev-llamacpp-decision-mode.md",
+        "open_field": true
       }
     }
   ]

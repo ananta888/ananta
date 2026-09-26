@@ -1,7 +1,7 @@
 {
   "schema": "ananta.tiny_tool_router_cases.v1",
   "version": "1.0",
-  "purpose": "Labelled calibration prompts for decision-based tool choice over the Meet companion tool set (worker.meet_media.llm_tools.codecompass_toolbox). Labels follow the tool descriptions; some cases are intentionally near the boundary between search, overview and rlm_analyze. Evaluation-only, synthetic, never release evidence.",
+  "purpose": "Labelled calibration prompts for decision-based tool choice over the Meet companion tool set (worker.meet_media.llm_tools.codecompass_toolbox). Labels follow the tool descriptions; some cases are intentionally near the boundary between search, overview and rlm_analyze. Evaluation-only, synthetic, never release evidence. expected.argument_contains: case-insensitive terms of which at least one must appear in a generated text argument.",
   "toolset": "worker.meet_media.llm_tools.codecompass_toolbox",
   "cases": [
     {
@@ -9,7 +9,10 @@
       "lang": "de",
       "prompt": "Wo wird der CircuitBreaker definiert?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "CircuitBreaker"
+        ]
       }
     },
     {
@@ -17,7 +20,10 @@
       "lang": "de",
       "prompt": "In welcher Datei steht die Funktion build_tool_decision_schema?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "build_tool_decision_schema"
+        ]
       }
     },
     {
@@ -25,7 +31,12 @@
       "lang": "de",
       "prompt": "Wie funktioniert der Keep-Alive im Raumserver?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "keep-alive",
+          "keepalive",
+          "keep alive"
+        ]
       }
     },
     {
@@ -33,7 +44,10 @@
       "lang": "de",
       "prompt": "Was macht die Klasse KnowledgeIndexRetrievalService?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "KnowledgeIndexRetrievalService"
+        ]
       }
     },
     {
@@ -41,7 +55,10 @@
       "lang": "de",
       "prompt": "Zeig mir, wo der Audit-Hash berechnet wird.",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "audit"
+        ]
       }
     },
     {
@@ -49,7 +66,10 @@
       "lang": "de",
       "prompt": "Welche Umgebungsvariable setzt den Endpunkt für den Decision-Adapter?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "decision"
+        ]
       }
     },
     {
@@ -57,7 +77,12 @@
       "lang": "de",
       "prompt": "Gibt es einen Test für den Post-Commit-Hook?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "post-commit",
+          "post_commit",
+          "postcommit"
+        ]
       }
     },
     {
@@ -65,7 +90,10 @@
       "lang": "de",
       "prompt": "Wo wird MEET_LLM_TOOL_CALLS gelesen?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "MEET_LLM_TOOL_CALLS"
+        ]
       }
     },
     {
@@ -73,7 +101,10 @@
       "lang": "en",
       "prompt": "Where is the companion router implemented?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "companion"
+        ]
       }
     },
     {
@@ -81,7 +112,10 @@
       "lang": "en",
       "prompt": "Which file handles the layer sync API?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "layer"
+        ]
       }
     },
     {
@@ -89,7 +123,10 @@
       "lang": "en",
       "prompt": "How does the tiny tool router validate a candidate?",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "tiny"
+        ]
       }
     },
     {
@@ -97,7 +134,10 @@
       "lang": "en",
       "prompt": "Find the definition of recover-after-wsl-restart.",
       "expected": {
-        "tool_name": "codecompass_search"
+        "tool_name": "codecompass_search",
+        "argument_contains": [
+          "recover-after-wsl-restart"
+        ]
       }
     },
     {
@@ -105,7 +145,10 @@
       "lang": "de",
       "prompt": "Gib mir einen Architekturüberblick über die Meet-Companion-Pipeline.",
       "expected": {
-        "tool_name": "codecompass_architecture_overview"
+        "tool_name": "codecompass_architecture_overview",
+        "argument_contains": [
+          "companion"
+        ]
       }
     },
     {
@@ -113,7 +156,12 @@
       "lang": "de",
       "prompt": "Wie ist Ananta grob aufgebaut, welche Komponenten gibt es?",
       "expected": {
-        "tool_name": "codecompass_architecture_overview"
+        "tool_name": "codecompass_architecture_overview",
+        "argument_contains": [
+          "ananta",
+          "komponent",
+          "architektur"
+        ]
       }
     },
     {
@@ -121,7 +169,10 @@
       "lang": "de",
       "prompt": "Welche Bausteine gehören zum Hub und wie hängen sie zusammen?",
       "expected": {
-        "tool_name": "codecompass_architecture_overview"
+        "tool_name": "codecompass_architecture_overview",
+        "argument_contains": [
+          "hub"
+        ]
       }
     },
     {
@@ -129,7 +180,11 @@
       "lang": "de",
       "prompt": "Erklär mir die Architektur vom inkrementellen CodeCompass-Index im Überblick.",
       "expected": {
-        "tool_name": "codecompass_architecture_overview"
+        "tool_name": "codecompass_architecture_overview",
+        "argument_contains": [
+          "codecompass",
+          "index"
+        ]
       }
     },
     {
@@ -137,7 +192,10 @@
       "lang": "en",
       "prompt": "Give me an architecture overview of the hub-worker orchestration.",
       "expected": {
-        "tool_name": "codecompass_architecture_overview"
+        "tool_name": "codecompass_architecture_overview",
+        "argument_contains": [
+          "hub"
+        ]
       }
     },
     {
@@ -145,7 +203,10 @@
       "lang": "en",
       "prompt": "What are the main components of the planning pipeline and how do they relate?",
       "expected": {
-        "tool_name": "codecompass_architecture_overview"
+        "tool_name": "codecompass_architecture_overview",
+        "argument_contains": [
+          "planning"
+        ]
       }
     },
     {
@@ -153,7 +214,10 @@
       "lang": "de",
       "prompt": "Vertiefe bitte den Handle hac:1a2b3c4d5e6f:agent/services/audit aus dem Überblick.",
       "expected": {
-        "tool_name": "codecompass_architecture_expand"
+        "tool_name": "codecompass_architecture_expand",
+        "argument_contains": [
+          "hac:1a2b3c4d5e6f:agent/services/audit"
+        ]
       }
     },
     {
@@ -161,7 +225,10 @@
       "lang": "en",
       "prompt": "Expand hac:0f9e8d7c6b5a:worker/meet_media from the previous overview.",
       "expected": {
-        "tool_name": "codecompass_architecture_expand"
+        "tool_name": "codecompass_architecture_expand",
+        "argument_contains": [
+          "hac:0f9e8d7c6b5a:worker/meet_media"
+        ]
       }
     },
     {
@@ -169,7 +236,10 @@
       "lang": "de",
       "prompt": "Geh tiefer in hac:abcdef012345:agent/routes/tasks.",
       "expected": {
-        "tool_name": "codecompass_architecture_expand"
+        "tool_name": "codecompass_architecture_expand",
+        "argument_contains": [
+          "hac:abcdef012345:agent/routes/tasks"
+        ]
       }
     },
     {
@@ -281,7 +351,12 @@
       "lang": "de",
       "prompt": "Analysiere rekursiv, wie Tasks vom Hub über die Queue zu den Workern laufen und wo sie scheitern können.",
       "expected": {
-        "tool_name": "codecompass_rlm_analyze"
+        "tool_name": "codecompass_rlm_analyze",
+        "argument_contains": [
+          "task",
+          "queue",
+          "worker"
+        ]
       }
     },
     {
@@ -289,7 +364,10 @@
       "lang": "en",
       "prompt": "Do a recursive analysis of how evidence identities flow from the registry into release gates.",
       "expected": {
-        "tool_name": "codecompass_rlm_analyze"
+        "tool_name": "codecompass_rlm_analyze",
+        "argument_contains": [
+          "evidence"
+        ]
       }
     },
     {
@@ -297,7 +375,11 @@
       "lang": "de",
       "prompt": "Untersuche verzweigt, welche Pfade vom Autopilot bis zum Layer-Build führen.",
       "expected": {
-        "tool_name": "codecompass_rlm_analyze"
+        "tool_name": "codecompass_rlm_analyze",
+        "argument_contains": [
+          "autopilot",
+          "layer"
+        ]
       }
     },
     {

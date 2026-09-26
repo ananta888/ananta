@@ -37,6 +37,7 @@ from agent.services.tiny_router.decision_calibration import Observation, calibra
 from agent.services.tiny_router.parallel_decision import (  # noqa: E402
     DECISION_PATH,
     NO_TOOL,
+    TEXT_FIELD,
     TOOL_FIELD,
     build_tool_decision_schema,
     decision_request_body,
@@ -81,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-precision", type=float, default=0.95)
     parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--no-open-field", action="store_true",
+                        help="score the tool only (servers without open fields)")
     parser.add_argument("--from-shadow", type=Path, help="evaluate a companion shadow log instead of scoring")
     args = parser.parse_args(argv)
     if args.from_shadow:
@@ -92,8 +95,9 @@ def main(argv: list[str] | None = None) -> int:
                                                         "recommended_min_confidence")}, ensure_ascii=False))
         return 0
 
-    decision = build_tool_decision_schema(companion_tools())
+    decision = build_tool_decision_schema(companion_tools(), open_field=not args.no_open_field)
     observations, latencies, raw = [], [], []
+    argument_checks = []
     for case in load_benchmark_cases(args.cases):
         response, seconds = score(args.url, decision_request_body(decision, case["prompt"], model_id=args.model),
                                   args.timeout)
@@ -101,20 +105,34 @@ def main(argv: list[str] | None = None) -> int:
         expected = (case.get("expected") or {}).get("tool_name") or NO_TOOL
         observations.append(Observation(case["id"], expected, str(field["value"]), float(field["probability"])))
         latencies.append(seconds)
-        raw.append({"id": case["id"], "value": field["value"], "probability": field["probability"],
-                    "margin": field.get("margin"), "seconds": round(seconds, 3)})
+        row = {"id": case["id"], "value": field["value"], "probability": field["probability"],
+               "margin": field.get("margin"), "seconds": round(seconds, 3)}
+        text_field = response["results"][0]["fields"].get(TEXT_FIELD)
+        if isinstance(text_field, dict):
+            row.update(text=text_field.get("value"), text_truncated=text_field.get("truncated"),
+                       generation_ms=round(float((response.get("timings") or {}).get("generation_ms") or 0.0), 1))
+            terms = (case.get("expected") or {}).get("argument_contains")
+            if terms and field["value"] == expected:
+                found = any(term.lower() in str(text_field.get("value") or "").lower() for term in terms)
+                row["text_ok"] = found
+                argument_checks.append(found)
+        raw.append(row)
 
     report = calibration_report(observations, target_precision=args.target_precision)
     ordered = sorted(latencies)
     report["latency_seconds"] = {"first": round(latencies[0], 3), "median": round(ordered[len(ordered) // 2], 3),
                                  "max": round(ordered[-1], 3)}
+    if argument_checks:
+        report["text_argument"] = {"checked": len(argument_checks), "ok": sum(argument_checks),
+                                   "rate": round(sum(argument_checks) / len(argument_checks), 4)}
     report["cases_file"] = str(args.cases.relative_to(ROOT)) if args.cases.is_relative_to(ROOT) else str(args.cases)
     report["observations"] = raw
     text = json.dumps(report, indent=2, ensure_ascii=False)
     if args.out:
         args.out.write_text(text + "\n", encoding="utf-8")
     summary = {key: report[key] for key in ("total", "accuracy", "expected_calibration_error",
-                                            "recommended_min_confidence", "latency_seconds")}
+                                            "recommended_min_confidence", "latency_seconds", "text_argument")
+               if key in report}
     print(json.dumps(summary, ensure_ascii=False))
     return 0
 

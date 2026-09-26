@@ -10,11 +10,18 @@ The adapter only proposes a candidate to the existing tiny router: the
 router's validator, risk filter and the policy gates behind it stay binding.
 It abstains, so the normal (System 2) tool call runs, when the tool field is
 uncertain, when ``none`` wins, when a chosen argument is uncertain, and when
-the chosen tool needs a free-text argument this mode cannot produce.
+the chosen tool needs free text this mode cannot produce.
+
+Free text (profile ``metadata.open_field``, needs a server with bounded open
+fields): a tool whose only free argument is one required string (a search
+``query``, a ``handle``) gets it from one shared open field, generated after
+the closed fields with the chosen tool before it. The text is checked
+strictly (string, complete, non-empty, bounded, no control characters);
+anything else escalates. Tools with more free text still escalate.
 
 Field dependencies (JEVCPP-005): ``tool`` is independent; each argument field
 is grouped under its tool (scored as "if this tool were used") and only read
-when that tool wins. Nothing else may depend on another field.
+when that tool wins; the open field is conditioned on the chosen values.
 """
 
 from __future__ import annotations
@@ -35,7 +42,10 @@ from agent.services.tiny_router.types import AdapterRequest, AdapterResult, Tiny
 
 ADAPTER_ID = "parallel_decision"
 TOOL_FIELD = "tool"
+TEXT_FIELD = "text_argument"
 NO_TOOL = "none"
+TEXT_MAX_TOKENS = 48
+TEXT_MAX_CHARS = 200
 MAX_VALUES = 255
 MAX_FIELDS = 32
 DECISION_PATH = "/v1/decision"
@@ -45,6 +55,7 @@ _INSTRUCTIONS = (
     "For the tool field choose the single best tool, or 'none' when no tool is needed. "
     "Every argument field assumes its tool is the one used."
 )
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class ParallelDecisionResponseError(ValueError):
@@ -63,6 +74,14 @@ class ArgumentField:
 
 
 @dataclass(frozen=True)
+class TextArgument:
+    """A tool's single required free-text argument, filled from the open field."""
+
+    tool: str
+    argument: str
+
+
+@dataclass(frozen=True)
 class ToolDecisionSchema:
     """The decision schema plus how its fields map back to tools and arguments."""
 
@@ -71,9 +90,13 @@ class ToolDecisionSchema:
     arguments: tuple[ArgumentField, ...]
     free_text_tools: frozenset[str]
     dependencies: Mapping[str, str] = field(default_factory=dict)
+    text_arguments: tuple[TextArgument, ...] = ()
 
     def arguments_of(self, tool: str) -> list[ArgumentField]:
         return [item for item in self.arguments if item.tool == tool]
+
+    def text_argument_of(self, tool: str) -> TextArgument | None:
+        return next((item for item in self.text_arguments if item.tool == tool), None)
 
 
 def _function(tool: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -111,11 +134,19 @@ def _field_type(values: tuple[Any, ...]) -> dict[str, Any]:
     return {"type": "enum", "choices": [str(v) if not isinstance(v, str) else v for v in values]}
 
 
-def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]]) -> ToolDecisionSchema:
+def _is_free_string(spec: Any) -> bool:
+    return isinstance(spec, Mapping) and spec.get("type") == "string" and "enum" not in spec
+
+
+def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]], *, open_field: bool = False) -> ToolDecisionSchema:
+    """Tool choice as one decision; with ``open_field`` a single free string argument per tool is generated."""
     names: list[str] = []
     arguments: list[ArgumentField] = []
     free_text: set[str] = set()
+    texts: list[TextArgument] = []
+    text_notes: list[str] = []
     descriptions: list[str] = []
+    budget = MAX_FIELDS - 1 - (1 if open_field else 0)  # the tool field and the open field
     for tool in tools:
         function = _function(tool)
         name = str(function.get("name") or "").strip()
@@ -126,14 +157,22 @@ def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]]) -> ToolDecisi
         parameters = function.get("parameters") if isinstance(function.get("parameters"), Mapping) else {}
         properties = parameters.get("properties") if isinstance(parameters.get("properties"), Mapping) else {}
         required = set(parameters.get("required") or [])
+        missing: list[str] = []
         for argument, spec in properties.items():
             values = fixed_values(spec)
             field_name = _FIELD_NAME.sub("_", f"{name}__{argument}")[:64]
-            if values is None or len(arguments) + 1 >= MAX_FIELDS or not re.match(r"[A-Za-z_]", field_name):
+            if values is None or len(arguments) >= budget or not re.match(r"[A-Za-z_]", field_name):
                 if argument in required:
-                    free_text.add(name)
+                    missing.append(str(argument))
                 continue
             arguments.append(ArgumentField(field_name, name, str(argument), values))
+        missing.extend(str(argument) for argument in required if argument not in properties)
+        if len(missing) == 1 and open_field and _is_free_string(properties.get(missing[0])):
+            texts.append(TextArgument(name, missing[0]))
+            note = str((properties[missing[0]] or {}).get("description") or "").strip()[:100]
+            text_notes.append(f"{name}: its '{missing[0]}'" + (f" ({note})" if note else ""))
+        elif missing:
+            free_text.add(name)
     if not names:
         raise ValueError("parallel_decision_no_tools")
     schema: dict[str, Any] = {
@@ -149,7 +188,18 @@ def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]]) -> ToolDecisi
             "description": f"If {item.tool} is used: value of its argument '{item.argument}'.",
         }
     dependencies = {TOOL_FIELD: "independent", **{item.name: f"grouped:{item.tool}" for item in arguments}}
-    return ToolDecisionSchema(schema, tuple(names), tuple(arguments), frozenset(free_text), dependencies)
+    if texts:
+        # generated last, after the chosen closed values, so it follows the chosen tool
+        schema[TEXT_FIELD] = {
+            "type": "string",
+            "max_tokens": TEXT_MAX_TOKENS,
+            # generated only for a tool that takes the text; any other choice skips it at no cost
+            "when": {TOOL_FIELD: [item.tool for item in texts]},
+            "description": ("The text argument of the chosen tool. " + "; ".join(text_notes))[:1200]
+            + ". An empty string when the chosen tool needs no text.",
+        }
+        dependencies[TEXT_FIELD] = "conditional:closed_fields"
+    return ToolDecisionSchema(schema, tuple(names), tuple(arguments), frozenset(free_text), dependencies, tuple(texts))
 
 
 # --- response -> router payload -----------------------------------------------------------------
@@ -195,6 +245,14 @@ def decision_to_payload(response: Any, decision: ToolDecisionSchema, *, min_conf
     if tool in decision.free_text_tools:
         return {"tool_calls": [], "reason": "free_text_arguments", "tool_hint": tool, "confidence": confidence}
     arguments: dict[str, Any] = {}
+    generated: list[str] = []
+    text_argument = decision.text_argument_of(tool)
+    if text_argument is not None:
+        text = _open_text(fields[TEXT_FIELD])
+        if text is None:
+            return {"tool_calls": [], "reason": "text_argument_invalid", "tool_hint": tool, "confidence": confidence}
+        arguments[text_argument.argument] = text
+        generated.append(text_argument.argument)
     for item in decision.arguments_of(tool):
         raw = fields[item.name]
         if not isinstance(raw, Mapping):
@@ -204,7 +262,23 @@ def decision_to_payload(response: Any, decision: ToolDecisionSchema, *, min_conf
             return {"tool_calls": [], "reason": "argument_uncertain", "tool_hint": tool, "confidence": probability}
         arguments[item.argument] = _allowed(raw.get("value"), item.values)
         confidence = min(confidence, probability)
-    return {"tool_calls": [{"name": tool, "arguments": arguments, "confidence": confidence}]}
+    payload: dict[str, Any] = {"tool_calls": [{"name": tool, "arguments": arguments, "confidence": confidence}]}
+    if generated:
+        payload["generated_arguments"] = generated  # no probability: the text was generated, not scored
+    return payload
+
+
+def _open_text(raw: Any) -> str | None:
+    """The open field's text when it is a complete, usable string; ``None`` otherwise."""
+    if not isinstance(raw, Mapping) or raw.get("generated") is not True:
+        raise ParallelDecisionResponseError("parallel_decision_open_field_invalid")
+    value = raw.get("value")
+    if raw.get("skipped") is True or not isinstance(value, str) or raw.get("truncated") is not False:
+        return None
+    text = value.strip()
+    if not text or len(text) > TEXT_MAX_CHARS or _CONTROL.search(text):
+        return None
+    return text
 
 
 # --- runtime --------------------------------------------------------------------------------------
@@ -299,7 +373,8 @@ class ParallelDecisionAdapter:
 
     def propose(self, request: AdapterRequest) -> AdapterResult:
         started = self._clock()
-        decision = build_tool_decision_schema(request.tools)
+        open_field = request.profile.metadata.get("open_field") is True
+        decision = build_tool_decision_schema(request.tools, open_field=open_field)
         body = decision_request_body(decision, request.prompt, model_id=request.profile.model_id)
         try:
             response = self._runtime.decide(request.profile, body, timeout_ms=request.timeout_ms)
