@@ -42,6 +42,7 @@ from worker.meet_media.companion_media import (
     IdleClips,
     SpeechAvatarPublisher,
 )
+from worker.meet_media.companion_supervisor import supervise
 from worker.meet_media.contract import encode, load_key, signature
 from worker.meet_media.snake_avatar_state import IDLE, THINKING
 
@@ -589,9 +590,8 @@ def run():
 
 
 def main():
-    """Run the companion; a room move re-joins in-process with a fresh grant."""
-    while run() == "moved" and not STOP_FILE.exists():
-        log("rejoin after room move")
+    """Run the companion; every lost session re-joins with a fresh Hub grant."""
+    supervise(run, STOP_FILE.exists, clock=time.time, sleep=time.sleep, log=log)
 
 
 if __name__ == "__main__":

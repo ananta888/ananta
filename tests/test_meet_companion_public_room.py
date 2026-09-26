@@ -275,6 +275,7 @@ def test_periodic_check_can_be_switched_off(companion, monkeypatch, world):
         return original(page, script, arg)
 
     monkeypatch.setattr(FakePage, "evaluate", evaluate)
-    companion.main()
+    # One session only: main() would rejoin after "left" (see companion_supervisor).
+    companion.run()
     assert calls == [1] and world.joins == [ROOM_A]
     assert "left" in log_text(companion)

@@ -174,12 +174,30 @@ Ollama (`/api/chat`) unterstützt dieselbe Schleife; dort gibt es keine
 
 Der Worker importiert kein Hub-`agent`-Paket (`scripts/check_meet_worker_boundaries.py`).
 
+## Wiederbeitritt nach Sitzungsverlust
+
+Eine Companion-Sitzung endet, wenn der Room-Server eine Lease-Verlängerung
+ablehnt (`machine_renewal_denied`, z. B. 409/502), die Seite die Mitgliedschaft
+verliert oder der Hub kurz nicht erreichbar ist. `companion_supervisor.supervise`
+startet danach eine neue Sitzung mit frischem Hub-Grant: nach einem Raumwechsel
+sofort, sonst mit exponentiellem Backoff (5 s bis 300 s, Reset nach einer
+Sitzung von mindestens 10 Minuten). Jeder Wiederbeitritt bleibt damit vom Hub
+autorisiert. Beendet wird der Companion nur über die Stop-Datei
+(`MEET_COMPANION_STOP`, Default `/state/companion-stop`), die auch eine laufende
+Wartezeit abbricht.
+
+Start im Meet-Media-Worker-Container:
+
+```bash
+docker exec -d ananta-meet-media-meet-media-worker-1 python -m worker.meet_media.companion
+```
+
 ## Tests
 
 ```bash
 cd docker/compose-next
 docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm t-infra \
-  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_llm_tools.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py"
+  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_llm_tools.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py tests/test_meet_companion_supervisor.py tests/test_meet_companion_public_room.py"
 ```
 
 `tests/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,
