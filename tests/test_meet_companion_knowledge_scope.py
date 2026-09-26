@@ -186,3 +186,12 @@ def test_route_honours_the_default_binding(app, monkeypatch):
     assert retrieve(app, "supervise") == {
         "schema": "ananta.meet-assist-retrieve.v1", "snippets": [], "total": 0,
     }
+
+
+def test_all_caps_identifiers_do_not_become_single_letter_symbols():
+    """Live regression: HANDLER_ONLY_TASK_KINDS became symbols a, d, e, h, ... matching any text."""
+    features = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=list))
+    symbols = features._query_features("HANDLER_ONLY_TASK_KINDS")["symbols"]
+    assert all(len(symbol) >= 3 for symbol in symbols)
+    assert "handler_only_task_kinds" in symbols
+    assert {"rag", "helper", "index", "service"} <= set(features._query_features("RagHelperIndexService")["symbols"])

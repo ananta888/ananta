@@ -35,7 +35,9 @@ class KnowledgeIndexRetrievalService:
     PATH_STEM_TOKEN_WEIGHT = 2.5
     FIELD_EXCLUDE_KEYS = {"id", "parent_id", "node_id", "edge_id", "hash", "sha1", "sha256"}
     TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
-    SYMBOL_SPLIT_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
+    # CamelCase boundaries and underscores. Splitting before *every* capital
+    # broke ALL_CAPS identifiers into single letters that matched any text.
+    SYMBOL_SPLIT_PATTERN = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|_")
     # Stop tokens filtered before scoring. Includes German articles/pronouns and
     # common 2-char fragments produced by splitting words at umlauts (e.g. "erkläre"
     # → ["erkl", "re"]). Without this filter, "re" dominates large Python files
@@ -413,7 +415,7 @@ class KnowledgeIndexRetrievalService:
             if has_symbol_shape:
                 symbols.append(token)
         for raw in re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", query or ""):
-            parts = [part.lower() for part in self.SYMBOL_SPLIT_PATTERN.split(raw) if part]
+            parts = [part.lower() for part in self.SYMBOL_SPLIT_PATTERN.split(raw) if len(part) >= 3]
             if len(parts) > 1:
                 symbols.extend(parts)
         unique_tokens = sorted(set(tokens))
