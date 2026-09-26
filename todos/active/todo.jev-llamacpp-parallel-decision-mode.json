@@ -2,7 +2,7 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-22",
-  "updated_at": "2026-09-26",
+  "updated_at": "2026-09-27",
   "owner": "Peter Stuiber / Ananta",
   "track": "jev_llamacpp_parallel_decision_mode",
   "title": "Jev-Modus fuer llama.cpp: parallele typisierte Entscheidungen als lokaler System-1-Pfad",
@@ -101,7 +101,7 @@
     {
       "id": "JEVCPP-M3",
       "title": "Modelle, Kalibrierung und Performance benchmarken",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "JEVCPP-008",
         "JEVCPP-009",
@@ -325,10 +325,10 @@
       "milestone_id": "JEVCPP-M3",
       "title": "Modellarchitekturen fuer ParallelDecision vergleichen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "depends_on": [
         "JEVCPP-003",
         "JEVCPP-007"
@@ -342,6 +342,11 @@
       "acceptance_criteria": [
         "Kompatibilitaetsmatrix nennt Modell, Quantisierung, Architekturtyp, VRAM/RAM, Prompt-Processing, Decision-Latenz und Batch-Skalierung.",
         "Nicht reproduzierbare oder nur aus Fremdbenchmarks stammende Performancewerte sind klar getrennt."
+      ],
+      "evidence": [
+        "Hybrid (Bonsai 2 27B, Qwen3.8-Hybrid): Upstream ad129b08d auf den Trie-/Kept-Path-Stand des Forks portiert (ananta888/llama.cpp-vision-decision@bonsai-decision a53a1e78e): Äste auf gleiche Länge aufgefüllt, 1 statt mehrerer ubatches",
+        "Gemessen 2026-09-27, 48 Kalibrier-Prompts, 8 Tools/13 Felder: warm Median 0,544 s -> 0,267 s; Smoke-Scoring 0,19 s -> 0,086 s; kein Gewinner geändert, max |dp| 0,012",
+        "Offen: Attention-only- und MoE-Vergleich, Kompatibilitätsmatrix"
       ]
     },
     {
@@ -349,10 +354,10 @@
       "milestone_id": "JEVCPP-M3",
       "title": "Qualitaet und Kalibrierung gegen normale JSON-Ausgabe benchmarken",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "depends_on": [
         "JEVCPP-006",
         "JEVCPP-008"
@@ -367,6 +372,13 @@
         "Bericht macht sichtbar, dass 100 Prozent erlaubte Werte nicht 100 Prozent fachliche Richtigkeit bedeuten.",
         "Confidence-Schwellen werden nur aus Validation-Daten gewaehlt; Holdout bleibt unangetastet.",
         "System-2-Eskalation zeigt ihren Nutzen gegen einen reinen Always-Fast-Pfad."
+      ],
+      "evidence": [
+        "agent/services/tiny_router/decision_calibration.py: Precision/Coverage je Schwelle, ECE, Konfusion; Empfehlung nur, wenn die 95-%-Untergrenze der Precision das Ziel erreicht",
+        "benchmarks/tiny_tool_router/decision_calibration.v1.json: 48 DE/EN-Fälle über das Companion-Toolset (synthetisch, nie Release-Evidenz); scripts/jev_tool_decision_calibration.py",
+        "Ergebnis 2026-09-27 (Bonsai 27B): 48/48 richtig, ECE 0,027 - das Set ist zu leicht, um Schwellen zu trennen; keine Empfehlung, min_confidence bleibt 0,8",
+        "Companion-Shadow (worker/meet_media/tool_decision_shadow.py) sammelt echte Referenzen: Decision neben dem ersten wirklich gelaufenen Tool-Call, ohne Fragetext; Auswertung mit --from-shadow",
+        "Offen: Vergleich mit normaler JSON-/Grammar-Ausgabe desselben Modells, schwierigere Fälle, Validation/Holdout-Trennung"
       ]
     },
     {
@@ -392,6 +404,9 @@
         "Es gibt keine pauschale Millisekunden-Zusage ohne Modell-/Hardware-/Batch-Kontext.",
         "Benchmark ist maschinenlesbar und reproduzierbar.",
         "Empfohlene Profile fuer low-latency, balanced und quality-first sind aus Messwerten ableitbar."
+      ],
+      "notes": [
+        "Erste Einzelwerte (nicht p95/p99): RTX 5060 Ti, Bonsai 27B PQ2_0, 8 Tools: 0,27 s warm je Tool-Entscheidung, im Companion-Shadow 0,16 s; 4 Tools: 0,18 s."
       ]
     },
     {
@@ -461,9 +476,9 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 7,
+      "todo": 5,
       "in_progress": 0,
-      "partial": 2,
+      "partial": 4,
       "blocked": 0,
       "done": 3
     },
@@ -486,8 +501,8 @@
     },
     "milestones": {
       "total": 4,
-      "todo": 2,
-      "in_progress": 2,
+      "todo": 1,
+      "in_progress": 3,
       "partial": 0,
       "blocked": 0,
       "done": 0
@@ -508,9 +523,9 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 7,
+    "todo_remaining": 5,
     "in_progress": 0,
-    "partial": 2,
+    "partial": 4,
     "blocked": 0,
     "done": 3
   },

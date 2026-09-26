@@ -154,6 +154,38 @@ Endpunkt über `ANANTA_PARALLEL_DECISION_URL` (nur http/https). Jeder Request se
 „Starte den Companion neu“ → `service.restart {service: companion}`, „Wo wird der CircuitBreaker definiert?“ →
 `free_text_arguments` (Hinweis `repo.search`), „Erzähl einen Witz“ → `respond`; warm je 0,18–0,19 s.
 
-**Offen:** Die Schwelle 0,8 ist nicht kalibriert (JEVCPP-009). Aktivierung im Tool-Loop zuerst im Shadow-Modus
-(`tiny_router.mode: shadow`, `profile_order: [bonsai2-27b-parallel-decision]`). Freitextargumente decken erst die
-Upstream-PR #14 (hybride Entscheidung) oder der Chat-Pfad ab.
+**Offen:** Freitextargumente decken erst die Upstream-PR #14 (hybride Entscheidung) oder der Chat-Pfad ab. Der
+Hub-Tool-Loop (`ananta_worker_tool_loop`) ist auf den Workern aus; `tiny_router.mode: shadow` sammelt dort also
+nichts, solange der Loop aus ist. Echte Tool-Calls macht derzeit der Meet-Companion, darum läuft der Shadow dort.
+
+## Upstream-Port ad129b08d (Hybrid-Modelle in einem Pass)
+
+Der Upstream-Branch ist auf einen neueren llama.cpp-Master umgebaut; ein Merge brächte Hunderte fremder Commits. Portiert
+ist nur `ad129b08d`, angepasst an das Trie-/Kept-Path-`score_branches` des Forks (`bonsai-decision` @ `a53a1e78e`): auf
+rekurrenten/hybriden Modellen (dort ohne Token-Sharing) laufen die Äste längste zuerst und werden auf die Länge des
+längsten Asts ihrer Gruppe aufgefüllt; die Logits werden am letzten echten Token gelesen.
+
+| Messung (RTX 5060 Ti, Bonsai 27B) | vorher | nachher |
+|---|---|---|
+| Tool-Wahl, 8 Tools/13 Felder, warm Median (48 Prompts) | 0,544 s | 0,267 s |
+| Smoke: Scoring | 0,19 s | 0,086 s |
+| geänderte Gewinner / max. Abweichung p | – | 0 / 0,012 |
+
+`llama-parallel-decision` (CLI) baut auf `bonsai-decision` nicht (`llm_add_n_cpu_ffn_overrides` fehlt seit dem
+PrismML-Port `e33bf977a`); der Server ist nicht betroffen. Achtung beim Neubau: auch die Shared Libraries werden neu
+gelinkt, eine Kopie nur von `llama-server` ist kein Rollback; Rollback = Checkout `edb69a662` und inkrementell bauen.
+
+## Kalibrierung und Companion-Shadow (JEVCPP-009)
+
+- **Set:** `benchmarks/tiny_tool_router/decision_calibration.v1.json`, 48 DE/EN-Fragen über das Companion-Toolset
+  (synthetisch, nie Release-Evidenz). Lauf: `python3 scripts/jev_tool_decision_calibration.py --url http://127.0.0.1:18150`.
+- **Auswertung** (`agent/services/tiny_router/decision_calibration.py`): Precision/Coverage je Schwelle, ECE, Konfusion.
+  Eine Schwelle wird nur empfohlen, wenn die einseitige 95-%-Untergrenze der Precision das Ziel (0,95) erreicht.
+- **Ergebnis 2026-09-27:** 48/48 richtig, ECE 0,027. Ohne einen einzigen Fehler trennt das Set keine Schwellen
+  (Untergrenze 0,947 < 0,95), also keine Empfehlung: `min_confidence` bleibt 0,8.
+- **Companion-Shadow** (`worker/meet_media/tool_decision_shadow.py`, an bei `MEET_TOOL_DECISION_SHADOW_URL`): Nach
+  jeder Antwort wird die Frage ein zweites Mal per `/v1/decision` bewertet, in einem Daemon-Thread, ohne Einfluss auf
+  Antwort oder Timing. Protokoll `/state/tool-decision-shadow.jsonl` mit Route, erzwungenen und eigenen Calls,
+  `actual_first` (erster wirklich gelaufener Call) und Decision; ohne Fragetext (nur Hash und Länge). Auswertung:
+  `python3 scripts/jev_tool_decision_calibration.py --from-shadow data/meet-media/worker-state/tool-decision-shadow.jsonl`.
+  Gemessen: 0,16 s je Shadow-Entscheidung.
