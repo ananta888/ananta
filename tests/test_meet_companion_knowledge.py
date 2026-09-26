@@ -137,6 +137,14 @@ def test_the_tool_persona_demands_the_lookup_first_and_keeps_smalltalk_out():
         ("Was weißt du über den RAG helper?", "RAG helper"),
         ("Wie funktioniert deine Sprachausgabe?", "Sprachausgabe"),
         ("Welche Datei macht das?", "Datei"),
+        # Live questions from the companion log (2026-09-26).
+        ("was sind das alles für funktionen die du dafür aufrufen kannst?", "funktionen aufrufen"),
+        ("erkläre mir den codecompass", "codecompass"),
+        (
+            "dann erkläre mir wie der codecompass funktioniert und was zentrale wichtige python files davon sind?",
+            "codecompass zentrale wichtige python files",
+        ),
+        ("Wo stehen die Antworten des Companion im Code?", "stehen Antworten Companion Code"),
     ],
 )
 def test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query(text, query):

@@ -71,17 +71,27 @@ _IDENTIFIER = re.compile(
     r"(\b[a-z][a-z0-9]+(?:[-_][a-z0-9]+)+\b|\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b|"
     r"\b[\w-]+/[\w./-]+|\b[\w-]+\.(?:py|ts|js|md|json|ya?ml|sh|toml)\b)"
 )
+# Word boundaries: "wo" must not be cut out of "Antworten".
 _QUERY_PHRASES = re.compile(
-    r"(was wei(ß|ss|s)t du (über|ueber|von)|wie (funktioniert|funktionieren|arbeitet|l[aä]uft)|"
+    r"\b(was wei(ß|ss|s)t du (über|ueber|von)|wie (funktioniert|funktionieren|arbeitet|l[aä]uft)|"
     r"was (ist|sind|macht|machen|bedeutet)|erkl[aä]r(e|st)?|wof[uü]r|wozu|welche|wo|"
-    r"what (is|are|does)|how (does|do)|tell me about)",
+    r"what (is|are|does)|how (does|do)|tell me about)\b",
     re.IGNORECASE,
 )
+# Question words, pronouns and auxiliary verbs carry no search signal: the
+# forced lookup used to search "alles für funktionen dafür aufrufen kannst".
 _QUERY_FILLER = frozenset(
     "der die das den dem des ein eine einen einem du dir mir mich ich es er sie ist sind "
     "dein deine deiner deinen macht machen "
     "genau eigentlich denn noch mal bitte so und oder über ueber von zu im in am the a an is "
-    "are it work works".split()
+    "are it work works "
+    "was wie wer wen wem welcher welches welchen warum weshalb wann ob dass "
+    "alle alles allem allen für fuer dafür dafuer damit davon dazu darüber darueber hier da dann also "
+    "kann kannst können koennen könntest koenntest soll sollst wird werden wurde wurden hat hast haben "
+    "habe gibt geben funktioniert funktionieren "
+    "zeig zeige sag sage nenn nenne beschreib beschreibe "
+    "dies diese dieser dieses jetzt nun auch nur schon sehr mehr uns euch ihr wir man "
+    "what how which why can could do does did you your me my this that these those".split()
 )
 MAX_QUERY_CHARS = 200
 
