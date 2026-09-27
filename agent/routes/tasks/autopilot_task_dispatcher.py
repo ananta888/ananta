@@ -50,6 +50,23 @@ from .autopilot_task_dispatcher_helpers import (
 )
 
 
+def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
+    """LCTX-007/008: split a task whose context exceeds the window (only with context_strategy.mode=active)."""
+    try:
+        config = ((getattr(app, "config", None) or {}).get("AGENT_CONFIG", {}) or {}).get("context_strategy")
+        if str((config or {}).get("mode") or "shadow").strip().lower() != "active":
+            return None
+        from agent.services.long_context_coordinator import get_long_context_coordinator
+
+        return get_long_context_coordinator().maybe_split(task, config=config)
+    except Exception:  # noqa: BLE001 -- a failed split leaves the normal dispatch path
+        import logging
+
+        logging.getLogger(__name__).warning("long-context split failed for %s", getattr(task, "id", "?"),
+                                            exc_info=True)
+        return None
+
+
 def _dispatch_one_task_inner(  # noqa: C901
     *,
     task: Any,
@@ -142,6 +159,14 @@ def _dispatch_one_task_inner(  # noqa: C901
             result.failed = True
             result.failure_type = f"goal_{goal_status}"
             return result
+
+    split = _split_if_beyond_context(current_task or task, app=app_ctx)
+    if split is not None:
+        # LCTX: the task was split into Hub step tasks; it now waits for them (not a failure)
+        append_trace_event(task.id, "autopilot_long_context_split", strategy=split.strategy,
+                           steps=len(split.step_ids), final_step_id=split.final_step_id)
+        result.dispatched = True
+        return result
 
     if was_assigned:
         latest_status = _current_task_status(task.id, app=app_ctx)

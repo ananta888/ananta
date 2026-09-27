@@ -516,7 +516,8 @@ def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: 
         fit = check_fit(prompt="\n".join((str(base_prompt or ""), context_text, description)))
         if fit.fits:
             return
-        input_kind = str(task.get("context_input_kind") or "unknown")
+        wec = task.get("worker_execution_context") if isinstance(task.get("worker_execution_context"), dict) else {}
+        input_kind = str(task.get("context_input_kind") or wec.get("context_input_kind") or "unknown")
         decision = service.decide(ContextStrategyRequest(
             fit=fit, task_kind=str(task_kind or ""), input_kind=input_kind,
             question_like=str(task_kind or "") in _QUESTION_LIKE_KINDS,

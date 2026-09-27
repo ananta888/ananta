@@ -496,6 +496,15 @@ class TaskQueueService:
                 },
             )
 
+    @staticmethod
+    def _long_context_transition(task: Any, dependency_ids: List[str]) -> Dict[str, Any] | None:
+        from agent.services.long_context_coordinator import MARKER, get_long_context_coordinator
+
+        details = getattr(task, "status_reason_details", None)
+        if not isinstance(details, dict) or not details.get(MARKER):
+            return None
+        return get_long_context_coordinator().on_dependencies_completed(task, dependency_ids)
+
     def reconcile_dependencies(
         self,
         *,
@@ -590,6 +599,10 @@ class TaskQueueService:
                 for status, _ in dep_statuses
             )
             if my_status in {"blocked", "blocked_by_dependency"} and all_done:
+                long_context = self._long_context_transition(live_task, deps)
+                if long_context is not None:  # LCTX: step inputs inserted, or a split task completed
+                    transitions.append(long_context)
+                    continue
                 update_local_task_status(
                     live_task.id,
                     "todo",
