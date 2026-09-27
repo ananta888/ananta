@@ -85,6 +85,7 @@ class Case:
     lang: str
     split: str  # base | hard
     expected: dict[str, tuple[str, tuple[str, ...]]] = field(default_factory=dict)  # question key -> (label, also)
+    terms: tuple[str, ...] = ()  # tool routing: terms one of which the text argument should contain
 
 
 @dataclass
@@ -134,8 +135,9 @@ def load_tool_routing() -> Area:
     for path in TOOL_CASES:
         split = "hard" if "hard" in path.name else "base"
         for row in json.loads(path.read_text(encoding="utf-8"))["cases"]:
-            expected, also, _terms = expectation(row)
-            cases.append(Case(row["id"], row["prompt"], row.get("lang", "?"), split, {TOOL_KEY: (expected, also)}))
+            expected, also, terms = expectation(row)
+            cases.append(Case(row["id"], row["prompt"], row.get("lang", "?"), split, {TOOL_KEY: (expected, also)},
+                              tuple(terms)))
     area = Area("tool_routing", request.questions, cases, question_keys={"tool_routing": TOOL_KEY})
     area.tools = tools  # type: ignore[attr-defined]
     return area
@@ -226,13 +228,14 @@ RULES = {"injection": _injection_rules, "companion": _companion_rules, "retrieva
 
 
 def _runs_from(case: Case, labels: dict[str, tuple[str | None, float]], latency_ms: float, tokens: tuple[int, int],
-               cost: float, error: str | None) -> dict[str, Run]:
+               cost: float, error: str | None, argument: str | None = None,
+               argument_confidence: float | None = None) -> dict[str, Run]:
     runs = {}
     share = max(1, len(case.expected))
     for key, (expected, also) in case.expected.items():
         predicted, confidence = labels.get(key, (None, 0.0))
         runs[key] = Run(case.case_id, expected, predicted, confidence, also, latency_ms,
-                        tokens[0] // share, tokens[1] // share, cost / share, error)
+                        tokens[0] // share, tokens[1] // share, cost / share, error, argument, argument_confidence)
     return runs
 
 
@@ -278,8 +281,59 @@ def run_current_tool_decision(url: str, area: Area, case: Case) -> dict[str, Run
         return _runs_from(case, {}, 0.0, (0, 0), 0.0, type(error).__name__)
     label = decision.tool or "none"
     usage = response.get("usage") or {}
+    text = next(iter(decision.arguments.values()), None) if decision.arguments else None
     return _runs_from(case, {TOOL_KEY: (label, decision.confidence)}, seconds * 1000,
-                      (int(usage.get("prompt_tokens") or 0) + int(usage.get("context_tokens") or 0), 0), 0.0, None)
+                      (int(usage.get("prompt_tokens") or 0) + int(usage.get("context_tokens") or 0), 0), 0.0, None,
+                      text if isinstance(text, str) else None)
+
+
+_CANDIDATES = None
+
+
+def candidate_source():
+    """Prompt spans plus a symbol index built from the working tree, like the Hub builds it from its index."""
+    global _CANDIDATES
+    if _CANDIDATES is None:
+        from agent.services.decision_providers.argument_candidates import (
+            CompositeCandidates,
+            PromptSpanCandidates,
+            SymbolIndexCandidates,
+            symbol_names,
+        )
+
+        skip = ("data/", "node_modules", "vendor/", ".git/", "project-workspaces", "artifacts/")
+        files = []
+        for path in ROOT.rglob("*"):
+            rel = str(path.relative_to(ROOT))
+            if rel.startswith(skip) or "/node_modules/" in rel or path.suffix not in (".py", ".ts", ".js", ".java",
+                                                                                      ".go", ".rs"):
+                continue
+            if path.is_file() and path.stat().st_size < 400_000:
+                files.append((rel, path.read_text(encoding="utf-8", errors="ignore")))
+        names = symbol_names(files)
+        _CANDIDATES = CompositeCandidates([PromptSpanCandidates(), SymbolIndexCandidates(lambda: names)])
+    return _CANDIDATES
+
+
+def run_tool_choice(provider, area: Area, case: Case) -> dict[str, Run]:
+    """Tool and text argument via typed questions, the text argument chosen among candidates."""
+    from agent.services.decision_providers.tool_choice import read_tool_choice
+
+    started = time.monotonic()
+    try:
+        schema, request, values = tool_questions(area.tools, case.state, candidates=candidate_source())  # type: ignore[attr-defined]
+        result = provider.decide(request)
+    except DecisionProviderError as error:
+        return _runs_from(case, {}, (time.monotonic() - started) * 1000, (0, 0), 0.0, error.reason_code)
+    answer = result.answer(TOOL_KEY)
+    decision = read_tool_choice(schema, result, values, case.state, min_confidence=0.0)
+    text = next((v for v in decision.arguments.values() if isinstance(v, str)), None)
+    text_key = next((k for k, (item, _labels) in values.items()
+                     if k.startswith("text_") and item.tool == answer.choice), None)
+    text_confidence = result.answer(text_key).confidence if text_key else None
+    return _runs_from(case, {TOOL_KEY: (answer.choice, answer.confidence)}, result.latency_ms,
+                      (result.usage.input_tokens, result.usage.output_tokens), result.usage.cost_usd, None, text,
+                      text_confidence)
 
 
 def run_chat(url: str, model: str, area: Area, case: Case) -> dict[str, Run]:
@@ -352,9 +406,34 @@ def area_report(area: Area, outputs: dict[str, dict[str, dict[str, Run]]]) -> di
                     if a and set(a) == set(b):
                         cascades[f"{first}->{second}"] = simulate_cascade(a, b)
             per_split[split] = {"cases": len(ids), "providers": providers, "cascades": cascades}
+            if area.name == "tool_routing":
+                per_split[split]["arguments"] = argument_report(area, outputs, ids, key)
             if area.name == "injection":
                 per_split[split]["detection"] = detection_report(outputs, ids, key)
         report[dataset] = per_split
+    return report
+
+
+def argument_report(area: Area, outputs: dict[str, dict[str, dict[str, Run]]], ids: list[str],
+                    key: str) -> dict[str, Any]:
+    """Text-argument quality where the right tool was chosen and the case names expected terms.
+
+    ``hit``: the argument contains an expected term; ``precise``: a hit that is also short (not the whole
+    request). Providers that record no argument pass the whole request (their behaviour)."""
+    by_id = {c.case_id: c for c in area.cases}
+    report = {}
+    for name, runs in outputs.items():
+        rows = [(by_id[i], runs[i][key]) for i in ids if i in runs and by_id[i].terms and runs[i][key].correct
+                and runs[i][key].predicted not in ("none", None)]
+        if not rows:
+            continue
+        hits = precise = 0
+        for case, run in rows:
+            argument = (run.argument if run.argument is not None else case.state).strip().lower()
+            hit = any(term.lower() in argument for term in case.terms)
+            hits += hit
+            precise += hit and len(argument) <= 2 * max(len(t) for t in case.terms) + 12
+        report[name] = {"cases": len(rows), "hit": round(hits / len(rows), 4), "precise": round(precise / len(rows), 4)}
     return report
 
 
@@ -422,7 +501,7 @@ def summary_lines(report: dict[str, Any]) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--areas", default="tool_routing,companion,retrieval,hub_direct,chat_intent,injection")
-    parser.add_argument("--providers", default="rules,current,chat,jev,local_decision,llm")
+    parser.add_argument("--providers", default="rules,current,chat,jev,jev_cand,local_decision,local_cand,llm")
     parser.add_argument("--local-url", default=os.environ.get("ANANTA_PARALLEL_DECISION_URL", "http://127.0.0.1:18150"))
     parser.add_argument("--llm-model", default="")
     parser.add_argument("--jev-model", default="jev-latest")
@@ -445,7 +524,8 @@ def main(argv: list[str] | None = None) -> int:
         areas.append(area)
 
     skipped: dict[str, str] = {}
-    jev = TypeSafeJevProvider(model=args.jev_model, timeout_seconds=15.0) if "jev" in wanted else None
+    jev = (TypeSafeJevProvider(model=args.jev_model, timeout_seconds=15.0)
+           if {"jev", "jev_cand"} & set(wanted) else None)
     if jev is not None and not read_api_key():
         skipped["jev"] = "api_key_missing (TYPESAFE_API_KEY / TYPESAFE_API_KEY_FILE)"
         jev = None
@@ -476,6 +556,8 @@ def main(argv: list[str] | None = None) -> int:
         local_jobs: list[tuple[str, Callable[[Case], dict[str, Run]], int]] = []
         if "rules" in wanted and area.rules is not None:
             outputs["rules"] = run_provider("rules", lambda c, a=area: run_rules(a, c), area.cases, 1, False, area.name)
+        if area.name == "tool_routing" and local_ok and "local_cand" in wanted:
+            local_jobs.append(("local_cand", lambda c, a=area: run_tool_choice(local, a, c), 2))
         if area.name == "tool_routing" and local_ok:
             if "current" in wanted:
                 local_jobs.append(("current", lambda c, a=area: run_current_tool_decision(args.local_url, a, c), 2))
@@ -487,11 +569,15 @@ def main(argv: list[str] | None = None) -> int:
             local_jobs.append(("llm", lambda c, a=area: run_typed(llm, a, c), 1))
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             jev_future = pool.submit(run_provider, "jev", lambda c, a=area: run_typed(jev, a, c), area.cases,
-                                     args.jev_workers, not args.quiet, area.name) if jev is not None else None
+                                     args.jev_workers, not args.quiet, area.name) \
+                if jev is not None and "jev" in wanted else None
             for name, fn, workers in local_jobs:  # one at a time: they share the GPU
                 outputs[name] = run_provider(name, fn, area.cases, workers, not args.quiet, area.name)
             if jev_future is not None:
                 outputs["jev"] = jev_future.result()
+            if jev is not None and area.name == "tool_routing" and "jev_cand" in wanted:
+                outputs["jev_cand"] = run_provider("jev_cand", lambda c, a=area: run_tool_choice(jev, a, c),
+                                                   area.cases, args.jev_workers, not args.quiet, area.name)
         report["areas"][area.name] = area_report(area, outputs)
     report["finished_at"] = time.time()
     args.out.parent.mkdir(parents=True, exist_ok=True)
