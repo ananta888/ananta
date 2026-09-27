@@ -294,6 +294,11 @@ class ToolBox:
         )
         return content
 
+    def has_forced(self, name):
+        """Whether a call to ``name`` (or its alias) was already forced this reply."""
+        tool = self._resolve(name)
+        return tool is not None and any(self._resolve(call["name"]) is tool for call in self.forced)
+
     def forced_messages(self, *, json_arguments):
         """The forced calls as an assistant ``tool_calls`` turn plus its results.
 

@@ -224,6 +224,7 @@ class CompanionDialog:
         runtime_context=None,
         system=None,
         tools=None,
+        tool_choice=None,
     ):
         """``llm(text, context, system)`` -> str; ``retriever(query)`` -> snippets.
 
@@ -231,8 +232,12 @@ class CompanionDialog:
         ``PERSONA_SYSTEM_WITH_TOOLS`` when the model may call CodeCompass itself.
         ``tools`` is that same ``llm_tools.ToolBox``: for knowledge questions the
         dialog forces ``codecompass_search`` on it before the model is asked.
+        ``tool_choice(text, definitions)`` is the optional decision fast path
+        (``tool_decision.FastToolChoice``): a confident tool call it returns is
+        forced the same way, unless the router already forced that tool.
         """
         self._tools = tools
+        self._tool_choice = tool_choice
         self._llm = llm
         self._system = PERSONA_SYSTEM if system is None else str(system)
         self._retriever = retriever
@@ -268,6 +273,14 @@ class CompanionDialog:
             trace.codecompass_used = True
             trace.observe("codecompass_search forced by the router before the model call")
             grounded = True
+        if self._tool_choice is not None and self._tools is not None:
+            choice = self._tool_choice(text, self._tools.definitions())
+            if choice is not None and not self._tools.has_forced(choice.tool):
+                self._tools.force(choice.tool, dict(choice.arguments))
+                trace.codecompass_used = True
+                trace.observe(
+                    f"{choice.tool} chosen by the decision fast path (p={choice.confidence:.2f}) before the model call")
+                grounded = True
         if decision.route == MEET_RUNTIME_CURRENT_DIALOG:
             runtime = str(self._runtime_context() or "").strip()
             if runtime:

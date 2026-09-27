@@ -97,7 +97,7 @@ def backend_env(monkeypatch):
     monkeypatch.delenv("MEET_LLM_TOOL_RESULT_CHARS", raising=False)
 
 
-def companion(port, retriever=None):
+def companion(port, retriever=None, tool_choice=None):
     """The production wiring of ``companion.dialog()`` with injected ports."""
     retriever = Retriever() if retriever is None else retriever
     tools = llm_tools.codecompass_toolbox(retriever)
@@ -109,6 +109,7 @@ def companion(port, retriever=None):
         model_name=MODEL,
         system=PERSONA_SYSTEM_WITH_TOOLS,
         tools=tools,
+        tool_choice=tool_choice,
     )
     return dialog, tools, retriever
 
@@ -392,3 +393,52 @@ def test_the_live_sequence_ends_in_an_answer_instead_of_tool_markup():
     assert repair["messages"][-3]["tool_calls"][0]["function"]["name"] == llm_tools.NAME
     assert repair["messages"][-3]["content"] == ""
     assert "agent/services/rag_helper_index_service.py:31" in trace.source_labels()[0]
+
+
+# --- decision fast path (tool_decision.FastToolChoice as the dialog's tool_choice port) ---------------------
+
+
+class Choice:
+    def __init__(self, decision):
+        self.decision, self.asked = decision, []
+
+    def __call__(self, text, definitions):
+        self.asked.append((text, [item["function"]["name"] for item in definitions]))
+        return self.decision
+
+
+def test_a_confident_fast_path_choice_is_forced_before_the_model_call():
+    from ananta_contracts.tool_decision import CALL, ToolDecision
+
+    choice = Choice(ToolDecision(CALL, llm_tools.NAME, {"query": "keep-alive"}, 0.93, generated_arguments=("query",)))
+    port = Port("Der Keep-Alive hält die Verbindung offen.")
+    dialog, tools, retriever = companion(port, tool_choice=choice)
+
+    _reply, trace = dialog.answer("Hallo zusammen!")  # smalltalk: the router forces nothing
+
+    assert choice.asked[0][0] == "Hallo zusammen!" and llm_tools.NAME in choice.asked[0][1]
+    assert retriever.queries == ["keep-alive"] and [call["forced"] for call in tools.calls] == [True]
+    assert f"{llm_tools.NAME} chosen by the decision fast path (p=0.93) before the model call" in trace.observed
+    assert port.payloads[0]["messages"][2]["tool_calls"][0]["function"]["name"] == llm_tools.NAME
+
+
+def test_the_router_forced_tool_is_not_forced_twice():
+    from ananta_contracts.tool_decision import CALL, ToolDecision
+
+    choice = Choice(ToolDecision(CALL, llm_tools.NAME, {"query": "RAG helper index"}, 0.99))
+    port = Port("Der RAG-Helper indexiert Repository-Pfade mit einem Profil.")
+    dialog, tools, retriever = companion(port, tool_choice=choice)
+
+    _reply, trace = dialog.answer(QUESTION)
+
+    assert retriever.queries == ["rag-helper"]  # the router's lookup only
+    assert not any("decision fast path" in line for line in trace.observed)
+
+
+def test_without_a_confident_choice_the_reply_path_is_unchanged():
+    port = Port("Hallo!")
+    dialog, tools, retriever = companion(port, tool_choice=Choice(None))
+
+    dialog.answer("Hallo zusammen!")
+
+    assert retriever.queries == [] and tools.calls == []

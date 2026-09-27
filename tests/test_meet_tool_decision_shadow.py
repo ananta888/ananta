@@ -1,38 +1,15 @@
-"""Companion tool-decision shadow: schema, strict reading, recording, never in the reply path."""
+"""Companion tool-decision shadow: records a decision next to what the reply did, without question text."""
 
 import json
-import math
 
 import pytest
 
+from ananta_contracts.tool_decision import CALL, RESPOND, ToolDecision
 from worker.meet_media import tool_decision_shadow as shadow
+from worker.meet_media.tool_decision import DecisionOutcome
 
 pytestmark = pytest.mark.timeout(30)
-
-
-def tool(name, description="d"):
-    return {"type": "function", "function": {"name": name, "description": description, "parameters": {}}}
-
-
-TOOLS = [tool("codecompass_search", "search code"), tool("codecompass_layers_heads", "index layers")]
-TOOLS[0]["function"]["parameters"] = {"type": "object", "properties": {"query": {"type": "string"}},
-                                      "required": ["query"]}
-
-
-def answer(value, probability=0.93, margin=0.8):
-    return {"object": "decision", "results": [{"fields": {"tool": {
-        "value": value, "probability": probability, "margin": margin}}}]}
-
-
-class Client:
-    def __init__(self, response=None, error=None):
-        self.response, self.error, self.requests = response, error, []
-
-    def exchange(self, path, payload, budget):
-        self.requests.append((path, payload, budget))
-        if self.error:
-            raise self.error
-        return self.response
+QUESTION = "Welche Index-Layer gibt es?"
 
 
 class Sink:
@@ -43,72 +20,69 @@ class Sink:
         self.records.append(record)
 
 
-def observe(client, calls=(), question="Welche Index-Layer gibt es?", with_argument=False):
+class Decider:
+    def __init__(self, outcome):
+        self.outcome, self.asked = outcome, []
+
+    def decide(self, question, definitions):
+        self.asked.append(question)
+        return self.outcome
+
+
+def record(outcome, calls=(), mode="shadow"):
     sink = Sink()
-    record = shadow.ToolDecisionShadow(client, sink, clock=iter([1.0, 1.25]).__next__, wall=lambda: 1000.0,
-                                       with_argument=with_argument) \
-        .observe(question, TOOLS, route="ananta_code_architecture", calls=list(calls))
-    assert sink.records == [record]
-    return record
+    result = shadow.ToolDecisionShadow(Decider(outcome), sink, wall=lambda: 1000.0).record(
+        QUESTION, outcome, route="ananta_code_architecture", calls=list(calls), mode=mode)
+    assert sink.records == [result]
+    return result
 
 
-def test_the_schema_offers_the_tools_and_none():
-    schema = shadow.decision_schema(TOOLS + [tool("codecompass_search"), tool("none")])
-    assert schema["tool"]["choices"] == ["codecompass_search", "codecompass_layers_heads", "none"]
-    assert "codecompass_layers_heads: index layers" in schema["tool"]["description"]
-    with pytest.raises(ValueError):
-        shadow.decision_schema([])
+def test_a_decision_is_recorded_next_to_the_calls_without_question_text():
+    outcome = DecisionOutcome(ToolDecision(CALL, "codecompass_layers_heads", {}, 0.97, margin=0.9), "", 160.0)
+    calls = [{"query": "layer", "forced": True}, {"tool": "codecompass_layers_heads", "query": ""}]
+    result = record(outcome, calls=calls)
+    assert result["decision"] == "codecompass_layers_heads" and result["status"] == CALL
+    assert result["forced"] == ["codecompass_search"] and result["model_first"] == "codecompass_layers_heads"
+    assert result["actual_first"] == "codecompass_search" and result["agrees"] is False
+    assert result["decision_ms"] == 160.0 and result["question_chars"] == len(QUESTION)
+    assert "Index-Layer" not in json.dumps(result)
 
 
-def test_a_decision_is_recorded_next_to_the_model_call_without_question_text():
-    client = Client(answer("codecompass_layers_heads"))
-    record = observe(client, calls=[{"query": "layer", "forced": True},
-                                    {"tool": "codecompass_layers_heads", "query": ""}])
-    assert record["decision"] == "codecompass_layers_heads"
-    assert record["forced"] == ["codecompass_search"] and record["model_first"] == "codecompass_layers_heads"
-    assert record["actual_first"] == "codecompass_search" and record["agrees"] is False
-    assert record["decision_ms"] == 250.0 and record["question_chars"] == 27
-    assert "Index-Layer" not in json.dumps(record)
-    path, payload, _budget = client.requests[0]
-    assert path == "/v1/decision" and payload["cache_context"] is False
-    assert payload["contexts"] == ["Welche Index-Layer gibt es?"]
+def test_a_respond_decision_counts_as_none():
+    result = record(DecisionOutcome(ToolDecision(RESPOND, confidence=0.99, reason="no_tool_needed"), "", 150.0))
+    assert result["decision"] == "none" and result["agrees"] is True and result["argument_chars"] == 0
 
 
-def test_no_model_call_counts_as_none():
-    record = observe(Client(answer("none")))
-    assert record["model_first"] == record["actual_first"] == "none" and record["agrees"] is True
+def test_the_generated_argument_is_compared_without_keeping_its_text():
+    decision = ToolDecision(CALL, "codecompass_search", {"query": " circuitbreaker "}, 0.97,
+                            generated_arguments=("query",))
+    result = record(DecisionOutcome(decision, "", 200.0), calls=[{"query": "CircuitBreaker", "forced": True}],
+                    mode="fast")
+    assert result["mode"] == "fast" and result["argument_equal"] is True and result["argument_chars"] == 16
+    assert "ircuit" not in json.dumps(result)
 
 
-@pytest.mark.parametrize("response", [
-    answer("shell_exec"), answer("none", math.nan), answer("none", 1.5), answer("none", True),
-    {"results": []}, {"results": [{}, {}]}, [],
-])
-def test_malformed_answers_are_recorded_as_errors(response):
-    record = observe(Client(response))
-    assert record["decision"] is None and record["error"].startswith("tool_decision_")
+def test_an_error_outcome_is_recorded():
+    result = record(DecisionOutcome(None, "meet_llm_transport_failed", 4000.0))
+    assert result["decision"] is None and result["error"] == "meet_llm_transport_failed"
 
 
-def test_a_transport_failure_is_recorded_not_raised():
-    record = observe(Client(error=ValueError("meet_llm_transport_failed")))
-    assert record == {**record, "decision": None, "error": "meet_llm_transport_failed"}
-
-
-def test_observe_later_does_not_block_and_copies_its_inputs():
-    client, sink = Client(answer("codecompass_search")), Sink()
+def test_observe_decides_now_and_observe_later_does_not_block():
+    outcome = DecisionOutcome(ToolDecision(RESPOND, confidence=0.99), "", 1.0)
+    decider, sink = Decider(outcome), Sink()
     calls = [{"query": "x"}]
-    worker = shadow.ToolDecisionShadow(client, sink).observe_later("q", TOOLS, route="r", calls=calls)
+    worker = shadow.ToolDecisionShadow(decider, sink).observe_later(QUESTION, [], route="r", calls=calls)
     calls.clear()
     worker.join(5)
-    assert sink.records[0]["model_first"] == "codecompass_search"
+    assert decider.asked == [QUESTION] and sink.records[0]["model_first"] == "codecompass_search"
 
 
-def test_from_env_is_off_without_a_valid_url(tmp_path):
+def test_from_env_shares_the_decider_and_is_off_without_one(tmp_path):
     assert shadow.from_env({}) is None
-    assert shadow.from_env({shadow.URL_ENV: "file:///etc/passwd"}) is None
-    assert shadow.from_env({shadow.URL_ENV: "http://user:pw@host:1"}) is None
-    configured = shadow.from_env({shadow.URL_ENV: "http://192.168.32.1:18150",
-                                  shadow.LOG_ENV: str(tmp_path / "s.jsonl")})
-    assert isinstance(configured, shadow.ToolDecisionShadow)
+    env = {"MEET_TOOL_DECISION_URL": "http://h:1", shadow.LOG_ENV: str(tmp_path / "s.jsonl")}
+    assert isinstance(shadow.from_env(env), shadow.ToolDecisionShadow)
+    given = Decider(None)
+    assert shadow.from_env({shadow.LOG_ENV: str(tmp_path / "s.jsonl")}, decider=given)._decider is given
 
 
 def test_the_sink_appends_lines_and_swallows_write_errors(tmp_path):
@@ -118,37 +92,3 @@ def test_the_sink_appends_lines_and_swallows_write_errors(tmp_path):
     sink.write({"a": 2})
     assert [json.loads(line)["a"] for line in target.read_text().splitlines()] == [1, 2]
     shadow.JsonLinesSink(str(tmp_path / "missing" / "s.jsonl")).write({"a": 3})
-
-
-def with_text(response, value, skipped=False, truncated=False):
-    response["results"][0]["fields"]["text_argument"] = {
-        "value": value, "generated": not skipped, "skipped": skipped, "tokens": 3, "truncated": truncated}
-    return response
-
-
-def test_the_argument_field_is_offered_only_for_single_free_string_tools():
-    schema = shadow.decision_schema(TOOLS, with_argument=True)
-    assert schema["text_argument"]["when"] == {"tool": ["codecompass_search"]}
-    assert "text_argument" not in shadow.decision_schema(TOOLS)
-    assert "text_argument" not in shadow.decision_schema(TOOLS[1:], with_argument=True)
-
-
-def test_the_generated_argument_is_compared_without_keeping_its_text():
-    client = Client(with_text(answer("codecompass_search"), " circuitbreaker "))
-    record = observe(client, calls=[{"query": "CircuitBreaker", "forced": True}], with_argument=True)
-    assert record["argument_equal"] is True and record["argument_chars"] == 14
-    assert "ircuit" not in json.dumps(record)
-    assert client.requests[0][1]["schema"]["text_argument"]["type"] == "string"
-
-
-@pytest.mark.parametrize("kwargs", [{"skipped": True}, {"truncated": True}])
-def test_a_skipped_or_truncated_argument_is_not_compared(kwargs):
-    record = observe(Client(with_text(answer("codecompass_search"), "x", **kwargs)),
-                     calls=[{"query": "x"}], with_argument=True)
-    assert record["argument_chars"] == 0 and "argument_equal" not in record
-
-
-def test_the_argument_switch_reads_the_environment(tmp_path):
-    env = {shadow.URL_ENV: "http://h:1", shadow.LOG_ENV: str(tmp_path / "s.jsonl")}
-    assert shadow.from_env(env)._with_argument is True
-    assert shadow.from_env({**env, shadow.ARGUMENT_ENV: "off"})._with_argument is False

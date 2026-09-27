@@ -270,6 +270,8 @@ def dialog():
         )
         _DIALOG = CompanionDialog(
             llm=lambda text, context, system: answer(text, context=context, system=system, tools=_TOOLBOX),
+            # Decision fast path (MEET_TOOL_DECISION_FAST): a confident tool call is forced like the router's.
+            tool_choice=tool_decisions()[0] if _TOOLBOX is not None else None,
             retriever=(lambda query: fetch_snippets(query, limit=5)) if prefix else None,
             codecompass_enabled=prefix,
             model_name=os.environ.get("MEET_LLM_MODEL", ""),
@@ -283,6 +285,9 @@ def dialog():
 def generate_reply(text):
     conversation = dialog()
     toolbox = _TOOLBOX
+    fast, shadow = tool_decisions()
+    if fast is not None:
+        fast.last = None
     if toolbox is not None:
         toolbox.reset()
     reply, trace = conversation.answer(text)
@@ -308,27 +313,30 @@ def generate_reply(text):
         trace.add_sources(toolbox.sources)
     log("TRACE route=%s tools=%s sources=%s" % (
         trace.route, len(toolbox.calls) if toolbox is not None else 0, trace.source_labels()[:4]))
-    shadow = tool_decision_shadow()
     if shadow is not None and toolbox is not None:
-        # Record only; runs after the reply is final and never changes it.
-        shadow.observe_later(text, toolbox.definitions(), route=trace.route, calls=toolbox.calls)
+        if fast is not None and fast.last is not None:
+            # The fast path already decided this question: record that decision, no second call.
+            shadow.record(text, fast.last, route=trace.route, calls=toolbox.calls, mode="fast")
+        else:
+            # Record only; runs after the reply is final and never changes it.
+            shadow.observe_later(text, toolbox.definitions(), route=trace.route, calls=toolbox.calls)
     return reply
 
 
-_SHADOW = None
-_SHADOW_LOADED = False
+_TOOL_DECISIONS = None
 
 
-def tool_decision_shadow():
-    """The decision-based tool-choice shadow (``MEET_TOOL_DECISION_SHADOW_URL``), or ``None``."""
-    global _SHADOW, _SHADOW_LOADED
-    if not _SHADOW_LOADED:
+def tool_decisions():
+    """``(fast path, shadow)`` of the decision-based tool choice; each ``None`` when off. One decider serves both."""
+    global _TOOL_DECISIONS
+    if _TOOL_DECISIONS is None:
+        from worker.meet_media.tool_decision import decider_from_env, fast_choice_from_env
         from worker.meet_media.tool_decision_shadow import from_env
 
-        _SHADOW = from_env()
-        _SHADOW_LOADED = True
-        log("tool decision shadow %s" % ("on" if _SHADOW is not None else "off"))
-    return _SHADOW
+        decider = decider_from_env()
+        _TOOL_DECISIONS = (fast_choice_from_env(decider), from_env(decider=decider))
+        log("tool decision fast=%s shadow=%s" % tuple("on" if item is not None else "off" for item in _TOOL_DECISIONS))
+    return _TOOL_DECISIONS
 
 
 def synthesize_pcm(reply):

@@ -1,123 +1,34 @@
-"""Shadow of decision-based tool choice for the companion (JEVCPP-006/009).
+"""Record of the decision-based tool choice next to what the companion really did (JEVCPP-006/009).
 
-After a reply, the question is scored once more with the llama.cpp
-``POST /v1/decision`` endpoint: "which of the offered tools, or none?". The
-result is only recorded next to what really happened (route, router-forced
-calls, the model's own first call); it never changes a reply, a tool call or
-its timing. The records calibrate the fast tool-choice path before anything
-relies on it.
+Per reply one JSON line: route, router-forced calls, the model's own calls,
+and the decision (``tool_decision.ToolDecider``) with its probability. Without
+the fast path the question is decided after the reply, on a daemon thread, and
+only recorded; with the fast path (``MEET_TOOL_DECISION_FAST``) the decision
+it already made is recorded, with ``mode`` "fast". The records calibrate and
+check the fast path.
 
-Off unless ``MEET_TOOL_DECISION_SHADOW_URL`` names the server (base URL, no
-path). Records go to ``MEET_TOOL_DECISION_SHADOW_LOG`` (JSON lines, default
-``/state/tool-decision-shadow.jsonl``) and hold no question text: only its
-hash and length, so meeting content does not end up in the calibration log.
-
-With ``MEET_TOOL_DECISION_SHADOW_ARGUMENT`` (default on) a tool whose only
-required argument is one free string also gets that argument generated in the
-same call (a bounded open field, generated only when such a tool wins); the
-record then says whether it equals the argument of the call that really ran,
-and how long it is, again without the text.
-
-Independent of the Hub's ``agent.services.tiny_router.parallel_decision``
-adapter on purpose: this image does not ship the Hub package.
+On when a decision URL is set (``tool_decision.URL_ENV``). Records go to
+``MEET_TOOL_DECISION_SHADOW_LOG`` (default ``/state/tool-decision-shadow.jsonl``)
+and hold no question or argument text: only hashes, lengths and whether the
+generated argument equals the one that ran.
 """
 
 import hashlib
 import json
-import math
 import os
 import threading
 import time
-import urllib.request
 
-from worker.meet_media.bounded_json_http import BoundedJsonClient, NoRedirect, endpoint
+from ananta_contracts.tool_decision import CALL, NO_TOOL
+from worker.meet_media.tool_decision import decider_from_env
 
-URL_ENV = "MEET_TOOL_DECISION_SHADOW_URL"
 LOG_ENV = "MEET_TOOL_DECISION_SHADOW_LOG"
 DEFAULT_LOG = "/state/tool-decision-shadow.jsonl"
-DECISION_PATH = "/v1/decision"
-BUDGET_SECONDS = 10.0
-NO_TOOL = "none"
-TOOL_FIELD = "tool"
-TEXT_FIELD = "text_argument"
-TEXT_MAX_TOKENS = 48
-ARGUMENT_ENV = "MEET_TOOL_DECISION_SHADOW_ARGUMENT"
 DEFAULT_TOOL = "codecompass_search"  # CodeCompassTool calls carry no "tool" key
-INSTRUCTIONS = (
-    "Decide how an agent should handle the user's request with the tools below. "
-    "For the tool field choose the single best tool, or 'none' when no tool is needed."
-)
-
-
-def text_argument(definition):
-    """The name of a tool's single required free-string argument, or ``None``."""
-    parameters = (definition.get("function") or {}).get("parameters") or {}
-    properties = parameters.get("properties") or {}
-    required = list(parameters.get("required") or [])
-    if len(required) != 1:
-        return None
-    spec = properties.get(required[0])
-    return required[0] if isinstance(spec, dict) and spec.get("type") == "string" and "enum" not in spec else None
-
-
-def decision_schema(definitions, *, with_argument=False):
-    """An enum field of the offered tool names plus ``none``; optionally the open text-argument field."""
-    names, descriptions, texts = [], [], []
-    for definition in definitions:
-        function = definition.get("function") or {}
-        name = str(function.get("name") or "").strip()
-        if name and name != NO_TOOL and name not in names:
-            names.append(name)
-            descriptions.append(f"{name}: {str(function.get('description') or '').strip()[:200]}")
-            argument = text_argument(definition)
-            if argument:
-                texts.append((name, argument))
-    if not names:
-        raise ValueError("tool_decision_no_tools")
-    schema = {TOOL_FIELD: {
-        "type": "enum",
-        "choices": [*names, NO_TOOL],
-        "description": ("Which tool should handle the request? " + " | ".join(descriptions))[:1500],
-    }}
-    if with_argument and texts:
-        schema[TEXT_FIELD] = {
-            "type": "string", "max_tokens": TEXT_MAX_TOKENS,
-            "when": {TOOL_FIELD: [name for name, _argument in texts]},
-            "description": ("The text argument of the chosen tool. "
-                            + "; ".join(f"{name}: its '{argument}'" for name, argument in texts))[:1200],
-        }
-    return schema
-
-
-def read_argument(response):
-    """The generated text argument, or ``None`` when it was skipped, truncated or not a string."""
-    field = ((response.get("results") or [{}])[0].get("fields") or {}).get(TEXT_FIELD)
-    if not isinstance(field, dict) or field.get("skipped") or field.get("truncated") is not False:
-        return None
-    value = field.get("value")
-    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def _normalized(text):
     return " ".join(str(text or "").split()).casefold()
-
-
-def read_decision(response, choices):
-    """``(tool, probability, margin)`` from a decision response; anything malformed raises."""
-    results = response.get("results") if isinstance(response, dict) else None
-    if not isinstance(results, list) or len(results) != 1:
-        raise ValueError("tool_decision_results_invalid")
-    field = ((results[0] or {}).get("fields") or {}).get(TOOL_FIELD)
-    if not isinstance(field, dict) or field.get("value") not in choices:
-        raise ValueError("tool_decision_value_invalid")
-    probability = field.get("probability")
-    if isinstance(probability, bool) or not isinstance(probability, (int, float)) \
-            or not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
-        raise ValueError("tool_decision_probability_invalid")
-    margin = field.get("margin")
-    margin = float(margin) if isinstance(margin, (int, float)) and not isinstance(margin, bool) \
-        and math.isfinite(margin) else None
-    return field["value"], float(probability), margin
 
 
 def first_argument(calls):
@@ -152,19 +63,17 @@ class JsonLinesSink:
 
 
 class ToolDecisionShadow:
-    def __init__(self, client, sink, *, clock=time.monotonic, wall=time.time, model="", with_argument=True):
-        self._with_argument = with_argument
-        self._client = client
+    def __init__(self, decider, sink, *, wall=time.time):
+        self._decider = decider
         self._sink = sink
-        self._clock = clock
         self._wall = wall
-        self._model = model
 
-    def observe(self, question, definitions, *, route, calls):
-        """Score ``question`` and record it next to what the reply did; returns the record."""
+    def record(self, question, outcome, *, route, calls, mode="shadow"):
+        """Write one record for a decided question next to what the reply did; returns the record."""
         forced, own = call_names(calls)
         record = {
             "schema": "ananta.meet_tool_decision_shadow.v1",
+            "mode": mode,
             "at": round(self._wall(), 3),
             "question_sha256": hashlib.sha256(str(question or "").encode("utf-8")).hexdigest()[:16],
             "question_chars": len(str(question or "")),
@@ -172,29 +81,29 @@ class ToolDecisionShadow:
             "forced": forced,
             "model_calls": own,
             "model_first": own[0] if own else NO_TOOL,
-            # The reference: the first call that ran (the router's forced calls run first).
+            # The reference: the first call that ran (the router's and the fast path's forced calls run first).
             "actual_first": (forced or own or [NO_TOOL])[0],
+            "decision_ms": outcome.ms,
         }
-        started = self._clock()
-        try:
-            schema = decision_schema(definitions, with_argument=self._with_argument)
-            response = self._client.exchange(DECISION_PATH, {
-                "model": self._model, "instructions": INSTRUCTIONS, "schema": schema,
-                "contexts": [str(question or "")], "mode": "tree", "cache_context": False,
-            }, BUDGET_SECONDS)
-            tool, probability, margin = read_decision(response, schema[TOOL_FIELD]["choices"])
-            record.update(decision=tool, probability=round(probability, 6), margin=margin,
+        decision = outcome.decision
+        if decision is None:
+            record.update(decision=None, error=outcome.error)
+        else:
+            tool = decision.tool or NO_TOOL
+            record.update(decision=tool, status=decision.status, reason=decision.reason,
+                          probability=round(decision.confidence, 6), margin=decision.margin,
                           agrees=tool == record["actual_first"])
-            if TEXT_FIELD in schema:
-                argument = read_argument(response)
-                record["argument_chars"] = len(argument) if argument else 0
-                if argument and record["agrees"] and tool != NO_TOOL:
-                    record["argument_equal"] = _normalized(argument) == _normalized(first_argument(calls))
-        except ValueError as error:
-            record.update(decision=None, error=str(error)[:80])
-        record["decision_ms"] = round((self._clock() - started) * 1000.0, 1)
+            generated = [decision.arguments.get(name) for name in decision.generated_arguments]
+            argument = generated[0] if generated and isinstance(generated[0], str) else ""
+            record["argument_chars"] = len(argument)
+            if argument and record["agrees"] and decision.status == CALL:
+                record["argument_equal"] = _normalized(argument) == _normalized(first_argument(calls))
         self._sink.write(record)
         return record
+
+    def observe(self, question, definitions, *, route, calls):
+        """Decide ``question`` now and record it (the shadow mode)."""
+        return self.record(question, self._decider.decide(question, definitions), route=route, calls=calls)
 
     def observe_later(self, question, definitions, *, route, calls):
         """``observe`` on a daemon thread, so the reply is sent without waiting for the shadow."""
@@ -207,20 +116,10 @@ class ToolDecisionShadow:
         return thread
 
 
-def from_env(environ=None):
-    """The configured shadow, or ``None`` when it is off or its URL is invalid."""
+def from_env(environ=None, decider=None):
+    """The configured shadow (sharing ``decider`` when given), or ``None`` without a decision URL."""
     environ = os.environ if environ is None else environ
-    value = str(environ.get(URL_ENV) or "").strip()
-    if not value:
+    decider = decider if decider is not None else decider_from_env(environ)
+    if decider is None:
         return None
-    try:
-        base_url = endpoint(value)
-    except ValueError:
-        return None
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-    return ToolDecisionShadow(
-        BoundedJsonClient(base_url, opener=opener),
-        JsonLinesSink(str(environ.get(LOG_ENV) or DEFAULT_LOG)),
-        model=str(environ.get("MEET_LLM_MODEL") or ""),
-        with_argument=str(environ.get(ARGUMENT_ENV, "1")).strip().lower() not in {"0", "false", "off", "no"},
-    )
+    return ToolDecisionShadow(decider, JsonLinesSink(str(environ.get(LOG_ENV) or DEFAULT_LOG)))
