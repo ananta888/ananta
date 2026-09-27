@@ -9,6 +9,16 @@ from agent.services.artifact_visibility_policy import (
 from agent.services.evolution import EvolutionTrigger, EvolutionTriggerType
 
 
+def _default_layer_profile(profiles: Any) -> str:
+    """``default`` when present, else the only or the first profile; ``""`` without profiles."""
+    names = [str(p.get("profile_id") or p.get("id") or "") if isinstance(p, dict) else str(p)
+             for p in list(profiles or [])]
+    names = [name for name in names if name]
+    if "default" in names:
+        return "default"
+    return names[0] if names else ""
+
+
 @dataclass(frozen=True)
 class MCPToolSpec:
     name: str
@@ -418,10 +428,13 @@ class MCPRegistryService:
         if name == "codecompass.layers_heads":
             from agent.services.codecompass_layer_service import get_codecompass_layer_service
 
-            profile_id = str(args.get("profile_id") or "")
             service = get_codecompass_layer_service()
+            profiles = service.list_profiles()
+            # without profile_id: the default profile's head (was always null)
+            profile_id = str(args.get("profile_id") or "") or _default_layer_profile(profiles)
             payload = {
-                "profiles": service.list_profiles(),
+                "profiles": profiles,
+                "profile_id": profile_id or None,
                 "head": service.show_head(profile_id) if profile_id else None,
             }
             return {"content": [{"type": "json", "json": payload}]}
@@ -455,13 +468,24 @@ class MCPRegistryService:
             from agent.services.codecompass_duckdb_analytics_service import (
                 get_codecompass_duckdb_analytics_service,
             )
+            from worker.retrieval.vector_store_contract import VectorStoreError
 
             capability = context.get("codecompass_capability")
-            result = get_codecompass_duckdb_analytics_service().query(
-                str(args.get("template") or ""),
-                capability=capability if isinstance(capability, dict) else None,
-                params={"kind": args.get("kind")} if args.get("kind") else None,
-            )
+            try:
+                result = get_codecompass_duckdb_analytics_service().query(
+                    str(args.get("template") or ""),
+                    capability=capability if isinstance(capability, dict) else None,
+                    params={"kind": args.get("kind")} if args.get("kind") else None,
+                )
+            except VectorStoreError as error:
+                if str(getattr(error, "reason", "") or error) not in {"duckdb_snapshot_missing", "empty_scope"}:
+                    raise
+                # no DuckDB analytics snapshot (the stack indexes into another vector backend) or no scope:
+                # a clear, bounded "unavailable" instead of an exception
+                result = {"status": "unavailable", "template": str(args.get("template") or ""),
+                          "reason": str(getattr(error, "reason", "") or error),
+                          "hint": "DuckDB analytics need a CodeCompass DuckDB snapshot "
+                                  "(.rag/codecompass/duckdb); use codecompass.search / retrieve instead."}
             return {"content": [{"type": "json", "json": result}]}
 
         if name == "codecompass.rlm_analyze":
