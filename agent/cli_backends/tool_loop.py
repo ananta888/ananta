@@ -464,8 +464,10 @@ def run_ananta_worker_tool_loop(
             return 0, json.dumps(summary, ensure_ascii=False), err
 
         # kind == tool_request
-        tool_name = str(message.get("tool_name") or "").strip()
-        arguments = dict(message.get("arguments") or {})
+        tool_name, arguments, aliased_from = registry.resolve_alias(
+            str(message.get("tool_name") or "").strip(), cfg.get("allowed_tools"), dict(message.get("arguments") or {}))
+        if aliased_from:
+            log.info("tool loop: %s answered by %s (retired search tool)", aliased_from, tool_name)
         tool_call_count += 1
         tool_call_id = f"tool_result:{tool_call_count}"
         decision = policy.evaluate(

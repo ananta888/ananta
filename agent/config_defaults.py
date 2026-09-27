@@ -590,10 +590,9 @@ def build_default_agent_config() -> dict:
                 "repo.list_files",
                 "repo.read_file_range",
                 "repo.grep",
-                "codecompass.resolve_context",
+                # WCRB-012: codecompass.retrieve / resolve_context are answered by codecompass.search (aliases)
                 "codecompass.plan_context",
                 "codecompass.search",
-                "codecompass.retrieve",
                 "codecompass.architecture_overview",
                 "codecompass.architecture_expand",
                 "codecompass.architecture_diagram",
@@ -906,7 +905,9 @@ def build_default_agent_config() -> dict:
             "parallel_goal_planning_max_concurrency": 1,
             "max_output_tokens": 900,
             "segmented_planning_enabled": True,
-            "segment_context_chars": 2400,
+            # LCTX: ~2k tokens per segment within the 32k window (was 2400 chars ~ 600 tokens);
+            # segments grow with the context up to 8 instead of cutting (planning_strategies)
+            "segment_context_chars": 8000,
             "max_segments": 3,
             "preferred_output_format": "json",
             "selective_repair_rounds": 2,

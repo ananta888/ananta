@@ -46,9 +46,13 @@ def _loop_config(**overrides):
 def test_default_tool_loop_allows_codecompass_context_tools():
     from agent.config_defaults import build_default_agent_config
 
+    from agent.services.ananta_tool_registry_service import TOOL_ALIASES
+
     allowed = set(build_default_agent_config()["ananta_worker_tool_loop"]["allowed_tools"])
+    # WCRB-012: resolve_context is answered by codecompass.search for workers
+    assert TOOL_ALIASES["codecompass.resolve_context"] in allowed
     assert {
-        "codecompass.resolve_context",
+        "codecompass.search",
         "codecompass.search_symbols",
         "codecompass.expand_graph",
         "codecompass.get_file_context",

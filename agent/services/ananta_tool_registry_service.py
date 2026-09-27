@@ -685,6 +685,15 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
 }
 
 
+# WCRB-012: overlapping CodeCompass search tools, reduced for workers to clear roles
+# (search: find evidence; search_symbols: exact names; get_file_context: original lines;
+# plan_context: patch targets). Retired names stay registered and are answered by their successor.
+TOOL_ALIASES: dict[str, str] = {
+    "codecompass.retrieve": "codecompass.search",  # the same agentic retrieval service
+    "codecompass.resolve_context": "codecompass.search",
+}
+
+
 class AnantaToolRegistryService:
     """Lists and resolves the tools the ananta-worker may request."""
 
@@ -693,6 +702,22 @@ class AnantaToolRegistryService:
         if category:
             specs = [spec for spec in specs if spec.category == category]
         return specs
+
+    def resolve_alias(self, name: str | None, allowed_tools: list[str] | None,
+                      arguments: dict | None = None) -> tuple[str, dict, str | None]:
+        """``(tool, arguments, aliased_from)``: a retired search tool the allowlist no longer offers is
+        answered by its successor (WCRB-012), with only the arguments the successor accepts."""
+        requested = str(name or "").strip()
+        target = TOOL_ALIASES.get(requested)
+        allowed = set(allowed_tools or [])
+        if not target or requested in allowed or (allowed and target not in allowed):
+            return requested, dict(arguments or {}), None
+        spec = self.get_tool(target)
+        schema = dict(getattr(spec, "argument_schema", None) or {}) if spec else {}
+        accepted = set((schema.get("properties") or {}).keys() if isinstance(schema.get("properties"), dict)
+                       else schema.keys())
+        kept = {key: value for key, value in dict(arguments or {}).items() if not accepted or key in accepted}
+        return target, kept, requested
 
     def get_tool(self, name: str | None) -> AnantaToolSpec | None:
         return _REGISTRY.get(str(name or "").strip())
