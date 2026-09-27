@@ -94,6 +94,8 @@ def build_default_agent_config() -> dict:
             "max_external_calls_per_request": 6,
             "max_estimated_cost_units_per_request": 40,
             "max_tokens_per_request": 6000,
+            # the cap grows to the context window (32k): long-context steps are sized for it
+            "max_tokens_follow_context_window": True,
             "chars_per_token_estimate": 4,
             "class_limits": {"read": 8, "write": 6, "admin": 1},
             "class_cost_units": {"read": 1, "write": 5, "admin": 8, "unknown": 3},

@@ -82,12 +82,26 @@ class _GuardrailConfig:
     external_classes: set[str]
 
 
+def _max_tokens_per_request(guard: dict) -> int:
+    """The configured cap; with ``max_tokens_follow_context_window`` at least the model's context window.
+
+    The cap counts the task description and history as prompt. A step the Hub sized for the 32k
+    window (long-context split, ~60 % fill) must not be blocked by an older, smaller cap.
+    """
+    configured = int(guard.get("max_tokens_per_request") or 0)
+    if configured <= 0 or not guard.get("max_tokens_follow_context_window", False):
+        return configured
+    from agent.context_window import context_window_tokens
+
+    return max(configured, context_window_tokens())
+
+
 def _extract_guardrail_config(guard: dict) -> _GuardrailConfig:
     return _GuardrailConfig(
         max_calls=int(guard.get("max_tool_calls_per_request") or 5),
         max_external=int(guard.get("max_external_calls_per_request") or 2),
         max_cost_units=int(guard.get("max_estimated_cost_units_per_request") or 20),
-        max_tokens=int(guard.get("max_tokens_per_request") or 0),
+        max_tokens=_max_tokens_per_request(guard),
         chars_per_token=int(guard.get("chars_per_token_estimate") or 4),
         class_limits=guard.get("class_limits", {}) or {},
         class_cost_units=guard.get("class_cost_units", {}) or {},

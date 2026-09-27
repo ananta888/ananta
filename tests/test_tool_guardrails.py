@@ -148,3 +148,21 @@ def test_task_execute_blocks_scoped_terminal_command_without_terminal_capability
     assert res.json["message"] == "tool_guardrail_blocked"
     details = ((res.json.get("data") or {}).get("details")) or {}
     assert "execution_risk_denied" in ",".join(details.get("blocked_reasons") or [])
+
+
+def test_token_cap_follows_the_context_window_when_enabled(monkeypatch):
+    monkeypatch.setattr("agent.context_window.context_window_tokens", lambda: 32768)
+    calls = [{"name": "file_read", "args": {"path": "a.md"}}]
+    usage = {"estimated_total_tokens": 20000}  # a long-context step sized for the 32k window
+    guard = {"enabled": True, "max_tokens_per_request": 6000, "tool_classes": {"file_read": "read"}}
+
+    fixed = evaluate_tool_call_guardrails(calls, {"llm_tool_guardrails": guard}, token_usage=usage)
+    following = evaluate_tool_call_guardrails(
+        calls, {"llm_tool_guardrails": {**guard, "max_tokens_follow_context_window": True}}, token_usage=usage)
+    beyond = evaluate_tool_call_guardrails(
+        calls, {"llm_tool_guardrails": {**guard, "max_tokens_follow_context_window": True}},
+        token_usage={"estimated_total_tokens": 40000})
+
+    assert "guardrail_max_estimated_tokens_exceeded" in fixed.reasons
+    assert following.allowed and following.details["max_tokens_per_request"] == 32768
+    assert "guardrail_max_estimated_tokens_exceeded" in beyond.reasons
