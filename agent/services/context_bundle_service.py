@@ -16,8 +16,9 @@ _CONTEXT_BUNDLE_DEFAULTS: dict = {
     "compact_max_chunks": 5,
     "standard_max_chunks": 12,
     "compact_budget_tokens": 4096,
-    "standard_budget_tokens": 32000,
-    "full_budget_tokens": 32768,
+    # LCTX: shares of the 32k window, so a worker keeps room for task, instructions and tool results
+    "standard_budget_tokens": 12288,
+    "full_budget_tokens": 16384,
     "include_context_text": True,
 }
 
@@ -273,7 +274,7 @@ Output ONLY valid JSON matching schema."""
         max_chunks = int(max_chunks_raw) if isinstance(max_chunks_raw, int) and max_chunks_raw > 0 else None
         if max_chunks is not None:
             filtered = filtered[:max_chunks]
-        default_budget = 12000 if policy_mode == "compact" else 32000
+        default_budget = {"compact": 4096, "full": 16384}.get(policy_mode, 12288)
         effective_budget = int(total_budget_tokens or default_budget)
         filtered, budget_dropped = ContextBundler._within_token_budget(filtered, effective_budget)
         bundle_strategy = "minimal" if policy_mode == "compact" else ("deep" if policy_mode == "full" else "balanced")

@@ -235,7 +235,7 @@ def test_context_bundle_policy_is_normalized_and_merged(client, admin_token):
     assert context_policy["compact_max_chunks"] == 1
     assert context_policy["standard_max_chunks"] == 12
     assert context_policy["window_profile"] == "standard_32k"
-    assert context_policy["standard_budget_tokens"] == 32000
+    assert context_policy["standard_budget_tokens"] == 12288
 
 
 def test_artifact_flow_config_is_normalized_and_merged(client, admin_token):
