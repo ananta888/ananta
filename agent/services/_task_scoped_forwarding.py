@@ -910,6 +910,22 @@ def _accept_visual_process_assistant_result(
     return dict(accepted)
 
 
+def _attach_codecompass_capability(payload: dict[str, Any], *, task: dict[str, Any], worker_url: str) -> None:
+    """Delegated CodeCompass access (WCRB-009): the Hub's own signed capability for this task and worker.
+
+    A capability that arrived with the request is never forwarded; without delegated access none is sent.
+    """
+    payload.pop("codecompass_capability", None)
+    from agent.cli_backends.tool_loop import get_tool_loop_config
+    from agent.services.codecompass_task_capability import issue_task_capability, uses_delegation
+
+    if not uses_delegation(get_tool_loop_config()):
+        return
+    capability = issue_task_capability(task, audience=worker_url)
+    if capability is not None:
+        payload["codecompass_capability"] = capability
+
+
 def forward_task_request_if_remote(
     *,
     tid: str,
@@ -1015,6 +1031,7 @@ def forward_task_request_if_remote(
                 actor="hub-worker-forwarder",
             )
         )
+    _attach_codecompass_capability(payload, task=task, worker_url=str(worker_url))
     assigned_token = task.get("assigned_agent_token")
     resolved_token = assigned_token
     dispatch_lease_token = str(

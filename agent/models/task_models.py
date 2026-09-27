@@ -26,6 +26,8 @@ class TaskStepProposeRequest(SQLModel):
     dispatch_lease_phase: Optional[str] = None
     vector_index_dispatch: Optional[dict] = None
     knowledge_index_dispatch: Optional[dict] = None
+    # Hub -> worker only (WCRB-009): signed CodeCompass capability for this step; ignored elsewhere.
+    codecompass_capability: Optional[dict] = None
 
 
 class TaskStepProposeResponse(SQLModel):
@@ -52,6 +54,8 @@ class TaskStepExecuteRequest(SQLModel):
     dispatch_lease_phase: Optional[str] = None
     vector_index_dispatch: Optional[dict] = None
     knowledge_index_dispatch: Optional[dict] = None
+    # Hub -> worker only (WCRB-009): signed CodeCompass capability for this step; ignored elsewhere.
+    codecompass_capability: Optional[dict] = None
 
 
 class TaskStepExecuteResponse(SQLModel):

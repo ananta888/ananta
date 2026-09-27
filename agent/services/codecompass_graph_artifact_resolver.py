@@ -52,8 +52,11 @@ class CodeCompassGraphArtifactResolver:
         artifact_root: str | Path | None = None,
         allow_legacy: bool = True,
         integrity: ArtifactIntegrityVerifierPort | None = None,
+        materializer: Any = None,
     ) -> None:
         self._artifact_root = Path(artifact_root).resolve() if artifact_root is not None else None
+        # Worker side of delegated access (WCRB-010): fetches an admitted artifact the Hub holds.
+        self._materializer = materializer
         self._allow_legacy = bool(allow_legacy)
         self._integrity = integrity or get_artifact_integrity_verifier()
 
@@ -234,10 +237,16 @@ class CodeCompassGraphArtifactResolver:
             or any(char not in "0123456789abcdef" for char in digest)
         ):
             raise ValueError("graph_artifact_binding_invalid")
-        local_path = self._validated_local_artifact_path(
-            Path(str(reference.get("local_path") or "")),
-            expected_filename=filename,
-        )
+        admitted_path = Path(str(reference.get("local_path") or ""))
+        try:
+            local_path = self._validated_local_artifact_path(admitted_path, expected_filename=filename)
+        except ValueError as error:
+            if str(error) != "graph_artifact_not_materialized" or self._materializer is None:
+                raise
+            if admitted_path.name != filename:
+                raise
+            local_path = self._validated_local_artifact_path(
+                self._materializer.materialize(digest, admitted_path), expected_filename=filename)
         self._verify_hash(
             path=local_path,
             digest=digest,
@@ -344,8 +353,12 @@ def get_codecompass_graph_artifact_resolver() -> CodeCompassGraphArtifactResolve
     and make long-running Hub requests disagree with freshly started tools.
     """
 
+    from agent.services.codecompass_worker_artifacts import worker_materializer
+
+    artifact_root = Path(settings.data_dir) / "knowledge_indices"
     return CodeCompassGraphArtifactResolver(
-        artifact_root=Path(settings.data_dir) / "knowledge_indices",
+        artifact_root=artifact_root,
+        materializer=worker_materializer(artifact_root.resolve()),
         allow_legacy=bool(
             getattr(
                 settings,

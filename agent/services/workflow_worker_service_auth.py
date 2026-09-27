@@ -28,6 +28,8 @@ WORKFLOW_LANGGRAPH_CHECKPOINT_SCOPE = "workflow.langgraph.checkpoints"
 WORKFLOW_TEMPORAL_TASK_SCOPE = "workflow.temporal.tasks"
 KNOWLEDGE_INDEX_PAYLOAD_SCOPE = "knowledge.index.payloads"
 CODECOMPASS_LAYER_JOB_SCOPE = "codecompass.layers.jobs"
+CODECOMPASS_ARTIFACT_READ_SCOPE = "codecompass.artifacts.read"
+CODECOMPASS_TOOL_GATEWAY_SCOPE = "codecompass.tools.execute"
 KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE = (
     "knowledge.index.task_snapshot.read"
 )
@@ -55,6 +57,8 @@ _SCOPE_CAPABILITIES = {
     WORKFLOW_TEMPORAL_TASK_SCOPE: frozenset({"workflow.adapter.temporal", "workflow.runtime.temporal"}),
     KNOWLEDGE_INDEX_PAYLOAD_SCOPE: frozenset({"retrieval", "index_write"}),
     CODECOMPASS_LAYER_JOB_SCOPE: frozenset({"retrieval", "index_write"}),
+    CODECOMPASS_ARTIFACT_READ_SCOPE: frozenset({"retrieval"}),
+    CODECOMPASS_TOOL_GATEWAY_SCOPE: frozenset({"retrieval"}),
     KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE: frozenset(
         {"retrieval", "index_write"}
     ),

@@ -36,6 +36,7 @@ from agent.routes.codecompass_layer_sync import codecompass_layer_sync_bp
 from agent.routes.codecompass_layers import codecompass_layers_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.codecompass_retrieve import codecompass_retrieve_bp
+from agent.routes.codecompass_worker_artifacts import codecompass_worker_artifacts_bp
 from agent.routes.collaboration_workspaces import collaboration_workspaces_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.config_graph import config_graph_bp
@@ -136,6 +137,7 @@ from agent.routes.webrtc_sfu_node_observations import webrtc_sfu_node_observatio
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.routes.wiki_graph import wiki_graph_bp
 from agent.routes.worker_pool import worker_pool_bp
+from agent.routes.worker_tool_gateway import worker_tool_gateway_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
 from agent.routes.workflow_adapters import workflow_adapters_bp
 from agent.routes.workflow_runtime_capabilities import workflow_runtime_capabilities_bp
@@ -172,6 +174,8 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(artifacts_bp)
     app.register_blueprint(codecompass_domain_scope_bp)
     app.register_blueprint(codecompass_graph_bp)
+    app.register_blueprint(codecompass_worker_artifacts_bp)
+    app.register_blueprint(worker_tool_gateway_bp)
     app.register_blueprint(codecompass_reload_bp)
     app.register_blueprint(codecompass_retrieve_bp)
     app.register_blueprint(codecompass_layers_bp)

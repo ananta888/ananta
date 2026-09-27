@@ -60,7 +60,36 @@ def get_tool_loop_config() -> dict[str, Any]:
             str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()
         ],
         "tiny_router": dict(tiny_router) if isinstance(tiny_router, dict) else {},
+        "codecompass_access": str(cfg.get("codecompass_access") or "delegated"),
+        "codecompass_access_overrides": {
+            str(tool): str(mode) for tool, mode in dict(cfg.get("codecompass_access_overrides") or {}).items()
+        } if isinstance(cfg.get("codecompass_access_overrides"), dict) else {},
+        "codecompass_access_fallback": str(cfg.get("codecompass_access_fallback") or "none"),
     }
+
+
+def _task_codecompass_capability(cfg: dict[str, Any], task_id: str | None) -> dict[str, Any] | None:
+    """The CodeCompass capability of this step (WCRB-009): sent by the Hub to a worker, or issued here when
+    the Hub runs the task itself. ``None`` without delegated access; the tools then fail closed."""
+    from agent.services.codecompass_task_capability import (
+        current_task_capability,
+        issue_task_capability,
+        uses_delegation,
+    )
+
+    if not uses_delegation(cfg):
+        return None
+    received = current_task_capability()
+    if received is not None:
+        return received
+    from agent.config import settings
+
+    if settings.role == "worker" or not task_id:
+        return None
+    from agent.repository import task_repo
+
+    task = task_repo.get_by_id(task_id)
+    return issue_task_capability(task, audience="hub") if task is not None else None
 
 
 def _extract_json_candidate(text: str) -> str | None:
@@ -261,6 +290,8 @@ def run_ananta_worker_tool_loop(
     invalid_count = 0
     last_out, last_err = "", ""
     tiny_router_cfg = dict(cfg.get("tiny_router") or {}) if isinstance(cfg.get("tiny_router"), dict) else {}
+    cfg.setdefault("codecompass_capability", _task_codecompass_capability(cfg, task_id))
+    cfg.setdefault("codecompass_task_id", str(task_id or ""))  # Hub gateway calls are bound to the task
 
     def _audit(
         action: str, *, tool_name: str, decision: str, risk: str, status: str | None = None, detail: str | None = None

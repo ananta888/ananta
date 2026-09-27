@@ -81,6 +81,10 @@ class AccessRoleAdminService:
         roles, bindings = self._current()
         return effective_grants(roles, resolve_role_ids(bindings, claims))
 
+    def role_grants(self) -> dict[str, dict[str, Any]]:
+        """The grants of every role by id (cached like the bindings)."""
+        return dict(self._current()[0])
+
     def has_bindings(self) -> bool:
         return bool(self._current()[1])
 

@@ -5,6 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 
+def _capability_index_ids() -> set[str] | None:
+    """The indices of the current call's trusted capability (WCRB-010): it can only narrow the scope."""
+    from agent.services.codecompass_task_capability import current_task_capability
+
+    capability = current_task_capability() or {}
+    index_ids = capability.get("allowed_index_ids")
+    return {str(index_id) for index_id in index_ids} if isinstance(index_ids, list) else None
+
+
 def resolve_codecompass_graph_store(
     arguments: dict[str, Any] | None = None,
     *,
@@ -19,6 +28,8 @@ def resolve_codecompass_graph_store(
     from agent.services.repository_registry import get_repository_registry
     from ananta_codecompass.graph_store import CodeCompassGraphStore
 
+    if allowed_index_ids is None:
+        allowed_index_ids = _capability_index_ids()
     repo = get_repository_registry().knowledge_index_repo
     resolver = get_codecompass_graph_artifact_resolver()
     consumption_policy = get_knowledge_index_consumption_policy()

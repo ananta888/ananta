@@ -8,6 +8,7 @@ from agent.llm_integration import _call_llm
 from agent.metrics import TASK_COMPLETED, TASK_FAILED
 from agent.models import TaskStepExecuteRequest, TaskStepProposeRequest
 from agent.routes.tasks.utils import _forward_to_worker
+from agent.services.codecompass_task_capability import accepted_capability, task_capability_scope
 from agent.services.knowledge_index_dispatch_request_auth_policy import (
     knowledge_index_dispatch_request_auth_policy,
 )
@@ -26,6 +27,14 @@ def _respond(outcome) -> object:
     if outcome.status == "success":
         return api_response(data=outcome.data, code=outcome.code)
     return api_response(status=outcome.status, message=outcome.message, data=outcome.data, code=outcome.code)
+
+
+def _accepted_codecompass_capability(data: TaskStepProposeRequest | TaskStepExecuteRequest) -> dict | None:
+    """A step's CodeCompass capability: accepted on a worker from the Hub only (WCRB-009)."""
+    from agent.config import settings
+
+    return accepted_capability(getattr(data, "codecompass_capability", None), role=settings.role,
+                               service_authenticated=bool(getattr(g, "auth_payload", None)))
 
 
 def _knowledge_index_dispatch_auth_error(
@@ -140,13 +149,14 @@ def task_propose(tid):
         phase="propose",
     ):
         return error
-    outcome = _services().task_scoped_execution_service.propose_task_step(
-        tid,
-        data,
-        cli_runner=run_llm_cli_command,
-        forwarder=_forward_to_worker,
-        tool_definitions_resolver=tool_registry.get_tool_definitions,
-    )
+    with task_capability_scope(_accepted_codecompass_capability(data)):
+        outcome = _services().task_scoped_execution_service.propose_task_step(
+            tid,
+            data,
+            cli_runner=run_llm_cli_command,
+            forwarder=_forward_to_worker,
+            tool_definitions_resolver=tool_registry.get_tool_definitions,
+        )
     return _respond(outcome)
 
 
@@ -173,11 +183,12 @@ def task_execute(tid):
         phase="execute",
     ):
         return error
-    outcome = _services().task_scoped_execution_service.execute_task_step(
-        tid,
-        data,
-        forwarder=_forward_to_worker,
-        cli_runner=run_llm_cli_command,
-        tool_definitions_resolver=tool_registry.get_tool_definitions,
-    )
+    with task_capability_scope(_accepted_codecompass_capability(data)):
+        outcome = _services().task_scoped_execution_service.execute_task_step(
+            tid,
+            data,
+            forwarder=_forward_to_worker,
+            cli_runner=run_llm_cli_command,
+            tool_definitions_resolver=tool_registry.get_tool_definitions,
+        )
     return _respond(outcome)

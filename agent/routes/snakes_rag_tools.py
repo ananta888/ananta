@@ -81,41 +81,17 @@ _CODECOMPASS_CHAT_TOOL_MAP = {
 
 
 def _snake_codecompass_capability(repo_root: Path) -> dict[str, Any] | None:
-    try:
-        from agent.services.codecompass_retrieval_capability_service import bind_retrieval_capability
-        from agent.services.repository_registry import get_repository_registry
-        from agent.services.tools.codecompass_tools import _resolve_graph_store
+    """A short-lived capability for the snake chat, from the shared Hub issuer (WCRB-007)."""
+    from agent.services.codecompass_capability_issuer import issue_capability
 
-        _store, index_id = _resolve_graph_store({})
-        if not index_id:
-            return None
-        index = get_repository_registry().knowledge_index_repo.get_by_id(index_id)
-        metadata = dict(getattr(index, "index_metadata", None) or {})
-        graph_binding = dict(metadata.get("graph_artifacts") or {})
-        revision = str(
-            graph_binding.get("graph_revision") or metadata.get("codecompass_snapshot_revision") or ""
-        ).strip()
-        source_id = str(getattr(index, "source_path", None) or metadata.get("source_id") or repo_root.name).strip()
-        if not revision or not source_id:
-            return None
-        return bind_retrieval_capability(
-            {
-                "workspace_id": f"snake:{repo_root.name}",
-                "repository_id": source_id,
-                "source_scope": "repo_path",
-                "revision": revision,
-                "allowed_paths": [
-                    "agent", "worker", "ananta_codecompass", "rag-helper", "frontend-angular",
-                    "config", "docs", "scripts", "tests",
-                ],
-                "allowed_index_ids": [index_id],
-                "allowed_signals": ["exact", "graph", "vector"],
-            },
-            subject_id="ai-snake",
-            tenant_id="local",
-            ttl_seconds=300,
+    try:
+        return issue_capability(
+            subject_id="ai-snake", tenant_id="local", task_id=None, audience="hub",
+            workspace_id=f"snake:{repo_root.name}", ttl_seconds=300,
+            top_level=["agent", "worker", "ananta_codecompass", "rag-helper", "frontend-angular",
+                       "config", "docs", "scripts", "tests"],
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 -- no index or no key: the chat runs without retrieval
         return None
 
 

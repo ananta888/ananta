@@ -166,27 +166,18 @@ def _advertise_worker_capabilities(
 def _register_codecompass_layer_handler(app: Flask) -> None:
     """Worker handler for Hub-delegated CodeCompass chunk layer builds."""
 
-    from agent.auth import resolve_configured_agent_token
+    from agent.services.worker_hub_headers import registered_worker_hub_headers
     from ananta_contracts.codecompass_layer_job import REQUIRED_CAPABILITIES, TASK_KIND
     from worker.incremental_index.layer_job_handler import CodeCompassLayerJobHandler, HttpLayerJobHubClient
-    from worker.runtime.workflow_service_identity import WorkflowServiceIdentity
 
-    token = resolve_configured_agent_token(
-        {"AGENT_TOKEN": settings.agent_token, "AGENT_TOKEN_FILE": settings.agent_token_file}
-    )
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
-        identity = WorkflowServiceIdentity.optional(
-            worker_id=settings.agent_name, worker_url=str(settings.agent_url or "")
-        )
-        if identity is not None:
-            headers.update(identity.headers())
+        headers = registered_worker_hub_headers()
         client = HttpLayerJobHubClient(hub_url=str(settings.hub_url or ""), headers=headers)
     except ValueError as error:
         # A Worker without a complete Hub identity simply does not offer layer builds.
         app.extensions["codecompass_layer_worker_registration"] = {"ready": False, "reason_code": str(error)}
         return
-    if not token:
+    if not headers.get("Authorization"):
         app.extensions["codecompass_layer_worker_registration"] = {
             "ready": False,
             "reason_code": "codecompass_layer_worker_token_required",
@@ -828,6 +819,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     from agent.bootstrap.codecompass_layers import initialize_codecompass_layers
 
     run_startup_phase("codecompass_layers", initialize_codecompass_layers, app)
+    from agent.bootstrap.codecompass_capability import initialize_codecompass_capability
+
+    run_startup_phase("codecompass_capability", initialize_codecompass_capability, app)
     from agent.bootstrap.codecompass_sira_rollout import (
         initialize_codecompass_sira_rollout,
     )

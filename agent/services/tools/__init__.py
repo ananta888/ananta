@@ -12,6 +12,46 @@ from typing import Any
 
 from agent.services.tools._evidence import build_tool_result
 
+# tools that read the capability from their arguments (the MCP route passes it that way)
+_CAPABILITY_ARGUMENT_TOOLS = frozenset({
+    "codecompass.architecture_overview", "codecompass.architecture_expand", "codecompass.component_context",
+    "codecompass.architecture_dependencies", "codecompass.symbol_context", "codecompass.architecture_evidence",
+    "codecompass.architecture_diagram",
+})
+
+
+def _codecompass_route(name: str, cfg: dict[str, Any]) -> str:
+    """``local``, ``hub`` (path A, only on a worker) or ``off`` for a CodeCompass tool call (WCRB-011)."""
+    if not name.startswith("codecompass."):
+        return "local"
+    from agent.services.codecompass_task_capability import effective_access_mode
+
+    mode = effective_access_mode(cfg, name, has_capability=isinstance(cfg.get("codecompass_capability"), dict))
+    if mode == "off":
+        return "off"
+    if mode == "hub":
+        from agent.config import settings
+
+        return "hub" if settings.role == "worker" else "local"
+    return "local"
+
+
+def _guard_codecompass_authority(name: str, args: dict[str, Any], cfg: dict[str, Any],
+                                 tool_call_id: str) -> dict[str, Any] | None:
+    """Authority is server-owned (WCRB-007): a model never supplies a capability, token or collection, and
+    the architecture tools get the trusted capability from the Hub-issued config only (set into ``args``)."""
+    if not name.startswith("codecompass."):
+        return None
+    from agent.services.codecompass_authority_policy import contains_client_authority
+
+    if contains_client_authority(args):
+        return build_tool_result(tool_name=name, tool_call_id=tool_call_id, status="error",
+                                 error="client_authority_forbidden")
+    trusted = cfg.get("codecompass_capability")
+    if isinstance(trusted, dict) and name in _CAPABILITY_ARGUMENT_TOOLS:
+        args["capability"] = dict(trusted)
+    return None
+
 
 def execute_ananta_tool(
     *,
@@ -24,6 +64,32 @@ def execute_ananta_tool(
     name = str(tool_name or "").strip()
     args = dict(arguments or {})
     cfg = dict(config or {})
+    route = _codecompass_route(name, cfg)
+    if route == "off":
+        return build_tool_result(tool_name=name, tool_call_id=tool_call_id, status="error",
+                                 error="codecompass_access_off")
+    if route == "hub":
+        cfg.pop("codecompass_capability", None)  # the Hub issues its own; nothing is injected here
+    refusal = _guard_codecompass_authority(name, args, cfg, tool_call_id)
+    if refusal is not None:
+        return refusal
+    if route == "hub":
+        from agent.services.codecompass_hub_tool_client import hub_tool_gateway_client
+
+        return hub_tool_gateway_client().execute(task_id=str(cfg.get("codecompass_task_id") or ""),
+                                                 tool_name=name, arguments=args, tool_call_id=tool_call_id)
+    trusted = cfg.get("codecompass_capability")
+    if not name.startswith("codecompass.") or not isinstance(trusted, dict):
+        return _dispatch_ananta_tool(name, args, cfg, workspace_dir, tool_call_id)
+    from agent.services.codecompass_task_capability import task_capability_scope
+
+    # the trusted capability of this call, e.g. for fetching Hub graph artifacts on a worker (WCRB-010)
+    with task_capability_scope(dict(trusted)):
+        return _dispatch_ananta_tool(name, args, cfg, workspace_dir, tool_call_id)
+
+
+def _dispatch_ananta_tool(name: str, args: dict[str, Any], cfg: dict[str, Any], workspace_dir: str,
+                          tool_call_id: str) -> dict[str, Any]:
     try:
         if name == "repo.list_files":
             from agent.services.tools.repo_tools import repo_list_files
