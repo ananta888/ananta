@@ -11,7 +11,7 @@ Track `todo.vision-parallel-decision-llamacpp.json`).
 
 | Name | Was es ist | Gewichte | Verhältnis zu Ananta |
 |---|---|---|---|
-| **Jev** (TypeSafe) | proprietäres Entscheidungsmodell mit „System One“-API | eigene, proprietär | nicht verwendet, nicht nachgebaut (Track-Regel) |
+| **Jev** (TypeSafe) | proprietäres Entscheidungsmodell mit „System One“-API | eigene, proprietär | in diesem Track nicht nachgebaut (Track-Regel); seit 2026-09-27 optional als Cloud-Decision-Provider angebunden, nur mit ausdrücklichem Opt-in (`docs/decision-providers.md`) |
 | **parallel-decision** (thecodacus) | offener llama.cpp-Branch, `POST /v1/decision` für beliebige GGUF-Decoder | keine neuen, jedes Modell | Upstream unseres Forks |
 | **llama.cpp-vision-decision** (ananta888) | unser Fork: + Bilder (libmtmd), Kalibrierung, Kontext-Cache, Playground | keine neuen | läuft lokal (`llama-server --decision-seqs`) |
 | **system-one** (llama.cpp PR #29321) | Bibliothek + CLI für das System-One-Format; liest Labels aus GGUF-Keys | für darauf trainierte Modelle | nicht verwendet, beobachten |
