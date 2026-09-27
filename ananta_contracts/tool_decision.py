@@ -10,10 +10,15 @@ Schema: a ``tool`` field (every tool plus ``none``); per tool, every required
 argument with a fixed value set (enum, boolean, small integer range) as a
 field scored "as if this tool were used" (optional ones keep the tool's
 default: nobody asked for them, and an unsure pick would drag the call's
-confidence down); and, with ``open_field``, one bounded open field
-that fills a tool's single required free string (a search ``query``, a
-``handle``). The open field is generated after the closed fields, only when a
-tool that takes it wins (``when``), so it is conditioned on the chosen tool.
+confidence down); and, with ``open_field``, one bounded open field that
+fills a tool's text argument: its single required free string, or, for a
+tool that declares nothing as required (the Hub's MCP tools), its leading
+parameter when that is a free string (a search ``query``, a grep
+``pattern``, a ``handle``); an empty value then means "without it". A tool
+whose leading parameter is something else cannot be filled this way and is
+left to the model; a tool without parameters is called as it is. The open
+field is generated after the closed fields, only when a tool that takes it
+wins (``when``), so it is conditioned on the chosen tool.
 """
 
 from __future__ import annotations
@@ -63,10 +68,11 @@ class ArgumentField:
 
 @dataclass(frozen=True)
 class TextArgument:
-    """A tool's single required free-text argument, filled from the open field."""
+    """A tool's text argument, filled from the open field; an optional one may stay empty."""
 
     tool: str
     argument: str
+    required: bool = True
 
 
 @dataclass(frozen=True)
@@ -116,6 +122,26 @@ def _is_free_string(spec: Any) -> bool:
     return isinstance(spec, Mapping) and spec.get("type") == "string" and "enum" not in spec
 
 
+def _text_argument(tool: str, properties: Mapping[str, Any], required: set, missing: list[str]) -> TextArgument | None:
+    """The argument the open field fills: the single required free string, else a free leading parameter."""
+    if missing:
+        if len(missing) == 1 and _is_free_string(properties.get(missing[0])):
+            return TextArgument(tool, missing[0])
+        return None
+    if not required and properties:
+        leading = next(iter(properties))
+        if _is_free_string(properties[leading]):
+            return TextArgument(tool, str(leading), required=False)
+    return None
+
+
+def _needs_text(properties: Mapping[str, Any], required: set) -> bool:
+    """A tool without required arguments whose leading parameter is free: calling it empty would be a guess."""
+    if required or not properties:
+        return False
+    return fixed_values(properties[next(iter(properties))]) is None
+
+
 def _field_type(values: tuple[Any, ...]) -> dict[str, Any]:
     if values == (True, False):
         return {"type": "boolean"}
@@ -156,11 +182,13 @@ def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]], *, open_field
                 continue
             arguments.append(ArgumentField(field_name, name, str(argument), values))
         missing.extend(str(argument) for argument in required if argument not in properties)
-        if len(missing) == 1 and open_field and _is_free_string(properties.get(missing[0])):
-            texts.append(TextArgument(name, missing[0]))
-            note = str((properties[missing[0]] or {}).get("description") or "").strip()[:100]
-            text_notes.append(f"{name}: its '{missing[0]}'" + (f" ({note})" if note else ""))
-        elif missing:
+        text = _text_argument(name, properties, required, missing) if open_field else None
+        if text is not None:
+            texts.append(text)
+            note = str((properties[text.argument] or {}).get("description") or "").strip()[:100]
+            optional = "" if text.required else ", optional"
+            text_notes.append(f"{name}: its '{text.argument}'{optional}" + (f" ({note})" if note else ""))
+        elif missing or _needs_text(properties, required):
             free_text.add(name)
     if not names:
         raise ValueError("tool_decision_no_tools")
@@ -261,14 +289,14 @@ def _allowed(value: Any, values: tuple[Any, ...]) -> Any:
 
 
 def _open_text(raw: Any) -> str | None:
-    """The open field's text when it is a complete, usable string; ``None`` otherwise."""
+    """The open field's text ("" when empty) when it is complete and usable; ``None`` otherwise."""
     if not isinstance(raw, Mapping) or raw.get("generated") is not True:
         raise DecisionResponseError("tool_decision_open_field_invalid")
     value = raw.get("value")
     if raw.get("skipped") is True or not isinstance(value, str) or raw.get("truncated") is not False:
         return None
     text = value.strip()
-    if not text or len(text) > TEXT_MAX_CHARS or _CONTROL.search(text):
+    if len(text) > TEXT_MAX_CHARS or _CONTROL.search(text):
         return None
     return text
 
@@ -301,10 +329,11 @@ def read_tool_decision(response: Any, decision: ToolDecisionSchema, *, min_confi
     text_argument = decision.text_argument_of(tool)
     if text_argument is not None:
         text = _open_text(fields[TEXT_FIELD])
-        if text is None:
+        if text is None or (text == "" and text_argument.required):
             return ToolDecision(ABSTAIN, tool, confidence=confidence, reason="text_argument_invalid", margin=margin)
-        arguments[text_argument.argument] = text
-        generated = (text_argument.argument,)
+        if text:
+            arguments[text_argument.argument] = text
+            generated = (text_argument.argument,)
     for item in decision.arguments_of(tool):
         raw = fields[item.name]
         if not isinstance(raw, Mapping):

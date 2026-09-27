@@ -353,3 +353,31 @@ def test_a_generated_query_passes_the_router_validator():
     assert decision.status == "candidate" and decision.candidate.tool_name == "repo.search"
     assert dict(decision.candidate.arguments) == {"query": "CircuitBreaker"}
     assert runtime.bodies[0][0]["schema"][TEXT_FIELD]["type"] == "string"
+
+
+# --- Hub MCP tools declare nothing as required -----------------------------------------------------------
+
+GREP = tool("repo.grep", {"pattern": {"type": "string"}, "limit": {"type": "integer"}})
+FILES = tool("codecompass.get_file_context", {"paths": {"type": "array"}, "reason": {"type": "string"}})
+INTEL = tool("codecompass.architecture_intelligence", {"snapshot_ref": {"type": "string"}})
+
+
+def test_a_free_leading_parameter_becomes_an_optional_text_argument():
+    decision = build_tool_decision_schema([GREP, FILES, INTEL, STATUS], open_field=True)
+    assert [(item.tool, item.argument, item.required) for item in decision.text_arguments] == [
+        ("repo.grep", "pattern", False), ("codecompass.architecture_intelligence", "snapshot_ref", False)]
+    assert decision.free_text_tools == {"codecompass.get_file_context"}  # leading list: left to the model
+    assert "repo.grep: its 'pattern', optional" in decision.schema[TEXT_FIELD]["description"]
+    # without the open field a tool with a free leading parameter is not called empty
+    assert build_tool_decision_schema([GREP, STATUS]).free_text_tools == {"repo.grep"}
+
+
+def test_an_empty_optional_text_calls_the_tool_without_it():
+    decision = build_tool_decision_schema([GREP, INTEL], open_field=True)
+    grep = decision_to_payload(response(decision, tool=field("repo.grep"), text_argument=text("CircuitBreaker")),
+                               decision, min_confidence=0.8)
+    assert grep["tool_calls"][0]["arguments"] == {"pattern": "CircuitBreaker"}
+    intel = decision_to_payload(response(decision, tool=field("codecompass.architecture_intelligence"),
+                                         text_argument=text("")), decision, min_confidence=0.8)
+    assert intel == {"tool_calls": [{"name": "codecompass.architecture_intelligence", "arguments": {},
+                                     "confidence": 0.97}]}

@@ -304,3 +304,44 @@ der Zusammenführung tragen noch `Co-Authored-By`; sie bleiben so, weil Ananta-S
 | `~/llama.cpp-bonsai-decision` (Worktree) | Branch `vision-decision` | `build-cuda`: der laufende Server (Port 18150); Verzeichnisname aus der Zeit vor der Zusammenführung |
 | `~/llama.cpp-vision-decision` (Haupt-Checkout mit dem `.git`) | Tag `archive/vision-decision-mainline` (detached) | `build`, `build-cuda` der alten Linie |
 | `vendor/llama.cpp-vision-decision` (Submodul, eigener Klon) | Branch `vision-decision` | `build-cpu` (CPU-Testläufe) |
+
+## Produktiv: Companion und Worker (2026-09-27)
+
+**Gemeinsamer Vertrag.** Schema-Aufbau, Request-Body und strikte Auswertung liegen einmal in
+`ananta_contracts/tool_decision.py` (beide Images enthalten das Paket; das Meet-Image darf `agent` nicht importieren).
+Das Ergebnis ist eine `ToolDecision` (`call` / `respond` / `abstain`). Der Hub-Adapter
+(`agent/services/tiny_router/parallel_decision.py`) behält nur Laufzeit, Circuit Breaker und Adapter-Vertrag; der
+Companion (`worker/meet_media/tool_decision.py`) nur seinen gehärteten Transport (`BoundedJsonClient`) und die Settings.
+Vorher gab es Schema und Auswertung doppelt.
+
+**Regeln des Vertrags:**
+- Nur **Pflicht**-Argumente mit festen Werten werden bewertet; optionale behalten den Tool-Standard (ein optionales
+  `limit` drückte sonst eine klare Suche auf p = 0,49).
+- Textargument (offenes Feld): der eine Pflicht-String; bei Tools ohne Pflicht-Argumente (die MCP-Tools des Hubs
+  deklarieren nichts als Pflicht) der **führende** Parameter, wenn er ein freier String ist (`query`, `pattern`,
+  `question`, `handle`), leer = ohne ihn. Ist der führende Parameter etwas anderes (Liste, Objekt), entscheidet das Modell.
+- Konfidenz = Minimum aus Tool und bewerteten Pflicht-Argumenten; darauf ist kalibriert: **Schwelle 0,90** (streng auf
+  Validation gewählt, Holdout 20/20, Abdeckung 74 %).
+
+**Companion (aktiv).** `MEET_TOOL_DECISION_URL` + `MEET_TOOL_DECISION_FAST=1` (lokales Overlay
+`data/meet-media/windows-ollama.yml`, Wiederherstellungs-Skript): Vor dem Modellaufruf fragt der Companion
+`/v1/decision`; ein Tool-Call ab 0,90 (`MEET_TOOL_DECISION_MIN_CONFIDENCE` darf nur erhöhen) wird wie die Router-Suche
+erzwungen, außer der Router hat dieses Tool schon erzwungen. Darunter entscheidet das Modell wie bisher. Der Shadow
+protokolliert dieselbe Entscheidung (`mode: fast`), ohne zweiten Aufruf. Das Meet-Image mountet dafür jetzt das ganze
+`ananta_contracts` aus dem Repo (vorher nur eine Datei). Gemessen: „Welche Index-Layer …“ 2,9 s statt 4,4 s
+(`codecompass_layers_heads` direkt, p = 1,00); Smalltalk ohne Tool.
+
+**Worker (aktiviert).** Über die Hub-Route `POST /config` (Admin, Operation-Gate, Audit): `ananta_worker_tool_loop.enabled
+= true`, `tiny_router.mode = active`, `profile_order = [bonsai2-27b-parallel-decision]`, `top_k = 16` (der Jev-Modus
+bewertet 16 Tools auf einmal; 5 schnitten `codecompass.search`/`repo.grep` weg). Endpunkt:
+`ANANTA_PARALLEL_DECISION_URL=http://host.docker.internal:18150` im lokalen Overlay `data/meet-media/compose-local-runtime.yml`,
+Worker neu erstellt (sonst unveränderte Umgebung). Im Worker gemessen (16 Tools): `git.status` 0,4–0,9 s,
+`repo.grep {pattern}` 0,3 s, `codecompass.architecture_overview {query}` 1,1 s direkt; mehrdeutige Fragen
+(Suche vs. grep vs. Symbolsuche) und Schreib-Tools gehen ans Modell.
+
+**Offen, nicht vom Jev-Modus verursacht:**
+- Das Hauptmodell der Worker ist LM Studio (`LMSTUDIO_URL=http://172.18.112.1:1234/v1`); dort ist **kein Modell
+  geladen** („No models loaded“). LLM-Aufgaben des Backends `ananta-worker` scheitern deshalb, mit oder ohne Tool-Loop.
+- `codecompass.analytics_query` scheitert im Hub mit `VectorStoreError`.
+- `codecompass.layers_heads` ohne `profile_id` liefert `"head": null`; der Companion folgert daraus fälschlich „kein
+  aktiver Head“.
