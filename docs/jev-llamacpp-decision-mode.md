@@ -340,8 +340,37 @@ Worker neu erstellt (sonst unveränderte Umgebung). Im Worker gemessen (16 Tools
 (Suche vs. grep vs. Symbolsuche) und Schreib-Tools gehen ans Modell.
 
 **Offen, nicht vom Jev-Modus verursacht:**
-- Das Hauptmodell der Worker ist LM Studio (`LMSTUDIO_URL=http://172.18.112.1:1234/v1`); dort ist **kein Modell
-  geladen** („No models loaded“). LLM-Aufgaben des Backends `ananta-worker` scheitern deshalb, mit oder ohne Tool-Loop.
 - `codecompass.analytics_query` scheitert im Hub mit `VectorStoreError`.
 - `codecompass.layers_heads` ohne `profile_id` liefert `"head": null`; der Companion folgert daraus fälschlich „kein
   aktiver Head“.
+
+## Standardmodell von Ananta: der eGPU-llama-server (2026-09-27)
+
+Hub und Worker nutzen als Standard denselben llama-server wie der Companion und der Jev-Modus (Bonsai 2 27B auf der
+eGPU, Port 18150). Gesetzt einmal zentral über die Hub-Route `POST /config` (landet in der Config-DB, Hub und Worker
+lesen sie):
+
+| Schlüssel | Wert |
+|---|---|
+| `local_openai_backends` | `[{id: "llamacpp", name: "eGPU llama.cpp (Bonsai 2 27B, Jev decision mode)", base_url: "http://host.docker.internal:18150/v1", models: [<Modellpfad>]}]` |
+| `default_provider` | `llamacpp` |
+| `default_model` | `/mnt/d/Bonsai-demo/models/bonsai2-gguf/27B/Ternary-Bonsai-2-27B-PQ2_0.gguf` (die Modell-ID, die `/v1/models` meldet) |
+| `llm_config` | `{provider: llamacpp, model: <wie oben>, base_url: <wie oben>}` |
+
+Vorher war das Standardmodell doppelt und verschieden gesetzt: der Hub über Umgebungsvariablen (`DEFAULT_PROVIDER=openai`,
+`OPENAI_URL` auf den eGPU-Server; die Endpunkt-Richtlinie blockierte das als „externes OpenAI“), die Worker auf
+LM Studio (ohne geladenes Modell). Die DB-Konfiguration überstimmt beides.
+
+Nötige Korrekturen dafür (Tests je daneben):
+- Die ID `llamacpp` ist ein in der Endpunkt-Richtlinie bekannter lokaler Provider; ein Eintrag mit dieser ID nutzt jetzt
+  auch den Transport `llamacpp` (vorher immer `openai`, was jede lokale Adresse als extern blockierte).
+- Die OpenAI-Strategie ruft die URL auf, die die Richtlinie geprüft hat (`/v1` → `/v1/chat/completions`), statt 404.
+- `sgpt` (Backend `ananta-worker`) löst einen Standard-Provider aus `local_openai_backends` auf und rendert keine
+  Terminal-Markdown mehr (der Zeilenumbruch bei 80 Spalten zerstörte das Tool-Loop-JSON ab der zweiten Antwort).
+
+Server-Start (`data/meet-media/recover-after-wsl-restart.sh`): `-np 2` (Companion und Worker blockieren sich nicht,
+gleicher Gesamtkontext) und `--reasoning off` (Bonsai denkt sonst sein Token-Budget leer; `sgpt` kann das nicht pro
+Anfrage abschalten).
+
+Geprüft: Hub `POST /llm/generate` → „bereit“ über `llamacpp`; Worker-Tool-Loop mit echtem Modell: `repo.grep` →
+`repo.read_file_range` → richtige Antwort in 5,5 s.
