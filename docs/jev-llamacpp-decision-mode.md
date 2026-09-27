@@ -81,7 +81,8 @@ Unser Fork hat `ad129b08d` noch nicht (siehe unten).
 
 ## Build und Start (JEVCPP-002)
 
-Zwei Branches desselben Forks `ananta888/llama.cpp-vision-decision`, siehe „Zwei Branches im Fork“ unten.
+Ein Branch: `vision-decision` im Fork `ananta888/llama.cpp-vision-decision`, auf PrismML-Basis (siehe „Branch des Forks“
+unten). Die Angaben in diesem Dokument vor dem 2026-09-27 nennen ihn noch `bonsai-decision`.
 
 **CUDA** (RTX 5060 Ti, so gebaut für den laufenden Server, Build `b10743` @ `60dcaa127`):
 CUDA 12.9 (`nvcc` 12.9.r12.9), GCC 13.3, CMake 3.28.
@@ -166,9 +167,9 @@ längsten Asts ihrer Gruppe aufgefüllt; die Logits werden am letzten echten Tok
 | Smoke: Scoring | 0,19 s | 0,086 s |
 | geänderte Gewinner / max. Abweichung p | – | 0 / 0,012 |
 
-`llama-parallel-decision` (CLI) baut auf `bonsai-decision` nicht (`llm_add_n_cpu_ffn_overrides` fehlt seit dem
-PrismML-Port `e33bf977a`); der Server ist nicht betroffen. Achtung beim Neubau: auch die Shared Libraries werden neu
-gelinkt, eine Kopie nur von `llama-server` ist kein Rollback; Rollback = Checkout `edb69a662` und inkrementell bauen.
+`llama-parallel-decision` (CLI) baute auf der PrismML-Basis nicht (`llm_add_n_cpu_ffn_overrides` fehlt dort); seit `7cae572ea`
+baut es wieder (die `--n-cpu-moe`-Logik steht inline). Achtung beim Neubau: auch die Shared Libraries werden neu
+gelinkt, eine Kopie nur von `llama-server` ist kein Rollback; Rollback = Checkout des vorigen Commits und inkrementell bauen.
 
 ## Kalibrierung und Companion-Shadow (JEVCPP-009)
 
@@ -226,8 +227,8 @@ in `tools/server/tests` (eigenes venv mit `requirements.txt` und `filelock`).
 
 ## Upstream-Abgleich (PR #14)
 
-Stand 2026-09-27: PR #14 offen, ein Commit (`d0ec6f954`), kein Review. Unsere Ports liegen auf `bonsai-decision` und
-`vision-decision` (Submodul-Pin). Abweichungen vom PR, die bei einem Upstream-Merge abzugleichen sind:
+Stand 2026-09-27: PR #14 offen, ein Commit (`d0ec6f954`), kein Review. Unsere Ports liegen auf `vision-decision` (seit
+2026-09-27 der einzige Branch, PrismML-Basis). Abweichungen vom PR, die bei einem Upstream-Merge abzugleichen sind:
 
 | Punkt | PR #14 | unser Port |
 |---|---|---|
@@ -265,40 +266,41 @@ auf Validation gewählt. Lauf: `scripts/jev_tool_decision_calibration.py --cases
 - Grenzen: synthetische Labels eines Annotators, kleiner Holdout. Der Companion-Shadow bestätigt oder korrigiert die
   Schwelle mit echten Fragen (`--from-shadow`, ebenfalls mit Split).
 
-## Zwei Branches im Fork
+## Branch des Forks: `vision-decision` auf PrismML-Basis
 
-Der Fork `ananta888/llama.cpp-vision-decision` hat genau zwei Branches (die 592 beim Forken mitkopierten Upstream-Branches
-wurden am 2026-09-27 gelöscht). Beide tragen **denselben Decision-Code**; sie unterscheiden sich in der llama.cpp-Basis.
-
-| Branch | Basis | läuft | Grund |
-|---|---|---|---|
-| `vision-decision` (Default) | thecodacus `parallel-decision` auf ggml-org llama.cpp (Stand 2026-09-19) | Referenzlinie, in Ananta gepinnt (`vendor/llama.cpp-vision-decision`); CPU-Tests | Decision mit Bildern, Kalibrierung, Kontext-Cache, offenes Feld; jedes normale GGUF-Modell |
-| `bonsai-decision` | PrismML-Eng/llama.cpp `prism` (ggml-org Stand 2026-08-25) | der produktive llama-server (Bonsai 2 27B `PQ2_0`, CUDA, Port 18150) | die ternären `PQ2_0`-/`PTQ1_0`-Kernels und die Hadamard-Rotation gibt es nur im PrismML-Fork; normales llama.cpp lädt Bonsai 27B nicht |
+Der Fork `ananta888/llama.cpp-vision-decision` hat **einen** Branch: `vision-decision` (Default, in Ananta gepinnt als
+`vendor/llama.cpp-vision-decision`, und derselbe Stand läuft als produktiver llama-server).
 
 ```
-ggml-org/llama.cpp ── thecodacus/parallel-decision ── vision-decision
-PrismML-Eng/llama.cpp (prism) ─────────────────────── bonsai-decision   (Port von /v1/decision: e33bf977a)
+ggml-org/llama.cpp ── PrismML-Eng/llama.cpp (prism) ── vision-decision   (Basis)
+thecodacus/llama.cpp (parallel-decision) ──────────────┘                 (/v1/decision portiert: e33bf977a)
 ```
 
-**Regeln:**
-- Gleich auf beiden: `tools/parallel-decision/`, die Decision-Teile von `tools/server/`, `test_decision.py` und
-  `BRANCHES.md`. Eine Änderung daran kommt auf einen Branch und wird in derselben Sitzung auf den anderen
-  cherry-gepickt; `test_decision.py` (34 Tests) läuft auf beiden.
-- Alles andere folgt der Basis: Upstream-Abgleich aus `upstream-decision`/`upstream-main` nach `vision-decision`, aus
-  `prismml/prism` nach `bonsai-decision`.
-- Prüfen, ob der Decision-Code gleich ist: `python3 scripts/check_decision_fork_branches.py --repo ~/llama.cpp-vision-decision`
-  (Exit 1 nennt die abweichenden Dateien).
-- Zusammenführen: `bonsai-decision` kann auch alles, was `vision-decision` kann (normale GGUF-Modelle, Bilder, alle
-  Tests grün), es fehlt nur die neuere mainline-Basis. Zusammenführen lohnt sich, wenn PrismMLs Kernels in mainline
-  llama.cpp ankommen; bis dahin bleiben beide Linien (Entscheidung 2026-09-27).
-- Arbeitsregeln im Fork (seine `AGENTS.md`/`AGENT.md`): Commit und Push nur nach ausdrücklicher Freigabe je Aktion,
-  `Assisted-by:` statt `Co-authored-by:`, nur ASCII, keine PRs oder Kommentare upstream. Die Commits vom 2026-09-26/27
-  tragen noch `Co-Authored-By`; sie bleiben so, weil Ananta-Submodul-Pins auf sie zeigen.
+**Warum PrismML:** Das Produktivmodell Bonsai 2 27B liegt im ternären Format `PQ2_0`; die Kernels dafür (und für `PTQ1_0`,
+dazu die Hadamard-Rotation) gibt es nur im PrismML-Fork, normales llama.cpp lädt die Datei nicht. PrismML ergänzt nur:
+normale GGUF-Modelle laufen unverändert, auch mit Bildern (Server-Tests 52/52: `test_decision.py`, `test_vision_api.py`).
+Preis: Die mainline-Basis ist so alt wie PrismMLs letzter Abgleich (2026-08-25), nicht die neueste.
+
+**Zusammenführung am 2026-09-27:** Bis dahin gab es zwei Linien mit gleichem Decision-Code, `vision-decision` auf
+thecodacus/mainline-Basis (Stand 2026-09-19) und `bonsai-decision` auf PrismML-Basis. Weil nur die PrismML-Linie
+produktiv lief und jede Änderung doppelt gepflegt werden musste, wurde `bonsai-decision` in `vision-decision` umbenannt
+(GitHub leitet den alten Namen weiter). Die alte mainline-Linie liegt als Tag `archive/vision-decision-mainline`
+(`7d6d1b396`); darüber bleiben die Submodul-Pins älterer Ananta-Commits erreichbar, und die Linie lässt sich jederzeit
+als Branch wiederherstellen. Kein Merge-Commit mit „ours“: Git hielte die ~350 neueren mainline-Commits sonst für
+enthalten, und spätere Upstream-Abgleiche verlören sie still. Neu bewerten, wenn PrismMLs Kernels in mainline ankommen
+(zurück auf mainline-Basis) oder ein Modell nur mit neuester mainline läuft (dann PrismML gezielt auf mainline ziehen).
+
+**Pflege:** Basis-Abgleich `git fetch prismml && git merge prismml/prism`; Änderungen am Decision-Prototyp von
+thecodacus werden von Hand portiert (andere Basis). Details stehen in `AGENT.md` des Forks.
+
+**Arbeitsregeln im Fork** (seine `AGENTS.md`/`AGENT.md`): Commit und Push nur nach ausdrücklicher Freigabe je Aktion,
+`Assisted-by:` statt `Co-authored-by:`, nur ASCII, keine PRs oder Kommentare upstream. Die Commits vom 2026-09-26/27 vor
+der Zusammenführung tragen noch `Co-Authored-By`; sie bleiben so, weil Ananta-Submodul-Pins auf sie zeigen.
 
 **Lokal:**
 
-| Verzeichnis | Branch | Builds |
+| Verzeichnis | Stand | Builds |
 |---|---|---|
-| `~/llama.cpp-vision-decision` (Haupt-Checkout) | `vision-decision` | `build`, `build-cuda` |
-| `~/llama.cpp-bonsai-decision` (Worktree desselben Repos) | `bonsai-decision` | `build-cuda` (laufender Server) |
-| `vendor/llama.cpp-vision-decision` (Submodul, eigener Klon) | `vision-decision` | `build-cpu` (CPU-Testläufe) |
+| `~/llama.cpp-bonsai-decision` (Worktree) | Branch `vision-decision` | `build-cuda`: der laufende Server (Port 18150); Verzeichnisname aus der Zeit vor der Zusammenführung |
+| `~/llama.cpp-vision-decision` (Haupt-Checkout mit dem `.git`) | Tag `archive/vision-decision-mainline` (detached) | `build`, `build-cuda` der alten Linie |
+| `vendor/llama.cpp-vision-decision` (Submodul, eigener Klon) | Branch `vision-decision` | `build-cpu` (CPU-Testläufe) |

@@ -162,7 +162,7 @@
         "provider_id": "llamacpp-parallel-decision",
         "endpoint_env": "ANANTA_PARALLEL_DECISION_URL",
         "base_model": "Qwen/Qwen3.8-27B (hybrid attention)",
-        "runtime": "ananta888/llama.cpp-vision-decision@bonsai-decision (>= c2a4426ce: bounded open field), llama-server --decision-seqs",
+        "runtime": "ananta888/llama.cpp-vision-decision@vision-decision (PrismML base; open field >= c2a4426ce), llama-server --decision-seqs",
         "docs": "docs/jev-llamacpp-decision-mode.md",
         "open_field": true,
         "calibration": "2026-09-27: 119 labelled prompts (benchmarks/tiny_tool_router/decision_calibration*.v1.json), threshold chosen on the validation split with strict labels, holdout 21/21 correct at 0.85 (coverage 0.78); synthetic single-annotator labels, confirm with the companion shadow log"
