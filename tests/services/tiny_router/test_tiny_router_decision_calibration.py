@@ -5,8 +5,11 @@ import pytest
 from agent.services.tiny_router.decision_calibration import (
     Observation,
     calibration_report,
+    evaluate_at,
     expected_calibration_error,
+    is_holdout,
     recommend_threshold,
+    split_report,
     threshold_table,
     wilson_lower_bound,
 )
@@ -59,3 +62,31 @@ def test_the_report_names_errors_and_calibration_gap():
     assert report["accuracy"] == 0.8 and len(report["errors"]) == 2
     assert report["confusion"] == {"a": {"a": 8, "b": 2}}
     assert expected_calibration_error([Observation("x", "a", "a", 1.0)]) == 0.0
+
+
+def test_a_defensible_alternative_counts_as_correct():
+    assert Observation("x", "search", "overview", 0.6, ("overview",)).correct
+    assert not Observation("x", "search", "overview", 0.6).correct
+
+
+def test_the_holdout_split_is_stable_and_about_a_fifth():
+    ids = [f"case-{index:03d}" for index in range(500)]
+    held = [case_id for case_id in ids if is_holdout(case_id)]
+    assert held == [case_id for case_id in ids if is_holdout(case_id)]
+    assert 70 <= len(held) <= 130
+
+
+def test_the_threshold_is_chosen_on_validation_and_only_measured_on_holdout():
+    rows = [Observation(f"ok-{index}", "a", "a", 0.97) for index in range(300)]
+    rows += [Observation(f"bad-{index}", "a", "b", 0.7) for index in range(40)]
+    report = split_report(rows, target_precision=0.95)
+    assert report["recommended_on_validation"] == 0.75
+    holdout = [item for item in rows if is_holdout(item.case_id)]
+    assert report["holdout"] == evaluate_at(holdout, 0.75)
+    assert report["holdout"]["precision"] == 1.0 and report["holdout"]["total"] == len(holdout)
+    assert report["validation"]["total"] + len(holdout) == len(rows)
+
+
+def test_without_a_recommendation_the_fallback_threshold_is_measured():
+    report = split_report([Observation(f"c{index}", "a", "a", 0.9) for index in range(20)], fallback_threshold=0.8)
+    assert report["recommended_on_validation"] is None and report["applied_threshold"] == 0.8

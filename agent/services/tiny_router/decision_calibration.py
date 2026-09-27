@@ -7,6 +7,7 @@ probability) in, per-threshold precision/coverage and a recommended
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
@@ -20,10 +21,23 @@ class Observation:
     expected: str
     predicted: str
     probability: float
+    acceptable: tuple[str, ...] = ()  # other answers that are defensible for an ambiguous case
 
     @property
     def correct(self) -> bool:
-        return self.predicted == self.expected
+        return self.predicted == self.expected or self.predicted in self.acceptable
+
+
+def is_holdout(case_id: str) -> bool:
+    """The benchmark split (``sha256(case_id)`` mod 5 == 0 is held out), as ``dataset_provenance`` counts it."""
+    return int(hashlib.sha256(case_id.encode("utf-8")).hexdigest()[:8], 16) % 5 == 0
+
+
+def evaluate_at(observations: Sequence[Observation], threshold: float) -> dict[str, Any]:
+    """Precision and coverage of the accepted answers at one fixed threshold."""
+    row = threshold_table(observations, (threshold,))[0]
+    return {"threshold": threshold, "total": len(observations), **{
+        key: value for key, value in row.as_dict().items() if key != "threshold"}}
 
 
 @dataclass(frozen=True)
@@ -125,4 +139,20 @@ def calibration_report(observations: Sequence[Observation], *, target_precision:
         "thresholds": [row.as_dict() for row in rows],
         "confusion": confusion(observations),
         "errors": [item.__dict__ for item in observations if not item.correct],
+    }
+
+
+def split_report(observations: Sequence[Observation], *, target_precision: float = 0.95, min_accepted: int = 10,
+                 fallback_threshold: float = 0.8) -> dict[str, Any]:
+    """Choose the threshold on the validation split only, then measure it once on the untouched holdout."""
+    validation = [item for item in observations if not is_holdout(item.case_id)]
+    holdout = [item for item in observations if is_holdout(item.case_id)]
+    chosen = recommend_threshold(threshold_table(validation), target_precision=target_precision,
+                                 min_accepted=min_accepted)
+    applied = fallback_threshold if chosen is None else chosen
+    return {
+        "validation": calibration_report(validation, target_precision=target_precision, min_accepted=min_accepted),
+        "recommended_on_validation": chosen,
+        "applied_threshold": applied,
+        "holdout": evaluate_at(holdout, applied),
     }
