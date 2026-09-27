@@ -81,12 +81,7 @@ Unser Fork hat `ad129b08d` noch nicht (siehe unten).
 
 ## Build und Start (JEVCPP-002)
 
-Zwei Checkouts desselben Repos `ananta888/llama.cpp-vision-decision`:
-
-| Checkout | Branch | Zweck |
-|---|---|---|
-| `vendor/llama.cpp-vision-decision` (Submodul) | `vision-decision` | Decision + Vision, Referenz für Tests |
-| `~/llama.cpp-bonsai-decision` | `bonsai-decision` | + Q2_0/Ternary-Bonsai (PrismML), läuft als Companion-/Hub-Modell |
+Zwei Branches desselben Forks `ananta888/llama.cpp-vision-decision`, siehe „Zwei Branches im Fork“ unten.
 
 **CUDA** (RTX 5060 Ti, so gebaut für den laufenden Server, Build `b10743` @ `60dcaa127`):
 CUDA 12.9 (`nvcc` 12.9.r12.9), GCC 13.3, CMake 3.28.
@@ -269,3 +264,41 @@ auf Validation gewählt. Lauf: `scripts/jev_tool_decision_calibration.py --cases
   mittlere Latenz 0,66 s statt 1,19 s. Bei 0,80 wären 3 Tool-Wahlen falsch.
 - Grenzen: synthetische Labels eines Annotators, kleiner Holdout. Der Companion-Shadow bestätigt oder korrigiert die
   Schwelle mit echten Fragen (`--from-shadow`, ebenfalls mit Split).
+
+## Zwei Branches im Fork
+
+Der Fork `ananta888/llama.cpp-vision-decision` hat genau zwei Branches (die 592 beim Forken mitkopierten Upstream-Branches
+wurden am 2026-09-27 gelöscht). Beide tragen **denselben Decision-Code**; sie unterscheiden sich in der llama.cpp-Basis.
+
+| Branch | Basis | läuft | Grund |
+|---|---|---|---|
+| `vision-decision` (Default) | thecodacus `parallel-decision` auf ggml-org llama.cpp (Stand 2026-09-19) | Referenzlinie, in Ananta gepinnt (`vendor/llama.cpp-vision-decision`); CPU-Tests | Decision mit Bildern, Kalibrierung, Kontext-Cache, offenes Feld; jedes normale GGUF-Modell |
+| `bonsai-decision` | PrismML-Eng/llama.cpp `prism` (ggml-org Stand 2026-08-25) | der produktive llama-server (Bonsai 2 27B `PQ2_0`, CUDA, Port 18150) | die ternären `PQ2_0`-/`PTQ1_0`-Kernels und die Hadamard-Rotation gibt es nur im PrismML-Fork; normales llama.cpp lädt Bonsai 27B nicht |
+
+```
+ggml-org/llama.cpp ── thecodacus/parallel-decision ── vision-decision
+PrismML-Eng/llama.cpp (prism) ─────────────────────── bonsai-decision   (Port von /v1/decision: e33bf977a)
+```
+
+**Regeln:**
+- Gleich auf beiden: `tools/parallel-decision/`, die Decision-Teile von `tools/server/`, `test_decision.py` und
+  `BRANCHES.md`. Eine Änderung daran kommt auf einen Branch und wird in derselben Sitzung auf den anderen
+  cherry-gepickt; `test_decision.py` (34 Tests) läuft auf beiden.
+- Alles andere folgt der Basis: Upstream-Abgleich aus `upstream-decision`/`upstream-main` nach `vision-decision`, aus
+  `prismml/prism` nach `bonsai-decision`.
+- Prüfen, ob der Decision-Code gleich ist: `python3 scripts/check_decision_fork_branches.py --repo ~/llama.cpp-vision-decision`
+  (Exit 1 nennt die abweichenden Dateien).
+- Zusammenführen: `bonsai-decision` kann auch alles, was `vision-decision` kann (normale GGUF-Modelle, Bilder, alle
+  Tests grün), es fehlt nur die neuere mainline-Basis. Zusammenführen lohnt sich, wenn PrismMLs Kernels in mainline
+  llama.cpp ankommen; bis dahin bleiben beide Linien (Entscheidung 2026-09-27).
+- Arbeitsregeln im Fork (seine `AGENTS.md`/`AGENT.md`): Commit und Push nur nach ausdrücklicher Freigabe je Aktion,
+  `Assisted-by:` statt `Co-authored-by:`, nur ASCII, keine PRs oder Kommentare upstream. Die Commits vom 2026-09-26/27
+  tragen noch `Co-Authored-By`; sie bleiben so, weil Ananta-Submodul-Pins auf sie zeigen.
+
+**Lokal:**
+
+| Verzeichnis | Branch | Builds |
+|---|---|---|
+| `~/llama.cpp-vision-decision` (Haupt-Checkout) | `vision-decision` | `build`, `build-cuda` |
+| `~/llama.cpp-bonsai-decision` (Worktree desselben Repos) | `bonsai-decision` | `build-cuda` (laufender Server) |
+| `vendor/llama.cpp-vision-decision` (Submodul, eigener Klon) | `vision-decision` | `build-cpu` (CPU-Testläufe) |
