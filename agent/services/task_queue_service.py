@@ -17,6 +17,7 @@ from agent.services.task_organization_scope import (
     resolve_ingest_scope,
     states_any_scope,
 )
+from agent.services.task_requester import requester_fields
 from agent.services.task_runtime_service import (
     compare_and_set_local_task_status,
     update_local_task_status,
@@ -185,6 +186,8 @@ class TaskQueueService:
         fields = dict(extra_fields or {})
         scope, resolved_team = resolve_ingest_scope(self._scope_source(fields), fields, team_id)
         fields.update(scope)
+        # who asked (WCRB-006): from the authenticated request only; derived tasks resolve it at use time
+        fields.update(requester_fields(fields))
         update_local_task_status(
             task_id,
             normalize_task_status(status, default="todo"),

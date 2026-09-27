@@ -130,6 +130,10 @@ class TaskDB(SQLModel, table=True):
     status_reason_details: dict = Field(default_factory=dict, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
+    # Who asked for the task and with which access roles (WCRB-006); tools of the task never get more.
+    requested_by_subject: Optional[str] = Field(default=None, index=True)
+    requested_by_tenant: Optional[str] = None
+    requested_roles: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     derivation_reason: Optional[str] = None
     derivation_depth: int = 0
     depends_on: List[str] = Field(default_factory=list, sa_column=Column(JSON))
@@ -261,6 +265,10 @@ class ArchivedTaskDB(SQLModel, table=True):
     status_reason_details: dict = Field(default_factory=dict, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
+    # Who asked for the task and with which access roles (WCRB-006); tools of the task never get more.
+    requested_by_subject: Optional[str] = Field(default=None, index=True)
+    requested_by_tenant: Optional[str] = None
+    requested_roles: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     derivation_reason: Optional[str] = None
     derivation_depth: int = 0
     depends_on: List[str] = Field(default_factory=list, sa_column=Column(JSON))
