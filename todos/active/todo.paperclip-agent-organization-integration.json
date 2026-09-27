@@ -1,0 +1,421 @@
+{
+  "id": "paperclip-agent-organization-integration",
+  "title": "Paperclip-/AI-Employees-Ideen als native Agent-Organization-Schicht in Ananta integrieren",
+  "status": "todo",
+  "priority": "P1",
+  "risk": "high",
+  "owner": "ananta-developer-agent",
+  "created_at": "2026-09-27",
+  "purpose": "Die staerksten Organisations-, Budget-, Heartbeat-, Team-Template- und Rollenideen aus paperclipai/paperclip sowie die rollen-/routineorientierten Muster aus markfulton/ai-employees quelloffen untersuchen und dort, wo sie Ananta messbar verbessern, als native Ananta-Funktionen implementieren. Paperclip oder ai-employees sollen nicht als zweite Control Plane ueber Ananta gesetzt werden.",
+  "goal": "Ananta bleibt alleinige Control Plane fuer Goal -> Plan -> Task -> Claim -> Delegation -> Policy/Approval -> Worker -> Verification -> Artifact/Audit, erhaelt aber eine vollwertige Agent-Organization-Schicht mit hierarchischen Rollen, Agent-Budgets, Heartbeats, portablen Team-Blueprints, wiederverwendbaren Routinen und sauberer Kosten-/Zielzuordnung.",
+  "source_repositories": [
+    {
+      "repo": "https://github.com/paperclipai/paperclip",
+      "license": "MIT",
+      "role": "Referenz fuer Org-Chart, Agent Lifecycle, Heartbeats, Budgets, Governance, Workspaces, portable Company/Team Templates und Agent-Adapter."
+    },
+    {
+      "repo": "https://github.com/markfulton/ai-employees",
+      "license": "MIT",
+      "role": "Referenz fuer rollenbasierte Employee-Kits, CONTRACT/CAPABILITIES/SCHEDULE/SKILL-Strukturen und wiederverwendbare Routinen."
+    },
+    {
+      "repo": "https://github.com/ananta888/ananta",
+      "role": "Zielplattform und alleiniger Owner fuer Orchestrierung, Tasks, Policies, Approval, Worker, Audit, CodeCompass und Memory."
+    }
+  ],
+  "architecture_decisions": [
+    "Keine zweite Orchestrierungs- oder Task-Engine neben Ananta einfuehren.",
+    "Paperclip darf optional spaeter ueber einen Adapter angebunden werden, besitzt dann aber keine Autoritaet ueber Ananta-interne Task-, Policy-, Approval- oder Worker-Zustaende.",
+    "Hub bleibt Owner von Goals, Tasks, Claims, Delegation, Policies, Approvals, Budgets und Audit.",
+    "Worker duerfen weiterhin keine eigenstaendige Worker-zu-Worker-Orchestrierung oder unkontrollierte Sub-Agent-Hierarchie starten.",
+    "Org-Chart ist eine Management-/Policy-Projektion auf bestehende Hub-Entitaeten, keine konkurrierende Runtime.",
+    "Kosten- und Budgetentscheidungen muessen fail-closed, auditierbar und atomar mit Dispatch/Claim verbunden sein.",
+    "Rollen, Teams und Routinen muessen deklarativ exportierbar/importierbar sein, aber Secrets, lokale Pfade und Identitaeten duerfen nicht unkontrolliert exportiert werden.",
+    "ai-employees-Inhalte werden nicht blind kopiert; Muster werden lizenzkonform adaptiert und auf Anantas Least-Privilege-/Approval-Modell abgebildet.",
+    "CodeCompass, Memory/RAG und deterministische Task Engine bleiben Ananta-native Differenzierungsmerkmale."
+  ],
+  "non_goals": [
+    "Paperclip als zwingende Laufzeitabhaengigkeit einfuehren.",
+    "Paperclip-UI oder kompletten Paperclip-Server forken.",
+    "Anantas bestehende Task-, Goal-, Approval-, Worker- oder Audit-Systeme ersetzen.",
+    "Ungepruefte autonome CEO-Agenten mit unbegrenzten Rechten einfuehren.",
+    "Worker duerfen keine Agenten anstellen, Rollenrechte ausweiten oder Budgets erhoehen.",
+    "Ein allgemeines HR-/ERP-System fuer Menschen bauen.",
+    "Memory oder CodeCompass durch Paperclip ersetzen."
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Source Audit und Architektur-Mapping",
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Agent Organization Domain Model",
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Budgets und Heartbeat Runtime",
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Team-/Employee-Blueprints und Skills",
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "UI, E2E, Benchmark und Rollout",
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PAO-001",
+      "milestone": "M1",
+      "type": "research",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Paperclip und ai-employees source-realistisch inventarisieren",
+      "description": "Nicht nur README vergleichen. Relevante Domain-Modelle, DB-Schemata, Heartbeat-/Schedule-Code, Budget-/Cost-Logik, Agent-Adapter, Approval-/Governance-Pfade, Workspace-/Worktree-Logik, Export/Import, Skill-System und ai-employees CONTRACT/CAPABILITIES/SCHEDULE/SKILL-Strukturen auf Quellcodeebene erfassen.",
+      "acceptance_criteria": [
+        "Inventar nennt konkrete Upstream-Dateien/Module und Commit-SHAs.",
+        "Jede uebernommene Idee ist als adopt, adapt, reference-only oder reject klassifiziert.",
+        "Lizenzhinweise und ggf. uebernommene Codebereiche sind nachvollziehbar dokumentiert.",
+        "Keine Architekturentscheidung basiert nur auf README-Marketingtext."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "PAO-002",
+      "milestone": "M1",
+      "type": "architecture",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "title": "Overlap-Matrix gegen bestehende Ananta-Dienste erstellen",
+      "description": "Bestehende Ananta-Komponenten wie task_claim_service, task_delegation_services, task_management_service, task_orchestration_service, run_control_service, Worker-Registrierung, Policies, Approval, Memory, CodeCompass und Blueprints gegen die Upstream-Funktionen abgleichen.",
+      "acceptance_criteria": [
+        "Fuer jede Funktion ist klar, ob Ananta bereits Owner ist.",
+        "Doppelte Task-/State-Machines werden explizit ausgeschlossen.",
+        "Es existiert ein ADR fuer die Regel 'Ananta remains the single control plane'.",
+        "Migrations- und Kompatibilitaetsrisiken sind dokumentiert."
+      ],
+      "depends_on": [
+        "PAO-001"
+      ]
+    },
+    {
+      "id": "PAO-003",
+      "milestone": "M2",
+      "type": "schema",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "title": "Agent-Organization-Domainmodell definieren",
+      "description": "Native Entitaeten fuer Organization/Team/Role/AgentAssignment/ReportingLine/Responsibility/CapabilityBoundary modellieren und auf bestehende Ananta-Agenten/Worker abbilden.",
+      "acceptance_criteria": [
+        "Rollen und konkrete Runtime-Worker sind getrennte Konzepte.",
+        "Reporting-Linien sind azyklisch validiert.",
+        "Mehrfachrollen sind nur explizit erlaubt und auditierbar.",
+        "Berechtigungen werden nicht aus Rollennamen abgeleitet, sondern ueber bestehende Policy-/Capability-Vertraege.",
+        "Alle Mutationen besitzen Actor, Revision, Timestamp und Audit-Eintrag."
+      ],
+      "depends_on": [
+        "PAO-002"
+      ]
+    },
+    {
+      "id": "PAO-004",
+      "milestone": "M2",
+      "type": "orchestration",
+      "priority": "P0",
+      "risk": "critical",
+      "status": "todo",
+      "title": "Hierarchische Delegation ohne Worker-zu-Worker-Autoritaet implementieren",
+      "description": "Paperclip-aehnliche Chain-of-Command-Semantik auf den Hub abbilden. Ein Agent kann Delegation vorschlagen; nur der Hub erzeugt/veraendert Tasks und autorisiert den Ziel-Worker.",
+      "acceptance_criteria": [
+        "Delegation laeuft immer ueber Hub-owned Task-Mutationen.",
+        "Worker koennen keine Tasks fuer andere Worker direkt erzeugen oder claimen lassen.",
+        "Delegationspfade sind auf Goal/Project/Task/Role/Capability begrenzt.",
+        "Zyklen, Privilege Escalation und Delegation ausserhalb des Scopes werden fail-closed abgelehnt.",
+        "Positive und negative E2E-Tests decken mindestens drei Hierarchieebenen ab."
+      ],
+      "depends_on": [
+        "PAO-003"
+      ]
+    },
+    {
+      "id": "PAO-005",
+      "milestone": "M3",
+      "type": "cost-control",
+      "priority": "P0",
+      "risk": "critical",
+      "status": "todo",
+      "title": "Hierarchisches Budget- und Kostenmodell implementieren",
+      "description": "Budgetierung nach Organization, Team, Goal, Project, Agent, Task, Provider und Model ergaenzen. Warnschwellen, Soft Limits und Hard Stops muessen mit Dispatch und Run-Control verknuepft werden.",
+      "acceptance_criteria": [
+        "Token, Providerkosten und lokale optionale Compute-Metriken koennen einem Run und dessen kompletter Zielhierarchie zugeordnet werden.",
+        "Budgetreservierung und Task-Dispatch sind transaktional oder anderweitig race-safe.",
+        "Hard-Limit verhindert neue kostenpflichtige Runs; laufende Runs haben definierte Abbruch-/Grace-Policy.",
+        "80/90/100-Prozent-Schwellen sind konfigurierbar statt hartcodiert.",
+        "Retries koennen Kosten nicht doppelt verbuchen.",
+        "Budget Overrides erfordern geeignete Rolle/Approval und werden auditiert."
+      ],
+      "depends_on": [
+        "PAO-002",
+        "PAO-003"
+      ]
+    },
+    {
+      "id": "PAO-006",
+      "milestone": "M3",
+      "type": "runtime",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "title": "Heartbeat- und Wakeup-Modell als Hub-native Runtime einfuehren",
+      "description": "Agenten/Teams koennen plan- oder eventgesteuert geweckt werden. Heartbeat prueft Inbox/eligible work, Budget, Policies und Locks und fuehrt hoechstens autorisierte Arbeit aus.",
+      "acceptance_criteria": [
+        "Unterstuetzt schedule, event, mention/task-assignment und manuelles wake.",
+        "Wakeups werden koalesziert und verursachen keine Doppelarbeit.",
+        "Task Claim bleibt atomar und Ananta-native.",
+        "Persistenter Run-/Session-Kontext kann ueber Heartbeats fortgesetzt werden.",
+        "Orphaned/abgebrochene Runs werden deterministisch erkannt und recoverbar gemacht.",
+        "Heartbeat ohne Arbeit erzeugt keine unnoetigen LLM-Aufrufe."
+      ],
+      "depends_on": [
+        "PAO-004",
+        "PAO-005"
+      ]
+    },
+    {
+      "id": "PAO-007",
+      "milestone": "M3",
+      "type": "governance",
+      "priority": "P0",
+      "risk": "critical",
+      "status": "todo",
+      "title": "Organization Governance und Approval-Gates anbinden",
+      "description": "Rollen-/Teamaktionen wie neue Agentenzuordnung, Rechteausweitung, Budgeterhoehung, neue Routine, externe Tool-/MCP-Freigabe oder produktive Promotion an vorhandene Approval- und Policy-Gates binden.",
+      "acceptance_criteria": [
+        "Agenten duerfen ihre eigenen Rechte/Budgets/Reporting-Linien nicht selbst erweitern.",
+        "High-risk Mutationen benoetigen explizite Approval-Klasse.",
+        "Rollback auf vorherige Organisationsrevision ist moeglich.",
+        "Audit zeigt wer/was/wann/warum und welche Policy entschied.",
+        "Secrets werden weiterhin scopegebunden und nicht in Templates exportiert."
+      ],
+      "depends_on": [
+        "PAO-003",
+        "PAO-005"
+      ]
+    },
+    {
+      "id": "PAO-008",
+      "milestone": "M4",
+      "type": "blueprints",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Portable Team-Blueprints definieren",
+      "description": "Anantas vorhandenes Blueprint-Modell um Teams mit Rollen, Verantwortlichkeiten, Skills, Default-Budgets, Delegationsregeln und optionalen Routinen erweitern.",
+      "acceptance_criteria": [
+        "Mindestens Software-Team und Research-Team als reale Standard-Blueprints.",
+        "Blueprint-Import erzeugt keine Secrets und keine impliziten Admin-Rechte.",
+        "IDs werden kollisionssicher remapped.",
+        "Blueprint-Version und Herkunft sind sichtbar.",
+        "Export/Import roundtrip ist getestet."
+      ],
+      "depends_on": [
+        "PAO-003",
+        "PAO-007"
+      ]
+    },
+    {
+      "id": "PAO-009",
+      "milestone": "M4",
+      "type": "skills",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "AI-Employee-Kit-Vertrag fuer Ananta entwerfen",
+      "description": "Die guten Muster aus ai-employees als deklaratives Ananta-Paket abbilden: ROLE/CONTRACT, CAPABILITIES, SCHEDULES/ROUTINES, SKILLS und Evidence/Output Contracts.",
+      "acceptance_criteria": [
+        "Schema ist maschinenlesbar und JSON/YAML-validierbar.",
+        "Project-/Workspace-Regeln koennen Employee-Regeln sicher ueberstimmen, ohne zentrale Security-Policies zu umgehen.",
+        "Capabilities referenzieren echte Ananta-Capability-IDs statt Freitext-Rechte.",
+        "Routinen besitzen Input-, Output-, Evidence-, Timeout-, Retry- und Approval-Vertraege.",
+        "Mindestens ein Web-Dev-aehnliches und ein Research-aehnliches Beispiel werden umgesetzt."
+      ],
+      "depends_on": [
+        "PAO-008"
+      ]
+    },
+    {
+      "id": "PAO-010",
+      "milestone": "M4",
+      "type": "integration",
+      "priority": "P1",
+      "risk": "high",
+      "status": "todo",
+      "title": "Codex/Claude/OpenCode/CLI als Organization-Agent-Adapter vereinheitlichen",
+      "description": "Bestehende Runner/Worker so abstrahieren, dass Organization-Agenten unabhaengig vom konkreten Harness eingesetzt werden koennen, ohne Policy- oder Kostenkontrolle zu umgehen.",
+      "acceptance_criteria": [
+        "Mindestens Codex, Claude-Code-kompatibler CLI-Pfad und OpenCode sind ueber denselben Agent-Assignment-Vertrag adressierbar.",
+        "Harness-spezifische Session-IDs koennen persistiert und wiederaufgenommen werden.",
+        "Capabilities und Secrets werden vor Adapter-Aufruf reduziert/injiziert.",
+        "Provider-/Model-/Harness-Wechsel ist im Audit sichtbar."
+      ],
+      "depends_on": [
+        "PAO-004",
+        "PAO-006"
+      ]
+    },
+    {
+      "id": "PAO-011",
+      "milestone": "M4",
+      "type": "integration",
+      "priority": "P2",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Optionalen Paperclip-Interop-Adapter spezifizieren",
+      "description": "Nur als optionale Interoperabilitaet: Paperclip kann Ananta als externen Agent/HTTP-Adapter aufrufen oder Status lesen. Es darf keine interne Ananta-State-Machine spiegeln muessen.",
+      "acceptance_criteria": [
+        "Adapter ist optional und standardmaessig deaktiviert.",
+        "Keine bidirektionale Task-State-Synchronisation als Voraussetzung.",
+        "Ananta validiert jeden eingehenden Auftrag wie einen externen Principal.",
+        "Paperclip-Ausfall beeintraechtigt Anantas Kernbetrieb nicht.",
+        "Dokumentation benennt klar Ownership und Grenzen."
+      ],
+      "depends_on": [
+        "PAO-002",
+        "PAO-010"
+      ]
+    },
+    {
+      "id": "PAO-012",
+      "milestone": "M5",
+      "type": "ui",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Organization-/Team-Ansicht im Angular-Frontend",
+      "description": "Org-Chart, Rollen, Reporting-Linien, aktive Tasks, Budgetverbrauch, Heartbeat-Status und letzte Audit-Ereignisse ohne zweite Bedienlogik sichtbar machen.",
+      "acceptance_criteria": [
+        "Org-Chart ist aus echten Hub-Daten abgeleitet.",
+        "Klick auf Agent zeigt Rolle, Scope, Budget, aktuellen Task, Runtime/Harness und letzte Runs.",
+        "Budget- und Policy-Warnungen sind sichtbar.",
+        "Mutationen nutzen vorhandene Approval-/Auth-Mechanismen.",
+        "Mobile Darstellung bleibt nutzbar."
+      ],
+      "depends_on": [
+        "PAO-003",
+        "PAO-005",
+        "PAO-006",
+        "PAO-007"
+      ]
+    },
+    {
+      "id": "PAO-013",
+      "milestone": "M5",
+      "type": "testing",
+      "priority": "P0",
+      "risk": "high",
+      "status": "todo",
+      "title": "Security-, Concurrency- und Failure-Injection-Testmatrix",
+      "description": "Race Conditions, Doppelclaims, Heartbeat-Duplikate, Budget-Races, Replay, Delegationszyklen, Privilege Escalation, stale revision, Adapter-Ausfall und Crash-Recovery testen.",
+      "acceptance_criteria": [
+        "Concurrent Claims fuehren nie zu zwei aktiven Ownern derselben exklusiven Task.",
+        "Parallel gestartete Runs koennen Budget-Hard-Limits nicht ueberschreiten ohne explizit dokumentierte Reserve-Toleranz.",
+        "Stale Org-/Budget-Revisions werden abgelehnt.",
+        "Worker-zu-Worker-Direktdelegation bleibt blockiert.",
+        "Crash zwischen Reserve, Dispatch und Cost-Finalization ist recoverbar und idempotent.",
+        "Security-Negativtests laufen in CI."
+      ],
+      "depends_on": [
+        "PAO-004",
+        "PAO-005",
+        "PAO-006",
+        "PAO-007",
+        "PAO-010"
+      ]
+    },
+    {
+      "id": "PAO-014",
+      "milestone": "M5",
+      "type": "benchmark",
+      "priority": "P1",
+      "risk": "medium",
+      "status": "todo",
+      "title": "Mehragenten-Benchmark gegen aktuelle Ananta-Baseline",
+      "description": "Messen, ob Organization Layer und Heartbeats reale Vorteile bringen statt nur Komplexitaet. Reproduzierbare Szenarien fuer Softwareentwicklung und Research.",
+      "acceptance_criteria": [
+        "Baseline ohne Organization Layer und neue Variante werden auf identischen Aufgaben verglichen.",
+        "Gemessen werden Completion Rate, Time-to-Verified-Artifact, Token/Kosten, Duplicate Work, Human Approvals, Recovery und Policy Violations.",
+        "Mindestens ein Szenario mit 5+ Agenten und konkurrierenden Tasks.",
+        "Resultate werden als versionierte Benchmark-Artefakte gespeichert.",
+        "Keine Verbesserung wird ohne reproduzierbare Evidence behauptet."
+      ],
+      "depends_on": [
+        "PAO-008",
+        "PAO-009",
+        "PAO-010",
+        "PAO-013"
+      ]
+    },
+    {
+      "id": "PAO-015",
+      "milestone": "M5",
+      "type": "documentation",
+      "priority": "P1",
+      "risk": "low",
+      "status": "todo",
+      "title": "Operator-, Entwickler- und Blueprint-Dokumentation abschliessen",
+      "description": "Architektur, Datenmodell, Rollen, Budgets, Heartbeats, Templates, Adapter, Security-Grenzen, Migration, Rollback und Beispiele dokumentieren.",
+      "acceptance_criteria": [
+        "Golden Path: Team anlegen -> Goal -> Delegation -> Run -> Review -> Artifact.",
+        "CLI/API-Beispiele sind automatisiert parse-/testbar.",
+        "Paperclip/ai-employees werden als Inspiration/Upstream mit Lizenz und Commit-Stand dokumentiert.",
+        "Explizit dokumentiert: Ananta ist Control Plane; externe Systeme sind Adapter/Clients.",
+        "Rollout ist opt-in und rueckrollbar."
+      ],
+      "depends_on": [
+        "PAO-012",
+        "PAO-014"
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Ananta besitzt ein natives, persistentes und auditiertes Organization-/Team-/Role-Modell.",
+    "Hierarchische Delegation erweitert die bestehende Hub-Orchestrierung, ersetzt sie aber nicht.",
+    "Agent-, Team-, Goal-, Projekt- und Providerkosten sind nachvollziehbar aggregierbar und ueber Budgets begrenzbar.",
+    "Heartbeat-/Event-Wakeups sind persistent, idempotent, budgetbewusst und verursachen keine Doppelclaims.",
+    "Team-Blueprints und Employee-Kits sind portabel, versioniert, secret-scrubbed und policy-safe.",
+    "Codex, Claude-/CLI- und OpenCode-artige Harnesses koennen unter demselben Organization-Agent-Vertrag laufen.",
+    "Mindestens zwei produktionsnahe Team-Blueprints und zwei Employee-Kits sind als Beispiele vorhanden.",
+    "Security- und Concurrency-Negativtests bestehen.",
+    "Benchmark-Artefakte zeigen Kosten, Qualitaet und Orchestrierungswirkung transparent.",
+    "Paperclip bleibt optionaler Referenz-/Interop-Pfad; Ananta hat keine harte Paperclip-Abhaengigkeit."
+  ],
+  "implementation_notes": [
+    "Vor neuer Implementierung zuerst vorhandene Services/Repositories/Contracts wiederverwenden.",
+    "Keine grossen God-Services erzeugen; Domainlogik, Persistence, Policy, Projection und Runtime getrennt halten.",
+    "Bestehende Source-Line-/SRP-Gates beachten.",
+    "Neue Datenbankmigrationen muessen rollback-/upgrade-faehig und bestehende Installationen kompatibel halten.",
+    "Alle oeffentlichen API-Schemata versionieren oder migrationssicher erweitern.",
+    "Wo deterministische Logik reicht, keinen LLM-Aufruf einfuehren.",
+    "Neue UI darf keine Security-Entscheidungen clientseitig treffen."
+  ],
+  "progress_summary": {
+    "state": "todo",
+    "total_tasks": 15,
+    "todo": 15,
+    "in_progress": 0,
+    "blocked": 0,
+    "done": 0,
+    "progress_percent": 0
+  }
+}
