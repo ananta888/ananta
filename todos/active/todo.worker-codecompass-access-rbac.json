@@ -1,0 +1,412 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-27",
+  "updated_at": "2026-09-27",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "worker_codecompass_access_rbac",
+  "title": "Worker-Zugriff auf CodeCompass (Hub fuehrt aus / Hub delegiert) mit rollenbasierten Rechten",
+  "status": "in_progress",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "purpose": "Worker-Aufgaben sollen CodeCompass vollstaendig nutzen koennen, ueber zwei konfigurierbare Wege, und nur mit den Rechten ihres Auftraggebers; Rechte einfach ueber fertige Rollen, feingranular ueber eigene Rollen, gebunden an lokale Benutzer oder Keycloak.",
+  "goal": "Beide Wege (A: Hub fuehrt aus, B: Hub delegiert mit signierter Capability und Graph-Cache) Ende-zu-Ende; Rollen/Bindungen in DB mit Admin-API, Audit und Rollback; Keycloak-Gruppen, Realm- und Client-Rollen bindbar.",
+  "related_todos": [
+    "todos/active/todo.jev-llamacpp-parallel-decision-mode.json"
+  ],
+  "source_basis": {
+    "kind": "code_inventory",
+    "checked_at": "2026-09-27",
+    "supported_claims": [
+      "Im Worker scheitern codecompass.search/retrieve mit empty_scope, plan_context liefert nichts, Architektur-/Graph-Tools mit graph_artifact_not_materialized (live gemessen).",
+      "codecompass_retrieval_capability_resolver ist im Produktivcode nirgends registriert; Capability-Digest ist ein ungeschluesselter SHA-256.",
+      "Autorisierung haengt im Kern an is_admin; Keycloak-Gruppen wirken nur bei Erstanlage (feste Tabelle, realm_access ungelesen); TaskDB hat keinen Auftraggeber.",
+      "Graph-Artefakte liegen im hub-data-Volume, das Worker nicht mounten; es gibt keinen Hub->Worker-Artefaktabruf.",
+      "test.run liest allowlisted_test_commands top-level, der Tool-Loop reicht den Mutationsabschnitt nicht durch."
+    ]
+  },
+  "architecture_decisions": [
+    "Der Hub bleibt Eigentuemer von Index, Rollen, Policy und Capability-Ausstellung; Worker erhalten nur eine geschlossene, signierte, aufgabengebundene Projektion (AGENTS.md).",
+    "Standardweg fuer Worker ist B (Hub delegiert); A (Hub fuehrt aus) ist pro Installation und pro Tool zuschaltbar (Entscheidung Nutzer 2026-09-27).",
+    "Rollen und Bindungen in der DB mit Admin-API, Audit, Revisionen und Rollback; 4 eingebaute Rollen viewer/developer/maintainer/admin plus eigene Rollen (Entscheidung Nutzer 2026-09-27).",
+    "Keycloak: Gruppen, Realm-Rollen und Client-Rollen bindbar, Abgleich bei jedem Login (Entscheidung Nutzer 2026-09-27).",
+    "Additiv und rueckwaertskompatibel: ohne Bindungen gilt das bisherige admin/nicht-admin-Verhalten; bestehende Policy, Companion-Route und APIs bleiben nutzbar.",
+    "Wiederverwendung statt Duplikat: Operation-Registry/-Policy, Principal-Projektion, Companion-Route (-> Gateway), knowledge_index_dispatch-Naht, TerminalPolicyService-Muster."
+  ],
+  "non_goals": [
+    "Kein Umbau der Hub-Worker-Architektur; keine Worker-zu-Worker-Kommunikation.",
+    "Keine Frontend-UI in diesem Track (API zuerst)."
+  ],
+  "milestones": [
+    {
+      "id": "WCRB-M0",
+      "title": "Sofortkorrekturen",
+      "task_ids": [
+        "WCRB-001"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WCRB-M1",
+      "title": "Rollen und Rechte",
+      "task_ids": [
+        "WCRB-002",
+        "WCRB-003",
+        "WCRB-004",
+        "WCRB-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WCRB-M2",
+      "title": "Auftraggeber und Capability",
+      "task_ids": [
+        "WCRB-006",
+        "WCRB-007"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WCRB-M3",
+      "title": "Weg A: Hub fuehrt aus",
+      "task_ids": [
+        "WCRB-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WCRB-M4",
+      "title": "Weg B: Hub delegiert (Standard)",
+      "task_ids": [
+        "WCRB-009",
+        "WCRB-010"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "WCRB-M5",
+      "title": "Konfiguration und Konsolidierung",
+      "task_ids": [
+        "WCRB-011",
+        "WCRB-012"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "WCRB-001",
+      "milestone_id": "WCRB-M0",
+      "title": "test.run im Worker-Tool-Loop an die Test-Allowlist anbinden",
+      "type": "bugfix",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "get_tool_loop_config uebernimmt allowlisted_test_commands, test_timeout_seconds, test_output_max_chars aus ananta_worker_workspace_mutation (eine Quelle, keine Kopie)."
+      ],
+      "acceptance_criteria": [
+        "test.run fuehrt einen allowlisteten Befehl im Tool-Loop aus; nicht allowlistete bleiben policy_blocked."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-002",
+      "milestone_id": "WCRB-M1",
+      "title": "Einheitlicher Principal (Subjekt, Mandant, Rollen, Gruppen)",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "implementation": [
+        "get_current_principal() aus get_authenticated_source_control_principal verallgemeinern; Domaenen-Principals adaptieren statt duplizieren.",
+        "Rollen aus Rollenbindungen (DB) plus Token-Claims aufloesen."
+      ],
+      "acceptance_criteria": [
+        "Ein Principal-Builder fuer Hub-Routen; bestehende Domaenen-Principals unveraendert nutzbar."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-003",
+      "milestone_id": "WCRB-M1",
+      "title": "Rollen, Rechte und Rollenbindungen (DB, Admin-API, Audit, Revisionen)",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-002"
+      ],
+      "implementation": [
+        "Tabellen roles (id, name, builtin, grants) und role_bindings (subject_kind: local_user|oidc_group|oidc_realm_role|oidc_client_role, subject, role, scope tenant/project optional).",
+        "4 eingebaute Rollen: viewer, developer, maintainer, admin; eigene Rollen mit allow/deny auf Operationen und Operationsgruppen plus Einschraenkungen (Pfade, Projekte, Index-IDs).",
+        "Admin-API (CRUD, admin_required, operation_gate), jede Aenderung im Audit, Revisionen mit Rollback; Startwerte aus Konfiguration."
+      ],
+      "acceptance_criteria": [
+        "Rollen und Bindungen per API pflegbar, auditiert, rueckrollbar.",
+        "Ohne Bindungen verhaelt sich Ananta wie bisher (admin/nicht-admin)."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-004",
+      "milestone_id": "WCRB-M1",
+      "title": "Keycloak-Gruppen, Realm- und Client-Rollen an Rollen binden, bei jedem Login abgleichen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-003"
+      ],
+      "implementation": [
+        "oidc_claims_mapper liest groups, realm_access.roles und resource_access.<client>.roles; Rollen aus Bindungen statt fester Tabelle.",
+        "Abgleich bei jedem Login/Token-Tausch, nicht nur bei Erstanlage; Rollen im Hub-JWT (kurze TTL) bzw. pro Request aufgeloest."
+      ],
+      "acceptance_criteria": [
+        "Aenderung einer Keycloak-Gruppe wirkt beim naechsten Login.",
+        "Tests mit synthetischen Tokens (headless)."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-005",
+      "milestone_id": "WCRB-M1",
+      "title": "Operation-Policy entscheidet pro Rolle; Worker-Tools als Operationen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-003"
+      ],
+      "implementation": [
+        "OperationAuthContext um roles erweitern; operation_policy um role_grants; decide liefert allow:role:<r>:...; globale Policy bleibt Standard.",
+        "Worker-Tools (ananta_tool_registry) als Operationen (transport ananta.tool) registrieren; AnantaToolPolicyService nutzt dieselbe Entscheidung."
+      ],
+      "acceptance_criteria": [
+        "Eine Rolle kann ein einzelnes Tool erlauben oder verbieten; Entscheidung und rule_id im Audit.",
+        "Bestehende Policy-Tests unveraendert gruen."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-006",
+      "milestone_id": "WCRB-M2",
+      "title": "Aufgaben tragen ihren Auftraggeber",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-002"
+      ],
+      "implementation": [
+        "TaskDB: requested_by_subject, requested_by_tenant, requested_roles (Snapshot) per Migration; gesetzt in create_task aus dem Principal; System-Aufgaben mit Systemprincipal.",
+        "Tool-Rechte einer Aufgabe = Rechte des Auftraggebers (nie mehr)."
+      ],
+      "acceptance_criteria": [
+        "Aufgaben ohne Auftraggeber (Altbestand) laufen mit bisherigem Verhalten; neue tragen ihn."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-007",
+      "milestone_id": "WCRB-M2",
+      "title": "Capability-Aussteller im Hub, signiert und gebunden",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-005",
+        "WCRB-006"
+      ],
+      "implementation": [
+        "codecompass_retrieval_capability_resolver produktiv registrieren: Scope aus Auftraggeber-Rollen (Pfade, Index-IDs, Signale), Revision aus dem Index.",
+        "Signatur mit Hub-Schluessel (HMAC oder asymmetrisch) statt ungeschluesseltem Digest; Felder task_id, audience (worker_id), Ablauf.",
+        "Tools lesen die Capability nur aus der Hub-Konfiguration, nie aus Modell-Argumenten (arguments.capability entfernen)."
+      ],
+      "acceptance_criteria": [
+        "Gefaelschte, abgelaufene, fremde oder erweiterte Capabilities werden abgelehnt (Tests)."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-008",
+      "milestone_id": "WCRB-M3",
+      "title": "Weg A: gemeinsames Hub-Tool-Gateway fuer Companion und Worker",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-005",
+        "WCRB-007"
+      ],
+      "implementation": [
+        "Companion-Route in einen Gateway-Service (SRP) ueberfuehren; Companion und neue Worker-Route /api/worker/v1/tasks/<tid>/tools/<name> nutzen ihn.",
+        "Worker-Auth check_registered_worker_auth, Bindung Task<->zugewiesener Worker, Principal aus der Aufgabe, Policy, Capability, Timeout, Audit.",
+        "Worker-seitiger Remote-Executor fuer CodeCompass-Tools."
+      ],
+      "acceptance_criteria": [
+        "Companion verhaelt sich unveraendert; Worker-Tool-Loop nutzt alle CodeCompass-Tools ueber den Hub."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-009",
+      "milestone_id": "WCRB-M4",
+      "title": "Weg B: signierte Capability mit der Aufgabe an den Worker",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-007"
+      ],
+      "implementation": [
+        "Ausstellung in forward_task_request_if_remote neben knowledge_index_dispatch; Feld im Step-Request; Worker legt sie in die Tool-Konfiguration.",
+        "Architektur- und Graph-Tools erhalten config und allowed_index_ids."
+      ],
+      "acceptance_criteria": [
+        "codecompass.search/retrieve laufen im Worker lokal mit gueltiger Capability; ohne sie fail-closed."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-010",
+      "milestone_id": "WCRB-M4",
+      "title": "Weg B: Graph-Artefakte fuer Worker (Endpunkt + lokaler Cache)",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-009"
+      ],
+      "implementation": [
+        "Worker-authentifizierter Hub-Endpunkt liefert cc_graph_index.json und Metriken nach knowledge_index_id/sha256, begrenzt auf allowed_index_ids der Capability.",
+        "Content-addressed Worker-Cache; Resolver mit artifact_root des Caches, Hash-Pruefung bleibt."
+      ],
+      "acceptance_criteria": [
+        "Graph-Tools funktionieren im Worker ohne gemeinsames Volume; manipulierte Dateien werden abgelehnt."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-011",
+      "milestone_id": "WCRB-M5",
+      "title": "Zugriffsweg konfigurierbar; Tools zurueck in die Allowlist",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-008",
+        "WCRB-010"
+      ],
+      "implementation": [
+        "ananta_worker_tool_loop.codecompass_access: delegated (Standard) | hub | off, pro Tool uebersteuerbar; Rueckfall delegated->hub nur wenn konfiguriert.",
+        "Die 8 entfernten Tools wieder in die Allowlist."
+      ],
+      "acceptance_criteria": [
+        "Beide Wege Ende-zu-Ende im Worker-Tool-Loop getestet (headless mit Fakes, plus Live-Smoke)."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "WCRB-012",
+      "milestone_id": "WCRB-M5",
+      "title": "CodeCompass-Such-Tools fuer Worker zusammenfuehren",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "WCRB-011"
+      ],
+      "implementation": [
+        "Ueberschneidende Such-Tools (search, retrieve, resolve_context, plan_context, search_symbols) fuer den Worker auf klare Rollen reduzieren; Alias statt Entfernen (API-Kompatibilitaet)."
+      ],
+      "acceptance_criteria": [
+        "Jev-Abdeckung und Kalibrierung auf dem reduzierten Satz neu gemessen."
+      ],
+      "evidence": []
+    }
+  ],
+  "critical_path_tasks": [
+    "WCRB-002",
+    "WCRB-003",
+    "WCRB-005",
+    "WCRB-006",
+    "WCRB-007",
+    "WCRB-009",
+    "WCRB-010",
+    "WCRB-011"
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "success_criteria": [
+    "Alle CodeCompass-Tools funktionieren im Worker-Tool-Loop ueber B und A.",
+    "Ein Worker-Tool darf nie mehr als der Auftraggeber der Aufgabe.",
+    "Rollen sind an lokale Benutzer und Keycloak (Gruppen, Realm-, Client-Rollen) bindbar und wirken ab dem naechsten Login.",
+    "Alle Tests headless."
+  ],
+  "deliverables": [
+    "Principal-Builder, Rollen/Bindungen (DB, API), Keycloak-Mapping, rollenbasierte Policy",
+    "Auftraggeber auf Aufgaben, signierte Capability",
+    "Hub-Tool-Gateway (A), Capability-Dispatch und Graph-Cache (B), Umschalter",
+    "Doku docs/worker-codecompass-access-rbac.md"
+  ],
+  "summary_notes": []
+}
