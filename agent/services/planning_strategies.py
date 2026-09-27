@@ -9,14 +9,15 @@ from flask import current_app
 from agent.services.blueprint_planning_adapter import get_blueprint_planning_adapter
 from agent.services.execution_focused_planning import match_execution_focused_goal_template
 from agent.services.hub_llm_service import get_hub_llm_service
-from agent.services.planning_model_profile_service import get_planning_model_profile_service
 from agent.services.model_response_behavior_profile_service import get_model_response_behavior_profile_service
 from agent.services.planning_domain_hints_service import get_planning_domain_hints_service
+from agent.services.planning_model_profile_service import get_planning_model_profile_service
 from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_template_catalog import get_planning_template_catalog
-from agent.services.planning_utils import match_goal_template
 from agent.services.planning_utils import (
+    build_planning_prompt,
     build_planning_prompt_en,
+    match_goal_template,
     parse_subtasks_from_llm_response,
     try_load_repo_context,
 )
@@ -542,6 +543,14 @@ class LLMPlanningStrategy:
             return False
         return has_required_workspace_artifact and has_required_verification
 
+    @staticmethod
+    def effective_planning_policy(scoped_cfg: dict[str, Any], mode_data: Optional[dict]) -> dict[str, Any]:
+        """The scoped planning policy; a context-recovery "segment_planning" request forces segmentation."""
+        policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+        if isinstance(mode_data, dict) and mode_data.get("segment_planning"):
+            policy = {**policy, "segmented_planning_enabled": True}
+        return policy
+
     def execute(
         self,
         planner: PlannerLike,
@@ -559,7 +568,7 @@ class LLMPlanningStrategy:
         scoped_cfg = getattr(planner, "_goal_effective_config", None)
         if not isinstance(scoped_cfg, dict):
             scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-        planning_policy = scoped_cfg.get("planning_policy") if isinstance(scoped_cfg.get("planning_policy"), dict) else {}
+        planning_policy = self.effective_planning_policy(scoped_cfg, mode_data)
         team_id = str((scoped_cfg.get("routing") or {}).get("team_id") or "").strip() or None
         runtime_profiles = planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
         runtime_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
