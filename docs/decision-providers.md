@@ -245,3 +245,38 @@ harmlos klingende Fragen, die gefährlich klingen; ein Annotator, synthetisch.
 **Empfehlung:** lokaler Jev-Modus als Screening (Daten bleiben lokal, gleiche Erkennung), Jev dazu als
 Übereinstimmungs-Partner nur dort, wo Texte ohnehin extern verarbeitet werden dürfen. Schwelle 0,9;
 `uncertain` → Review, nie automatisch blockieren oder freigeben.
+
+## Text-Argumente für Jev: Auswahl statt Schreiben (2026-09-27)
+
+Jev schreibt keinen Text. Das Text-Argument eines Tools (z. B. der Suchbegriff) wird deshalb als **weitere
+Choice-Frage in derselben Anfrage** gestellt, über vorher erzeugte Kandidaten
+(`agent/services/decision_providers/argument_candidates.py`):
+
+- **aus der Anfrage** (extraktiv): Bezeichner, Pfade, Zitate, Handles, Inhaltswörter und Wortpaare;
+- **aus dem Symbolindex**: Klassen-/Funktionsnamen und Pfade des Knowledge-Index, die zu Wörtern der Anfrage
+  passen – auch Tippfehler (`cirkuit braker` → `CircuitBreaker`). Invertierter Index über Namensteile,
+  3–100 ms pro Anfrage, neu gebaut nur bei geändertem Index, thread-sicher;
+- dazu immer `whole_request` und `none_fits` (beide: die Anfrage selbst).
+
+Der Kandidat wird nur übernommen, wenn Jev ihn mit Confidence ≥ `text_min_confidence` (Standard 0,5) wählt,
+sonst gilt die ganze Anfrage. Eine unsichere Text-Frage blockiert nie den Tool-Aufruf.
+Config: `areas.tool_routing.text_candidates: true` (Standard aus), `text_min_confidence`.
+
+| 119 Tool-Fälle | Tool richtig | Argument-Treffer | präzise | p50 | $/1000 |
+|---|---|---|---|---|---|
+| heutiger lokaler Pfad (offenes Feld, formuliert) | 100 % | 100 % | 60 % | 829 ms | 0 |
+| Jev, ganze Anfrage | 95 % | 100 % | 30 % | 300 ms | 0,036 |
+| **Jev + Kandidaten, Übernahme ab 0,5** | 95–97 % | **100 %** | 57 % | 476 ms | 0,29 |
+| Jev + Kandidaten, immer übernehmen | 95–97 % | 90 % | 80 % | 476 ms | 0,29 |
+| lokal + Kandidaten | 90 % | 81 % | 57 % | 9,1 s | 0 |
+
+„Treffer“: das Argument enthält einen erwarteten Begriff; „präzise“: zusätzlich kurz (grobes Maß – bei
+rekursiven Analysefragen ist die ganze Anfrage eigentlich richtig und zählt trotzdem als unpräzise).
+Alle 5 falsch gewählten Ausschnitte hatten eine Text-Confidence unter 0,5. Mit 60 Optionen braucht der lokale
+Entscheidungsserver ~9 s – Kandidaten-Fragen sind dort nicht sinnvoll; bei Jev kosten sie ~180 ms und das
+8-fache an Input-Token (immer noch ~0,3 $ pro 1000 Entscheidungen).
+
+**Fazit:** Mit Kandidaten erreicht Jev beim Argument die Qualität des lokalen offenen Felds, schneller, aber
+in der Cloud. Wo die eGPU läuft, bleibt der lokale Pfad die erste Wahl; Jev + Kandidaten ist der
+vollwertige Ersatz, wenn sie nicht verfügbar ist.
+
