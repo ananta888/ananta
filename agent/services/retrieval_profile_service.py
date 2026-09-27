@@ -648,6 +648,11 @@ def resolve_profile(
 
     domain, intent = classify_retrieval_intent(query, cfg)
     reasons = [f"classified_domain:{domain}", f"classified_intent:{intent}"]
+    # DPRV: optional decision provider for the intent (off by default; rules stay the default answer)
+    from agent.services.retrieval_intent_decision import decide_retrieval_intent
+
+    intent, decision_reasons = decide_retrieval_intent(query, intent, cfg)
+    reasons.extend(decision_reasons)
     # Surface the trigger_mode in reasons so the TUI Profile Inspector can
     # show WHY a particular domain/intent was chosen.
     _trigger_mode_resolved = str(cfg.get("chat_codecompass_trigger_mode") or "auto").strip().lower()

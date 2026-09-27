@@ -167,6 +167,30 @@
         "open_field": true,
         "calibration": "2026-09-27: 119 labelled prompts (benchmarks/tiny_tool_router/decision_calibration*.v1.json); confidence = tool and its scored required arguments; threshold chosen on the validation split with strict labels: 0.90, holdout 20/20 correct (coverage 0.74); synthetic single-annotator labels, confirm with the companion shadow log"
       }
+    },
+    {
+      "profile_id": "decision-provider-cascade",
+      "model_id": "decision_providers.tool_routing",
+      "tier": "decision",
+      "adapter": "decision_provider",
+      "dialect": "openai",
+      "license_id": "provider-dependent",
+      "source_url": "https://api.typesafe.ai",
+      "commercial_use_allowed": true,
+      "research_only": false,
+      "supports_confidence": true,
+      "supports_parallel_tools": false,
+      "max_tools": 16,
+      "context_window": 32000,
+      "min_confidence": 0.9,
+      "local_only": false,
+      "enabled_by_default": false,
+      "metadata": {
+        "profile_status": "evaluation",
+        "decision_area": "tool_routing",
+        "docs": "docs/decision-providers.md",
+        "note": "Providers, cascade and threshold come from the Hub config section decision_providers.areas.tool_routing (TypeSafe Jev, local /v1/decision, LLM). local_only is false because the cascade may include TypeSafe Jev, which requires decision_providers.providers.jev.external_calls_allowed."
+      }
     }
   ]
 }
