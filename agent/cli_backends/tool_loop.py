@@ -39,10 +39,18 @@ _VALID_KINDS = {KIND_TOOL_REQUEST, KIND_FINAL_ANSWER, KIND_NEEDS_APPROVAL, KIND_
 _FENCED_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 
+# test.run reads these top-level keys; they are configured once, in the workspace mutation section.
+_TEST_RUN_KEYS = ("allowlisted_test_commands", "test_timeout_seconds", "test_output_max_chars")
+
+
 def get_tool_loop_config() -> dict[str, Any]:
-    cfg = dict(_get_agent_config().get("ananta_worker_tool_loop") or {})
+    agent_cfg = _get_agent_config()
+    cfg = dict(agent_cfg.get("ananta_worker_tool_loop") or {})
     tiny_router = cfg.get("tiny_router")
+    mutation = agent_cfg.get("ananta_worker_workspace_mutation")
+    test_run = {key: mutation[key] for key in _TEST_RUN_KEYS if isinstance(mutation, dict) and key in mutation}
     return {
+        **test_run,
         "enabled": bool(cfg.get("enabled", False)),
         "max_iterations": max(1, min(int(cfg.get("max_iterations") or 6), 32)),
         "max_tool_calls": max(1, min(int(cfg.get("max_tool_calls") or 12), 64)),
