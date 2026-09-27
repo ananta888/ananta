@@ -105,6 +105,28 @@ Output ONLY valid JSON matching schema."""
         return prompt
 
     @staticmethod
+    def _within_token_budget(chunks: list, budget_tokens: int) -> tuple[list, int]:
+        """The leading chunks that fit ``budget_tokens``; the rest are dropped and recorded (LCTX-003)."""
+        from agent.context_window import estimate_tokens, record_truncation
+
+        def text_of(chunk) -> str:
+            return str(chunk.get("content") or chunk.get("text") or "") if isinstance(chunk, dict) else str(chunk)
+
+        kept, used = [], 0
+        for chunk in chunks:
+            tokens = estimate_tokens(text_of(chunk))
+            if kept and used + tokens > budget_tokens:
+                break
+            kept.append(chunk)
+            used += tokens
+        dropped = len(chunks) - len(kept)
+        if dropped:
+            record_truncation("context_bundle", "drop_items",
+                              before_tokens=sum(estimate_tokens(text_of(c)) for c in chunks), after_tokens=used,
+                              dropped_items=dropped, budget_tokens=budget_tokens)
+        return kept, dropped
+
+    @staticmethod
     def build_bundle(
         *,
         query: str,
@@ -253,6 +275,7 @@ Output ONLY valid JSON matching schema."""
             filtered = filtered[:max_chunks]
         default_budget = 12000 if policy_mode == "compact" else 32000
         effective_budget = int(total_budget_tokens or default_budget)
+        filtered, budget_dropped = ContextBundler._within_token_budget(filtered, effective_budget)
         bundle_strategy = "minimal" if policy_mode == "compact" else ("deep" if policy_mode == "full" else "balanced")
         explainability_level = "minimal" if policy_mode == "compact" else ("detailed" if policy_mode == "full" else "balanced")
         chunk_text_style = "compressed_snippets" if policy_mode == "compact" else ("detailed_context" if policy_mode == "full" else "balanced_snippets")
@@ -275,6 +298,7 @@ Output ONLY valid JSON matching schema."""
                 "include_context_text": include_context_text is not False,
                 "max_chunks": max_chunks,
                 "total_budget_tokens": effective_budget,
+                "budget_dropped_chunks": budget_dropped,
                 "window_profile": "standard_32k",
                 "bundle_strategy": bundle_strategy,
                 "explainability_level": explainability_level,

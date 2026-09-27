@@ -303,7 +303,10 @@ class HybridOrchestrator:
 
         # HCCA-009: optional context compression adapter
         self._compression_adapter = None
-        compression_cfg = dict(getattr(settings, "global_config", None) or {}).get("context_compression", {})
+        # LCTX-003: the CONTEXT_COMPRESSION_* settings (settings.global_config never existed, so this was dead)
+        from agent.services.context_compression.settings_config import compression_config_from_settings
+
+        compression_cfg = compression_config_from_settings(settings)
         if compression_cfg.get("enabled"):
             try:
                 from agent.services.context_compression import build_compression_adapter
@@ -337,6 +340,11 @@ class HybridOrchestrator:
 
             req = CompressionRequest(content=content, content_type=content_type, task_intent=task_intent)
             result = self._compression_adapter.compress(req)
+            if len(result.content or "") < len(content or ""):
+                from agent.context_window import estimate_tokens, record_truncation
+
+                record_truncation("context_compression", "condense", before_tokens=estimate_tokens(content),
+                                  after_tokens=estimate_tokens(result.content), content_type=content_type)
             return result.content
         except Exception:
             return content  # always safe passthrough on any error
