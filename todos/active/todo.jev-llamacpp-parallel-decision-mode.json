@@ -111,7 +111,7 @@
     {
       "id": "JEVCPP-M4",
       "title": "Tests, Rollout und Entscheidung",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "JEVCPP-011",
         "JEVCPP-012"
@@ -272,7 +272,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 75,
       "depends_on": [
         "JEVCPP-004",
         "JEVCPP-005"
@@ -291,7 +291,8 @@
       "evidence": [
         "tests/services/tiny_router/test_tiny_router_parallel_decision.py: Low-Confidence und Endpunktfehler eskalieren; ein Write-Tool erreicht im read_only-Scope das Schema gar nicht (deterministisches Gate vor dem Scoring)",
         "Budgets: max_hops/max_total_ms des Tiny-Routers begrenzen den Pfad",
-        "Offen: Schwelle (min_confidence 0.8) ist pro Profil, noch nicht aus Validation-Messungen kalibriert (JEVCPP-009); Aktivierung im Tool-Loop erst im Shadow-Modus"
+        "Offen: Schwelle (min_confidence 0.8) ist pro Profil, noch nicht aus Validation-Messungen kalibriert (JEVCPP-009); Aktivierung im Tool-Loop erst im Shadow-Modus",
+        "2026-09-27: Schwelle 0,85 aus Validation-Messung abgeleitet (nicht global geraten); System-2 fängt die 22 % unter der Schwelle vollständig richtig ab"
       ]
     },
     {
@@ -355,10 +356,10 @@
       "milestone_id": "JEVCPP-M3",
       "title": "Qualitaet und Kalibrierung gegen normale JSON-Ausgabe benchmarken",
       "type": "evaluation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "JEVCPP-006",
         "JEVCPP-008"
@@ -380,7 +381,12 @@
         "Ergebnis 2026-09-27 (Bonsai 27B): 48/48 richtig, ECE 0,027 - das Set ist zu leicht, um Schwellen zu trennen; keine Empfehlung, min_confidence bleibt 0,8",
         "Companion-Shadow (worker/meet_media/tool_decision_shadow.py) sammelt echte Referenzen: Decision neben dem ersten wirklich gelaufenen Tool-Call, ohne Fragetext; Auswertung mit --from-shadow",
         "Offen: Vergleich mit normaler JSON-/Grammar-Ausgabe desselben Modells, schwierigere Fälle, Validation/Holdout-Trennung",
-        "2026-09-27 mit offenem Feld: 48/48 Tools, 24/24 erzeugte Argumente passend (expected.argument_contains); Warm-Median 0,625 s mit Text, 0,268 s ohne"
+        "2026-09-27 mit offenem Feld: 48/48 Tools, 24/24 erzeugte Argumente passend (expected.argument_contains); Warm-Median 0,625 s mit Text, 0,268 s ohne",
+        "2026-09-27 hartes Set benchmarks/tiny_tool_router/decision_calibration_hard.v1.json (71 Grenzfälle), zusammen 119 Fälle; Validation/Holdout-Split sha256(case_id) mod 5; Schwelle nur auf Validation gewählt",
+        "Vergleich mit normaler Chat-Tool-Ausgabe desselben Modells: Decision 119/119 (mit Alternativen), Chat 118/119; Latenz Median 0,37 s vs. 1,19 s",
+        "Bericht zeigt: 100 % erlaubte Werte != 100 % fachlich richtig (strenge Label-Genauigkeit 93,5 % auf Validation)",
+        "Schwelle 0,85 (strenge Labels): Holdout 21/21 richtig, Abdeckung 78 %; kombiniert mit System-2-Eskalation 119/119 bei 0,66 s mittlerer Latenz statt 1,19 s; im Profil gesetzt",
+        "Grenze: synthetische Labels eines Annotators, kleiner Holdout; Bestätigung über den Companion-Shadow (--from-shadow mit Split)"
       ]
     },
     {
@@ -417,10 +423,10 @@
       "milestone_id": "JEVCPP-M4",
       "title": "Headless Sicherheits-, Contract- und Regressionstests integrieren",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "depends_on": [
         "JEVCPP-005",
         "JEVCPP-006",
@@ -437,6 +443,9 @@
         "CI ist headless, zeitlich begrenzt und ohne externen Modelldownload lauffaehig.",
         "Sicherheits- und Routingregeln koennen fuer Tests nicht stillschweigend deaktiviert werden.",
         "Feature-off behaelt bestehendes Ananta-Verhalten."
+      ],
+      "evidence": [
+        "Fork: tools/server/tests/unit/test_decision.py +10 Tests für das offene Feld, 34/34 auf CUDA und CPU; Ananta: Router-, Kalibrier- und Shadow-Tests headless mit Fake-Runtimes"
       ]
     },
     {
@@ -479,13 +488,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
       "partial": 4,
       "blocked": 0,
-      "done": 3
+      "done": 4
     },
-    "progress_percent_done": 25,
+    "progress_percent_done": 33,
     "by_priority": {
       "P0": 5,
       "P1": 7,
@@ -499,13 +508,13 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 3,
-      "remaining": 6
+      "done": 4,
+      "remaining": 5
     },
     "milestones": {
       "total": 4,
-      "todo": 1,
-      "in_progress": 3,
+      "todo": 0,
+      "in_progress": 4,
       "partial": 0,
       "blocked": 0,
       "done": 0
@@ -526,11 +535,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 5,
+    "todo_remaining": 4,
     "in_progress": 0,
     "partial": 4,
     "blocked": 0,
-    "done": 3
+    "done": 4
   },
   "success_criteria": [
     "Der offene Jev-aehnliche llama.cpp-Inferenzmodus ist reproduzierbar lokal gestartet oder sein aktueller technischer Blocker ist konkret dokumentiert.",

@@ -221,6 +221,51 @@ CodeCompass?“ erzwang der Router eine Suche, das Modell rief danach selbst `co
 Jev-Modus wählte `layers_heads` direkt. `actual_first` ist deshalb nicht immer das bessere Label; die Auswertung soll
 `model_first` mitlesen.
 
-**Offen:** Die Fork-Testsuite `tools/server/tests/unit/test_decision.py` ist für das offene Feld noch nicht erweitert
-und nicht gelaufen (sie startet eigene Server, braucht die GPU frei). Die PR ist upstream offen; bei einem Merge dort ist
-unser Port abzugleichen.
+- **Immer ein String** (`d6a9bdd8f`): Das Präfix enthält das öffnende `"`; das Modell schreibt nur den Inhalt bis
+  zum schließenden `"`. Vorher begann Bonsai einmal mit einer Zahl (`8` statt `passwort`), und die ging als Wert durch.
+
+**Tests im Fork:** `tools/server/tests/unit/test_decision.py` hat 10 Tests für das offene Feld (Antwortform, Erzeugung
+ändert das Scoring nicht, `when`, Bilder, Kontext-Cache, typisierte Fehler); 34/34 grün auf `bonsai-decision` (CUDA)
+und `vision-decision` (CPU). Lauf: `LLAMA_SERVER_BIN_PATH=…/llama-server PORT=18160 python -m pytest unit/test_decision.py`
+in `tools/server/tests` (eigenes venv mit `requirements.txt` und `filelock`).
+
+## Upstream-Abgleich (PR #14)
+
+Stand 2026-09-27: PR #14 offen, ein Commit (`d0ec6f954`), kein Review. Unsere Ports liegen auf `bonsai-decision` und
+`vision-decision` (Submodul-Pin). Abweichungen vom PR, die bei einem Upstream-Merge abzugleichen sind:
+
+| Punkt | PR #14 | unser Port |
+|---|---|---|
+| Stopp | bis EOS oder `max_tokens` | am schließenden `"` (Modell erfindet sonst Felder) |
+| Wertform | beliebiger JSON-Wert, nachträglich geparst | Präfix mit `"`: immer String |
+| Prefix-Batch | `min(n_batch, len)` angelegt, alle Tokens hinein (Überlauf bei langem Präfix) | in `n_batch`-Stücken |
+| Bedingung | – | `when` + `skipped` |
+| Schema | nur offenes Feld erlaubt | mindestens ein geschlossenes Feld; offenes Feld nicht `nullable` |
+| Startposition | `shared + context` | `pos_next` des Trunks (M-RoPE-Bilder, `context_tail`) |
+| API | `max_tokens`, `open_sampling`, `open_temp`, `generated_tokens`, `generation_ms` | gleich, plus `skipped` |
+
+Ein Kommentar an den PR mit den drei Funden (Stopp, Prefix-Batch, `when`) ist vorbereitet, aber nicht gepostet.
+
+## Kalibrierung mit Grenzfällen und Vergleich mit dem Chat-Pfad (JEVCPP-009)
+
+Zweites Set `benchmarks/tiny_tool_router/decision_calibration_hard.v1.json` (71 Fälle): Allgemeinwissen, das technisch
+klingt; Meeting-Fragen ohne passendes Tool; umgangssprachliche und vertippte Code-Fragen; Grenzen Suche/Überblick/
+rekursive Analyse; Handles; Mehrfachabsichten; Injection-Versuche. `expected.also_acceptable` nennt vertretbare
+Alternativen bei echter Mehrdeutigkeit. Split: `sha256(case_id)` mod 5 = Holdout (27 von 119), die Schwelle wird nur
+auf Validation gewählt. Lauf: `scripts/jev_tool_decision_calibration.py --cases … --cases … --compare-chat`.
+
+| 119 Fälle, Bonsai 27B | Decision-Modus | Chat-Tool-Call (gleiches Modell) |
+|---|---|---|
+| Tool richtig (mit Alternativen) | 119/119 | 118/119 („Wer ist gerade im Raum?“ → Suche) |
+| Tool richtig, nur Label (Validation) | 93,5 % | – |
+| erzeugte Argumente passend | 59/59 | 98,3 % |
+| Latenz Median / p90 | 0,37 s / 0,67 s | 1,19 s / 1,90 s |
+
+- Die 7 Abweichungen vom Label im harten Set sind alle vertretbare Alternativen und liegen alle bei p 0,46–0,84:
+  Die Wahrscheinlichkeit trennt Mehrdeutigkeit ab.
+- **Schwelle 0,85** (auf Validation mit strengen Labels gewählt): Holdout 21/21 richtig, Abdeckung 78 %
+  (95-%-Untergrenze 0,886, kleines n). Im Profil gesetzt (`min_confidence` 0,85).
+- **Kombiniert** (≥ 0,85 schneller Pfad, sonst Chat): 97 Fälle schnell, alle richtig, 22 an den Chat, alle richtig;
+  mittlere Latenz 0,66 s statt 1,19 s. Bei 0,80 wären 3 Tool-Wahlen falsch.
+- Grenzen: synthetische Labels eines Annotators, kleiner Holdout. Der Companion-Shadow bestätigt oder korrigiert die
+  Schwelle mit echten Fragen (`--from-shadow`, ebenfalls mit Split).
