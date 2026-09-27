@@ -84,7 +84,7 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture(autouse=True)
-def _integration_planning_timeout_brake(request, app, monkeypatch):
+def _integration_planning_timeout_brake(request, app):
     """Cap planning_policy timeouts for integration tests.
 
     Even with the opt-in gate above, integration tests that start a real
@@ -101,6 +101,10 @@ def _integration_planning_timeout_brake(request, app, monkeypatch):
     test cannot kill the whole suite.
 
     Only fires for integration-marked tests. Other tests are untouched.
+    It must not request ``monkeypatch``: an autouse fixture that does creates the
+    shared monkeypatch before ``cleanup_db_and_runtime`` and so undoes a test's
+    patches (e.g. ``settings.data_dir``) only after the cleanup ran its isolation
+    guard -- which then failed every such test.
     No teardown: app.config lives as long as the request-scoped app fixture,
     so the shrunk dict is discarded automatically when the app is rebuilt
     for the next test. Using `yield` here would silently turn this fixture
