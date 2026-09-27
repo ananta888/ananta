@@ -949,6 +949,38 @@ def get_request_auth_context() -> dict:
     return {}
 
 
+def _request_auth_source() -> str:
+    if getattr(g, "service_identity", None):
+        return "worker"
+    if getattr(g, "auth_payload", None):
+        return "agent_token"
+    if getattr(g, "user", None):
+        return "user_jwt"
+    return "pre_authenticated_context" if hasattr(g, "is_admin") else "anonymous"
+
+
+def get_current_principal():
+    """The requesting identity with the grants of its bound access roles (WCRB-002).
+
+    Built from the authenticated request context only, like the domain
+    principals below; those can be derived from it.
+    """
+    from agent.repositories.auth import OidcIdentityLinkRepository
+    from agent.services.access_principal import build_access_principal
+    from agent.services.access_role_admin_service import get_access_role_admin_service
+
+    service = get_access_role_admin_service()
+    auth_source = _request_auth_source()
+    return build_access_principal(
+        get_request_auth_context(),
+        is_admin=bool(getattr(g, "is_admin", False)),
+        auth_source=auth_source,
+        grants_for=service.grants_for,
+        # Keycloak memberships as of the user's last login (WCRB-004)
+        memberships_for=OidcIdentityLinkRepository().memberships_for_username if auth_source == "user_jwt" else None,
+    )
+
+
 def get_authenticated_source_control_principal():
     """Project the authenticated request identity into the Hub policy contract.
 
@@ -957,31 +989,11 @@ def get_authenticated_source_control_principal():
     intentionally never consulted.
     """
 
+    from agent.services.access_principal import token_roles
     from agent.services.source_control_access_policy import HubSourcePrincipal
 
     context = get_request_auth_context()
-    roles: set[str] = set()
-
-    def _add_roles(value: Any) -> None:
-        if isinstance(value, str):
-            candidates = value.replace(",", " ").split()
-        elif isinstance(value, (list, tuple, set, frozenset)):
-            candidates = [str(item) for item in value]
-        else:
-            candidates = []
-        roles.update(
-            str(item).strip().lower().replace("-", "_")
-            for item in candidates
-            if str(item).strip()
-        )
-
-    _add_roles(context.get("role"))
-    _add_roles(context.get("roles"))
-    realm_access = context.get("realm_access")
-    if isinstance(realm_access, Mapping):
-        _add_roles(realm_access.get("roles"))
-    if bool(getattr(g, "is_admin", False)):
-        roles.add("admin")
+    roles = set(token_roles(context, is_admin=bool(getattr(g, "is_admin", False))))
 
     subject_id = str(
         context.get("sub")

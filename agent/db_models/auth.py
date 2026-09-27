@@ -39,6 +39,10 @@ class OidcIdentityLinkDB(SQLModel, table=True):
     issuer: str = Field(index=True)
     subject: str = Field(index=True)
     created_at: float = Field(default_factory=time.time)
+    # Keycloak groups, realm roles and client roles as of the last login (WCRB-004); the access-role
+    # bindings match against them, so a changed membership takes effect at the next login.
+    memberships: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    memberships_updated_at: Optional[float] = Field(default=None)
 
 
 class UserInstructionProfileDB(SQLModel, table=True):

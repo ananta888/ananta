@@ -9,6 +9,7 @@ from agent.bootstrap.persona_media import configure_persona_media
 from agent.bootstrap.route_aliases import register_route_aliases
 from agent.bootstrap.source_control_api import register_source_control_api
 from agent.config import settings
+from agent.routes.access_roles import access_roles_bp
 from agent.routes.admin.planning_dataset import planning_dataset_bp
 from agent.routes.admin.planning_metrics import planning_metrics_bp
 from agent.routes.admin.planning_review import planning_review_bp
@@ -211,6 +212,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(organization_topology_bp)
     app.register_blueprint(organization_topology_patches_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(access_roles_bp)
     if settings.auth_test_endpoints_enabled and os.environ.get("RUN_SEMANTIC_MEDIA_LIVE_E2E", "").strip() == "1":
         # Imported only in the explicit live-test runtime so this route does
         # not exist in a normal Hub process, even as a hidden 404 endpoint.

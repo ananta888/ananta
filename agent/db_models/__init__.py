@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .access_roles import AccessPolicyRevisionDB, AccessRoleBindingDB, AccessRoleDB
 from .agents import AgentInfoDB
 from .auth import (
     BannedIPDB,
@@ -412,6 +413,9 @@ from .workflow_runtime import (
 )
 
 __all__ = [
+    "AccessPolicyRevisionDB",
+    "AccessRoleBindingDB",
+    "AccessRoleDB",
     "SourceAdmissionReceiptDB",
     "AgentInfoDB",
     "ActionPackDB",

@@ -94,6 +94,29 @@ class OidcIdentityLinkRepository:
             session.refresh(link)
             return link
 
+    def update_memberships(self, issuer: str, subject: str, memberships: dict) -> bool:
+        """Store the Keycloak memberships of a linked subject as of this login (WCRB-004)."""
+        with Session(engine) as session:
+            link = session.exec(select(OidcIdentityLinkDB).where(
+                OidcIdentityLinkDB.issuer == issuer, OidcIdentityLinkDB.subject == subject)).first()
+            if link is None:
+                return False
+            link.memberships = dict(memberships or {})
+            link.memberships_updated_at = time.time()
+            session.add(link)
+            session.commit()
+            return True
+
+    def memberships_for_username(self, username: str) -> dict[str, list[str]]:
+        """The stored memberships of every identity linked to ``username``, merged."""
+        merged: dict[str, set[str]] = {"groups": set(), "realm_roles": set(), "client_roles": set()}
+        with Session(engine) as session:
+            links = session.exec(select(OidcIdentityLinkDB).where(OidcIdentityLinkDB.username == username)).all()
+        for link in links:
+            for key in merged:
+                merged[key].update(str(item) for item in (link.memberships or {}).get(key) or [])
+        return {key: sorted(values) for key, values in merged.items()}
+
     def provision_user_with_link(
         self,
         *,
