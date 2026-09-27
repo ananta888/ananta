@@ -9,6 +9,7 @@ from agent.services.local_runtime_response_adapters import (
     normalize_ollama_generate,
 )
 from agent.utils import _http_post
+from ananta_contracts.provider_endpoint_policy import build_provider_request_url
 
 
 def _ananta_hop_headers() -> dict[str, str]:
@@ -33,6 +34,14 @@ def _ananta_hop_headers() -> dict[str, str]:
             hop_count = 0
     headers["X-Ananta-Hop-Count"] = str(hop_count + 1)
     return headers
+
+
+def _request_url(provider: Optional[str], url: str) -> str:
+    """The chat-completions URL for ``url``, normalized like the provider endpoint policy; unchanged if it cannot be."""
+    try:
+        return build_provider_request_url(provider_id=str(provider or "openai"), endpoint_url=url)
+    except ValueError:
+        return url
 
 
 class OpenAIStrategy(LLMStrategy):
@@ -77,8 +86,10 @@ class OpenAIStrategy(LLMStrategy):
             if provider_key in ("openai", "codex"):
                 payload["response_format"] = {"type": "json_object"}
 
+        # The URL the provider middleware checked: an API base such as ``/v1`` becomes ``/v1/chat/completions``.
+        request_url = _request_url(provider, url)
         resp = _http_post(
-            url,
+            request_url,
             payload,
             headers=headers,
             timeout=timeout,
@@ -86,7 +97,7 @@ class OpenAIStrategy(LLMStrategy):
             return_response=True,
             allow_redirects=False,
         )
-        self._handle_response(resp, url)
+        self._handle_response(resp, request_url)
 
         data = resp.json()
         if isinstance(data, dict):

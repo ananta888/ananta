@@ -11,6 +11,18 @@ def normalize_openai_compatible_base_url(url: str | None) -> str | None:
     return _normalize_lmstudio_base_url(url)
 
 
+# OpenAI-shaped transports a local backend may use. "llamacpp" is also a local provider for the endpoint
+# policy, so a llama-server on host.docker.internal is classified as local instead of as an external OpenAI.
+_OPENAI_SHAPED_TRANSPORTS = frozenset({"openai", "llamacpp"})
+
+
+def _transport_provider(item: dict[str, Any], backend_id: str) -> str:
+    requested = str(item.get("transport_provider") or "").strip().lower()
+    if requested in _OPENAI_SHAPED_TRANSPORTS:
+        return requested
+    return backend_id if backend_id in _OPENAI_SHAPED_TRANSPORTS else "openai"
+
+
 def _normalize_local_backend_entry(
     item: dict[str, Any] | None,
     *,
@@ -29,7 +41,7 @@ def _normalize_local_backend_entry(
         tool_calling = item.get("tool_calling")
     return {
         "provider": backend_id,
-        "transport_provider": "openai",
+        "transport_provider": _transport_provider(item, backend_id),
         "name": str(item.get("name") or backend_id),
         "base_url": base_url,
         "api_key": str(item.get("api_key") or "").strip() or None,

@@ -346,3 +346,28 @@ def test_cliproxyapi_invalid_url_returns_none_for_base_url_only():
     assert n is not None
     assert n["base_url"] is None
     assert n["provider"] == "cliproxyapi"  # entry is not dropped
+
+def test_a_llamacpp_backend_keeps_its_own_openai_shaped_transport():
+    from agent.local_llm_backends import resolve_local_openai_backend
+
+    cfg = {"local_openai_backends": [
+        {"id": "llamacpp", "base_url": "http://host.docker.internal:18150/v1"},
+        {"id": "other-server", "base_url": "http://host.docker.internal:9000/v1", "transport_provider": "llamacpp"},
+        {"id": "remote-ish", "base_url": "http://host.docker.internal:9001/v1", "transport_provider": "anthropic"},
+        {"id": "plain", "base_url": "http://host.docker.internal:9002/v1"},
+    ]}
+    assert resolve_local_openai_backend("llamacpp", agent_cfg=cfg)["transport_provider"] == "llamacpp"
+    assert resolve_local_openai_backend("other-server", agent_cfg=cfg)["transport_provider"] == "llamacpp"
+    # only OpenAI-shaped transports; anything else stays the previous default
+    assert resolve_local_openai_backend("remote-ish", agent_cfg=cfg)["transport_provider"] == "openai"
+    assert resolve_local_openai_backend("plain", agent_cfg=cfg)["transport_provider"] == "openai"
+
+
+def test_the_llamacpp_transport_counts_as_local_for_the_endpoint_policy():
+    from ananta_contracts.provider_endpoint_policy import validate_provider_endpoint_resolution
+
+    validate_provider_endpoint_resolution(provider_id="llamacpp", endpoint_url="http://host.docker.internal:18150/v1")
+    with pytest.raises(ValueError):
+        validate_provider_endpoint_resolution(
+            provider_id="openai", endpoint_url="http://host.docker.internal:18150/v1",
+            resolver=lambda *args, **kwargs: [(0, 0, 0, "", ("172.17.0.1", 18150))])
