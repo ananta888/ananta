@@ -78,7 +78,7 @@ class Decider:
 
 @pytest.mark.parametrize("response, passed", [
     (answer("codecompass_search", 0.93, "CircuitBreaker"), True),
-    (answer("codecompass_search", 0.80, "CircuitBreaker"), False),  # below the calibrated 0.85
+    (answer("codecompass_search", 0.88, "CircuitBreaker"), False),  # below the calibrated 0.90
     (answer("none", 0.99, skipped=True), False),                    # respond: the model answers
     (answer("codecompass_layers_heads", 0.97, skipped=True), True),
 ])
@@ -100,10 +100,10 @@ def test_settings(tmp_path):
     assert tool_decision.fast_choice_from_env(decider, {}) is None  # off by default
     assert tool_decision.fast_choice_from_env(None, {tool_decision.FAST_ENV: "1"}) is None
     fast = tool_decision.fast_choice_from_env(decider, {tool_decision.FAST_ENV: "1"})
-    assert fast._min_confidence == 0.85
+    assert fast._min_confidence == 0.90
     # operators may raise the threshold, not lower it below the calibrated value
     def threshold(value):
         env = {tool_decision.FAST_ENV: "1", tool_decision.MIN_CONFIDENCE_ENV: value}
         return tool_decision.fast_choice_from_env(decider, env)._min_confidence
 
-    assert threshold("0.5") == 0.85 and threshold("0.95") == 0.95 and threshold("x") == 0.85
+    assert threshold("0.5") == 0.90 and threshold("0.95") == 0.95 and threshold("x") == 0.90

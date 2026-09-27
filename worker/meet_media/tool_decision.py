@@ -8,7 +8,7 @@ redirects, no proxy, bounded body, redacted errors) and the settings.
 - ``ToolDecider.decide`` asks once and never raises: a failure is an outcome
   with an error code.
 - ``FastToolChoice`` is the fast path: it passes on a tool call only when the
-  decision is confident (``MEET_TOOL_DECISION_MIN_CONFIDENCE``, default 0.85,
+  decision is confident (``MEET_TOOL_DECISION_MIN_CONFIDENCE``, default 0.90,
   calibrated in docs/jev-llamacpp-decision-mode.md); anything else leaves the
   choice to the model.
 
@@ -38,7 +38,7 @@ FAST_ENV = "MEET_TOOL_DECISION_FAST"
 MIN_CONFIDENCE_ENV = "MEET_TOOL_DECISION_MIN_CONFIDENCE"
 ARGUMENT_ENV = "MEET_TOOL_DECISION_ARGUMENT"
 LEGACY_ARGUMENT_ENV = "MEET_TOOL_DECISION_SHADOW_ARGUMENT"
-DEFAULT_MIN_CONFIDENCE = 0.85
+DEFAULT_MIN_CONFIDENCE = 0.90
 BUDGET_SECONDS = 4.0  # the fast path sits in front of the reply
 _FALSE = frozenset({"0", "false", "off", "no"})
 

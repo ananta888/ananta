@@ -6,9 +6,11 @@ definitions, the request body, and reads a response strictly into a
 ``ToolDecision``. No transport and no policy here: callers post the body with
 their own client and keep their own gates.
 
-Schema: a ``tool`` field (every tool plus ``none``); per tool, every argument
-with a fixed value set (enum, boolean, small integer range) as a field scored
-"as if this tool were used"; and, with ``open_field``, one bounded open field
+Schema: a ``tool`` field (every tool plus ``none``); per tool, every required
+argument with a fixed value set (enum, boolean, small integer range) as a
+field scored "as if this tool were used" (optional ones keep the tool's
+default: nobody asked for them, and an unsure pick would drag the call's
+confidence down); and, with ``open_field``, one bounded open field
 that fills a tool's single required free string (a search ``query``, a
 ``handle``). The open field is generated after the closed fields, only when a
 tool that takes it wins (``when``), so it is conditioned on the chosen tool.
@@ -145,11 +147,12 @@ def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]], *, open_field
         required = set(parameters.get("required") or [])
         missing: list[str] = []
         for argument, spec in properties.items():
+            if argument not in required:
+                continue  # optional: the tool's default applies
             values = fixed_values(spec)
             field_name = _FIELD_NAME.sub("_", f"{name}__{argument}")[:64]
             if values is None or len(arguments) >= budget or not re.match(r"[A-Za-z_]", field_name):
-                if argument in required:
-                    missing.append(str(argument))
+                missing.append(str(argument))
                 continue
             arguments.append(ArgumentField(field_name, name, str(argument), values))
         missing.extend(str(argument) for argument in required if argument not in properties)

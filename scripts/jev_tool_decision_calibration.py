@@ -52,6 +52,7 @@ from ananta_contracts.tool_decision import (  # noqa: E402
     TEXT_FIELD,
     TOOL_FIELD,
     build_tool_decision_schema,
+    read_tool_decision,
     request_body,
 )
 from scripts.jev_decision_smoke import post as post_json  # noqa: E402
@@ -160,11 +161,14 @@ def main(argv: list[str] | None = None) -> int:
                                  request_body(decision, case["prompt"], model_id=args.model), args.timeout)
         fields = response["results"][0]["fields"]
         tool = fields[TOOL_FIELD]
-        observation = Observation(case["id"], expected, str(tool["value"]), float(tool["probability"]), also)
+        # the confidence the fast path acts on: the tool and its scored required arguments
+        confidence = read_tool_decision(response, decision, min_confidence=0.0).confidence
+        observation = Observation(case["id"], expected, str(tool["value"]), confidence, also)
         observations.append(observation)
         seconds_all.append(seconds)
-        row = {"id": case["id"], "value": tool["value"], "probability": tool["probability"],
-               "margin": tool.get("margin"), "correct": observation.correct, "seconds": round(seconds, 3),
+        row = {"id": case["id"], "value": tool["value"], "probability": confidence,
+               "tool_probability": tool["probability"], "margin": tool.get("margin"),
+               "correct": observation.correct, "seconds": round(seconds, 3),
                "holdout": is_holdout(case["id"])}
         text = fields.get(TEXT_FIELD)
         if isinstance(text, dict) and not text.get("skipped"):

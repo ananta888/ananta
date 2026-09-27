@@ -37,7 +37,8 @@ RESTART = tool("service.restart", {
     "service": {"type": "string", "enum": ["hub", "worker"]},
     "force": {"type": "boolean"},
     "delay": {"type": "integer", "minimum": 0, "maximum": 5},
-}, required=("service",))
+    "note": {"type": "string", "enum": ["a", "b"]},  # optional: not scored
+}, required=("service", "force", "delay"))
 SEARCH = tool("repo.search", {"query": {"type": "string"}}, required=("query",))
 STATUS = tool("hub.status")
 TOOLS = [RESTART, SEARCH, STATUS]
@@ -75,6 +76,7 @@ def test_the_schema_has_a_tool_field_with_none_and_fixed_value_arguments_only():
     assert decision.schema["service_restart__force"]["type"] == "boolean"
     assert decision.schema["service_restart__delay"]["type"] == "integer"
     assert "repo_search__query" not in decision.schema  # free text cannot be scored
+    assert "service_restart__note" not in decision.schema  # optional: the tool's default applies
     assert decision.free_text_tools == {"repo.search"}
     assert decision.dependencies["tool"] == "independent"
     assert decision.dependencies["service_restart__force"] == "grouped:service.restart"
