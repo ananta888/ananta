@@ -122,10 +122,16 @@ def build_iteration_prompt(
         f"Feedback-Iteration {iteration}/{max_iterations}.",
     ]
     if evidence_blocks:
+        from agent.cli_backends.context_budget import available_chars, fit_blocks
+
         parts += ["", "## Feedback aus vorherigen Iterationen (Evidence, dedupliziert)"]
+        formatted = []
         for block in evidence_blocks[-_MAX_EVIDENCE_BLOCKS:]:
             serialized = json.dumps(block, ensure_ascii=False, indent=2)
             if len(serialized) > max_chars_per_block:
                 serialized = serialized[: max_chars_per_block - 14] + "\n…[truncated]"
-            parts.append(f"```json\n{serialized}\n```")
+            formatted.append(f"```json\n{serialized}\n```")
+        # LCTX-012: the evidence gets what the window leaves after task and instructions
+        parts += fit_blocks(formatted, available_chars("\n".join(parts)), site="mutation_loop.evidence",
+                            iteration=iteration)
     return "\n".join(parts)

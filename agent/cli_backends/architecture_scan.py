@@ -8,9 +8,9 @@ from typing import Any
 
 from flask import has_app_context
 
-from agent.config import settings
-from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.context import default_context as _ctx
+from agent.cli_backends.helpers import _get_agent_config
+from agent.config import settings
 
 log = logging.getLogger(__name__)
 
@@ -378,22 +378,23 @@ def _build_iteration_prompt(
     total_steps: int,
     is_synthesis: bool = False,
 ) -> str:
-    """Assemble the prompt for one iteration step of the ananta-worker loop."""
-    parts: list[str] = [original_prompt.rstrip(), "\n\n---\n\n"]
+    """Assemble the prompt for one iteration step of the ananta-worker loop.
+
+    LCTX-012: the progress so far gets the room the window leaves after task, rules and the current batch
+    (newest steps complete, older condensed, oldest left out -- recorded), instead of a fixed cut.
+    """
+    head: list[str] = [original_prompt.rstrip(), "\n\n---\n\n"]
 
     # CCARI-005: prepend the codecompass runtime rule when at least one block in
     # the batch is a codecompass_snippet. The rule is a one-line reminder; the
     # full ruleset is documented in
     # ``docs/codecompass-agent-runtime-instructions.md``.
     if _needs_codecompass_runtime_rules(batch):
-        parts.append(_CODECOMPASS_RUNTIME_RULE + "\n\n---\n\n")
+        head.append(_CODECOMPASS_RUNTIME_RULE + "\n\n---\n\n")
 
-    if progress_so_far:
-        prog = progress_so_far if len(progress_so_far) <= 6_000 else "…\n" + progress_so_far[-6_000:]
-        parts.append(f"**Bisheriger Arbeitsfortschritt:**\n\n{prog}\n\n---\n\n")
-
+    tail: list[str] = []
     if is_synthesis:
-        parts.append(
+        tail.append(
             "Alle relevanten Quelldateien wurden analysiert. "
             "Erstelle jetzt das vollständige, abschließende Ergebnis "
             "basierend auf dem gesamten Arbeitsfortschritt oben. "
@@ -412,14 +413,23 @@ def _build_iteration_prompt(
                 f"**Schritt {step}/{total_steps}** — "
                 "Analysiere die weiteren Quelldateien und ergänze deinen Fortschritt."
             )
-        parts.append(header + "\n\n")
+        tail.append(header + "\n\n")
         for block in batch:
             h = _format_block_header(block)
             lang = block.get("lang") or "text"
             content = block.get("content") or ""
-            parts.append(f"{h}\n```{lang}\n{content}\n```\n\n")
+            tail.append(f"{h}\n```{lang}\n{content}\n```\n\n")
 
-    return "".join(parts)
+    progress: list[str] = []
+    if progress_so_far:
+        from agent.cli_backends.context_budget import available_chars, fit_blocks
+
+        separator = "\n\n---\n\n"
+        frame = "**Bisheriger Arbeitsfortschritt:**\n\n" + separator
+        budget = available_chars("".join(head), "".join(tail), frame)
+        steps = fit_blocks(progress_so_far.split(separator), budget, site="batch_loop.progress", step=step)
+        progress.append(f"**Bisheriger Arbeitsfortschritt:**\n\n{separator.join(steps)}{separator}")
+    return "".join(head + progress + tail)
 
 
 def _read_research_context(workdir: str | None) -> dict:

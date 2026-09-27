@@ -226,27 +226,17 @@ def build_tool_loop_prompt(
         f"Iteration {iteration}/{max_iterations}.",
     ]
     if tool_results:
-        parts += ["", "## Bisherige ToolResults (Evidence)"]
-        # the newest results stay complete; older ones are condensed once the total budget is used up
-        remaining = int(max_total_tool_result_chars or _default_total_tool_result_chars())
-        blocks: list[str] = []
-        full_chars = kept_chars = condensed = 0
-        for result in reversed(tool_results):
-            block = _format_tool_result_block(result, max_chars=max_tool_result_chars)
-            full_chars += len(block)
-            if len(block) > remaining:
-                block = _condensed_tool_result_block(result)
-                condensed += 1
-            remaining -= len(block)
-            kept_chars += len(block)
-            blocks.append(block)
-        parts += list(reversed(blocks))
-        if condensed:
-            from agent.context_window import CHARS_PER_TOKEN, record_truncation
+        from agent.cli_backends.context_budget import available_chars, fit_blocks
 
-            record_truncation("tool_loop.results", "condense", before_tokens=full_chars // CHARS_PER_TOKEN,
-                              after_tokens=kept_chars // CHARS_PER_TOKEN, dropped_items=condensed,
-                              iteration=iteration)
+        parts += ["", "## Bisherige ToolResults (Evidence)"]
+        # LCTX-012: results get what the window leaves after task and instructions (newest complete, older
+        # condensed, oldest left out); the configured total stays an upper bound
+        budget = available_chars("\n".join(parts), cap_chars=int(max_total_tool_result_chars
+                                                                 or _default_total_tool_result_chars()))
+        formatted = [_format_tool_result_block(result, max_chars=max_tool_result_chars) for result in tool_results]
+        condensed_of = {block: _condensed_tool_result_block(result) for block, result in zip(formatted, tool_results)}
+        parts += fit_blocks(formatted, budget, site="tool_loop.results",
+                            condense=lambda block: condensed_of.get(block, block), iteration=iteration)
     return "\n".join(parts)
 
 
