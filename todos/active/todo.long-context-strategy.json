@@ -81,7 +81,8 @@
         "LCTX-006",
         "LCTX-007",
         "LCTX-008",
-        "LCTX-009"
+        "LCTX-009",
+        "LCTX-012"
       ],
       "status": "todo"
     },
@@ -241,10 +242,10 @@
       "milestone_id": "LCTX-M3",
       "title": "Strategie: nacheinander mit mitlaufendem Zwischenstand",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-004"
       ],
@@ -255,17 +256,19 @@
       "acceptance_criteria": [
         "Ein Dokument mit mehrfacher Fenstergroesse wird vollstaendig und in Reihenfolge verarbeitet."
       ],
-      "evidence": []
+      "evidence": [
+        "f7fc4a77b: context_chunking, long_context_plan, long_context_coordinator; Split im Autopilot-Dispatcher (mode active), Eingaben der Vorgaenger bei Freigabe, Wellen fuer max_parallel, erneute Zerlegung eines zu grossen Reduce, Abschluss des Ursprungs-Tasks; tests/test_long_context_split.py; Regression 962 passed (bekannte Altfehler)"
+      ]
     },
     {
       "id": "LCTX-008",
       "milestone_id": "LCTX-M3",
       "title": "Strategie: parallel (Map-Reduce) ueber Hub-Tasks",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-004"
       ],
@@ -276,7 +279,9 @@
       "acceptance_criteria": [
         "Viele unabhaengige Dateien/Teile werden parallel verarbeitet; Reduce-Schritt ueberschreitet nie das Fenster."
       ],
-      "evidence": []
+      "evidence": [
+        "f7fc4a77b: context_chunking, long_context_plan, long_context_coordinator; Split im Autopilot-Dispatcher (mode active), Eingaben der Vorgaenger bei Freigabe, Wellen fuer max_parallel, erneute Zerlegung eines zu grossen Reduce, Abschluss des Ursprungs-Tasks; tests/test_long_context_split.py; Regression 962 passed (bekannte Altfehler)"
+      ]
     },
     {
       "id": "LCTX-009",
@@ -341,6 +346,31 @@
         "Doku beschreibt nur Wirkendes."
       ],
       "evidence": []
+    },
+    {
+      "id": "LCTX-012",
+      "milestone_id": "LCTX-M3",
+      "title": "Worker: jede Iteration im 32k-Fenster",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 100,
+      "depends_on": [
+        "LCTX-002"
+      ],
+      "implementation": [
+        "agent/cli_backends/context_budget.py: Platz fuer wachsende Teile = Fenster - Antwortreserve (2k) - feste Teile (Auftrag, Anweisungen, aktueller Stapel); neueste Eintraege vollstaendig, aeltere verdichtet, aelteste mit Vermerk ausgelassen, alles protokolliert.",
+        "Tool-Loop (ToolResults), Batch-Loop (Arbeitsfortschritt statt harter 6000-Zeichen-Schnitt), Mutations-Loop (Feedback-Evidence) nutzen es.",
+        "Der Worker liest Hub-Kontext und Recherche aus Workspace-Dateien bei Bedarf (bestehendes Prinzip); das sgpt-Budget-Gate bleibt letztes Sicherheitsnetz."
+      ],
+      "acceptance_criteria": [
+        "Jeder Iterations-Prompt der drei Worker-Loops passt ins Fenster (Tests mit grossem Auftrag und vielen Ergebnissen).",
+        "Fruehe Erkenntnisse im Batch-Loop gehen nicht mehr still verloren."
+      ],
+      "evidence": [
+        "tests/test_worker_context_budget.py; Regression Worker-Loops 331 passed (einziger Fehlschlag: Schichtpruefung wegen agent/cli_backends/pi_policy.py aus fremdem Commit)"
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -349,7 +379,8 @@
     "LCTX-004",
     "LCTX-007",
     "LCTX-008",
-    "LCTX-009"
+    "LCTX-009",
+    "LCTX-012"
   ],
   "success_criteria": [
     "Keine Aufgabe laeuft ueber das Fenster; jede Kuerzung ist protokolliert.",
@@ -363,31 +394,31 @@
   ],
   "summary_notes": [],
   "tasks_status_summary": {
-    "total": 11,
+    "total": 12,
     "by_status": {
-      "todo": 7,
+      "todo": 5,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 7
     },
-    "progress_percent_done": 36.4,
+    "progress_percent_done": 58.3,
     "by_priority": {
-      "P0": 3,
+      "P0": 4,
       "P1": 6,
       "P2": 2,
       "P3": 0
     },
     "by_risk": {
       "low": 2,
-      "medium": 6,
+      "medium": 7,
       "high": 3,
       "critical": 0
     },
     "critical_path": {
-      "total": 6,
-      "done": 3,
-      "remaining": 3
+      "total": 7,
+      "done": 6,
+      "remaining": 1
     },
     "milestones": {
       "total": 5,
@@ -399,7 +430,7 @@
     }
   },
   "tasks_type_summary": {
-    "total": 11,
+    "total": 12,
     "by_type": {
       "fix": {
         "total": 1,
@@ -418,19 +449,19 @@
         }
       },
       "feature": {
-        "total": 7,
-        "done": 2,
+        "total": 8,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "todo": 5,
+        "todo": 3,
         "in_progress": 0,
-        "progress_percent": 28.6,
+        "progress_percent": 62.5,
         "by_status": {
-          "todo": 5,
+          "todo": 3,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 5
         }
       },
       "refactor": {
@@ -485,11 +516,11 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 7,
+    "todo_remaining": 5,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 4,
+    "done": 7,
     "milestones_done": 3,
     "milestones_total": 5
   }
