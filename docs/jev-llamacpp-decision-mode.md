@@ -374,3 +374,29 @@ Anfrage abschalten).
 
 Geprüft: Hub `POST /llm/generate` → „bereit“ über `llamacpp`; Worker-Tool-Loop mit echtem Modell: `repo.grep` →
 `repo.read_file_range` → richtige Antwort in 5,5 s.
+
+## Worker-Tools: Zustand und Schemas (2026-09-27)
+
+Live im Worker gemessen (alle 18 lesenden Tools der Allowlist, `unified_tool_execution_service`):
+
+| Ergebnis | Tools |
+|---|---|
+| funktionieren | `repo.grep`, `repo.list_files`, `repo.read_file_range`, `git.status`, `git.diff_readonly`, `workspace.diff`, `codecompass.search_symbols`, `codecompass.get_file_context`, `codecompass.get_domain_map` |
+| schwach | `codecompass.resolve_context` (Kandidaten nach Dateinamen, nicht nach Inhalt) |
+| scheitern: keine Such-Berechtigung (`empty_scope`) | `codecompass.search`, `codecompass.retrieve`, `codecompass.plan_context` (nutzt die Suche) |
+| scheitern: Graph-Index nur beim Hub (`graph_artifact_not_materialized`) | `codecompass.architecture_overview`, `_expand`, `_diagram`, `_query`, `codecompass.expand_graph` |
+
+Ursache beider Fehlergruppen: CodeCompass-Index und -Befugnisse gehören dem Hub; für Worker-Aufgaben gibt es keinen
+Weg dorthin (der Companion hat einen: die Hub-Route `/api/meet/v1/internal/assist/tool` führt mit Capability, Policy
+und Audit aus). Bis das gelöst ist, sind die 8 Tools aus `ananta_worker_tool_loop.allowed_tools` genommen (Hub
+`POST /config`); zum Wiederherstellen dort wieder eintragen.
+
+**Schemas:** Die Registry nannte nur Namen und Typen, ohne Beschreibung und ohne Pflichtfelder (`required` war fest
+`[]`). Jetzt stehen Bedeutung, Werte und Grenzen jedes Arguments in `agent/services/ananta_tool_argument_docs.py`
+(aus den Implementierungen erhoben) und werden in die Schemas übernommen, samt Pflichtfeldern.
+`codecompass.architecture_query` bekommt `question` als Enum der vier Abfragetypen und die bisher unsichtbaren
+Argumente `seed`, `field`, `depth`, `direction`; `codecompass.expand_graph` das wirksame `profile` (die wirkungslosen
+`depth`/`max_depth`/`limit`/`max_nodes` bleiben aus Kompatibilität, als „ignoriert“ beschrieben).
+
+**Weitere Befunde:** `test.run` liest die Allowlist top-level (`allowlisted_test_commands`), der Hub legt sie unter
+`ananta_worker_workspace_mutation` ab; live: `command_not_allowlisted`.
