@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, Protocol
 
 from ananta_contracts.provider_endpoint_policy import (
     normalize_provider_endpoint_identity,
@@ -273,3 +273,25 @@ __all__ = [
     "ProviderInvocationBlocked",
     "ProviderInvocationContext",
 ]
+
+
+class ProviderBudgetPort(Protocol):
+    """Hub-owned token budget for one provider invocation (reserve before, reconcile after the call)."""
+
+    def reserve(
+        self,
+        *,
+        context: ProviderInvocationContext,
+        estimated_prompt_tokens: int,
+        reservation_id: str = "",
+    ) -> ProviderBudgetDecision: ...
+
+    def reconcile(
+        self,
+        *,
+        context: ProviderInvocationContext,
+        reserved_tokens: int,
+        actual_total_tokens: int | None,
+        reservation_id: str = "",
+    ) -> None: ...
+

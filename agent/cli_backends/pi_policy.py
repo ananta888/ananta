@@ -20,13 +20,13 @@ from ananta_contracts.provider_endpoint_policy import (
 )
 from ananta_contracts.provider_invocation import (
     PROVIDER_BUDGET_DECISION_SCHEMA,
+    ProviderBudgetPort,
     ProviderBudgetDecision,
     ProviderInvocationBlocked,
     ProviderInvocationContext,
 )
 
 if TYPE_CHECKING:
-    from agent.services.provider_invocation_middleware import ProviderBudgetPort
     from ananta_contracts.provider_endpoint_policy import ProviderEndpointResolver
 
 

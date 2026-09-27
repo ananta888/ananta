@@ -25,27 +25,11 @@ from ananta_contracts.provider_invocation import (
     ProviderInvocationBlocked,
     ProviderInvocationContext,
 )
+from ananta_contracts.provider_invocation import ProviderBudgetPort as _ContractProviderBudgetPort
 
 PROVIDER_EVENT_SCHEMA = "ananta.provider_invocation_event.v1"
-
-
-class ProviderBudgetPort(Protocol):
-    def reserve(
-        self,
-        *,
-        context: ProviderInvocationContext,
-        estimated_prompt_tokens: int,
-        reservation_id: str = "",
-    ) -> ProviderBudgetDecision: ...
-
-    def reconcile(
-        self,
-        *,
-        context: ProviderInvocationContext,
-        reserved_tokens: int,
-        actual_total_tokens: int | None,
-        reservation_id: str = "",
-    ) -> None: ...
+# The budget port is a contract shared with the CLI backends (layering: they may not import agent.services).
+ProviderBudgetPort = _ContractProviderBudgetPort
 
 
 class ProviderRetryBudgetPort(Protocol):
