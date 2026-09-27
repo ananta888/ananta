@@ -119,6 +119,7 @@ from agent.routes.terminal import terminal_bp
 from agent.routes.text_quality import text_quality_bp
 from agent.routes.vector_store_control import vector_store_control_bp
 from agent.routes.vision_decision import vision_decision_bp
+from agent.routes.game_dragon import game_dragon_bp
 from agent.routes.visual_process import vp_bp
 from agent.routes.visual_process_assistant import visual_process_assistant_bp
 from agent.routes.voice import voice_bp
@@ -196,6 +197,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(voice_bp)
     app.register_blueprint(voice_audio_decision_bp)
     app.register_blueprint(vision_decision_bp)
+    app.register_blueprint(game_dragon_bp)
     app.register_blueprint(voice_configuration_bp)
     app.register_blueprint(voice_governance_bp)
     app.register_blueprint(voice_live_runs_bp)
