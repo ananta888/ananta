@@ -8,8 +8,8 @@ from urllib.parse import urlparse
 from agent.services.mcp_registry_service import get_mcp_registry_service
 
 _OPERATION_ID_RE = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$", re.ASCII)
-_GROUP_ID_RE = re.compile(r"^(?:mcp|api)\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$", re.ASCII)
-_TRANSPORTS = frozenset({"mcp.tool", "mcp.resource", "api"})
+_GROUP_ID_RE = re.compile(r"^(?:mcp|api|ananta\.tool)\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$", re.ASCII)
+_TRANSPORTS = frozenset({"mcp.tool", "mcp.resource", "api", "ananta.tool"})
 _ACCESS_CLASSES = frozenset({"read", "write", "admin"})
 _RISK_CLASSES = frozenset({"low", "medium", "high", "critical"})
 _LIFECYCLES = frozenset({"enabled", "degraded", "disabled"})
@@ -229,6 +229,40 @@ def mcp_resource_operation_id(uri: str) -> str:
     return operation_id
 
 
+ANANTA_TOOL_GROUPS = {"read_only": "ananta.tool.read.v1", "controlled_write": "ananta.tool.write.v1",
+                      "controlled_execution": "ananta.tool.execution.v1"}
+_ANANTA_TOOL_RISK = {"read": "low", "execution": "medium", "write": "high"}
+
+
+def ananta_tool_operation_id(name: str) -> str:
+    """Operation id of a worker tool (WCRB-005), e.g. ``ananta.tool.codecompass.search``."""
+    return "ananta.tool." + str(name or "").strip().lower().replace("-", "_")
+
+
+def _register_ananta_tools(registry: "OperationRegistryService") -> None:
+    """Worker tools as operations, so the same role grants decide them as MCP tools and APIs."""
+    from agent.services.ananta_tool_registry_service import get_ananta_tool_registry_service
+
+    groups: dict[str, list[str]] = {group: [] for group in ANANTA_TOOL_GROUPS.values()}
+    for spec in get_ananta_tool_registry_service().list_tools():
+        operation_id = ananta_tool_operation_id(spec.name)
+        if not _OPERATION_ID_RE.fullmatch(operation_id) or registry.get(operation_id) is not None:
+            continue
+        access_class = "read" if spec.category == "read_only" else "write"
+        registry.register(OperationDescriptor(
+            operation_id=operation_id, transport="ananta.tool", target=spec.name, access_class=access_class,
+            risk_class=_ANANTA_TOOL_RISK.get(spec.risk_class, "high"),
+            lifecycle="disabled" if spec.category == "blocked" else "enabled",
+            description=spec.description or spec.name, owner="hub-worker-tools",
+            side_effecting=access_class != "read", default_enabled=access_class == "read",
+        ))
+        group = ANANTA_TOOL_GROUPS.get(spec.category)
+        if group:
+            groups[group].append(operation_id)
+    for group, members in groups.items():
+        registry.register_group(group, tuple(members))
+
+
 def _build_default_registry() -> OperationRegistryService:
     registry = OperationRegistryService()
     mcp_registry = get_mcp_registry_service()
@@ -296,6 +330,7 @@ def _build_default_registry() -> OperationRegistryService:
     )
     registry.register_group("api.read.v1", _API_READ_OPERATION_IDS_V1)
     registry.register_group("api.admin.v1", _API_ADMIN_OPERATION_IDS_V1)
+    _register_ananta_tools(registry)
     return registry
 
 

@@ -66,7 +66,24 @@ class ToolPolicyDecision:
 
 
 class AnantaToolPolicyService:
-    """Evaluates tool requests against registry, scope and mutation mode."""
+    """Evaluates tool requests against registry, scope, role grants and mutation mode."""
+
+    @staticmethod
+    def _role_denial(name: str, spec: Any, grants: Any) -> ToolPolicyDecision | None:
+        """With bound access roles (the task requester's, WCRB-005/006) the tool must be granted."""
+        if grants is None or not getattr(grants, "roles", None):
+            return None
+        from agent.services.operation_registry_service import (
+            ananta_tool_operation_id,
+            get_operation_registry_service,
+        )
+
+        operation_id = ananta_tool_operation_id(name)
+        allowed, rule_id = grants.allows(operation_id, get_operation_registry_service().groups_for(operation_id))
+        if allowed:
+            return None
+        return ToolPolicyDecision(decision=DECISION_POLICY_BLOCKED, reason="role_denied", rule_id=rule_id,
+                                  risk_class=spec.risk_class, tool_name=name)
 
     def evaluate(
         self,
@@ -78,6 +95,7 @@ class AnantaToolPolicyService:
         mutation_mode: str = "read_only",
         task_id: str | None = None,
         goal_id: str | None = None,
+        grants: Any = None,
     ) -> ToolPolicyDecision:
         name = str(tool_name or "").strip()
         registry = get_ananta_tool_registry_service()
@@ -123,6 +141,10 @@ class AnantaToolPolicyService:
                 risk_class=spec.risk_class,
                 tool_name=name,
             )
+
+        role_denial = self._role_denial(name, spec, grants)
+        if role_denial is not None:
+            return role_denial
 
         if name.startswith("hermes.") and name not in _HERMES_ALLOWED_TOOLS:
             return ToolPolicyDecision(

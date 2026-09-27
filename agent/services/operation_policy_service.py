@@ -42,6 +42,9 @@ class OperationAuthContext:
     auth_source: str
     is_admin: bool = False
     approval_granted: bool = False
+    # Effective grants of the caller's bound access roles (WCRB-005). When roles are bound, they decide
+    # instead of the global allowlist; global denies, lifecycle and approval rules still apply.
+    grants: Any = None
 
 
 @dataclass(frozen=True)
@@ -322,6 +325,9 @@ class OperationPolicyService:
 
         if descriptor.lifecycle == "disabled":
             return decision(False, "operation_lifecycle_disabled", "lifecycle:disabled")
+        grants = auth.grants
+        if grants is not None and getattr(grants, "roles", None):
+            return self._decide_by_roles(descriptor, policy, auth, grants, decision)
         enforced = bool(policy.get("enabled")) and descriptor.transport in set(policy.get("enforced_transports") or [])
         if not enforced:
             return decision(True, "transport_rollout_disabled", f"rollout:disabled:{descriptor.transport}")
@@ -354,6 +360,27 @@ class OperationPolicyService:
             return decision(False, "operation_approval_required", f"risk:approval:{descriptor.risk_class}")
         reason = "operation_allowed_degraded" if descriptor.lifecycle == "degraded" else "operation_allowed"
         return decision(True, reason, matched_allow)
+
+    def _decide_by_roles(self, descriptor: OperationDescriptor, policy: dict[str, Any], auth: OperationAuthContext,
+                         grants: Any, decision: Any) -> OperationPolicyDecision:
+        """Bound access roles decide; a global deny, the admin requirement and approvals still bind."""
+        if bool(policy.get("enabled")):
+            if descriptor.operation_id in set(policy.get("deny_operations") or []):
+                return decision(False, "operation_explicitly_denied", f"deny:operation:{descriptor.operation_id}")
+            for group_id in sorted(set(policy.get("deny_groups") or [])):
+                if descriptor.operation_id in set(self._registry.group_members(group_id) or ()):
+                    return decision(False, "operation_group_denied", f"deny:group:{group_id}")
+        allowed, rule_id = grants.allows(descriptor.operation_id, self._registry.groups_for(descriptor.operation_id))
+        if not allowed:
+            return decision(False, "operation_role_denied", rule_id)
+        if descriptor.access_class == "admin" and not (auth.is_admin or grants.admin):
+            return decision(False, "operation_admin_required", "access:admin:admin")
+        enforced = bool(policy.get("enabled")) and descriptor.transport in set(policy.get("enforced_transports") or [])
+        if (enforced and descriptor.risk_class in set(policy.get("require_approval_for_risks") or [])
+                and not auth.approval_granted):
+            return decision(False, "operation_approval_required", f"risk:approval:{descriptor.risk_class}")
+        reason = "operation_allowed_degraded" if descriptor.lifecycle == "degraded" else "operation_allowed"
+        return decision(True, reason, rule_id)
 
 
 operation_policy_service = OperationPolicyService(get_operation_registry_service())
