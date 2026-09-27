@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.services.long_context_plan import DEPENDENCY_OUTPUTS, PlannedStep, build_plan
+from agent.services.long_context_step_result import step_result
 
 MARKER = "long_context"
 SPLIT_STRATEGIES = frozenset({"sequential", "map_reduce"})
@@ -137,8 +138,11 @@ class LongContextCoordinator:
             strategy = "sequential"  # a human let it continue: process everything, piece by piece
         if strategy == "escalate":
             return self._escalate(task, decision)
-        if strategy in EXTERNALIZE_STRATEGIES:
+        if strategy in EXTERNALIZE_STRATEGIES and getattr(service, "externalize", True):
             return self._externalize(task, decision, goal, material, parts)
+        if strategy in EXTERNALIZE_STRATEGIES:
+            decision = service.as_split(decision)
+            strategy = decision.strategy
         if strategy not in SPLIT_STRATEGIES:
             return None
         if strategy != decision.strategy:
@@ -238,7 +242,7 @@ class LongContextCoordinator:
         role = marker.get("role")
         if role == "parent":
             final = self._get_task(str(marker.get("final") or ""))
-            output = str(getattr(final, "last_output", "") or "")
+            output = step_result(final) if final is not None else ""
             # like the recovery finalizer: the Hub completes a task whose result its steps produced. The state
             # machine knows no blocked -> completed edge, so this one audited transition is forced.
             self._update(str(task.id), "completed", last_output=output, last_exit_code=0, force=True,
@@ -258,7 +262,7 @@ class LongContextCoordinator:
             dep_marker = _details(dep).get(MARKER) or {}
             if dep_marker.get("parent_task_id") != marker.get("parent_task_id"):
                 continue  # a wave dependency or a foreign task: not an input of this step
-            outputs.append(f"### {getattr(dep, 'title', dep_id)}\n{str(getattr(dep, 'last_output', '') or '')}")
+            outputs.append(f"### {getattr(dep, 'title', dep_id)}\n{step_result(dep)}")
         self._update(str(task.id), "todo", description=description.replace(DEPENDENCY_OUTPUTS, "\n\n".join(outputs)),
                      event_type="long_context_step_ready", event_details={"inputs": len(outputs)})
         return {"task_id": task.id, "event_type": "long_context_step_ready", "depends_on": dependency_ids,

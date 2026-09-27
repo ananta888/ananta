@@ -37,7 +37,13 @@ DEFAULTS: dict[str, Any] = {
     "chunk_fill": 0.6,  # a chunk uses 60% of the budget; the rest is instructions and carried state
     "max_parallel": 4,
     "ask_decision_provider": True,  # only has an effect if decision_providers.areas.context_strategy is on
+    # compact/retrieve move the material into a workspace file the worker reads section by section.
+    # That needs an iteratively reading worker (tool loop); the autopilot's single-shot flow
+    # (one proposal, one execution) cannot, so by default both are carried out as splits.
+    "externalize": False,
 }
+# how compact/retrieve are carried out without externalizing: an ordered pass / a question per part
+SPLIT_EQUIVALENTS = {"compact": "sequential", "retrieve": "map_reduce"}
 AREA = "context_strategy"
 STRATEGY_OPTIONS: dict[str, str] = {
     "compact": "Condense the existing context (history, tool output) a little; nothing essential is lost.",
@@ -85,6 +91,7 @@ def normalize_config(raw: Any) -> dict[str, Any]:
             cfg[key] = DEFAULTS[key]
     cfg["max_parallel"] = max(1, min(32, int(cfg.get("max_parallel") or DEFAULTS["max_parallel"])))
     cfg["ask_decision_provider"] = bool(cfg.get("ask_decision_provider", True))
+    cfg["externalize"] = bool(cfg.get("externalize", False))
     return cfg
 
 
@@ -125,6 +132,19 @@ class ContextStrategyService:
     @property
     def mode(self) -> str:
         return self._cfg["mode"]
+
+    @property
+    def externalize(self) -> bool:
+        return self._cfg["externalize"]
+
+    def as_split(self, decision: ContextStrategyDecision) -> ContextStrategyDecision:
+        """``compact``/``retrieve`` carried out as their split equivalent (no externalizing); others unchanged."""
+        strategy = SPLIT_EQUIVALENTS.get(decision.strategy)
+        if strategy is None:
+            return decision
+        request = ContextStrategyRequest(fit=decision.fit)
+        return ContextStrategyDecision(strategy, f"{decision.strategy}_as_split:{decision.reason}", decision.decided_by,
+                                       decision.fit, _parameters(strategy, request, self._cfg))
 
     def decide(self, request: ContextStrategyRequest) -> ContextStrategyDecision:
         ruled = decide_by_rules(request, self._cfg)

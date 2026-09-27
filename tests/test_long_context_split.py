@@ -9,6 +9,7 @@ from agent.services.long_context_plan import DEPENDENCY_OUTPUTS, LongContextPlan
 
 pytestmark = pytest.mark.timeout(60)
 ACTIVE = {"mode": "active", "ask_decision_provider": False}
+EXTERNALIZE = {**ACTIVE, "externalize": True}  # tasks run through an iteratively reading worker
 
 
 def _long_text(paragraphs=200, words=300):
@@ -179,7 +180,7 @@ def test_a_slightly_oversized_task_is_externalized_and_dispatched(app):
         material = "\n".join(f"Zeile {i}: " + "inhalt " * 20 for i in range(1100))  # ~1.2x the budget
         _save("lc-compact", status="todo", title="Bericht prüfen", description=material,
               worker_execution_context={"context_input_kind": "ordered"})
-        result = _coordinator().maybe_split(_get("lc-compact"), config=ACTIVE)
+        result = _coordinator().maybe_split(_get("lc-compact"), config=EXTERNALIZE)
         assert result.strategy == "compact" and result.dispatch_now and result.step_ids == ()
         task = _get("lc-compact")
         assert task.status == "todo" and ".ananta/task-material.md" in task.description
@@ -188,15 +189,32 @@ def test_a_slightly_oversized_task_is_externalized_and_dispatched(app):
         from agent.context_window import check_fit
 
         assert check_fit(prompt=task.description).fits  # the task now fits the window
-        assert _coordinator().maybe_split(task, config=ACTIVE) is None  # handled once
+        assert _coordinator().maybe_split(task, config=EXTERNALIZE) is None  # handled once
 
 
 def test_a_corpus_is_externalized_for_selective_reading(app):
     with app.app_context():
         _save("lc-corpus", status="todo", title="Wo wird X konfiguriert?", description="doku " * 60_000,
               worker_execution_context={"context_input_kind": "corpus"})
-        result = _coordinator().maybe_split(_get("lc-corpus"), config=ACTIVE)
+        result = _coordinator().maybe_split(_get("lc-corpus"), config=EXTERNALIZE)
         assert result.strategy == "retrieve" and "relevant" in _get("lc-corpus").description
+
+
+def test_without_externalizing_compact_and_retrieve_are_carried_out_as_splits(app):
+    with app.app_context():
+        material = "\n".join(f"Zeile {i}: " + "inhalt " * 20 for i in range(1100))  # ~1.2x the budget
+        _save("lc-compact-split", status="todo", title="Bericht prüfen", description=material,
+              worker_execution_context={"context_input_kind": "ordered"})
+        _save("lc-corpus-split", status="todo", title="Wo wird X konfiguriert?", description="doku " * 60_000,
+              worker_execution_context={"context_input_kind": "corpus"})
+        compact = _coordinator().maybe_split(_get("lc-compact-split"), config=ACTIVE)
+        corpus = _coordinator().maybe_split(_get("lc-corpus-split"), config=ACTIVE)
+        assert compact.strategy == "sequential" and not compact.dispatch_now and len(compact.step_ids) >= 3
+        assert compact.final_step_id.endswith("-lc-consolidate")
+        assert corpus.strategy == "map_reduce" and corpus.final_step_id.endswith("-lc-reduce")
+        assert ".ananta/task-material.md" not in _get("lc-compact-split").description
+        record = _get("lc-corpus-split").status_reason_details["long_context"]
+        assert record["decision"]["reason"].startswith("retrieve_as_split:")
 
 
 def test_an_enormous_task_is_paused_and_a_resumed_one_processed_piece_by_piece(app):
@@ -252,7 +270,7 @@ def test_a_real_overflow_externalizes_even_what_the_estimate_thought_fits(app):
               worker_execution_context={"context_input_kind": "ordered"})
         coordinator = _coordinator()
         assert coordinator.maybe_split(_get("lc-overflow"), config=ACTIVE) is None
-        result = coordinator.maybe_split(_get("lc-overflow"), config=ACTIVE, overflowed=True)
+        result = coordinator.maybe_split(_get("lc-overflow"), config=EXTERNALIZE, overflowed=True)
         assert result.strategy == "compact" and result.dispatch_now
         assert ".ananta/task-material.md" in _get("lc-overflow").description
 
