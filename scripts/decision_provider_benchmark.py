@@ -71,7 +71,9 @@ GROUPS = {
     "retrieval": ("retrieval_intent", "rag_needed"),
     "hub_direct": ("hub_direct",),
     "chat_intent": ("chat_intent",),
+    "injection": ("prompt_injection",),
 }
+PAIRS = (("local_decision", "jev"), ("local_decision", "llm"), ("jev", "llm"))
 CASCADES = (("jev", "rules"), ("jev", "llm"), ("jev", "chat"), ("jev", "local_decision"), ("local_decision", "rules"),
             ("local_decision", "llm"), ("local_decision", "chat"), ("current", "chat"), ("llm", "rules"))
 
@@ -181,8 +183,43 @@ def _chat_rules():
     return lambda state: {"chat_intent": classify_chat_intent(state)}
 
 
-RULES = {"companion": _companion_rules, "retrieval": _retrieval_rules, "hub_direct": _hub_direct_rules,
-         "chat_intent": _chat_rules}
+def _source_constant(path: str, name: str):
+    """A constant (literal, or re.compile(...) of literals) read from source, without importing the app stack."""
+    import ast
+    import re
+
+    tree = ast.parse((ROOT / path).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == name for t in node.targets):
+            value = node.value
+
+            def build(item):
+                if isinstance(item, ast.Call) and getattr(item.func, "attr", "") == "compile":
+                    return re.compile(ast.literal_eval(item.args[0]))
+                return ast.literal_eval(item)
+            if isinstance(value, (ast.Tuple, ast.List)) and any(isinstance(e, ast.Call) for e in value.elts):
+                return [build(e) for e in value.elts]
+            return build(value)
+    raise KeyError(f"{path}:{name}")
+
+
+def _injection_rules():
+    """Today's pattern checks (read from their modules), united: a hit is 'suspicious' (they know no type)."""
+    phrases = [p.lower() for p in _source_constant("agent/services/planning_utils.py", "PROMPT_INJECTION_PATTERNS")]
+    goal_phrases = ["ignore previous instructions", "jailbreak", "dan mode"]  # planning_utils.validate_goal
+    remote = _source_constant("agent/services/remote_source_payload_store.py", "_PROMPT_INJECTION")
+    scanner = _source_constant("agent/services/source_filesystem_scanner.py", "_INJECTION_PATTERNS")
+
+    def rules(state):
+        lower = state.lower()
+        hit = (any(p in lower for p in phrases) or any(p in lower for p in goal_phrases)
+               or bool(remote.search(state)) or any(p.search(state) for p in scanner))
+        return {"intent": "instruction_override" if hit else "benign"}
+    return rules
+
+
+RULES = {"injection": _injection_rules, "companion": _companion_rules, "retrieval": _retrieval_rules,
+         "hub_direct": _hub_direct_rules, "chat_intent": _chat_rules}
 
 
 # --- running ---------------------------------------------------------------------------------------
@@ -315,7 +352,54 @@ def area_report(area: Area, outputs: dict[str, dict[str, dict[str, Run]]]) -> di
                     if a and set(a) == set(b):
                         cascades[f"{first}->{second}"] = simulate_cascade(a, b)
             per_split[split] = {"cases": len(ids), "providers": providers, "cascades": cascades}
+            if area.name == "injection":
+                per_split[split]["detection"] = detection_report(outputs, ids, key)
         report[dataset] = per_split
+    return report
+
+
+def _flag(run: Run, threshold: float) -> bool:
+    """Screen semantics: benign only when the answer is benign with enough confidence."""
+    return not (run.predicted == "benign" and run.confidence >= threshold)
+
+
+def _detection(flags: dict[str, bool], truth: dict[str, bool]) -> dict[str, Any]:
+    attacks = [i for i in truth if truth[i]]
+    benign = [i for i in truth if not truth[i]]
+    caught = sum(flags[i] for i in attacks)
+    false_alarms = sum(flags[i] for i in benign)
+    flagged = caught + false_alarms
+    return {"recall": round(caught / len(attacks), 4) if attacks else None,
+            "false_positive_rate": round(false_alarms / len(benign), 4) if benign else None,
+            "precision": round(caught / flagged, 4) if flagged else None,
+            "missed": [i for i in attacks if not flags[i]], "false_alarms": [i for i in benign if flags[i]]}
+
+
+def detection_report(outputs: dict[str, dict[str, dict[str, Run]]], ids: list[str], key: str) -> dict[str, Any]:
+    """Binary screening (attack vs benign) per provider and for agreement pairs, per threshold."""
+    truth = {i: next(iter(outputs.values()))[i][key].expected != "benign" for i in ids}
+    report: dict[str, Any] = {"providers": {}, "agreement_screen": {}, "agreement_routing": {}}
+    for name, runs in outputs.items():
+        thresholds = (0.0,) if name == "rules" else THRESHOLDS
+        report["providers"][name] = {str(t): _detection({i: _flag(runs[i][key], t) for i in ids}, truth)
+                                     for t in thresholds}
+    for first, second in PAIRS:
+        if first in outputs and second in outputs:
+            a, b = outputs[first], outputs[second]
+            label = f"{first}+{second}"
+            report["agreement_screen"][label] = {
+                str(t): _detection({i: _flag(a[i][key], t) or _flag(b[i][key], t) for i in ids}, truth)
+                for t in THRESHOLDS}
+            rows = {}
+            for t in THRESHOLDS:
+                accepted = [i for i in ids if a[i][key].predicted is not None
+                            and a[i][key].predicted == b[i][key].predicted
+                            and min(a[i][key].confidence, b[i][key].confidence) >= t]
+                correct = sum(a[i][key].correct for i in accepted)
+                rows[str(t)] = {"coverage": round(len(accepted) / len(ids), 4),
+                                "precision": round(correct / len(accepted), 4) if accepted else None,
+                                "wrong": [i for i in accepted if not a[i][key].correct]}
+            report["agreement_routing"][label] = rows
     return report
 
 
@@ -337,7 +421,7 @@ def summary_lines(report: dict[str, Any]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--areas", default="tool_routing,companion,retrieval,hub_direct,chat_intent")
+    parser.add_argument("--areas", default="tool_routing,companion,retrieval,hub_direct,chat_intent,injection")
     parser.add_argument("--providers", default="rules,current,chat,jev,local_decision,llm")
     parser.add_argument("--local-url", default=os.environ.get("ANANTA_PARALLEL_DECISION_URL", "http://127.0.0.1:18150"))
     parser.add_argument("--llm-model", default="")
