@@ -6,7 +6,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "long_context_strategy",
   "title": "Aufgaben mit mehr Kontext als das 32k-Fenster: entscheiden, verdichten, nachladen, nacheinander, parallel",
-  "status": "todo",
+  "status": "partial",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -63,7 +63,7 @@
         "LCTX-002",
         "LCTX-003"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "LCTX-M2",
@@ -124,10 +124,10 @@
       "milestone_id": "LCTX-M1",
       "title": "Passt-Pruefung und kein stilles Kuerzen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-001"
       ],
@@ -138,17 +138,19 @@
       "acceptance_criteria": [
         "Kein Pfad kuerzt ohne Protokolleintrag; Anteil gekuerzter Aufrufe ist messbar."
       ],
-      "evidence": []
+      "evidence": [
+        "feat(ctx) LCTX-002 2026-09-27: agent/context_window.py, 7 Kuerzungsstellen protokolliert, Metriken context_truncation_total / context_overflow_expected_total, metadata.context_truncation; tests/test_context_truncation_accounting.py"
+      ]
     },
     {
       "id": "LCTX-003",
       "milestone_id": "LCTX-M1",
       "title": "Tote und doppelte Kontext-Bausteine bereinigen",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "depends_on": [
         "LCTX-002"
       ],
@@ -160,7 +162,10 @@
       "acceptance_criteria": [
         "Keine Konfiguration ohne Wirkung; ein Budget-Begriff statt drei."
       ],
-      "evidence": []
+      "evidence": [
+        "fix(ctx) LCTX-003 2026-09-27: ContextBundler-Budget durchgesetzt, CONTEXT_COMPRESSION_* angebunden (Standard aus)",
+        "Offen: ContextBudgetPolicyService und PreModelContextOrchestrator gehen in LCTX-004 auf (bewusst nicht geloescht)"
+      ]
     },
     {
       "id": "LCTX-004",
@@ -356,13 +361,13 @@
   "tasks_status_summary": {
     "total": 11,
     "by_status": {
-      "todo": 10,
+      "todo": 8,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     },
-    "progress_percent_done": 9.1,
+    "progress_percent_done": 18.2,
     "by_priority": {
       "P0": 3,
       "P1": 6,
@@ -377,14 +382,14 @@
     },
     "critical_path": {
       "total": 6,
-      "done": 1,
-      "remaining": 5
+      "done": 2,
+      "remaining": 4
     },
     "milestones": {
       "total": 5,
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 1
     }
@@ -410,32 +415,32 @@
       },
       "feature": {
         "total": 7,
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "todo": 7,
+        "todo": 6,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 14.3,
         "by_status": {
-          "todo": 7,
+          "todo": 6,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "refactor": {
         "total": 1,
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "todo": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 70.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         }
@@ -475,12 +480,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 10,
+    "state": "partial",
+    "todo_remaining": 8,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
-    "done": 1,
+    "done": 2,
     "milestones_done": 1,
     "milestones_total": 5
   }
