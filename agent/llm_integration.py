@@ -92,6 +92,28 @@ def _runtime_default_model() -> str:
     return str(settings.default_model)
 
 
+_LOCAL_CONTEXT_PROVIDERS = frozenset({"ollama", "lmstudio", "llamacpp"})
+
+
+def _runtime_context_limit(provider: str) -> int | None:
+    """The context window for a call without an explicit limit (32k standard, ``ANANTA_CONTEXT_TOKENS``).
+
+    The configured ``llm_config.context_limit`` applies to its own provider; local runtimes fall back to
+    the Ananta default. Cloud providers keep their own (larger) window unless configured."""
+    key = str(provider or "").strip().lower()
+    if has_app_context():
+        llm_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("llm_config") or {}
+        limit = llm_cfg.get("context_limit")
+        if limit and str(llm_cfg.get("provider") or "").strip().lower() == key:
+            try:
+                return max(256, int(limit))
+            except (TypeError, ValueError):
+                pass
+    if key in _LOCAL_CONTEXT_PROVIDERS:
+        return int(getattr(settings, "default_context_tokens", 32768) or 32768)
+    return None
+
+
 def _runtime_provider_urls() -> dict[str, str | None]:
     if has_app_context():
         urls = current_app.config.get("PROVIDER_URLS", {}) or {}
@@ -543,6 +565,8 @@ def generate_text(
     key = api_key
     if not key:
         key = _runtime_api_key(p)
+    if max_context_tokens is None:
+        max_context_tokens = _runtime_context_limit(p)
 
     idempotency_key = str(uuid.uuid4())
 

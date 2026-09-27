@@ -76,6 +76,9 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
     # Ananta is designed for a 32k context window per request: the recommended setting for every local model
     # (llama-server: -c <32768 * parallel slots>, Ollama: num_ctx, LM Studio: context length).
     default_context_tokens: int = Field(default=32768, validation_alias="ANANTA_CONTEXT_TOKENS")
+    # Prompt-token gate of the CLI backends; unset: sgpt (local runtime) uses default_context_tokens,
+    # opencode keeps 128000 (it may run a cloud model with a larger window).
+    max_prompt_tokens: Optional[int] = Field(default=None, validation_alias="MAX_PROMPT_TOKENS")
     # JSON-encoded map of model_id -> context_token_limit. Used by LMStudio strategy when
     # /v1/models does not return per-model context_length. Keys are lowercased substrings
     # matched against the model id. Override via env: LMSTUDIO_MODEL_CONTEXTS='{"phi-3.5-mini":4096}'

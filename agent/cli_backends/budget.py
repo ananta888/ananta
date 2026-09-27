@@ -11,6 +11,20 @@ log = logging.getLogger(__name__)
 BudgetError = tuple[int, str, str]
 
 
+_BACKEND_DEFAULTS = {"opencode": 128000}
+
+
+def prompt_token_limit(backend: str) -> int:
+    """The prompt-token gate of a CLI backend: ``MAX_PROMPT_TOKENS``, else the backend's default, else the
+    Ananta context window (``ANANTA_CONTEXT_TOKENS``, 32k)."""
+    from agent.config import settings
+
+    explicit = getattr(settings, "max_prompt_tokens", None)
+    if explicit:
+        return int(explicit)
+    return int(_BACKEND_DEFAULTS.get(backend) or getattr(settings, "default_context_tokens", 32768) or 32768)
+
+
 def check_prompt_budget(prompt: str, *, max_tokens: Any) -> BudgetError | None:
     """Return a CLI error tuple when the prompt exceeds its token budget."""
     try:

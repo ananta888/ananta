@@ -55,6 +55,8 @@ def get_tool_loop_config() -> dict[str, Any]:
         "max_iterations": max(1, min(int(cfg.get("max_iterations") or 6), 32)),
         "max_tool_calls": max(1, min(int(cfg.get("max_tool_calls") or 12), 64)),
         "max_tool_result_chars": max(500, min(int(cfg.get("max_tool_result_chars") or 8000), 100000)),
+        "max_total_tool_result_chars": max(2000, min(int(cfg.get("max_total_tool_result_chars")
+                                                         or _default_total_tool_result_chars()), 400000)),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
         "allowed_tools": [
             str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()
@@ -71,15 +73,10 @@ def get_tool_loop_config() -> dict[str, Any]:
 def _task_codecompass_capability(cfg: dict[str, Any], task_id: str | None) -> dict[str, Any] | None:
     """The CodeCompass capability of this step (WCRB-009): sent by the Hub to a worker, or issued here when
     the Hub runs the task itself. ``None`` without delegated access; the tools then fail closed."""
-    from agent.services.codecompass_task_capability import (
-        current_task_capability,
-        issue_task_capability,
-        uses_delegation,
-    )
-
-    if not uses_delegation(cfg):
+    capabilities = _ctx.codecompass_task_capability
+    if not capabilities.uses_delegation(cfg):
         return None
-    received = current_task_capability()
+    received = capabilities.current_task_capability()
     if received is not None:
         return received
     from agent.config import settings
@@ -89,7 +86,7 @@ def _task_codecompass_capability(cfg: dict[str, Any], task_id: str | None) -> di
     from agent.repository import task_repo
 
     task = task_repo.get_by_id(task_id)
-    return issue_task_capability(task, audience="hub") if task is not None else None
+    return capabilities.issue_task_capability(task, audience="hub") if task is not None else None
 
 
 def _extract_json_candidate(text: str) -> str | None:
@@ -193,6 +190,22 @@ def _format_tool_result_block(result: dict[str, Any], *, max_chars: int) -> str:
     return f"```json\n{serialized}\n```"
 
 
+def _condensed_tool_result_block(result: dict[str, Any]) -> str:
+    """A one-line stand-in for an older result that no longer fits the loop's total budget."""
+    excerpt = json.dumps(result.get("data") if "data" in result else result, ensure_ascii=False)[:240]
+    summary = {"tool": result.get("tool_name") or result.get("tool"), "status": result.get("status"),
+               "error": result.get("error"), "condensed": "earlier result shortened to stay within the context "
+               "budget; call the tool again if its details are needed", "excerpt": excerpt}
+    return f"```json\n{json.dumps(summary, ensure_ascii=False)}\n```"
+
+
+def _default_total_tool_result_chars() -> int:
+    """Half of Ananta's context window (``ANANTA_CONTEXT_TOKENS``, ~4 chars per token) for all tool results."""
+    from agent.config import settings
+
+    return int(getattr(settings, "default_context_tokens", 32768) or 32768) * 4 // 2
+
+
 def build_tool_loop_prompt(
     *,
     original_prompt: str,
@@ -201,6 +214,7 @@ def build_tool_loop_prompt(
     iteration: int,
     max_iterations: int,
     max_tool_result_chars: int,
+    max_total_tool_result_chars: int | None = None,
 ) -> str:
     parts = [
         str(original_prompt or "").rstrip(),
@@ -213,8 +227,16 @@ def build_tool_loop_prompt(
     ]
     if tool_results:
         parts += ["", "## Bisherige ToolResults (Evidence)"]
-        for result in tool_results:
-            parts.append(_format_tool_result_block(result, max_chars=max_tool_result_chars))
+        # the newest results stay complete; older ones are condensed once the total budget is used up
+        remaining = int(max_total_tool_result_chars or _default_total_tool_result_chars())
+        blocks: list[str] = []
+        for result in reversed(tool_results):
+            block = _format_tool_result_block(result, max_chars=max_tool_result_chars)
+            if len(block) > remaining:
+                block = _condensed_tool_result_block(result)
+            remaining -= len(block)
+            blocks.append(block)
+        parts += list(reversed(blocks))
     return "\n".join(parts)
 
 
@@ -357,6 +379,7 @@ def run_ananta_worker_tool_loop(
             iteration=iteration,
             max_iterations=max_iterations,
             max_tool_result_chars=max_result_chars,
+            max_total_tool_result_chars=int(cfg.get("max_total_tool_result_chars") or 0) or None,
         )
         message = None
         tiny_candidate_used = False

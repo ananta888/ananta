@@ -14,7 +14,7 @@ from pathlib import Path
 from flask import current_app, has_app_context
 
 from agent.cli_backends import simple_command_runners
-from agent.cli_backends.budget import check_prompt_budget
+from agent.cli_backends.budget import check_prompt_budget, prompt_token_limit
 from agent.cli_backends.claude_runtime import (
     resolve_claude_runtime_config as _resolve_claude_runtime_config,
 )
@@ -356,7 +356,7 @@ def run_opencode_command(
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+        max_tokens=prompt_token_limit("opencode"),
     )
     if budget_error is not None:
         return budget_error
@@ -634,7 +634,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
     """Fuehrt einen OpenAI Codex CLI exec-Aufruf aus."""
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+        max_tokens=prompt_token_limit("opencode"),
     )
     if budget_error is not None:
         return budget_error
@@ -755,7 +755,7 @@ def run_claude_command(
 
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+        max_tokens=prompt_token_limit("opencode"),
     )
     if budget_error is not None:
         return budget_error
@@ -836,7 +836,7 @@ def run_claude_write_armed(
         "write_armed": True,
     }
 
-    budget_error = check_prompt_budget(prompt, max_tokens=getattr(settings, "max_prompt_tokens", 128000))
+    budget_error = check_prompt_budget(prompt, max_tokens=prompt_token_limit("opencode"))
     if budget_error is not None:
         result["stderr"] = budget_error[2]
         return result

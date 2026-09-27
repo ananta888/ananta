@@ -9,7 +9,7 @@ import sys
 import time
 
 from agent.config import settings
-from agent.cli_backends.budget import check_prompt_budget
+from agent.cli_backends.budget import check_prompt_budget, prompt_token_limit
 from agent.cli_backends.coding_agent_profiles import run_profile_coding_agent
 from agent.research_backend import is_research_backend, run_research_backend_command
 from agent.cli_backends.helpers import (
@@ -81,7 +81,7 @@ def run_sgpt_command(
     """
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=getattr(settings, "max_prompt_tokens", 128000),
+        max_tokens=prompt_token_limit("sgpt"),
     )
     if budget_error is not None:
         return budget_error
