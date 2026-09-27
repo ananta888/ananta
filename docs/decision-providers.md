@@ -216,7 +216,7 @@ Auswahl-Frage „was versucht dieser Text?“ – `benign`, `instruction_overrid
 `command_execution`, `jailbreak_roleplay`. Ergebnis ist ein **Hinweis**, kein Gate: `benign`, `suspicious`
 (sicher erkannter Angriff) oder `uncertain` (Widerspruch oder zu unsicher → prüfen). Mit einer Gruppe gilt ein
 Text nur dann als harmlos, wenn beide Modelle das sicher sagen. Bestehende Pattern-Checks, Redaction und alle
-Gates bleiben unverändert; angebunden an einen Eingang ist das Screening noch nicht.
+Gates bleiben unverändert. Angebunden an zwei Eingänge: `/llm/generate` (Nutzer-Prompt) und die Goal-Planung (`planning_service`, nach `validate_goal`). `shadow`: läuft im Hintergrund (begrenzter Executor, verwirft bei Überlast statt zu stauen), keine zusätzliche Latenz, nur Aufzeichnung ohne Text. `active`: synchron; `/llm/generate` liefert den Hinweis additiv als `injection_screen` in den Metadaten, die Goal-Planung protokolliert ihn. In keinem Modus wird etwas blockiert.
 
 Datensatz `benchmarks/decision_providers/prompt_injection.v1.json`: 67 Fälle DE/EN – direkte, indirekte (in
 Ticket/README/Mail/Kommentar), verschleierte (Leetspeak, gesperrt, Base64) und Rollenspiel-Angriffe sowie

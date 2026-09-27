@@ -4,26 +4,34 @@ import logging
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 logger = logging.getLogger(__name__)
 from typing import Any, Optional
 
-from flask import current_app, g
+from flask import current_app
 
 from agent.db_models import PlanDB, PlanNodeDB
-from agent.services.task_dependency_policy import normalize_depends_on, validate_dependency_graph
+from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 from agent.services.lifecycle_service import get_task_lifecycle_service
+from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
 from agent.services.planning_feature_flags import (
     get_goal_feature_flags,
     get_plan_generation_limits,
-    set_goal_feature_flags,
 )
+from agent.services.planning_model_profile_service import get_planning_model_profile_service
+from agent.services.planning_prompt_evolver_service import get_planning_prompt_evolver_service
 from agent.services.planning_proposal_service import (
     build_plan_proposal,
     normalize_planning_policy_config,
     select_planning_agent_candidate,
     validate_plan_proposal_payload,
+)
+from agent.services.planning_quality_service import get_planning_quality_service
+from agent.services.planning_service_pipeline import (
+    _run_quality_repairs,
+    _validate_and_finalize_plan,
+    resolve_subtasks_with_timeout,
 )
 from agent.services.planning_strategies import (
     HubCopilotPlanningStrategy,
@@ -39,28 +47,15 @@ from agent.services.planning_subtask_sanitizer import (
     sanitize_llm_subtask_policy_hints,
     sanitize_role_defaults,
 )
-from agent.services.planning_utils import parse_subtasks_from_llm_response, sanitize_input, validate_goal
-from agent.services.planning_evaluation_service import get_planning_evaluation_service
 from agent.services.planning_telemetry_service import get_planning_telemetry_service
-from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
-from agent.services.planning_quality_service import get_planning_quality_service
-from agent.services.planning_prompt_evolver_service import get_planning_prompt_evolver_service
-from agent.services.planning_model_profile_service import get_planning_model_profile_service
-from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
-from agent.services.planning_template_mining_service import get_planning_template_mining_service
-from agent.services.planning_review_queue_service import get_planning_review_queue_service
-from agent.services.repository_registry import get_repository_registry
+from agent.services.planning_utils import sanitize_input, validate_goal
 from agent.services.recovery_plan_contract import calculate_recovery_plan_digest
-from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.verification_policy_service import default_verification_spec
 from agent.services.worker_routing_policy_utils import (
     derive_required_capabilities,
     merge_capabilities_with_blueprint_defaults,
-)
-from agent.services.planning_service_pipeline import (
-    _run_quality_repairs,
-    _validate_and_finalize_plan,
-    resolve_subtasks_with_timeout,
 )
 
 
@@ -1406,6 +1401,13 @@ class PlanningService:
         is_valid, error_msg = validate_goal(goal)
         if not is_valid:
             return {"subtasks": [], "created_task_ids": [], "error": error_msg}
+        # DPRV: advisory injection screen (off by default; shadow records only; never blocks)
+        from agent.services.prompt_injection_screening import screen_ingress
+
+        injection_signal = screen_ingress(goal, source="goal_planning")
+        if injection_signal is not None and injection_signal.needs_review:
+            logging.warning("goal %s: prompt-injection screen %s (%s)", goal_id, injection_signal.verdict,
+                            injection_signal.label or injection_signal.reason)
 
         goal = sanitize_input(goal)
         context = sanitize_input(context) if context else None

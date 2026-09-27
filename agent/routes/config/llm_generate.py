@@ -406,6 +406,10 @@ def llm_generate():
 
     runtime = _resolve_request_runtime(data, user_prompt)
     runtime["stream"] = stream
+    # DPRV: advisory injection screen (off by default; shadow records only; never blocks)
+    from agent.services.prompt_injection_screening import screen_ingress
+
+    injection_signal = screen_ingress(str(user_prompt), source="llm_generate") if user_prompt else None
     is_admin = bool(getattr(g, "is_admin", False))
     denylist_cfg = runtime["agent_cfg"].get("llm_tool_denylist", [])
     capability_contract = build_capability_contract(runtime["agent_cfg"])
@@ -421,7 +425,11 @@ def llm_generate():
     def _with_meta(payload: dict) -> dict:
         trace_ids = list(getattr(g, "llm_prompt_trace_ids", []) or [])
         prompt_traces = [{"trace_id": tid} for tid in trace_ids] if trace_ids else []
-        return {**payload, "routing": runtime["routing"], "assistant_capabilities": capability_meta, "prompt_traces": prompt_traces}
+        meta = {**payload, "routing": runtime["routing"], "assistant_capabilities": capability_meta,
+                "prompt_traces": prompt_traces}
+        if injection_signal is not None:
+            meta["injection_screen"] = injection_signal.to_mapping()
+        return meta
 
     if not runtime["provider"]:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")

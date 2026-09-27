@@ -18,8 +18,14 @@ The screened text leaves the machine when TypeSafe Jev is in the cascade
 
 from __future__ import annotations
 
+import logging
+import threading
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 AREA = "prompt_injection"
 QUESTION_KEY = "intent"
@@ -54,6 +60,11 @@ class InjectionSignal:
     def needs_review(self) -> bool:
         return self.verdict in {"suspicious", "uncertain"}
 
+    def to_mapping(self) -> dict[str, Any]:
+        return {"verdict": self.verdict, "label": self.label, "confidence": self.confidence,
+                "decided_by": self.decided_by, "mode": self.mode, "reason": self.reason,
+                "needs_review": self.needs_review, "advisory": True}
+
 
 def screen_prompt_injection(text: str, *, service: Any = None, source: str = "") -> InjectionSignal:
     """The advisory injection verdict for ``text`` (``off`` when the area is not configured)."""
@@ -80,3 +91,70 @@ def screen_prompt_injection(text: str, *, service: Any = None, source: str = "")
     answer = outcome.result.answer(QUESTION_KEY)
     return InjectionSignal(BENIGN if answer.choice == BENIGN else "suspicious", answer.choice, answer.confidence,
                            outcome.decided_by, decision.mode)
+
+
+# --- ingress: screening where user text enters the Hub -----------------------------------------------------
+
+_MAX_PENDING = 8
+
+
+class _ShadowRunner:
+    """A small executor for shadow screens; drops work instead of queueing when too much is pending."""
+
+    def __init__(self, max_pending: int = _MAX_PENDING) -> None:
+        self._max = max_pending
+        self._pending = 0
+        self._lock = threading.Lock()
+        self._executor: ThreadPoolExecutor | None = None
+        self.dropped = 0
+
+    def submit(self, work: Callable[[], None]) -> bool:
+        with self._lock:
+            if self._pending >= self._max:
+                self.dropped += 1
+                return False
+            self._pending += 1
+            if self._executor is None:
+                self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="injection-screen")
+        self._executor.submit(self._run, work)
+        return True
+
+    def _run(self, work: Callable[[], None]) -> None:
+        try:
+            work()
+        except Exception:  # noqa: BLE001 -- a shadow screen never affects the request
+            _log.debug("shadow injection screen failed", exc_info=True)
+        finally:
+            with self._lock:
+                self._pending -= 1
+
+
+_SHADOW = _ShadowRunner()
+
+
+def screen_ingress(text: str, *, source: str, service: Any = None) -> InjectionSignal | None:
+    """Screen text entering the Hub. ``None`` when off or in shadow (then screened in the background and only
+    recorded, adding no latency); the advisory signal in active mode. Never blocks anything."""
+    if not str(text or "").strip():
+        return None
+    if service is None:
+        from agent.services.decision_providers.service import get_decision_service
+
+        service = get_decision_service()
+    mode = service.area_mode(AREA)
+    if mode == "off":
+        return None
+    if mode == "shadow":
+        from flask import current_app, has_app_context
+
+        app = current_app._get_current_object() if has_app_context() else None
+
+        def work():
+            if app is None:
+                screen_prompt_injection(text, service=service, source=source)
+                return
+            with app.app_context():
+                screen_prompt_injection(text, service=service, source=source)
+        _SHADOW.submit(work)
+        return None
+    return screen_prompt_injection(text, service=service, source=source)
