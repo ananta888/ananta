@@ -6,7 +6,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "long_context_strategy",
   "title": "Aufgaben mit mehr Kontext als das 32k-Fenster: entscheiden, verdichten, nachladen, nacheinander, parallel",
-  "status": "partial",
+  "status": "todo",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -63,7 +63,7 @@
         "LCTX-002",
         "LCTX-003"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "LCTX-M2",
@@ -71,7 +71,7 @@
       "task_ids": [
         "LCTX-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "LCTX-M3",
@@ -147,10 +147,10 @@
       "milestone_id": "LCTX-M1",
       "title": "Tote und doppelte Kontext-Bausteine bereinigen",
       "type": "refactor",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-002"
       ],
@@ -164,7 +164,7 @@
       ],
       "evidence": [
         "fix(ctx) LCTX-003 2026-09-27: ContextBundler-Budget durchgesetzt, CONTEXT_COMPRESSION_* angebunden (Standard aus)",
-        "Offen: ContextBudgetPolicyService und PreModelContextOrchestrator gehen in LCTX-004 auf (bewusst nicht geloescht)"
+        "ContextBudgetPolicyService (Quellenwahl je Chat-Absicht) und PreModelContextOrchestrator (Kandidaten-Ranking) sind keine Dubletten des Entscheidungspunkts: bleiben; PreModel ist Baustein fuer LCTX-006 (gezielt nachladen)."
       ]
     },
     {
@@ -172,10 +172,10 @@
       "milestone_id": "LCTX-M2",
       "title": "Entscheidungspunkt Kontextstrategie im Hub",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-002"
       ],
@@ -188,7 +188,11 @@
       "acceptance_criteria": [
         "Jede zu grosse Aufgabe bekommt eine aufgezeichnete Strategie; keine Aufgabe laeuft ueber das Fenster."
       ],
-      "evidence": []
+      "evidence": [
+        "agent/services/context_strategy_service.py: Regeln (fit/compact/retrieve/sequential/map_reduce/escalate), Grauzone ueber Decision-Provider-Bereich context_strategy oder sicherer Standard sequential, Parameter (Stueckbudget, Stuecke, Parallelitaet)",
+        "Config context_strategy (mode off/shadow/active, Standard shadow) mit Validierung in POST /config; Metrik context_strategy_decisions_total; Produkt-Event context_strategy_decided im Propose-Ablauf des Hubs",
+        "tests/test_context_strategy_service.py; Regression 277 passed"
+      ]
     },
     {
       "id": "LCTX-005",
@@ -361,13 +365,13 @@
   "tasks_status_summary": {
     "total": 11,
     "by_status": {
-      "todo": 8,
+      "todo": 7,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 2
+      "done": 4
     },
-    "progress_percent_done": 18.2,
+    "progress_percent_done": 36.4,
     "by_priority": {
       "P0": 3,
       "P1": 6,
@@ -382,16 +386,16 @@
     },
     "critical_path": {
       "total": 6,
-      "done": 2,
-      "remaining": 4
+      "done": 3,
+      "remaining": 3
     },
     "milestones": {
       "total": 5,
-      "todo": 3,
+      "todo": 2,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 1
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -415,34 +419,34 @@
       },
       "feature": {
         "total": 7,
-        "done": 1,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "todo": 6,
+        "todo": 5,
         "in_progress": 0,
-        "progress_percent": 14.3,
+        "progress_percent": 28.6,
         "by_status": {
-          "todo": 6,
+          "todo": 5,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 1
+          "done": 2
         }
       },
       "refactor": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 70.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "evaluation": {
@@ -480,13 +484,13 @@
     }
   },
   "progress_summary": {
-    "state": "partial",
-    "todo_remaining": 8,
+    "state": "todo",
+    "todo_remaining": 7,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 2,
-    "milestones_done": 1,
+    "done": 4,
+    "milestones_done": 3,
     "milestones_total": 5
   }
 }

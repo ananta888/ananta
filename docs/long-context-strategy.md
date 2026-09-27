@@ -1,6 +1,6 @@
 # Long context: fit check and never-silent truncation
 
-**Track:** LCTX (`todos/active/todo.long-context-strategy.json`) · **Stand:** 2026-09-27, Meilensteine M0/M1
+**Track:** LCTX (`todos/active/todo.long-context-strategy.json`) · **Stand:** 2026-09-27, Meilensteine M0–M2
 
 Ananta arbeitet mit **32k Token pro Anfrage** (`ANANTA_CONTEXT_TOKENS`, Standard 32768; siehe
 `docs/jev-llamacpp-decision-mode.md`, Abschnitt Standardmodell). Was nicht passt, wird heute noch gekürzt –
@@ -54,7 +54,29 @@ liefert sie als `context_truncation` in den Metadaten.
   `PreModelContextOrchestrator` – sie gehen im Entscheidungspunkt (LCTX-004) auf, statt einen dritten
   Budget-Begriff daneben zu stellen.
 
-## Noch offen (M2–M4)
+## Entscheidungspunkt im Hub (M2)
 
-Entscheidungspunkt im Hub (fit / compact / retrieve / sequential / map_reduce / escalate), die Strategien selbst,
+`agent/services/context_strategy_service.py`, im Propose-Ablauf des Hubs (`_task_scoped_propose_orch`):
+passt der Task-Kontext (Prompt, Recherche-Kontext, Beschreibung) nicht ins Fenster, entscheidet der Hub:
+
+| Lage | Strategie |
+|---|---|
+| passt | `fit` |
+| bis 1,5× Budget, oder Verlauf | `compact` |
+| großer Bestand / Frage an das Material (nicht geordnet) | `retrieve` |
+| unabhängige Teile | `map_reduce` (Stückbudget = 60 % des Budgets, Parallelität ≤ 4) |
+| geordnetes Material | `sequential` |
+| ≥ 40× Budget | `escalate` |
+| unklare Form | Decision-Provider-Bereich `context_strategy` (falls an), sonst `sequential` (verarbeitet alles) |
+
+Die Art der Eingabe kann ein Task mitbringen (`context_input_kind`: conversation / corpus / parts / ordered);
+Analyse-, Recherche- und Review-Tasks gelten als Fragen an das Material. Config `context_strategy`
+(`mode` off / **shadow** / active, `compact_max_ratio`, `escalate_min_ratio`, `chunk_fill`, `max_parallel`,
+`ask_decision_provider`). Aufgezeichnet als Produkt-Event `context_strategy_decided` und Metrik
+`context_strategy_decisions_total{strategy,decided_by}`. **Im Moment wird nur entschieden und aufgezeichnet**;
+die Strategien handeln im Modus `active`, sobald sie gebaut sind (M3).
+
+## Noch offen (M3–M4)
+
+Die Strategien selbst,
 Überlauf zur Laufzeit neu anstoßen statt nur protokollieren, Ersatz der harten Zeichenschnitte, Benchmark.
