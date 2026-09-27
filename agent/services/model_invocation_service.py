@@ -786,6 +786,32 @@ class ModelInvocationService:
             api_key,
         )
 
+    @staticmethod
+    def _configured_local_backend_url(provider: str) -> str | None:
+        """Chat-completions URL of a configured local OpenAI-compatible backend (e.g. ``llamacpp``).
+
+        Without this, a default provider such as ``llamacpp`` fell through to ``lmstudio_url``
+        and was sent to LM Studio's endpoint instead of its own ``local_openai_backends`` entry.
+        """
+        try:
+            from flask import current_app, has_app_context
+
+            from agent.local_llm_backends import resolve_local_openai_backend
+
+            if not has_app_context():
+                return None
+            entry = resolve_local_openai_backend(
+                provider,
+                agent_cfg=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
+                provider_urls=dict(current_app.config.get("PROVIDER_URLS", {}) or {}),
+            )
+        except Exception:  # noqa: BLE001 -- resolution is best effort; the caller keeps its fallback
+            return None
+        base = str((entry or {}).get("base_url") or "").rstrip("/")
+        if not base or provider in ("lmstudio", "lm_studio"):
+            return None
+        return base if base.endswith("/chat/completions") else base + "/chat/completions"
+
     @classmethod
     def _provider_info(cls) -> tuple[str, str, str | None]:
         """Return (provider_label, chat_completions_url, api_key)."""
@@ -818,6 +844,10 @@ class ModelInvocationService:
 
         if provider == "mock":
             return "mock", s.mock_url.rstrip("/") + "/v1/chat/completions", None
+
+        configured = cls._configured_local_backend_url(provider)
+        if configured:
+            return provider, configured, None
 
         # Generic OpenAI-compatible fallback
         base = s.lmstudio_url.rstrip("/")

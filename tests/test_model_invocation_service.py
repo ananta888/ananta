@@ -1585,3 +1585,34 @@ def test_prompt_json_tool_call_schema_failure_is_terminal_model_signal(monkeypat
     assert exc.fallback_decisions[-1]["reason"] == "candidate_chain_exhausted"
     assert exc.model_recovery_signal["schema"] == "model_recovery_signal.v1"
     assert exc.model_recovery_signal["attempt_count"] == 1
+
+
+def test_provider_info_uses_configured_local_backend_for_llamacpp(monkeypatch) -> None:
+    from flask import Flask
+
+    settings = SimpleNamespace(
+        default_provider="llamacpp",
+        lmstudio_url="http://172.18.112.1:1234/v1",
+        ollama_url="http://ollama:11434/api/generate",
+        openai_url="https://api.openai.com/v1",
+        openai_api_key=None,
+        mock_url="http://mock:8080",
+    )
+    monkeypatch.setattr(ModelInvocationService, "_get_settings", classmethod(lambda cls: settings))
+    app = Flask("provider-info")
+    app.config["AGENT_CONFIG"] = {
+        "local_openai_backends": [{"id": "llamacpp", "base_url": "http://host.docker.internal:18150/v1"}]
+    }
+    app.config["PROVIDER_URLS"] = {"lmstudio": settings.lmstudio_url}
+
+    with app.app_context():
+        provider, url, api_key = ModelInvocationService._provider_info()
+
+    assert (provider, url, api_key) == ("llamacpp", "http://host.docker.internal:18150/v1/chat/completions", None)
+
+
+def test_provider_info_keeps_lmstudio_fallback_for_unknown_provider(monkeypatch) -> None:
+    settings = SimpleNamespace(default_provider="custom", lmstudio_url="http://lmstudio:1234/v1")
+    monkeypatch.setattr(ModelInvocationService, "_get_settings", classmethod(lambda cls: settings))
+
+    assert ModelInvocationService._provider_info() == ("custom", "http://lmstudio:1234/v1/chat/completions", None)
