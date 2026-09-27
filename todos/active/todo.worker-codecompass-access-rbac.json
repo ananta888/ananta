@@ -61,7 +61,7 @@
       "task_ids": [
         "WCRB-001"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCRB-M1",
@@ -72,7 +72,7 @@
         "WCRB-004",
         "WCRB-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCRB-M2",
@@ -116,10 +116,10 @@
       "milestone_id": "WCRB-M0",
       "title": "test.run im Worker-Tool-Loop an die Test-Allowlist anbinden",
       "type": "bugfix",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "implementation": [
         "get_tool_loop_config uebernimmt allowlisted_test_commands, test_timeout_seconds, test_output_max_chars aus ananta_worker_workspace_mutation (eine Quelle, keine Kopie)."
@@ -127,17 +127,19 @@
       "acceptance_criteria": [
         "test.run fuehrt einen allowlisteten Befehl im Tool-Loop aus; nicht allowlistete bleiben policy_blocked."
       ],
-      "evidence": []
+      "evidence": [
+        "cc01ca4c5: get_tool_loop_config reicht allowlisted_test_commands/test_timeout_seconds/test_output_max_chars aus ananta_worker_workspace_mutation durch; tests/test_tool_loop_test_run_allowlist.py"
+      ]
     },
     {
       "id": "WCRB-002",
       "milestone_id": "WCRB-M1",
       "title": "Einheitlicher Principal (Subjekt, Mandant, Rollen, Gruppen)",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "implementation": [
         "get_current_principal() aus get_authenticated_source_control_principal verallgemeinern; Domaenen-Principals adaptieren statt duplizieren.",
@@ -146,17 +148,19 @@
       "acceptance_criteria": [
         "Ein Principal-Builder fuer Hub-Routen; bestehende Domaenen-Principals unveraendert nutzbar."
       ],
-      "evidence": []
+      "evidence": [
+        "4ff307e8b: agent/services/access_principal.py, get_current_principal() in agent/auth.py; Token-Rollen-Auslese mit dem Source-Control-Principal geteilt (token_roles)"
+      ]
     },
     {
       "id": "WCRB-003",
       "milestone_id": "WCRB-M1",
       "title": "Rollen, Rechte und Rollenbindungen (DB, Admin-API, Audit, Revisionen)",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-002"
       ],
@@ -169,17 +173,20 @@
         "Rollen und Bindungen per API pflegbar, auditiert, rueckrollbar.",
         "Ohne Bindungen verhaelt sich Ananta wie bisher (admin/nicht-admin)."
       ],
-      "evidence": []
+      "evidence": [
+        "4ff307e8b: Tabellen access_roles/access_role_bindings/access_policy_revisions, Admin-API /access/*, Audit access_policy_changed, Revisionen mit Rollback; 4 eingebaute Rollen; tests/test_access_roles.py, tests/test_access_principal_and_api.py",
+        "Live 2026-09-27: Tabellen in Postgres angelegt, /access/roles und /access/me antworten"
+      ]
     },
     {
       "id": "WCRB-004",
       "milestone_id": "WCRB-M1",
       "title": "Keycloak-Gruppen, Realm- und Client-Rollen an Rollen binden, bei jedem Login abgleichen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-003"
       ],
@@ -191,17 +198,19 @@
         "Aenderung einer Keycloak-Gruppe wirkt beim naechsten Login.",
         "Tests mit synthetischen Tokens (headless)."
       ],
-      "evidence": []
+      "evidence": [
+        "4ff307e8b: idp_memberships (groups, realm_access.roles, resource_access.<client>.roles) bei jedem OIDC-Login an OidcIdentityLinkDB.memberships; Aufloesung pro Request; tests/test_access_keycloak_memberships.py (Gruppe bindet Rolle, naechster Login ohne Gruppe entzieht sie)"
+      ]
     },
     {
       "id": "WCRB-005",
       "milestone_id": "WCRB-M1",
       "title": "Operation-Policy entscheidet pro Rolle; Worker-Tools als Operationen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-003"
       ],
@@ -213,7 +222,9 @@
         "Eine Rolle kann ein einzelnes Tool erlauben oder verbieten; Entscheidung und rule_id im Audit.",
         "Bestehende Policy-Tests unveraendert gruen."
       ],
-      "evidence": []
+      "evidence": [
+        "f1e54b5d3: Worker-Tools als Operationen ananta.tool.* in Gruppen read/write/execution; OperationAuthContext.grants; AnantaToolPolicyService.evaluate(grants=); tests/test_access_role_policy.py; bestehende Policy-/MCP-Tests gruen (59)"
+      ]
     },
     {
       "id": "WCRB-006",
@@ -380,21 +391,21 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 12,
+      "todo": 7,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     },
-    "progress_percent_done": 0
+    "progress_percent_done": 42
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 12,
+    "state": "in_progress",
+    "todo_remaining": 7,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 5
   },
   "success_criteria": [
     "Alle CodeCompass-Tools funktionieren im Worker-Tool-Loop ueber B und A.",
