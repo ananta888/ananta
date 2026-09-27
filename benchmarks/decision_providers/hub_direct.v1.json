@@ -1,0 +1,250 @@
+{
+  "schema": "ananta.decision_benchmark.v1",
+  "version": "1.0",
+  "area": "hub_direct",
+  "decision_point": "agent/services/hub_direct_execution_router.py:HubDirectExecutionRouter.classify",
+  "current_behavior": "Rejects empty/over-240-char prompts and any prompt containing a write/multi-step keyword, then matches anchored regexes for git status, workspace diff, git diff, test discovery, list files, read file and grep; else not eligible.",
+  "question": {
+    "key": "hub_direct_tool",
+    "kind": "choice",
+    "instructions": "Decide whether the hub can answer this task prompt directly with exactly one read-only tool without starting a worker LLM, and which tool.",
+    "options": {
+      "git.status": "Show the git status of the workspace.",
+      "git.diff_readonly": "Show the git diff, optionally restricted to one file path.",
+      "workspace.diff": "Show the workspace diff (explicitly the workspace, not a git diff of a file).",
+      "test.discover": "List or discover which tests exist in the workspace.",
+      "repo.list_files": "List the files in the workspace/repository, optionally within a directory or glob.",
+      "repo.read_file_range": "Read or show the content of one named file path, optionally a line range.",
+      "repo.grep": "Search the repository text for a single literal pattern, optionally within a path glob.",
+      "not_eligible": "Anything else: write or mutating actions, multi-step requests, analysis or explanation that needs an LLM, ambiguous requests, unsafe input (shell metacharacters), or prompts over 240 characters; the worker/LLM path handles it."
+    }
+  },
+  "label_source": "policy_rule",
+  "provenance": "Parametrized and single-prompt cases of tests/test_hub_direct_execution_router.py whose outcome depends only on the prompt text. The classifier also takes agent_cfg: all cases assume the test _cfg() (enabled=True, confidence_threshold=0.8, all seven static tools allowed) and no dynamic custom-tool intent aliases. Skipped: config-gate tests (disabled, allowed_tools, threshold) and dynamic intent-alias tests.",
+  "cases": [
+    {
+      "id": "hub_direct-001",
+      "lang": "de",
+      "state": "liste dateien",
+      "expected": "repo.list_files",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-002",
+      "lang": "de",
+      "state": "Liste alle Dateien",
+      "expected": "repo.list_files",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-003",
+      "lang": "en",
+      "state": "show files",
+      "expected": "repo.list_files",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-004",
+      "lang": "en",
+      "state": "list files in the repo",
+      "expected": "repo.list_files",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-005",
+      "lang": "de",
+      "state": "git status",
+      "expected": "git.status",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-006",
+      "lang": "de",
+      "state": "zeige den git status",
+      "expected": "git.status",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-007",
+      "lang": "de",
+      "state": "git diff",
+      "expected": "git.diff_readonly",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-008",
+      "lang": "en",
+      "state": "workspace diff",
+      "expected": "workspace.diff",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-009",
+      "lang": "de",
+      "state": "welche tests gibt es?",
+      "expected": "test.discover",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-010",
+      "lang": "en",
+      "state": "discover tests",
+      "expected": "test.discover",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-011",
+      "lang": "de",
+      "state": "suche nach ToolRoutingService",
+      "expected": "repo.grep",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-012",
+      "lang": "en",
+      "state": "grep ToolRoutingService",
+      "expected": "repo.grep",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-013",
+      "lang": "de",
+      "state": "lies agent/config.py",
+      "expected": "repo.read_file_range",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-014",
+      "lang": "en",
+      "state": "read file agent/config.py lines 10-40",
+      "expected": "repo.read_file_range",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+    },
+    {
+      "id": "hub_direct-015",
+      "lang": "de",
+      "state": "suche nach \"ToolRoutingService\" in agent/*.py",
+      "expected": "repo.grep",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_grep_extracts_bounded_pattern_without_shell"
+    },
+    {
+      "id": "hub_direct-016",
+      "lang": "de",
+      "state": "lies agent/config.py zeilen 5 bis 20",
+      "expected": "repo.read_file_range",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_read_file_extracts_line_range"
+    },
+    {
+      "id": "hub_direct-017",
+      "lang": "en",
+      "state": "fix the bug in agent/config.py",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-018",
+      "lang": "de",
+      "state": "implementiere ein neues feature",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-019",
+      "lang": "en",
+      "state": "refactor task_execution_service",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-020",
+      "lang": "de",
+      "state": "lösche alle dateien",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-021",
+      "lang": "de",
+      "state": "analysiere die Architektur und schlage Refactor vor",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-022",
+      "lang": "de",
+      "state": "liste dateien und dann committe alles",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-023",
+      "lang": "en",
+      "state": "run tests",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-024",
+      "lang": "de",
+      "state": "",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-025",
+      "lang": "de",
+      "state": "etwas völlig unklares bitte tun",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-026",
+      "lang": "de",
+      "state": "suche nach foo; rm -rf /",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_grep_with_shell_metacharacters_is_rejected"
+    },
+    {
+      "id": "hub_direct-027",
+      "lang": "de",
+      "state": "liste dateien xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_long_prompts_are_not_eligible"
+    },
+    {
+      "id": "hub_direct-028",
+      "lang": "de",
+      "state": "wie ist das wetter",
+      "expected": "not_eligible",
+      "acceptable": [],
+      "source": "tests/test_hub_direct_execution_router.py::test_no_rule_match_reason_code"
+    }
+  ]
+}

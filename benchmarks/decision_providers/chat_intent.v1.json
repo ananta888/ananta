@@ -1,0 +1,79 @@
+{
+  "schema": "ananta.decision_benchmark.v1",
+  "version": "1.0",
+  "area": "chat_intent",
+  "decision_point": "client_surfaces/operator_tui/chat_policy.py:classify_chat_intent",
+  "current_behavior": "Lower-cases the message and checks English keyword regexes in order tool_request, analysis, code_question, then greeting patterns or any message of at most 40 chars / 6 words without code-like characters as smalltalk, else unknown.",
+  "question": {
+    "key": "chat_intent",
+    "kind": "choice",
+    "instructions": "Decide which intent category this operator chat message belongs to, which sets its token budget.",
+    "options": {
+      "smalltalk": "Greetings, thanks, acknowledgements (ok, yes, no) and other short social or conversational messages without a technical request.",
+      "code_question": "A question about code or programming: a function, class, method, bug, error or exception, tests, imports, modules, libraries, APIs, SQL, scripts, a programming language or developer tool.",
+      "tool_request": "A request to perform an action with a tool: run/execute/call something, search or fetch, browse or open, create/write/read/delete files, list files, install, deploy, trigger, start/stop/restart, scan.",
+      "analysis": "A request for deeper reasoning: analyze, explain, summarize, review, audit, investigate, diagnose, benchmark, compare, evaluate or assess, deep dive, architecture, refactoring, migration or performance questions.",
+      "unknown": "The message is empty or fits none of the other categories (e.g. a longer general question unrelated to code, tools or analysis)."
+    }
+  },
+  "label_source": "policy_rule",
+  "provenance": "Every classify_chat_intent assertion in tests/ (only tests/test_tui_snake_chat_policy.py calls it). 'unknown' is kept as a label because test_classify_empty asserts it. Note: no production caller of classify_chat_intent was found outside tests.",
+  "cases": [
+    {
+      "id": "chat_intent-001",
+      "lang": "de",
+      "state": "hallo",
+      "expected": "smalltalk",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_smalltalk_greeting"
+    },
+    {
+      "id": "chat_intent-002",
+      "lang": "en",
+      "state": "hello",
+      "expected": "smalltalk",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_english_hello"
+    },
+    {
+      "id": "chat_intent-003",
+      "lang": "de",
+      "state": "danke",
+      "expected": "smalltalk",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_thanks"
+    },
+    {
+      "id": "chat_intent-004",
+      "lang": "en",
+      "state": "What does this Python function do?",
+      "expected": "code_question",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_code_question"
+    },
+    {
+      "id": "chat_intent-005",
+      "lang": "en",
+      "state": "Please run the tests and fetch the results",
+      "expected": "tool_request",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_tool_request"
+    },
+    {
+      "id": "chat_intent-006",
+      "lang": "en",
+      "state": "Please analyze the architecture and explain the design",
+      "expected": "analysis",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_analysis"
+    },
+    {
+      "id": "chat_intent-007",
+      "lang": "en",
+      "state": "",
+      "expected": "unknown",
+      "acceptable": [],
+      "source": "tests/test_tui_snake_chat_policy.py::test_classify_empty"
+    }
+  ]
+}

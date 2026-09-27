@@ -1,0 +1,150 @@
+{
+  "schema": "ananta.decision_benchmark.v1",
+  "version": "1.0",
+  "area": "companion_route",
+  "decision_point": "worker/meet_media/companion_router.py:classify",
+  "current_behavior": "Ordered regular-expression keyword rules (self-explanation phrase, repository/code keywords, knowledge phrase plus identifier, companion-pipeline phrases, meeting keywords) pick the route; no LLM.",
+  "question": {
+    "key": "companion_route",
+    "kind": "choice",
+    "instructions": "Decide where the companion avatar must ground its answer to this meeting chat message.",
+    "options": {
+      "self_explanation": "The user asks how the assistant produced its previous answer, where it got it from, or which sources that last answer used (answered from the recorded trace, no model call).",
+      "ananta_code_architecture": "The user asks about Ananta itself: its repository, code, files, modules, classes, functions, services, endpoints, scripts, CodeCompass, hub/worker architecture, a named identifier or path, or how the companion itself works internally (voice/speech output, avatar, mouth animation, lip sync, pipeline); needs a CodeCompass lookup.",
+      "meet_runtime_current_dialog": "The user asks about the currently running meeting or call: participants, room, chat, microphone/audio/video, what is happening right now in this conversation; this also covers questions about how Ananta Meet works (runtime context, plus code lookup when code is mentioned).",
+      "general_question": "Smalltalk, greetings, jokes, and general world-knowledge questions that concern neither Ananta's code nor the current meeting; answered by the LLM alone without CodeCompass."
+    }
+  },
+  "label_source": "policy_rule",
+  "provenance": "Every text whose route the tests assert (classify(...).route or AnswerTrace.route after CompanionDialog.answer); labels are the asserted test expectations, i.e. the current policy rule. Duplicates across tests kept once.",
+  "cases": [
+    {
+      "id": "companion_route-001",
+      "lang": "de",
+      "state": "Was ist Ananta?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-002",
+      "lang": "de",
+      "state": "Wie funktioniert Ananta Meet?",
+      "expected": "meet_runtime_current_dialog",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-003",
+      "lang": "de",
+      "state": "Wie funktioniert deine Sprachausgabe?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-004",
+      "lang": "de",
+      "state": "Welche Datei macht das?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-005",
+      "lang": "de",
+      "state": "Wie hast du diese Antwort erzeugt?",
+      "expected": "self_explanation",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-006",
+      "lang": "en",
+      "state": "How did you generate that answer?",
+      "expected": "self_explanation",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-007",
+      "lang": "de",
+      "state": "Wer ist gerade im Raum?",
+      "expected": "meet_runtime_current_dialog",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-008",
+      "lang": "de",
+      "state": "Hallo! Wie geht es dir heute?",
+      "expected": "general_question",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-009",
+      "lang": "de",
+      "state": "Erzähl mir einen Witz",
+      "expected": "general_question",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-010",
+      "lang": "de",
+      "state": "",
+      "expected": "general_question",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+    },
+    {
+      "id": "companion_route-011",
+      "lang": "de",
+      "state": "Welche Datei implementiert den Hub?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_router_never_uses_codecompass_when_the_flag_is_off"
+    },
+    {
+      "id": "companion_route-012",
+      "lang": "de",
+      "state": "Welche Datei macht die Sprachausgabe?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_dialog.py::test_self_explanation_separates_observed_repository_and_generated_without_a_model_call"
+    },
+    {
+      "id": "companion_route-013",
+      "lang": "de",
+      "state": "was weisst du ueber den rag-helper wie der funktioniert?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_knowledge.py::test_the_live_question_routes_to_code_architecture"
+    },
+    {
+      "id": "companion_route-014",
+      "lang": "de",
+      "state": "Wie geht es dir?",
+      "expected": "general_question",
+      "acceptable": [],
+      "source": "tests/test_meet_companion_knowledge.py::test_the_live_question_routes_to_code_architecture"
+    },
+    {
+      "id": "companion_route-015",
+      "lang": "de",
+      "state": "Wie funktioniert die ToolBox in Ananta?",
+      "expected": "ananta_code_architecture",
+      "acceptable": [],
+      "source": "tests/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
+    },
+    {
+      "id": "companion_route-016",
+      "lang": "de",
+      "state": "Wie geht es dir heute?",
+      "expected": "general_question",
+      "acceptable": [],
+      "source": "tests/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
+    }
+  ]
+}
