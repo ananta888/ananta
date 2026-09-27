@@ -346,6 +346,13 @@ Worker neu erstellt (sonst unveränderte Umgebung). Im Worker gemessen (16 Tools
 
 ## Standardmodell von Ananta: der eGPU-llama-server (2026-09-27)
 
+**Kontext: 32k pro Anfrage ist Ananta-Standard** und die empfohlene Einstellung für jedes Modell:
+llama-server `-c <32768 × parallele Slots>` (eGPU: `-c 65536 -np 2` = 32k je Slot), Ollama `num_ctx 32768`
+(`OLLAMA_NUM_CTX`, Template `autoimport-state/modelfiles/ananta-default.Modelfile`), LM Studio Kontextlänge
+32768. Ananta selbst: `ANANTA_CONTEXT_TOKENS` (Standard 32768) → `llm_config.context_limit`; der
+llamacpp-Pfad kürzt den Verlauf darauf (älteste Nachrichten zuerst, die aktuelle Frage bleibt), statt am
+Server-Slot zu scheitern. Cloud-Provider werden nur mit ausdrücklichem Limit gekürzt.
+
 Hub und Worker nutzen als Standard denselben llama-server wie der Companion und der Jev-Modus (Bonsai 2 27B auf der
 eGPU, Port 18150). Gesetzt einmal zentral über die Hub-Route `POST /config` (landet in der Config-DB, Hub und Worker
 lesen sie):
