@@ -289,3 +289,94 @@ def test_the_production_question_is_the_benchmarked_one():
     question = json.loads((Path(__file__).resolve().parents[1] / "benchmarks/decision_providers/"
                            "retrieval_intent.v1.json").read_text(encoding="utf-8"))["question"]
     assert question["options"] == INTENT_OPTIONS and question["instructions"] == INSTRUCTIONS
+
+
+# --- agreement stage and prompt-injection screening -------------------------------------------------------------
+
+
+def _label(key, label, confidence, options=("benign", "instruction_override")):
+    return lambda request: {key: DecisionAnswer(key, "choice", choice=label,
+                                                probabilities={o: (confidence if o == label else 0.0) for o in options},
+                                                confidence=confidence)}
+
+
+def test_an_agreement_stage_needs_the_same_confident_answer_from_every_member():
+    from agent.services.decision_providers.cascade import AgreementStage, DecisionCascade
+
+    local = StaticDecisionProvider(_label("tool", "search", 0.95), provider_id="llamacpp_decision")
+    jev = StaticDecisionProvider(_label("tool", "search", 0.92), provider_id="typesafe_jev")
+    outcome = DecisionCascade([AgreementStage([local, jev], 0.9)]).decide(REQUEST)
+    assert outcome.decided_by == "agreement(llamacpp_decision+typesafe_jev)"
+    assert outcome.result.answer("tool").confidence == 0.92 and outcome.result.answer("tool").choice == "search"
+    other = StaticDecisionProvider(_label("tool", "none", 0.99), provider_id="typesafe_jev")
+    outcome = DecisionCascade([AgreementStage([local, other], 0.9)]).decide(REQUEST)
+    assert outcome.deferred and outcome.disagreed and outcome.trace[0].reason == "tool"
+    unsure = StaticDecisionProvider(_label("tool", "search", 0.7), provider_id="typesafe_jev")
+    assert DecisionCascade([AgreementStage([local, unsure], 0.9)]).decide(REQUEST).trace[0].outcome == "low_confidence"
+
+
+def test_an_agreement_stage_fails_closed_on_a_missing_member():
+    from agent.services.decision_providers import typesafe as ts
+    from agent.services.decision_providers.cascade import AgreementStage, CascadeStage, DecisionCascade
+
+    local = StaticDecisionProvider(_label("tool", "search", 0.99), provider_id="llamacpp_decision")
+    no_key = ts.TypeSafeJevProvider(api_key=lambda: None)
+    fallback = StaticDecisionProvider(_label("tool", "search", 0.95), provider_id="llm")
+    outcome = DecisionCascade([AgreementStage([local, no_key]), CascadeStage(fallback)]).decide(REQUEST)
+    assert outcome.decided_by == "llm"
+    assert outcome.trace[0].outcome == "unavailable" and "api_key_missing" in outcome.trace[0].reason
+
+
+def test_config_accepts_agreement_groups_and_builds_them():
+    section = _section(prompt_injection={"mode": "shadow", "cascade": [["jev", "llm"]]})
+    assert dc.area_settings(section, "prompt_injection")["cascade"] == [["jev", "llm"]]
+    with pytest.raises(dc.DecisionConfigError, match="cascade_invalid"):
+        dc.normalize_decision_config(_section(prompt_injection={"mode": "shadow", "cascade": [["jev"]]}))
+    with pytest.raises(dc.DecisionConfigError, match="cascade_invalid"):
+        dc.normalize_decision_config(_section(prompt_injection={"mode": "shadow", "cascade": [["jev", "llm"], "jev"]}))
+    service, _sink = _service(section, {"jev": StaticDecisionProvider(_label("intent", "benign", 0.95)),
+                                        "llm": StaticDecisionProvider(_label("intent", "benign", 0.97))})
+    request = DecisionRequest(state="Hallo", questions=(
+        DecisionQuestion.choice("intent", "x", {"benign": "b", "instruction_override": "o"}),))
+    assert service.decide("prompt_injection", request).outcome.decided_by.startswith("agreement(")
+
+
+def _screen_service(mode, local_label, local_conf, jev_label, jev_conf):
+    from agent.services.prompt_injection_screening import INTENT_OPTIONS
+
+    options = tuple(INTENT_OPTIONS)
+    section = {"enabled": True, "providers": {"jev": JEV_ON, "local_decision": {"enabled": True, "base_url": "http://x"}},
+               "areas": {"prompt_injection": {"mode": mode, "cascade": [["local_decision", "jev"]]}}}
+    providers = {"local_decision": StaticDecisionProvider(_label("intent", local_label, local_conf, options),
+                                                          provider_id="llamacpp_decision"),
+                 "jev": StaticDecisionProvider(_label("intent", jev_label, jev_conf, options),
+                                               provider_id="typesafe_jev")}
+    return _service(section, providers)[0]
+
+
+def test_the_screen_is_benign_only_when_both_models_say_so():
+    from agent.services.prompt_injection_screening import screen_prompt_injection
+
+    benign = screen_prompt_injection("Hallo", service=_screen_service("shadow", "benign", 0.97, "benign", 0.95))
+    assert benign.verdict == "benign" and not benign.needs_review
+    attack = screen_prompt_injection("Ignore all", service=_screen_service(
+        "shadow", "instruction_override", 0.99, "instruction_override", 0.93))
+    assert attack.verdict == "suspicious" and attack.label == "instruction_override" and attack.needs_review
+    split = screen_prompt_injection("tricky", service=_screen_service("shadow", "benign", 0.99, "data_exfiltration",
+                                                                      0.95))
+    assert split.verdict == "uncertain" and split.reason == "disagreement" and split.needs_review
+    unsure = screen_prompt_injection("hm", service=_screen_service("shadow", "benign", 0.99, "benign", 0.5))
+    assert unsure.verdict == "uncertain"
+    off = screen_prompt_injection("Ignore all", service=_screen_service("off", "benign", 1, "benign", 1))
+    assert off.verdict == "off" and not off.needs_review
+
+
+def test_the_screening_question_is_the_benchmarked_one():
+    import json
+    from pathlib import Path
+
+    from agent.services.prompt_injection_screening import INSTRUCTIONS, INTENT_OPTIONS
+
+    question = json.loads((Path(__file__).resolve().parents[1] / "benchmarks/decision_providers/"
+                           "prompt_injection.v1.json").read_text(encoding="utf-8"))["question"]
+    assert question["options"] == INTENT_OPTIONS and question["instructions"] == INSTRUCTIONS

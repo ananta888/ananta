@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from agent.services.decision_providers.base import DecisionProvider
-from agent.services.decision_providers.cascade import CascadeOutcome, CascadeStage, DecisionCascade
+from agent.services.decision_providers.cascade import AgreementStage, CascadeOutcome, CascadeStage, DecisionCascade
 from agent.services.decision_providers.config import SECTION, area_settings
 from agent.services.decision_providers.types import DecisionRequest
 
@@ -115,12 +115,18 @@ class DecisionService:
         if settings is None:
             return None
         thresholds = {**dict(question_thresholds or {}), **settings["question_thresholds"]}
-        stages = [CascadeStage(self._factory(name, settings["providers"][name]), settings["confidence_threshold"],
-                               thresholds) for name in settings["cascade"]]
+        stages = [self._stage(entry, settings, thresholds) for entry in settings["cascade"]]
         outcome = DecisionCascade(stages, deadline_seconds=settings["deadline_seconds"]).decide(request)
         decision = AreaDecision(area, settings["mode"], outcome)
         self._record(decision, request, current)
         return decision
+
+    def _stage(self, entry: Any, settings: Mapping[str, Any], thresholds: Mapping[str, float]) -> Any:
+        if isinstance(entry, list):
+            return AgreementStage([self._factory(name, settings["providers"][name]) for name in entry],
+                                  settings["confidence_threshold"], thresholds)
+        return CascadeStage(self._factory(entry, settings["providers"][entry]), settings["confidence_threshold"],
+                            thresholds)
 
     def _record(self, decision: AreaDecision, request: DecisionRequest, current: Mapping[str, Any] | None) -> None:
         result = decision.outcome.result
@@ -128,6 +134,7 @@ class DecisionService:
             key: {"choice": a.choice, "score": a.score, "probability": a.probability,
                   "confidence": round(a.confidence, 4)} for key, a in result.answers.items()}
         event = {"area": decision.area, "mode": decision.mode, "deferred": decision.outcome.deferred,
+                 "disagreed": decision.outcome.disagreed,
                  "decided_by": decision.outcome.decided_by, "answers": answers,
                  "current": dict(current or {}), "usable": decision.usable,
                  "state_sha256": hashlib.sha256(request.state.encode("utf-8")).hexdigest(),

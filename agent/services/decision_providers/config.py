@@ -25,7 +25,9 @@ before. Example::
 
 Area modes: ``off`` (today's behaviour), ``shadow`` (decide and record, today's
 behaviour wins) and ``active`` (an accepted decision is used; a deferral keeps
-today's path). An area names one ``provider`` or a ``cascade`` of providers.
+today's path). An area names one ``provider`` or a ``cascade`` of providers; a
+list inside the cascade is an agreement group (``[["local_decision", "jev"],
+"llm"]``: both must give the same confident answer, else the next stage).
 
 The TypeSafe key never lives in config: only ``api_key_env`` (default
 ``TYPESAFE_API_KEY``; ``<name>_FILE`` works too) names where it comes from.
@@ -40,7 +42,7 @@ SECTION = "decision_providers"
 PROVIDERS = ("jev", "local_decision", "llm")
 EXTERNAL_PROVIDERS = frozenset({"jev"})
 AREAS = ("tool_routing", "companion_route", "companion_knowledge", "retrieval_intent", "rag_needed",
-         "chat_intent", "hub_direct")
+         "chat_intent", "hub_direct", "prompt_injection")
 MODES = ("off", "shadow", "active")
 DEFAULT_THRESHOLD = 0.9
 _SECRET_KEYS = frozenset({"api_key", "key", "token", "secret", "authorization"})
@@ -121,6 +123,14 @@ def _provider(name: str, raw: Any) -> dict[str, Any]:
     return result
 
 
+def stage_providers(cascade: list[Any]) -> list[str]:
+    """Every provider named in a cascade; a list entry is an agreement group."""
+    names: list[str] = []
+    for item in cascade:
+        names.extend(item if isinstance(item, list) else [item])
+    return [str(n) for n in names]
+
+
 def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise DecisionConfigError(f"decision_area_invalid:{name}")
@@ -133,12 +143,16 @@ def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
     if raw.get("provider") and raw.get("cascade"):
         raise DecisionConfigError(f"decision_area_provider_and_cascade:{name}")
     cascade = [raw["provider"]] if raw.get("provider") else list(raw.get("cascade") or [])
-    if not all(isinstance(item, str) and item in PROVIDERS for item in cascade) or len(set(cascade)) != len(cascade):
+    cascade = [list(item) if isinstance(item, (list, tuple)) else item for item in cascade]
+    names = stage_providers(cascade)
+    groups_ok = all(isinstance(item, str) or (2 <= len(item) <= 3 and all(isinstance(m, str) for m in item))
+                    for item in cascade)
+    if not groups_ok or not all(n in PROVIDERS for n in names) or len(set(names)) != len(names):
         raise DecisionConfigError(f"decision_area_cascade_invalid:{name}")
     if mode != "off":
         if not cascade:
             raise DecisionConfigError(f"decision_area_cascade_required:{name}")
-        disabled = [item for item in cascade if not providers[item]["enabled"]]
+        disabled = [item for item in names if not providers[item]["enabled"]]
         if disabled:
             raise DecisionConfigError(f"decision_area_provider_disabled:{name}:{disabled[0]}")
     area: dict[str, Any] = {"mode": mode, "cascade": cascade}
@@ -200,4 +214,4 @@ def area_settings(section: Mapping[str, Any] | None, area: str) -> dict[str, Any
         return None
     return {**settings, "confidence_threshold": settings.get("confidence_threshold", cfg["confidence_threshold"]),
             "deadline_seconds": cfg["deadline_seconds"],
-            "providers": {name: cfg["providers"][name] for name in settings["cascade"]}}
+            "providers": {name: cfg["providers"][name] for name in stage_providers(settings["cascade"])}}
