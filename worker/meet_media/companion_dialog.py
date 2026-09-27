@@ -225,6 +225,7 @@ class CompanionDialog:
         system=None,
         tools=None,
         tool_choice=None,
+        routing=None,
     ):
         """``llm(text, context, system)`` -> str; ``retriever(query)`` -> snippets.
 
@@ -235,9 +236,12 @@ class CompanionDialog:
         ``tool_choice(text, definitions)`` is the optional decision fast path
         (``tool_decision.FastToolChoice``): a confident tool call it returns is
         forced the same way, unless the router already forced that tool.
+        ``routing(text, rules, codecompass_enabled=...)`` is the optional decision routing
+        (``route_decision.DecidedRouting``): it returns the rules' decision or a confident decided one.
         """
         self._tools = tools
         self._tool_choice = tool_choice
+        self._routing = routing
         self._llm = llm
         self._system = PERSONA_SYSTEM if system is None else str(system)
         self._retriever = retriever
@@ -249,6 +253,11 @@ class CompanionDialog:
     def answer(self, text):
         """Return (reply_text, trace) for one incoming meeting message."""
         decision = classify(text, codecompass_enabled=self._codecompass_enabled)
+        if self._routing is not None:
+            try:
+                decision = self._routing(text, decision, codecompass_enabled=self._codecompass_enabled)
+            except Exception:  # noqa: BLE001 -- the keyword rules always remain the answer
+                pass
         trace = AnswerTrace(question=str(text or "")[:1000], route=decision.route)
         trace.observe(f"chat message received, route={decision.route} ({decision.reason})")
         if decision.route == SELF_EXPLANATION:

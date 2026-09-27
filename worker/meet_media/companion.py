@@ -272,6 +272,8 @@ def dialog():
             llm=lambda text, context, system: answer(text, context=context, system=system, tools=_TOOLBOX),
             # Decision fast path (MEET_TOOL_DECISION_FAST): a confident tool call is forced like the router's.
             tool_choice=tool_decisions()[0] if _TOOLBOX is not None else None,
+            # Decision routing (MEET_ROUTE_DECISION shadow/active) next to the keyword rules.
+            routing=route_decisions(),
             retriever=(lambda query: fetch_snippets(query, limit=5)) if prefix else None,
             codecompass_enabled=prefix,
             model_name=os.environ.get("MEET_LLM_MODEL", ""),
@@ -280,6 +282,21 @@ def dialog():
             tools=_TOOLBOX,
         )
     return _DIALOG
+
+
+_ROUTING = None
+_ROUTING_BUILT = False
+
+
+def route_decisions():
+    """The routing port from ``MEET_ROUTE_DECISION`` (built once), or ``None``."""
+    global _ROUTING, _ROUTING_BUILT
+    if not _ROUTING_BUILT:
+        from worker.meet_media.route_decision import routing_from_env
+
+        _ROUTING = routing_from_env()
+        _ROUTING_BUILT = True
+    return _ROUTING
 
 
 def generate_reply(text):
