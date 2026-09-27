@@ -15,6 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from agent.services.ananta_tool_argument_docs import ARGUMENT_DOCS, REQUIRED
+
 CATEGORY_READ_ONLY = "read_only"
 CATEGORY_CONTROLLED_EXECUTION = "controlled_execution"
 CATEGORY_CONTROLLED_WRITE = "controlled_write"
@@ -66,6 +68,20 @@ class AnantaToolSpec:
         }
 
 
+def _documented_schema(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    """The argument schema with each argument's meaning and the required ones (ananta_tool_argument_docs)."""
+    docs = ARGUMENT_DOCS.get(name, {})
+    properties = {
+        key: {**value, "description": docs[key]} if key in docs and "description" not in value else value
+        for key, value in arguments.items()
+    }
+    schema: dict[str, Any] = {"type": "object", "properties": properties}
+    required = [key for key in REQUIRED.get(name, ()) if key in properties]
+    if required:
+        schema["required"] = required
+    return schema
+
+
 def _spec(
     name: str,
     category: str,
@@ -87,7 +103,7 @@ def _spec(
         category=category,
         risk_class=risk_class,
         description=description,
-        argument_schema={"type": "object", "properties": arguments},
+        argument_schema=_documented_schema(name, arguments),
         policy_requirements={
             "requires_approval": requires_approval,
             "requires_workspace": requires_workspace,
@@ -309,6 +325,10 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             {
                 "node": {"type": "string"},
                 "seeds": {"type": "array"},
+                "profile": {
+                    "type": "string",
+                    "enum": ["bugfix_local", "refactor_navigation", "architecture_review", "config_integration"],
+                },
                 "depth": {"type": "integer"},
                 "max_depth": {"type": "integer"},
                 "limit": {"type": "integer"},
@@ -348,8 +368,18 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             "codecompass.architecture_query",
             CATEGORY_READ_ONLY,
             RISK_READ,
-            "Run a CodeCompass architecture query (query engine contract).",
-            {"question": {"type": "string"}},
+            "Run a fixed CodeCompass architecture query type from a seed symbol or path over the code graph "
+            "(impact, test coverage, policy impact, dependency chain). Not a free-text question.",
+            {
+                "question": {
+                    "type": "string",
+                    "enum": ["dto-impact", "controller-test-coverage", "field-policy-impact", "service-dependency-chain"],
+                },
+                "seed": {"type": "string"},
+                "field": {"type": "string"},
+                "depth": {"type": "integer", "minimum": 1, "maximum": 4},
+                "direction": {"type": "string", "enum": ["outgoing", "incoming", "both"]},
+            },
             requires_workspace=False,
         ),
         _spec(
@@ -740,7 +770,7 @@ class AnantaToolRegistryService:
                         "parameters": {
                             "type": "object",
                             "properties": props,
-                            "required": [],
+                            "required": list(spec.argument_schema.get("required") or []),
                         },
                     },
                 }
