@@ -23,11 +23,10 @@ and the result is pruned and serialized to a bounded text block.
 
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeout
 
 from flask import current_app, jsonify, request
 
+from agent.services.hub_tool_gateway import GatewayTimeout, audit_tool_call, run_bounded, timeout_seconds
 from agent.services.meet_contract import MeetError
 
 SCHEMA = "ananta.meet-companion-tool.v1"
@@ -123,9 +122,6 @@ COMPANION_TOOLS = {
     ),
 }
 
-_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="meet-companion-tool")
-
-
 def enabled_tools(environ=None):
     """The hard allowlist, optionally narrowed by the operator (never widened)."""
     raw = (environ if environ is not None else os.environ).get("ANANTA_MEET_COMPANION_MCP_TOOLS")
@@ -137,11 +133,7 @@ def enabled_tools(environ=None):
 
 
 def _timeout():
-    try:
-        value = float(os.environ.get("ANANTA_MEET_COMPANION_TOOL_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
-    except ValueError:
-        return DEFAULT_TIMEOUT_SECONDS
-    return max(1.0, min(60.0, value))
+    return timeout_seconds("ANANTA_MEET_COMPANION_TOOL_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
 
 
 def normalize_arguments(name, arguments):
@@ -249,19 +241,8 @@ def _decide(name):
 
 
 def _audit(name, *, outcome, trace_id, project, details):
-    from agent.common.audit import log_audit
-    from agent.services.execution_audit_service import get_execution_audit_service
-
-    log_audit("meet_companion_tool_called", {"tool": name, "outcome": outcome, "trace_id": trace_id, **details})
-    get_execution_audit_service().emit_tool_call(
-        trace_id=trace_id,
-        parent_trace_id=None,
-        tool_name=name,
-        target_scope={"project_id": project},
-        outcome=outcome,
-        actor_role="meet_companion",
-        details=details,
-    )
+    audit_tool_call("meet_companion_tool_called", name, outcome=outcome, trace_id=trace_id,
+                    target_scope={"project_id": project}, actor_role="meet_companion", details=details)
 
 
 def _execute(name, arguments, capability, project=None):
@@ -335,15 +316,10 @@ def companion_tool():
 
     capability = resolve_request_capability(application=current_app, principal=principal, requested_scope={})
     app = current_app._get_current_object()
-
-    def run():
-        with app.app_context():
-            return _execute(name, arguments, capability, project)
-
     details = {"arguments_keys": sorted(arguments), "operation_id": descriptor.operation_id if descriptor else None}
     try:
-        result, snippets = _EXECUTOR.submit(run).result(timeout=_timeout())
-    except FutureTimeout:
+        result, snippets = run_bounded(app, lambda: _execute(name, arguments, capability, project), _timeout())
+    except GatewayTimeout:
         _audit(name, outcome="timeout", trace_id=trace_id, project=project, details=details)
         raise MeetError("meet_tool_timeout", 504) from None
     except KeyError as error:
