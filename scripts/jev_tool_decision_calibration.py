@@ -33,8 +33,6 @@ import argparse
 import json
 import statistics
 import sys
-import time
-import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -48,14 +46,15 @@ from agent.services.tiny_router.decision_calibration import (  # noqa: E402
     is_holdout,
     split_report,
 )
-from agent.services.tiny_router.parallel_decision import (  # noqa: E402
+from ananta_contracts.tool_decision import (  # noqa: E402
     DECISION_PATH,
     NO_TOOL,
     TEXT_FIELD,
     TOOL_FIELD,
     build_tool_decision_schema,
-    decision_request_body,
+    request_body,
 )
+from scripts.jev_decision_smoke import post as post_json  # noqa: E402
 from worker.meet_media.llm_tools import codecompass_toolbox, leaked_calls  # noqa: E402
 
 DEFAULT_CASES = ROOT / "benchmarks/tiny_tool_router/decision_calibration.v1.json"
@@ -69,11 +68,10 @@ def companion_tools() -> list[dict]:
 
 
 def post(url: str, path: str, body: dict, timeout: float) -> tuple[dict, float]:
-    request = urllib.request.Request(url.rstrip("/") + path, data=json.dumps(body).encode("utf-8"),
-                                     headers={"Content-Type": "application/json"}, method="POST")
-    started = time.monotonic()
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read()), time.monotonic() - started
+    status, payload, seconds = post_json(url, path, body, timeout)
+    if status != 200:
+        raise RuntimeError(f"{path} answered {status}: {payload.get('error')}")
+    return payload, seconds
 
 
 def expectation(case: dict) -> tuple[str, tuple[str, ...], list[str]]:
@@ -159,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     for case in cases:
         expected, also, terms = expectation(case)
         response, seconds = post(args.url, DECISION_PATH,
-                                 decision_request_body(decision, case["prompt"], model_id=args.model), args.timeout)
+                                 request_body(decision, case["prompt"], model_id=args.model), args.timeout)
         fields = response["results"][0]["fields"]
         tool = fields[TOOL_FIELD]
         observation = Observation(case["id"], expected, str(tool["value"]), float(tool["probability"]), also)

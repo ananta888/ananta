@@ -1,301 +1,54 @@
 """Tool routing through llama.cpp's parallel-decision endpoint (Jev-style System 1).
 
-Instead of letting a model write a tool call token by token, the allowed tools
-become one typed decision: a ``tool`` field (every allowed tool plus ``none``)
-and, per tool, every argument that has a fixed set of values (enum, boolean,
-small integer or number grid). All fields are scored in one pass with a
-probability each (``POST /v1/decision``).
+The tiny-router adapter around ``ananta_contracts.tool_decision``, which builds
+the decision schema and reads the response (shared with the Meet companion).
+This module adds what is Hub-specific: the HTTP runtime (endpoint from the
+profile's ``endpoint_env``), a circuit breaker, and the adapter contract.
 
 The adapter only proposes a candidate to the existing tiny router: the
 router's validator, risk filter and the policy gates behind it stay binding.
 It abstains, so the normal (System 2) tool call runs, when the tool field is
 uncertain, when ``none`` wins, when a chosen argument is uncertain, and when
-the chosen tool needs free text this mode cannot produce.
-
-Free text (profile ``metadata.open_field``, needs a server with bounded open
-fields): a tool whose only free argument is one required string (a search
-``query``, a ``handle``) gets it from one shared open field, generated after
-the closed fields with the chosen tool before it. The text is checked
-strictly (string, complete, non-empty, bounded, no control characters);
-anything else escalates. Tools with more free text still escalate.
-
-Field dependencies (JEVCPP-005): ``tool`` is independent; each argument field
-is grouped under its tool (scored as "if this tool were used") and only read
-when that tool wins; the open field is conditioned on the chosen values.
+the chosen tool needs free text this mode cannot produce. With profile
+metadata ``open_field`` a tool's single required free string is generated in
+the same call (see the contract module).
 """
 
 from __future__ import annotations
 
 import json
-import math
 import os
-import re
 import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Mapping
 from typing import Any, Callable
 
 from agent.services.tiny_router.types import AdapterRequest, AdapterResult, TinyActionModelProfile
+from ananta_contracts.tool_decision import (  # noqa: F401 -- re-exported for existing callers
+    DECISION_PATH,
+    NO_TOOL,
+    TEXT_FIELD,
+    TOOL_FIELD,
+    ArgumentField,
+    DecisionResponseError,
+    TextArgument,
+    ToolDecisionSchema,
+    build_tool_decision_schema,
+    fixed_values,
+    read_tool_decision,
+    request_body,
+)
 
 ADAPTER_ID = "parallel_decision"
-TOOL_FIELD = "tool"
-TEXT_FIELD = "text_argument"
-NO_TOOL = "none"
-TEXT_MAX_TOKENS = 48
-TEXT_MAX_CHARS = 200
-MAX_VALUES = 255
-MAX_FIELDS = 32
-DECISION_PATH = "/v1/decision"
-_FIELD_NAME = re.compile(r"[^A-Za-z0-9_]")
-_INSTRUCTIONS = (
-    "Decide how an agent should handle the user's request with the tools below. "
-    "For the tool field choose the single best tool, or 'none' when no tool is needed. "
-    "Every argument field assumes its tool is the one used."
-)
-_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
-
-
-class ParallelDecisionResponseError(ValueError):
-    """The endpoint answered, but not with a decision this request can trust."""
-
-
-# --- schema -----------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ArgumentField:
-    name: str
-    tool: str
-    argument: str
-    values: tuple[Any, ...]
-
-
-@dataclass(frozen=True)
-class TextArgument:
-    """A tool's single required free-text argument, filled from the open field."""
-
-    tool: str
-    argument: str
-
-
-@dataclass(frozen=True)
-class ToolDecisionSchema:
-    """The decision schema plus how its fields map back to tools and arguments."""
-
-    schema: dict[str, Any]
-    tools: tuple[str, ...]
-    arguments: tuple[ArgumentField, ...]
-    free_text_tools: frozenset[str]
-    dependencies: Mapping[str, str] = field(default_factory=dict)
-    text_arguments: tuple[TextArgument, ...] = ()
-
-    def arguments_of(self, tool: str) -> list[ArgumentField]:
-        return [item for item in self.arguments if item.tool == tool]
-
-    def text_argument_of(self, tool: str) -> TextArgument | None:
-        return next((item for item in self.text_arguments if item.tool == tool), None)
-
-
-def _function(tool: Mapping[str, Any]) -> Mapping[str, Any]:
-    function = tool.get("function") if isinstance(tool.get("function"), Mapping) else tool
-    return function if isinstance(function, Mapping) else {}
-
-
-def fixed_values(spec: Mapping[str, Any]) -> tuple[Any, ...] | None:
-    """The finite value set of a JSON-schema argument, or ``None`` when it is free."""
-    if not isinstance(spec, Mapping):
-        return None
-    if isinstance(spec.get("enum"), list):
-        values = spec["enum"]
-        if 1 <= len(values) <= MAX_VALUES and all(isinstance(v, (str, int, float, bool)) for v in values):
-            if len({json.dumps(v) for v in values}) == len(values):
-                return tuple(values)
-        return None
-    kind = spec.get("type")
-    if kind == "boolean":
-        return (True, False)
-    if kind == "integer" and isinstance(spec.get("minimum"), int) and isinstance(spec.get("maximum"), int):
-        step = spec.get("multipleOf") if isinstance(spec.get("multipleOf"), int) and spec["multipleOf"] > 0 else 1
-        values = tuple(range(spec["minimum"], spec["maximum"] + 1, step))
-        return values if 1 <= len(values) <= MAX_VALUES else None
-    return None
-
-
-def _field_type(values: tuple[Any, ...]) -> dict[str, Any]:
-    if values == (True, False):
-        return {"type": "boolean"}
-    if all(isinstance(v, int) and not isinstance(v, bool) for v in values) and len(values) > 1:
-        step = values[1] - values[0]
-        if all(b - a == step for a, b in zip(values, values[1:])):
-            return {"type": "integer", "minimum": values[0], "maximum": values[-1], "step": step}
-    return {"type": "enum", "choices": [str(v) if not isinstance(v, str) else v for v in values]}
-
-
-def _is_free_string(spec: Any) -> bool:
-    return isinstance(spec, Mapping) and spec.get("type") == "string" and "enum" not in spec
-
-
-def build_tool_decision_schema(tools: Sequence[Mapping[str, Any]], *, open_field: bool = False) -> ToolDecisionSchema:
-    """Tool choice as one decision; with ``open_field`` a single free string argument per tool is generated."""
-    names: list[str] = []
-    arguments: list[ArgumentField] = []
-    free_text: set[str] = set()
-    texts: list[TextArgument] = []
-    text_notes: list[str] = []
-    descriptions: list[str] = []
-    budget = MAX_FIELDS - 1 - (1 if open_field else 0)  # the tool field and the open field
-    for tool in tools:
-        function = _function(tool)
-        name = str(function.get("name") or "").strip()
-        if not name or name == NO_TOOL or name in names:
-            continue
-        names.append(name)
-        descriptions.append(f"{name}: {str(function.get('description') or '').strip()[:200]}")
-        parameters = function.get("parameters") if isinstance(function.get("parameters"), Mapping) else {}
-        properties = parameters.get("properties") if isinstance(parameters.get("properties"), Mapping) else {}
-        required = set(parameters.get("required") or [])
-        missing: list[str] = []
-        for argument, spec in properties.items():
-            values = fixed_values(spec)
-            field_name = _FIELD_NAME.sub("_", f"{name}__{argument}")[:64]
-            if values is None or len(arguments) >= budget or not re.match(r"[A-Za-z_]", field_name):
-                if argument in required:
-                    missing.append(str(argument))
-                continue
-            arguments.append(ArgumentField(field_name, name, str(argument), values))
-        missing.extend(str(argument) for argument in required if argument not in properties)
-        if len(missing) == 1 and open_field and _is_free_string(properties.get(missing[0])):
-            texts.append(TextArgument(name, missing[0]))
-            note = str((properties[missing[0]] or {}).get("description") or "").strip()[:100]
-            text_notes.append(f"{name}: its '{missing[0]}'" + (f" ({note})" if note else ""))
-        elif missing:
-            free_text.add(name)
-    if not names:
-        raise ValueError("parallel_decision_no_tools")
-    schema: dict[str, Any] = {
-        TOOL_FIELD: {
-            "type": "enum",
-            "choices": [*names, NO_TOOL],
-            "description": "Which tool should handle the request? " + " | ".join(descriptions)[:1500],
-        }
-    }
-    for item in arguments:
-        schema[item.name] = {
-            **_field_type(item.values),
-            "description": f"If {item.tool} is used: value of its argument '{item.argument}'.",
-        }
-    dependencies = {TOOL_FIELD: "independent", **{item.name: f"grouped:{item.tool}" for item in arguments}}
-    if texts:
-        # generated last, after the chosen closed values, so it follows the chosen tool
-        schema[TEXT_FIELD] = {
-            "type": "string",
-            "max_tokens": TEXT_MAX_TOKENS,
-            # generated only for a tool that takes the text; any other choice skips it at no cost
-            "when": {TOOL_FIELD: [item.tool for item in texts]},
-            "description": ("The text argument of the chosen tool. " + "; ".join(text_notes))[:1200]
-            + ". An empty string when the chosen tool needs no text.",
-        }
-        dependencies[TEXT_FIELD] = "conditional:closed_fields"
-    return ToolDecisionSchema(schema, tuple(names), tuple(arguments), frozenset(free_text), dependencies, tuple(texts))
-
-
-# --- response -> router payload -----------------------------------------------------------------
-
-
-def _probability(raw: Mapping[str, Any]) -> float:
-    value = raw.get("probability")
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
-        raise ParallelDecisionResponseError("parallel_decision_probability_invalid")
-    value = float(value)
-    if not 0.0 <= value <= 1.0:
-        raise ParallelDecisionResponseError("parallel_decision_probability_invalid")
-    return value
-
-
-def _allowed(value: Any, values: tuple[Any, ...]) -> Any:
-    """Map a scored value back to the argument's original value; unknown values are errors."""
-    for original in values:
-        if value == original or (not isinstance(original, str) and value == str(original)):
-            return original
-    raise ParallelDecisionResponseError("parallel_decision_value_not_allowed")
+ParallelDecisionResponseError = DecisionResponseError
+decision_request_body = request_body
 
 
 def decision_to_payload(response: Any, decision: ToolDecisionSchema, *, min_confidence: float) -> dict[str, Any]:
-    """The tiny-router payload for one decision; strict about everything it reads."""
-    if not isinstance(response, Mapping) or response.get("object") != "decision":
-        raise ParallelDecisionResponseError("parallel_decision_response_invalid")
-    results = response.get("results")
-    if not isinstance(results, list) or len(results) != 1 or not isinstance(results[0], Mapping):
-        raise ParallelDecisionResponseError("parallel_decision_results_invalid")
-    fields = results[0].get("fields")
-    if not isinstance(fields, Mapping) or set(fields) != set(decision.schema):
-        raise ParallelDecisionResponseError("parallel_decision_fields_mismatch")
-    tool_field = fields[TOOL_FIELD]
-    tool = tool_field.get("value") if isinstance(tool_field, Mapping) else None
-    if tool not in (*decision.tools, NO_TOOL):
-        raise ParallelDecisionResponseError("parallel_decision_tool_not_allowed")
-    confidence = _probability(tool_field)
-    if tool_field.get("abstain") is True or confidence < min_confidence:
-        return {"tool_calls": [], "reason": "tool_uncertain", "confidence": confidence}
-    if tool == NO_TOOL:
-        return {"type": "respond", "reason": "no_tool_needed", "confidence": confidence}
-    if tool in decision.free_text_tools:
-        return {"tool_calls": [], "reason": "free_text_arguments", "tool_hint": tool, "confidence": confidence}
-    arguments: dict[str, Any] = {}
-    generated: list[str] = []
-    text_argument = decision.text_argument_of(tool)
-    if text_argument is not None:
-        text = _open_text(fields[TEXT_FIELD])
-        if text is None:
-            return {"tool_calls": [], "reason": "text_argument_invalid", "tool_hint": tool, "confidence": confidence}
-        arguments[text_argument.argument] = text
-        generated.append(text_argument.argument)
-    for item in decision.arguments_of(tool):
-        raw = fields[item.name]
-        if not isinstance(raw, Mapping):
-            raise ParallelDecisionResponseError("parallel_decision_fields_mismatch")
-        probability = _probability(raw)
-        if raw.get("abstain") is True or probability < min_confidence:
-            return {"tool_calls": [], "reason": "argument_uncertain", "tool_hint": tool, "confidence": probability}
-        arguments[item.argument] = _allowed(raw.get("value"), item.values)
-        confidence = min(confidence, probability)
-    payload: dict[str, Any] = {"tool_calls": [{"name": tool, "arguments": arguments, "confidence": confidence}]}
-    if generated:
-        payload["generated_arguments"] = generated  # no probability: the text was generated, not scored
-    return payload
-
-
-def _open_text(raw: Any) -> str | None:
-    """The open field's text when it is a complete, usable string; ``None`` otherwise."""
-    if not isinstance(raw, Mapping) or raw.get("generated") is not True:
-        raise ParallelDecisionResponseError("parallel_decision_open_field_invalid")
-    value = raw.get("value")
-    if raw.get("skipped") is True or not isinstance(value, str) or raw.get("truncated") is not False:
-        return None
-    text = value.strip()
-    if not text or len(text) > TEXT_MAX_CHARS or _CONTROL.search(text):
-        return None
-    return text
-
-
-# --- runtime --------------------------------------------------------------------------------------
-
-
-def decision_request_body(decision: ToolDecisionSchema, prompt: str, *, model_id: str) -> dict[str, Any]:
-    """The ``/v1/decision`` request for one prompt (shared by the adapter and calibration)."""
-    return {
-        "model": model_id,
-        "instructions": _INSTRUCTIONS,
-        "schema": decision.schema,
-        "contexts": [prompt],
-        "mode": "tree",
-        # A context is never reused across requests (tenant/request isolation);
-        # the cached prefix is only the instructions and the schema.
-        "cache_context": False,
-    }
+    """The tiny-router payload for one decision response."""
+    return read_tool_decision(response, decision, min_confidence=min_confidence).router_payload()
 
 
 class CircuitBreaker:
