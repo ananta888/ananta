@@ -244,7 +244,7 @@ Stand 2026-09-27: PR #14 offen, ein Commit (`d0ec6f954`), kein Review. Unsere Po
 | Startposition | `shared + context` | `pos_next` des Trunks (M-RoPE-Bilder, `context_tail`) |
 | API | `max_tokens`, `open_sampling`, `open_temp`, `generated_tokens`, `generation_ms` | gleich, plus `skipped` |
 
-Ein Kommentar an den PR mit den drei Funden (Stopp, Prefix-Batch, `when`) ist vorbereitet, aber nicht gepostet.
+Kein Beitrag an den PR (Entscheidung 2026-09-27); die Korrekturen bleiben im eigenen Fork.
 
 ## Kalibrierung mit Grenzfällen und Vergleich mit dem Chat-Pfad (JEVCPP-009)
 
