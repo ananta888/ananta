@@ -36,6 +36,22 @@ def _ananta_hop_headers() -> dict[str, str]:
     return headers
 
 
+_LOCAL_CONTEXT_PROVIDERS = frozenset({"llamacpp"})
+
+
+def _context_limit(provider: str | None, max_context_tokens: int | None) -> int | None:
+    """The token window to trim to: an explicit limit, else Ananta's default for local llama.cpp servers.
+
+    Cloud providers (larger windows) are trimmed only when a limit is given explicitly."""
+    if max_context_tokens:
+        return int(max_context_tokens)
+    if str(provider or "").strip().lower() in _LOCAL_CONTEXT_PROVIDERS:
+        from agent.config import settings
+
+        return int(getattr(settings, "default_context_tokens", 32768) or 32768)
+    return None
+
+
 def _request_url(provider: Optional[str], url: str) -> str:
     """The chat-completions URL for ``url``, normalized like the provider endpoint policy; unchanged if it cannot be."""
     try:
@@ -65,6 +81,10 @@ class OpenAIStrategy(LLMStrategy):
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         headers.update(_ananta_hop_headers())
         messages = self._build_chat_messages(prompt, history)
+        context_limit = _context_limit(provider, max_context_tokens)
+        if context_limit:
+            # keep the request inside the model's window instead of failing at the server's slot size
+            messages = self._trim_messages(messages, context_limit, int(max_output_tokens or 1024))
 
         payload = {
             "model": model or "gpt-4o-mini",

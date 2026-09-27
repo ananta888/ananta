@@ -73,6 +73,9 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
     default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")
     default_model: str = Field(default="auto", validation_alias="DEFAULT_MODEL")
     lmstudio_max_context_tokens: int = Field(default=32768, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
+    # Ananta is designed for a 32k context window per request: the recommended setting for every local model
+    # (llama-server: -c <32768 * parallel slots>, Ollama: num_ctx, LM Studio: context length).
+    default_context_tokens: int = Field(default=32768, validation_alias="ANANTA_CONTEXT_TOKENS")
     # JSON-encoded map of model_id -> context_token_limit. Used by LMStudio strategy when
     # /v1/models does not return per-model context_length. Keys are lowercased substrings
     # matched against the model id. Override via env: LMSTUDIO_MODEL_CONTEXTS='{"phi-3.5-mini":4096}'

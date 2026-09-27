@@ -53,6 +53,7 @@ def build_default_agent_config() -> dict:
                 else (settings.ollama_url if settings.default_provider == "ollama" else None)
             ),
             "lmstudio_api_mode": settings.lmstudio_api_mode,
+            "context_limit": settings.default_context_tokens,
         },
         "voice_runtime": {
             "provider": settings.voice_provider,
