@@ -35,6 +35,12 @@ def _default_decision_providers() -> dict:
     return copy.deepcopy(DEFAULTS)
 
 
+def _default_context_strategy() -> dict:
+    from agent.services.context_strategy_service import DEFAULTS
+
+    return dict(DEFAULTS)
+
+
 def build_default_agent_config() -> dict:
     opencode_default_model = _default_opencode_model()
     return {
@@ -645,6 +651,8 @@ def build_default_agent_config() -> dict:
         # DPRV: typed decision providers (TypeSafe Jev, local /v1/decision, LLM) per decision area.
         # Off by default; see docs/decision-providers.md and agent/services/decision_providers/config.py.
         "decision_providers": _default_decision_providers(),
+        # LCTX-004: Hub decision for tasks whose context exceeds the window (docs/long-context-strategy.md)
+        "context_strategy": _default_context_strategy(),
         # AWWPI-013: workspace mutation loop for ananta-worker. Disabled by
         # default; mutation_mode defaults to read_only and can be derived per
         # task_kind. Risk rules escalate controlled_workspace to

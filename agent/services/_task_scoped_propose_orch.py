@@ -11,7 +11,7 @@ Backwards compatibility preserved via delegating wrapper in
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from flask import current_app, g, has_app_context, has_request_context
 
@@ -76,6 +76,7 @@ def run_propose_orchestrator_path(
         project_config=cfg,
         admin_overrides=propose_policy_override,
     )
+    _record_context_strategy(task, tid, task_kind, base_prompt, research_context_summary, cfg)
     compaction_payload = None
     compaction_meta = None
     if bool(getattr(policy, "context_compaction_enabled", True)):
@@ -492,3 +493,39 @@ def run_propose_orchestrator_path(
             **routing_dims,
         },
     })
+
+
+_QUESTION_LIKE_KINDS = frozenset({"analysis", "research", "planning_research", "doc", "review"})
+
+
+def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: Any, research_context_summary: Any,
+                             cfg: dict) -> None:
+    """LCTX-004: decide (and record) how a task whose context exceeds the window should be handled.
+
+    Recording only for now (mode shadow); the strategies act on it in active mode (LCTX-005..008)."""
+    try:
+        from agent.context_window import check_fit
+        from agent.services.context_strategy_service import ContextStrategyRequest, get_context_strategy_service
+
+        service = get_context_strategy_service((cfg or {}).get("context_strategy"))
+        if service.mode == "off":
+            return
+        context_text = str((research_context_summary or {}).get("prompt_section") or "") \
+            if isinstance(research_context_summary, dict) else ""
+        description = str(task.get("description") or "")
+        fit = check_fit(prompt="\n".join((str(base_prompt or ""), context_text, description)))
+        if fit.fits:
+            return
+        input_kind = str(task.get("context_input_kind") or "unknown")
+        decision = service.decide(ContextStrategyRequest(
+            fit=fit, task_kind=str(task_kind or ""), input_kind=input_kind,
+            question_like=str(task_kind or "") in _QUESTION_LIKE_KINDS,
+            description=str(task.get("title") or "") + "\n" + description[:2000]))
+        record_product_event("context_strategy_decided", actor="task_scoped_execution_service",
+                             details={"task_id": tid, "mode": service.mode, **decision.to_mapping()},
+                             goal_id=str(task.get("goal_id") or "") or None)
+    except Exception:  # noqa: BLE001 -- the decision point never breaks a propose
+        import logging
+
+        logging.getLogger(__name__).debug("context strategy decision failed", exc_info=True)
+

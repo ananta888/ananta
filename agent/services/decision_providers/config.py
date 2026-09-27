@@ -42,7 +42,7 @@ SECTION = "decision_providers"
 PROVIDERS = ("jev", "local_decision", "llm")
 EXTERNAL_PROVIDERS = frozenset({"jev"})
 AREAS = ("tool_routing", "companion_route", "companion_knowledge", "retrieval_intent", "rag_needed",
-         "chat_intent", "hub_direct", "prompt_injection")
+         "chat_intent", "hub_direct", "prompt_injection", "context_strategy")
 MODES = ("off", "shadow", "active")
 DEFAULT_THRESHOLD = 0.9
 _SECRET_KEYS = frozenset({"api_key", "key", "token", "secret", "authorization"})

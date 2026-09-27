@@ -653,6 +653,17 @@ def set_config():
             **new_cfg,
             "ml_intern_spike": shared.normalize_ml_intern_spike_config(merged_ml_intern),
         }
+    if "context_strategy" in new_cfg:
+        # LCTX-004: validated and clamped; an unknown mode is an error, not a silent default
+        raw_strategy = new_cfg.get("context_strategy")
+        if not isinstance(raw_strategy, dict):
+            return api_response(status="error", message="invalid_context_strategy", code=400)
+        from agent.services.context_strategy_service import MODES, normalize_config
+
+        if "mode" in raw_strategy and str(raw_strategy.get("mode") or "").strip().lower() not in MODES:
+            return api_response(status="error", message="invalid_context_strategy_mode", code=400)
+        new_cfg = {**new_cfg, "context_strategy": normalize_config(
+            {**(current_cfg.get("context_strategy") or {}), **raw_strategy})}
     if "decision_providers" in new_cfg:
         # DPRV: validated as a whole; TypeSafe Jev needs external_calls_allowed, keys only via api_key_env
         from agent.services.decision_providers.config import DecisionConfigError, normalize_decision_config

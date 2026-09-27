@@ -53,6 +53,11 @@ CONTEXT_TRUNCATIONS_TOTAL = Counter(
     "Context shortened to fit a model window (LCTX), by bounded site and kind",
     ["site", "kind"],
 )
+CONTEXT_STRATEGY_DECISIONS_TOTAL = Counter(
+    "context_strategy_decisions_total",
+    "Hub decisions for tasks whose context does not fit the window (LCTX-004), by strategy and decider",
+    ["strategy", "decided_by"],
+)
 CONTEXT_OVERFLOW_EXPECTED_TOTAL = Counter(
     "context_overflow_expected_total",
     "Assembled prompts estimated above their model window before the call (LCTX), by bounded site",
