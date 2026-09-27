@@ -63,6 +63,7 @@ from agent.cli_backends.architecture_scan import (
 )
 from agent.llm_integration_ollama import probe_ollama_runtime, resolve_ollama_model
 from agent.llm_integration_lmstudio import probe_lmstudio_runtime
+from agent.local_llm_backends import resolve_local_openai_backend
 
 log = logging.getLogger(__name__)
 
@@ -107,17 +108,27 @@ def run_sgpt_command(
         if not ticket.acquired:
             return -1, "", "Backend 'sgpt' ist ausgelastet (semaphore_exhausted)"
         env = os.environ.copy()
+        # The output is captured and parsed (tool-loop JSON, patches): terminal markdown rendering wraps
+        # lines at 80 columns, even inside JSON strings, so it stays off for these calls.
+        env["PRETTIFY_MARKDOWN"] = "false"
 
         runtime_provider = _get_runtime_default_provider()
         provider_urls = _get_runtime_provider_urls()
 
         base_url = None
+        local_backend = None
         if runtime_provider == "ollama":
             base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or settings.ollama_url)
         elif runtime_provider == "lmstudio":
             base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
         elif runtime_provider == "openai":
             base_url = _normalize_openai_base_url(provider_urls.get("openai") or settings.openai_url)
+        elif runtime_provider:
+            # a configured local OpenAI-compatible server (agent_config.local_openai_backends)
+            local_backend = resolve_local_openai_backend(
+                runtime_provider, agent_cfg=agent_cfg, provider_urls=provider_urls
+            )
+            base_url = (local_backend or {}).get("base_url")
 
         if base_url:
             env["OPENAI_API_BASE"] = base_url
@@ -132,9 +143,11 @@ def run_sgpt_command(
                 or str(settings.openai_api_key or "").strip()
                 or None
             )
-            if configured_api_key:
+            if local_backend and local_backend.get("api_key"):
+                env["OPENAI_API_KEY"] = str(local_backend["api_key"])
+            elif configured_api_key:
                 env["OPENAI_API_KEY"] = configured_api_key
-            elif runtime_provider in {"lmstudio", "ollama"} or _is_probably_local_base_url(base_url):
+            elif runtime_provider in {"lmstudio", "ollama"} or local_backend or _is_probably_local_base_url(base_url):
                 env["OPENAI_API_KEY"] = "sk-no-key-needed"
 
         try:

@@ -1045,3 +1045,39 @@ def test_get_cli_backend_preflight_includes_ollama_activity_and_gpu_usage(app):
     assert activity.get("active_count") == 1
     assert activity.get("gpu_active") is True
     assert (activity.get("executor_summary") or {}).get("gpu") == 1
+
+
+def test_run_sgpt_command_uses_a_configured_local_openai_backend(app):
+    from agent.cli_backends.sgpt import run_sgpt_command
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "egpu-llamacpp",
+            "sgpt_default_model": "bonsai-27b",
+            "local_openai_backends": [
+                {"id": "egpu-llamacpp", "name": "eGPU llama.cpp", "base_url": "http://gpu-host:18150/v1"},
+            ],
+        }
+        app.config["PROVIDER_URLS"] = {"lmstudio": "http://192.168.1.10:1234/v1"}
+        with (
+            patch("agent.cli_backends.sgpt.settings") as mock_settings,
+            patch("agent.cli_backends.sgpt.subprocess.run") as mock_run,
+            patch.dict("agent.cli_backends.sgpt.os.environ", {}, clear=True),
+        ):
+            mock_settings.sgpt_default_model = "ananta-default"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.max_prompt_tokens = 128000
+            mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+
+            rc, _out, _err = run_sgpt_command("say hi")
+
+    assert rc == 0
+    env = mock_run.call_args[1]["env"]
+    assert env["OPENAI_API_BASE"] == env["OPENAI_BASE_URL"] == "http://gpu-host:18150/v1"
+    assert env["OPENAI_API_KEY"] == "sk-no-key-needed"
+    assert env["PRETTIFY_MARKDOWN"] == "false"  # captured output is parsed, never rendered
+    args = mock_run.call_args[0][0]
+    assert args[args.index("--model") + 1] == "bonsai-27b"
