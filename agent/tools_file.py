@@ -78,17 +78,20 @@ def _workspace_file_hint() -> str:
 
 @registry.register(
     name="file_read",
-    description="Liest den Inhalt einer Datei.",
+    description="Liest den Inhalt einer Datei, optional nur die Zeilen start_line bis end_line (1-basiert).",
     parameters={
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Pfad zur Datei"},
             "encoding": {"type": "string", "description": "Encoding", "default": "utf-8"},
+            "start_line": {"type": "integer", "description": "Erste Zeile (optional, 1-basiert)"},
+            "end_line": {"type": "integer", "description": "Letzte Zeile (optional, einschließlich)"},
         },
         "required": ["path"],
     },
 )
-def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = ""):
+def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "", filename: str = "",
+                   start_line: int | None = None, end_line: int | None = None):
     resolved = path or file_path or filename
     if not resolved:
         hint = _workspace_file_hint()
@@ -103,6 +106,11 @@ def file_read_tool(path: str = "", encoding: str = "utf-8", file_path: str = "",
     try:
         with open(resolved, "r", encoding=encoding) as f:
             content = f.read()
+            if start_line is not None or end_line is not None:
+                lines = content.splitlines(keepends=True)
+                first = max(1, int(start_line or 1))
+                last = min(len(lines), int(end_line or len(lines)))
+                content = "".join(lines[first - 1:last])
             from agent.common.audit import log_audit
             log_audit("file_read", {"path": resolved, "size": len(content)})
             return {"content": content, "path": resolved}

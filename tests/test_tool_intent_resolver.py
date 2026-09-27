@@ -105,3 +105,28 @@ def test_heuristic_declare_maps_to_file_write():
     assert len(result.resolved_tool_calls) == 1
     assert result.resolved_tool_calls[0]["name"] == "file_write"
     assert result.resolved_tool_calls[0]["args"]["path"] == "declare.md"
+
+
+def test_read_range_intent_maps_to_bounded_file_read_never_file_write():
+    result = ToolIntentResolver().resolve(
+        [{"name": "repo.read_file_range", "args": {"file": ".ananta/task-material.md", "start_line": 3, "end_line": 9}}],
+        known_tools=["file_read", "file_write", "shell_execute"],
+    )
+    assert result.resolved_tool_calls[0]["name"] == "file_read"
+    assert result.resolved_tool_calls[0]["args"] == {"path": ".ananta/task-material.md", "start_line": 3, "end_line": 9}
+    assert result.remap_events[0].reason == "heuristic_read_to_file_read"
+
+
+def test_read_intent_without_path_is_unresolved_not_written():
+    result = ToolIntentResolver().resolve(
+        [{"name": "read_file_range", "args": {"start_line": 1}}],
+        known_tools=["file_read", "file_write", "shell_execute"],
+    )
+    assert result.resolved_tool_calls == []
+    assert [item.reason_code for item in result.unresolved] == ["unknown_read_tool_without_path"]
+
+
+def test_words_containing_read_are_not_read_intents():
+    assert not ToolIntentResolver._is_read_intent("thread_summary")
+    assert not ToolIntentResolver._is_read_intent("categorize_items")
+    assert ToolIntentResolver._is_read_intent("view_file")

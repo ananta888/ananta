@@ -79,7 +79,9 @@ class ToolIntentResolver:
                 continue
 
             command_payload = str(args.get("command") or args.get("cmd") or "").strip()
-            path_payload = str(args.get("path") or args.get("file_path") or args.get("filename") or "").strip()
+            path_payload = str(
+                args.get("path") or args.get("file_path") or args.get("filename") or args.get("file") or ""
+            ).strip()
             content_payload = (
                 str(args.get("content") or "").strip()
                 or str(args.get("text") or "").strip()
@@ -103,6 +105,12 @@ class ToolIntentResolver:
                     resolved_name = "file_read"
                     resolved_args = {"path": path_payload}
                     reason = "path_only_to_file_read"
+                elif self._is_read_intent(raw_name or canonical):
+                    # a read intent without a readable path must never become a write
+                    unresolved.append(
+                        ToolIntentUnresolved(original_tool=raw_name or canonical, reason_code="unknown_read_tool_without_path")
+                    )
+                    continue
                 elif command_payload:
                     unresolved.append(
                         ToolIntentUnresolved(
@@ -147,8 +155,36 @@ class ToolIntentResolver:
             unresolved=unresolved,
         )
 
-    @staticmethod
-    def _heuristic_unknown_tool_resolution(*, raw_name: str, args: dict[str, Any]) -> tuple[str, dict[str, Any], str] | None:
+    _READ_WORDS = frozenset({"read", "view", "cat", "open", "show", "get"})
+
+    @classmethod
+    def _is_read_intent(cls, raw_name: str) -> bool:
+        """``read_file_range``, ``repo.read_file``, ``view_file``: a read verb first, as its own word."""
+        words = [w for w in re.split(r"[_\-\s]+", str(raw_name or "").strip().lower().rsplit(".", 1)[-1]) if w]
+        return bool(words) and words[0] in cls._READ_WORDS and ("read" in words or "file" in words)
+
+    @classmethod
+    def _read_intent_resolution(cls, *, raw_name: str, args: dict[str, Any]) -> tuple[str, dict[str, Any], str] | None:
+        """``repo.read_file_range`` & co. outside the worker tool loop: a bounded ``file_read``, never a write."""
+        if not cls._is_read_intent(raw_name):
+            return None
+        path = str(args.get("path") or args.get("file_path") or args.get("filename") or args.get("file") or "").strip()
+        if not path:
+            return None
+        resolved: dict[str, Any] = {"path": path}
+        for key in ("start_line", "end_line"):
+            try:
+                if args.get(key) is not None:
+                    resolved[key] = int(args[key])
+            except (TypeError, ValueError):
+                pass
+        return "file_read", resolved, "heuristic_read_to_file_read"
+
+    @classmethod
+    def _heuristic_unknown_tool_resolution(cls, *, raw_name: str, args: dict[str, Any]) -> tuple[str, dict[str, Any], str] | None:
+        read = cls._read_intent_resolution(raw_name=raw_name, args=args)
+        if read is not None:
+            return read
         name = str(raw_name or "").strip().lower()
         topics = args.get("topics") if isinstance(args.get("topics"), list) else []
         scope_elements = args.get("scope_elements") if isinstance(args.get("scope_elements"), list) else []
