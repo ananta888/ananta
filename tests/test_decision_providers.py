@@ -370,3 +370,89 @@ def test_metrics_report_calibration_confident_mistakes_and_cascades():
     rows = {row["threshold"]: row for row in simulate_cascade({r.case_id: r for r in runs}, fallback)}
     assert rows[0.9]["fallback_rate"] == 0.5 and rows[0.9]["confident_mistakes"] == 1 and rows[0.9]["accuracy"] == 0.75
     assert rows[0.98]["fallback_rate"] == 0.75 and rows[0.98]["accuracy"] == 1.0
+
+
+# --- text arguments as candidate choices ---------------------------------------------------------------
+
+
+def test_prompt_spans_and_symbol_index_produce_candidates():
+    from agent.services.decision_providers.argument_candidates import (
+        CompositeCandidates,
+        PromptSpanCandidates,
+        SymbolIndexCandidates,
+        split_identifier,
+        symbol_names,
+    )
+
+    assert split_identifier("CircuitBreakerOpen") == ["circuit", "breaker", "open"]
+    assert split_identifier("agent/services/tool_loop.py") == ["agent", "services", "tool", "loop", "py"]
+    spans = [c.value for c in PromptSpanCandidates().candidates('Zeig `build_schema` in agent/tools.py und "hac:x1"')]
+    assert {"build_schema", "agent/tools.py", "hac:x1"} <= set(spans)
+    names = symbol_names([("agent/breaker.py", "class CircuitBreaker:\n    def allow(self):\n"),
+                          ("web/app.ts", "export function renderGraph() {}\n")])
+    assert names == ["agent/breaker.py", "CircuitBreaker", "allow", "web/app.ts", "renderGraph"]
+    index = SymbolIndexCandidates(lambda: names)
+    assert index.candidates("wo ist der cirkuit braker")[0].value == "CircuitBreaker"  # typo -> real name
+    assert index.candidates("render graph bitte")[0].value == "renderGraph"
+    assert index.candidates("völlig anderes thema") == []
+    merged = CompositeCandidates([PromptSpanCandidates(), index], limit=3).candidates("CircuitBreaker circuitbreaker")
+    assert len(merged) <= 3 and len({c.value.lower() for c in merged}) == len(merged)
+
+
+def test_the_symbol_index_is_rebuilt_only_when_its_names_change():
+    from agent.services.decision_providers.argument_candidates import SymbolIndexCandidates
+
+    lists = {"current": ["AlphaService"]}
+    calls = []
+    index = SymbolIndexCandidates(lambda: lists["current"])
+    index._build = lambda source, original=index._build: (calls.append(1), original(source))[1]
+    index.candidates("alpha service")
+    index.candidates("alpha service")
+    lists["current"] = ["BetaService"]
+    assert index.candidates("beta service")[0].value == "BetaService" and len(calls) == 2
+
+
+def test_the_text_argument_is_a_candidate_choice_in_the_same_request():
+    from agent.services.decision_providers.argument_candidates import Candidate
+    from agent.services.decision_providers.tool_choice import read_tool_choice, tool_questions
+    from agent.services.decision_providers.types import DecisionResult
+
+    class Fixed:
+        def candidates(self, prompt, *, tool="", argument=""):
+            return [Candidate("CircuitBreaker", "symbol"), Candidate("agent/common/breaker.py", "path")]
+
+    tools = [{"type": "function", "function": {"name": "search", "description": "Find code.", "parameters": {
+        "type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}}]
+    prompt = "wo ist der cirkuit braker"
+    schema, request, values = tool_questions(tools, prompt, candidates=Fixed())
+    text_key = next(key for key in values if key.startswith("text_"))
+    labels = request.question(text_key).labels
+    assert labels == ("CircuitBreaker", "v1", "whole_request", "none_fits")  # a path becomes an opaque label
+
+    def result(choice):
+        return DecisionResult("p", "m", {
+            "tool": DecisionAnswer("tool", "choice", choice="search", confidence=0.97),
+            text_key: DecisionAnswer(text_key, "choice", choice=choice, confidence=0.4)})
+
+    # an unsure text choice never blocks the call: below text_min_confidence the request itself is used
+    assert read_tool_choice(schema, result("CircuitBreaker"), values, prompt, min_confidence=0.9).arguments == {
+        "query": prompt}
+    assert read_tool_choice(schema, result("CircuitBreaker"), values, prompt, min_confidence=0.9,
+                            text_min_confidence=0.3).arguments == {"query": "CircuitBreaker"}
+    assert read_tool_choice(schema, result("v1"), values, prompt, min_confidence=0.9,
+                            text_min_confidence=0.0).arguments == {"query": "agent/common/breaker.py"}
+    for fallback in ("whole_request", "none_fits"):
+        assert read_tool_choice(schema, result(fallback), values, prompt, min_confidence=0.9).arguments == {
+            "query": prompt}
+
+
+def test_concurrent_first_use_of_the_symbol_index_is_safe():
+    import concurrent.futures
+
+    from agent.services.decision_providers.argument_candidates import SymbolIndexCandidates
+
+    names = [f"Service{i}Handler" for i in range(3000)] + ["CircuitBreaker"]
+    index = SymbolIndexCandidates(lambda: names)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda _i: index.candidates("circuit breaker")[0].value, range(16)))
+    assert set(results) == {"CircuitBreaker"}

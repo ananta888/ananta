@@ -47,7 +47,13 @@ class DecisionProviderToolAdapter:
         from ananta_contracts.tool_decision import ABSTAIN, ToolDecision
 
         started = self._clock()
-        schema, decision_request, values = tool_questions(request.tools, request.prompt, purpose=AREA)
+        candidates = None
+        if self._decisions().area_option(AREA, "text_candidates", False):
+            from agent.services.decision_providers.argument_candidates import default_candidate_source
+
+            candidates = default_candidate_source()
+        schema, decision_request, values = tool_questions(request.tools, request.prompt, purpose=AREA,
+                                                          candidates=candidates)
         # argument questions only count for the chosen tool; read_tool_choice checks those against the threshold
         decision = self._decisions().decide(AREA, decision_request,
                                             question_thresholds={key: 0.0 for key in values if key != TOOL_KEY})
@@ -56,7 +62,10 @@ class DecisionProviderToolAdapter:
             payload = ToolDecision(ABSTAIN, None, reason=reason).router_payload()
         else:
             threshold = self._decisions().threshold(AREA) or request.profile.min_confidence
+            from agent.services.decision_providers.tool_choice import TEXT_MIN_CONFIDENCE
+
+            text_threshold = self._decisions().area_option(AREA, "text_min_confidence", TEXT_MIN_CONFIDENCE)
             payload = read_tool_choice(schema, decision.outcome.result, values, request.prompt,
-                                       min_confidence=threshold).router_payload()
+                                       min_confidence=threshold, text_min_confidence=text_threshold).router_payload()
             payload["decided_by"] = decision.outcome.decided_by
         return AdapterResult("candidate", payload, "adapter_completed", (self._clock() - started) * 1000.0)

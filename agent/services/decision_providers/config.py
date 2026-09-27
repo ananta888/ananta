@@ -134,7 +134,8 @@ def stage_providers(cascade: list[Any]) -> list[str]:
 def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise DecisionConfigError(f"decision_area_invalid:{name}")
-    unknown = set(raw) - {"mode", "provider", "cascade", "confidence_threshold", "question_thresholds"}
+    unknown = set(raw) - {"mode", "provider", "cascade", "confidence_threshold", "question_thresholds",
+                          "text_candidates", "text_min_confidence"}
     if unknown:
         raise DecisionConfigError(f"decision_area_unknown_keys:{name}:{','.join(sorted(unknown))}")
     mode = str(raw.get("mode") or "off").strip().lower()
@@ -156,6 +157,10 @@ def _area(name: str, raw: Any, providers: Mapping[str, Any]) -> dict[str, Any]:
         if disabled:
             raise DecisionConfigError(f"decision_area_provider_disabled:{name}:{disabled[0]}")
     area: dict[str, Any] = {"mode": mode, "cascade": cascade}
+    if "text_candidates" in raw:  # tool_routing: choose text arguments among candidates (prompt spans, symbols)
+        area["text_candidates"] = bool(raw["text_candidates"])
+    if raw.get("text_min_confidence") is not None:
+        area["text_min_confidence"] = _threshold(raw["text_min_confidence"], f"decision_area_threshold_invalid:{name}")
     if raw.get("confidence_threshold") is not None:
         area["confidence_threshold"] = _threshold(raw["confidence_threshold"],
                                                   f"decision_area_threshold_invalid:{name}")

@@ -41,6 +41,8 @@ class Run:
     output_tokens: int = 0
     cost_usd: float = 0.0
     error: str | None = None
+    argument: str | None = None  # tool routing: the text argument the decision produced
+    argument_confidence: float | None = None  # ... and the confidence of choosing it among candidates
 
     @property
     def correct(self) -> bool:

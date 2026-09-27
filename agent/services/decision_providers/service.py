@@ -100,6 +100,10 @@ class DecisionService:
         settings = area_settings(self._section(), area)
         return "off" if settings is None else settings["mode"]
 
+    def area_option(self, area: str, key: str, default: Any = None) -> Any:
+        settings = area_settings(self._section(), area)
+        return default if settings is None else settings.get(key, default)
+
     def threshold(self, area: str) -> float | None:
         settings = area_settings(self._section(), area)
         return None if settings is None else float(settings["confidence_threshold"])

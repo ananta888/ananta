@@ -443,3 +443,12 @@ def test_llm_generate_carries_the_advisory_signal_only_when_active(client, app, 
     screen = res.json["data"]["injection_screen"]
     assert screen["verdict"] == "suspicious" and screen["advisory"] is True
     assert res.json["status"] == "success"  # advisory: the request itself is not blocked
+
+
+def test_text_candidates_is_an_area_option_and_off_by_default():
+    section = _section(tool_routing={"mode": "shadow", "provider": "jev", "text_candidates": True})
+    assert dc.area_settings(section, "tool_routing")["text_candidates"] is True
+    service, _sink = _service(section, {})
+    assert service.area_option("tool_routing", "text_candidates", False) is True
+    service, _sink = _service(_section(tool_routing={"mode": "shadow", "provider": "jev"}), {})
+    assert service.area_option("tool_routing", "text_candidates", False) is False

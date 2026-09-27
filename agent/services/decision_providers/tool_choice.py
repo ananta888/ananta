@@ -10,8 +10,10 @@ measured is what runs.
 - ``tool``: a choice over the allowed tools plus ``none`` (answer without a tool);
 - every required fixed-value argument: a choice over its values, asked in the
   same request (typed decision APIs evaluate questions in parallel);
-- a tool's text argument (e.g. ``query``) gets the user's request itself:
-  decision providers pick, they do not write.
+- a tool's text argument (e.g. ``query``): with a candidate source, one more
+  choice over candidates (spans of the request, names from the symbol index,
+  ``whole_request``, ``none_fits``) -- decision providers pick, they do not
+  write; without one, or for ``whole_request``/``none_fits``, the request itself.
 
 Confidence of a call is the lowest of the tool's and its arguments'
 confidences; below ``min_confidence`` the result is an abstention, so the
@@ -24,6 +26,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from agent.services.decision_providers.argument_candidates import NONE_FITS, WHOLE_REQUEST, ArgumentCandidateSource
 from agent.services.decision_providers.types import DecisionQuestion, DecisionRequest, DecisionResult
 from ananta_contracts.tool_decision import (
     ABSTAIN,
@@ -54,8 +57,29 @@ def argument_key(index: int, argument: str) -> str:
     return ("arg_" + _KEY.sub("_", f"{index}_{argument}".lower()))[:64]
 
 
-def tool_questions(tools: Sequence[Mapping[str, Any]], prompt: str, *,
-                   purpose: str = "tool_routing") -> tuple[ToolDecisionSchema, DecisionRequest, dict[str, Any]]:
+def _text_question(index: int, tool: str, argument: str, prompt: str,
+                   source: ArgumentCandidateSource) -> tuple[str, DecisionQuestion, dict[str, str]] | None:
+    candidates = source.candidates(prompt, tool=tool, argument=argument)
+    if not candidates:
+        return None
+    labels: dict[str, str] = {}
+    for position, candidate in enumerate(candidates):
+        label = _label(candidate.value, position)
+        labels[label if label not in labels and label not in (WHOLE_REQUEST, NONE_FITS) else f"v{position}"] = \
+            candidate.value
+    options = {label: value for label, value in labels.items()}
+    options[WHOLE_REQUEST] = "Use the complete request as the value."
+    options[NONE_FITS] = "None of the candidates is right."
+    key = ("text_" + _KEY.sub("_", f"{index}_{argument}".lower()))[:64]
+    question = DecisionQuestion.choice(
+        key, f"If the tool {tool} is used: which candidate is the best value for its '{argument}' argument "
+        f"(the specific name or term to use)?", options)
+    return key, question, labels
+
+
+def tool_questions(tools: Sequence[Mapping[str, Any]], prompt: str, *, purpose: str = "tool_routing",
+                   candidates: ArgumentCandidateSource | None = None,
+                   ) -> tuple[ToolDecisionSchema, DecisionRequest, dict[str, Any]]:
     """``(schema, request, value maps)`` for choosing among ``tools`` for ``prompt``."""
     schema = build_tool_decision_schema(tools, open_field=True)  # knows each tool's text argument
     descriptions = {str(_function(t).get("name") or ""): str(_function(t).get("description") or "").strip()
@@ -71,13 +95,26 @@ def tool_questions(tools: Sequence[Mapping[str, Any]], prompt: str, *,
         questions.append(DecisionQuestion.choice(
             key, f"If the tool {item.tool} is used: which value fits its argument '{item.argument}'?",
             {label: str(value) for label, value in labels.items()}))
+    if candidates is not None:
+        for index, text in enumerate(schema.text_arguments):
+            built = _text_question(index, text.tool, text.argument, prompt, candidates)
+            if built is not None:
+                key, question, labels = built
+                values[key] = (text, labels)
+                questions.append(question)
     request = DecisionRequest(state=prompt, questions=tuple(questions), purpose=purpose)
     return schema, request, values
 
 
+TEXT_MIN_CONFIDENCE = 0.5  # benchmark 2026-09-27: every wrongly chosen span was below 0.5
+
+
 def read_tool_choice(schema: ToolDecisionSchema, result: DecisionResult, values: Mapping[str, Any], prompt: str, *,
-                     min_confidence: float) -> ToolDecision:
-    """The ``ToolDecision`` a decision result stands for."""
+                     min_confidence: float, text_min_confidence: float = TEXT_MIN_CONFIDENCE) -> ToolDecision:
+    """The ``ToolDecision`` a decision result stands for.
+
+    A text candidate is used only when chosen with at least ``text_min_confidence``; otherwise (and for
+    ``whole_request``/``none_fits``) the request itself is the argument, as without candidates."""
     tool_answer = result.answer(TOOL_KEY)
     tool, confidence = tool_answer.choice, tool_answer.confidence
     if tool == NO_TOOL:
@@ -85,15 +122,21 @@ def read_tool_choice(schema: ToolDecisionSchema, result: DecisionResult, values:
             return ToolDecision(ABSTAIN, None, confidence=confidence, reason="decision_low_confidence")
         return ToolDecision(RESPOND, None, confidence=confidence, reason="decision_no_tool")
     arguments: dict[str, Any] = {}
+    chosen_text: dict[str, str] = {}
     for key, (item, labels) in values.items():
         if item.tool != tool:
             continue
         answer = result.answer(key)
+        if key.startswith("text_"):
+            # a chosen candidate; whole_request / none_fits fall back to the request itself
+            if answer.choice in labels and answer.confidence >= text_min_confidence:
+                chosen_text[item.argument] = labels[answer.choice]
+            continue
         arguments[item.argument] = labels[answer.choice]
         confidence = min(confidence, answer.confidence)
     text = next((t for t in schema.text_arguments if t.tool == tool), None)
     if text is not None:
-        arguments[text.argument] = prompt.strip()[:TEXT_MAX_CHARS]
+        arguments[text.argument] = chosen_text.get(text.argument) or prompt.strip()[:TEXT_MAX_CHARS]
     elif tool in schema.free_text_tools:
         # a tool needing text we cannot place: never call it with a guess
         return ToolDecision(ABSTAIN, tool, confidence=confidence, reason="decision_free_text_required")
