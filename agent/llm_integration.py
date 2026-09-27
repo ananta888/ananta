@@ -570,6 +570,44 @@ def generate_text(
 
     idempotency_key = str(uuid.uuid4())
 
+    from agent.context_window import check_fit, record_expected_overflow, truncation_scope
+
+    if max_context_tokens:
+        # LCTX-002: does the assembled request fit? (the strategy trims below; every trim is recorded)
+        record_expected_overflow("llm.generate_text", check_fit(
+            prompt=prompt, messages=history if isinstance(history, list) else None,
+            window_tokens=int(max_context_tokens), output_reserve_tokens=max_output_tokens))
+    with truncation_scope() as truncations:
+        result = _call_generate(p, m, prompt, urls, key, actual_timeout, history, temperature, max_context_tokens,
+                                max_output_tokens, tools, tool_choice, trace_goal_id, trace_task_id,
+                                idempotency_key, provider_context, seed, max_retries, backoff_factor)
+    return _attach_context_truncation(result, truncations)
+
+
+def _attach_context_truncation(result: Any, truncations: list) -> Any:
+    """Make shortened context visible on the result and the request (LCTX-002: never silent)."""
+    from agent.context_window import truncation_summary
+
+    summary = truncation_summary(truncations)
+    if summary is None:
+        return result
+    if has_app_context():
+        try:
+            from flask import g
+
+            g.llm_context_truncations = list(getattr(g, "llm_context_truncations", []) or []) + summary["events"]
+        except RuntimeError:
+            pass
+    if isinstance(result, dict):
+        meta = result.get("metadata") if isinstance(result.get("metadata"), dict) else {}
+        meta["context_truncation"] = summary
+        result["metadata"] = meta
+    return result
+
+
+def _call_generate(p, m, prompt, urls, key, actual_timeout, history, temperature, max_context_tokens,
+                   max_output_tokens, tools, tool_choice, trace_goal_id, trace_task_id, idempotency_key,
+                   provider_context, seed, max_retries, backoff_factor) -> Any:
     return _call_llm(
         p,
         m,

@@ -218,7 +218,12 @@ class LMStudioStrategy(LLMStrategy):
             if context_limit:
                 max_input = max(context_limit - max_tokens - 256, 256)
                 if self._estimate_tokens(full_prompt) > max_input:
+                    from agent.context_window import estimate_tokens, record_truncation
+
+                    before = estimate_tokens(full_prompt)
                     full_prompt = self._truncate_text(full_prompt, max_input, keep="end")
+                    record_truncation("llm.lmstudio_completion", "char_cut", before_tokens=before,
+                                      after_tokens=estimate_tokens(full_prompt), window_tokens=int(context_limit))
             payload = {
                 "model": model_id,
                 "prompt": full_prompt,

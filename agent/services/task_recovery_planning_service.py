@@ -66,6 +66,16 @@ _TERMINAL_TASK_STATUSES = {
 }
 
 
+
+def _record_recovery_cut(site: str, text: str, limit: int) -> str:
+    """Record a hard character cut of recovery context (LCTX-002); returns ``text`` unchanged."""
+    if len(text) > limit:
+        from agent.context_window import estimate_tokens, record_truncation
+
+        record_truncation(site, "char_cut", before_tokens=estimate_tokens(text),
+                          after_tokens=estimate_tokens(text[:limit]), limit_chars=limit)
+    return text
+
 class TaskRecoveryPlanningService:
     """Coordinate one bounded recovery plan without giving workers queue ownership."""
 
@@ -560,6 +570,7 @@ class TaskRecoveryPlanningService:
         context_text = str(context_data.get("context_text") or "")
         if "compact_context" not in actions:
             bounded = "\n".join(value for value in (title, description, context_text) if value)
+            _record_recovery_cut("recovery.context", bounded, 8000)
             return bounded[:8000], {
                 "status": "bounded_without_compactor",
                 "input_chars": len(title) + len(description) + len(context_text),
@@ -588,7 +599,9 @@ class TaskRecoveryPlanningService:
         )
         payload = dict(compacted.payload or {})
         payload.pop("compactor_meta", None)
-        return json.dumps(payload, ensure_ascii=False)[:8000], {
+        compact_json = json.dumps(payload, ensure_ascii=False)
+        _record_recovery_cut("recovery.context", compact_json, 8000)
+        return compact_json[:8000], {
             key: value
             for key, value in dict(compacted.meta or {}).items()
             if key
@@ -2214,7 +2227,7 @@ class TaskRecoveryPlanningService:
             description = str(getattr(source_task, "description", "") or "").strip()
             recovery_goal = (
                 f'Implement and validate a bounded recovery plan for task "{title[:240]}". '
-                f"Original task: {description[:1600]}"
+                f"Original task: {_record_recovery_cut('recovery.goal', description, 1600)[:1600]}"
             )
             result = self._planner().plan_goal(
                 goal=recovery_goal,

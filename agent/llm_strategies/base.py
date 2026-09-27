@@ -74,6 +74,19 @@ class LLMStrategy(ABC):
         return text[-max_chars:]
 
     def _trim_messages(self, messages: list, max_context_tokens: int, max_output_tokens: int) -> list:
+        """Messages that fit the window; any shortening is recorded (LCTX-002: never silent)."""
+        trimmed = self._trim_messages_to_budget(messages, max_context_tokens, max_output_tokens)
+        if trimmed is not messages:
+            from agent.context_window import estimate_messages_tokens, record_truncation
+
+            record_truncation("llm.trim_messages", "trim_messages",
+                              before_tokens=estimate_messages_tokens(messages),
+                              after_tokens=estimate_messages_tokens(trimmed),
+                              dropped_items=max(0, len(messages or []) - len(trimmed or [])),
+                              strategy=type(self).__name__, window_tokens=int(max_context_tokens))
+        return trimmed
+
+    def _trim_messages_to_budget(self, messages: list, max_context_tokens: int, max_output_tokens: int) -> list:
         budget = max(max_context_tokens - max_output_tokens - 256, 256)
         if not messages:
             return messages

@@ -429,6 +429,10 @@ def llm_generate():
                 "prompt_traces": prompt_traces}
         if injection_signal is not None:
             meta["injection_screen"] = injection_signal.to_mapping()
+        truncations = list(getattr(g, "llm_context_truncations", []) or [])
+        if truncations:  # LCTX-002: shortened context is visible to the caller
+            meta["context_truncation"] = {"truncated": True, "events": truncations,
+                                          "lost_tokens": sum(int(e.get("lost_tokens") or 0) for e in truncations)}
         return meta
 
     if not runtime["provider"]:

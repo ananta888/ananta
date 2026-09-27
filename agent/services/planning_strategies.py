@@ -585,6 +585,10 @@ class LLMPlanningStrategy:
         if context_max_chars and resolved_context:
             limit = self._safe_int(context_max_chars, default=400, minimum=100)
             if len(resolved_context) > limit:
+                from agent.context_window import estimate_tokens, record_truncation
+
+                record_truncation("planning.context", "char_cut", before_tokens=estimate_tokens(resolved_context),
+                                  after_tokens=estimate_tokens(resolved_context[:limit]), limit_chars=limit)
                 resolved_context = resolved_context[:limit]
 
         if mode != "generic" and mode_data:

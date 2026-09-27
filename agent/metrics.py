@@ -48,6 +48,16 @@ TASK_FAILURE_REASON_COUNT = Counter("task_failure_reason_total", "Task failures 
 WORKSPACE_WRITE_CONFLICT_COUNT = Counter("workspace_write_conflict_total", "Workspace write conflicts")
 HTTP_REQUEST_DURATION = Histogram("http_request_duration_seconds", "HTTP request duration", ["method", "target"])
 RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
+CONTEXT_TRUNCATIONS_TOTAL = Counter(
+    "context_truncation_total",
+    "Context shortened to fit a model window (LCTX), by bounded site and kind",
+    ["site", "kind"],
+)
+CONTEXT_OVERFLOW_EXPECTED_TOTAL = Counter(
+    "context_overflow_expected_total",
+    "Assembled prompts estimated above their model window before the call (LCTX), by bounded site",
+    ["site"],
+)
 SPREADSHEET_OPERATIONS_TOTAL = Counter(
     "spreadsheet_operations_total",
     "Spreadsheet Studio operations grouped by bounded operation, outcome and reason code",
