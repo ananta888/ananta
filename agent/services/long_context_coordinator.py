@@ -94,8 +94,12 @@ class LongContextCoordinator:
 
     # --- 1. split -------------------------------------------------------------------------------------
 
-    def maybe_split(self, task: Any, *, config: Mapping[str, Any] | None) -> SplitResult | None:
-        """Split ``task`` into Hub step tasks when active and the decision calls for it; ``None`` otherwise."""
+    def maybe_split(self, task: Any, *, config: Mapping[str, Any] | None,
+                    overflowed: bool = False) -> SplitResult | None:
+        """Handle ``task`` when active and its context does not fit; ``None`` otherwise.
+
+        ``overflowed``: a model call already failed on the window (LCTX-009) -- even if the estimate says the
+        task fits (the estimate is approximate), it is treated as at least slightly too large."""
         from agent.context_window import check_fit
         from agent.services.context_chunking import pack_parts, split_ordered
         from agent.services.context_strategy_service import ContextStrategyRequest
@@ -116,6 +120,11 @@ class LongContextCoordinator:
                  for i, p in enumerate(context.get("context_parts") or []) if isinstance(p, Mapping)]
         size_text = "\n".join([title, material] + [text for _id, text in parts])
         fit = check_fit(prompt=size_text)
+        if fit.fits and overflowed:
+            from agent.context_window import ContextFit
+
+            fit = ContextFit(fit.window_tokens, fit.output_reserve_tokens,
+                             max(fit.estimated_tokens, int(fit.budget_tokens * 1.2)))
         if fit.fits:
             return None
         input_kind = "parts" if parts else str(context.get("context_input_kind") or "unknown")

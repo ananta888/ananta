@@ -67,6 +67,37 @@ def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
         return None
 
 
+_OVERFLOW_MARKERS = ("context length", "context window", "context_length", "too many tokens", "n_ctx",
+                     "token_budget_exceeded", "context_too_large", "context_overflow", "maximum context")
+
+
+def _is_context_overflow(strategy_failures: list[dict[str, Any]]) -> bool:
+    """Did any attempt fail because the task did not fit the model window?"""
+    for failure in strategy_failures or []:
+        if str(failure.get("failure_type") or "") == "preflight_context_limit":
+            return True
+        text = " ".join(str(failure.get(key) or "") for key in ("reason", "error", "failure_type")).lower()
+        if any(marker in text for marker in _OVERFLOW_MARKERS):
+            return True
+    return False
+
+
+def _handle_context_overflow(task: Any, *, app: Any) -> Any:
+    try:
+        config = ((getattr(app, "config", None) or {}).get("AGENT_CONFIG", {}) or {}).get("context_strategy")
+        if str((config or {}).get("mode") or "shadow").strip().lower() != "active":
+            return None
+        from agent.services.long_context_coordinator import get_long_context_coordinator
+
+        return get_long_context_coordinator().maybe_split(task, config=config, overflowed=True)
+    except Exception:  # noqa: BLE001 -- falls back to the normal exhaustion handling
+        import logging
+
+        logging.getLogger(__name__).warning("context overflow handling failed for %s", getattr(task, "id", "?"),
+                                            exc_info=True)
+        return None
+
+
 def _dispatch_one_task_inner(  # noqa: C901
     *,
     task: Any,
@@ -904,6 +935,14 @@ def _dispatch_one_task_inner(  # noqa: C901
                 )
                 break
 
+        if propose_data is None and _is_context_overflow(strategy_failures):
+            handled = _handle_context_overflow(current_task or task, app=app_ctx)
+            if handled is not None:
+                # LCTX-009: the attempts ran out of window -- compact / externalize / split and try again
+                append_trace_event(task.id, "autopilot_context_overflow_handled", strategy=handled.strategy,
+                                   steps=len(handled.step_ids))
+                result.dispatched = True
+                return result
         if propose_data is None:
             latest_status = _current_task_status(task.id, app=app_ctx)
             if _is_terminal_status(latest_status):

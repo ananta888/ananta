@@ -333,8 +333,7 @@ class LLMPlanningStrategy:
     ) -> tuple[list[dict[str, Any]], str, str] | None:
         if not bool(planning_policy.get("segmented_planning_enabled", False)):
             return None
-        segment_chars = self._safe_int(planning_policy.get("segment_context_chars", 2400), default=2400, minimum=600, maximum=12000)
-        max_segments = self._safe_int(planning_policy.get("max_segments", 3), default=3, minimum=1, maximum=8)
+        segment_chars, max_segments = self.segmentation(planning_policy, len(resolved_context or ""))
         segments = self._split_context_into_segments(resolved_context, segment_chars=segment_chars, max_segments=max_segments)
         if len(segments) <= 1:
             return None
@@ -543,6 +542,19 @@ class LLMPlanningStrategy:
             return False
         return has_required_workspace_artifact and has_required_verification
 
+    MAX_SEGMENTS = 8
+
+    @classmethod
+    def segmentation(cls, planning_policy: dict[str, Any], context_chars: int) -> tuple[int, int]:
+        """``(segment_chars, segments)``: with segmented planning the segments grow with the context up to 8,
+        so context is planned over rather than cut (LCTX-009); without it, the configured product is the limit."""
+        segment_chars = cls._safe_int(planning_policy.get("segment_context_chars", 8000), default=8000, minimum=600,
+                                      maximum=12000)
+        segments = cls._safe_int(planning_policy.get("max_segments", 3), default=3, minimum=1, maximum=cls.MAX_SEGMENTS)
+        if bool(planning_policy.get("segmented_planning_enabled", False)) and context_chars > segment_chars * segments:
+            segments = min(cls.MAX_SEGMENTS, -(-int(context_chars) // segment_chars))
+        return segment_chars, segments
+
     @staticmethod
     def effective_planning_policy(scoped_cfg: dict[str, Any], mode_data: Optional[dict]) -> dict[str, Any]:
         """The scoped planning policy; a context-recovery "segment_planning" request forces segmentation."""
@@ -579,8 +591,7 @@ class LLMPlanningStrategy:
         # Configurable context truncation — helps small models with limited context windows
         context_max_chars = planning_policy.get("context_max_chars")
         if not context_max_chars:
-            segment_chars = self._safe_int(planning_policy.get("segment_context_chars", 2400), default=2400, minimum=600, maximum=12000)
-            max_segments = self._safe_int(planning_policy.get("max_segments", 3), default=3, minimum=1, maximum=8)
+            segment_chars, max_segments = self.segmentation(planning_policy, len(resolved_context or ""))
             context_max_chars = segment_chars * max_segments
         if context_max_chars and resolved_context:
             limit = self._safe_int(context_max_chars, default=400, minimum=100)

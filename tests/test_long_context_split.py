@@ -230,3 +230,62 @@ def test_the_worker_workspace_gets_the_material_file(tmp_path):
     assert manifest["task_material_path"] == ".ananta/task-material.md"
     assert (workspace / ".ananta/task-material.md").read_text(encoding="utf-8").startswith("Material Zeile 1")
     assert ".ananta/task-material.md" in (workspace / manifest["context_index_path"]).read_text(encoding="utf-8")
+
+
+# --- runtime overflow and the former hard cuts (LCTX-009) ---------------------------------------------
+
+
+def test_overflow_failures_are_recognized():
+    from agent.routes.tasks.autopilot_task_dispatcher import _is_context_overflow
+
+    assert _is_context_overflow([{"failure_type": "preflight_context_limit"}])
+    assert _is_context_overflow([{"failure_type": "forward_error",
+                                  "reason": "400: This model's maximum context length is 32768 tokens"}])
+    assert _is_context_overflow([{"reason": "cannot truncate prompt with n_keep >= n_ctx"}])
+    assert _is_context_overflow([{"reason": "token_budget_exceeded: prompt ~40000 tokens exceeds limit 32768"}])
+    assert not _is_context_overflow([{"failure_type": "invalid_proposal", "reason": "no command"}])
+
+
+def test_a_real_overflow_externalizes_even_what_the_estimate_thought_fits(app):
+    with app.app_context():
+        _save("lc-overflow", status="todo", title="Knapp", description="text " * 20_000,  # estimate: fits
+              worker_execution_context={"context_input_kind": "ordered"})
+        coordinator = _coordinator()
+        assert coordinator.maybe_split(_get("lc-overflow"), config=ACTIVE) is None
+        result = coordinator.maybe_split(_get("lc-overflow"), config=ACTIVE, overflowed=True)
+        assert result.strategy == "compact" and result.dispatch_now
+        assert ".ananta/task-material.md" in _get("lc-overflow").description
+
+
+def test_the_dispatcher_handles_overflow_only_in_active_mode(monkeypatch):
+    from types import SimpleNamespace
+
+    from agent.routes.tasks import autopilot_task_dispatcher as dispatcher
+
+    seen = []
+    monkeypatch.setattr("agent.services.long_context_coordinator.get_long_context_coordinator",
+                        lambda: SimpleNamespace(maybe_split=lambda task, config, overflowed: seen.append(overflowed)
+                                                or "handled"))
+    app = SimpleNamespace(config={"AGENT_CONFIG": {"context_strategy": {"mode": "shadow"}}})
+    assert dispatcher._handle_context_overflow(SimpleNamespace(id="t"), app=app) is None
+    app.config["AGENT_CONFIG"]["context_strategy"]["mode"] = "active"
+    assert dispatcher._handle_context_overflow(SimpleNamespace(id="t"), app=app) == "handled" and seen == [True]
+
+
+def test_planning_segments_grow_with_the_context_instead_of_cutting():
+    from agent.services.planning_strategies import LLMPlanningStrategy
+
+    policy = {"segmented_planning_enabled": True, "segment_context_chars": 8000, "max_segments": 3}
+    assert LLMPlanningStrategy.segmentation(policy, 5_000) == (8000, 3)
+    assert LLMPlanningStrategy.segmentation(policy, 40_000) == (8000, 5)
+    assert LLMPlanningStrategy.segmentation(policy, 400_000) == (8000, 8)  # beyond 8 segments: cut, recorded
+    assert LLMPlanningStrategy.segmentation({**policy, "segmented_planning_enabled": False}, 40_000) == (8000, 3)
+    from agent.config_defaults import build_default_agent_config
+
+    assert build_default_agent_config()["planning_policy"]["segment_context_chars"] == 8000
+
+
+def test_recovery_context_uses_a_quarter_of_the_window():
+    from agent.services.task_recovery_planning_service import _recovery_context_chars
+
+    assert _recovery_context_chars() == 32768 * 4 // 4

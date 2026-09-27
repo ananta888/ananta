@@ -67,6 +67,13 @@ _TERMINAL_TASK_STATUSES = {
 
 
 
+def _recovery_context_chars() -> int:
+    """A quarter of the context window for recovery context (was a fixed 8000 chars ~ 2k tokens)."""
+    from agent.context_window import CHARS_PER_TOKEN, context_window_tokens
+
+    return max(8000, context_window_tokens() * CHARS_PER_TOKEN // 4)
+
+
 def _record_recovery_cut(site: str, text: str, limit: int) -> str:
     """Record a hard character cut of recovery context (LCTX-002); returns ``text`` unchanged."""
     if len(text) > limit:
@@ -570,11 +577,12 @@ class TaskRecoveryPlanningService:
         context_text = str(context_data.get("context_text") or "")
         if "compact_context" not in actions:
             bounded = "\n".join(value for value in (title, description, context_text) if value)
-            _record_recovery_cut("recovery.context", bounded, 8000)
-            return bounded[:8000], {
+            limit = _recovery_context_chars()
+            _record_recovery_cut("recovery.context", bounded, limit)
+            return bounded[:limit], {
                 "status": "bounded_without_compactor",
                 "input_chars": len(title) + len(description) + len(context_text),
-                "output_chars": min(8000, len(bounded)),
+                "output_chars": min(limit, len(bounded)),
             }
 
         from agent.services.planning_context_compactor_service import (
@@ -592,7 +600,7 @@ class TaskRecoveryPlanningService:
             policy=ProposePolicy(
                 context_compaction_enabled=False,
                 context_compaction_required=False,
-                context_compactor_max_output_chars=8000,
+                context_compactor_max_output_chars=_recovery_context_chars(),
                 context_compactor_retry_attempts=0,
                 context_compactor_fail_open=True,
             ),
@@ -600,8 +608,8 @@ class TaskRecoveryPlanningService:
         payload = dict(compacted.payload or {})
         payload.pop("compactor_meta", None)
         compact_json = json.dumps(payload, ensure_ascii=False)
-        _record_recovery_cut("recovery.context", compact_json, 8000)
-        return compact_json[:8000], {
+        _record_recovery_cut("recovery.context", compact_json, _recovery_context_chars())
+        return compact_json[:_recovery_context_chars()], {
             key: value
             for key, value in dict(compacted.meta or {}).items()
             if key
@@ -2227,7 +2235,7 @@ class TaskRecoveryPlanningService:
             description = str(getattr(source_task, "description", "") or "").strip()
             recovery_goal = (
                 f'Implement and validate a bounded recovery plan for task "{title[:240]}". '
-                f"Original task: {_record_recovery_cut('recovery.goal', description, 1600)[:1600]}"
+                f"Original task: {_record_recovery_cut('recovery.goal', description, 4000)[:4000]}"
             )
             result = self._planner().plan_goal(
                 goal=recovery_goal,
