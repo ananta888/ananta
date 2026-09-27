@@ -615,6 +615,8 @@ def build_task_propose_prompt(
     ]
     if context_text:
         read_paths.append(str(opencode_context_files.get("hub_context_path") or ".ananta/hub-context.md"))
+    if opencode_context_files.get("task_material_path"):
+        read_paths.append(str(opencode_context_files["task_material_path"]))
     if not interactive_terminal:
         read_paths.append(str(opencode_context_files.get("response_contract_path") or "").strip())
     read_paths = [item for item in read_paths if item]

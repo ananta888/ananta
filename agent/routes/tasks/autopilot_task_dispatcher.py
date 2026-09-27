@@ -162,11 +162,15 @@ def _dispatch_one_task_inner(  # noqa: C901
 
     split = _split_if_beyond_context(current_task or task, app=app_ctx)
     if split is not None:
-        # LCTX: the task was split into Hub step tasks; it now waits for them (not a failure)
-        append_trace_event(task.id, "autopilot_long_context_split", strategy=split.strategy,
-                           steps=len(split.step_ids), final_step_id=split.final_step_id)
-        result.dispatched = True
-        return result
+        append_trace_event(task.id, "autopilot_long_context_" + ("externalized" if split.dispatch_now else "handled"),
+                           strategy=split.strategy, steps=len(split.step_ids), final_step_id=split.final_step_id)
+        if not split.dispatch_now:
+            # LCTX: split into Hub step tasks (it waits for them) or paused for a decision -- not a failure
+            result.dispatched = True
+            return result
+        # externalized: the task now fits and goes on to a worker with its material as a workspace file
+        task = get_repository_registry(app_ctx).task_repo.get_by_id(task.id) or task
+        current_task = task
 
     if was_assigned:
         latest_status = _current_task_status(task.id, app=app_ctx)

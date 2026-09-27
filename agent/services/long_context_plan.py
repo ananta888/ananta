@@ -39,15 +39,19 @@ class PlannedStep:
     sources: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _check(chunks: Sequence[Chunk]) -> None:
+APPROVED_MAX_STEPS = 256  # a human explicitly let an escalated task continue
+
+
+def _check(chunks: Sequence[Chunk], max_steps: int = MAX_STEPS) -> None:
     if len(chunks) < 2:
         raise LongContextPlanError("long_context_plan_needs_two_chunks")
-    if len(chunks) + 1 > MAX_STEPS:
+    if len(chunks) + 1 > max_steps:
         raise LongContextPlanError("long_context_plan_too_many_steps")  # escalate instead
 
 
-def sequential_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "") -> list[PlannedStep]:
-    _check(chunks)
+def sequential_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "",
+                    max_steps: int = MAX_STEPS) -> list[PlannedStep]:
+    _check(chunks, max_steps)
     label = (title or goal).strip()[:80]
     steps: list[PlannedStep] = []
     total = len(chunks)
@@ -73,8 +77,9 @@ def sequential_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "") -> l
     return steps
 
 
-def map_reduce_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "") -> list[PlannedStep]:
-    _check(chunks)
+def map_reduce_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "",
+                    max_steps: int = MAX_STEPS) -> list[PlannedStep]:
+    _check(chunks, max_steps)
     label = (title or goal).strip()[:80]
     total = len(chunks)
     steps = [PlannedStep(
@@ -93,9 +98,10 @@ def map_reduce_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "") -> l
     return steps
 
 
-def build_plan(strategy: str, goal: str, chunks: Sequence[Chunk], *, title: str = "") -> list[PlannedStep]:
+def build_plan(strategy: str, goal: str, chunks: Sequence[Chunk], *, title: str = "",
+               max_steps: int = MAX_STEPS) -> list[PlannedStep]:
     if strategy == "sequential":
-        return sequential_plan(goal, chunks, title=title)
+        return sequential_plan(goal, chunks, title=title, max_steps=max_steps)
     if strategy == "map_reduce":
-        return map_reduce_plan(goal, chunks, title=title)
+        return map_reduce_plan(goal, chunks, title=title, max_steps=max_steps)
     raise LongContextPlanError(f"long_context_plan_strategy_unsupported:{strategy}")

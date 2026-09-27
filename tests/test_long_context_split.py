@@ -169,3 +169,64 @@ def test_the_dispatcher_splits_only_in_active_mode(app, monkeypatch):
     assert dispatcher._split_if_beyond_context(SimpleNamespace(id="t"), app=fake_app) is None and calls == []
     fake_app.config["AGENT_CONFIG"]["context_strategy"]["mode"] = "active"
     assert dispatcher._split_if_beyond_context(SimpleNamespace(id="t"), app=fake_app) == "split"
+
+
+# --- compact / retrieve: material as a workspace file; escalate: pause (LCTX-005/006) ------------------
+
+
+def test_a_slightly_oversized_task_is_externalized_and_dispatched(app):
+    with app.app_context():
+        material = "\n".join(f"Zeile {i}: " + "inhalt " * 20 for i in range(1100))  # ~1.2x the budget
+        _save("lc-compact", status="todo", title="Bericht prüfen", description=material,
+              worker_execution_context={"context_input_kind": "ordered"})
+        result = _coordinator().maybe_split(_get("lc-compact"), config=ACTIVE)
+        assert result.strategy == "compact" and result.dispatch_now and result.step_ids == ()
+        task = _get("lc-compact")
+        assert task.status == "todo" and ".ananta/task-material.md" in task.description
+        assert "Gliederung:" in task.description and "Zeilen 1–" in task.description
+        assert task.worker_execution_context["context_material"].startswith("Zeile 0:")
+        from agent.context_window import check_fit
+
+        assert check_fit(prompt=task.description).fits  # the task now fits the window
+        assert _coordinator().maybe_split(task, config=ACTIVE) is None  # handled once
+
+
+def test_a_corpus_is_externalized_for_selective_reading(app):
+    with app.app_context():
+        _save("lc-corpus", status="todo", title="Wo wird X konfiguriert?", description="doku " * 60_000,
+              worker_execution_context={"context_input_kind": "corpus"})
+        result = _coordinator().maybe_split(_get("lc-corpus"), config=ACTIVE)
+        assert result.strategy == "retrieve" and "relevant" in _get("lc-corpus").description
+
+
+def test_an_enormous_task_is_paused_and_a_resumed_one_processed_piece_by_piece(app):
+    with app.app_context():
+        _save("lc-huge", status="todo", title="Alles", description="x " * 2_700_000,  # ~45x the budget
+              worker_execution_context={"context_input_kind": "ordered"})
+        result = _coordinator().maybe_split(_get("lc-huge"), config=ACTIVE)
+        assert result.strategy == "escalate" and not result.dispatch_now
+        task = _get("lc-huge")
+        assert task.status == "paused" and task.status_reason_code == "context_too_large_needs_decision"
+        from agent.services.task_runtime_service import update_local_task_status
+
+        update_local_task_status("lc-huge", "todo", force=True)  # a human resumes it
+        result = _coordinator().maybe_split(_get("lc-huge"), config=ACTIVE)
+        assert result.strategy == "sequential" and len(result.step_ids) > 2
+
+
+def test_the_worker_workspace_gets_the_material_file(tmp_path):
+    from agent.services.worker_workspace_service import WorkerWorkspaceContext, WorkerWorkspaceService
+
+    workspace = tmp_path / "ws"
+    for directory in (workspace, workspace / "artifacts", workspace / "rag_helper"):
+        directory.mkdir(parents=True, exist_ok=True)
+    context = WorkerWorkspaceContext(workspace_dir=workspace, artifacts_dir=workspace / "artifacts",
+                                     rag_helper_dir=workspace / "rag_helper", artifact_sync={})
+    manifest = WorkerWorkspaceService().prepare_opencode_context_files(
+        task={"id": "T", "title": "t", "description": "d",
+              "worker_execution_context": {"context_material": "Material Zeile 1\nZeile 2"}},
+        workspace_context=context, base_prompt="p", system_prompt=None, context_text=None,
+        expected_output_schema=None, tool_definitions=None, research_context=None)
+    assert manifest["task_material_path"] == ".ananta/task-material.md"
+    assert (workspace / ".ananta/task-material.md").read_text(encoding="utf-8").startswith("Material Zeile 1")
+    assert ".ananta/task-material.md" in (workspace / manifest["context_index_path"]).read_text(encoding="utf-8")

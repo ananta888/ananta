@@ -33,6 +33,8 @@ from agent.services.long_context_plan import DEPENDENCY_OUTPUTS, PlannedStep, bu
 
 MARKER = "long_context"
 SPLIT_STRATEGIES = frozenset({"sequential", "map_reduce"})
+EXTERNALIZE_STRATEGIES = frozenset({"compact", "retrieve"})
+MATERIAL_FILE = ".ananta/task-material.md"
 MAX_NESTING = 2  # a reduce may be split again once or twice, not forever
 _log = logging.getLogger(__name__)
 
@@ -43,6 +45,11 @@ class SplitResult:
     strategy: str
     step_ids: tuple[str, ...]
     final_step_id: str
+
+    @property
+    def dispatch_now(self) -> bool:
+        """The task itself goes on to a worker (externalized) rather than waiting for steps (split)."""
+        return not self.step_ids and self.strategy in EXTERNALIZE_STRATEGIES
 
 
 def _details(task: Any) -> dict[str, Any]:
@@ -98,8 +105,10 @@ class LongContextCoordinator:
             return None
         marker = _details(task).get(MARKER) or {}
         nesting = int(marker.get("nesting") or 0)
-        if marker.get("role") == "parent" or (marker and marker.get("kind") != "reduce") or nesting >= MAX_NESTING:
-            return None  # already split, a step, or nested deep enough: run as is
+        role = marker.get("role")
+        if role in {"parent", "externalized"} or (role == "step" and marker.get("kind") != "reduce") \
+                or nesting >= MAX_NESTING:
+            return None  # already handled, a step, or nested deep enough: run as is
         context = _context(task)
         title = str(getattr(task, "title", "") or "").strip()
         material = str(getattr(task, "description", "") or "")
@@ -113,12 +122,27 @@ class LongContextCoordinator:
         decision = service.decide(ContextStrategyRequest(
             fit=fit, task_kind=str(getattr(task, "task_kind", "") or ""), input_kind=input_kind, parts=len(parts),
             description=f"{title}\n{material[:1500]}"))
-        if decision.strategy not in SPLIT_STRATEGIES:
-            return None  # compact / retrieve / escalate are handled by their own paths
-        chunk_tokens = int(decision.parameters.get("chunk_budget_tokens") or 4096)
         goal = str(context.get("context_goal") or title or material[:500]).strip()
+        strategy = decision.strategy
+        if strategy == "escalate" and role == "escalated":
+            strategy = "sequential"  # a human let it continue: process everything, piece by piece
+        if strategy == "escalate":
+            return self._escalate(task, decision)
+        if strategy in EXTERNALIZE_STRATEGIES:
+            return self._externalize(task, decision, goal, material, parts)
+        if strategy not in SPLIT_STRATEGIES:
+            return None
+        if strategy != decision.strategy:
+            from agent.services.context_strategy_service import ContextStrategyDecision
+
+            decision = ContextStrategyDecision(strategy, "escalation_resumed", "rules", decision.fit,
+                                               {"chunk_budget_tokens": int(decision.fit.budget_tokens * 0.6)})
+        chunk_tokens = int(decision.parameters.get("chunk_budget_tokens") or 4096)
         chunks = pack_parts(parts, chunk_tokens) if parts else split_ordered(material, chunk_tokens)
-        steps = _with_waves(build_plan(decision.strategy, goal, chunks, title=title),
+        from agent.services.long_context_plan import APPROVED_MAX_STEPS, MAX_STEPS
+
+        max_steps = APPROVED_MAX_STEPS if role == "escalated" else MAX_STEPS
+        steps = _with_waves(build_plan(decision.strategy, goal, chunks, title=title, max_steps=max_steps),
                             int(decision.parameters.get("parallelism") or 0))
         return self._materialize(task, decision, steps, nesting)
 
@@ -156,6 +180,46 @@ class LongContextCoordinator:
         self._record("long_context_split", task_id=task_id, strategy=decision.strategy, steps=len(ids),
                      ratio=round(decision.fit.ratio, 2))
         return SplitResult(task_id, decision.strategy, tuple(ids.values()), final_id)
+
+    def _externalize(self, task: Any, decision: Any, goal: str, material: str,
+                     parts: list[tuple[str, str]]) -> SplitResult:
+        """compact / retrieve: the material moves into a workspace file the worker reads section by section."""
+        from agent.services.context_chunking import split_ordered
+
+        text = "\n\n".join([material] + [f"### {part_id}\n{body}" for part_id, body in parts]).strip()
+        outline, line = [], 1
+        for chunk in split_ordered(text, 3000):
+            lines = chunk.text.count("\n") + 1
+            first = next((row.strip() for row in chunk.text.splitlines() if row.strip()), "")[:100]
+            outline.append(f"- Abschnitt {chunk.index + 1}, Zeilen {line}–{line + lines - 1}: {first}")
+            line += lines + 1  # the blank line between chunks
+        reading = ("Lies es vollständig, Abschnitt für Abschnitt (`repo.read_file_range`), und halte das Wesentliche "
+                   "fest, bevor du antwortest." if decision.strategy == "compact" else
+                   "Lies nur die Abschnitte, die für die Aufgabe relevant sind (`repo.read_file_range` mit den "
+                   "Zeilen aus der Gliederung).")
+        size = f"~{decision.fit.estimated_tokens} Token, {decision.fit.ratio:.1f}× das Kontextfenster"
+        description = (f"Aufgabe: {goal}\n\nDas Material zu dieser Aufgabe ist umfangreich ({size}) und liegt in "
+                       f"`{MATERIAL_FILE}`. "
+                       f"{reading}\n\nGliederung:\n" + "\n".join(outline[:200]))
+        context = {**{k: v for k, v in _context(task).items() if k != "context_parts"}, "context_material": text}
+        details = {**_details(task), MARKER: {"role": "externalized", "strategy": decision.strategy,
+                                              "decision": decision.to_mapping(), "sections": len(outline)}}
+        self._update(str(task.id), str(getattr(task, "status", "") or "todo"), description=description,
+                     worker_execution_context=context, status_reason_details=details,
+                     event_type="long_context_externalized",
+                     event_details={"strategy": decision.strategy, "sections": len(outline)})
+        self._record("long_context_externalized", task_id=str(task.id), strategy=decision.strategy,
+                     sections=len(outline), ratio=round(decision.fit.ratio, 2))
+        return SplitResult(str(task.id), decision.strategy, (), "")
+
+    def _escalate(self, task: Any, decision: Any) -> SplitResult:
+        """Too large to handle automatically: pause for a human; resuming processes it piece by piece."""
+        details = {**_details(task), MARKER: {"role": "escalated", "decision": decision.to_mapping()}}
+        self._update(str(task.id), "paused", status_reason_details=details,
+                     status_reason_code="context_too_large_needs_decision", event_type="long_context_escalated",
+                     event_details={"ratio": round(decision.fit.ratio, 2)})
+        self._record("long_context_escalated", task_id=str(task.id), ratio=round(decision.fit.ratio, 2))
+        return SplitResult(str(task.id), "escalate", (), "")
 
     # --- 2. and 3. ------------------------------------------------------------------------------------
 

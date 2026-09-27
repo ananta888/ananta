@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from agent.services.worker_workspace_service import WorkerWorkspaceContext
@@ -29,6 +29,15 @@ def _truncate_text(value: str | None, *, limit: int | None) -> str:
     if len(text) <= limit:
         return text
     return text[: max(1, limit - 14)].rstrip() + "\n\n[gekürzt]"
+
+
+def _write_task_material(task: dict, bundle_dir: Path, record: Any) -> None:
+    """LCTX-005/006: material moved out of an oversized task; the worker reads it section by section."""
+    material = str(((task or {}).get("worker_execution_context") or {}).get("context_material") or "")
+    if material.strip():
+        material_path = bundle_dir / "task-material.md"
+        _write_text(material_path, material.strip() + "\n")
+        record(material_path, key="task_material_path")
 
 
 def prepare_opencode_context_files(
@@ -209,6 +218,8 @@ def prepare_opencode_context_files(
         )
         _record(hub_context_path, key="hub_context_path")
 
+    _write_task_material(task, bundle_dir, _record)
+
     if expected_output_schema:
         schema_path = bundle_dir / "output-schema.json"
         _write_json(schema_path, expected_output_schema)
@@ -344,6 +355,7 @@ def prepare_opencode_context_files(
         "task_brief_path",
         "system_prompt_path",
         "hub_context_path",
+        "task_material_path",
         "research_context_prompt_path",
         "research_context_json_path",
         "tool_definitions_path",
