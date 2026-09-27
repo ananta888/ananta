@@ -4,8 +4,8 @@
 
 Ananta arbeitet mit **32k Token pro Anfrage** (`ANANTA_CONTEXT_TOKENS`, Standard 32768; siehe
 `docs/jev-llamacpp-decision-mode.md`, Abschnitt Standardmodell). Was nicht passt, wird heute noch gekürzt –
-aber nie mehr still. Die Strategien (verdichten, gezielt nachladen, nacheinander, parallel) und der
-Entscheidungspunkt im Hub folgen in M2/M3.
+aber nie mehr still. Der Hub entscheidet bereits, wie eine zu große Aufgabe zu behandeln wäre (M2); die
+Strategien selbst (verdichten, gezielt nachladen, nacheinander, parallel) folgen in M3.
 
 ## Fenster anwenden (M0)
 
@@ -50,9 +50,9 @@ liefert sie als `context_truncation` in den Metadaten.
 - **Kontext-Kompression:** die `CONTEXT_COMPRESSION_*`-Einstellungen wirken jetzt
   (`agent/services/context_compression/settings_config.py`); vorher las der Orchestrator ein nie vorhandenes
   `settings.global_config`. Standard weiterhin aus.
-- **Noch nicht angebunden, bewusst nicht gelöscht:** `ContextBudgetPolicyService` (Chat-Kontextmodi) und
-  `PreModelContextOrchestrator` – sie gehen im Entscheidungspunkt (LCTX-004) auf, statt einen dritten
-  Budget-Begriff daneben zu stellen.
+- **Bewusst behalten:** `ContextBudgetPolicyService` wählt je Chat-Absicht die erlaubten Kontextquellen,
+  `PreModelContextOrchestrator` rankt Kandidaten – beides andere Fragen als „was tun, wenn es zu groß ist“;
+  der Orchestrator ist ein Baustein für die Strategie „gezielt nachladen“ (LCTX-006).
 
 ## Entscheidungspunkt im Hub (M2)
 
