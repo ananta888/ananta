@@ -653,6 +653,16 @@ def set_config():
             **new_cfg,
             "ml_intern_spike": shared.normalize_ml_intern_spike_config(merged_ml_intern),
         }
+    if "decision_providers" in new_cfg:
+        # DPRV: validated as a whole; TypeSafe Jev needs external_calls_allowed, keys only via api_key_env
+        from agent.services.decision_providers.config import DecisionConfigError, normalize_decision_config
+
+        try:
+            decision_cfg = normalize_decision_config(new_cfg.get("decision_providers"),
+                                                     current_cfg.get("decision_providers") or {})
+        except DecisionConfigError as error:
+            return api_response(status="error", message=error.reason_code, code=400)
+        new_cfg = {**new_cfg, "decision_providers": decision_cfg}
     if "embedding_provider" in new_cfg:
         emb_cfg = new_cfg.get("embedding_provider")
         if not isinstance(emb_cfg, dict):
