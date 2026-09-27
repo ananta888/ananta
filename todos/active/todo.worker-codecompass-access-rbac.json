@@ -231,10 +231,10 @@
       "milestone_id": "WCRB-M2",
       "title": "Aufgaben tragen ihren Auftraggeber",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-002"
       ],
@@ -245,17 +245,19 @@
       "acceptance_criteria": [
         "Aufgaben ohne Auftraggeber (Altbestand) laufen mit bisherigem Verhalten; neue tragen ihn."
       ],
-      "evidence": []
+      "evidence": [
+        "b068bbcf4: requested_by_* auf TaskDB/ArchivedTaskDB, requester_fields beim Ingest, resolve_requester lazy ueber Eltern; tests/test_task_requester.py"
+      ]
     },
     {
       "id": "WCRB-007",
       "milestone_id": "WCRB-M2",
       "title": "Capability-Aussteller im Hub, signiert und gebunden",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-005",
         "WCRB-006"
@@ -268,17 +270,19 @@
       "acceptance_criteria": [
         "Gefaelschte, abgelaufene, fremde oder erweiterte Capabilities werden abgelehnt (Tests)."
       ],
-      "evidence": []
+      "evidence": [
+        "94197a2ac: codecompass_capability_issuer (HMAC, task/audience/allowed_operations), HubRetrievalCapabilityResolver, client_authority_forbidden; tests/test_codecompass_capability_issuer.py"
+      ]
     },
     {
       "id": "WCRB-008",
       "milestone_id": "WCRB-M3",
       "title": "Weg A: gemeinsames Hub-Tool-Gateway fuer Companion und Worker",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-005",
         "WCRB-007"
@@ -291,17 +295,21 @@
       "acceptance_criteria": [
         "Companion verhaelt sich unveraendert; Worker-Tool-Loop nutzt alle CodeCompass-Tools ueber den Hub."
       ],
-      "evidence": []
+      "evidence": [
+        "e4d42fb06: gemeinsamer hub_tool_gateway (Timeout+Audit), Companion unveraendert (tests/test_meet_companion_tools_route.py gruen)",
+        "94197a2ac: POST /api/worker/v1/tasks/<tid>/tools/<name>, WorkerToolGateway (Zuweisung, Allowlist, read-only, Rollen), Worker-Client; tests/test_worker_tool_gateway.py",
+        "Live-Smoke 2026-09-27 (synthetische Tasks, danach geloescht): search/architecture_overview ok; fremder Worker, Rolle ohne Grant, repo.grep, unbekannter Task abgelehnt"
+      ]
     },
     {
       "id": "WCRB-009",
       "milestone_id": "WCRB-M4",
       "title": "Weg B: signierte Capability mit der Aufgabe an den Worker",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-007"
       ],
@@ -312,17 +320,19 @@
       "acceptance_criteria": [
         "codecompass.search/retrieve laufen im Worker lokal mit gueltiger Capability; ohne sie fail-closed."
       ],
-      "evidence": []
+      "evidence": [
+        "94197a2ac: Capability im Step-Request, nur Worker+Service-Auth, Forwarder haengt eigene an; tests/test_codecompass_task_capability.py"
+      ]
     },
     {
       "id": "WCRB-010",
       "milestone_id": "WCRB-M4",
       "title": "Weg B: Graph-Artefakte fuer Worker (Endpunkt + lokaler Cache)",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-009"
       ],
@@ -333,17 +343,20 @@
       "acceptance_criteria": [
         "Graph-Tools funktionieren im Worker ohne gemeinsames Volume; manipulierte Dateien werden abgelehnt."
       ],
-      "evidence": []
+      "evidence": [
+        "94197a2ac: GET /api/codecompass/worker-artifacts/<sha256> + Materializer am zugelassenen Pfad, doppelte sha256-Pruefung; tests/test_codecompass_worker_artifacts.py",
+        "Live-Smoke 2026-09-27: alpha holt 14.6 MB Graph + Metriken in 0.27 s; Capability fuer beta, manipulierte und fehlende Capability -> 403"
+      ]
     },
     {
       "id": "WCRB-011",
       "milestone_id": "WCRB-M5",
       "title": "Zugriffsweg konfigurierbar; Tools zurueck in die Allowlist",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-008",
         "WCRB-010"
@@ -355,7 +368,11 @@
       "acceptance_criteria": [
         "Beide Wege Ende-zu-Ende im Worker-Tool-Loop getestet (headless mit Fakes, plus Live-Smoke)."
       ],
-      "evidence": []
+      "evidence": [
+        "94197a2ac: codecompass_access delegated|hub|off, codecompass_access_overrides pro Tool, codecompass_access_fallback=hub optional; Routing in tools/__init__.py",
+        "Live-Config 2026-09-27: 8 Tools zurueck (22 in der Allowlist), codecompass_access=delegated, fallback=none",
+        "Live-Smoke auf alpha ueber execute_ananta_tool: delegated search/architecture_overview/expand_graph ok, hub ok, off -> codecompass_access_off"
+      ]
     },
     {
       "id": "WCRB-012",
