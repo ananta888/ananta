@@ -1,0 +1,487 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created": "2026-09-27",
+  "updated_at": "2026-09-27",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "long_context_strategy",
+  "title": "Aufgaben mit mehr Kontext als das 32k-Fenster: entscheiden, verdichten, nachladen, nacheinander, parallel",
+  "status": "todo",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "purpose": "Heute wird zu grosser Kontext meist still vor dem Aufruf gekuerzt; Strategien existieren nur verstreut (Chat-Full-Scan, segmentierte Planung, Planungs-Kompaktor, Recovery). Ziel ist ein zentraler Hub-Entscheidungspunkt mit wirksamen Strategien.",
+  "goal": "Keine Aufgabe ueberschreitet das Fenster und kein Kontext geht still verloren: der Hub entscheidet pro Aufgabe zwischen ein Aufruf, verdichten, gezielt nachladen, nacheinander mit Zwischenstand und parallel (Map-Reduce), und protokolliert Entscheidung und jede Kuerzung.",
+  "related_todos": [
+    "todos/active/todo.self-evolving-harness.json (SEH-008)",
+    "docs/decision-providers.md (Decision-Provider fuer die Strategiewahl)"
+  ],
+  "source_basis": [
+    "Bestandsaufnahme 2026-09-27 (Kontext-Mechanismen, Luecken)",
+    "Nutzervorgabe: 32k pro Anfrage ist Ananta-Standard"
+  ],
+  "architecture_decisions": [
+    "Der Hub entscheidet und teilt auf (Planung, Delegation, Queue); Worker bearbeiten nur zugewiesene Stuecke, keine Worker-zu-Worker-Weitergabe.",
+    "Regeln zuerst, Decision-Provider im Grenzbereich, LLM/Freigabe als Rueckfall; alles konfigurierbar, abschaltbar, mit Shadow-Modus.",
+    "Keine stille Kuerzung: jede Kuerzung wird protokolliert und am Ergebnis sichtbar.",
+    "Vorhandene Bausteine wiederverwenden (Kompaktor, Tool-Output-Kompaktion, Full-Scan, RLM, Continuation-Handles); tote Pfade anbinden oder entfernen.",
+    "Tests headless mit Fakes; Benchmarks auf realen Ananta-Faellen, keine Release-Evidenz aus synthetischen Daten."
+  ],
+  "non_goals": [
+    "Kein groesseres Standardfenster als 32k als Ersatz fuer Strategien.",
+    "Keine Umgehung von Policy-, Approval- oder Sicherheits-Gates."
+  ],
+  "milestones": [
+    {
+      "id": "LCTX-M0",
+      "title": "Sofortkorrekturen",
+      "task_ids": [
+        "LCTX-001"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "LCTX-M1",
+      "title": "Messen, sichtbar machen, bereinigen",
+      "task_ids": [
+        "LCTX-002",
+        "LCTX-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "LCTX-M2",
+      "title": "Entscheidungspunkt im Hub",
+      "task_ids": [
+        "LCTX-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "LCTX-M3",
+      "title": "Strategien",
+      "task_ids": [
+        "LCTX-005",
+        "LCTX-006",
+        "LCTX-007",
+        "LCTX-008",
+        "LCTX-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "LCTX-M4",
+      "title": "Benchmark und Doku",
+      "task_ids": [
+        "LCTX-010",
+        "LCTX-011"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "LCTX-001",
+      "milestone_id": "LCTX-M0",
+      "title": "Sofortkorrekturen: Kontextfenster wirklich anwenden",
+      "type": "fix",
+      "status": "done",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 100,
+      "depends_on": [],
+      "implementation": [
+        "generate_text nutzt llm_config.context_limit (eigener Provider) bzw. den 32k-Standard fuer lokale Runtimes; Cloud nur mit explizitem Limit.",
+        "CLI-Prompt-Gate: MAX_PROMPT_TOKENS als echte Einstellung; sgpt = Kontextfenster, opencode behaelt 128k.",
+        "Worker-Tool-Loop: Gesamtbudget fuer ToolResults (Standard halbes Fenster); aeltere Ergebnisse werden markiert verdichtet statt still verloren.",
+        "Recovery 'segment_planning' erreicht die Planungsstrategie; fehlender Import build_planning_prompt ergaenzt."
+      ],
+      "acceptance_criteria": [
+        "Tests in tests/test_context_window_fixes.py gruen."
+      ],
+      "evidence": [
+        "fix(ctx) und fix(planning) 2026-09-27; tests/test_context_window_fixes.py; Regression 838 passed (bekannte Altfehler: pi_policy-Layering aus fremdem Commit, test_plan_lock_does_not_mask_body_exception)"
+      ]
+    },
+    {
+      "id": "LCTX-002",
+      "milestone_id": "LCTX-M1",
+      "title": "Passt-Pruefung und kein stilles Kuerzen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-001"
+      ],
+      "implementation": [
+        "Zentrale Schaetzung des fertig zusammengesetzten Prompts (Tokenizer, sonst chars/4) gegen Fenster minus Antwortreserve, vor jedem Modellaufruf im Hub und im Worker.",
+        "Jede Kuerzung (Trim, Zeichenschnitt, Tool-Verdichtung) wird protokolliert (Metrik + Audit) und am Ergebnis vermerkt (context_truncated, verlorene Anteile)."
+      ],
+      "acceptance_criteria": [
+        "Kein Pfad kuerzt ohne Protokolleintrag; Anteil gekuerzter Aufrufe ist messbar."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-003",
+      "milestone_id": "LCTX-M1",
+      "title": "Tote und doppelte Kontext-Bausteine bereinigen",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-002"
+      ],
+      "implementation": [
+        "CONTEXT_COMPRESSION_* / CCR: anbinden oder entfernen (heute nie aktiv, settings.global_config existiert nicht).",
+        "ContextBundler: total_budget_tokens durchsetzen statt nur speichern.",
+        "ContextBudgetPolicyService und PreModelContextOrchestrator in den neuen Entscheidungspunkt ueberfuehren statt parallel liegen zu lassen."
+      ],
+      "acceptance_criteria": [
+        "Keine Konfiguration ohne Wirkung; ein Budget-Begriff statt drei."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-004",
+      "milestone_id": "LCTX-M2",
+      "title": "Entscheidungspunkt Kontextstrategie im Hub",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-002"
+      ],
+      "implementation": [
+        "Hub entscheidet pro Aufgabe: fit | compact | retrieve | sequential | map_reduce | escalate (Planung/Delegation bleiben Hub-Aufgaben).",
+        "Eingaben: Groessenverhaeltnis zum Fenster, Aufgabenart, Art der Eingabe (Korpus, unabhaengige Teile, geordnetes Dokument, Verlauf), Abhaengigkeiten.",
+        "Regeln zuerst; im Grenzbereich Decision-Provider-Bereich 'context_strategy' (choice, shadow zuerst); sonst LLM oder Freigabe.",
+        "Entscheidung mit Begruendung aufzeichnen; konfigurierbar und abschaltbar."
+      ],
+      "acceptance_criteria": [
+        "Jede zu grosse Aufgabe bekommt eine aufgezeichnete Strategie; keine Aufgabe laeuft ueber das Fenster."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-005",
+      "milestone_id": "LCTX-M3",
+      "title": "Strategie: verdichten",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-004"
+      ],
+      "implementation": [
+        "Vorhandenen Planungs-Kompaktor und Tool-Output-Kompaktion wiederverwenden; Verlaufsverdichtung fuer Agent-/Tool-Schleifen mit Invarianten (harte Vorgaben, offene Punkte, Belege).",
+        "Mit SEH-008 (Online Context Compaction) zusammenfuehren statt doppelt bauen."
+      ],
+      "acceptance_criteria": [
+        "Invarianten-Pruefung: harte Vorgaben ueberleben die Verdichtung (Tests)."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-006",
+      "milestone_id": "LCTX-M3",
+      "title": "Strategie: gezielt nachladen",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-004"
+      ],
+      "implementation": [
+        "RAG-/CodeCompass-Budgets am Fenster ausrichten statt fester 3000 Token.",
+        "Fortsetzungs-Handles (continuation_handle) automatisch verfolgen, solange Budget und Nutzen reichen; RLM-Analyse fuer Worker erreichbar."
+      ],
+      "acceptance_criteria": [
+        "Grosse Bestaende werden stueckweise statt abgeschnitten gelesen."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-007",
+      "milestone_id": "LCTX-M3",
+      "title": "Strategie: nacheinander mit mitlaufendem Zwischenstand",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-004"
+      ],
+      "implementation": [
+        "Geordnete Eingaben in Stuecke im Budget teilen; pro Stueck ein Hub-Task, der den Zwischenstand (Notizen, Entscheidungen, offene Punkte) des vorigen erhaelt und fortschreibt.",
+        "Checkpoint pro Stueck; Wiederaufnahme nach Fehlern; Worker erhalten nur ihr Stueck plus Zwischenstand (keine Worker-zu-Worker-Weitergabe)."
+      ],
+      "acceptance_criteria": [
+        "Ein Dokument mit mehrfacher Fenstergroesse wird vollstaendig und in Reihenfolge verarbeitet."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-008",
+      "milestone_id": "LCTX-M3",
+      "title": "Strategie: parallel (Map-Reduce) ueber Hub-Tasks",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-004"
+      ],
+      "implementation": [
+        "Chat-Full-Scan verallgemeinern: Hub legt Teil-Tasks fuer unabhaengige Teile an, Worker bearbeiten parallel, Hub fuehrt zusammen.",
+        "Zusammenfuehrung selbst im Budget, notfalls mehrstufig (hierarchisches Reduce)."
+      ],
+      "acceptance_criteria": [
+        "Viele unabhaengige Dateien/Teile werden parallel verarbeitet; Reduce-Schritt ueberschreitet nie das Fenster."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-009",
+      "milestone_id": "LCTX-M3",
+      "title": "Ueberlauf zur Laufzeit behandeln",
+      "type": "feature",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-004"
+      ],
+      "implementation": [
+        "context_too_large (HTTP-Klassifikation, LM-Studio-leere-Antwort, llama.cpp n_ctx) loest die Strategie aus: verdichten/teilen und erneut, statt nur zu protokollieren.",
+        "Recovery gezielt bei context_too_large statt bei jeder Erschoepfung; harte Zeichenschnitte (Planung 7200, Recovery 8000/1600) durch die Entscheidung ersetzen."
+      ],
+      "acceptance_criteria": [
+        "Ein kuenstlich ueberlanger Auftrag endet mit Ergebnis statt Fehler (headless Test)."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-010",
+      "milestone_id": "LCTX-M4",
+      "title": "Benchmark grosse Aufgaben",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-005",
+        "LCTX-006",
+        "LCTX-007",
+        "LCTX-008"
+      ],
+      "implementation": [
+        "Reale Ananta-Faelle mit mehrfacher Fenstergroesse (lange Doku, viele Dateien, lange Verlaeufe); Qualitaet, Latenz, Token je Strategie; Strategiewahl gegen Orakel."
+      ],
+      "acceptance_criteria": [
+        "Empfohlene Schwellen/Regeln fuer die Strategiewahl belegt."
+      ],
+      "evidence": []
+    },
+    {
+      "id": "LCTX-011",
+      "milestone_id": "LCTX-M4",
+      "title": "Doku und Konfiguration",
+      "type": "documentation",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": [
+        "LCTX-004"
+      ],
+      "implementation": [
+        "docs/long-context-strategy.md: Entscheidungslogik, Strategien, Konfiguration, Abschalten; vorhandene Kontext-Docs verlinken und bereinigen."
+      ],
+      "acceptance_criteria": [
+        "Doku beschreibt nur Wirkendes."
+      ],
+      "evidence": []
+    }
+  ],
+  "critical_path_tasks": [
+    "LCTX-001",
+    "LCTX-002",
+    "LCTX-004",
+    "LCTX-007",
+    "LCTX-008",
+    "LCTX-009"
+  ],
+  "success_criteria": [
+    "Keine Aufgabe laeuft ueber das Fenster; jede Kuerzung ist protokolliert.",
+    "Ueberlange Auftraege enden mit Ergebnis statt Fehler."
+  ],
+  "deliverables": [
+    "Entscheidungspunkt im Hub",
+    "Strategien verdichten/nachladen/nacheinander/parallel",
+    "Benchmark",
+    "docs/long-context-strategy.md"
+  ],
+  "summary_notes": [],
+  "tasks_status_summary": {
+    "total": 11,
+    "by_status": {
+      "todo": 10,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 1
+    },
+    "progress_percent_done": 9.1,
+    "by_priority": {
+      "P0": 3,
+      "P1": 6,
+      "P2": 2,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 2,
+      "medium": 6,
+      "high": 3,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 6,
+      "done": 1,
+      "remaining": 5
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 4,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 1
+    }
+  },
+  "tasks_type_summary": {
+    "total": 11,
+    "by_type": {
+      "fix": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "feature": {
+        "total": 7,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 7,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "refactor": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "evaluation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 10,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 1,
+    "milestones_done": 1,
+    "milestones_total": 5
+  }
+}
