@@ -424,6 +424,44 @@ E2E_EXPECT_TIMEOUT_MS=20000 E2E_NAV_TIMEOUT_MS=45000 docker compose -f docker/ol
 1. `execute manual command on worker` in `frontend-angular/tests/agents.spec.ts`
    - Ursache: Hot-Reload Caching Problem (siehe oben).
 
+## Backend-Suite: Laufzeit und gezielte Auswahl
+
+Die Backend-Suite (~34 000 Tests) laeuft im Compose-Runner (`t-infra`, als `--user 1000:1000`) parallel:
+
+```bash
+cd docker/compose-next
+docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user 1000:1000 t-infra \
+  python -m pytest -q -p no:cacheprovider -o addopts='' -n 8 --timeout=300 tests
+```
+
+Richtwert: ~11 Minuten mit `-n 8` (43 GB Host). Mehr Worker helfen kaum und kosten Speicher.
+
+Fuer die Arbeit an einer Aenderung reicht meist die **betroffene Auswahl**:
+
+```bash
+scripts/test-affected.sh                      # Aenderungen im Working Tree gegen HEAD
+scripts/test-affected.sh --base origin/main   # alles auf dem Branch
+scripts/test-affected.sh --depth 2            # engeres, schnelles Signal
+python scripts/select_affected_tests.py --explain   # nur anzeigen, mit Begruendung
+```
+
+`scripts/select_affected_tests.py` verfolgt einen statischen Importgraphen (AST, nichts wird importiert) von
+den geaenderten Modulen rueckwaerts bis zu den Testdateien. Geaenderte Nicht-Python-Dateien (Doku, JSON-Gates,
+Compose) waehlen die Tests, die ihren Pfad nennen. Aenderungen an der Test-Infrastruktur (`conftest.py`,
+Isolation, Abhaengigkeits-Pins, Test-Image) waehlen die ganze Suite. Die Auswahl ist das schnelle Signal
+vor dem Merge; die volle Suite bleibt das Release-Gate.
+
+Hermetik (in `tests/conftest.py` gesetzt, damit Laeufe weder den Live-Stack noch das Netz beruehren):
+
+- `REDIS_URL` ist leer: Rate-Limits/Caches pro Prozess im Speicher, nie die Redis des laufenden Stacks.
+- `RAG_REPO_ROOT`, `DATA_DIR` und die TUI-CodeCompass-Ausgabe zeigen auf leere Verzeichnisse pro Prozess.
+- Die Operator-TUI baut keinen CodeCompass-Index automatisch und ruft kein LAN-LLM auf.
+- Frische SQLite-Datei-Datenbanken bekommen ihr Schema aus einer Vorlage pro Prozess
+  (`tests/sqlite_schema_template.py`, abschaltbar mit `ANANTA_TEST_SQLITE_TEMPLATE=0`).
+
+Diagnose: `ANANTA_TEST_MEMORY_TRACE=/pfad/datei.tsv` protokolliert jeden Test, der den Prozess um
+>= 64 MiB wachsen laesst; `--durations=50` zeigt die langsamsten Tests.
+
 ## Test-Reports und Coverage
 
 Das Projekt generiert automatisierte Test-Reports in der CI-Pipeline:
