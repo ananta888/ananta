@@ -64,6 +64,13 @@ def publish(meeting, text, video_path, deadline, lease):
                 with open("/tmp/meet-turn.err", "a") as handle:
                     handle.write(text + "\n")
 
+            def _diag_on_error(build):
+                """Diagnostics while handling a failure must never replace the failure itself."""
+                try:
+                    _diag(build())
+                except Exception:  # noqa: BLE001 - best-effort diagnostics only
+                    pass
+
             def _on_response(response):
                 if "/api/machine/sessions" in response.url:
                     try:
@@ -122,9 +129,9 @@ def publish(meeting, text, video_path, deadline, lease):
             try:
                 session.call("join", [meeting["room_id"], meeting["grant"]])
             except Exception:
-                _diag("JOINERROR " + str(page.evaluate("() => window.__joinError")))
-                _diag(
-                    "DIAG "
+                _diag_on_error(lambda: "JOINERROR " + str(page.evaluate("() => window.__joinError")))
+                _diag_on_error(
+                    lambda: "DIAG "
                     + json.dumps(
                         page.evaluate(
                             """() => ({ now: Date.now(), e2ee: window.__diag.cfg && window.__diag.cfg.mediaE2ee,
@@ -146,10 +153,12 @@ def publish(meeting, text, video_path, deadline, lease):
                     break
                 except Exception as error:  # noqa: BLE001 - retried with diagnostics
                     last_error = error
-                    _diag("PUBLISHERROR#" + str(attempt) + " " + str(page.evaluate("() => window.__publishError")))
-                    _diag("STATUS#" + str(attempt) + " " + json.dumps(page.evaluate("() => window.anantaMachine.status()"))[:600])
+                    _diag_on_error(lambda: "PUBLISHERROR#" + str(attempt) + " "
+                                   + str(page.evaluate("() => window.__publishError")))
+                    _diag_on_error(lambda: "STATUS#" + str(attempt) + " "
+                                   + json.dumps(page.evaluate("() => window.anantaMachine.status()"))[:600])
             if not published:
-                _diag("CRYPTO " + str(page.evaluate("() => window.__diag.crypto")))
+                _diag_on_error(lambda: "CRYPTO " + str(page.evaluate("() => window.__diag.crypto")))
                 raise last_error
             session.call("leave", [])
         finally:
