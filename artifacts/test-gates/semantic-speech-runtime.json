@@ -62,7 +62,7 @@
   "passed": true,
   "schema_version": "ananta.semantic-speech-runtime-gate.v1",
   "source_sha256": {
-    "agent/routes/voice.py": "b03023e6053163af1712e5ff472f74086978d3a4846e58635d011cdd255a7411",
+    "agent/routes/voice.py": "57987b41a01846da70a4cbc7d1fef568fb0b8e0368e94f0bf7236120e885d4f7",
     "agent/services/semantic_speech_source_correction_service.py": "ad9b4da0f752f9052ceb7d72bac3d9ce049c54559b43aeb44f4492c5a22ed7b9",
     "ananta_contracts/semantic_speech.py": "d7b545a2d22490c0ea2f0369076dfe3c93aabf594b44d8341d5ccd1d3e2c067e",
     "frontend-angular/src/app/features/voice/reconstruction/generic-speech-reconstructor.service.ts": "a4e3f18a424368069059188a84693eb8c303027d2dfb9228073edcf8965e8002",

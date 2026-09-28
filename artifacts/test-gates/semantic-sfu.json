@@ -1,7 +1,7 @@
 {
   "schema": "ananta.semantic-sfu-release-gate.v1",
   "gate": "semantic-sfu",
-  "source_sha256": "52a97f4f5e84e7e816cd1d0fe4ae31dde41b950fdb11e139994b56e63e534465",
+  "source_sha256": "3dad8551e70bdef47920459b0e49ac29eec103c8ffa9121ef4109fbf2b156ea6",
   "config_sha256": "c804bf373f658ec78a8de040e68ee5b193002fc09b9ba264a238f4e1b7d03256",
   "evidence_recomputed": true,
   "tests": [
