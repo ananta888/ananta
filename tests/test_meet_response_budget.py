@@ -9,7 +9,7 @@ import pytest
 from agent.services.meet_contract import MeetError
 from agent.services.meet_media_transport import validate_response_budget, validate_result
 from tests.test_meet_media import result, turn
-from worker.meet_media import llm, ollama_http
+from worker.meet_media import llm, llm_backends, ollama_http
 from worker.meet_media.contract import validate_turn
 
 pytestmark = pytest.mark.timeout(30)
@@ -52,9 +52,10 @@ def opener(monkeypatch, **changes):
     models = {
         "models": [
             {
-                "name": "qwen2.5:1.5b",
+                # the loaded model must be the pinned default (checked before any answer is accepted)
+                "name": llm_backends.DEFAULT_OLLAMA_MODEL,
                 "size_vram": 100,
-                "digest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+                "digest": llm_backends.DEFAULT_OLLAMA_DIGEST,
             }
         ]
     }
@@ -68,6 +69,7 @@ def opener(monkeypatch, **changes):
     monkeypatch.setattr(ollama_http.urllib.request, "build_opener", lambda *_: transport)
     monkeypatch.delenv("MEET_LLM_MODEL", raising=False)
     monkeypatch.delenv("MEET_LLM_DIGEST", raising=False)
+    monkeypatch.setenv("MEET_LLM_NUM_CTX", "2048")  # the limit the usage cases below are sized against
     return transport
 
 

@@ -100,8 +100,13 @@ def test_bad_worker_namespace_or_relay_configuration_cannot_call_docker(options)
     command.assert_not_called()
 
 
+_SIBLING_RELAY_SCRIPT = Path(__file__).resolve().parents[2] / "webrtc-minimize-server/test/helpers/machine-forced-relay.js"
+
+
+@pytest.mark.skipif(not _SIBLING_RELAY_SCRIPT.is_file(),
+                    reason="needs the sibling webrtc-minimize-server checkout (not mounted in the test container)")
 def test_relay_script_is_the_existing_authorized_session_adapter_not_new_credentials():
-    path = Path(__file__).resolve().parents[2] / "webrtc-minimize-server/test/helpers/machine-forced-relay.js"
+    path = _SIBLING_RELAY_SCRIPT
     script = relay_context_script(TURN, path)
     assert script.startswith("(function installMachineForcedRelay(")
     assert "nativeFetch(...args)" in script and "authorizedServers" in script
