@@ -14,9 +14,9 @@ laufen im einstufigen Autopilot als Zerlegung (M4); die Live-Messung steht am En
 
 | Stelle | Verhalten |
 |---|---|
-| `generate_text` | das effektive Fenster, für jeden Provider (auch Cloud: das konfigurierte Fenster ist die Obergrenze); ein explizites Limit engt nur ein |
+| `generate_text` | lokale Runtimes: das effektive Fenster (ein explizites Limit engt nur ein); Cloud/Abo: eigenes Fenster, nur explizite/deklarierte Limits |
 | llamacpp-/OpenAI-Pfad | kürzt den Verlauf auf das Fenster (System-Prompt und neueste Nachricht bleiben) |
-| CLI-Backends | effektives Fenster, eingeengt durch das eigene Limit (opencode 128k) und `MAX_PROMPT_TOKENS` |
+| CLI-Backends | sgpt und opencode mit lokalem Modell: effektives Fenster; claude/codex und opencode mit Cloud-Modell: Modellgrenze (200k/272k/128k); `MAX_PROMPT_TOKENS` übersteuert |
 | Worker-Tool-Loop | `max_total_tool_result_chars` (Standard: halbes Fenster); ältere Ergebnisse werden markiert verdichtet |
 
 ## Passt-Prüfung und Kürzungsprotokoll (M1)

@@ -386,6 +386,53 @@ def effective_window_tokens(**kwargs: Any) -> int:
     return effective_window(**kwargs).tokens
 
 
+# --- local runtimes vs. subscription / cloud models -------------------------------------------------------
+
+LOCAL_PROVIDERS = frozenset({"ollama", "lmstudio", "lm_studio", "llamacpp"})
+# Cloud/subscription model families as CLI agents and APIs serve them (prompt tokens). The Ananta profile
+# describes the window Ananta sizes its own prompts for on local runtimes; it never limits these.
+CLOUD_MODEL_LIMITS = {"claude": 200_000, "anthropic": 200_000, "codex": 272_000, "gpt-5": 272_000,
+                      "openai": 128_000, "gemini": 1_000_000}
+CLOUD_PROVIDER_PREFIXES = frozenset({"anthropic", "openai", "gemini", "groq", "openrouter", "bedrock", "azure",
+                                     "vertexai", "copilot", "opencode", "google", "mistral", "deepseek", "xai"})
+
+
+def is_local_provider(provider: str | None, agent_cfg: Mapping[str, Any] | None = None) -> bool:
+    """A model served by a local runtime (Ollama, LM Studio, llama.cpp, a configured local OpenAI-compatible
+    backend) -- the only case the Ananta context profile applies to."""
+    name = str(provider or "").strip().lower()
+    if not name:
+        return False
+    if name in LOCAL_PROVIDERS:
+        return True
+    for entry in _agent_config(agent_cfg).get("local_openai_backends") or []:
+        if isinstance(entry, Mapping) and str(entry.get("id") or entry.get("provider") or "").strip().lower() == name:
+            return True
+    return False
+
+
+def cloud_model_limit(model: str | None, default: int | None = None) -> int | None:
+    """The prompt limit of a cloud/subscription model family (``anthropic/claude-...``, ``gpt-5-codex``, ...)."""
+    text = str(model or "").strip().lower()
+    for key, value in CLOUD_MODEL_LIMITS.items():
+        if key in text:
+            return value
+    return default
+
+
+def window_for_provider(provider: str | None, *, model: str | None = None, requested: int | None = None,
+                        agent_cfg: Mapping[str, Any] | None = None) -> int | None:
+    """The token window a model call may use. Local runtimes: the effective window (profile capped by what the
+    runtime serves), a requested limit only narrows it. Cloud/subscription providers: not bounded by the Ananta
+    profile -- only a requested limit or a limit declared for that provider/model (``None``: the provider's own)."""
+    if is_local_provider(provider, agent_cfg):
+        window = effective_window_tokens(provider=str(provider).lower(), model=model or None, agent_cfg=agent_cfg)
+        return max(256, min(window, int(requested))) if requested else window
+    if requested:
+        return max(256, int(requested))
+    return _declared_model_limit(_agent_config(agent_cfg), provider, None)
+
+
 # --- budget policy ----------------------------------------------------------------------------------------
 
 

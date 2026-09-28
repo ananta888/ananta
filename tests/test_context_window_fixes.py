@@ -22,9 +22,8 @@ def test_generate_text_gets_the_configured_or_default_context_window(app, monkey
         llm_integration.generate_text("hi", provider="ollama", model="m")
         llm_integration.generate_text("hi", provider="openai", model="m")
         llm_integration.generate_text("hi", provider="llamacpp", model="m", max_context_tokens=4096)
-    # declared model limit, the configured window (also for cloud providers: Ananta's window is the upper
-    # bound), an explicit narrower limit
-    assert seen == [16384, 32768, 32768, 4096]
+    # declared model limit, the local default window, cloud keeps its own window, an explicit narrower limit
+    assert seen == [16384, 32768, None, 4096]
 
 
 def test_cli_prompt_gates_follow_the_context_window(monkeypatch):
@@ -32,11 +31,20 @@ def test_cli_prompt_gates_follow_the_context_window(monkeypatch):
     from agent.config import settings
 
     monkeypatch.setattr(settings, "max_prompt_tokens", None)
-    assert prompt_token_limit("sgpt") == prompt_token_limit("opencode") == 32768  # the effective window
+    monkeypatch.setattr(settings, "opencode_default_model", "ollama/qwen2.5-coder")
+    # local runtimes: the effective Ananta window
+    assert prompt_token_limit("sgpt") == prompt_token_limit("opencode") == 32768
+    assert prompt_token_limit("opencode", model="lmstudio/qwen") == 32768
+    # subscription / cloud models: their own limit, never the Ananta profile
+    assert prompt_token_limit("claude") == 200_000 and prompt_token_limit("codex") == 272_000
+    assert prompt_token_limit("opencode", model="anthropic/claude-sonnet-4") == 200_000
+    assert prompt_token_limit("opencode", model="openai/gpt-4.1") == 128_000
+    monkeypatch.setattr(settings, "opencode_default_model", "anthropic/claude-opus-4")
+    assert prompt_token_limit("opencode") == 200_000  # the configured default model decides
     monkeypatch.setattr(settings, "context_profile", "extended_128k")
-    assert prompt_token_limit("sgpt") == 131072 and prompt_token_limit("opencode") == 128000  # its own limit
+    assert prompt_token_limit("sgpt") == 131072
     monkeypatch.setattr(settings, "max_prompt_tokens", 20000)
-    assert prompt_token_limit("sgpt") == prompt_token_limit("opencode") == 20000
+    assert prompt_token_limit("sgpt") == prompt_token_limit("claude") == prompt_token_limit("opencode") == 20000
 
 
 def test_the_tool_loop_condenses_older_results_beyond_its_total_budget():

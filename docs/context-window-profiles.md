@@ -65,8 +65,23 @@ Das kleinste bekannte Limit aus:
   Ollama `/api/show` (`*.context_length`), 5 Minuten gecacht, schlägt nie fehl,
 - Laufzeit-/Backend-Limits (opencode 128 000, `MAX_PROMPT_TOKENS`, `LMSTUDIO_MAX_CONTEXT_TOKENS`).
 
-Cloud-/OpenAI-kompatible Provider melden nichts: dort gilt das konfigurierte Fenster, auch als Obergrenze
-(früher blieben Cloud-Aufrufe ungekürzt). `ANANTA_CONTEXT_PROVIDER_PROBE=0` schaltet die Abfrage ab.
+`ANANTA_CONTEXT_PROVIDER_PROBE=0` schaltet die Abfrage ab.
+
+## Nur für lokale Runtimes
+
+Das Profil beschreibt das Fenster, auf das Ananta seine Prompts für **lokale Modelle** zuschneidet (Ollama,
+LM Studio, llama.cpp, konfigurierte `local_openai_backends`). **Abo-/Cloud-Modelle begrenzt es nie:**
+
+| Pfad | Grenze |
+|---|---|
+| `generate_text` / Strategien mit Cloud-Provider (openai, anthropic, …) | eigenes Fenster des Providers; nur ein explizites oder für den Provider deklariertes Limit |
+| claude-cli (`run_claude_command`, schreibender Claude-Run) | Modellgrenze 200 000 |
+| codex-cli | Modellgrenze 272 000 |
+| opencode mit Cloud-Modell (`anthropic/…`, `openai/…`, `gemini/…`, …; auch als konfiguriertes Standardmodell) | Modellgrenze (Claude 200 000, sonst 128 000) |
+| opencode mit lokalem Modell, sgpt | effektives Ananta-Fenster (opencode höchstens 128 000) |
+
+`MAX_PROMPT_TOKENS` übersteuert alle CLI-Gates bewusst. (`agent.context_profile.window_for_provider`,
+`agent/cli_backends/budget.prompt_token_limit`.)
 
 ## Budget-Policy
 

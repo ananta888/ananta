@@ -92,16 +92,18 @@ def _runtime_default_model() -> str:
     return str(settings.default_model)
 
 
-def _runtime_context_limit(provider: str, model: str | None = None, requested: int | None = None) -> int:
-    """The window of this call: the effective window (configured profile, capped by ``llm_config.context_limit``,
-    the model map and what the provider serves) -- for every provider. A requested limit only narrows it."""
-    from agent.context_profile import effective_window_tokens
+def _runtime_context_limit(provider: str, model: str | None = None, requested: int | None = None) -> int | None:
+    """The window of this call. Local runtimes: the effective window (profile capped by ``llm_config.context_limit``,
+    the model map and what the runtime serves); a requested limit only narrows it. Cloud/subscription providers keep
+    their own window: only a requested or declared limit applies (``agent.context_profile.window_for_provider``)."""
+    from agent.context_profile import window_for_provider
 
-    window = effective_window_tokens(provider=str(provider or "").strip().lower() or None, model=model or None)
     try:
-        return max(256, min(window, int(requested))) if requested else window
+        requested_tokens = int(requested) if requested else None
     except (TypeError, ValueError):
-        return window
+        requested_tokens = None
+    return window_for_provider(str(provider or "").strip().lower() or None, model=model or None,
+                               requested=requested_tokens)
 
 
 def _runtime_provider_urls() -> dict[str, str | None]:

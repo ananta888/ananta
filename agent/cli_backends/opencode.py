@@ -356,7 +356,7 @@ def run_opencode_command(
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=prompt_token_limit("opencode"),
+        max_tokens=prompt_token_limit("opencode", model=model),
     )
     if budget_error is not None:
         return budget_error
@@ -634,7 +634,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
     """Fuehrt einen OpenAI Codex CLI exec-Aufruf aus."""
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=prompt_token_limit("opencode"),
+        max_tokens=prompt_token_limit("codex", model=model),
     )
     if budget_error is not None:
         return budget_error
@@ -755,7 +755,7 @@ def run_claude_command(
 
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=prompt_token_limit("opencode"),
+        max_tokens=prompt_token_limit("claude", model=model),
     )
     if budget_error is not None:
         return budget_error
@@ -836,7 +836,7 @@ def run_claude_write_armed(
         "write_armed": True,
     }
 
-    budget_error = check_prompt_budget(prompt, max_tokens=prompt_token_limit("opencode"))
+    budget_error = check_prompt_budget(prompt, max_tokens=prompt_token_limit("claude", model=model))
     if budget_error is not None:
         result["stderr"] = budget_error[2]
         return result

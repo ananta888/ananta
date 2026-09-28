@@ -292,3 +292,18 @@ def test_the_worker_route_applies_the_assigned_window(client, admin_auth_header,
                            headers=admin_auth_header)
     assert response.status_code == 200, response.get_data(as_text=True)
     assert seen and seen[0].tokens == 65536 and seen[0].source == "hub_assignment"
+
+
+# --- local runtimes vs. subscription / cloud ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("window", WINDOWS)
+def test_the_profile_limits_local_runtimes_only(profile, window):
+    from agent.context_profile import is_local_provider, window_for_provider
+
+    profile(window)
+    assert window_for_provider("llamacpp") == window and window_for_provider("ollama") == window
+    assert window_for_provider("anthropic") is None and window_for_provider("openai") is None  # own window
+    assert window_for_provider("openai", requested=50_000) == 50_000  # an explicit limit still applies
+    assert window_for_provider("llamacpp", requested=10 * window) == window  # never above the local window
+    assert is_local_provider("my-gpu", {"local_openai_backends": [{"id": "my-gpu", "base_url": "http://x/v1"}]})

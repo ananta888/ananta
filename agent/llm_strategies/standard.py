@@ -37,12 +37,12 @@ def _ananta_hop_headers() -> dict[str, str]:
 
 
 def _context_limit(provider: str | None, max_context_tokens: int | None) -> int | None:
-    """The token window to trim to: an explicit limit (never above the effective window), else the effective
-    window of the provider (``agent.context_profile``)."""
-    from agent.context_profile import effective_window_tokens
+    """The token window to trim to: for local runtimes the effective window (an explicit limit only narrows it);
+    cloud/subscription providers are trimmed only to an explicit or declared limit (``agent.context_profile``)."""
+    from agent.context_profile import window_for_provider
 
-    window = effective_window_tokens(provider=str(provider or "").strip().lower() or None)
-    return min(int(max_context_tokens), window) if max_context_tokens else window
+    return window_for_provider(str(provider or "").strip().lower() or None,
+                               requested=int(max_context_tokens) if max_context_tokens else None)
 
 
 def _request_url(provider: Optional[str], url: str) -> str:
