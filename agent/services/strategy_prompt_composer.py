@@ -32,7 +32,10 @@ class StrategyPromptComposer:
         self._append_unique(parts, f"Task: {context.task_id}")
         self._append_unique(parts, f"Task kind: {task.get('task_kind') or 'unknown'}")
         self._append_unique(parts, str(getattr(context, "rendered_system_prompt", None) or "").strip())
-        if task_desc and len(task_desc) > 20:
+        # the user message (base_prompt) usually is the description already; a second copy in the system
+        # prompt doubled every large task (a 21k-token step became a 47k-token request)
+        user_prompt = str(getattr(context, "base_prompt", "") or "")
+        if task_desc and len(task_desc) > 20 and task_desc not in user_prompt:
             self._append_unique(parts, "Task description:")
             self._append_unique(parts, task_desc)
         if governed_context_summary:
