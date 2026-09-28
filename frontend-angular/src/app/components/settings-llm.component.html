@@ -193,6 +193,36 @@
 </div>
         </div>
         <div class="card card-info mt-lg">
+<h3>Kontextfenster</h3>
+<p class="muted">Zentrales Kontextfenster pro Anfrage. Alle fensterabhaengigen Budgets (Kontext-Buendel, CodeCompass/RLM, Tool-Ergebnisse, Planung, Recovery, Long-Context-Zerlegung) werden daraus abgeleitet. Das effektive Fenster ist nie groesser als das, was Provider und Modell tatsaechlich liefern.</p>
+<div class="grid cols-2 mt-lg">
+  <label>Profil
+    <select [(ngModel)]="state.ensureContextWindowDraft().profile" data-testid="context-window-profile">
+      @for (option of state.contextWindowProfileOptions; track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+  </label>
+  @if (state.ensureContextWindowDraft().profile === 'custom') {
+    <label>Custom-Fenster (Tokens)
+      <input type="number" min="2048" max="1048576" step="1024" [(ngModel)]="state.ensureContextWindowDraft().tokens" data-testid="context-window-tokens" />
+    </label>
+  }
+</div>
+<div class="grid cols-2 mt-lg" data-testid="context-window-summary">
+  @for (row of state.getContextWindowSummaryRows(); track row.label) {
+    <div>
+      <div class="muted">{{ row.label }}</div>
+      <div>{{ row.value }}</div>
+    </div>
+  }
+</div>
+<p class="muted mt-lg">Die Zusammenfassung zeigt den gespeicherten Stand; nach dem Speichern wird sie neu geladen.</p>
+<div class="row mt-lg">
+  <button (click)="state.save()">Speichern</button>
+</div>
+        </div>
+        <div class="card card-info mt-lg">
 <h3>Delegations-Context-Policy</h3>
 <p class="muted">Steuert zentral, wie viel Retrieval-Kontext neue Worker-Delegationen erhalten. Die Policy wirkt additiv auf den bestehenden Bundle-Pfad und erzeugt keinen zweiten Kontext-Workflow.</p>
 <div class="grid cols-2 mt-lg">
@@ -203,29 +233,23 @@
       <option value="full">full</option>
     </select>
   </label>
-  <label>Window-Profil
-    <select [(ngModel)]="state.config.context_bundle_policy.window_profile">
-      <option value="compact_12k">compact_12k</option>
-      <option value="standard_32k">standard_32k</option>
-      <option value="full_64k">full_64k</option>
-    </select>
-  </label>
   <label>Compact max. Chunks
     <input type="number" min="1" max="50" [(ngModel)]="state.config.context_bundle_policy.compact_max_chunks" />
   </label>
   <label>Standard max. Chunks
     <input type="number" min="1" max="50" [(ngModel)]="state.config.context_bundle_policy.standard_max_chunks" />
   </label>
-  <label>Compact Budget Tokens
-    <input type="number" min="4096" max="131072" step="256" [(ngModel)]="state.config.context_bundle_policy.compact_budget_tokens" />
+  <label>Compact Budget Tokens (Advanced-Override, leer = aus Profil)
+    <input type="number" min="512" step="256" placeholder="aus Profil" [(ngModel)]="state.config.context_bundle_policy.compact_budget_tokens" />
   </label>
-  <label>Standard Budget Tokens
-    <input type="number" min="4096" max="131072" step="256" [(ngModel)]="state.config.context_bundle_policy.standard_budget_tokens" />
+  <label>Standard Budget Tokens (Advanced-Override, leer = aus Profil)
+    <input type="number" min="512" step="256" placeholder="aus Profil" [(ngModel)]="state.config.context_bundle_policy.standard_budget_tokens" />
   </label>
-  <label>Full Budget Tokens
-    <input type="number" min="4096" max="131072" step="256" [(ngModel)]="state.config.context_bundle_policy.full_budget_tokens" />
+  <label>Full Budget Tokens (Advanced-Override, leer = aus Profil)
+    <input type="number" min="512" step="256" placeholder="aus Profil" [(ngModel)]="state.config.context_bundle_policy.full_budget_tokens" />
   </label>
 </div>
+<p class="muted">Overrides werden serverseitig auf das effektive Kontextfenster begrenzt.</p>
 <div class="grid cols-2 mt-lg">
   <div>
     <div class="muted">Effektiver Kontext-Text</div>
@@ -237,7 +261,7 @@
   </div>
   <div>
     <div class="muted">Effektives Budget</div>
-    <div>{{ state.getEffectiveContextBundlePolicy().total_budget_tokens }} Tokens</div>
+    <div>{{ state.getEffectiveContextBundlePolicy().total_budget_tokens ?? 'aus Profil' }}{{ state.getEffectiveContextBundlePolicy().total_budget_tokens ? ' Tokens' : '' }}</div>
   </div>
   <div>
     <div class="muted">Effektive Strategie</div>
@@ -248,7 +272,7 @@
     <div>{{ state.getEffectiveContextBundlePolicy().chunk_text_style }}</div>
   </div>
   <div>
-    <div class="muted">Window-Profil</div>
+    <div class="muted">Window-Profil (abgeleitet)</div>
     <div>{{ state.getEffectiveContextBundlePolicy().window_profile }}</div>
   </div>
 </div>

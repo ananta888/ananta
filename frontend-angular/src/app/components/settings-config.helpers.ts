@@ -53,33 +53,129 @@ export function resolveHubCopilotModelSourceValue(config: any): string {
   return 'default_model';
 }
 
+export const CONTEXT_WINDOW_PROFILES: Record<string, number> = {
+  compact_12k: 12288,
+  standard_32k: 32768,
+  full_64k: 65536,
+  extended_128k: 131072,
+};
+export const CONTEXT_WINDOW_MIN_TOKENS = 2048;
+export const CONTEXT_WINDOW_MAX_TOKENS = 1048576;
+
+/** Optional token override: empty/invalid means "derived from the context profile" (null). */
+function optionalBudgetTokens(value: any): number | null {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.max(512, Math.min(CONTEXT_WINDOW_MAX_TOKENS, Math.round(parsed)));
+}
+
 export function normalizeContextBundlePolicyConfigValue(value: any): any {
   const raw = value && typeof value === 'object' ? value : {};
   const mode = ['compact', 'standard', 'full'].includes(String(raw.mode || '').trim().toLowerCase())
     ? String(raw.mode || '').trim().toLowerCase()
     : 'full';
-  const windowProfile = ['compact_12k', 'standard_32k', 'full_64k'].includes(String(raw.window_profile || '').trim().toLowerCase())
-    ? String(raw.window_profile || '').trim().toLowerCase()
-    : 'standard_32k';
   const compactMaxChunks = Number(raw.compact_max_chunks);
   const standardMaxChunks = Number(raw.standard_max_chunks);
-  const compactBudgetTokens = Number(raw.compact_budget_tokens);
-  const standardBudgetTokens = Number(raw.standard_budget_tokens);
-  const fullBudgetTokens = Number(raw.full_budget_tokens);
+  // Budgets are derived from the central context profile; explicit values are advanced overrides (server-side
+  // clamped to the effective window). The former window_profile is a derived label, no longer configured here.
+  const compactBudgetTokens = optionalBudgetTokens(raw.compact_budget_tokens);
+  const standardBudgetTokens = optionalBudgetTokens(raw.standard_budget_tokens);
+  const fullBudgetTokens = optionalBudgetTokens(raw.full_budget_tokens);
   return {
     mode,
-    window_profile: windowProfile,
     compact_max_chunks: Number.isFinite(compactMaxChunks) ? Math.max(1, Math.min(50, compactMaxChunks)) : 3,
     standard_max_chunks: Number.isFinite(standardMaxChunks) ? Math.max(1, Math.min(50, standardMaxChunks)) : 8,
-    compact_budget_tokens: Number.isFinite(compactBudgetTokens) ? Math.max(4096, Math.min(131072, compactBudgetTokens)) : 12000,
-    standard_budget_tokens: Number.isFinite(standardBudgetTokens) ? Math.max(4096, Math.min(131072, standardBudgetTokens)) : 32000,
-    full_budget_tokens: Number.isFinite(fullBudgetTokens) ? Math.max(4096, Math.min(131072, fullBudgetTokens)) : 64000,
+    compact_budget_tokens: compactBudgetTokens,
+    standard_budget_tokens: standardBudgetTokens,
+    full_budget_tokens: fullBudgetTokens,
     budget_tokens_by_mode: {
-      compact: Number.isFinite(compactBudgetTokens) ? Math.max(4096, Math.min(131072, compactBudgetTokens)) : 12000,
-      standard: Number.isFinite(standardBudgetTokens) ? Math.max(4096, Math.min(131072, standardBudgetTokens)) : 32000,
-      full: Number.isFinite(fullBudgetTokens) ? Math.max(4096, Math.min(131072, fullBudgetTokens)) : 64000,
+      compact: compactBudgetTokens,
+      standard: standardBudgetTokens,
+      full: fullBudgetTokens,
     },
   };
+}
+
+/** UI draft of the context window: profile '' = from the environment (ANANTA_CONTEXT_PROFILE). */
+export function normalizeContextWindowDraftValue(value: any): { profile: string; tokens: number | null } {
+  const raw = value && typeof value === 'object' ? value : {};
+  const aliases: Record<string, string> = { '12k': 'compact_12k', '32k': 'standard_32k', '64k': 'full_64k', '128k': 'extended_128k' };
+  let profile = String(raw.profile || '').trim().toLowerCase();
+  profile = aliases[profile] || profile;
+  const tokens = Number(raw.tokens);
+  const validTokens = Number.isFinite(tokens) && tokens > 0 ? Math.round(tokens) : null;
+  if (profile in CONTEXT_WINDOW_PROFILES) return { profile, tokens: null };
+  if (profile === 'custom' || (!profile && validTokens !== null)) return { profile: 'custom', tokens: validTokens };
+  return { profile: '', tokens: null };
+}
+
+/** Wire format for POST /config: {} (environment), {profile} or {profile: 'custom', tokens}. */
+export function normalizeContextWindowConfigValue(value: any): any {
+  const draft = normalizeContextWindowDraftValue(value);
+  if (!draft.profile) return {};
+  if (draft.profile === 'custom') return { profile: 'custom', tokens: draft.tokens };
+  return { profile: draft.profile };
+}
+
+/** A German validation message for the draft, or '' when it can be saved. */
+export function contextWindowConfigError(value: any): string {
+  const draft = normalizeContextWindowDraftValue(value);
+  if (draft.profile !== 'custom') return '';
+  if (draft.tokens === null || draft.tokens < CONTEXT_WINDOW_MIN_TOKENS || draft.tokens > CONTEXT_WINDOW_MAX_TOKENS) {
+    return `Custom-Kontextfenster muss zwischen ${CONTEXT_WINDOW_MIN_TOKENS} und ${CONTEXT_WINDOW_MAX_TOKENS} Tokens liegen`;
+  }
+  return '';
+}
+
+function formatTokens(value: any): string {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? `${Math.round(parsed).toLocaleString('de-DE')} Tokens` : '—';
+}
+
+const CONTEXT_WINDOW_SOURCE_LABELS: Record<string, string> = {
+  runtime_profile: 'Einstellungen (Profil)',
+  runtime_tokens: 'Einstellungen (Custom)',
+  env_profile: 'ANANTA_CONTEXT_PROFILE',
+  env_tokens: 'ANANTA_CONTEXT_TOKENS',
+  default: 'Standard',
+};
+
+const CONTEXT_WINDOW_LIMIT_LABELS: Record<string, string> = {
+  configured: 'Konfiguration',
+  provider: 'Provider',
+  model: 'Modell',
+  backend: 'CLI-Backend',
+  max_prompt_tokens: 'MAX_PROMPT_TOKENS',
+};
+
+/** Read-only rows (label/value) for the context window summary from GET /config's context_window_effective. */
+export function contextWindowSummaryRows(summary: any): Array<{ label: string; value: string }> {
+  if (!summary || typeof summary !== 'object' || summary.error) {
+    return [{ label: 'Status', value: 'Zusammenfassung nicht verfuegbar' }];
+  }
+  const configured = summary.configured || {};
+  const effective = summary.effective || {};
+  const limits = summary.detected_limits && typeof summary.detected_limits === 'object' ? summary.detected_limits : {};
+  const budgets = summary.budgets || {};
+  const named = budgets.budgets_tokens || {};
+  const bundle = summary.bundle_budgets_tokens || {};
+  const limitText = Object.keys(limits).length
+    ? Object.entries(limits).map(([source, tokens]) => `${CONTEXT_WINDOW_LIMIT_LABELS[source] || source}: ${formatTokens(tokens)}`).join(', ')
+    : 'keines gemeldet (Konfiguration gilt)';
+  return [
+    { label: 'Konfiguriertes Fenster', value: `${formatTokens(configured.tokens)} (${configured.profile || '—'}, Quelle: ${CONTEXT_WINDOW_SOURCE_LABELS[configured.source] || configured.source || '—'})` },
+    { label: 'Erkanntes Provider-/Modelllimit', value: limitText },
+    { label: 'Effektives Fenster', value: `${formatTokens(effective.tokens)} (${effective.profile || '—'}, begrenzt durch: ${CONTEXT_WINDOW_LIMIT_LABELS[effective.limited_by] || effective.limited_by || '—'})` },
+    { label: 'Ausgabe-Reserve', value: formatTokens(budgets.output_reserve_tokens) },
+    { label: 'Sicherheitsreserve', value: formatTokens(budgets.safety_margin_tokens) },
+    { label: 'Fester Anteil (System, Tools, Task)', value: formatTokens(budgets.fixed_overhead_tokens) },
+    { label: 'Verfuegbar fuer Material', value: formatTokens(budgets.available_tokens) },
+    { label: 'Kontext-Buendel compact / standard / full', value: [bundle.compact, bundle.standard, bundle.full].map(formatTokens).join(' / ') },
+    { label: 'Evidence / Retrieval', value: formatTokens(named.evidence) },
+    { label: 'Tool-Ergebnisse gesamt', value: formatTokens(named.tool_results_total) },
+    { label: 'Recovery-Kontext', value: formatTokens(named.recovery_context) },
+  ];
 }
 
 export function normalizeArtifactFlowConfigValue(value: any): any {
@@ -174,7 +270,13 @@ export function normalizeResearchBackendConfigValue(value: any): any {
 
 export function resolveContextBundlePolicyValue(config: any): any {
   const normalized = normalizeContextBundlePolicyConfigValue(config?.context_bundle_policy);
-  const budgetByMode = normalized.budget_tokens_by_mode || {};
+  const overrides = normalized.budget_tokens_by_mode || {};
+  const summary = config?.context_window_effective && typeof config.context_window_effective === 'object'
+    ? config.context_window_effective
+    : {};
+  const derived = summary.bundle_budgets_tokens || {};
+  const windowProfile = String(summary?.effective?.profile || '').trim() || 'aus Kontextfenster-Profil';
+  const budgetFor = (mode: 'compact' | 'standard' | 'full') => overrides[mode] ?? derived[mode] ?? null;
   const modeProfile = normalized.mode === 'compact'
     ? { bundle_strategy: 'minimal', explainability_level: 'minimal', chunk_text_style: 'compressed_snippets' }
     : normalized.mode === 'standard'
@@ -183,26 +285,29 @@ export function resolveContextBundlePolicyValue(config: any): any {
   if (normalized.mode === 'compact') {
     return {
       ...normalized,
+      window_profile: windowProfile,
       include_context_text: false,
       max_chunks: normalized.compact_max_chunks,
-      total_budget_tokens: budgetByMode.compact || normalized.compact_budget_tokens || 12000,
+      total_budget_tokens: budgetFor('compact'),
       ...modeProfile,
     };
   }
   if (normalized.mode === 'standard') {
     return {
       ...normalized,
+      window_profile: windowProfile,
       include_context_text: true,
       max_chunks: normalized.standard_max_chunks,
-      total_budget_tokens: budgetByMode.standard || normalized.standard_budget_tokens || 32000,
+      total_budget_tokens: budgetFor('standard'),
       ...modeProfile,
     };
   }
   return {
     ...normalized,
+    window_profile: windowProfile,
     include_context_text: true,
     max_chunks: null,
-    total_budget_tokens: budgetByMode.full || normalized.full_budget_tokens || 64000,
+    total_budget_tokens: budgetFor('full'),
     ...modeProfile,
   };
 }
@@ -445,6 +550,7 @@ export function createDefaultSettingsConfig(): any {
     command_timeout: 120,
     hub_copilot: normalizeHubCopilotConfigValue(undefined),
     context_bundle_policy: normalizeContextBundlePolicyConfigValue(undefined),
+    context_window: normalizeContextWindowDraftValue(undefined),
     artifact_flow: normalizeArtifactFlowConfigValue(undefined),
     opencode_runtime: normalizeOpencodeRuntimeConfigValue(undefined),
     worker_runtime: normalizeWorkerRuntimeConfigValue(undefined),

@@ -9,6 +9,8 @@ import {
   buildOllamaModelStrategyRowsValue, buildProjectModelRoutingRecommendationValue,
   createDefaultSettingsConfig, findMatchingCatalogModelId,
   normalizeArtifactFlowConfigValue, normalizeContextBundlePolicyConfigValue,
+  CONTEXT_WINDOW_PROFILES, contextWindowConfigError, contextWindowSummaryRows,
+  normalizeContextWindowConfigValue, normalizeContextWindowDraftValue,
   normalizeHubCopilotConfigValue, normalizeModelOverrideMapValue,
   normalizeOpencodeRuntimeConfigValue, normalizeOpenAICompatibleBaseUrlValue,
   normalizeResearchBackendConfigValue, normalizeWorkerRuntimeConfigValue,
@@ -107,6 +109,7 @@ export class SettingsState implements OnInit {
           command_timeout: Number(cfg?.command_timeout ?? 120),
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
           context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
+          context_window: normalizeContextWindowDraftValue(cfg?.context_window),
           artifact_flow: normalizeArtifactFlowConfigValue(cfg?.artifact_flow),
           opencode_runtime: normalizeOpencodeRuntimeConfigValue(cfg?.opencode_runtime),
           worker_runtime: normalizeWorkerRuntimeConfigValue(cfg?.worker_runtime),
@@ -378,6 +381,11 @@ export class SettingsState implements OnInit {
       this.ns.error('Model-Override JSON ist ungueltig');
       return;
     }
+    const contextWindowError = contextWindowConfigError(this.config?.context_window);
+    if (contextWindowError) {
+      this.ns.error(contextWindowError);
+      return;
+    }
     this.config = {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
       agent_offline_timeout: Number(this.config?.agent_offline_timeout ?? 30),
@@ -385,6 +393,7 @@ export class SettingsState implements OnInit {
       command_timeout: Number(this.config?.command_timeout ?? 120),
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
       context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
+      context_window: normalizeContextWindowConfigValue(this.config?.context_window),
       artifact_flow: normalizeArtifactFlowConfigValue(this.config?.artifact_flow),
       opencode_runtime: normalizeOpencodeRuntimeConfigValue(this.config?.opencode_runtime),
       worker_runtime: normalizeWorkerRuntimeConfigValue(this.config?.worker_runtime),
@@ -436,7 +445,9 @@ export class SettingsState implements OnInit {
       };
     }
     this.config.local_openai_backends = this.normalizeLocalOpenAiBackends(this.config?.local_openai_backends);
-    this.system.setConfig(this.hub.url, this.config).subscribe({
+    // computed by the hub on read (configured/detected/effective window), never persisted
+    const { context_window_effective: _contextWindowEffective, ...configToSave } = this.config;
+    this.system.setConfig(this.hub.url, configToSave).subscribe({
       next: () => {
         this.ns.success('Einstellungen gespeichert');
         this.systemFormDirty = false;
@@ -504,6 +515,29 @@ export class SettingsState implements OnInit {
 
   getEffectiveContextBundlePolicy(): any {
     return resolveContextBundlePolicyValue(this.config);
+  }
+
+  readonly contextWindowProfileOptions: Array<{ value: string; label: string }> = [
+    { value: '', label: 'Aus Umgebung (ANANTA_CONTEXT_PROFILE / ANANTA_CONTEXT_TOKENS)' },
+    { value: 'standard_32k', label: `32k – standard_32k (${CONTEXT_WINDOW_PROFILES['standard_32k']} Tokens, empfohlen)` },
+    { value: 'full_64k', label: `64k – full_64k (${CONTEXT_WINDOW_PROFILES['full_64k']} Tokens)` },
+    { value: 'extended_128k', label: `128k – extended_128k (${CONTEXT_WINDOW_PROFILES['extended_128k']} Tokens)` },
+    { value: 'compact_12k', label: `12k – compact_12k (${CONTEXT_WINDOW_PROFILES['compact_12k']} Tokens)` },
+    { value: 'custom', label: 'Custom (eigene Tokenzahl)' },
+  ];
+
+  ensureContextWindowDraft(): { profile: string; tokens: number | null } {
+    if (!this.config) this.config = {};
+    const current = this.config.context_window;
+    // keep the bound object stable across change detection; normalize only foreign shapes
+    if (!current || typeof current !== 'object' || !('profile' in current)) {
+      this.config.context_window = normalizeContextWindowDraftValue(current);
+    }
+    return this.config.context_window;
+  }
+
+  getContextWindowSummaryRows(): Array<{ label: string; value: string }> {
+    return contextWindowSummaryRows(this.config?.context_window_effective);
   }
 
   getOllamaCatalogModelIds(): string[] {
