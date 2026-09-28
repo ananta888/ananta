@@ -469,8 +469,10 @@ class ContextBudgets:
 
     @property
     def safety_margin(self) -> int:
-        """Estimation error of ~4 chars/token (measured 3.6 for German text with code): 5 %, at least 512."""
-        return max(512, self.window // 20)
+        """Estimation error of the ~4 chars/token estimate: 1/16 of the window, at least 512. Measured with the
+        llama.cpp tokenizer (2026-09-28): Python 4.3, German docs 3.9, TypeScript 3.8, JSON 3.4 chars/token --
+        the estimate is up to ~6 % low on prose/code (covered) and ~15 % low on pure JSON (not fully)."""
+        return max(512, self.window // 16)
 
     @property
     def fixed_overhead(self) -> int:

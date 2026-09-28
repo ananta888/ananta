@@ -95,7 +95,9 @@ Entscheidet ein Worker anders und läuft über, zerlegt die Überlauf-Behandlung
 Vom effektiven Fenster `W` gehen ab:
 
 - **Ausgabe-Reserve** `W/16`, 1 024 … 8 192 (32k: 2 048),
-- **Sicherheitsreserve** für Schätzfehler `W/20`, mindestens 512 (gemessen: 3,6 statt 4 Zeichen/Token),
+- **Sicherheitsreserve** für Schätzfehler `W/16`, mindestens 512 (Tokenizer-Messung: Python 4,3, deutsche Doku
+  3,9, TypeScript 3,8, JSON 3,4 Zeichen/Token – die 4-Zeichen-Schätzung liegt bei Text/Code bis ~6 % zu niedrig,
+  bei reinem JSON ~15 %),
 - **fester Anfrage-Anteil** (System-Prompt, Tool-Definitionen, AGENTS.md, Task) `context_strategy.request_overhead_tokens`,
   Standard 12 000, höchstens 40 % des Fensters.
 
@@ -106,7 +108,7 @@ festen Werte.
 
 | Budget | Anteil | 32k | 64k | 128k |
 |---|---|---|---|---|
-| verfügbar für Material | – | 17 082 | 46 164 | 104 327 |
+| verfügbar für Material | – | 16 672 | 45 344 | 102 688 |
 | Bündel compact / standard / full | 12,5 / 37,5 / 50 % | 4 096 / 12 288 / 16 384 | 8 192 / 24 576 / 32 768 | 16 384 / 49 152 / 65 536 |
 | Evidence (CodeCompass-Planner, Retrieval-Obergrenze, RLM-Synthese) | 45 % | 14 745 | 29 491 | 58 982 |
 | Hybrid-RAG-Kontext | ≈ 9 % | 3 000 | 6 000 | 12 000 |
@@ -157,7 +159,7 @@ Architekturübersicht in 20 Punkten zusammenfassen. eGPU-Standardmodell (Bonsai 
 | | standard_32k | full_64k | extended_128k |
 |---|---|---|---|
 | effektives Fenster | 32 768 (konfiguriert) | 65 536 (konfiguriert) | **65 536 (Provider-Limit)** |
-| verfügbar für Material | 17 082 | 46 164 | 46 164 |
+| verfügbar für Material (damalige Reserve W/20) | 17 082 | 46 164 | 46 164 |
 | Strategie / Schritte | sequential, 9 + 1 | sequential, 4 + 1 | sequential, 4 + 1 |
 | Modellaufrufe | 10 | 5 | 5 |
 | größter Prompt (Token) | 30 460 | 45 968 | 46 596 |
