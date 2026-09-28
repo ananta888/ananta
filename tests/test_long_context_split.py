@@ -8,7 +8,7 @@ from agent.services.context_chunking import pack_parts, split_ordered
 from agent.services.long_context_plan import DEPENDENCY_OUTPUTS, LongContextPlanError, build_plan
 
 pytestmark = pytest.mark.timeout(60)
-ACTIVE = {"mode": "active", "ask_decision_provider": False}
+ACTIVE = {"mode": "active", "ask_decision_provider": False, "request_overhead_tokens": 0}  # sizes below: material only
 EXTERNALIZE = {**ACTIVE, "externalize": True}  # tasks run through an iteratively reading worker
 
 
@@ -216,6 +216,17 @@ def test_without_externalizing_compact_and_retrieve_are_carried_out_as_splits(ap
         assert ".ananta/task-material.md" not in _get("lc-compact-split").description
         record = _get("lc-corpus-split").status_reason_details["long_context"]
         assert record["decision"]["reason"].startswith("retrieve_as_split:")
+
+
+def test_the_fixed_request_part_counts_against_the_window(app):
+    with app.app_context():
+        _save("lc-overhead", status="todo", title="Knapp", description="text " * 20_000,  # ~25k: fits alone
+              worker_execution_context={"context_input_kind": "ordered"})
+        assert _coordinator().maybe_split(_get("lc-overhead"), config=ACTIVE) is None
+        result = _coordinator().maybe_split(_get("lc-overhead"), config={**ACTIVE, "request_overhead_tokens": 12000})
+        assert result.strategy == "sequential"  # 25k material + 12k tools/system prompt exceed 32k
+        decision = _get("lc-overhead").status_reason_details["long_context"]["decision"]
+        assert decision["fit"]["output_reserve_tokens"] == 1024 + 12000
 
 
 def test_an_enormous_task_is_paused_and_a_resumed_one_processed_piece_by_piece(app):

@@ -75,6 +75,9 @@ def test_config_is_clamped_and_modes_are_closed():
     assert cfg["mode"] == "shadow" and cfg["chunk_fill"] == 0.9
     assert cfg["compact_max_ratio"] == cs.DEFAULTS["compact_max_ratio"] and cfg["max_parallel"] == 32
     assert cs.normalize_config({"max_parallel": 0})["max_parallel"] == cs.DEFAULTS["max_parallel"]  # 0 = unset
+    assert cs.normalize_config({"request_overhead_tokens": 99999})["request_overhead_tokens"] == 24000
+    assert cs.normalize_config({"request_overhead_tokens": "x"})["request_overhead_tokens"] == 12000
+    assert cs.normalize_config({})["externalize"] is False
     from agent.config_defaults import build_default_agent_config
 
     assert build_default_agent_config()["context_strategy"]["mode"] == "shadow"

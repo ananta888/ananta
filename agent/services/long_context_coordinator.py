@@ -120,7 +120,11 @@ class LongContextCoordinator:
         parts = [(str(p.get("id") or f"part-{i + 1}"), str(p.get("text") or ""))
                  for i, p in enumerate(context.get("context_parts") or []) if isinstance(p, Mapping)]
         size_text = "\n".join([title, material] + [text for _id, text in parts])
-        fit = check_fit(prompt=size_text)
+        from agent.context_window import DEFAULT_OUTPUT_RESERVE
+
+        # a step's request is its material plus the fixed request part (tools, system prompt): both fit the window
+        fit = check_fit(prompt=size_text, output_reserve_tokens=DEFAULT_OUTPUT_RESERVE + int(
+            getattr(service, "request_overhead_tokens", 0) or 0))
         if fit.fits and overflowed:
             from agent.context_window import ContextFit
 

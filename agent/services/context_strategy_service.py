@@ -41,6 +41,9 @@ DEFAULTS: dict[str, Any] = {
     # That needs an iteratively reading worker (tool loop); the autopilot's single-shot flow
     # (one proposal, one execution) cannot, so by default both are carried out as splits.
     "externalize": False,
+    # fixed part of every proposal request besides the material: tool definitions, AGENTS.md,
+    # system prompt (measured live: ~14k of a 35k request). The material budget excludes it.
+    "request_overhead_tokens": 12000,
 }
 # how compact/retrieve are carried out without externalizing: an ordered pass / a question per part
 SPLIT_EQUIVALENTS = {"compact": "sequential", "retrieve": "map_reduce"}
@@ -92,6 +95,10 @@ def normalize_config(raw: Any) -> dict[str, Any]:
     cfg["max_parallel"] = max(1, min(32, int(cfg.get("max_parallel") or DEFAULTS["max_parallel"])))
     cfg["ask_decision_provider"] = bool(cfg.get("ask_decision_provider", True))
     cfg["externalize"] = bool(cfg.get("externalize", False))
+    try:
+        cfg["request_overhead_tokens"] = max(0, min(24000, int(cfg.get("request_overhead_tokens"))))
+    except (TypeError, ValueError):
+        cfg["request_overhead_tokens"] = DEFAULTS["request_overhead_tokens"]
     return cfg
 
 
@@ -136,6 +143,10 @@ class ContextStrategyService:
     @property
     def externalize(self) -> bool:
         return self._cfg["externalize"]
+
+    @property
+    def request_overhead_tokens(self) -> int:
+        return self._cfg["request_overhead_tokens"]
 
     def as_split(self, decision: ContextStrategyDecision) -> ContextStrategyDecision:
         """``compact``/``retrieve`` carried out as their split equivalent (no externalizing); others unchanged."""
