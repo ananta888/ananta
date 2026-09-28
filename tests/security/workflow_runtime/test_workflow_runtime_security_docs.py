@@ -222,6 +222,11 @@ def test_remaining_worker_agent_imports_are_explicit_contract_facades() -> None:
             "agent.services.workflow_runtime.parallel",
             "agent.services.workflow_runtime.ports",
             "agent.services.workflow_runtime.security",
+            # Pi coding-agent execution backend (LLM-CLI subsystem, runs on the worker; AGENTS.md
+            # "agent.cli_backends.*"): used by the Native Pi node, reviewed 2026-09-28. Its run contract is
+            # ananta_contracts.coding_agent_run; the policy consumes the contract ProviderBudgetPort.
+            "agent.cli_backends.pi_policy",
+            "agent.cli_backends.pi_provider",
         }
     )
     worker_files = [

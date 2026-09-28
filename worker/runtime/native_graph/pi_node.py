@@ -11,17 +11,17 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
-from agent.cli_backends.coding_agent_contract import CodingAgentProvider, CodingAgentRunRequest, CodingAgentRunResult
 from agent.cli_backends.pi_policy import PiInvocationPolicy
 from agent.cli_backends.pi_provider import PiCodingAgentProvider
+from ananta_contracts.coding_agent_run import CodingAgentProvider, CodingAgentRunRequest, CodingAgentRunResult
 from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
 from ananta_contracts.provider_invocation import ProviderInvocationContext
 from worker.runtime.native_graph.contracts import NativeNodeCommand, NativeNodeResult
 from worker.runtime.native_graph.pi_context import PiTaskContextPort, pi_context_bundle_reference
 
 if TYPE_CHECKING:
-    from agent.services.provider_invocation_middleware import ProviderBudgetPort
     from agent.services.workflow_runtime.security import RuntimeAuthorizationEnvelope
+    from ananta_contracts.provider_invocation import ProviderBudgetPort
 
 PI_NATIVE_TASK_KIND = "pi_coding_agent"
 PI_NATIVE_CAPABILITY = "coding.agent.pi"
