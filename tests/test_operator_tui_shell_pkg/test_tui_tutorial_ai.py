@@ -143,6 +143,7 @@ def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -
 
 
 def test_tutorial_ai_llm_message_uses_lmstudio_defaults_without_token(monkeypatch) -> None:
+    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
@@ -534,6 +535,7 @@ def test_tutorial_ai_llm_ask_uses_chat_max_tokens_from_config(monkeypatch) -> No
 
 
 def test_llm_ask_uses_lmstudio_defaults_without_explicit_env(monkeypatch) -> None:
+    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
     for key in (

@@ -8,15 +8,17 @@ from client_surfaces.operator_tui.models import FocusPane, OperatorState
 
 
 def test_tutorial_ai_e2e_falls_back_from_worker_propose_to_lmstudio_defaults(monkeypatch) -> None:
-    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
-    tui = InteractiveOperatorTui(state)
     monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_BACKEND", "worker-propose")
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_API_BASE_URL", raising=False)
+    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_API_TOKEN", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
+    # the TUI takes its chat endpoint from the environment when it is built
+    state = OperatorState(endpoint="http://localhost:5000", focus=FocusPane.CONTENT, section_id="tasks")
+    tui = InteractiveOperatorTui(state)
     monkeypatch.setattr(tui, "_load_codecompass_hints", lambda now: ["method · render_operator_shell"])
     monkeypatch.setattr(tui, "_load_rag_helper_context", lambda now: ["architecture · Hub owns orchestration"])
 

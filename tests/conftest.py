@@ -40,6 +40,29 @@ os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
 # before importing application settings.
 os.environ["DATA_DIR"] = _TEST_DATA_DIRECTORY
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
+# The compose runner passes the stack's REDIS_URL. Tests must neither share rate-limit/cache state across
+# xdist workers (a cleanup's rate_limit:* wipe reset another worker's limiter mid-test) nor touch the live
+# stack's Redis; without it the services use their per-process in-memory fallback.
+os.environ["REDIS_URL"] = ""
+# The operator TUI's tutorial/chat AI falls back to a hard-coded LAN LM Studio (192.168.178.100:1234):
+# TUI unit tests made real HTTP calls (connect timeouts, or real inference and GBs of worker memory).
+# A local port that refuses at once keeps them offline; tests that configure an endpoint still win.
+os.environ.setdefault("ANANTA_TUI_CHAT_API_BASE_URL", "http://127.0.0.1:9/v1")
+# Every InteractiveOperatorTui auto-builds a CodeCompass index of the working directory (the whole
+# repository) on a background thread: the TUI tests' xdist worker grew to ~15 GB.
+os.environ.setdefault("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "0")
+# Without a configured output the TUI falls back to ./rag-helper/out: locally the real CodeCompass index
+# (~2 GB, gitignored, absent in CI), which every worker loaded. An empty index keeps tests hermetic.
+_TEST_CODECOMPASS_OUTPUT = Path(f"/tmp/ananta-pytest-codecompass-out-{os.getpid()}")
+_TEST_CODECOMPASS_OUTPUT.mkdir(parents=True, exist_ok=True)
+(_TEST_CODECOMPASS_OUTPUT / "index.jsonl").touch()
+os.environ.setdefault("ANANTA_TUI_CODECOMPASS_OUTPUT_DIR", str(_TEST_CODECOMPASS_OUTPUT))
+# Retrieval builds a repository map of RAG_REPO_ROOT on first use. The compose runner pointed it at /tmp,
+# which holds every worker's pytest tmp_path trees: the scan grew with the run until single tests hit the
+# 300 s timeout and a worker held ~15 GB. No test depends on that content; give each process an empty root.
+_TEST_RAG_REPO_ROOT = Path(f"/tmp/ananta-pytest-rag-root-{os.getpid()}")
+_TEST_RAG_REPO_ROOT.mkdir(parents=True, exist_ok=True)
+os.environ["RAG_REPO_ROOT"] = str(_TEST_RAG_REPO_ROOT)
 # The context window probe asks the configured LLM runtime for its limit; tests never reach a runtime
 # (tests of the probe inject their own transport).
 os.environ["ANANTA_CONTEXT_PROVIDER_PROBE"] = "0"

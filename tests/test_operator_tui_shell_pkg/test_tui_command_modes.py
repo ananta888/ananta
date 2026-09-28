@@ -623,6 +623,7 @@ def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatc
 
 
 def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> None:
+    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
     state = OperatorState(endpoint="http://192.168.178.100:1234/v1")
     tui = InteractiveOperatorTui(state)
     calls: list[str] = []

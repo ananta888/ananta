@@ -20,7 +20,6 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
-      RAG_REPO_ROOT: "/tmp"
       # Runs as --user 1000:1000 (no passwd entry) would otherwise get HOME=/ and fail on ~/.config.
       HOME: "/tmp"
       # the mounted checkout may hold a root-owned .ruff_cache from earlier root runs
