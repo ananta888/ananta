@@ -9,11 +9,15 @@ and ``last_output`` stays the fallback when the proposal carries no text.
 
 from __future__ import annotations
 
+import ast
 import json
+import re
 from collections.abc import Mapping
 from typing import Any
 
 TEXT_FIELDS = ("content", "answer", "result", "summary", "text", "details", "findings", "points")
+# the execution report of a final_answer call: "Tool 'final_answer': Erfolg\nOutput: {'answer': '...'}"
+_FINAL_ANSWER_OUTPUT = re.compile(r"Tool 'final_answer': [^\n]*\nOutput: (\{.*\})\s*$", re.DOTALL)
 
 
 def _render(value: Any) -> str:
@@ -36,10 +40,9 @@ def _proposal(task: Any) -> dict[str, Any]:
     return dict(raw) if isinstance(raw, Mapping) else {}
 
 
-def proposal_text(task: Any) -> str:
-    """The text the step's proposal carried in its tool-call arguments, or ``""``."""
+def _calls_text(tool_calls: Any) -> str:
     parts: list[str] = []
-    for call in _proposal(task).get("tool_calls") or []:
+    for call in tool_calls or []:
         if not isinstance(call, Mapping):
             continue
         args = call.get("args") or call.get("arguments") or {}
@@ -52,6 +55,36 @@ def proposal_text(task: Any) -> str:
     return "\n\n".join(parts)
 
 
+def proposal_text(task: Any) -> str:
+    """The text the step's proposal carried in its tool-call arguments, or ``""``."""
+    return _calls_text(_proposal(task).get("tool_calls"))
+
+
+def decision_text(task: Any) -> str:
+    """The text of the tool calls the autopilot decided to execute (the last decision in the history).
+
+    When the Hub executed the step itself, the stored proposal may lack its tool calls and
+    ``last_output`` is cut at 2000 characters; the decision event keeps the full arguments."""
+    for event in reversed(list(getattr(task, "history", None) or [])):
+        if isinstance(event, Mapping) and event.get("event_type") == "autopilot_decision":
+            return _calls_text(event.get("tool_calls"))
+    return ""
+
+
+def output_answer(output: str) -> str:
+    """The answer from a ``final_answer`` execution report in ``last_output``, or ``""``."""
+    match = _FINAL_ANSWER_OUTPUT.search(str(output or "").strip())
+    if not match:
+        return ""
+    try:
+        value = ast.literal_eval(match.group(1))  # the executor prints the result dict with repr()
+    except (ValueError, SyntaxError):
+        return ""
+    return _render(value.get("answer")) if isinstance(value, Mapping) else ""
+
+
 def step_result(task: Any) -> str:
-    """What a finished step produced: the proposal's text if it has one, else ``last_output``."""
-    return proposal_text(task) or str(getattr(task, "last_output", "") or "")
+    """What a finished step produced: the proposal's text, else the decided tool calls' text, else a
+    final_answer execution report, else ``last_output``."""
+    output = str(getattr(task, "last_output", "") or "")
+    return proposal_text(task) or decision_text(task) or output_answer(output) or output

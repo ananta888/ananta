@@ -25,3 +25,22 @@ def test_last_output_when_the_proposal_carries_no_text():
     assert proposal_text(task) == ""
     assert step_result(task) == "Ergebnis"
     assert step_result(SimpleNamespace(last_output=None)) == ""
+
+
+def test_the_answer_is_recovered_from_a_final_answer_execution_report():
+    report = "Tool 'final_answer': Erfolg\nOutput: {'answer': '## Zwischenstand\\n- Hub orchestriert\\n- \\'Worker\\' führen aus'}"
+    task = SimpleNamespace(last_output=report, last_proposal={"tool_calls": None})
+
+    assert step_result(task) == "## Zwischenstand\n- Hub orchestriert\n- 'Worker' führen aus"
+    assert step_result(SimpleNamespace(last_output="Tool 'final_answer': Erfolg\nOutput: kaputt")) \
+        == "Tool 'final_answer': Erfolg\nOutput: kaputt"
+
+
+def test_the_full_answer_comes_from_the_decision_when_the_proposal_lost_its_tool_calls():
+    answer = "## Zwischenstand\n" + "- Punkt\n" * 400  # longer than the 2000-character output cut
+    task = SimpleNamespace(last_output="Tool 'final_answer': Erfolg\nOutput: {'answer': '## Zw…\n[truncated to 2000 chars]",
+                           last_proposal={"tool_calls": None},
+                           history=[{"event_type": "autopilot_decision",
+                                     "tool_calls": [{"name": "final_answer", "args": {"answer": answer}}]}])
+
+    assert step_result(task) == answer.strip()

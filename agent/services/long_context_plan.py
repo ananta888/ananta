@@ -23,6 +23,7 @@ DEPENDENCY_OUTPUTS = "{DEPENDENCY_OUTPUTS}"
 MAX_STEPS = 64
 NOTES_HEADING = "## Zwischenstand"
 PARTIAL_HEADING = "## Teilergebnis"
+NOTES_MAX_WORDS = 600  # carried notes and partial results go into every later step (~1k tokens)
 # The single-shot flow knows commands and tool calls only: the answer goes into one ``final_answer``
 # call (no side effect, passes the safe level), which the Hub hands to the next step (long_context_step_result).
 DELIVERY = ("\n\nAbgabe: kein Shell-Befehl, keine Datei. Gib dein Ergebnis mit genau einem Tool-Aufruf "
@@ -70,7 +71,8 @@ def sequential_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "",
                 f"Material, Teil {number} von {total}:\n{chunk.text}\n\n"
                 f"Arbeite nur mit diesem Teil und dem Zwischenstand. Antworte mit '{NOTES_HEADING}': dem "
                 "aktualisierten Zwischenstand für die Gesamtaufgabe (Erkenntnisse, Entscheidungen, offene Punkte, "
-                "Belege mit Fundstelle). Übernimm Wichtiges aus dem bisherigen Zwischenstand, er ersetzt ihn."
+                "Belege mit Fundstelle). Übernimm Wichtiges aus dem bisherigen Zwischenstand, er ersetzt ihn. "
+                f"Halte ihn knapp (höchstens {NOTES_MAX_WORDS} Wörter): er geht in jeden weiteren Teil ein."
                 + DELIVERY),
             depends_on=(f"chunk-{number - 1}",) if number > 1 else (), sources=chunk.sources))
     steps.append(PlannedStep(
@@ -92,7 +94,8 @@ def map_reduce_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "",
         description=(f"Aufgabe (wird in {total} unabhängigen Teilen bearbeitet): {goal}\n\n"
                      f"Material, Teil {chunk.index + 1} von {total}:\n{chunk.text}\n\n"
                      f"Bearbeite nur diesen Teil. Antworte mit '{PARTIAL_HEADING}': dem Ergebnis für diesen Teil, "
-                     "mit Fundstellen, so dass es sich mit den anderen Teilen zusammenführen lässt." + DELIVERY),
+                     f"mit Fundstellen, so dass es sich mit den anderen Teilen zusammenführen lässt (höchstens {NOTES_MAX_WORDS} "
+                     "Wörter)." + DELIVERY),
         sources=chunk.sources) for chunk in chunks]
     steps.append(PlannedStep(
         key="reduce", kind="reduce", title=f"{label} – Zusammenführung",
