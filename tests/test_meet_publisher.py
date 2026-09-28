@@ -7,11 +7,12 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from worker.meet_media.publisher import publish
+from worker.meet_media.publisher import CAPTURE_FORBIDDEN_SCRIPT, SERVER_CLOCK_SCRIPT, publish
 
 
 @pytest.fixture
 def runtime(monkeypatch, tmp_path):
+    monkeypatch.delenv("MEET_PUBLISHER_DIAGNOSTICS", raising=False)
     browser, context, page, session = Mock(), Mock(), Mock(), Mock()
     context.new_page.return_value = page
     browser.new_context.return_value = context
@@ -51,14 +52,16 @@ def test_every_publication_phase_closes_browser_without_retry(runtime, failure):
     methods = [c[0] for c in context.mock_calls]
     assert methods.index("route") < methods.index("new_page")
     context.route_web_socket.assert_not_called()
-    assert context.add_init_script.call_count == 1
-    assert "getDisplayMedia" in context.add_init_script.call_args.args[0]
+    scripts = [call.args[0] for call in context.add_init_script.call_args_list]
+    # capture is forbidden first; the only other script corrects the clock, nothing else touches capture
+    assert scripts == [CAPTURE_FORBIDDEN_SCRIPT, SERVER_CLOCK_SCRIPT]
+    assert not any("getUserMedia" in script or "getDisplayMedia" in script for script in scripts[1:])
     operations = [call.args[0] for call in session.call.call_args_list]
     expected = {
         "ready": [],
         "navigation": [],
         "join": ["join"],
-        "publish": ["join", "publish"],
+        "publish": ["join", "publish", "publish"],  # one bounded retry for the E2EE overlay race
         "leave": ["join", "publish", "leave"],
         None: ["join", "publish", "leave"],
     }
@@ -73,3 +76,21 @@ def test_invalid_or_excessive_media_cannot_join(runtime, content):
         publish(meeting, "synthetic", video, time.time() + 110, Mock())
     session.call.assert_not_called()
     browser.close.assert_called_once()
+
+
+def test_diagnostics_are_opt_in_and_never_replace_the_failure(runtime, monkeypatch, tmp_path):
+    browser, context, page, session, video, meeting = runtime
+    session.call.side_effect = lambda operation, _args: (_ for _ in ()).throw(ValueError("synthetic_stop"))
+    page.evaluate.return_value = Mock()  # not JSON-serializable page state
+    with pytest.raises(ValueError, match="synthetic_stop"):
+        publish(meeting, "synthetic", video, time.time() + 110, Mock())
+    page.on.assert_not_called()  # off: no listeners, no log file
+
+    monkeypatch.setenv("MEET_PUBLISHER_DIAGNOSTICS", "1")
+    monkeypatch.setattr("worker.meet_media.publisher_diagnostics.LOG_PATH", str(tmp_path / "diag.log"))
+    context.add_init_script.reset_mock()
+    with pytest.raises(ValueError, match="synthetic_stop"):
+        publish(meeting, "synthetic", video, time.time() + 110, Mock())
+    scripts = [call.args[0] for call in context.add_init_script.call_args_list]
+    assert scripts[:2] == [CAPTURE_FORBIDDEN_SCRIPT, SERVER_CLOCK_SCRIPT] and len(scripts) == 4
+    assert {call.args[0] for call in page.on.call_args_list} == {"response", "console", "pageerror", "websocket"}
