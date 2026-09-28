@@ -17,14 +17,22 @@ from agent.db_models import (
 PUBLISHER = "http://synthetic-publisher:8091"
 
 
-def seed_parent(engine, *, tenant="tenant", project="project", create_project=True, publisher=PUBLISHER):
-    scope = {"tenant_id": tenant, "project_id": project, "organization_id": "meet-test-org"}
+def ensure_project(engine, *, tenant="tenant", project="project") -> None:
+    """The project a Hub Meet task belongs to. ``tasks`` has a foreign key to ``projects``; the test DB
+    enforces it like production (an earlier test cleanup left it off on pooled connections)."""
     with Session(engine) as session:
-        if create_project:
+        if session.get(ProjectDB, (tenant, project)) is None:
             session.add(
                 ProjectDB(tenant_id=tenant, project_id=project, name="Synthetic Meet", created_by_subject_id="owner")
             )
             session.commit()
+
+
+def seed_parent(engine, *, tenant="tenant", project="project", create_project=True, publisher=PUBLISHER):
+    scope = {"tenant_id": tenant, "project_id": project, "organization_id": "meet-test-org"}
+    if create_project:
+        ensure_project(engine, tenant=tenant, project=project)
+    with Session(engine) as session:
         session.add(
             OrganizationInstanceDB(
                 **scope,

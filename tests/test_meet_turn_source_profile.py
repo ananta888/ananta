@@ -18,6 +18,15 @@ from ananta_contracts.meet_turn_source_profile import TurnSourceProfile, profile
 from tests.test_meet_media import turn
 from worker.meet_media.contract import validate_turn
 
+
+@pytest.fixture(autouse=True)
+def _meet_project():
+    """The Hub media tasks these tests start belong to tenant/project (``tasks`` -> ``projects`` FK)."""
+    from agent.database import engine
+    from tests.meet_dialog_lifecycle_fixture import ensure_project
+
+    ensure_project(engine)
+
 pytestmark = pytest.mark.timeout(45)
 
 

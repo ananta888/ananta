@@ -16,6 +16,15 @@ from worker.meet_media.contract import authenticate, encode, load_key, signature
 from worker.meet_media.server import TurnExecutor
 
 
+@pytest.fixture(autouse=True)
+def _meet_project():
+    """The Hub media tasks these tests start belong to tenant/project (``tasks`` -> ``projects`` FK)."""
+    from agent.database import engine
+    from tests.meet_dialog_lifecycle_fixture import ensure_project
+
+    ensure_project(engine)
+
+
 def turn():
     return {
         "schema": "ananta.meet-turn.v1",

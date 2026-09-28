@@ -87,10 +87,18 @@ def test_parent_scope_and_lifecycle_are_checked_before_candidate_derivation(app,
 
     with app.app_context():
         f, preflight = preflight_system(engine)
+        if change in {"tenant", "project"}:
+            # a stored parent in a foreign scope cannot be written with the foreign keys enforced; the
+            # preflight must still reject such a (tampered) row, so write it with them switched off
+            with engine.connect() as connection:
+                connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+                connection.exec_driver_sql(f"UPDATE tasks SET {change}_id = 'foreign' WHERE id = ?", (PARENT,))
+                connection.commit()
+                connection.exec_driver_sql("PRAGMA foreign_keys = ON")
         with Session(engine) as session:
             row = session.get(TaskDB, PARENT)
             if change in {"tenant", "project"}:
-                setattr(row, change + "_id", "foreign")
+                pass
             elif change == "inactive":
                 row.status = "cancelled"
             elif change == "archived":

@@ -15,6 +15,10 @@ pytestmark = pytest.mark.timeout(45)
 
 @pytest.mark.parametrize("worker_url", [None, "http://synthetic-audio-worker:8094"])
 def test_real_hub_tasks_claim_one_audio_job_and_cleanup_after_parent_expiry(app, worker_url):
+    from agent.database import engine
+    from tests.meet_dialog_lifecycle_fixture import ensure_project
+
+    ensure_project(engine, tenant="synthetic-tenant", project="synthetic-project")
     tasks = HubDialogTasks()
     task_id = str(uuid.uuid4())
     now = int(time.time())

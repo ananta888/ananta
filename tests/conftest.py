@@ -67,6 +67,36 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_manual_full_scan)
 
 
+_MEMORY_TRACE_ENV = "ANANTA_TEST_MEMORY_TRACE"
+_MEMORY_TRACE_MIN_GROWTH_MIB = 64
+
+
+def _resident_mib() -> float:
+    try:
+        with open("/proc/self/statm", encoding="ascii") as statm:
+            return int(statm.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 1048576
+    except (OSError, ValueError, IndexError):
+        return 0.0
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    """Opt-in memory trace: ``ANANTA_TEST_MEMORY_TRACE=<file>`` appends every test whose run grew the
+    process's resident memory by 64 MiB or more (one xdist worker once grew to 15 GB)."""
+    del nextitem
+    trace = os.environ.get(_MEMORY_TRACE_ENV)
+    if not trace:
+        yield
+        return
+    before = _resident_mib()
+    yield
+    after = _resident_mib()
+    if after - before >= _MEMORY_TRACE_MIN_GROWTH_MIB:
+        worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+        with open(trace, "a", encoding="utf-8") as handle:
+            handle.write(f"{worker}\t{after - before:.0f}\t{after:.0f}\t{item.nodeid}\n")
+
+
 _INTEGRATION_OPT_IN_ENV = "RUN_INTEGRATION_TESTS"
 
 
@@ -286,7 +316,19 @@ def workflow_runtime_auth_keyring_file(tmp_path, monkeypatch):
             session.commit()
 
 
+_DB_RUNTIME_STATIC: dict[str, Any] | None = None
+
+
 def _db_runtime() -> dict[str, Any]:
+    """The cleanup's DB handles. The imports and the model list are built once per process (~25 ms each
+    time otherwise); the engine is read on every call."""
+    global _DB_RUNTIME_STATIC
+    if _DB_RUNTIME_STATIC is None:
+        _DB_RUNTIME_STATIC = _load_db_runtime_static()
+    return {**_DB_RUNTIME_STATIC, "engine": _db_engine()}
+
+
+def _load_db_runtime_static() -> dict[str, Any]:
     _ensure_test_db()
     from sqlalchemy import inspect, text
     from sqlalchemy.exc import IntegrityError, OperationalError
@@ -445,7 +487,6 @@ def _db_runtime() -> dict[str, Any]:
     )
 
     return {
-        "engine": _db_engine(),
         "inspect": inspect,
         "text": text,
         "OperationalError": OperationalError,
@@ -686,6 +727,43 @@ def _login_token(client, *, username: str, password: str) -> str:
     return generate_token({"sub": username, "role": role, "mfa_enabled": False}, settings.secret_key)
 
 
+def _clear_model_tables(runtime: dict[str, Any]) -> None:
+    """Empty the cleanup's model tables: one query finds the tables holding rows, and only those get a
+    DELETE, all on one connection (was: a session, has_table and commit per table -- 149 times, before
+    and after every test). On SQLite the foreign keys are switched off outside the transaction, where
+    the PRAGMA takes effect."""
+    engine = runtime["engine"]
+    operational_error = runtime["OperationalError"]
+    is_sqlite = engine.dialect.name == "sqlite"
+    with engine.connect() as connection:
+        existing = set(runtime["inspect"](connection).get_table_names())
+        tables = [model.__table__ for model in runtime["models"] if model.__tablename__ in existing]
+        if not tables:
+            return
+        probe = " UNION ALL ".join(
+            f'SELECT {index} FROM "{table.name}" WHERE EXISTS (SELECT 1 FROM "{table.name}")'
+            for index, table in enumerate(tables)
+        )
+        populated = {int(row[0]) for row in connection.exec_driver_sql(probe)}
+        connection.rollback()
+        if not populated:
+            return
+        if is_sqlite:
+            connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+        try:
+            for index, table in enumerate(tables):
+                if index not in populated:
+                    continue
+                try:
+                    connection.execute(table.delete())
+                    connection.commit()
+                except operational_error:
+                    connection.rollback()
+        finally:
+            if is_sqlite:
+                connection.exec_driver_sql("PRAGMA foreign_keys = ON")
+
+
 @pytest.fixture(autouse=True)
 def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
@@ -846,38 +924,7 @@ def cleanup_db_and_runtime():
         except Exception:
             pass
 
-        runtime = _db_runtime()
-        inspector = runtime["inspect"](runtime["engine"])
-        session_cls = runtime["Session"]
-        delete_stmt = runtime["delete"]
-        operational_error = runtime["OperationalError"]
-        integrity_error = runtime["IntegrityError"]
-        is_sqlite = runtime["engine"].dialect.name == "sqlite"
-
-        def _delete_if_table_exists(model):
-            try:
-                if inspector.has_table(model.__tablename__):
-                    with session_cls(runtime["engine"]) as session:
-                        if is_sqlite:
-                            session.exec(runtime["text"]("PRAGMA foreign_keys = OFF"))
-                        session.exec(delete_stmt(model))
-                        session.commit()
-                        if is_sqlite:
-                            session.exec(runtime["text"]("PRAGMA foreign_keys = ON"))
-            except operational_error:
-                pass
-            except integrity_error:
-                if is_sqlite:
-                    try:
-                        with session_cls(runtime["engine"]) as session:
-                            session.exec(runtime["text"]("PRAGMA foreign_keys = ON"))
-                    except Exception:
-                        pass
-                    return
-                raise
-
-        for model in runtime["models"]:
-            _delete_if_table_exists(model)
+        _clear_model_tables(_db_runtime())
         try:
             from agent.routes.tasks.auto_planner import auto_planner
 
