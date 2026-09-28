@@ -69,6 +69,18 @@ RUN pip install --no-cache-dir -r requirements.lock -r rag-helper/requirements.t
     && pip install --no-cache-dir temporalio==1.30.0 playwright==1.58.0 \
         hypothesis==6.167.1 crosshair-tool==0.0.110 hypothesis-crosshair==0.0.30
 
+# Temporal's time-skipping test server is a binary the SDK downloads on first use (~11 s): fetch it at build
+# time so the tests stay offline and their start timeouts hold. Runs as any user (the runner uses 1000:1000).
+RUN printf '%s\n' \
+        'import asyncio' \
+        'from temporalio.testing import WorkflowEnvironment' \
+        'async def fetch():' \
+        '    environment = await WorkflowEnvironment.start_time_skipping()' \
+        '    await environment.shutdown()' \
+        'asyncio.run(fetch())' \
+    | python -
+RUN chmod -R a+rX /tmp/temporal-test-server-sdk-python-*
+
 COPY . .
 
 ENV PYTHONPATH=/app \

@@ -23,6 +23,8 @@ services:
       RAG_REPO_ROOT: "/tmp"
       # Runs as --user 1000:1000 (no passwd entry) would otherwise get HOME=/ and fail on ~/.config.
       HOME: "/tmp"
+      # the mounted checkout may hold a root-owned .ruff_cache from earlier root runs
+      RUFF_CACHE_DIR: "/tmp/ruff-cache"
     volumes:
       - ../../:/app
       - test-results:/results
