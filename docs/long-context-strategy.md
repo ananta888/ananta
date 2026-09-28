@@ -2,8 +2,10 @@
 
 **Track:** LCTX (`todos/active/todo.long-context-strategy.json`) · **Stand:** 2026-09-28, M0–M4 umgesetzt, live gemessen
 
-Ananta arbeitet mit **32k Token pro Anfrage** (`ANANTA_CONTEXT_TOKENS`, Standard 32768; siehe
-`docs/jev-llamacpp-decision-mode.md`, Abschnitt Standardmodell). Der Hub entscheidet, wie eine zu große
+Das Kontextfenster pro Anfrage ist ein **zentrales Profil** (`ANANTA_CONTEXT_PROFILE`: `standard_32k` Standard
+und empfohlen, `full_64k`, `extended_128k`, `compact_12k`, custom über `ANANTA_CONTEXT_TOKENS`), begrenzt durch
+das, was Modell und Provider liefern; alle Budgets und Schwellen hier sind Anteile dieses effektiven Fensters
+(`docs/context-window-profiles.md`). Der Hub entscheidet, wie eine zu große
 Aufgabe zu behandeln ist (M2), und kann sie nacheinander oder parallel über Hub-Tasks vollständig verarbeiten
 (M3, Modus `active`). Wo noch gekürzt wird, geschieht es nie mehr still. Verdichten und gezielt nachladen
 laufen im einstufigen Autopilot als Zerlegung (M4); die Live-Messung steht am Ende.
@@ -12,9 +14,9 @@ laufen im einstufigen Autopilot als Zerlegung (M4); die Live-Messung steht am En
 
 | Stelle | Verhalten |
 |---|---|
-| `generate_text` | `llm_config.context_limit` für seinen Provider, sonst 32k für lokale Runtimes (Ollama, LM Studio, llamacpp); Cloud nur mit explizitem Limit |
+| `generate_text` | das effektive Fenster, für jeden Provider (auch Cloud: das konfigurierte Fenster ist die Obergrenze); ein explizites Limit engt nur ein |
 | llamacpp-/OpenAI-Pfad | kürzt den Verlauf auf das Fenster (System-Prompt und neueste Nachricht bleiben) |
-| CLI-Backends | `MAX_PROMPT_TOKENS`; sonst sgpt = Fenster, opencode = 128k |
+| CLI-Backends | effektives Fenster, eingeengt durch das eigene Limit (opencode 128k) und `MAX_PROMPT_TOKENS` |
 | Worker-Tool-Loop | `max_total_tool_result_chars` (Standard: halbes Fenster); ältere Ergebnisse werden markiert verdichtet |
 
 ## Passt-Prüfung und Kürzungsprotokoll (M1)
@@ -111,7 +113,7 @@ Abarbeiten wachsen Teile des Prompts: Tool-Ergebnisse (Tool-Loop), Arbeitsfortsc
 Feedback-Evidence (Mutations-Loop). `agent/cli_backends/context_budget.py` gibt ihnen genau den Platz, den das
 Fenster lässt:
 
-    verfügbar = Fenster (32k) − Antwortreserve (2k) − feste Teile (Auftrag, Anweisungen, aktueller Stapel)
+    verfügbar = effektives Fenster − Antwortreserve − Sicherheitsreserve − feste Teile (Auftrag, Anweisungen, Stapel)
 
 Die neuesten Einträge bleiben vollständig, ältere werden verdichtet (Überschrift und Anfang), die ältesten
 mit Vermerk ausgelassen – protokolliert (`tool_loop.results`, `batch_loop.progress`, `mutation_loop.evidence`).
@@ -195,11 +197,19 @@ die Beschreibung stand doppelt im Prompt; Guardrail-Grenze 6000 Token; Aufsichts
 Modell-Timeout (300 s); der Vorschlags-Kompaktierer lief bei jedem Schritt in Timeouts; zu lange Zwischenstände;
 Lese-Aufrufe wurden zu Schreibzugriffen; `command: "null"` wurde ausgeführt.
 
+## Schwellen folgen dem Fenster
+
+Die Passt-Prüfung des Koordinators und des Propose-Pfads nutzt dieselbe Rechnung (`material_fit`): verfügbar
+= effektives Fenster − Ausgabe-Reserve − Sicherheitsreserve − fester Anfrage-Anteil. `compact_max_ratio`,
+`escalate_min_ratio` und `chunk_fill` sind Verhältnisse dazu. Derselbe Task mit ~50k Token geordnetem Material
+ist bei 32k `sequential` (≈3× das verfügbare Material), bei 64k `compact` (knapp darüber) und passt bei 128k
+direkt (`fit`) – ohne Konfigurationsänderung außer dem Profil.
+
 ## Betrieb
 
 - Standard `context_strategy.mode = shadow` (nur entscheiden und aufzeichnen). `active` lässt den Hub zu große
   Tasks zerlegen; `off` schaltet alles ab. Umschalten per `POST /config`.
 - Schalter: `compact_max_ratio`, `escalate_min_ratio`, `chunk_fill`, `max_parallel`, `request_overhead_tokens`,
   `externalize`, `ask_decision_provider`.
-- Grenzen: 32k pro Anfrage (`ANANTA_CONTEXT_TOKENS`, `llm_config.context_limit`); Aufsicht wartet mindestens
+- Grenzen: das effektive Fenster pro Anfrage (Profil, `docs/context-window-profiles.md`); Aufsicht wartet mindestens
   `task_propose_timeout_seconds`.
