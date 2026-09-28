@@ -392,7 +392,10 @@ class HttpClient:
                 goal_id or task_id or deadline_monotonic is not None
             )
             if guarded_request:
-                tracked_session = requests.Session()
+                from agent.common.cancellable_session import make_cancellable
+
+                # a cancelled task/goal closes this session: the socket is shut down, the model stops
+                tracked_session = make_cancellable(requests.Session())
                 request_session = tracked_session
                 if callable(register_existing_session) and (
                     goal_id or task_id

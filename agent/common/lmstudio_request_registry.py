@@ -47,9 +47,10 @@ def _get_current_context() -> tuple[Optional[str], Optional[str]]:
 
 
 def create_and_register_session():
-    import requests
+    from agent.common.cancellable_session import CancellableSession
 
-    session = requests.Session()
+    # cancel_* closes it from another thread and really stops the request in flight
+    session = CancellableSession()
     goal_id, task_id = _get_current_context()
     key = goal_id or task_id
     if goal_id or task_id:

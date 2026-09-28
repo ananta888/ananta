@@ -1,3 +1,5 @@
+import contextlib
+
 from flask import Blueprint, current_app, g
 
 from agent.auth import check_auth
@@ -18,6 +20,19 @@ from agent.utils import validate_request
 from agent.context_profile import assigned_window_scope
 
 execution_bp = Blueprint("tasks_execution", __name__)
+
+
+@contextlib.contextmanager
+def _task_request_context(tid: str):
+    """Register this request's model calls under the task, so a cancellation (hub dispatch timeout, operator
+    cancel) reaches them on this worker and shuts their connections down."""
+    from agent.services.lmstudio_request_registry import clear_thread_context, set_thread_context
+
+    set_thread_context(None, str(tid or "") or None)
+    try:
+        yield
+    finally:
+        clear_thread_context()
 
 
 def _services():
@@ -152,7 +167,7 @@ def task_propose(tid):
     ):
         return error
     with task_capability_scope(_accepted_codecompass_capability(data)), \
-            assigned_window_scope(getattr(data, "context_window", None)):
+            assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
         outcome = _services().task_scoped_execution_service.propose_task_step(
             tid,
             data,
@@ -187,7 +202,7 @@ def task_execute(tid):
     ):
         return error
     with task_capability_scope(_accepted_codecompass_capability(data)), \
-            assigned_window_scope(getattr(data, "context_window", None)):
+            assigned_window_scope(getattr(data, "context_window", None)), _task_request_context(tid):
         outcome = _services().task_scoped_execution_service.execute_task_step(
             tid,
             data,

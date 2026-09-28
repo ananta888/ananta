@@ -1412,9 +1412,20 @@ class ModelInvocationService:
             if not lock.acquire(blocking=False):
                 logger.debug("LM Studio busy - waiting for inference lock (provider=%s)", provider)
                 lock.acquire()
+        from agent.common.lmstudio_request_registry import (
+            _get_current_context,
+            create_and_register_session,
+            release_session,
+        )
+
+        # A call made for a task/goal is registered under it: cancelling it (dispatch hard timeout, operator
+        # cancel) shuts the connection down and the model server stops generating instead of blocking a slot.
+        # Without a task/goal nothing can cancel it: the plain request as before.
+        http_session, session_key = create_and_register_session() if any(_get_current_context()) else (None, None)
+        post = http_session.post if http_session is not None else requests.post
         try:
             try:
-                resp = requests.post(
+                resp = post(
                     url,
                     json=body,
                     headers=headers,
@@ -1709,6 +1720,9 @@ class ModelInvocationService:
                 payload["metadata"] = meta
             return payload
         finally:
+            if http_session is not None:
+                release_session(session_key, http_session)
+                http_session.close()
             if lock is not None:
                 lock.release()
 

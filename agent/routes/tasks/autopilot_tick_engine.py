@@ -741,6 +741,20 @@ def execute_autopilot_tick(
                     "[tick][task_id=%s] dispatch aborted (%s), marking %s",
                     tid, reason, "todo" if recoverable else "failed",
                 )
+                # the abandoned thread keeps waiting on its model call; stop that call on the Hub and the
+                # workers, otherwise the model server keeps generating for nobody and blocks a slot
+                try:
+                    from agent.services.request_cancellation_service import (
+                        get_request_cancellation_service,
+                    )
+
+                    cancelled = get_request_cancellation_service().cancel_task_requests(
+                        task_id=tid, include_workers=True,
+                    )
+                    append_trace_event(tid, "dispatch_requests_cancelled", reason=reason,
+                                       result=cancelled if isinstance(cancelled, dict) else None)
+                except Exception:
+                    logging.exception("Dispatch cancellation failed for %s", tid)
                 update_local_task_status(
                     tid,
                     "todo" if recoverable else "failed",
