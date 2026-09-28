@@ -234,6 +234,7 @@ def test_the_fixed_request_part_counts_against_the_window(app):
         assert decision["fit"]["output_reserve_tokens"] == 32768 - budgets.available
 
 
+@pytest.mark.slow
 def test_an_enormous_task_is_paused_and_a_resumed_one_processed_piece_by_piece(app):
     with app.app_context():
         _save("lc-huge", status="todo", title="Alles", description="x " * 2_700_000,  # ~45x the budget

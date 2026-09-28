@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import sqlalchemy as sa
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,7 @@ def _voice_schema(database: Path) -> tuple[set[str | None], set[str], set[str | 
     return feedback_constraints, idempotency_columns, idempotency_indexes
 
 
+@pytest.mark.slow
 def test_voice_governance_migration_up_down_and_reupgrade(tmp_path: Path) -> None:
     database = tmp_path / "voice-migrations.db"
     _alembic(database, "upgrade", "head")

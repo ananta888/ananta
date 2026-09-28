@@ -59,6 +59,7 @@ def test_changing_memory_turns_writes_project_json(tmp_path):
     assert data.get("settings", {}).get("chat_history_turns") == 12
 
 
+@pytest.mark.slow
 def test_partial_change_does_not_corrupt_json(tmp_path):
     game: dict = {}
     apply_ai_snake_config_value(game, key="chat_backend", value="lmstudio")

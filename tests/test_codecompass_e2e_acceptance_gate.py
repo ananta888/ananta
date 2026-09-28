@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 from scripts.visual_process_test_authority import (
     AUTHORIZED_SOURCE_ID_ENV,
@@ -64,6 +65,7 @@ def test_committed_codecompass_gate_is_schema_valid_and_fail_closed() -> None:
     }
 
 
+@pytest.mark.slow
 def test_codecompass_gate_generator_is_byte_reproducible(tmp_path: Path) -> None:
     first = tmp_path / "first.json"
     second = tmp_path / "second.json"
@@ -79,6 +81,7 @@ def test_codecompass_gate_generator_is_byte_reproducible(tmp_path: Path) -> None
     assert first.read_bytes() == second.read_bytes() == REPORT.read_bytes()
 
 
+@pytest.mark.slow
 def test_codecompass_gate_generator_check_accepts_committed_report() -> None:
     subprocess.run(
         [sys.executable, str(GENERATOR), "--check"],
@@ -117,6 +120,7 @@ def test_positive_authority_mode_requires_explicit_external_identity(
     assert not output.exists()
 
 
+@pytest.mark.slow
 def test_positive_authority_mode_releases_only_hub_preauthorized_test_ids(
     tmp_path: Path,
 ) -> None:

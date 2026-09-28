@@ -97,6 +97,7 @@ def test_e2e_autonomous_scrum_recovery_restore_restarts_enabled_loop(app, monkey
     assert calls["persist"] is False
 
 
+@pytest.mark.slow
 def test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks(client, app, monkeypatch, admin_auth_header):
     monkeypatch.setattr(settings, "role", "hub")
     autonomous_loop.stop(persist=False)

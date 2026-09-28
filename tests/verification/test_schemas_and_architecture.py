@@ -42,6 +42,7 @@ def test_report_schema_exposes_every_closed_runtime_status() -> None:
     assert set(schema["properties"]["status"]["enum"]) == {status.value for status in VerificationStatus}
 
 
+@pytest.mark.slow
 def test_hub_modules_do_not_import_optional_verification_tools() -> None:
     forbidden = {"hypothesis", "crosshair", "hypothesis_crosshair", "z3"}
     for path in [ROOT / "agent", ROOT / "ananta_contracts"]:

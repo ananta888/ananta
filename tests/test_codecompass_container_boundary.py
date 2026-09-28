@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 from ananta_codecompass.architecture_query import run_architecture_query
 from ananta_codecompass.candidate_resolver import CodeCompassCandidateResolver
 from ananta_codecompass.embedding_loader import load_codecompass_embedding_documents
@@ -38,6 +40,7 @@ def test_worker_graph_modules_are_compatibility_facades() -> None:
     assert worker_vector.CodeCompassVectorEngine is CodeCompassVectorEngine
 
 
+@pytest.mark.slow
 def test_agent_production_code_does_not_import_worker_graph_implementation() -> None:
     root = Path(__file__).parents[1]
     violations: list[str] = []

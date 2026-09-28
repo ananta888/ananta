@@ -179,6 +179,7 @@ class TestSnakeEventsStreamEndpoint:
         )
         assert full_user_query.status_code == 401
 
+    @pytest.mark.slow
     def test_stream_returns_event_stream_mimetype(self, client):
         import agent.routes.snake_event_broadcaster as broadcaster
 

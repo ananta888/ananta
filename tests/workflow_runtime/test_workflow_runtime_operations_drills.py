@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "run-workflow-runtime-operations-drills.py"
 
 
+@pytest.mark.slow
 def test_operations_drill_script_runs_all_release_blocking_drills(tmp_path: Path) -> None:
     workspace = tmp_path / "drill"
     output = tmp_path / "evidence.json"
@@ -130,6 +131,7 @@ def test_operations_drill_source_revision_binds_dirty_repository_bytes(
     assert combined_digest != tracked_digest
 
 
+@pytest.mark.slow
 def test_operations_drill_script_allocates_automatic_workspace(tmp_path: Path) -> None:
     output = tmp_path / "automatic-evidence.json"
     completed = subprocess.run(

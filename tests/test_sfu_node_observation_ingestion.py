@@ -398,6 +398,7 @@ def test_oversize_label_flood_invalid_values_and_clock_skew_fail_before_persiste
         assert db.exec(select(func.count()).select_from(SfuNodeObservationReplayDB)).one() == 0
 
 
+@pytest.mark.slow
 def test_deterministic_fuzz_and_ten_thousand_replays_remain_bounded():
     service, engine, _ = _service(entries_max=8, sequence_window=4)
     rng = random.Random(20260722)

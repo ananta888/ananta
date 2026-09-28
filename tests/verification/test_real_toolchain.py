@@ -28,6 +28,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.slow
 def test_crosshair_checks_five_bounded_ananta_targets() -> None:
     targets = tuple(
         f"worker.verification.pilot_targets.{name}"
@@ -55,6 +56,7 @@ def test_crosshair_checks_five_bounded_ananta_targets() -> None:
     assert report.reason_code == "bounded_search_no_counterexample"
 
 
+@pytest.mark.slow
 def test_crosshair_checks_five_authoritative_production_targets() -> None:
     targets = (
         "agent.services.task_dependency_policy.normalize_text",
@@ -137,6 +139,7 @@ def test_diffbehavior_distinguishes_semantic_patch_and_bounds_equivalent_result(
     assert equivalent.reason_code == "bounded_diff_no_difference"
 
 
+@pytest.mark.slow
 def test_five_properties_run_with_crosshair_backend() -> None:
     targets = tuple(
         f"tests/verification/test_property_pilot.py::{name}"

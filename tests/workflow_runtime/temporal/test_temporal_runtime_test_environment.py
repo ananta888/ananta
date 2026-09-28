@@ -917,6 +917,7 @@ def test_expired_authorization_and_operation_mismatch_fail_closed() -> None:
     asyncio.run(mismatch_scenario())
 
 
+@pytest.mark.slow
 def test_timeout_uncertainty_and_cancel_propagation() -> None:
     async def timeout_scenario() -> None:
         gateway = ScriptedHubGateway(poll_cycles=-1)
@@ -1142,6 +1143,7 @@ def test_bounded_parallel_fanout_and_deterministic_merge_repeat_ten_times() -> N
     asyncio.run(scenario())
 
 
+@pytest.mark.slow
 def test_cancel_propagates_to_every_open_parallel_branch() -> None:
     async def scenario() -> None:
         gateway = ScriptedHubGateway(poll_cycles=-1)

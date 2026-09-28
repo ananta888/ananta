@@ -2043,6 +2043,7 @@ def test_sql_raw_projection_tampering_is_never_adopted(
     assert type(observed) is EffectQuarantine
 
 
+@pytest.mark.slow
 def test_authorization_grant_effect_is_imported_only_by_the_cutover_composition() -> None:
     root = Path(__file__).resolve().parents[1]
     # The Native cutover composition is the single sanctioned importer, and it

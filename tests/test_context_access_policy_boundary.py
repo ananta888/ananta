@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 from ananta_contracts.context_access_policy import (
     ContextAccessPolicy,
     ContextAccessPolicyEvaluator,
@@ -59,6 +61,7 @@ def test_unknown_source_is_denied_by_default() -> None:
     assert decision.decision is Decision.deny
 
 
+@pytest.mark.slow
 def test_agent_production_code_does_not_import_worker_policy() -> None:
     agent_root = Path(__file__).parents[1] / "agent"
     violations: list[str] = []

@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import sqlalchemy as sa
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -193,6 +194,7 @@ def _assert_schema(database: Path) -> None:
         assert any(item["referred_table"] == "ml_intern_training_jobs" for item in foreign_keys)
 
 
+@pytest.mark.slow
 def test_ml_intern_training_migration_up_down_and_reupgrade(tmp_path: Path) -> None:
     database = tmp_path / "ml-intern-training-migrations.db"
 

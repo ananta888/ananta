@@ -275,6 +275,7 @@ testpaths = ["tests"]
 addopts = "-v"
 markers = [
     "benchmark: marks deterministic benchmark-contract and performance tests",
+    "slow: marks tests that take >= 10 s (migrations, real toolchains, drills); skipped by scripts/test-affected.sh unless INCLUDE_SLOW=1, always part of the full suite",
     "integration: marks tests that validate cross-component integration behavior",
     "qdrant_integration: marks opt-in tests against the digest-pinned Qdrant service",
     "hardware: marks explicit local model or GPU evidence gates excluded from normal CI",

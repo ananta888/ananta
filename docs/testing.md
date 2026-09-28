@@ -435,6 +435,7 @@ docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user 100
 ```
 
 Richtwert: ~11 Minuten mit `-n 8` (43 GB Host). Mehr Worker helfen kaum und kosten Speicher.
+Ohne Langlaeufer: `-m "not slow"`.
 
 Fuer die Arbeit an einer Aenderung reicht meist die **betroffene Auswahl**:
 
@@ -444,6 +445,10 @@ scripts/test-affected.sh --base origin/main   # alles auf dem Branch
 scripts/test-affected.sh --depth 2            # engeres, schnelles Signal
 python scripts/select_affected_tests.py --explain   # nur anzeigen, mit Begruendung
 ```
+
+Tests mit `@pytest.mark.slow` (je >= 10 s: Migrationen hoch/runter, echte Toolchains, Temporal-/Operations-Drills,
+Import-Grenzen-Scans) ueberspringt `test-affected.sh` standardmaessig; `INCLUDE_SLOW=1` nimmt sie mit. Die volle
+Suite fuehrt sie immer aus. Neue Tests, die regelmaessig >= 10 s brauchen, bekommen den Marker.
 
 `scripts/select_affected_tests.py` verfolgt einen statischen Importgraphen (AST, nichts wird importiert) von
 den geaenderten Modulen rueckwaerts bis zu den Testdateien. Geaenderte Nicht-Python-Dateien (Doku, JSON-Gates,

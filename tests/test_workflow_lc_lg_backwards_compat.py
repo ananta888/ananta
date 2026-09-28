@@ -36,6 +36,7 @@ PRE_LCG_TESTS = [
 
 
 @pytest.mark.parametrize("test_path", PRE_LCG_TESTS)
+@pytest.mark.slow
 def test_existing_workflow_test_still_passes(test_path):
     """The pre-LCG workflow tests must continue to pass after the LCG
     commits, proving we did not break the contract."""

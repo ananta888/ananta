@@ -317,6 +317,7 @@ def test_enabled_bootstrap_uses_production_composition(monkeypatch, tmp_path):
     assert agent.database.engine is original
 
 
+@pytest.mark.slow
 def test_real_project_authority_rejects_viewer_mutation_and_archived_reads(runtime):
     from sqlmodel import Session, SQLModel
 
