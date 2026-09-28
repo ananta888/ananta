@@ -1417,6 +1417,10 @@ def persist_forwarded_proposal(
             "latency_ms": None,
             "output_source": str(response.get("backend") or "orchestrator").strip() or "orchestrator",
         }
+    # the executable step as the autopilot decides it (wrapped `proposal`, structured raw output): the worker may
+    # complete the task itself, then this record is the one that stays
+    executable = get_core_services().autopilot_decision_service.normalize_proposal_data(response)
+    proposal_tool_calls = executable.get("tool_calls") if isinstance(executable.get("tool_calls"), list) else None
     get_core_services().task_execution_service.persist_task_proposal_result(
         tid=task["id"],
         task=task,
@@ -1430,8 +1434,8 @@ def persist_forwarded_proposal(
         trace=response_trace,
         review=response.get("review") if isinstance(response.get("review"), dict) else None,
         pipeline=response.get("pipeline") if isinstance(response.get("pipeline"), dict) else None,
-        command=(str(response.get("command") or "").strip() or None),
-        tool_calls=response.get("tool_calls") if isinstance(response.get("tool_calls"), list) else None,
+        command=(str(executable.get("command") or "").strip() or None),
+        tool_calls=proposal_tool_calls,
         comparisons=response.get("comparisons") if isinstance(response.get("comparisons"), dict) else None,
         research_artifact=(
             response.get("research_artifact")
