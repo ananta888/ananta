@@ -657,6 +657,9 @@ def build_default_agent_config() -> dict:
         # runtime context window (settings UI): {"profile": "full_64k"} or {"profile": "custom", "tokens": N};
         # empty: ANANTA_CONTEXT_PROFILE / ANANTA_CONTEXT_TOKENS (agent/context_profile.py)
         "context_window": {},
+        # prompt limits of subscription/cloud model families (substring of the model name -> tokens), overriding
+        # the defaults in agent/context_profile.py, e.g. {"claude": 1000000} for a 1M-context subscription
+        "cloud_model_limits": {},
         # AWWPI-013: workspace mutation loop for ananta-worker. Disabled by
         # default; mutation_mode defaults to read_only and can be derived per
         # task_kind. Risk rules escalate controlled_workspace to

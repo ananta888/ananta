@@ -317,3 +317,12 @@ def test_forwarded_steps_carry_the_hub_window_unless_leased():
     leased = {"task_id": "T", "dispatch_lease_token": "x"}
     assert _with_hub_context_window("/tasks/T/step/execute", leased) is leased
     assert "context_window" not in _with_hub_context_window("/tasks/T/logs", {"a": 1})
+
+
+def test_cloud_model_limits_are_configurable():
+    from agent.context_profile import cloud_model_limit
+
+    assert cloud_model_limit("anthropic/claude-sonnet-4", agent_cfg={}) == 200_000
+    assert cloud_model_limit("claude-sonnet-4", agent_cfg={"cloud_model_limits": {"claude": 1_000_000}}) == 1_000_000
+    assert cloud_model_limit("gpt-5-codex", agent_cfg={"cloud_model_limits": {"gpt-5-codex": 400_000}}) == 400_000
+    assert cloud_model_limit("unknown-model", 128_000, agent_cfg={}) == 128_000

@@ -80,7 +80,10 @@ LM Studio, llama.cpp, konfigurierte `local_openai_backends`). **Abo-/Cloud-Model
 | opencode mit Cloud-Modell (`anthropic/…`, `openai/…`, `gemini/…`, …; auch als konfiguriertes Standardmodell) | Modellgrenze (Claude 200 000, sonst 128 000) |
 | opencode mit lokalem Modell, sgpt | effektives Ananta-Fenster (opencode höchstens 128 000) |
 
-`MAX_PROMPT_TOKENS` übersteuert alle CLI-Gates bewusst. (`agent.context_profile.window_for_provider`,
+Die Modellgrenzen stehen in `CLOUD_MODEL_LIMITS` (`agent/context_profile.py`); Abo-CLIs melden ihr Limit
+nicht, deshalb sind sie per Config überschreib- und erweiterbar, z. B. für ein 1M-Kontext-Abo:
+`POST /config {"cloud_model_limits": {"claude": 1000000}}` (Teilstring des Modellnamens → Token, der längste
+passende Name gewinnt). `MAX_PROMPT_TOKENS` übersteuert alle CLI-Gates bewusst. (`agent.context_profile.window_for_provider`,
 `agent/cli_backends/budget.prompt_token_limit`.) Ein Codex/opencode/aider, der auf eine lokale Runtime zeigt
 (`inference_target_kind: local_openai`), gilt als lokal.
 

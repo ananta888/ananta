@@ -430,13 +430,26 @@ def is_local_provider(provider: str | None, agent_cfg: Mapping[str, Any] | None 
     return False
 
 
-def cloud_model_limit(model: str | None, default: int | None = None) -> int | None:
-    """The prompt limit of a cloud/subscription model family (``anthropic/claude-...``, ``gpt-5-codex``, ...)."""
+def cloud_model_limits(agent_cfg: Mapping[str, Any] | None = None) -> dict[str, int]:
+    """The model-family limits: the defaults, overridden/extended by config ``cloud_model_limits``
+    (e.g. ``{"claude": 1000000}`` for a 1M-context subscription). Subscription CLIs report no limit themselves."""
+    limits = dict(CLOUD_MODEL_LIMITS)
+    configured = _agent_config(agent_cfg).get("cloud_model_limits")
+    if isinstance(configured, Mapping):
+        for key, value in configured.items():
+            tokens = _valid_tokens(value)
+            if str(key).strip() and tokens is not None:
+                limits[str(key).strip().lower()] = tokens
+    return limits
+
+
+def cloud_model_limit(model: str | None, default: int | None = None,
+                      agent_cfg: Mapping[str, Any] | None = None) -> int | None:
+    """The prompt limit of a cloud/subscription model family (``anthropic/claude-...``, ``gpt-5-codex``, ...);
+    the longest matching family name wins (``gpt-5-codex`` over ``gpt-5``)."""
     text = str(model or "").strip().lower()
-    for key, value in CLOUD_MODEL_LIMITS.items():
-        if key in text:
-            return value
-    return default
+    matches = [(len(key), value) for key, value in cloud_model_limits(agent_cfg).items() if key and key in text]
+    return max(matches)[1] if matches else default
 
 
 def window_for_provider(provider: str | None, *, model: str | None = None, requested: int | None = None,
