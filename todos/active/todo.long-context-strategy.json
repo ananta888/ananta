@@ -2,11 +2,11 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-27",
-  "updated_at": "2026-09-27",
+  "updated_at": "2026-09-28",
   "owner": "Peter Stuiber / Ananta",
   "track": "long_context_strategy",
   "title": "Aufgaben mit mehr Kontext als das 32k-Fenster: entscheiden, verdichten, nachladen, nacheinander, parallel",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -84,7 +84,7 @@
         "LCTX-009",
         "LCTX-012"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "LCTX-M4",
@@ -93,7 +93,7 @@
         "LCTX-010",
         "LCTX-011"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -200,10 +200,10 @@
       "milestone_id": "LCTX-M3",
       "title": "Strategie: verdichten",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-004"
       ],
@@ -214,17 +214,19 @@
       "acceptance_criteria": [
         "Invarianten-Pruefung: harte Vorgaben ueberleben die Verdichtung (Tests)."
       ],
-      "evidence": []
+      "evidence": [
+        "db406fbef: compact verschiebt Material nach .ananta/task-material.md mit Gliederung/Zeilenbereichen; tests/test_long_context_split.py"
+      ]
     },
     {
       "id": "LCTX-006",
       "milestone_id": "LCTX-M3",
       "title": "Strategie: gezielt nachladen",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-004"
       ],
@@ -235,7 +237,9 @@
       "acceptance_criteria": [
         "Grosse Bestaende werden stueckweise statt abgeschnitten gelesen."
       ],
-      "evidence": []
+      "evidence": [
+        "db406fbef: retrieve (Frage an grossen Bestand) wie compact, Leseanweisung nur relevante Abschnitte; escalate pausiert, Fortsetzen -> sequentiell"
+      ]
     },
     {
       "id": "LCTX-007",
@@ -288,10 +292,10 @@
       "milestone_id": "LCTX-M3",
       "title": "Ueberlauf zur Laufzeit behandeln",
       "type": "feature",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-004"
       ],
@@ -302,17 +306,19 @@
       "acceptance_criteria": [
         "Ein kuenstlich ueberlanger Auftrag endet mit Ergebnis statt Fehler (headless Test)."
       ],
-      "evidence": []
+      "evidence": [
+        "20003db7a: Ueberlauf nach erschoepften Versuchen -> verdichten/auslagern/zerlegen und neu (active); Planungssegmente wachsen bis 8 statt 7200-Zeichen-Schnitt; Recovery-Grenzen aus dem Fenster; Regression 1036 passed"
+      ]
     },
     {
       "id": "LCTX-010",
       "milestone_id": "LCTX-M4",
       "title": "Benchmark grosse Aufgaben",
       "type": "evaluation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-005",
         "LCTX-006",
@@ -325,17 +331,20 @@
       "acceptance_criteria": [
         "Empfohlene Schwellen/Regeln fuer die Strategiewahl belegt."
       ],
-      "evidence": []
+      "evidence": [
+        "scripts/long_context_e2e.py; Lauf a72db680 (2026-09-28): ordered/parts/compact/corpus alle completed, 35 Schritte, max. 31 750 Prompt-Token (keiner > 32 768), 1 Modellaufruf je Schritt, Median 58 s",
+        "docs/long-context-strategy.md Abschnitt Live-Messung; Fixes aus den Läufen: 5a8d39ff3, 930e3fa72, 6f114f92e, 5ad099e69, d008df543, 8b5cce9da, 6a32b43c9, 23a63f20d und Folgecommits"
+      ]
     },
     {
       "id": "LCTX-011",
       "milestone_id": "LCTX-M4",
       "title": "Doku und Konfiguration",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LCTX-004"
       ],
@@ -345,7 +354,9 @@
       "acceptance_criteria": [
         "Doku beschreibt nur Wirkendes."
       ],
-      "evidence": []
+      "evidence": [
+        "docs/long-context-strategy.md: Entscheidung, Strategien, Ergebnis eines Schritts, mitwachsende Grenzen, Live-Messung, Betrieb/Abschalten"
+      ]
     },
     {
       "id": "LCTX-012",
@@ -396,13 +407,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 12
     },
-    "progress_percent_done": 58.3,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 4,
       "P1": 6,
@@ -417,16 +428,16 @@
     },
     "critical_path": {
       "total": 7,
-      "done": 6,
-      "remaining": 1
+      "done": 7,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 2,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 3
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -450,18 +461,18 @@
       },
       "feature": {
         "total": 8,
-        "done": 5,
+        "done": 8,
         "partial": 0,
         "blocked": 0,
-        "todo": 3,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 62.5,
+        "progress_percent": 100.0,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 5
+          "done": 8
         }
       },
       "refactor": {
@@ -515,13 +526,13 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 5,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 7,
-    "milestones_done": 3,
+    "done": 12,
+    "milestones_done": 5,
     "milestones_total": 5
   }
 }

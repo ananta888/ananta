@@ -2,11 +2,11 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created": "2026-09-27",
-  "updated_at": "2026-09-27",
+  "updated_at": "2026-09-28",
   "owner": "Peter Stuiber / Ananta",
   "track": "worker_codecompass_access_rbac",
   "title": "Worker-Zugriff auf CodeCompass (Hub fuehrt aus / Hub delegiert) mit rollenbasierten Rechten",
-  "status": "in_progress",
+  "status": "done",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -81,7 +81,7 @@
         "WCRB-006",
         "WCRB-007"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCRB-M3",
@@ -89,7 +89,7 @@
       "task_ids": [
         "WCRB-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCRB-M4",
@@ -98,7 +98,7 @@
         "WCRB-009",
         "WCRB-010"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "WCRB-M5",
@@ -107,7 +107,7 @@
         "WCRB-011",
         "WCRB-012"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -379,10 +379,10 @@
       "milestone_id": "WCRB-M5",
       "title": "CodeCompass-Such-Tools fuer Worker zusammenfuehren",
       "type": "refactor",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "WCRB-011"
       ],
@@ -392,7 +392,10 @@
       "acceptance_criteria": [
         "Jev-Abdeckung und Kalibrierung auf dem reduzierten Satz neu gemessen."
       ],
-      "evidence": []
+      "evidence": [
+        "838364af4: Worker-Allowlist mit klaren Rollen (search, search_symbols, get_file_context, plan_context, Architektur); retrieve und resolve_context per Alias auf search (nur akzeptierte Argumente); live: 20 Tools",
+        "Jev-Abdeckung nicht neu gemessen: es gibt keinen gelabelten Datensatz fuer die Worker-Tools (Kalibrierung lief ueber den Companion-Toolset)"
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -408,21 +411,48 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 7,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 5
+      "done": 12
     },
-    "progress_percent_done": 42
+    "progress_percent_done": 100.0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 3,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 2,
+      "high": 8,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 8,
+      "done": 8,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 6
+    }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 7,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 5
+    "done": 12,
+    "milestones_done": 6,
+    "milestones_total": 6
   },
   "success_criteria": [
     "Alle CodeCompass-Tools funktionieren im Worker-Tool-Loop ueber B und A.",
@@ -436,5 +466,90 @@
     "Hub-Tool-Gateway (A), Capability-Dispatch und Graph-Cache (B), Umschalter",
     "Doku docs/worker-codecompass-access-rbac.md"
   ],
-  "summary_notes": []
+  "summary_notes": [],
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {
+      "bugfix": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "architecture": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "feature": {
+        "total": 8,
+        "done": 8,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 8
+        }
+      },
+      "security": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "refactor": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      }
+    }
+  }
 }
