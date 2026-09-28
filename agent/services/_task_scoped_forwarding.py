@@ -926,6 +926,21 @@ def _attach_codecompass_capability(payload: dict[str, Any], *, task: dict[str, A
         payload["codecompass_capability"] = capability
 
 
+def _with_hub_context_window(endpoint: str, payload: dict) -> dict:
+    """A step forwarded to a worker carries the window the Hub sizes tasks for (hub-owned, like the autopilot's
+    requests). Requests under a dispatch lease already carry it and are fingerprinted: left untouched."""
+    if not str(endpoint or "").endswith(("/step/propose", "/step/execute")) or not isinstance(payload, dict):
+        return payload
+    if payload.get("context_window") or payload.get("dispatch_lease_token"):
+        return payload
+    try:
+        from agent.context_profile import hub_assignment
+
+        return {**payload, "context_window": hub_assignment()}
+    except Exception:  # noqa: BLE001 -- without it the worker uses its own configuration
+        return payload
+
+
 def forward_task_request_if_remote(
     *,
     tid: str,
@@ -940,6 +955,7 @@ def forward_task_request_if_remote(
 ) -> "TaskScopedRouteResponse | None":
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
+    payload = _with_hub_context_window(endpoint, payload)
     mail_lease: dict[str, Any] | None = None
     mail_lease_owner: str | None = None
     preserve_mail_lease_on_error = False

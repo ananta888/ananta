@@ -307,3 +307,13 @@ def test_the_profile_limits_local_runtimes_only(profile, window):
     assert window_for_provider("openai", requested=50_000) == 50_000  # an explicit limit still applies
     assert window_for_provider("llamacpp", requested=10 * window) == window  # never above the local window
     assert is_local_provider("my-gpu", {"local_openai_backends": [{"id": "my-gpu", "base_url": "http://x/v1"}]})
+
+
+def test_forwarded_steps_carry_the_hub_window_unless_leased():
+    from agent.services._task_scoped_forwarding import _with_hub_context_window
+
+    plain = _with_hub_context_window("/tasks/T/step/propose", {"task_id": "T"})
+    assert plain["context_window"]["profile"] in PROFILES or plain["context_window"]["profile"] == "custom"
+    leased = {"task_id": "T", "dispatch_lease_token": "x"}
+    assert _with_hub_context_window("/tasks/T/step/execute", leased) is leased
+    assert "context_window" not in _with_hub_context_window("/tasks/T/logs", {"a": 1})

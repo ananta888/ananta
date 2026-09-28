@@ -3005,7 +3005,9 @@ def test_public_codecompass_v1_keeps_legacy_forwarder_boundary(
 
     assert result is not None
     assert len(calls) == 1
-    assert calls[0][2] == {"task_id": task["id"]}
+    # the forwarded step carries the Hub's context window (hub-owned), otherwise unchanged
+    assert {k: v for k, v in calls[0][2].items() if k != "context_window"} == {"task_id": task["id"]}
+    assert calls[0][2]["context_window"]["profile"]
     assert calls[0][3] == "stale-codecompass-token"
     assert len(accepted) == 1
 
