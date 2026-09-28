@@ -172,7 +172,9 @@ def test_admin_json_dataset_to_async_job_preview_sse_and_retention(
         assert response.status_code == 200
         detail = response.get_json()["data"]
         time.sleep(0.02)
-    assert detail["status"] == "completed", detail
+    if detail["status"] != "completed":  # a rare load-dependent failure: keep what explains it
+        events = client.get(accepted["events_url"], headers=admin_auth_header).get_json()["data"]["items"]
+        raise AssertionError(json.dumps({"detail": detail, "events": events}, default=str)[:6000])
 
     events = client.get(accepted["events_url"], headers=admin_auth_header)
     assert events.status_code == 200
