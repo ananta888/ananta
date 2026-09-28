@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
 import time
 import urllib.error
@@ -88,14 +89,60 @@ def cases(scale: float) -> list[dict[str, Any]]:
     ]
 
 
+_EVENTS = {"long_context_split": "split", "long_context_externalized": "externalized",
+           "long_context_escalated": "escalated", "long_context_completed": "completed"}
+
+
 def _details(task: dict[str, Any]) -> dict[str, Any]:
-    raw = task.get("status_reason_details") or {}
-    return dict(raw.get("long_context") or {}) if isinstance(raw, dict) else {}
+    """The long-context handling from the task's history (the read API does not expose status_reason_details)."""
+    found: dict[str, Any] = {}
+    for event in task.get("history") or []:
+        kind = _EVENTS.get(str(event.get("event_type") or ""))
+        if kind:
+            details = dict(event.get("details") or event.get("event_details") or {})
+            found.setdefault("events", []).append(kind)
+            if details.get("strategy"):
+                found["strategy"] = details["strategy"]
+            if details.get("steps"):
+                found["steps"] = int(details["steps"])
+    return found
+
+
+def _stored(task_id: str) -> tuple[str | None, dict[str, Any]]:
+    """Result and long-context record from the Hub DB when running inside the Hub container.
+
+    The read API omits ``last_output`` and ``status_reason_details`` and strips history details.
+    """
+    try:
+        from sqlalchemy import text
+
+        from agent.database import engine
+
+        with engine.connect() as connection:
+            row = connection.execute(text("select last_output, status_reason_details from tasks where id = :id"),
+                                     {"id": task_id}).first()
+    except Exception:  # noqa: BLE001 -- outside the Hub container: unknown
+        return None, {}
+    if not row:
+        return None, {}
+    details = row[1]
+    if isinstance(details, str):
+        try:
+            details = json.loads(details)
+        except ValueError:
+            details = {}
+    record = dict((details or {}).get("long_context") or {}) if isinstance(details, dict) else {}
+    return str(row[0] or ""), record
 
 
 def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: float) -> dict[str, Any]:
     config = hub.call("GET", "/config")
     previous = dict(config.get("context_strategy") or {})
+    if previous.get("mode") == "active":
+        previous["mode"] = "shadow"  # never "restore" a leftover active mode from an aborted run
+    # the autopilot only picks up tasks of its team
+    team_id = str((hub.call("GET", "/tasks/autopilot/status") or {}).get("team_id") or "") or None
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))  # run the finally block (restore) on SIGTERM
     hub.call("POST", "/config", {"context_strategy": {**previous, "mode": "active"}})
     run_id = uuid.uuid4().hex[:8]
     report: dict[str, Any] = {"schema": "ananta.long_context_e2e.v1", "run_id": run_id, "cases": []}
@@ -104,7 +151,7 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
         for case in [c for c in cases(scale) if c["case"] in selected]:
             task_id = f"lctx-e2e-{run_id}-{case['case']}"
             hub.call("POST", "/tasks", {"id": task_id, "title": case["title"], "description": case["description"],
-                                        "status": "todo", "task_kind": "analysis",
+                                        "status": "todo", "task_kind": "analysis", "team_id": team_id, "priority": "high",
                                         "worker_execution_context": case["context"]}, timeout=120)
             tasks[task_id] = {**case, "task_id": task_id, "started": time.time(),
                               "size_tokens": (len(case["description"]) + sum(len(p["text"]) for p in case["context"]
@@ -122,11 +169,16 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
                 task = hub.call("GET", f"/tasks/{task_id}")
                 status = str(task.get("status") or "")
                 meta["status"] = status
-                meta["long_context"] = _details(task)
+                output, record = _stored(task_id)
+                reason = str((record.get("decision") or {}).get("reason") or "")
+                meta["long_context"] = {**_details(task), **({"strategy": record["strategy"]} if record.get(
+                    "strategy") else {}), **({"steps": len(record["steps"])} if isinstance(record.get("steps"), list)
+                                             else {}), **({"decided": reason.split("_as_split", 1)[0]}
+                                                          if "_as_split" in reason else {})}
                 if status in {"completed", "failed", "paused", "cancelled", "verification_failed"}:
                     meta["finished"] = time.time()
-                    meta["output_chars"] = len(str(task.get("last_output") or ""))
-                    meta["output_head"] = str(task.get("last_output") or "")[:400]
+                    meta["output_chars"] = None if output is None else len(output)
+                    meta["output_head"] = (output or "")[:400]
                 else:
                     open_tasks += 1
             print(json.dumps({t: (m.get("status"), (m.get("long_context") or {}).get("strategy"))
@@ -138,12 +190,12 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
         hub.call("POST", "/config", {"context_strategy": previous or {"mode": "shadow"}})
     for meta in tasks.values():
         lc = meta.get("long_context") or {}
-        decision = lc.get("decision") or {}
         report["cases"].append({
             "case": meta["case"], "task_id": meta["task_id"], "expected_strategy": meta["expected"],
-            "strategy": lc.get("strategy") or decision.get("strategy") or lc.get("role"),
-            "size_tokens": meta["size_tokens"], "ratio": (decision.get("fit") or {}).get("ratio"),
-            "steps": len(lc.get("steps") or []), "status": meta.get("status"),
+            "decided": lc.get("decided") or lc.get("strategy"), "strategy": lc.get("strategy"),
+            "events": lc.get("events"),
+            "size_tokens": meta["size_tokens"], "ratio": round(meta["size_tokens"] / (WINDOW_TOKENS - 1024), 2),
+            "steps": lc.get("steps") or 0, "status": meta.get("status"),
             "seconds": round((meta.get("finished") or time.time()) - meta["started"], 1),
             "output_chars": meta.get("output_chars"), "output_head": meta.get("output_head")})
     return report
@@ -164,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
     for row in report["cases"]:
-        print(f"{row['case']:8s} expected {row['expected_strategy']:10s} got {str(row['strategy']):10s} "
+        print(f"{row['case']:8s} expected {row['expected_strategy']:10s} decided {str(row['decided']):10s} "
+              f"ran {str(row['strategy']):10s} "
               f"{row['size_tokens']:>7} tok ratio {row['ratio']} steps {row['steps']:>2} {row['status']:>10} "
               f"{row['seconds']:>7}s out {row['output_chars']}")
     print(f"report: {args.out}")
