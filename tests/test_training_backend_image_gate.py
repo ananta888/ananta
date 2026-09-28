@@ -168,8 +168,10 @@ def test_scanners_run_as_calling_user_and_leave_readable_reports(tmp_path: Path)
     (report_root / "axolotl.grype.json").write_text(json.dumps(_scanner()), encoding="utf-8")
     runner = RecordingRunner({})
     scanners = load_scanner_config()
+    docker_socket = tmp_path / "docker.sock"  # the gate only reads its group id
+    docker_socket.write_text("", encoding="utf-8")
 
-    DockerImageGate(runner).scan(BACKENDS[0], scanners, report_root, cache_root)
+    DockerImageGate(runner, docker_socket=docker_socket).scan(BACKENDS[0], scanners, report_root, cache_root)
 
     assert len(runner.commands) == 2
     for command in runner.commands:

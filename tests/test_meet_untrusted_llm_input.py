@@ -49,7 +49,8 @@ def test_prompt_cannot_supply_system_roles_tools_provider_or_future_history(serv
     assert len(requests) == 2
     for payload, text in zip(requests, (attack, "Eine neue unabhängige Eingabe."), strict=True):
         assert payload["messages"] == [{"role": "system", "content": llm.SYSTEM}, {"role": "user", "content": text}]
-        assert set(payload) == {"model", "messages", "stream", "keep_alive", "options"}
+        assert set(payload) == {"model", "messages", "stream", "keep_alive", "options", "think"}
+        assert payload["think"] is False  # reasoning models answer directly, nothing leaks into the reply
         assert payload["model"] == "synthetic-model" and payload["options"]["num_predict"] == 8
     assert attack not in json.dumps(requests[1])
     assert [(method, path) for method, path, _body in server.calls] == [

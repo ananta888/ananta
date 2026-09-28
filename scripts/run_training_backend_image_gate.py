@@ -117,9 +117,16 @@ def load_scanner_config(path: Path = SCANNER_CONFIG) -> dict[str, Any]:
 class DockerImageGate:
     """Infrastructure adapter; policy evaluation remains pure and testable."""
 
-    def __init__(self, runner: CommandPort, *, timeout_seconds: int = 1800) -> None:
+    def __init__(
+        self,
+        runner: CommandPort,
+        *,
+        timeout_seconds: int = 1800,
+        docker_socket: Path = Path("/var/run/docker.sock"),
+    ) -> None:
         self._runner = runner
         self._timeout = timeout_seconds
+        self._docker_socket = docker_socket
 
     def build(self, spec: BackendImage) -> None:
         self._runner.run(
@@ -204,7 +211,7 @@ class DockerImageGate:
         scanner_tmp.mkdir(exist_ok=True)
         scanner_user = f"{os.getuid()}:{os.getgid()}"
         try:
-            docker_socket_group = str(Path("/var/run/docker.sock").stat().st_gid)
+            docker_socket_group = str(self._docker_socket.stat().st_gid)
         except OSError as exc:
             raise ImageGateError("docker_socket_unavailable") from exc
         self._runner.run(

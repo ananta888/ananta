@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
 from pathlib import Path
 from typing import Any
 
@@ -159,7 +160,8 @@ def assignment(
             "schema": "ananta.research-training-runtime.v1",
             "repository_revision": "a" * 64,
             "image_digest": "c" * 64,
-            "python_version": "3.12.14",
+            # the executing interpreter: the worker verifies it (the CI gate pins 3.12.14, the compose runner 3.11)
+            "python_version": platform.python_version(),
             "torch_version": "2.6.0+cpu",
             "cuda_version": "none",
             "backend_name": "ananta-local-torch",

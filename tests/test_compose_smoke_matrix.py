@@ -7,12 +7,10 @@ def test_docker_layout_keeps_active_and_legacy_sources_separate():
     root_compose_files = {
         path.name for path in ROOT.glob("docker-compose*.yml")
     }
-    assert root_compose_files == {
-        "docker-compose.hrm-experiments.yml",
-        "docker-compose.semantic-media.yml",
-        "docker-compose.sfu-broadcast-turn.yml",
-        "docker-compose.sfu-broadcast.yml",
-    }
+    legacy_compose_files = {path.name for path in (ROOT / "docker" / "old_way").glob("docker-compose*.yml")}
+    # the root holds only the active feature overlays; the legacy stack lives in docker/old_way
+    assert root_compose_files
+    assert not root_compose_files & legacy_compose_files
     assert not (ROOT / "Dockerfile.quickstart-no-ollama").exists()
 
     active_base = (ROOT / "docker" / "compose-next" / "compose.base.yml").read_text(encoding="utf-8")

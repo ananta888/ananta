@@ -105,6 +105,10 @@ def test_container_command_mounts_admitted_dataset_read_only(tmp_path: Path) -> 
     result.write_text("{}", encoding="utf-8")
     nvidia_smi = tmp_path / "nvidia-smi"
     nvidia_smi.write_text("", encoding="utf-8")
+    device = tmp_path / "nvidia0"  # a stand-in: the command only references the device node
+    device.write_text("", encoding="utf-8")
+    cuda = tmp_path / "libcuda.so.1"
+    cuda.write_text("", encoding="utf-8")
 
     command = build_container_command(
         image="worker:gate",
@@ -115,8 +119,8 @@ def test_container_command_mounts_admitted_dataset_read_only(tmp_path: Path) -> 
         matrix_entry="entry",
         timeout_seconds=600,
         root=root,
-        libraries={},
-        device_paths=[],
+        libraries={"libcuda.so.1": cuda},
+        device_paths=[device],
         nvidia_smi_path=nvidia_smi,
         dataset_result_path=result,
     )
