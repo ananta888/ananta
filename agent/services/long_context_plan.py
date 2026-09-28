@@ -23,6 +23,10 @@ DEPENDENCY_OUTPUTS = "{DEPENDENCY_OUTPUTS}"
 MAX_STEPS = 64
 NOTES_HEADING = "## Zwischenstand"
 PARTIAL_HEADING = "## Teilergebnis"
+# The single-shot flow knows commands and tool calls only: the answer goes into one ``final_answer``
+# call (no side effect, passes the safe level), which the Hub hands to the next step (long_context_step_result).
+DELIVERY = ("\n\nAbgabe: kein Shell-Befehl, keine Datei. Gib dein Ergebnis mit genau einem Tool-Aufruf "
+            "`final_answer` ab (`answer`: dein vollständiges Ergebnis als Markdown).")
 
 
 class LongContextPlanError(ValueError):
@@ -66,13 +70,14 @@ def sequential_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "",
                 f"Material, Teil {number} von {total}:\n{chunk.text}\n\n"
                 f"Arbeite nur mit diesem Teil und dem Zwischenstand. Antworte mit '{NOTES_HEADING}': dem "
                 "aktualisierten Zwischenstand für die Gesamtaufgabe (Erkenntnisse, Entscheidungen, offene Punkte, "
-                "Belege mit Fundstelle). Übernimm Wichtiges aus dem bisherigen Zwischenstand, er ersetzt ihn."),
+                "Belege mit Fundstelle). Übernimm Wichtiges aus dem bisherigen Zwischenstand, er ersetzt ihn."
+                + DELIVERY),
             depends_on=(f"chunk-{number - 1}",) if number > 1 else (), sources=chunk.sources))
     steps.append(PlannedStep(
         key="consolidate", kind="consolidate", title=f"{label} – Ergebnis",
         description=(f"Aufgabe: {goal}\n\nDas Material wurde in {total} Teilen nacheinander bearbeitet. "
                      f"Finaler Zwischenstand:\n{DEPENDENCY_OUTPUTS}\n\n"
-                     "Erstelle daraus das vollständige Ergebnis der Aufgabe."),
+                     "Erstelle daraus das vollständige Ergebnis der Aufgabe." + DELIVERY),
         depends_on=(f"chunk-{total}",)))
     return steps
 
@@ -87,13 +92,14 @@ def map_reduce_plan(goal: str, chunks: Sequence[Chunk], *, title: str = "",
         description=(f"Aufgabe (wird in {total} unabhängigen Teilen bearbeitet): {goal}\n\n"
                      f"Material, Teil {chunk.index + 1} von {total}:\n{chunk.text}\n\n"
                      f"Bearbeite nur diesen Teil. Antworte mit '{PARTIAL_HEADING}': dem Ergebnis für diesen Teil, "
-                     "mit Fundstellen, so dass es sich mit den anderen Teilen zusammenführen lässt."),
+                     "mit Fundstellen, so dass es sich mit den anderen Teilen zusammenführen lässt." + DELIVERY),
         sources=chunk.sources) for chunk in chunks]
     steps.append(PlannedStep(
         key="reduce", kind="reduce", title=f"{label} – Zusammenführung",
         description=(f"Aufgabe: {goal}\n\nDas Material wurde in {total} unabhängigen Teilen bearbeitet. "
                      f"Teilergebnisse:\n{DEPENDENCY_OUTPUTS}\n\n"
-                     "Führe sie zum vollständigen Ergebnis der Aufgabe zusammen; löse Widersprüche und Doppeltes auf."),
+                     "Führe sie zum vollständigen Ergebnis der Aufgabe zusammen; löse Widersprüche und Doppeltes auf."
+                     + DELIVERY),
         depends_on=tuple(step.key for step in steps)))
     return steps
 

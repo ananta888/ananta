@@ -49,6 +49,7 @@ DEFAULT_TOOL_CAPABILITIES: dict[str, ToolCapability] = {
     # worker file/shell tools (canonical names)
     "file_read": ToolCapability("file_read", "read", False, False, "Read a file."),
     "file_list": ToolCapability("file_list", "read", False, False, "List directory contents."),
+    "final_answer": ToolCapability("final_answer", "read", False, False, "Hand over the task's answer."),
     "file_write": ToolCapability("file_write", "write", False, True, "Write a file."),
     "file_writer": ToolCapability("file_writer", "write", False, True, "Write a file."),
     "file_patch": ToolCapability("file_patch", "write", False, True, "Patch a file."),

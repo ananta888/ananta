@@ -44,6 +44,7 @@ def test_plans_chain_sequential_steps_and_fan_in_map_steps():
     assert DEPENDENCY_OUTPUTS not in sequential[0].description and DEPENDENCY_OUTPUTS in sequential[1].description
     mapped = build_plan("map_reduce", "Prüfe alle Dateien", chunks)
     assert all(not s.depends_on for s in mapped[:-1]) and set(mapped[-1].depends_on) == {s.key for s in mapped[:-1]}
+    assert all("`final_answer`" in s.description for s in sequential + mapped)
     with pytest.raises(LongContextPlanError):
         build_plan("sequential", "x", chunks[:1])
 

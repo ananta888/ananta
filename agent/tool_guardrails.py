@@ -22,6 +22,7 @@ DEFAULT_TOOL_CLASSES = {
     # worker file/shell tools (canonical names)
     "file_read": "read",
     "file_list": "read",
+    "final_answer": "read",  # hands over the answer, no side effect
     "file_write": "write",
     "file_patch": "write",
     "shell_execute": "write",

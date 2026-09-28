@@ -798,6 +798,7 @@ def set_autopilot_state_tool(
 
 # Action pack tool registrations — imported from submodules for decorator side effects
 from agent.tools_file import (file_read_tool, file_write_tool, file_list_tool, file_patch_tool)
+from agent.tools_answer import final_answer_tool
 from agent.tools_git import (
     _check_git_access,
     _git_cwd,

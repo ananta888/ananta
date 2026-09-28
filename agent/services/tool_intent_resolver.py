@@ -48,6 +48,7 @@ class ToolIntentResolver:
         "file_read",
         "file_list",
         "file_patch",
+        "final_answer",
         "web_search",
         "web_fetch",
         "git_status",
