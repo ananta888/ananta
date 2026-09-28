@@ -21,6 +21,8 @@ services:
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       RAG_REPO_ROOT: "/tmp"
+      # Runs as --user 1000:1000 (no passwd entry) would otherwise get HOME=/ and fail on ~/.config.
+      HOME: "/tmp"
     volumes:
       - ../../:/app
       - test-results:/results
