@@ -15,6 +15,11 @@ from tests.isolation_guard import (
     require_database_url,
     require_preloaded_runtime_isolation,
 )
+from tests.sqlite_schema_template import install as install_sqlite_schema_template
+
+# Per-test file databases get their schema from a per-process template instead of ~330 durable DDL
+# statements (10-14 s each time); see tests/sqlite_schema_template.py.
+install_sqlite_schema_template()
 
 # Stub out missing legacy module so test_worker_client_adapter.py can be collected.
 # worker_engine is not part of the current codebase; stubs prevent ImportError
