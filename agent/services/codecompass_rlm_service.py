@@ -35,9 +35,25 @@ def rlm_is_eligible(query: str, *, enabled: bool = False) -> tuple[bool, str]:
     return True, "eligible"
 
 
+def rlm_token_budgets(max_fanout: int) -> dict[str, int]:
+    """Token budgets of one recursive analysis from the effective context window (central policy):
+    the final synthesis gets the "evidence" share, every child retrieval 1/fanout of it -- a larger window
+    lets each child bring more, it does not add steps."""
+    from agent.context_profile import context_budgets
+
+    synthesis = context_budgets().tokens("evidence")
+    return {"synthesis_tokens": synthesis, "child_tokens": max(256, synthesis // max(1, int(max_fanout)))}
+
+
+def _evidence_tokens(item: Mapping[str, Any]) -> int:
+    from agent.context_window import estimate_tokens
+
+    return estimate_tokens(str(item.get("excerpt") or item.get("text") or json.dumps(dict(item), default=str)))
+
+
 class CodeCompassRlmService:
     def __init__(self, planner: RecursiveQueryPlanner | None = None) -> None:
-        self._planner = planner or RecursiveQueryPlanner()
+        self._planner = planner  # injected (tests); otherwise one per analysis with its own budgets
 
     def analyze(
         self,
@@ -73,6 +89,8 @@ class CodeCompassRlmService:
             max_fanout=max_fanout,
             max_steps=max_steps,
         )
+        token_budgets = rlm_token_budgets(getattr(planner, "max_fanout", max_fanout))
+        evidence_tokens = 0
         handles = [str(item.get("handle") or "") for item in list((architecture_slice or {}).get("nodes") or []) if item.get("handle")]
         plan = planner.create_plan(query, graph=dict(architecture_slice or {}), root_handles=handles)
         seen: set[str] = set()
@@ -82,7 +100,11 @@ class CodeCompassRlmService:
         retrieval = get_codecompass_agentic_retrieval_service()
         queue = list(plan.steps)
         executed_steps = 0
-        while queue and executed_steps < planner.max_steps:
+        dropped_evidence = 0
+        while queue and executed_steps < getattr(planner, "max_steps", max_steps):
+            if dropped_evidence:
+                trace.append({"stopped": "evidence_budget", "synthesis_tokens": token_budgets["synthesis_tokens"]})
+                break
             step = queue.pop(0)
             if step.depth > max_depth:
                 trace.append({"step_id": step.step_id, "stopped": "depth_budget"})
@@ -118,6 +140,7 @@ class CodeCompassRlmService:
                     "kind": "request",
                     "query": step.query,
                     "mode": "hybrid" if step.channel == "hybrid" else step.channel if step.channel in {"exact", "graph", "vector"} else "auto",
+                    "budget": {"max_tokens": token_budgets["child_tokens"]},
                 },
                 capability=capability,
             )
@@ -141,6 +164,11 @@ class CodeCompassRlmService:
                     conflicts.append(key)
                     existing.setdefault("conflicts_with", []).append(item.get("excerpt"))
                 elif existing is None:
+                    cost = _evidence_tokens(item)
+                    if evidence_tokens + cost > token_budgets["synthesis_tokens"]:
+                        dropped_evidence += 1
+                        continue
+                    evidence_tokens += cost
                     evidence.append(dict(item))
             queue.extend(
                 planner.expand_step(
@@ -157,8 +185,14 @@ class CodeCompassRlmService:
                     "hits": len(result.get("evidence") or []),
                 }
             )
-        if queue:
+        if queue and not dropped_evidence:
             trace.append({"stopped": "step_budget", "remaining": len(queue)})
+        if dropped_evidence:
+            from agent.context_window import record_truncation
+
+            record_truncation("rlm.evidence", "drop_items", before_tokens=evidence_tokens + 1,
+                              after_tokens=evidence_tokens, dropped_items=dropped_evidence,
+                              synthesis_tokens=token_budgets["synthesis_tokens"])
         return {
             "schema": "codecompass.rlm-recursive-plan.v1",
             "plan_id": plan.plan_id,
@@ -171,8 +205,10 @@ class CodeCompassRlmService:
                 "conflicts": conflicts,
                 "evidence_conflict": bool(conflicts),
             },
-            "warnings": ["evidence_conflict"] if conflicts else [],
-            "budgets": {**plan.to_dict()["budgets"], "max_steps": planner.max_steps},
+            "warnings": (["evidence_conflict"] if conflicts else []) + (["evidence_budget_reached"]
+                                                                          if dropped_evidence else []),
+            "budgets": {**plan.to_dict()["budgets"], "max_steps": getattr(planner, "max_steps", max_steps), **token_budgets,
+                        "evidence_tokens": evidence_tokens, "dropped_evidence": dropped_evidence},
             "trace": trace,
         }
 

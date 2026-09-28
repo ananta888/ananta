@@ -53,6 +53,22 @@ from agent.services.wiki_vector_runtime_service import (
 log = logging.getLogger(__name__)
 
 
+
+def rag_context_limits() -> tuple[int, int]:
+    """(chars, tokens) of the hybrid RAG context: the "rag_context" share of the effective window (3000 tokens /
+    12000 chars at 32k). ``RAG_MAX_CONTEXT_TOKENS`` / ``RAG_MAX_CONTEXT_CHARS`` set explicitly still apply,
+    capped by the window."""
+    from agent.context_profile import CHARS_PER_TOKEN, context_budgets
+
+    budgets = context_budgets()
+    explicit = getattr(settings, "model_fields_set", set())
+    tokens = (budgets.clamp_tokens(settings.rag_max_context_tokens) if "rag_max_context_tokens" in explicit
+              else budgets.tokens("rag_context"))
+    chars = (min(int(settings.rag_max_context_chars), budgets.available * CHARS_PER_TOKEN)
+             if "rag_max_context_chars" in explicit else tokens * CHARS_PER_TOKEN)
+    return max(256, chars), max(64, tokens)
+
+
 class _RejectedVectorRuntimeResolver:
     """Fail-closed resolver used when a trusted request scope is missing."""
 
@@ -350,8 +366,7 @@ class RetrievalService:
             settings.rag_enabled,
             settings.rag_repo_root,
             settings.rag_data_roots,
-            settings.rag_max_context_chars,
-            settings.rag_max_context_tokens,
+            *rag_context_limits(),
             settings.rag_max_chunks,
             settings.rag_agentic_max_commands,
             settings.rag_agentic_timeout_seconds,
@@ -380,8 +395,8 @@ class RetrievalService:
         return HybridOrchestrator(
             repo_root=repo_root,
             data_roots=data_roots,
-            max_context_chars=settings.rag_max_context_chars,
-            max_context_tokens=settings.rag_max_context_tokens,
+            max_context_chars=rag_context_limits()[0],
+            max_context_tokens=rag_context_limits()[1],
             max_chunks=settings.rag_max_chunks,
             agentic_max_commands=settings.rag_agentic_max_commands,
             agentic_timeout_seconds=settings.rag_agentic_timeout_seconds,
@@ -815,8 +830,8 @@ class RetrievalService:
             chunks=diversified_candidates,
             query=query,
             max_chunks=settings.rag_max_chunks,
-            max_chars=settings.rag_max_context_chars,
-            max_tokens=settings.rag_max_context_tokens,
+            max_chars=rag_context_limits()[0],
+            max_tokens=rag_context_limits()[1],
         )
         strategy = dict(context_payload.get("strategy") or {})
         strategy["knowledge_index"] = len(knowledge_chunks)

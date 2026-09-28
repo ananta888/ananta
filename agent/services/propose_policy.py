@@ -47,6 +47,17 @@ SAFE_DEFAULT_STRATEGY_ORDER = [
 ]
 
 
+
+def _compactor_output_chars(value: Any) -> int:
+    """Compactor output from the effective window ("compactor_output" share: 12000 chars at 32k); an explicit value
+    -- except the historical 12000 -- still applies, never beyond what the window leaves for material."""
+    from agent.context_profile import CHARS_PER_TOKEN, budget_override, context_budgets
+
+    budgets = context_budgets()
+    explicit = budget_override(value, legacy="compactor_output_chars")
+    return max(1000, min(explicit or budgets.chars("compactor_output"), budgets.available * CHARS_PER_TOKEN))
+
+
 @dataclass
 class ProposePolicy:
     """Per-task or per-project propose strategy policy."""
@@ -90,7 +101,7 @@ class ProposePolicy:
 
     def _validate(self) -> None:
         self.context_compactor_timeout_seconds = max(30, min(120, int(self.context_compactor_timeout_seconds or 45)))
-        self.context_compactor_max_output_chars = max(1000, min(50000, int(self.context_compactor_max_output_chars or 12000)))
+        self.context_compactor_max_output_chars = _compactor_output_chars(self.context_compactor_max_output_chars)
         self.context_compactor_retry_attempts = max(0, min(3, int(self.context_compactor_retry_attempts or 0)))
         self.context_compactor_profile = str(self.context_compactor_profile or "default").strip().lower() or "default"
         normalized_preserve = [str(item).strip().lower() for item in list(self.context_compactor_preserve_keywords or []) if str(item).strip()]

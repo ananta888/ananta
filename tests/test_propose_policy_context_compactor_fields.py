@@ -19,7 +19,10 @@ def test_policy_clamps_compactor_ranges():
         }
     )
     assert 30 <= p.context_compactor_timeout_seconds <= 120
-    assert 1000 <= p.context_compactor_max_output_chars <= 50000
+    from agent.context_profile import context_budgets
+
+    # never more than the effective context window leaves for material (was a fixed 50000)
+    assert 1000 <= p.context_compactor_max_output_chars <= context_budgets().available * 4
     assert 0 <= p.context_compactor_retry_attempts <= 3
 
 

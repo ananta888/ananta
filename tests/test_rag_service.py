@@ -106,7 +106,7 @@ def test_rag_service_compact_policy_trims_chunks_and_hides_context_text():
     assert bundle["context_policy"]["mode"] == "compact"
     assert bundle["context_policy"]["include_context_text"] is False
     assert bundle["context_policy"]["max_chunks"] == 2
-    assert bundle["context_policy"]["total_budget_tokens"] == 12000
+    assert bundle["context_policy"]["total_budget_tokens"] == 4096  # compact share of the 32k window
     assert bundle["context_policy"]["window_profile"] == "standard_32k"
     assert bundle["context_policy"]["bundle_strategy"] == "minimal"
     assert bundle["context_policy"]["explainability_level"] == "minimal"
@@ -134,7 +134,7 @@ def test_rag_service_standard_policy_records_effective_context_policy():
     assert bundle["context_policy"]["mode"] == "standard"
     assert bundle["context_policy"]["include_context_text"] is True
     assert bundle["context_policy"]["max_chunks"] == 4
-    assert bundle["context_policy"]["total_budget_tokens"] == 32000
+    assert bundle["context_policy"]["total_budget_tokens"] == 12288  # standard share of the 32k window
     assert bundle["context_policy"]["window_profile"] == "standard_32k"
     assert bundle["context_policy"]["bundle_strategy"] == "balanced"
     assert bundle["context_policy"]["explainability_level"] == "balanced"

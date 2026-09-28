@@ -111,8 +111,18 @@ def get_workspace_mutation_config(workdir: str | None = None) -> dict[str, Any]:
         "max_feedback_iterations": max(1, min(int(cfg.get("max_feedback_iterations") or 4), 16)),
         "max_patch_attempts_per_file": max(1, min(int(cfg.get("max_patch_attempts_per_file") or 3), 10)),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
-        "max_diff_chars": max(500, min(int(cfg.get("max_diff_chars") or 12000), 100000)),
+        "max_diff_chars": _max_diff_chars(cfg),
     }
+
+
+def _max_diff_chars(cfg: dict[str, Any]) -> int:
+    """Diff/evidence block size from the central policy; an explicit ``max_diff_chars`` still applies within the
+    working room of the effective window (the persisted historical 12000 counts as unset)."""
+    from agent.context_profile import budget_override, context_budgets
+
+    budgets = context_budgets()
+    explicit = budget_override(cfg.get("max_diff_chars"), legacy="diff_chars")
+    return max(500, min(explicit or budgets.chars("diff"), budgets.chars("tool_results_total")))
 
 
 def parse_mutation_output(text: str) -> dict[str, Any] | None:
@@ -189,7 +199,7 @@ def run_ananta_worker_workspace_mutation(
     max_iterations = int(cfg.get("max_feedback_iterations") or 4)
     max_invalid = int(cfg.get("max_invalid_outputs") or 2)
     max_attempts_per_file = int(cfg.get("max_patch_attempts_per_file") or 3)
-    max_diff_chars = int(cfg.get("max_diff_chars") or 12000)
+    max_diff_chars = int(cfg.get("max_diff_chars") or _max_diff_chars(cfg))
     materialization_manifest = ws_svc.load_materialization_manifest(workspace)
 
     baseline_meta = ws_svc.refresh_mutation_baseline(workspace_dir=workspace, mutation_mode=mode)

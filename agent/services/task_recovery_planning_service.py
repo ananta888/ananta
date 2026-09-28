@@ -68,10 +68,10 @@ _TERMINAL_TASK_STATUSES = {
 
 
 def _recovery_context_chars() -> int:
-    """A quarter of the context window for recovery context (was a fixed 8000 chars ~ 2k tokens)."""
-    from agent.context_window import CHARS_PER_TOKEN, context_window_tokens
+    """Recovery context: the "recovery_context" share of the effective window (a quarter; central policy)."""
+    from agent.context_profile import context_budgets
 
-    return max(8000, context_window_tokens() * CHARS_PER_TOKEN // 4)
+    return context_budgets().chars("recovery_context")
 
 
 def _record_recovery_cut(site: str, text: str, limit: int) -> str:

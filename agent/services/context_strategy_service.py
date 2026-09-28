@@ -145,6 +145,10 @@ class ContextStrategyService:
         return self._cfg["externalize"]
 
     @property
+    def chunk_fill(self) -> float:
+        return float(self._cfg["chunk_fill"])
+
+    @property
     def request_overhead_tokens(self) -> int:
         return self._cfg["request_overhead_tokens"]
 

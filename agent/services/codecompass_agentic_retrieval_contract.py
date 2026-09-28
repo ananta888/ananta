@@ -51,6 +51,17 @@ MAX_TOP_K = 20
 DEFAULT_MAX_CHARS = 8000
 MAX_MAX_CHARS = 32000
 DEFAULT_MAX_TOKENS = 3000
+
+
+def _max_evidence_tokens() -> int:
+    """Upper bound of a retrieval token budget: the evidence share of the effective context window (never the
+    former 200k), so a request cannot ask for more context than the model can take."""
+    try:
+        from agent.context_profile import context_budgets
+
+        return max(DEFAULT_MAX_TOKENS, context_budgets().tokens("evidence"))
+    except Exception:  # noqa: BLE001 -- contract validation must not fail on configuration lookup
+        return 200_000
 DEFAULT_CANDIDATE_LIMIT = 24
 MAX_CANDIDATE_LIMIT = 80
 DEFAULT_GRAPH_DEPTH = 1
@@ -180,7 +191,7 @@ def validate_request(payload: Mapping[str, Any] | None) -> dict[str, Any]:
                 budget_raw.get("max_chars"), DEFAULT_MAX_CHARS, 256, MAX_MAX_CHARS
             ),
             "max_tokens": _bounded_int(
-                budget_raw.get("max_tokens"), DEFAULT_MAX_TOKENS, 64, 200_000
+                budget_raw.get("max_tokens"), DEFAULT_MAX_TOKENS, 64, _max_evidence_tokens()
             ),
             "candidate_limit": _bounded_int(
                 budget_raw.get("candidate_limit"),

@@ -545,11 +545,22 @@ class LLMPlanningStrategy:
     MAX_SEGMENTS = 8
 
     @classmethod
+    def segment_chars(cls, planning_policy: dict[str, Any]) -> int:
+        """One planning segment: the "planning_segment" share of the effective window (8000 chars at 32k).
+        A configured ``segment_context_chars`` (hardware profiles, e.g. 1400 for a laptop) still applies --
+        the persisted historical 8000 counts as unset -- never beyond the planning share of the window."""
+        from agent.context_profile import budget_override, context_budgets
+
+        budgets = context_budgets()
+        explicit = budget_override(planning_policy.get("segment_context_chars"), legacy="planning_segment_chars")
+        room = budgets.chars("planning_context")
+        return max(600, min(explicit or budgets.chars("planning_segment"), room))
+
+    @classmethod
     def segmentation(cls, planning_policy: dict[str, Any], context_chars: int) -> tuple[int, int]:
         """``(segment_chars, segments)``: with segmented planning the segments grow with the context up to 8,
         so context is planned over rather than cut (LCTX-009); without it, the configured product is the limit."""
-        segment_chars = cls._safe_int(planning_policy.get("segment_context_chars", 8000), default=8000, minimum=600,
-                                      maximum=12000)
+        segment_chars = cls.segment_chars(planning_policy)
         segments = cls._safe_int(planning_policy.get("max_segments", 3), default=3, minimum=1, maximum=cls.MAX_SEGMENTS)
         if bool(planning_policy.get("segmented_planning_enabled", False)) and context_chars > segment_chars * segments:
             segments = min(cls.MAX_SEGMENTS, -(-int(context_chars) // segment_chars))

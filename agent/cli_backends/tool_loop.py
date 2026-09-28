@@ -54,9 +54,7 @@ def get_tool_loop_config() -> dict[str, Any]:
         "enabled": bool(cfg.get("enabled", False)),
         "max_iterations": max(1, min(int(cfg.get("max_iterations") or 6), 32)),
         "max_tool_calls": max(1, min(int(cfg.get("max_tool_calls") or 12), 64)),
-        "max_tool_result_chars": max(500, min(int(cfg.get("max_tool_result_chars") or 8000), 100000)),
-        "max_total_tool_result_chars": max(2000, min(int(cfg.get("max_total_tool_result_chars")
-                                                         or _default_total_tool_result_chars()), 400000)),
+        **_tool_result_limits(cfg),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
         "allowed_tools": [
             str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()
@@ -199,11 +197,19 @@ def _condensed_tool_result_block(result: dict[str, Any]) -> str:
     return f"```json\n{json.dumps(summary, ensure_ascii=False)}\n```"
 
 
-def _default_total_tool_result_chars() -> int:
-    """Half of Ananta's context window (``ANANTA_CONTEXT_TOKENS``, ~4 chars per token) for all tool results."""
-    from agent.config import settings
+def _tool_result_limits(cfg: dict[str, Any]) -> dict[str, int]:
+    """Tool-result sizes from the central policy (one result / all results of a loop); explicit values in
+    ``ananta_worker_tool_loop`` still apply but never beyond what the effective window leaves."""
+    from agent.context_profile import budget_override, context_budgets
 
-    return int(getattr(settings, "default_context_tokens", 32768) or 32768) * 4 // 2
+    budgets = context_budgets()
+    total_room = budgets.chars("tool_results_total")
+    single = budget_override(cfg.get("max_tool_result_chars"), legacy="tool_result_chars")
+    total = budget_override(cfg.get("max_total_tool_result_chars"))
+    return {
+        "max_tool_result_chars": max(500, min(single or budgets.chars("tool_result"), total_room)),
+        "max_total_tool_result_chars": max(2000, min(total or total_room, total_room)),
+    }
 
 
 def build_tool_loop_prompt(
@@ -232,7 +238,7 @@ def build_tool_loop_prompt(
         # LCTX-012: results get what the window leaves after task and instructions (newest complete, older
         # condensed, oldest left out); the configured total stays an upper bound
         budget = available_chars("\n".join(parts), cap_chars=int(max_total_tool_result_chars
-                                                                 or _default_total_tool_result_chars()))
+                                                                 or _tool_result_limits({})["max_total_tool_result_chars"]))
         formatted = [_format_tool_result_block(result, max_chars=max_tool_result_chars) for result in tool_results]
         condensed_of = {block: _condensed_tool_result_block(result) for block, result in zip(formatted, tool_results)}
         parts += fit_blocks(formatted, budget, site="tool_loop.results",

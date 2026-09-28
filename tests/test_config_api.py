@@ -234,8 +234,9 @@ def test_context_bundle_policy_is_normalized_and_merged(client, admin_token):
     assert context_policy["mode"] == "compact"
     assert context_policy["compact_max_chunks"] == 1
     assert context_policy["standard_max_chunks"] == 12
-    assert context_policy["window_profile"] == "standard_32k"
-    assert context_policy["standard_budget_tokens"] == 12288
+    # window profile and budgets are derived from the central context window unless overridden
+    assert context_policy["window_profile"] is None and context_policy["standard_budget_tokens"] is None
+    assert cfg["context_window_effective"]["bundle_budgets_tokens"]["standard"] == 12288
 
 
 def test_artifact_flow_config_is_normalized_and_merged(client, admin_token):

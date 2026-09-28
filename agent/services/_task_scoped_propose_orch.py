@@ -512,8 +512,8 @@ def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: 
 
     Recording only for now (mode shadow); the strategies act on it in active mode (LCTX-005..008)."""
     try:
-        from agent.context_window import check_fit
         from agent.services.context_strategy_service import ContextStrategyRequest, get_context_strategy_service
+        from agent.services.long_context_coordinator import material_fit
 
         service = get_context_strategy_service((cfg or {}).get("context_strategy"))
         if service.mode == "off":
@@ -521,7 +521,12 @@ def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: 
         context_text = str((research_context_summary or {}).get("prompt_section") or "") \
             if isinstance(research_context_summary, dict) else ""
         description = str(task.get("description") or "")
-        fit = check_fit(prompt="\n".join((str(base_prompt or ""), context_text, description)))
+        # the same room as the coordinator's (window minus reserves and the fixed request part); the base prompt
+        # normally is the description already -- counted once
+        material = [str(base_prompt or ""), context_text]
+        if description not in material[0]:
+            material.append(description)
+        fit = material_fit("\n".join(material), service)
         if fit.fits:
             return
         wec = task.get("worker_execution_context") if isinstance(task.get("worker_execution_context"), dict) else {}

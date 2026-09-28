@@ -59,13 +59,27 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 }
 
 
+TOKENS_PER_LINE = 12  # an average source line (~45 characters) for budgeting ranges before reading them
+
+
+def _evidence_token_budget(explicit: Any = None) -> int:
+    """The planner's token budget from the effective context window (central policy, share "evidence");
+    an explicit value -- except the historical default 12000 -- still applies but never beyond the room
+    the window leaves next to the fixed request part and the reserves."""
+    from agent.context_profile import budget_override, context_budgets
+
+    budgets = context_budgets()
+    override = budget_override(explicit, legacy="evidence_tokens")
+    return budgets.clamp_tokens(override) if override is not None else budgets.tokens("evidence")
+
+
 @dataclass(frozen=True)
 class CodeCompassContextBudget:
     max_ranges: int = 8
     max_lines_per_range: int = 120
     max_neighbors: int = 6
     max_evidence_items: int = 12
-    max_tokens: int = 12_000
+    max_tokens: int = 12_000  # direct construction; from_raw derives it from the effective window
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any] | None = None) -> "CodeCompassContextBudget":
@@ -87,7 +101,7 @@ class CodeCompassContextBudget:
                 1,
                 100,
             ),
-            max_tokens=_int("max_tokens", cls.max_tokens, 1, 200_000),
+            max_tokens=_evidence_token_budget(data.get("max_tokens")),
         )
 
 
@@ -297,6 +311,7 @@ class CodeCompassContextPlanner:
                 "max_ranges": effective.max_ranges,
                 "max_lines_per_range": effective.max_lines_per_range,
                 "max_neighbors": effective.max_neighbors,
+                "max_tokens": effective.max_tokens,
             },
             "diagnostics": {
                 "range_count": len(selected),
@@ -452,6 +467,7 @@ class CodeCompassContextPlanner:
         selected: list[dict[str, Any]] = []
         excluded: list[dict[str, Any]] = []
         seen: set[str] = set()
+        used_lines = 0
         for ref in sorted(refs, key=self._sort_key):
             key = f"{ref.get('path')}:{ref.get('line_start')}:{ref.get('line_end')}"
             if key in seen:
@@ -463,6 +479,11 @@ class CodeCompassContextPlanner:
             if len(selected) >= budget.max_ranges:
                 excluded.append({"ref": ref, "reason": "range_budget_exceeded"})
                 continue
+            lines = int(ref["line_end"]) - int(ref["line_start"]) + 1
+            if budget.max_tokens and (used_lines + lines) * TOKENS_PER_LINE > budget.max_tokens:
+                excluded.append({"ref": ref, "reason": "token_budget_exceeded"})
+                continue
+            used_lines += lines
             selected.append(ref)
         return selected, excluded
 

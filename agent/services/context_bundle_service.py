@@ -12,15 +12,34 @@ from agent.services.retrieval_policy_filter_service import get_retrieval_policy_
 
 _CONTEXT_BUNDLE_DEFAULTS: dict = {
     "mode": "standard",
-    "window_profile": "standard_32k",
+    "window_profile": None,  # derived: the profile of the effective context window
     "compact_max_chunks": 5,
     "standard_max_chunks": 12,
-    "compact_budget_tokens": 4096,
-    # LCTX: shares of the 32k window, so a worker keeps room for task, instructions and tool results
-    "standard_budget_tokens": 12288,
-    "full_budget_tokens": 16384,
+    # derived from the effective window (agent.context_profile: 12.5 / 37.5 / 50 %, i.e. 4096 / 12288 / 16384
+    # at 32k); an explicit value is an override, never above what the window leaves next to task and tools
+    "compact_budget_tokens": None,
+    "standard_budget_tokens": None,
+    "full_budget_tokens": None,
     "include_context_text": True,
 }
+# the budgets as they were hard-coded for 32k (persisted configs carry them): treated as "derive"
+_LEGACY_BUNDLE_BUDGETS = {"compact": 4096, "standard": 12288, "full": 16384}
+
+
+def _bundle_budget(mode: str, explicit, budgets) -> int:
+    from agent.context_profile import budget_override
+
+    override = budget_override(explicit)
+    if override is None or override == _LEGACY_BUNDLE_BUDGETS[mode]:
+        return budgets.bundle_tokens(mode)
+    return budgets.clamp_tokens(override)
+
+
+def _window_profile() -> str:
+    from agent.context_profile import effective_window, profile_for_tokens
+
+    window = effective_window()
+    return profile_for_tokens(window.tokens)
 
 
 def _normalize_positive_int(value, *, default: int) -> int:
@@ -45,28 +64,24 @@ def normalize_context_bundle_policy_config(cfg: dict | None) -> dict:
 
 def resolve_context_bundle_policy(cfg: dict | None) -> dict:
     """Resolve a normalized context bundle policy to a runtime-ready effective config."""
+    from agent.context_profile import context_budgets
+
     policy = normalize_context_bundle_policy_config(cfg)
     mode = str(policy.get("mode") or "standard")
-    if mode == "compact":
-        max_chunks = policy["compact_max_chunks"]
-        total_budget_tokens = policy["compact_budget_tokens"]
-    elif mode == "full":
-        max_chunks = None
-        total_budget_tokens = policy["full_budget_tokens"]
-    else:
-        max_chunks = policy["standard_max_chunks"]
-        total_budget_tokens = policy["standard_budget_tokens"]
+    budgets = context_budgets()
+    by_mode = {name: _bundle_budget(name, policy.get(f"{name}_budget_tokens"), budgets)
+               for name in ("compact", "standard", "full")}
+    if mode not in by_mode:
+        mode = "standard"
+    max_chunks = {"compact": policy["compact_max_chunks"], "full": None}.get(mode, policy["standard_max_chunks"])
     return {
         "mode": mode,
-        "window_profile": policy["window_profile"],
+        "window_profile": _window_profile(),
+        "window_tokens": budgets.window,
         "max_chunks": max_chunks,
-        "total_budget_tokens": total_budget_tokens,
+        "total_budget_tokens": by_mode[mode],
         "include_context_text": bool(policy.get("include_context_text", True)),
-        "budget_tokens_by_mode": {
-            "compact": policy["compact_budget_tokens"],
-            "standard": policy["standard_budget_tokens"],
-            "full": policy["full_budget_tokens"],
-        },
+        "budget_tokens_by_mode": by_mode,
     }
 
 
@@ -274,8 +289,12 @@ Output ONLY valid JSON matching schema."""
         max_chunks = int(max_chunks_raw) if isinstance(max_chunks_raw, int) and max_chunks_raw > 0 else None
         if max_chunks is not None:
             filtered = filtered[:max_chunks]
-        default_budget = {"compact": 4096, "full": 16384}.get(policy_mode, 12288)
-        effective_budget = int(total_budget_tokens or default_budget)
+        from agent.context_profile import context_budgets
+
+        budgets = context_budgets()
+        # never more than the effective window leaves for material (explicit budgets included)
+        effective_budget = (budgets.clamp_tokens(total_budget_tokens) if total_budget_tokens
+                            else budgets.bundle_tokens(str(policy_mode or "standard")))
         filtered, budget_dropped = ContextBundler._within_token_budget(filtered, effective_budget)
         bundle_strategy = "minimal" if policy_mode == "compact" else ("deep" if policy_mode == "full" else "balanced")
         explainability_level = "minimal" if policy_mode == "compact" else ("detailed" if policy_mode == "full" else "balanced")
@@ -300,7 +319,8 @@ Output ONLY valid JSON matching schema."""
                 "max_chunks": max_chunks,
                 "total_budget_tokens": effective_budget,
                 "budget_dropped_chunks": budget_dropped,
-                "window_profile": "standard_32k",
+                "window_profile": _window_profile(),
+                "window_tokens": budgets.window,
                 "bundle_strategy": bundle_strategy,
                 "explainability_level": explainability_level,
                 "chunk_text_style": chunk_text_style,

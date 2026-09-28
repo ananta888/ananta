@@ -83,12 +83,21 @@ class CodeCompassContextToolConfig:
         )
 
     def token_budget_for_mode(self, mode: str | None) -> int:
+        """The mode's token budget from the effective context window (compact / balanced / deep = bundle compact
+        / bundle standard / evidence share of the central policy). A configured value other than the historical
+        default (4096 / 12000 / 32000) still applies, capped by what the window leaves for material."""
+        from agent.context_profile import budget_override, context_budgets
+
+        budgets = context_budgets()
         resolved = str(mode or self.default_mode).strip().lower()
-        if resolved == "compact":
-            return self.max_tokens_compact
-        if resolved == "deep":
-            return self.max_tokens_deep
-        return self.max_tokens_balanced
+        configured, legacy, share = {
+            "compact": (self.max_tokens_compact, 4_096, "bundle_compact"),
+            "deep": (self.max_tokens_deep, 32_000, "evidence"),
+        }.get(resolved, (self.max_tokens_balanced, 12_000, "bundle_standard"))
+        override = budget_override(configured)
+        if override is None or override == legacy:
+            return budgets.tokens(share)
+        return budgets.clamp_tokens(override)
 
 
 class CodeCompassContextService:

@@ -226,7 +226,10 @@ def test_the_fixed_request_part_counts_against_the_window(app):
         result = _coordinator().maybe_split(_get("lc-overhead"), config={**ACTIVE, "request_overhead_tokens": 12000})
         assert result.strategy == "sequential"  # 25k material + 12k tools/system prompt exceed 32k
         decision = _get("lc-overhead").status_reason_details["long_context"]["decision"]
-        assert decision["fit"]["output_reserve_tokens"] == 1024 + 12000
+        from agent.context_profile import ContextBudgets
+
+        budgets = ContextBudgets(32768, 12000)  # output reserve + safety margin + the fixed request part
+        assert decision["fit"]["output_reserve_tokens"] == 32768 - budgets.available
 
 
 def test_an_enormous_task_is_paused_and_a_resumed_one_processed_piece_by_piece(app):

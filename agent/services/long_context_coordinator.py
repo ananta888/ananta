@@ -53,6 +53,20 @@ class SplitResult:
         return not self.step_ids and self.strategy in EXTERNALIZE_STRATEGIES
 
 
+def material_fit(text: str, service: Any = None):
+    """Does ``text`` fit as the material of one request? The central policy decides the room: the effective
+    window minus output reserve, safety margin and the fixed request part (tools, system prompt, task);
+    ``service.request_overhead_tokens`` (context_strategy config) is that fixed part."""
+    from agent.context_profile import ContextBudgets, effective_window_tokens, request_overhead_tokens
+    from agent.context_window import check_fit
+
+    overhead = getattr(service, "request_overhead_tokens", None)
+    budgets = ContextBudgets(effective_window_tokens(),
+                             int(overhead) if overhead is not None else request_overhead_tokens())
+    return check_fit(prompt=text, window_tokens=budgets.window,
+                     output_reserve_tokens=budgets.window - budgets.available)
+
+
 def _details(task: Any) -> dict[str, Any]:
     raw = getattr(task, "status_reason_details", None)
     return dict(raw) if isinstance(raw, Mapping) else {}
@@ -101,7 +115,6 @@ class LongContextCoordinator:
 
         ``overflowed``: a model call already failed on the window (LCTX-009) -- even if the estimate says the
         task fits (the estimate is approximate), it is treated as at least slightly too large."""
-        from agent.context_window import check_fit
         from agent.services.context_chunking import pack_parts, split_ordered
         from agent.services.context_strategy_service import ContextStrategyRequest
 
@@ -120,11 +133,7 @@ class LongContextCoordinator:
         parts = [(str(p.get("id") or f"part-{i + 1}"), str(p.get("text") or ""))
                  for i, p in enumerate(context.get("context_parts") or []) if isinstance(p, Mapping)]
         size_text = "\n".join([title, material] + [text for _id, text in parts])
-        from agent.context_window import DEFAULT_OUTPUT_RESERVE
-
-        # a step's request is its material plus the fixed request part (tools, system prompt): both fit the window
-        fit = check_fit(prompt=size_text, output_reserve_tokens=DEFAULT_OUTPUT_RESERVE + int(
-            getattr(service, "request_overhead_tokens", 0) or 0))
+        fit = material_fit(size_text, service)
         if fit.fits and overflowed:
             from agent.context_window import ContextFit
 
@@ -149,12 +158,13 @@ class LongContextCoordinator:
             strategy = decision.strategy
         if strategy not in SPLIT_STRATEGIES:
             return None
+        chunk_fill = float(getattr(service, "chunk_fill", 0.6) or 0.6)
         if strategy != decision.strategy:
             from agent.services.context_strategy_service import ContextStrategyDecision
 
             decision = ContextStrategyDecision(strategy, "escalation_resumed", "rules", decision.fit,
-                                               {"chunk_budget_tokens": int(decision.fit.budget_tokens * 0.6)})
-        chunk_tokens = int(decision.parameters.get("chunk_budget_tokens") or 4096)
+                                               {"chunk_budget_tokens": int(decision.fit.budget_tokens * chunk_fill)})
+        chunk_tokens = int(decision.parameters.get("chunk_budget_tokens") or decision.fit.budget_tokens * chunk_fill)
         chunks = pack_parts(parts, chunk_tokens) if parts else split_ordered(material, chunk_tokens)
         from agent.services.long_context_plan import APPROVED_MAX_STEPS, MAX_STEPS
 
