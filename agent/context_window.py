@@ -1,6 +1,7 @@
 """Context window fit and truncation accounting (LCTX-002).
 
-Ananta works with a 32k-token window per request (``ANANTA_CONTEXT_TOKENS``).
+Ananta works with a context window per request that is one central profile (``agent.context_profile``:
+``ANANTA_CONTEXT_PROFILE``, default 32k; ``ANANTA_CONTEXT_TOKENS``), capped by provider/model limits.
 Two things every call site needs, in one place:
 
 - ``check_fit``: does the assembled prompt fit the window minus the reserve
@@ -26,13 +27,13 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 CHARS_PER_TOKEN = 4
-DEFAULT_OUTPUT_RESERVE = 1024
+DEFAULT_OUTPUT_RESERVE = 1024  # compatibility constant; the reserve of a window: output_reserve_tokens()
 _log = logging.getLogger("ananta.context_window")
 _EVENTS: ContextVar[list[TruncationEvent] | None] = ContextVar("context_truncations", default=None)
 # bounded label values for metrics (free-form sites are folded into "other")
 KNOWN_SITES = frozenset({"llm.trim_messages", "llm.lmstudio_completion", "llm.generate_text", "tool_loop.results",
                          "planning.context", "recovery.context", "recovery.goal", "context_bundle", "rag.rerank",
-                         "context_compression"})
+                         "context_compression", "rlm.evidence"})
 KINDS = frozenset({"trim_messages", "char_cut", "condense", "drop_items"})
 
 
@@ -50,9 +51,20 @@ def estimate_messages_tokens(messages: Sequence[Any] | None) -> int:
 
 
 def context_window_tokens() -> int:
-    from agent.config import settings
+    """The effective context window (configured profile capped by model/provider limits)."""
+    from agent.context_profile import effective_window_tokens
 
-    return int(getattr(settings, "default_context_tokens", 32768) or 32768)
+    return effective_window_tokens()
+
+
+def output_reserve_tokens(window_tokens: int | None = None) -> int:
+    """Room for the answer in ``window_tokens`` (central policy: 1/16 of the window, 1024..8192)."""
+    from agent.context_profile import ContextBudgets
+
+    return ContextBudgets(int(window_tokens or context_window_tokens())).output_reserve
+
+
+_central_output_reserve = output_reserve_tokens  # check_fit's parameter shadows the name
 
 
 @dataclass(frozen=True)
@@ -86,10 +98,11 @@ class ContextFit:
 
 def check_fit(*, prompt: str = "", messages: Sequence[Any] | None = None, window_tokens: int | None = None,
               output_reserve_tokens: int | None = None) -> ContextFit:
-    """Whether ``prompt`` plus ``messages`` fit ``window_tokens`` (default: Ananta's window) minus the reserve."""
-    return ContextFit(int(window_tokens or context_window_tokens()),
-                      int(DEFAULT_OUTPUT_RESERVE if output_reserve_tokens is None else output_reserve_tokens),
-                      estimate_tokens(prompt) + estimate_messages_tokens(messages))
+    """Whether ``prompt`` plus ``messages`` fit ``window_tokens`` (default: the effective window) minus the reserve
+    (default: the central output reserve of that window)."""
+    window = int(window_tokens or context_window_tokens())
+    reserve = _central_output_reserve(window) if output_reserve_tokens is None else int(output_reserve_tokens)
+    return ContextFit(window, reserve, estimate_tokens(prompt) + estimate_messages_tokens(messages))
 
 
 @dataclass(frozen=True)

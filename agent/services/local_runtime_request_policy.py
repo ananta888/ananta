@@ -13,8 +13,10 @@ class LocalRuntimeRequestPolicy:
 
     @staticmethod
     def effective_context_window(*limits: int | None) -> int | None:
-        verified = [int(value) for value in limits if type(value) is int and value > 0]
-        return min(verified) if verified else None
+        """The smallest known limit; one rule for all providers (``agent.context_profile.combine_limits``)."""
+        from agent.context_profile import combine_limits
+
+        return combine_limits(*limits)
 
     def validate_payload(self, payload: Mapping[str, Any]) -> int:
         try:

@@ -72,12 +72,14 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
     # LLM Defaults
     default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")
     default_model: str = Field(default="auto", validation_alias="DEFAULT_MODEL")
-    lmstudio_max_context_tokens: int = Field(default=32768, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
-    # Ananta is designed for a 32k context window per request: the recommended setting for every local model
-    # (llama-server: -c <32768 * parallel slots>, Ollama: num_ctx, LM Studio: context length).
+    # LM Studio cap; unset: the configured context window (agent/context_profile.py).
+    lmstudio_max_context_tokens: Optional[int] = Field(default=None, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
+    # The context window per request is one central profile (agent/context_profile.py):
+    # ANANTA_CONTEXT_PROFILE = compact_12k | standard_32k (default, recommended) | full_64k | extended_128k | custom;
+    # an explicitly set ANANTA_CONTEXT_TOKENS wins (custom window). Provider/model limits always cap it.
+    context_profile: str = Field(default="standard_32k", validation_alias="ANANTA_CONTEXT_PROFILE")
     default_context_tokens: int = Field(default=32768, validation_alias="ANANTA_CONTEXT_TOKENS")
-    # Prompt-token gate of the CLI backends; unset: sgpt (local runtime) uses default_context_tokens,
-    # opencode keeps 128000 (it may run a cloud model with a larger window).
+    # Prompt-token gate of the CLI backends; unset: the effective context window (opencode: at most 128000).
     max_prompt_tokens: Optional[int] = Field(default=None, validation_alias="MAX_PROMPT_TOKENS")
     # JSON-encoded map of model_id -> context_token_limit. Used by LMStudio strategy when
     # /v1/models does not return per-model context_length. Keys are lowercased substrings
@@ -1044,10 +1046,20 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
             raise ValueError(f"SGPT_EXECUTION_BACKEND muss einer der folgenden Werte sein: {sorted(allowed)}")
         return val
 
+    @field_validator("context_profile")
+    @classmethod
+    def validate_context_profile(cls, v: str) -> str:
+        from agent.context_profile import DEFAULT_PROFILE, PROFILES, normalize_profile
+
+        val = normalize_profile(v) if str(v or "").strip() else DEFAULT_PROFILE
+        if val is None:
+            raise ValueError(f"ANANTA_CONTEXT_PROFILE muss einer der folgenden Werte sein: {sorted(PROFILES)} oder custom")
+        return val
+
     @field_validator("rag_default_window_profile")
     @classmethod
     def validate_rag_default_window_profile(cls, v: str) -> str:
-        allowed = {"compact_12k", "standard_32k", "full_64k"}
+        allowed = {"compact_12k", "standard_32k", "full_64k", "extended_128k"}
         val = (v or "").strip().lower() or "standard_32k"
         if val not in allowed:
             raise ValueError(f"RAG_DEFAULT_WINDOW_PROFILE muss einer der folgenden Werte sein: {sorted(allowed)}")

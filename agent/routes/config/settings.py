@@ -136,7 +136,25 @@ def get_config():
     cfg["effective_policy_profile"] = build_effective_policy_profile(cfg)
     cfg["lora_adapter_registry"] = _build_lora_registry_summary(cfg)
     cfg["dashboard_feature_flags"] = _dashboard_feature_flags().as_dict()
+    cfg["context_window_effective"] = _context_window_summary(cfg)
     return api_response(data=cfg)
+
+
+def _context_window_summary(cfg: dict) -> dict:
+    try:
+        from agent.context_profile import describe_context_window
+
+        return describe_context_window(cfg)
+    except Exception as exc:  # noqa: BLE001 -- the settings read must not fail on a probe
+        current_app.logger.warning("context window summary unavailable: %s", exc)
+        return {"schema": "ananta.context_window.v1", "error": "unavailable"}
+
+
+@settings_bp.route("/config/context-window", methods=["GET"])
+@check_auth
+def get_context_window():
+    """Configured window, provider/model limits, effective window and the budgets derived from it."""
+    return api_response(data=_context_window_summary(dict(current_app.config.get("AGENT_CONFIG", {}) or {})))
 
 
 @settings_bp.route("/config/features/v1", methods=["GET"])
@@ -196,6 +214,13 @@ def set_config():
                 data=release_gate.model_dump(mode="json", by_alias=True),
                 code=409,
             )
+    if "context_window" in new_cfg:
+        from agent.context_profile import normalize_context_window_config
+
+        try:
+            new_cfg["context_window"] = normalize_context_window_config(new_cfg.get("context_window"))
+        except ValueError as exc:
+            return api_response(status="error", message=str(exc), code=400)
     policy_revision_update = None
     if "operation_policy" in new_cfg:
         requested_policy = new_cfg.get("operation_policy")

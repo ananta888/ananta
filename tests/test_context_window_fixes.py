@@ -22,7 +22,9 @@ def test_generate_text_gets_the_configured_or_default_context_window(app, monkey
         llm_integration.generate_text("hi", provider="ollama", model="m")
         llm_integration.generate_text("hi", provider="openai", model="m")
         llm_integration.generate_text("hi", provider="llamacpp", model="m", max_context_tokens=4096)
-    assert seen == [16384, 32768, None, 4096]  # configured, local default, cloud untouched, explicit
+    # declared model limit, the configured window (also for cloud providers: Ananta's window is the upper
+    # bound), an explicit narrower limit
+    assert seen == [16384, 32768, 32768, 4096]
 
 
 def test_cli_prompt_gates_follow_the_context_window(monkeypatch):
@@ -30,8 +32,9 @@ def test_cli_prompt_gates_follow_the_context_window(monkeypatch):
     from agent.config import settings
 
     monkeypatch.setattr(settings, "max_prompt_tokens", None)
-    assert prompt_token_limit("sgpt") == settings.default_context_tokens == 32768
-    assert prompt_token_limit("opencode") == 128000  # may run a cloud model with a larger window
+    assert prompt_token_limit("sgpt") == prompt_token_limit("opencode") == 32768  # the effective window
+    monkeypatch.setattr(settings, "context_profile", "extended_128k")
+    assert prompt_token_limit("sgpt") == 131072 and prompt_token_limit("opencode") == 128000  # its own limit
     monkeypatch.setattr(settings, "max_prompt_tokens", 20000)
     assert prompt_token_limit("sgpt") == prompt_token_limit("opencode") == 20000
 

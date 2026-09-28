@@ -36,20 +36,13 @@ def _ananta_hop_headers() -> dict[str, str]:
     return headers
 
 
-_LOCAL_CONTEXT_PROVIDERS = frozenset({"llamacpp"})
-
-
 def _context_limit(provider: str | None, max_context_tokens: int | None) -> int | None:
-    """The token window to trim to: an explicit limit, else Ananta's default for local llama.cpp servers.
+    """The token window to trim to: an explicit limit (never above the effective window), else the effective
+    window of the provider (``agent.context_profile``)."""
+    from agent.context_profile import effective_window_tokens
 
-    Cloud providers (larger windows) are trimmed only when a limit is given explicitly."""
-    if max_context_tokens:
-        return int(max_context_tokens)
-    if str(provider or "").strip().lower() in _LOCAL_CONTEXT_PROVIDERS:
-        from agent.config import settings
-
-        return int(getattr(settings, "default_context_tokens", 32768) or 32768)
-    return None
+    window = effective_window_tokens(provider=str(provider or "").strip().lower() or None)
+    return min(int(max_context_tokens), window) if max_context_tokens else window
 
 
 def _request_url(provider: Optional[str], url: str) -> str:

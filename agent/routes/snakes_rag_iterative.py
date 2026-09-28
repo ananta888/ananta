@@ -335,9 +335,10 @@ def worker_chat_rag_iterative(
     timeout_s = max(60, min(7200, int(float(cfg.get("chat_ask_timeout_s") or 180))))
     max_chars_per_file = max(1000, min(20000, int(float(cfg.get("chat_full_scan_chars_per_file") or 4000))))
 
-    model_context_tokens = lookup_model_context_tokens(model) or int(
-        _cfg_settings.lmstudio_max_context_tokens
-    )
+    from agent.context_profile import effective_window_tokens
+
+    model_context_tokens = effective_window_tokens(limits={"model": lookup_model_context_tokens(model)},
+                                                   probe=False)
     # Reserve ~25% of the context for the LLM's output + framing
     max_input_tokens = max(256, int(model_context_tokens * 0.75))
     trace["model_context_tokens"] = model_context_tokens

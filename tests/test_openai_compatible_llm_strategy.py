@@ -51,7 +51,7 @@ def test_local_llamacpp_requests_are_trimmed_to_anantas_32k_window(monkeypatch):
     strategy.execute("m", "q", "http://h/v1", None, history, 5, provider="llamacpp", max_context_tokens=8192)
     assert budget(sent[-1]) <= 8192
     strategy.execute("m", "q", "https://api.openai.com/v1", None, history, 5, provider="openai")
-    assert budget(sent[-1]) > 32768  # cloud windows are not cut without an explicit limit
+    assert budget(sent[-1]) <= 32768  # Ananta's configured window is the upper bound for every provider
 
 
 def test_the_default_context_is_32k_everywhere():

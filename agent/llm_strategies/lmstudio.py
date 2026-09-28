@@ -184,14 +184,19 @@ class LMStudioStrategy(LLMStrategy):
             _model_lookup_ctx = lookup_model_context_tokens(model_id)
         except Exception:
             _model_lookup_ctx = None
+        from agent.context_profile import configured_window
+
+        configured = configured_window().tokens
+        lmstudio_cap = int(settings.lmstudio_max_context_tokens or 0) or None
         context_limit = LocalRuntimeRequestPolicy.effective_context_window(
             int(max_context_tokens) if max_context_tokens else None,
             int(model_context) if model_context else None,
             int(_model_lookup_ctx) if _model_lookup_ctx else None,
-            int(settings.lmstudio_max_context_tokens),
+            lmstudio_cap,
+            configured,
         )
         if not context_limit or context_limit < 256:
-            context_limit = int(settings.lmstudio_max_context_tokens)
+            context_limit = configured
 
         if is_chat:
             messages = self._build_chat_messages(prompt, history)

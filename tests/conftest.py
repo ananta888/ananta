@@ -35,6 +35,9 @@ os.environ["DATABASE_URL"] = _TEST_DATABASE_URL
 # before importing application settings.
 os.environ["DATA_DIR"] = _TEST_DATA_DIRECTORY
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
+# The context window probe asks the configured LLM runtime for its limit; tests never reach a runtime
+# (tests of the probe inject their own transport).
+os.environ["ANANTA_CONTEXT_PROVIDER_PROBE"] = "0"
 os.environ["AGENT_NAME"] = "test-agent"
 os.environ["VOICE_DELETION_LEDGER_PATH"] = (
     f"/tmp/ananta-voice-deletion-ledger-pytest-{os.getpid()}.jsonl"

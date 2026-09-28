@@ -131,7 +131,9 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
     if not candidates:
         return None
 
-    min_ctx = getattr(settings, "lmstudio_max_context_tokens", 0)
+    from agent.context_profile import configured_window
+
+    min_ctx = int(getattr(settings, "lmstudio_max_context_tokens", 0) or 0) or configured_window().tokens
     api_mode = getattr(settings, "lmstudio_api_mode", "chat")
 
     filtered = [c for c in candidates if (c.get("context_length") or 0) >= min_ctx]

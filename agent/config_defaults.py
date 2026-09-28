@@ -654,6 +654,9 @@ def build_default_agent_config() -> dict:
         "decision_providers": _default_decision_providers(),
         # LCTX-004: Hub decision for tasks whose context exceeds the window (docs/long-context-strategy.md)
         "context_strategy": _default_context_strategy(),
+        # runtime context window (settings UI): {"profile": "full_64k"} or {"profile": "custom", "tokens": N};
+        # empty: ANANTA_CONTEXT_PROFILE / ANANTA_CONTEXT_TOKENS (agent/context_profile.py)
+        "context_window": {},
         # AWWPI-013: workspace mutation loop for ananta-worker. Disabled by
         # default; mutation_mode defaults to read_only and can be derived per
         # task_kind. Risk rules escalate controlled_workspace to
