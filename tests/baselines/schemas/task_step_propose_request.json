@@ -50,6 +50,19 @@
     }
   },
   "properties": {
+    "codecompass_capability": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Codecompass Capability"
+    },
     "dispatch_lease_phase": {
       "anyOf": [
         {
