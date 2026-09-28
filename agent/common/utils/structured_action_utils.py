@@ -16,6 +16,16 @@ _JSON_STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
 _REASON_KEY_RE = re.compile(r'"(?:reason|summary|message|thought|explanation)"\s*:\s*"((?:[^"\\]|\\.)*)"', re.DOTALL)
 
 
+# a model that has no command often writes one of these instead of leaving the field out
+_NO_COMMAND_PLACEHOLDERS = frozenset({"null", "none", "nil", "undefined", "n/a", "na", "-", "\"\"", "''"})
+
+
+def _real_command(value: object) -> str:
+    """The command text, or ``""`` for an absent command or a placeholder such as ``"null"``."""
+    text = str(value or "").strip()
+    return "" if text.lower() in _NO_COMMAND_PLACEHOLDERS else text
+
+
 def sanitize_structured_output_text(raw_text: str) -> str:
     text = _ANSI_RE.sub("", str(raw_text or ""))
     for token in ("<|im_start|>", "<|im_end|>", "<|endoftext|>"):
@@ -55,7 +65,7 @@ def _fallback_extract_command_payload(raw_text: str) -> dict[str, Any] | None:
     command_match = _COMMAND_KEY_RE.search(text)
     if not command_match:
         return None
-    command = _decode_json_string(command_match.group(1)).strip()
+    command = _real_command(_decode_json_string(command_match.group(1)))
     if not command:
         return None
 
@@ -93,7 +103,7 @@ def normalize_structured_action_payload(data: object) -> dict[str, Any] | None:
 
     command = None
     for key in ("command", "cmd", "shell_command", "shell", "bash", "script"):
-        value = str(data.get(key) or "").strip()
+        value = _real_command(data.get(key))
         if value:
             command = value
             break
