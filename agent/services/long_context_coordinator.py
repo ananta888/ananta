@@ -218,13 +218,20 @@ class LongContextCoordinator:
         outline, line = [], 1
         for chunk in split_ordered(text, 3000):
             lines = chunk.text.count("\n") + 1
+            # the documents/parts a section holds (their headings), else its first line
+            headings = [row[2:].strip() for row in chunk.text.splitlines() if row.startswith(("# ", "### "))]
             first = next((row.strip() for row in chunk.text.splitlines() if row.strip()), "")[:100]
-            outline.append(f"- Abschnitt {chunk.index + 1}, Zeilen {line}–{line + lines - 1}: {first}")
+            label = ", ".join(heading.lstrip("# ")[:80] for heading in headings[:4]) or first
+            if len(headings) > 4:
+                label += f" (+{len(headings) - 4})"
+            outline.append(f"- Abschnitt {chunk.index + 1}, Zeilen {line}–{line + lines - 1}: {label}")
             line += lines + 1  # the blank line between chunks
         reading = ("Lies es vollständig, Abschnitt für Abschnitt (`repo.read_file_range`), und halte das Wesentliche "
                    "fest, bevor du antwortest." if decision.strategy == "compact" else
-                   "Lies nur die Abschnitte, die für die Aufgabe relevant sind (`repo.read_file_range` mit den "
-                   "Zeilen aus der Gliederung).")
+                   "Suche zuerst gezielt nach den Begriffen der Aufgabe (`repo.grep` in dieser Datei, auch "
+                   "Varianten und Umgebungsvariablen-Namen), lies dann die Fundstellen und nur die relevanten "
+                   "Abschnitte (`repo.read_file_range` mit den Zeilen aus der Gliederung). Antworte nur mit dem, "
+                   "was im Material steht, und nenne die Quelle (Dokument).")
         size = f"~{decision.fit.estimated_tokens} Token, {decision.fit.ratio:.1f}× das Kontextfenster"
         description = (f"Aufgabe: {goal}\n\nDas Material zu dieser Aufgabe ist umfangreich ({size}) und liegt in "
                        f"`{MATERIAL_FILE}`. "

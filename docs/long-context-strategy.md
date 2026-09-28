@@ -133,6 +133,10 @@ Material des Tasks nach `worker_execution_context.context_material`; die Worker-
 `.ananta/task-material.md` in den Workspace und nimmt es in die Leseliste auf. Die Task-Beschreibung behält die
 Aufgabe, eine Leseanweisung (alles abschnittsweise bzw. nur Relevantes) und eine Gliederung mit Zeilenbereichen
 für `repo.read_file_range`. Der Task passt danach ins Fenster und geht sofort an einen Worker.
+Live geprüft (2026-09-28, Worker-Tool-Loop mit dem eGPU-Modell, `externalize: true`, ~60k Token Doku,
+Frage nach Umgebungsvariable und Profilen): mit der Gliederung nach Dokument-Überschriften und der Anweisung,
+zuerst mit `repo.grep` nach den Begriffen der Frage zu suchen, antwortet der Worker nach 3 Suchen und
+1 Lesezugriff korrekt mit Quelle (43 s); nur mit „lies relevante Abschnitte“ hatte er eine falsche Stelle gefunden.
 `escalate` (≥ 40× Budget) pausiert den Task (`context_too_large_needs_decision`); setzt ein Mensch ihn fort,
 wird er nacheinander verarbeitet (bis 256 statt 64 Schritte).
 
