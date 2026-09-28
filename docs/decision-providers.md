@@ -280,3 +280,12 @@ Entscheidungsserver ~9 s – Kandidaten-Fragen sind dort nicht sinnvoll; bei Jev
 in der Cloud. Wo die eGPU läuft, bleibt der lokale Pfad die erste Wahl; Jev + Kandidaten ist der
 vollwertige Ersatz, wenn sie nicht verfügbar ist.
 
+## Companion-Routing über den lokalen Jev-Modus (2026-09-28)
+
+`worker/meet_media/route_decision.py` fragt denselben llama-server wie die Tool-Entscheidung
+(`MEET_TOOL_DECISION_URL`) nach der Route (Auswahl, Beschreibungen wie im Benchmark) und ob eine
+CodeCompass-Suche nötig ist (Boolean). `MEET_ROUTE_DECISION` = `off` (Standard) | `shadow` (nur loggen, Regeln
+gewinnen) | `active` (Entscheidung ≥ `MEET_ROUTE_DECISION_MIN_CONFIDENCE`, Standard 0,90, ersetzt die Regeln);
+jeder Fehler lässt die Regeln stehen. Benchmark (Hard-Set): Regeln 36 % Route / 59 % Nachschlagen nötig, lokaler
+Jev-Modus 96 % / 100 %. Kein Hub-Import (Worker-Grenze geprüft).
+

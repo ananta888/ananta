@@ -128,3 +128,13 @@ audit (`agent/services/hub_tool_gateway.py`) but keeps its own admission.
 - `agent/services/tools/__init__.py::_dispatch_ananta_tool` is a long `if`
   chain (C901, OCP): a registry table of executors would be the cleaner form.
   Left unchanged to keep this change small.
+
+## Worker-Such-Tools (WCRB-012)
+
+`codecompass.search` und `codecompass.retrieve` nutzen denselben Retrieval-Service; `resolve_context` überschneidet
+sich. Die Worker-Allowlist bietet klare Rollen: `search` (Belege finden), `search_symbols` (exakte Namen),
+`get_file_context` (Originalzeilen), `plan_context` (Patch-Ziele), Architektur-Tools (Struktur). `retrieve` und
+`resolve_context` bleiben registriert (Alias statt Entfernen): fragt ein Modell danach, antwortet der Tool-Loop mit
+`codecompass.search` und übergibt nur die Argumente, die `search` kennt
+(`AnantaToolRegistryService.resolve_alias`, `TOOL_ALIASES`).
+
