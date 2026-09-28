@@ -26,6 +26,28 @@ _CONSTRAINTS: dict[str, dict[str, Any]] = {
 }
 
 
+# chat backends that run on a local runtime (the Ananta context profile applies); others keep their own window
+_LOCAL_CHAT_BACKENDS = frozenset({"ananta-worker", "sgpt", "lmstudio", "ollama", "llamacpp"})
+_CLOUD_CHAT_CONTEXT_CHARS = 12000  # the historical default; not bounded by the Ananta profile
+
+
+def effective_chat_context_chars(settings: Mapping[str, Any] | None) -> int:
+    """RAG/context characters of a chat turn. Local backends: the "rag_context" share of the effective window
+    (12000 chars at 32k); an explicit ``chat_context_chars`` -- except the stored default 12000 -- still applies,
+    capped by the window. Subscription/cloud backends are not limited by the Ananta profile."""
+    from agent.context_profile import CHARS_PER_TOKEN, budget_override, context_budgets, is_local_provider
+
+    data = dict(settings or {})
+    explicit = budget_override(data.get("chat_context_chars"), legacy="chat_context_chars")
+    backend = str(data.get("chat_backend") or "ananta-worker").strip().lower()
+    if backend not in _LOCAL_CHAT_BACKENDS and not is_local_provider(backend):
+        return explicit or _CLOUD_CHAT_CONTEXT_CHARS
+    budgets = context_budgets()
+    if explicit is not None:
+        return max(1000, min(explicit, budgets.available * CHARS_PER_TOKEN))
+    return budgets.chars("rag_context")
+
+
 def canonical_setting_contract() -> tuple[dict[str, Any], dict[str, list[str]]]:
     from agent.services.chat_setting_definitions import _DEFAULTS, _OPTIONS
     from client_surfaces.operator_tui.chat_state import _DEFAULT_SESSION_SETTINGS

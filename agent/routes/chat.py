@@ -49,6 +49,7 @@ from agent.services.chat_setting_catalog import (
     apply_setting_patch,
     canonical_setting_contract,
     canonical_setting_schema,
+    effective_chat_context_chars,
     resolve_effective_settings,
     validate_setting_delta,
 )
@@ -1789,7 +1790,7 @@ def get_session_context_overview(session_id: str):
                 "enabled": bool(settings.get("chat_use_codecompass", True)),
                 "profile": str(settings.get("chat_retrieval_profile") or "auto"),
                 "top_k": int(settings.get("chat_rag_top_k") or 12),
-                "max_chars": int(settings.get("chat_context_chars") or 4000),
+                "max_chars": effective_chat_context_chars(settings),
             },
         }
     )
@@ -1917,7 +1918,7 @@ def preview_session_prompt(session_id: str):
     use_rag = bool(settings.get("chat_use_codecompass", True))
     retrieval_profile = str(settings.get("chat_retrieval_profile") or "auto")
     rag_top_k = int(settings.get("chat_rag_top_k") or 12)
-    context_chars = int(settings.get("chat_context_chars") or 4000)
+    context_chars = effective_chat_context_chars(settings)
     rag_text = (
         f"(RAG-Kontext wird zur Laufzeit abgerufen — Profil: {retrieval_profile}, "
         f"Top-K: {rag_top_k}, max. {context_chars} Zeichen)"
