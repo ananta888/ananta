@@ -149,6 +149,23 @@ class AutopilotDecisionService:
                 diagnostics["fallback_decisions"] = list(decisions)
         return diagnostics
 
+    @staticmethod
+    def _as_executed(tool_calls: list) -> list:
+        """The tool calls as the execution resolves them (``ToolIntentResolver``); unresolved ones keep their name.
+
+        Checking only the proposed names let an invented tool (``task_complete``) pass the safe level
+        and become a ``file_write`` afterwards."""
+        try:
+            from agent.services.tool_intent_resolver import ToolIntentResolver
+            from agent.tools import registry as tool_registry
+
+            known = [definition.get("name") for definition in tool_registry.get_tool_definitions()]
+            resolution = ToolIntentResolver().resolve(list(tool_calls or []), known_tools=known)
+        except Exception:  # noqa: BLE001 -- resolution unavailable: judge the proposed calls as they are
+            return list(tool_calls or [])
+        return list(resolution.resolved_tool_calls) + [
+            {"name": item.original_tool, "args": {}} for item in resolution.unresolved]
+
     def evaluate_tool_guardrails_for_autopilot(
         self,
         *,
@@ -169,8 +186,11 @@ class AutopilotDecisionService:
             dynamic_guard["max_tokens_per_request"] = 0
         tool_classes = dynamic_guard.get("tool_classes", {}) or {}
         allowed_classes = set(policy["allowed_tool_classes"])
-        all_classes = set(tool_classes.values())
+        # "unknown" is a class of its own: a level that does not allow it (only aggressive does) blocks it
+        all_classes = set(tool_classes.values()) | {"unknown"}
         dynamic_guard["blocked_classes"] = sorted([item for item in all_classes if item not in allowed_classes])
+        # judge what will execute: the worker's resolver turns unknown tools into e.g. file_write
+        tool_calls = self._as_executed(tool_calls)
         token_usage = {
             "prompt_tokens": estimate_text_tokens(command or reason or getattr(task, "description", None)),
             "history_tokens": estimate_text_tokens(json.dumps(getattr(task, "history", None) or [], ensure_ascii=False)),
