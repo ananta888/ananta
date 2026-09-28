@@ -522,6 +522,10 @@ def execute_tool_calls(
             result_text += f"\nError: {tool_result.error}"
             if not is_non_fatal_tool_error(tool_name=name, error_text=tool_result.error):
                 overall_exit_code = 1
+        if name == "final_answer" and tool_result.success:
+            # the task's answer itself, not tool noise: never compacted (it was cut to 2000 chars before)
+            output_parts.append(result_text)
+            continue
         _compaction = compaction_svc.compact(
             tool_name=str(name or "tool"),
             output=result_text,
