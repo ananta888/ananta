@@ -70,7 +70,16 @@ def redact_provider_payload(
     secret_keys: Iterable[str] | None = None,
     secret_refs: Iterable[str] | None = None,
     replacement: str = "***REDACTED***",
+    _schema_properties: bool = False,
 ) -> Any:
+    """Redact secrets in an outgoing provider payload.
+
+    Keys whose name looks secret (``token``, ``password``, ...) are replaced -- except the
+    keys of a JSON-schema ``properties`` map (tool parameters, ``response_format``): there a
+    key is a parameter name such as ``max_tokens`` and its value a schema, not a secret.
+    Redacting them broke every tool definition with such a parameter (``Unrecognized schema``).
+    Values are still checked against the known secret references everywhere.
+    """
     markers = _normalize_markers(secret_keys)
     refs = _normalize_refs(secret_refs)
 
@@ -79,7 +88,8 @@ def redact_provider_payload(
         for raw_key, raw_value in payload.items():
             key = str(raw_key)
             if (
-                _is_sensitive_key(key, markers)
+                not _schema_properties
+                and _is_sensitive_key(key, markers)
                 and not _is_safe_protocol_token_field(key, raw_value)
             ):
                 redacted[key] = replacement
@@ -89,6 +99,7 @@ def redact_provider_payload(
                     secret_keys=markers,
                     secret_refs=refs,
                     replacement=replacement,
+                    _schema_properties=key == "properties" and isinstance(raw_value, dict) and not _schema_properties,
                 )
         return redacted
     if isinstance(payload, list):

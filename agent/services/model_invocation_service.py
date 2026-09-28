@@ -1558,8 +1558,10 @@ class ModelInvocationService:
                 cls._finalize_trace_error(
                     prompt_trace, trace_svc, error_type, f"HTTP {resp.status_code}"
                 )
+                # the server's reason (e.g. an unsupported request field) keeps a 4xx diagnosable
+                reason_excerpt = " ".join(response_excerpt.split())[:160]
                 cls._raise_llm_error(
-                    message=f"llm_{error_type}: HTTP {resp.status_code}",
+                    message=f"llm_{error_type}: HTTP {resp.status_code}" + (f": {reason_excerpt}" if reason_excerpt else ""),
                     name="chat_completions",
                     backend="llm_api",
                     provider=provider,

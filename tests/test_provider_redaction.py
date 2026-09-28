@@ -46,3 +46,23 @@ def test_redaction_preserves_protocol_token_limits_only() -> None:
 def test_redaction_keeps_safe_payload_unchanged() -> None:
     payload = {"status": "ok", "count": 2, "tags": ["a", "b"]}
     assert redact_provider_payload(payload) == payload
+
+
+def test_tool_parameter_schemas_named_like_secrets_stay_intact():
+    tool = {"type": "function", "function": {"name": "summarize", "parameters": {
+        "type": "object", "properties": {"max_tokens": {"type": "integer"}, "token": {"type": "string"}},
+        "required": ["token"]}}}
+    payload = {"messages": [], "tools": [tool], "api_key": "sk-live"}
+
+    redacted = redact_provider_payload(payload, secret_refs=["sk-live"])
+
+    assert redacted["tools"] == [tool]  # parameter names are not secrets; the schema must reach the model
+    assert redacted["api_key"] == "***REDACTED***"
+
+
+def test_secret_values_inside_schemas_are_still_redacted_by_reference():
+    payload = {"tools": [{"function": {"parameters": {"properties": {"token": {"default": "sk-live"}}}}}]}
+
+    redacted = redact_provider_payload(payload, secret_refs=["sk-live"])
+
+    assert redacted["tools"][0]["function"]["parameters"]["properties"]["token"]["default"] == "***REDACTED***"
