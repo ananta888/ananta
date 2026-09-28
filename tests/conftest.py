@@ -87,7 +87,7 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture(autouse=True)
-def _integration_planning_timeout_brake(request, app):
+def _integration_planning_timeout_brake(request):
     """Cap planning_policy timeouts for integration tests.
 
     Even with the opt-in gate above, integration tests that start a real
@@ -104,6 +104,9 @@ def _integration_planning_timeout_brake(request, app):
     test cannot kill the whole suite.
 
     Only fires for integration-marked tests. Other tests are untouched.
+    It must not request ``app`` either: an autouse fixture that does builds the
+    full Flask app (~1 s: every blueprint and route) for every test, also for the
+    large majority that never touches it. Integration tests fetch it lazily below.
     It must not request ``monkeypatch``: an autouse fixture that does creates the
     shared monkeypatch before ``cleanup_db_and_runtime`` and so undoes a test's
     patches (e.g. ``settings.data_dir``) only after the cleanup ran its isolation
@@ -135,25 +138,35 @@ def _settings():
     return settings
 
 
+class _TestTextGenerationPort:
+    @staticmethod
+    def generate_text(**values):
+        from agent import llm_integration
+
+        return llm_integration.generate_text(**values)
+
+
+def _install_test_text_generation_port() -> None:
+    from worker.adapters.chain_runners import configure_text_generation
+
+    configure_text_generation(_TestTextGenerationPort())
+
+
 @pytest.fixture(autouse=True)
-def _legacy_workflow_runner_text_generation_port(app):
+def _legacy_workflow_runner_text_generation_port():
     """Keep legacy adapter tests injectable after the production Hub split.
 
     Production composition uses the Worker-local, Hub-budgeted provider port.
     Older unit tests still patch ``agent.llm_integration.generate_text``; this
     test-only adapter preserves that seam without reintroducing the dependency
-    into Worker production modules.
+    into Worker production modules. ``create_app`` installs the production port,
+    so the ``app`` fixture re-installs this one after building the app (this
+    fixture does not request ``app``: that would build it for every test).
     """
 
-    from agent import llm_integration
     from worker.adapters.chain_runners import configure_text_generation
 
-    class TestTextGenerationPort:
-        @staticmethod
-        def generate_text(**values):
-            return llm_integration.generate_text(**values)
-
-    configure_text_generation(TestTextGenerationPort())
+    _install_test_text_generation_port()
     try:
         yield
     finally:
@@ -1112,6 +1125,7 @@ def app():
     from agent.ai_agent import create_app
 
     app = create_app(agent="test-agent")
+    _install_test_text_generation_port()  # create_app installed the production port
     app.config.update(
         {
             "TESTING": True,
