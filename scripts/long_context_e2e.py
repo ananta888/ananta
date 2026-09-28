@@ -108,6 +108,13 @@ def _details(task: dict[str, Any]) -> dict[str, Any]:
     return found
 
 
+def _sources(case: dict[str, Any]) -> list[str]:
+    """The source files of a case's material (for evidence coverage)."""
+    parts = [str(part.get("id") or "") for part in case["context"].get("context_parts", [])]
+    headings = [line[2:].strip() for line in str(case["description"]).splitlines() if line.startswith("# docs/")]
+    return [name for name in parts + headings if name]
+
+
 def _stored(task_id: str) -> tuple[str | None, dict[str, Any]]:
     """Result and long-context record from the Hub DB when running inside the Hub container.
 
@@ -135,8 +142,54 @@ def _stored(task_id: str) -> tuple[str | None, dict[str, Any]]:
     return str(row[0] or ""), record
 
 
-def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: float) -> dict[str, Any]:
+def _truncations(base_urls: list[str], token: str) -> float:
+    """Sum of ``context_truncation_total`` over the Hub and worker processes (counters are per process)."""
+    total = 0.0
+    for base in base_urls:
+        request = urllib.request.Request(base.rstrip("/") + "/metrics", headers={"Authorization": f"Bearer {token}"})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                text = response.read().decode("utf-8", "replace")
+        except (OSError, urllib.error.URLError):
+            continue
+        total += sum(float(line.rsplit(" ", 1)[1]) for line in text.splitlines()
+                     if line.startswith("context_truncation_total{"))
+    return total
+
+
+def _case_stats(task_id: str, sources: list[str], output: str | None) -> dict[str, Any]:
+    """Model calls, prompt sizes and evidence coverage of one case, from the Hub DB (in the Hub container)."""
+    try:
+        from sqlalchemy import text
+
+        from agent.database import engine
+
+        with engine.connect() as connection:
+            rows = connection.execute(text("select id, last_proposal from tasks where id = :id or id like :steps"),
+                                      {"id": task_id, "steps": f"{task_id}-lc-%"}).all()
+    except Exception:  # noqa: BLE001 -- outside the Hub container: unknown
+        return {}
+    calls, prompts, completions = 0, [], 0
+    for _id, proposal in rows:
+        data = json.loads(proposal) if isinstance(proposal, str) else (proposal or {})
+        for entry in ((data or {}).get("cli_result") or {}).get("llm_call_profile") or []:
+            calls += 1
+            if entry.get("prompt_tokens"):
+                prompts.append(int(entry["prompt_tokens"]))
+            completions += int(entry.get("completion_tokens") or 0)
+    lowered = (output or "").lower()
+    names = [Path(source).stem.lower() for source in sources]
+    covered = sum(1 for name in names if name and name in lowered)
+    return {"model_calls": calls, "max_prompt_tokens": max(prompts) if prompts else None,
+            "total_prompt_tokens": sum(prompts), "completion_tokens": completions,
+            "evidence_coverage": round(covered / len(names), 3) if names else None,
+            "evidence_sources": len(names)}
+
+
+def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: float,
+        context_profile: str | None = None, metrics_urls: list[str] | None = None, token: str = "") -> dict[str, Any]:
     config = hub.call("GET", "/config")
+    previous_window = dict(config.get("context_window") or {})
     previous = dict(config.get("context_strategy") or {})
     if previous.get("mode") == "active":
         previous["mode"] = "shadow"  # never "restore" a leftover active mode from an aborted run
@@ -144,8 +197,17 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
     team_id = str((hub.call("GET", "/tasks/autopilot/status") or {}).get("team_id") or "") or None
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))  # run the finally block (restore) on SIGTERM
     hub.call("POST", "/config", {"context_strategy": {**previous, "mode": "active"}})
+    if context_profile:
+        hub.call("POST", "/config", {"context_window": {"profile": context_profile}})
+    window = hub.call("GET", "/config/context-window")
+    window_tokens = int(((window or {}).get("budgets") or {}).get("available_tokens") or (WINDOW_TOKENS - 1024))
+    truncations_before = _truncations(metrics_urls or [], token)
     run_id = uuid.uuid4().hex[:8]
-    report: dict[str, Any] = {"schema": "ananta.long_context_e2e.v1", "run_id": run_id, "cases": []}
+    report: dict[str, Any] = {"schema": "ananta.long_context_e2e.v1", "run_id": run_id, "cases": [],
+                              "context_window": {"configured": (window or {}).get("configured"),
+                                                 "effective": (window or {}).get("effective"),
+                                                 "detected_limits": (window or {}).get("detected_limits"),
+                                                 "available_tokens": window_tokens}}
     tasks: dict[str, dict[str, Any]] = {}
     try:
         for case in [c for c in cases(scale) if c["case"] in selected]:
@@ -153,7 +215,7 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
             hub.call("POST", "/tasks", {"id": task_id, "title": case["title"], "description": case["description"],
                                         "status": "todo", "task_kind": "analysis", "team_id": team_id, "priority": "high",
                                         "worker_execution_context": case["context"]}, timeout=120)
-            tasks[task_id] = {**case, "task_id": task_id, "started": time.time(),
+            tasks[task_id] = {**case, "task_id": task_id, "started": time.time(), "sources": _sources(case),
                               "size_tokens": (len(case["description"]) + sum(len(p["text"]) for p in case["context"]
                                               .get("context_parts", []))) // CHARS_PER_TOKEN}
         deadline = time.time() + timeout_s
@@ -179,6 +241,7 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
                     meta["finished"] = time.time()
                     meta["output_chars"] = None if output is None else len(output)
                     meta["output_head"] = (output or "")[:400]
+                    meta["stats"] = _case_stats(task_id, meta["sources"], output)
                 else:
                     open_tasks += 1
             print(json.dumps({t: (m.get("status"), (m.get("long_context") or {}).get("strategy"))
@@ -188,16 +251,20 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
             time.sleep(tick_s)
     finally:
         hub.call("POST", "/config", {"context_strategy": previous or {"mode": "shadow"}})
+        if context_profile:
+            hub.call("POST", "/config", {"context_window": previous_window})
+    report["truncations"] = _truncations(metrics_urls or [], token) - truncations_before
     for meta in tasks.values():
         lc = meta.get("long_context") or {}
         report["cases"].append({
             "case": meta["case"], "task_id": meta["task_id"], "expected_strategy": meta["expected"],
             "decided": lc.get("decided") or lc.get("strategy"), "strategy": lc.get("strategy"),
             "events": lc.get("events"),
-            "size_tokens": meta["size_tokens"], "ratio": round(meta["size_tokens"] / (WINDOW_TOKENS - 1024), 2),
+            "size_tokens": meta["size_tokens"], "ratio": round(meta["size_tokens"] / window_tokens, 2),
             "steps": lc.get("steps") or 0, "status": meta.get("status"),
             "seconds": round((meta.get("finished") or time.time()) - meta["started"], 1),
-            "output_chars": meta.get("output_chars"), "output_head": meta.get("output_head")})
+            "output_chars": meta.get("output_chars"), "output_head": meta.get("output_head"),
+            **(meta.get("stats") or {})})
     return report
 
 
@@ -210,16 +277,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout", type=float, default=3600)
     parser.add_argument("--tick", type=float, default=20)
     parser.add_argument("--out", type=Path, default=ROOT / "data/decision-benchmarks/long-context-e2e.json")
+    parser.add_argument("--context-profile", default=None,
+                        help="run under this context profile (standard_32k, full_64k, extended_128k); restored after")
+    parser.add_argument("--metrics-urls", default="http://localhost:5000,http://ai-agent-alpha:5000,"
+                                                  "http://ai-agent-beta:5000",
+                        help="Hub/worker base URLs whose context_truncation_total is summed")
     args = parser.parse_args(argv)
-    hub = Hub(args.hub, args.token_file.read_text(encoding="utf-8").strip())
-    report = run(hub, [c.strip() for c in args.cases.split(",") if c.strip()], args.scale, args.timeout, args.tick)
+    token = args.token_file.read_text(encoding="utf-8").strip()
+    hub = Hub(args.hub, token)
+    report = run(hub, [c.strip() for c in args.cases.split(",") if c.strip()], args.scale, args.timeout, args.tick,
+                 context_profile=args.context_profile, token=token,
+                 metrics_urls=[url.strip() for url in args.metrics_urls.split(",") if url.strip()])
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
     for row in report["cases"]:
         print(f"{row['case']:8s} expected {row['expected_strategy']:10s} decided {str(row['decided']):10s} "
               f"ran {str(row['strategy']):10s} "
               f"{row['size_tokens']:>7} tok ratio {row['ratio']} steps {row['steps']:>2} {row['status']:>10} "
-              f"{row['seconds']:>7}s out {row['output_chars']}")
+              f"{row['seconds']:>7}s out {row['output_chars']} calls {row.get('model_calls')} "
+              f"max_prompt {row.get('max_prompt_tokens')} coverage {row.get('evidence_coverage')}")
+    print(f"window: {json.dumps(report.get('context_window'))} truncations: {report.get('truncations')}")
     print(f"report: {args.out}")
     return 0
 

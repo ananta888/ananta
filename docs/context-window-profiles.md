@@ -107,3 +107,29 @@ Werte, die nicht vom Modellfenster abhängen: Anzahl Chunks/Bereiche/Schritte (`
 RLM `max_depth`/`max_fanout`/`max_steps`, `MAX_STEPS`), Zeilen je Bereich, Excerpt-/Vorschau-Längen,
 Zwischenstand-Länge der Langkontext-Schritte (600 Wörter), Task-Brief-/Hub-Kontext-Bausteine der
 Worker-Workspace-Dateien, Byte-Grenzen (`max_total_bytes`), Timeouts.
+
+## Messung: derselbe Task unter 32k / 64k / 128k
+
+`scripts/long_context_e2e.py --cases ordered --context-profile <profil>` (im Hub-Container; Profil und
+Strategie-Modus werden nach dem Lauf zurückgesetzt). Aufgabe: 84 127 Token Ananta-Doku zu einer
+Architekturübersicht in 20 Punkten zusammenfassen. eGPU-Standardmodell (Bonsai 2 27B, llama.cpp
+`-c 65536 -np 2`, meldet `n_ctx` 65 536), Autopilot `safe`, 2026-09-28.
+
+| | standard_32k | full_64k | extended_128k |
+|---|---|---|---|
+| effektives Fenster | 32 768 (konfiguriert) | 65 536 (konfiguriert) | **65 536 (Provider-Limit)** |
+| verfügbar für Material | 17 082 | 46 164 | 46 164 |
+| Strategie / Schritte | sequential, 9 + 1 | sequential, 4 + 1 | sequential, 4 + 1 |
+| Modellaufrufe | 10 | 5 | 5 |
+| größter Prompt (Token) | 30 460 | 45 968 | 46 596 |
+| Laufzeit | 25,4 min | 10,9 min | 12,1 min |
+| Kürzungen (`context_truncation_total`) | 0 | 0 | 0 |
+| Ergebnis | vollständig, 10 833 Zeichen | vollständig, 5 464 Zeichen | vollständig, 3 941 Zeichen |
+
+Material für Retrieval fällt bei diesem Fall nicht an (das Material steckt im Task selbst); die
+„Evidence Coverage“ des Skripts zählt nur, welche Quelldateinamen in der Zusammenfassung stehen (32k: 23 %,
+64k/128k: 5 % bzw. 0 %) und ist für eine 20-Punkte-Übersicht kaum aussagekräftig – alle drei Ergebnisse sind
+inhaltlich brauchbar, die 32k-Fassung ist ausführlicher, weil mehr Zwischenstände einfließen.
+
+Ergebnis: doppeltes Fenster → halb so viele Schritte und Modellaufrufe, 43 % der Laufzeit; jede Anfrage
+bleibt unter ihrem Fenster. Das 128k-Profil auf einer 64k-Laufzeit arbeitet automatisch mit 64k.
