@@ -60,7 +60,7 @@ def native_setup(
     context_reader_factory=lambda client: None,
     hub_task_id="hub-task-1",
 ):
-    client, context, _ = composition(hub_task_id=hub_task_id)
+    client, context, _ = composition(hub_task_id=hub_task_id, allowed_artifacts=("not-materialized", "unhydrated"))
     command = mutate(task_command(context))
     task = mutate_task(
         {
@@ -123,6 +123,8 @@ def test_pi_native_nonce_replay_cannot_invoke_provider_twice(tmp_path):
             lambda c: replace(c, node=replace(c.node, required_capabilities=("text_generation",))),
             "pi_native_capability_required",
         ),
+        # the Hub-signed envelope authorizes these artifacts (native_setup), so the generic Native scope check
+        # passes: the Pi handler itself must refuse writes and unhydrated artifact context
         (
             lambda c: replace(c, node=replace(c.node, output_artifacts=("not-materialized",))),
             "pi_native_write_capability_unsupported",

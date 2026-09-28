@@ -97,6 +97,7 @@ def fixture(
     ] = (),
     budget_overrides: dict[str, int] | None = None,
     hub_task_id: str = "hub-task-1",
+    allowed_artifacts: tuple[str, ...] = (),
 ) -> tuple[
     WorkflowWorkerGatewayService,
     dict,
@@ -124,6 +125,7 @@ def fixture(
         plan_hash=PLAN_HASH,
         policy_version="policy-v1",
         allowed_tools=("apply_patch",),
+        allowed_artifacts=allowed_artifacts,
         allowed_provider_bindings=tuple(
             item.binding_authorization
             for item in provider_attempt_plan
