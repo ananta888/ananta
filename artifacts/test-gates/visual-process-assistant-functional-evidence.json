@@ -143,7 +143,7 @@
     "tests/integration/visual_process_assistant/test_rollback.py": "9ae42b07bd9af771aa58b23f277d6548c7b780f0f900a3bd71a940d7297251f1",
     "tests/security/visual_process_assistant/test_patch_approval_policy.py": "a63824a1869478eb1b1e5b5ff39e425a97f5edc4a7bb9b61f8fee53b716daa7c",
     "tests/security/visual_process_assistant/test_security_gates.py": "95cff74670d77a4d2f91afe91711e715869cab97ae2a80b5c1186805628377e3",
-    "tests/test_codecompass_e2e_acceptance_gate.py": "a3504f8320f36a33e693f4a90ae9310c0db1196e162e378ecb39db12efec8e8f",
+    "tests/test_codecompass_e2e_acceptance_gate.py": "22e9df2aba7b2764b6335b83c068076a4299e32963fececde4fed172588179df",
     "tests/test_visual_process_assistant_baseline.py": "8daffdaeb5326333ec7dafeb36975645c98570ed182b81ad24283ac2c82e248e",
     "tests/test_visual_process_assistant_contracts.py": "9af1c3eec595f02c2307c5bc5cd5403d64e0399e6c7d145e2836c599c8e8071b",
     "tests/test_visual_process_assistant_service.py": "098c6de1183ac1f7b1a6fd64e4ad2c97448813a2af4d690ed64fc73d77e9f96a",
@@ -154,5 +154,5 @@
     "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
     "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
   },
-  "source_revision": "worktree-sha256:eafcc200bf7603f6adbea073a55116ab6ef3014ca099f3763f507edff0c76db9"
+  "source_revision": "worktree-sha256:2946eee576c9190c362298fa9e12f02da4e86ee5a7771f76e9580d5da2b80512"
 }
