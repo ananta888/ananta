@@ -16,8 +16,10 @@ DEFAULT_SECRET_KEY_MARKERS = {
 }
 
 SAFE_NUMERIC_TOKEN_KEYS = {
+    "cached_tokens",
     "completion_tokens",
     "max_completion_tokens",
+    "max_context_tokens",
     "max_output_tokens",
     "max_tokens",
     "prompt_tokens",
@@ -48,13 +50,12 @@ def _is_sensitive_key(key: str, markers: set[str]) -> bool:
 
 
 def _is_safe_protocol_token_field(key: str, value: Any) -> bool:
+    """Token counts and limits (``max_context_tokens``, ``cached_tokens``, ...) are numbers, not secrets."""
     normalized = str(key or "").strip().lower()
-    return (
-        normalized in SAFE_NUMERIC_TOKEN_KEYS
-        and (
-            value is None
-            or (not isinstance(value, bool) and isinstance(value, (int, float)))
-        )
+    counted = normalized in SAFE_NUMERIC_TOKEN_KEYS or normalized.endswith("_tokens")
+    return counted and (
+        value is None
+        or (not isinstance(value, bool) and isinstance(value, (int, float)))
     )
 
 

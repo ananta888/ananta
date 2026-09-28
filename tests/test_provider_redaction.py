@@ -66,3 +66,15 @@ def test_secret_values_inside_schemas_are_still_redacted_by_reference():
     redacted = redact_provider_payload(payload, secret_refs=["sk-live"])
 
     assert redacted["tools"][0]["function"]["parameters"]["properties"]["token"]["default"] == "***REDACTED***"
+
+
+def test_token_counts_and_limits_are_not_redacted():
+    payload = {"max_context_tokens": 32768, "max_output_tokens": None, "cached_tokens": 12,
+               "refresh_tokens": "rt-secret", "session_token": 5}
+
+    redacted = redact_provider_payload(payload)
+
+    assert redacted["max_context_tokens"] == 32768 and redacted["cached_tokens"] == 12
+    assert redacted["max_output_tokens"] is None
+    assert redacted["refresh_tokens"] == "***REDACTED***"  # a string under a *_tokens key stays secret
+    assert redacted["session_token"] == "***REDACTED***"  # not a count: singular token
