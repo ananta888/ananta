@@ -90,7 +90,9 @@ def test_baseline_has_no_volatile_or_synthetic_identity_material() -> None:
 
     assert "generated_at" not in encoded
     assert "timestamp" not in encoded
-    assert str(ROOT) not in encoded
+    # no absolute checkout path; a plain substring check would also hit "src/app/..." in the test container,
+    # where the repository root itself is "/app"
+    assert re.search(r'(^|["\s(])' + re.escape(str(ROOT)) + r"(/|\b)", encoded) is None
     assert re.search(r"\b(?:SRC|RUN)_", encoded) is None
     assert payload["source_grounding"] == {
         "repository_relative_evidence_only": True,

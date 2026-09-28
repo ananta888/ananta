@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -336,5 +337,8 @@ def test_gate_reports_do_not_contain_volatile_identity_fields() -> None:
 
     assert "generated_at" not in encoded
     assert "timestamp" not in encoded
-    assert str(Path(__file__).resolve().parents[1]) not in encoded
+    # no absolute checkout path (a plain substring check would also hit "src/app/..." when the repository
+    # root itself is "/app", as in the test container)
+    root = re.escape(str(Path(__file__).resolve().parents[1]))
+    assert not re.search(r'(^|["\s(])' + root + r"(/|\b)", encoded)
     json.loads(canonical_bytes(build_functional_report()))
