@@ -79,7 +79,7 @@ def run_propose_orchestrator_path(
     _record_context_strategy(task, tid, task_kind, base_prompt, research_context_summary, cfg)
     compaction_payload = None
     compaction_meta = None
-    if bool(getattr(policy, "context_compaction_enabled", True)):
+    if bool(getattr(policy, "context_compaction_enabled", True)) and not _is_long_context_step(task):
         mode_data = {}
         if isinstance(task.get("mode_data"), dict):
             mode_data = {**mode_data, **dict(task.get("mode_data") or {})}
@@ -496,6 +496,14 @@ def run_propose_orchestrator_path(
 
 
 _QUESTION_LIKE_KINDS = frozenset({"analysis", "research", "planning_research", "doc", "review"})
+
+
+def _is_long_context_step(task: dict) -> bool:
+    """A step the Hub already sized for the window (LCTX split). Compacting its prompt with another model
+    call adds nothing -- live it cost 4 x 45 s timeouts per step on the workers."""
+    details = task.get("status_reason_details")
+    marker = (details or {}).get("long_context") if isinstance(details, dict) else None
+    return isinstance(marker, dict) and marker.get("role") == "step"
 
 
 def _record_context_strategy(task: dict, tid: str, task_kind: Any, base_prompt: Any, research_context_summary: Any,
