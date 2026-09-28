@@ -4,7 +4,7 @@ Decision policy source: `todo.doc.json -> decision_policy`.
 
 | Drift | Decision | Strategy tag | Rationale | Verification impact |
 | --- | --- | --- | --- | --- |
-| Bootstrap OpenAI example used `--base-url` while init parser supports `--endpoint-url` | update docs + installer outputs | update_both | user-impacting command error on first-run path | `tests/test_bootstrap_docs.py` validates endpoint flag contract |
+| Bootstrap OpenAI example used `--base-url` while init parser supports `--endpoint-url` | update docs + installer outputs | update_both | user-impacting command error on first-run path | `tests/test_documentation_contracts.py` validates endpoint flag contract |
 | Goal CLI next-step output used module entrypoint | update code + snapshots/tests | update_both | default user guidance should follow `ananta ...` path | `tests/test_cli_goals.py`, `tests/test_cli_goals_shortcuts.py`, e2e snapshots |
 | Demo flow examples defaulted to module entrypoint | update docs | docs_first | docs drift, runtime already supports user-path aliases | command contract test coverage in `tests/test_cli_docs_contract.py` |
 | Onboarding mixed CLI-local and Docker-full-stack defaults | update docs | docs_first | confusion risk for new users; no runtime behavior change needed | docs contract and presence tests |

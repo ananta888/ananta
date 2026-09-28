@@ -1,23 +1,13 @@
 from __future__ import annotations
 
+# The required-docs list lives in tests/test_documentation_contracts.py; this module checks the track inventory.
+
 import json
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-REQUIRED_DOCS = [
-    "docs/security_baseline.md",
-    "docs/hub_fallback.md",
-    "docs/execution_scope.md",
-    "docs/artifacts_and_routing.md",
-    "docs/frontend_goal_ux.md",
-    "docs/operator-tui-mouse-snake.md",
-    "docs/status/active_and_completed_tracks.md",
-    "docs/status/documentation-command-contract.json",
-    "docs/status/documentation-command-usage.md",
-    "docs/status/documentation-drift-decision-matrix.md",
-]
 
 TRACK_ROW_PATTERN = re.compile(r"\|\s*`(todo[^`]+\.json)`\s*\|\s*`([^`]+)`\s*\|")
 SECTION_PATTERN = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
@@ -32,11 +22,6 @@ def _section(content: str, heading: str) -> str:
         end = matches[index + 1].start() if index + 1 < len(matches) else len(content)
         return content[start:end]
     raise AssertionError(f"Section not found: {heading}")
-
-
-def test_docs_exist() -> None:
-    missing = [path for path in REQUIRED_DOCS if not (ROOT / path).exists()]
-    assert not missing, f"Missing docs: {missing}"
 
 
 def test_active_track_inventory_points_to_existing_track_files() -> None:

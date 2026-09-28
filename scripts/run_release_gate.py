@@ -19,7 +19,7 @@ INITIAL_TASKS_LITERAL_PATTERN = re.compile(r"(?m)^[A-Z0-9_]+_INITIAL_TASKS\s*=\s
 DEFAULT_DOCS_DRIFT_TESTS = (
     "tests/test_cli_docs_contract.py",
     "tests/test_docs_presence.py",
-    "tests/test_bootstrap_docs.py",
+    "tests/test_documentation_contracts.py",
 )
 
 

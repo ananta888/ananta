@@ -155,7 +155,7 @@ contract resolves in favor of **this Core contract**.
 
 This contract document is itself an acceptance deliverable for X86CC-001
 (see `todos/todo.codecompass-x86-assembly-core-extension.json`). The
-deliverable is verified by `tests/codecompass/x86/test_doc_contract.py`.
+deliverable is verified by `tests/test_documentation_contracts.py`.
 
 ## Tools (W5 / X86CC-023..027)
 
