@@ -50,6 +50,16 @@ from .autopilot_task_dispatcher_helpers import (
 )
 
 
+
+def _hub_context_window(loop: Any) -> dict[str, Any]:
+    """The window the Hub sizes tasks for, handed to the worker with every propose/execute (hub-owned)."""
+    from agent.context_profile import hub_assignment
+
+    try:
+        return hub_assignment(loop._agent_config() or {})
+    except Exception:  # noqa: BLE001 -- without it the worker uses its own configuration
+        return {}
+
 def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
     """LCTX-007/008: split a task whose context exceeds the window (only with context_strategy.mode=active)."""
     try:
@@ -593,7 +603,7 @@ def _dispatch_one_task_inner(  # noqa: C901
                     }
                 )
                 break
-            propose_payload: dict[str, Any] = {"task_id": task.id}
+            propose_payload: dict[str, Any] = {"task_id": task.id, "context_window": _hub_context_window(loop)}
             autopilot_cfg = ((loop._agent_config() or {}).get("autopilot", {}) or {})
             strategy_mode_override = str(
                 autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"

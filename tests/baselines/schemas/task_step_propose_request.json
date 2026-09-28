@@ -63,6 +63,19 @@
       "default": null,
       "title": "Codecompass Capability"
     },
+    "context_window": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context Window"
+    },
     "dispatch_lease_phase": {
       "anyOf": [
         {

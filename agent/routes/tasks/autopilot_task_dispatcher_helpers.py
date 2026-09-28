@@ -26,6 +26,16 @@ class TaskDispatchResult:
     failure_type: str | None = None
 
 
+
+def _hub_context_window() -> dict[str, Any]:
+    """The Hub's configured context window for the worker (see autopilot_task_dispatcher._hub_context_window)."""
+    from agent.context_profile import hub_assignment
+
+    try:
+        return hub_assignment()
+    except Exception:  # noqa: BLE001
+        return {}
+
 def _current_task_status(task_id: str, *, app: Any) -> str:
     try:
         repos = get_repository_registry(app)
@@ -367,6 +377,7 @@ def _execute_proposed_step(
         "tool_calls": tool_calls,
         "timeout": int(policy["execute_timeout"]),
         "retries": int(policy["execute_retries"]),
+        "context_window": _hub_context_window(),
     }
     from agent.services.recovery_worker_result_service import (
         get_recovery_worker_result_service,

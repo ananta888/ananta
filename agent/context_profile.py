@@ -29,7 +29,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -123,12 +125,48 @@ def _agent_config(agent_cfg: Mapping[str, Any] | None) -> Mapping[str, Any]:
     return {}
 
 
+# The window the Hub assigned to the task a worker is executing (hub -> worker, per request). The Hub owns the
+# window decision: it sized the task for it, so the worker's budgets and guardrails must use the same window.
+_ASSIGNED_WINDOW: ContextVar[dict[str, Any] | None] = ContextVar("assigned_context_window", default=None)
+
+
+def hub_assignment(agent_cfg: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The Hub's configured window as it is handed to a worker with a task (``context_window`` field)."""
+    configured = configured_window(agent_cfg)
+    if configured.profile in PROFILES:
+        return {"profile": configured.profile, "tokens": None}
+    return {"profile": CUSTOM_PROFILE, "tokens": configured.tokens}
+
+
+@contextmanager
+def assigned_window_scope(raw: Any) -> Iterator[dict[str, Any] | None]:
+    """Within this scope the Hub-assigned window is the configured window (invalid or empty: ignored)."""
+    try:
+        assigned = normalize_context_window_config(raw) or None
+    except ValueError:
+        _log.warning("ignoring invalid assigned context window: %r", raw)
+        assigned = None
+    token = _ASSIGNED_WINDOW.set(assigned)
+    try:
+        yield assigned
+    finally:
+        _ASSIGNED_WINDOW.reset(token)
+
+
 def configured_window(agent_cfg: Mapping[str, Any] | None = None, *, settings: Any = None) -> ConfiguredWindow:
-    """The window Ananta is configured for (before provider limits)."""
+    """The window Ananta is configured for (before provider limits); on a worker executing a task the window
+    the Hub assigned to it."""
     if settings is None:
         from agent.config import settings as _settings
 
         settings = _settings
+    assigned = _ASSIGNED_WINDOW.get()
+    if assigned:
+        if assigned.get("profile") in PROFILES:
+            return ConfiguredWindow(PROFILES[assigned["profile"]], assigned["profile"], "hub_assignment")
+        if assigned.get("tokens"):
+            tokens = int(assigned["tokens"])
+            return ConfiguredWindow(tokens, profile_for_tokens(tokens), "hub_assignment")
     runtime = _agent_config(agent_cfg).get("context_window")
     if isinstance(runtime, Mapping):
         tokens = _valid_tokens(runtime.get("tokens"))

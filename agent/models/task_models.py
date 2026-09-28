@@ -28,6 +28,9 @@ class TaskStepProposeRequest(SQLModel):
     knowledge_index_dispatch: Optional[dict] = None
     # Hub -> worker only (WCRB-009): signed CodeCompass capability for this step; ignored elsewhere.
     codecompass_capability: Optional[dict] = None
+    # Hub -> worker: the context window the Hub sized this task for ({"profile"} or {"profile": "custom",
+    # "tokens"}); the worker's budgets and guardrails use it (agent/context_profile.py).
+    context_window: Optional[dict] = None
 
 
 class TaskStepProposeResponse(SQLModel):
@@ -56,6 +59,8 @@ class TaskStepExecuteRequest(SQLModel):
     knowledge_index_dispatch: Optional[dict] = None
     # Hub -> worker only (WCRB-009): signed CodeCompass capability for this step; ignored elsewhere.
     codecompass_capability: Optional[dict] = None
+    # Hub -> worker: the context window the Hub sized this task for (see TaskStepProposeRequest).
+    context_window: Optional[dict] = None
 
 
 class TaskStepExecuteResponse(SQLModel):

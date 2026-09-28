@@ -15,6 +15,7 @@ from agent.services.knowledge_index_dispatch_request_auth_policy import (
 from agent.services.service_registry import get_core_services
 from agent.tools import registry as tool_registry
 from agent.utils import validate_request
+from agent.context_profile import assigned_window_scope
 
 execution_bp = Blueprint("tasks_execution", __name__)
 
@@ -73,6 +74,7 @@ def _knowledge_index_dispatch_auth_error(
         data={"reason_code": reason_code},
         code=403,
     )
+
 
 
 @execution_bp.route("/step/propose", methods=["POST"])
@@ -149,7 +151,8 @@ def task_propose(tid):
         phase="propose",
     ):
         return error
-    with task_capability_scope(_accepted_codecompass_capability(data)):
+    with task_capability_scope(_accepted_codecompass_capability(data)), \
+            assigned_window_scope(getattr(data, "context_window", None)):
         outcome = _services().task_scoped_execution_service.propose_task_step(
             tid,
             data,
@@ -183,7 +186,8 @@ def task_execute(tid):
         phase="execute",
     ):
         return error
-    with task_capability_scope(_accepted_codecompass_capability(data)):
+    with task_capability_scope(_accepted_codecompass_capability(data)), \
+            assigned_window_scope(getattr(data, "context_window", None)):
         outcome = _services().task_scoped_execution_service.execute_task_step(
             tid,
             data,

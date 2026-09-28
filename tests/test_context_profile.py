@@ -256,3 +256,39 @@ def test_config_api_switches_the_profile(client, admin_auth_header):
     bad = client.post("/config", json={"context_window": {"profile": "huge"}}, headers=admin_auth_header)
     assert bad.status_code == 400
     client.post("/config", json={"context_window": {}}, headers=admin_auth_header)
+
+
+# --- hub -> worker assignment -----------------------------------------------------------------------------
+
+
+def test_the_hub_assigned_window_wins_on_the_worker_and_is_scoped():
+    from agent.context_profile import assigned_window_scope, hub_assignment
+
+    worker_env = _settings("standard_32k")
+    assert hub_assignment({"context_window": {"profile": "full_64k"}}) == {"profile": "full_64k", "tokens": None}
+    with assigned_window_scope({"profile": "full_64k"}):
+        window = configured_window({}, settings=worker_env)
+        assert (window.tokens, window.source) == (65536, "hub_assignment")
+    assert configured_window({}, settings=worker_env).tokens == 32768  # only for that task
+    with assigned_window_scope({"profile": "nonsense"}):  # invalid: ignored, never widened
+        assert configured_window({}, settings=worker_env).tokens == 32768
+
+
+def test_the_worker_route_applies_the_assigned_window(client, admin_auth_header, monkeypatch):
+    from agent.context_profile import configured_window as current_window
+
+    seen = []
+
+    class _Service:
+        def propose_task_step(self, tid, data, **kwargs):
+            seen.append(current_window())
+            from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+
+            return TaskScopedRouteResponse(data={"reason": "ok", "raw": ""})
+
+    monkeypatch.setattr("agent.routes.tasks.execution._services",
+                        lambda: SimpleNamespace(task_scoped_execution_service=_Service()))
+    response = client.post("/tasks/T-1/step/propose", json={"task_id": "T-1", "context_window": {"profile": "full_64k"}},
+                           headers=admin_auth_header)
+    assert response.status_code == 200, response.get_data(as_text=True)
+    assert seen and seen[0].tokens == 65536 and seen[0].source == "hub_assignment"
