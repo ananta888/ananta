@@ -218,3 +218,16 @@ def test_other_task_kinds_keep_round_robin_over_all_workers():
     task = SimpleNamespace(task_kind="coding", assigned_agent_url=None, _hub_can_be_worker=True, _local_worker_url="")
     picks = {resolve_target_worker_for_task(task=task, workers=workers, worker_cursor=c)[0].url for c in range(2)}
     assert picks == {"http://a:5000", "http://b:5000"}
+
+
+def test_supervisor_waits_at_least_the_model_propose_timeout():
+    from agent.routes.tasks.autopilot_guardrails import resolve_security_policy
+
+    policy = resolve_security_policy(agent_config={"task_propose_timeout_seconds": 300}, security_level="safe")
+    assert policy["propose_timeout"] == 300
+    assert resolve_dispatch_hard_timeout(tasks=[], security_policy=policy) == 300 + 45 + 30
+    assert resolve_security_policy(agent_config={}, security_level="safe")["propose_timeout"] == 120
+    explicit = resolve_security_policy(
+        agent_config={"task_propose_timeout_seconds": 300,
+                      "autopilot_security_policies": {"safe": {"propose_timeout": 90}}}, security_level="safe")
+    assert explicit["propose_timeout"] == 90  # an explicit policy value still wins

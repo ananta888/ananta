@@ -66,6 +66,13 @@ def resolve_security_policy(*, agent_config: dict[str, Any], security_level: str
     policy_cfg = (agent_config or {}).get("autopilot_security_policies", {}) or {}
     configured = policy_cfg.get(level) if isinstance(policy_cfg, dict) else None
     base = {**defaults[level]}
+    # The dispatch supervisor waits propose_timeout (+ execute + grace). It must not cut a proposal the
+    # model call is still allowed to finish: at least the configured task_propose_timeout_seconds.
+    try:
+        model_propose_timeout = int((agent_config or {}).get("task_propose_timeout_seconds") or 0)
+    except (TypeError, ValueError):
+        model_propose_timeout = 0
+    base["propose_timeout"] = max(base["propose_timeout"], model_propose_timeout)
     if isinstance(configured, dict):
         if "max_concurrency_cap" in configured:
             base["max_concurrency_cap"] = max(
