@@ -395,13 +395,9 @@ def build_runtime_profile_document(
 
 
 def _recommendation_payload(recommendation: RuntimeRecommendation) -> dict[str, Any]:
-    context_window_tokens = int(recommendation.context_window_tokens)
-    if context_window_tokens <= 12000:
-        window_profile = "compact_12k"
-    elif context_window_tokens <= 32000:
-        window_profile = "standard_32k"
-    else:
-        window_profile = "full_64k"
+    from agent.context_profile import nearest_profile
+
+    window_profile = nearest_profile(int(recommendation.context_window_tokens))
     return {
         "environment": recommendation.environment,
         "provider": recommendation.provider,

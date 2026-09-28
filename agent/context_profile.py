@@ -61,6 +61,12 @@ SHARES: dict[str, float] = {
     "planning_segment": 2000 / CALIBRATION_WINDOW,    # one planning segment (8000 chars)
     "compactor_output": 3000 / CALIBRATION_WINDOW,    # propose/recovery compactor output (12000 chars)
     "recovery_context": 0.25,                         # recovery context: a quarter of the window
+    "editor_conversation": 12000 / CALIBRATION_WINDOW,  # visual-process editor, conversation prompt (12000)
+    "curation": 10000 / CALIBRATION_WINDOW,           # context curation pipeline (40000 chars)
+    "worker_file": 1000 / CALIBRATION_WINDOW,         # worker batch loop: one file excerpt (4000 chars)
+    "worker_snippet": 2000 / CALIBRATION_WINDOW,      # worker batch loop: one snippet (8000 chars)
+    "snake_catalog": 5000 / CALIBRATION_WINDOW,       # snake RAG: component catalog (20000 chars)
+    "snake_tool_file": 5000 / CALIBRATION_WINDOW,     # snake RAG: one tool file read (20000 chars)
 }
 # The same values as they were hard-coded or persisted before (unit as stored): treated as "not set".
 LEGACY_DEFAULTS: dict[str, int] = {
@@ -72,6 +78,13 @@ LEGACY_DEFAULTS: dict[str, int] = {
     "rag_context_chars": 12000,
     "evidence_tokens": 12000,
     "llm_context_limit": 32768,
+    "chat_context_chars": 12000,
+    "pre_model_context_chars": 12000,
+    "curation_chars": 40000,
+    "worker_file_chars": 4000,
+    "worker_snippet_chars": 8000,
+    "snake_catalog_chars": 20000,
+    "snake_tool_file_chars": 20000,
 }
 DEFAULT_REQUEST_OVERHEAD_TOKENS = 12000  # measured live: tool definitions + AGENTS.md + system prompt
 _log = logging.getLogger("ananta.context_profile")
@@ -92,6 +105,12 @@ def profile_for_tokens(tokens: int) -> str:
         if value == int(tokens):
             return name
     return CUSTOM_PROFILE
+
+
+def nearest_profile(tokens: int) -> str:
+    """The largest profile not above ``tokens`` (``compact_12k`` below that) -- for describing a window size."""
+    fitting = [name for name, value in sorted(PROFILES.items(), key=lambda item: item[1]) if value <= int(tokens)]
+    return fitting[-1] if fitting else "compact_12k"
 
 
 def normalize_profile(value: Any) -> str | None:
@@ -569,6 +588,6 @@ __all__ = [
     "CALIBRATION_WINDOW", "CUSTOM_PROFILE", "ConfiguredWindow", "ContextBudgets", "DEFAULT_PROFILE",
     "EffectiveWindow", "LEGACY_DEFAULTS", "PROFILES", "ProviderLimitProbe", "SHARES", "budget_override",
     "combine_limits", "configured_window", "context_budgets", "effective_window", "effective_window_tokens",
-    "normalize_profile", "profile_for_tokens", "provider_limit_probe", "request_overhead_tokens",
+    "nearest_profile", "normalize_profile", "profile_for_tokens", "provider_limit_probe", "request_overhead_tokens",
     "set_provider_limit_probe",
 ]

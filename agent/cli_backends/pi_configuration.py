@@ -50,6 +50,19 @@ def validate_pi_target(target: CodingAgentInferenceTarget | None) -> str | None:
     return None
 
 
+PI_REMOTE_CONTEXT_WINDOW = 8192  # Pi's own bound for remote models; the Hub budget still caps every call
+
+
+def pi_context_window(target: CodingAgentInferenceTarget) -> int:
+    """The window Pi is told: for a local runtime the effective Ananta window (profile capped by what the runtime
+    serves), for a remote model Pi's own conservative bound -- never the Ananta profile."""
+    from agent.context_profile import effective_window_tokens, is_local_provider
+
+    if is_local_provider(target.provider_id):
+        return effective_window_tokens(provider=str(target.provider_id).lower(), model=target.model or None)
+    return PI_REMOTE_CONTEXT_WINDOW
+
+
 @dataclass(frozen=True)
 class PiInvocation:
     cwd: Path
@@ -91,7 +104,7 @@ def isolated_pi_configuration(
         models = {"providers": {PI_PROVIDER_NAME: {
             "baseUrl": target.base_url, "api": "openai-completions", "apiKey": "$ANANTA_PI_API_KEY",
             "authHeader": True, "compat": compatibility,
-            "models": [{"id": target.model, "contextWindow": 8192, "maxTokens": max_tokens}],
+            "models": [{"id": target.model, "contextWindow": pi_context_window(target), "maxTokens": max_tokens}],
         }}}
         files = {
             "settings.json": json.dumps(settings), "models.json": json.dumps(models), "auth.json": "{}",

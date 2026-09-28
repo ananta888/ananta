@@ -6,10 +6,10 @@ from agent.services.runtime_profile_recommender import RuntimeRecommendationRequ
 def test_runtime_profile_recommender_cpu_only_defaults_are_conservative() -> None:
     recommendation = recommend_runtime_profile(RuntimeRecommendationRequest(environment="cpu-only"))
     assert recommendation.provider == "ollama"
-    assert recommendation.context_window_tokens == 32000
+    assert recommendation.context_window_tokens == 32768  # standard_32k profile
     assert recommendation.max_input_tokens == 8000
     assert recommendation.max_output_tokens == 1024
-    assert recommendation.rag_budget_tokens == 12000
+    assert recommendation.rag_budget_tokens == 12288  # standard bundle of 32k
     assert recommendation.patch_size_lines == 120
     assert recommendation.requires_explicit_provider_config is False
 
@@ -18,7 +18,7 @@ def test_runtime_profile_recommender_nvidia_gpu_recommendation() -> None:
     recommendation = recommend_runtime_profile(RuntimeRecommendationRequest(environment="nvidia-gpu"))
     assert recommendation.provider == "ollama"
     assert recommendation.model == "qwen2.5-coder:14b"
-    assert recommendation.context_window_tokens == 64000
+    assert recommendation.context_window_tokens == 65536  # full_64k profile
     assert recommendation.max_output_tokens == 2048
     assert recommendation.patch_size_lines >= 180
 

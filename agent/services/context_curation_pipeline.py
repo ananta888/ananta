@@ -78,9 +78,17 @@ class CurationPolicy:
     min_score: float = 0.2
     max_items: int = 15
     max_snippet_chars: int = 2000
-    budget_chars: int = 40000
+    budget_chars: int | None = None  # None: the "curation" share of the effective window (40000 chars at 32k)
     stale_days: int = 90
     always_denied_paths: list[str] = field(default_factory=lambda: list(ALWAYS_DENIED))
+
+    def __post_init__(self) -> None:
+        from agent.context_profile import CHARS_PER_TOKEN, budget_override, context_budgets
+
+        budgets = context_budgets()
+        explicit = budget_override(self.budget_chars, legacy="curation_chars")
+        self.budget_chars = (budgets.chars("curation") if explicit is None
+                             else min(explicit, budgets.available * CHARS_PER_TOKEN))
 
 class ContextCurationPipeline:
     def __init__(self, policy: CurationPolicy | None = None):

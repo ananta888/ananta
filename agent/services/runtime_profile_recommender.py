@@ -3,7 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from agent.context_profile import PROFILES, ContextBudgets
+
 EnvironmentKind = Literal["cpu-only", "nvidia-gpu", "remote-model", "mixed-local-remote"]
+
+
+# Windows are the central context profiles (agent/context_profile.py); the RAG budget is the context bundle of
+# that window (standard at 32k, full at 64k) -- the recommendation and the runtime budgets agree.
+_WINDOW_32K = PROFILES["standard_32k"]
+_WINDOW_64K = PROFILES["full_64k"]
+_RAG_32K = ContextBudgets(_WINDOW_32K).bundle_tokens("standard")
+_RAG_64K = ContextBudgets(_WINDOW_64K).bundle_tokens("full")
 
 
 @dataclass(frozen=True)
@@ -73,10 +83,10 @@ def recommend_runtime_profile(request: RuntimeRecommendationRequest) -> RuntimeR
             environment=env,
             provider="ollama",
             model="qwen2.5-coder:7b",
-            context_window_tokens=32000,
+            context_window_tokens=_WINDOW_32K,
             max_input_tokens=8000,
             max_output_tokens=1024,
-            rag_budget_tokens=12000,
+            rag_budget_tokens=_RAG_32K,
             patch_size_lines=120,
             local_execution_weight=1.0,
             remote_execution_weight=0.0,
@@ -92,10 +102,10 @@ def recommend_runtime_profile(request: RuntimeRecommendationRequest) -> RuntimeR
             environment=env,
             provider="ollama",
             model="qwen2.5-coder:14b",
-            context_window_tokens=64000,
+            context_window_tokens=_WINDOW_64K,
             max_input_tokens=16000,
             max_output_tokens=2048,
-            rag_budget_tokens=32000,
+            rag_budget_tokens=_RAG_64K,
             patch_size_lines=220,
             local_execution_weight=1.0,
             remote_execution_weight=0.0,
@@ -112,10 +122,10 @@ def recommend_runtime_profile(request: RuntimeRecommendationRequest) -> RuntimeR
                 environment=env,
                 provider="openai-compatible",
                 model="model",
-                context_window_tokens=64000,
+                context_window_tokens=_WINDOW_64K,
                 max_input_tokens=24000,
                 max_output_tokens=2048,
-                rag_budget_tokens=32000,
+                rag_budget_tokens=_RAG_64K,
                 patch_size_lines=180,
                 local_execution_weight=0.2,
                 remote_execution_weight=0.8,
@@ -129,10 +139,10 @@ def recommend_runtime_profile(request: RuntimeRecommendationRequest) -> RuntimeR
             environment=env,
             provider="ollama",
             model="qwen2.5-coder:7b",
-            context_window_tokens=32000,
+            context_window_tokens=_WINDOW_32K,
             max_input_tokens=8000,
             max_output_tokens=1024,
-            rag_budget_tokens=12000,
+            rag_budget_tokens=_RAG_32K,
             patch_size_lines=120,
             local_execution_weight=1.0,
             remote_execution_weight=0.0,
@@ -149,10 +159,10 @@ def recommend_runtime_profile(request: RuntimeRecommendationRequest) -> RuntimeR
                 environment=env,
                 provider="openai-compatible",
                 model="model",
-                context_window_tokens=64000,
+                context_window_tokens=_WINDOW_64K,
                 max_input_tokens=20000,
                 max_output_tokens=2048,
-                rag_budget_tokens=32000,
+                rag_budget_tokens=_RAG_64K,
                 patch_size_lines=180,
                 local_execution_weight=0.7,
                 remote_execution_weight=0.3,
@@ -166,10 +176,10 @@ def recommend_runtime_profile(request: RuntimeRecommendationRequest) -> RuntimeR
             environment=env,
             provider="ollama",
             model="qwen2.5-coder:14b",
-            context_window_tokens=64000,
+            context_window_tokens=_WINDOW_64K,
             max_input_tokens=16000,
             max_output_tokens=2048,
-            rag_budget_tokens=32000,
+            rag_budget_tokens=_RAG_64K,
             patch_size_lines=180,
             local_execution_weight=1.0,
             remote_execution_weight=0.0,

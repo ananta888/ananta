@@ -10,7 +10,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from agent.cli_backends.pi_configuration import PI_SYSTEM_PROMPT
+from agent.cli_backends.pi_configuration import PI_SYSTEM_PROMPT, pi_context_window
 from ananta_contracts.coding_agent_target import CodingAgentInferenceTarget
 from ananta_contracts.provider_endpoint_policy import (
     is_forbidden_provider_endpoint_target,
@@ -135,7 +135,7 @@ class PiInvocationPolicy:
         system = f"{PI_SYSTEM_PROMPT}\nCurrent working directory: {str(cwd).replace(chr(92), '/')}\n"
         estimated_prompt_tokens = len((system + prompt).encode("utf-8")) + 256
         reserved_tokens = estimated_prompt_tokens + projection.max_tokens
-        if reserved_tokens > min(8192, self._context.max_total_tokens):
+        if reserved_tokens > min(pi_context_window(projection.target), self._context.max_total_tokens):
             raise ProviderInvocationBlocked("pi_prompt_budget_exceeded")
         if self.remaining_seconds(projection) <= 0:
             raise ProviderInvocationBlocked("pi_deadline_expired")

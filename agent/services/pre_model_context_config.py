@@ -178,6 +178,18 @@ class RankingWeights:
 
 # ── Top-level config ──────────────────────────────────────────────────────────
 
+def _context_budget_chars(value: Any) -> int:
+    """Pre-model context budget: the "rag_context" share of the effective window (12000 chars at 32k); an explicit
+    value -- except the stored default 12000 -- still applies, never beyond the window's room for material."""
+    from agent.context_profile import CHARS_PER_TOKEN, budget_override, context_budgets
+
+    budgets = context_budgets()
+    explicit = budget_override(value, legacy="pre_model_context_chars")
+    if explicit is None:
+        return budgets.chars("rag_context")
+    return max(1_000, min(explicit, budgets.available * CHARS_PER_TOKEN))
+
+
 @dataclass(frozen=True)
 class PreModelContextConfig:
     enabled: bool = False
@@ -202,10 +214,7 @@ class PreModelContextConfig:
         for name, surf_raw in (raw.get("surfaces") or {}).items():
             surfaces[str(name)] = SurfaceConfig.from_raw(surf_raw)
 
-        try:
-            budget = max(1_000, int(raw.get("context_budget_chars") or 12_000))
-        except (TypeError, ValueError):
-            budget = 12_000
+        budget = _context_budget_chars(raw.get("context_budget_chars"))
 
         return cls(
             enabled=bool(raw.get("enabled", False)),

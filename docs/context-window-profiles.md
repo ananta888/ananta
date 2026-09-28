@@ -114,6 +114,11 @@ festen Werte.
 | Diff (Mutation) / Compactor-Ausgabe | ≈ 9 % | 3 000 | 6 000 | 12 000 |
 | Planungssegment / Planungskontext | ≈ 6 % / 18 % | 2 000 / 6 000 | 4 000 / 12 000 | 8 000 / 24 000 |
 | Recovery-Kontext | 25 % | 8 192 | 16 384 | 32 768 |
+| Chat-Kontext (`chat_context_chars`, lokale Chat-Backends) / Pre-Model-Kontext | ≈ 9 % | 3 000 | 6 000 | 12 000 |
+| Visual-Process-Editor: selected / conversation | 12,5 % / ≈ 37 % | 4 096 / 12 000 | 8 192 / 24 000 | 16 384 / 48 000 |
+| Context-Curation | ≈ 31 % | 10 000 | 20 000 | 40 000 |
+| Worker-Batch-Loop: Datei-Ausschnitt / Snippet | ≈ 3 % / 6 % | 1 000 / 2 000 | 2 000 / 4 000 | 4 000 / 8 000 |
+| Snake-RAG: Komponenten-Katalog / ein gelesener Datei-Inhalt | ≈ 15 % | 5 000 | 10 000 | 20 000 |
 
 (Tokens; Zeichen = Tokens × 4.)
 
@@ -123,12 +128,24 @@ aber auf „verfügbar“ begrenzt. Gespeicherte **historische Standardwerte** (
 „nicht gesetzt“ – sonst würde eine bestehende Installation bei 64k nicht mitwachsen. Hardware-Profile mit
 kleineren Werten (Laptop 1400 Zeichen Planungssegment) gelten weiter.
 
+Weitere Stellen:
+
+- **Chat:** gilt nur für lokale Chat-Backends (`ananta-worker`, `sgpt`, Ollama, LM Studio, llama.cpp); ein
+  Abo-/Cloud-Chat-Backend behält seinen Wert (Standard 12 000 Zeichen) und wird nicht begrenzt. Die TUI hält
+  eigene Einstellungen; der Hub bewertet sie mit `effective_chat_context_chars`.
+- **Pi:** bekommt für lokale Runtimes das effektive Fenster als `contextWindow`, für entfernte Modelle weiterhin
+  sein eigenes 8 192-Limit; das Hub-Budget (`max_total_tokens`) begrenzt jeden Aufruf zusätzlich.
+- **Laufzeit-Empfehlung / `ananta init`:** empfehlen die Profile (32 768 / 65 536) samt Bündel-Budget statt
+  32 000 / 64 000; das Etikett kommt aus `nearest_profile` (inkl. `extended_128k`).
+
 ## Echte Sonderlimits (bleiben fest)
 
 Werte, die nicht vom Modellfenster abhängen: Anzahl Chunks/Bereiche/Schritte (`max_chunks`, `max_ranges`,
 RLM `max_depth`/`max_fanout`/`max_steps`, `MAX_STEPS`), Zeilen je Bereich, Excerpt-/Vorschau-Längen,
-Zwischenstand-Länge der Langkontext-Schritte (600 Wörter), Task-Brief-/Hub-Kontext-Bausteine der
-Worker-Workspace-Dateien, Byte-Grenzen (`max_total_bytes`), Timeouts.
+Zwischenstand-Länge der Langkontext-Schritte (600 Wörter), Task-Brief-/Hub-Kontext-/Research-Prompt-Bausteine
+des interaktiven opencode-Profils (900 / 2 600 / 1 800 Zeichen – bewusst knappe Arbeitsdateien für ein CLI mit
+eigenem Fenster), `chat_max_tokens` (Antwortlänge, eine Produktentscheidung), Byte-Grenzen (`max_total_bytes`),
+Timeouts, die bewusst konservativen `max_input_tokens` der Hardware-Empfehlungen.
 
 ## Messung: derselbe Task unter 32k / 64k / 128k
 

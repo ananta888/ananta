@@ -320,7 +320,13 @@ class VisualProcessContextService:
         budget = _CONTEXT_BUDGETS.get(normalized)
         if budget is None:
             raise ValueError("visual_process_context_budget_profile_invalid")
-        return budget
+        # prompt tokens follow the effective window (the constants are the 32k values: 4096 / 12000)
+        from dataclasses import replace
+
+        from agent.context_profile import context_budgets
+
+        share = "bundle_compact" if normalized == "selected" else "editor_conversation"
+        return replace(budget, max_prompt_tokens=context_budgets().tokens(share))
 
     @classmethod
     def project_evidence(

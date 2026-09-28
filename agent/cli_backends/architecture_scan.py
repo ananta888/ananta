@@ -95,6 +95,21 @@ def _bounded_worker_int(key: str, default: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, getattr(settings, key, default)))
 
 
+def _window_worker_chars(key: str, *, share: str, legacy: str, lo: int, hi: int) -> int:
+    """A worker batch-loop character budget from the effective context window (central policy; 32k keeps the
+    former 4000 / 8000). A configured value other than the stored default still applies within ``lo``..``hi`` and
+    never beyond the window's room for material."""
+    from agent.context_profile import CHARS_PER_TOKEN, budget_override, context_budgets
+
+    budgets = context_budgets()
+    raw = _get_worker_context_cfg().get(key)
+    explicit = budget_override(raw if raw is not None else getattr(settings, key, None), legacy=legacy)
+    room = budgets.available * CHARS_PER_TOKEN
+    if explicit is None:
+        return max(lo, min(budgets.chars(share), room))
+    return max(lo, min(explicit, hi, room))
+
+
 def _resolve_repo_root() -> pathlib.Path | None:
     """Return the configured project/repo root generically via settings.rag_repo_root."""
     if has_app_context():

@@ -35,6 +35,18 @@ from agent.services.snake_chat_cancellation import is_chat_cancelled
 _log = logging.getLogger(__name__)
 
 
+
+def _window_chars(value: Any, *, window_tokens: int, share: str, legacy: str, minimum: int) -> int:
+    """A snake-RAG character budget from the model window (central policy; 32k keeps the former 20000 chars).
+    A configured value other than the stored default still applies, capped by the window's room for material."""
+    from agent.context_profile import CHARS_PER_TOKEN, ContextBudgets, budget_override
+
+    budgets = ContextBudgets(int(window_tokens))
+    explicit = budget_override(value, legacy=legacy)
+    if explicit is None:
+        return max(minimum, budgets.chars(share))
+    return max(minimum, min(explicit, budgets.available * CHARS_PER_TOKEN))
+
 def _expand_python_imports(
     file_entries: list[dict],
     repo_root: _pl.Path,
@@ -426,14 +438,14 @@ def worker_chat_rag_iterative(
         ))
         if max_search_calls_override is not None:
             _max_search_calls = max(0, int(max_search_calls_override))
-        _tool_chars_per_file = max(4000, min(200000, int(
+        _tool_chars_per_file = _window_chars(
             cfg.get("rag_iterative_tool_chars_per_file") if cfg.get("rag_iterative_tool_chars_per_file") is not None
-            else _cfg_settings.rag_iterative_tool_chars_per_file
-        )))
-        _catalog_max_chars = max(5000, min(60000, int(
+            else _cfg_settings.rag_iterative_tool_chars_per_file,
+            window_tokens=model_context_tokens, share="snake_tool_file", legacy="snake_tool_file_chars", minimum=4000)
+        _catalog_max_chars = _window_chars(
             cfg.get("rag_iterative_catalog_chars") if cfg.get("rag_iterative_catalog_chars") is not None
-            else getattr(_cfg_settings, "rag_iterative_catalog_chars", 12000)
-        )))
+            else getattr(_cfg_settings, "rag_iterative_catalog_chars", 20000),
+            window_tokens=model_context_tokens, share="snake_catalog", legacy="snake_catalog_chars", minimum=5000)
         _summarize_reads_cfg = cfg.get("rag_iterative_summarize_reads")
         _summarize_reads = (
             str(_summarize_reads_cfg).lower() not in {"false", "0", "off", "no", ""}

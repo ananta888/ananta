@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from agent.cli_backends.pi_configuration import isolated_pi_configuration
+from agent.cli_backends.pi_configuration import isolated_pi_configuration, pi_context_window
 from tests.test_pi_coding_agent_provider import target
 
 
@@ -20,7 +20,9 @@ def test_configuration_explicitly_uses_documented_token_field_and_no_implicit_fe
     with isolated_pi_configuration(selected, project=tmp_path / "project", runtime_root=tmp_path, max_tokens=37) as run:
         config = json.loads((run.config_directory / "models.json").read_text())["providers"]["ananta"]
         assert config["baseUrl"] == base_url and config["api"] == "openai-completions"
-        assert config["models"] == [{"id": model, "contextWindow": 8192, "maxTokens": 37}]
+        # local runtimes: the effective Ananta window; remote models: Pi's own bound
+        assert config["models"] == [{"id": model, "contextWindow": pi_context_window(selected), "maxTokens": 37}]
+        assert config["models"][0]["contextWindow"] == (8192 if provider_id == "openrouter" else 32768)
         compat = config["compat"]
         assert compat["maxTokensField"] == "max_tokens"
         assert compat["supportsStore"] is False and compat["supportsDeveloperRole"] is False

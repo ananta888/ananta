@@ -54,6 +54,7 @@ from agent.cli_backends.architecture_scan import (
     _MAX_LINE_WINDOW,
     _bounded_worker_int,
     _build_iteration_prompt,
+    _window_worker_chars,
     _format_block_header,
     _is_architecture_full_scan_context,
     _load_source_file_batches,
@@ -229,10 +230,12 @@ def _run_ananta_worker_iterative(
         log.warning("tool loop unavailable, falling back to batch loop", exc_info=True)
 
     files_per_batch = _bounded_worker_int("ananta_worker_context_files_per_batch", files_per_batch, 1, 20)
-    per_file_chars = _bounded_worker_int("ananta_worker_context_per_file_chars", per_file_chars, 500, 40_000)
+    per_file_chars = _window_worker_chars("ananta_worker_context_per_file_chars", share="worker_file",
+                                          legacy="worker_file_chars", lo=500, hi=40_000)
     max_iterations = _bounded_worker_int("ananta_worker_context_max_iterations", max_iterations, 1, 32)
     context_lines = _bounded_worker_int("ananta_worker_context_line_window", 5, 0, _MAX_LINE_WINDOW)
-    max_snippet_chars = _bounded_worker_int("ananta_worker_context_max_snippet_chars", 8_000, 200, 40_000)
+    max_snippet_chars = _window_worker_chars("ananta_worker_context_max_snippet_chars", share="worker_snippet",
+                                             legacy="worker_snippet_chars", lo=200, hi=40_000)
     research_context = _read_research_context(workdir)
     if workdir and _is_architecture_full_scan_context(research_context):
         return _run_architecture_full_scan(
