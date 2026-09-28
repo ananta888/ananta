@@ -63,7 +63,11 @@ COPY rag-helper/requirements.txt ./rag-helper/requirements.txt
 COPY docker/compose-next/requirements.restricted-inference-cpu.txt ./docker/compose-next/requirements.restricted-inference-cpu.txt
 RUN pip install --no-cache-dir -r requirements.lock -r rag-helper/requirements.txt \
     && pip install --no-cache-dir -r docker/compose-next/requirements.restricted-inference-cpu.txt \
-    && pip install --no-cache-dir -r requirements-dev.lock
+    && pip install --no-cache-dir -r requirements-dev.lock \
+    # Optional extras whose tests otherwise cannot even be collected (pins as in pyproject.toml / CI jobs):
+    # temporal runtime, Meet browser tests (package only, no browser download), verification stack.
+    && pip install --no-cache-dir temporalio==1.30.0 playwright==1.58.0 \
+        hypothesis==6.167.1 crosshair-tool==0.0.110 hypothesis-crosshair==0.0.30
 
 COPY . .
 
