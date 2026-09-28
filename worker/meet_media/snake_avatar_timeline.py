@@ -143,7 +143,8 @@ class SpeechMediaTimeline:
             first += count
         return result
 
-    def measure_drift(self, *, anchor_us, video_started_us, audio_pushed_us, segments=None, push_lead_us=0):
+    def measure_drift(self, *, anchor_us, video_started_us, audio_pushed_us, segments=None, push_lead_us=0,
+                      video_lead_us=0):
         """Drift of each published clip against the audio window it renders.
 
         ``anchor_us`` is the monotonic time at which sample 0 starts playing.
@@ -151,19 +152,22 @@ class SpeechMediaTimeline:
         ``audio_pushed_us[i]`` when its first PCM frame was pushed (pushes may
         run ahead of playback by at most ``push_lead_us``). Returns a bounded
         report; raises when any clip drifts beyond the half-frame bound so a
-        test fails instead of silently desynchronizing.
+        test fails instead of silently desynchronizing. ``video_lead_us``: clips
+        are swapped deliberately that much before their audio (the blocking
+        browser call is covered by buffered audio); drift is measured against
+        that intended moment, never earlier than the anchor.
         """
         segments = self.segments() if segments is None else list(segments)
         if len(video_started_us) != len(segments) or len(audio_pushed_us) != len(segments):
             raise ValueError("meet_avatar_drift_observation_invalid")
-        for value in (anchor_us, push_lead_us, *video_started_us, *audio_pushed_us):
+        for value in (anchor_us, push_lead_us, video_lead_us, *video_started_us, *audio_pushed_us):
             if type(value) is not int or value < 0:
                 raise ValueError("meet_avatar_drift_observation_invalid")
         report = []
         worst = 0
         for segment, video_at, audio_at in zip(segments, video_started_us, audio_pushed_us):
             playback_at = anchor_us + segment.start_us(self.rate)
-            drift = abs(video_at - playback_at)
+            drift = abs(video_at - max(anchor_us, playback_at - video_lead_us))
             lead = playback_at - audio_at
             if not 0 <= lead <= push_lead_us + MICROSECONDS // self.fps:
                 raise ValueError("meet_avatar_audio_schedule_invalid")

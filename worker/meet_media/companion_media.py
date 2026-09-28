@@ -188,6 +188,7 @@ class SpeechAvatarPublisher:
             audio_pushed_us=audio_pushed,
             segments=segments,
             push_lead_us=int(PUSH_LEAD_SECONDS * MICROSECONDS),
+            video_lead_us=int(PRE_SWAP_SECONDS * MICROSECONDS),
         )
         return generation, report
 

@@ -7,6 +7,7 @@ import pytest
 
 from worker.meet_media.companion_media import (
     FRAME_SAMPLES,
+    PRE_SWAP_SECONDS,
     PUSH_LEAD_SECONDS,
     SPEECH_RATE,
     AvatarPorts,
@@ -269,7 +270,9 @@ def test_publisher_keeps_clips_and_audio_on_one_timeline_for_long_answers(second
     assert report["max_drift_us"] <= MAX_FRAME_DRIFT_US
     anchor = next(event[1] for event in events if event[0] == "audio")
     for segment, (_, at, _) in zip(segments, videos):
-        assert abs(at - (anchor + segment.start_sample / RATE)) * MICROSECONDS <= MAX_FRAME_DRIFT_US
+        # clips are swapped PRE_SWAP_SECONDS before their audio, never before the anchor
+        intended = max(anchor, anchor + segment.start_sample / RATE - PRE_SWAP_SECONDS)
+        assert abs(at - intended) * MICROSECONDS <= MAX_FRAME_DRIFT_US
     # The previous idle generation was closed exactly once before the first clip.
     closes = [event for event in events if event[0] == "close"]
     assert closes[0][2] == 3 and len(closes) == len(segments)
