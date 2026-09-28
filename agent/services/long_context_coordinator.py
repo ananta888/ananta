@@ -53,15 +53,16 @@ class SplitResult:
         return not self.step_ids and self.strategy in EXTERNALIZE_STRATEGIES
 
 
-def material_fit(text: str, service: Any = None):
+def material_fit(text: str, service: Any = None, window_tokens: int | None = None):
     """Does ``text`` fit as the material of one request? The central policy decides the room: the effective
     window minus output reserve, safety margin and the fixed request part (tools, system prompt, task);
-    ``service.request_overhead_tokens`` (context_strategy config) is that fixed part."""
+    ``service.request_overhead_tokens`` (context_strategy config) is that fixed part. ``window_tokens``: the window
+    of the runtime that will execute the task (default: the local effective window)."""
     from agent.context_profile import ContextBudgets, effective_window_tokens, request_overhead_tokens
     from agent.context_window import check_fit
 
     overhead = getattr(service, "request_overhead_tokens", None)
-    budgets = ContextBudgets(effective_window_tokens(),
+    budgets = ContextBudgets(int(window_tokens or effective_window_tokens()),
                              int(overhead) if overhead is not None else request_overhead_tokens())
     return check_fit(prompt=text, window_tokens=budgets.window,
                      output_reserve_tokens=budgets.window - budgets.available)
@@ -110,7 +111,7 @@ class LongContextCoordinator:
     # --- 1. split -------------------------------------------------------------------------------------
 
     def maybe_split(self, task: Any, *, config: Mapping[str, Any] | None,
-                    overflowed: bool = False) -> SplitResult | None:
+                    overflowed: bool = False, window_tokens: int | None = None) -> SplitResult | None:
         """Handle ``task`` when active and its context does not fit; ``None`` otherwise.
 
         ``overflowed``: a model call already failed on the window (LCTX-009) -- even if the estimate says the
@@ -133,7 +134,7 @@ class LongContextCoordinator:
         parts = [(str(p.get("id") or f"part-{i + 1}"), str(p.get("text") or ""))
                  for i, p in enumerate(context.get("context_parts") or []) if isinstance(p, Mapping)]
         size_text = "\n".join([title, material] + [text for _id, text in parts])
-        fit = material_fit(size_text, service)
+        fit = material_fit(size_text, service, window_tokens)
         if fit.fits and overflowed:
             from agent.context_window import ContextFit
 

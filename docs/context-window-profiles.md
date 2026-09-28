@@ -81,7 +81,14 @@ LM Studio, llama.cpp, konfigurierte `local_openai_backends`). **Abo-/Cloud-Model
 | opencode mit lokalem Modell, sgpt | effektives Ananta-Fenster (opencode höchstens 128 000) |
 
 `MAX_PROMPT_TOKENS` übersteuert alle CLI-Gates bewusst. (`agent.context_profile.window_for_provider`,
-`agent/cli_backends/budget.prompt_token_limit`.)
+`agent/cli_backends/budget.prompt_token_limit`.) Ein Codex/opencode/aider, der auf eine lokale Runtime zeigt
+(`inference_target_kind: local_openai`), gilt als lokal.
+
+**Langkontext-Zerlegung:** Der Hub sagt vor dem Zerlegen voraus, welche Runtime den Task ausführt – mit
+denselben Auflösern wie der Worker beim Propose (`resolve_task_cli_backend` über Hub-Config plus Goal-Snapshot,
+dann `routing_dimensions`; `agent/services/task_execution_window_service.py`) – und misst den Task am Fenster
+dieser Runtime: ein 84k-Task für claude-cli (200k) wird nicht zerlegt, derselbe Task für das lokale Modell schon.
+Entscheidet ein Worker anders und läuft über, zerlegt die Überlauf-Behandlung (LCTX-009) nach dem lokalen Fenster.
 
 ## Budget-Policy
 

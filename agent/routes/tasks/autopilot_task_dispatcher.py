@@ -67,8 +67,12 @@ def _split_if_beyond_context(task: Any, *, app: Any) -> Any:
         if str((config or {}).get("mode") or "shadow").strip().lower() != "active":
             return None
         from agent.services.long_context_coordinator import get_long_context_coordinator
+        from agent.services.task_execution_window_service import execution_window
 
-        return get_long_context_coordinator().maybe_split(task, config=config)
+        # the window of the runtime that will execute the task: a subscription/cloud agent keeps its own
+        # (e.g. claude-cli 200k), only local runtimes are sized for the Ananta profile
+        window = execution_window(task, (getattr(app, "config", None) or {}).get("AGENT_CONFIG", {}) or {})
+        return get_long_context_coordinator().maybe_split(task, config=config, window_tokens=window.tokens)
     except Exception:  # noqa: BLE001 -- a failed split leaves the normal dispatch path
         import logging
 

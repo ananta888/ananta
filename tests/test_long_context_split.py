@@ -166,11 +166,13 @@ def test_the_dispatcher_splits_only_in_active_mode(app, monkeypatch):
 
     calls = []
     monkeypatch.setattr("agent.services.long_context_coordinator.get_long_context_coordinator",
-                        lambda: SimpleNamespace(maybe_split=lambda task, config: calls.append(config) or "split"))
+                        lambda: SimpleNamespace(maybe_split=lambda task, config, window_tokens=None:
+                                                calls.append((config, window_tokens)) or "split"))
     fake_app = SimpleNamespace(config={"AGENT_CONFIG": {"context_strategy": {"mode": "shadow"}}})
     assert dispatcher._split_if_beyond_context(SimpleNamespace(id="t"), app=fake_app) is None and calls == []
     fake_app.config["AGENT_CONFIG"]["context_strategy"]["mode"] = "active"
     assert dispatcher._split_if_beyond_context(SimpleNamespace(id="t"), app=fake_app) == "split"
+    assert calls[-1][1] and calls[-1][1] > 0  # sized for the predicted runtime's window
 
 
 # --- compact / retrieve: material as a workspace file; escalate: pause (LCTX-005/006) ------------------

@@ -632,9 +632,13 @@ def resolve_codex_runtime_config() -> dict:
 
 def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
     """Fuehrt einen OpenAI Codex CLI exec-Aufruf aus."""
+    try:  # a codex pointed at a local runtime is gated by the Ananta window, a subscription model by its own
+        codex_local = bool(resolve_codex_runtime_config().get("is_local"))
+    except Exception:  # noqa: BLE001
+        codex_local = None
     budget_error = check_prompt_budget(
         prompt,
-        max_tokens=prompt_token_limit("codex", model=model),
+        max_tokens=prompt_token_limit("codex", model=model, local=codex_local),
     )
     if budget_error is not None:
         return budget_error

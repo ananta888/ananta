@@ -34,13 +34,14 @@ _SUBSCRIPTION_BACKENDS = {"claude": 200_000, "codex": 272_000}
 _OPENCODE_DEFAULT_LIMIT = 128_000
 
 
-def prompt_token_limit(backend: str, *, model: str | None = None) -> int:
+def prompt_token_limit(backend: str, *, model: str | None = None, local: bool | None = None) -> int:
     """The prompt-token gate of a CLI backend.
 
     - ``MAX_PROMPT_TOKENS`` set: that value (a deliberate override for every backend).
     - claude / codex CLI (subscription models) and opencode with a cloud model (``anthropic/...``, ``openai/...``):
       the model's own limit -- the Ananta context profile describes local runtimes and never limits these.
     - opencode with a local model and sgpt (local runtime): the effective Ananta window (at most 128000 for opencode).
+    ``local`` (when the caller knows the resolved target, e.g. codex against LM Studio) overrides the guess.
     """
     from agent.config import settings
     from agent.context_profile import CLOUD_PROVIDER_PREFIXES, cloud_model_limit, effective_window_tokens
@@ -49,6 +50,8 @@ def prompt_token_limit(backend: str, *, model: str | None = None) -> int:
     if explicit:
         return int(explicit)
     name = str(backend or "").strip().lower()
+    if local is True:  # e.g. codex/opencode pointed at a local runtime: the Ananta window
+        return effective_window_tokens(limits={"backend": _OPENCODE_DEFAULT_LIMIT} if name == "opencode" else None)
     if name in _SUBSCRIPTION_BACKENDS:
         return cloud_model_limit(model, _SUBSCRIPTION_BACKENDS[name]) or _SUBSCRIPTION_BACKENDS[name]
     if name == "opencode":
