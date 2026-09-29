@@ -37,9 +37,9 @@ tests/test_artifact_provenance_hashes.py
 tests/artifact/test_artifact_type_registry.py
 tests/test_artifacts_route.py
 tests/test_audit_append_minimum.py
-tests/test_audit_client_surface_entrypoints.py
-tests/test_audit_domain_integrations.py
-tests/test_audit_sanitization.py
+tests/audit/test_audit_client_surface_entrypoints.py
+tests/audit/test_audit_domain_integrations.py
+tests/audit/test_audit_sanitization.py
 tests/test_auth_extra_coverage.py
 tests/test_auth_scenarios.py
 tests/test_auth_test_endpoints.py

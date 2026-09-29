@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 AUDIT_SCRIPT = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parents[2]
     / "scripts/audit_webrtc_sfu_broadcast_baseline.py"
 )
 

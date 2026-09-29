@@ -8,7 +8,7 @@ from scripts.audit_domain_integrations import (
     validate_domain_runtime_inventory,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 INVENTORY_PATH = ROOT / "tests" / "fixtures" / "domain" / "domain_runtime_inventory.json"
 
 

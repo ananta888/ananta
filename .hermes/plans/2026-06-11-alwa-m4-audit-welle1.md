@@ -236,7 +236,7 @@ def audit_workspace_mutation_event(
 
 ```bash
 python -m pytest tests/test_alwa_workspace_audit_helper.py -v
-python -m pytest tests/test_audit_sanitization.py tests/artifact/test_artifact_first_audit.py -v
+python -m pytest tests/audit/test_audit_sanitization.py tests/artifact/test_artifact_first_audit.py -v
 ```
 
 Erwartung: GREEN. Bestehende Audit-Tests dürfen NICHT brechen (Alias-Wert
