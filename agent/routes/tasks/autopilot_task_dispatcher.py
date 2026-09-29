@@ -1,38 +1,49 @@
+"""Autopilot dispatch of one task to a worker (hub-owned orchestration).
+
+:func:`_dispatch_one_task_inner` orchestrates the dispatch phases, which live in
+single-responsibility siblings:
+
+* :mod:`.autopilot_dispatch_context` - the per-dispatch parameter object.
+* :mod:`.autopilot_dispatch_preflight` - gates, hand-off/throttling and
+  execution-scope allocation.
+* :mod:`.autopilot_proposal_strategies` - propose guards and the strategy loop.
+* :mod:`.autopilot_strategy_exhaustion` - model recovery and retry scheduling
+  after all strategies failed.
+
+This module keeps the long-context helpers, the propose-failure handling and the
+evaluation/execution of an accepted proposal. Collaborators that tests
+monkeypatch here (``_current_task_status``, ``_select_model_for_task``,
+``_proposal_strategy_candidates``, ``get_recovery_dispatch_gate_service``) are
+looked up in this module's globals at call time and injected into the phases.
+"""
+
 from __future__ import annotations
 
-import os
 import time
+from dataclasses import replace
 from typing import Any, Callable
 
-from agent.config import settings
-from agent.metrics import (
-    STRATEGY_ATTEMPT_COUNT,
-    WORKER_PROPOSE_DURATION_SECONDS,
-)
 from agent.routes.tasks.autopilot_model_selector import (
-    _normalize_temperature_value,
     _select_model_for_task,
 )
 from agent.routes.tasks.autopilot_strategy_candidates import (
     _extract_strategy_state,
     _proposal_strategy_candidates,
-    _safe_context_length,
-    _strategy_cfg,
-)
-from agent.services.organization_task_dispatch_gate_service import (
-    get_organization_task_dispatch_gate_service,
 )
 from agent.services.recovery_dispatch_gate_service import (
     get_recovery_dispatch_gate_service,
-    recovery_dispatch_request_fingerprint,
 )
 from agent.services.repository_registry import get_repository_registry
-from agent.tool_guardrails import estimate_text_tokens
-from ananta_contracts.model_recovery import (
-    is_recoverable_model_error_type,
-    sanitize_terminal_model_recovery_signal,
-)
 
+from .autopilot_dispatch_context import DispatchContext
+from .autopilot_dispatch_preflight import (
+    allocate_execution_scope,
+    evaluate_dispatch_gates,
+    hand_off_assigned_task,
+    throttle_repeated_propose,
+)
+from .autopilot_proposal_strategies import run_proposal_strategies
+from .autopilot_strategy_exhaustion import handle_strategy_exhaustion
 from .autopilot_task_dispatcher_helpers import (
     TaskDispatchResult,
     _current_task_status,
@@ -42,13 +53,9 @@ from .autopilot_task_dispatcher_helpers import (
     _is_terminal_status,
     _is_transient_worker_transport_error,
     _merged_last_proposal_snapshot,
-    _recent_strategy_attempts,
-    _resolve_autonomous_repair_budget,
     _resolve_non_executable_terminal_status,
-    _should_terminalize_no_executable_strategy,
     _task_log,
 )
-
 
 
 def _hub_context_window(loop: Any) -> dict[str, Any]:
@@ -112,7 +119,7 @@ def _handle_context_overflow(task: Any, *, app: Any) -> Any:
         return None
 
 
-def _dispatch_one_task_inner(  # noqa: C901
+def _dispatch_one_task_inner(
     *,
     task: Any,
     target_worker: Any,
@@ -133,77 +140,22 @@ def _dispatch_one_task_inner(  # noqa: C901
     # this task in the database.
     app_ctx = getattr(loop, "_app", None)
     recovery_gate = get_recovery_dispatch_gate_service()
-    with recovery_gate.dispatch_guard(
-        task.id,
-        app=app_ctx,
-    ) as gate_decision:
-        if not gate_decision.allowed:
-            append_trace_event(
-                task.id,
-                "autopilot_dispatch_skipped_recovery_gate",
-                delegated_to=target_worker.url,
-                reason_code=gate_decision.reason_code,
-                plan_id=gate_decision.plan_id,
-                source_task_id=gate_decision.source_task_id,
-                release_epoch=gate_decision.release_epoch,
-            )
-            result.dispatched = True
-            result.failed = True
-            result.failure_type = gate_decision.reason_code
-            return result
-    current_task = get_repository_registry(app_ctx).task_repo.get_by_id(task.id)
-    organization_decision = (
-        get_organization_task_dispatch_gate_service().evaluate(
-            current_task or task
-        )
+    ctx = DispatchContext(
+        task=task,
+        target_worker=target_worker,
+        loop=loop,
+        services=services,
+        app_ctx=app_ctx,
+        result=result,
+        recovery_gate=recovery_gate,
+        append_trace_event=append_trace_event,
+        update_local_task_status=update_local_task_status,
+        current_task_status=_current_task_status,
+        log=log,
     )
-    if not organization_decision.allowed:
-        append_trace_event(
-            task.id,
-            "autopilot_dispatch_skipped_organization_lifecycle",
-            delegated_to=target_worker.url,
-            reason_code=organization_decision.reason_code,
-        )
-        result.failure_type = organization_decision.reason_code
-        return result
-    latest_status = _current_task_status(task.id, app=app_ctx)
-    if _is_terminal_status(latest_status):
-        append_trace_event(
-            task.id,
-            "autopilot_dispatch_skipped_terminal",
-            delegated_to=target_worker.url,
-            terminal_status=latest_status,
-        )
-        result.dispatched = True
-        result.completed = latest_status == "completed"
-        result.failed = latest_status != "completed"
-        result.failure_type = None if result.completed else latest_status
-        return result
-
-    # Skip dispatch if the parent goal is already in a terminal state.
-    goal_id = str(getattr(task, "goal_id", "") or "").strip()
-    if goal_id:
-        repos = get_repository_registry(app_ctx)
-        goal_obj = repos.goal_repo.get_by_id(goal_id)
-        goal_status = str(getattr(goal_obj, "status", "") or "").strip().lower()
-        if goal_status in {
-            "completed",
-            "failed",
-            "cancelled",
-            "aborted",
-            "timeout",
-            "archived",
-        }:
-            append_trace_event(
-                task.id,
-                "autopilot_dispatch_skipped_goal_terminal",
-                delegated_to=target_worker.url,
-                goal_status=goal_status,
-            )
-            result.dispatched = True
-            result.failed = True
-            result.failure_type = f"goal_{goal_status}"
-            return result
+    stop_result, current_task = evaluate_dispatch_gates(ctx)
+    if stop_result is not None:
+        return stop_result
 
     split = _split_if_beyond_context(current_task or task, app=app_ctx)
     if split is not None:
@@ -216,215 +168,19 @@ def _dispatch_one_task_inner(  # noqa: C901
         # externalized: the task now fits and goes on to a worker with its material as a workspace file
         task = get_repository_registry(app_ctx).task_repo.get_by_id(task.id) or task
         current_task = task
+        ctx = replace(ctx, task=task)
 
-    if was_assigned:
-        latest_status = _current_task_status(task.id, app=app_ctx)
-        if latest_status in {"waiting_for_review", "needs_review"}:
-            append_trace_event(
-                task.id,
-                "autopilot_handoff_skipped_review_gated",
-                delegated_to=target_worker.url,
-                status=latest_status,
-            )
-            # Review-gated tasks must not be re-assigned by autopilot.
-            result.dispatched = True
-            return result
-        if _is_terminal_status(latest_status):
-            append_trace_event(
-                task.id,
-                "autopilot_handoff_skipped_terminal",
-                delegated_to=target_worker.url,
-                terminal_status=latest_status,
-            )
-            result.dispatched = True
-            result.completed = latest_status == "completed"
-            result.failed = latest_status != "completed"
-            result.failure_type = None if result.completed else latest_status
-            return result
-        with recovery_gate.dispatch_guard(
-            task.id,
-            app=app_ctx,
-        ) as gate_decision:
-            if not gate_decision.allowed:
-                append_trace_event(
-                    task.id,
-                    "autopilot_assignment_skipped_recovery_gate",
-                    delegated_to=target_worker.url,
-                    reason_code=gate_decision.reason_code,
-                    plan_id=gate_decision.plan_id,
-                    source_task_id=gate_decision.source_task_id,
-                    release_epoch=gate_decision.release_epoch,
-                )
-                result.dispatched = True
-                result.failed = True
-                result.failure_type = gate_decision.reason_code
-                return result
-            update_local_task_status(
-                task.id,
-                "assigned",
-                assigned_agent_url=target_worker.url,
-                assigned_agent_token=target_worker.token,
-            )
-        append_trace_event(
-            task.id,
-            "autopilot_handoff",
-            delegated_to=target_worker.url,
-            reason="round_robin_assignment",
-        )
-    else:
-        # Throttle repeated propose attempts for already-assigned tasks.
-        # Without this guard, tight autopilot ticks can flood propose calls,
-        # quickly tripping hard-guard windows without meaningful progress.
-        current_status = _current_task_status(task.id, app=app_ctx)
-        if str(current_status or "").strip().lower() == "assigned":
-            recent_attempts_short = _recent_strategy_attempts(
-                task,
-                now_ts=time.time(),
-                window_seconds=20,
-            )
-            if recent_attempts_short >= 3:
-                defer_until = time.time() + 20
-                update_local_task_status(
-                    task.id,
-                    "assigned",
-                    manual_override_until=defer_until,
-                    event_type="autopilot_strategy_attempt_throttled",
-                    event_actor="autopilot_tick",
-                    force=True,
-                )
-                append_trace_event(
-                    task.id,
-                    "autopilot_strategy_attempt_throttled",
-                    delegated_to=target_worker.url,
-                    recent_attempts=recent_attempts_short,
-                    window_seconds=20,
-                    defer_seconds=20,
-                )
-                result.dispatched = True
-                return result
-
-    is_local_fallback = (
-        settings.role == "hub"
-        and settings.hub_can_be_worker
-        and target_worker.url.rstrip("/") == local_worker_url
+    stop_result = hand_off_assigned_task(ctx) if was_assigned else throttle_repeated_propose(ctx)
+    if stop_result is not None:
+        return stop_result
+    stop_result = allocate_execution_scope(
+        ctx,
+        fallback_policy=fallback_policy,
+        queue_positions=queue_positions,
+        local_worker_url=local_worker_url,
     )
-    if is_local_fallback and not fallback_policy["allow_hub_worker_fallback"]:
-        blocked_status = fallback_policy["fallback_block_status"]
-        update_local_task_status(
-            task.id,
-            blocked_status,
-            verification_status={
-                **dict(getattr(task, "verification_status", None) or {}),
-                "execution_provenance": {
-                    "execution_mode": "fallback_blocked",
-                    "fallback_reason": "hub_worker_fallback_disallowed",
-                    "blocked_at": time.time(),
-                },
-            },
-        )
-        append_trace_event(
-            task.id,
-            "autopilot_fallback_blocked",
-            delegated_to=target_worker.url,
-            fallback_reason="hub_worker_fallback_disallowed",
-            action="escalated" if fallback_policy["escalate_on_fallback_block"] else "blocked",
-        )
-        result.failed = True
-        result.failure_type = "fallback_blocked"
-        return result
-
-    if is_local_fallback:
-        append_trace_event(
-            task.id,
-            "hub_worker_fallback",
-            delegated_to=target_worker.url,
-            fallback_reason="no_remote_worker_selected",
-            provenance={
-                "mode": "hub_as_worker_fallback",
-                "queue_position": queue_positions.get(task.id),
-            },
-        )
-    try:
-        from agent.services.workflow_worker_assignment_runtime import (
-            bind_dispatched_workflow_task,
-        )
-
-        workflow_assignment = bind_dispatched_workflow_task(
-            task=task,
-            worker=target_worker,
-        )
-    except Exception as exc:  # fail closed before any Worker transport
-        reason_code = str(
-            getattr(
-                exc,
-                "reason_code",
-                "workflow_worker_assignment_unavailable",
-            )
-        )
-        update_local_task_status(
-            task.id,
-            "failed",
-            error=reason_code,
-            event_type="workflow_worker_assignment_failed",
-            event_actor="hub_dispatcher",
-            event_details={"reason_code": reason_code},
-            force=True,
-        )
-        append_trace_event(
-            task.id,
-            "workflow_worker_assignment_failed",
-            delegated_to=target_worker.url,
-            reason_code=reason_code,
-        )
-        result.dispatched = True
-        result.failed = True
-        result.failure_type = reason_code
-        return result
-    if workflow_assignment is not None:
-        append_trace_event(
-            task.id,
-            "workflow_worker_assignment_bound",
-            delegated_to=workflow_assignment.worker_url,
-            worker_id=workflow_assignment.worker_id,
-            attempt_id=workflow_assignment.attempt_id,
-            fencing_token=workflow_assignment.fencing_token,
-        )
-    append_trace_event(
-        task.id,
-        "execution_scope_allocated",
-        delegated_to=target_worker.url,
-        execution_scope={
-            "executor_container": "hub" if target_worker.url.rstrip("/") == local_worker_url else "worker",
-            "worker_url": target_worker.url,
-            "queue_position": queue_positions.get(task.id),
-        },
-        workspace_id=f"ws-{task.id}",
-        lease_id=f"lease-{task.id}",
-        cleanup_state="pending",
-    )
-    current_status_for_scope = _current_task_status(task.id, app=app_ctx)
-    status_for_scope = current_status_for_scope or "assigned"
-    update_local_task_status(
-        task.id,
-        status_for_scope,
-        verification_status={
-            **dict(getattr(task, "verification_status", None) or {}),
-            "execution_scope": {
-                "workspace_id": f"ws-{task.id}",
-                "lease_id": f"lease-{task.id}",
-                "lifecycle_status": "allocated",
-                "isolation_mode": "task_scoped_workspace",
-                "worker_url": target_worker.url,
-                "execution_mode": "hub_as_worker_fallback" if is_local_fallback else "delegated_worker",
-                "fallback_reason": "no_remote_worker_selected" if is_local_fallback else None,
-            },
-            "execution_provenance": {
-                "execution_mode": "hub_as_worker_fallback" if is_local_fallback else "delegated_worker",
-                "fallback_reason": "no_remote_worker_selected" if is_local_fallback else None,
-                "updated_at": time.time(),
-            },
-        },
-    )
+    if stop_result is not None:
+        return stop_result
 
     model_meta: dict[str, Any] = {}
     strategy_state = _extract_strategy_state(task)
@@ -441,513 +197,16 @@ def _dispatch_one_task_inner(  # noqa: C901
             base_model_meta=model_meta,
             state=strategy_state,
         )
-        propose_data = None
-        strategy_failures: list[dict[str, Any]] = []
-        collected_llm_profiles: list[dict[str, Any]] = []
-        selected_attempt_meta: dict[str, Any] = {}
-        rejected_terminal_model_signal_seen = False
-        verified_terminal_model_signal_seen = False
-        required_context_tokens = max(
-            1024,
-            estimate_text_tokens(getattr(task, "title", None))
-            + estimate_text_tokens(getattr(task, "description", None))
-            + 768,
+        outcome = run_proposal_strategies(
+            ctx,
+            strategy_candidates=strategy_candidates,
+            runtime_caps=runtime_caps,
+            context_window=_hub_context_window,
         )
-        strategy_cfg = _strategy_cfg(loop)
-        is_backpressure_active = getattr(loop, "_is_provider_backpressure_active", None)
-        backpressure_details = getattr(loop, "_provider_backpressure_details", None)
-        if (
-            not os.environ.get("PYTEST_CURRENT_TEST")
-            and callable(is_backpressure_active)
-            and is_backpressure_active("ollama")
-        ):
-            hold_until, hold_reason = (backpressure_details("ollama") if callable(backpressure_details) else (0.0, ""))
-            hold_for = max(1, int(hold_until - time.time()))
-            append_trace_event(
-                task.id,
-                "autopilot_provider_backpressure_deferred",
-                delegated_to=target_worker.url,
-                provider="ollama",
-                hold_seconds=hold_for,
-                reason=hold_reason or "ollama_generate_timeout",
-            )
-            update_local_task_status(
-                task.id,
-                str(getattr(task, "status", None) or "assigned"),
-                manual_override_until=hold_until if hold_until > 0 else None,
-                verification_status={
-                    **dict(getattr(task, "verification_status", None) or {}),
-                    "provider_backpressure": {
-                        "provider": "ollama",
-                        "reason": hold_reason or "ollama_generate_timeout",
-                        "deferred_until": hold_until,
-                        "deferred_at": time.time(),
-                    },
-                },
-            )
-            return result
-        budget = dict(strategy_cfg.get("proposal_budget") or {})
-        budget_started_at = time.time()
-        max_total_seconds = int(budget.get("max_total_seconds") or 90)
-        max_llm_calls = int(budget.get("max_llm_calls") or 2)
-        max_strategy_attempts = int(budget.get("max_strategy_attempts") or 2)
-        hard_guard_max_attempts_window = max(
-            5,
-            min(int((loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_max_attempts") or 30), 500),
-        )
-        hard_guard_window_seconds = max(
-            10,
-            min(int((loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_window_seconds") or 180), 3600),
-        )
-        hard_guard_status = str(
-            (loop._agent_config() or {}).get("autopilot_task_propose_hard_guard_status") or "needs_review"
-        ).strip().lower()
-        if hard_guard_status not in {"needs_review", "failed", "todo"}:
-            hard_guard_status = "needs_review"
-        recent_attempts = _recent_strategy_attempts(task, now_ts=time.time(), window_seconds=hard_guard_window_seconds)
-        if recent_attempts >= hard_guard_max_attempts_window:
-            _verification = {
-                **dict(getattr(task, "verification_status", None) or {}),
-                "autopilot_strategy": {
-                    **dict((getattr(task, "verification_status", None) or {}).get("autopilot_strategy") or {}),
-                    "reason_code": "task_propose_hard_guard",
-                    "last_failed_at": time.time(),
-                },
-            }
-            update_local_task_status(
-                task.id,
-                hard_guard_status,
-                error="autopilot_task_propose_hard_guard_triggered",
-                verification_status=_verification,
-                force=True,
-                event_type="autopilot_task_propose_hard_guard_triggered",
-                event_actor="autopilot_tick",
-                event_details={
-                    "recent_attempts": int(recent_attempts),
-                    "window_seconds": int(hard_guard_window_seconds),
-                    "max_attempts": int(hard_guard_max_attempts_window),
-                    "status": hard_guard_status,
-                },
-            )
-            append_trace_event(
-                task.id,
-                "autopilot_task_propose_hard_guard_triggered",
-                delegated_to=target_worker.url,
-                recent_attempts=recent_attempts,
-                window_seconds=hard_guard_window_seconds,
-                max_attempts=hard_guard_max_attempts_window,
-                status=hard_guard_status,
-            )
-            result.failed = True
-            result.failure_type = "task_propose_hard_guard"
-            return result
-        # Prevent duplicate rapid-fire propose dispatches while task is already in-flight.
-        propose_inflight_cooldown_s = max(
-            10.0,
-            float(
-                ((loop._agent_config() or {}).get("autopilot", {}) or {})
-                .get("strategy", {})
-                .get("propose_inflight_cooldown_seconds", 45.0)
-            ),
-        )
-        task_status_now = str(getattr(task, "status", "") or "").strip().lower()
-        task_updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
-        task_age_s = max(0.0, time.time() - task_updated_at) if task_updated_at else None
-        if task_status_now == "proposing" and task_age_s is not None and task_age_s < propose_inflight_cooldown_s:
-            append_trace_event(
-                task.id,
-                "autopilot_propose_cooldown_skip",
-                delegated_to=target_worker.url,
-                status=task_status_now,
-                updated_age_seconds=round(task_age_s, 3),
-                cooldown_seconds=propose_inflight_cooldown_s,
-            )
-            result.dispatched = True
-            result.failed = False
-            result.completed = False
-            result.failure_type = None
-            return result
-        STRATEGY_ATTEMPT_COUNT.observe(float(len(strategy_candidates)))
-        for attempt_index, candidate in enumerate(strategy_candidates, start=1):
-            # Hard guard: never re-propose terminal tasks, even inside strategy loops.
-            latest_status = _current_task_status(task.id, app=app_ctx)
-            if _is_terminal_status(latest_status):
-                append_trace_event(
-                    task.id,
-                    "autopilot_strategy_attempt_skipped_terminal",
-                    delegated_to=target_worker.url,
-                    terminal_status=latest_status,
-                    attempt=attempt_index,
-                )
-                result.dispatched = True
-                result.completed = latest_status == "completed"
-                result.failed = latest_status != "completed"
-                result.failure_type = None if result.completed else latest_status
-                return result
-            elapsed = time.time() - budget_started_at
-            if elapsed > max_total_seconds:
-                strategy_failures.append(
-                    {
-                        "attempt": attempt_index,
-                        "reason": "proposal_budget_exhausted_total_seconds",
-                        "elapsed_seconds": round(elapsed, 3),
-                        "max_total_seconds": max_total_seconds,
-                        "failure_type": "proposal_budget_exhausted",
-                    }
-                )
-                break
-            if (attempt_index - 1) >= max_llm_calls or (attempt_index - 1) >= max_strategy_attempts:
-                strategy_failures.append(
-                    {
-                        "attempt": attempt_index,
-                        "reason": "proposal_budget_exhausted_llm_calls",
-                        "max_llm_calls": max_llm_calls,
-                        "max_strategy_attempts": max_strategy_attempts,
-                        "failure_type": "proposal_budget_exhausted",
-                    }
-                )
-                break
-            propose_payload: dict[str, Any] = {"task_id": task.id, "context_window": _hub_context_window(loop)}
-            autopilot_cfg = ((loop._agent_config() or {}).get("autopilot", {}) or {})
-            strategy_mode_override = str(
-                autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"
-            ).strip().lower()
-            if strategy_mode_override:
-                propose_payload["strategy_mode"] = strategy_mode_override
-            candidate_model = candidate.get("model")
-            candidate_source = str(candidate.get("source") or "strategy")
-            candidate_temperature = _normalize_temperature_value(candidate.get("temperature"))
-            runtime_model_caps = dict((runtime_caps.get("models") or {}).get(str(candidate_model or "").strip()) or {})
-            model_context_length = _safe_context_length(runtime_model_caps.get("context_length"))
-            runtime_provider = str(runtime_model_caps.get("provider") or "") or None
-            if model_context_length is not None and model_context_length < required_context_tokens:
-                strategy_failures.append(
-                    {
-                        "attempt": attempt_index,
-                        "model": candidate_model,
-                        "temperature": candidate_temperature,
-                        "source": candidate_source,
-                        "reason": "insufficient_context_window",
-                        "required_context_tokens": required_context_tokens,
-                        "model_context_length": model_context_length,
-                        "runtime_provider": runtime_provider,
-                        "failure_type": "preflight_context_limit",
-                    }
-                )
-                append_trace_event(
-                    task.id,
-                    "autopilot_strategy_attempt_skipped",
-                    delegated_to=target_worker.url,
-                    attempt=attempt_index,
-                    model=candidate_model,
-                    temperature=candidate_temperature,
-                    reason="insufficient_context_window",
-                    required_context_tokens=required_context_tokens,
-                    model_context_length=model_context_length,
-                    runtime_provider=runtime_provider,
-                )
-                continue
-            if candidate_model:
-                propose_payload["model"] = candidate_model
-            if candidate_temperature is not None:
-                propose_payload["temperature"] = candidate_temperature
-            from agent.services.recovery_task_mutation_policy import (
-                recovery_task_role,
-            )
-
-            run_evidence_context = None
-            if recovery_task_role(task) == "child":
-                run_evidence_context = (
-                    recovery_gate.reserve_run_evidence_context(
-                        task.id,
-                        worker_url=target_worker.url,
-                        replace=True,
-                        app=app_ctx,
-                    )
-                )
-            if run_evidence_context is not None:
-                propose_payload[
-                    "recovery_run_evidence_context"
-                ] = run_evidence_context
-            dispatch_lease = recovery_gate.acquire_dispatch_lease(
-                task.id,
-                phase="propose",
-                worker_url=target_worker.url,
-                request_fingerprint=(
-                    recovery_dispatch_request_fingerprint(
-                        "propose",
-                        propose_payload,
-                    )
-                ),
-                app=app_ctx,
-            )
-            if not dispatch_lease.allowed:
-                append_trace_event(
-                    task.id,
-                    "autopilot_propose_skipped_recovery_lease",
-                    delegated_to=target_worker.url,
-                    reason_code=(
-                        dispatch_lease.decision.reason_code
-                    ),
-                    source_task_id=(
-                        dispatch_lease.decision.source_task_id
-                    ),
-                    plan_id=dispatch_lease.decision.plan_id,
-                )
-                result.dispatched = True
-                result.failed = True
-                result.failure_type = (
-                    dispatch_lease.decision.reason_code
-                )
-                return result
-            if dispatch_lease.token:
-                propose_payload["dispatch_lease_token"] = (
-                    dispatch_lease.token
-                )
-                propose_payload["dispatch_lease_phase"] = "propose"
-            append_trace_event(
-                task.id,
-                "autopilot_strategy_attempt",
-                delegated_to=target_worker.url,
-                attempt=attempt_index,
-                model=candidate_model,
-                temperature=candidate_temperature,
-                runtime_provider=runtime_provider,
-                model_context_length=model_context_length,
-                required_context_tokens=required_context_tokens,
-                source=candidate_source,
-            )
-            # Guard against stale dispatch candidates: task may have reached a
-            # terminal status while this strategy attempt was prepared.
-            latest_before_propose = _current_task_status(task.id, app=getattr(loop, "_app", app_ctx) or app_ctx)
-            if _is_terminal_status(latest_before_propose):
-                append_trace_event(
-                    task.id,
-                    "autopilot_strategy_attempt_skipped",
-                    delegated_to=target_worker.url,
-                    attempt=attempt_index,
-                    model=candidate_model,
-                    temperature=candidate_temperature,
-                    reason="task_already_terminal_before_propose",
-                    latest_status=latest_before_propose,
-                    runtime_provider=runtime_provider,
-                )
-                continue
-            # Mark propose-in-flight to avoid duplicate concurrent dispatches
-            # on the same task while the worker is evaluating the proposal.
-            update_local_task_status(
-                task.id,
-                "proposing",
-                assigned_agent_url=target_worker.url,
-                assigned_agent_token=target_worker.token,
-                event_type="autopilot_propose_started",
-                event_actor="autopilot_tick",
-                force=True,
-            )
-            try:
-                _propose_started = time.time()
-                candidate_data = loop._forward_with_retry(
-                    target_worker.url,
-                    f"/tasks/{task.id}/step/propose",
-                    propose_payload,
-                    token=target_worker.token,
-                )
-                WORKER_PROPOSE_DURATION_SECONDS.observe(max(0.0, time.time() - _propose_started))
-                if dispatch_lease.token:
-                    with recovery_gate.result_guard(
-                        task.id,
-                        token=dispatch_lease.token,
-                        phase="propose",
-                        request_fingerprint=(
-                            recovery_dispatch_request_fingerprint(
-                                "propose",
-                                propose_payload,
-                            )
-                        ),
-                        worker_url=target_worker.url,
-                        app=app_ctx,
-                    ) as result_decision:
-                        if not result_decision.allowed:
-                            append_trace_event(
-                                task.id,
-                                "autopilot_propose_result_rejected",
-                                delegated_to=target_worker.url,
-                                reason_code=(
-                                    result_decision.reason_code
-                                ),
-                            )
-                            result.dispatched = True
-                            result.failed = True
-                            result.failure_type = (
-                                result_decision.reason_code
-                            )
-                            return result
-                        candidate_data = (
-                            services.autopilot_decision_service
-                            .normalize_proposal_data(candidate_data)
-                        )
-                        from agent.services.recovery_worker_result_service import (
-                            get_recovery_worker_result_service,
-                        )
-
-                        get_recovery_worker_result_service().accept_proposal_response(
-                            task_id=task.id,
-                            response=candidate_data,
-                        )
-                else:
-                    candidate_data = services.autopilot_decision_service.normalize_proposal_data(candidate_data)
-            except Exception as strategy_exc:
-                if dispatch_lease.token:
-                    recovery_gate.revoke_dispatch_lease(
-                        task.id,
-                        reason_code=(
-                            "recovery_dispatch_transport_outcome_unknown"
-                        ),
-                        app=app_ctx,
-                    )
-                    append_trace_event(
-                        task.id,
-                        "autopilot_propose_transport_fenced",
-                        delegated_to=target_worker.url,
-                        attempt=attempt_index,
-                        reason=str(strategy_exc),
-                        reason_code=(
-                            "recovery_dispatch_transport_outcome_unknown"
-                        ),
-                    )
-                record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
-                if callable(record_propose_attempt):
-                    record_propose_attempt(task.id, success=False)
-                strategy_failures.append(
-                    {
-                        "attempt": attempt_index,
-                        "model": candidate_model,
-                        "temperature": candidate_temperature,
-                        "source": candidate_source,
-                        "reason": str(strategy_exc),
-                        "runtime_provider": runtime_provider,
-                        "model_context_length": model_context_length,
-                        "required_context_tokens": required_context_tokens,
-                        "failure_type": "forward_error",
-                    }
-                )
-                continue
-            candidate_snapshot = services.autopilot_decision_service.build_proposal_snapshot(candidate_data)
-            candidate_cli = candidate_snapshot.get("cli_result")
-            if isinstance(candidate_cli, dict):
-                for entry in list(candidate_cli.get("llm_call_profile") or []):
-                    if isinstance(entry, dict):
-                        collected_llm_profiles.append(dict(entry))
-            if candidate_snapshot.get("command") or candidate_snapshot.get("tool_calls"):
-                record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
-                if callable(record_propose_attempt):
-                    record_propose_attempt(task.id, success=True)
-                selected_attempt_meta = {
-                    "attempt": attempt_index,
-                    "source": candidate_source,
-                    "selected_model": candidate_model,
-                    "selected_temperature": candidate_temperature,
-                    "runtime_provider": runtime_provider,
-                    "model_context_length": model_context_length,
-                    "required_context_tokens": required_context_tokens,
-                }
-                propose_data = candidate_data
-                break
-            record_propose_attempt = getattr(loop, "_record_task_propose_attempt", None)
-            if callable(record_propose_attempt):
-                record_propose_attempt(task.id, success=False)
-            raw_recovery_signal = candidate_snapshot.get(
-                "model_recovery_signal"
-            )
-            terminal_recovery_signal = (
-                sanitize_terminal_model_recovery_signal(
-                    raw_recovery_signal
-                )
-            )
-            if terminal_recovery_signal is not None:
-                verified_terminal_model_signal_seen = True
-            fallback_decisions = [
-                dict(item)
-                for item in list(
-                    candidate_snapshot.get("fallback_decisions")
-                    or []
-                )[-16:]
-                if isinstance(item, dict)
-            ]
-            terminal_denial_seen = any(
-                bool(item.get("terminal"))
-                and not is_recoverable_model_error_type(
-                    item.get("trigger")
-                )
-                for item in fallback_decisions
-            )
-            terminal_signal_seen = bool(
-                candidate_snapshot.get(
-                    "terminal_model_recovery_signal_seen"
-                )
-            ) or (
-                isinstance(raw_recovery_signal, dict)
-                and raw_recovery_signal.get("terminal") is True
-            )
-            if terminal_denial_seen or (
-                terminal_signal_seen
-                and terminal_recovery_signal is None
-            ):
-                rejected_terminal_model_signal_seen = True
-            strategy_failures.append(
-                {
-                    "attempt": attempt_index,
-                    "model": candidate_model,
-                    "temperature": candidate_temperature,
-                    "source": candidate_source,
-                    "reason": str(candidate_snapshot.get("reason") or "autopilot_no_executable_step"),
-                    "runtime_provider": runtime_provider,
-                    "model_context_length": model_context_length,
-                    "required_context_tokens": required_context_tokens,
-                    "failure_type": "invalid_proposal",
-                    "raw_preview": candidate_snapshot.get("raw_preview"),
-                    **(
-                        {
-                            "model_recovery_signal": dict(
-                                terminal_recovery_signal
-                            )
-                        }
-                        if terminal_recovery_signal is not None
-                        else {}
-                    ),
-                    **(
-                        {
-                            "fallback_decisions": [
-                                dict(item)
-                                for item in fallback_decisions
-                            ]
-                        }
-                        if fallback_decisions
-                        else {}
-                    ),
-                }
-            )
-            if (
-                terminal_recovery_signal is not None
-                or terminal_denial_seen
-                or terminal_signal_seen
-            ):
-                append_trace_event(
-                    task.id,
-                    "autopilot_terminal_model_chain_observed",
-                    delegated_to=target_worker.url,
-                    attempt=attempt_index,
-                    terminal_reason=(
-                        (
-                            terminal_recovery_signal or {}
-                        ).get("terminal_reason")
-                        or "terminal_model_denial"
-                    ),
-                    recovery_eligible=(
-                        terminal_recovery_signal is not None
-                    ),
-                )
-                break
+        if outcome.stop_result is not None:
+            return outcome.stop_result
+        propose_data = outcome.propose_data
+        strategy_failures = outcome.strategy_failures
 
         if propose_data is None and _is_context_overflow(strategy_failures):
             handled = _handle_context_overflow(current_task or task, app=app_ctx)
@@ -958,450 +217,111 @@ def _dispatch_one_task_inner(  # noqa: C901
                 result.dispatched = True
                 return result
         if propose_data is None:
-            latest_status = _current_task_status(task.id, app=app_ctx)
-            if _is_terminal_status(latest_status):
-                append_trace_event(
-                    task.id,
-                    "autopilot_strategy_exhausted_skipped_terminal",
-                    delegated_to=target_worker.url,
-                    terminal_status=latest_status,
-                )
-                result.dispatched = True
-                result.completed = latest_status == "completed"
-                result.failed = latest_status != "completed"
-                result.failure_type = None if result.completed else latest_status
-                return result
-            now_ts = time.time()
-            total_attempt_count = int(strategy_state.get("attempt_count") or 0) + len(strategy_failures)
-            failed_models = list(strategy_state.get("failed_models") or [])
-            failed_temperatures = list(strategy_state.get("failed_temperatures") or [])
-            failed_sources = list(strategy_state.get("failed_sources") or [])
-            for item in strategy_failures:
-                model = str(item.get("model") or "").strip()
-                if model and model not in failed_models:
-                    failed_models.append(model)
-                temperature = _normalize_temperature_value(item.get("temperature"))
-                if temperature is not None and temperature not in failed_temperatures:
-                    failed_temperatures.append(temperature)
-                source = str(item.get("source") or "").strip()
-                if source and source not in failed_sources:
-                    failed_sources.append(source)
-            terminalize_no_exec = _should_terminalize_no_executable_strategy(strategy_failures)
-            cooldown_seconds = 0
-            reason_code = (
-                "autopilot_strategy_invalid_proposal_terminal"
-                if terminalize_no_exec
-                else "autopilot_strategy_exhausted"
+            return handle_strategy_exhaustion(
+                ctx,
+                outcome=outcome,
+                strategy_state=strategy_state,
+                model_meta=model_meta,
+                runtime_caps=runtime_caps,
             )
-            existing_strategy_state = dict(strategy_state or {})
-            repair_rounds = int(existing_strategy_state.get("repair_rounds") or 0)
-            agent_cfg = _effective_agent_cfg_for_task(loop=loop, task=task)
-            propose_policy_cfg = dict((agent_cfg.get("propose_policy") or {}))
-            allow_human_review = bool(propose_policy_cfg.get("allow_human_review", True))
-            on_declined = str(propose_policy_cfg.get("on_all_strategies_declined") or "needs_review").strip().lower()
-            repair_budget, repair_delay_seconds = _resolve_autonomous_repair_budget(agent_cfg=agent_cfg)
-            recovery_outcome: dict[str, Any] = {}
-            try:
-                from agent.services.model_recovery_strategy_executor import (
-                    get_model_recovery_strategy_executor,
-                )
 
-                recovery_outcome = (
-                    get_model_recovery_strategy_executor().execute_after_model_exhaustion(
-                        task=task,
-                        strategy_failures=strategy_failures,
-                    )
-                    or {}
-                )
-            except Exception as recovery_exc:
-                log.warning(
-                    "Hub task recovery proposal failed for task %s: %s",
-                    task.id,
-                    recovery_exc,
-                )
-                recovery_outcome = {
-                    "status": "failed",
-                    "reason_code": "task_recovery_coordinator_failed",
-                    "error_type": type(recovery_exc).__name__,
-                }
-            recovery_pending = (
-                str(recovery_outcome.get("status") or "").strip().lower()
-                == "pending_approval"
-            )
-            recovery_terminal_handled = bool(
-                recovery_outcome.get(
-                    "terminal_model_chain_handled"
-                )
-            ) or verified_terminal_model_signal_seen
-            schedule_repair_retry = (
-                terminalize_no_exec
-                and not allow_human_review
-                and repair_rounds < repair_budget
-                and not recovery_pending
-                and not recovery_terminal_handled
-                and not rejected_terminal_model_signal_seen
-            )
-            if recovery_pending:
-                retry_status = "waiting_for_review"
-                cooldown_seconds = 0
-                reason_code = "model_recovery_plan_pending_approval"
-            elif rejected_terminal_model_signal_seen:
-                retry_status = (
-                    "waiting_for_review"
-                    if allow_human_review
-                    else "failed"
-                )
-                cooldown_seconds = 0
-                reason_code = (
-                    "invalid_terminal_model_recovery_signal"
-                )
-            elif recovery_terminal_handled:
-                retry_status = (
-                    "waiting_for_review"
-                    if allow_human_review
-                    else "failed"
-                )
-                cooldown_seconds = 0
-                reason_code = str(
-                    recovery_outcome.get("reason_code")
-                    or "model_recovery_stopped"
-                )[:160]
-            elif schedule_repair_retry:
-                retry_status = "todo"
-                cooldown_seconds = repair_delay_seconds
-            elif terminalize_no_exec and allow_human_review:
-                retry_status = "todo"
-                cooldown_seconds = int(strategy_cfg.get("cooldown_seconds") or 20)
-            elif on_declined == "failed":
-                retry_status = "failed"
-            elif on_declined == "advisory":
-                retry_status = "todo"
-            else:
-                retry_status = "waiting_for_review" if allow_human_review else "failed"
-            verification_status = {
-                **dict(getattr(task, "verification_status", None) or {}),
-                "autopilot_strategy": {
-                    "attempt_count": total_attempt_count,
-                    "repair_rounds": repair_rounds + (1 if schedule_repair_retry else 0),
-                    "failed_models": failed_models,
-                    "failed_temperatures": failed_temperatures,
-                    "failed_sources": failed_sources,
-                    "runtime": dict(runtime_caps.get("runtime") or {}),
-                    "last_failures": strategy_failures[-5:],
-                    "last_failed_at": now_ts,
-                    "next_retry_after": (now_ts + cooldown_seconds) if cooldown_seconds > 0 else now_ts,
-                    "reason_code": reason_code,
-                },
-                **(
-                    {
-                        "model_recovery": {
-                            "schema": "ananta.task_recovery_state.v1",
-                            "status": "pending_approval",
-                            "plan_id": recovery_outcome.get("plan_id"),
-                            "approval_request_id": recovery_outcome.get("approval_request_id"),
-                            "recovery_key": recovery_outcome.get("recovery_key"),
-                            "node_count": recovery_outcome.get("node_count"),
-                        }
-                    }
-                    if recovery_pending
-                    else {}
-                ),
-                **(
-                    {
-                        "model_recovery_strategy": {
-                            "schema": (
-                                "ananta.model_recovery_strategy.v1"
-                            ),
-                            "status": recovery_outcome.get(
-                                "status"
-                            ),
-                            "reason_code": recovery_outcome.get(
-                                "reason_code"
-                            ),
-                            "recovery_actions": list(
-                                recovery_outcome.get(
-                                    "recovery_actions"
-                                )
-                                or []
-                            ),
-                            "policy_hash": recovery_outcome.get(
-                                "policy_hash"
-                            ),
-                            "compaction": dict(
-                                recovery_outcome.get(
-                                    "compaction"
-                                )
-                                or {}
-                            ),
-                            "compacted_context_hash": (
-                                recovery_outcome.get(
-                                    "compacted_context_hash"
-                                )
-                            ),
-                        }
-                    }
-                    if recovery_terminal_handled
-                    else {}
-                ),
-            }
-            retry_snapshot = _ensure_llm_profile_snapshot(
-                snapshot={"strategy_failures": strategy_failures[-5:]},
-                strategy_id=None,
-                model_meta=model_meta if isinstance(model_meta, dict) else None,
-                preferred_profile=collected_llm_profiles,
-                allow_synthetic_fallback=bool(
-                    ((loop._agent_config() or {}).get("llm_profile_policy") or {}).get(
-                        "allow_synthetic_fallback", False
-                    )
-                ),
-            )
-            if recovery_pending:
-                authoritative_task = (
-                    get_repository_registry(app_ctx)
-                    .task_repo.get_by_id(task.id)
-                )
-                authoritative_recovery = dict(
-                    (
-                        getattr(
-                            authoritative_task,
-                            "status_reason_details",
-                            None,
-                        )
-                        or {}
-                    ).get("model_recovery")
-                    or {}
-                )
-                authoritative_recovery_status = str(
-                    authoritative_recovery.get("status") or ""
-                ).strip().lower()
-                if authoritative_recovery_status not in {
-                    "",
-                    "pending_approval",
-                }:
-                    append_trace_event(
-                        task.id,
-                        "autopilot_recovery_state_write_skipped",
-                        delegated_to=target_worker.url,
-                        authoritative_recovery_status=(
-                            authoritative_recovery_status
-                        ),
-                        recovery_plan_id=(
-                            authoritative_recovery.get("plan_id")
-                        ),
-                    )
-                    result.dispatched = True
-                    result.failed = (
-                        authoritative_recovery_status
-                        not in {
-                            "materialized",
-                            "materialized_waiting_for_children",
-                        }
-                    )
-                    result.failure_type = (
-                        None
-                        if not result.failed
-                        else authoritative_recovery_status
-                    )
-                    return result
-            latest_status = _current_task_status(task.id, app=app_ctx)
-            if _is_terminal_status(latest_status):
-                append_trace_event(
-                    task.id,
-                    "autopilot_strategy_update_skipped_terminal",
-                    delegated_to=target_worker.url,
-                    terminal_status=latest_status,
-                    recovery_plan_id=recovery_outcome.get("plan_id"),
-                )
-                result.dispatched = True
-                result.completed = latest_status == "completed"
-                result.failed = latest_status != "completed"
-                result.failure_type = (
-                    None if result.completed else latest_status
-                )
-                return result
-            update_local_task_status(
-                task.id,
-                retry_status,
-                error="autopilot_strategy_exhausted",
-                verification_status=verification_status,
-                status_reason_code=reason_code,
-                status_reason_details={
-                    **dict(getattr(task, "status_reason_details", None) or {}),
-                    **(
-                        {
-                            "model_recovery": {
-                                "schema": "ananta.task_recovery_state.v1",
-                                "status": "pending_approval",
-                                "plan_id": recovery_outcome.get("plan_id"),
-                                "approval_request_id": recovery_outcome.get("approval_request_id"),
-                                "recovery_key": recovery_outcome.get("recovery_key"),
-                                "recovery_depth": 1,
-                            }
-                        }
-                        if recovery_pending
-                        else {}
-                    ),
-                    **(
-                        {
-                            "model_recovery_strategy": {
-                                "schema": (
-                                    "ananta.model_recovery_strategy.v1"
-                                ),
-                                "status": recovery_outcome.get(
-                                    "status"
-                                ),
-                                "reason_code": (
-                                    recovery_outcome.get(
-                                        "reason_code"
-                                    )
-                                ),
-                                "recovery_actions": list(
-                                    recovery_outcome.get(
-                                        "recovery_actions"
-                                    )
-                                    or []
-                                ),
-                                "policy_hash": (
-                                    recovery_outcome.get(
-                                        "policy_hash"
-                                    )
-                                ),
-                                "compaction": dict(
-                                    recovery_outcome.get(
-                                        "compaction"
-                                    )
-                                    or {}
-                                ),
-                                "compacted_context_hash": (
-                                    recovery_outcome.get(
-                                        "compacted_context_hash"
-                                    )
-                                ),
-                            }
-                        }
-                        if recovery_terminal_handled
-                        else {}
-                    ),
-                },
-                manual_override_until=(now_ts + cooldown_seconds) if cooldown_seconds > 0 else None,
-                last_proposal=_merged_last_proposal_snapshot(
-                    task_id=task.id,
-                    snapshot=retry_snapshot,
-                    app=app_ctx,
-                ),
-                force=False,
-                event_type=(
-                    "task_recovery_plan_pending_approval"
-                    if recovery_pending
-                    else (
-                        "model_recovery_strategy_stopped"
-                        if recovery_terminal_handled
-                        else (
-                            "invalid_terminal_model_recovery_signal_stopped"
-                            if rejected_terminal_model_signal_seen
-                            else "autopilot_strategy_retry_scheduled"
-                        )
-                    )
-                ),
-                event_actor="autopilot_tick",
-                event_details={
-                    "retry_status": retry_status,
-                    "cooldown_seconds": cooldown_seconds,
-                    "attempt_count": total_attempt_count,
-                    "terminalize_no_exec": terminalize_no_exec,
-                    "schedule_repair_retry": schedule_repair_retry,
-                    "repair_rounds": repair_rounds + (1 if schedule_repair_retry else 0),
-                    "repair_budget": repair_budget,
-                    "allow_human_review": allow_human_review,
-                    "on_all_strategies_declined": on_declined,
-                    "model_recovery_status": recovery_outcome.get("status"),
-                    "recovery_plan_id": recovery_outcome.get("plan_id"),
-                    "approval_request_id": recovery_outcome.get("approval_request_id"),
-                },
-            )
-            append_trace_event(
-                task.id,
-                "autopilot_strategy_exhausted",
-                delegated_to=target_worker.url,
-                failures=strategy_failures[-5:],
-                cooldown_seconds=cooldown_seconds,
-                model_recovery={
-                    "status": recovery_outcome.get("status"),
-                    "reason_code": recovery_outcome.get("reason_code"),
-                    "plan_id": recovery_outcome.get("plan_id"),
-                    "approval_request_id": recovery_outcome.get("approval_request_id"),
-                },
-            )
-            result.failed = True
-            result.failure_type = (
-                "recovery_plan_pending_approval"
-                if recovery_pending
-                else (
-                    str(recovery_outcome.get("reason_code"))
-                    if recovery_terminal_handled
-                    else "strategy_exhausted"
-                )
-            )
-            return result
-
-        model_meta.update(selected_attempt_meta)
+        model_meta.update(outcome.selected_attempt_meta)
     except Exception as e:
-        if _is_transient_worker_transport_error(e):
-            defer_until = time.time() + 30
-            update_local_task_status(
-                task.id,
-                "todo",
-                manual_override_until=defer_until,
-                error=f"transient_worker_transport_error:{str(e)[:180]}",
-            )
-            append_trace_event(
-                task.id,
-                "autopilot_worker_transport_deferred",
-                delegated_to=target_worker.url,
-                reason=str(e),
-                defer_seconds=30,
-            )
-            result.failed = True
-            result.failure_type = "propose_transport_deferred"
-            return result
-        latest_status = _current_task_status(task.id, app=app_ctx)
-        if _is_terminal_status(latest_status):
-            append_trace_event(
-                task.id,
-                "autopilot_worker_failed_skipped_terminal",
-                delegated_to=target_worker.url,
-                terminal_status=latest_status,
-                reason=str(e),
-            )
-            result.dispatched = True
-            result.completed = latest_status == "completed"
-            result.failed = latest_status != "completed"
-            result.failure_type = None if result.completed else latest_status
-            return result
-        update_local_task_status(task.id, "failed", error=str(e))
-        append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+        return _handle_propose_failure(ctx, e)
+
+    return _evaluate_and_execute_proposal(
+        ctx,
+        propose_data=propose_data,
+        model_meta=model_meta,
+        policy=policy,
+    )
+
+
+def _handle_propose_failure(ctx: DispatchContext, exc: Exception) -> TaskDispatchResult:
+    """Defer on transient worker transport errors, otherwise fail the task and release its workspace."""
+    task = ctx.task
+    target_worker = ctx.target_worker
+    loop = ctx.loop
+    app_ctx = ctx.app_ctx
+    result = ctx.result
+    append_trace_event = ctx.append_trace_event
+    update_local_task_status = ctx.update_local_task_status
+    current_task_status = ctx.current_task_status
+    if _is_transient_worker_transport_error(exc):
+        defer_until = time.time() + 30
+        update_local_task_status(
+            task.id,
+            "todo",
+            manual_override_until=defer_until,
+            error=f"transient_worker_transport_error:{str(exc)[:180]}",
+        )
         append_trace_event(
             task.id,
-            "workspace_released",
+            "autopilot_worker_transport_deferred",
             delegated_to=target_worker.url,
-            workspace_id=f"ws-{task.id}",
-            lease_id=f"lease-{task.id}",
-            cleanup_state="failed",
+            reason=str(exc),
+            defer_seconds=30,
         )
-        open_until, failure_streak = loop._circuit_open_details(target_worker.url)
-        if loop._is_worker_circuit_open(target_worker.url):
-            append_trace_event(
-                task.id,
-                "autopilot_worker_circuit_open",
-                worker_url=target_worker.url,
-                reason="forward_failed",
-                open_until=open_until,
-                failure_streak=failure_streak,
-            )
         result.failed = True
-        result.failure_type = "propose_exception"
+        result.failure_type = "propose_transport_deferred"
         return result
+    latest_status = current_task_status(task.id, app=app_ctx)
+    if _is_terminal_status(latest_status):
+        append_trace_event(
+            task.id,
+            "autopilot_worker_failed_skipped_terminal",
+            delegated_to=target_worker.url,
+            terminal_status=latest_status,
+            reason=str(exc),
+        )
+        result.dispatched = True
+        result.completed = latest_status == "completed"
+        result.failed = latest_status != "completed"
+        result.failure_type = None if result.completed else latest_status
+        return result
+    update_local_task_status(task.id, "failed", error=str(exc))
+    append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(exc))
+    append_trace_event(
+        task.id,
+        "workspace_released",
+        delegated_to=target_worker.url,
+        workspace_id=f"ws-{task.id}",
+        lease_id=f"lease-{task.id}",
+        cleanup_state="failed",
+    )
+    open_until, failure_streak = loop._circuit_open_details(target_worker.url)
+    if loop._is_worker_circuit_open(target_worker.url):
+        append_trace_event(
+            task.id,
+            "autopilot_worker_circuit_open",
+            worker_url=target_worker.url,
+            reason="forward_failed",
+            open_until=open_until,
+            failure_streak=failure_streak,
+        )
+    result.failed = True
+    result.failure_type = "propose_exception"
+    return result
 
+
+def _evaluate_and_execute_proposal(
+    ctx: DispatchContext,
+    *,
+    propose_data: dict[str, Any],
+    model_meta: dict[str, Any],
+    policy: dict,
+) -> TaskDispatchResult:
+    """Snapshot the accepted proposal, enforce tool guardrails and execute the step."""
+    task = ctx.task
+    target_worker = ctx.target_worker
+    loop = ctx.loop
+    services = ctx.services
+    app_ctx = ctx.app_ctx
+    result = ctx.result
+    append_trace_event = ctx.append_trace_event
+    update_local_task_status = ctx.update_local_task_status
+    current_task_status = ctx.current_task_status
+    log = ctx.log
     command = propose_data.get("command")
     tool_calls = propose_data.get("tool_calls")
     reason = propose_data.get("reason")
@@ -1424,7 +344,7 @@ def _dispatch_one_task_inner(  # noqa: C901
     raw_preview = proposal_snapshot.get("raw_preview")
 
     if not command and not tool_calls:
-        latest_status = _current_task_status(task.id, app=app_ctx)
+        latest_status = current_task_status(task.id, app=app_ctx)
         if _is_terminal_status(latest_status):
             append_trace_event(
                 task.id,
