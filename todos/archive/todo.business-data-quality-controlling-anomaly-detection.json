@@ -157,8 +157,8 @@
       "files_to_create": [
         "agent/services/business_controlling_statistics.py",
         "agent/services/business_controlling_scientific_gate.py",
-        "tests/test_business_controlling_statistics.py",
-        "tests/test_business_controlling_scientific_gate.py"
+        "tests/business_controlling/test_business_controlling_statistics.py",
+        "tests/business_controlling/test_business_controlling_scientific_gate.py"
       ],
       "files_to_modify": [],
       "implementation": "Behind the selective skills adapter, permit approved local/pinned EDA, statsmodels or forecasting capabilities for outlier scoring, residual diagnostics and prediction intervals. The adapter receives anonymized/minimized projections and returns findings, never raw upstream output as truth.",
@@ -191,7 +191,7 @@
       ],
       "files_to_create": [
         "agent/services/business_controlling_explanation.py",
-        "tests/test_business_controlling_explanation.py"
+        "tests/business_controlling/test_business_controlling_explanation.py"
       ],
       "files_to_modify": [],
       "implementation": "Generate a concise explanation from only the recorded finding evidence, mapping and permitted related records. Clearly label calculation, anomaly hypothesis and requested human check separately.",
@@ -225,7 +225,7 @@
       ],
       "files_to_create": [
         "agent/services/business_controlling_provenance.py",
-        "tests/test_business_controlling_provenance.py"
+        "tests/business_controlling/test_business_controlling_provenance.py"
       ],
       "files_to_modify": [
         "agent/services/codecompass_graph_projection_service.py"
