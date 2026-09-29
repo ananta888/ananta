@@ -86,11 +86,14 @@ def test_acquire_stores_selected_by(repo):
 
 # ── get_active ────────────────────────────────────────────────────────────────
 
-def test_get_active_returns_live_lease(repo):
+def test_get_active_returns_live_lease_only_for_its_domain(repo):
     repo.acquire(heuristic_id="h1", version="1.0.0", domain="tui_snake", context_hash="x")
     active = repo.get_active("tui_snake")
     assert active is not None
     assert active.status == "active"
+    # domains are isolated: the tui_snake lease is not visible elsewhere
+    assert repo.get_active("eclipse_snake") is None
+    assert repo.get_active("chat_codecompass") is None
 
 
 def test_get_active_returns_none_when_expired(repo):
@@ -106,12 +109,6 @@ def test_get_active_returns_none_when_expired(repo):
 
 def test_get_active_returns_none_for_empty_domain(repo):
     assert repo.get_active("eclipse_snake") is None
-
-
-def test_get_active_isolates_domains(repo):
-    repo.acquire(heuristic_id="snake-h", version="1.0.0", domain="tui_snake", context_hash="a")
-    assert repo.get_active("eclipse_snake") is None
-    assert repo.get_active("chat_codecompass") is None
 
 
 # ── release ───────────────────────────────────────────────────────────────────

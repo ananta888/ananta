@@ -40,31 +40,22 @@ _ALLOWED_RISKS = {"none", "low", "medium", "high", "critical"}
 
 # ── VPTEST-001: Runtime-Truth field completeness ──────────────────────────────
 
-def test_all_kinds_have_required_rt_fields():
-    """Every registered kind must have all 10 runtime-truth fields."""
+def test_all_kinds_have_required_rt_fields_with_valid_values():
+    """Every registered kind must have all 10 runtime-truth fields with allowed values."""
     kinds = list_task_kinds()
     assert len(kinds) >= 35, "Expected at least 35 registered kinds"
     for k in kinds:
         missing = [f for f in _REQUIRED_RT_FIELDS if f not in k]
         assert not missing, f"Kind '{k['id']}' is missing RT fields: {missing}"
-
-
-def test_implementation_status_valid_values():
-    for k in list_task_kinds():
+    for k in kinds:
         assert k["implementation_status"] in _ALLOWED_STATUSES, (
             f"Kind '{k['id']}' has invalid implementation_status={k['implementation_status']!r}"
         )
-
-
-def test_implementation_state_valid_values():
-    for k in list_task_kinds():
+    for k in kinds:
         assert k["implementation_state"] in _ALLOWED_STATES, (
             f"Kind '{k['id']}' has invalid implementation_state={k['implementation_state']!r}"
         )
-
-
-def test_risk_level_valid_values():
-    for k in list_task_kinds():
+    for k in kinds:
         assert k["risk_level"] in _ALLOWED_RISKS, (
             f"Kind '{k['id']}' has invalid risk_level={k['risk_level']!r}"
         )

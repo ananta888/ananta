@@ -45,26 +45,12 @@ DOMAIN_NAMES = sorted(DOMAIN_MODULES)
 
 
 @pytest.mark.parametrize("domain", DOMAIN_NAMES)
-def test_domain_help_exit_0(domain):
-    """ananta <domain> --help must exit 0."""
+def test_domain_help_exits_0_with_output_listing_subcommands(domain):
+    """ananta <domain> --help must exit 0, produce output and mention a subcommand."""
     mod = DOMAIN_MODULES[domain]
     rc, output = _help(mod.dispatch)
     assert rc == 0, f"'ananta {domain} --help' exited {rc}. Output:\n{output}"
-
-
-@pytest.mark.parametrize("domain", DOMAIN_NAMES)
-def test_domain_help_nonempty(domain):
-    """ananta <domain> --help must produce non-empty output."""
-    mod = DOMAIN_MODULES[domain]
-    _, output = _help(mod.dispatch)
     assert len(output.strip()) > 0, f"'ananta {domain} --help' produced no output"
-
-
-@pytest.mark.parametrize("domain", DOMAIN_NAMES)
-def test_domain_help_lists_subcommands(domain):
-    """ananta <domain> --help must mention at least one subcommand."""
-    mod = DOMAIN_MODULES[domain]
-    _, output = _help(mod.dispatch)
     subcommands = getattr(mod, "SUBCOMMANDS", [])
     if not subcommands:
         pytest.skip(f"Module {domain} has no SUBCOMMANDS defined")

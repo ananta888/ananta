@@ -170,14 +170,10 @@ def test_review_task_prioritises_symbol_neighbors_in_decisions(planner):
 # source-grounded: no synthetic IDs
 # ---------------------------------------------------------------------------
 
-def test_plan_unified_context_does_not_invent_ids(planner):
-    res = planner.plan_unified_context(
-        query="x",
-        task_kind="review",
-        bucket_inputs={
-            "symbol_neighbors": [{"path": "a.py"}],  # no id at all
-        },
-    )
+def test_plan_unified_context_single_ref_result_is_grounded_stable_and_serialisable(planner):
+    bucket_inputs = {"symbol_neighbors": [{"path": "a.py"}]}  # no id at all
+    res = planner.plan_unified_context(query="x", task_kind="review",
+                                       bucket_inputs=bucket_inputs)
     # No synthetic 'unknown-1' or similar IDs introduced.
     refs = res["buckets"]["symbol_neighbors"]
     for ref in refs:
@@ -186,22 +182,12 @@ def test_plan_unified_context_does_not_invent_ids(planner):
                      if isinstance(v, str) and v.startswith("synth:")]
         assert synthetic == []
 
+    # bundle_id is stable across identical calls
+    again = planner.plan_unified_context(query="x", task_kind="review",
+                                         bucket_inputs=bucket_inputs)
+    assert res["bundle_id"] == again["bundle_id"]
 
-def test_plan_unified_context_bundle_id_is_stable(planner):
-    bucket_inputs = {"symbol_neighbors": [{"path": "a.py"}]}
-    a = planner.plan_unified_context(query="x", task_kind="review",
-                                     bucket_inputs=bucket_inputs)
-    b = planner.plan_unified_context(query="x", task_kind="review",
-                                     bucket_inputs=bucket_inputs)
-    assert a["bundle_id"] == b["bundle_id"]
-
-
-def test_plan_unified_context_result_is_json_serialisable(planner):
-    res = planner.plan_unified_context(
-        query="x",
-        task_kind="review",
-        bucket_inputs={"symbol_neighbors": [{"path": "a.py"}]},
-    )
+    # result is JSON-serialisable
     json.dumps(res)
 
 
@@ -216,9 +202,6 @@ def test_legacy_fallback_when_bucket_inputs_empty(planner):
     assert "symbol_neighbors" in res["buckets"]
     assert any(d["reason"] == "legacy_plan_context_fallback"
                for d in res["decisions"])
-
-
-def test_legacy_fallback_records_decision_reason(planner):
-    res = planner.plan_unified_context(query="hello", task_kind="review")
+    # decision reason list contains the legacy fallback reason
     reasons = [d["reason"] for d in res["decisions"]]
     assert "legacy_plan_context_fallback" in reasons

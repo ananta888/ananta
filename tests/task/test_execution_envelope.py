@@ -48,34 +48,27 @@ def _minimal_trace() -> TraceBundle:
 # ── CapabilityGrant ────────────────────────────────────────────────────────────
 
 class TestCapabilityGrant:
-    def test_known_capabilities_accepted(self):
+    def test_known_capabilities_accepted_with_order_independent_snapshot_hash(self):
         g = CapabilityGrant(capabilities=["planning", "code_read"])
         assert "planning" in g.capabilities
+        # snapshot hash is auto-computed from the capabilities
+        expected = _capability_hash(["planning", "code_read"])
+        assert g.snapshot_hash == expected
+        # snapshot hash does not depend on capability order
+        g2 = CapabilityGrant(capabilities=["code_read", "planning"])
+        assert g.snapshot_hash == g2.snapshot_hash
 
     def test_unknown_capability_rejected(self):
         with pytest.raises(ValidationError, match="unknown capability classes"):
             CapabilityGrant(capabilities=["planning", "hack_the_planet"])
 
-    def test_snapshot_hash_auto_computed(self):
-        g = CapabilityGrant(capabilities=["planning", "code_read"])
-        expected = _capability_hash(["planning", "code_read"])
-        assert g.snapshot_hash == expected
-
-    def test_snapshot_hash_is_order_independent(self):
-        g1 = CapabilityGrant(capabilities=["planning", "code_read"])
-        g2 = CapabilityGrant(capabilities=["code_read", "planning"])
-        assert g1.snapshot_hash == g2.snapshot_hash
-
     def test_empty_capabilities_accepted(self):
         g = CapabilityGrant(capabilities=[])
         assert g.capabilities == []
 
-    def test_has_returns_true_for_granted(self):
+    def test_has_reports_granted_and_missing_capabilities(self):
         g = CapabilityGrant(capabilities=["planning"])
         assert g.has("planning") is True
-
-    def test_has_returns_false_for_missing(self):
-        g = CapabilityGrant(capabilities=["planning"])
         assert g.has("shell_execute") is False
 
 
@@ -158,21 +151,18 @@ class TestApprovalRef:
         )
         assert ref.ref_id == "ref-001"
 
-    def test_empty_ref_id_rejected(self):
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            pytest.param(dict(ref_id="", operation="patch_apply", granted_by="admin"), id="empty_ref_id"),
+            pytest.param(dict(ref_id="ref-1", operation="", granted_by="admin"), id="empty_operation"),
+            pytest.param(dict(ref_id="ref-1", operation="op", granted_by=""), id="empty_granted_by"),
+            pytest.param(dict(ref_id="   ", operation="op", granted_by="admin"), id="whitespace_only_stripped"),
+        ],
+    )
+    def test_blank_field_rejected(self, kwargs):
         with pytest.raises(ValidationError, match="must be non-empty"):
-            ApprovalRef(ref_id="", operation="patch_apply", granted_at=0.0, granted_by="admin")
-
-    def test_empty_operation_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            ApprovalRef(ref_id="ref-1", operation="", granted_at=0.0, granted_by="admin")
-
-    def test_empty_granted_by_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            ApprovalRef(ref_id="ref-1", operation="op", granted_at=0.0, granted_by="")
-
-    def test_whitespace_only_stripped_and_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            ApprovalRef(ref_id="   ", operation="op", granted_at=0.0, granted_by="admin")
+            ApprovalRef(granted_at=0.0, **kwargs)
 
 
 # ── ExecutionEnvelope ─────────────────────────────────────────────────────────
@@ -182,25 +172,19 @@ class TestExecutionEnvelope:
         env = _minimal_envelope()
         assert env.task_id == "task-001"
 
-    def test_empty_task_id_rejected(self):
+    @pytest.mark.parametrize(
+        "override",
+        [
+            pytest.param({"task_id": ""}, id="empty_task_id"),
+            pytest.param({"task_id": "   "}, id="whitespace_task_id"),
+            pytest.param({"actor_ref": ""}, id="empty_actor_ref"),
+            pytest.param({"context_envelope_ref": ""}, id="empty_context_envelope_ref"),
+            pytest.param({"audit_correlation_id": ""}, id="empty_audit_correlation_id"),
+        ],
+    )
+    def test_blank_required_field_rejected(self, override):
         with pytest.raises(ValidationError, match="must be non-empty"):
-            _minimal_envelope(task_id="")
-
-    def test_whitespace_task_id_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            _minimal_envelope(task_id="   ")
-
-    def test_empty_actor_ref_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            _minimal_envelope(actor_ref="")
-
-    def test_empty_context_envelope_ref_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            _minimal_envelope(context_envelope_ref="")
-
-    def test_empty_audit_correlation_id_rejected(self):
-        with pytest.raises(ValidationError, match="must be non-empty"):
-            _minimal_envelope(audit_correlation_id="")
+            _minimal_envelope(**override)
 
     def test_has_capability_true(self):
         env = _minimal_envelope(capability_grant=CapabilityGrant(capabilities=["planning", "code_read"]))
@@ -260,22 +244,16 @@ class TestExecutionEnvelope:
 # ── TraceBundle ───────────────────────────────────────────────────────────────
 
 class TestTraceBundle:
-    def test_append_adds_event(self):
+    def test_append_records_typed_timestamped_events_with_payload(self):
+        before = time.time()
         trace = _minimal_trace()
         trace.append("preflight_allow", reason_code=None, capability="planning")
         assert len(trace.events) == 1
         assert trace.events[0].event_type == "preflight_allow"
-
-    def test_append_with_payload(self):
-        trace = _minimal_trace()
         trace.append("tool_call", tool_id="read_file", path="/tmp/x")
-        assert trace.events[0].payload["tool_id"] == "read_file"
-
-    def test_event_timestamp_auto_set(self):
-        before = time.time()
-        trace = _minimal_trace()
-        trace.append("test")
         after = time.time()
+        assert trace.events[1].payload["tool_id"] == "read_file"
+        # event timestamp is set automatically
         assert before <= trace.events[0].ts <= after
 
 
@@ -290,6 +268,7 @@ class TestWorkerResult:
         assert "missing_capability" in result.policy_observations
         assert len(trace.events) == 1
         assert trace.events[0].event_type == "preflight_denied"
+        assert result.trace_bundle is not None
 
     def test_needs_approval_factory(self):
         trace = _minimal_trace()
@@ -303,61 +282,42 @@ class TestWorkerResult:
         assert result.status == WorkerResultStatus.invalid_request
         assert result.no_side_effects_confirmed is True
         assert "invalid_request" in result.policy_observations
+        assert result.trace_bundle is not None
 
     def test_invalid_factory_with_empty_task_id(self):
         result = WorkerResult.invalid("", "bad envelope")
         assert result.task_id == "unknown"
 
-    def test_trace_bundle_always_present_on_denied(self):
-        trace = _minimal_trace()
-        result = WorkerResult.denied("t", "reason", trace)
-        assert result.trace_bundle is not None
-
-    def test_trace_bundle_always_present_on_invalid(self):
-        result = WorkerResult.invalid("t", "reason")
-        assert result.trace_bundle is not None
-
 
 # ── LegacyEnvelopeAdapter ─────────────────────────────────────────────────────
 
 class TestLegacyEnvelopeAdapter:
-    def test_plan_only_maps_to_planning(self):
+    @pytest.mark.parametrize(
+        "mode,granted,not_granted",
+        [
+            pytest.param("plan_only", ["planning"], ["code_read"], id="plan_only_maps_to_planning"),
+            pytest.param("patch_propose", ["code_read", "patch_propose"], ["patch_apply"], id="patch_propose"),
+            pytest.param("patch_apply", ["patch_apply"], [], id="patch_apply"),
+            pytest.param("command_execute", ["shell_plan", "shell_execute"], [], id="command_execute"),
+        ],
+    )
+    def test_mode_maps_to_capabilities(self, mode, granted, not_granted):
         adapter = LegacyEnvelopeAdapter()
-        env = adapter.wrap(task_id="t1", mode="plan_only")
-        assert env.has_capability("planning")
-        assert not env.has_capability("code_read")
-
-    def test_patch_propose_maps_correctly(self):
-        adapter = LegacyEnvelopeAdapter()
-        env = adapter.wrap(task_id="t1", mode="patch_propose")
-        assert env.has_capability("code_read")
-        assert env.has_capability("patch_propose")
-        assert not env.has_capability("patch_apply")
-
-    def test_patch_apply_maps_correctly(self):
-        adapter = LegacyEnvelopeAdapter()
-        env = adapter.wrap(task_id="t1", mode="patch_apply")
-        assert env.has_capability("patch_apply")
-
-    def test_command_execute_maps_correctly(self):
-        adapter = LegacyEnvelopeAdapter()
-        env = adapter.wrap(task_id="t1", mode="command_execute")
-        assert env.has_capability("shell_plan")
-        assert env.has_capability("shell_execute")
+        env = adapter.wrap(task_id="t1", mode=mode)
+        for capability in granted:
+            assert env.has_capability(capability)
+        for capability in not_granted:
+            assert not env.has_capability(capability)
 
     def test_unknown_mode_falls_back_to_planning(self):
         adapter = LegacyEnvelopeAdapter()
         env = adapter.wrap(task_id="t1", mode="nonexistent_mode")
         assert env.has_capability("planning")
 
-    def test_cloud_not_allowed_by_default(self):
+    def test_wrap_denies_cloud_and_generates_audit_correlation_id(self):
         adapter = LegacyEnvelopeAdapter()
         env = adapter.wrap(task_id="t1", mode="plan_only")
         assert env.model_policy.cloud_allowed is False
-
-    def test_audit_correlation_id_generated(self):
-        adapter = LegacyEnvelopeAdapter()
-        env = adapter.wrap(task_id="t1", mode="plan_only")
         assert "t1" in env.audit_correlation_id
 
     def test_all_known_modes_produce_valid_envelope(self):
@@ -371,14 +331,10 @@ class TestLegacyEnvelopeAdapter:
 # ── make_trace helper ─────────────────────────────────────────────────────────
 
 class TestMakeTrace:
-    def test_correlation_id_matches_envelope(self):
+    def test_trace_inherits_correlation_id_and_snapshot_hash_from_envelope(self):
         env = _minimal_envelope()
         trace = make_trace(env)
         assert trace.correlation_id == env.audit_correlation_id
-
-    def test_snapshot_hash_matches_envelope(self):
-        env = _minimal_envelope()
-        trace = make_trace(env)
         assert trace.capability_snapshot_hash == env.capability_grant.snapshot_hash
 
 

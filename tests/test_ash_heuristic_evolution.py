@@ -135,6 +135,8 @@ class TestSnakeInterfaces:
         assert policy.progressive_rollout is True
         assert policy.rollout_quota_stages == [0.1, 0.5, 1.0]
         assert policy.direct_candidate_runtime_allowed is False
+        # ASH-051: default activation mode is auto without human approval
+        assert policy.candidate_activation_mode == GovernanceMode.AUTO_WITHOUT_HUMAN_APPROVAL
 
 
 # ── M02: Fingerprint ─────────────────────────────────────────────────────────
@@ -490,12 +492,11 @@ from agent.services.heuristic_runtime.snake_simulation_fixtures import build_tui
 
 
 class TestSnakeSimulationFixtures:
-    def test_fixtures_return_list(self):
+    def test_fixtures_return_at_least_five_tui_snake_fixtures(self):
         fixtures = build_tui_snake_fixtures()
         assert len(fixtures) >= 5
-
-    def test_all_fixtures_have_surface(self):
-        for fixture in build_tui_snake_fixtures():
+        # every fixture targets the tui_snake surface
+        for fixture in fixtures:
             assert fixture.surface == "tui_snake"
 
 
@@ -660,10 +661,6 @@ class TestSnakeArtifactDecision:
 
 class TestAutoActivationPipeline:
     """End-to-end: candidate created → migration → scoring → promotion."""
-
-    def test_default_is_auto_without_human_approval(self):
-        policy = ActivationPolicy()
-        assert policy.candidate_activation_mode == GovernanceMode.AUTO_WITHOUT_HUMAN_APPROVAL
 
     def test_candidate_without_simulation_not_promoted(self):
         """ASH-016 + ASH-030: simulation_result: null blocks promotion."""

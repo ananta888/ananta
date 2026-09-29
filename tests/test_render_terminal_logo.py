@@ -43,7 +43,7 @@ def _gradient_img(w: int, h: int):
     return img
 
 
-def test_ascii_contains_only_ascii():
+def test_ascii_output_is_plain_ascii_without_blocks_or_ansi():
     w, h = 10, 10
     px = [_black_pixel()] * (w * h)
     img = _make_test_img(w, h, px)
@@ -51,23 +51,9 @@ def test_ascii_contains_only_ascii():
     for ch in result:
         if ch != "\n":
             assert ord(ch) < 128, f"Non-ASCII char {ch!r} (ord={ord(ch)})"
-
-
-def test_ascii_no_block_chars():
-    w, h = 10, 10
-    px = [_black_pixel()] * (w * h)
-    img = _make_test_img(w, h, px)
-    result = render_ascii(img, ASCII_PALETTES["clean"])
     blocked = {"▀", "▄", "█", "▌", "▐"}
     for ch in result:
         assert ch not in blocked, f"Block char found: {ch!r}"
-
-
-def test_ascii_no_ansi_escapes():
-    w, h = 10, 10
-    px = [_black_pixel()] * (w * h)
-    img = _make_test_img(w, h, px)
-    result = render_ascii(img, ASCII_PALETTES["clean"])
     assert "\x1b" not in result
 
 
@@ -304,7 +290,7 @@ def _diagonal_edge_img(w: int, h: int):
     return img
 
 
-def test_ascii_color_contains_ansi():
+def test_ascii_color_emits_ansi_with_ascii_chars_and_no_blocks():
     w, h = 10, 10
     px = [(64, 64, 64, 255)] * (w * h)
     from PIL import Image
@@ -312,28 +298,10 @@ def test_ascii_color_contains_ansi():
     img.putdata(px)
     result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
     assert "\x1b[" in result
-
-
-def test_ascii_color_no_block_chars():
-    w, h = 10, 10
-    px = [(64, 64, 64, 255)] * (w * h)
-    from PIL import Image
-    img = Image.new("RGBA", (w, h))
-    img.putdata(px)
-    result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
     blocked = {"▀", "▄", "█", "▌", "▐"}
     for ch in result:
         if ch != "\n":
             assert ch not in blocked, f"Block char found: {ch!r}"
-
-
-def test_ascii_color_chars_are_ascii():
-    w, h = 10, 10
-    px = [(64, 64, 64, 255)] * (w * h)
-    from PIL import Image
-    img = Image.new("RGBA", (w, h))
-    img.putdata(px)
-    result = render_ascii_color(img, ASCII_PALETTES["clean"], cfg=RenderConfig())
     for ch in result:
         if ch != "\n":
             assert ord(ch) < 128

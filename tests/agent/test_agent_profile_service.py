@@ -183,16 +183,6 @@ class TestPathTraversal:
 # ---------------------------------------------------------------------------
 
 class TestDiagnostics:
-    def test_diagnostics_contain_checksums_and_activation_source(self, tmp_path):
-        svc = _make_service(tmp_path)
-        task = {"task_kind": "bug_fix"}
-        result = svc.resolve_for_task(task)
-        assert "root" in result.checksums
-        assert "profile" in result.checksums
-        assert len(result.checksums["root"]) == 16
-        assert result.diagnostics["activation_source"] == "task_kind"
-        assert result.diagnostics["profile_id"] == "bug_fix"
-
     def test_to_metadata_excludes_full_text(self, tmp_path):
         svc = _make_service(tmp_path)
         meta = svc.resolve_for_task({"task_kind": "bug_fix"}).to_metadata()
@@ -232,10 +222,22 @@ class TestAmbiguousActivation:
 # ---------------------------------------------------------------------------
 
 class TestBugFixCodeFixSeparation:
-    def test_bug_fix_task_kind_resolves_bug_fix(self, tmp_path):
+    def test_bug_fix_task_kind_resolves_bug_fix_with_diagnostics_and_root_first(self, tmp_path):
         svc = _make_service(tmp_path)
         result = svc.resolve_for_task({"task_kind": "bug_fix"})
         assert result.profile_id == "bug_fix"
+
+        # T5: diagnostics contain checksums and activation_source
+        assert "root" in result.checksums
+        assert "profile" in result.checksums
+        assert len(result.checksums["root"]) == 16
+        assert result.diagnostics["activation_source"] == "task_kind"
+        assert result.diagnostics["profile_id"] == "bug_fix"
+
+        # T8: composed content has root first, then profile
+        idx_root = result.composed_content.index("Global AGENTS")
+        idx_profile = result.composed_content.index("Active Path Profile")
+        assert idx_root < idx_profile, "Root must appear before profile"
 
     def test_code_fix_task_kind_does_not_resolve_to_bug_fix(self, tmp_path):
         pm = {
@@ -264,13 +266,6 @@ class TestBugFixCodeFixSeparation:
 # ---------------------------------------------------------------------------
 
 class TestProfileComposition:
-    def test_composed_content_has_root_first_then_profile(self, tmp_path):
-        svc = _make_service(tmp_path)
-        result = svc.resolve_for_task({"task_kind": "bug_fix"})
-        idx_root = result.composed_content.index("Global AGENTS")
-        idx_profile = result.composed_content.index("Active Path Profile")
-        assert idx_root < idx_profile, "Root must appear before profile"
-
     def test_conflict_detection_generates_warning(self, tmp_path):
         # Write a profile file with a conflict pattern
         pm = {

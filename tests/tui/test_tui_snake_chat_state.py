@@ -49,9 +49,12 @@ def test_make_channel_room_defaults():
     assert ch["unread"] == 0
 
 
-def test_make_channel_notes_defaults():
+def test_make_channel_notes_defaults_are_local_only():
     ch = make_channel("notes:self", ChannelType.NOTES, "notes")
     assert ch["visibility"] == Visibility.LOCAL_ONLY
+    assert ch["persistence_policy"] == "local_only"
+    # notes local-only invariant (plain string values)
+    assert ch["visibility"] == "local_only"
     assert ch["persistence_policy"] == "local_only"
 
 
@@ -99,16 +102,13 @@ def test_get_active_channel_returns_correct():
     assert ch["id"] == cs["active_channel"]
 
 
-def test_add_direct_channel_creates_new():
-    cs = default_chat_state("s1")
-    ch_id = add_direct_channel(cs, "s-abc", "Alice")
-    assert ch_id == "direct:s-abc"
-    assert "direct:s-abc" in cs["channels"]
-
-
-def test_add_direct_channel_idempotent():
+def test_add_direct_channel_creates_new_and_is_idempotent():
     cs = default_chat_state("s1")
     id1 = add_direct_channel(cs, "s-abc", "Alice")
+    # creates a new channel
+    assert id1 == "direct:s-abc"
+    assert "direct:s-abc" in cs["channels"]
+    # adding it again is idempotent
     id2 = add_direct_channel(cs, "s-abc", "Alice")
     assert id1 == id2
     # Should not duplicate
@@ -199,12 +199,6 @@ def test_append_message_unknown_channel_does_nothing():
 # ── Notes local-only invariant ────────────────────────────────────────────────
 
 
-def test_notes_channel_local_only_visibility():
-    ch = make_channel("notes:self", ChannelType.NOTES, "notes")
-    assert ch["visibility"] == "local_only"
-    assert ch["persistence_policy"] == "local_only"
-
-
 def test_notes_message_always_local_only():
     msg = make_message(
         channel_id="notes:self", channel_type="notes",
@@ -221,13 +215,9 @@ def test_notes_participants_only_self():
 # ── Unread total ─────────────────────────────────────────────────────────────
 
 
-def test_unread_total_zero_initially():
+def test_unread_total_is_zero_initially_and_sums_all_channels():
     cs = default_chat_state("s1")
     assert unread_total(cs) == 0
-
-
-def test_unread_total_sums_all_channels():
-    cs = default_chat_state("s1")
     cs["channels"]["room:main"]["unread"] = 3
     cs["channels"]["notes:self"]["unread"] = 2
     assert unread_total(cs) == 5

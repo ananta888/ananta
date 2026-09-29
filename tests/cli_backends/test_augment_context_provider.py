@@ -253,19 +253,13 @@ def test_max_results_capped_by_config():
 # Capabilities and health surface
 # ---------------------------------------------------------------------------
 
-def test_capabilities_is_semantic_search():
+def test_capabilities_semantic_search_not_cross_repo():
+    """Augment provider supports semantic search and is workspace-scoped, not cross-repo."""
     cfg = _cfg()
     provider = AugmentContextProvider(config=cfg, health_status=_mock_health())
     caps = provider.capabilities()
     assert caps.supports_semantic_search is True
     assert caps.provider == AugmentContextProvider.PROVIDER_ID
-
-
-def test_capabilities_not_cross_repo():
-    """Augment provider is workspace-scoped, not cross-repo."""
-    cfg = _cfg()
-    provider = AugmentContextProvider(config=cfg, health_status=_mock_health())
-    caps = provider.capabilities()
     assert caps.supports_cross_repo is False
 
 

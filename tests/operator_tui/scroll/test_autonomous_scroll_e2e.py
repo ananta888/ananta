@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from client_surfaces.operator_tui.chat_control_config import ChatControlConfig
 from client_surfaces.operator_tui.chat_control_parser import parse_chat_command
 from client_surfaces.operator_tui.chat_control_policy import evaluate
@@ -28,47 +30,24 @@ def test_focus_center_succeeds():
     assert r["ok"] and r["changed"]["focus_target_request"] == "center"
 
 
-def test_scroll_page_down():
-    r = _run("/scroll pagedown")
-    assert r["ok"]
-    assert r["changed"]["scroll_command_request"] == "page_down"
+# Each case runs headless without a terminal (formerly also covered by
+# test_scroll_commands_require_no_terminal for pageup/pagedown/top/bottom).
+@pytest.mark.parametrize(
+    "cmd,expected_request",
+    [
+        pytest.param("/scroll pagedown", "page_down", id="page_down"),
+        pytest.param("/scroll pageup", "page_up", id="page_up"),
+        pytest.param("/scroll top", "home", id="top"),
+        pytest.param("/scroll bottom", "end", id="bottom"),
+        pytest.param("/scroll up", "line_up", id="line_up"),
+        pytest.param("/scroll down", "line_down", id="line_down"),
+    ],
+)
+def test_scroll_command_dispatches_request(cmd, expected_request):
+    r = _run(cmd)
+    assert r["ok"], f"{cmd} should pass but got: {r}"
+    assert r["changed"]["scroll_command_request"] == expected_request
     assert r["marker"]["status"] == "ok"
-
-
-def test_scroll_page_up():
-    r = _run("/scroll pageup")
-    assert r["ok"] and r["changed"]["scroll_command_request"] == "page_up"
-
-
-def test_scroll_top():
-    r = _run("/scroll top")
-    assert r["ok"] and r["changed"]["scroll_command_request"] == "home"
-
-
-def test_scroll_bottom():
-    r = _run("/scroll bottom")
-    assert r["ok"] and r["changed"]["scroll_command_request"] == "end"
-
-
-def test_scroll_line_up():
-    r = _run("/scroll up")
-    assert r["ok"] and r["changed"]["scroll_command_request"] == "line_up"
-
-
-def test_scroll_line_down():
-    r = _run("/scroll down")
-    assert r["ok"] and r["changed"]["scroll_command_request"] == "line_down"
-
-
-def test_invalid_scroll_direction_denied():
-    r = _run("/scroll sideways")
-    assert not r["ok"]
-
-
-def test_scroll_commands_require_no_terminal():
-    for cmd in ["/scroll pageup", "/scroll pagedown", "/scroll top", "/scroll bottom"]:
-        r = _run(cmd)
-        assert r["ok"], f"{cmd} should pass but got: {r}"
 
 
 def test_focus_logs_succeeds():
@@ -81,6 +60,13 @@ def test_focus_nav_succeeds():
     assert r["ok"] and r["changed"]["focus_target_request"] == "nav"
 
 
-def test_nonexistent_scroll_target_denied():
-    r = _run("/scroll diagonal")
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        pytest.param("/scroll sideways", id="invalid_scroll_direction"),
+        pytest.param("/scroll diagonal", id="nonexistent_scroll_target"),
+    ],
+)
+def test_unknown_scroll_direction_denied(cmd):
+    r = _run(cmd)
     assert not r["ok"]

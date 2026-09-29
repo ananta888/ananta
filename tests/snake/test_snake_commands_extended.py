@@ -160,9 +160,12 @@ def test_tutorials_lists_without_error():
 # ── :snakes ───────────────────────────────────────────────────────────────────
 
 
-def test_snakes_empty_returns_status():
+def test_snakes_empty_returns_status_from_single_handler():
     result = _exec(":snakes")
     assert "snakes:" in result.state.status_message
+    # The duplicate snakes handler was removed; if there were two handlers the second
+    # would overwrite the first. Both paths contain "snakes:", so check it is handled.
+    assert result.handled
 
 
 def test_snakes_with_snake_data_shows_ids():
@@ -178,14 +181,6 @@ def test_snakes_with_snake_data_shows_ids():
     msg = result.state.status_message or ""
     assert "s1" in msg
     assert "s-ai" in msg
-
-
-def test_snakes_command_not_duplicated():
-    """Ensure the duplicate snakes handler was removed; only one response."""
-    result = _exec(":snakes")
-    # If there were two handlers the second would overwrite the first with different text.
-    # Both paths contain "snakes:" so just check it's handled exactly once (no crash).
-    assert result.handled
 
 
 # ── :msg ─────────────────────────────────────────────────────────────────────

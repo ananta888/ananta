@@ -30,18 +30,20 @@ def store(tmp_path):
 
 
 class TestHeuristicProposalStore:
-    def test_store_returns_proposal(self, store):
+    def test_store_returns_recent_candidate_proposal_with_provenance(self, store):
         dsl = _valid_dsl()
+        before = time.time()
         proposal = store.store(dsl)
+        after = time.time()
         assert proposal is not None
         assert proposal.proposal_id.startswith("lab_")
         assert proposal.status == "candidate"
-
-    def test_status_is_always_candidate(self, store):
-        proposal = store.store(_valid_dsl())
-        assert proposal.status == "candidate"
-        # Never active
+        # status is always candidate, never active
         assert proposal.status != "active"
+        # provenance is extracted from the DSL
+        assert proposal.provenance.get("created_by") == "lab"
+        # created_at is recent
+        assert before <= proposal.created_at <= after
 
     def test_duplicate_returns_none(self, store):
         dsl = _valid_dsl()
@@ -56,11 +58,15 @@ class TestHeuristicProposalStore:
         assert p1 is not None
         assert p2 is not None
 
-    def test_file_written_to_disk(self, tmp_path):
+    def test_store_writes_one_valid_json_file_to_disk(self, tmp_path):
         store = HeuristicProposalStore(candidates_dir=str(tmp_path))
         proposal = store.store(_valid_dsl())
         files = list(tmp_path.glob("*.heuristic_proposal.json"))
         assert len(files) == 1
+        with open(files[0], encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["proposal_id"] == proposal.proposal_id
+        assert data["status"] == "candidate"
 
     def test_load_returns_stored_proposal(self, store):
         dsl = _valid_dsl()
@@ -104,23 +110,3 @@ class TestHeuristicProposalStore:
         p2 = store2.store(dsl)
         assert p1 is not None
         assert p2 is None  # duplicate detected
-
-    def test_file_content_is_valid_json(self, tmp_path):
-        store = HeuristicProposalStore(candidates_dir=str(tmp_path))
-        proposal = store.store(_valid_dsl())
-        files = list(tmp_path.glob("*.heuristic_proposal.json"))
-        with open(files[0], encoding="utf-8") as f:
-            data = json.load(f)
-        assert data["proposal_id"] == proposal.proposal_id
-        assert data["status"] == "candidate"
-
-    def test_provenance_extracted_from_dsl(self, store):
-        dsl = _valid_dsl()
-        proposal = store.store(dsl)
-        assert proposal.provenance.get("created_by") == "lab"
-
-    def test_created_at_is_recent(self, store):
-        before = time.time()
-        proposal = store.store(_valid_dsl())
-        after = time.time()
-        assert before <= proposal.created_at <= after

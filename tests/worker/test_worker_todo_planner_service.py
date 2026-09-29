@@ -115,8 +115,9 @@ def _build_service_kwargs(subtask_id: str = "sub-1") -> dict:
 
 
 class TestPlannerLLMDisabledByDefault:
-    def test_generate_text_not_called_by_default(self) -> None:
-        """generate_text must not be called when planner_llm_enabled=False (the default)."""
+    def test_default_planner_skips_llm_and_returns_deterministic_contract(self) -> None:
+        """generate_text must not be called when planner_llm_enabled=False (the default),
+        and the deterministic contract must always be returned."""
         service = WorkerTodoPlannerService()
         with patch("agent.services.worker_todo_planner_service.generate_text") as mock_gen:
             result = service.build_delegation_todo_contract(**_build_service_kwargs())
@@ -129,12 +130,7 @@ class TestPlannerLLMDisabledByDefault:
             "artifact_first", "deterministic_only", "deterministic_schema_invalid"
         )
         assert result["generation"]["llm_attempted"] is False
-
-    def test_deterministic_contract_always_present(self) -> None:
-        """Deterministic contract must always be returned, regardless of LLM setting."""
-        service = WorkerTodoPlannerService()
-        result = service.build_delegation_todo_contract(**_build_service_kwargs())
-        assert result is not None
+        # Deterministic contract always present.
         tasks = result["contract"]["todo"]["tasks"]
         assert len(tasks) >= 1
         assert all(t.get("metadata", {}).get("source") == "hub_deterministic_seed" for t in tasks)
@@ -178,8 +174,9 @@ class TestPlannerMalformedLLMOutput:
         return tasks, error, proposal
 
     @pytest.mark.parametrize("label,raw_output", MALFORMED_OUTPUTS)
-    def test_malformed_output_returns_error_and_proposal(self, label: str, raw_output: str) -> None:
-        """Malformed LLM output must return None tasks + error + proposal artifact."""
+    def test_malformed_output_returns_error_and_unadopted_proposal(self, label: str, raw_output: str) -> None:
+        """Malformed LLM output must return None tasks + error + proposal artifact,
+        and must go through the proposal artifact, not direct task replacement."""
         tasks, error, proposal = self._run_refine(raw_output)
 
         # For inputs that can't produce valid tasks (all of our MALFORMED_OUTPUTS),
@@ -207,10 +204,6 @@ class TestPlannerMalformedLLMOutput:
             "parsed", "failed", "malformed_json", "markdown_fenced", "natural_language",
         ), f"[{label}] parse_status={proposal.get('parse_status')!r}"
 
-    @pytest.mark.parametrize("label,raw_output", MALFORMED_OUTPUTS)
-    def test_malformed_output_does_not_replace_tasks_directly(self, label: str, raw_output: str) -> None:
-        """Malformed LLM output must go through proposal artifact, not direct task replacement."""
-        tasks, error, proposal = self._run_refine(raw_output)
         # The return value is (tasks, error, proposal) — tasks being None means no direct replacement
         # If tasks is not None for some edge case, it means it was somehow normalized
         # But the proposal must always wrap the output

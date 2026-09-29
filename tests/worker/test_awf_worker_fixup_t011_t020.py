@@ -38,15 +38,13 @@ from worker.core.tool_registry import ResourceLimitEnforcer, ResourceLimits, Wor
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestT011ResourceLimits:
-    def test_enforcer_reads_limits_from_registry(self):
+    def test_enforcer_reads_registry_limits_and_defaults_for_unknown_tool(self):
         registry = build_default_registry()
         enforcer = ResourceLimitEnforcer(registry)
         limits = enforcer.limits_for("run_shell")
         assert limits.timeout_seconds > 0
         assert limits.max_output_chars > 0
-
-    def test_enforcer_unknown_tool_returns_defaults(self):
-        enforcer = ResourceLimitEnforcer(build_default_registry())
+        # unknown tool falls back to default limits
         limits = enforcer.limits_for("nonexistent_tool")
         assert limits == ResourceLimits()
 

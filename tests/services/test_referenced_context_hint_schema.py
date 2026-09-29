@@ -69,13 +69,11 @@ def test_all_gen_kinds_count():
 
 # ── make_hint_id ──────────────────────────────────────────────────────────────
 
-def test_make_hint_id_format():
+def test_make_hint_id_format_is_deterministic():
     hid = make_hint_id("agent/foo.py", KIND_FILE_SUMMARY)
     assert hid.startswith("hint:file_summary:agent/foo.py:")
     assert len(hid) > 20
-
-
-def test_make_hint_id_deterministic():
+    # same inputs yield the same id
     a = make_hint_id("agent/foo.py", KIND_FILE_SUMMARY)
     b = make_hint_id("agent/foo.py", KIND_FILE_SUMMARY)
     assert a == b
@@ -89,13 +87,14 @@ def test_make_hint_id_extra_differentiates():
 
 # ── ReferencedContextHint ─────────────────────────────────────────────────────
 
-def test_hint_to_dict_has_required_keys():
+def test_hint_to_dict_has_required_keys_and_schema_version():
     h = make_hint()
     d = h.to_dict()
     for k in ("schema", "id", "kind", "title", "summary", "source_refs",
                "codecompass_refs", "generator", "confidence", "validity",
                "hashes", "created_at", "updated_at", "staleness_status", "policy"):
         assert k in d, f"missing: {k}"
+    assert h.to_dict()["schema"] == HINT_SCHEMA_VERSION
 
 
 def test_hint_from_dict_roundtrip():
@@ -106,11 +105,6 @@ def test_hint_from_dict_roundtrip():
     assert h2.kind == h.kind
     assert h2.summary == h.summary
     assert len(h2.source_refs) == len(h.source_refs)
-
-
-def test_hint_schema_field_preserved_in_dict():
-    h = make_hint()
-    assert h.to_dict()["schema"] == HINT_SCHEMA_VERSION
 
 
 def test_is_fresh_default():

@@ -14,7 +14,7 @@ from worker.core.diagnostics import (
 # ── EW-T052: WorkerDiagnostics ────────────────────────────────────────────────
 
 class TestWorkerDiagnostics:
-    def test_as_dict_contains_required_fields(self):
+    def test_as_dict_contains_required_fields_and_no_secret_keys(self):
         d = WorkerDiagnostics(
             worker_id="w1", version="1.0.0", runtime_mode="local"
         ).as_dict()
@@ -22,6 +22,11 @@ class TestWorkerDiagnostics:
                     "registered_providers", "enabled_skills", "active_capabilities",
                     "policy_summary", "generated_at"):
             assert key in d, f"missing key {key!r}"
+        # no secret-like keys in the serialized diagnostics
+        for key in d:
+            assert "secret" not in key.lower()
+            assert "api_key" not in key.lower()
+            assert "credential" not in key.lower()
 
     def test_tools_sorted_in_dict(self):
         d = WorkerDiagnostics(
@@ -36,15 +41,6 @@ class TestWorkerDiagnostics:
             enabled_skills=["z_skill", "a_skill"],
         ).as_dict()
         assert d["enabled_skills"] == ["a_skill", "z_skill"]
-
-    def test_no_secrets_in_dict(self):
-        d = WorkerDiagnostics(
-            worker_id="w1", version="1.0", runtime_mode="local"
-        ).as_dict()
-        for key in d:
-            assert "secret" not in key.lower()
-            assert "api_key" not in key.lower()
-            assert "credential" not in key.lower()
 
     def test_generated_at_recent(self):
         before = time.time()
@@ -162,7 +158,7 @@ class TestAuditEmitter:
     def setup_method(self):
         self.emitter = AuditEmitter()
 
-    def test_emit_known_event_stored(self):
+    def test_emit_known_event_stored_and_peek_non_destructive(self):
         event = self.emitter.emit(
             "preflight_allow",
             correlation_id="c1",
@@ -171,6 +167,10 @@ class TestAuditEmitter:
         )
         assert event.event_type == "preflight_allow"
         assert len(self.emitter.peek()) == 1
+        # repeated peek() does not consume events
+        first = self.emitter.peek()
+        second = self.emitter.peek()
+        assert len(first) == len(second) == 1
 
     def test_emit_unknown_event_flagged(self):
         event = self.emitter.emit(
@@ -240,12 +240,6 @@ class TestAuditEmitter:
         )
         events = self.emitter.flush()
         assert events[0]["payload"]["api_key"] == "[REDACTED]"
-
-    def test_peek_non_destructive(self):
-        self.emitter.emit("preflight_allow", correlation_id="c1", reason_code=None, task_id="t1")
-        first = self.emitter.peek()
-        second = self.emitter.peek()
-        assert len(first) == len(second) == 1
 
     def test_all_auditable_events_accepted(self):
         for event_type in AUDITABLE_EVENTS:

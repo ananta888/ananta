@@ -64,7 +64,7 @@ def make_cliproxyapi_entry(*, with_v1: bool = True, with_key: bool = False,
 # normalisation of the entry itself
 # ---------------------------------------------------------------------------
 
-def test_cliproxyapi_entry_is_accepted_by_normalize():
+def test_cliproxyapi_entry_is_accepted_by_normalize_with_preflight_visible_fields():
     raw = make_cliproxyapi_entry()
     normalised = _normalize_local_backend_entry(raw)
     assert normalised is not None
@@ -76,6 +76,13 @@ def test_cliproxyapi_entry_is_accepted_by_normalize():
         "codex/gpt-5.5-codex", "claude/sonnet",
     ]
     assert normalised["source"] == "agent_config.local_openai_backends"
+    # Fields that preflight (cliproxyapi-007) needs to surface.
+    assert "provider" in normalised
+    assert "name" in normalised
+    assert "base_url" in normalised
+    assert "supports_tool_calls" in normalised
+    assert "transport_provider" in normalised
+    assert normalised["transport_provider"] == "openai"
 
 
 def test_cliproxyapi_entry_id_and_provider_alias_are_equivalent():
@@ -137,12 +144,16 @@ def test_base_url_without_v1_gets_v1_appended():
     assert normalised == "http://localhost:8317/v1"
 
 
-def test_base_url_with_chat_completions_suffix_is_trimmed():
+def test_base_url_with_chat_completions_suffix_is_trimmed_idempotently():
     """http://localhost:8317/v1/chat/completions -> /v1 (the suffix
-    is stripped before the v1-detection)."""
+    is stripped before the v1-detection). Normalising twice yields the
+    same result as normalising once."""
     normalised = normalize_openai_compatible_base_url(
         "http://localhost:8317/v1/chat/completions")
     assert normalised == "http://localhost:8317/v1"
+    # idempotence: normalising the result again changes nothing
+    twice = normalize_openai_compatible_base_url(normalised)
+    assert normalised == twice
 
 
 def test_base_url_with_trailing_slash_is_cleaned():
@@ -165,14 +176,6 @@ def test_empty_base_url_returns_none():
 
 def test_invalid_url_returns_none():
     assert normalize_openai_compatible_base_url("not-a-url") is None
-
-
-def test_base_url_normalisation_is_idempotent():
-    """Normalising twice yields the same result as normalising once."""
-    once = normalize_openai_compatible_base_url(
-        "http://localhost:8317/v1/chat/completions")
-    twice = normalize_openai_compatible_base_url(once)
-    assert once == twice
 
 
 # ---------------------------------------------------------------------------
@@ -209,13 +212,19 @@ def test_cliproxyapi_with_both_prefers_plaintext_when_non_empty():
 # integration with get_local_openai_backends + dedup
 # ---------------------------------------------------------------------------
 
-def test_cliproxyapi_appears_alongside_lmstudio_in_backends():
+def test_cliproxyapi_appears_alongside_unpolluted_lmstudio_in_backends():
+    """Even with cliproxyapi configured, lmstudio is *still* in the
+    list (lmstudio is always added by the resolver)."""
     backends = get_local_openai_backends(agent_cfg={
         "local_openai_backends": [make_cliproxyapi_entry()],
     })
     providers = {b["provider"] for b in backends}
     assert "lmstudio" in providers
     assert "cliproxyapi" in providers
+    lmstudio = next(b for b in backends if b["provider"] == "lmstudio")
+    assert lmstudio["source"] in (
+        "agent_config.lmstudio_url", "provider_urls.lmstudio",
+    )
 
 
 def test_cliproxyapi_dedup_against_duplicate_id():
@@ -266,33 +275,6 @@ def test_cliproxyapi_unknown_id_returns_none():
     cfg = {"local_openai_backends": [make_cliproxyapi_entry()]}
     resolved = resolve_local_openai_backend("does_not_exist", agent_cfg=cfg)
     assert resolved is None
-
-
-def test_cliproxyapi_does_not_pollute_lmstudio_when_provided():
-    """Even with cliproxyapi configured, lmstudio is *still* in the
-    list (lmstudio is always added by the resolver)."""
-    backends = get_local_openai_backends(agent_cfg={
-        "local_openai_backends": [make_cliproxyapi_entry()],
-    })
-    lmstudio = next(b for b in backends if b["provider"] == "lmstudio")
-    assert lmstudio["source"] in (
-        "agent_config.lmstudio_url", "provider_urls.lmstudio",
-    )
-
-
-# ---------------------------------------------------------------------------
-# preflight-visible fields
-# ---------------------------------------------------------------------------
-
-def test_cliproxyapi_entry_carries_preflight_visible_fields():
-    n = _normalize_local_backend_entry(make_cliproxyapi_entry())
-    # Fields that preflight (cliproxyapi-007) needs to surface.
-    assert "provider" in n
-    assert "name" in n
-    assert "base_url" in n
-    assert "supports_tool_calls" in n
-    assert "transport_provider" in n
-    assert n["transport_provider"] == "openai"
 
 
 # ---------------------------------------------------------------------------

@@ -17,32 +17,20 @@ from agent.services.repair_diagnostics_service import (
 # ── DRR-T034: Repair diagnostics read model ───────────────────────────────────
 
 class TestRepairDiagnosticsReadModel:
-    def test_build_returns_read_model(self) -> None:
+    def test_default_build_returns_ready_read_model_with_safety_defaults(self) -> None:
         model = build_repair_diagnostics_read_model()
         assert isinstance(model, RepairDiagnosticsReadModel)
-
-    def test_default_flags(self) -> None:
-        model = build_repair_diagnostics_read_model()
+        # default flags
         assert model.deterministic_repair_analysis_enabled is True
         assert model.deterministic_repair_preview_enabled is True
         # Execution is default-off for safety
         assert isinstance(model.deterministic_repair_execution_enabled, bool)
-
-    def test_signature_count_positive(self) -> None:
-        model = build_repair_diagnostics_read_model()
         assert model.signature_count >= 0
-
-    def test_playbook_count_positive(self) -> None:
-        model = build_repair_diagnostics_read_model()
         assert model.playbook_count >= 0
-
-    def test_procedure_count_positive(self) -> None:
-        model = build_repair_diagnostics_read_model()
         assert model.procedure_count >= 0
-
-    def test_runner_ready(self) -> None:
-        model = build_repair_diagnostics_read_model()
         assert model.runner_ready is True
+        assert "high_risk" in model.approval_required_classes
+        assert model.safety_policy_summary
 
     def test_as_dict_includes_all_fields(self) -> None:
         model = build_repair_diagnostics_read_model()
@@ -66,14 +54,6 @@ class TestRepairDiagnosticsReadModel:
     def test_no_secrets_in_diagnostics(self) -> None:
         model = build_repair_diagnostics_read_model()
         assert not model.has_secrets()
-
-    def test_approval_required_classes_include_high_risk(self) -> None:
-        model = build_repair_diagnostics_read_model()
-        assert "high_risk" in model.approval_required_classes
-
-    def test_safety_policy_summary_not_empty(self) -> None:
-        model = build_repair_diagnostics_read_model()
-        assert model.safety_policy_summary
 
     def test_custom_flags_override_defaults(self) -> None:
         model = build_repair_diagnostics_read_model(

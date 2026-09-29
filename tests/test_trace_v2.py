@@ -72,14 +72,11 @@ class TestTraceBundleV2:
             d = trace.as_dict()
             assert d["outcome"] == outcome.value
 
-    def test_as_dict_no_secrets(self):
+    def test_as_dict_has_no_secrets_and_required_fields(self):
         d = self.trace.as_dict()
         d_str = str(d)
         assert "api_key" not in d_str.lower()
         assert "password" not in d_str.lower()
-
-    def test_as_dict_has_required_fields(self):
-        d = self.trace.as_dict()
         for field in ["execution_id", "task_id", "actor_ref", "capability_hash",
                       "outcome", "started_at", "events"]:
             assert field in d

@@ -51,15 +51,10 @@ def test_parse_args_splash_seconds():
     assert args.splash_seconds == 3.5
 
 
-def test_parse_args_default_splash_seconds():
+def test_parse_args_splash_defaults():
     from client_surfaces.operator_tui.app import _parse_args
     args = _parse_args([])
     assert args.splash_seconds == 2.0
-
-
-def test_parse_args_skip_splash_default():
-    from client_surfaces.operator_tui.app import _parse_args
-    args = _parse_args([])
     assert args.skip_splash is False
 
 

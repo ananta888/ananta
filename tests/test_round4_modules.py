@@ -89,7 +89,7 @@ class TestProposalService:
             traces.append(t)
         return traces
 
-    def test_generate_from_traces_returns_proposal(self, tmp_path):
+    def test_generate_from_traces_returns_proposal_with_snake_ttl(self, tmp_path):
         from agent.services.heuristic_runtime.proposal_service import ProposalService
         svc = ProposalService(base_path=str(tmp_path))
         traces = self._make_traces()
@@ -98,6 +98,7 @@ class TestProposalService:
         assert gen.dominant_heuristic_id == "follow-default"
         assert gen.fallback_pattern == "ai_timeout"
         assert gen.trace_count == 5
+        assert gen.proposal.requested_ttl_seconds == 7.0
 
     def test_generate_sets_correct_ttl_for_domain(self, tmp_path):
         from agent.services.heuristic_runtime.proposal_service import ProposalService
@@ -105,13 +106,6 @@ class TestProposalService:
         traces = self._make_traces()
         gen = svc.generate_from_traces(traces, domain="chat_codecompass")
         assert gen.proposal.requested_ttl_seconds == 15.0
-
-    def test_generate_snake_ttl(self, tmp_path):
-        from agent.services.heuristic_runtime.proposal_service import ProposalService
-        svc = ProposalService(base_path=str(tmp_path))
-        traces = self._make_traces()
-        gen = svc.generate_from_traces(traces, domain="tui_snake")
-        assert gen.proposal.requested_ttl_seconds == 7.0
 
     def test_save_candidate_writes_json(self, tmp_path):
         from agent.services.heuristic_runtime.proposal_service import ProposalService

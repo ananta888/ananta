@@ -57,10 +57,12 @@ def test_scroll_page_up():
     assert ctx.offset == 50 - (10 - ctx.page_overlap)
 
 
-def test_scroll_page_down():
+def test_scroll_page_down_advances_by_viewport_minus_overlap():
     ctx = _ctx(100, 10)
     ctx.scroll_page_down()
     assert ctx.offset == 10 - ctx.page_overlap
+    # Page overlap is at least one line.
+    assert ctx.offset < ctx.viewport_height
 
 
 def test_scroll_home():
@@ -135,9 +137,3 @@ def test_diagnostics_keys():
     ctx = _ctx(100, 20)
     d = ctx.diagnostics()
     assert "id" in d and "offset" in d and "max_scroll" in d
-
-
-def test_page_overlap_is_at_least_one():
-    ctx = _ctx(100, 10)
-    ctx.scroll_page_down()
-    assert ctx.offset < ctx.viewport_height

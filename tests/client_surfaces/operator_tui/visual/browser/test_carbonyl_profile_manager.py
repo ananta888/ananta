@@ -31,16 +31,17 @@ class TestProfileCreation(unittest.TestCase):
     def tearDown(self):
         self._tmpdir.cleanup()
 
-    def test_create_profile_returns_carbonyl_profile(self):
-        """create_profile must return a CarbonylProfile."""
+    def test_create_profile_returns_ephemeral_profile_with_directory_under_root(self):
+        """create_profile must return an ephemeral CarbonylProfile whose directory exists under profile_root."""
         p = self._mgr.create_profile(provider_id="keycloak")
         self.assertIsInstance(p, CarbonylProfile)
-
-    def test_create_profile_creates_directory(self):
-        """Profile directory must exist after create_profile."""
-        p = self._mgr.create_profile(provider_id="keycloak")
+        # Profile directory must exist after create_profile
         self.assertTrue(p.profile_dir.exists())
         self.assertTrue(p.profile_dir.is_dir())
+        # Profile directory must be under profile_root
+        self.assertTrue(str(p.profile_dir).startswith(str(self._root.resolve())))
+        # Profiles are ephemeral by default
+        self.assertTrue(p.ephemeral)
 
     def test_two_profiles_same_provider_different_dirs(self):
         """Two calls to create_profile must produce different directories."""
@@ -48,16 +49,6 @@ class TestProfileCreation(unittest.TestCase):
         p2 = self._mgr.create_profile(provider_id="keycloak")
         self.assertNotEqual(p1.profile_dir, p2.profile_dir)
         self.assertNotEqual(p1.profile_id, p2.profile_id)
-
-    def test_profile_dir_under_root(self):
-        """Profile directory must be under profile_root."""
-        p = self._mgr.create_profile(provider_id="keycloak")
-        self.assertTrue(str(p.profile_dir).startswith(str(self._root.resolve())))
-
-    def test_ephemeral_default(self):
-        """Profiles are ephemeral by default."""
-        p = self._mgr.create_profile(provider_id="keycloak")
-        self.assertTrue(p.ephemeral)
 
     def test_non_ephemeral_profile(self):
         """Named profiles have ephemeral=False."""
@@ -76,12 +67,14 @@ class TestEphemeralCleanup(unittest.TestCase):
     def tearDown(self):
         self._tmpdir.cleanup()
 
-    def test_ephemeral_profile_deleted_on_cleanup(self):
-        """cleanup_profile must delete ephemeral profile directory."""
+    def test_ephemeral_profile_deleted_on_cleanup_and_double_cleanup_is_safe(self):
+        """cleanup_profile must delete ephemeral profile directory; calling it twice must not raise."""
         p = self._mgr.create_profile(provider_id="keycloak", ephemeral=True)
         self.assertTrue(p.profile_dir.exists())
         self._mgr.cleanup_profile(p)
         self.assertFalse(p.profile_dir.exists())
+        # Second call should not raise
+        self._mgr.cleanup_profile(p)
 
     def test_named_profile_not_deleted_on_cleanup(self):
         """cleanup_profile must NOT delete named (non-ephemeral) profile directory."""
@@ -101,13 +94,6 @@ class TestEphemeralCleanup(unittest.TestCase):
         self.assertFalse(p1.profile_dir.exists())
         self.assertFalse(p2.profile_dir.exists())
         self.assertTrue(p3.profile_dir.exists())  # named, must survive
-
-    def test_double_cleanup_is_safe(self):
-        """Calling cleanup_profile twice must not raise."""
-        p = self._mgr.create_profile(provider_id="keycloak", ephemeral=True)
-        self._mgr.cleanup_profile(p)
-        # Second call should not raise
-        self._mgr.cleanup_profile(p)
 
 
 class TestGetOrCreate(unittest.TestCase):

@@ -40,12 +40,9 @@ class TestNullHistoryProvider:
     def test_get_adrs_returns_empty(self):
         assert self.provider.get_adrs() == []
 
-    def test_capabilities_provider_is_null(self):
+    def test_capabilities_null_provider_supports_nothing(self):
         caps = self.provider.capabilities()
         assert caps.provider == "null"
-
-    def test_capabilities_all_false(self):
-        caps = self.provider.capabilities()
         assert caps.supports_git is False
         assert caps.supports_prs is False
         assert caps.supports_issues is False
@@ -138,13 +135,10 @@ class TestLocalGitHistoryProvider:
         assert records[0].commit_id == "abc"
         assert records[1].commit_id == "def"
 
-    def test_is_stale_old_timestamp(self, tmp_path):
+    def test_is_stale_respects_stale_days_threshold(self, tmp_path):
         provider = LocalGitHistoryProvider(repo_path=str(tmp_path), stale_days=30)
         old_ts = time.time() - (31 * 86400)
         assert provider._is_stale(old_ts) is True
-
-    def test_is_stale_recent_timestamp(self, tmp_path):
-        provider = LocalGitHistoryProvider(repo_path=str(tmp_path), stale_days=30)
         recent_ts = time.time() - (10 * 86400)
         assert provider._is_stale(recent_ts) is False
 

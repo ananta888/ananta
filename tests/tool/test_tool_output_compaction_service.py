@@ -58,18 +58,18 @@ def test_none_output_handled():
 # Compaction triggers
 # ---------------------------------------------------------------------------
 
-def test_long_output_is_compacted():
+def test_long_shell_output_is_compacted_with_result_fields():
     svc = _svc()
     long = _long_output(300)
     result = svc.compact(tool_name="shell_execute", output=long)
     assert result.compaction_ratio < 1.0
     assert result.output_chars < result.input_chars
-
-
-def test_compaction_ratio_field_present():
-    svc = _svc()
-    result = svc.compact(tool_name="shell_execute", output=_long_output(300))
+    # compaction_ratio field is present and in range
     assert 0.0 < result.compaction_ratio <= 1.0
+    # applied_rule_ids is not empty on compaction
+    assert len(result.applied_rule_ids) > 0
+    # Either the summary is in the compacted_text or in omitted_summary field
+    assert result.omitted_summary or "omitted" in result.compacted_text
 
 
 # ---------------------------------------------------------------------------
@@ -161,24 +161,11 @@ def test_original_ref_is_stable():
     assert r1.original_ref == r2.original_ref
 
 
-def test_applied_rule_ids_not_empty_on_compaction():
-    svc = _svc()
-    result = svc.compact(tool_name="shell_execute", output=_long_output(300))
-    assert len(result.applied_rule_ids) > 0
-
-
 def test_input_output_chars_reported():
     svc = _svc()
     result = svc.compact(tool_name="pytest", output=_long_output(300))
     assert result.input_chars > 0
     assert result.output_chars > 0
-
-
-def test_omitted_summary_present_after_compaction():
-    svc = _svc()
-    result = svc.compact(tool_name="shell_execute", output=_long_output(300))
-    # Either the summary is in the compacted_text or in omitted_summary field
-    assert result.omitted_summary or "omitted" in result.compacted_text
 
 
 # ---------------------------------------------------------------------------

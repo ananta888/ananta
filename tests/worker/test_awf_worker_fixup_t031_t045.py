@@ -106,9 +106,15 @@ def _make_envelope(**kwargs):
 
 
 class TestT032SubworkerEnvelope:
-    def test_valid_subset_no_errors(self):
+    def test_default_envelope_valid_with_required_fields(self):
         env, errors = _make_envelope()
+        # valid capability subset -> no errors
         assert errors == []
+        # required fields populated
+        assert env.parent_execution_id
+        assert env.child_task_id
+        assert env.audit_correlation_id
+        assert env.context_subset_ref
 
     def test_capability_escalation_denied(self):
         env, errors = _make_envelope(
@@ -127,13 +133,6 @@ class TestT032SubworkerEnvelope:
     def test_empty_child_capabilities_allowed(self):
         env, errors = _make_envelope(reduced_capabilities=[])
         assert errors == []
-
-    def test_envelope_has_required_fields(self):
-        env, _ = _make_envelope()
-        assert env.parent_execution_id
-        assert env.child_task_id
-        assert env.audit_correlation_id
-        assert env.context_subset_ref
 
     def test_deadline_set_from_timeout(self):
         before = time.time()
@@ -322,12 +321,16 @@ class TestT037TraceBundleV2:
         defaults.update(kwargs)
         return TraceBundleV2(**defaults)
 
-    def test_required_fields_present(self):
+    def test_default_bundle_dict_has_required_fields_and_no_secrets(self):
         b = self._bundle()
         d = b.as_dict()
         assert d["schema"] == "trace_bundle.v2"
         assert d["execution_id"] == "ex-1"
         assert d["task_id"] == "t-1"
+        # no raw secrets in the serialized dict
+        content = str(d)
+        assert "api_key" not in content.lower()
+        assert "password" not in content.lower()
 
     def test_finish_sets_final_status(self):
         b = self._bundle()
@@ -363,13 +366,6 @@ class TestT037TraceBundleV2:
         b.tool_calls.append(ToolCallRecord(tool_id="run_shell", output_chars=100))
         d = b.as_dict()
         assert d["tool_calls"][0]["tool_id"] == "run_shell"
-
-    def test_no_raw_secrets_in_dict(self):
-        b = self._bundle()
-        d = b.as_dict()
-        content = str(d)
-        assert "api_key" not in content.lower()
-        assert "password" not in content.lower()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -567,15 +563,11 @@ class TestT041E2ESafeWorkerFlow:
         contract["worker"]["executor_kind"] = "custom"
         return contract
 
-    def test_safe_plan_flow_completes(self):
+    def test_safe_plan_flow_completes_and_emits_runtime_trace(self):
         rt, tp, _ = self._make_runtime()
         result = rt.run(task_contract=self._safe_plan_contract(), workspace_dir="/tmp")
         # Should not fail outright — may be degraded/approval_required but not crash
         assert "status" in result
-
-    def test_safe_plan_emits_trace_event(self):
-        rt, tp, _ = self._make_runtime()
-        rt.run(task_contract=self._safe_plan_contract(), workspace_dir="/tmp")
         # events stored as {"event_type": ..., "payload": ...}
         event_types = [e.get("event_type") for e in tp.events]
         assert any("runtime" in str(t).lower() for t in event_types)

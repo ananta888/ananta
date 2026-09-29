@@ -128,33 +128,30 @@ def test_ranking_hard_edges_beat_heuristic_edges_at_equal_depth():
     assert hard > heuristic
 
 
-def test_ranking_is_stable_between_runs(store):
+def test_ranking_is_stable_between_runs_and_ordered_by_score(store):
     first = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
     second = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+    # stable between runs
     assert [entry["result_node_id"] for entry in first["results"]] == [
         entry["result_node_id"] for entry in second["results"]
     ]
     assert first["results"] == second["results"]
-
-
-def test_ranking_orders_results_by_score_then_node_id(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
-    scores = [entry["score"] for entry in payload["results"]]
+    # ordered by score (descending)
+    scores = [entry["score"] for entry in first["results"]]
     assert scores == sorted(scores, reverse=True)
 
 
 # --- CCAQE-007: result contract --------------------------------------------------
 
 
-def test_result_contract_contains_required_top_level_fields(store):
+def test_result_contract_fields_serialization_and_limit_diagnostics(store):
     payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+    # required top-level fields
     for key in ("schema", "query_type", "seed", "results", "diagnostics", "warnings"):
         assert key in payload
     assert payload["schema"] == "codecompass_architecture_query_result.v1"
 
-
-def test_result_contract_entries_have_required_fields(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+    # required entry / path / edge fields
     assert payload["results"]
     for entry in payload["results"]:
         for key in ("result_node_id", "result_kind", "result_role", "score", "depth", "evidence_paths"):
@@ -165,10 +162,14 @@ def test_result_contract_entries_have_required_fields(store):
                 for key in ("source_id", "target_id", "edge_type", "direction_used", "confidence"):
                     assert key in edge
 
-
-def test_result_contract_serializes_without_custom_encoder(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+    # serializes without a custom encoder
     assert json.loads(json.dumps(payload)) == payload
+
+    # CCAQE-008: diagnostics show bounded and applied limits
+    assert payload["diagnostics"]["bounded"] is True
+    applied = payload["diagnostics"]["applied_limits"]
+    for key in ("max_depth", "max_nodes", "max_results", "max_paths_per_result"):
+        assert key in applied
 
 
 def test_result_contract_empty_results_are_valid_and_explained(store):
@@ -211,55 +212,39 @@ def test_limits_max_results_truncates_all_query_types(store):
     assert "results_truncated_by_max_results" in payload["warnings"]
 
 
-def test_limits_diagnostics_show_bounded_and_applied_limits(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
-    assert payload["diagnostics"]["bounded"] is True
-    applied = payload["diagnostics"]["applied_limits"]
-    for key in ("max_depth", "max_nodes", "max_results", "max_paths_per_result"):
-        assert key in applied
-
-
 # --- CCAQE-009: dto-impact -------------------------------------------------------
 
 
-def test_dto_impact_direct_service_hit_via_field_type_uses(store):
+def test_dto_impact_finds_dependents_with_roles_depths_and_evidence(store):
     payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+
+    # direct service hit via field_type_uses
     service = _result_by_node(payload, _SERVICE_ID)
     assert service is not None
     assert service["result_role"] == "service"
     assert service["depth"] == 1
     assert service["evidence_paths"][0]["edges"][0]["edge_type"] == "field_type_uses"
 
-
-def test_dto_impact_controller_is_found_indirectly(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+    # controller is found indirectly
     controller = _result_by_node(payload, _CONTROLLER_ID)
     assert controller is not None
     assert controller["depth"] == 2
     edge_types = {edge["edge_type"] for path in controller["evidence_paths"] for edge in path["edges"]}
     assert "injects_dependency" in edge_types
 
-
-def test_dto_impact_mapper_and_repository_keep_their_roles(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
+    # mapper and repository keep their roles
     mapper = _result_by_node(payload, _MAPPER_ID)
     repository = _result_by_node(payload, _REPOSITORY_ID)
     assert mapper is not None and mapper["result_role"] == "mapper"
     assert repository is not None and repository["result_role"] == "repository"
 
-
-def test_dto_impact_evidence_paths_show_direction_used(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
-    service = _result_by_node(payload, _SERVICE_ID)
+    # evidence paths show the direction used
     edge = service["evidence_paths"][0]["edges"][0]
     assert edge["direction_used"] == "incoming"
     assert edge["source_id"] == _SERVICE_ID
     assert edge["target_id"] == _DTO_ID
 
-
-def test_dto_impact_heuristic_only_results_carry_warning(store):
-    payload = run_architecture_query(store=store, query_type="dto-impact", seed="UserDto")
-    repository = _result_by_node(payload, _REPOSITORY_ID)
+    # heuristic-only results carry a warning
     assert repository is not None
     assert "heuristic_evidence_only" not in _result_by_node(payload, _SERVICE_ID)["warnings"]
     edge_types = {edge["edge_type"] for path in repository["evidence_paths"] for edge in path["edges"]}
@@ -270,29 +255,31 @@ def test_dto_impact_heuristic_only_results_carry_warning(store):
 # --- CCAQE-010: controller-test-coverage -----------------------------------------
 
 
-def test_controller_test_coverage_direct_test_is_recognized(store):
+def test_controller_test_coverage_classifies_direct_endpoint_and_indirect_tests(store):
     payload = run_architecture_query(store=store, query_type="controller-test-coverage", seed="UserController", direction="both")
+
+    # direct controller test is recognized
     direct = _result_by_node(payload, _CONTROLLER_TEST_ID)
     assert direct is not None
     assert direct["coverage_kind"] == "direct_controller_test"
     assert direct["result_role"] == "test"
 
-
-def test_controller_test_coverage_endpoint_test_is_recognized(store):
-    payload = run_architecture_query(store=store, query_type="controller-test-coverage", seed="UserController", direction="both")
+    # endpoint test is recognized
     endpoint_test = _result_by_node(payload, _API_IT_ID)
     assert endpoint_test is not None
     assert endpoint_test["coverage_kind"] == "endpoint_test"
 
-
-def test_controller_test_coverage_indirect_service_test_ranked_lower_and_warned(store):
-    payload = run_architecture_query(store=store, query_type="controller-test-coverage", seed="UserController", direction="both")
-    direct = _result_by_node(payload, _CONTROLLER_TEST_ID)
+    # indirect service test is ranked lower and warned
     indirect = _result_by_node(payload, _SERVICE_TEST_ID)
     assert indirect is not None
     assert indirect["score"] < direct["score"]
     assert "no_direct_test_evidence" in indirect["warnings"]
     assert indirect["coverage_kind"] in {"indirect_evidence", "suspected_coverage"}
+
+    # only test results are returned
+    assert payload["results"]
+    assert all(entry["result_role"] == "test" for entry in payload["results"])
+    assert all(entry["coverage_kind"] != "covered" for entry in payload["results"])
 
 
 def test_controller_test_coverage_depth_three_is_supported_and_diagnosed(store):
@@ -300,38 +287,51 @@ def test_controller_test_coverage_depth_three_is_supported_and_diagnosed(store):
     assert payload["diagnostics"]["depth_used"] == 3
 
 
-def test_controller_test_coverage_only_test_results_are_returned(store):
-    payload = run_architecture_query(store=store, query_type="controller-test-coverage", seed="UserController", direction="both")
-    assert payload["results"]
-    assert all(entry["result_role"] == "test" for entry in payload["results"])
-    assert all(entry["coverage_kind"] != "covered" for entry in payload["results"])
-
-
 # --- CCAQE-011: field-policy-impact ----------------------------------------------
 
 
-def test_field_policy_impact_backend_policy_is_enforced_backend_guard(store):
+def test_field_policy_impact_price_separates_backend_and_frontend_enforcement(store):
     payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
+
+    # backend policy is an enforced backend guard
     policy = _result_by_node(payload, _POLICY_ID)
     assert policy is not None
     assert policy["enforcement"] == "enforced_backend_guard"
     assert "update" in policy.get("operations", [])
 
-
-def test_field_policy_impact_frontend_guard_is_not_backend_enforcement(store):
-    payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
+    # frontend guard is not backend enforcement
     guard = _result_by_node(payload, _FRONTEND_GUARD_ID)
     assert guard is not None
     assert guard["enforcement"] == "frontend_reference"
 
-
-def test_field_policy_impact_results_have_evidence_and_confidence(store):
-    payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
+    # all results have evidence and confidence
     assert payload["results"]
     for entry in payload["results"]:
         assert entry["evidence_paths"]
         for path in entry["evidence_paths"]:
             assert all("confidence" in edge for edge in path["edges"])
+
+    # CCAQE-015: security edges propagate source_file and source_record_id so
+    # agents can audit WHERE a policy/permission statement came from
+    backend_edges = [
+        edge
+        for path in policy["evidence_paths"]
+        for edge in path["edges"]
+        if edge.get("edge_type") in {"permission_checks_field", "policy_applies_to_field"}
+    ]
+    assert backend_edges, "expected at least one backend-enforcement edge"
+    for edge in backend_edges:
+        assert edge.get("source_file"), f"missing source_file on {edge.get('edge_type')}"
+        assert edge.get("source_record_id"), f"missing source_record_id on {edge.get('edge_type')}"
+        assert "PriceFieldPolicy" in edge["source_file"]
+
+    # CCAQE-015: frontend_guard_refs_field edges are tagged with enforcement_scope=frontend_only
+    guard_edges = [edge for path in guard["evidence_paths"] for edge in path["edges"]]
+    assert any(edge.get("edge_type") == "frontend_guard_refs_field" for edge in guard_edges)
+    for edge in guard_edges:
+        if edge.get("edge_type") == "frontend_guard_refs_field":
+            assert edge.get("enforcement_scope") == "frontend_only"
+            assert edge.get("source_file") == "frontend/src/app/user-form.guard.ts"
 
 
 def test_field_policy_impact_field_filter_excludes_other_fields(store):
@@ -343,23 +343,17 @@ def test_field_policy_impact_field_filter_excludes_other_fields(store):
 # --- CCAQE-012: service-dependency-chain ------------------------------------------
 
 
-def test_service_dependency_chain_direct_dependencies_are_marked(store):
+def test_service_dependency_chain_marks_dependencies_roles_boundary_and_cycles(store):
     payload = run_architecture_query(store=store, query_type="service-dependency-chain", seed="UserService")
+    # direct dependencies are marked
     repository = _result_by_node(payload, _REPOSITORY_ID)
     mapper = _result_by_node(payload, _MAPPER_ID)
     assert repository is not None and repository["dependency_kind"] == "direct_dependency"
     assert mapper is not None and mapper["dependency_kind"] == "direct_dependency"
-
-
-def test_service_dependency_chain_marks_repository_role_and_boundary(store):
-    payload = run_architecture_query(store=store, query_type="service-dependency-chain", seed="UserService")
-    repository = _result_by_node(payload, _REPOSITORY_ID)
+    # repository role and transactional boundary
     assert repository["result_role"] == "repository"
     assert repository.get("transactional_boundary") is True
-
-
-def test_service_dependency_chain_detects_cycles_in_diagnostics(store):
-    payload = run_architecture_query(store=store, query_type="service-dependency-chain", seed="UserService")
+    # cycles are detected in diagnostics
     assert payload["diagnostics"].get("service_dependency_cycles_detected", 0) >= 1
 
 
@@ -414,38 +408,6 @@ def test_role_classification_annotation_and_name_heuristics():
 
 
 # --- CCAQE-015: security-edge provenance + enforcement_scope ---
-
-
-def test_field_policy_impact_propagates_source_file_and_record_id(store):
-    """Security-relevant edges carry source_file + source_record_id so agents can
-    audit WHERE a policy/permission statement came from."""
-    payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
-    policy = _result_by_node(payload, _POLICY_ID)
-    assert policy is not None
-    backend_edges = [
-        edge
-        for path in policy["evidence_paths"]
-        for edge in path["edges"]
-        if edge.get("edge_type") in {"permission_checks_field", "policy_applies_to_field"}
-    ]
-    assert backend_edges, "expected at least one backend-enforcement edge"
-    for edge in backend_edges:
-        assert edge.get("source_file"), f"missing source_file on {edge.get('edge_type')}"
-        assert edge.get("source_record_id"), f"missing source_record_id on {edge.get('edge_type')}"
-        assert "PriceFieldPolicy" in edge["source_file"]
-
-
-def test_field_policy_impact_frontend_guard_carries_enforcement_scope(store):
-    """frontend_guard_refs_field edges are tagged with enforcement_scope=frontend_only."""
-    payload = run_architecture_query(store=store, query_type="field-policy-impact", seed="UserDto", field="price")
-    guard = _result_by_node(payload, _FRONTEND_GUARD_ID)
-    assert guard is not None
-    guard_edges = [edge for path in guard["evidence_paths"] for edge in path["edges"]]
-    assert any(edge.get("edge_type") == "frontend_guard_refs_field" for edge in guard_edges)
-    for edge in guard_edges:
-        if edge.get("edge_type") == "frontend_guard_refs_field":
-            assert edge.get("enforcement_scope") == "frontend_only"
-            assert edge.get("source_file") == "frontend/src/app/user-form.guard.ts"
 
 
 def test_non_security_edges_are_not_annotated():

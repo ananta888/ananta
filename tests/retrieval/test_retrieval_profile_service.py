@@ -128,32 +128,12 @@ class TestClassifyRetrievalIntent:
         )
         assert intent == INTENT_CODE_EXPLANATION
 
-    def test_mermaid_request(self):
-        domain, intent = classify_retrieval_intent(
-            "kannst du mir mermaid diagramme dazu zeigen"
-        )
-        assert intent == INTENT_MERMAID
-
     def test_ananta_game_lore(self):
         domain, intent = classify_retrieval_intent("ananta game lore")
         assert domain == DOMAIN_ANANTA_GAME
 
-    def test_architecture_question(self):
-        domain, intent = classify_retrieval_intent(
-            "beschreib mir die architektur des rag services"
-        )
-        assert intent == INTENT_ARCHITECTURE
-
     def test_german_code_keywords(self):
         _, intent = classify_retrieval_intent("welche klasse implementiert den sgpt modul")
-        assert intent == INTENT_CODE_EXPLANATION
-
-    def test_english_code_keywords(self):
-        _, intent = classify_retrieval_intent("how does the retrieval service function work")
-        assert intent == INTENT_CODE_EXPLANATION
-
-    def test_english_file_keyword(self):
-        _, intent = classify_retrieval_intent("show me the file for the rag service")
         assert intent == INTENT_CODE_EXPLANATION
 
     def test_ops_runbook(self):
@@ -177,10 +157,20 @@ class TestClassifyRetrievalIntent:
         domain, _ = classify_retrieval_intent("wie funktioniert das tui operator clipboard")
         assert domain == DOMAIN_OPERATOR_TUI
 
-    def test_game_design_intent(self):
-        # unambiguously game-design: "spieldesign" + "punkte" + "level" → no code keywords
-        _, intent = classify_retrieval_intent("beschreibe das spieldesign mit punktesystem und level")
-        assert intent == INTENT_GAME_DESIGN
+    @pytest.mark.parametrize(
+        "query,expected_intent",
+        [
+            pytest.param("kannst du mir mermaid diagramme dazu zeigen", INTENT_MERMAID, id="mermaid_request"),
+            pytest.param("beschreib mir die architektur des rag services", INTENT_ARCHITECTURE, id="architecture_question"),
+            pytest.param("how does the retrieval service function work", INTENT_CODE_EXPLANATION, id="english_code_keywords"),
+            pytest.param("show me the file for the rag service", INTENT_CODE_EXPLANATION, id="english_file_keyword"),
+            # unambiguously game-design: "spieldesign" + "punkte" + "level" → no code keywords
+            pytest.param("beschreibe das spieldesign mit punktesystem und level", INTENT_GAME_DESIGN, id="game_design_intent"),
+        ],
+    )
+    def test_query_classified_to_intent(self, query, expected_intent):
+        _, intent = classify_retrieval_intent(query)
+        assert intent == expected_intent
 
     def test_generic_fallback(self):
         domain, intent = classify_retrieval_intent("")

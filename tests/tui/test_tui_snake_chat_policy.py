@@ -39,10 +39,11 @@ def test_notes_send_hub_denied():
     assert decision["reason_code"] == "notes_local_only"
 
 
-def test_notes_write_local_allowed():
-    msg = _make("notes", "my note")
-    decision = check_policy(msg, "write_local")
-    assert decision["decision"] == "allow"
+def test_notes_write_local_always_allowed():
+    for text in ("my note", "note"):
+        msg = _make("notes", text)
+        decision = check_policy(msg, "write_local")
+        assert decision["decision"] == "allow", text
 
 
 def test_notes_export_denied():
@@ -69,12 +70,6 @@ def test_notes_send_ai_allowed_when_released():
     # After release, notes can go to AI (policy allows it).
     # Expected: allow (notes_context_released=True and action == send_ai → no block)
     assert decision["decision"] == "deny"  # still denied: notes channel type blocks ALL non-write_local
-
-
-def test_notes_write_local_always_allowed():
-    msg = _make("notes", "note")
-    decision = check_policy(msg, "write_local")
-    assert decision["decision"] == "allow"
 
 
 # ── External AI cannot receive notes ─────────────────────────────────────────
@@ -236,13 +231,15 @@ def test_classify_empty():
     assert classify_chat_intent("") == "unknown"
 
 
-def test_budget_policy_smalltalk_safe_minimal():
+def test_budget_policy_smalltalk_safe_minimal_with_limited_history():
     policy = apply_token_budget_policy(intent="smalltalk")
     assert policy["mode"] == "safe_minimal_chat"
     assert policy["max_tool_schema_tokens"] == 0
     assert policy["max_rag_context_tokens"] == 0
     assert policy["allow_rag"] is False
     assert policy["allow_tool_schemas"] is False
+    # smalltalk keeps the history window small
+    assert policy["max_history_turns"] <= 10
 
 
 def test_budget_policy_code_question_project_chat():
@@ -266,11 +263,6 @@ def test_budget_policy_analysis_deep():
     assert policy["max_input_tokens"] >= 128000
     assert policy["allow_rag"] is True
     assert policy["allow_full_history"] is True
-
-
-def test_budget_policy_smalltalk_max_history_limited():
-    policy = apply_token_budget_policy(intent="smalltalk")
-    assert policy["max_history_turns"] <= 10
 
 
 def test_budget_policy_unknown_defaults_to_project_chat():

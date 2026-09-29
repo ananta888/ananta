@@ -23,36 +23,15 @@ class TestNullWorkContext:
     def test_is_available_false(self):
         assert self.ctx.is_available() is False
 
-    def test_get_snapshot_returns_snapshot(self):
+    def test_get_snapshot_returns_empty_null_snapshot(self):
         snap = self.ctx.get_snapshot()
         assert isinstance(snap, WorkContextSnapshot)
-
-    def test_snapshot_open_files_empty(self):
-        snap = self.ctx.get_snapshot()
         assert snap.open_files == []
-
-    def test_snapshot_active_file_none(self):
-        snap = self.ctx.get_snapshot()
         assert snap.active_file is None
-
-    def test_snapshot_source_is_null(self):
-        snap = self.ctx.get_snapshot()
         assert snap.source == "null"
-
-    def test_snapshot_dirty_files_empty(self):
-        snap = self.ctx.get_snapshot()
         assert snap.dirty_files == []
-
-    def test_snapshot_dirty_secret_files_empty(self):
-        snap = self.ctx.get_snapshot()
         assert snap.dirty_secret_files == []
-
-    def test_snapshot_selection_none(self):
-        snap = self.ctx.get_snapshot()
         assert snap.selection is None
-
-    def test_snapshot_active_branch_none(self):
-        snap = self.ctx.get_snapshot()
         assert snap.active_branch is None
 
 

@@ -20,6 +20,10 @@ def test_parse_global_defaults():
     assert "vim" in cfg.allowed_tools
     assert "nvim" in cfg.allowed_tools
     assert cfg.allow_environment_editor is True
+    # filetype rules are populated from the global defaults
+    patterns = [r.match for r in cfg.filetype_rules]
+    assert "*.md" in patterns
+    assert "*.json" in patterns
 
 
 def test_parse_custom_default_editor():
@@ -61,33 +65,17 @@ def test_parse_tool_name_with_path_separator_raises():
         _parse_config(raw)
 
 
-def test_parse_filetype_rules_populated():
-    cfg = _parse_config(dict(_GLOBAL_DEFAULT_CONFIG))
-    patterns = [r.match for r in cfg.filetype_rules]
-    assert "*.md" in patterns
-    assert "*.json" in patterns
-
-
-def test_editor_profiles_built_for_all_allowed_tools():
+def test_parse_global_defaults_editor_profiles_and_readonly_support():
     cfg = _parse_config(dict(_GLOBAL_DEFAULT_CONFIG))
     for tool in cfg.allowed_tools:
         assert tool in cfg.editor_profiles, f"Missing editor profile for {tool}"
-
-
-def test_vim_readonly_supported():
-    cfg = _parse_config(dict(_GLOBAL_DEFAULT_CONFIG))
+    # vim: readonly supported via -R
     assert cfg.editor_profiles["vim"].readonly_supported is True
     assert "-R" in cfg.editor_profiles["vim"].readonly_extra_args
-
-
-def test_nano_readonly_supported():
-    cfg = _parse_config(dict(_GLOBAL_DEFAULT_CONFIG))
+    # nano: readonly supported via -v
     assert cfg.editor_profiles["nano"].readonly_supported is True
     assert "-v" in cfg.editor_profiles["nano"].readonly_extra_args
-
-
-def test_micro_readonly_not_supported():
-    cfg = _parse_config(dict(_GLOBAL_DEFAULT_CONFIG))
+    # micro: readonly not supported
     assert cfg.editor_profiles["micro"].readonly_supported is False
 
 
@@ -164,7 +152,7 @@ def test_registry_is_allowed_tool(tmp_path):
     assert registry.is_allowed_tool("") is False
 
 
-def test_registry_get_tool_profile(tmp_path):
+def test_registry_get_tool_profile_known_and_unknown(tmp_path):
     registry = TuiToolRegistry(
         user_config_path=str(tmp_path / "none.json"),
         project_config_path=str(tmp_path / "none.json"),
@@ -172,11 +160,5 @@ def test_registry_get_tool_profile(tmp_path):
     profile = registry.get_tool_profile("git_ui")
     assert profile is not None
     assert profile.command == "lazygit"
-
-
-def test_registry_get_unknown_tool_profile_returns_none(tmp_path):
-    registry = TuiToolRegistry(
-        user_config_path=str(tmp_path / "none.json"),
-        project_config_path=str(tmp_path / "none.json"),
-    )
+    # unknown tool profile returns None
     assert registry.get_tool_profile("nonexistent") is None

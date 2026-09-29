@@ -59,10 +59,14 @@ class TestNormalizeSampleToEvidence:
         assert ev["role_name"] == "planner"
         assert ev["task_kind"] == "planning"
 
-    def test_quality_passed_none_when_absent(self):
+    def test_minimal_success_sample_defaults(self):
         ev = normalize_sample_to_evidence(_make_sample(True))
+        # quality_passed absent → None, deterministic signal falls back to success
         assert ev["quality_passed"] is None
         assert ev["deterministic_signal"] is True  # falls back to success
+        # missing parameters yield None
+        assert ev["parameters"] is None
+        assert ev["schema_version"] == "1.0"
 
     def test_quality_passed_false_beats_success_true(self):
         ev = normalize_sample_to_evidence(_make_sample(True, False))
@@ -84,14 +88,6 @@ class TestNormalizeSampleToEvidence:
         sample["parameters"] = {"temperature": 0.7, "top_k": 40}
         ev = normalize_sample_to_evidence(sample)
         assert ev["parameters"] == {"temperature": 0.7, "top_k": 40}
-
-    def test_missing_parameters_yields_none(self):
-        ev = normalize_sample_to_evidence(_make_sample(True))
-        assert ev["parameters"] is None
-
-    def test_schema_version_set(self):
-        ev = normalize_sample_to_evidence(_make_sample(True))
-        assert ev["schema_version"] == "1.0"
 
     def test_source_provider_model_from_caller(self):
         ev = normalize_sample_to_evidence(_make_sample(True), source="hub", provider="lmstudio", model="llama3")
@@ -116,13 +112,11 @@ class TestComputePosteriorZeroEvidence:
             p = compute_posterior(evidence=[], signal_key=sig)
             assert 0.0 < p["posterior_mean"] < 1.0, f"signal={sig}: mean={p['posterior_mean']}"
 
-    def test_zero_evidence_posterior_std_is_finite(self):
+    def test_zero_evidence_finite_std_and_complete_keys(self):
         p = compute_posterior(evidence=[])
         assert math.isfinite(p["posterior_std"])
         assert p["posterior_std"] > 0
-
-    def test_zero_evidence_no_key_error(self):
-        p = compute_posterior(evidence=[])
+        # all posterior keys present (no KeyError)
         required = {
             "alpha_prior", "beta_prior", "success_count", "failure_count",
             "posterior_alpha", "posterior_beta", "posterior_mean",
@@ -217,12 +211,14 @@ class TestLabelUncertainty:
         )
         return compute_posterior(evidence=ev, signal_key="quality_passed")
 
-    def test_no_evidence(self):
+    def test_no_evidence_label_and_required_keys(self):
         p = compute_posterior(evidence=[])
         u = label_uncertainty(posterior=p)
         assert u["label"] == "no_evidence"
         assert u["low_confidence"] is True
         assert "prior_only" in u["warning_flags"]
+        for key in ("label", "confidence_level", "sample_count", "posterior_variance", "low_confidence", "warning_flags"):
+            assert key in u
 
     def test_very_low_sample_count(self):
         p = self._posterior_with_n(2)
@@ -250,11 +246,6 @@ class TestLabelUncertainty:
         # with 30 samples, count ≥ high_threshold → medium or high
         assert u["label"] in ("medium", "high")
 
-    def test_required_keys_present(self):
-        p = compute_posterior(evidence=[])
-        u = label_uncertainty(posterior=p)
-        for key in ("label", "confidence_level", "sample_count", "posterior_variance", "low_confidence", "warning_flags"):
-            assert key in u
 
 
 # ── estimate_cumulative_success (BAYES-014) ───────────────────────────────────
@@ -364,12 +355,25 @@ class TestAttemptsForTarget:
 # ── estimate_bayesian_for_samples ─────────────────────────────────────────────
 
 class TestEstimateBayesianForSamples:
-    def test_empty_samples_prior_only(self):
+    def test_empty_samples_prior_only_with_required_keys(self):
         result = estimate_bayesian_for_samples([])
         assert result["estimate_status"] == "prior_only"
         assert result["evidence_count"] == 0
         # Prior mean 0.5, not 0.0 or 1.0
         assert 0.0 < result["posterior_success_probability"] < 1.0
+        for key in (
+            "posterior_success_probability",
+            "posterior_quality_probability",
+            "primary_signal",
+            "evidence_count",
+            "success_count",
+            "failure_count",
+            "credible_interval_90",
+            "uncertainty",
+            "low_confidence",
+            "estimate_status",
+        ):
+            assert key in result, f"missing key: {key}"
 
     def test_all_success_high_posterior(self):
         samples = _success_samples(15)
@@ -384,10 +388,19 @@ class TestEstimateBayesianForSamples:
         assert result["posterior_success_probability"] < 0.15
         assert result["posterior_quality_probability"] < 0.15
 
-    def test_quality_preferred_as_primary_signal(self):
+    def test_quality_samples_primary_signal_and_ordered_attempt_estimates(self):
         samples = _success_samples(10)
         result = estimate_bayesian_for_samples(samples)
         assert result["primary_signal"] == "quality_passed"
+        # attempt estimates present (include_attempt_estimates defaults to True)
+        assert "estimated_attempts_for_50_percent" in result
+        assert "estimated_attempts_for_80_percent" in result
+        assert "estimated_attempts_for_95_percent" in result
+        # attempt estimates ordered
+        a50 = result.get("estimated_attempts_for_50_percent") or 0
+        a80 = result.get("estimated_attempts_for_80_percent") or 0
+        a95 = result.get("estimated_attempts_for_95_percent") or 0
+        assert a50 <= a80 <= a95
 
     def test_success_fallback_when_no_quality(self):
         samples = [_make_sample(True) for _ in range(10)]  # no quality_passed
@@ -405,45 +418,14 @@ class TestEstimateBayesianForSamples:
         result = estimate_bayesian_for_samples(samples)
         assert result["low_confidence"] is False
 
-    def test_attempt_estimates_present(self):
-        samples = _success_samples(10)
-        result = estimate_bayesian_for_samples(samples, include_attempt_estimates=True)
-        assert "estimated_attempts_for_50_percent" in result
-        assert "estimated_attempts_for_80_percent" in result
-        assert "estimated_attempts_for_95_percent" in result
-
     def test_attempt_estimates_absent_when_disabled(self):
         result = estimate_bayesian_for_samples(_success_samples(5), include_attempt_estimates=False)
         assert "estimated_attempts_for_50_percent" not in result
-
-    def test_attempt_estimates_ordered(self):
-        samples = _success_samples(10)
-        result = estimate_bayesian_for_samples(samples)
-        a50 = result.get("estimated_attempts_for_50_percent") or 0
-        a80 = result.get("estimated_attempts_for_80_percent") or 0
-        a95 = result.get("estimated_attempts_for_95_percent") or 0
-        assert a50 <= a80 <= a95
 
     def test_malformed_samples_skipped(self):
         samples = [None, "bad", 42, {}, _make_sample(True, True)]  # type: ignore[list-item]
         result = estimate_bayesian_for_samples(samples)
         assert result["evidence_count"] >= 1  # at least the valid sample counted
-
-    def test_required_keys_present(self):
-        result = estimate_bayesian_for_samples([])
-        for key in (
-            "posterior_success_probability",
-            "posterior_quality_probability",
-            "primary_signal",
-            "evidence_count",
-            "success_count",
-            "failure_count",
-            "credible_interval_90",
-            "uncertainty",
-            "low_confidence",
-            "estimate_status",
-        ):
-            assert key in result, f"missing key: {key}"
 
     def test_credible_interval_ordered(self):
         result = estimate_bayesian_for_samples(_success_samples(20))

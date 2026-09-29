@@ -74,30 +74,17 @@ class TestProfileInspectorLinesEmpty:
 class TestProfileInspectorLinesCompact:
     """Normal mode (verbose off): exactly one compact line."""
 
-    def test_returns_single_line(self, monkeypatch):
+    def test_compact_line_without_summary_shows_profile_domain_intent_trigger_and_flag(self, monkeypatch):
         monkeypatch.delenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", raising=False)
-        trace = _make_trace()
-        game = _make_game_with_trace(trace)
-        lines = _profile_inspector_lines(game, 200)
-        assert len(lines) == 1
-
-    def test_compact_line_contains_profile_id(self, monkeypatch):
-        monkeypatch.delenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", raising=False)
+        # No summary: the line still renders cleanly as a single line.
         lines = _profile_inspector_lines(_make_game_with_trace(_make_trace()), 200)
+        assert len(lines) == 1
         # ANSI codes make exact comparison brittle, so check the substring.
         assert "ananta-codecompass" in lines[0]
-
-    def test_compact_line_contains_domain_and_intent(self, monkeypatch):
-        monkeypatch.delenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", raising=False)
-        lines = _profile_inspector_lines(_make_game_with_trace(_make_trace()), 200)
         # The line shows `d=codecompass` and `i=implemented_code_explanation`
         # (or a clipped version) per the renderer contract.
         assert "d=codecompass" in lines[0]
         assert "i=implemented_code_explanation" in lines[0]
-
-    def test_compact_line_contains_trigger_and_flag(self, monkeypatch):
-        monkeypatch.delenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", raising=False)
-        lines = _profile_inspector_lines(_make_game_with_trace(_make_trace()), 200)
         assert "trig=auto" in lines[0]
         assert "flag=auto" in lines[0]
 
@@ -106,14 +93,6 @@ class TestProfileInspectorLinesCompact:
         game = _make_game_with_trace(_make_trace(), summary="Kontext: 7 Treffer (repo:5, artifact:2) [ananta-codecompass]")
         lines = _profile_inspector_lines(game, 200)
         assert "Kontext: 7 Treffer" in lines[0]
-
-    def test_compact_line_no_summary(self, monkeypatch):
-        # When no summary is present, the line still renders cleanly.
-        monkeypatch.delenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", raising=False)
-        game = _make_game_with_trace(_make_trace())  # no summary
-        lines = _profile_inspector_lines(game, 200)
-        assert len(lines) == 1
-        assert "ananta-codecompass" in lines[0]
 
     def test_missing_field_falls_back_to_question_mark(self, monkeypatch):
         # An empty/missing field must render as `?` (the renderer's contract).
@@ -139,11 +118,13 @@ class TestProfileInspectorLinesCompact:
 class TestProfileInspectorLinesVerbose:
     """Verbose mode (env-flag set): 2-3 lines (reasons + sources + optional 3rd)."""
 
-    def test_verbose_env_flag_1_enables_reasons_line(self, monkeypatch):
+    def test_verbose_env_flag_1_enables_reasons_and_sources_lines(self, monkeypatch):
         monkeypatch.setenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", "1")
         lines = _profile_inspector_lines(_make_game_with_trace(_make_trace()), 200)
         # The reasons line must be present.
         assert any("reasons:" in ln for ln in lines)
+        # The sources line lists repo,artifact
+        assert any("sources:" in ln and "repo,artifact" in ln for ln in lines)
 
     def test_verbose_env_flag_true_enables_reasons_line(self, monkeypatch):
         monkeypatch.setenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", "true")
@@ -160,12 +141,6 @@ class TestProfileInspectorLinesVerbose:
         lines = _profile_inspector_lines(_make_game_with_trace(_make_trace()), 200)
         # No reasons line in compact mode.
         assert not any("reasons:" in ln for ln in lines)
-
-    def test_verbose_includes_sources_line(self, monkeypatch):
-        monkeypatch.setenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", "1")
-        lines = _profile_inspector_lines(_make_game_with_trace(_make_trace()), 200)
-        # The sources line lists repo,artifact
-        assert any("sources:" in ln and "repo,artifact" in ln for ln in lines)
 
     def test_verbose_reasons_truncated_to_5(self, monkeypatch):
         monkeypatch.setenv("ANANTA_TUI_PROFILE_INSPECTOR_VERBOSE", "1")

@@ -275,10 +275,12 @@ class TestSessionSearchIndex:
         self.index.index_decision(correlation_id="c1", decision="denied",
                                    reason_code="missing_capability", operation="shell_execute")
 
-    def test_search_finds_task(self):
+    def test_search_finds_task_with_bounded_snippets(self):
         results = self.index.search("nginx")
         ids = [r.id for r in results]
         assert "t1" in ids
+        for r in results:
+            assert len(r.snippet) <= 350  # SNIPPET_MAX_CHARS + ellipsis overhead
 
     def test_search_finds_failure(self):
         results = self.index.search("patch_scope_violation")
@@ -291,11 +293,6 @@ class TestSessionSearchIndex:
     def test_search_finds_decision(self):
         results = self.index.search("denied missing_capability")
         assert any(r.target_type == SearchTarget.decision for r in results)
-
-    def test_snippet_bounded(self):
-        results = self.index.search("nginx")
-        for r in results:
-            assert len(r.snippet) <= 350  # SNIPPET_MAX_CHARS + ellipsis overhead
 
     def test_target_type_filter(self):
         results = self.index.search("patch",

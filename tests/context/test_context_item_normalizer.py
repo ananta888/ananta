@@ -43,12 +43,16 @@ class TestNormalizeItem:
         self.normalizer = ContextItemNormalizer()
         self.scope = _make_scope()
 
-    def test_basic_normalization(self):
+    def test_normalize_item_default_raw_fields(self):
         raw = _make_raw()
         item = self.normalizer.normalize_item(raw, provider="fake", query="test", scope=self.scope)
         assert item is not None
         assert item.provider == "fake"
         assert item.path == "src/main.py"
+        # score defaults to 0.5 when the raw item carries none
+        assert item.score == 0.5
+        assert item.source_kind == "keyword"
+        assert item.policy_status == "allowed"
 
     def test_no_path_returns_none(self):
         raw = {"snippet": "some code"}
@@ -89,12 +93,6 @@ class TestNormalizeItem:
         assert item is not None
         assert item.score == 1.0
 
-    def test_score_default_half(self):
-        raw = _make_raw()
-        item = self.normalizer.normalize_item(raw, provider="fake", query="test", scope=self.scope)
-        assert item is not None
-        assert item.score == 0.5
-
     def test_correlation_id_propagated(self):
         scope = _make_scope(correlation_id="corr-42")
         raw = _make_raw()
@@ -120,18 +118,6 @@ class TestNormalizeItem:
         assert item is not None
         assert item.line_start == 10
         assert item.line_end == 20
-
-    def test_source_kind_defaults_to_keyword(self):
-        raw = _make_raw()
-        item = self.normalizer.normalize_item(raw, provider="fake", query="test", scope=self.scope)
-        assert item is not None
-        assert item.source_kind == "keyword"
-
-    def test_policy_status_allowed(self):
-        raw = _make_raw()
-        item = self.normalizer.normalize_item(raw, provider="fake", query="test", scope=self.scope)
-        assert item is not None
-        assert item.policy_status == "allowed"
 
     def test_denied_path_returns_none(self):
         scope = _make_scope(denied_paths=["src/"])

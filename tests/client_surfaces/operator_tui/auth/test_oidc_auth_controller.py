@@ -59,31 +59,21 @@ class TestPkceGeneration(unittest.TestCase):
     def setUp(self):
         self.ctrl = OidcAuthController()
 
-    def test_pkce_challenge_is_s256_of_verifier(self):
-        """Challenge must equal base64url(sha256(verifier)) with no padding."""
+    def test_pkce_pair_is_unpadded_base64url_s256(self):
+        """Verifier and challenge must be unpadded base64url and challenge = S256(verifier)."""
         verifier, challenge = self.ctrl._generate_pkce_pair()
+        # Challenge must equal base64url(sha256(verifier)) with no padding.
         digest = hashlib.sha256(verifier.encode("ascii")).digest()
         expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
         self.assertEqual(challenge, expected)
-
-    def test_pkce_verifier_is_base64url(self):
-        """Verifier must be a non-empty base64url-safe string."""
-        verifier, _ = self.ctrl._generate_pkce_pair()
-        # Only base64url chars allowed
+        # Verifier must be a non-empty base64url-safe string (only base64url chars allowed).
         allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
         self.assertTrue(all(c in allowed for c in verifier))
         self.assertGreater(len(verifier), 40)
-
-    def test_pkce_challenge_is_base64url(self):
-        """Challenge must be a non-empty base64url-safe string."""
-        _, challenge = self.ctrl._generate_pkce_pair()
-        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+        # Challenge must be a non-empty base64url-safe string.
         self.assertTrue(all(c in allowed for c in challenge))
         self.assertGreater(len(challenge), 10)
-
-    def test_pkce_no_padding(self):
-        """Verifier and challenge must have no base64 padding ('=')."""
-        verifier, challenge = self.ctrl._generate_pkce_pair()
+        # Verifier and challenge must have no base64 padding ('=').
         self.assertNotIn("=", verifier)
         self.assertNotIn("=", challenge)
 
@@ -100,24 +90,18 @@ class TestStateNonceUniqueness(unittest.TestCase):
     def setUp(self):
         self.ctrl = OidcAuthController()
 
-    def test_100_states_are_unique(self):
-        """100 generated state values must all be distinct."""
+    def test_states_are_unique_urlsafe_strings(self):
+        """100 generated state values must all be distinct; state is a non-empty URL-safe string."""
         states = {self.ctrl._generate_state() for _ in range(100)}
         self.assertEqual(len(states), 100)
-
-    def test_100_nonces_are_unique(self):
-        """100 generated nonce values must all be distinct."""
-        nonces = {self.ctrl._generate_nonce() for _ in range(100)}
-        self.assertEqual(len(nonces), 100)
-
-    def test_state_is_urlsafe(self):
-        """State must be a non-empty URL-safe string."""
         state = self.ctrl._generate_state()
         self.assertIsInstance(state, str)
         self.assertGreater(len(state), 20)
 
-    def test_nonce_is_urlsafe(self):
-        """Nonce must be a non-empty URL-safe string."""
+    def test_nonces_are_unique_urlsafe_strings(self):
+        """100 generated nonce values must all be distinct; nonce is a non-empty URL-safe string."""
+        nonces = {self.ctrl._generate_nonce() for _ in range(100)}
+        self.assertEqual(len(nonces), 100)
         nonce = self.ctrl._generate_nonce()
         self.assertIsInstance(nonce, str)
         self.assertGreater(len(nonce), 20)
@@ -341,34 +325,21 @@ class TestCreateAuthorizationRequest(unittest.TestCase):
         self.ctrl = OidcAuthController()
         self.provider = _make_provider()
 
-    def test_builds_request_with_pkce_params(self):
-        """Authorization URL must contain PKCE challenge and method."""
+    def test_builds_request_with_pkce_state_nonce_and_expiry(self):
+        """Authorization URL must contain PKCE params, state and nonce; request must expire in the future."""
         with patch.object(self.ctrl, "_discover_auth_endpoint", return_value="https://issuer.example.com/auth"):
             req = self.ctrl.create_authorization_request(
                 provider=self.provider,
                 redirect_uri="http://127.0.0.1:9999/callback",
             )
+        # PKCE challenge and method
         self.assertIn("code_challenge=", req.authorization_url)
         self.assertIn("code_challenge_method=S256", req.authorization_url)
         self.assertIn("response_type=code", req.authorization_url)
-
-    def test_request_contains_state_and_nonce(self):
-        """Authorization URL must contain state and nonce."""
-        with patch.object(self.ctrl, "_discover_auth_endpoint", return_value="https://issuer.example.com/auth"):
-            req = self.ctrl.create_authorization_request(
-                provider=self.provider,
-                redirect_uri="http://127.0.0.1:9999/callback",
-            )
+        # state and nonce
         self.assertIn(req.state, req.authorization_url)
         self.assertIn(req.nonce, req.authorization_url)
-
-    def test_request_has_expiry(self):
-        """Request must have a future expiry."""
-        with patch.object(self.ctrl, "_discover_auth_endpoint", return_value="https://issuer.example.com/auth"):
-            req = self.ctrl.create_authorization_request(
-                provider=self.provider,
-                redirect_uri="http://127.0.0.1:9999/callback",
-            )
+        # future expiry
         self.assertGreater(req.expires_at, time.time())
 
 

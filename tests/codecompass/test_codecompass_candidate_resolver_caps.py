@@ -288,22 +288,16 @@ class TestStemBoost:
         )
         assert boost == 1.5
 
-    def test_stem_boost_fires_on_lowered_broad_token(self) -> None:
+    def test_stem_boost_fires_on_lowered_broad_token_or_exact_symbol(self) -> None:
         # Case-mixed exact symbols do NOT need to trigger the boost —
         # the boost is the natural-language signal mechanism and works on
         # the lowered form. Exact symbols are handled by the per-symbol
         # weight inside the resolver loop. This documents the contract.
+        # The same lowered token covers both a broad token and a lowered
+        # exact symbol, so one call verifies both cases.
         boost = _stem_boost(
             "agent/services/codecompass_output_reader.py",
-            {"codecompass"},  # lowered broad token
-        )
-        assert boost == 1.5
-
-    def test_stem_boost_fires_on_exact_symbol_lowered(self) -> None:
-        # Same: lowered exact symbol triggers the boost.
-        boost = _stem_boost(
-            "agent/services/codecompass_output_reader.py",
-            {"codecompass"},  # exact symbol, lowered
+            {"codecompass"},  # lowered broad token / exact symbol, lowered
         )
         assert boost == 1.5
 

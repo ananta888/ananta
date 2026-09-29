@@ -182,17 +182,13 @@ def test_code_block_no_ansi_injection():
 
 # ── Mermaid source fallback ───────────────────────────────────────────────────
 
-def test_mermaid_source_shown_as_code_block():
+def test_mermaid_source_shown_as_code_block_without_error_header():
     md = "```mermaid\ngraph TD\n  A --> B\n```"
     lines = _render(md)
     full = "\n".join(lines)
     assert "mermaid" in full.lower()
     assert "A --> B" in full
-
-
-def test_mermaid_no_error_header_without_fallback():
-    md = "```mermaid\ngraph TD\n  A --> B\n```"
-    lines = _render(md)
+    # no "unavailable" error header when no fallback renderer is involved
     assert not any("unavailable" in l.lower() for l in lines)
 
 

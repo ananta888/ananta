@@ -15,9 +15,17 @@ def _decide(**kwargs) -> ContextBudgetDecision:
 
 # ── Mode selection ────────────────────────────────────────────────────────────
 
-def test_smalltalk_intent_gives_safe_minimal_chat():
+def test_smalltalk_intent_gives_safe_minimal_chat_with_minimal_sources():
     decision = _decide(intent="smalltalk")
     assert decision.mode == "safe_minimal_chat"
+    # safe_minimal blocks rag, tool schemas, full history and compaction
+    assert "rag" in decision.blocked_context_sources
+    assert "tool_schemas" in decision.blocked_context_sources
+    assert "full_history" in decision.blocked_context_sources
+    assert "compaction" in decision.blocked_context_sources
+    # safe_minimal allows the user message and a short history
+    assert "user_message" in decision.allowed_context_sources
+    assert "short_history" in decision.allowed_context_sources
 
 
 def test_code_question_gives_project_chat():
@@ -25,14 +33,19 @@ def test_code_question_gives_project_chat():
     assert decision.mode == "project_chat"
 
 
-def test_tool_request_gives_tool_enabled_chat():
+def test_tool_request_gives_tool_enabled_chat_with_tool_schemas():
     decision = _decide(intent="tool_request")
     assert decision.mode == "tool_enabled_chat"
+    assert "tool_schemas" in decision.allowed_context_sources
 
 
-def test_analysis_gives_deep_analysis():
+def test_analysis_gives_deep_analysis_with_all_sources():
     decision = _decide(intent="analysis")
     assert decision.mode == "deep_analysis"
+    assert "rag" in decision.allowed_context_sources
+    assert "tool_schemas" in decision.allowed_context_sources
+    assert "full_history" in decision.allowed_context_sources
+    assert decision.blocked_context_sources == []
 
 
 def test_unknown_intent_fail_closed_gives_safe_minimal():
@@ -45,12 +58,7 @@ def test_unknown_intent_not_fail_closed_gives_project_chat():
     assert decision.mode == "project_chat"
 
 
-def test_empty_intent_fail_closed_gives_safe_minimal():
-    decision = _decide(intent="", fail_closed=True)
-    assert decision.mode == "safe_minimal_chat"
-
-
-def test_no_model_profile_fail_closed_gives_safe_minimal():
+def test_empty_intent_without_model_profile_fail_closed_gives_safe_minimal():
     decision = _decide(intent="", model_profile=None, fail_closed=True)
     assert decision.mode == "safe_minimal_chat"
     assert "no_model_profile_fail_closed" in decision.reason_codes
@@ -58,42 +66,15 @@ def test_no_model_profile_fail_closed_gives_safe_minimal():
 
 # ── Blocked / allowed sources ─────────────────────────────────────────────────
 
-def test_safe_minimal_blocks_rag():
-    decision = _decide(intent="smalltalk")
-    assert "rag" in decision.blocked_context_sources
-    assert "tool_schemas" in decision.blocked_context_sources
-    assert "full_history" in decision.blocked_context_sources
-    assert "compaction" in decision.blocked_context_sources
-
-
-def test_safe_minimal_allows_user_message_and_short_history():
-    decision = _decide(intent="smalltalk")
-    assert "user_message" in decision.allowed_context_sources
-    assert "short_history" in decision.allowed_context_sources
-
-
-def test_tool_enabled_allows_tool_schemas():
-    decision = _decide(intent="tool_request")
-    assert "tool_schemas" in decision.allowed_context_sources
-
-
-def test_deep_analysis_allows_all_sources():
-    decision = _decide(intent="analysis")
-    assert "rag" in decision.allowed_context_sources
-    assert "tool_schemas" in decision.allowed_context_sources
-    assert "full_history" in decision.allowed_context_sources
-    assert decision.blocked_context_sources == []
+# Allowed/blocked sources per mode are checked together with the mode
+# selection above (smalltalk, tool_request, analysis).
 
 
 # ── Metadata ──────────────────────────────────────────────────────────────────
 
-def test_decision_ref_is_set():
-    decision = _decide(intent="smalltalk")
-    assert decision.decision_ref  # non-empty UUID
-
-
-def test_fail_closed_flag():
+def test_decision_ref_and_fail_closed_flag_are_set():
     decision = _decide(intent="smalltalk", fail_closed=True)
+    assert decision.decision_ref  # non-empty UUID
     assert decision.fail_closed is True
 
 

@@ -41,20 +41,14 @@ def test_ascii_fallback():
     assert "^" in col or "v" in col or "|" in col
 
 
-def test_thumb_position_top():
-    info = scrollbar_thumb_info(content_height=100, viewport_height=20, offset=0)
-    assert info["thumb_pos"] == 0
-
-
-def test_thumb_position_bottom():
-    info = scrollbar_thumb_info(content_height=100, viewport_height=20, offset=80)
-    assert info["thumb_pos"] == info["thumb_h"] or info["thumb_pos"] > 0
-
-
-def test_thumb_pos_increases_with_offset():
+def test_thumb_pos_starts_at_top_and_increases_with_offset():
     info1 = scrollbar_thumb_info(content_height=100, viewport_height=20, offset=0)
     info2 = scrollbar_thumb_info(content_height=100, viewport_height=20, offset=40)
     info3 = scrollbar_thumb_info(content_height=100, viewport_height=20, offset=80)
+    # top: thumb at position 0
+    assert info1["thumb_pos"] == 0
+    # bottom: thumb moved away from the top
+    assert info3["thumb_pos"] == info3["thumb_h"] or info3["thumb_pos"] > 0
     assert info1["thumb_pos"] <= info2["thumb_pos"] <= info3["thumb_pos"]
 
 

@@ -33,11 +33,14 @@ def _contract(**overrides) -> ScheduledJobContract:
 # ── EW-T054: ScheduledJobContract ────────────────────────────────────────────
 
 class TestScheduledJobContract:
-    def test_creates_valid_contract(self):
+    def test_default_contract_is_valid_and_frozen(self):
         c = _contract()
         assert c.job_id == "job-001"
         assert c.max_runtime_seconds == 300
         assert c.delivery_target == DeliveryTarget.hub
+        # the contract is frozen: attributes cannot be reassigned
+        with pytest.raises((TypeError, AttributeError)):
+            c.job_id = "modified"  # type: ignore
 
     def test_zero_max_runtime_rejected(self):
         with pytest.raises(ValueError, match="max_runtime_seconds"):
@@ -64,11 +67,6 @@ class TestScheduledJobContract:
     def test_artifact_store_target_no_url_needed(self):
         c = _contract(delivery_target=DeliveryTarget.artifact_store)
         assert c.delivery_target == DeliveryTarget.artifact_store
-
-    def test_frozen_contract_immutable(self):
-        c = _contract()
-        with pytest.raises((TypeError, AttributeError)):
-            c.job_id = "modified"  # type: ignore
 
     def test_context_policy_max_tokens_positive(self):
         with pytest.raises(ValueError, match="max_tokens"):
@@ -176,7 +174,7 @@ class TestHeadlessApprovalPolicy:
 # ── EW-T056: JobRunArtifact / JobRunArtifactBuilder ──────────────────────────
 
 class TestJobRunArtifact:
-    def test_as_dict_required_fields(self):
+    def test_as_dict_has_required_fields_and_job_run_artifact_kind(self):
         artifact = JobRunArtifact(
             artifact_id="a1",
             job_id="job-001",
@@ -190,13 +188,7 @@ class TestJobRunArtifact:
                     "started_at", "ended_at", "duration_seconds", "warnings",
                     "retry_recommended", "trace_bundle_ref"):
             assert key in d, f"missing {key!r}"
-
-    def test_kind_is_job_run_artifact(self):
-        artifact = JobRunArtifact(
-            artifact_id="a1", job_id="j1", task_id="t1",
-            status=JobStatus.success, started_at=0.0, ended_at=1.0,
-        )
-        assert artifact.as_dict()["kind"] == "job_run_artifact"
+        assert d["kind"] == "job_run_artifact"
 
     def test_duration_calculated(self):
         artifact = JobRunArtifact(
@@ -226,12 +218,13 @@ class TestJobRunArtifact:
 
 
 class TestJobRunArtifactBuilder:
-    def test_build_success(self):
+    def test_build_success_sets_ids_status_and_monotonic_timestamps(self):
         builder = JobRunArtifactBuilder("job-001", "t1")
         artifact = builder.finish(JobStatus.success)
         assert artifact.status == JobStatus.success
         assert artifact.job_id == "job-001"
         assert artifact.task_id == "t1"
+        assert artifact.ended_at >= artifact.started_at
 
     def test_artifact_id_unique(self):
         a1 = JobRunArtifactBuilder("j", "t").finish(JobStatus.success)
@@ -282,11 +275,6 @@ class TestJobRunArtifactBuilder:
         builder = JobRunArtifactBuilder("job-001", "t")
         artifact = builder.finish(JobStatus.timeout, contract=contract)
         assert artifact.retry_recommended is True
-
-    def test_builder_timestamps_monotonic(self):
-        builder = JobRunArtifactBuilder("j", "t")
-        artifact = builder.finish(JobStatus.success)
-        assert artifact.ended_at >= artifact.started_at
 
     def test_set_error(self):
         builder = JobRunArtifactBuilder("j", "t")

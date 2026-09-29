@@ -201,7 +201,7 @@ class TestT002PreflightGate:
         rt, _, _ = _make_runtime()
         assert rt._preflight_gate is not None
 
-    def test_approval_required_command_blocked_by_preflight(self):
+    def test_approval_required_command_blocked_by_preflight_before_artifact_publish(self):
         class _ApprovalPort:
             def classify_command(self, *, command, profile, hub_decision="allow"):
                 return {"decision": "allow", "risk_classification": "high", "required_approval": True}
@@ -211,6 +211,7 @@ class TestT002PreflightGate:
         # required_approval=True → no auto-approval_ref → preflight confirm_required
         assert result["status"] == "degraded"
         assert result["reason"] == "approval_required"
+        # Artifact must not be published if preflight blocks.
         assert len(ap.artifacts) == 0
 
     def test_safe_command_passes_preflight(self):
@@ -218,16 +219,6 @@ class TestT002PreflightGate:
         result = rt.run(task_contract=_standalone_contract(), workspace_dir="/tmp")
         assert result["status"] == "completed"
         assert len(ap.artifacts) == 1
-
-    def test_preflight_fires_before_artifact_publish(self):
-        """Artifact must not be published if preflight blocks."""
-        class _ApprovalPort:
-            def classify_command(self, *, command, profile, hub_decision="allow"):
-                return {"decision": "allow", "risk_classification": "high", "required_approval": True}
-
-        rt, _, ap = _make_runtime(policy_port=_ApprovalPort())
-        rt.run(task_contract=_standalone_contract(), workspace_dir="/tmp")
-        assert len(ap.artifacts) == 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -313,12 +304,13 @@ class TestT004CapabilityVocab:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestT005CapabilitySnapshot:
-    def test_snapshot_hash_in_started_event(self):
+    def test_started_event_carries_snapshot_hash_and_hub_decision(self):
         rt, tp, _ = _make_runtime()
-        rt.run(task_contract=_standalone_contract(), workspace_dir="/tmp")
+        rt.run(task_contract=_standalone_contract(hub_decision="allow"), workspace_dir="/tmp")
         started = next(e for e in tp.events if e["event_type"] == "standalone_runtime_started")
         assert "capability_snapshot_hash" in started["payload"]
         assert len(started["payload"]["capability_snapshot_hash"]) == 64
+        assert started["payload"]["hub_decision"] == "allow"
 
     def test_snapshot_hash_is_deterministic(self):
         rt, tp, _ = _make_runtime()
@@ -338,12 +330,6 @@ class TestT005CapabilitySnapshot:
         started = next(e for e in tp.events if e["event_type"] == "standalone_todo_runtime_started")
         assert "capability_snapshot_hash" in started["payload"]
 
-    def test_hub_decision_in_started_event(self):
-        rt, tp, _ = _make_runtime()
-        rt.run(task_contract=_standalone_contract(hub_decision="allow"), workspace_dir="/tmp")
-        started = next(e for e in tp.events if e["event_type"] == "standalone_runtime_started")
-        assert started["payload"]["hub_decision"] == "allow"
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AWF-T006: Fail-closed audit pipeline
@@ -360,12 +346,13 @@ class TestT006FailClosedAudit:
         finished_idx = event_types.index("standalone_runtime_finished")
         assert audit_idx < finished_idx
 
-    def test_audit_failure_blocks_mutation(self):
+    def test_audit_failure_blocks_mutation_without_side_effects(self):
         tp = _ListTracePort(raise_on="mutation_audit_preflight")
         rt, _, ap = _make_runtime(trace_port=tp)
         result = rt.run(task_contract=_standalone_contract(), workspace_dir="/tmp")
         assert result["status"] == "degraded"
         assert result["reason"] == "audit_pipeline_unavailable"
+        # No artifact side effects on audit failure.
         assert len(ap.artifacts) == 0
 
     def test_audit_failure_todo_contract(self):
@@ -374,12 +361,6 @@ class TestT006FailClosedAudit:
         result = rt.run(task_contract=_todo_contract(), workspace_dir="/tmp")
         assert result["status"] == "degraded"
         assert result["reason"] == "audit_pipeline_unavailable"
-
-    def test_no_side_effects_on_audit_failure(self):
-        tp = _ListTracePort(raise_on="mutation_audit_preflight")
-        rt, _, ap = _make_runtime(trace_port=tp)
-        rt.run(task_contract=_standalone_contract(), workspace_dir="/tmp")
-        assert len(ap.artifacts) == 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════

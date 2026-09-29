@@ -47,23 +47,17 @@ class TestT021GroundedPromptContract:
         assert "expected_artifacts" in result.sections
         assert "output_schema" in result.sections
 
-    def test_control_before_context_in_prompt(self):
+    def test_prompt_orders_instructions_before_untrusted_context(self):
         result = self._assemble()
         prompt = result.prompt
         # [CONTROL] must appear before CONTEXT DATA
         assert prompt.index("[CONTROL]") < prompt.index("CONTEXT DATA")
-
-    def test_task_before_context_in_prompt(self):
-        result = self._assemble()
         assert result.prompt.index("[TASK]") < result.prompt.index("CONTEXT DATA")
-
-    def test_policy_before_context_in_prompt(self):
-        result = self._assemble()
         assert result.prompt.index("[POLICY") < result.prompt.index("CONTEXT DATA")
-
-    def test_context_is_labeled_untrusted(self):
-        result = self._assemble()
+        # context is labeled untrusted
         assert "untrusted" in result.prompt.lower()
+        # metadata carries the secrets_excluded flag
+        assert result.prompt_metadata.get("secrets_excluded") is True
 
     def test_context_hash_in_prompt_and_metadata(self):
         result = self._assemble(context_hash="myhash42")
@@ -109,10 +103,6 @@ class TestT021GroundedPromptContract:
                 context_blocks=[], expected_artifacts=[], output_schema="{}", context_hash="",
             )
 
-    def test_metadata_has_secrets_excluded_flag(self):
-        result = self._assemble()
-        assert result.prompt_metadata.get("secrets_excluded") is True
-
     def test_context_budget_respected(self):
         from worker.core.prompt_contract import assemble_grounded_prompt
         big_block = "x" * 20_000
@@ -142,19 +132,15 @@ class TestT022MemoryPolicy:
         assert p["archive_raw_output"] is False
         assert p["enabled"] is True
         assert p["policy_version"] == "memory_policy_v2"
-
-    def test_sensitivity_default_internal(self):
-        p = self._policy()
+        # sensitivity defaults to internal
         assert p["sensitivity"] == "internal"
+        # policy_version is always set
+        assert "policy_version" in p
+        assert p["policy_version"]
 
     def test_custom_sensitivity(self):
         p = self._policy(sensitivity="confidential")
         assert p["sensitivity"] == "confidential"
-
-    def test_policy_version_always_set(self):
-        p = self._policy()
-        assert "policy_version" in p
-        assert p["policy_version"]
 
     def test_enabled_false_skips_write(self, tmp_path, monkeypatch):
         from agent.services.result_memory_service import ResultMemoryService
@@ -265,15 +251,12 @@ class TestT024MemoryProposal:
         assert proposal.proposed_scope == "project"
         assert proposal.confidence == 0.8
 
-    def test_proposal_requires_approval(self):
+    def test_proposal_requires_approval_and_does_not_write_to_db(self, monkeypatch):
+        saved = []
+        monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e))
         proposal = self._svc().build_memory_proposal(title="t", rationale="r")
         assert proposal.approval_required is True
         assert proposal.approved is False
-
-    def test_proposal_does_not_write_to_db(self, monkeypatch):
-        saved = []
-        monkeypatch.setattr("agent.repository.memory_entry_repo.save", lambda e: saved.append(e))
-        self._svc().build_memory_proposal(title="t", rationale="r")
         assert len(saved) == 0
 
     def test_proposal_has_sensitivity(self):
@@ -303,17 +286,14 @@ class TestT025MemoryProvenance:
         entry = self._save_entry(monkeypatch, generated_by="agent-007")
         assert dict(entry.memory_metadata)["generated_by"] == "agent-007"
 
-    def test_approved_false_by_default(self, monkeypatch):
+    def test_default_entry_is_unapproved_worker_result(self, monkeypatch):
         entry = self._save_entry(monkeypatch)
         assert dict(entry.memory_metadata)["approved"] is False
+        assert dict(entry.memory_metadata)["trust_source"] == "worker_result"
 
     def test_confidence_stored(self, monkeypatch):
         entry = self._save_entry(monkeypatch, confidence=0.75)
         assert dict(entry.memory_metadata)["confidence"] == 0.75
-
-    def test_trust_source_is_worker_result(self, monkeypatch):
-        entry = self._save_entry(monkeypatch)
-        assert dict(entry.memory_metadata)["trust_source"] == "worker_result"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -13,13 +13,9 @@ from agent.tui_shell_runtime import (
 
 # ── Initial state ─────────────────────────────────────────────────────────────
 
-def test_initial_mode_is_dashboard():
+def test_initial_state_is_dashboard_pane_without_session():
     rt = TuiShellRuntime()
     assert rt.current_state().mode == ShellMode.DASHBOARD
-
-
-def test_initial_state_is_frozen():
-    rt = TuiShellRuntime()
     state = rt.current_state()
     assert isinstance(state, TuiPaneState)
     assert state.session_id == ""
@@ -79,12 +75,6 @@ def test_readonly_context_set():
 # ── switch_to: invalid transitions ───────────────────────────────────────────
 
 def test_dashboard_cannot_transition_to_itself():
-    rt = TuiShellRuntime()
-    with pytest.raises(ShellModeTransitionError):
-        rt.switch_to(ShellMode.DASHBOARD)
-
-
-def test_invalid_transition_raises():
     rt = TuiShellRuntime()
     # DASHBOARD → DASHBOARD is invalid per _VALID_TRANSITIONS
     with pytest.raises(ShellModeTransitionError, match="Invalid transition"):

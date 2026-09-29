@@ -52,30 +52,35 @@ def make_graph(
     return ConfigGraphBuilderService(repo_root=tmp, user_config=cfg).build()
 
 
+@pytest.fixture(scope="module")
+def surface_only_result():
+    """Default graph resolved for the ai_snake_chat surface without task kind or path.
+
+    Module-scoped: the tests below only read the resolved result.
+    """
+    return EffectiveConfigResolver(make_graph()).resolve(surface="ai_snake_chat")
+
+
 # ── Instruction layers ────────────────────────────────────────────────────────
 
-def test_root_instruction_layer_always_first():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
+def test_resolve_surface_puts_root_instruction_layer_first_and_traces_merge(surface_only_result):
+    result = surface_only_result
     assert result.instruction_layers[0]["layer"] == "root"
-
-
-def test_instruction_layers_include_root():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
     assert any(l["layer"] == "root" for l in result.instruction_layers)
+    # Merge trace is non-empty.
+    assert len(result.merge_trace) >= 1
 
 
 # ── Agent profile matching ────────────────────────────────────────────────────
 
-def test_profile_matched_by_surface_name():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
+def test_resolve_surface_matches_profile_without_goal_template(surface_only_result):
+    result = surface_only_result
     assert result.agent_profile is not None
     assert result.agent_profile["profile_id"] == "ai_snake_chat"
+    # Effective node ids include the matched profile.
+    assert any("agent_profile::" in nid for nid in result.effective_node_ids)
+    # No goal template when task_kind is None.
+    assert result.goal_template is None
 
 
 def test_profile_matched_by_task_kind():
@@ -93,28 +98,17 @@ def test_no_profile_match_adds_warning():
     assert any("No agent profile matched" in warning for warning in result.warnings)
 
 
-def test_effective_node_ids_include_profile():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
-    assert any("agent_profile::" in nid for nid in result.effective_node_ids)
-
-
 # ── Goal template matching ────────────────────────────────────────────────────
 
-def test_goal_template_matched_by_task_kind():
+def test_resolve_bugfix_task_kind_matches_goal_template_with_ordered_merge_trace():
     graph = make_graph()
     resolver = EffectiveConfigResolver(graph)
     result = resolver.resolve(surface="ai_snake_chat", task_kind="bugfix")
     assert result.goal_template is not None
     assert result.goal_template["template_id"] == "bugfix"
-
-
-def test_no_template_when_task_kind_none():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat", task_kind=None)
-    assert result.goal_template is None
+    # Merge trace step numbers are ascending.
+    steps = [t["step"] for t in result.merge_trace]
+    assert steps == sorted(steps)
 
 
 def test_stale_template_adds_warning():
@@ -174,23 +168,6 @@ def test_all_modes_blocked_adds_warning():
     assert isinstance(result.warnings, list)
 
 
-# ── Merge trace ───────────────────────────────────────────────────────────────
-
-def test_merge_trace_non_empty():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
-    assert len(result.merge_trace) >= 1
-
-
-def test_merge_trace_has_step_numbers():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat", task_kind="bugfix")
-    steps = [t["step"] for t in result.merge_trace]
-    assert steps == sorted(steps)
-
-
 # ── to_dict ───────────────────────────────────────────────────────────────────
 
 def test_to_dict_keys():
@@ -218,17 +195,9 @@ def test_to_dict_surface_preserved():
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 
-def test_tools_allowed_is_list():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
+def test_missing_tool_policy_defaults_to_no_tools_with_warning(surface_only_result):
+    result = surface_only_result
     assert isinstance(result.tools_allowed, list)
-
-
-def test_missing_tool_policy_defaults_to_no_tools_with_warning():
-    graph = make_graph()
-    resolver = EffectiveConfigResolver(graph)
-    result = resolver.resolve(surface="ai_snake_chat")
     assert result.tools_allowed == []
     assert result.tool_policy_missing is True
     assert any("default-deny" in warning for warning in result.warnings)

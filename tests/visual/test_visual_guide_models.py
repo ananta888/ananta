@@ -46,16 +46,13 @@ class TestVisualGuideRequest:
         d = req.to_dict()
         assert d["region_steps_count"] == 2
 
-    def test_request_id_auto_generated(self):
+    def test_defaults_generate_unique_request_id_and_recent_created_at(self):
+        before = time.time()
         req1 = VisualGuideRequest()
         req2 = VisualGuideRequest()
-        assert req1.request_id != req2.request_id
-
-    def test_created_at_is_recent(self):
-        before = time.time()
-        req = VisualGuideRequest()
         after = time.time()
-        assert before <= req.created_at <= after
+        assert req1.request_id != req2.request_id
+        assert before <= req1.created_at <= after
 
     def test_to_dict_contains_required_keys(self):
         req = VisualGuideRequest(snake_id="s", trigger_type="ui_tick", route="/chats")

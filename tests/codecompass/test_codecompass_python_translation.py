@@ -139,31 +139,9 @@ class TestCollectionSemantics:
         t = _classify_type("set[str]")
         assert t.collection_kind == "set"
 
-    def test_java_list_mapping(self):
-        from agent.codecompass.semantic_translation.java_type_registry_python import PythonToJavaTypeRegistry
-        r = PythonToJavaTypeRegistry()
-        m = r.map_type("list[str]")
-        assert m.java_type == "List<String>"
-        assert "java.util.List" in m.imports
-
-    def test_java_dict_mapping(self):
-        from agent.codecompass.semantic_translation.java_type_registry_python import PythonToJavaTypeRegistry
-        r = PythonToJavaTypeRegistry()
-        m = r.map_type("dict[str, int]")
-        assert "Map<String,Long>" in m.java_type
-        assert "java.util.Map" in m.imports
-
-    def test_rust_vec_mapping(self):
-        from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
-        r = PythonToRustTypeRegistry()
-        m = r.map_type("list[str]")
-        assert m.rust_type == "Vec<String>"
-
-    def test_rust_hashmap_mapping(self):
-        from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
-        r = PythonToRustTypeRegistry()
-        m = r.map_type("dict[str, int]")
-        assert "HashMap" in m.rust_type
+    # The list[str] and dict[str, int] mappings to Java (List/Map) and Rust
+    # (Vec/HashMap) are checked in TestJavaTypeRegistry and TestRustTypeRegistry
+    # (test_list_str / test_dict_str_int).
 
     def test_rust_hashset_mapping(self):
         from agent.codecompass.semantic_translation.rust_type_registry import PythonToRustTypeRegistry
@@ -315,25 +293,21 @@ class TestPythonExceptionFlow:
         exc = fn.get("exception_info", {})
         assert exc.get("has_finally") is True
 
-    def test_bare_except_blocks_transform(self):
+    def test_bare_except_blocks_transform_and_flags_dynamic_exception_types(self):
         code = "def risky() -> None:\n    try:\n        pass\n    except:\n        pass"
         parsed = self._adapt(code)
         fn = parsed["functions"][0]
         exc = fn.get("exception_info", {})
         assert exc.get("has_bare_except") is True
         assert "bare_except_blocks_auto_transform" in fn.get("warnings", [])
+        # a bare except catches an unknown (dynamic) set of exception types
+        assert fn["exception_info"]["dynamic_exception_types"] is True
 
     def test_bare_except_detected_as_blocker(self):
         code = "def risky() -> None:\n    try:\n        pass\n    except:\n        pass"
         result = self._detect(code)
         assert result.has_blockers
         assert "bare_except" in result.blocker_codes
-
-    def test_dynamic_exception_type_is_flagged(self):
-        code = "def risky() -> None:\n    try:\n        pass\n    except:\n        pass"
-        parsed = self._adapt(code)
-        fn = parsed["functions"][0]
-        assert fn["exception_info"]["dynamic_exception_types"] is True
 
     def test_clean_function_no_exception_info_issues(self):
         code = "def add(a: int, b: int) -> int:\n    return a + b"
@@ -350,12 +324,8 @@ class TestPythonExceptionFlow:
         d = engine.classify_exception_policy("ValueError")
         assert d.rust_policy == "result_t_e"
 
-    def test_rust_exception_policy_bare_blocks(self):
-        from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine
-        engine = RustOwnershipPolicyEngine()
-        d = engine.classify_exception_policy("Exception")
-        assert d.rust_policy == "needs_review"
-        assert any("bare_exception" in w for w in d.warnings)
+    # The bare "Exception" -> needs_review policy is checked in
+    # TestRustOwnershipPolicy::test_exception_bare_blocks_transform.
 
     def test_unsupported_exception_type_needs_review(self):
         from agent.codecompass.semantic_translation.rust_ownership_policy import RustOwnershipPolicyEngine

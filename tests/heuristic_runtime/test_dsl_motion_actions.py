@@ -87,11 +87,12 @@ def test_from_dsl_action_unknown_kind_fallback():
     assert result.answer_kind == "no_good_match"
 
 
-def test_from_dsl_action_default_confidence():
-    """Fehlende confidence → Default 0.8."""
+def test_from_dsl_action_defaults_confidence_and_strategy_id():
+    """Fehlende confidence → Default 0.8; strategy_id ist None wenn nicht angegeben."""
     action = {"kind": "follow_artifact"}
     result = DecisionResult.from_dsl_action(action)
     assert result.confidence == 0.8
+    assert result.strategy_id is None
 
 
 def test_from_dsl_action_empty_reason_codes():
@@ -106,13 +107,6 @@ def test_from_dsl_action_strategy_id_propagated():
     action = {"kind": "lurk_near"}
     result = DecisionResult.from_dsl_action(action, strategy_id="my_heuristic_v2")
     assert result.strategy_id == "my_heuristic_v2"
-
-
-def test_from_dsl_action_no_strategy_id():
-    """strategy_id ist None wenn nicht angegeben."""
-    action = {"kind": "follow_artifact"}
-    result = DecisionResult.from_dsl_action(action)
-    assert result.strategy_id is None
 
 
 def test_from_dsl_action_is_heuristic():

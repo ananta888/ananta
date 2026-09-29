@@ -78,20 +78,14 @@ def test_bounded_commands_resolve_to_bounded_class(cmd):
 # Filesystem boundary: workspace root enforcement is on by default
 # ---------------------------------------------------------------------------
 
-def test_filesystem_enforce_workspace_boundary_default():
+def test_filesystem_defaults_enforce_boundary_block_sensitive_dirs_and_allow_workspace():
     normalized = SVC.normalize({})
     assert normalized["filesystem"]["enforce_workspace_boundary"] is True
 
-
-def test_filesystem_blocked_path_fragments_include_sensitive_dirs():
-    normalized = SVC.normalize({})
     blocked = normalized["filesystem"]["blocked_path_fragments"]
     for sensitive in ["/.ssh", "/etc/", "/proc/", "/sys/"]:
         assert sensitive in blocked, f"Expected {sensitive!r} in blocked fragments"
 
-
-def test_filesystem_allowed_workspace_roots_default():
-    normalized = SVC.normalize({})
     roots = normalized["filesystem"]["allowed_workspace_roots"]
     assert "/workspace" in roots
 
@@ -150,12 +144,8 @@ def test_sandbox_wrappers_disabled_bypasses_class_check():
 # Terminal policy: blocked target types enforcement
 # ---------------------------------------------------------------------------
 
-def test_terminal_blocked_target_types_default_includes_hub_as_worker():
+def test_terminal_defaults_block_hub_as_worker_and_enforce():
     normalized = SVC.normalize({})
     blocked = normalized["terminal_access"]["blocked_target_types"]
     assert "hub_as_worker" in blocked
-
-
-def test_terminal_enforce_is_true_by_default():
-    normalized = SVC.normalize({})
     assert normalized["terminal_access"]["enforce"] is True

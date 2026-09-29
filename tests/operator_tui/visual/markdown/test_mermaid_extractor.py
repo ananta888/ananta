@@ -12,13 +12,18 @@ from client_surfaces.operator_tui.visual.markdown.markdown_parser import (
 )
 
 
-def test_extract_single_mermaid():
+def test_extract_single_mermaid_with_stable_hash():
     blocks = [MermaidBlock(source="graph TD\nA --> B")]
     extracted = extract_mermaid_blocks(blocks)
     assert len(extracted) == 1
     assert extracted[0].source == "graph TD\nA --> B"
     assert extracted[0].position_index == 0
     assert len(extracted[0].source_hash) == 16
+    # hash is stable for the same input
+    source = "graph TD\nA --> B"
+    h1 = extract_mermaid_blocks([MermaidBlock(source=source)])[0].source_hash
+    h2 = extract_mermaid_blocks([MermaidBlock(source=source)])[0].source_hash
+    assert h1 == h2
 
 
 def test_extract_preserves_exact_source():
@@ -47,13 +52,6 @@ def test_no_mermaid_returns_empty():
 
 def test_empty_blocks_returns_empty():
     assert extract_mermaid_blocks([]) == []
-
-
-def test_stable_hash_same_input():
-    source = "graph TD\nA --> B"
-    h1 = extract_mermaid_blocks([MermaidBlock(source=source)])[0].source_hash
-    h2 = extract_mermaid_blocks([MermaidBlock(source=source)])[0].source_hash
-    assert h1 == h2
 
 
 def test_different_source_different_hash():
