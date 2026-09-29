@@ -6,6 +6,9 @@ from agent.config import settings
 from agent.llm_integration import generate_text
 
 
+pytestmark = pytest.mark.usefixtures("public_provider_dns")
+
+
 @pytest.fixture
 def mock_post():
     with patch("agent.common.http.requests.Session.post") as mock:

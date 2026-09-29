@@ -125,23 +125,19 @@ _INTEGRATION_OPT_IN_ENV = "RUN_INTEGRATION_TESTS"
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
-    """Skip integration-marked tests unless RUN_INTEGRATION_TESTS is set.
+    """Integration tests (the ``integration`` marker and everything under ``tests/integration/``) run by
+    default; ``RUN_INTEGRATION_TESTS=0`` switches them off.
 
-    Integration tests in this repo exercise the full planning/worker/claim
-    chain and rely on background threads with production-sized safety-net
-    timeouts (outer_planning_timeout_s default 645s). They MUST NOT run in
-    the default `pytest` invocation — a single one stalls the suite for
-    ~10 minutes. Opt-in via `RUN_INTEGRATION_TESTS=1`.
-
-    Parallel pattern to the manual_full_scan skip above.
+    They exercise the full planning/worker/claim chain. They used to be opt-in because one stalled test
+    could hold the suite for ~10 minutes on production-sized planning timeouts; the timeout brake below caps
+    those. As opt-in tests nobody ran, several had rotted, so they belong in the default run. Tests that need
+    a live runtime skip themselves when it is missing.
     """
     if "integration" not in item.keywords:
         return
-    if str(os.environ.get(_INTEGRATION_OPT_IN_ENV) or "").strip().lower() in {"1", "true", "yes", "on"}:
+    if str(os.environ.get(_INTEGRATION_OPT_IN_ENV) or "").strip().lower() not in {"0", "false", "no", "off"}:
         return
-    pytest.skip(
-        f"integration test requires {_INTEGRATION_OPT_IN_ENV}=1 (default pytest runs skip integration tests to keep suite fast)"
-    )
+    pytest.skip(f"integration tests switched off ({_INTEGRATION_OPT_IN_ENV}=0)")
 
 
 @pytest.fixture(autouse=True)
@@ -508,6 +504,7 @@ def _load_db_runtime_static() -> dict[str, Any]:
         WorkflowProviderBudgetReservationDB,
         WorkflowRuntimeReadModelDB,
     )
+    from agent.db_models.planning import PlanningPromptVersionDB
 
     return {
         "inspect": inspect,
@@ -664,6 +661,9 @@ def _load_db_runtime_static() -> dict[str, Any]:
             VoiceLiveRunSegmentDB,
             VoiceLiveRunDB,
             WorkflowRuntimeReadModelDB,
+            # tests save their own prompt versions; left behind, later planning tests got a foreign
+            # prompt (ensure_default_versions skips a version number that already exists)
+            PlanningPromptVersionDB,
             WorkflowProviderBudgetReservationDB,
             WorkflowProviderBudgetDB,
             WorkflowCommandNonceDB,
@@ -1192,6 +1192,18 @@ def ensure_state_ownership_matrix_file():
         }
         matrix_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
     yield
+
+
+@pytest.fixture
+def public_provider_dns(monkeypatch):
+    """The provider endpoint policy resolves external provider hosts (e.g. api.openai.com) and requires
+    public answers. A fixed public answer keeps provider tests offline and independent of the runner's DNS."""
+    import socket
+
+    def resolve(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port))]
+
+    monkeypatch.setattr("ananta_contracts.provider_endpoint_policy.socket.getaddrinfo", resolve)
 
 
 @pytest.fixture

@@ -436,9 +436,9 @@ docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user 100
 
 Richtwert: ~11 Minuten mit `-n 8` (43 GB Host). Mehr Worker helfen kaum und kosten Speicher.
 Ohne Langlaeufer: `-m "not slow"`.
-Integrationstests (Marker `integration` und alles unter `tests/integration/`) laufen nur mit
-`RUN_INTEGRATION_TESTS=1`. Tests, die eine Live-Runtime brauchen (z. B. vite-node, Live-Dienste), ueberspringen
-sich mit Begruendung.
+Integrationstests (Marker `integration` und alles unter `tests/integration/`) laufen standardmaessig mit;
+`RUN_INTEGRATION_TESTS=0` schaltet sie ab. Tests, die eine Live-Runtime brauchen (z. B. vite-node, Live-Dienste),
+ueberspringen sich mit Begruendung. Provider-Tests nutzen die Fixture `public_provider_dns` statt echtem DNS.
 
 Fuer die Arbeit an einer Aenderung reicht meist die **betroffene Auswahl**:
 
@@ -485,13 +485,14 @@ pytest --junitxml=test-reports/backend-junit.xml --cov=agent --cov-report=xml:te
 ```
 
 ### Frontend (Playwright)
-- **Gemockte Specs ohne Backend:** `npm run test:e2e:mocked` (`playwright.mocked.config.ts`) laeuft die Specs aus
+- **Gemockte Specs ohne Backend:** `npx playwright test -c playwright.mocked.config.ts` laeuft die Specs aus
   `tests/mocked-specs.ts` vollstaendig parallel, ohne Hub/Worker-Start und lokal ohne Retries (~1,5 min).
   Dort ist `E2E_MOCK_AUTH=1` gesetzt: `login()` aus `tests/utils.ts` legt eine Test-Session an, und eine
   Route auf Kontext-Ebene beantwortet nicht gemockte Hub-/Worker-Aufrufe leer (die Page-Routen der Spec haben
   Vorrang). Eine Spec gehoert nur dorthin, wenn sie so besteht und keine committeten Dateien schreibt. Specs,
   die ihre Daten serverseitig ueber die Hub-API anlegen (`request.post` gegen `:5500`), brauchen das echte
-  Backend und laufen weiter mit `npm run test:e2e`.
+  Backend und laufen weiter mit `npm run test:e2e`. (Bewusst kein npm-Skript: `package.json` ist Teil gehashter
+  Gate-Projektionen.)
 - **JUnit XML:** `frontend-angular/test-results/junit-results.xml`
 
 Der Report wird automatisch bei jedem E2E-Testlauf (`npm run test:e2e`) erstellt.

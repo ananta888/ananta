@@ -249,9 +249,18 @@ def test_extension_api_is_mtls_rate_limited_and_has_no_policy_or_task_surface():
     assert limited == 429
 
 
+class _PassThroughCommandGuard:
+    """Control paths require a command guard; this one hands the envelope straight to the route schema,
+    which is what the test examines (fencing/replay are covered by the guard's own tests)."""
+
+    def execute(self, *, path, envelope, action):
+        del path
+        return action(envelope)
+
+
 @pytest.mark.parametrize("forbidden", ["membership", "consent", "audience", "layercaps", "ttl", "epoch", "fencing"])
 def test_extension_route_schema_cannot_expand_hub_authority(forbidden):
-    app = RuntimeControlApplication(_Backend(), _Authorizer())
+    app = RuntimeControlApplication(_Backend(), _Authorizer(), command_guard=_PassThroughCommandGuard())
     route = {
         "route_id": "route-a",
         "room_name": "room-a",

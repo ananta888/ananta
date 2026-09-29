@@ -590,6 +590,7 @@ def test_profile_ollama_generate_uses_signed_exact_native_target(
     assert result["usage"]["total_tokens"] == 6
 
 
+@pytest.mark.usefixtures("public_provider_dns")
 def test_invocation_fallback_chain_local_gemma_qwen(monkeypatch) -> None:
     import agent.services.model_invocation_service as svc_mod
     from agent.services.model_profile_loader import ModelProfile
