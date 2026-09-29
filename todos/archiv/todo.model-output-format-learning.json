@@ -106,8 +106,8 @@
           "files": [
             "agent/services/planning_telemetry_service.py",
             "agent/services/planning_output_shape_classifier.py",
-            "tests/test_planning_output_shape_classifier.py",
-            "tests/test_planning_telemetry_service.py"
+            "tests/planning/test_planning_output_shape_classifier.py",
+            "tests/planning/test_planning_telemetry_service.py"
           ],
           "description": "Erweitere die Planning-Telemetrie so, dass pro Call output_shape, parse_mode, truncation_flag, format_error_codes und model_family normalisiert gespeichert werden.",
           "implementation_notes": [
@@ -177,7 +177,7 @@
             "agent/services/planning_prompt_optimizer_service.py",
             "agent/services/planning_prompt_registry.py",
             "tests/test_model_response_behavior_profile_service.py",
-            "tests/test_planning_prompt_optimizer_service.py"
+            "tests/planning/test_planning_prompt_optimizer_service.py"
           ],
           "description": "Erweitere das Modellprofil um preferred_output_format, preferred_prompt_style und observed_output_shape und leite daraus eine passende Prompt-/Repair-Strategie ab.",
           "implementation_notes": [
@@ -209,8 +209,8 @@
             "agent/services/planning_strategies.py",
             "agent/services/planning_format_error_analyzer.py",
             "agent/services/planning_prompt_evolver_service.py",
-            "tests/test_planning_strategies.py",
-            "tests/test_planning_prompt_evolver_service.py"
+            "tests/planning/test_planning_strategies.py",
+            "tests/planning/test_planning_prompt_evolver_service.py"
           ],
           "description": "Passe die Repair- und Evolver-Logik so an, dass sie bei json_in_markdown_fence, markdown_bullets und yaml_like unterschiedliche, kurze Repair-Pfade waehlt.",
           "implementation_notes": [
@@ -285,7 +285,7 @@
             "agent/services/planning_learning_loop_service.py",
             "agent/services/planning_model_profile_service.py",
             "agent/services/planning_prompt_evolver_service.py",
-            "tests/test_planning_learning_loop_service.py"
+            "tests/planning/test_planning_learning_loop_service.py"
           ],
           "description": "Erweitere den Learning-Loop um Stil- und Format-Schwellwerte, Canary-Aktivierung und Rollback-Hysterese fuer bevorzugte Output-Formen.",
           "implementation_notes": [

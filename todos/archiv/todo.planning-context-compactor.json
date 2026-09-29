@@ -61,8 +61,8 @@
   ],
   "expected_new_files": [
     "agent/services/planning_context_compactor_service.py",
-    "tests/test_planning_context_compactor_service.py",
-    "tests/test_planning_context_compactor_integration.py",
+    "tests/planning/test_planning_context_compactor_service.py",
+    "tests/planning/test_planning_context_compactor_integration.py",
     "docs/planning-context-compactor.md"
   ],
   "expected_modified_files": [
@@ -523,7 +523,7 @@
       "risk": "medium",
       "type": "test",
       "files": [
-        "tests/test_planning_context_compactor_service.py"
+        "tests/planning/test_planning_context_compactor_service.py"
       ],
       "description": "Service-Ausgabe gegen erwartetes Schema testen.",
       "acceptance_criteria": [
@@ -543,7 +543,7 @@
       "risk": "high",
       "type": "test",
       "files": [
-        "tests/test_planning_context_compactor_service.py"
+        "tests/planning/test_planning_context_compactor_service.py"
       ],
       "description": "Kritische Constraints müssen erhalten bleiben.",
       "acceptance_criteria": [
@@ -563,7 +563,7 @@
       "risk": "high",
       "type": "test",
       "files": [
-        "tests/test_planning_context_compactor_integration.py",
+        "tests/planning/test_planning_context_compactor_integration.py",
         "tests/test_task_scoped_handler_propose.py"
       ],
       "description": "End-to-end im bestehenden Propose-Flow testen.",
@@ -647,7 +647,7 @@
       "files": [
         "agent/services/planning_context_compactor_service.py",
         "agent/services/planning_validation_service.py",
-        "tests/test_planning_context_compactor_service.py"
+        "tests/planning/test_planning_context_compactor_service.py"
       ],
       "description": "Vor Rückgabe prüfen, dass kompaktierter Kontext Pflicht-Constraints für PlanningContract weiterhin referenzierbar macht.",
       "implementation_notes": [

@@ -15,7 +15,7 @@ from agent.services.planning_track_contract_service import (
 
 def _todo_track_payload() -> dict:
     file_path = (
-        Path(__file__).resolve().parents[1]
+        Path(__file__).resolve().parents[2]
         / "todos"
         / "archiv"
         / "todo.operator-tui-three-way-flex-diff-ai-mode.json"
@@ -92,8 +92,8 @@ def test_planning_track_envelope_roundtrip_keeps_payload() -> None:
 
 def test_planning_track_fixtures_validate_against_schema() -> None:
     fixtures = [
-        Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json",
-        Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "large_track.json",
+        Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json",
+        Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "large_track.json",
     ]
     for fixture in fixtures:
         payload = json.loads(fixture.read_text(encoding="utf-8"))

@@ -84,7 +84,7 @@ queue code.
    follows the workflow DAG, never the legacy `pipeline_order`. The
    planner materializer (WFG-007) and the queue reconciler (WFG-013)
    enforce this precedence. A regression test in
-   `tests/test_planning_track_task_integration_service.py`
+   `tests/planning/test_planning_track_task_integration_service.py`
    (`test_workflow_steps_take_precedence_over_pipeline_order`) locks
    it in.
 

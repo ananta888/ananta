@@ -103,8 +103,8 @@
             "agent/services/planning_telemetry_service.py",
             "agent/services/planning_output_shape_classifier.py",
             "agent/services/planning_metrics_service.py",
-            "tests/test_planning_output_shape_classifier.py",
-            "tests/test_planning_telemetry_service.py"
+            "tests/planning/test_planning_output_shape_classifier.py",
+            "tests/planning/test_planning_telemetry_service.py"
           ],
           "description": "Erweitere die Lerntelemetrie so, dass pro Call output_shape, parse_mode, parse_confidence, truncation_flag und format_error_codes normalisiert gespeichert werden.",
           "implementation_notes": [
@@ -174,7 +174,7 @@
             "agent/services/planning_learning_state_service.py",
             "agent/routes/config/shared.py",
             "agent/routes/config/read_models.py",
-            "tests/test_planning_model_profile_service.py"
+            "tests/planning/test_planning_model_profile_service.py"
           ],
           "description": "Erweitere Modellprofile so, dass sie einen expliziten Lernzustand, eine Beobachtungsphase und einen Aktivierungsstatus fuer bevorzugte Output-Formen halten koennen.",
           "implementation_notes": [
@@ -208,7 +208,7 @@
             "agent/services/planning_prompt_registry.py",
             "config/planning_prompts.default.json",
             "config/planning_model_profiles.default.json",
-            "tests/test_planning_prompt_evolver_service.py"
+            "tests/planning/test_planning_prompt_evolver_service.py"
           ],
           "description": "Passe den Prompt-Evolver so an, dass er Output-Form, Parse-Modus und Modellfamilie fuer die erste Lernphase gezielt beruecksichtigt und Repair-Hinweise modellfreundlich formt.",
           "implementation_notes": [
@@ -249,7 +249,7 @@
             "agent/services/planning_learning_loop_service.py",
             "agent/services/planning_prompt_evolver_service.py",
             "agent/config_defaults.py",
-            "tests/test_planning_learning_loop_service.py"
+            "tests/planning/test_planning_learning_loop_service.py"
           ],
           "description": "Definiere Schwellenwerte fuer Mindestanzahl von Runs, Parse-Rate, Validation-Rate und Repair-Rate, bevor ein Kandidat als stable aktiviert wird.",
           "implementation_notes": [
@@ -281,8 +281,8 @@
             "agent/services/planning_learning_loop_service.py",
             "agent/services/planning_metrics_service.py",
             "agent/services/planning_prompt_registry.py",
-            "tests/test_planning_learning_loop_service.py",
-            "tests/test_planning_metrics_service.py"
+            "tests/planning/test_planning_learning_loop_service.py",
+            "tests/planning/test_planning_metrics_service.py"
           ],
           "description": "Implementiere einen Rollback-Pfad, der nach Aktivierung eine Verschlechterung von Parse-Rate, Validation-Rate oder Materialisierung erkennt und wieder auf die vorherige stabile Version zurueckschaltet.",
           "implementation_notes": [

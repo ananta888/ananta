@@ -17,7 +17,7 @@ from agent.services.planning_track_task_integration_service import (
 
 
 def _fixture_payload() -> dict:
-    fixture = Path(__file__).resolve().parent / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parent.parent / "fixtures" / "planning_tracks" / "small_track.json"
     return json.loads(fixture.read_text(encoding="utf-8"))
 
 

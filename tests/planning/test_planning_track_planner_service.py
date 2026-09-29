@@ -13,7 +13,7 @@ from agent.services.planning_track_planner_service import (
 
 
 def _fixture_payload() -> dict:
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     return json.loads(fixture.read_text(encoding="utf-8"))
 
 

@@ -57,7 +57,7 @@
     "tests/test_instruction_stack_artifact_service.py",
     "tests/test_instruction_stack_propose_integration.py",
     "tests/test_template_architecture_regression.py",
-    "tests/test_planning_prompt_evolver_boundaries.py"
+    "tests/planning/test_planning_prompt_evolver_boundaries.py"
   ],
   "expected_modified_files": [
     "agent/services/instruction_layer_service.py",
@@ -321,7 +321,7 @@
       "priority": "P0",
       "risk": "critical",
       "type": "security",
-      "files": ["agent/services/planning_prompt_evolver_service.py", "agent/services/planning_prompt_evolution_guard_service.py", "tests/test_planning_prompt_evolver_boundaries.py"],
+      "files": ["agent/services/planning_prompt_evolver_service.py", "agent/services/planning_prompt_evolution_guard_service.py", "tests/planning/test_planning_prompt_evolver_boundaries.py"],
       "description": "Ein Guard prüft jede Evolver-Mutation darauf, dass keine Security-/Worker-/Role-/Overlay-Policy verändert wird.",
       "implementation_notes": ["Verbotene Keys: allowed_tools, tool_permissions, shell_allowed, cloud_allowed, context_scope, security_policy, governance_policy, approval_policy, worker_system_prompt_patch, role_template_patch, overlay_patch, provider_override.", "Guard prüft payload, output_contract, system_rules und mutierte Templates auf verbotene Direktiven.", "Bei Verstoß: evolution rejected, reason_code=evolver_scope_violation."],
       "acceptance_criteria": ["Mutation mit allowed_tools wird blockiert.", "Mutation mit worker_system_prompt_patch wird blockiert.", "Mutation mit ignore_governance wird blockiert.", "Normale Planning-Hinweise wie explicit task_kind bleiben erlaubt.", "Rejected Evolutions werden telemetry-/auditierbar mit reason_code erfasst."]
@@ -333,7 +333,7 @@
       "priority": "P0",
       "risk": "high",
       "type": "stability",
-      "files": ["agent/services/planning_prompt_evolver_service.py", "tests/test_planning_prompt_evolver_boundaries.py"],
+      "files": ["agent/services/planning_prompt_evolver_service.py", "tests/planning/test_planning_prompt_evolver_boundaries.py"],
       "description": "Der Evolver darf nicht immer mehr alte Fehlertexte oder doppelte Adaptive-Rules an Prompts anhängen.",
       "implementation_notes": ["Maximale Prompt-Länge pro language/mode/model_family erzwingen.", "Adaptive reinforcement rules deduplizieren.", "Alte fehlerhafte Outputs nicht vollständig einbetten, sondern nur reason_codes und kurze klassifizierte Zusammenfassung.", "Wenn Patch bereits vorhanden ist, keine neue Version erzeugen.", "Bei zu vielen Evolutions in kurzer Zeit: needs_review statt weiterer Auto-Patch."],
       "acceptance_criteria": ["Zweiter Lauf mit gleicher Ursache erzeugt keine doppelte Adaptive-Rules-Sektion.", "Prompt-Länge wird begrenzt.", "previous_output wird nicht vollständig in neue Prompt-Version übernommen.", "Checksum-Dedupe verhindert identische Versionen.", "Zu viele Evolutions für gleiche mode/model_family führen zu review_required statt Auto-Enable."]
@@ -345,7 +345,7 @@
       "priority": "P1",
       "risk": "high",
       "type": "integration",
-      "files": ["agent/services/planning_prompt_evolver_service.py", "agent/services/model_output_format_profile_service.py", "agent/services/planning_model_profile_service.py", "tests/test_planning_prompt_evolver_boundaries.py"],
+      "files": ["agent/services/planning_prompt_evolver_service.py", "agent/services/model_output_format_profile_service.py", "agent/services/planning_model_profile_service.py", "tests/planning/test_planning_prompt_evolver_boundaries.py"],
       "description": "Der Evolver darf nicht blind JSON-only verstärken, sondern muss die modelladaptiven Ausgabeformate berücksichtigen.",
       "implementation_notes": ["preferred_output_format aus PlanningPolicy, RuntimeProfile, PlanningModelProfile und ModelOutputFormatProfile ableiten.", "Wenn LM Studio Markdown stabiler liefert, darf Evolver markdown_sections verstärken.", "Wenn Ollama strict_json stabil liefert, darf strict_json verstärkt werden.", "Constraint-Loss schlägt Parse-Erfolg: Format mit Constraint-Loss darf nicht bevorzugt werden."],
       "acceptance_criteria": ["Evolver erzeugt keine JSON-only Regel, wenn accepted_output_formats JSON nicht priorisiert.", "LMStudio-Profil kann markdown_sections als bevorzugtes Evolver-Format erhalten.", "Ollama-Profil kann strict_json/fenced_json erhalten.", "Telemetry parse_success, repair_attempts, schema_violation und constraint_loss fließt in Formatentscheidung ein.", "Tests simulieren JSON-instabil/Markdown-stabil und prüfen korrekte Evolution."]
@@ -357,7 +357,7 @@
       "priority": "P1",
       "risk": "critical",
       "type": "governance",
-      "files": ["agent/db_models.py", "agent/services/planning_prompt_evolver_service.py", "agent/services/planning_review_queue_service.py", "tests/test_planning_prompt_evolver_boundaries.py"],
+      "files": ["agent/db_models.py", "agent/services/planning_prompt_evolver_service.py", "agent/services/planning_review_queue_service.py", "tests/planning/test_planning_prompt_evolver_boundaries.py"],
       "description": "Prompt Evolution darf nicht automatisch produktive Prompt-Versionen aktivieren, wenn sie relevante Prompt-Struktur verändert.",
       "implementation_notes": ["PlanningPromptVersionDB braucht ggf. status proposed|enabled|rejected oder enabled=false + review_metadata.", "Evolver speichert neue Versionen zunächst proposed, wenn policy planner_prompt_evolution.auto_enable nicht explizit true ist.", "PlanningModelProfile.preferred_prompt_version_id wird erst nach Review oder safe-auto-criteria aktualisiert.", "ReviewQueue erhält reason, diff summary, base checksum, evolved checksum."],
       "acceptance_criteria": ["Neue Evolver-Versionen sind default nicht sofort enabled.", "Auto-enable ist nur per expliziter Policy erlaubt.", "PlanningModelProfile wird bei proposed Version nicht sofort umgebogen.", "ReviewQueue enthält base_prompt_version, evolved_prompt_version, reasons und checksum.", "Tests prüfen proposed-default und explicit-auto-enable getrennt."]

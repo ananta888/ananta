@@ -66,14 +66,14 @@
     "agent/routes/tasks/auto_planner.py",
     "agent/routes/tasks/autopilot_tick_engine.py",
     "agent/config_defaults.py",
-    "tests/test_planning_prompt_evolver_service.py",
-    "tests/test_planning_metrics_service.py",
+    "tests/planning/test_planning_prompt_evolver_service.py",
+    "tests/planning/test_planning_metrics_service.py",
     "tests/test_model_response_behavior_aggregation_service.py",
-    "tests/test_planning_prompt_registry.py",
-    "tests/test_planning_strategies.py",
+    "tests/planning/test_planning_prompt_registry.py",
+    "tests/planning/test_planning_strategies.py",
     "tests/test_auto_planner.py",
     "tests/test_goal_planning_contract_integration.py",
-    "tests/test_planning_review_queue_service.py"
+    "tests/planning/test_planning_review_queue_service.py"
   ],
   "risk_register": [
     {
@@ -160,8 +160,8 @@
             "agent/services/planning_output_shape_classifier.py",
             "agent/services/planning_utils.py",
             "agent/services/planning_parser_chain.py",
-            "tests/test_planning_utils.py",
-            "tests/test_planning_output_shape_classifier.py"
+            "tests/planning/test_planning_utils.py",
+            "tests/planning/test_planning_output_shape_classifier.py"
           ],
           "description": "Erweitere die Output-Shape-Klassifikation und Parser-Diagnostik so, dass der bevorzugte Modellstil beobachtet und spaeter fuer Validierung und Repair genutzt werden kann.",
           "implementation_notes": [
@@ -192,7 +192,7 @@
             "agent/services/planning_metrics_service.py",
             "agent/services/model_response_behavior_aggregation_service.py",
             "agent/services/planning_evaluation_service.py",
-            "tests/test_planning_metrics_service.py",
+            "tests/planning/test_planning_metrics_service.py",
             "tests/test_model_response_behavior_aggregation_service.py"
           ],
           "description": "Erweitere die Metriken um Trendanalysen, stabile Fehlerbilder, Rolling-Windows und Modell-/Profil-Vergleiche.",
@@ -265,7 +265,7 @@
             "agent/services/planning_prompt_evolver_service.py",
             "agent/services/planning_prompt_registry.py",
             "config/planning_prompts.default.json",
-            "tests/test_planning_prompt_evolver_service.py"
+            "tests/planning/test_planning_prompt_evolver_service.py"
           ],
           "description": "Erzeuge evolve-fähige Kandidaten fuer Gemma, Qwen, Llama oder weitere Familien, wobei Prompts je nach beobachtetem Output-Shape angepasst werden koennen.",
           "implementation_notes": [
@@ -297,8 +297,8 @@
             "agent/services/planning_prompt_evolver_service.py",
             "agent/services/planning_model_profile_service.py",
             "agent/services/planning_metrics_service.py",
-            "tests/test_planning_prompt_evolver_service.py",
-            "tests/test_planning_model_profile_service.py"
+            "tests/planning/test_planning_prompt_evolver_service.py",
+            "tests/planning/test_planning_model_profile_service.py"
           ],
           "description": "Fuehre eine Canary- und Vergleichslogik ein, die einen Kandidaten nur dann auf preferred_prompt_version_id oder Profile-Default setzt, wenn er den aktuellen Stand signifikant schlaegt.",
           "implementation_notes": [
@@ -339,7 +339,7 @@
             "agent/services/planning_prompt_evolver_service.py",
             "agent/services/planning_metrics_service.py",
             "agent/services/planning_review_queue_service.py",
-            "tests/test_planning_prompt_evolver_service.py"
+            "tests/planning/test_planning_prompt_evolver_service.py"
           ],
           "description": "Rollbacks werden durch definierte Regression-Schwellen ausgelöst, nicht manuell. Der vorherige stabile Stand bleibt immer als Fallback verfügbar.",
           "implementation_notes": [
@@ -369,7 +369,7 @@
           "files": [
             "agent/services/planning_prompt_evolver_service.py",
             "agent/config_defaults.py",
-            "tests/test_planning_prompt_evolver_service.py"
+            "tests/planning/test_planning_prompt_evolver_service.py"
           ],
           "description": "Implementiere Freeze-Period, Mindestabstand zwischen Evolutionsversuchen und Hysterese-Regeln pro Modellprofil.",
           "implementation_notes": [
@@ -481,7 +481,7 @@
             "agent/services/planning_prompt_evolver_service.py",
             "agent/services/planning_model_profile_service.py",
             "agent/services/planning_review_queue_service.py",
-            "tests/test_planning_prompt_evolver_service.py"
+            "tests/planning/test_planning_prompt_evolver_service.py"
           ],
           "description": "Baue einen Guard ein, der verhindert, dass Kandidaten ohne ausreichende Metrikbestätigung automatisch auf preferred_prompt_version_id oder Profil-Default gesetzt werden.",
           "implementation_notes": [
@@ -513,8 +513,8 @@
           "summary": "Die komplette Lernschleife braucht Tests von Datenerfassung ueber Candidate-Erzeugung bis Rollback.",
           "files": [
             "tests/e2e/test_planning_learning_loop.py",
-            "tests/test_planning_prompt_evolver_service.py",
-            "tests/test_planning_metrics_service.py",
+            "tests/planning/test_planning_prompt_evolver_service.py",
+            "tests/planning/test_planning_metrics_service.py",
             "tests/test_model_response_behavior_aggregation_service.py"
           ],
           "description": "E2E- und Integrationstests simulieren mehrere Runs mit unterschiedlichen Output-Shapes, prüfen Trigger, Canary, Regression und Rollback und stellen sicher, dass keine Secrets oder Raw-Prompts ungewollt auslaufen.",

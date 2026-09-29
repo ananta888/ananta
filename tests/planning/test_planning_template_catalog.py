@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agent.services.planning_template_catalog import PlanningTemplateCatalog
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas" / "planning" / "planning_template_catalog.v1.json"
 
 

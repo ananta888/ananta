@@ -181,7 +181,7 @@
       "error": "FileNotFoundError: No such file or directory: todos/todo.operator-tui-three-way-flex-diff-ai-mode.json / todo.ananta-worker-fixup.json / todo.eclipse.json",
       "root_cause": "Tests referenzieren Todo-Dateien, die entweder archiviert, umbenannt oder noch nicht erstellt wurden. test_planning_track_contract_service.py braucht todo.operator-tui-three-way-flex-diff-ai-mode.json, test_awf_worker_fixup_t031_t045.py braucht todo.ananta-worker-fixup.json, test_docs_presence.py braucht todo.eclipse.json.",
       "target_files": [
-        "tests/test_planning_track_contract_service.py",
+        "tests/planning/test_planning_track_contract_service.py",
         "tests/test_awf_worker_fixup_t031_t045.py",
         "tests/test_docs_presence.py",
         "todos/"
@@ -265,7 +265,7 @@
       "error": "RuntimeError: Working outside of application context.",
       "root_cause": "Test ruft Code auf, der Flask-App-Kontext benoetigt, ohne dass dieser im Test gesetzt ist. Fehlendes app.app_context() oder falsch konfiguriertes Fixture.",
       "target_files": [
-        "tests/test_planning_context_compactor_integration.py"
+        "tests/planning/test_planning_context_compactor_integration.py"
       ],
       "acceptance_criteria": [
         "Test verwendet app-Fixture oder app.app_context().",

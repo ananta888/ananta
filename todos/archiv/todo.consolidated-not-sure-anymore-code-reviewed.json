@@ -150,7 +150,7 @@
         "agent/services/planning_contract.py",
         "agent/services/planning_validation_service.py",
         "agent/routes/tasks/goals.py",
-        "tests/test_planning_contract.py"
+        "tests/planning/test_planning_contract.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: planning_contract.py und planning_validation_service.py eingefuehrt; goals.py validiert geplante Tasks gegen Contract und liefert fehlende task_kinds als deterministische Fehlercodes.",
       "source_origin": [
@@ -234,7 +234,7 @@
         "agent/services/planning_timeout_service.py",
         "agent/routes/tasks/goals.py",
         "agent/services/goal_lifecycle_service.py",
-        "tests/test_planning_timeout_service.py"
+        "tests/planning/test_planning_timeout_service.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: PlanningTimeoutService eingefuehrt und goals.py auf start_deadline_guard(...) umgestellt; Guard ist pro Goal singleflight und testbar ohne echten Sleep via injizierbarem sleep_fn.",
       "source_origin": [
@@ -262,7 +262,7 @@
         "agent/services/planning_singleflight_service.py",
         "agent/routes/tasks/autopilot_tick_engine.py",
         "agent/routes/tasks/goals.py",
-        "tests/test_planning_singleflight_service.py"
+        "tests/planning/test_planning_singleflight_service.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: PlanningSingleFlightService eingeführt und in goals.py vor dem Planning-Run verdrahtet; Unit-Test test_planning_singleflight_service.py vorhanden.",
       "source_origin": [

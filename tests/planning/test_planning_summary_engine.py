@@ -7,7 +7,7 @@ from agent.services.planning_summary_engine import PlanningSummaryEngine
 
 
 def _fixture_payload() -> dict:
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     return json.loads(fixture.read_text(encoding="utf-8"))
 
 
@@ -153,7 +153,7 @@ def test_summary_engine_reports_done_plus_blocked_track_as_blocked() -> None:
 
 
 def test_summary_engine_large_fixture_progress_is_deterministic() -> None:
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "large_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "large_track.json"
     payload = json.loads(fixture.read_text(encoding="utf-8"))
     first, _ = PlanningSummaryEngine().recompute(payload)
     second, _ = PlanningSummaryEngine().recompute(payload)

@@ -176,11 +176,11 @@ tests/test_openai_live_smoke.py
 tests/test_orchestration_policy.py
 tests/test_os_repair_flows.py
 tests/test_performance_budgets.py
-tests/test_planning_blueprint_provenance.py
-tests/test_planning_strategies.py
-tests/test_planning_template_catalog.py
-tests/test_planning_template_catalog_schema.py
-tests/test_planning_utils.py
+tests/planning/test_planning_blueprint_provenance.py
+tests/planning/test_planning_strategies.py
+tests/planning/test_planning_template_catalog.py
+tests/planning/test_planning_template_catalog_schema.py
+tests/planning/test_planning_utils.py
 tests/test_platform_governance_service.py
 tests/test_plugin_canary_boundaries.py
 tests/test_plugin_contract_boundaries.py

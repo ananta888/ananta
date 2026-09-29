@@ -130,7 +130,7 @@
         "agent/services/planning_strategies.py",
         "agent/services/planning_service.py",
         "agent/db_models.py",
-        "tests/test_planning_strategies.py",
+        "tests/planning/test_planning_strategies.py",
         "tests/test_commit_planner_integration.py"
       ],
       "changes": [
@@ -152,8 +152,8 @@
         "Neue Tests pruefen mindestens Template, LLM, LLM-Repair und Fallback."
       ],
       "tests": [
-        "tests/test_planning_strategies.py::test_planning_origin_template",
-        "tests/test_planning_strategies.py::test_planning_origin_llm_repair",
+        "tests/planning/test_planning_strategies.py::test_planning_origin_template",
+        "tests/planning/test_planning_strategies.py::test_planning_origin_llm_repair",
         "tests/test_commit_planner_integration.py::test_plan_rationale_contains_provenance"
       ],
       "implementation_notes": "Planning provenance ist im Planning-Flow durchgaengig sichtbar (planning_origin, repair_strategy_used, repair_attempt_count, parse_mode, planning_run_id in PlanDB.rationale/Response)."
@@ -171,7 +171,7 @@
       "files": [
         "agent/services/planning_utils.py",
         "agent/services/planning_strategies.py",
-        "tests/test_planning_utils.py"
+        "tests/planning/test_planning_utils.py"
       ],
       "changes": [
         "parse_subtasks_from_llm_response optional mit Diagnoseobjekt erweitern oder neue Funktion parse_subtasks_with_diagnostics einfuehren.",
@@ -189,9 +189,9 @@
         "Bestehende parse_subtasks_from_llm_response API bleibt abwaertskompatibel."
       ],
       "tests": [
-        "tests/test_planning_utils.py::test_parse_diagnostics_strict_json",
-        "tests/test_planning_utils.py::test_parse_diagnostics_python_literal",
-        "tests/test_planning_utils.py::test_parse_diagnostics_bullet_fallback"
+        "tests/planning/test_planning_utils.py::test_parse_diagnostics_strict_json",
+        "tests/planning/test_planning_utils.py::test_parse_diagnostics_python_literal",
+        "tests/planning/test_planning_utils.py::test_parse_diagnostics_bullet_fallback"
       ],
       "implementation_notes": "Diagnostischer Parser inkl. parse_mode und confidence ist implementiert; bestehende API bleibt kompatibel."
     },
@@ -248,7 +248,7 @@
         "agent/services/planning_service.py",
         "agent/services/planning_proposal_service.py",
         "agent/services/verification_policy_service.py",
-        "tests/test_planning_strategies.py",
+        "tests/planning/test_planning_strategies.py",
         "tests/test_commit_planner_integration.py"
       ],
       "changes": [
@@ -266,7 +266,7 @@
         "Tests pruefen erfolgreiche und fehlerhafte new_software_project Plaene."
       ],
       "tests": [
-        "tests/test_planning_strategies.py::test_new_project_requires_structured_artifacts",
+        "tests/planning/test_planning_strategies.py::test_new_project_requires_structured_artifacts",
         "tests/test_commit_planner_integration.py::test_new_project_plan_proposal_requires_verification"
       ],
       "implementation_notes": "Execution-Coverage-Check auf strukturierte Kriterien verschaerft (execution task kinds brauchen required expected_artifacts + verification_spec)."
@@ -825,7 +825,7 @@
       "evidence": [
         "agent/services/planning_utils.py:277",
         "agent/services/planning_strategies.py:331",
-        "tests/test_planning_utils.py:52"
+        "tests/planning/test_planning_utils.py:52"
       ]
     },
     {

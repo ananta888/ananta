@@ -354,7 +354,7 @@
         "agent/services/planning_evaluation_service.py",
         "agent/services/planning_telemetry_service.py",
         "agent/db_models/planning.py",
-        "tests/test_planning_evaluation_text_quality.py"
+        "tests/planning/test_planning_evaluation_text_quality.py"
       ],
       "acceptance_criteria": [
         "Textqualitaet wird nur ausgefuehrt, wenn text_quality.enabled und evaluate_planning_outputs aktiv sind; Default-Verhalten und bestehende Planning-Scores bleiben unveraendert.",
@@ -537,13 +537,13 @@
       "evidence_links": [
         "agent/services/text_quality/prompt_rule_mapping.py",
         "agent/services/planning_prompt_evolver_service.py",
-        "tests/test_planning_prompt_evolver_text_quality.py"
+        "tests/planning/test_planning_prompt_evolver_text_quality.py"
       ],
       "target_files": [
         "agent/services/text_quality/prompt_rule_mapping.py",
         "agent/services/planning_prompt_evolver_service.py",
         "agent/services/planning_prompt_evolution_guard_service.py",
-        "tests/test_planning_prompt_evolver_text_quality.py"
+        "tests/planning/test_planning_prompt_evolver_text_quality.py"
       ],
       "acceptance_criteria": [
         "evolve_from_run liest nur persistierte completed TextQualityEvaluationen mit passender criteria/evaluator version; unscorable/degraded Ergebnisse sind keine Evolutions-Trigger.",
@@ -573,13 +573,13 @@
       "evidence_links": [
         "agent/services/planning_metrics_service.py",
         "agent/services/planning_learning_loop_service.py",
-        "tests/test_planning_learning_loop_text_quality.py"
+        "tests/planning/test_planning_learning_loop_text_quality.py"
       ],
       "target_files": [
         "agent/services/planning_metrics_service.py",
         "agent/services/planning_learning_loop_service.py",
         "agent/services/model_response_behavior_aggregation_service.py",
-        "tests/test_planning_learning_loop_text_quality.py"
+        "tests/planning/test_planning_learning_loop_text_quality.py"
       ],
       "acceptance_criteria": [
         "Gruppen enthalten average/median slop_score, depth_score und style_fit_score sowie completed/degraded/unscorable counts, wenn Textqualitaetsdaten vorhanden sind.",

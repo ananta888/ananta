@@ -93,7 +93,7 @@ This precedence is enforced by:
 
 The regression test
 `test_workflow_steps_take_precedence_over_pipeline_order` in
-`tests/test_planning_track_task_integration_service.py` locks the
+`tests/planning/test_planning_track_task_integration_service.py` locks the
 precedence in.
 
 ## Layer model
