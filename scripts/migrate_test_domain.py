@@ -7,14 +7,16 @@
 Selected: ``tests/test_<prefix>_*.py``, ``tests/test_<prefix>.py`` and the domain's helper files
 ``tests/<prefix>_*`` (``.py``, ``.mjs``, ...). File names stay unchanged.
 
-Pinned (left in place): files named by ``artifacts/`` or ``scripts/``. Their paths or contents are part of
-hashed gate source projections, so moving or editing them would stale gate evidence. The closure of
-pinned files stays too: helpers they import (``tests.<module>``) or open as siblings (``with_name``).
+Pinned (left in place): files named by ``artifacts/`` or ``scripts/``, or by a gate-hashed source (a doc or
+todo that ``artifacts/`` or ``scripts/`` name). Their paths or contents are part of hashed gate source
+projections, so moving them, or editing the sources that name them, would stale gate evidence. The closure
+of pinned files stays too: helpers they import (``tests.<module>``) or open as siblings (``with_name``).
 
 Rewritten:
 - in moved files, ``__file__``-relative anchors (``.parent``, ``.parents[N]``, ``os.path.dirname``) get
   one more level, so they keep pointing at the same directories;
-- everywhere except ``artifacts/``, module names ``tests.<stem>`` and paths ``tests/<name>``.
+- everywhere except ``artifacts/`` and gate-hashed sources, module names ``tests.<stem>`` and paths
+  ``tests/<name>``.
 """
 
 from __future__ import annotations
@@ -56,15 +58,41 @@ def _text_files(roots: list[Path]) -> list[Path]:
     return files
 
 
-def pinned_files(candidates: list[Path]) -> set[Path]:
-    references = ""
+def _pinning_text() -> str:
+    text = ""
     for directory in PINNING_DIRS:
         for path in (ROOT / directory).rglob("*"):
-            if path.is_file() and path.suffix in _TEXT_SUFFIXES | {".json"}:
+            if path.is_file() and path.suffix in _TEXT_SUFFIXES:
                 try:
-                    references += path.read_text(encoding="utf-8", errors="ignore")
+                    text += path.read_text(encoding="utf-8", errors="ignore")
                 except OSError:
                     continue
+    return text
+
+
+_REPO_PATH = re.compile(r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]+)")
+
+
+def hashed_sources(pinning_text: str) -> set[Path]:
+    """Repository files outside ``tests/``, ``artifacts/`` and ``scripts/`` that the pinning dirs name, e.g.
+    docs and todos in a gate's source projection: their bytes are hashed, so they must not be rewritten."""
+    found = set()
+    for relative in set(_REPO_PATH.findall(pinning_text)):
+        if relative.split("/", 1)[0] in {"tests", *PINNING_DIRS}:
+            continue
+        path = ROOT / relative
+        if path.suffix in _TEXT_SUFFIXES and path.is_file():
+            found.add(path)
+    return found
+
+
+def pinned_files(candidates: list[Path], hashed: set[Path] | None = None) -> set[Path]:
+    references = _pinning_text()
+    for path in hashed if hashed is not None else hashed_sources(references):
+        try:
+            references += path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
     pinned = {path for path in candidates if f"tests/{path.name}" in references}
     by_stem = {path.stem: path for path in candidates}
     by_name = {path.name: path for path in candidates}
@@ -148,7 +176,8 @@ def rewrite_references(source: str, moves: dict[str, str]) -> str:
 
 def migrate(prefix: str, directory: str, *, apply: bool) -> int:
     candidates = domain_files(prefix)
-    pinned = pinned_files(candidates)
+    hashed = hashed_sources(_pinning_text())
+    pinned = pinned_files(candidates, hashed)
     moving = [path for path in candidates if path not in pinned]
     print(f"{prefix}: {len(candidates)} files, {len(moving)} move to tests/{directory}/, {len(pinned)} pinned")
     for path in sorted(pinned):
@@ -169,7 +198,7 @@ def migrate(prefix: str, directory: str, *, apply: bool) -> int:
             moved.write_text(deepen_file_anchors(moved.read_text(encoding="utf-8")), encoding="utf-8")
         elif moved.suffix in {".mjs", ".js"}:
             moved.write_text(deepen_js_relative_imports(moved.read_text(encoding="utf-8")), encoding="utf-8")
-    pinned_now = {str(path) for path in pinned}
+    pinned_now = {str(path) for path in pinned | hashed}
     rewritten = 0
     for path in _text_files([ROOT]):
         if str(path) in pinned_now:
