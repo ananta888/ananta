@@ -9,7 +9,15 @@
   "source_manifest": [
     {
       "path": "agent/routes/visual_process.py",
-      "sha256": "853ca9e63212baecf49106011e1e618be860f520528163b77afc3d327011583c"
+      "sha256": "8056e6782e6c3442521d79219cc2fd2db068013ade51f52b301dcf8ca46438cb"
+    },
+    {
+      "path": "agent/routes/route_dependency_seam.py",
+      "sha256": "bc34d705ef9edf10213299c2cbeb24fe68b2d9d054fbbdced1284d18b98bd897"
+    },
+    {
+      "path": "agent/routes/visual_process_route_dependencies.py",
+      "sha256": "5f761848209715bbb309b1991d17a6a6a387935fe224f0708e47fac8af9e2795"
     },
     {
       "path": "agent/routes/visual_process_blueprint.py",
@@ -17,15 +25,15 @@
     },
     {
       "path": "agent/routes/visual_process_workflow_command_routes.py",
-      "sha256": "18dbab5ef901d793ec8df66c652e6112940cb0338212de2dce4936917b264b2c"
+      "sha256": "42bfc424cb6609c29853e6301ad8fe0a06d28686ce5054b2fb609ad8bac1e39b"
     },
     {
       "path": "agent/routes/visual_process_workflow_event_routes.py",
-      "sha256": "d60ae6784a345264d5ac4f348614e2b206c3815613a8a60fe2acc1773954c860"
+      "sha256": "50a638d4379d4038f5ca3957d9cb7fb48886606847230ae82761e5036f253a3b"
     },
     {
       "path": "agent/routes/visual_process_workflow_routes.py",
-      "sha256": "9126f0f2709ff464e3543642252545832bd690891b44afbd7ea279af7f53bc39"
+      "sha256": "bd52c0dafffcecb6818d4832229d399e935a4fac7e8afd5e3371beef5967c802"
     },
     {
       "path": "agent/routes/workflow_control_security.py",
@@ -49,27 +57,27 @@
     },
     {
       "path": "agent/services/native_graph_models.py",
-      "sha256": "eef962cf96fca2a214599bc12dce80dc34e6f509bee242a8e79c5c75e7097452"
+      "sha256": "cf3af0422dc95e923a811662c6dad4700b7f08b473a5125347d82c89024cf3b8"
     },
     {
       "path": "agent/services/native_graph_orchestration_service.py",
-      "sha256": "147e7f59d97ee406984eb3a758d2b471ffccf279c6b9cd1eee04974394718583"
+      "sha256": "59732c701db72fc10350b563dc2c5c8ebadc821d463afb380d76083af6cefe60"
     },
     {
       "path": "agent/services/native_graph_command_application.py",
-      "sha256": "99405c45fb7b446de58562a7d2d39850be4d3bc0657bff644cbf19f94904ba80"
+      "sha256": "05d7cfc7dbb3baadef2e7805ce7ac838975ab2fe1773f6eda43013d812ccdb81"
     },
     {
       "path": "agent/services/native_graph_node_evaluation.py",
-      "sha256": "c42699d80c96cef38cd259c91f921a7ae90ca70409e193870e59c80c9a9b6b83"
+      "sha256": "e51fd62447e629b6896693cb1471e791bc18bba142baec1dfad7b0591912ec66"
     },
     {
       "path": "agent/services/native_graph_run_persistence.py",
-      "sha256": "c3194484cad2548dd4b481999df13219ad57cd81f1f3dc8f26b546ed30e8d16b"
+      "sha256": "32ad147c2d016eebbb360978f77416091f40419705412ba72b457feeb9805d75"
     },
     {
       "path": "agent/services/native_graph_scheduling.py",
-      "sha256": "670a75494a32004723bcfff4b24ae13c86bbde0961b5159cdf950974121fd368"
+      "sha256": "d002b7639425e5fa1e2ff05462878e1cff6722218ee876905c922ce968e297eb"
     },
     {
       "path": "agent/services/langgraph_workflow_control_bridge.py",
@@ -93,11 +101,11 @@
     },
     {
       "path": "agent/services/workflow_control_composition.py",
-      "sha256": "0bcc213213fa5d0e721ed2e2b67ed63fc60ff1fddfacef2703023304d5fdafbb"
+      "sha256": "5d7728d22d0862e036b6e3bf191e2491dd537474b9ca5ac8e4b9d31cd06a2f0c"
     },
     {
       "path": "agent/services/workflow_authorized_backend.py",
-      "sha256": "6b0247f2742db0ccaaabbba1cba46ff5a1d897200f992747b8c37b28bd5dbd3e"
+      "sha256": "ec2760e50e44bfe4fb0473c3a6024b202085708e729607665a96e09081018b7a"
     },
     {
       "path": "agent/services/workflow_backend_control_facade.py",
@@ -345,11 +353,11 @@
     },
     {
       "path": "schemas/testing/caseflow_agent_collaboration_gate.v1.json",
-      "sha256": "80e7cc46570efae3e7d952ed712f5ab54c971543fd21379a7e240f815b9c4a75"
+      "sha256": "3193dd45e1547babb53880412101603c846d87cbb4ae586eb719fd85806d4662"
     },
     {
       "path": "scripts/run_caseflow_agent_collaboration_gate.py",
-      "sha256": "c2ba49f6264d1753d985da32ebfb48c84b1c9e5072d79054df23f8481d2aec44"
+      "sha256": "d583554d37d3246ce8f0ed3f39d8b833271e1677d66f55e6dacdeb8b91e8b8a4"
     },
     {
       "path": "tests/services/test_caseflow_agent_collaboration_trace_projection_service.py",
@@ -357,11 +365,11 @@
     },
     {
       "path": "tests/test_caseflow_agent_collaboration_trace_api.py",
-      "sha256": "f0616986352dd047efe75cfa21647923299d41d80d4e0a2acd12691f544e3a9d"
+      "sha256": "a7ee5956edf865138be0a04a6c1d2634c45c1e80b688188b6a2fc7de990c8064"
     },
     {
       "path": "tests/test_caseflow_agent_collaboration_gate.py",
-      "sha256": "620c0ff8580d1e1cb9bb2ff63eec09ffbbe4441a3e0e9a6a09f0dfbdb21aff74"
+      "sha256": "801f9d56c171f64777509be1585604f87136fd97c07009323a96e004fc8d63be"
     },
     {
       "path": "tests/test_caseflow_workflow_runtime_contract_api.py",
@@ -373,7 +381,7 @@
     },
     {
       "path": "tests/test_workflow_control_http_result.py",
-      "sha256": "845f64403079e263c9d1af24578d217c80d6966b74044597a031ea3f8c049ec8"
+      "sha256": "a7a740f20e6de54a4b2508a5b6441450ad1c416aaf8a4174c3d868c21b7db0a5"
     },
     {
       "path": "tests/test_workflow_control_dispatch_intents.py",
@@ -381,7 +389,7 @@
     },
     {
       "path": "tests/test_workflow_control_composition.py",
-      "sha256": "5b50fe1ec661212a0816f748304a1436024603a17d6f2568b250ef66743da772"
+      "sha256": "3b89f1ae188eb4599eaf9edb8a418bbe9b5de6c7222284736cf5b806543d4d01"
     },
     {
       "path": "tests/test_workflow_control_persistence.py",
@@ -405,7 +413,7 @@
     },
     {
       "path": "tests/test_visual_process_bpmn_workflow.py",
-      "sha256": "140c0859ed527146a10b79acee7d6e282fb729f40c1ff99f5f623f8b1cb2b9af"
+      "sha256": "af392b54d345439558a8fc18067e728d33d819494ef87cd30e18231dc64904c9"
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-binding-catalog.service.spec.ts",
@@ -516,7 +524,7 @@
       "sha256": "52eeac1e9d382f31784056e63f85f08401e7d380c372490f3608940f18dc6baf"
     }
   ],
-  "source_manifest_sha256": "e2725524fb0c800a1a0628647170e5334f129e6d39417f5e6630348cce5aa0ce",
+  "source_manifest_sha256": "4fd8cb8b7c7629ba2fc8b73ef5188c671be704dd0dfe8206ee3fe723a3c40c56",
   "status": "passed",
   "test_outputs": [
     {
