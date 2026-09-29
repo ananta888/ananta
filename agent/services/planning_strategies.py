@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 from flask import current_app
 
@@ -80,6 +80,45 @@ class PlanningStrategy(Protocol):
         mode: str = "generic",
         mode_data: Optional[dict] = None,
     ) -> PlanningStrategyResult | None: ...
+
+
+class RepoContextLoader(Protocol):
+    def __call__(self, goal: str) -> str | None: ...
+
+
+class SubtaskParser(Protocol):
+    def __call__(self, raw: str, default_priority: str = "Medium") -> list[dict[str, Any]]: ...
+
+
+class DiagnosticSubtaskParser(Protocol):
+    def __call__(
+        self, raw: str, default_priority: str = "Medium"
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]: ...
+
+
+@dataclass(frozen=True)
+class PlanningStrategyCollaborators:
+    """Explicit collaborators of the LLM-backed planning strategies (DIP/ISP).
+
+    ``default()`` binds the production implementations at construction time;
+    tests and alternative planners pass their own bundle instead of patching
+    module-level names. ``parse_subtasks_with_diagnostics`` may be ``None``
+    when the diagnostic parser is unavailable (legacy parser only).
+    """
+
+    repo_context_loader: RepoContextLoader
+    hub_llm_service_provider: Callable[[], Any]
+    parse_subtasks: SubtaskParser
+    parse_subtasks_with_diagnostics: DiagnosticSubtaskParser | None = None
+
+    @classmethod
+    def default(cls) -> "PlanningStrategyCollaborators":
+        return cls(
+            repo_context_loader=try_load_repo_context,
+            hub_llm_service_provider=get_hub_llm_service,
+            parse_subtasks=parse_subtasks_from_llm_response,
+            parse_subtasks_with_diagnostics=parse_subtasks_with_diagnostics,
+        )
 
 
 class TemplatePlanningStrategy:
@@ -294,7 +333,7 @@ class LLMPlanningStrategy:
                 )
             response = planner._call_llm_with_retry(prompt, llm_config, temperature=0.1)
             raw_parts.append(str(response or ""))
-            parsed = parse_subtasks_from_llm_response(response, default_priority=planner.default_priority)
+            parsed = self._collaborators.parse_subtasks(response, default_priority=planner.default_priority)
             for subtask in parsed:
                 key = str(subtask.get("title") or "").strip().lower()
                 if key and key in seen_titles:
@@ -310,8 +349,14 @@ class LLMPlanningStrategy:
             return None
         return subtasks_merged, "\n\n--- SEGMENT BREAK ---\n\n".join(raw_parts), "segmented_context"
 
-    def __init__(self, use_repo_context: bool) -> None:
+    def __init__(
+        self,
+        use_repo_context: bool,
+        *,
+        collaborators: PlanningStrategyCollaborators | None = None,
+    ) -> None:
         self._use_repo_context = bool(use_repo_context)
+        self._collaborators = collaborators or PlanningStrategyCollaborators.default()
 
     _build_planning_repair_prompt = staticmethod(build_planning_repair_prompt)
     _build_new_project_execution_repair_prompt = staticmethod(build_new_project_execution_repair_prompt)
@@ -360,7 +405,7 @@ class LLMPlanningStrategy:
     ) -> PlanningStrategyResult | None:
         resolved_context = context
         if self._use_repo_context and not resolved_context:
-            repo_context = try_load_repo_context(goal)
+            repo_context = self._collaborators.repo_context_loader(goal)
             if repo_context:
                 resolved_context = repo_context
 
@@ -521,8 +566,8 @@ class LLMPlanningStrategy:
         planning_origin = "llm"
         repair_strategy_used: str | None = None
         repair_attempt_count = 0
-        if callable(parse_subtasks_with_diagnostics):
-            subtasks, parse_diag = parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
+        if callable(self._collaborators.parse_subtasks_with_diagnostics):
+            subtasks, parse_diag = self._collaborators.parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
             parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
             parse_confidence = str(parse_diag.get("confidence") or "low")
             warnings = list(parse_diag.get("warnings") or [])
@@ -530,20 +575,20 @@ class LLMPlanningStrategy:
             format_error_codes = [str(x) for x in list(parse_diag.get("format_error_codes") or [])]
             parser_trace = [dict(x) for x in list(parse_diag.get("parser_trace") or []) if isinstance(x, dict)]
             if not subtasks:
-                legacy_subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+                legacy_subtasks = self._collaborators.parse_subtasks(raw_response, default_priority=planner.default_priority)
                 if legacy_subtasks:
                     subtasks = legacy_subtasks
                     parse_mode = "legacy_parser_fallback"
                     parse_confidence = "medium"
         else:
-            subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+            subtasks = self._collaborators.parse_subtasks(raw_response, default_priority=planner.default_priority)
             parse_mode = "legacy_parser"
             parse_confidence = "low"
             warnings = []
             output_shape = ""
             format_error_codes = []
             parser_trace = []
-        is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(parse_subtasks_with_diagnostics) else None)
+        is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(self._collaborators.parse_subtasks_with_diagnostics) else None)
         fast_fail_empty = bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project"))
         if not subtasks and not (fast_fail_empty and not str(raw_response or "").strip()):
             for idx, strategy in enumerate(repair_strategies):
@@ -574,7 +619,7 @@ class LLMPlanningStrategy:
                     )
                 if strategy_name == "hub_copilot":
                     try:
-                        hub_llm = get_hub_llm_service()
+                        hub_llm = self._collaborators.hub_llm_service_provider()
                         copilot_cfg = hub_llm.resolve_copilot_config()
                         if (
                             copilot_cfg.get("enabled")
@@ -587,7 +632,7 @@ class LLMPlanningStrategy:
                                 temperature=retry_temperature,
                             )
                             hub_text = str(hub_resp.get("text") or "")
-                            hub_subtasks = parse_subtasks_from_llm_response(
+                            hub_subtasks = self._collaborators.parse_subtasks(
                                 hub_text,
                                 default_priority=planner.default_priority,
                             )
@@ -608,8 +653,8 @@ class LLMPlanningStrategy:
                         llm_config,
                         temperature=retry_temperature,
                     )
-                    if callable(parse_subtasks_with_diagnostics):
-                        repaired_subtasks, repaired_diag = parse_subtasks_with_diagnostics(
+                    if callable(self._collaborators.parse_subtasks_with_diagnostics):
+                        repaired_subtasks, repaired_diag = self._collaborators.parse_subtasks_with_diagnostics(
                             repaired_response,
                             default_priority=planner.default_priority,
                         )
@@ -621,7 +666,7 @@ class LLMPlanningStrategy:
                         format_error_codes = [str(x) for x in list(repaired_diag.get("format_error_codes") or format_error_codes)]
                         parser_trace = [dict(x) for x in list(repaired_diag.get("parser_trace") or parser_trace) if isinstance(x, dict)]
                         if not repaired_subtasks:
-                            repaired_legacy = parse_subtasks_from_llm_response(
+                            repaired_legacy = self._collaborators.parse_subtasks(
                                 repaired_response,
                                 default_priority=planner.default_priority,
                             )
@@ -630,7 +675,7 @@ class LLMPlanningStrategy:
                                 parse_mode = "legacy_parser_fallback"
                                 parse_confidence = "medium"
                     else:
-                        repaired_subtasks = parse_subtasks_from_llm_response(
+                        repaired_subtasks = self._collaborators.parse_subtasks(
                             repaired_response,
                             default_priority=planner.default_priority,
                         )
@@ -644,7 +689,7 @@ class LLMPlanningStrategy:
                     if str(repaired_response or "").strip():
                         raw_response = repaired_response
                 if not subtasks:
-                    is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(parse_subtasks_with_diagnostics) else None)
+                    is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(self._collaborators.parse_subtasks_with_diagnostics) else None)
                     if mode == "new_software_project" and is_truncated_response:
                         break
         if mode == "new_software_project" and not subtasks:
@@ -670,7 +715,7 @@ class LLMPlanningStrategy:
                 )
             )
             repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.05 if is_truncated_response else 0.1)
-            repaired_subtasks = parse_subtasks_from_llm_response(
+            repaired_subtasks = self._collaborators.parse_subtasks(
                 repaired_response,
                 default_priority=planner.default_priority,
             )
@@ -696,7 +741,7 @@ class LLMPlanningStrategy:
                 preferred_output_format=preferred_output_format,
             )
             repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.1)
-            repaired_subtasks = parse_subtasks_from_llm_response(
+            repaired_subtasks = self._collaborators.parse_subtasks(
                 repaired_response,
                 default_priority=planner.default_priority,
             )
@@ -727,8 +772,14 @@ class LLMPlanningStrategy:
 
 
 class HubCopilotPlanningStrategy:
-    def __init__(self, use_repo_context: bool) -> None:
+    def __init__(
+        self,
+        use_repo_context: bool,
+        *,
+        collaborators: PlanningStrategyCollaborators | None = None,
+    ) -> None:
         self._use_repo_context = bool(use_repo_context)
+        self._collaborators = collaborators or PlanningStrategyCollaborators.default()
 
     def execute(
         self,
@@ -738,7 +789,7 @@ class HubCopilotPlanningStrategy:
         mode: str = "generic",
         mode_data: Optional[dict] = None,
     ) -> PlanningStrategyResult | None:
-        hub_llm = get_hub_llm_service()
+        hub_llm = self._collaborators.hub_llm_service_provider()
         copilot_config = hub_llm.resolve_copilot_config()
         if (
             not copilot_config.get("enabled")
@@ -749,7 +800,7 @@ class HubCopilotPlanningStrategy:
 
         resolved_context = context
         if self._use_repo_context and not resolved_context:
-            repo_context = try_load_repo_context(goal)
+            repo_context = self._collaborators.repo_context_loader(goal)
             if repo_context:
                 resolved_context = repo_context
 
@@ -764,7 +815,7 @@ class HubCopilotPlanningStrategy:
         prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         response = hub_llm.plan_with_copilot(prompt=prompt, timeout=getattr(planner, "llm_timeout", None))
         raw_response = str(response.get("text") or "")
-        subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+        subtasks = self._collaborators.parse_subtasks(raw_response, default_priority=planner.default_priority)
         if not subtasks:
             # Hub-Copilot darf den Planungsfluss nicht mit leerem/ungueltigem Output blockieren.
             # In diesem Fall faellt die Strategie bewusst auf den naechsten Planungsweg (LLM) durch.

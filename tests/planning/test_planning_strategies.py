@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
-from agent.services.planning_strategies import LLMPlanningStrategy, TemplatePlanningStrategy
+from agent.services.planning_strategies import (
+    LLMPlanningStrategy,
+    PlanningStrategyCollaborators,
+    TemplatePlanningStrategy,
+)
 
 
 @dataclass
@@ -105,8 +109,7 @@ class _LLMPlannerStub:
         return self.responses[idx]
 
 
-def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverage(app, monkeypatch) -> None:
-    strategy = LLMPlanningStrategy(use_repo_context=False)
+def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverage(app) -> None:
     planner = _LLMPlannerStub(responses=["first-response", "repair-response"])
 
     def _parse(raw: str, default_priority: str = "Medium"):  # noqa: ARG001
@@ -134,7 +137,10 @@ def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverag
             },
         ]
 
-    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_from_llm_response", _parse)
+    strategy = LLMPlanningStrategy(
+        use_repo_context=False,
+        collaborators=replace(PlanningStrategyCollaborators.default(), parse_subtasks=_parse),
+    )
     with app.app_context():
         result = strategy.execute(
             planner,
@@ -150,8 +156,7 @@ def test_llm_planning_strategy_repair_for_new_project_enforces_execution_coverag
     assert any(("test" in t) or ("pytest" in t) for t in texts)
 
 
-def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeypatch) -> None:
-    strategy = LLMPlanningStrategy(use_repo_context=False)
+def test_llm_planning_strategy_new_project_third_attempt_when_empty(app) -> None:
     planner = _LLMPlannerStub(responses=["first", "repair", "strict-repair"])
 
     def _parse(raw: str, default_priority: str = "Medium"):  # noqa: ARG001
@@ -176,7 +181,10 @@ def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeyp
             },
         ]
 
-    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_from_llm_response", _parse)
+    strategy = LLMPlanningStrategy(
+        use_repo_context=False,
+        collaborators=replace(PlanningStrategyCollaborators.default(), parse_subtasks=_parse),
+    )
     with app.app_context():
         result = strategy.execute(
             planner,
@@ -190,8 +198,7 @@ def test_llm_planning_strategy_new_project_third_attempt_when_empty(app, monkeyp
     assert len(result.subtasks) >= 2
 
 
-def test_llm_planning_strategy_new_project_prompt_allows_model_native_structure(app, monkeypatch) -> None:
-    strategy = LLMPlanningStrategy(use_repo_context=False)
+def test_llm_planning_strategy_new_project_prompt_allows_model_native_structure(app) -> None:
     planner = _LLMPlannerStub(
         responses=[
             '[{"title":"Task 1","description":"Desc","priority":"High","depends_on":[]}]',
@@ -222,7 +229,10 @@ def test_llm_planning_strategy_new_project_prompt_allows_model_native_structure(
             },
         )
 
-    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_with_diagnostics", _parse)
+    strategy = LLMPlanningStrategy(
+        use_repo_context=False,
+        collaborators=replace(PlanningStrategyCollaborators.default(), parse_subtasks_with_diagnostics=_parse),
+    )
     # Force English prompt lookup: this test asserts the presence of the
     # EN-only "Markdown fences are acceptable" guidance from
     # config/planning_prompts.default.json. The default profile resolves
@@ -264,8 +274,7 @@ def test_new_project_execution_repair_prompt_compacts_previous_output() -> None:
     assert len(prompt) < 6000
 
 
-def test_llm_planning_strategy_uses_truncation_repair_prompt(app, monkeypatch) -> None:
-    strategy = LLMPlanningStrategy(use_repo_context=False)
+def test_llm_planning_strategy_uses_truncation_repair_prompt(app) -> None:
     planner = _LLMPlannerStub(
         responses=[
             "plain analysis text",
@@ -318,13 +327,19 @@ def test_llm_planning_strategy_uses_truncation_repair_prompt(app, monkeypatch) -
             },
         )
 
-    monkeypatch.setattr("agent.services.planning_strategies.parse_subtasks_with_diagnostics", _parse)
 
     class _DisabledHub:
         def resolve_copilot_config(self):
             return {"enabled": False, "supports_planning": False, "active": False}
 
-    monkeypatch.setattr("agent.services.planning_strategies.get_hub_llm_service", lambda: _DisabledHub())
+    strategy = LLMPlanningStrategy(
+        use_repo_context=False,
+        collaborators=replace(
+            PlanningStrategyCollaborators.default(),
+            parse_subtasks_with_diagnostics=_parse,
+            hub_llm_service_provider=lambda: _DisabledHub(),
+        ),
+    )
 
     with app.app_context():
         result = strategy.execute(
