@@ -142,8 +142,20 @@ def test_tutorial_ai_llm_message_reads_openai_compatible_endpoint(monkeypatch) -
 
 
 
-def test_tutorial_ai_llm_message_uses_lmstudio_defaults_without_token(monkeypatch) -> None:
-    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
+def test_tutorial_ai_llm_message_makes_no_direct_call_without_an_endpoint(monkeypatch) -> None:
+    for key in ("ANANTA_TUI_CHAT_API_BASE_URL", "ANANTA_TUI_SNAKE_AI_API_BASE_URL", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
+        monkeypatch.delenv(key, raising=False)
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    def _no_network(req, timeout=0):
+        raise AssertionError(f"unexpected call: {req.full_url}")
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", _no_network)
+    assert tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"]) is None
+
+
+def test_tutorial_ai_llm_message_uses_the_configured_endpoint_without_token(monkeypatch) -> None:
+    monkeypatch.setenv("ANANTA_TUI_CHAT_API_BASE_URL", "http://lmstudio.local:1234/v1")
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
@@ -176,7 +188,7 @@ def test_tutorial_ai_llm_message_uses_lmstudio_defaults_without_token(monkeypatc
     tip = tui._tutorial_ai_llm_message(now=1.0, status="status", hints=["hint"])
 
     assert tip == "Use :inspect for details."
-    assert captured["url"] == "http://192.168.178.100:1234/v1/chat/completions"
+    assert captured["url"] == "http://lmstudio.local:1234/v1/chat/completions"
     assert captured["authorization"] in {None, ""}
     assert '"model": "google/gemma-4-e4b"' in captured["body"]
 
@@ -534,8 +546,21 @@ def test_tutorial_ai_llm_ask_uses_chat_max_tokens_from_config(monkeypatch) -> No
 
 
 
-def test_llm_ask_uses_lmstudio_defaults_without_explicit_env(monkeypatch) -> None:
-    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
+def test_llm_ask_without_an_endpoint_answers_locally_without_network(monkeypatch) -> None:
+    for key in ("ANANTA_TUI_CHAT_API_BASE_URL", "ANANTA_TUI_SNAKE_AI_API_BASE_URL", "OPENAI_BASE_URL", "OPENAI_API_BASE"):
+        monkeypatch.delenv(key, raising=False)
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://localhost:5000"))
+
+    def _no_network(req, timeout=0):
+        raise AssertionError(f"unexpected call: {req.full_url}")
+
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_mixin.urllib.request.urlopen", _no_network)
+    answer = tui._tutorial_ai_llm_ask(question="hi", context_text="", depth="overview", prior_messages=[])
+    assert isinstance(answer, str) and answer
+
+
+def test_llm_ask_uses_the_configured_endpoint_and_the_default_model(monkeypatch) -> None:
+    monkeypatch.setenv("ANANTA_TUI_CHAT_API_BASE_URL", "http://lmstudio.local:1234/v1")
     state = OperatorState(endpoint="http://localhost:5000")
     tui = InteractiveOperatorTui(state)
     for key in (
@@ -572,7 +597,60 @@ def test_llm_ask_uses_lmstudio_defaults_without_explicit_env(monkeypatch) -> Non
     answer = tui._tutorial_ai_llm_ask(question="hi", context_text="", depth="overview", prior_messages=[])
 
     assert answer == "ok"
-    assert captured["url"] == "http://192.168.178.100:1234/v1/chat/completions"
+    assert captured["url"] == "http://lmstudio.local:1234/v1/chat/completions"
     assert captured["body"]["model"] == "google/gemma-4-e4b"
 
 
+
+
+def test_tutorial_tip_goes_through_the_hub_by_default_with_the_operator_login(monkeypatch) -> None:
+    for key in (
+        "ANANTA_TUI_SNAKE_AI_BACKEND",
+        "ANANTA_TUI_CHAT_API_BASE_URL",
+        "ANANTA_TUI_SNAKE_AI_API_BASE_URL",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_BASE",
+        "ANANTA_TUI_SNAKE_AI_WORKER_TOKEN",
+        "ANANTA_TUI_SNAKE_AI_REFRESH",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    logins: list[str] = []
+
+    def _operator_login(endpoint: str) -> dict[str, str]:
+        logins.append(endpoint)
+        return {"Authorization": "Bearer operator-jwt"}
+
+    monkeypatch.setattr("client_surfaces.operator_tui.chat_message_formatter.hub_user_auth_headers", _operator_login)
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://hub.local:5000"))
+    assert tui._tutorial_worker_backend() == ("worker-propose", True)
+    captured: dict[str, object] = {}
+
+    class _FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return json.dumps({"data": {"reason": "[target=nav] Open the task list."}}).encode()
+
+    def _fake_urlopen(req, timeout=0):
+        captured["url"] = req.full_url
+        captured["authorization"] = req.headers.get("Authorization")
+        return _FakeResp()
+
+    monkeypatch.setattr("client_surfaces.operator_tui.interactive.urllib.request.urlopen", _fake_urlopen)
+    tip = tui._tutorial_ai_worker_propose_message(now=1.0, status="status", hints=[], rag_context=[])
+
+    assert tip == "Open the task list."
+    assert captured["url"] == "http://hub.local:5000/step/propose"
+    assert captured["authorization"] == "Bearer operator-jwt"
+    assert logins == ["http://hub.local:5000"]
+
+
+def test_a_configured_direct_endpoint_keeps_the_tutorial_off_the_hub(monkeypatch) -> None:
+    monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_BACKEND", raising=False)
+    monkeypatch.setenv("ANANTA_TUI_CHAT_API_BASE_URL", "http://lmstudio.local:1234/v1")
+    tui = InteractiveOperatorTui(OperatorState(endpoint="http://hub.local:5000"))
+    assert tui._tutorial_worker_backend() == ("", False)

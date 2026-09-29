@@ -606,7 +606,7 @@ def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatc
     def _fake_urlopen(req, timeout=0):
         url = str(getattr(req, "full_url", ""))
         calls.append(url)
-        if "192.168.178.100:1234" in url and url.endswith("/v1/models"):
+        if "localhost:1234" in url and url.endswith("/v1/models"):
             return _FakeResp()
         raise OSError("unreachable")
 
@@ -618,13 +618,13 @@ def test_refresh_chat_backend_models_worker_tries_lmstudio_candidates(monkeypatc
     models, _ = refresh_chat_backend_models(game, force=True)
 
     assert "microsoft_-_phi-3.5-mini-instruct" in models
-    assert any("192.168.178.100:1234" in call for call in calls)
+    assert any("localhost:1234" in call for call in calls)
 
 
 
 def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> None:
     monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
-    state = OperatorState(endpoint="http://192.168.178.100:1234/v1")
+    state = OperatorState(endpoint="http://lmstudio.local:1234/v1")
     tui = InteractiveOperatorTui(state)
     calls: list[str] = []
 
@@ -659,7 +659,7 @@ def test_resolve_ask_skips_hub_probe_when_endpoint_is_lmstudio(monkeypatch) -> N
     )
 
     assert answer == "ok"
-    assert calls == ["http://192.168.178.100:1234/v1/chat/completions"]
+    assert calls == ["http://lmstudio.local:1234/v1/chat/completions"]
 
 
 

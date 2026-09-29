@@ -7,11 +7,11 @@ from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
 from client_surfaces.operator_tui.models import FocusPane, OperatorState
 
 
-def test_tutorial_ai_e2e_falls_back_from_worker_propose_to_lmstudio_defaults(monkeypatch) -> None:
+def test_tutorial_ai_e2e_falls_back_from_worker_propose_to_the_configured_endpoint(monkeypatch) -> None:
     monkeypatch.setenv("ANANTA_TUI_SNAKE_AI_BACKEND", "worker-propose")
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_MODEL", raising=False)
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_API_BASE_URL", raising=False)
-    monkeypatch.delenv("ANANTA_TUI_CHAT_API_BASE_URL", raising=False)  # the default endpoint is the subject
+    monkeypatch.setenv("ANANTA_TUI_CHAT_API_BASE_URL", "http://lmstudio.local:1234/v1")  # the fallback target
     monkeypatch.delenv("ANANTA_TUI_SNAKE_AI_API_TOKEN", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
@@ -45,8 +45,7 @@ def test_tutorial_ai_e2e_falls_back_from_worker_propose_to_lmstudio_defaults(mon
         if url.endswith("/step/propose"):
             raise URLError("worker unavailable")
         if url in {
-            "http://192.168.178.100:1234/v1/chat/completions",
-            "http://lmstudio.test/v1/chat/completions",
+            "http://lmstudio.local:1234/v1/chat/completions",
         }:
             captured["lmstudio_body"] = req.data.decode("utf-8")
             return _FakeResp('{"choices":[{"message":{"content":"Open tasks and inspect failures first."}}]}')

@@ -604,10 +604,12 @@ class TutorialAiEngineMixin:
         hints: list[str],
         rag_context: list[str],
     ) -> str | None:
-        backend = str(os.environ.get("ANANTA_TUI_SNAKE_AI_BACKEND", "")).strip().lower()
+        backend, implicit = self._tutorial_worker_backend()
         if backend not in {"worker-propose", "worker", "opencode", "hermes"}:
             return None
-        refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", "8.0"))))
+        # the implicit Hub route shares the local model with tasks and Meet: ask it rarely
+        refresh_default = "60.0" if implicit else "8.0"
+        refresh_seconds = max(2.0, min(60.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_REFRESH", refresh_default))))
         cached_at, cached_msg = self._tutorial_worker_cache
         if cached_msg and (now - cached_at) < refresh_seconds:
             self._tutorial_last_source = "worker-propose"
@@ -618,7 +620,9 @@ class TutorialAiEngineMixin:
         base_url = str(self.state.endpoint or os.environ.get("ANANTA_BASE_URL") or "http://localhost:5000").strip()
         if not base_url:
             return None
-        timeout_seconds = max(0.3, min(12.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", "1.6"))))
+        # a background tip may wait for a real model call; a synchronous one must not stall the UI
+        timeout_default = "12.0" if self._tutorial_async_enabled() else "1.6"
+        timeout_seconds = max(0.3, min(12.0, float(os.environ.get("ANANTA_TUI_SNAKE_AI_TIMEOUT", timeout_default))))
         model = str(os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL", "")).strip()
         provider = str(os.environ.get("ANANTA_TUI_SNAKE_AI_WORKER_PROVIDER", "")).strip()
         if not provider and backend in {"opencode", "hermes"}:
@@ -647,6 +651,10 @@ class TutorialAiEngineMixin:
         headers = {"Content-Type": "application/json"}
         if token:
             headers["Authorization"] = f"Bearer {token}"
+        else:  # the operator's Hub login, as the chat's Hub path uses it
+            from client_surfaces.operator_tui.chat_message_formatter import hub_user_auth_headers
+
+            headers.update(hub_user_auth_headers(base_url))
         request = urllib.request.Request(
             url=base_url.rstrip("/") + "/step/propose",
             data=json.dumps(payload).encode("utf-8"),
@@ -681,6 +689,21 @@ class TutorialAiEngineMixin:
             return None
         self._tutorial_worker_cache = (now, clipped)
         return clipped
+
+    def _endpoint_as_llm_base(self) -> str:
+        """The TUI endpoint itself when the operator pointed it at an OpenAI-compatible runtime (``.../v1``)."""
+        endpoint = str(getattr(self.state, "endpoint", "") or "").strip().rstrip("/")
+        return endpoint if endpoint.endswith("/v1") else ""
+
+    def _tutorial_worker_backend(self) -> tuple[str, bool]:
+        """The tutorial AI's Hub route and whether it was chosen implicitly: an explicit
+        ``ANANTA_TUI_SNAKE_AI_BACKEND`` wins; without one, the Hub (``worker-propose``) answers unless a
+        direct OpenAI-compatible endpoint is configured."""
+        explicit = str(os.environ.get("ANANTA_TUI_SNAKE_AI_BACKEND", "")).strip().lower()
+        if explicit:
+            return explicit, False
+        api_base, _model, _token = self._get_llm_api_config()
+        return ("", False) if api_base else ("worker-propose", True)
 
     def _tutorial_ai_llm_message(self, *, now: float, status: str, hints: list[str]) -> str | None:
         api_base, model, api_token = self._get_llm_api_config()
@@ -895,18 +918,17 @@ class TutorialAiEngineMixin:
             or game.get("chat_backend")
             or ""
         ).strip().lower()
-        raw_api_base = str(
+        # A direct OpenAI-compatible endpoint only when one is configured; without it the TUI's AI goes
+        # through the Hub (see _tutorial_worker_backend) instead of a guessed LAN address.
+        api_base = str(
             game.get("chat_backend_api_base")
             or os.environ.get("ANANTA_TUI_CHAT_API_BASE_URL")
             or os.environ.get("ANANTA_TUI_SNAKE_AI_API_BASE_URL")
             or os.environ.get("OPENAI_BASE_URL")
             or os.environ.get("OPENAI_API_BASE")
-            or "http://192.168.178.100:1234/v1"
+            or self._endpoint_as_llm_base()
+            or ""
         ).strip()
-        forced_defaults = (not raw_api_base) or ("lmstudio.test" in raw_api_base)
-        api_base = raw_api_base
-        if forced_defaults:
-            api_base = "http://192.168.178.100:1234/v1"
         if backend_hint == "worker-propose":
             model = str(
                 os.environ.get("ANANTA_TUI_CHAT_MODEL")
@@ -915,7 +937,7 @@ class TutorialAiEngineMixin:
             ).strip()
         else:
             model = str(
-                (None if forced_defaults else game.get("chat_backend_model"))
+                game.get("chat_backend_model")
                 or os.environ.get("ANANTA_TUI_CHAT_MODEL")
                 or os.environ.get("ANANTA_TUI_SNAKE_AI_MODEL")
                 or "google/gemma-4-e4b"

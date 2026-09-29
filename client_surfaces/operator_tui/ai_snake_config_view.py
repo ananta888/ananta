@@ -75,7 +75,6 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
     chat_api_base_options = [
         "http://localhost:1234/v1",
         "http://127.0.0.1:1234/v1",
-        "http://192.168.178.100:1234/v1",
     ]
     if chat_api_base and chat_api_base not in chat_api_base_options:
         chat_api_base_options.insert(0, chat_api_base)

@@ -111,7 +111,7 @@ _DEFAULTS: dict[str, Any] = {
     "chat_panel_open": True,
     "chat_backend": "ananta-worker",
     "chat_backend_model": "google/gemma-4-e4b",
-    "chat_backend_api_base": "http://192.168.178.100:1234/v1",
+    "chat_backend_api_base": "",  # empty: the Hub answers; set a direct OpenAI-compatible endpoint to bypass it
     "chat_ask_timeout_s": 180.0,
     "chat_use_codecompass": True,
     "chat_include_local_project": True,

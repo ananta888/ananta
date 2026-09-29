@@ -131,8 +131,6 @@ def _lmstudio_base_candidates() -> list[str]:
         "http://localhost:1234/v1",
         "http://127.0.0.1:1234/v1",
         "http://host.docker.internal:1234/v1",
-        "http://192.168.178.100:1234/v1",
-        "http://192.168.56.1:1234/v1",
     ):
         normalized = str(candidate or "").strip().rstrip("/")
         if normalized and normalized not in values:
