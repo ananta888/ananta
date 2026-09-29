@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from flask import g
 
@@ -856,19 +856,25 @@ def test_model_invocation_service_timeout_exposes_failed_llm_call_profile():
 
     from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
 
-    with patch("agent.services.model_invocation_service.requests.post", side_effect=requests.exceptions.Timeout("boom")):
-        with patch("agent.services.model_invocation_service.ModelInvocationService._provider_info", return_value=("ollama", "http://localhost/v1/chat/completions", None)):
-            with patch("agent.services.model_invocation_service.ModelInvocationService._get_settings") as mock_settings:
-                mock_settings.return_value.default_model = "qwen"
-                try:
-                    ModelInvocationService._make_chat_call([{"role": "user", "content": "hi"}], model="qwen")
-                    assert False, "expected LLMUnavailableError"
-                except LLMUnavailableError as exc:
-                    prof = list(getattr(exc, "llm_call_profile", []) or [])
-                    assert prof
-                    assert prof[0]["success"] is False
-                    assert prof[0]["estimated"] is False
-                    assert prof[0]["error_type"] == "timeout"
+    settings = MagicMock()
+    settings.default_model = "qwen"
+    endpoints = MagicMock()
+    endpoints.provider_info.return_value = ("ollama", "http://localhost/v1/chat/completions", None)
+    service = ModelInvocationService(
+        settings_provider=lambda: settings,
+        profile_resolver_provider=lambda: None,
+        endpoint_resolver=endpoints,
+        http_post=MagicMock(side_effect=requests.exceptions.Timeout("boom")),
+    )
+    try:
+        service._make_chat_call([{"role": "user", "content": "hi"}], model="qwen")
+        assert False, "expected LLMUnavailableError"
+    except LLMUnavailableError as exc:
+        prof = list(getattr(exc, "llm_call_profile", []) or [])
+        assert prof
+        assert prof[0]["success"] is False
+        assert prof[0]["estimated"] is False
+        assert prof[0]["error_type"] == "timeout"
 
 
 # LLM-001: public schema builder and normalizer

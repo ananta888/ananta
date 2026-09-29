@@ -6,11 +6,47 @@ from types import SimpleNamespace
 import pytest
 import requests
 
+from agent.services.model_invocation_payload_helpers import (
+    max_output_tokens_for_request,
+    normalize_openai_tools,
+)
+from agent.services.model_invocation_provider_endpoints import ProviderEndpointResolver
 from agent.services.model_invocation_service import ModelInvocationService
 from agent.services.propose_runtime_policy import (
     _calibrated_timeout_from_benchmarks,
     resolve_propose_llm_timeout_seconds,
 )
+
+
+class _TransportDouble:
+    """Stands in for the single-attempt ChatTransport collaborator."""
+
+    def __init__(self, call) -> None:  # noqa: ANN001
+        self._call = call
+
+    def make_single_chat_call(self, messages, **kwargs):  # noqa: ANN001
+        return self._call(messages, **kwargs)
+
+
+def _service(
+    *,
+    resolver=None,  # noqa: ANN001
+    settings=None,  # noqa: ANN001
+    post=None,  # noqa: ANN001
+    transport=None,  # noqa: ANN001
+    **collaborators,
+) -> ModelInvocationService:
+    """Compose a service with test doubles; unset ports keep their production default."""
+
+    if resolver is not None:
+        collaborators["profile_resolver_provider"] = lambda: resolver
+    if settings is not None:
+        collaborators["settings_provider"] = lambda: settings
+    if post is not None:
+        collaborators["http_post"] = post
+    if transport is not None:
+        collaborators["chat_transport"] = transport
+    return ModelInvocationService(**collaborators)
 
 
 def test_normalize_openai_tools_converts_flat_registry_shape() -> None:
@@ -21,7 +57,7 @@ def test_normalize_openai_tools_converts_flat_registry_shape() -> None:
             "parameters": {"type": "object", "properties": {"path": {"type": "string"}}},
         }
     ]
-    normalized = ModelInvocationService._normalize_openai_tools(tools)
+    normalized = normalize_openai_tools(tools)
     assert len(normalized) == 1
     item = normalized[0]
     assert item["type"] == "function"
@@ -31,10 +67,7 @@ def test_normalize_openai_tools_converts_flat_registry_shape() -> None:
 
 
 def test_make_chat_call_sends_normalized_tools_payload(monkeypatch) -> None:
-    import agent.services.model_invocation_service as service_module
-
     captured: dict = {}
-    monkeypatch.setattr(service_module, "_PROFILE_RESOLVER_CACHE", None)
     monkeypatch.delenv("MODEL_PROFILES_PATH", raising=False)
     monkeypatch.delenv("MODEL_ROUTING_PATH", raising=False)
     monkeypatch.delenv("ANANTA_MODEL_ROUTING_PATH", raising=False)
@@ -55,25 +88,18 @@ def test_make_chat_call_sends_normalized_tools_payload(monkeypatch) -> None:
             },
         )
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(  # noqa: ARG005
-                default_provider="lmstudio",
-                default_model="auto",
-                lmstudio_url="http://localhost:1234/v1",
-                ollama_url="http://localhost:11434/api/generate",
-                openai_url="https://api.openai.com/v1",
-                openai_api_key=None,
-                mock_url="http://mock",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="lmstudio",
+        default_model="auto",
+        lmstudio_url="http://localhost:1234/v1",
+        ollama_url="http://localhost:11434/api/generate",
+        openai_url="https://api.openai.com/v1",
+        openai_api_key=None,
+        mock_url="http://mock",
+        llm_invoke_timeout_seconds=120,
     )
 
-    ModelInvocationService.invoke_with_tools(
+    _service(settings=settings, post=_fake_post).invoke_with_tools(
         prompt="hello",
         tools=[{"name": "file_read", "description": "d", "parameters": {"type": "object", "properties": {}}}],
         timeout=333,
@@ -84,7 +110,7 @@ def test_make_chat_call_sends_normalized_tools_payload(monkeypatch) -> None:
     assert captured["body"]["tools"][0]["function"]["name"] == "file_read"
 
 
-def test_provider_invocation_cancellation_fences_network_and_late_response(monkeypatch) -> None:
+def test_provider_invocation_cancellation_fences_network_and_late_response() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
 
     attempt = {
@@ -95,18 +121,13 @@ def test_provider_invocation_cancellation_fences_network_and_late_response(monke
         "timeout": 5,
         "profile": None,
     }
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        lambda **_kwargs: pytest.fail("pre-cancelled invocation must not send"),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_current_invocation_cancelled",
-        staticmethod(lambda: True),
+    pre_cancelled_service = _service(
+        post=lambda **_kwargs: pytest.fail("pre-cancelled invocation must not send"),
+        cancellation_probe=lambda: True,
     )
 
     with pytest.raises(LLMUnavailableError) as pre_cancelled:
-        ModelInvocationService._make_single_chat_call(
+        pre_cancelled_service._make_single_chat_call(
             [{"role": "user", "content": "secret"}],
             tools=None,
             response_format=None,
@@ -127,23 +148,14 @@ def test_provider_invocation_cancellation_fences_network_and_late_response(monke
 
     middleware = Middleware()
     cancellation_checks = iter((False, True))
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_current_invocation_cancelled",
-        staticmethod(lambda: next(cancellation_checks)),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_provider_middleware",
-        classmethod(lambda _cls: middleware),
-    )
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        lambda *_args, **_kwargs: SimpleNamespace(status_code=200),
+    late_cancelled_service = _service(
+        post=lambda *_args, **_kwargs: SimpleNamespace(status_code=200),
+        cancellation_probe=lambda: next(cancellation_checks),
+        provider_middleware_provider=lambda: middleware,
     )
 
     with pytest.raises(LLMUnavailableError) as late_cancelled:
-        ModelInvocationService._make_single_chat_call(
+        late_cancelled_service._make_single_chat_call(
             [{"role": "user", "content": "secret"}],
             tools=None,
             response_format=None,
@@ -158,23 +170,19 @@ def test_explicit_missing_profiles_path_fails_closed_without_legacy_call(
     monkeypatch,
     tmp_path,
 ) -> None:
-    import agent.services.model_invocation_service as svc_mod
     from agent.services.model_invocation_service import LLMUnavailableError
 
-    monkeypatch.setattr(svc_mod, "_PROFILE_RESOLVER_CACHE", None)
     monkeypatch.setenv(
         "MODEL_PROFILES_PATH",
         str(tmp_path / "missing.model_profiles.yaml"),
     )
     monkeypatch.delenv("MODEL_ROUTING_PATH", raising=False)
     monkeypatch.delenv("ANANTA_MODEL_ROUTING_PATH", raising=False)
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        lambda *args, **kwargs: pytest.fail("legacy provider must not be called"),
-    )
+    def post(*args, **kwargs):  # noqa: ANN002, ANN003
+        pytest.fail("legacy provider must not be called")
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result("hello")
+        _service(post=post).invoke_result("hello")
 
     assert raised.value.terminal_reason == "policy_blocked"
     assert raised.value.fallback_decisions == [
@@ -192,7 +200,6 @@ def test_explicit_invalid_routing_file_fails_closed_without_legacy_call(
     monkeypatch,
     tmp_path,
 ) -> None:
-    import agent.services.model_invocation_service as svc_mod
     from agent.services.model_invocation_service import LLMUnavailableError
 
     profiles_path = tmp_path / "profiles.json"
@@ -221,17 +228,14 @@ def test_explicit_invalid_routing_file_fails_closed_without_legacy_call(
         ),
         encoding="utf-8",
     )
-    monkeypatch.setattr(svc_mod, "_PROFILE_RESOLVER_CACHE", None)
     monkeypatch.setenv("MODEL_PROFILES_PATH", str(profiles_path))
     monkeypatch.setenv("MODEL_ROUTING_PATH", str(routing_path))
     monkeypatch.delenv("ANANTA_MODEL_ROUTING_PATH", raising=False)
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        lambda *args, **kwargs: pytest.fail("legacy provider must not be called"),
-    )
+    def post(*args, **kwargs):  # noqa: ANN002, ANN003
+        pytest.fail("legacy provider must not be called")
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result("hello")
+        _service(post=post).invoke_result("hello")
 
     assert raised.value.terminal_reason == "policy_blocked"
     assert raised.value.fallback_decisions[0]["trigger"] == "policy_blocked"
@@ -246,7 +250,6 @@ def test_all_explicit_config_load_failures_are_distinct_from_not_configured(
     tmp_path,
     failure_kind,
 ) -> None:
-    import agent.services.model_invocation_service as svc_mod
     from agent.services.model_invocation_service import (
         ModelRoutingConfigurationError,
     )
@@ -270,7 +273,6 @@ def test_all_explicit_config_load_failures_are_distinct_from_not_configured(
         json.dumps(profiles_payload),
         encoding="utf-8",
     )
-    monkeypatch.setattr(svc_mod, "_PROFILE_RESOLVER_CACHE", None)
     monkeypatch.setenv("MODEL_PROFILES_PATH", str(profiles_path))
     monkeypatch.delenv("ANANTA_MODEL_ROUTING_PATH", raising=False)
     if failure_kind == "missing_routing":
@@ -282,10 +284,10 @@ def test_all_explicit_config_load_failures_are_distinct_from_not_configured(
         monkeypatch.delenv("MODEL_ROUTING_PATH", raising=False)
 
     with pytest.raises(ModelRoutingConfigurationError):
-        ModelInvocationService._get_resolver()
+        ModelInvocationService()._get_resolver()
 
 
-def test_implicit_routing_context_disallows_cloud(monkeypatch) -> None:
+def test_implicit_routing_context_disallows_cloud() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import ModelProfileResolver
@@ -299,18 +301,11 @@ def test_implicit_routing_context_disallows_cloud(monkeypatch) -> None:
         block_secret_context=True,
     )
     resolver = ModelProfileResolver([cloud])
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        lambda *args, **kwargs: pytest.fail("cloud provider must not be called"),
-    )
+    def post(*args, **kwargs):  # noqa: ANN002, ANN003
+        pytest.fail("cloud provider must not be called")
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result("ordinary non-secret prompt")
+        _service(resolver=resolver, post=post).invoke_result("ordinary non-secret prompt")
 
     assert raised.value.terminal_reason == "policy_blocked"
     blocked = raised.value.fallback_decisions[0]["blocked_candidates"]
@@ -386,9 +381,8 @@ def test_resolve_propose_timeout_prefers_calibrated_when_higher(tmp_path, monkey
     assert timeout > 120
 
 
-def test_make_chat_call_with_routing_ctx_includes_resolution_info(monkeypatch) -> None:
+def test_make_chat_call_with_routing_ctx_includes_resolution_info() -> None:
     """AMR-019: routing_ctx passed to make_chat_call produces resolution_info in metadata."""
-    import agent.services.model_invocation_service as svc_mod
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import (
         ModelProfileResolver,
@@ -410,8 +404,6 @@ def test_make_chat_call_with_routing_ctx_includes_resolution_info(monkeypatch) -
         routing_rules=RoutingRules(),
     )
 
-    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
-    svc_mod._PROFILE_RESOLVER_CACHE = None
 
     captured: dict = {}
 
@@ -430,26 +422,21 @@ def test_make_chat_call_with_routing_ctx_includes_resolution_info(monkeypatch) -
             },
         )
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="lmstudio",
-                default_model="auto",
-                lmstudio_url="http://localhost:1234/v1",
-                ollama_url="http://localhost:11434/api/generate",
-                openai_url="https://api.openai.com/v1",
-                openai_api_key=None,
-                mock_url="http://mock",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="lmstudio",
+        default_model="auto",
+        lmstudio_url="http://localhost:1234/v1",
+        ollama_url="http://localhost:11434/api/generate",
+        openai_url="https://api.openai.com/v1",
+        openai_api_key=None,
+        mock_url="http://mock",
+        llm_invoke_timeout_seconds=120,
     )
 
     ctx = RoutingContext(request_profile_id="test-local")
-    result = ModelInvocationService.invoke_result(prompt="hello", routing_ctx=ctx)
+    result = _service(resolver=resolver, settings=settings, post=_fake_post).invoke_result(
+        prompt="hello", routing_ctx=ctx
+    )
 
     assert "resolution_info" in result.get("metadata", {}), (
         f"Expected resolution_info in metadata, got: {result.get('metadata', {})}"
@@ -460,9 +447,7 @@ def test_make_chat_call_with_routing_ctx_includes_resolution_info(monkeypatch) -
     assert ri["resolution_rank"] == 1
 
 
-def test_profile_request_applies_generation_limits(
-    monkeypatch,
-) -> None:
+def test_profile_request_applies_generation_limits() -> None:
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import (
         ModelProfileResolver,
@@ -480,11 +465,6 @@ def test_profile_request_applies_generation_limits(
         base_url="http://ollama:11434/v1",
     )
     resolver = ModelProfileResolver([profile])
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
     captured: dict = {}
 
     def _fake_post(  # noqa: ANN001
@@ -508,12 +488,8 @@ def test_profile_request_applies_generation_limits(
             },
         )
 
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        _fake_post,
-    )
 
-    result = ModelInvocationService.invoke_result(
+    result = _service(resolver=resolver, post=_fake_post).invoke_result(
         "hello",
         system_prompt="Solve carefully.",
         routing_ctx=RoutingContext(request_profile_id=profile.profile_id),
@@ -524,7 +500,7 @@ def test_profile_request_applies_generation_limits(
     assert captured["body"]["temperature"] == pytest.approx(0.35)
     assert captured["body"]["max_tokens"] == 321
     assert (
-        ModelInvocationService._max_output_tokens_for_request(
+        max_output_tokens_for_request(
             profile,
             {"max_completion_tokens_per_call": 100},
         )
@@ -532,9 +508,7 @@ def test_profile_request_applies_generation_limits(
     )
 
 
-def test_profile_ollama_generate_uses_signed_exact_native_target(
-    monkeypatch,
-) -> None:
+def test_profile_ollama_generate_uses_signed_exact_native_target() -> None:
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import (
         ModelProfileResolver,
@@ -549,11 +523,7 @@ def test_profile_ollama_generate_uses_signed_exact_native_target(
         base_url="http://ollama:11434/api/generate",
         max_output_tokens=64,
     )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: ModelProfileResolver([profile])),
-    )
+    resolver = ModelProfileResolver([profile])
     captured: dict = {}
 
     def _fake_post(  # noqa: ANN001
@@ -572,12 +542,8 @@ def test_profile_ollama_generate_uses_signed_exact_native_target(
             },
         )
 
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        _fake_post,
-    )
 
-    result = ModelInvocationService.invoke_result(
+    result = _service(resolver=resolver, post=_fake_post).invoke_result(
         "hello",
         routing_ctx=RoutingContext(request_profile_id=profile.profile_id),
     )
@@ -591,8 +557,7 @@ def test_profile_ollama_generate_uses_signed_exact_native_target(
 
 
 @pytest.mark.usefixtures("public_provider_dns")
-def test_invocation_fallback_chain_local_gemma_qwen(monkeypatch) -> None:
-    import agent.services.model_invocation_service as svc_mod
+def test_invocation_fallback_chain_local_gemma_qwen() -> None:
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext, RoutingRules
 
@@ -638,8 +603,6 @@ def test_invocation_fallback_chain_local_gemma_qwen(monkeypatch) -> None:
             }
         ),
     )
-    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
-    svc_mod._PROFILE_RESOLVER_CACHE = None
     calls: list[str] = []
 
     def _fake_post(  # noqa: ANN001
@@ -648,7 +611,7 @@ def test_invocation_fallback_chain_local_gemma_qwen(monkeypatch) -> None:
         assert allow_redirects is False
         calls.append(json["model"])
         if len(calls) == 1:
-            raise svc_mod.requests.exceptions.Timeout("local timeout")
+            raise requests.exceptions.Timeout("local timeout")
         if len(calls) == 2:
             return SimpleNamespace(status_code=503, text="bad gateway")
         return SimpleNamespace(
@@ -660,25 +623,18 @@ def test_invocation_fallback_chain_local_gemma_qwen(monkeypatch) -> None:
             },
         )
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="lmstudio",
-                default_model="auto",
-                lmstudio_url="http://localhost:1234/v1",
-                ollama_url="http://localhost:11434/api/generate",
-                openai_url="https://api.openai.com/v1",
-                openai_api_key=None,
-                mock_url="http://mock",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="lmstudio",
+        default_model="auto",
+        lmstudio_url="http://localhost:1234/v1",
+        ollama_url="http://localhost:11434/api/generate",
+        openai_url="https://api.openai.com/v1",
+        openai_api_key=None,
+        mock_url="http://mock",
+        llm_invoke_timeout_seconds=120,
     )
 
-    result = ModelInvocationService.invoke_result(
+    result = _service(resolver=resolver, settings=settings, post=_fake_post).invoke_result(
         "hello",
         routing_ctx=RoutingContext(fallback_group_id="local_first_cheap", allow_cloud=True),
     )
@@ -802,14 +758,12 @@ def _local_lfm_kat_resolver():
 
 
 def test_local_lfm_timeout_falls_back_once_to_kat_and_audits_both_attempts(
-    monkeypatch,
     app,
 ) -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_resolver import RoutingContext
 
     resolver = _local_lfm_kat_resolver()
-    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
     attempts: list[str] = []
     observations = []
 
@@ -819,8 +773,8 @@ def test_local_lfm_timeout_falls_back_once_to_kat_and_audits_both_attempts(
 
     app.extensions["model_invocation_observation_port"] = Observer()
 
-    def invoke(cls, messages, **kwargs):  # noqa: ANN001
-        del cls, messages
+    def invoke(messages, **kwargs):  # noqa: ANN001
+        del messages
         model = kwargs["attempt"]["model"]
         attempts.append(model)
         if model == "lfm2.5-2.6b-agentic-q8_0":
@@ -835,9 +789,8 @@ def test_local_lfm_timeout_falls_back_once_to_kat_and_audits_both_attempts(
             "metadata": {"llm_call_profile": [{"latency_ms": 20}]},
         }
 
-    monkeypatch.setattr(ModelInvocationService, "_make_single_chat_call", classmethod(invoke))
     with app.app_context():
-        result = ModelInvocationService.invoke_result(
+        result = _service(resolver=resolver, transport=_TransportDouble(invoke)).invoke_result(
             "bounded local request",
             routing_ctx=RoutingContext(
                 request_profile_id="local_lfm25_agentic_fast",
@@ -892,21 +845,15 @@ def _hub_signed_phi_gemma_attempt_plan():
     ),
 )
 def test_hub_signed_attempt_plan_fails_closed_for_denied_triggers(
-    monkeypatch,
     error_type,
 ) -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
 
     resolver = _local_fallback_resolver()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
     calls: list[str] = []
 
-    def _denied_call(cls, messages, **values):  # noqa: ANN001
-        del cls, messages
+    def _denied_call(messages, **values):  # noqa: ANN001
+        del messages
         calls.append(values["attempt"]["model"])
         raise LLMUnavailableError(
             error_type,
@@ -914,14 +861,9 @@ def test_hub_signed_attempt_plan_fails_closed_for_denied_triggers(
             terminal_reason=error_type,
         )
 
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_make_single_chat_call",
-        classmethod(_denied_call),
-    )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result(
+        _service(resolver=resolver, transport=_TransportDouble(_denied_call)).invoke_result(
             "hello",
             provider_attempt_plan=_hub_signed_phi_gemma_attempt_plan(),
         )
@@ -932,32 +874,19 @@ def test_hub_signed_attempt_plan_fails_closed_for_denied_triggers(
     assert raised.value.fallback_decisions[-1]["next_profile_id"] is None
 
 
-def test_hub_signed_attempt_plan_http_4xx_does_not_call_gemma(
-    monkeypatch,
-) -> None:
+def test_hub_signed_attempt_plan_http_4xx_does_not_call_gemma() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
 
     resolver = _local_fallback_resolver()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="ollama",
-                default_model="auto",
-                lmstudio_url="",
-                ollama_url="http://ollama:11434/v1",
-                openai_url="",
-                openai_api_key=None,
-                mock_url="",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="ollama",
+        default_model="auto",
+        lmstudio_url="",
+        ollama_url="http://ollama:11434/v1",
+        openai_url="",
+        openai_api_key=None,
+        mock_url="",
+        llm_invoke_timeout_seconds=120,
     )
     calls: list[str] = []
 
@@ -973,13 +902,9 @@ def test_hub_signed_attempt_plan_http_4xx_does_not_call_gemma(
             url="",
         )
 
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        _client_error,
-    )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result(
+        _service(resolver=resolver, settings=settings, post=_client_error).invoke_result(
             "hello",
             provider_attempt_plan=_hub_signed_phi_gemma_attempt_plan(),
         )
@@ -988,35 +913,22 @@ def test_hub_signed_attempt_plan_http_4xx_does_not_call_gemma(
     assert raised.value.terminal_reason == "client_error"
 
 
-def test_hub_signed_context_overflow_defers_directly_to_hub_recovery(
-    monkeypatch,
-) -> None:
+def test_hub_signed_context_overflow_defers_directly_to_hub_recovery() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_recovery_signal import (
         sanitize_terminal_model_recovery_signal,
     )
 
     resolver = _local_fallback_resolver()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="ollama",
-                default_model="auto",
-                lmstudio_url="",
-                ollama_url="http://ollama:11434/v1",
-                openai_url="",
-                openai_api_key=None,
-                mock_url="",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="ollama",
+        default_model="auto",
+        lmstudio_url="",
+        ollama_url="http://ollama:11434/v1",
+        openai_url="",
+        openai_api_key=None,
+        mock_url="",
+        llm_invoke_timeout_seconds=120,
     )
     calls: list[str] = []
 
@@ -1032,13 +944,9 @@ def test_hub_signed_context_overflow_defers_directly_to_hub_recovery(
             url="",
         )
 
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        _context_overflow,
-    )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result(
+        _service(resolver=resolver, settings=settings, post=_context_overflow).invoke_result(
             "hello",
             provider_attempt_plan=_hub_signed_phi_gemma_attempt_plan(),
         )
@@ -1049,22 +957,15 @@ def test_hub_signed_context_overflow_defers_directly_to_hub_recovery(
     assert sanitize_terminal_model_recovery_signal(raised.value.model_recovery_signal) is not None
 
 
-def test_provider_context_retry_attempt_advances_for_every_profile_request(
-    monkeypatch,
-) -> None:
+def test_provider_context_retry_attempt_advances_for_every_profile_request() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_resolver import RoutingContext
 
     resolver = _local_fallback_resolver(phi_retries=1)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
     contexts = []
 
-    def _fake_call(cls, messages, **kwargs):  # noqa: ANN001
-        del cls, messages
+    def _fake_call(messages, **kwargs):  # noqa: ANN001
+        del messages
         contexts.append(kwargs["provider_context"])
         if len(contexts) == 1:
             raise LLMUnavailableError(
@@ -1077,13 +978,8 @@ def test_provider_context_retry_attempt_advances_for_every_profile_request(
             "metadata": {"llm_call_profile": []},
         }
 
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_make_single_chat_call",
-        classmethod(_fake_call),
-    )
 
-    result = ModelInvocationService.invoke_result(
+    result = _service(resolver=resolver, transport=_TransportDouble(_fake_call)).invoke_result(
         "hello",
         routing_ctx=RoutingContext(
             request_profile_id="phi",
@@ -1102,22 +998,15 @@ def test_provider_context_retry_attempt_advances_for_every_profile_request(
     assert contexts[0].selected_model_id == contexts[1].selected_model_id == "phi"
 
 
-def test_bound_primary_context_cannot_authorize_unbound_fallback(
-    monkeypatch,
-) -> None:
+def test_bound_primary_context_cannot_authorize_unbound_fallback() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_resolver import RoutingContext
 
     resolver = _local_fallback_resolver()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
     attempted_models: list[str] = []
 
-    def _fake_call(cls, messages, **kwargs):  # noqa: ANN001
-        del cls, messages
+    def _fake_call(messages, **kwargs):  # noqa: ANN001
+        del messages
         attempted_models.append(kwargs["attempt"]["model"])
         raise LLMUnavailableError(
             "timeout",
@@ -1125,14 +1014,9 @@ def test_bound_primary_context_cannot_authorize_unbound_fallback(
             terminal_reason="timeout",
         )
 
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_make_single_chat_call",
-        classmethod(_fake_call),
-    )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result(
+        _service(resolver=resolver, transport=_TransportDouble(_fake_call)).invoke_result(
             "hello",
             routing_ctx=RoutingContext(
                 request_profile_id="phi",
@@ -1151,22 +1035,15 @@ def test_bound_primary_context_cannot_authorize_unbound_fallback(
     )
 
 
-def test_hub_bound_fallback_uses_its_own_context_and_reports_actual_profile(
-    monkeypatch,
-) -> None:
+def test_hub_bound_fallback_uses_its_own_context_and_reports_actual_profile() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_resolver import RoutingContext
 
     resolver = _local_fallback_resolver()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
     contexts = []
 
-    def _fake_call(cls, messages, **kwargs):  # noqa: ANN001
-        del cls, messages
+    def _fake_call(messages, **kwargs):  # noqa: ANN001
+        del messages
         contexts.append(kwargs["provider_context"])
         attempt = kwargs["attempt"]
         if attempt["model"] == "phi":
@@ -1181,13 +1058,8 @@ def test_hub_bound_fallback_uses_its_own_context_and_reports_actual_profile(
             "metadata": {"llm_call_profile": []},
         }
 
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_make_single_chat_call",
-        classmethod(_fake_call),
-    )
 
-    result = ModelInvocationService.invoke_result(
+    result = _service(resolver=resolver, transport=_TransportDouble(_fake_call)).invoke_result(
         "hello",
         routing_ctx=RoutingContext(
             request_profile_id="phi",
@@ -1215,26 +1087,19 @@ def test_hub_bound_fallback_uses_its_own_context_and_reports_actual_profile(
     assert result["metadata"]["resolution_info"]["model"] == "gemma"
 
 
-def test_public_model_override_is_policy_blocked_when_profiles_are_active(
-    monkeypatch,
-) -> None:
+def test_public_model_override_is_policy_blocked_when_profiles_are_active() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_resolver import RoutingContext
 
     resolver = _local_fallback_resolver()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_make_single_chat_call",
-        classmethod(lambda cls, messages, **kwargs: pytest.fail("model override must fail before provider invocation")),
-    )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result(
+        _service(
+            resolver=resolver,
+            transport=_TransportDouble(
+                lambda messages, **kwargs: pytest.fail("model override must fail before provider invocation")
+            ),
+        ).invoke_result(
             "hello",
             model="unbound-model",
             routing_ctx=RoutingContext(fallback_group_id="local"),
@@ -1244,7 +1109,7 @@ def test_public_model_override_is_policy_blocked_when_profiles_are_active(
     assert raised.value.fallback_decisions[0]["reason"] == ("model_override_not_allowed_with_profile_routing")
 
 
-def test_group_budget_allows_two_phi_retries_and_one_gemma_retry(monkeypatch) -> None:
+def test_group_budget_allows_two_phi_retries_and_one_gemma_retry() -> None:
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext, RoutingRules
 
@@ -1279,7 +1144,6 @@ def test_group_budget_allows_two_phi_retries_and_one_gemma_retry(monkeypatch) ->
             }
         ),
     )
-    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
     calls: list[str] = []
     gemma_calls = 0
 
@@ -1299,25 +1163,20 @@ def test_group_budget_allows_two_phi_retries_and_one_gemma_retry(monkeypatch) ->
             json=lambda: {"choices": [{"message": {"content": "gemma ok"}}], "usage": {}},
         )
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="ollama",
-                default_model="auto",
-                lmstudio_url="",
-                ollama_url="http://ollama:11434/api/generate",
-                openai_url="",
-                openai_api_key=None,
-                mock_url="",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="ollama",
+        default_model="auto",
+        lmstudio_url="",
+        ollama_url="http://ollama:11434/api/generate",
+        openai_url="",
+        openai_api_key=None,
+        mock_url="",
+        llm_invoke_timeout_seconds=120,
     )
 
-    result = ModelInvocationService.invoke_result("hello", routing_ctx=RoutingContext(fallback_group_id="local"))
+    result = _service(resolver=resolver, settings=settings, post=_fake_post).invoke_result(
+        "hello", routing_ctx=RoutingContext(fallback_group_id="local")
+    )
 
     assert result["content"] == "gemma ok"
     assert calls == (["ananta-phi4-mini-32k"] * 3 + ["ananta-gemma4-reasoning-8k"] * 2)
@@ -1331,7 +1190,7 @@ def test_group_budget_allows_two_phi_retries_and_one_gemma_retry(monkeypatch) ->
     assert result["metadata"]["resolution_info"]["fallback_group_max_total_retries"] == 3
 
 
-def test_group_retry_budget_caps_retries_across_all_profiles(monkeypatch) -> None:
+def test_group_retry_budget_caps_retries_across_all_profiles() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import (
@@ -1369,26 +1228,15 @@ def test_group_retry_budget_caps_retries_across_all_profiles(monkeypatch) -> Non
             }
         ),
     )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="ollama",
-                default_model="auto",
-                lmstudio_url="",
-                ollama_url="http://ollama:11434/api/generate",
-                openai_url="",
-                openai_api_key=None,
-                mock_url="",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="ollama",
+        default_model="auto",
+        lmstudio_url="",
+        ollama_url="http://ollama:11434/api/generate",
+        openai_url="",
+        openai_api_key=None,
+        mock_url="",
+        llm_invoke_timeout_seconds=120,
     )
     calls: list[str] = []
 
@@ -1399,13 +1247,9 @@ def test_group_retry_budget_caps_retries_across_all_profiles(monkeypatch) -> Non
         calls.append(json["model"])
         raise requests.exceptions.Timeout("timeout")
 
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        _always_timeout,
-    )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_result(
+        _service(resolver=resolver, settings=settings, post=_always_timeout).invoke_result(
             "hello",
             routing_ctx=RoutingContext(fallback_group_id="local"),
         )
@@ -1417,7 +1261,7 @@ def test_group_retry_budget_caps_retries_across_all_profiles(monkeypatch) -> Non
     assert [decision["group_retries_used"] for decision in retry_decisions] == [1, 2]
 
 
-def test_json_schema_failure_retries_phi_then_uses_gemma(monkeypatch) -> None:
+def test_json_schema_failure_retries_phi_then_uses_gemma() -> None:
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext, RoutingRules
 
@@ -1453,7 +1297,6 @@ def test_json_schema_failure_retries_phi_then_uses_gemma(monkeypatch) -> None:
             }
         ),
     )
-    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
     calls: list[str] = []
 
     def _fake_post(  # noqa: ANN001
@@ -1471,25 +1314,18 @@ def test_json_schema_failure_retries_phi_then_uses_gemma(monkeypatch) -> None:
             },
         )
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="ollama",
-                default_model="auto",
-                lmstudio_url="",
-                ollama_url="http://ollama:11434/api/generate",
-                openai_url="",
-                openai_api_key=None,
-                mock_url="",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="ollama",
+        default_model="auto",
+        lmstudio_url="",
+        ollama_url="http://ollama:11434/api/generate",
+        openai_url="",
+        openai_api_key=None,
+        mock_url="",
+        llm_invoke_timeout_seconds=120,
     )
 
-    result = ModelInvocationService.invoke_with_json_schema_result(
+    result = _service(resolver=resolver, settings=settings, post=_fake_post).invoke_with_json_schema_result(
         "answer",
         {
             "type": "object",
@@ -1509,7 +1345,7 @@ def test_json_schema_failure_retries_phi_then_uses_gemma(monkeypatch) -> None:
     ]
 
 
-def test_prompt_json_tool_call_schema_failure_is_terminal_model_signal(monkeypatch) -> None:
+def test_prompt_json_tool_call_schema_failure_is_terminal_model_signal() -> None:
     from agent.services.model_invocation_service import LLMUnavailableError
     from agent.services.model_profile_loader import ModelProfile
     from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext
@@ -1525,7 +1361,6 @@ def test_prompt_json_tool_call_schema_failure_is_terminal_model_signal(monkeypat
         tool_calling_mode="prompt_json",
     )
     resolver = ModelProfileResolver([profile])
-    monkeypatch.setattr(ModelInvocationService, "_get_resolver", classmethod(lambda cls: resolver))
 
     def _fake_post(  # noqa: ANN001
         url, json, headers, timeout, allow_redirects
@@ -1545,26 +1380,19 @@ def test_prompt_json_tool_call_schema_failure_is_terminal_model_signal(monkeypat
             },
         )
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", _fake_post)
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="lmstudio",
-                default_model="auto",
-                lmstudio_url="http://localhost:1234/v1",
-                ollama_url="http://localhost:11434/api/generate",
-                openai_url="https://api.openai.com/v1",
-                openai_api_key=None,
-                mock_url="http://mock",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="lmstudio",
+        default_model="auto",
+        lmstudio_url="http://localhost:1234/v1",
+        ollama_url="http://localhost:11434/api/generate",
+        openai_url="https://api.openai.com/v1",
+        openai_api_key=None,
+        mock_url="http://mock",
+        llm_invoke_timeout_seconds=120,
     )
 
     with pytest.raises(LLMUnavailableError) as raised:
-        ModelInvocationService.invoke_with_tools(
+        _service(resolver=resolver, settings=settings, post=_fake_post).invoke_with_tools(
             "choose",
             tools=[
                 {
@@ -1588,7 +1416,7 @@ def test_prompt_json_tool_call_schema_failure_is_terminal_model_signal(monkeypat
     assert exc.model_recovery_signal["attempt_count"] == 1
 
 
-def test_provider_info_uses_configured_local_backend_for_llamacpp(monkeypatch) -> None:
+def test_provider_info_uses_configured_local_backend_for_llamacpp() -> None:
     from flask import Flask
 
     settings = SimpleNamespace(
@@ -1599,7 +1427,7 @@ def test_provider_info_uses_configured_local_backend_for_llamacpp(monkeypatch) -
         openai_api_key=None,
         mock_url="http://mock:8080",
     )
-    monkeypatch.setattr(ModelInvocationService, "_get_settings", classmethod(lambda cls: settings))
+    endpoints = ProviderEndpointResolver(settings_provider=lambda: settings)
     app = Flask("provider-info")
     app.config["AGENT_CONFIG"] = {
         "local_openai_backends": [{"id": "llamacpp", "base_url": "http://host.docker.internal:18150/v1"}]
@@ -1607,13 +1435,13 @@ def test_provider_info_uses_configured_local_backend_for_llamacpp(monkeypatch) -
     app.config["PROVIDER_URLS"] = {"lmstudio": settings.lmstudio_url}
 
     with app.app_context():
-        provider, url, api_key = ModelInvocationService._provider_info()
+        provider, url, api_key = endpoints.provider_info()
 
     assert (provider, url, api_key) == ("llamacpp", "http://host.docker.internal:18150/v1/chat/completions", None)
 
 
-def test_provider_info_keeps_lmstudio_fallback_for_unknown_provider(monkeypatch) -> None:
+def test_provider_info_keeps_lmstudio_fallback_for_unknown_provider() -> None:
     settings = SimpleNamespace(default_provider="custom", lmstudio_url="http://lmstudio:1234/v1")
-    monkeypatch.setattr(ModelInvocationService, "_get_settings", classmethod(lambda cls: settings))
+    endpoints = ProviderEndpointResolver(settings_provider=lambda: settings)
 
-    assert ModelInvocationService._provider_info() == ("custom", "http://lmstudio:1234/v1/chat/completions", None)
+    assert endpoints.provider_info() == ("custom", "http://lmstudio:1234/v1/chat/completions", None)

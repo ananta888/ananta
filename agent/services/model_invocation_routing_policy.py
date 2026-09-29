@@ -1,8 +1,13 @@
 """Routing policy of ModelInvocationService: Hub-bound provider contexts,
-signed provider attempt plans and their fallback/retry decisions."""
+signed provider attempt plans and their fallback/retry decisions.
+
+``ModelInvocationRoutingPolicy`` is a stateless collaborator of the chat
+pipeline; it never selects a provider on its own.
+"""
 
 from __future__ import annotations
 
+import os
 import uuid
 from collections.abc import Mapping
 from typing import Any
@@ -11,56 +16,57 @@ from agent.services.model_invocation_errors import (
     LLMUnavailableError,
     ModelRoutingConfigurationError,
 )
-from agent.services.model_invocation_support import (
-    composed_model_invocation_service,
-)
 from ananta_contracts.provider_endpoint_policy import (
     normalize_provider_endpoint_identity,
 )
 
+MODEL_ROUTING_ENVIRONMENT_VARIABLES = (
+    "MODEL_PROFILES_PATH",
+    "MODEL_ROUTING_PATH",
+    "ANANTA_MODEL_ROUTING_PATH",
+)
 
-class ModelInvocationRoutingPolicyMixin:
+
+def model_routing_configuration_requested() -> bool:
+    """True when the deployment asked for profile-based model routing."""
+
+    return any(str(os.environ.get(name) or "").strip() for name in MODEL_ROUTING_ENVIRONMENT_VARIABLES)
+
+
+def routing_policy_blocked_error(reason: str) -> LLMUnavailableError:
+    normalized_reason = str(reason or "model_routing_policy_blocked").strip()[:160]
+    return LLMUnavailableError(
+        normalized_reason,
+        fallback_decisions=[
+            {
+                "reason": normalized_reason,
+                "previous_profile_id": None,
+                "next_profile_id": None,
+                "trigger": "policy_blocked",
+                "terminal": True,
+            }
+        ],
+        terminal_reason="policy_blocked",
+    )
+
+
+class ModelInvocationRoutingPolicy:
     """Enforce Hub-owned provider bindings; never select a provider on its own."""
 
     @staticmethod
-    def _model_routing_configuration_requested() -> bool:
-        import os
-
-        return any(
-            str(os.environ.get(name) or "").strip()
-            for name in (
-                "MODEL_PROFILES_PATH",
-                "MODEL_ROUTING_PATH",
-                "ANANTA_MODEL_ROUTING_PATH",
-            )
-        )
+    def routing_configuration_requested() -> bool:
+        return model_routing_configuration_requested()
 
     @staticmethod
-    def _configured_routing_unavailable_error() -> LLMUnavailableError:
-        return composed_model_invocation_service()._routing_policy_blocked_error(
-            "configured_model_routing_unavailable"
-        )
+    def configured_routing_unavailable_error() -> LLMUnavailableError:
+        return routing_policy_blocked_error("configured_model_routing_unavailable")
 
     @staticmethod
-    def _routing_policy_blocked_error(reason: str) -> LLMUnavailableError:
-        normalized_reason = str(reason or "model_routing_policy_blocked").strip()[:160]
-        return LLMUnavailableError(
-            normalized_reason,
-            fallback_decisions=[
-                {
-                    "reason": normalized_reason,
-                    "previous_profile_id": None,
-                    "next_profile_id": None,
-                    "trigger": "policy_blocked",
-                    "terminal": True,
-                }
-            ],
-            terminal_reason="policy_blocked",
-        )
+    def blocked_error(reason: str) -> LLMUnavailableError:
+        return routing_policy_blocked_error(reason)
 
-    @classmethod
-    def _provider_context_for_request(
-        cls,
+    def provider_context_for_request(
+        self,
         *,
         provider_context: Any,
         provider_contexts_by_profile_id: Mapping[str, Any] | None,
@@ -109,7 +115,7 @@ class ModelInvocationRoutingPolicyMixin:
                     raise ProviderInvocationBlocked("provider_fallback_binding_required")
                 candidate = ProviderInvocationContext.from_value(raw_candidate)
                 candidate.assert_valid()
-                cls._assert_same_provider_delegation(primary, candidate)
+                self._assert_same_provider_delegation(primary, candidate)
                 if primary.require_hub_provider_budget and not candidate.require_hub_provider_budget:
                     raise ProviderInvocationBlocked("provider_fallback_binding_budget_mismatch")
                 if primary.require_hub_provider_budget and candidate.provider_binding_id == primary.provider_binding_id:
@@ -132,9 +138,9 @@ class ModelInvocationRoutingPolicyMixin:
                 retry_id=f"{retry_prefix}:provider:{retry_attempt}",
             ).for_provider_call(f"provider-call:{uuid.uuid4().hex}")
         except ProviderInvocationBlocked as exc:
-            raise cls._routing_policy_blocked_error(exc.reason_code) from exc
+            raise routing_policy_blocked_error(exc.reason_code) from exc
         except (TypeError, ValueError) as exc:
-            raise cls._routing_policy_blocked_error("provider_context_invalid") from exc
+            raise routing_policy_blocked_error("provider_context_invalid") from exc
 
     @staticmethod
     def _assert_same_provider_delegation(primary: Any, fallback: Any) -> None:
@@ -179,18 +185,17 @@ class ModelInvocationRoutingPolicyMixin:
             raise ValueError("provider_attempt_plan_duplicate")
         return values
 
-    @classmethod
-    def _validated_provider_attempt_plan(
-        cls,
+    def validated_provider_attempt_plan(
+        self,
         raw: Any,
     ) -> tuple[Any, ...]:
         try:
-            return cls._provider_attempt_plan(raw)
+            return self._provider_attempt_plan(raw)
         except (TypeError, ValueError) as exc:
-            raise cls._routing_policy_blocked_error("provider_attempt_plan_invalid") from exc
+            raise routing_policy_blocked_error("provider_attempt_plan_invalid") from exc
 
     @staticmethod
-    def _profiles_for_signed_attempt_plan(
+    def profiles_for_signed_attempt_plan(
         resolver: Any,
         signed_attempt_plan: tuple[Any, ...],
     ) -> tuple[list[Any], dict[str, Any]]:
@@ -224,7 +229,7 @@ class ModelInvocationRoutingPolicyMixin:
         }
 
     @staticmethod
-    def _signed_attempt_failure_action(
+    def signed_attempt_failure_action(
         *,
         signed_attempt_plan: tuple[Any, ...],
         index: int,

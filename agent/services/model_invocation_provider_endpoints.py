@@ -1,9 +1,14 @@
 """Provider endpoint resolution of ModelInvocationService: map profiles,
-settings and runtime handoff registrations to chat-completions URLs."""
+settings and runtime handoff registrations to chat-completions URLs.
+
+``ProviderEndpointResolver`` receives the settings accessor and the local
+backend lookup explicitly instead of reading them from a host class.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import os
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from ananta_contracts.provider_endpoint_policy import (
@@ -11,44 +16,75 @@ from ananta_contracts.provider_endpoint_policy import (
 )
 
 
-class ModelInvocationProviderEndpointMixin:
-    """Resolve (provider, url, api_key) for one invocation attempt."""
+def resolve_runtime_handoff_endpoint(
+    *,
+    tenant_id: str,
+    endpoint_id: str,
+    required_capability: str,
+    expected_endpoint_revision: int | None = None,
+    endpoint_registry: Any | None = None,
+) -> Mapping[str, Any]:
+    """Resolve one explicit endpoint revision; never select a fallback."""
 
-    @classmethod
-    def resolve_runtime_handoff_endpoint(
-        cls,
-        *,
-        tenant_id: str,
-        endpoint_id: str,
-        required_capability: str,
-        expected_endpoint_revision: int | None = None,
-        endpoint_registry: Any | None = None,
-    ) -> Mapping[str, Any]:
-        """Resolve one explicit endpoint revision; never select a fallback."""
+    if endpoint_registry is None:
+        from flask import current_app
 
-        if endpoint_registry is None:
-            from flask import current_app
-
-            from agent.services.unsloth_runtime_handoff_composition import (
-                runtime_endpoint_registry_from_config,
-            )
-
-            endpoint_registry = runtime_endpoint_registry_from_config(
-                dict(current_app.config.get("AGENT_CONFIG", {}) or {})
-            )
-        return endpoint_registry.resolve_for_invocation(
-            tenant_id=tenant_id,
-            endpoint_id=endpoint_id,
-            required_capability=required_capability,
-            expected_revision=expected_endpoint_revision,
+        from agent.services.unsloth_runtime_handoff_composition import (
+            runtime_endpoint_registry_from_config,
         )
 
-    @classmethod
-    def _provider_info_from_profile(cls, profile) -> tuple[str, str, str | None]:
-        """Convert a ModelProfile to (provider_label, url, api_key)."""
-        import os
+        endpoint_registry = runtime_endpoint_registry_from_config(
+            dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+        )
+    return endpoint_registry.resolve_for_invocation(
+        tenant_id=tenant_id,
+        endpoint_id=endpoint_id,
+        required_capability=required_capability,
+        expected_revision=expected_endpoint_revision,
+    )
 
-        s = cls._get_settings()
+
+def configured_local_backend_url(provider: str) -> str | None:
+    """Chat-completions URL of a configured local OpenAI-compatible backend (e.g. ``llamacpp``).
+
+    Without this, a default provider such as ``llamacpp`` fell through to ``lmstudio_url``
+    and was sent to LM Studio's endpoint instead of its own ``local_openai_backends`` entry.
+    """
+    try:
+        from flask import current_app, has_app_context
+
+        from agent.local_llm_backends import resolve_local_openai_backend
+
+        if not has_app_context():
+            return None
+        entry = resolve_local_openai_backend(
+            provider,
+            agent_cfg=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
+            provider_urls=dict(current_app.config.get("PROVIDER_URLS", {}) or {}),
+        )
+    except Exception:  # noqa: BLE001 -- resolution is best effort; the caller keeps its fallback
+        return None
+    base = str((entry or {}).get("base_url") or "").rstrip("/")
+    if not base or provider in ("lmstudio", "lm_studio"):
+        return None
+    return base if base.endswith("/chat/completions") else base + "/chat/completions"
+
+
+class ProviderEndpointResolver:
+    """Resolve (provider, url, api_key) for one invocation attempt."""
+
+    def __init__(
+        self,
+        *,
+        settings_provider: Callable[[], Any],
+        local_backend_url: Callable[[str], str | None] = configured_local_backend_url,
+    ) -> None:
+        self._settings = settings_provider
+        self._local_backend_url = local_backend_url
+
+    def provider_info_from_profile(self, profile) -> tuple[str, str, str | None]:
+        """Convert a ModelProfile to (provider_label, url, api_key)."""
+        s = self._settings()
         provider = profile.provider_id.lower()
         base_url = (profile.base_url or "").rstrip("/")
         api_key: str | None = None
@@ -100,36 +136,9 @@ class ModelInvocationProviderEndpointMixin:
             api_key,
         )
 
-    @staticmethod
-    def _configured_local_backend_url(provider: str) -> str | None:
-        """Chat-completions URL of a configured local OpenAI-compatible backend (e.g. ``llamacpp``).
-
-        Without this, a default provider such as ``llamacpp`` fell through to ``lmstudio_url``
-        and was sent to LM Studio's endpoint instead of its own ``local_openai_backends`` entry.
-        """
-        try:
-            from flask import current_app, has_app_context
-
-            from agent.local_llm_backends import resolve_local_openai_backend
-
-            if not has_app_context():
-                return None
-            entry = resolve_local_openai_backend(
-                provider,
-                agent_cfg=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
-                provider_urls=dict(current_app.config.get("PROVIDER_URLS", {}) or {}),
-            )
-        except Exception:  # noqa: BLE001 -- resolution is best effort; the caller keeps its fallback
-            return None
-        base = str((entry or {}).get("base_url") or "").rstrip("/")
-        if not base or provider in ("lmstudio", "lm_studio"):
-            return None
-        return base if base.endswith("/chat/completions") else base + "/chat/completions"
-
-    @classmethod
-    def _provider_info(cls) -> tuple[str, str, str | None]:
+    def provider_info(self) -> tuple[str, str, str | None]:
         """Return (provider_label, chat_completions_url, api_key)."""
-        s = cls._get_settings()
+        s = self._settings()
         provider = (s.default_provider or "lmstudio").strip().lower()
 
         if provider in ("lmstudio", "lm_studio"):
@@ -159,7 +168,7 @@ class ModelInvocationProviderEndpointMixin:
         if provider == "mock":
             return "mock", s.mock_url.rstrip("/") + "/v1/chat/completions", None
 
-        configured = cls._configured_local_backend_url(provider)
+        configured = self._local_backend_url(provider)
         if configured:
             return provider, configured, None
 

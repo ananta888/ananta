@@ -544,31 +544,20 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
             }
         ),
     )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_resolver",
-        classmethod(lambda cls: resolver),
-    )
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_get_settings",
-        classmethod(
-            lambda cls: SimpleNamespace(
-                default_provider="ollama",
-                default_model="auto",
-                lmstudio_url="",
-                ollama_url="http://ollama:11434/v1",
-                openai_url="",
-                openai_api_key=None,
-                mock_url="",
-                llm_invoke_timeout_seconds=120,
-            )
-        ),
+    settings = SimpleNamespace(
+        default_provider="ollama",
+        default_model="auto",
+        lmstudio_url="",
+        ollama_url="http://ollama:11434/v1",
+        openai_url="",
+        openai_api_key=None,
+        mock_url="",
+        llm_invoke_timeout_seconds=120,
     )
     calls: list[tuple[str, str]] = []
 
-    def invoke_once(cls, messages, **values):  # noqa: ANN001
-        del cls, messages
+    def invoke_once(messages, **values):  # noqa: ANN001
+        del messages
         attempt = values["attempt"]
         provider_context = values["provider_context"]
         calls.append(
@@ -589,10 +578,17 @@ def test_native_command_plan_controls_propose_strategy_despite_worker_drift(
             "usage": {},
         }
 
+    # Class-level calls (the strategy/worker use ModelInvocationService as a
+    # port) are served by the shared default instance; install one composed
+    # with the test doubles.
     monkeypatch.setattr(
         ModelInvocationService,
-        "_make_single_chat_call",
-        classmethod(invoke_once),
+        "_default_instance",
+        ModelInvocationService(
+            profile_resolver_provider=lambda: resolver,
+            settings_provider=lambda: settings,
+            chat_transport=SimpleNamespace(make_single_chat_call=invoke_once),
+        ),
     )
     context = ProposeContext(
         goal_id="goal-native",

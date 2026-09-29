@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from agent.services.model_invocation_service import ModelInvocationService
+from agent.services.model_invocation_provider_codec import ProviderWireCodec
 from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from agent.services.model_prompt_prefix_service import ModelPromptPrefixService
 
@@ -45,7 +45,7 @@ def test_inserts_system_message_and_is_idempotent() -> None:
 
 
 def test_provider_request_body_applies_profile_prefix() -> None:
-    body, is_native_ollama = ModelInvocationService._provider_request_body(
+    body, is_native_ollama = ProviderWireCodec().request_body(
         provider="ollama",
         url="http://ollama:11434/v1/chat/completions",
         model="ananta-gemma4-reasoning-8k",
@@ -68,7 +68,7 @@ def test_provider_request_body_applies_profile_prefix() -> None:
 
 
 def test_native_ollama_generate_keeps_prefix_in_system_field() -> None:
-    body, is_native_ollama = ModelInvocationService._provider_request_body(
+    body, is_native_ollama = ProviderWireCodec().request_body(
         provider="ollama",
         url="http://ollama:11434/api/generate",
         model="ananta-gemma4-reasoning-8k",

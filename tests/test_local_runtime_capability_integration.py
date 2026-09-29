@@ -849,9 +849,9 @@ def test_ollama_strategy_normalizes_native_chat_tool_calls(monkeypatch):
 
 
 def test_model_invocation_normalizes_ollama_native_chat_to_openai_shape():
-    from agent.services.model_invocation_service import ModelInvocationService
+    from agent.services.model_invocation_provider_codec import ProviderWireCodec
 
-    result = ModelInvocationService._normalize_ollama_chat_response(
+    result = ProviderWireCodec().normalize_ollama_chat_response(
         {
             "model": "model",
             "message": {

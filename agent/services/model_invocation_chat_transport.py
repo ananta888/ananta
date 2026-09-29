@@ -1,5 +1,10 @@
 """Single provider chat call of ModelInvocationService: provider middleware,
-prompt trace, cancellation fence and the HTTP exchange for one attempt."""
+prompt trace, cancellation fence and the HTTP exchange for one attempt.
+
+``ChatTransport`` receives its wire codec, response-contract error
+projection, provider middleware accessor, HTTP post function, cancellation
+probe and LM Studio lock explicitly; nothing is looked up on a host class.
+"""
 
 from __future__ import annotations
 
@@ -7,14 +12,29 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NoReturn, Protocol
 
 import requests
 
 from agent.services.model_invocation_errors import LLMUnavailableError
+from agent.services.model_invocation_payload_helpers import (
+    fallback_error_type,
+    finalize_trace_error,
+    messages_for_tool_mode,
+    tool_calling_mode,
+)
+from agent.services.model_invocation_profile import (
+    build_llm_call_profile_entry,
+)
 from agent.services.model_invocation_response_policy import (
     ResponsePolicyFailureProjector,
     apply_local_response_policy,
+)
+from agent.services.model_invocation_support import (
+    current_invocation_cancelled,
+    provider_response_too_large,
+    raise_llm_error,
+    validate_local_runtime_payload,
 )
 
 # Shares the historical logger channel so log routing/filters stay unchanged.
@@ -26,12 +46,127 @@ logger = logging.getLogger("agent.services.model_invocation_service")
 _LMSTUDIO_INFERENCE_LOCK = threading.Lock()
 
 
-class ModelInvocationChatTransportMixin:
+def post_with_requests(url: str, **kwargs: Any) -> Any:
+    """Production HTTP post; ``requests.post`` is resolved per call."""
+
+    return requests.post(url, **kwargs)
+
+
+def default_provider_middleware() -> Any:
+    from agent.services.provider_invocation_middleware import get_provider_invocation_middleware
+
+    return get_provider_invocation_middleware()
+
+
+class ProviderWireCoding(Protocol):
+    """The wire-format operations the transport needs."""
+
+    def request_body(
+        self,
+        *,
+        provider: str,
+        url: str,
+        model: str,
+        messages: list[dict],
+        profile: Any,
+        provider_context: Any,
+        tools: list | None,
+        send_native_tools: bool,
+        response_format: dict | None,
+    ) -> tuple[dict[str, Any], bool]: ...
+
+    def normalize_response(
+        self,
+        payload: Any,
+        *,
+        ollama_generate: bool,
+        ollama_chat: bool,
+        model: str,
+    ) -> Any: ...
+
+    def response_redirect_denied(self, *, provider: str, request_url: str, response: Any) -> bool: ...
+
+
+class ResponseContractErrorRaising(Protocol):
+    def raise_contract_error(self, payload: dict[str, Any], *, error_type: str, detail: str) -> NoReturn: ...
+
+
+class SingleChatCallTransport(Protocol):
+    """One provider attempt; the chat pipeline depends only on this."""
+
+    def make_single_chat_call(
+        self,
+        messages: list[dict],
+        *,
+        tools: list | None,
+        response_format: dict | None,
+        response_validator: Callable[[dict[str, Any]], None] | None = None,
+        attempt: dict[str, Any],
+        resolution_info: dict[str, Any],
+        provider_context: Any = None,
+    ) -> dict: ...
+
+
+class ChatTransport:
     """Execute exactly one chat-completions attempt against one provider."""
 
-    @classmethod
-    def _make_single_chat_call(
-        cls,
+    def __init__(
+        self,
+        *,
+        codec: ProviderWireCoding,
+        contract: ResponseContractErrorRaising,
+        middleware_provider: Callable[[], Any] = default_provider_middleware,
+        http_post: Callable[..., Any] = post_with_requests,
+        cancellation_probe: Callable[[], bool] = current_invocation_cancelled,
+        lmstudio_inference_lock: Any = None,
+    ) -> None:
+        self._codec = codec
+        self._contract = contract
+        self._middleware = middleware_provider
+        self._http_post = http_post
+        self._cancelled = cancellation_probe
+        self._lmstudio_lock = (
+            _LMSTUDIO_INFERENCE_LOCK if lmstudio_inference_lock is None else lmstudio_inference_lock
+        )
+
+    def _enforce_provider_response_limit(
+        self,
+        *,
+        response: Any,
+        middleware: Any,
+        prepared: Any,
+        provider: str,
+        model: str,
+        prompt_trace: Any,
+        trace_service: Any,
+        started_at: float,
+    ) -> None:
+        if not provider_response_too_large(response):
+            return
+        middleware.fail(
+            prepared,
+            provider=provider,
+            model=model,
+            reason_code="provider_response_too_large",
+        )
+        finalize_trace_error(
+            prompt_trace,
+            trace_service,
+            "provider_response_too_large",
+            "provider_response_too_large",
+        )
+        raise_llm_error(
+            message="llm_provider_response_too_large",
+            name="chat_completions",
+            backend="llm_api",
+            provider=provider,
+            model=model,
+            started_at=started_at,
+            error_type="provider_response_too_large",
+        )
+
+    def make_single_chat_call(
+        self,
         messages: list[dict],
         *,
         tools: list | None,
@@ -47,8 +182,8 @@ class ModelInvocationChatTransportMixin:
         effective_model = attempt["model"]
         timeout = int(attempt.get("timeout") or 120)
         profile = attempt.get("profile")
-        tool_mode = cls._tool_calling_mode(profile)
-        outgoing_messages, send_native_tools = cls._messages_for_tool_mode(
+        tool_mode = tool_calling_mode(profile)
+        outgoing_messages, send_native_tools = messages_for_tool_mode(
             messages,
             tools=tools,
             tool_calling_mode=tool_mode,
@@ -57,7 +192,7 @@ class ModelInvocationChatTransportMixin:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        body, ollama_generate = cls._provider_request_body(
+        body, ollama_generate = self._codec.request_body(
             provider=provider,
             url=url,
             model=effective_model,
@@ -68,10 +203,10 @@ class ModelInvocationChatTransportMixin:
             send_native_tools=send_native_tools,
             response_format=response_format,
         )
-        cls._validate_local_runtime_payload(provider=provider, payload=body)
+        validate_local_runtime_payload(provider=provider, payload=body)
 
-        if cls._current_invocation_cancelled():
-            cls._raise_llm_error(
+        if self._cancelled():
+            raise_llm_error(
                 message="llm_invocation_cancelled",
                 name="chat_completions",
                 backend="request_cancellation_fence",
@@ -81,7 +216,7 @@ class ModelInvocationChatTransportMixin:
                 error_type="cancelled",
             )
 
-        middleware = cls._get_provider_middleware()
+        middleware = self._middleware()
         try:
             prepared = middleware.prepare(
                 context=provider_context,
@@ -95,7 +230,7 @@ class ModelInvocationChatTransportMixin:
 
             if not isinstance(exc, ProviderInvocationBlocked):
                 raise
-            cls._raise_llm_error(
+            raise_llm_error(
                 message=exc.reason_code,
                 name="chat_completions",
                 backend="provider_middleware",
@@ -106,8 +241,8 @@ class ModelInvocationChatTransportMixin:
             )
         body = prepared.payload
         if prepared.cached_response is not None:
-            if cls._current_invocation_cancelled():
-                cls._raise_llm_error(
+            if self._cancelled():
+                raise_llm_error(
                     message="llm_invocation_cancelled",
                     name="chat_completions",
                     backend="request_cancellation_fence",
@@ -131,7 +266,7 @@ class ModelInvocationChatTransportMixin:
                 cached_payload,
                 profile=profile,
                 tools_requested=bool(tools),
-                raise_contract_error=cls._raise_response_contract_error,
+                raise_contract_error=self._contract.raise_contract_error,
             )
             if response_validator is not None:
                 response_validator(cached_payload)
@@ -167,7 +302,7 @@ class ModelInvocationChatTransportMixin:
             trace_svc = None
 
         started_at = time.time()
-        lock = _LMSTUDIO_INFERENCE_LOCK if provider in ("lmstudio", "lm_studio") else None
+        lock = self._lmstudio_lock if provider in ("lmstudio", "lm_studio") else None
         if lock is not None:
             if not lock.acquire(blocking=False):
                 logger.debug("LM Studio busy - waiting for inference lock (provider=%s)", provider)
@@ -182,7 +317,7 @@ class ModelInvocationChatTransportMixin:
         # cancel) shuts the connection down and the model server stops generating instead of blocking a slot.
         # Without a task/goal nothing can cancel it: the plain request as before.
         http_session, session_key = create_and_register_session() if any(_get_current_context()) else (None, None)
-        post = http_session.post if http_session is not None else requests.post
+        post = http_session.post if http_session is not None else self._http_post
         try:
             try:
                 resp = post(
@@ -199,8 +334,8 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code="connection_error",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "connection_error", "provider_connection_failed")
-                cls._raise_llm_error(
+                finalize_trace_error(prompt_trace, trace_svc, "connection_error", "provider_connection_failed")
+                raise_llm_error(
                     message="llm_connection_failed",
                     name="chat_completions",
                     backend="llm_api",
@@ -216,8 +351,8 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code="timeout",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "timeout", "provider_timeout")
-                cls._raise_llm_error(
+                finalize_trace_error(prompt_trace, trace_svc, "timeout", "provider_timeout")
+                raise_llm_error(
                     message="llm_timeout",
                     name="chat_completions",
                     backend="llm_api",
@@ -227,20 +362,20 @@ class ModelInvocationChatTransportMixin:
                     error_type="timeout",
                 )
 
-            if cls._current_invocation_cancelled():
+            if self._cancelled():
                 middleware.fail(
                     prepared,
                     provider=provider,
                     model=effective_model,
                     reason_code="cancelled",
                 )
-                cls._finalize_trace_error(
+                finalize_trace_error(
                     prompt_trace,
                     trace_svc,
                     "cancelled",
                     "llm_invocation_cancelled",
                 )
-                cls._raise_llm_error(
+                raise_llm_error(
                     message="llm_invocation_cancelled",
                     name="chat_completions",
                     backend="request_cancellation_fence",
@@ -250,7 +385,7 @@ class ModelInvocationChatTransportMixin:
                     error_type="cancelled",
                 )
 
-            if cls._provider_response_redirect_denied(
+            if self._codec.response_redirect_denied(
                 provider=provider,
                 request_url=url,
                 response=resp,
@@ -261,13 +396,13 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code="provider_redirect_denied",
                 )
-                cls._finalize_trace_error(
+                finalize_trace_error(
                     prompt_trace,
                     trace_svc,
                     "provider_redirect_denied",
                     f"HTTP {resp.status_code}",
                 )
-                cls._raise_llm_error(
+                raise_llm_error(
                     message=(f"llm_provider_redirect_denied: HTTP {resp.status_code}"),
                     name="chat_completions",
                     backend="llm_api",
@@ -276,7 +411,7 @@ class ModelInvocationChatTransportMixin:
                     started_at=started_at,
                     error_type="provider_redirect_denied",
                 )
-            cls._enforce_provider_response_limit(
+            self._enforce_provider_response_limit(
                 response=resp,
                 middleware=middleware,
                 prepared=prepared,
@@ -293,8 +428,8 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code="server_error",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "server_error", f"HTTP {resp.status_code}")
-                cls._raise_llm_error(
+                finalize_trace_error(prompt_trace, trace_svc, "server_error", f"HTTP {resp.status_code}")
+                raise_llm_error(
                     message=f"llm_server_error: HTTP {resp.status_code}",
                     name="chat_completions",
                     backend="llm_api",
@@ -326,12 +461,12 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code=error_type,
                 )
-                cls._finalize_trace_error(
+                finalize_trace_error(
                     prompt_trace, trace_svc, error_type, f"HTTP {resp.status_code}"
                 )
                 # the server's reason (e.g. an unsupported request field) keeps a 4xx diagnosable
                 reason_excerpt = " ".join(response_excerpt.split())[:160]
-                cls._raise_llm_error(
+                raise_llm_error(
                     message=f"llm_{error_type}: HTTP {resp.status_code}" + (f": {reason_excerpt}" if reason_excerpt else ""),
                     name="chat_completions",
                     backend="llm_api",
@@ -350,13 +485,13 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code="invalid_json_response",
                 )
-                cls._finalize_trace_error(
+                finalize_trace_error(
                     prompt_trace,
                     trace_svc,
                     "invalid_json_response",
                     "invalid_json_response",
                 )
-                cls._raise_llm_error(
+                raise_llm_error(
                     message="llm_invalid_json_response",
                     name="chat_completions",
                     backend="llm_api",
@@ -365,7 +500,7 @@ class ModelInvocationChatTransportMixin:
                     started_at=started_at,
                     error_type="invalid_json_response",
                 )
-            payload = cls._normalize_provider_response(
+            payload = self._codec.normalize_response(
                 payload,
                 ollama_generate=ollama_generate,
                 ollama_chat=(
@@ -385,9 +520,9 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     prompt_trace=prompt_trace,
                     trace_service=trace_svc,
-                    finalize_trace_error=cls._finalize_trace_error,
+                    finalize_trace_error=finalize_trace_error,
                 ),
-                raise_contract_error=cls._raise_response_contract_error,
+                raise_contract_error=self._contract.raise_contract_error,
             )
 
             first_choice = (payload.get("choices") or [{}])[0] if isinstance(payload, dict) else {}
@@ -401,8 +536,8 @@ class ModelInvocationChatTransportMixin:
                     model=effective_model,
                     reason_code="empty_content",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "empty_content", "LLM response has no content")
-                cls._raise_llm_error(
+                finalize_trace_error(prompt_trace, trace_svc, "empty_content", "LLM response has no content")
+                raise_llm_error(
                     message="llm_empty_content",
                     name="chat_completions",
                     backend="llm_api",
@@ -414,7 +549,7 @@ class ModelInvocationChatTransportMixin:
 
             ended_at = time.time()
             usage = payload.get("usage") if isinstance(payload, dict) else {}
-            call_entry = cls._build_llm_call_profile_entry(
+            call_entry = build_llm_call_profile_entry(
                 name="chat_completions",
                 backend="llm_api",
                 provider=provider,
@@ -438,14 +573,14 @@ class ModelInvocationChatTransportMixin:
                 try:
                     response_validator(payload)
                 except LLMUnavailableError as exc:
-                    error_type = cls._fallback_error_type(exc)
+                    error_type = fallback_error_type(exc)
                     middleware.fail(
                         prepared,
                         provider=provider,
                         model=effective_model,
                         reason_code=error_type,
                     )
-                    cls._finalize_trace_error(
+                    finalize_trace_error(
                         prompt_trace,
                         trace_svc,
                         error_type,

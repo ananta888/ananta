@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from flask import Flask, g
 
-from agent.services.model_invocation_service import ModelInvocationService
+from agent.services.model_invocation_observation_helpers import observe_model_invocation_attempt
 
 
 class _Observer:
@@ -27,7 +27,7 @@ def test_local_attempt_observation_uses_request_correlation_without_content() ->
     with app.app_context():
         g.llm_goal_id = "goal-7"
         g.llm_task_id = "task-8"
-        ModelInvocationService._observe_model_invocation_attempt(
+        observe_model_invocation_attempt(
             attempt={
                 "profile": profile,
                 "provider": "openai_compatible",
@@ -56,7 +56,7 @@ def test_provider_neutral_port_can_receive_non_local_attempt() -> None:
     app.extensions["model_invocation_observation_port"] = observer
 
     with app.app_context():
-        ModelInvocationService._observe_model_invocation_attempt(
+        observe_model_invocation_attempt(
             attempt={
                 "profile": SimpleNamespace(profile_id="cloud_profile", context_tokens=1),
                 "provider": "cloud",

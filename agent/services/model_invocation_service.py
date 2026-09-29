@@ -1,52 +1,73 @@
 """ModelInvocationService — real LLM HTTP calls for propose strategies. FA-T021.
 
-The service is composed from single-responsibility mixins:
+The service composes single-responsibility collaborators, each built in
+``__init__`` with its production default and replaceable through a
+keyword-only constructor parameter:
 
-- ``model_invocation_support``: call-profile/error helpers and observation hooks
-- ``model_invocation_routing_policy``: Hub-bound provider contexts and attempt plans
-- ``model_invocation_provider_endpoints``: provider/profile to endpoint URL resolution
-- ``model_invocation_response_contract``: tool-call and JSON-schema response validation
-- ``model_invocation_provider_codec``: provider request bodies and response normalization
-- ``model_invocation_chat_transport``: one provider HTTP attempt
-- ``model_invocation_chat_pipeline``: candidate resolution, retry and fallback chain
+- ``ModelProfileResolverLoader``: configured profile resolver (cached per loader)
+- ``ModelInvocationRoutingPolicy``: Hub-bound provider contexts and attempt plans
+- ``ProviderEndpointResolver``: provider/profile to endpoint URL resolution
+- ``ResponseContractValidator``: tool-call and JSON-schema response validation
+- ``ProviderWireCodec``: provider request bodies and response normalization
+- ``ChatTransport``: one provider HTTP attempt
+- ``ChatCallPipeline``: candidate resolution, retry and fallback chain
+- ``ModelInvocationAttemptObserver``: content-free attempt observation
 
-This module keeps profile-resolver loading (its cache is module state that
-callers reset), the provider middleware accessor and the public ``invoke*`` API.
+Callers historically use the class itself (``ModelInvocationService.invoke``).
+Those class-level calls are served by one shared default instance
+(``default_instance()``); an explicitly constructed instance serves its own
+calls with its injected collaborators.
 """
 
 from __future__ import annotations
 
+import functools
 import json
-import logging
 import threading
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import Any, ClassVar
 
 import requests
 
 from agent.services.model_invocation_chat_pipeline import (
-    ModelInvocationChatPipelineMixin,
+    ChatCallPipeline,
+    ChatCallRunning,
+    ProviderEndpointPort,
+    RoutingPolicyPort,
 )
 from agent.services.model_invocation_chat_transport import (
     _LMSTUDIO_INFERENCE_LOCK,
-    ModelInvocationChatTransportMixin,
+    ChatTransport,
+    ProviderWireCoding,
+    SingleChatCallTransport,
+    default_provider_middleware,
+    post_with_requests,
 )
 from agent.services.model_invocation_errors import (
     LLMUnavailableError,
     ModelRoutingConfigurationError,
 )
-from agent.services.model_invocation_provider_codec import (
-    ModelInvocationProviderCodecMixin,
+from agent.services.model_invocation_payload_helpers import normalize_openai_tools
+from agent.services.model_invocation_profile_resolver_loader import (
+    ModelProfileResolverLoader,
 )
+from agent.services.model_invocation_provider_codec import ProviderWireCodec
 from agent.services.model_invocation_provider_endpoints import (
-    ModelInvocationProviderEndpointMixin,
+    ProviderEndpointResolver,
+    resolve_runtime_handoff_endpoint,
 )
 from agent.services.model_invocation_response_contract import (
-    ModelInvocationResponseContractMixin,
+    ResponseContractValidating,
+    ResponseContractValidator,
 )
 from agent.services.model_invocation_routing_policy import (
-    ModelInvocationRoutingPolicyMixin,
+    ModelInvocationRoutingPolicy,
 )
-from agent.services.model_invocation_support import ModelInvocationSupportMixin
+from agent.services.model_invocation_support import (
+    InvocationAttemptObserving,
+    ModelInvocationAttemptObserver,
+    current_invocation_cancelled,
+)
 
 __all__ = [
     "LLMUnavailableError",
@@ -56,181 +77,126 @@ __all__ = [
     "requests",
 ]
 
-logger = logging.getLogger(__name__)
 
-# Module-level resolver cache — loaded lazily, shared across calls.
-_PROFILE_RESOLVER_CACHE: Any = None
-_PROFILE_RESOLVER_LOCK = threading.Lock()
+def _application_settings() -> Any:
+    from agent.config import settings
+
+    return settings
 
 
-class ModelInvocationService(
-    ModelInvocationChatPipelineMixin,
-    ModelInvocationChatTransportMixin,
-    ModelInvocationProviderCodecMixin,
-    ModelInvocationResponseContractMixin,
-    ModelInvocationProviderEndpointMixin,
-    ModelInvocationRoutingPolicyMixin,
-    ModelInvocationSupportMixin,
-):
+class _CachedProvider:
+    """Resolve an expensive dependency once, on first use."""
+
+    def __init__(self, factory: Callable[[], Any]) -> None:
+        self._factory = factory
+        self._value: Any = None
+        self._lock = threading.Lock()
+
+    def __call__(self) -> Any:
+        if self._value is None:
+            with self._lock:
+                if self._value is None:
+                    self._value = self._factory()
+        return self._value
+
+
+class _shared_default_method:  # noqa: N801 -- used as a decorator
+    """Bind a method to its instance, or on class access to the shared default instance.
+
+    Keeps the historical class-level API (``ModelInvocationService.invoke``)
+    while the behavior lives on composed instances.
+    """
+
+    def __init__(self, function: Callable[..., Any]) -> None:
+        self._function = function
+        functools.update_wrapper(self, function)
+
+    def __get__(self, instance: Any, owner: type | None = None) -> Any:
+        if instance is None:
+            if owner is None:
+                raise TypeError("shared default method needs an owner class")
+            instance = owner.default_instance()
+        return self._function.__get__(instance, owner)
+
+
+class ModelInvocationService:
     """LLM invocation via OpenAI-compatible chat/completions endpoint."""
 
-    _provider_middleware: Any = None
+    _default_instance: ClassVar[ModelInvocationService | None] = None
+    _default_instance_lock: ClassVar[threading.Lock] = threading.Lock()
+
+    def __init__(
+        self,
+        *,
+        settings_provider: Callable[[], Any] | None = None,
+        profile_resolver_provider: Callable[[], Any] | None = None,
+        provider_middleware_provider: Callable[[], Any] | None = None,
+        http_post: Callable[..., Any] | None = None,
+        cancellation_probe: Callable[[], bool] | None = None,
+        attempt_observer: InvocationAttemptObserving | None = None,
+        routing_policy: RoutingPolicyPort | None = None,
+        endpoint_resolver: ProviderEndpointPort | None = None,
+        response_contract: ResponseContractValidating | None = None,
+        wire_codec: ProviderWireCoding | None = None,
+        chat_transport: SingleChatCallTransport | None = None,
+        chat_pipeline: ChatCallRunning | None = None,
+    ) -> None:
+        self._settings = settings_provider or _application_settings
+        self._profile_resolver = profile_resolver_provider or ModelProfileResolverLoader()
+        routing: RoutingPolicyPort = routing_policy or ModelInvocationRoutingPolicy()
+        self._endpoints: ProviderEndpointPort = endpoint_resolver or ProviderEndpointResolver(
+            settings_provider=self._settings
+        )
+        self._contract: ResponseContractValidating = response_contract or ResponseContractValidator()
+        self._transport: SingleChatCallTransport = chat_transport or ChatTransport(
+            codec=wire_codec or ProviderWireCodec(),
+            contract=self._contract,
+            middleware_provider=provider_middleware_provider or _CachedProvider(default_provider_middleware),
+            http_post=http_post or post_with_requests,
+            cancellation_probe=cancellation_probe or current_invocation_cancelled,
+        )
+        self._pipeline: ChatCallRunning = chat_pipeline or ChatCallPipeline(
+            resolver_provider=self._profile_resolver,
+            settings_provider=self._settings,
+            routing_policy=routing,
+            endpoints=self._endpoints,
+            transport=self._transport,
+            observer=attempt_observer or ModelInvocationAttemptObserver(),
+        )
 
     @classmethod
-    def _get_provider_middleware(cls):
-        if cls._provider_middleware is None:
-            from agent.services.provider_invocation_middleware import get_provider_invocation_middleware
+    def default_instance(cls) -> ModelInvocationService:
+        """The process-wide instance that serves class-level calls."""
+        instance = cls._default_instance
+        if instance is None:
+            with cls._default_instance_lock:
+                instance = cls._default_instance
+                if instance is None:
+                    instance = cls()
+                    cls._default_instance = instance
+        return instance
 
-            cls._provider_middleware = get_provider_invocation_middleware()
-        return cls._provider_middleware
-
-    @classmethod
-    def _get_settings(cls):
-        from agent.config import settings
-
-        return settings
-
-    @classmethod
-    def get_profile_resolver(cls):
+    @_shared_default_method
+    def get_profile_resolver(self):
         """Lazily load ModelProfileResolver from the configured profiles path.
         Returns None only when no model-routing configuration was requested."""
-        global _PROFILE_RESOLVER_CACHE
-        if _PROFILE_RESOLVER_CACHE is not None:
-            return _PROFILE_RESOLVER_CACHE
-        with _PROFILE_RESOLVER_LOCK:
-            if _PROFILE_RESOLVER_CACHE is not None:
-                return _PROFILE_RESOLVER_CACHE
-            try:
-                import os
-                from pathlib import Path
+        return self._profile_resolver()
 
-                from agent.services.model_master_default_service import get_global_master_default_service
-                from agent.services.model_profile_loader import ModelProfileLoader
-                from agent.services.model_profile_resolver import (
-                    ModelProfileResolver,
-                    RoutingRules,
-                    SecurityPolicyChecker,
-                )
-
-                profiles_path_env = os.environ.get("MODEL_PROFILES_PATH", "").strip()
-                routing_path_str = (
-                    os.environ.get("MODEL_ROUTING_PATH", "").strip()
-                    or os.environ.get("ANANTA_MODEL_ROUTING_PATH", "").strip()
-                )
-                if not profiles_path_env:
-                    if routing_path_str:
-                        raise ModelRoutingConfigurationError("model_profiles_path_required_for_configured_routing")
-                    return None
-                path = Path(profiles_path_env)
-                if not path.exists():
-                    raise ModelRoutingConfigurationError("configured_model_profiles_file_not_found")
-                result = ModelProfileLoader().load_file(path)
-                if not result.ok or not result.profiles:
-                    logger.warning("model_invocation: profile load errors: %s", result.errors)
-                    raise ModelRoutingConfigurationError("configured_model_profiles_invalid")
-
-                logger.info("model_invocation: loaded %d profiles from %s", len(result.profiles), path)
-
-                # Load routing rules
-                routing_rules = RoutingRules()
-                if routing_path_str:
-                    rp = Path(routing_path_str)
-                    if not rp.exists():
-                        raise ModelRoutingConfigurationError("configured_model_routing_file_not_found")
-                    try:
-                        from jsonschema import Draft202012Validator
-
-                        raw_routing = json.loads(rp.read_text(encoding="utf-8"))
-                        if not isinstance(raw_routing, dict):
-                            raise ValueError("model_routing_root_must_be_object")
-                        schema_path = (
-                            Path(__file__).resolve().parents[2] / "config" / "schemas" / "model_routing.schema.json"
-                        )
-                        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-                        Draft202012Validator(schema).validate(raw_routing)
-                        routing_rules = RoutingRules.from_dict(
-                            raw_routing,
-                            strict=True,
-                        )
-                        logger.info("model_invocation: loaded routing rules from %s", rp)
-                    except Exception as exc:
-                        logger.warning(
-                            "model_invocation: configured routing load failed for %s: %s",
-                            rp,
-                            exc,
-                        )
-                        raise ModelRoutingConfigurationError("configured_model_routing_invalid") from exc
-                else:
-                    logger.debug("model_invocation: no MODEL_ROUTING_PATH set — using empty rules")
-
-                # Load global master default
-                master_svc = get_global_master_default_service()
-                master_profile = master_svc.get_master_profile()
-
-                style_ranking = None
-                try:
-                    from agent.services.cognitive_style_service import (
-                        get_cognitive_style_ranking_policy,
-                    )
-
-                    style_ranking = get_cognitive_style_ranking_policy(
-                        weight=float(os.environ.get("COGNITIVE_STYLE_ROUTING_WEIGHT", ".25"))
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "model_invocation: cognitive style ranking unavailable: %s",
-                        type(exc).__name__,
-                    )
-
-                resolver = ModelProfileResolver(
-                    profiles=result.profiles,
-                    security_policy=SecurityPolicyChecker(),
-                    routing_rules=routing_rules,
-                    master_default_profile=master_profile,
-                    style_ranking=style_ranking,
-                )
-                _PROFILE_RESOLVER_CACHE = resolver
-
-                if master_profile:
-                    logger.info(
-                        "model_invocation: global master default active: provider=%s model=%s",
-                        master_profile.provider_id,
-                        master_profile.model,
-                    )
-
-                # AMR-020: log deprecation warning if legacy env vars are still set
-                import os as _os
-
-                if _os.environ.get("DEFAULT_PROVIDER") or _os.environ.get("DEFAULT_MODEL"):
-                    logger.warning(
-                        "model_invocation: DEFAULT_PROVIDER/DEFAULT_MODEL env vars are set but "
-                        "MODEL_PROFILES_PATH is also configured. Profile-based routing takes "
-                        "precedence. Remove DEFAULT_PROVIDER/DEFAULT_MODEL to silence this warning."
-                    )
-                return resolver
-            except ModelRoutingConfigurationError:
-                raise
-            except Exception as exc:
-                logger.warning("model_invocation: resolver init failed: %s", exc)
-                if cls._model_routing_configuration_requested():
-                    raise ModelRoutingConfigurationError("configured_model_routing_initialization_failed") from exc
-                return None
-
-    @classmethod
-    def _get_resolver(cls):
+    @_shared_default_method
+    def _get_resolver(self):
         """Compatibility alias for callers predating the public resolver accessor."""
 
-        return cls.get_profile_resolver()
+        return self._profile_resolver()
 
-    @classmethod
-    def get_context_recovery_policy(cls) -> dict[str, Any]:
+    @_shared_default_method
+    def get_context_recovery_policy(self) -> dict[str, Any]:
         """Return the Hub-loaded, non-executable recovery policy.
 
         The resolver remains the source of truth for the configured routing
         file.  Returning only the two allowlisted recovery fields keeps this
         read model separate from invocation and task orchestration.
         """
-        resolver = cls._get_resolver()
+        resolver = self._profile_resolver()
         rules = getattr(resolver, "rules", None) if resolver is not None else None
         if rules is None:
             return {}
@@ -239,18 +205,93 @@ class ModelInvocationService(
             "require_approval_for_generated_plan": bool(getattr(rules, "require_approval_for_generated_plan", True)),
         }
 
-    @classmethod
-    def invoke_with_tools(cls, prompt: str, tools: list, model: str | None = None, **kwargs) -> dict:
+    @staticmethod
+    def resolve_runtime_handoff_endpoint(
+        *,
+        tenant_id: str,
+        endpoint_id: str,
+        required_capability: str,
+        expected_endpoint_revision: int | None = None,
+        endpoint_registry: Any | None = None,
+    ) -> Mapping[str, Any]:
+        """Resolve one explicit endpoint revision; never select a fallback."""
+        return resolve_runtime_handoff_endpoint(
+            tenant_id=tenant_id,
+            endpoint_id=endpoint_id,
+            required_capability=required_capability,
+            expected_endpoint_revision=expected_endpoint_revision,
+            endpoint_registry=endpoint_registry,
+        )
+
+    @_shared_default_method
+    def _make_chat_call(
+        self,
+        messages: list[dict],
+        *,
+        tools: list | None = None,
+        response_format: dict | None = None,
+        response_validator: Callable[[dict[str, Any]], None] | None = None,
+        model: str | None = None,
+        timeout: int | None = None,
+        routing_ctx: Any = None,
+        provider_context: Any = None,
+        provider_contexts_by_profile_id: Mapping[str, Any] | None = None,
+        provider_attempt_plan: Any = None,
+    ) -> dict:
+        """Compatibility entry for callers that drive the attempt chain directly."""
+        return self._pipeline.make_chat_call(
+            messages,
+            tools=tools,
+            response_format=response_format,
+            response_validator=response_validator,
+            model=model,
+            timeout=timeout,
+            routing_ctx=routing_ctx,
+            provider_context=provider_context,
+            provider_contexts_by_profile_id=provider_contexts_by_profile_id,
+            provider_attempt_plan=provider_attempt_plan,
+        )
+
+    @_shared_default_method
+    def _make_single_chat_call(
+        self,
+        messages: list[dict],
+        *,
+        tools: list | None,
+        response_format: dict | None,
+        response_validator: Callable[[dict[str, Any]], None] | None = None,
+        attempt: dict[str, Any],
+        resolution_info: dict[str, Any],
+        provider_context: Any = None,
+    ) -> dict:
+        """Compatibility entry for callers that run exactly one provider attempt."""
+        return self._transport.make_single_chat_call(
+            messages,
+            tools=tools,
+            response_format=response_format,
+            response_validator=response_validator,
+            attempt=attempt,
+            resolution_info=resolution_info,
+            provider_context=provider_context,
+        )
+
+    @_shared_default_method
+    def _provider_info_from_profile(self, profile) -> tuple[str, str, str | None]:
+        """Compatibility entry: (provider_label, url, api_key) for a ModelProfile."""
+        return self._endpoints.provider_info_from_profile(profile)
+
+    @_shared_default_method
+    def invoke_with_tools(self, prompt: str, tools: list, model: str | None = None, **kwargs) -> dict:
         """Call LLM with tools= parameter. Returns dict with tool_calls list and content."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
 
-        response = cls._make_chat_call(
+        response = self._pipeline.make_chat_call(
             messages,
             tools=tools,
             response_validator=(
-                lambda payload: cls._validate_tool_response(payload, tools)
+                lambda payload: self._contract.validate_tool_response(payload, tools)
                 if bool(kwargs.get("retry_on_contract_error", False))
                 else None
             ),
@@ -282,7 +323,7 @@ class ModelInvocationService(
         if not tool_calls and msg.get("content"):
             allowed_tools = {
                 item["function"]["name"]: item["function"].get("parameters") or {"type": "object", "properties": {}}
-                for item in cls._normalize_openai_tools(tools)
+                for item in normalize_openai_tools(tools)
                 if isinstance(item.get("function"), dict)
             }
             try:
@@ -323,21 +364,21 @@ class ModelInvocationService(
             "finish_reason": choice.get("finish_reason"),
             "usage": response.get("usage") if isinstance(response.get("usage"), dict) else {},
             "metadata": metadata,
-            "provider": str(final_call.get("provider") or "").strip() or cls._provider_info()[0],
+            "provider": str(final_call.get("provider") or "").strip() or self._endpoints.provider_info()[0],
             "model": response.get("model") or final_call.get("model") or model,
         }
 
-    @classmethod
-    def invoke_with_json_schema(cls, prompt: str, json_schema: dict, model: str | None = None, **kwargs) -> str:
+    @_shared_default_method
+    def invoke_with_json_schema(self, prompt: str, json_schema: dict, model: str | None = None, **kwargs) -> str:
         """Call LLM with response_format=json_object. Returns raw content string."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(
+        response = self._pipeline.make_chat_call(
             messages,
             response_format={"type": "json_object"},
             response_validator=(
-                lambda payload: cls._validate_json_schema_response(
+                lambda payload: self._contract.validate_json_schema_response(
                     payload,
                     json_schema=json_schema,
                     allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
@@ -355,19 +396,19 @@ class ModelInvocationService(
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
 
-    @classmethod
+    @_shared_default_method
     def invoke_with_json_schema_result(
-        cls, prompt: str, json_schema: dict, model: str | None = None, **kwargs
+        self, prompt: str, json_schema: dict, model: str | None = None, **kwargs
     ) -> dict[str, Any]:
         """Call LLM with response_format=json_object, metadata and strict validation."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(
+        response = self._pipeline.make_chat_call(
             messages,
             response_format={"type": "json_object"},
             response_validator=(
-                lambda payload: cls._validate_json_schema_response(
+                lambda payload: self._contract.validate_json_schema_response(
                     payload,
                     json_schema=json_schema,
                     allow_format_repair=bool(kwargs.get("allow_format_repair", False)),
@@ -387,7 +428,7 @@ class ModelInvocationService(
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
         call_profile = [item for item in list(metadata.get("llm_call_profile") or []) if isinstance(item, dict)]
         final_call = call_profile[-1] if call_profile else {}
-        provider = str(final_call.get("provider") or "").strip() or cls._provider_info()[0]
+        provider = str(final_call.get("provider") or "").strip() or self._endpoints.provider_info()[0]
         content = (msg.get("content") or "") if isinstance(msg, dict) else ""
         from agent.services.structured_output_service import StructuredOutputService
 
@@ -411,13 +452,13 @@ class ModelInvocationService(
             "structured_output_audit": [dict(item) for item in structured.audit_events],
         }
 
-    @classmethod
-    def invoke(cls, prompt: str, model: str | None = None, **kwargs) -> str:
+    @_shared_default_method
+    def invoke(self, prompt: str, model: str | None = None, **kwargs) -> str:
         """Plain chat completion. Returns content string."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(
+        response = self._pipeline.make_chat_call(
             messages,
             model=model,
             timeout=kwargs.get("timeout"),
@@ -429,13 +470,13 @@ class ModelInvocationService(
         choice = (response.get("choices") or [{}])[0]
         return (choice.get("message") or {}).get("content") or ""
 
-    @classmethod
-    def invoke_result(cls, prompt: str, model: str | None = None, **kwargs) -> dict[str, Any]:
+    @_shared_default_method
+    def invoke_result(self, prompt: str, model: str | None = None, **kwargs) -> dict[str, Any]:
         """Plain chat completion with metadata/usage (additive API)."""
         messages = [{"role": "user", "content": prompt}]
         if kwargs.get("system_prompt"):
             messages = [{"role": "system", "content": kwargs["system_prompt"]}] + messages
-        response = cls._make_chat_call(
+        response = self._pipeline.make_chat_call(
             messages,
             model=model,
             timeout=kwargs.get("timeout"),
@@ -449,7 +490,7 @@ class ModelInvocationService(
         metadata = response.get("metadata") if isinstance(response.get("metadata"), dict) else {}
         call_profile = [item for item in list(metadata.get("llm_call_profile") or []) if isinstance(item, dict)]
         final_call = call_profile[-1] if call_profile else {}
-        provider = str(final_call.get("provider") or "").strip() or cls._provider_info()[0]
+        provider = str(final_call.get("provider") or "").strip() or self._endpoints.provider_info()[0]
         return {
             "content": (msg.get("content") or "") if isinstance(msg, dict) else "",
             "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,

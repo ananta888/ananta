@@ -363,7 +363,7 @@ class TestNewSoftwareProjectNoStub:
         from agent.services.propose_strategy_registry import build_strategy_registry
         from worker.core.propose_orchestrator import ProposeStrategyOrchestrator, ProposeContext
         from agent.services.propose_policy import ProposePolicy
-        from agent.services.model_invocation_service import LLMUnavailableError
+        from agent.services.model_invocation_service import LLMUnavailableError, ModelInvocationService
         from worker.core.propose import STATUS_NEEDS_REVIEW
 
         # All LLM calls fail; deterministic_handler also has no handler for this kind
@@ -380,8 +380,10 @@ class TestNewSoftwareProjectNoStub:
             tool_definitions_resolver=lambda: [{"name": "write_file", "description": "d", "parameters": {}}],
         )
 
-        with patch("agent.services.model_invocation_service.ModelInvocationService._make_chat_call") as mock_call:
-            mock_call.side_effect = LLMUnavailableError("connection refused")
+        failing_pipeline = MagicMock()
+        failing_pipeline.make_chat_call.side_effect = LLMUnavailableError("connection refused")
+        unavailable_llm = ModelInvocationService(chat_pipeline=failing_pipeline)
+        with patch.object(ModelInvocationService, "_default_instance", unavailable_llm):
             with patch("agent.config.settings") as ms:
                 ms.default_provider = "lmstudio"
                 result = orch.run(ctx)

@@ -1,5 +1,8 @@
 """Provider wire codec of ModelInvocationService: build provider request
-bodies (OpenAI-compatible, Ollama generate) and normalize responses."""
+bodies (OpenAI-compatible, Ollama generate) and normalize responses.
+
+``ProviderWireCodec`` is a stateless collaborator of the chat transport.
+"""
 
 from __future__ import annotations
 
@@ -12,19 +15,20 @@ from agent.services.local_runtime_response_adapters import (
     normalize_ollama_generate,
 )
 from agent.services.model_invocation_errors import LLMUnavailableError
-from agent.services.model_invocation_support import (
-    composed_model_invocation_service,
+from agent.services.model_invocation_payload_helpers import (
+    max_output_tokens_for_request,
+    normalize_openai_tools,
 )
 from ananta_contracts.provider_endpoint_policy import (
     normalize_provider_endpoint_identity,
 )
 
 
-class ModelInvocationProviderCodecMixin:
+class ProviderWireCodec:
     """Translate between the internal chat shape and provider wire formats."""
 
     @staticmethod
-    def _provider_response_redirect_denied(
+    def response_redirect_denied(
         *,
         provider: str,
         request_url: str,
@@ -80,17 +84,15 @@ class ModelInvocationProviderCodecMixin:
         if profile is not None:
             body["options"] = {
                 "temperature": float(profile.temperature),
-                "num_predict": (
-                    composed_model_invocation_service()._max_output_tokens_for_request(
-                        profile,
-                        provider_context,
-                    )
+                "num_predict": max_output_tokens_for_request(
+                    profile,
+                    provider_context,
                 ),
             }
         return body
 
     @staticmethod
-    def _normalize_ollama_generate_response(
+    def normalize_ollama_generate_response(
         payload: Any,
         *,
         model: str,
@@ -125,7 +127,7 @@ class ModelInvocationProviderCodecMixin:
         }
 
     @staticmethod
-    def _normalize_ollama_chat_response(
+    def normalize_ollama_chat_response(
         payload: Any,
         *,
         model: str,
@@ -174,9 +176,8 @@ class ModelInvocationProviderCodecMixin:
             "model": str(payload.get("model") or model),
         }
 
-    @classmethod
-    def _provider_request_body(
-        cls,
+    def request_body(
+        self,
         *,
         provider: str,
         url: str,
@@ -199,7 +200,7 @@ class ModelInvocationProviderCodecMixin:
         ollama_generate = provider == "ollama" and str(url).endswith("/api/generate")
         if ollama_generate:
             return (
-                cls._ollama_generate_request_body(
+                self._ollama_generate_request_body(
                     messages=effective_messages,
                     model=model,
                     profile=profile,
@@ -214,20 +215,19 @@ class ModelInvocationProviderCodecMixin:
         }
         if profile is not None:
             body["temperature"] = float(profile.temperature)
-            body["max_tokens"] = cls._max_output_tokens_for_request(
+            body["max_tokens"] = max_output_tokens_for_request(
                 profile,
                 provider_context,
             )
         if tools and send_native_tools:
-            body["tools"] = cls._normalize_openai_tools(tools)
+            body["tools"] = normalize_openai_tools(tools)
             body["tool_choice"] = "auto"
         if response_format:
             body["response_format"] = response_format
         return body, False
 
-    @classmethod
-    def _normalize_provider_response(
-        cls,
+    def normalize_response(
+        self,
         payload: Any,
         *,
         ollama_generate: bool,
@@ -235,12 +235,12 @@ class ModelInvocationProviderCodecMixin:
         model: str,
     ) -> Any:
         if ollama_generate:
-            return cls._normalize_ollama_generate_response(
+            return self.normalize_ollama_generate_response(
                 payload,
                 model=model,
             )
         if ollama_chat:
-            return cls._normalize_ollama_chat_response(
+            return self.normalize_ollama_chat_response(
                 payload,
                 model=model,
             )

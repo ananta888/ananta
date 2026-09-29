@@ -771,9 +771,8 @@ def test_completion_is_cached_and_events_never_contain_payload() -> None:
     assert all("payload" not in event and "messages" not in event for event in events.snapshot())
 
 
-def test_model_invocation_sends_only_middleware_redacted_payload(monkeypatch) -> None:
+def test_model_invocation_sends_only_middleware_redacted_payload() -> None:
     subject = ProviderInvocationMiddleware()
-    monkeypatch.setattr(ModelInvocationService, "_provider_middleware", subject)
 
     class Response:
         status_code = 200
@@ -800,9 +799,9 @@ def test_model_invocation_sends_only_middleware_redacted_payload(monkeypatch) ->
         )
         return Response()
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", post)
+    service = ModelInvocationService(provider_middleware_provider=lambda: subject, http_post=post)
 
-    result = ModelInvocationService._make_single_chat_call(
+    result = service._make_single_chat_call(
         [{"role": "user", "content": "secret-value"}],
         tools=None,
         response_format=None,
@@ -831,16 +830,10 @@ def test_model_invocation_sends_only_middleware_redacted_payload(monkeypatch) ->
     ids=("redirect-status", "final-url-mismatch"),
 )
 def test_model_invocation_denies_redirect_without_following_target(
-    monkeypatch,
     status_code: int,
     response_url: str,
 ) -> None:
     subject = ProviderInvocationMiddleware()
-    monkeypatch.setattr(
-        ModelInvocationService,
-        "_provider_middleware",
-        subject,
-    )
     observed: dict[str, object] = {}
 
     response = type(
@@ -867,16 +860,13 @@ def test_model_invocation_denies_redirect_without_following_target(
         )
         return response
 
-    monkeypatch.setattr(
-        "agent.services.model_invocation_service.requests.post",
-        post,
-    )
+    service = ModelInvocationService(provider_middleware_provider=lambda: subject, http_post=post)
 
     with pytest.raises(
         LLMUnavailableError,
         match="provider_redirect_denied",
     ):
-        ModelInvocationService._make_single_chat_call(
+        service._make_single_chat_call(
             [{"role": "user", "content": "hello"}],
             tools=None,
             response_format=None,
@@ -932,8 +922,8 @@ def test_legacy_generate_text_uses_same_redaction_budget_and_event_middleware(mo
     }
 
 
-def test_model_invocation_does_not_call_network_after_egress_denial(monkeypatch) -> None:
-    monkeypatch.setattr(ModelInvocationService, "_provider_middleware", ProviderInvocationMiddleware())
+def test_model_invocation_does_not_call_network_after_egress_denial() -> None:
+    middleware = ProviderInvocationMiddleware()
     called = False
 
     def post(*args, **kwargs):
@@ -941,10 +931,10 @@ def test_model_invocation_does_not_call_network_after_egress_denial(monkeypatch)
         called = True
         raise AssertionError("network must not be called")
 
-    monkeypatch.setattr("agent.services.model_invocation_service.requests.post", post)
+    service = ModelInvocationService(provider_middleware_provider=lambda: middleware, http_post=post)
 
     with pytest.raises(LLMUnavailableError, match="provider_egress_denied"):
-        ModelInvocationService._make_single_chat_call(
+        service._make_single_chat_call(
             [{"role": "user", "content": "hello"}],
             tools=None,
             response_format=None,

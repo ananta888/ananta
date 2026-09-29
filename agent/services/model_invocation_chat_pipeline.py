@@ -1,27 +1,123 @@
 """Chat call pipeline of ModelInvocationService: resolve candidate profiles
-and run attempts with Hub-governed retry and fallback decisions."""
+and run attempts with Hub-governed retry and fallback decisions.
+
+``ChatCallPipeline`` depends on narrow ports only: a profile-resolver
+accessor, a settings accessor, the routing policy, the endpoint resolver,
+the single-attempt transport and the attempt observer.
+"""
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, Protocol
 
+from agent.services.model_invocation_chat_transport import SingleChatCallTransport
 from agent.services.model_invocation_errors import (
     LLMUnavailableError,
     ModelRoutingConfigurationError,
+)
+from agent.services.model_invocation_payload_helpers import (
+    blocked_candidates_as_dict,
+    fallback_error_type,
+)
+from agent.services.model_invocation_support import (
+    InvocationAttemptObserving,
+    decorate_invocation_payload,
 )
 
 # Shares the historical logger channel so log routing/filters stay unchanged.
 logger = logging.getLogger("agent.services.model_invocation_service")
 
 
-class ModelInvocationChatPipelineMixin:
+class RoutingPolicyPort(Protocol):
+    """The Hub-governed routing decisions the pipeline applies."""
+
+    def routing_configuration_requested(self) -> bool: ...
+
+    def configured_routing_unavailable_error(self) -> LLMUnavailableError: ...
+
+    def blocked_error(self, reason: str) -> LLMUnavailableError: ...
+
+    def validated_provider_attempt_plan(self, raw: Any) -> tuple[Any, ...]: ...
+
+    def profiles_for_signed_attempt_plan(
+        self, resolver: Any, signed_attempt_plan: tuple[Any, ...]
+    ) -> tuple[list[Any], dict[str, Any]]: ...
+
+    def provider_context_for_request(
+        self,
+        *,
+        provider_context: Any,
+        provider_contexts_by_profile_id: Mapping[str, Any] | None,
+        profile: Any,
+        profile_index: int,
+        provider: str,
+        model: str,
+        request_attempt: int,
+    ) -> Any: ...
+
+    def signed_attempt_failure_action(
+        self,
+        *,
+        signed_attempt_plan: tuple[Any, ...],
+        index: int,
+        failed_attempts: int,
+        error_type: str,
+        fallback_policy: Any,
+        fallback_decisions: list[dict[str, Any]],
+        call_profile: list[dict[str, Any]],
+        error: LLMUnavailableError,
+    ) -> str: ...
+
+
+class ProviderEndpointPort(Protocol):
+    def provider_info(self) -> tuple[str, str, str | None]: ...
+
+    def provider_info_from_profile(self, profile: Any) -> tuple[str, str, str | None]: ...
+
+
+class ChatCallRunning(Protocol):
+    """One logical chat request across the whole attempt chain."""
+
+    def make_chat_call(
+        self,
+        messages: list[dict],
+        *,
+        tools: list | None = None,
+        response_format: dict | None = None,
+        response_validator: Callable[[dict[str, Any]], None] | None = None,
+        model: str | None = None,
+        timeout: int | None = None,
+        routing_ctx: Any = None,
+        provider_context: Any = None,
+        provider_contexts_by_profile_id: Mapping[str, Any] | None = None,
+        provider_attempt_plan: Any = None,
+    ) -> dict: ...
+
+
+class ChatCallPipeline:
     """Drive the attempt chain for one logical chat request."""
 
-    @classmethod
-    def _make_chat_call(
-        cls,
+    def __init__(
+        self,
+        *,
+        resolver_provider: Callable[[], Any],
+        settings_provider: Callable[[], Any],
+        routing_policy: RoutingPolicyPort,
+        endpoints: ProviderEndpointPort,
+        transport: SingleChatCallTransport,
+        observer: InvocationAttemptObserving,
+    ) -> None:
+        self._resolver = resolver_provider
+        self._settings = settings_provider
+        self._routing = routing_policy
+        self._endpoints = endpoints
+        self._transport = transport
+        self._observer = observer
+
+    def make_chat_call(
+        self,
         messages: list[dict],
         *,
         tools: list | None = None,
@@ -39,12 +135,12 @@ class ModelInvocationChatPipelineMixin:
         candidate_profiles: list[Any] = []
         resolution_info: dict[str, Any] = {}
         explicit_routing = routing_ctx is not None
-        signed_attempt_plan = cls._validated_provider_attempt_plan(provider_attempt_plan)
+        signed_attempt_plan = self._routing.validated_provider_attempt_plan(provider_attempt_plan)
         try:
-            resolver = cls._get_resolver()
+            resolver = self._resolver()
             requested_model_override = str(model or "").strip()
             if resolver is not None and requested_model_override and requested_model_override != "auto":
-                raise cls._routing_policy_blocked_error("model_override_not_allowed_with_profile_routing")
+                raise self._routing.blocked_error("model_override_not_allowed_with_profile_routing")
             if routing_ctx is None and resolver is not None:
                 from agent.services.model_profile_resolver import RoutingContext
 
@@ -59,7 +155,7 @@ class ModelInvocationChatPipelineMixin:
                 (
                     candidate_profiles,
                     resolution_info,
-                ) = cls._profiles_for_signed_attempt_plan(
+                ) = self._routing.profiles_for_signed_attempt_plan(
                     resolver,
                     signed_attempt_plan,
                 )
@@ -81,7 +177,7 @@ class ModelInvocationChatPipelineMixin:
                     }
         except ModelRoutingConfigurationError as exc:
             logger.warning("model_invocation: configured routing unavailable: %s", exc)
-            raise cls._configured_routing_unavailable_error() from exc
+            raise self._routing.configured_routing_unavailable_error() from exc
         except LLMUnavailableError:
             raise
         except Exception as exc:
@@ -91,12 +187,12 @@ class ModelInvocationChatPipelineMixin:
             }
             logger.warning("model_invocation: resolver failed: %s", exc)
             if explicit_routing or signed_attempt_plan:
-                raise cls._configured_routing_unavailable_error() from exc
+                raise self._routing.configured_routing_unavailable_error() from exc
 
         if resolver is None and (
-            signed_attempt_plan or explicit_routing or cls._model_routing_configuration_requested()
+            signed_attempt_plan or explicit_routing or self._routing.routing_configuration_requested()
         ):
-            raise cls._configured_routing_unavailable_error()
+            raise self._routing.configured_routing_unavailable_error()
 
         if (
             not signed_attempt_plan
@@ -123,7 +219,7 @@ class ModelInvocationChatPipelineMixin:
                         "next_profile_id": None,
                         "trigger": terminal_reason,
                         "terminal": True,
-                        "blocked_candidates": cls._blocked_candidates_as_dict(
+                        "blocked_candidates": blocked_candidates_as_dict(
                             getattr(
                                 resolution_result,
                                 "blocked_candidates",
@@ -138,9 +234,9 @@ class ModelInvocationChatPipelineMixin:
         attempts: list[dict[str, Any]] = []
         if candidate_profiles:
             for profile in candidate_profiles:
-                provider, url, api_key = cls._provider_info_from_profile(profile)
+                provider, url, api_key = self._endpoints.provider_info_from_profile(profile)
                 effective_model = (
-                    profile.model if profile.model and profile.model != "auto" else cls._get_settings().default_model
+                    profile.model if profile.model and profile.model != "auto" else self._settings().default_model
                 )
                 attempts.append(
                     {
@@ -153,8 +249,8 @@ class ModelInvocationChatPipelineMixin:
                     }
                 )
         else:
-            provider, url, api_key = cls._provider_info()
-            settings = cls._get_settings()
+            provider, url, api_key = self._endpoints.provider_info()
+            settings = self._settings()
             attempts.append(
                 {
                     "profile": None,
@@ -173,7 +269,7 @@ class ModelInvocationChatPipelineMixin:
 
         call_profile: list[dict[str, Any]] = []
         fallback_decisions: list[dict[str, Any]] = []
-        blocked = cls._blocked_candidates_as_dict(getattr(resolution_result, "blocked_candidates", []))
+        blocked = blocked_candidates_as_dict(getattr(resolution_result, "blocked_candidates", []))
         fallback_policy = ModelFallbackPolicyService(
             getattr(resolver, "health", None) if resolver is not None else None
         )
@@ -217,7 +313,7 @@ class ModelInvocationChatPipelineMixin:
                                 "fallback_index": index,
                             }
                         )
-                    request_provider_context = cls._provider_context_for_request(
+                    request_provider_context = self._routing.provider_context_for_request(
                         provider_context=provider_context,
                         provider_contexts_by_profile_id=(provider_contexts_by_profile_id),
                         profile=attempt_profile,
@@ -226,7 +322,7 @@ class ModelInvocationChatPipelineMixin:
                         model=attempt["model"],
                         request_attempt=request_attempt,
                     )
-                    payload = cls._make_single_chat_call(
+                    payload = self._transport.make_single_chat_call(
                         messages,
                         tools=tools,
                         response_format=response_format,
@@ -236,13 +332,13 @@ class ModelInvocationChatPipelineMixin:
                         provider_context=request_provider_context,
                     )
                     request_attempt += 1
-                    payload = cls._decorate_invocation_payload(
+                    payload = decorate_invocation_payload(
                         payload,
                         call_profile=call_profile,
                         fallback_decisions=fallback_decisions,
                         resolution_info=attempt_resolution_info,
                     )
-                    cls._observe_successful_model_invocation_attempt(
+                    self._observer.observe_success(
                         payload=payload,
                         attempt=attempt,
                         resolution_info=attempt_resolution_info,
@@ -255,15 +351,15 @@ class ModelInvocationChatPipelineMixin:
                         if isinstance(nested_decision, dict) and nested_decision not in fallback_decisions:
                             fallback_decisions.append(dict(nested_decision))
                     failed_attempts += 1
-                    error_type = cls._fallback_error_type(exc)
-                    cls._observe_failed_model_invocation_attempt(
+                    error_type = fallback_error_type(exc)
+                    self._observer.observe_failure(
                         error=exc,
                         error_type=error_type,
                         attempt=attempt,
                         resolution_info=attempt_resolution_info,
                     )
                     if signed_attempt_plan:
-                        action = cls._signed_attempt_failure_action(
+                        action = self._routing.signed_attempt_failure_action(
                             signed_attempt_plan=signed_attempt_plan,
                             index=index,
                             failed_attempts=failed_attempts,

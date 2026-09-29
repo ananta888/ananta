@@ -1,25 +1,51 @@
 """Response contract validation of ModelInvocationService: tool-call and
-JSON-schema responses are checked against the request contract."""
+JSON-schema responses are checked against the request contract.
+
+``ResponseContractValidator`` is stateless; the transport uses its error
+projection and the public ``invoke*`` API uses its validators.
+"""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, NoReturn, Protocol
 
 from agent.services.model_invocation_errors import LLMUnavailableError
+from agent.services.model_invocation_payload_helpers import (
+    normalize_openai_tools,
+    response_message,
+)
+from agent.services.model_invocation_profile import (
+    build_llm_call_profile_entry,
+)
 
 
-class ModelInvocationResponseContractMixin:
+class ResponseContractValidating(Protocol):
+    """Response-contract checks used by the transport and the ``invoke*`` API."""
+
+    def raise_contract_error(self, payload: dict[str, Any], *, error_type: str, detail: str) -> NoReturn: ...
+
+    def validate_tool_response(self, payload: dict[str, Any], tools: list | None) -> None: ...
+
+    def validate_json_schema_response(
+        self,
+        payload: dict[str, Any],
+        *,
+        json_schema: dict[str, Any],
+        allow_format_repair: bool,
+    ) -> None: ...
+
+
+class ResponseContractValidator:
     """Reject provider responses that violate the requested tool/schema contract."""
 
-    @classmethod
-    def _raise_response_contract_error(
-        cls,
+    @staticmethod
+    def raise_contract_error(
         payload: dict[str, Any],
         *,
         error_type: str,
         detail: str,
-    ) -> None:
+    ) -> NoReturn:
         metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
         profile = [dict(item) for item in list(metadata.get("llm_call_profile") or []) if isinstance(item, dict)]
         if profile:
@@ -31,7 +57,7 @@ class ModelInvocationResponseContractMixin:
             }
         else:
             profile.append(
-                cls._build_llm_call_profile_entry(
+                build_llm_call_profile_entry(
                     name="chat_completions",
                     backend="response_validation",
                     provider=None,
@@ -49,9 +75,8 @@ class ModelInvocationResponseContractMixin:
             terminal_reason=error_type,
         )
 
-    @classmethod
-    def _validate_tool_response(cls, payload: dict[str, Any], tools: list | None) -> None:
-        normalized_tools = cls._normalize_openai_tools(tools)
+    def validate_tool_response(self, payload: dict[str, Any], tools: list | None) -> None:
+        normalized_tools = normalize_openai_tools(tools)
         allowed_tools = {
             item["function"]["name"]: item["function"].get("parameters") or {"type": "object", "properties": {}}
             for item in normalized_tools
@@ -60,26 +85,26 @@ class ModelInvocationResponseContractMixin:
         if not allowed_tools:
             return
 
-        _, message = cls._response_message(payload)
+        _, message = response_message(payload)
         native_calls = message.get("tool_calls")
         if isinstance(native_calls, list) and native_calls:
             for raw_call in native_calls:
                 if not isinstance(raw_call, dict):
-                    cls._raise_response_contract_error(
+                    self.raise_contract_error(
                         payload,
                         error_type="tool_args_invalid",
                         detail="tool_call_must_be_object",
                     )
                 function = raw_call.get("function")
                 if not isinstance(function, dict):
-                    cls._raise_response_contract_error(
+                    self.raise_contract_error(
                         payload,
                         error_type="tool_args_invalid",
                         detail="tool_call_function_missing",
                     )
                 tool_name = str(function.get("name") or "").strip()
                 if tool_name not in allowed_tools:
-                    cls._raise_response_contract_error(
+                    self.raise_contract_error(
                         payload,
                         error_type="tool_not_allowed",
                         detail="tool_name_not_in_request_contract",
@@ -88,13 +113,13 @@ class ModelInvocationResponseContractMixin:
                 try:
                     args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
                 except (TypeError, ValueError):
-                    cls._raise_response_contract_error(
+                    self.raise_contract_error(
                         payload,
                         error_type="tool_args_invalid",
                         detail="tool_arguments_are_not_valid_json",
                     )
                 if not isinstance(args, dict):
-                    cls._raise_response_contract_error(
+                    self.raise_contract_error(
                         payload,
                         error_type="tool_args_invalid",
                         detail="tool_arguments_must_be_object",
@@ -106,7 +131,7 @@ class ModelInvocationResponseContractMixin:
                 except ImportError:
                     pass
                 except Exception:
-                    cls._raise_response_contract_error(
+                    self.raise_contract_error(
                         payload,
                         error_type="tool_args_invalid",
                         detail="tool_arguments_failed_schema_validation",
@@ -124,27 +149,27 @@ class ModelInvocationResponseContractMixin:
         try:
             selection = json.loads(str(message.get("content") or ""))
         except (TypeError, ValueError):
-            cls._raise_response_contract_error(
+            self.raise_contract_error(
                 payload,
                 error_type="tool_args_invalid",
                 detail="prompt_json_tool_selection_is_not_valid_json",
             )
         if not isinstance(selection, dict):
-            cls._raise_response_contract_error(
+            self.raise_contract_error(
                 payload,
                 error_type="tool_args_invalid",
                 detail="prompt_json_tool_selection_must_be_object",
             )
         tool_name = str(selection.get("tool") or "").strip()
         if tool_name not in allowed_tools:
-            cls._raise_response_contract_error(
+            self.raise_contract_error(
                 payload,
                 error_type="tool_not_allowed",
                 detail="prompt_json_tool_name_not_in_request_contract",
             )
         args = selection.get("args")
         if not isinstance(args, dict):
-            cls._raise_response_contract_error(
+            self.raise_contract_error(
                 payload,
                 error_type="tool_args_invalid",
                 detail="prompt_json_tool_args_must_be_object",
@@ -156,21 +181,20 @@ class ModelInvocationResponseContractMixin:
         except ImportError:
             pass
         except Exception:
-            cls._raise_response_contract_error(
+            self.raise_contract_error(
                 payload,
                 error_type="tool_args_invalid",
                 detail="prompt_json_tool_args_failed_schema_validation",
             )
 
-    @classmethod
-    def _validate_json_schema_response(
-        cls,
+    def validate_json_schema_response(
+        self,
         payload: dict[str, Any],
         *,
         json_schema: dict[str, Any],
         allow_format_repair: bool,
     ) -> None:
-        _, message = cls._response_message(payload)
+        _, message = response_message(payload)
         from agent.services.structured_output_service import StructuredOutputService
 
         structured = StructuredOutputService(max_repair_attempts=1 if allow_format_repair else 0).validate_json(
@@ -188,7 +212,7 @@ class ModelInvocationResponseContractMixin:
         normalized_codes = [code for code in issue_codes if code]
         if normalized_codes:
             detail = f"{detail}:{','.join(normalized_codes)}"
-        cls._raise_response_contract_error(
+        self.raise_contract_error(
             payload,
             error_type="schema_validation_failed",
             detail=detail,
