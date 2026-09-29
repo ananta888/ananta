@@ -544,7 +544,7 @@ class TestT040AuditEvents:
 
 class TestT041E2ESafeWorkerFlow:
     def _make_runtime(self):
-        from tests.test_awf_worker_fixup_t001_t010 import (
+        from tests.worker.test_awf_worker_fixup_t001_t010 import (
             _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort,
         )
         from worker.runtime.standalone_runtime import StandaloneRuntime
@@ -560,7 +560,7 @@ class TestT041E2ESafeWorkerFlow:
         return rt, tp, ap
 
     def _safe_plan_contract(self):
-        from tests.test_awf_worker_fixup_t001_t010 import _todo_contract
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
         contract = _todo_contract()
         # plan_only mode — no shell execution, no workspace mutation
         contract["execution"]["mode"] = "plan_only"
@@ -581,7 +581,7 @@ class TestT041E2ESafeWorkerFlow:
         assert any("runtime" in str(t).lower() for t in event_types)
 
     def test_standalone_contract_no_workspace_mutation(self):
-        from tests.test_awf_worker_fixup_t001_t010 import _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort
         from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
         rt = StandaloneRuntime(
@@ -635,7 +635,7 @@ class TestT041E2ESafeWorkerFlow:
 
 class TestT042CommandExecuteDenialApproval:
     def _make_runtime(self, policy_port=None):
-        from tests.test_awf_worker_fixup_t001_t010 import (
+        from tests.worker.test_awf_worker_fixup_t001_t010 import (
             _ListTracePort, _ManifestArtifactPort, _AllowPolicyPort,
         )
         from worker.runtime.standalone_runtime import StandaloneRuntime
@@ -648,7 +648,7 @@ class TestT042CommandExecuteDenialApproval:
         )
 
     def test_policy_deny_blocks_execution(self):
-        from tests.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort
         rt = self._make_runtime(policy_port=_DenyPolicyPort())
         result = rt.run(
             task_contract={
@@ -784,7 +784,7 @@ class TestT044SecurityRegression:
 
     def test_policy_missing_denies_execution(self):
         # BYPASS: missing policy → worker executes without classification
-        from tests.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort, _ListTracePort, _ManifestArtifactPort
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort, _ListTracePort, _ManifestArtifactPort
         from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
         rt = StandaloneRuntime(
@@ -872,7 +872,7 @@ class TestT044SecurityRegression:
         from worker.skills.skill_runner import SkillRunner
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
         reg = SkillRegistry()
-        from tests.test_awf_worker_fixup_t021_t030 import _minimal_manifest
+        from tests.worker.test_awf_worker_fixup_t021_t030 import _minimal_manifest
         reg.register(_minimal_manifest())
         # NOT enabled — must not run
         runner = SkillRunner(reg)
@@ -893,7 +893,7 @@ class TestT044SecurityRegression:
 
     def test_code_aware_mode_without_context_denied(self):
         # BYPASS: code-aware mode runs without context ref (no grounding)
-        from tests.test_awf_worker_fixup_t001_t010 import _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort
         from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
         rt = StandaloneRuntime(
@@ -902,7 +902,7 @@ class TestT044SecurityRegression:
             artifact_port=_ManifestArtifactPort(),
             tool_registry=build_default_registry(),
         )
-        from tests.test_awf_worker_fixup_t001_t010 import _todo_contract
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
         contract = _todo_contract()
         contract["control_manifest"].pop("context_ref", None)
         contract["control_manifest"].pop("context_hash", None)
@@ -919,7 +919,7 @@ class TestT044SecurityRegression:
 class TestT045DocsAndTrackUpdate:
     def _todo_path(self):
         from pathlib import Path
-        return Path(__file__).parents[1] / "todos" / "archiv" / "todo.ananta-worker-fixup.json"
+        return Path(__file__).parents[2] / "todos" / "archiv" / "todo.ananta-worker-fixup.json"
 
     def test_todo_file_is_valid_json(self):
         import json
@@ -929,14 +929,14 @@ class TestT045DocsAndTrackUpdate:
 
     def test_architecture_doc_exists(self):
         from pathlib import Path
-        doc = Path(__file__).parents[1] / "docs" / "architecture" / "ananta_native_worker.md"
+        doc = Path(__file__).parents[2] / "docs" / "architecture" / "ananta_native_worker.md"
         assert doc.exists()
         content = doc.read_text()
         assert "implemented" in content.lower()
 
     def test_setup_doc_exists(self):
         from pathlib import Path
-        doc = Path(__file__).parents[1] / "docs" / "setup" / "native-worker.md"
+        doc = Path(__file__).parents[2] / "docs" / "setup" / "native-worker.md"
         assert doc.exists()
         content = doc.read_text()
         assert "pytest" in content

@@ -9,7 +9,7 @@ import pytest
 
 
 def _make_envelope(**kwargs):
-    from tests.test_awf_worker_fixup_t031_t045 import _make_envelope as _env
+    from tests.worker.test_awf_worker_fixup_t031_t045 import _make_envelope as _env
     return _env(**kwargs)
 
 
@@ -17,7 +17,7 @@ class TestWorkerSecurityRegression:
 
     def test_policy_missing_denies_execution(self):
         # BYPASS: missing policy → worker executes without classification
-        from tests.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort, _ListTracePort, _ManifestArtifactPort
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort, _ListTracePort, _ManifestArtifactPort
         from worker.runtime.standalone_runtime import StandaloneRuntime
         from worker.core.tool_registry import build_default_registry
         rt = StandaloneRuntime(
@@ -104,7 +104,7 @@ class TestWorkerSecurityRegression:
         from worker.skills.skill_registry import SkillRegistry
         from worker.skills.skill_runner import SkillRunner
         from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
-        from tests.test_awf_worker_fixup_t021_t030 import _minimal_manifest
+        from tests.worker.test_awf_worker_fixup_t021_t030 import _minimal_manifest
         reg = SkillRegistry()
         reg.register(_minimal_manifest())
         runner = SkillRunner(reg)
@@ -125,7 +125,7 @@ class TestWorkerSecurityRegression:
 
     def test_code_aware_mode_without_context_denied(self):
         # BYPASS: code-aware mode runs without context ref (no grounding)
-        from tests.test_awf_worker_fixup_t001_t010 import (
+        from tests.worker.test_awf_worker_fixup_t001_t010 import (
             _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort, _todo_contract,
         )
         from worker.runtime.standalone_runtime import StandaloneRuntime

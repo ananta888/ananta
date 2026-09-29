@@ -63,7 +63,7 @@ class _FakeMemoryRepo:
 
 def test_awf_style_patches_di_layer(db_session, monkeypatch):
     """Replicates the body of
-    ``tests/test_awf_worker_fixup_t021_t030.py::TestT022MemoryPolicy::test_enabled_false_skips_write``.
+    ``tests/worker/test_awf_worker_fixup_t021_t030.py::TestT022MemoryPolicy::test_enabled_false_skips_write``.
 
     POST-DI-LAYER: patches ``agent.services.di.memory_entry_repo`` (the
     whole object) rather than mutating ``.save`` on the singleton. This

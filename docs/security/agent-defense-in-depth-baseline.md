@@ -27,7 +27,7 @@ Workers directly, or change policy.
 | Worker process termination | `worker/training/process_control.py`, `worker/training/subprocess_executor.py` | Training-specific process-group termination | EXTRACT a narrow reusable termination adapter; do not couple Safety Core to training |
 | Sandbox audit helper | `agent/services/sandbox_backend.py` | Content-reduced exec audit record builder | REUSE the redaction pattern; NEW immutable SafetyEvent contract required |
 | Domain kill switches | `agent/services/sfu_broadcast_feature_policy.py`, `agent/services/semantic_media_feature_flags.py`, `agent/services/tiny_router/service.py` | Domain-local admission/fencing controls | REUSE patterns only; REJECT using any one domain switch as a global Agent stop |
-| Escape regression suite | `tests/test_sandbox_escape_regression.py` | Policy classification/default tests | REUSE as policy regression; it is not runtime escape evidence |
+| Escape regression suite | `tests/worker/test_sandbox_escape_regression.py` | Policy classification/default tests | REUSE as policy regression; it is not runtime escape evidence |
 | Sandbox operations guide | `docs/security/sandbox-operations-guide.md` | Operator guidance with explicit policy/enforcement boundary | REUSE after the clarification in this track |
 
 ## Missing safety capabilities

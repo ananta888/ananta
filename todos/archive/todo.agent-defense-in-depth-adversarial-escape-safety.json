@@ -61,7 +61,7 @@
       "tests/agent/test_agent_safety_release_gate.py",
       "tests/agent/test_agent_safety_service.py",
       "tests/agent/test_agent_safety_state_store.py",
-      "tests/test_sandbox_backend.py"
+      "tests/worker/test_sandbox_backend.py"
     ]
   },
   "purpose": "Ananta um eine mehrschichtige Sicherheitsarchitektur für autonome Agenten erweitern, die präventive Verhaltensregeln nicht mit technischer Isolation verwechselt und nach einem Boundary-Crossing den Schaden begrenzt, vollständige Telemetrie sichert und reproduzierbare Security-Regressions erzeugt.",
@@ -611,7 +611,7 @@
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
         "tests/agent/test_agent_safety_service.py",
-        "tests/test_sandbox_backend.py"
+        "tests/worker/test_sandbox_backend.py"
       ]
     },
     {
@@ -639,7 +639,7 @@
         "agent/services/agent_safety_runtime_adapters.py",
         "agent/services/sandbox_backend.py",
         "tests/agent/test_agent_safety_service.py",
-        "tests/test_sandbox_backend.py"
+        "tests/worker/test_sandbox_backend.py"
       ],
       "completion_note": "Der opt-in Docker-Adapter erzwingt Freeze, Terminate und Isolate gegen eine exakte Hub-Allowlist und liefert runtime-verifizierte, idempotente Receipts; FakeSandbox und der konkrete Adapter sind deterministisch getestet."
     },
@@ -665,7 +665,7 @@
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
         "tests/agent/test_agent_safety_service.py",
-        "tests/test_sandbox_backend.py"
+        "tests/worker/test_sandbox_backend.py"
       ],
       "completion_note": "Der konkrete Docker-Adapter inspiziert die gebundenen Netzwerke und trennt alle Sessions per force-disconnect; Zustand und Adapter-Receipt fließen in Control Operation und Incident Bundle."
     },
@@ -691,7 +691,7 @@
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
         "tests/agent/test_agent_safety_service.py",
-        "tests/test_sandbox_backend.py"
+        "tests/worker/test_sandbox_backend.py"
       ],
       "completion_note": "Die Hub Credential Lease Authority gibt kurzlebige run-/agent-gebundene Capabilities aus, persistiert nur Token-Digests und widerruft alle aktiven Leases automatisch mit auditierbarem Runtime-Receipt."
     },
@@ -717,7 +717,7 @@
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
         "tests/agent/test_agent_safety_service.py",
-        "tests/test_sandbox_backend.py"
+        "tests/worker/test_sandbox_backend.py"
       ],
       "completion_note": "Freeze erfasst vor dem Incident ein inhaltlich reduziertes, größenbegrenztes Snapshot-Artefakt; der lifecycle-eigene Reconciler entfernt nur abgelaufene Sandboxes mit vorhandenem Incident Bundle."
     },
@@ -742,7 +742,7 @@
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
         "tests/agent/test_agent_safety_service.py",
-        "tests/test_sandbox_backend.py"
+        "tests/worker/test_sandbox_backend.py"
       ]
     },
     {

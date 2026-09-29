@@ -58,7 +58,7 @@ Terminal sessions are controlled by `TerminalPolicyService`:
 
 1. Set `worker_runtime.default_isolation_class: hardened-high-risk` in hub config.
 2. Confirm via **Admin-Diagnose** that admission reports `hardened-high-risk`.
-3. Test with the regression suite: `pytest tests/test_sandbox_escape_regression.py -v`.
+3. Test with the regression suite: `pytest tests/worker/test_sandbox_escape_regression.py -v`.
 4. Review `docs/security/kritis-sandbox-isolation-classes.md` for the full class taxonomy.
 5. Enable mutation gate approval (`propose_policy.require_approval: true`) before deploying.
 6. Independently verify the concrete container/process/filesystem/network
@@ -80,7 +80,7 @@ Terminal sessions are controlled by `TerminalPolicyService`:
 
 ## Regression Test Coverage
 
-Run: `pytest tests/test_sandbox_policy_service.py tests/test_sandbox_escape_regression.py -v`
+Run: `pytest tests/worker/test_sandbox_policy_service.py tests/worker/test_sandbox_escape_regression.py -v`
 
 The suite verifies policy normalization and admission decisions:
 - Default normalization produces safe defaults.

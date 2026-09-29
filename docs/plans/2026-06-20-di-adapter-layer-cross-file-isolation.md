@@ -48,7 +48,7 @@ task_runtime, request_cancellation, retrieval_query_builder}.py
 plus 8 weitere Module außerhalb `agent/services/` (routes, scheduler, tools, archive_utils, etc.).
 
 **Befund 3 — Test-Mutation-Punkte auf demselben Singleton:**
-- `tests/test_awf_worker_fixup_t021_t030.py` (8x) patcht `agent.repository.memory_entry_repo.save` als Objekt-Attribut
+- `tests/worker/test_awf_worker_fixup_t021_t030.py` (8x) patcht `agent.repository.memory_entry_repo.save` als Objekt-Attribut
 - `tests/test_result_memory_and_federation.py:39` patcht `agent.services.result_memory_service.memory_entry_repo` als Modul-Symbol
 - Konflikt: `monkeypatch` restored Modul-Symbol-Rebinding und Objekt-Attribut-Rebinding in unterschiedlichen Lebenszyklen.
 
@@ -268,7 +268,7 @@ def _get_or_create_result_memory_service() -> ResultMemoryService:
 **Objective:** `test_awf_worker_fixup_t021_t030.py` und `test_result_memory_and_federation.py` patchen jetzt `agent.services.di.memory_entry_repo` statt `agent.repository.memory_entry_repo.save`.
 
 **Files:**
-- Modify: `tests/test_awf_worker_fixup_t021_t030.py` (8 Patches)
+- Modify: `tests/worker/test_awf_worker_fixup_t021_t030.py` (8 Patches)
 - Modify: `tests/test_result_memory_and_federation.py:39`
 
 **Step 1 — Test-Updates:**
@@ -290,7 +290,7 @@ wobei `_FakeRepo` ein minimaler Stub mit `.save(entry) -> entry` ist.
 
 **Files:** keine Änderung.
 
-**Step 1:** `python -m pytest tests/test_awf_worker_fixup_t021_t030.py tests/test_result_memory_and_federation.py tests/test_result_memory_service.py tests/test_memory_tree_store_service.py -v --count=3` (3 Iterationen).
+**Step 1:** `python -m pytest tests/worker/test_awf_worker_fixup_t021_t030.py tests/test_result_memory_and_federation.py tests/test_result_memory_service.py tests/test_memory_tree_store_service.py -v --count=3` (3 Iterationen).
 
 **Step 2:** Full-Run: `python -m pytest tests/ -q 2>&1 | tail -20`.
 

@@ -20,10 +20,10 @@ python -m worker.cli.standalone_worker_cli --command "ls ." --workspace /tmp/wor
 
 ```bash
 # All AWF tests (T001–T045)
-python -m pytest tests/test_awf_worker_fixup_t001_t010.py \
-                 tests/test_awf_worker_fixup_t011_t020.py \
-                 tests/test_awf_worker_fixup_t021_t030.py \
-                 tests/test_awf_worker_fixup_t031_t045.py -q
+python -m pytest tests/worker/test_awf_worker_fixup_t001_t010.py \
+                 tests/worker/test_awf_worker_fixup_t011_t020.py \
+                 tests/worker/test_awf_worker_fixup_t021_t030.py \
+                 tests/worker/test_awf_worker_fixup_t031_t045.py -q
 
 # Security regression only
 python -m pytest tests/worker/test_worker_security_regression.py -q

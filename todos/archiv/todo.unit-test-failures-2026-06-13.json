@@ -182,7 +182,7 @@
       "root_cause": "Tests referenzieren Todo-Dateien, die entweder archiviert, umbenannt oder noch nicht erstellt wurden. test_planning_track_contract_service.py braucht todo.operator-tui-three-way-flex-diff-ai-mode.json, test_awf_worker_fixup_t031_t045.py braucht todo.ananta-worker-fixup.json, test_docs_presence.py braucht todo.eclipse.json.",
       "target_files": [
         "tests/planning/test_planning_track_contract_service.py",
-        "tests/test_awf_worker_fixup_t031_t045.py",
+        "tests/worker/test_awf_worker_fixup_t031_t045.py",
         "tests/test_docs_presence.py",
         "todos/"
       ],

@@ -370,7 +370,7 @@ class TestT016ProviderProvenance:
 
 class TestT017CodeContextRequired:
     def _make_runtime(self, **kwargs):
-        from tests.test_awf_worker_fixup_t001_t010 import (
+        from tests.worker.test_awf_worker_fixup_t001_t010 import (
             _AllowPolicyPort, _ListTracePort, _ManifestArtifactPort,
         )
         from worker.runtime.standalone_runtime import StandaloneRuntime
@@ -387,7 +387,7 @@ class TestT017CodeContextRequired:
         return rt, tp, ap
 
     def _code_todo_contract(self, *, with_context: bool) -> dict:
-        from tests.test_awf_worker_fixup_t001_t010 import _todo_contract
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
         contract = _todo_contract()
         if with_context:
             contract["control_manifest"]["context_ref"] = "ctx-bundle-123"
@@ -412,7 +412,7 @@ class TestT017CodeContextRequired:
         assert result.get("reason") != "code_context_required"
 
     def test_non_code_mode_no_context_required(self):
-        from tests.test_awf_worker_fixup_t001_t010 import _todo_contract
+        from tests.worker.test_awf_worker_fixup_t001_t010 import _todo_contract
         rt, _, _ = self._make_runtime()
         contract = _todo_contract()  # assistant_execute mode — not code-aware
         result = rt.run(task_contract=contract, workspace_dir="/tmp")

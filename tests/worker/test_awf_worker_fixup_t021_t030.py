@@ -457,7 +457,7 @@ class TestT027SkillManifest:
 
     def test_schema_file_exists(self):
         from pathlib import Path
-        schema_path = Path(__file__).parents[1] / "schemas" / "worker" / "skill_manifest.v1.json"
+        schema_path = Path(__file__).parents[2] / "schemas" / "worker" / "skill_manifest.v1.json"
         assert schema_path.exists()
         import json
         schema = json.loads(schema_path.read_text())
