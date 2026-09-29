@@ -59,6 +59,7 @@ SOURCE_PATHS = (
     "agent/services/ml_intern_dataset_catalog_service.py",
     "agent/services/ml_intern_dataset_validation_service.py",
     "agent/services/model_invocation_service.py",
+    "agent/services/model_invocation_profile_resolver_loader.py",
     "agent/services/model_invocation_chat_pipeline.py",
     "agent/services/model_invocation_chat_transport.py",
     "agent/services/model_invocation_provider_codec.py",

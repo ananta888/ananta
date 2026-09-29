@@ -78,6 +78,8 @@ PYTEST_SPECS: tuple[str, ...] = (
 # avoids a volatile whole-worktree digest and the report's own circular hash.
 SOURCE_MANIFEST_PRODUCTION_PATHS: tuple[str, ...] = (
     "agent/routes/visual_process.py",
+    "agent/routes/route_dependency_seam.py",
+    "agent/routes/visual_process_route_dependencies.py",
     "agent/routes/visual_process_blueprint.py",
     "agent/routes/visual_process_workflow_command_routes.py",
     "agent/routes/visual_process_workflow_event_routes.py",

@@ -244,7 +244,8 @@ def test_command_allowlist_is_focused_serial_and_contains_new_runtime_fences(
 
 def test_source_manifest_uniquely_binds_every_focused_vitest_spec() -> None:
     assert len(SOURCE_MANIFEST_PATHS) == len(set(SOURCE_MANIFEST_PATHS))
-    assert len(SOURCE_MANIFEST_PATHS) < 128
+    # the schema bound (maxItems 160) leaves room for modules split out of the listed sources
+    assert len(SOURCE_MANIFEST_PATHS) < 160
     assert {f"frontend-angular/{path}" for path in VITEST_SPECS}.issubset(SOURCE_MANIFEST_PATHS)
     assert "worker/temporal/workflows.py" in SOURCE_MANIFEST_PATHS
     assert "tests/test_temporal_runtime_contracts.py" in SOURCE_MANIFEST_PATHS

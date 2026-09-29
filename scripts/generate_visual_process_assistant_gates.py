@@ -68,6 +68,8 @@ FUNCTIONAL_SOURCE_PROJECTION = (
     "agent/db_models/visual_process.py",
     "agent/db_models/visual_process_assistant.py",
     "agent/routes/visual_process.py",
+    "agent/routes/route_dependency_seam.py",
+    "agent/routes/visual_process_route_dependencies.py",
     "agent/routes/visual_process_blueprint.py",
     "agent/routes/visual_process_catalog_routes.py",
     "agent/routes/visual_process_design_routes.py",
