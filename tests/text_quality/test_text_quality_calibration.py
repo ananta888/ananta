@@ -24,7 +24,7 @@ from agent.services.text_quality.models import (
 )
 from agent.services.text_quality.score_fusion_policy import ScoreFusionPolicy
 
-FIXTURE_DIR = Path(__file__).parent / "fixtures" / "text_quality" / "calibration"
+FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "text_quality" / "calibration"
 
 ENGLISH_PROFILE_PHRASES = {"in today's world", "it is important to note", "let's delve into", "moreover"}
 

@@ -72,7 +72,7 @@ Bei Upstream-Änderungen:
 1. Audit (siehe `docs/integrations/avoid-ai-writing.md`).
 2. Checksum neu berechnen.
 3. `detector_sha256` in `AGENT_CONFIG.text_quality.external_detectors` setzen.
-4. Re-Run von `tests/test_text_quality_calibration.py` und
+4. Re-Run von `tests/text_quality/test_text_quality_calibration.py` und
    `tests/test_avoid_ai_writing_provider.py`.
 5. Snapshot-Review der `KNOWN_UPSTREAM_TYPES`-Liste (44 Typen am
    gepinnten Commit).
@@ -89,7 +89,7 @@ Bei Upstream-Änderungen:
   `tests/test_avoid_ai_writing_*.py`,
   `tests/test_anti_slop_evolution_provider.py`,
   `tests/test_planning_*_text_quality.py`,
-  `tests/test_text_quality_e2e.py`.
+  `tests/text_quality/test_text_quality_e2e.py`.
 
 ## Häufige Failure-Modes
 

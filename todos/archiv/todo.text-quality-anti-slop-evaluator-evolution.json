@@ -229,7 +229,7 @@
         "agent/services/text_quality/__init__.py",
         "agent/services/text_quality/models.py",
         "agent/services/text_quality/quality_signal_provider.py",
-        "tests/test_text_quality_models.py"
+        "tests/text_quality/test_text_quality_models.py"
       ],
       "acceptance_criteria": [
         "ContentKind ist eine geschlossene Enum mit mindestens freeform_prose, planning_task_description, technical_documentation, changelog, course_material und structured_plan.",
@@ -260,7 +260,7 @@
         "agent/services/text_quality/profiles/de.json",
         "agent/services/text_quality/profiles/en.json",
         "tests/fixtures/text_quality/",
-        "tests/test_text_quality_deterministic_scanner.py"
+        "tests/text_quality/test_text_quality_deterministic_scanner.py"
       ],
       "acceptance_criteria": [
         "Scanner arbeitet offline, ohne Datenbank, Netzwerk oder LLM und liefert ausschliesslich DetectorSignal/Findings aus dem Core-Contract.",
@@ -291,7 +291,7 @@
         "agent/repositories/text_quality.py",
         "agent/repository.py",
         "agent/services/repository_registry.py",
-        "tests/test_text_quality_repository.py"
+        "tests/text_quality/test_text_quality_repository.py"
       ],
       "acceptance_criteria": [
         "TextQualityCriteriaSetDB und TextQualityEvaluationDB sind additive SQLModel-Tabellen; bestehende Planning-Tabellen und APIs bleiben kompatibel.",
@@ -322,7 +322,7 @@
         "agent/services/text_quality/score_fusion_policy.py",
         "agent/services/text_quality/llm_judge.py",
         "agent/services/model_invocation_service.py",
-        "tests/test_text_quality_evaluator_service.py"
+        "tests/text_quality/test_text_quality_evaluator_service.py"
       ],
       "acceptance_criteria": [
         "Evaluator nimmt Text, language, content_kind, CriteriaSet, optionale Evidence-Refs und eine Liste injizierter QualitySignalProvider entgegen.",
@@ -470,14 +470,14 @@
       ],
       "evidence_links": [
         "tests/fixtures/text_quality/calibration/",
-        "tests/test_text_quality_calibration.py"
+        "tests/text_quality/test_text_quality_calibration.py"
       ],
       "target_files": [
         "agent/services/text_quality/score_fusion_policy.py",
         "agent/services/text_quality/profiles/de.json",
         "agent/services/text_quality/profiles/en.json",
         "tests/fixtures/text_quality/calibration/",
-        "tests/test_text_quality_calibration.py"
+        "tests/text_quality/test_text_quality_calibration.py"
       ],
       "acceptance_criteria": [
         "Kalibrationskorpus enthaelt deutsche und englische Slop-Beispiele sowie menschlich redigierte, einfache, technische und strukturierte Gegenbeispiele mit dokumentierter Herkunft/Lizenz.",
@@ -507,7 +507,7 @@
         "agent/services/text_quality/criteria_extractor_service.py",
         "agent/services/text_quality/criteria_review_service.py",
         "agent/services/model_invocation_service.py",
-        "tests/test_text_quality_criteria_extractor.py"
+        "tests/text_quality/test_text_quality_criteria_extractor.py"
       ],
       "acceptance_criteria": [
         "Extractor akzeptiert bounded Negativbeispiele, optionale Kommentare, language und content_kind und redigiert Secrets/PII vor Prompt/Audit.",
@@ -615,8 +615,8 @@
         "agent/cli/commands/__init__.py",
         "agent/config_defaults.py",
         "agent/routes/config/read_models.py",
-        "tests/test_text_quality_routes.py",
-        "tests/test_text_quality_cli.py"
+        "tests/text_quality/test_text_quality_routes.py",
+        "tests/text_quality/test_text_quality_cli.py"
       ],
       "acceptance_criteria": [
         "API bietet evaluate, extract-criteria, list/get CriteriaSets sowie activate/reject/archive; Rewrite liefert hoechstens einen Vorschlagsreport und keinen Datei-Apply.",
@@ -673,7 +673,7 @@
         "docs/text-quality-privacy.md",
         "docs/text-quality-operations.md",
         "docs/integrations/avoid-ai-writing.md",
-        "tests/test_text_quality_e2e.py"
+        "tests/text_quality/test_text_quality_e2e.py"
       ],
       "depends_on": [
         "TQAS-012",
@@ -685,7 +685,7 @@
         "docs/integrations/avoid-ai-writing.md",
         "docs/evolution-rollout.md",
         "docs/demo-flows.md",
-        "tests/test_text_quality_e2e.py"
+        "tests/text_quality/test_text_quality_e2e.py"
       ],
       "acceptance_criteria": [
         "Dokumentation erklaert detect, quality evaluate, criteria review, prompt evolve und rewrite proposal als getrennte Schritte.",
