@@ -17,6 +17,30 @@ DEFAULT_REGISTRY = ROOT / "config" / "geomaps" / "registry.v1.json"
 DEFAULT_SCHEMA = ROOT / "schemas" / "geomaps" / "registry.v1.json"
 
 
+# Region ids of assets that already passed validation, keyed by content digest and the registry limits it
+# was checked against: the digest pins the bytes, so the (costly) geometry validation is not repeated for
+# every registry instance.
+_VALIDATED_REGION_IDS: dict[tuple[str, str, int, int], tuple[str, ...]] = {}
+
+
+def _validated_region_ids(content: bytes, item: dict[str, Any]) -> tuple[str, ...]:
+    key = (str(item["sha256"]), str(item["format"]), int(item["maxBytes"]), int(item["featureCount"]))
+    cached = _VALIDATED_REGION_IDS.get(key)
+    if cached is not None:
+        return cached
+    if item["format"] == "geojson":
+        payload = parse_and_validate_geojson(content, max_bytes=item["maxBytes"])
+        if len(payload["features"]) != item["featureCount"]:
+            raise GeoMapError("geomap_asset_feature_count_mismatch", item["id"])
+        identifiers = tuple(str(feature["properties"]["id"]) for feature in payload["features"])
+    else:
+        identifiers = tuple(svg_region_ids(content, max_bytes=item["maxBytes"]))
+        if len(identifiers) != item["featureCount"]:
+            raise GeoMapError("geomap_asset_feature_count_mismatch", item["id"])
+    _VALIDATED_REGION_IDS[key] = identifiers
+    return identifiers
+
+
 class GeoMapRegistry:
     def __init__(self, *, registry_path: Path = DEFAULT_REGISTRY, root: Path = ROOT) -> None:
         self._root = root.resolve()
@@ -61,15 +85,7 @@ class GeoMapRegistry:
             raise GeoMapError("geomap_asset_budget_exceeded", item["id"])
         if hashlib.sha256(content).hexdigest() != item["sha256"]:
             raise GeoMapError("geomap_asset_digest_mismatch", item["id"])
-        if item["format"] == "geojson":
-            payload = parse_and_validate_geojson(content, max_bytes=item["maxBytes"])
-            if len(payload["features"]) != item["featureCount"]:
-                raise GeoMapError("geomap_asset_feature_count_mismatch", item["id"])
-            identifiers = tuple(str(feature["properties"]["id"]) for feature in payload["features"])
-        else:
-            identifiers = svg_region_ids(content, max_bytes=item["maxBytes"])
-            if len(identifiers) != item["featureCount"]:
-                raise GeoMapError("geomap_asset_feature_count_mismatch", item["id"])
+        identifiers = _validated_region_ids(content, item)
         unknown_aliases = sorted(set((item.get("aliases") or {}).values()) - set(identifiers))
         if unknown_aliases:
             raise GeoMapError("geomap_registry_alias_target_invalid", ",".join(unknown_aliases))
