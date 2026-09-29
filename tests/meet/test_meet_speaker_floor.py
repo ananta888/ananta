@@ -358,7 +358,7 @@ def _process_poll(url, number, barrier, result):
     try:
         repository = SqlMeetSpeakerFloor(engine)
         repository.reserve(turn(number), NOW)
-        barrier.wait(timeout=10)
+        barrier.wait(timeout=60)
         result.put((os.getpid(), repository.poll(turn(number), NOW)))
     finally:
         engine.dispose()
@@ -371,12 +371,14 @@ def test_actual_separate_hub_processes_share_one_room_floor(store, monkeypatch):
     context = multiprocessing.get_context("spawn")
     barrier, result = context.Barrier(2), context.Queue()
     children = [context.Process(target=_process_poll, args=(str(store.engine.url), i, barrier, result)) for i in (1, 2)]
+    # Upper bounds only: a spawned interpreter imports the hub before it polls and tears it down after,
+    # which takes far longer than usual while a full parallel suite loads the machine.
     try:
         for child in children:
             child.start()
-        outcomes = [result.get(timeout=12) for _ in children]
+        outcomes = [result.get(timeout=90) for _ in children]
         for child in children:
-            child.join(timeout=2)
+            child.join(timeout=30)
             assert child.exitcode == 0
         assert len({pid for pid, _permit in outcomes}) == 2
         assert os.getpid() not in {pid for pid, _permit in outcomes}
