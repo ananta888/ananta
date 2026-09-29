@@ -10,7 +10,7 @@ from sqlmodel import Session, create_engine, select
 from agent.db_models.evidence_identity import HubRunEvidenceIdentityDB
 from scripts import run_hub_evidence_pytest_gate as runner
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROFILES = sorted((ROOT / "config/release-gates/hub-evidence").glob("*.json"))
 
 
@@ -37,7 +37,7 @@ def test_profile_rejects_command_override_and_path_escape(tmp_path: Path) -> Non
     ):
         runner.load_profile(candidate, root=tmp_path)
 
-    profile["pytest_args"] = ["-q", "tests/test_hub_evidence_pytest_gate.py"]
+    profile["pytest_args"] = ["-q", "tests/hub/test_hub_evidence_pytest_gate.py"]
     profile["source_paths"] = ["../outside.py"]
     candidate.write_text(json.dumps(profile), encoding="utf-8")
     with pytest.raises(
@@ -52,7 +52,7 @@ def test_runner_reserves_before_pytest_and_verifies_exact_result(tmp_path: Path,
     profile = runner.load_profile(profile_path)
     profile = {
         **profile,
-        "pytest_args": ["-q", "tests/test_hub_evidence_pytest_gate.py"],
+        "pytest_args": ["-q", "tests/hub/test_hub_evidence_pytest_gate.py"],
         "minimum_tests": 3,
     }
     observed_assignment: dict = {}
@@ -97,7 +97,7 @@ def test_skipped_tests_fail_closed_and_terminalize_run(tmp_path: Path, monkeypat
     profile_path = PROFILES[0]
     profile = {
         **runner.load_profile(profile_path),
-        "pytest_args": ["-q", "tests/test_hub_evidence_pytest_gate.py"],
+        "pytest_args": ["-q", "tests/hub/test_hub_evidence_pytest_gate.py"],
         "minimum_tests": 1,
     }
 

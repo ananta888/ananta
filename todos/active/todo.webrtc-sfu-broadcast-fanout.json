@@ -2951,7 +2951,7 @@
         "scripts/run_hub_evidence_sfu_multinode_gate.py",
         "tests/integration/test_sfu_distributed_runtime.py",
         "tests/sfu/test_sfu_broadcast_local_multinode_e2e.py",
-        "tests/test_hub_evidence_sfu_multinode_gate.py",
+        "tests/hub/test_hub_evidence_sfu_multinode_gate.py",
         "docs/operations/sfu-distributed-runtime.md"
       ],
       "acceptance_criteria": [
@@ -3466,7 +3466,7 @@
         "scripts/e2e/public_turn_relay_probe.mjs",
         "scripts/run_hub_evidence_public_turn_gate.py",
         "tests/integration/test_livekit_external_turn_path.py",
-        "tests/test_hub_evidence_public_turn_gate.py",
+        "tests/hub/test_hub_evidence_public_turn_gate.py",
         "scripts/e2e/public_turn_relay_probe.test.mjs",
         "frontend-angular/tests/sfu-broadcast-turn-path.spec.ts"
       ],

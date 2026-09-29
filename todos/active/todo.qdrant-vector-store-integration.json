@@ -1195,7 +1195,7 @@
         "scripts/run_hub_evidence_qdrant_benchmark_gate.py",
         "worker/retrieval/json_vector_search.py",
         "tests/benchmarks/codecompass_worker/test_qdrant_vector_store_benchmark.py",
-        "tests/test_hub_evidence_qdrant_benchmark_gate.py",
+        "tests/hub/test_hub_evidence_qdrant_benchmark_gate.py",
         "tests/worker/test_json_vector_search.py",
         "docs/worker/qdrant-vector-store.md"
       ],

@@ -167,7 +167,7 @@
       "target_files": [
         "agent/services/hub_direct_execution_router.py",
         "agent/services/task_execution_service.py",
-        "tests/test_hub_direct_execution_router.py"
+        "tests/hub/test_hub_direct_execution_router.py"
       ],
       "acceptance_criteria": [
         "Neue Klasse HubDirectExecutionRouter existiert in agent/services/hub_direct_execution_router.py.",
@@ -187,7 +187,7 @@
       "target_files": [
         "agent/config_defaults.py",
         "agent/config.py",
-        "tests/test_hub_direct_execution_config.py"
+        "tests/hub/test_hub_direct_execution_config.py"
       ],
       "acceptance_criteria": [
         "agent/config_defaults.py enthaelt neuen Block hub_direct_execution mit enabled=false als sicherem Default.",
@@ -206,7 +206,7 @@
       "risk": "high",
       "target_files": [
         "agent/services/hub_direct_execution_router.py",
-        "tests/test_hub_direct_execution_router.py"
+        "tests/hub/test_hub_direct_execution_router.py"
       ],
       "acceptance_criteria": [
         "Regeln erkennen mindestens: Dateien listen -> repo.list_files, Datei lesen -> repo.read_file_range, grep/suche -> repo.grep, git status -> git.status, git diff -> git.diff_readonly, Tests entdecken -> test.discover, Workspace-Diff -> workspace.diff.",
@@ -268,7 +268,7 @@
         "agent/services/tools/__init__.py",
         "agent/tools/registry.py",
         "agent/services/hub_tool_execution_adapter.py",
-        "tests/test_hub_tool_execution_adapter.py"
+        "tests/hub/test_hub_tool_execution_adapter.py"
       ],
       "acceptance_criteria": [
         "Neuer HubToolExecutionAdapter kann ToolSpecs aus agent/services/ananta_tool_registry_service.py lesen und ueber HubToolExecutionAdapter an WorkerRuntimeExecutionAdapter dispatchen.",
@@ -288,7 +288,7 @@
       "target_files": [
         "agent/services/hub_tool_execution_adapter.py",
         "agent/services/ananta_tool_policy_service.py",
-        "tests/test_hub_direct_policy_gate.py"
+        "tests/hub/test_hub_direct_policy_gate.py"
       ],
       "acceptance_criteria": [
         "Jeder Hub-Direct-ToolCall geht durch AnantaToolPolicyService.evaluate vor dem Dispatch an die WorkerRuntime.",
@@ -309,7 +309,7 @@
         "agent/services/hub_tool_execution_adapter.py",
         "agent/services/approval_request_service.py",
         "agent/common/audit.py",
-        "tests/test_hub_direct_approval_lifecycle.py"
+        "tests/hub/test_hub_direct_approval_lifecycle.py"
       ],
       "acceptance_criteria": [
         "Wenn Policy approval_required ergibt, wird ueber ApprovalRequestService ein pending ApprovalRequest mit tool_name, canonical arguments_digest, task_id/goal_id und scope source=hub_direct_execution erzeugt.",
@@ -329,7 +329,7 @@
       "target_files": [
         "agent/common/audit.py",
         "agent/services/hub_tool_execution_adapter.py",
-        "tests/test_hub_direct_audit.py"
+        "tests/hub/test_hub_direct_audit.py"
       ],
       "acceptance_criteria": [
         "Neue Audit-Konstanten existieren: hub_direct_candidate_detected, hub_direct_tool_requested, hub_direct_tool_completed, hub_direct_tool_blocked, hub_direct_approval_required, hub_direct_fallback_to_worker.",
@@ -576,7 +576,7 @@
       "target_files": [
         "agent/services/task_execution_metrics.py",
         "agent/services/hub_direct_execution_router.py",
-        "tests/test_hub_direct_metrics.py"
+        "tests/hub/test_hub_direct_metrics.py"
       ],
       "acceptance_criteria": [
         "Metriken erfassen direct_execution_count, direct_execution_success_count, direct_execution_blocked_count, fallback_to_worker_count, avoided_llm_call_count, custom_tool_reuse_count.",
@@ -597,7 +597,7 @@
         "agent/routes/config.py",
         "agent/services/dynamic_tool_registry_service.py",
         "client_surfaces/operator_tui/",
-        "tests/test_hub_direct_diagnostics_api.py"
+        "tests/hub/test_hub_direct_diagnostics_api.py"
       ],
       "acceptance_criteria": [
         "API kann Direct-Execution-Config, Registry-Snapshot und letzte Direct-Execution-Reports lesen.",
@@ -748,8 +748,8 @@
     "completed_at": "2026-06-11",
     "summary": "Track finalisiert: Status an die Implementierung angepasst, offene Hardening-/E2E-/Doku-Punkte umgesetzt und verifiziert.",
     "verification": [
-      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
-      "pytest tests/test_hub_direct_diagnostics_api.py -q"
+      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/hub/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
+      "pytest tests/hub/test_hub_direct_diagnostics_api.py -q"
     ]
   }
 }

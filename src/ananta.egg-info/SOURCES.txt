@@ -137,8 +137,8 @@ tests/test_goals.py
 tests/test_grm_extended.py
 tests/test_hotspot_guardrails.py
 tests/test_http_client_network_fallback.py
-tests/test_hub_benchmark.py
-tests/test_hub_event_contracts.py
+tests/hub/test_hub_benchmark.py
+tests/hub/test_hub_event_contracts.py
 tests/test_hybrid_orchestrator.py
 tests/test_hybrid_orchestrator_load.py
 tests/test_idempotency.py

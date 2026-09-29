@@ -13,7 +13,7 @@ from agent.repositories.evidence_identity_transaction import TransactionEvidence
 from agent.repositories.task_repository_session import task_repository_session
 from agent.repositories.tasks import TaskRepository
 from agent.services.hub_evidence_registry_service import HubEvidenceRegistryService
-from tests.test_hub_evidence_registry_service import _run, _source
+from tests.hub.test_hub_evidence_registry_service import _run, _source
 
 
 @pytest.fixture

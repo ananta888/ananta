@@ -20,7 +20,7 @@
     }
   },
   "label_source": "policy_rule",
-  "provenance": "Parametrized and single-prompt cases of tests/test_hub_direct_execution_router.py whose outcome depends only on the prompt text. The classifier also takes agent_cfg: all cases assume the test _cfg() (enabled=True, confidence_threshold=0.8, all seven static tools allowed) and no dynamic custom-tool intent aliases. Skipped: config-gate tests (disabled, allowed_tools, threshold) and dynamic intent-alias tests.",
+  "provenance": "Parametrized and single-prompt cases of tests/hub/test_hub_direct_execution_router.py whose outcome depends only on the prompt text. The classifier also takes agent_cfg: all cases assume the test _cfg() (enabled=True, confidence_threshold=0.8, all seven static tools allowed) and no dynamic custom-tool intent aliases. Skipped: config-gate tests (disabled, allowed_tools, threshold) and dynamic intent-alias tests.",
   "cases": [
     {
       "id": "hub_direct-001",
@@ -28,7 +28,7 @@
       "state": "liste dateien",
       "expected": "repo.list_files",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-002",
@@ -36,7 +36,7 @@
       "state": "Liste alle Dateien",
       "expected": "repo.list_files",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-003",
@@ -44,7 +44,7 @@
       "state": "show files",
       "expected": "repo.list_files",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-004",
@@ -52,7 +52,7 @@
       "state": "list files in the repo",
       "expected": "repo.list_files",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-005",
@@ -60,7 +60,7 @@
       "state": "git status",
       "expected": "git.status",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-006",
@@ -68,7 +68,7 @@
       "state": "zeige den git status",
       "expected": "git.status",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-007",
@@ -76,7 +76,7 @@
       "state": "git diff",
       "expected": "git.diff_readonly",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-008",
@@ -84,7 +84,7 @@
       "state": "workspace diff",
       "expected": "workspace.diff",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-009",
@@ -92,7 +92,7 @@
       "state": "welche tests gibt es?",
       "expected": "test.discover",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-010",
@@ -100,7 +100,7 @@
       "state": "discover tests",
       "expected": "test.discover",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-011",
@@ -108,7 +108,7 @@
       "state": "suche nach ToolRoutingService",
       "expected": "repo.grep",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-012",
@@ -116,7 +116,7 @@
       "state": "grep ToolRoutingService",
       "expected": "repo.grep",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-013",
@@ -124,7 +124,7 @@
       "state": "lies agent/config.py",
       "expected": "repo.read_file_range",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-014",
@@ -132,7 +132,7 @@
       "state": "read file agent/config.py lines 10-40",
       "expected": "repo.read_file_range",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_simple_prompts_map_to_tools"
     },
     {
       "id": "hub_direct-015",
@@ -140,7 +140,7 @@
       "state": "suche nach \"ToolRoutingService\" in agent/*.py",
       "expected": "repo.grep",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_grep_extracts_bounded_pattern_without_shell"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_grep_extracts_bounded_pattern_without_shell"
     },
     {
       "id": "hub_direct-016",
@@ -148,7 +148,7 @@
       "state": "lies agent/config.py zeilen 5 bis 20",
       "expected": "repo.read_file_range",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_read_file_extracts_line_range"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_read_file_extracts_line_range"
     },
     {
       "id": "hub_direct-017",
@@ -156,7 +156,7 @@
       "state": "fix the bug in agent/config.py",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-018",
@@ -164,7 +164,7 @@
       "state": "implementiere ein neues feature",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-019",
@@ -172,7 +172,7 @@
       "state": "refactor task_execution_service",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-020",
@@ -180,7 +180,7 @@
       "state": "lösche alle dateien",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-021",
@@ -188,7 +188,7 @@
       "state": "analysiere die Architektur und schlage Refactor vor",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-022",
@@ -196,7 +196,7 @@
       "state": "liste dateien und dann committe alles",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-023",
@@ -204,7 +204,7 @@
       "state": "run tests",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-024",
@@ -212,7 +212,7 @@
       "state": "",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-025",
@@ -220,7 +220,7 @@
       "state": "etwas völlig unklares bitte tun",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_write_or_ambiguous_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-026",
@@ -228,7 +228,7 @@
       "state": "suche nach foo; rm -rf /",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_grep_with_shell_metacharacters_is_rejected"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_grep_with_shell_metacharacters_is_rejected"
     },
     {
       "id": "hub_direct-027",
@@ -236,7 +236,7 @@
       "state": "liste dateien xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_long_prompts_are_not_eligible"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_long_prompts_are_not_eligible"
     },
     {
       "id": "hub_direct-028",
@@ -244,7 +244,7 @@
       "state": "wie ist das wetter",
       "expected": "not_eligible",
       "acceptable": [],
-      "source": "tests/test_hub_direct_execution_router.py::test_no_rule_match_reason_code"
+      "source": "tests/hub/test_hub_direct_execution_router.py::test_no_rule_match_reason_code"
     }
   ]
 }
