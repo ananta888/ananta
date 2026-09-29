@@ -49,6 +49,6 @@ model-planned parametric generation, not unrestricted neural mesh generation.
 No model weights, proprietary models or Orbit geometry are distributed here.
 
 Self-contained verification:
-`python -m unittest tests.test_game_dragon tests.test_game_creature -v`.
+`python -m unittest tests.game.test_game_dragon tests.game.test_game_creature -v`.
 Fixtures are synthetic and make no network/model calls. Live probes are technical
 observations, not Hub-issued production release evidence.
