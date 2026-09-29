@@ -56,7 +56,7 @@
       "error": "TypeError: _FakeOrchestrator.get_relevant_context() got an unexpected keyword argument 'domain_scope'",
       "root_cause": "Die echte get_relevant_context()-Signatur wurde um domain_scope erweitert (runtime domain scope Feature), aber die _FakeOrchestrator und _FakeRedactingOrchestrator Test-Doubles in test_retrieval_service.py wurden nicht synchronisiert.",
       "target_files": [
-        "tests/test_retrieval_service.py"
+        "tests/retrieval/test_retrieval_service.py"
       ],
       "acceptance_criteria": [
         "_FakeOrchestrator.get_relevant_context() akzeptiert domain_scope als optionalen Keyword-Parameter.",

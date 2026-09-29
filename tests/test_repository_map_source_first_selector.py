@@ -93,7 +93,7 @@ def test_unrelated_test_files_get_demoted():
     """
     engine = _make_engine_with_symbols({
         # A test file that mentions 'codecompass' in a symbol but not in the stem
-        "tests/test_retrieval_profile_service.py": [
+        "tests/retrieval/test_retrieval_profile_service.py": [
             "test_codecompass_profile_path_is_preserved",
             "test_profile_none_returns_none",
         ],

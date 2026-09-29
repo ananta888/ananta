@@ -496,7 +496,7 @@
             "agent/services/retrieval_source_contract.py",
             "agent/services/retrieval_service.py",
             "agent/config.py",
-            "tests/test_retrieval_service_open_notebook_source_type.py"
+            "tests/retrieval/test_retrieval_service_open_notebook_source_type.py"
           ],
           "priority": "P1",
           "effort": "L",

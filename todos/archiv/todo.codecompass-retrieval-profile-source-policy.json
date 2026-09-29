@@ -321,7 +321,7 @@
       ],
       "target_files": [
         "agent/services/retrieval_profile_service.py",
-        "tests/test_retrieval_profile_service.py",
+        "tests/retrieval/test_retrieval_profile_service.py",
         "docs/codecompass-retrieval-profile-source-policy.md"
       ],
       "problem": "Es fehlt ein expliziter, typsicherer Vertrag fuer Profile. Ohne Vertrag bleiben source_types, task_kind und retrieval_intent lose Strings.",
@@ -339,7 +339,7 @@
         "Tests pruefen Defaults, unbekannte Quellen, negative_source_patterns und selected_by."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_profile_service.py"
+        "pytest -q tests/retrieval/test_retrieval_profile_service.py"
       ]
     },
     {
@@ -356,7 +356,7 @@
       ],
       "target_files": [
         "agent/services/retrieval_profile_service.py",
-        "tests/test_retrieval_profile_service.py"
+        "tests/retrieval/test_retrieval_profile_service.py"
       ],
       "problem": "AI-Snake-Fragen enthalten Hinweise wie 'implementiert', 'Code', 'Mechanismus', 'Worker', 'Diagramm', 'Tutorial' oder 'Game'. Diese Hinweise werden aktuell nicht in ein Retrieval-Profil uebersetzt.",
       "implementation_notes": [
@@ -373,7 +373,7 @@
         "Tests decken deutsche und englische Begriffe ab: implementiert/implemented, Mechanismus/mechanism, Datei/file, Klasse/class, Funktion/function."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_profile_service.py"
+        "pytest -q tests/retrieval/test_retrieval_profile_service.py"
       ]
     },
     {
@@ -392,7 +392,7 @@
       "target_files": [
         "agent/services/retrieval_profile_service.py",
         "agent/routes/ai_snake_config.py",
-        "tests/test_retrieval_profile_service.py"
+        "tests/retrieval/test_retrieval_profile_service.py"
       ],
       "problem": "UI-Flags sollen Eingaben sein, aber nicht direkt source_types bestimmen. Es braucht eine zentrale Stelle, die Frage, UI-Konfig und Defaults zu einem Profil zusammenfuehrt.",
       "implementation_notes": [
@@ -410,7 +410,7 @@
         "Bestehende AI-Snake-Config ohne neue Felder funktioniert unveraendert."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_profile_service.py"
+        "pytest -q tests/retrieval/test_retrieval_profile_service.py"
       ]
     },
     {
@@ -533,7 +533,7 @@
       "target_files": [
         "agent/services/retrieval_service.py",
         "agent/services/rag_service.py",
-        "tests/test_retrieval_service_profiles.py"
+        "tests/retrieval/test_retrieval_service_profiles.py"
       ],
       "problem": "_task_profile_for_fusion enthaelt harte Source-Type-Gewichte je task_kind. Profile sollen diese Werte kontrolliert ueberschreiben oder mischen koennen.",
       "implementation_notes": [
@@ -550,7 +550,7 @@
         "Tests verwenden Fake-Chunks mit repo/artifact/wiki und pruefen finale Reihenfolge."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_service_profiles.py"
+        "pytest -q tests/retrieval/test_retrieval_service_profiles.py"
       ]
     },
     {
@@ -568,7 +568,7 @@
       "target_files": [
         "agent/services/retrieval_service.py",
         "agent/services/retrieval_profile_service.py",
-        "tests/test_retrieval_service_profiles.py"
+        "tests/retrieval/test_retrieval_service_profiles.py"
       ],
       "problem": "Bei implementierten Code-Fragen duerfen Game-/Tutorial-/Terminal-Renderer-Dokumente nicht hochrutschen, nur weil sie den Begriff CodeCompass oder Ananta enthalten.",
       "implementation_notes": [
@@ -584,7 +584,7 @@
         "Tests decken harte Reject- und Penalty-Variante ab."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_service_profiles.py"
+        "pytest -q tests/retrieval/test_retrieval_service_profiles.py"
       ]
     },
     {
@@ -703,7 +703,7 @@
         "CRPS-009"
       ],
       "target_files": [
-        "tests/test_retrieval_service_profiles.py",
+        "tests/retrieval/test_retrieval_service_profiles.py",
         "agent/services/retrieval_service.py"
       ],
       "problem": "Ranking darf bei Implementierungsfragen nicht durch semantisch breite Doku-Treffer dominiert werden.",
@@ -719,7 +719,7 @@
         "source_type_contributions_final enthaelt repo > 0."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_service_profiles.py"
+        "pytest -q tests/retrieval/test_retrieval_service_profiles.py"
       ]
     },
     {
@@ -838,8 +838,8 @@
       "target_files": [
         "agent/config.py",
         "agent/services/retrieval_source_contract.py",
-        "tests/test_retrieval_source_contract.py",
-        "tests/test_retrieval_profile_service.py"
+        "tests/retrieval/test_retrieval_source_contract.py",
+        "tests/retrieval/test_retrieval_profile_service.py"
       ],
       "problem": "Profile duerfen keine deaktivierten oder unzulässigen Quellen aktivieren. Least-Privilege bleibt wichtiger als Komfort.",
       "implementation_notes": [
@@ -855,7 +855,7 @@
         "Preflight/get_source_preflight bleibt konsistent mit effektiven Quellen."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_source_contract.py tests/test_retrieval_profile_service.py"
+        "pytest -q tests/retrieval/test_retrieval_source_contract.py tests/retrieval/test_retrieval_profile_service.py"
       ]
     },
     {
@@ -889,7 +889,7 @@
         "Todo wird nach Implementierung mit echten Commit-Hashes/Tests aktualisiert."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_profile_service.py tests/snake/test_snake_ask_retrieval_profile.py"
+        "pytest -q tests/retrieval/test_retrieval_profile_service.py tests/snake/test_snake_ask_retrieval_profile.py"
       ]
     }
   ],
@@ -901,7 +901,7 @@
     ],
     "finalization": "working-tree update before next commit",
     "tests": [
-      "pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/snake/test_snake_ask_retrieval_profile.py",
+      "pytest -q tests/retrieval/test_retrieval_profile_service.py tests/retrieval/test_retrieval_service_profiles.py tests/snake/test_snake_ask_retrieval_profile.py",
       "python -m json.tool todos/archiv/todo.codecompass-retrieval-profile-source-policy.json"
     ]
   },

@@ -210,7 +210,7 @@ tests/test_release_gate_planning_cleanup.py
 tests/test_result_memory_and_federation.py
 tests/test_result_memory_service.py
 tests/test_retrieval_benchmark.py
-tests/test_retrieval_service.py
+tests/retrieval/test_retrieval_service.py
 tests/test_route_inventory_metadata.py
 tests/test_routing_decision_service.py
 tests/test_run_blender_smoke_checks.py

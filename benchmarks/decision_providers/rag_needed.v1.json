@@ -18,7 +18,7 @@
       "state": "den codecompass der schon implementiert ist erklären",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_codecompass_code_explanation"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_codecompass_code_explanation"
     },
     {
       "id": "rag_needed-002",
@@ -26,7 +26,7 @@
       "state": "was ist CodeCompass",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_codecompass_what_is_question_is_explanation"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_codecompass_what_is_question_is_explanation"
     },
     {
       "id": "rag_needed-003",
@@ -34,7 +34,7 @@
       "state": "wie ist der mechanismus damit ananta dies an die worker weitergibt",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_worker_handoff_mechanism; tests/snake/test_snake_ask_retrieval_profile.py::TestCRPS014WorkerHandoffRegressionTest::test_worker_handoff_query_gets_code_explanation_intent"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_worker_handoff_mechanism; tests/snake/test_snake_ask_retrieval_profile.py::TestCRPS014WorkerHandoffRegressionTest::test_worker_handoff_query_gets_code_explanation_intent"
     },
     {
       "id": "rag_needed-004",
@@ -42,7 +42,7 @@
       "state": "kannst du mir mermaid diagramme dazu zeigen",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_mermaid_request"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_mermaid_request"
     },
     {
       "id": "rag_needed-005",
@@ -50,7 +50,7 @@
       "state": "beschreib mir die architektur des rag services",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_architecture_question"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_architecture_question"
     },
     {
       "id": "rag_needed-006",
@@ -58,7 +58,7 @@
       "state": "welche klasse implementiert den sgpt modul",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_german_code_keywords"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_german_code_keywords"
     },
     {
       "id": "rag_needed-007",
@@ -66,7 +66,7 @@
       "state": "how does the retrieval service function work",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_english_code_keywords"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_english_code_keywords"
     },
     {
       "id": "rag_needed-008",
@@ -74,7 +74,7 @@
       "state": "show me the file for the rag service",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_english_file_keyword"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_english_file_keyword"
     },
     {
       "id": "rag_needed-009",
@@ -82,7 +82,7 @@
       "state": "wie mache ich einen neustart des deployment containers",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_ops_runbook"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_ops_runbook"
     },
     {
       "id": "rag_needed-010",
@@ -90,7 +90,7 @@
       "state": "beschreibe das spieldesign mit punktesystem und level",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_game_design_intent"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_game_design_intent"
     },
     {
       "id": "rag_needed-011",
@@ -98,7 +98,7 @@
       "state": "",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_generic_fallback"
+      "source": "tests/retrieval/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_generic_fallback"
     }
   ]
 }

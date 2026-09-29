@@ -2,7 +2,7 @@ import pytest
 
 from agent.config import settings
 from agent.services.retrieval_source_contract import normalize_requested_source_types
-from tests.test_retrieval_service_open_notebook_source_type import _service
+from tests.retrieval.test_retrieval_service_open_notebook_source_type import _service
 
 
 def test_open_notebook_is_disabled_by_default():
