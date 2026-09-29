@@ -13,10 +13,10 @@ Acceptance criteria from the todo:
    provider_error and timeout are clearly distinguished.
 6. Tests cover API-key mode and account-login mode with mock codex.
 
-This file is split from tests/test_codex_cli_backend.py and
+This file is split from tests/cli_backends/test_codex_cli_backend.py and
 test_codex_cli_backend_preflight.py to keep source files below 1000
 lines (see the existing comment in
-tests/test_codex_cli_backend_preflight.py:6).
+tests/cli_backends/test_codex_cli_backend_preflight.py:6).
 """
 from __future__ import annotations
 

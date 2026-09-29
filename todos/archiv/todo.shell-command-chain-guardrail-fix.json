@@ -373,7 +373,7 @@
           "status": "done",
           "summary": "Der Fehler soll für OpenCode-typische Ausgabeformen reproduzierbar getestet werden.",
           "files": [
-            "tests/test_opencode_command_chain_guardrails.py",
+            "tests/cli_backends/test_opencode_command_chain_guardrails.py",
             "agent/services/task_execution_service.py"
           ],
           "description": "Tests simulieren OpenCode-Ausgaben als command string und als Tool-Call. Beide Pfade müssen denselben OpenCode-Python-Testcommand erlauben und gefährliche Segmente blockieren.",
@@ -613,7 +613,7 @@
           "summary": "Ein realitätsnaher Flow soll zeigen, dass OpenCode kleine Projekte mit chained test commands abschließen kann.",
           "files": [
             "tests/e2e/test_command_chain_execution_full_flow.py",
-            "tests/test_opencode_command_chain_guardrails.py"
+            "tests/cli_backends/test_opencode_command_chain_guardrails.py"
           ],
           "description": "E2E/Dry-run Flow simuliert OpenCode Proposal für hello/greet oder mini_slugify und lässt Testchain ausführen. Kein echter OpenCode-Prozess nötig; Proposal kann gemockt werden.",
           "implementation_notes": [

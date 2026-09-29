@@ -338,7 +338,7 @@ def test_codex_runtime_config_cliproxyapi_remote_no_api_key(flask_app_with_agent
 # ---------------------------------------------------------------------------
 
 def test_yaml_example_produces_valid_opencode_runtime_config(flask_app_with_agent_config):
-    example_path = (Path(__file__).resolve().parents[1]
+    example_path = (Path(__file__).resolve().parents[2]
                     / "docs" / "examples" / "cliproxyapi-agent-config.yaml")
     if not example_path.exists():
         pytest.skip("cliproxyapi-agent-config.yaml not present yet")
@@ -356,7 +356,7 @@ def test_yaml_example_produces_valid_opencode_runtime_config(flask_app_with_agen
 
 
 def test_yaml_example_produces_valid_codex_runtime_config(flask_app_with_agent_config):
-    example_path = (Path(__file__).resolve().parents[1]
+    example_path = (Path(__file__).resolve().parents[2]
                     / "docs" / "examples" / "cliproxyapi-agent-config.yaml")
     if not example_path.exists():
         pytest.skip("cliproxyapi-agent-config.yaml not present yet")

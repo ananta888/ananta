@@ -81,7 +81,7 @@ tests/test_client_surface_runtime_inventory_evidence.py
 tests/test_client_surface_security_contracts.py
 tests/test_client_surface_test_gate_runner.py
 tests/test_client_thinness.py
-tests/test_codex_cli_backend.py
+tests/cli_backends/test_codex_cli_backend.py
 tests/test_common_errors.py
 tests/test_compose_smoke_matrix.py
 tests/test_config_api.py
@@ -171,7 +171,7 @@ tests/test_nvim_runtime_bridge_contract.py
 tests/test_nvim_runtime_surface.py
 tests/test_ollama_autoimport.py
 tests/test_ollama_benchmark.py
-tests/test_openai_compat.py
+tests/cli_backends/test_openai_compat.py
 tests/test_openai_live_smoke.py
 tests/test_orchestration_policy.py
 tests/test_os_repair_flows.py
@@ -231,8 +231,8 @@ tests/test_security_policy_regression.py
 tests/test_seed_blueprint_catalog.py
 tests/test_seed_blueprint_catalog_schema.py
 tests/test_service_boundaries.py
-tests/test_sgpt_capability_matrix.py
-tests/test_sgpt_route.py
+tests/cli_backends/test_sgpt_capability_matrix.py
+tests/cli_backends/test_sgpt_route.py
 tests/shell/test_shell_blacklist.py
 tests/shell/test_shell_linux.py
 tests/shell/test_shell_security.py

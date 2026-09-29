@@ -345,7 +345,7 @@
       ],
       "candidate_test_files": [
         "tests/test_opencode_runtime_config.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "expected_behavior": [
         "target_provider=cliproxyapi wird als local_openai_backend erkannt.",

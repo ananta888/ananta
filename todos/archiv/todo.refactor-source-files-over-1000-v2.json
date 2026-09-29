@@ -557,8 +557,8 @@
     },
     {
       "id": "SPLIT-133",
-      "title": "tests/test_codex_cli_backend.py aufteilen (1171 -> <1000 Zeilen)",
-      "file": "tests/test_codex_cli_backend.py",
+      "title": "tests/cli_backends/test_codex_cli_backend.py aufteilen (1171 -> <1000 Zeilen)",
+      "file": "tests/cli_backends/test_codex_cli_backend.py",
       "line_count": 946,
       "status": "done",
       "priority": "P3",
@@ -609,8 +609,8 @@
     },
     {
       "id": "SPLIT-137",
-      "title": "tests/test_sgpt_route.py aufteilen (1198 -> <1000 Zeilen)",
-      "file": "tests/test_sgpt_route.py",
+      "title": "tests/cli_backends/test_sgpt_route.py aufteilen (1198 -> <1000 Zeilen)",
+      "file": "tests/cli_backends/test_sgpt_route.py",
       "line_count": 638,
       "status": "done",
       "priority": "P3",

@@ -607,7 +607,7 @@
         }
       ],
       "acceptance_criteria": [
-        "tests/test_sgpt_route.py bleibt grün",
+        "tests/cli_backends/test_sgpt_route.py bleibt grün",
         "run_sgpt_command() weiterhin importierbar aus agent.common.sgpt",
         "sgpt.py unter 500 Zeilen"
       ]
@@ -1514,8 +1514,8 @@
       "id": "SPLIT-041",
       "milestone": "M5",
       "priority": "P3",
-      "title": "tests/test_sgpt_route.py nach Feature aufteilen (1196 Zeilen)",
-      "file": "tests/test_sgpt_route.py",
+      "title": "tests/cli_backends/test_sgpt_route.py nach Feature aufteilen (1196 Zeilen)",
+      "file": "tests/cli_backends/test_sgpt_route.py",
       "current_lines": 1196,
       "proposed_split": [
         {
@@ -1564,8 +1564,8 @@
       "id": "SPLIT-043",
       "milestone": "M5",
       "priority": "P3",
-      "title": "tests/test_codex_cli_backend.py nach Backend aufteilen (1171 Zeilen)",
-      "file": "tests/test_codex_cli_backend.py",
+      "title": "tests/cli_backends/test_codex_cli_backend.py nach Backend aufteilen (1171 Zeilen)",
+      "file": "tests/cli_backends/test_codex_cli_backend.py",
       "current_lines": 1171,
       "proposed_split": [
         {

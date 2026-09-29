@@ -51,6 +51,6 @@ Alle Augment-Services haben Fake-Implementierungen:
 Alle Unit-Tests passen in `tests/test_augment_*.py` und laufen ohne Auggie:
 
 ```bash
-python -m pytest tests/test_augment_healthcheck.py tests/test_augment_config.py \
-  tests/test_augment_context_provider.py tests/test_auggie_cli_worker.py -q
+python -m pytest tests/cli_backends/test_augment_healthcheck.py tests/cli_backends/test_augment_config.py \
+  tests/cli_backends/test_augment_context_provider.py tests/cli_backends/test_auggie_cli_worker.py -q
 ```

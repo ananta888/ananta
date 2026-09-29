@@ -75,8 +75,8 @@
       "error": "AttributeError: module 'agent.common.sgpt' has no attribute 'shutil' / 'resolve_ollama_model' / 'probe_ollama_runtime' / 'probe_lmstudio_runtime'",
       "root_cause": "Tests mocken Symbole direkt auf agent.common.sgpt (z.B. monkeypatch.setattr(sgpt, 'shutil', ...)). Nach einem Refactoring sind diese Symbole entweder umgezogen oder nicht mehr als Modul-Level-Attribute sichtbar. Tests in test_codex_cli_backend.py, test_codex_cli_backend_preflight.py.",
       "target_files": [
-        "tests/test_codex_cli_backend.py",
-        "tests/test_codex_cli_backend_preflight.py",
+        "tests/cli_backends/test_codex_cli_backend.py",
+        "tests/cli_backends/test_codex_cli_backend_preflight.py",
         "agent/common/sgpt.py"
       ],
       "acceptance_criteria": [
@@ -117,7 +117,7 @@
       "root_cause": "get_shell wurde aus task_execution_service entfernt oder umbenannt. Tests in test_command_chain_execution_policy.py, test_opencode_command_chain_guardrails.py und tests/e2e/test_command_chain_execution_full_flow.py mocken dieses Attribut.",
       "target_files": [
         "tests/test_command_chain_execution_policy.py",
-        "tests/test_opencode_command_chain_guardrails.py",
+        "tests/cli_backends/test_opencode_command_chain_guardrails.py",
         "tests/e2e/test_command_chain_execution_full_flow.py",
         "agent/services/task_execution_service.py"
       ],

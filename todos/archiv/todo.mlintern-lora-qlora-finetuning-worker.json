@@ -121,7 +121,7 @@
     "agent/routes/config/shared.py",
     "docs/ml-intern-backend-spike.md",
     "tests/test_ml_intern_adapter_service.py",
-    "tests/test_sgpt_route.py",
+    "tests/cli_backends/test_sgpt_route.py",
     "tests/test_config_api.py"
   ],
   "milestones": [
@@ -258,7 +258,7 @@
         "Dokumentation erklaert klar: Prompting, RAG, LoRA und Full-Fine-Tuning sind verschiedene Ebenen."
       ],
       "test_expectations": [
-        "tests/test_sgpt_route.py prueft weiterhin, dass ml_intern keine CLI-Flags akzeptiert.",
+        "tests/cli_backends/test_sgpt_route.py prueft weiterhin, dass ml_intern keine CLI-Flags akzeptiert.",
         "Neuer Test prueft, dass Trainingsjob-Typen nicht ueber /api/sgpt/execute eingeschleust werden koennen."
       ],
       "notes": []
@@ -806,7 +806,7 @@
       "target_files": [
         "agent/routes/sgpt.py",
         "agent/runtime_policy.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "acceptance_criteria": [
         "Wenn ein Adapter zur Laufzeit genutzt wird, enthaelt die Response eine lora_provenance mit adapter_id, version, base_model und eval_report_ref.",
@@ -894,7 +894,7 @@
         "tests/test_ml_intern_adapter_service.py",
         "tests/test_ml_intern_training_config_service.py",
         "tests/test_ml_intern_training_job_service.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "acceptance_criteria": [
         "Bestehende invoke_spike Tests fuer disabled und bounded command bleiben erhalten.",
@@ -904,7 +904,7 @@
         "Alle Tests laufen ohne GPU."
       ],
       "test_expectations": [
-        "pytest tests/test_ml_intern_adapter_service.py tests/test_ml_intern_training_config_service.py tests/test_ml_intern_training_job_service.py tests/test_sgpt_route.py laeuft lokal ohne GPU durch."
+        "pytest tests/test_ml_intern_adapter_service.py tests/test_ml_intern_training_config_service.py tests/test_ml_intern_training_job_service.py tests/cli_backends/test_sgpt_route.py laeuft lokal ohne GPU durch."
       ],
       "notes": []
     },

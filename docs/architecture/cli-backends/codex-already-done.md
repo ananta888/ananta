@@ -159,8 +159,8 @@ automatisch sichtbar.
 
 ### Tests
 
-- `tests/test_codex_cli_backend.py` — `run_codex_command` mit mock
-- `tests/test_codex_cli_backend_preflight.py` — preflight + runtime
+- `tests/cli_backends/test_codex_cli_backend.py` — `run_codex_command` mit mock
+- `tests/cli_backends/test_codex_cli_backend_preflight.py` — preflight + runtime
 
 Beide dateien sind gesplittet (siehe kommentar in
 `test_codex_cli_backend_preflight.py:6` "Split from
@@ -211,8 +211,8 @@ Alle nutzen args-listen, `capture_output=True`, `text=True`,
 | `agent/routes/config/shared.py:291` | executor_kind-set | config-shared |
 | `frontend-angular/.../codehug.models.ts:173` | `ChCliBackend` | angular-types |
 | `frontend-angular/.../codehug.models.ts:659` | `preferredBackend` | angular-types |
-| `tests/test_codex_cli_backend.py` | 4 tests | runtime-tests |
-| `tests/test_codex_cli_backend_preflight.py` | 5 tests | preflight-tests |
+| `tests/cli_backends/test_codex_cli_backend.py` | 4 tests | runtime-tests |
+| `tests/cli_backends/test_codex_cli_backend_preflight.py` | 5 tests | preflight-tests |
 
 ## Was CCA-002 ergänzen muss
 
@@ -229,8 +229,8 @@ CCA-002 zielt auf:
    `auth_mode`, `auth_status`, `login_command` erweitern.
 5. **`agent/cli_backends/opencode.py:42`** `_build_codex_runtime_diagnostics`:
    für `auth_status`-Ermittlung.
-6. **`tests/test_codex_cli_backend.py`** und
-   `tests/test_codex_cli_backend_preflight.py`:
+6. **`tests/cli_backends/test_codex_cli_backend.py`** und
+   `tests/cli_backends/test_codex_cli_backend_preflight.py`:
    Tests für chatgpt_login-Modus hinzufügen.
 
 ## Was CCA-003 ergänzen muss

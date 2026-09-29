@@ -45,7 +45,7 @@ def _make_repo(tmp_path: pathlib.Path) -> pathlib.Path:
 
 # CCSH-003: Regression test — path-only behavior still works
 
-# Split from tests/test_sgpt_route.py to keep source files below 1000 lines.
+# Split from tests/cli_backends/test_sgpt_route.py to keep source files below 1000 lines.
 
 class TestSourceFileBatchesPathOnly:
     def test_path_only_loads_file_beginning(self, tmp_path):

@@ -372,7 +372,7 @@
       "extension": ".py",
       "line_count": 1171,
       "over_threshold": true,
-      "path": "tests/test_codex_cli_backend.py",
+      "path": "tests/cli_backends/test_codex_cli_backend.py",
       "reason": "test_path_or_name"
     },
     {
@@ -416,7 +416,7 @@
       "extension": ".py",
       "line_count": 1198,
       "over_threshold": true,
-      "path": "tests/test_sgpt_route.py",
+      "path": "tests/cli_backends/test_sgpt_route.py",
       "reason": "test_path_or_name"
     },
     {
@@ -825,7 +825,7 @@
       "extension": ".py",
       "line_count": 1171,
       "over_threshold": true,
-      "path": "tests/test_codex_cli_backend.py",
+      "path": "tests/cli_backends/test_codex_cli_backend.py",
       "reason": "test_path_or_name"
     },
     {
@@ -869,7 +869,7 @@
       "extension": ".py",
       "line_count": 1198,
       "over_threshold": true,
-      "path": "tests/test_sgpt_route.py",
+      "path": "tests/cli_backends/test_sgpt_route.py",
       "reason": "test_path_or_name"
     },
     {

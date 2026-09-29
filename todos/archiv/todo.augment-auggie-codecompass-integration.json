@@ -56,9 +56,9 @@
       "agent/services/interactive_bridges/auggie_interactive_bridge.py",
       "agent/services/augment/augment_healthcheck.py",
       "agent/services/augment/augment_config.py",
-      "tests/test_augment_context_provider.py",
-      "tests/test_auggie_cli_worker.py",
-      "tests/test_auggie_interactive_bridge.py",
+      "tests/cli_backends/test_augment_context_provider.py",
+      "tests/cli_backends/test_auggie_cli_worker.py",
+      "tests/cli_backends/test_auggie_interactive_bridge.py",
       "tests/smoke/test_augment_auggie_integration_smoke.py"
     ]
   },

@@ -60,8 +60,8 @@
 | `tests/test_patch_first_range_context.py` | Test | `from agent.common.sgpt_workspace_mutation import run_ananta_worker_workspace_mutation` |
 | `tests/test_ananta_worker_tool_loop.py` | Test | `from agent.common.sgpt_tool_loop import (...)` |
 | `tests/test_codecompass_range_context_planner.py` | Test | `from agent.common.sgpt_workspace_mutation import run_ananta_worker_workspace_mutation` |
-| `tests/test_sgpt_route.py`, `test_sgpt_route_codecompass.py`, `test_sgpt_capability_matrix.py` | Test | `from agent.routes import sgpt as sgpt_route` |
-| `tests/test_sgpt_parallelism.py` | Test | `from agent.common import sgpt` |
+| `tests/cli_backends/test_sgpt_route.py`, `test_sgpt_route_codecompass.py`, `test_sgpt_capability_matrix.py` | Test | `from agent.routes import sgpt as sgpt_route` |
+| `tests/cli_backends/test_sgpt_parallelism.py` | Test | `from agent.common import sgpt` |
 | `tests/test_no_sgpt_in_propose_path.py` | Test | `monkeypatch.setattr("agent.common.sgpt.run_sgpt_command", ...)` |
 
 **`agent.common` (nicht-sgpt) Importer:** 18 Routes + `agent.utils` + `agent.config` + `agent.tools_shell` — der `audit`/`errors`/`logging`/`mfa`/`http`/`vault_source`/`utils`-Anteil ist **bereits sauber** (kein Service-Import oder nur 1 Service für `audit.py`/`error_handler.py`).
@@ -203,7 +203,7 @@ agent/cli_backends/
 
 **Verifikations-Gate:** Vollständige Test-Suite grün, insbesondere:
 - `tests/test_no_sgpt_in_propose_path.py` — Monkeypatch funktioniert weiterhin über den Shim.
-- `tests/test_sgpt_parallelism.py` — Bounded-Semaphore-Verhalten unverändert.
+- `tests/cli_backends/test_sgpt_parallelism.py` — Bounded-Semaphore-Verhalten unverändert.
 - `tests/test_ananta_worker_tool_loop.py` — Approval-Request-Trigger unverändert.
 - `tests/test_ananta_worker_workspace_feedback_iteration.py` — Workspace-Mutation-Loop unverändert.
 - `tests/test_patch_first_range_context.py` — Range-Context-Parser unverändert.
@@ -252,7 +252,7 @@ agent/cli_backends/
 - [ ] **Welle 3 Ende:** Detektor exit 0, vollständige Test-Suite grün.
 - [ ] Keine **neuen** Test-Failures im Vergleich zur Baseline (`pytest -k "sgpt or worker_tool_loop or workspace_mutation"` Snapshot dokumentiert in Commit-Body).
 - [ ] `tests/test_no_sgpt_in_propose_path.py` Monkeypatch funktioniert.
-- [ ] `tests/test_sgpt_route.py:11-15` Mutable-Structures (z.B. `user_requests.clear()`) funktionieren weiterhin.
+- [ ] `tests/cli_backends/test_sgpt_route.py:11-15` Mutable-Structures (z.B. `user_requests.clear()`) funktionieren weiterhin.
 
 **Neue Tests:**
 - [ ] `tests/cli/test_cli_backend_namespace_skeleton.py` — Import-Test des neuen Namespace.

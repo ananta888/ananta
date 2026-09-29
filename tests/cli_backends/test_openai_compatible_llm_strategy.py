@@ -62,5 +62,5 @@ def test_the_default_context_is_32k_everywhere():
 
     assert settings.default_context_tokens == 32768
     assert build_default_agent_config()["llm_config"]["context_limit"] == 32768
-    modelfile = Path(__file__).resolve().parents[1] / "autoimport-state/modelfiles/ananta-default.Modelfile"
+    modelfile = Path(__file__).resolve().parents[2] / "autoimport-state/modelfiles/ananta-default.Modelfile"
     assert "PARAMETER num_ctx 32768" in modelfile.read_text(encoding="utf-8")

@@ -15,7 +15,7 @@
       "agent/services/worker_workspace_service.py",
       "agent/services/context_delivery_service.py",
       "agent/services/task_scoped_execution_service.py",
-      "tests/test_sgpt_route.py",
+      "tests/cli_backends/test_sgpt_route.py",
       "tests/test_e2e_workspace_artifact_flow.py",
       "todos/todo.ananta-worker-tool-calling-loop.json"
     ]

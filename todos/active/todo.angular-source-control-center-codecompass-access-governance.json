@@ -1383,7 +1383,7 @@
         "agent/services/ananta_tool_policy_service.py",
         "agent/routes/approvals.py",
         "agent/services/codehug_mutation_authorization.py",
-        "tests/test_codehug_mutation_authorization.py",
+        "tests/cli_backends/test_codehug_mutation_authorization.py",
         "frontend-angular/src/app/services/source-control-v1-api.client.ts",
         "agent/services/codehug_mutation_composition.py",
         "agent/bootstrap/source_control_api.py"

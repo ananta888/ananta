@@ -26,7 +26,7 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# shared mock helpers (same style as tests/test_codex_cli_auth_mode.py)
+# shared mock helpers (same style as tests/cli_backends/test_codex_cli_auth_mode.py)
 # ---------------------------------------------------------------------------
 
 def _fake_settings(

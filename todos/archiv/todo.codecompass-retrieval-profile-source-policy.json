@@ -69,7 +69,7 @@
         ]
       },
       {
-        "path": "tests/test_sgpt_route.py",
+        "path": "tests/cli_backends/test_sgpt_route.py",
         "observations": [
           "SGPT/ananta-worker Tests sollten die Folge-Todo zum Snippet-Handoff ergaenzen, aber diese Todo fokussiert primaer SourcePolicy/Profile-Resolution vor dem Worker."
         ]

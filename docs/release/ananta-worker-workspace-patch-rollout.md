@@ -10,7 +10,7 @@ jeder Stufe: Flags aus → bestehender Analyse-/Batch-Loop
 
 ### Stufe 0 — Ausgangszustand (heute)
 - Beide Flags aus. Verhalten identisch zu vorher; Regressionstests grün
-  (`tests/test_sgpt_route.py`, `tests/test_e2e_workspace_artifact_flow.py`).
+  (`tests/cli_backends/test_sgpt_route.py`, `tests/test_e2e_workspace_artifact_flow.py`).
 
 ### Stufe 1 — read_only + diff-only Dry-Run
 - `ananta_worker_workspace_mutation.enabled: true`,

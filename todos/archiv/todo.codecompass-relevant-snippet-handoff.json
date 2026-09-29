@@ -29,7 +29,7 @@
         ]
       },
       {
-        "path": "tests/test_sgpt_route.py",
+        "path": "tests/cli_backends/test_sgpt_route.py",
         "observations": [
           "SGPT-Route-Tests existieren, decken aber nicht _load_source_file_batches oder iterative ananta-worker Kontextauswahl ab."
         ]
@@ -217,7 +217,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "Prompts enthalten aktuell Datei-Bloecke mit ### path, aber nicht eindeutig, ob der Inhalt aus ganzer Datei, Snippet, Line-Range, Chunk oder hub-context.md stammt.",
       "implementation_notes": [
@@ -232,7 +232,7 @@
         "Bestehende ananta-worker Single-Batch- und Multi-Batch-Pfade bleiben funktionsfaehig."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k ananta_worker"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k ananta_worker"
       ]
     },
     {
@@ -246,7 +246,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "Bevor der Loader umgebaut wird, muss ein Test beweisen, dass der bisherige path-only-Fallback weiterhin funktioniert.",
       "implementation_notes": [
@@ -262,7 +262,7 @@
         "Fallback auf .ananta/hub-context.md bleibt erhalten, wenn keine gueltigen refs geladen werden."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k source_file_batches"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k source_file_batches"
       ]
     },
     {
@@ -276,7 +276,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "_load_source_file_batches ignoriert aktuell start_line/end_line/snippet/chunks und liest nur raw[:per_file_chars]. Dadurch kann der relevante Abschnitt fehlen, wenn er nicht am Dateianfang liegt.",
       "implementation_notes": [
@@ -294,7 +294,7 @@
         "Der Header des Promptblocks enthaelt path und effektive start/end Zeilen, wenn bekannt."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k 'line_range or snippet or source_file_batches'"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k 'line_range or snippet or source_file_batches'"
       ]
     },
     {
@@ -308,7 +308,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "Der Loader braucht eine stabile Reihenfolge, damit CodeCompass-Abschnitte wirklich vor ganzen Dateien genutzt werden.",
       "implementation_notes": [
@@ -325,7 +325,7 @@
         "hub-context.md wird nur genutzt, wenn keine repo_scope_refs verwertbar sind."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k ananta_worker"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k ananta_worker"
       ]
     },
     {
@@ -341,7 +341,7 @@
         "agent/config.py",
         "agent/common/sgpt.py",
         "agent/config_defaults.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "files_per_batch, per_file_chars, max_iterations und kuenftige context_lines/max_snippet_chars sind aktuell hart in sgpt.py verdrahtet.",
       "implementation_notes": [
@@ -356,7 +356,7 @@
         "Keine lokale user.json wird fuer diese Defaults benoetigt."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k config"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k config"
       ]
     },
     {
@@ -370,7 +370,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "rag_helper/progress.md speichert aktuell Schritt-Ausgaben und Dateinamen, aber keine konkrete Information, welche Zeilen oder Chunks verarbeitet wurden.",
       "implementation_notes": [
@@ -385,7 +385,7 @@
         "Finales Ergebnis bleibt wie bisher unter ## Finales Ergebnis sichtbar."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k progress"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k progress"
       ]
     },
     {
@@ -490,7 +490,7 @@
       "risk": "high",
       "progress_percent": 100,
       "target_files": [
-        "tests/test_sgpt_route.py",
+        "tests/cli_backends/test_sgpt_route.py",
         "tests/test_deerflow_integration.py",
         "agent/common/sgpt.py",
         "agent/services/research_context_bridge_service.py"
@@ -509,7 +509,7 @@
         "Der Test benoetigt kein echtes LLM und keine Netzverbindung."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k codecompass_snippet_handoff"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k codecompass_snippet_handoff"
       ]
     },
     {
@@ -523,7 +523,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "problem": "Bestehende Workspaces werden weiterhin repo_scope_refs nur mit path enthalten. Der Umbau darf diese nicht brechen.",
       "implementation_notes": [
@@ -537,7 +537,7 @@
         "Keine bestehenden SGPT-Route-Tests brechen."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py"
+        "pytest -q tests/cli_backends/test_sgpt_route.py"
       ]
     },
     {
@@ -552,7 +552,7 @@
       "target_files": [
         "agent/common/sgpt.py",
         "agent/services/research_context_bridge_service.py",
-        "tests/test_sgpt_route.py",
+        "tests/cli_backends/test_sgpt_route.py",
         "tests/test_deerflow_integration.py"
       ],
       "problem": "Wenn CodeCompass viele kleine Chunks liefert, kann der Prompt trotz Snippet-Ansatz zu gross werden oder wichtige Abschnitte im Batch-Splitting verlieren.",
@@ -568,7 +568,7 @@
         "Keine absoluten Pfade oder Secrets werden durch Budget-Logging geleakt."
       ],
       "test_expectations": [
-        "pytest -q tests/test_sgpt_route.py -k budget"
+        "pytest -q tests/cli_backends/test_sgpt_route.py -k budget"
       ]
     },
     {
@@ -613,7 +613,7 @@
   ],
   "suggested_test_commands": [
     "python -m json.tool todos/todo.codecompass-relevant-snippet-handoff.json",
-    "pytest -q tests/test_sgpt_route.py -k 'ananta_worker or source_file_batches or codecompass_snippet_handoff'",
+    "pytest -q tests/cli_backends/test_sgpt_route.py -k 'ananta_worker or source_file_batches or codecompass_snippet_handoff'",
     "pytest -q tests/test_deerflow_integration.py -k 'research_context_bridge or context'",
     "pytest -q tests -k 'rag_helper_index or knowledge_index or retrieval'"
   ],

@@ -359,7 +359,7 @@
       "risk": "medium",
       "target_files": [
         "agent/common/sgpt.py",
-        "tests/test_sgpt_route.py"
+        "tests/cli_backends/test_sgpt_route.py"
       ],
       "acceptance_criteria": [
         "Wenn Tool Loop deaktiviert ist, bleibt _run_ananta_worker_iterative funktional.",
