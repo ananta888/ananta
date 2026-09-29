@@ -50,7 +50,7 @@ tests/test_auto_planner_templates.py
 tests/test_autonomous_flow_e2e.py
 tests/test_autonomous_scrum_e2e.py
 tests/test_autopilot_integration.py
-tests/test_autopilot_model_selection.py
+tests/autopilot/test_autopilot_model_selection.py
 tests/test_backend_core_flow_contracts.py
 tests/test_backend_provider_contracts.py
 tests/test_background_lifecycle_shutdown.py
