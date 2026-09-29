@@ -16,7 +16,7 @@ from agent.services.sfu_broadcast_capacity_profile_resolver import (
     SfuBroadcastCapacityProfileResolver,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = ROOT / "config" / "sfu_broadcast_capacity.default.json"
 DEFAULT_LIVEKIT = ROOT / "config" / "livekit.semantic-media.yaml"
 SECRET = "capacity-test-secret-with-32-bytes"

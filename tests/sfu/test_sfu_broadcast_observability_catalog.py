@@ -15,7 +15,7 @@ from agent.services.sfu_broadcast_observability_policy import (
     SfuBroadcastObservabilityPolicyError,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "config" / "sfu_broadcast_observability_catalog.json"
 SCHEMA_PATH = ROOT / "schemas" / "webrtc" / "sfu_broadcast_observability_catalog.v1.json"
 PSEUDONYM_SECRET = b"unit-only-sfu-observability-secret"

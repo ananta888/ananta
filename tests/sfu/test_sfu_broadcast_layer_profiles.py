@@ -12,7 +12,7 @@ from agent.services.sfu_broadcast_layer_profile_policy import (
     SfuBroadcastLayerProfilePolicy,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / "config" / "sfu_broadcast_layer_profiles.json"
 
 

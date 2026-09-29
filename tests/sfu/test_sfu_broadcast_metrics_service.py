@@ -13,7 +13,7 @@ from agent.services.sfu_broadcast_metrics_service import (
 from agent.services.sfu_broadcast_observability_policy import SfuBroadcastObservabilityPolicy
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class _Sink:

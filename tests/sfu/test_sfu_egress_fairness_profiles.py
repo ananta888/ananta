@@ -14,7 +14,7 @@ from agent.services.sfu_egress_fairness_profile_policy import (
 
 
 NOW = 1_800_000_000.0
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class _Signatures:

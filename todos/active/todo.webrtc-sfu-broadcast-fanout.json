@@ -989,7 +989,7 @@
       ],
       "affected_files": [
         "scripts/run_sfu_broadcast_parent_readiness_gate.py",
-        "tests/test_sfu_broadcast_parent_readiness_gate.py",
+        "tests/sfu/test_sfu_broadcast_parent_readiness_gate.py",
         "artifacts/test-gates/sfu-broadcast-parent-readiness.json"
       ],
       "acceptance_criteria": [
@@ -1020,7 +1020,7 @@
         "agent/services/semantic_media_feature_flags.py",
         "agent/services/sfu_broadcast_feature_policy.py",
         ".env.example",
-        "tests/test_sfu_broadcast_feature_policy.py"
+        "tests/sfu/test_sfu_broadcast_feature_policy.py"
       ],
       "acceptance_criteria": [
         "Alle Broadcast-, Receiver-Group-, Fleet- und TURN-Cost-Erweiterungen sind im kanonischen Parent-Katalog default false und erzwingen bei unbekannter oder ungueltiger Konfiguration den Parent-Fallbackpfad.",
@@ -1049,7 +1049,7 @@
         "config/sfu_broadcast_slo_profiles.json",
         "schemas/webrtc/sfu_broadcast_slo_profile.v1.json",
         "docs/operations/sfu-broadcast-capacity-policy.md",
-        "tests/test_sfu_broadcast_slo_profiles.py"
+        "tests/sfu/test_sfu_broadcast_slo_profiles.py"
       ],
       "acceptance_criteria": [
         "Jedes Budget besitzt stabilen Config-Key, Einheit, Messfenster, Perzentil, Mindest-/Hoechstwert und Verhalten bei fehlender Messung; jedes Laufprofil benennt warmup_seconds, measurement_seconds, repetitions_min, confidence_level, variance_max, capacity_reserve_percent und retry_rate_max.",
@@ -1109,7 +1109,7 @@
         "config/release/sfu_broadcast_gate_manifest.json",
         "agent/services/release_evidence_provenance_service.py",
         "scripts/verify_sfu_broadcast_evidence.py",
-        "tests/test_sfu_broadcast_evidence_provenance.py"
+        "tests/sfu/test_sfu_broadcast_evidence_provenance.py"
       ],
       "acceptance_criteria": [
         "Manifesteintraege binden Gate-ID, Schema, relativen Artefaktpfad, SHA-256-Inhaltsdigest, Git-Source-Digest, relevante Config-/Lockfile-/Image-/Infrastrukturdigests, Erzeugerkommando, Freshness und Status.",
@@ -1136,8 +1136,8 @@
         "agent/db_models/__init__.py",
         "agent/repositories/sfu_broadcast_feature_flag_repository.py",
         "migrations/versions/",
-        "tests/test_sfu_broadcast_feature_flag_repository.py",
-        "tests/test_sfu_broadcast_feature_flag_migrations.py"
+        "tests/sfu/test_sfu_broadcast_feature_flag_repository.py",
+        "tests/sfu/test_sfu_broadcast_feature_flag_migrations.py"
       ],
       "acceptance_criteria": [
         "Das Modell speichert Tenant-/Region-/Room-Cohort, Flag, Boolwert, Rolloutstufe, Version, Actor, Reason, Idempotency-Key und Auditzeitpunkt ohne Medien-, Participant- oder Deviceinhalt.",
@@ -1166,7 +1166,7 @@
         "agent/bootstrap/semantic_media_services.py",
         "agent/routes/network_profiles.py",
         "frontend-angular/src/app/services/network-profile.service.ts",
-        "tests/test_sfu_broadcast_feature_flag_api.py"
+        "tests/sfu/test_sfu_broadcast_feature_flag_api.py"
       ],
       "acceptance_criteria": [
         "Mutation verlangt Admin-RBAC, Idempotency-Key, Actor, Reason und expected_version; unbekannte Cohort, Concurrent Writer und fehlendes Audit werden abgelehnt.",
@@ -1536,7 +1536,7 @@
         "agent/db_models/sfu_broadcast.py",
         "agent/db_models/__init__.py",
         "migrations/versions/",
-        "tests/test_sfu_broadcast_migrations.py"
+        "tests/sfu/test_sfu_broadcast_migrations.py"
       ],
       "acceptance_criteria": [
         "Modelle speichern Tenant-/Room-/Publication-Referenzen, Digests, Policy-/Membership-/Key-/Route-/Topology-Epochen, Status, TTL, Retention-/Tombstonezustand, Fencing und Auditzeitpunkte ohne duplizierte Berechtigungswahrheit.",
@@ -1588,7 +1588,7 @@
       ],
       "affected_files": [
         "agent/services/sfu_audience_policy_compiler.py",
-        "tests/test_sfu_audience_policy_compiler.py"
+        "tests/sfu/test_sfu_audience_policy_compiler.py"
       ],
       "acceptance_criteria": [
         "Eligibility ist immer die Schnittmenge individueller Publish-/Subscribe-Grants, Raum-, Publication-, Consent-, Privacy-, Capability- und Epochbedingungen; Gruppierung vereinigt keine Rechte.",
@@ -1613,7 +1613,7 @@
       ],
       "affected_files": [
         "agent/services/sfu_receiver_group_projector.py",
-        "tests/test_sfu_receiver_group_projector.py"
+        "tests/sfu/test_sfu_receiver_group_projector.py"
       ],
       "acceptance_criteria": [
         "Member-Digest verwendet einen separaten Hub-only Non-Media-Key pro Tenant/Room/Publication/Key-Epoch ueber domain-separierte kanonische Serialisierung sortierter stabiler Referenzen und ist unabhaengig von Datenbank- oder Eventreihenfolge.",
@@ -1640,7 +1640,7 @@
       ],
       "affected_files": [
         "agent/services/sfu_group_projection_service.py",
-        "tests/test_sfu_group_projection_concurrency.py"
+        "tests/sfu/test_sfu_group_projection_concurrency.py"
       ],
       "acceptance_criteria": [
         "Jede Mutation prueft Membership-, Key- und Policy-Epoch sowie expected Group-Version in einer atomaren Transaktion.",
@@ -1678,7 +1678,7 @@
         "frontend-angular/src/app/services/semantic-sfu-admission-api.service.ts",
         "frontend-angular/src/app/services/sfu-broadcast-participant-cap.service.ts",
         "config/livekit.semantic-media.yaml",
-        "tests/test_sfu_broadcast_participant_caps.py",
+        "tests/sfu/test_sfu_broadcast_participant_caps.py",
         "frontend-angular/src/app/services/sfu-broadcast-participant-cap.service.spec.ts"
       ],
       "acceptance_criteria": [
@@ -1783,7 +1783,7 @@
       "affected_files": [
         "agent/services/sfu_fanout_route_lifecycle.py",
         "docs/architecture/sfu-fanout-route-state-machine.md",
-        "tests/test_sfu_fanout_route_lifecycle.py"
+        "tests/sfu/test_sfu_fanout_route_lifecycle.py"
       ],
       "acceptance_criteria": [
         "Eine tabellarische State Machine definiert erlaubte Transitionen, Guards, Deadline, Retrybudget, Cooldown, terminale Zustaende und stabile Reason-Codes.",
@@ -1874,7 +1874,7 @@
       ],
       "affected_files": [
         "agent/services/sfu_fanout_reconciliation_service.py",
-        "tests/test_sfu_fanout_reconciliation_service.py"
+        "tests/sfu/test_sfu_fanout_reconciliation_service.py"
       ],
       "acceptance_criteria": [
         "Reconciliation ist ausschliesslich Hub-gesteuert, lease-/fencinggeschuetzt, paginiert und durch reconcile_items_max sowie reconcile_deadline_ms begrenzt.",
@@ -1903,7 +1903,7 @@
         "agent/services/sfu_audience_snapshot_retention_service.py",
         "agent/services/sfu_broadcast_repository_ports.py",
         "agent/repositories/sfu_broadcast_repository.py",
-        "tests/test_sfu_audience_snapshot_retention.py",
+        "tests/sfu/test_sfu_audience_snapshot_retention.py",
         "tests/chaos/test_sfu_audience_snapshot_purge.py"
       ],
       "acceptance_criteria": [
@@ -2073,7 +2073,7 @@
       "affected_files": [
         "config/sfu_broadcast_layer_profiles.json",
         "agent/services/sfu_broadcast_layer_profile_policy.py",
-        "tests/test_sfu_broadcast_layer_profiles.py"
+        "tests/sfu/test_sfu_broadcast_layer_profiles.py"
       ],
       "acceptance_criteria": [
         "Profile begrenzen Encodinganzahl, Codec, Scalability Mode, Aufloesung, Framerate, Bitrate, Keyframeintervall und erlaubte Fallbacks pro Medienart mit festen Einheiten.",
@@ -2101,7 +2101,7 @@
         "agent/routes/webrtc_sfu_broadcast_quality.py",
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
-        "tests/test_sfu_receiver_quality_ingestion.py",
+        "tests/sfu/test_sfu_receiver_quality_ingestion.py",
         "tests/test_webrtc_sfu_broadcast_quality_routes.py"
       ],
       "acceptance_criteria": [
@@ -2176,7 +2176,7 @@
       ],
       "affected_files": [
         "agent/services/sfu_receiver_layer_policy.py",
-        "tests/test_sfu_receiver_layer_policy.py"
+        "tests/sfu/test_sfu_receiver_layer_policy.py"
       ],
       "acceptance_criteria": [
         "Identische normalisierte Inputs erzeugen denselben signierten allowed-Layer-Korridor, harte Caps, Reason-Code, Gueltigkeitsdauer und fruehesten Hub-Neubewertungszeitpunkt.",
@@ -2203,7 +2203,7 @@
         "config/sfu_broadcast_layer_transition_profiles.json",
         "schemas/webrtc/sfu_layer_transition_profile.v1.json",
         "agent/services/sfu_layer_transition_profile_policy.py",
-        "tests/test_sfu_layer_transition_profiles.py"
+        "tests/sfu/test_sfu_layer_transition_profiles.py"
       ],
       "acceptance_criteria": [
         "Das signierte Profil benennt Up-/Down-Threshold, dwell_ms, cooldown_ms, keyframe_wait_ms, keyframe_retry_max, recovery_deadline_ms, Route-/Key-Epoch und Ablauf.",
@@ -2243,7 +2243,7 @@
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
-        "tests/test_sfu_layer_projection_service.py",
+        "tests/sfu/test_sfu_layer_projection_service.py",
         "tests/test_webrtc_sfu_layer_projection_routes.py",
         "frontend-angular/src/app/services/sfu-layer-projection-api.service.ts",
         "frontend-angular/src/app/services/sfu-layer-projection-api.service.spec.ts",
@@ -2413,7 +2413,7 @@
         "config/sfu_fanout_traffic_projection.json",
         "agent/services/sfu_fanout_traffic_projection.py",
         "docs/contracts/sfu-fanout-traffic-projection.md",
-        "tests/test_sfu_fanout_traffic_projection.py"
+        "tests/sfu/test_sfu_fanout_traffic_projection.py"
       ],
       "acceptance_criteria": [
         "Jeder bekannte Parent-Message-Kind ist genau shared, receiver_private, pair_private oder forbidden_for_sfu klassifiziert und an Parent-Schema-Version sowie Privacy-Scope gebunden.",
@@ -2471,7 +2471,7 @@
         "config/sfu_broadcast_fairness_profiles.json",
         "schemas/webrtc/sfu_broadcast_fairness_profile.v1.json",
         "agent/services/sfu_egress_fairness_profile_policy.py",
-        "tests/test_sfu_egress_fairness_profiles.py"
+        "tests/sfu/test_sfu_egress_fairness_profiles.py"
       ],
       "acceptance_criteria": [
         "Profil bindet Receiver-, Room- und Tenantgewichte, Queue-/Egress-Hard-Limits, Downshift-/Disconnectstufen, Route-/Topology-Epoch und Ablauf an eine Hubsignatur und kennzeichnet jede Regel explizit als browser_enforced, runtime_enforced oder observation_only; nur nachgewiesene Faehigkeiten duerfen max_starvation_window_ms oder min_jain_fairness_index als erzwingbar markieren.",
@@ -2614,7 +2614,7 @@
       "affected_files": [
         "agent/services/sfu_egress_accounting_service.py",
         "agent/services/sfu_capacity_feedback_service.py",
-        "tests/test_sfu_egress_accounting_service.py"
+        "tests/sfu/test_sfu_egress_accounting_service.py"
       ],
       "acceptance_criteria": [
         "Accounting dedupliziert signierte Fenster nach Node, Sequenz und Zeitraum, trennt tatsaechliche Bytes von geschaetzten oder fehlenden Werten und prueft accounting_tolerance_bytes sowie accounting_tolerance_percent.",
@@ -2686,7 +2686,7 @@
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
-        "tests/test_sfu_node_observation_ingestion.py"
+        "tests/sfu/test_sfu_node_observation_ingestion.py"
       ],
       "acceptance_criteria": [
         "Ingestion bindet producer_mode, Runtime-/Cluster-/Region-Scope, monotone Sequenz, Producer-/Boot-ID, Messzeit und Capabilitydigest. authenticated_runtime_extension verlangt mTLS-Identity und Payloadsignatur; livekit_control_api akzeptiert nur einen Hub-kontrollierten, serverseitig authentifizierten Collector und behauptet keine LiveKit-Node-Signatur.",
@@ -2714,7 +2714,7 @@
         "agent/repositories/sfu_node_repository.py",
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
-        "tests/test_sfu_node_repository.py"
+        "tests/sfu/test_sfu_node_repository.py"
       ],
       "acceptance_criteria": [
         "Repository speichert Node-Identity, Region, Adapter-/Protokollversion, Capabilitydigest, letzte Observation, Health, Drain, Revocation und monotone Version mit CAS.",
@@ -2741,7 +2741,7 @@
       ],
       "affected_files": [
         "agent/services/sfu_node_health_evaluator.py",
-        "tests/test_sfu_node_health_evaluator.py",
+        "tests/sfu/test_sfu_node_health_evaluator.py",
         "docs/operations/sfu-node-health.md"
       ],
       "acceptance_criteria": [
@@ -2772,7 +2772,7 @@
         "agent/services/sfu_capacity_reservation_service.py",
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
-        "tests/test_sfu_capacity_reservation_service.py"
+        "tests/sfu/test_sfu_capacity_reservation_service.py"
       ],
       "acceptance_criteria": [
         "Reservierung bindet Tenant, Room, Cluster/Region, optional die von LiveKit beobachtete Nodebindung, Infrastruktur-/SLO-Profil, projizierte Ressourcen, Lease, Ablauf, Directory-Version und monotones Fencing.",
@@ -2873,7 +2873,7 @@
         "agent/services/sfu_broadcast_runtime_control_port.py",
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
-        "tests/test_sfu_broadcast_flag_projection.py",
+        "tests/sfu/test_sfu_broadcast_flag_projection.py",
         "tests/chaos/test_sfu_broadcast_flag_fencing.py"
       ],
       "acceptance_criteria": [
@@ -2950,7 +2950,7 @@
         "scripts/e2e/sfu_broadcast_local_multinode_e2e.py",
         "scripts/run_hub_evidence_sfu_multinode_gate.py",
         "tests/integration/test_sfu_distributed_runtime.py",
-        "tests/test_sfu_broadcast_local_multinode_e2e.py",
+        "tests/sfu/test_sfu_broadcast_local_multinode_e2e.py",
         "tests/test_hub_evidence_sfu_multinode_gate.py",
         "docs/operations/sfu-distributed-runtime.md"
       ],
@@ -2991,7 +2991,7 @@
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
         "config/sfu_broadcast_background.default.json",
-        "tests/test_sfu_broadcast_reconciler_scheduler.py",
+        "tests/sfu/test_sfu_broadcast_reconciler_scheduler.py",
         "tests/chaos/test_sfu_broadcast_scheduler_takeover.py"
       ],
       "acceptance_criteria": [
@@ -3022,7 +3022,7 @@
       "affected_files": [
         "agent/services/sfu_node_drain_service.py",
         "config/sfu_broadcast_version_compatibility.json",
-        "tests/test_sfu_node_drain_service.py",
+        "tests/sfu/test_sfu_node_drain_service.py",
         "docs/operations/sfu-rolling-upgrade.md"
       ],
       "acceptance_criteria": [
@@ -3052,7 +3052,7 @@
       "affected_files": [
         "agent/services/sfu_broadcast_failover_service.py",
         "docs/architecture/sfu-broadcast-failover-state-machine.md",
-        "tests/test_sfu_broadcast_failover_service.py"
+        "tests/sfu/test_sfu_broadcast_failover_service.py"
       ],
       "acceptance_criteria": [
         "Failover erzeugt groessere Topology-/Route-Epoch und Fencing, bindet neue kurzlebige Tokens an den nach runtime_control_mode belegten Zielscope und widerruft alte Admission vor Aktivierung neuer Route; im livekit_native-Modus ist dies Room/Cluster/Region statt einer vorab erfundenen Node-ID. Der Service inkrementiert oder besitzt niemals selbst die Key-Epoch.",
@@ -3531,7 +3531,7 @@
       "affected_files": [
         "config/sfu_broadcast_observability_catalog.json",
         "docs/operations/sfu-broadcast-observability.md",
-        "tests/test_sfu_broadcast_observability_catalog.py"
+        "tests/sfu/test_sfu_broadcast_observability_catalog.py"
       ],
       "acceptance_criteria": [
         "Katalog umfasst Join, Publish, Subscribe, Group, Route, Layer, Queue, Drop, Ingress, SFU-Egress, TURN, Rekey, Drain, Failover und Capacity mit festen Einheiten und p50/p95/p99/Peak-Regeln.",
@@ -3562,7 +3562,7 @@
         "agent/adapters/sfu_broadcast_prometheus_metrics_adapter.py",
         "agent/bootstrap/semantic_media_services.py",
         "config/monitoring/sfu-broadcast-metrics.yml",
-        "tests/test_sfu_broadcast_metrics_service.py",
+        "tests/sfu/test_sfu_broadcast_metrics_service.py",
         "tests/contracts/test_sfu_broadcast_metrics_port.py"
       ],
       "acceptance_criteria": [
@@ -3617,7 +3617,7 @@
         "agent/routes/webrtc_sfu_broadcast_operations.py",
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
-        "tests/test_sfu_broadcast_operations_read_model.py",
+        "tests/sfu/test_sfu_broadcast_operations_read_model.py",
         "tests/test_webrtc_sfu_broadcast_operations_routes.py"
       ],
       "acceptance_criteria": [
@@ -3660,7 +3660,7 @@
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
         "migrations/versions/",
-        "tests/test_sfu_broadcast_command_service.py",
+        "tests/sfu/test_sfu_broadcast_command_service.py",
         "tests/test_webrtc_sfu_broadcast_command_routes.py"
       ],
       "acceptance_criteria": [
@@ -3742,7 +3742,7 @@
         "docs/operations/sfu-broadcast-alerts.md",
         "config/monitoring/sfu-broadcast-alerts.yml",
         "config/monitoring/dashboards/sfu-broadcast.json",
-        "tests/test_sfu_broadcast_alert_rules.py"
+        "tests/sfu/test_sfu_broadcast_alert_rules.py"
       ],
       "acceptance_criteria": [
         "Dashboards und Alerts decken Join/Route/Rekey/Layer-p95/p99, Node Health/Flap/Drain, Reservation, Queue/Drop, Egress, TURN, Failover und Privacy-Scan ab.",
@@ -4207,7 +4207,7 @@
         ".github/workflows/sfu-broadcast-gates.yml",
         "config/release/sfu_broadcast_gate_manifest.json",
         "scripts/run_sfu_broadcast_gate_matrix.py",
-        "tests/test_sfu_broadcast_gate_manifest.py"
+        "tests/sfu/test_sfu_broadcast_gate_manifest.py"
       ],
       "acceptance_criteria": [
         "PR-Stufe fuehrt Schema-/Todo-Konsistenz, Contracts, Python-/Angular-Unit, Lint, Build und Migration-Head-Pruefung aus; keine reale Runtime wird still gemockt.",

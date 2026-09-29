@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 METRIC_PATTERN = re.compile(r"ananta_sfu_broadcast_[a-z_]+")
 DERIVED_SUFFIXES = ("_bucket", "_sum", "_count")
 

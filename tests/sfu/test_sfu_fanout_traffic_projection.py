@@ -17,7 +17,7 @@ from agent.services.sfu_fanout_traffic_projection import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "config" / "sfu_fanout_traffic_projection.json"
 PARENT_SCHEMA_PATH = ROOT / "schemas" / "webrtc" / "datachannel_message.v1.json"
 

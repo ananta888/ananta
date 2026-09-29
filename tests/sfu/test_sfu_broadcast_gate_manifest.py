@@ -6,7 +6,7 @@ import pytest
 from scripts.run_sfu_broadcast_gate_matrix import build_plan, validate_manifest
 from scripts.sfu_broadcast_gate_common import SfuBroadcastGateError
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_gate_manifest_builds_a_deterministic_task_to_artifact_plan() -> None:

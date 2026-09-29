@@ -36,7 +36,7 @@ def test_media_verdict_is_recomputed_from_negative_probe() -> None:
 
 
 def test_committed_distributed_config_uses_verified_redis_tls() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     livekit = yaml.safe_load((root / "config/livekit.sfu-broadcast-native.yaml").read_text(encoding="utf-8"))
     compose = yaml.safe_load((root / "docker-compose.sfu-broadcast.yml").read_text(encoding="utf-8"))
 

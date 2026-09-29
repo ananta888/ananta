@@ -20,7 +20,7 @@ from agent.services.sfu_runtime_observation_service import SfuRuntimeObservation
 from agent.services.turn_accounting_service import TurnAccountingService
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class _Sink:

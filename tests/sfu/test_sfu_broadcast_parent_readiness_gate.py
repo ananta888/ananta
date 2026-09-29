@@ -11,7 +11,7 @@ from scripts.run_sfu_broadcast_parent_readiness_gate import (
 from scripts.run_sfu_broadcast_parent_readiness_gate import PARENT_GATE_ID
 from scripts.run_sfu_broadcast_parent_readiness_gate import _load_json
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load(path: Path):

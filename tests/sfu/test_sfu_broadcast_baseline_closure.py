@@ -29,7 +29,7 @@ from agent.services.sfu_broadcast_rollback_service import (
 from agent.services.sfu_broadcast_source_grounding import SourceGroundingRegistry
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_limit_catalog_covers_every_activation_profile_and_budget() -> None:

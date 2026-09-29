@@ -6,7 +6,7 @@ from scripts.run_sfu_broadcast_release_gate import DEFAULT_TODO, evaluate_releas
 
 def test_release_gate_default_todo_tracks_the_active_source() -> None:
     assert DEFAULT_TODO == (
-        Path(__file__).resolve().parents[1]
+        Path(__file__).resolve().parents[2]
         / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
     )
     assert DEFAULT_TODO.is_file()

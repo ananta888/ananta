@@ -15,7 +15,7 @@ from agent.services.sfu_layer_transition_profile_policy import (
 )
 from agent.services.sfu_receiver_layer_policy import HmacReceiverLayerPolicySigner, LayerCorridor, LayerPoint
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "config" / "sfu_broadcast_layer_transition_profiles.json"
 SCHEMA = json.loads((ROOT / "schemas/webrtc/sfu_layer_transition_profile.v1.json").read_text(encoding="utf-8"))
 SIGNER = HmacReceiverLayerPolicySigner(b"transition-profile-test-secret-32+", key_id="transition-test")

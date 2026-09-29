@@ -272,7 +272,7 @@
       "scripts/run_sfu_media_plane_fuzz_gate.py",
       "scripts/sfu_broadcast_gate_common.py",
       "scripts/sfu_broadcast_release_common.py",
-      "tests/test_sfu_broadcast_gate_common.py",
+      "tests/sfu/test_sfu_broadcast_gate_common.py",
       "scripts/validate_sfu_broadcast_nightly_evidence.py",
       "tests/contracts/sfu_broadcast/corpus.v1.json",
       "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
@@ -332,13 +332,13 @@
         "stage": "pr",
         "command": [
           "python3", "-m", "pytest", "-q",
-          "tests/test_sfu_broadcast_gate_manifest.py",
-          "tests/test_sfu_broadcast_gate_common.py",
-          "tests/test_sfu_broadcast_release_gate.py",
-          "tests/test_sfu_broadcast_release_auxiliary_gates.py",
-          "tests/test_sfu_broadcast_accessibility_gate.py",
+          "tests/sfu/test_sfu_broadcast_gate_manifest.py",
+          "tests/sfu/test_sfu_broadcast_gate_common.py",
+          "tests/sfu/test_sfu_broadcast_release_gate.py",
+          "tests/sfu/test_sfu_broadcast_release_auxiliary_gates.py",
+          "tests/sfu/test_sfu_broadcast_accessibility_gate.py",
           "tests/fuzz/test_selected_sfu_media_plane_fuzz.py",
-          "tests/test_sfu_broadcast_contract_parity_runner.py"
+          "tests/sfu/test_sfu_broadcast_contract_parity_runner.py"
         ],
         "artifact": "artifacts/test-gates/sfu-ci-python.json",
         "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
@@ -425,7 +425,7 @@
         "gate_id": "SFB-CI-MIGRATION-HEAD",
         "task_ids": ["SFB-GATE-015"],
         "stage": "pr",
-        "command": ["python3", "-m", "pytest", "-q", "tests/test_sfu_broadcast_migrations.py"],
+        "command": ["python3", "-m", "pytest", "-q", "tests/sfu/test_sfu_broadcast_migrations.py"],
         "artifact": "artifacts/test-gates/sfu-ci-migration-head.json",
         "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",
         "artifact_mode": "observed",
