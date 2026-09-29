@@ -66,7 +66,7 @@ summary = tracker.summary()
 
 **Release criteria for Phase 1:**
 
-- [ ] All HCCA unit tests green: `tests/test_context_compression_core.py`
+- [ ] All HCCA unit tests green: `tests/context/test_context_compression_core.py`
 - [ ] `mode=passthrough_with_metrics` produces no behavioral change in integration tests
 - [ ] `CompressionTracker.summary()` returns correct totals
 - [ ] `CCRStore` with `redact_secrets=True` stores no raw secrets in any test run
@@ -313,7 +313,7 @@ Log format: every `CompressionEvent` is emitted as a JSON line to logger `ananta
 
 ### Before Phase 1 deployment
 
-- [ ] All HCCA unit tests pass: `pytest tests/test_context_compression_core.py -v`
+- [ ] All HCCA unit tests pass: `pytest tests/context/test_context_compression_core.py -v`
 - [ ] `SecretRedactor` unit tests pass for all 11 pattern types
 - [ ] `CCRStore.expire_old()` called on agent startup (bootstrap hook confirmed)
 - [ ] `docs/architecture/context-compression-adapter.md` reviewed and accurate
@@ -352,5 +352,5 @@ Log format: every `CompressionEvent` is emitted as a JSON line to logger `ananta
 - `docs/architecture/context-compression-adapter.md` — adapter contract (HCCA-001)
 - `docs/architecture/context-compression-security.md` — threat model and security invariants (HCCA-017 security)
 - `architektur/uml/context-compression-pipeline.mmd` — pipeline diagram
-- `tests/test_context_compression_core.py` — unit tests
+- `tests/context/test_context_compression_core.py` — unit tests
 - `docs/release/codecompass-vector-encoding-rollout.md` — reference rollout plan for a comparable feature

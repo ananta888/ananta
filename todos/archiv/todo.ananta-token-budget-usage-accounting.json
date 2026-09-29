@@ -171,7 +171,7 @@
       "files_expected": [
         "agent/services/context_budget_policy_service.py",
         "schemas/chat/context_budget_decision.v1.json",
-        "tests/test_context_budget_policy_service.py"
+        "tests/context/test_context_budget_policy_service.py"
       ],
       "acceptance_criteria": [
         "Decision enthaelt mode, max_input_tokens, max_output_tokens, allowed_context_sources, blocked_context_sources, allowed_model_tiers und reason_codes.",
@@ -193,7 +193,7 @@
       "files_expected": [
         "agent/services/context_assembly_trace_service.py",
         "schemas/chat/context_assembly_trace.v1.json",
-        "tests/test_context_assembly_trace_service.py"
+        "tests/context/test_context_assembly_trace_service.py"
       ],
       "acceptance_criteria": [
         "Trace enthaelt pro Teil source_type, source_ref, estimated_tokens, included, blocked_reason und content_hash.",

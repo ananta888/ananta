@@ -87,7 +87,7 @@
       "docs/architecture/codecompass-confidence-evidence.md",
       "docs/codecompass-relevant-snippet-handoff.md",
       "docs/benchmarks/codecompass-worker-retrieval.md",
-      "tests/test_context_curation_pipeline.py",
+      "tests/context/test_context_curation_pipeline.py",
       "tests/test_model_intelligence_evaluation_service.py",
       "tests/performance/test_profiler_parsers.py"
     ],

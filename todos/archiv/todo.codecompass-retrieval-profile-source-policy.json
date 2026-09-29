@@ -618,7 +618,7 @@
         "Bestehende Tests fuer ContextBundler ohne Profil bleiben gruen."
       ],
       "test_expectations": [
-        "pytest -q tests/test_context_bundle_retrieval_profile.py tests/test_context_bundle_service.py"
+        "pytest -q tests/test_context_bundle_retrieval_profile.py tests/context/test_context_bundle_service.py"
       ]
     },
     {

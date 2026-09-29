@@ -114,10 +114,10 @@
         "Recovery 'segment_planning' erreicht die Planungsstrategie; fehlender Import build_planning_prompt ergaenzt."
       ],
       "acceptance_criteria": [
-        "Tests in tests/test_context_window_fixes.py gruen."
+        "Tests in tests/context/test_context_window_fixes.py gruen."
       ],
       "evidence": [
-        "fix(ctx) und fix(planning) 2026-09-27; tests/test_context_window_fixes.py; Regression 838 passed (bekannte Altfehler: pi_policy-Layering aus fremdem Commit, test_plan_lock_does_not_mask_body_exception)"
+        "fix(ctx) und fix(planning) 2026-09-27; tests/context/test_context_window_fixes.py; Regression 838 passed (bekannte Altfehler: pi_policy-Layering aus fremdem Commit, test_plan_lock_does_not_mask_body_exception)"
       ]
     },
     {
@@ -140,7 +140,7 @@
         "Kein Pfad kuerzt ohne Protokolleintrag; Anteil gekuerzter Aufrufe ist messbar."
       ],
       "evidence": [
-        "feat(ctx) LCTX-002 2026-09-27: agent/context_window.py, 7 Kuerzungsstellen protokolliert, Metriken context_truncation_total / context_overflow_expected_total, metadata.context_truncation; tests/test_context_truncation_accounting.py"
+        "feat(ctx) LCTX-002 2026-09-27: agent/context_window.py, 7 Kuerzungsstellen protokolliert, Metriken context_truncation_total / context_overflow_expected_total, metadata.context_truncation; tests/context/test_context_truncation_accounting.py"
       ]
     },
     {
@@ -192,7 +192,7 @@
       "evidence": [
         "agent/services/context_strategy_service.py: Regeln (fit/compact/retrieve/sequential/map_reduce/escalate), Grauzone ueber Decision-Provider-Bereich context_strategy oder sicherer Standard sequential, Parameter (Stueckbudget, Stuecke, Parallelitaet)",
         "Config context_strategy (mode off/shadow/active, Standard shadow) mit Validierung in POST /config; Metrik context_strategy_decisions_total; Produkt-Event context_strategy_decided im Propose-Ablauf des Hubs",
-        "tests/test_context_strategy_service.py; Regression 277 passed"
+        "tests/context/test_context_strategy_service.py; Regression 277 passed"
       ]
     },
     {

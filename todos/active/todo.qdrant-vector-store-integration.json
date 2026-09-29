@@ -313,7 +313,7 @@
     "docs/worker/qdrant-vector-worker-identity.md",
     "scripts/dev_workflow_identity_documents.py",
     "scripts/generate_vector_index_task_keyrings.py",
-    "tests/test_context_bundle_task_boundary.py",
+    "tests/context/test_context_bundle_task_boundary.py",
     "tests/test_retrieval_vector_scope_binding.py",
     "tests/task/test_task_management_vector_index_ingress.py",
     "tests/test_vector_admin_authorization.py",

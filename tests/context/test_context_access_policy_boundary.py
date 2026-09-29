@@ -63,7 +63,7 @@ def test_unknown_source_is_denied_by_default() -> None:
 
 @pytest.mark.slow
 def test_agent_production_code_does_not_import_worker_policy() -> None:
-    agent_root = Path(__file__).parents[1] / "agent"
+    agent_root = Path(__file__).parents[2] / "agent"
     violations: list[str] = []
     for path in agent_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

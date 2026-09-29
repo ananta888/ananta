@@ -45,7 +45,7 @@
       {
         "area": "tests",
         "files": [
-          "tests/test_context_delivery_service.py",
+          "tests/context/test_context_delivery_service.py",
           "tests/worker/test_worker_codecompass_fts_channel.py",
           "tests/worker/test_worker_codecompass_vector_channel.py",
           "tests/worker/test_worker_codecompass_hybrid_merge.py",
@@ -527,7 +527,7 @@
         "agent/services/citation_verification_service.py",
         "agent/services/context_delivery_service.py",
         "agent/services/context_file_selector.py",
-        "tests/test_context_delivery_service.py"
+        "tests/context/test_context_delivery_service.py"
       ],
       "description": "Ensure citations cannot reveal sources that were not allowed for the worker/LLM scope.",
       "acceptance_criteria": [

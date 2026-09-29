@@ -563,7 +563,7 @@
       "type": "test",
       "files": [
         "tests/test_memory_tree_context_policy.py",
-        "tests/test_context_bundle_codecompass_provenance.py"
+        "tests/context/test_context_bundle_codecompass_provenance.py"
       ],
       "description": "Absichern, dass externe/cloud Worker keine sensitiven Memory/CodeCompass/ResultMemory Chunks erhalten.",
       "acceptance_criteria": [
@@ -758,8 +758,8 @@
       "risk": "high",
       "type": "test",
       "files": [
-        "tests/test_context_bundle_service.py",
-        "tests/test_context_bundle_codecompass_provenance.py",
+        "tests/context/test_context_bundle_service.py",
+        "tests/context/test_context_bundle_codecompass_provenance.py",
         "tests/task/test_task_scoped_handler_propose.py",
         "tests/test_propose_orchestrator.py"
       ],
