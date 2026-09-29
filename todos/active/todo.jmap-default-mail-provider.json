@@ -132,11 +132,11 @@
       "tests/test_jmap_result_reference.py",
       "tests/test_jmap_scheduler_and_limits.py",
       "tests/test_jmap_transport_binding_and_oauth.py",
-      "tests/test_mail_foundation_acceptance_round2.py",
-      "tests/test_mail_operational_negative_gates.py",
-      "tests/test_mail_polling_scheduler.py",
-      "tests/test_mail_sync_transaction_and_reconciliation.py",
-      "tests/test_mail_transactional_runtime_composition.py",
+      "tests/mail/test_mail_foundation_acceptance_round2.py",
+      "tests/mail/test_mail_operational_negative_gates.py",
+      "tests/mail/test_mail_polling_scheduler.py",
+      "tests/mail/test_mail_sync_transaction_and_reconciliation.py",
+      "tests/mail/test_mail_transactional_runtime_composition.py",
       "todos/archiv/todo.operator-tui-imap-email-client.json",
       "worker/mail_provider_task_execution.py",
       "worker/mail_sync_transaction_adapter.py",
@@ -366,7 +366,7 @@
         "agent/services/mail_contract_service.py",
         "agent/services/mail_metadata_store_service.py",
         "agent/services/mail_legacy_mapper.py",
-        "tests/test_mail_foundation_acceptance_round2.py"
+        "tests/mail/test_mail_foundation_acceptance_round2.py"
       ],
       "acceptance_criteria": [
         "mail_ref_id ist eine lokale opake dauerhaft persistierte ID und unabhaengig von Provider-Metadaten.",
@@ -708,7 +708,7 @@
         "agent/services/jmap_sync_service.py",
         "worker/mail_sync_transaction_adapter.py",
         "worker/mail_task_composition.py",
-        "tests/test_mail_transactional_runtime_composition.py"
+        "tests/mail/test_mail_transactional_runtime_composition.py"
       ],
       "acceptance_criteria": [
         "Store trennt mailbox_state, email_state und query_state pro lokalem Account und provider_account_id; query_state ist an einen kanonischen Filter-/Sort-Fingerprint gebunden.",
@@ -776,7 +776,7 @@
       "affected_files": [
         "agent/services/mail_migration_service.py",
         "agent/services/mail_migration_journal.py",
-        "tests/test_mail_foundation_acceptance_round2.py"
+        "tests/mail/test_mail_foundation_acceptance_round2.py"
       ],
       "acceptance_criteria": [
         "Migration wird nur als expliziter hub-eigener Task gestartet und besitzt Dry Run, Plan, Bestaetigung und Audit.",
@@ -808,7 +808,7 @@
       ],
       "affected_files": [
         "agent/services/mail_protocol_cutover_service.py",
-        "tests/test_mail_foundation_router_cutover.py"
+        "tests/mail/test_mail_foundation_router_cutover.py"
       ],
       "acceptance_criteria": [
         "Cutover ist ein separater Hub-Task und wird nie durch normalen Accountzugriff, Discovery oder Sync implizit gestartet.",
@@ -959,10 +959,10 @@
         "tests/test_jmap_result_reference.py",
         "tests/test_jmap_scheduler_and_limits.py",
         "tests/test_jmap_transport_binding_and_oauth.py",
-        "tests/test_mail_operational_negative_gates.py",
-        "tests/test_mail_polling_scheduler.py",
-        "tests/test_mail_sync_transaction_and_reconciliation.py",
-        "tests/test_mail_transactional_runtime_composition.py"
+        "tests/mail/test_mail_operational_negative_gates.py",
+        "tests/mail/test_mail_polling_scheduler.py",
+        "tests/mail/test_mail_sync_transaction_and_reconciliation.py",
+        "tests/mail/test_mail_transactional_runtime_composition.py"
       ],
       "acceptance_criteria": [
         "Jeder Implementierungstask besitzt fokussierte Unit-/Contracttests; T19 aggregiert nur das Cross-Provider- und Regression-Gate.",
