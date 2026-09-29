@@ -6,7 +6,10 @@
       "agent/services",
       "agent/runtime_policy.py",
       "agent/runtime_profiles.py",
-      "agent/config_defaults.py"
+      "agent/config_defaults.py",
+      "agent/config_defaults_planning.py",
+      "agent/config_defaults_security.py",
+      "agent/config_defaults_worker.py"
     ],
     "provider_interface": [
       "agent/providers/interfaces.py",

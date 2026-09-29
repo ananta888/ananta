@@ -9,6 +9,13 @@
   "timeout_seconds": 1800,
   "source_paths": [
     "agent/services/model_invocation_service.py",
+    "agent/services/model_invocation_chat_pipeline.py",
+    "agent/services/model_invocation_chat_transport.py",
+    "agent/services/model_invocation_provider_codec.py",
+    "agent/services/model_invocation_provider_endpoints.py",
+    "agent/services/model_invocation_response_contract.py",
+    "agent/services/model_invocation_routing_policy.py",
+    "agent/services/model_invocation_support.py",
     "agent/services/model_profile_inventory_adapter.py",
     "agent/services/model_profile_loader.py",
     "agent/services/model_profile_resolver.py",

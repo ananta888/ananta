@@ -24,6 +24,9 @@ def evaluate_repository(root: Path) -> list[dict[str, object]]:
     specifications = {
         "feature_default_off": (
             "agent/config.py",
+            "agent/config_codecompass_settings.py",
+            "agent/config_context_compression_settings.py",
+            "agent/config_rag_settings.py",
             ("HRM_EXPERIMENTS_ENABLED", "default=False"),
         ),
         "hub_blueprint_registered": (
