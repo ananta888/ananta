@@ -1959,10 +1959,10 @@ tests/test_deerflow_integration.py
 tests/test_delegation_trace_service.py
 tests/test_demo_mode.py
 tests/deploy/test_deployment_profile_writer.py
-tests/test_deterministic_repair_e2e.py
-tests/test_deterministic_repair_governance.py
-tests/test_deterministic_repair_path_service.py
-tests/test_deterministic_repair_security.py
+tests/repair/test_deterministic_repair_e2e.py
+tests/repair/test_deterministic_repair_governance.py
+tests/repair/test_deterministic_repair_path_service.py
+tests/repair/test_deterministic_repair_security.py
 tests/test_di_adapter.py
 tests/test_diagnostics_audit.py
 tests/test_diff3_api.py

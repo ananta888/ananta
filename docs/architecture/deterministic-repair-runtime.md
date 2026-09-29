@@ -120,10 +120,10 @@ pytest tests/repair/test_repair_runtime_e2e.py::TestVerificationFailureAndNegati
 pytest tests/repair/test_repair_runtime_failures.py
 
 # Security regression suite
-pytest tests/test_deterministic_repair_security.py
+pytest tests/repair/test_deterministic_repair_security.py
 
 # Governance (safety, approval, guardrails)
-pytest tests/test_deterministic_repair_governance.py
+pytest tests/repair/test_deterministic_repair_governance.py
 ```
 
 ## Rollout Checklist
@@ -134,8 +134,8 @@ Before enabling `deterministic_repair_execution_enabled=True` in production:
 - [ ] `tests/repair/test_repair_runtime_e2e.py::TestApprovalRequiredRepair` — approval enforcement verified
 - [ ] `tests/repair/test_repair_runtime_e2e.py::TestVerificationFailureAndNegativeLearning` — failure path verified
 - [ ] `tests/repair/test_repair_runtime_failures.py` — malformed input tests pass
-- [ ] `tests/test_deterministic_repair_security.py` — security suite passes
-- [ ] `tests/test_deterministic_repair_governance.py` — governance tests pass
+- [ ] `tests/repair/test_deterministic_repair_security.py` — security suite passes
+- [ ] `tests/repair/test_deterministic_repair_governance.py` — governance tests pass
 - [ ] Outcome persistence (`RepairExecutionRecordDB`) reachable in deployment
 - [ ] Approval service configured for repair scope
 - [ ] Operator notified that mutation execution is active

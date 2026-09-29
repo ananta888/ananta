@@ -98,7 +98,7 @@ tests/test_db_schema_compat.py
 tests/test_deerflow_integration.py
 tests/test_demo_mode.py
 tests/deploy/test_deployment_profile_writer.py
-tests/test_deterministic_repair_path_service.py
+tests/repair/test_deterministic_repair_path_service.py
 tests/test_distributed_compose.py
 tests/test_docs_presence.py
 tests/domain/test_domain_action_execution_integration.py
