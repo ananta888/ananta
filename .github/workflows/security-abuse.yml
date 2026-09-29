@@ -31,7 +31,7 @@ jobs:
           tests/test_security_boundary_attacks.py
           tests/test_no_policy_bypass.py
           tests/test_tool_guardrails.py
-          tests/test_shell_security.py
+          tests/shell/test_shell_security.py
 
   authz-matrix-tests:
     if: github.event_name != 'pull_request' || github.event.label.name == 'security-ci'

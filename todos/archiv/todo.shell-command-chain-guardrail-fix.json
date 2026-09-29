@@ -177,7 +177,7 @@
           "summary": "Der konkrete gemeldete OpenCode-Testfall wird als Regression-Test fixiert.",
           "files": [
             "tests/test_command_chain_parser.py",
-            "tests/test_shell_command_analyzer.py"
+            "tests/shell/test_shell_command_analyzer.py"
           ],
           "description": "Tests ergänzen den exakten Command mit `python hello.py; python -c \"from hello import greet; print(greet('World'))\"` und prüfen Segmentierung/Quote-Verhalten.",
           "test_cases": [
@@ -571,7 +571,7 @@
           "status": "done",
           "summary": "Pipes, Substitutionen und Backticks dürfen durch den Chain-Fix nicht versehentlich erlaubt werden.",
           "files": [
-            "tests/test_shell_command_analyzer.py",
+            "tests/shell/test_shell_command_analyzer.py",
             "tests/test_command_chain_execution_policy.py"
           ],
           "description": "Tests prüfen `cat a | grep x`, `echo $(whoami)`, backticks und heredoc. Alle bleiben standardmäßig blocked.",
@@ -592,7 +592,7 @@
           "status": "done",
           "summary": "Wenn jemand Semikolon oder && bewusst verbieten will, muss das konfigurierbar bleiben.",
           "files": [
-            "tests/test_shell_command_policy_config.py"
+            "tests/shell/test_shell_command_policy_config.py"
           ],
           "description": "Tests prüfen Overrides: semicolon verboten, && verboten, || erlaubt, all chains verboten, pipeline mode explizit erlaubt/disabled.",
           "acceptance_criteria": [
