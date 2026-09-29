@@ -108,16 +108,16 @@ Defined in `STANDARD_OUTCOME_LABELS`:
 
 ```bash
 # Full deterministic flow
-pytest tests/test_repair_runtime_e2e.py::TestHighConfidenceRepairFlowWithoutLLM
+pytest tests/repair/test_repair_runtime_e2e.py::TestHighConfidenceRepairFlowWithoutLLM
 
 # Approval-required flow
-pytest tests/test_repair_runtime_e2e.py::TestApprovalRequiredRepair
+pytest tests/repair/test_repair_runtime_e2e.py::TestApprovalRequiredRepair
 
 # Verification failure
-pytest tests/test_repair_runtime_e2e.py::TestVerificationFailureAndNegativeLearning
+pytest tests/repair/test_repair_runtime_e2e.py::TestVerificationFailureAndNegativeLearning
 
 # Failure modes
-pytest tests/test_repair_runtime_failures.py
+pytest tests/repair/test_repair_runtime_failures.py
 
 # Security regression suite
 pytest tests/test_deterministic_repair_security.py
@@ -130,10 +130,10 @@ pytest tests/test_deterministic_repair_governance.py
 
 Before enabling `deterministic_repair_execution_enabled=True` in production:
 
-- [ ] `tests/test_repair_runtime_e2e.py` — all E2E tests pass
-- [ ] `tests/test_repair_runtime_e2e.py::TestApprovalRequiredRepair` — approval enforcement verified
-- [ ] `tests/test_repair_runtime_e2e.py::TestVerificationFailureAndNegativeLearning` — failure path verified
-- [ ] `tests/test_repair_runtime_failures.py` — malformed input tests pass
+- [ ] `tests/repair/test_repair_runtime_e2e.py` — all E2E tests pass
+- [ ] `tests/repair/test_repair_runtime_e2e.py::TestApprovalRequiredRepair` — approval enforcement verified
+- [ ] `tests/repair/test_repair_runtime_e2e.py::TestVerificationFailureAndNegativeLearning` — failure path verified
+- [ ] `tests/repair/test_repair_runtime_failures.py` — malformed input tests pass
 - [ ] `tests/test_deterministic_repair_security.py` — security suite passes
 - [ ] `tests/test_deterministic_repair_governance.py` — governance tests pass
 - [ ] Outcome persistence (`RepairExecutionRecordDB`) reachable in deployment
