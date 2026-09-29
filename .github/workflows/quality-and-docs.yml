@@ -29,7 +29,7 @@ jobs:
       - name: Verify the standard backend remains Qdrant-free
         run: |
           python -c "import importlib.util; assert importlib.util.find_spec('qdrant_client') is None"
-          pytest -q tests/test_vector_store_config.py tests/test_vector_store_factory.py
+          pytest -q tests/vector/test_vector_store_config.py tests/vector/test_vector_store_factory.py
       - name: Run unified check pipeline (standard backend gate)
         run: python scripts/check_pipeline.py --mode standard --skip-style --skip-types
 

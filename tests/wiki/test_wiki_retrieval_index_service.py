@@ -24,7 +24,7 @@ from agent.services.wiki_vector_runtime_service import (
     build_default_wiki_vector_runtime_resolver,
     build_wiki_retrieval_index_service,
 )
-from tests.vector_index_attestation_test_support import TASK_SIGNER
+from tests.vector.vector_index_attestation_test_support import TASK_SIGNER
 from worker.retrieval.embedding_provider import HashEmbeddingProvider
 from worker.retrieval.vector_index_artifact_locator import (
     VectorIndexArtifactLocator,

@@ -8,7 +8,7 @@ import threading
 
 import pytest
 
-from tests.vector_index_attestation_test_support import (
+from tests.vector.vector_index_attestation_test_support import (
     TASK_SIGNER,
     TASK_VERIFIER,
 )

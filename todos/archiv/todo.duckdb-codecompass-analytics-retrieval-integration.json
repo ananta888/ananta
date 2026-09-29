@@ -362,11 +362,11 @@
     "docker/compose-next/Dockerfile.quickstart-no-ollama",
     ".github/workflows/quality-and-docs.yml",
     ".gitignore",
-    "tests/test_vector_store_contract.py",
-    "tests/test_vector_store_config.py",
-    "tests/test_vector_store_factory.py",
-    "tests/test_vector_store_metrics_adapter.py",
-    "tests/test_vector_store_rollout_service.py"
+    "tests/vector/test_vector_store_contract.py",
+    "tests/vector/test_vector_store_config.py",
+    "tests/vector/test_vector_store_factory.py",
+    "tests/vector/test_vector_store_metrics_adapter.py",
+    "tests/vector/test_vector_store_rollout_service.py"
   ],
   "milestones": [
     {
@@ -584,7 +584,7 @@
         "worker/retrieval/duckdb_vector_store_config.py",
         "worker/retrieval/vector_store_config.py",
         "tests/test_duckdb_vector_store_config.py",
-        "tests/test_vector_store_config.py",
+        "tests/vector/test_vector_store_config.py",
         "config/examples/vector-store.duckdb-local.json"
       ],
       "description": "VectorStoreProvider um duckdb erweitern und eine fail-closed Konfiguration fuer Pfade, Snapshots, Extensions, Vector-Modus, FTS, Ressourcen und Security implementieren.",
@@ -621,7 +621,7 @@
       "files": [
         "worker/retrieval/vector_store_factory.py",
         "worker/retrieval/codecompass_channel_providers.py",
-        "tests/test_vector_store_factory.py",
+        "tests/vector/test_vector_store_factory.py",
         "tests/test_duckdb_vector_store_config.py"
       ],
       "description": "DuckDB ausschliesslich im Composition Root lazy importieren und als optionalen Builder fuer Worker-Retrieval registrieren.",
@@ -657,8 +657,8 @@
         "worker/retrieval/vector_store_observer.py",
         "agent/services/vector_store_rollout_service.py",
         "agent/adapters/vector_store_metrics_adapter.py",
-        "tests/test_vector_store_metrics_adapter.py",
-        "tests/test_vector_store_rollout_service.py"
+        "tests/vector/test_vector_store_metrics_adapter.py",
+        "tests/vector/test_vector_store_rollout_service.py"
       ],
       "description": "Feste json/qdrant-Allowlisten um duckdb erweitern, ohne hochkardinale Pfade, Scope-Werte oder Query-Inhalte in Metriken und Rollout-State aufzunehmen.",
       "acceptance_criteria": [
@@ -1913,7 +1913,7 @@
         "agent/adapters/vector_store_metrics_adapter.py",
         "agent/metrics.py",
         "agent/routes/vector_store_control.py",
-        "tests/test_vector_store_metrics_adapter.py"
+        "tests/vector/test_vector_store_metrics_adapter.py"
       ],
       "description": "Operationen, Dauer, Rows, Importcounts, Snapshot-Alter, exact/HNSW-Modus, Fallbacks und Resource-Limit-Fehler mit begrenzter Kardinalitaet beobachten.",
       "acceptance_criteria": [
@@ -1988,9 +1988,9 @@
         "DDB-026"
       ],
       "files": [
-        "tests/test_vector_store_contract.py",
-        "tests/test_vector_store_config.py",
-        "tests/test_vector_store_factory.py",
+        "tests/vector/test_vector_store_contract.py",
+        "tests/vector/test_vector_store_config.py",
+        "tests/vector/test_vector_store_factory.py",
         "tests/test_vector_store_fallback.py",
         "tests/test_duckdb_vector_store.py",
         "tests/test_duckdb_vector_store_config.py"

@@ -19,7 +19,7 @@ from agent.services.vector_store_rollout_service import (
     InMemoryVectorStoreRolloutStore,
     VectorStoreRolloutService,
 )
-from tests.vector_index_attestation_test_support import (
+from tests.vector.vector_index_attestation_test_support import (
     TASK_SIGNER,
     TASK_VERIFIER,
 )

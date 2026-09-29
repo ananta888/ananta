@@ -19,7 +19,7 @@ from ananta_contracts.vector_index_task_attestation import (
     VectorIndexTaskVerifier,
 )
 from scripts.generate_vector_index_task_keyrings import generate
-from tests.vector_index_attestation_test_support import (
+from tests.vector.vector_index_attestation_test_support import (
     SIGNING_KEYRING_MAPPING,
     TASK_SIGNER,
     VERIFICATION_KEYRING_MAPPING,

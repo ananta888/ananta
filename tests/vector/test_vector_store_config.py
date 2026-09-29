@@ -357,7 +357,7 @@ def test_trusted_private_origin_cannot_expand_the_allowlist() -> None:
     ],
 )
 def test_vector_store_examples_are_loadable(example_name: str) -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     payload = json.loads((root / "config" / "examples" / example_name).read_text(encoding="utf-8"))
     config = VectorStoreConfig.from_mapping(payload)
     assert config.config_hash()

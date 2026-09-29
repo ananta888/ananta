@@ -762,7 +762,7 @@
       "required_tests": [
         "tests/test_duckdb_codecompass_backend.py::test_upsert_preserves_existing_points",
         "tests/test_duckdb_codecompass_backend.py::test_delete_is_copy_on_write_and_fully_scoped",
-        "tests/test_vector_store_contract.py::test_all_backends_share_write_semantics"
+        "tests/vector/test_vector_store_contract.py::test_all_backends_share_write_semantics"
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
