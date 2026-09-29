@@ -596,8 +596,8 @@
     },
     {
       "id": "SPLIT-136",
-      "title": "tests/test_llm_usage.py aufteilen (1002 -> <1000 Zeilen)",
-      "file": "tests/test_llm_usage.py",
+      "title": "tests/llm/test_llm_usage.py aufteilen (1002 -> <1000 Zeilen)",
+      "file": "tests/llm/test_llm_usage.py",
       "line_count": 924,
       "status": "done",
       "priority": "P3",

@@ -139,7 +139,7 @@
       "target_files": [
         "tests/conftest.py",
         "tests/test_admin_auth.py",
-        "tests/test_llm_benchmarks_api.py",
+        "tests/llm/test_llm_benchmarks_api.py",
         "tests/test_config_api.py"
       ],
       "acceptance_criteria": [

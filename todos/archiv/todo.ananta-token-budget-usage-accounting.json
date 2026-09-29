@@ -215,7 +215,7 @@
         "agent/cli_backends/opencode.py",
         "agent/cli_backends/sgpt.py",
         "agent/services/worker_selection_policy_service.py",
-        "tests/test_llm_budget_gate_cli_backends.py"
+        "tests/llm/test_llm_budget_gate_cli_backends.py"
       ],
       "acceptance_criteria": [
         "run_opencode_command validiert Prompt plus reserviertes Output-Budget vor subprocess.run.",

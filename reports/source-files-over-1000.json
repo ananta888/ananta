@@ -405,7 +405,7 @@
       "extension": ".py",
       "line_count": 1002,
       "over_threshold": true,
-      "path": "tests/test_llm_usage.py",
+      "path": "tests/llm/test_llm_usage.py",
       "reason": "test_path_or_name"
     },
     {
@@ -858,7 +858,7 @@
       "extension": ".py",
       "line_count": 1002,
       "over_threshold": true,
-      "path": "tests/test_llm_usage.py",
+      "path": "tests/llm/test_llm_usage.py",
       "reason": "test_path_or_name"
     },
     {

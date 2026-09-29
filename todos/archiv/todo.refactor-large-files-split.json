@@ -861,7 +861,7 @@
         }
       ],
       "acceptance_criteria": [
-        "tests/test_llm_usage.py bleibt grün",
+        "tests/llm/test_llm_usage.py bleibt grün",
         "llm_integration.py unter 600 Zeilen",
         "Kein Code dupliziert"
       ],
@@ -1614,8 +1614,8 @@
       "id": "SPLIT-045",
       "milestone": "M5",
       "priority": "P3",
-      "title": "tests/test_llm_usage.py nach Provider aufteilen (1002 Zeilen)",
-      "file": "tests/test_llm_usage.py",
+      "title": "tests/llm/test_llm_usage.py nach Provider aufteilen (1002 Zeilen)",
+      "file": "tests/llm/test_llm_usage.py",
       "current_lines": 1002,
       "proposed_split": [
         {

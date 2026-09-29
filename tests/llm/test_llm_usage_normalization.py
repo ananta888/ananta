@@ -6,7 +6,7 @@ from agent.tool_guardrails import ToolGuardrailDecision
 
 
 
-# Split from tests/test_llm_usage.py to keep source files below 1000 lines.
+# Split from tests/llm/test_llm_usage.py to keep source files below 1000 lines.
 
 # LLM-003: Provider usage normalization for multiple response shapes
 def _normalize(usage):
