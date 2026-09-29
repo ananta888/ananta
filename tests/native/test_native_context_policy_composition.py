@@ -10,8 +10,8 @@ from flask import Flask
 from agent.services.context_policy_lifecycle import ContextPolicyActor
 from agent.services.native_context_bundle_composition import HubNativeContextBundleReader
 from tests.context.test_context_policy_lifecycle_persistence import _service
-from tests.test_native_context_bundle_gateway import setup_context
-from tests.test_native_context_policy import build_policy_setup
+from tests.native.test_native_context_bundle_gateway import setup_context
+from tests.native.test_native_context_policy import build_policy_setup
 from tests.pi.test_pi_native_context import context_setup
 from worker.runtime.workflow_hub_gateway import WorkflowHubDecisionError
 

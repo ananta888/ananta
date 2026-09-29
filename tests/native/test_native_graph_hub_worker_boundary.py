@@ -16,7 +16,7 @@ def test_worker_reexports_the_hub_owned_wire_contract() -> None:
 
 
 def test_native_graph_hub_services_never_import_worker_packages() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     hub_paths = (
         root / "agent/services/native_graph_orchestration_service.py",
         root / "agent/services/native_graph_task_queue_adapter.py",
