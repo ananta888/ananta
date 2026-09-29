@@ -498,7 +498,7 @@
         "ananta_contracts/unsloth_task.py",
         "worker/training/storage_cleanup.py",
         "worker/training/unsloth_task_handlers.py",
-        "tests/test_unsloth_storage_governance.py",
+        "tests/unsloth/test_unsloth_storage_governance.py",
         "tests/worker/test_lora_training_storage_cleanup.py"
       ],
       "acceptance_criteria": [

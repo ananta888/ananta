@@ -86,7 +86,7 @@ CPU-only contract tests:
 
 ```bash
 pytest -q \
-  tests/test_unsloth_release_attestation.py \
+  tests/unsloth/test_unsloth_release_attestation.py \
   tests/worker/test_lora_training_backends.py \
   tests/worker/test_lora_training_contract_schemas.py \
   tests/worker/test_lora_training_contracts.py
