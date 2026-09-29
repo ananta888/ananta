@@ -131,7 +131,7 @@
         "agent/services/planning_service.py",
         "agent/db_models.py",
         "tests/planning/test_planning_strategies.py",
-        "tests/test_commit_planner_integration.py"
+        "tests/commit/test_commit_planner_integration.py"
       ],
       "changes": [
         "PlanningStrategyResult um Felder planning_origin, repair_strategy_used, repair_attempt_count, parse_mode und warnings erweitern.",
@@ -154,7 +154,7 @@
       "tests": [
         "tests/planning/test_planning_strategies.py::test_planning_origin_template",
         "tests/planning/test_planning_strategies.py::test_planning_origin_llm_repair",
-        "tests/test_commit_planner_integration.py::test_plan_rationale_contains_provenance"
+        "tests/commit/test_commit_planner_integration.py::test_plan_rationale_contains_provenance"
       ],
       "implementation_notes": "Planning provenance ist im Planning-Flow durchgaengig sichtbar (planning_origin, repair_strategy_used, repair_attempt_count, parse_mode, planning_run_id in PlanDB.rationale/Response)."
     },
@@ -249,7 +249,7 @@
         "agent/services/planning_proposal_service.py",
         "agent/services/verification_policy_service.py",
         "tests/planning/test_planning_strategies.py",
-        "tests/test_commit_planner_integration.py"
+        "tests/commit/test_commit_planner_integration.py"
       ],
       "changes": [
         "LLM repair prompt fuer new_software_project fordert expected_artifacts und verification_spec pro relevanter Task.",
@@ -267,7 +267,7 @@
       ],
       "tests": [
         "tests/planning/test_planning_strategies.py::test_new_project_requires_structured_artifacts",
-        "tests/test_commit_planner_integration.py::test_new_project_plan_proposal_requires_verification"
+        "tests/commit/test_commit_planner_integration.py::test_new_project_plan_proposal_requires_verification"
       ],
       "implementation_notes": "Execution-Coverage-Check auf strukturierte Kriterien verschaerft (execution task kinds brauchen required expected_artifacts + verification_spec)."
     },
@@ -447,7 +447,7 @@
         "agent/services/commit_metadata_inferrer.py",
         "agent/services/commit_scope_resolver.py",
         "tests/workspace/test_workspace_git_service.py",
-        "tests/test_commit_worker_service.py"
+        "tests/commit/test_commit_worker_service.py"
       ],
       "changes": [
         "WorkspaceGitService um status(), diff(), staged_files(), commit() erweitern.",
@@ -465,7 +465,7 @@
       ],
       "tests": [
         "tests/workspace/test_workspace_git_service.py::test_commit_requires_valid_message",
-        "tests/test_commit_worker_service.py::test_mixed_scope_requires_review"
+        "tests/commit/test_commit_worker_service.py::test_mixed_scope_requires_review"
       ],
       "implementation_notes": "CommitWorkerService blockt mixed-scope Commits serverseitig standardmaessig; optional policy override moeglich."
     },
@@ -482,8 +482,8 @@
         "agent/services/commit_worker_service.py",
         "agent/services/commit_followup_service.py",
         "agent/tools.py",
-        "tests/test_commit_message_validator.py",
-        "tests/test_commit_hygiene_integration.py"
+        "tests/commit/test_commit_message_validator.py",
+        "tests/commit/test_commit_hygiene_integration.py"
       ],
       "changes": [
         "Alle Tool-/Service-Pfade, die git commit ausloesen koennen, muessen CommitMessageValidator verwenden.",
@@ -500,8 +500,8 @@
         "Tests decken Tool- und Service-Pfad ab."
       ],
       "tests": [
-        "tests/test_commit_message_validator.py",
-        "tests/test_commit_hygiene_integration.py::test_invalid_commit_message_blocked_in_service"
+        "tests/commit/test_commit_message_validator.py",
+        "tests/commit/test_commit_hygiene_integration.py::test_invalid_commit_message_blocked_in_service"
       ],
       "implementation_notes": "Serverseitige Commit-Message-Enforcement in git_commit_tool und CommitWorkerService aktiv; Blocklisten-Subjects werden abgewiesen."
     },
@@ -517,7 +517,7 @@
       ],
       "files": [
         "agent/services/commit_scope_resolver.py",
-        "tests/test_commit_scope_resolver.py"
+        "tests/commit/test_commit_scope_resolver.py"
       ],
       "changes": [
         "Neue Scopes fuer context-delivery, planning, workspace-git, parallelism, security-cleanup pruefen.",
@@ -532,8 +532,8 @@
         "Mixed commits werden eindeutig erkannt."
       ],
       "tests": [
-        "tests/test_commit_scope_resolver.py::test_known_new_services_have_scopes",
-        "tests/test_commit_scope_resolver.py::test_scope_map_drift_detection"
+        "tests/commit/test_commit_scope_resolver.py::test_known_new_services_have_scopes",
+        "tests/commit/test_commit_scope_resolver.py::test_scope_map_drift_detection"
       ],
       "implementation_notes": "Scope-Resolver um planning/context scopes erweitert; Drift-Test fuer unbekannte neue service-Pfade hinzugefuegt."
     },
@@ -892,7 +892,7 @@
       "evidence": [
         "agent/services/commit_message_validator.py:12",
         "agent/tools.py:1190",
-        "tests/test_commit_hygiene_integration.py:1"
+        "tests/commit/test_commit_hygiene_integration.py:1"
       ]
     },
     {
