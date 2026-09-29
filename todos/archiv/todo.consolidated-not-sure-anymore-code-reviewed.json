@@ -580,7 +580,7 @@
         "agent/services/task_scoped_execution_service.py",
         "agent/services/worker_workspace_service.py",
         "agent/routes/tasks/goals.py",
-        "tests/test_workspace_context_manifest.py"
+        "tests/workspace/test_workspace_context_manifest.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: Workspace-Kontext ist über Execution-/Bundle-Metadaten sichtbar; dedizierter Manifest-Contract-Test ergänzt.",
       "source_origin": [

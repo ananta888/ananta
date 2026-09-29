@@ -388,11 +388,11 @@
       "summary": "Ensure editor open actions cannot escape the authorized workspace or inject shell arguments.",
       "files": [
         "agent/services/workspace_path_validator.py",
-        "tests/test_workspace_file_validation.py"
+        "tests/workspace/test_workspace_file_validation.py"
       ],
       "implemented": {
         "agent/services/workspace_path_validator.py": "WorkspacePathValidator with os.path.realpath symlink resolution, 5 reason codes (ok/invalid_path/outside_workspace/path_traversal/symlink_escape), prefix-collision safety (/workspace vs /workspace-other), build_safe_argv() for direct argv use.",
-        "tests/test_workspace_file_validation.py": "19 tests covering traversal, symlink escape, spaces, unicode, prefix collision, constructor guard."
+        "tests/workspace/test_workspace_file_validation.py": "19 tests covering traversal, symlink escape, spaces, unicode, prefix collision, constructor guard."
       },
       "deviations": [
         "embedded_tool_session_service.py removed from this task's file list — it belongs to E004 and was implemented there."

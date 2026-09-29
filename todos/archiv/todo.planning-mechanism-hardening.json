@@ -309,7 +309,7 @@
       "implementation_notes": "Planning profiles small/medium/off are documented and tested through resolver plus e2e goal-scoped config coverage; run_3er_lauf_lokal.sh validates profile names fail-fast.",
       "completed_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed"
+        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/workspace/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed"
       ]
     },
     {
@@ -327,7 +327,7 @@
         "agent/services/rag_policy_service.py",
         "tests/context/test_context_delivery_service.py",
         "tests/context/test_context_file_selector.py",
-        "tests/test_workspace_context_policy_resolver.py"
+        "tests/workspace/test_workspace_context_policy_resolver.py"
       ],
       "changes": [
         "Explizite ContextAccessPolicy-Auswertung fuer Worker/Agent/Provider vorbereiten.",
@@ -351,7 +351,7 @@
       "implementation_notes": "External/cloud context delivery is fail-closed for full scope without explicit allow policy and blocks credential/secret sensitivity classes; delivery results expose warnings/reasons.",
       "completed_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed"
+        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/workspace/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed"
       ]
     },
     {
@@ -368,7 +368,7 @@
         "agent/services/workspace_context_policy.py",
         "agent/services/agent_template_registry.py",
         "agent/routes/admin/agent_templates.py",
-        "tests/test_workspace_context_policy_resolver.py",
+        "tests/workspace/test_workspace_context_policy_resolver.py",
         "tests/context/test_context_scoped_config_api.py"
       ],
       "changes": [
@@ -386,7 +386,7 @@
         "Tests decken alle Prioritaetsstufen ab."
       ],
       "tests": [
-        "tests/test_workspace_context_policy_resolver.py::test_policy_resolution_priority_order",
+        "tests/workspace/test_workspace_context_policy_resolver.py::test_policy_resolution_priority_order",
         "tests/context/test_context_scoped_config_api.py::test_context_policy_validation"
       ],
       "implementation_notes": "Prioritaetskette und resolution_trace sind implementiert und getestet; scope_mode/max_files werden validiert."
@@ -406,7 +406,7 @@
         "agent/services/task_scoped_execution_service.py",
         "agent/services/task_management_service.py",
         "agent/services/lifecycle_service.py",
-        "tests/test_workspace_git_tools.py",
+        "tests/workspace/test_workspace_git_tools.py",
         "tests/task/test_task_scoped_propose_llm_profile_persist.py",
         "tests/worker/test_worker_security_regression.py"
       ],
@@ -426,7 +426,7 @@
       ],
       "tests": [
         "tests/task/test_task_scoped_propose_llm_profile_persist.py::test_artifact_evidence_required_for_completion",
-        "tests/test_workspace_git_tools.py::test_workspace_diff_manifest_created"
+        "tests/workspace/test_workspace_git_tools.py::test_workspace_diff_manifest_created"
       ],
       "implementation_notes": "Zentraler artifact-first Completion-Gate eingefuehrt (TaskArtifactCompletionGateService) und in Runtime/Finalization/Reconciliation als single source verdrahtet."
     },
@@ -446,7 +446,7 @@
         "agent/services/commit_worker_service.py",
         "agent/services/commit_metadata_inferrer.py",
         "agent/services/commit_scope_resolver.py",
-        "tests/test_workspace_git_service.py",
+        "tests/workspace/test_workspace_git_service.py",
         "tests/test_commit_worker_service.py"
       ],
       "changes": [
@@ -464,7 +464,7 @@
         "Tests pruefen valid, invalid, mixed-scope und no-change Commit."
       ],
       "tests": [
-        "tests/test_workspace_git_service.py::test_commit_requires_valid_message",
+        "tests/workspace/test_workspace_git_service.py::test_commit_requires_valid_message",
         "tests/test_commit_worker_service.py::test_mixed_scope_requires_review"
       ],
       "implementation_notes": "CommitWorkerService blockt mixed-scope Commits serverseitig standardmaessig; optional policy override moeglich."
@@ -576,7 +576,7 @@
       "implementation_notes": "Worker runtime selection and scheduler tests cover worker capacity limits, security cap behavior and effective parallelism paths; Ollama-specific model slots are handled by OllamaParallelRuntimeService.",
       "completed_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
+        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/workspace/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
         "agent/services/ollama_parallel_runtime_service.py tracks active/queued/rejected/completed counts per normalized endpoint+model."
       ]
     },
@@ -620,7 +620,7 @@
       "implementation_notes": "Ollama endpoint+model slot accounting is implemented by OllamaParallelRuntimeService with active/queued/rejected decisions, idempotent release, stale cleanup and status reporting.",
       "completed_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
+        ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/workspace/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
         "agent/services/ollama_parallel_runtime_service.py tracks active/queued/rejected/completed counts per normalized endpoint+model."
       ]
     },
@@ -972,7 +972,7 @@
       "completed": 18
     },
     "evidence": [
-      ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
+      ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/workspace/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
       ".venv/bin/python -m pytest tests/test_release_gate_planning_cleanup.py -q -k 'dyndns or secret or runtime_path' -> 2 passed, 3 deselected",
       ".venv/bin/python -m ruff check scripts/run_release_gate.py tests/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed"
     ],

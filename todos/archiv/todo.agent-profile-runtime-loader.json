@@ -56,7 +56,7 @@
       "worker/core/propose_orchestrator.py",
       "worker/core/propose.py",
       "tests/test_e2e_workspace_artifact_flow.py",
-      "tests/test_workspace_context_policy_resolver.py",
+      "tests/workspace/test_workspace_context_policy_resolver.py",
       "tests/task/test_task_endpoints.py"
     ],
     "non_goals": [
