@@ -27,6 +27,8 @@ from agent.config_bootstrap import (
 from agent.config_bootstrap import (
     resolve_file_managed_secret_key as _resolve_file_managed_secret_key,  # noqa: F401
 )
+from agent.config_codecompass_settings import CodeCompassSettings
+from agent.config_context_compression_settings import ContextCompressionSettings
 from agent.config_feature_settings import CompositeRiskReviewSettings, ResearchTrainingSettings
 from agent.config_model_context import (
     lookup_model_context_tokens as _lookup_model_context_tokens,
@@ -34,6 +36,7 @@ from agent.config_model_context import (
 from agent.config_model_context import (
     parse_model_contexts as _parse_model_contexts,  # noqa: F401
 )
+from agent.config_rag_settings import HybridRagSettings
 from agent.config_token_persistence import (
     save_agent_token as _save_agent_token,
 )
@@ -42,7 +45,13 @@ from agent.config_token_persistence import (
 )
 
 
-class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
+class Settings(
+    CompositeRiskReviewSettings,
+    ResearchTrainingSettings,
+    HybridRagSettings,
+    CodeCompassSettings,
+    ContextCompressionSettings,
+):
     # Version
     version: str = Field(default="0.7.0", validation_alias="ANANTA_VERSION")
 
@@ -529,106 +538,10 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
     tui_default_editor: str = Field(default="vim", validation_alias="TUI_DEFAULT_EDITOR")
     tui_allow_environment_editor: bool = Field(default=True, validation_alias="TUI_ALLOW_ENVIRONMENT_EDITOR")
 
-    # Hybrid RAG Config
-    rag_enabled: bool = Field(default=True, validation_alias="RAG_ENABLED")
-    rag_repo_root: str = Field(default=".", validation_alias="RAG_REPO_ROOT")
-    rag_data_roots: str = Field(default="docs,data", validation_alias="RAG_DATA_ROOTS")
-    rag_max_context_chars: int = Field(default=12000, validation_alias="RAG_MAX_CONTEXT_CHARS")
-    rag_max_context_tokens: int = Field(default=3000, validation_alias="RAG_MAX_CONTEXT_TOKENS")
-    rag_max_chunks: int = Field(default=40, validation_alias="RAG_MAX_CHUNKS")
-    rag_agentic_max_commands: int = Field(default=3, validation_alias="RAG_AGENTIC_MAX_COMMANDS")
-    rag_agentic_timeout_seconds: int = Field(default=8, validation_alias="RAG_AGENTIC_TIMEOUT_SECONDS")
-    rag_semantic_persist_dir: str = Field(default=".rag/llamaindex", validation_alias="RAG_SEMANTIC_PERSIST_DIR")
-    rag_redact_sensitive: bool = Field(default=True, validation_alias="RAG_REDACT_SENSITIVE")
-    rag_route_quota_code_repo: int = Field(default=12, validation_alias="RAG_ROUTE_QUOTA_CODE_REPO")
-    rag_route_quota_code_semantic: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_CODE_SEMANTIC")
-    rag_route_quota_docs_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DOCS_SEMANTIC")
-    rag_route_quota_docs_repo: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_DOCS_REPO")
-    rag_route_quota_fs_agentic: int = Field(default=3, validation_alias="RAG_ROUTE_QUOTA_FS_AGENTIC")
-    rag_route_quota_fs_repo: int = Field(default=2, validation_alias="RAG_ROUTE_QUOTA_FS_REPO")
-    rag_route_quota_default_repo: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_REPO")
-    rag_route_quota_default_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC")
-    rag_route_quota_codecompass_vector: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR")
-    rag_route_quota_codecompass_vector_default: int = Field(
-        default=4, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DEFAULT"
-    )
-    rag_route_quota_codecompass_vector_docs: int = Field(
-        default=1, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DOCS"
-    )
-    obsidian_vaults: dict = Field(default_factory=dict, validation_alias="ANANTA_OBSIDIAN_VAULTS")
-    obsidian_ranking_factor: float = Field(default=0.7, validation_alias="ANANTA_OBSIDIAN_RANKING_FACTOR")
-    rag_scan_exclude_dirs: str = Field(
-        default=".git,.venv,venv,myvenv,site-packages,node_modules,__pycache__,.mypy_cache,.claude,project-workspaces,.tox,dist,build,.eggs",
-        validation_alias="RAG_SCAN_EXCLUDE_DIRS",
-    )
-    rag_query_normalize_lang: str = Field(default="de,en", validation_alias="RAG_QUERY_NORMALIZE_LANG")
-    rag_query_normalize_mode: str = Field(default="keyword", validation_alias="RAG_QUERY_NORMALIZE_MODE")
-    rag_query_translation_directions: str = Field(
-        default="de_to_en",
-        validation_alias="RAG_QUERY_TRANSLATION_DIRECTIONS",
-    )
-    rag_path_focus_aliases: dict = Field(default_factory=dict, validation_alias="RAG_PATH_FOCUS_ALIASES")
-    rag_path_focus_alias_anchor_boost: float = Field(default=0.85, validation_alias="RAG_PATH_FOCUS_ALIAS_ANCHOR_BOOST")
-    rag_source_repo_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_REPO_ENABLED")
-    rag_source_artifact_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_ARTIFACT_ENABLED")
-    rag_source_task_memory_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_TASK_MEMORY_ENABLED")
-    rag_source_wiki_enabled: bool = Field(default=True, validation_alias="RAG_SOURCE_WIKI_ENABLED")
-    rag_source_open_notebook_enabled: bool = Field(default=False, validation_alias="RAG_SOURCE_OPEN_NOTEBOOK_ENABLED")
-    rag_default_window_profile: str = Field(default="standard_32k", validation_alias="RAG_DEFAULT_WINDOW_PROFILE")
-    rag_compact_budget_tokens: int = Field(default=12000, validation_alias="RAG_COMPACT_BUDGET_TOKENS")
-    rag_standard_budget_tokens: int = Field(default=32000, validation_alias="RAG_STANDARD_BUDGET_TOKENS")
-    rag_full_budget_tokens: int = Field(default=64000, validation_alias="RAG_FULL_BUDGET_TOKENS")
-    rag_iterative_import_depth: int = Field(default=0, validation_alias="RAG_ITERATIVE_IMPORT_DEPTH")
-    rag_iterative_tool_calls_enabled: bool = Field(default=True, validation_alias="RAG_ITERATIVE_TOOL_CALLS_ENABLED")
-    rag_iterative_max_tool_calls: int = Field(default=0, validation_alias="RAG_ITERATIVE_MAX_TOOL_CALLS")
-    rag_iterative_max_search_calls: int = Field(default=0, validation_alias="RAG_ITERATIVE_MAX_SEARCH_CALLS")
-    rag_iterative_symbol_expand_max: int = Field(default=0, validation_alias="RAG_ITERATIVE_SYMBOL_EXPAND_MAX")
-    rag_iterative_catalog_chars: int = Field(default=20000, validation_alias="RAG_ITERATIVE_CATALOG_CHARS")
-    rag_iterative_tool_chars_per_file: int = Field(default=20000, validation_alias="RAG_ITERATIVE_TOOL_CHARS_PER_FILE")
-    rag_iterative_summarize_reads: bool = Field(default=True, validation_alias="RAG_ITERATIVE_SUMMARIZE_READS")
-    rag_iterative_summary_chars: int = Field(default=600, validation_alias="RAG_ITERATIVE_SUMMARY_CHARS")
-    rag_iterative_initial_min_files: int = Field(default=3, validation_alias="RAG_ITERATIVE_INITIAL_MIN_FILES")
-    rag_iterative_initial_max_files: int = Field(default=8, validation_alias="RAG_ITERATIVE_INITIAL_MAX_FILES")
-    codecompass_wiki_index_path: str = Field(
-        default="",
-        validation_alias="CODECOMPASS_WIKI_INDEX_PATH",
-    )
-    codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
-    codecompass_sira_mode: str = Field(default="off", validation_alias="CODECOMPASS_SIRA_MODE")
-    codecompass_sira_online_expansion_enabled: bool = Field(
-        default=True,
-        validation_alias="CODECOMPASS_SIRA_ONLINE_EXPANSION_ENABLED",
-    )
-    codecompass_sira_offline_enrichment_enabled: bool = Field(
-        default=True,
-        validation_alias="CODECOMPASS_SIRA_OFFLINE_ENRICHMENT_ENABLED",
-    )
-    codecompass_sira_enrichment_model: str = Field(
-        default="",
-        validation_alias="CODECOMPASS_SIRA_ENRICHMENT_MODEL",
-    )
-    codecompass_sira_query_model: str = Field(default="", validation_alias="CODECOMPASS_SIRA_QUERY_MODEL")
-    codecompass_sira_rerank_model: str = Field(default="", validation_alias="CODECOMPASS_SIRA_RERANK_MODEL")
-    codecompass_sira_reranker_enabled: bool = Field(
-        default=False,
-        validation_alias="CODECOMPASS_SIRA_RERANKER_ENABLED",
-    )
-    codecompass_sira_local_models_only: bool = Field(
-        default=True,
-        validation_alias="CODECOMPASS_SIRA_LOCAL_MODELS_ONLY",
-    )
-    codecompass_sira_snapshot_root: str = Field(
-        default="",
-        validation_alias="CODECOMPASS_SIRA_SNAPSHOT_ROOT",
-    )
-    codecompass_sira_layer_root: str = Field(
-        default="",
-        validation_alias="CODECOMPASS_SIRA_LAYER_ROOT",
-    )
-    codecompass_sira_rollout_state: str = Field(
-        default="data/sira-rollout.sqlite3",
-        validation_alias="CODECOMPASS_SIRA_ROLLOUT_STATE",
-    )
+    # Governed feature state/rollout (knowledge experts, agent safety, peer overlay,
+    # DSPy optimization, dendritic memory, collaboration workspace, spreadsheet studio).
+    # Hybrid RAG, CodeCompass and context-compression settings live in the
+    # HybridRagSettings / CodeCompassSettings / ContextCompressionSettings mixins.
     knowledge_experts_enabled: bool = Field(
         default=False,
         validation_alias="ANANTA_KNOWLEDGE_EXPERTS_ENABLED",
@@ -726,252 +639,6 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
         default="data/spreadsheet-studio.sqlite3",
         validation_alias="ANANTA_SPREADSHEET_STUDIO_STATE",
     )
-    codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
-    codecompass_vector_index_path: str = Field(
-        default=".rag/codecompass/vector_index.json",
-        validation_alias="CODECOMPASS_VECTOR_INDEX_PATH",
-    )
-    codecompass_vector_embedding_records_path: str = Field(
-        default="rag-helper/out/embedding.json",
-        validation_alias="CODECOMPASS_VECTOR_EMBEDDING_RECORDS_PATH",
-    )
-    codecompass_vector_manifest_path: str = Field(
-        default="rag-helper/out/manifest.json",
-        validation_alias="CODECOMPASS_VECTOR_MANIFEST_PATH",
-    )
-    # Canonical file-type rollout and parser resource budgets.  Worker
-    # containers read the same explicit environment names; the Hub does not
-    # infer worker runtime availability from these values.
-    codecompass_file_type_priorities: str = Field(
-        default="P0,P1,P2",
-        validation_alias="ANANTA_CODECOMPASS_FILE_TYPE_PRIORITIES",
-    )
-    codecompass_enabled_formats: str = Field(
-        default="",
-        validation_alias="ANANTA_CODECOMPASS_ENABLED_FORMATS",
-    )
-    codecompass_disabled_formats: str = Field(
-        default="",
-        validation_alias="ANANTA_CODECOMPASS_DISABLED_FORMATS",
-    )
-    codecompass_max_file_bytes: int = Field(
-        default=1_048_576,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_FILE_BYTES",
-    )
-    codecompass_max_lines: int = Field(
-        default=50_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_LINES",
-    )
-    codecompass_parser_timeout_ms: int = Field(
-        default=2_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_PARSER_TIMEOUT_MS",
-    )
-    codecompass_max_output_records: int = Field(
-        default=5_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_OUTPUT_RECORDS",
-    )
-    codecompass_max_xml_nodes: int = Field(
-        default=20_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_XML_NODES",
-    )
-    codecompass_max_xml_depth: int = Field(
-        default=64,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_XML_DEPTH",
-    )
-    codecompass_max_yaml_aliases: int = Field(
-        default=50,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_YAML_ALIASES",
-    )
-    codecompass_max_notebook_cells: int = Field(
-        default=2_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_NOTEBOOK_CELLS",
-    )
-    codecompass_max_notebook_cell_chars: int = Field(
-        default=100_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_NOTEBOOK_CELL_CHARS",
-    )
-    codecompass_max_notebook_output_bytes: int = Field(
-        default=0,
-        ge=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_NOTEBOOK_OUTPUT_BYTES",
-    )
-    codecompass_max_csv_rows: int = Field(
-        default=10_000,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_CSV_ROWS",
-    )
-    codecompass_max_csv_columns: int = Field(
-        default=256,
-        gt=0,
-        validation_alias="ANANTA_CODECOMPASS_MAX_CSV_COLUMNS",
-    )
-    codecompass_vector_embedding_text_profile: str = Field(
-        default="codecompass-symbol-path-summary-v1",
-        validation_alias="CODECOMPASS_VECTOR_EMBEDDING_TEXT_PROFILE",
-    )
-    codecompass_vector_fail_mode: str = Field(
-        default="degraded_empty",
-        validation_alias="CODECOMPASS_VECTOR_FAIL_MODE",
-    )
-    codecompass_graph_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_GRAPH_ENABLED")
-    codecompass_relation_expansion_enabled: bool = Field(
-        default=False,
-        validation_alias="CODECOMPASS_RELATION_EXPANSION_ENABLED",
-    )
-    # CCAQE-008: hard bounds for the architecture query engine
-    codecompass_query_max_depth: int = Field(default=4, validation_alias="CODECOMPASS_QUERY_MAX_DEPTH")
-    codecompass_query_max_nodes: int = Field(default=200, validation_alias="CODECOMPASS_QUERY_MAX_NODES")
-    codecompass_query_max_results: int = Field(default=25, validation_alias="CODECOMPASS_QUERY_MAX_RESULTS")
-    codecompass_query_max_paths_per_result: int = Field(
-        default=3,
-        validation_alias="CODECOMPASS_QUERY_MAX_PATHS_PER_RESULT",
-    )
-    # CCRDS: runtime domain scope (hard path boundaries from domain discovery
-    # artifacts / descriptors). Disabled by default — `domain:`-prefixed
-    # chat_retrieval_domain_hint values stay soft hints until enabled.
-    codecompass_domain_scope_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_DOMAIN_SCOPE_ENABLED")
-    codecompass_domain_artifact_path: str = Field(
-        default="artifacts/codecompass/domains.detected.json",
-        validation_alias="CODECOMPASS_DOMAIN_ARTIFACT_PATH",
-    )
-    codecompass_domain_descriptor_root: str = Field(
-        default="domains", validation_alias="CODECOMPASS_DOMAIN_DESCRIPTOR_ROOT"
-    )
-    codecompass_scope_strict_mode: bool = Field(default=True, validation_alias="CODECOMPASS_SCOPE_STRICT_MODE")
-    codecompass_scope_allow_relation_expansion: bool = Field(
-        default=False, validation_alias="CODECOMPASS_SCOPE_ALLOW_RELATION_EXPANSION"
-    )
-    codecompass_scope_max_external_reference_chunks: int = Field(
-        default=2, validation_alias="CODECOMPASS_SCOPE_MAX_EXTERNAL_REFERENCE_CHUNKS"
-    )
-
-    # VectorEncoding settings (TQ-018 / VEC-DELTA-004)
-    codecompass_vector_encoding_mode: str = Field(
-        default="off",
-        validation_alias="CODECOMPASS_VECTOR_ENCODING_MODE",
-    )
-    codecompass_vector_encoding_target_bits: float = Field(
-        default=32.0,
-        validation_alias="CODECOMPASS_VECTOR_ENCODING_TARGET_BITS",
-    )
-    codecompass_vector_encoding_seed: int = Field(
-        default=888,
-        validation_alias="CODECOMPASS_VECTOR_ENCODING_SEED",
-    )
-    codecompass_vector_encoding_block_size: int = Field(
-        default=0,
-        validation_alias="CODECOMPASS_VECTOR_ENCODING_BLOCK_SIZE",
-    )
-    codecompass_vector_encoding_store_original: bool = Field(
-        default=False,
-        validation_alias="CODECOMPASS_VECTOR_ENCODING_STORE_ORIGINAL",
-    )
-    # Quantization fallback policy (TQ-014)
-    # Values: block | fallback_float32 | warn_only
-    codecompass_vector_encoding_fallback_policy: str = Field(
-        default="fallback_float32",
-        validation_alias="CODECOMPASS_VECTOR_ENCODING_FALLBACK_POLICY",
-    )
-    # TransformerFeatureProvider settings (TQ-015 / TQ-018)
-    # Values: disabled | observe_only | context_first
-    codecompass_transformer_feature_mode: str = Field(
-        default="disabled",
-        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_MODE",
-    )
-    codecompass_transformer_feature_model: str = Field(
-        default="",
-        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_MODEL",
-    )
-    codecompass_transformer_feature_local_only: bool = Field(
-        default=True,
-        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_LOCAL_ONLY",
-    )
-    codecompass_transformer_feature_max_input_tokens: int = Field(
-        default=512,
-        validation_alias="CODECOMPASS_TRANSFORMER_FEATURE_MAX_INPUT_TOKENS",
-    )
-    # AgentFeatureProvider policy gates (AGENT-FEATURE-004)
-    codecompass_agent_feature_enabled: bool = Field(
-        default=False,
-        validation_alias="CODECOMPASS_AGENT_FEATURE_ENABLED",
-    )
-    codecompass_agent_feature_external_calls_allowed: bool = Field(
-        default=False,
-        validation_alias="CODECOMPASS_AGENT_FEATURE_EXTERNAL_CALLS_ALLOWED",
-    )
-    codecompass_agent_feature_allowed_provider_ids: str = Field(
-        default="",
-        validation_alias="CODECOMPASS_AGENT_FEATURE_ALLOWED_PROVIDER_IDS",
-    )
-
-    # Context Compression Adapter (HCCA-002)
-    # Main switch — off by default; set to passthrough_with_metrics to collect data without changing output
-    context_compression_enabled: bool = Field(
-        default=False,
-        validation_alias="CONTEXT_COMPRESSION_ENABLED",
-    )
-    # Mode: off | passthrough_with_metrics | compress | compress_aggressive
-    context_compression_mode: str = Field(
-        default="passthrough_with_metrics",
-        validation_alias="CONTEXT_COMPRESSION_MODE",
-    )
-    # Adapter: ananta_context_compression | external_headroom
-    context_compression_adapter: str = Field(
-        default="ananta_context_compression",
-        validation_alias="CONTEXT_COMPRESSION_ADAPTER",
-    )
-    context_compression_target_reduction_percent: float = Field(
-        default=35.0,
-        validation_alias="CONTEXT_COMPRESSION_TARGET_REDUCTION_PERCENT",
-    )
-    context_compression_max_input_tokens: int = Field(
-        default=1200,
-        validation_alias="CONTEXT_COMPRESSION_MAX_INPUT_TOKENS",
-    )
-    context_compression_min_quality_score: float = Field(
-        default=0.7,
-        validation_alias="CONTEXT_COMPRESSION_MIN_QUALITY_SCORE",
-    )
-    context_compression_fallback_on_quality_risk: bool = Field(
-        default=True,
-        validation_alias="CONTEXT_COMPRESSION_FALLBACK_ON_QUALITY_RISK",
-    )
-    # CCR Store settings
-    context_compression_ccr_enabled: bool = Field(
-        default=True,
-        validation_alias="CONTEXT_COMPRESSION_CCR_ENABLED",
-    )
-    context_compression_ccr_path: str = Field(
-        default=".ananta/context-compression/ccr",
-        validation_alias="CONTEXT_COMPRESSION_CCR_PATH",
-    )
-    context_compression_ccr_ttl_hours: int = Field(
-        default=72,
-        validation_alias="CONTEXT_COMPRESSION_CCR_TTL_HOURS",
-    )
-    # External Headroom adapter (off by default — requires headroom CLI installed)
-    context_compression_external_headroom_enabled: bool = Field(
-        default=False,
-        validation_alias="CONTEXT_COMPRESSION_EXTERNAL_HEADROOM_ENABLED",
-    )
-    context_compression_external_headroom_transport: str = Field(
-        default="cli",
-        validation_alias="CONTEXT_COMPRESSION_EXTERNAL_HEADROOM_TRANSPORT",
-    )
-    # Observability
-    context_compression_emit_events: bool = Field(
-        default=True,
-        validation_alias="CONTEXT_COMPRESSION_EMIT_EVENTS",
-    )
 
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
@@ -1054,15 +721,6 @@ class Settings(CompositeRiskReviewSettings, ResearchTrainingSettings):
         val = normalize_profile(v) if str(v or "").strip() else DEFAULT_PROFILE
         if val is None:
             raise ValueError(f"ANANTA_CONTEXT_PROFILE muss einer der folgenden Werte sein: {sorted(PROFILES)} oder custom")
-        return val
-
-    @field_validator("rag_default_window_profile")
-    @classmethod
-    def validate_rag_default_window_profile(cls, v: str) -> str:
-        allowed = {"compact_12k", "standard_32k", "full_64k", "extended_128k"}
-        val = (v or "").strip().lower() or "standard_32k"
-        if val not in allowed:
-            raise ValueError(f"RAG_DEFAULT_WINDOW_PROFILE muss einer der folgenden Werte sein: {sorted(allowed)}")
         return val
 
     @field_validator("worker_default_execution_profile")
