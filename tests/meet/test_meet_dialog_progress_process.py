@@ -54,6 +54,10 @@ def test_real_stalled_child_is_killed_within_fixed_resource_bound_and_cannot_kee
             **channel.child_options(),
         )
         channel.spawned()
+        if mode != "complete":
+            # the budget starts once the child is running: interpreter start-up under a loaded parallel run
+            # (> 0.7 s) is not the stall under test
+            assert child.stdout.readline() == b"ready\n"
         now = time.monotonic()
         budget = DialogProgressBudget(now + (0.7 if mode == "silent" else 3), now)
         watch_dialog_progress(child, channel, budget, DialogExecutor._stop)
@@ -62,7 +66,7 @@ def test_real_stalled_child_is_killed_within_fixed_resource_bound_and_cannot_kee
         if mode == "complete":
             assert child.returncode == 0 and output == b"completed\n", errors
         else:
-            assert child.returncode == -signal.SIGKILL and output == b"ready\n", errors
+            assert child.returncode == -signal.SIGKILL and output == b"", errors
             assert elapsed < 2, "child progress stall escaped resource-stop budget"
         assert not errors
         with pytest.raises(ProcessLookupError):
