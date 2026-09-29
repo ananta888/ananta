@@ -282,9 +282,9 @@ release-evidence references.
 The mandatory suite is rooted in:
 
 - [`tests/test_workflow_runtime_security_and_evolution.py`](../../tests/test_workflow_runtime_security_and_evolution.py)
-- [`tests/test_workflow_runtime_commands_components.py`](../../tests/test_workflow_runtime_commands_components.py)
+- [`tests/workflow/test_workflow_runtime_commands_components.py`](../../tests/test_workflow_runtime_commands_components.py)
 - [`tests/test_workflow_runtime_side_effect_ledger.py`](../../tests/test_workflow_runtime_side_effect_ledger.py)
-- [`tests/test_workflow_runtime_event_and_checkpoint_stores.py`](../../tests/test_workflow_runtime_event_and_checkpoint_stores.py)
+- [`tests/workflow/test_workflow_runtime_event_and_checkpoint_stores.py`](../../tests/test_workflow_runtime_event_and_checkpoint_stores.py)
 - [`tests/test_tool_calling_pipeline.py`](../../tests/test_tool_calling_pipeline.py)
 - [`tests/test_temporal_history_projection.py`](../../tests/test_temporal_history_projection.py)
 - [`tests/test_temporal_runtime_contracts.py`](../../tests/test_temporal_runtime_contracts.py)

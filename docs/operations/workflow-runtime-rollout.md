@@ -115,10 +115,10 @@ From the repository root:
 ```bash
 python scripts/validate_workflow_runtime_docs.py
 python -m pytest -q \
-  tests/test_workflow_runtime_reference_conformance.py \
-  tests/test_workflow_runtime_safety.py \
+  tests/workflow/test_workflow_runtime_reference_conformance.py \
+  tests/workflow/test_workflow_runtime_safety.py \
   tests/test_native_graph_runtime.py \
-  tests/test_workflow_lc_lg_live_langgraph.py \
+  tests/workflow/test_workflow_lc_lg_live_langgraph.py \
   tests/test_temporal_runtime_contracts.py \
   tests/test_temporal_history_projection.py \
   tests/security/workflow_runtime/test_workflow_runtime_security_docs.py \
@@ -214,7 +214,7 @@ the release performance gate or the PostgreSQL/Temporal staging restore
 described below. Its fixed performance measurements exercise the promotion
 admission contract; only current measured release evidence may authorize a
 real deployment. CI additionally runs
-`tests/test_workflow_hub_task_gateway_runtime.py`, which loads the production
+`tests/workflow/test_workflow_hub_task_gateway_runtime.py`, which loads the production
 file-backed keyring and proves persisted key/envelope revocation; the drill
 runner deliberately never writes production key files.
 

@@ -330,18 +330,18 @@ jobs:
         run: >
           pytest -q
           tests/test_workflow_transition_*.py
-          tests/test_workflow_command_transition_admission.py
-          tests/test_workflow_run_history_paging.py
-          tests/test_workflow_terminal_trace_reconciliation.py
-          tests/test_workflow_binding_trace_migration.py
+          tests/workflow/test_workflow_command_transition_admission.py
+          tests/workflow/test_workflow_run_history_paging.py
+          tests/workflow/test_workflow_terminal_trace_reconciliation.py
+          tests/workflow/test_workflow_binding_trace_migration.py
           tests/test_workflow_control_composition.py
           tests/test_caseflow_trace_freshness_stamp.py
-          tests/test_workflow_transition_queue_reservation.py
-          tests/test_workflow_transition_queue_reservation_migration.py
-          tests/test_workflow_transition_checkpoint_binding.py
-          tests/test_workflow_transition_checkpoint_binding_migration.py
-          tests/test_workflow_transition_grant_policy.py
-          tests/test_workflow_transition_production_switches.py
+          tests/workflow/test_workflow_transition_queue_reservation.py
+          tests/workflow/test_workflow_transition_queue_reservation_migration.py
+          tests/workflow/test_workflow_transition_checkpoint_binding.py
+          tests/workflow/test_workflow_transition_checkpoint_binding_migration.py
+          tests/workflow/test_workflow_transition_grant_policy.py
+          tests/workflow/test_workflow_transition_production_switches.py
           tests/test_alias_registry.py
           tests/test_alias_catalog.py
           tests/test_team_template_catalog.py
@@ -381,13 +381,13 @@ jobs:
           tests/security/workflow_runtime/test_workflow_runtime_production_compose.py
           tests/test_agent_token_file_auth.py
           tests/test_workflow_runtime_security_and_evolution.py
-          tests/test_workflow_runtime_commands_components.py
-          tests/test_workflow_runtime_event_and_checkpoint_stores.py
+          tests/workflow/test_workflow_runtime_commands_components.py
+          tests/workflow/test_workflow_runtime_event_and_checkpoint_stores.py
           tests/test_workflow_runtime_side_effect_ledger.py
-          tests/test_workflow_hub_task_gateway_runtime.py
+          tests/workflow/test_workflow_hub_task_gateway_runtime.py
           tests/test_tool_calling_pipeline.py
           tests/test_temporal_runtime_contracts.py
-          tests/test_workflow_runtime_cli_tui_projection.py
+          tests/workflow/test_workflow_runtime_cli_tui_projection.py
           tests/test_temporal_history_projection.py
           tests/workflow_runtime/examples/test_workflow_runtime_example.py
       - name: Run AIR-055 migration, restore, rollout and incident drills

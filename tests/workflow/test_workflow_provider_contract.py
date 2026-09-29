@@ -5,7 +5,7 @@ from pathlib import Path
 from agent.providers.interfaces import ProviderDescriptor, ProviderHealthReport
 from agent.providers.workflow import WorkflowExecutionRequest, WorkflowExecutionResult
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = ROOT / "agent" / "providers" / "workflow.py"
 
 

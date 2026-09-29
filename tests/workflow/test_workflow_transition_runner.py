@@ -64,7 +64,7 @@ from agent.services.workflow_transition_runner import (
     WorkflowTransitionRunner,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass

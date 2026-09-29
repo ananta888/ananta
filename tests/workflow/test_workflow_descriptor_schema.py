@@ -5,7 +5,7 @@ from pathlib import Path
 
 import jsonschema
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = json.loads((ROOT / "schemas" / "integrations" / "workflow_descriptor.v1.json").read_text(encoding="utf-8"))
 
 

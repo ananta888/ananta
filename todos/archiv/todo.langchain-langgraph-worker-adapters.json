@@ -846,7 +846,7 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "tests/test_workflow_lc_lg_backwards_compat.py: 11 Tests inkl. 4 Subprocess-Tests, die die pre-LCG Tests laufen lassen. test_workflow_artifact_result_task_type_is_optional und test_provider_config_round_trip_via_dict sichern additive Erweiterungen ab."
+        "tests/workflow/test_workflow_lc_lg_backwards_compat.py: 11 Tests inkl. 4 Subprocess-Tests, die die pre-LCG Tests laufen lassen. test_workflow_artifact_result_task_type_is_optional und test_provider_config_round_trip_via_dict sichern additive Erweiterungen ab."
       ]
     },
     {
@@ -920,7 +920,7 @@
       ],
       "progress_percent": 100,
       "notes": [
-        "tests/test_workflow_lc_lg_smoke.py: 15 Tests die mit default-off Config laufen, BEVOR das Framework installiert ist. Coverage: Registry-Inclusion, Default-Off, dry_run Pläne, blocked-Resultate für external/unknown, execute-blocked mit Audit-Snapshot."
+        "tests/workflow/test_workflow_lc_lg_smoke.py: 15 Tests die mit default-off Config laufen, BEVOR das Framework installiert ist. Coverage: Registry-Inclusion, Default-Off, dry_run Pläne, blocked-Resultate für external/unknown, execute-blocked mit Audit-Snapshot."
       ]
     },
     {

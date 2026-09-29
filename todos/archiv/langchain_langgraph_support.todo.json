@@ -687,13 +687,13 @@
       "depends_on": [],
       "files_to_change": [
         "worker/adapters/workflow_audit.py",
-        "tests/test_workflow_lc_lg_security_redaction.py"
+        "tests/workflow/test_workflow_lc_lg_security_redaction.py"
       ],
       "acceptance_criteria": [
         "workflow_audit.py: WorkflowAuditLog.log() wendet agent.common.redaction.redact() auf alle kwargs-Werte an bevor sie in _entries[] gespeichert werden",
         "Importiert from agent.common.redaction import redact — kein neuer Redaction-Code",
         "Ausnahme: 'event' und 'ts' werden NICHT redact()'ed (kein Secret-Risiko)",
-        "Test (neue Datei tests/test_workflow_lc_lg_security_redaction.py):",
+        "Test (neue Datei tests/workflow/test_workflow_lc_lg_security_redaction.py):",
         "  T1: WorkflowAuditLog.log('test', secret_value='sk-abc123') → entries()[0]['secret_value'] enthält NICHT 'sk-abc123'",
         "  T2: execution_trace im WorkflowArtifactResult enthält kein sk-xxx Muster",
         "  T3: LangChainProviderConfig.to_safe_dict() enthält keine secret_refs-Werte (bereits vorhanden, hier als Regression-Guard)",
@@ -792,10 +792,10 @@
       "description": "Alle ~94 LCG-Tests mocken generate_text() oder laufen ohne Framework. test_workflow_lc_lg_live_runners.py ist trotz Name komplett gemockt. Keine Tests prüfen echten LLM-Aufruf durch Adapter. Latenz-, Token-Budget- und Response-Normalisierungs-Probleme bleiben unerkannt.",
       "depends_on": [],
       "files_to_change": [
-        "tests/test_workflow_lc_lg_live_integration.py"
+        "tests/workflow/test_workflow_lc_lg_live_integration.py"
       ],
       "acceptance_criteria": [
-        "Neue Datei tests/test_workflow_lc_lg_live_integration.py",
+        "Neue Datei tests/workflow/test_workflow_lc_lg_live_integration.py",
         "Alle Tests @pytest.mark.integration dekoriert",
         "Tests nur ausgeführt wenn ANANTA_OLLAMA_URL in os.environ gesetzt",
         "Skip-Fixture: if not os.environ.get('ANANTA_OLLAMA_URL'): pytest.skip('ANANTA_OLLAMA_URL not set')",
@@ -820,7 +820,7 @@
         "LCG-042"
       ],
       "files_to_change": [
-        "tests/test_workflow_lc_lg_live_langgraph.py"
+        "tests/workflow/test_workflow_lc_lg_live_langgraph.py"
       ],
       "acceptance_criteria": [
         "Test: LangGraphAdapter mit allowed_tools=['search_code'] + Graph mit tool-Node tool_ref='search_code' → execute() status='success'",
@@ -843,7 +843,7 @@
         "LCG-046"
       ],
       "files_to_change": [
-        "tests/test_workflow_lc_lg_smoke.py"
+        "tests/workflow/test_workflow_lc_lg_smoke.py"
       ],
       "acceptance_criteria": [
         "Test: LangGraphAdapter(LangGraphProviderConfig(max_nodes=3)).dry_run(..., payload mit 5 Nodes) → result.blocked=True, block_reason enthält 'graph_too_many_nodes'",
@@ -865,7 +865,7 @@
         "LCG-049"
       ],
       "files_to_change": [
-        "tests/test_workflow_lc_lg_live_langgraph.py"
+        "tests/workflow/test_workflow_lc_lg_live_langgraph.py"
       ],
       "acceptance_criteria": [
         "Test: Graph mit human_gate-Node → result.resume_token is not None",
@@ -890,7 +890,7 @@
         "LCG-045"
       ],
       "files_to_change": [
-        "tests/test_workflow_lc_lg_live_langgraph.py"
+        "tests/workflow/test_workflow_lc_lg_live_langgraph.py"
       ],
       "acceptance_criteria": [
         "Test: Graph mit router-Node und zwei Outbound-Edges (eine mit condition, eine ohne) → router wählt bedingte Edge wenn Condition erfüllt",

@@ -4,7 +4,7 @@ These tests require a running Ollama instance. They are marked
 @pytest.mark.integration and skipped unless ANANTA_OLLAMA_URL is set.
 
 Run with:
-    ANANTA_OLLAMA_URL=http://localhost:11434 pytest tests/test_workflow_lc_lg_live_integration.py -m integration
+    ANANTA_OLLAMA_URL=http://localhost:11434 pytest tests/workflow/test_workflow_lc_lg_live_integration.py -m integration
 """
 from __future__ import annotations
 

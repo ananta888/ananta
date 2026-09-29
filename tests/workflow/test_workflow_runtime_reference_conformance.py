@@ -157,7 +157,7 @@ def test_conformance_failure_names_runtime_invariant_sequence_and_reproduction()
 
 
 def test_checked_in_conformance_command_is_network_free_and_machine_readable() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     completed = subprocess.run(
         [sys.executable, "scripts/run-workflow-runtime-conformance.py", "--repetitions", "10"],
         cwd=root,

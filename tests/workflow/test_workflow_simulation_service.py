@@ -21,7 +21,7 @@ from tests.workflow_runtime.fakes import (
     ScriptedTool,
 )
 
-GOLDEN = Path(__file__).parent / "workflow_runtime" / "golden" / "simulation_trace.v1.json"
+GOLDEN = Path(__file__).parent.parent / "workflow_runtime" / "golden" / "simulation_trace.v1.json"
 
 
 @dataclass(frozen=True)

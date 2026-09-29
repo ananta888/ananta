@@ -57,13 +57,13 @@
     ],
     "test_anchors": [
       "tests/test_visual_process.py",
-      "tests/test_workflow_definition_service.py",
+      "tests/workflow/test_workflow_definition_service.py",
       "tests/test_blueprint_planning_adapter.py",
       "tests/test_workflow_event_service.py",
       "tests/test_workflow_status_service.py",
-      "tests/test_workflow_execution_adapter.py",
-      "tests/test_workflow_generic_webhook_provider.py",
-      "tests/test_workflow_n8n_provider.py",
+      "tests/workflow/test_workflow_execution_adapter.py",
+      "tests/workflow/test_workflow_generic_webhook_provider.py",
+      "tests/workflow/test_workflow_n8n_provider.py",
       "tests/smoke/test_workflow_integration_smoke.py",
       "frontend-angular/tests/live-click-critical-paths.spec.ts"
     ]

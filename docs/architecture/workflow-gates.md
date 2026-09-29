@@ -143,6 +143,6 @@ deterministic contract.
 - [ADR-workflow-gates-blueprint-contract](../decisions/ADR-workflow-gates-blueprint-contract.md)
 - [planning-blueprint-flow](planning-blueprint-flow.md) (WFG-002)
 - `docs/standard-blueprints.md` for the workflow example catalog
-- `tests/test_workflow_definition_service.py` for the DAG validation
+- `tests/workflow/test_workflow_definition_service.py` for the DAG validation
   contract
 - `tests/test_blueprint_planning_adapter.py` for the planner integration

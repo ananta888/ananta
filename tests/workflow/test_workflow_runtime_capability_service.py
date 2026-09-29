@@ -141,7 +141,7 @@ def test_missing_required_runtime_fails_matrix_loading() -> None:
 
 
 def test_hub_surface_layer_does_not_import_runtime_implementations() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     surface_paths = (
         root / "agent/services/workflow_runtime_capability_service.py",
         root / "agent/services/workflow_runtime_selection_service.py",

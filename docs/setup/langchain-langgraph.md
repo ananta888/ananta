@@ -216,5 +216,5 @@ is caught, logged as `compiled_graph_failed_fallback` in the audit trace, and
 
 See `docs/architecture/langchain-langgraph-adapters.md` for the
 control flow, `docs/architecture/codecompass-vs-langchain.md` for
-the boundary rules, and `tests/test_workflow_lc_lg_smoke.py` for
+the boundary rules, and `tests/workflow/test_workflow_lc_lg_smoke.py` for
 end-to-end tests that do NOT require the framework installed.

@@ -39,7 +39,7 @@ from agent.services.workflow_transition_runner import (
     RUN_OUTCOME_PROGRESSED,
     WorkflowTransitionRunner,
 )
-from tests.test_workflow_transition_native_composition import (
+from tests.workflow.test_workflow_transition_native_composition import (
     _NOW,
     _binding,
     _receipt,

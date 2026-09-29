@@ -2744,7 +2744,7 @@ def test_durable_validator_rejects_tampered_persisted_result(
 
 
 def test_ownership_reservation_effect_is_imported_only_by_the_cutover_composition() -> None:
-    repository = Path(__file__).resolve().parents[1]
+    repository = Path(__file__).resolve().parents[2]
     services = repository / "agent" / "services"
     # The Native cutover composition is the single sanctioned importer.  Any
     # other production import would reserve ownership outside the registry

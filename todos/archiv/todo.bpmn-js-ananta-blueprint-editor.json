@@ -40,7 +40,7 @@
     ],
     "existing_test_anchors": [
       "tests/test_visual_process.py",
-      "tests/test_workflow_definition_service.py",
+      "tests/workflow/test_workflow_definition_service.py",
       "tests/test_blueprint_planning_adapter.py",
       "tests/test_workflow_status_service.py",
       "frontend-angular/tests/live-click-critical-paths.spec.ts"
@@ -91,7 +91,7 @@
         "Mapping-Tabelle VisualProcessStep -> BlueprintWorkflowStepDB existiert.",
         "Bestehende Felder wie step_id, title, description, role_name, task_kind, depends_on, gate, checks, failure_policy, required_capabilities, produces, consumes und pattern_hints sind abgedeckt.",
         "Nicht abgedeckte BPMN-/Blueprint-Felder sind explizit als future/unsupported markiert.",
-        "tests/test_visual_process.py und tests/test_workflow_definition_service.py bleiben gruen."
+        "tests/test_visual_process.py und tests/workflow/test_workflow_definition_service.py bleiben gruen."
       ]
     },
     {

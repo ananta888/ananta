@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 CHAIN_SCHEMA = json.loads(
     (REPO_ROOT / "docs" / "contracts" / "langchain-chain-descriptor.schema.json")
     .read_text()

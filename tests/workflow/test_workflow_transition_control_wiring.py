@@ -28,7 +28,7 @@ from agent.services.workflow_transition_native_composition import (
     WorkflowTransitionNativeCompositionError,
 )
 from agent.services.workflow_transition_outbox import TRANSITION_RUNTIME_NATIVE
-from tests.test_workflow_transition_native_composition import (
+from tests.workflow.test_workflow_transition_native_composition import (
     _binding,
     _receipt,
 )

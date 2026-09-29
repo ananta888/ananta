@@ -19,7 +19,7 @@ from ananta_contracts.provider_execution import (
 from ananta_contracts.provider_invocation import ProviderInvocationContext
 from ananta_contracts.workflow_worker_gateway import WORKFLOW_WORKER_COMMAND_SCHEMA
 from tests.test_pi_coding_agent_provider import Runner, provider, request
-from tests.test_workflow_worker_gateway_service import fixture as hub_fixture
+from tests.workflow.test_workflow_worker_gateway_service import fixture as hub_fixture
 from worker.runtime.workflow_hub_gateway import HubProviderBudgetAdapter, WorkflowHubDecisionError
 
 

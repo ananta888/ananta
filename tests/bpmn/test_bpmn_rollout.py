@@ -21,7 +21,7 @@ from agent.services.workflow_runtime_selection_composition import (
 from agent.services.workflow_runtime_selection_service import ExplicitFallbackPolicy, RuntimeSelectionProfile
 from tests.bpmn.completion_helpers import harness as harness
 from tests.bpmn.completion_helpers import linear_request
-from tests.test_workflow_runtime_selection_service import _service
+from tests.workflow.test_workflow_runtime_selection_service import _service
 
 
 def scoped_plan():

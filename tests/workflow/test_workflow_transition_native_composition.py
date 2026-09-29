@@ -70,7 +70,7 @@ from agent.services.workflow_transition_runner import (
 )
 from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 _NOW = 1_000.0
 

@@ -280,7 +280,7 @@ def test_temporal_degraded_start_returns_stable_non_2xx(monkeypatch):
 
 
 def test_hub_adapter_route_has_no_worker_adapter_imports():
-    route_path = Path(__file__).parents[1] / "agent" / "routes" / "workflow_adapters.py"
+    route_path = Path(__file__).parents[2] / "agent" / "routes" / "workflow_adapters.py"
     tree = ast.parse(route_path.read_text(encoding="utf-8"))
     imported_modules = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
     imported_modules.update(

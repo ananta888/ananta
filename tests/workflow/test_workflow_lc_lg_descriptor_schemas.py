@@ -15,7 +15,7 @@ import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
 
-SCHEMA_DIR = Path(__file__).resolve().parents[1] / "docs" / "contracts"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "docs" / "contracts"
 CHAIN_SCHEMA = SCHEMA_DIR / "langchain-chain-descriptor.schema.json"
 GRAPH_SCHEMA = SCHEMA_DIR / "langgraph-graph-descriptor.schema.json"
 CHAIN_SCHEMA_V11 = SCHEMA_DIR / "langchain-chain-descriptor.v1.1.json"

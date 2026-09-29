@@ -415,7 +415,7 @@
         "tests/test_user_token_scope.py",
         "tests/test_visual_process_bpmn_workflow.py",
         "tests/test_workflow_runtime_operations_api.py",
-        "tests/test_workflow_runtime_test_support.py",
+        "tests/workflow/test_workflow_runtime_test_support.py",
         "tests/test_ws_terminal.py"
       ],
       "acceptance_criteria": [
@@ -453,7 +453,7 @@
         "agent/services/workflow_backend.py",
         "agent/services/workflow_runtime/execution_plan.py",
         "agent/visual_process/blueprint_mapper.py",
-        "tests/test_workflow_runtime_execution_plan.py"
+        "tests/workflow/test_workflow_runtime_execution_plan.py"
       ],
       "implementation_evidence": [
         "`agent/services/workflow_runtime/execution_plan.py` implementiert ExecutionPlan v1 mit Nodes, Edges, Gates, Budgets, Side-Effect- und Artifact-Vertraegen sowie stabilem Hash.",
@@ -728,7 +728,7 @@
         "AIR-018"
       ],
       "target_files": [
-        "tests/test_workflow_runtime_reference_conformance.py",
+        "tests/workflow/test_workflow_runtime_reference_conformance.py",
         "scripts/run-workflow-runtime-conformance.py"
       ],
       "acceptance_criteria": [

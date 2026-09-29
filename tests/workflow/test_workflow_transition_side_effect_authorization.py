@@ -1447,7 +1447,7 @@ def test_direct_sqlite_receipt_ddl_has_exact_unique_check_index_and_no_fk_contra
 
 
 def test_effect_framework_remains_unwired_in_production() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     framework_files = {
         "db_models/workflow_runtime.py",
         "services/workflow_runtime/side_effects.py",

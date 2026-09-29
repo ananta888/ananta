@@ -38,7 +38,7 @@ from agent.services.workflow_transition_persistence import (
     WorkflowTransitionPersistenceError,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _binding(*, runtime_id: str = "local") -> WorkflowControlRunBinding:

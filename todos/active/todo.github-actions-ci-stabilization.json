@@ -695,10 +695,10 @@
           "step": "Run workflow transition track tests",
           "severity": "low",
           "risk_assessment": "Niedrig, aber taeuschend: ein flakiger Test laesst einen gruenen Stand rot erscheinen.",
-          "observed_error": "Run 31947384904: 1 failed, 1166 passed. tests/test_workflow_transition_persistence.py::test_same_owner_claim_and_same_generation_effect_begin_are_single_winner[sql] mit workflow_transition_receipt_cas_conflict.",
+          "observed_error": "Run 31947384904: 1 failed, 1166 passed. tests/workflow/test_workflow_transition_persistence.py::test_same_owner_claim_and_same_generation_effect_begin_are_single_winner[sql] mit workflow_transition_receipt_cas_conflict.",
           "root_cause": "Noch zu bestaetigen; lokal dreimal hintereinander gruen, also vermutlich Contention unter CI-Last.",
           "affected_files_or_subsystems": [
-            "tests/test_workflow_transition_persistence.py"
+            "tests/workflow/test_workflow_transition_persistence.py"
           ],
           "proposed_solution": "Nebenlaeufigkeitsannahme des Tests pruefen und entweder deterministisch machen oder die Contention-Erwartung explizit modellieren. Nicht durch Wiederholung kaschieren.",
           "expected_result": "Der Test gibt dasselbe Ergebnis unabhaengig von der Last.",

@@ -67,7 +67,7 @@
       "evidence": [
         "worker/adapters/langchain_adapter.py",
         "agent/services/workflow_adapter_catalog_service.py",
-        "tests/test_workflow_lc_lg_live_integration.py"
+        "tests/workflow/test_workflow_lc_lg_live_integration.py"
       ],
       "gap": "Intentional boundary: LangChain is available only for explicitly authorized integrations and can never be selected as a runtime or control plane.",
       "followup_task": "AIR-020"
@@ -88,7 +88,7 @@
         "worker/adapters/langgraph_adapter.py",
         "worker/runtime/langgraph/",
         "tests/test_workflow_control_composition.py",
-        "tests/test_workflow_lc_lg_live_langgraph.py"
+        "tests/workflow/test_workflow_lc_lg_live_langgraph.py"
       ],
       "gap": "No silent fallback is permitted; productive admission requires matching release evidence, observed health, SQL checkpoint authority and the dedicated worker profile.",
       "followup_task": "AIR-019"
@@ -197,7 +197,7 @@
         "client_surfaces/common/workflow_runtime_projection.py",
         "client_surfaces/operator_tui/commands_ops.py",
         "tests/test_workflow_runtime_operations_api.py",
-        "tests/test_workflow_runtime_cli_tui_projection.py"
+        "tests/workflow/test_workflow_runtime_cli_tui_projection.py"
       ],
       "gap": "Intentional operational boundary: commands remain disabled unless the Hub read model supplies current verified evidence and an approval-bound command gate.",
       "followup_task": "AIR-051"
@@ -248,7 +248,7 @@
       "runtime": "native",
       "capability": "stream",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_runtime_streaming.py::test_stream_cursor_resume_and_heartbeat_are_stable",
+      "evidence": "tests/workflow/test_workflow_runtime_streaming.py::test_stream_cursor_resume_and_heartbeat_are_stable",
       "gap": "Consumers must use the authenticated Hub cursor; direct worker streams are intentionally unsupported.",
       "followup_task": "AIR-025"
     },
@@ -256,7 +256,7 @@
       "runtime": "native",
       "capability": "subgraphs",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_runtime_commands_components.py::test_component_compiler_flattens_versioned_component_and_maps_artifacts",
+      "evidence": "tests/workflow/test_workflow_runtime_commands_components.py::test_component_compiler_flattens_versioned_component_and_maps_artifacts",
       "gap": "Only versioned, prevalidated components may be promoted; runtime-local executable component code is intentionally rejected.",
       "followup_task": "AIR-034"
     },
@@ -264,7 +264,7 @@
       "runtime": "langgraph",
       "capability": "dry_run",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_lc_lg_smoke.py::test_lg_dry_run_with_human_gate_node_requires_approval",
+      "evidence": "tests/workflow/test_workflow_lc_lg_smoke.py::test_lg_dry_run_with_human_gate_node_requires_approval",
       "gap": "Dry-run is evidence-only and suppresses all side effects; it can never substitute for a required live capability.",
       "followup_task": "AIR-019"
     },
@@ -272,7 +272,7 @@
       "runtime": "langgraph",
       "capability": "agent_workflow",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_adapter_live_path_uses_simplex_for_llm_node",
+      "evidence": "tests/workflow/test_workflow_lc_lg_live_langgraph.py::test_lg_adapter_live_path_uses_simplex_for_llm_node",
       "gap": "The worker executes only a predelegated node; run control and task fan-out intentionally remain in the Hub.",
       "followup_task": "AIR-013"
     },
@@ -280,7 +280,7 @@
       "runtime": "langgraph",
       "capability": "multi_step_plan",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_router_takes_conditional_edge_when_condition_matches",
+      "evidence": "tests/workflow/test_workflow_lc_lg_live_langgraph.py::test_lg_router_takes_conditional_edge_when_condition_matches",
       "gap": "Only the shared typed side-effect-free condition language is supported; free Python/template routing is intentionally incompatible.",
       "followup_task": "AIR-035"
     },
@@ -288,7 +288,7 @@
       "runtime": "langgraph",
       "capability": "human_in_loop",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_human_gate_produces_resume_token",
+      "evidence": "tests/workflow/test_workflow_lc_lg_live_langgraph.py::test_lg_human_gate_produces_resume_token",
       "gap": "Legacy adapter resume tokens are development-only; production accepts only signed, role-bound Hub commands and SQL checkpoints.",
       "followup_task": "AIR-032"
     },
@@ -296,7 +296,7 @@
       "runtime": "langgraph",
       "capability": "stateful_task",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_lc_lg_live_langgraph.py::test_lg_adapter_llm_node_records_response_in_state",
+      "evidence": "tests/workflow/test_workflow_lc_lg_live_langgraph.py::test_lg_adapter_llm_node_records_response_in_state",
       "gap": "Runtime-private state remains diagnostic only and cannot override canonical Hub events or a signed Hub checkpoint.",
       "followup_task": "AIR-031"
     },
@@ -304,7 +304,7 @@
       "runtime": "langgraph",
       "capability": "review_workflow",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_lc_lg_smoke.py::test_lg_dry_run_with_high_risk_tool_node_requires_approval",
+      "evidence": "tests/workflow/test_workflow_lc_lg_smoke.py::test_lg_dry_run_with_high_risk_tool_node_requires_approval",
       "gap": "Review decisions remain Hub-owned and require current checkpoint, plan, policy, actor role and approval evidence bindings.",
       "followup_task": "AIR-015"
     },
@@ -320,7 +320,7 @@
       "runtime": "langgraph",
       "capability": "codecompass_retriever",
       "mode": "live-release-gated",
-      "evidence": "tests/test_workflow_retrieval_contract.py::test_extract_sources_preserves_bound_provenance",
+      "evidence": "tests/workflow/test_workflow_retrieval_contract.py::test_extract_sources_preserves_bound_provenance",
       "gap": "Every request remains tenant/source-allowlist bound; an absent or unknown supplied source identifier fails as unverified.",
       "followup_task": "AIR-023"
     },

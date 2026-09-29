@@ -164,7 +164,7 @@
         "tests/test_control_center_api_contracts.py",
         "tests/test_snakes_chat_api.py",
         "tests/test_visual_process.py",
-        "tests/test_workflow_runtime_test_support.py"
+        "tests/workflow/test_workflow_runtime_test_support.py"
       ]
     }
   ],

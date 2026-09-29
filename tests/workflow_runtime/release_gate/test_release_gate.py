@@ -485,7 +485,7 @@ def test_reference_probes_are_bound_to_release_verification_commands() -> None:
         "tests/test_ws_terminal.py",
         "tests/test_todo_tasks.py",
         "tests/test_control_center_api_contracts.py",
-        "tests/test_workflow_runtime_test_support.py",
+        "tests/workflow/test_workflow_runtime_test_support.py",
     }.issubset(commands["runtime-user-session-security"])
 
 

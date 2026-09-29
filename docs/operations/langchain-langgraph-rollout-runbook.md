@@ -41,7 +41,7 @@ Adapter zu aktivieren). Kein Verhalten ändert sich für
 bestehende Nutzer.
 
 Smoke-Tests laufen ohne Framework-Installation: 15 Tests in
-`tests/test_workflow_lc_lg_smoke.py`, 94 LCG-Tests insgesamt.
+`tests/workflow/test_workflow_lc_lg_smoke.py`, 94 LCG-Tests insgesamt.
 
 ### Phase 1 — Lokales dry-run (Opt-in per Profil)
 
@@ -162,12 +162,12 @@ curl -fsS http://hub:5000/api/workflow_adapters/ | jq '.[] | select(.enabled==tr
 python -m pytest tests/test_workflow_lc_lg_*.py -q
 
 # 4. Examples validieren weiter
-python -m pytest tests/test_workflow_lc_lg_examples.py -q
+python -m pytest tests/workflow/test_workflow_lc_lg_examples.py -q
 
 # 5. Backwards-Compat: pre-LCG Tests laufen
-python -m pytest tests/test_workflow_n8n_provider.py \
-                tests/test_workflow_provider_contract.py \
-                tests/test_workflow_registry.py -q
+python -m pytest tests/workflow/test_workflow_n8n_provider.py \
+                tests/workflow/test_workflow_provider_contract.py \
+                tests/workflow/test_workflow_registry.py -q
 ```
 
 ## Rollback

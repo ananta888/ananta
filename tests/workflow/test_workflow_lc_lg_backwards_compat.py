@@ -21,17 +21,17 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # ── Existing workflow test files still pass ────────────────────────────
 
 
 PRE_LCG_TESTS = [
-    "tests/test_workflow_n8n_provider.py",
-    "tests/test_workflow_provider_contract.py",
-    "tests/test_workflow_descriptor_schema.py",
-    "tests/test_workflow_registry.py",
+    "tests/workflow/test_workflow_n8n_provider.py",
+    "tests/workflow/test_workflow_provider_contract.py",
+    "tests/workflow/test_workflow_descriptor_schema.py",
+    "tests/workflow/test_workflow_registry.py",
 ]
 
 

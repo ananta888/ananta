@@ -245,7 +245,7 @@ def test_production_profile_is_typed_and_unknown_fields_fail_closed(
 ) -> None:
     profile = load_workflow_adapter_worker_profile(
         str(
-            Path(__file__).parents[1]
+            Path(__file__).parents[2]
             / "config/workflow_runtime/langgraph_worker_profile.v1.json"
         )
     )

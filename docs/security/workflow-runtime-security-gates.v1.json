@@ -105,8 +105,8 @@
         "Link provider and tool observations to the canonical run and step correlation identifiers."
       ],
       "tests": [
-        "tests/test_workflow_retrieval_contract.py::test_unknown_source_id_is_rejected_not_rewritten",
-        "tests/test_workflow_retrieval_contract.py::test_missing_source_id_is_rejected_not_synthesized_from_path",
+        "tests/workflow/test_workflow_retrieval_contract.py::test_unknown_source_id_is_rejected_not_rewritten",
+        "tests/workflow/test_workflow_retrieval_contract.py::test_missing_source_id_is_rejected_not_synthesized_from_path",
         "tests/test_tool_calling_pipeline.py::test_unregistered_tool_is_never_reported_as_invoked"
       ]
     },
@@ -167,7 +167,7 @@
       ],
       "tests": [
         "tests/test_workflow_runtime_security_and_evolution.py::test_authorization_tamper_rotation_revocation_and_write_revalidation_fail_closed",
-        "tests/test_workflow_hub_task_gateway_service.py::test_submit_revalidates_encrypts_ledgers_and_enqueues",
+        "tests/workflow/test_workflow_hub_task_gateway_service.py::test_submit_revalidates_encrypts_ledgers_and_enqueues",
         "tests/test_workflow_runtime_operations_api.py::test_cross_tenant_detail_is_not_disclosed_and_invalid_filters_are_rejected",
         "tests/security/workflow_runtime/test_workflow_worker_assignment_service.py::test_langgraph_dispatch_binds_queue_lease_and_rejects_worker_handoff",
         "tests/security/workflow_runtime/test_workflow_worker_assignment_service.py::test_strict_runtime_reloads_hub_selected_worker_from_registry"
@@ -199,8 +199,8 @@
         "Count retries across Temporal, Hub task, worker, tool and provider layers."
       ],
       "tests": [
-        "tests/test_workflow_runtime_commands_components.py::test_commands_are_bound_signed_replay_safe_and_secret_free",
-        "tests/test_workflow_hub_task_gateway_service.py::test_duplicate_submit_is_idempotent_and_does_not_consume_nonce_twice",
+        "tests/workflow/test_workflow_runtime_commands_components.py::test_commands_are_bound_signed_replay_safe_and_secret_free",
+        "tests/workflow/test_workflow_hub_task_gateway_service.py::test_duplicate_submit_is_idempotent_and_does_not_consume_nonce_twice",
         "tests/workflow_runtime/temporal/test_temporal_runtime_test_environment.py::test_direct_signal_race_is_fail_closed_across_ten_repetitions"
       ]
     },
@@ -232,8 +232,8 @@
       "tests": [
         "tests/test_workflow_runtime_security_and_evolution.py::test_state_and_checkpoint_reject_secrets_tamper_cross_run_and_stale_fence",
         "tests/test_workflow_runtime_security_and_evolution.py::test_upcaster_is_deterministic_and_unknown_versions_are_quarantined",
-        "tests/test_workflow_runtime_execution_plan.py::test_execution_plan_rejects_payload_tampered_after_hashing",
-        "tests/test_workflow_runtime_conditions_parallel.py::test_condition_rejects_expression_and_template_paths"
+        "tests/workflow/test_workflow_runtime_execution_plan.py::test_execution_plan_rejects_payload_tampered_after_hashing",
+        "tests/workflow/test_workflow_runtime_conditions_parallel.py::test_condition_rejects_expression_and_template_paths"
       ]
     },
     {
@@ -262,7 +262,7 @@
         "Keep raw Temporal payloads out of canonical read models; retain only protected references."
       ],
       "tests": [
-        "tests/test_workflow_runtime_event_and_checkpoint_stores.py::test_checkpoint_store_is_atomic_revisioned_tenant_bound_and_fenced",
+        "tests/workflow/test_workflow_runtime_event_and_checkpoint_stores.py::test_checkpoint_store_is_atomic_revisioned_tenant_bound_and_fenced",
         "tests/test_temporal_history_projection.py::test_projection_gap_is_fail_closed_and_never_current",
         "tests/test_temporal_history_projection.py::test_projection_page_token_loop_is_inconsistent",
         "tests/test_temporal_history_projection.py::test_projection_rebuild_is_deterministic"
@@ -296,8 +296,8 @@
         "Record read-model staleness and evidence status so the UI cannot infer success."
       ],
       "tests": [
-        "tests/test_workflow_retrieval_contract.py::test_cross_tenant_source_is_rejected",
-        "tests/test_workflow_runtime_telemetry.py::test_telemetry_fails_closed_on_cross_tenant_context",
+        "tests/workflow/test_workflow_retrieval_contract.py::test_cross_tenant_source_is_rejected",
+        "tests/workflow/test_workflow_runtime_telemetry.py::test_telemetry_fails_closed_on_cross_tenant_context",
         "tests/test_temporal_history_projection.py::test_projection_rejects_cross_tenant_read",
         "tests/security/workflow_runtime/test_combined_production_compose.py::test_combined_production_runtime_stack_preserves_one_least_privilege_hub_union"
       ]
@@ -349,8 +349,8 @@
       "tests": [
         "tests/test_workflow_runtime_operations_api.py::test_operations_read_model_filters_degraded_stale_and_never_claims_unverified_success",
         "tests/test_workflow_runtime_operations_api.py::test_runtime_commands_require_bound_verified_evidence_and_approval",
-        "tests/test_workflow_runtime_cli_tui_projection.py::test_cli_operations_reads_hub_projection_and_preserves_unverified_outcome",
-        "tests/test_workflow_runtime_cli_tui_projection.py::test_tui_runtime_operations_uses_authenticated_hub_contract"
+        "tests/workflow/test_workflow_runtime_cli_tui_projection.py::test_cli_operations_reads_hub_projection_and_preserves_unverified_outcome",
+        "tests/workflow/test_workflow_runtime_cli_tui_projection.py::test_tui_runtime_operations_uses_authenticated_hub_contract"
       ]
     },
     {
@@ -377,7 +377,7 @@
       ],
       "tests": [
         "tests/test_workflow_runtime_ownership.py::test_retry_budget_is_combined_and_deduplicated_across_runtime_layers",
-        "tests/test_workflow_runtime_streaming.py::test_stream_maps_canonical_types_redacts_payloads_and_applies_backpressure",
+        "tests/workflow/test_workflow_runtime_streaming.py::test_stream_maps_canonical_types_redacts_payloads_and_applies_backpressure",
         "tests/test_temporal_runtime_contracts.py::test_temporal_retry_profiles_are_finite_and_non_idempotent_is_never_blindly_retried"
       ]
     },
@@ -424,12 +424,12 @@
         "tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py::test_otel_headers_reader_rejects_symlink_without_disclosing_secret",
         "tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py::test_otel_headers_reader_rejects_hardlinked_source",
         "tests/security/workflow_runtime/test_workflow_telemetry_headers_file_security.py::test_otel_headers_reader_rejects_oversized_file_before_json_decode",
-        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_legacy_shared_hmac_without_explicit_dev_flag",
-        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_symlinked_signing_keyring",
-        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_group_or_world_writable_signing_keyring",
-        "tests/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_oversized_signing_keyring",
+        "tests/workflow/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_legacy_shared_hmac_without_explicit_dev_flag",
+        "tests/workflow/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_symlinked_signing_keyring",
+        "tests/workflow/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_group_or_world_writable_signing_keyring",
+        "tests/workflow/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_oversized_signing_keyring",
         "tests/test_native_graph_verify_only_authorization.py::test_worker_public_key_loader_rejects_private_key_fields",
-        "tests/test_workflow_runtime_internal_api.py::test_internal_gateway_rejects_even_admin_user_jwt",
+        "tests/workflow/test_workflow_runtime_internal_api.py::test_internal_gateway_rejects_even_admin_user_jwt",
         "tests/test_langgraph_checkpoint_internal_api.py::test_checkpoint_api_rejects_user_jwt",
         "tests/security/workflow_runtime/test_native_production_compose.py::test_native_hub_and_workers_have_disjoint_least_privilege_secret_matrix",
         "tests/security/workflow_runtime/test_combined_production_compose.py::test_combined_production_runtime_stack_preserves_one_least_privilege_hub_union",
