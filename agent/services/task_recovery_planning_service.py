@@ -3,27 +3,30 @@
 Workers only report ``model_recovery_signal.v1`` facts.  This service is the
 control-plane boundary that may turn those facts into a persisted draft plan,
 request an exact Hub policy decision, and materialize the approved nodes once.
+
+The service is the composition root of the recovery saga. The saga steps
+(``RecoveryApprovalSaga``, ``RecoveryProposal``, ``RecoveryRelease``,
+``RecoveryApprovalDecision``) receive only narrow ports (see
+``task_recovery_ports``) built from this service's constructor providers; the
+pure rules live in ``task_recovery_planning_rules`` and
+``task_recovery_signal_context``. Every historic method name stays available
+as a thin delegator or alias.
 """
 
 from __future__ import annotations
 
 import contextlib
 import hashlib
-import json
 import logging
 import threading
-import time
 from typing import Any, Callable
 
-import agent.services.task_recovery_approval_decision as _task_recovery_approval_decision
-import agent.services.task_recovery_approval_saga as _task_recovery_approval_saga
-import agent.services.task_recovery_proposal as _task_recovery_proposal
-import agent.services.task_recovery_release as _task_recovery_release
 from agent.config import settings
 from agent.services.approval_auto_grant_policy import (  # noqa: F401 - re-exported for approval/run-control callers
     RECOVERY_MATERIALIZE_TOOL,
 )
-from agent.services.recovery_plan_contract import calculate_recovery_plan_digest
+from agent.services.task_recovery_approval_decision import RecoveryApprovalDecision
+from agent.services.task_recovery_approval_saga import RecoveryApprovalSaga
 from agent.services.task_recovery_planning_rules import (  # noqa: F401 - re-exported compatibility names
     _RECOVERY_ACTIONS,
     _TERMINAL_GOAL_STATUSES,
@@ -32,12 +35,35 @@ from agent.services.task_recovery_planning_rules import (  # noqa: F401 - re-exp
     RECOVERY_STATE_SCHEMA,
     _record_recovery_cut,
     _recovery_context_chars,
+    active_plan_for_source,
+    existing_plan,
+    is_terminal,
+    plan_action_configured,
+    plan_digest,
+    record_recovery_audit,
+    reject_plan,
+    stored_team_binding_matches,
+    task_recovery_depth,
+    team_binding_matches,
 )
 from agent.services.task_recovery_planning_values import (
     mapping as _mapping,
 )
 from agent.services.task_recovery_planning_values import (
     sha256_json as _sha256_json,
+)
+from agent.services.task_recovery_ports import RecoveryLocks
+from agent.services.task_recovery_proposal import RecoveryProposal
+from agent.services.task_recovery_release import (
+    DispatchGateChildCanceller,
+    RecoveryChildCanceller,
+    RecoveryRelease,
+    StatusCasChildCanceller,
+    release_epoch,
+)
+from agent.services.task_recovery_signal_context import (
+    compact_recovery_context,
+    summarize_exhaustion_signal,
 )
 
 log = logging.getLogger(__name__)
@@ -305,133 +331,22 @@ class TaskRecoveryPlanningService:
             )
         return task_routing
 
-    @staticmethod
-    def _safe_signal_summary(
-        strategy_failures: list[dict[str, Any]] | None,
-    ) -> dict[str, Any] | None:
-        failure_types: set[str] = set()
-        error_types: set[str] = set()
-        profile_ids: set[str] = set()
-        model_ids: set[str] = set()
-        attempt_count = 0
-        structured_signal_seen = False
-        non_recoverable_terminal_seen = False
-
-        from ananta_contracts.model_recovery import (
-            NON_RECOVERABLE_TERMINAL_REASONS,
-            is_recoverable_model_error_type,
-            sanitize_terminal_model_recovery_signal,
-        )
-
-        for failure in list(strategy_failures or []):
-            if not isinstance(failure, dict):
-                continue
-            failure_type = str(failure.get("failure_type") or "").strip().lower()
-            if failure_type:
-                failure_types.add(failure_type)
-                if failure_type in NON_RECOVERABLE_TERMINAL_REASONS:
-                    non_recoverable_terminal_seen = True
-            model_id = str(failure.get("model") or "").strip()
-            if model_id:
-                model_ids.add(model_id[:160])
-            metadata = failure.get("metadata") if isinstance(failure.get("metadata"), dict) else {}
-            fallback_decisions = failure.get("fallback_decisions")
-            if not isinstance(fallback_decisions, list):
-                fallback_decisions = metadata.get("fallback_decisions")
-            for decision in fallback_decisions if isinstance(fallback_decisions, list) else []:
-                if not isinstance(decision, dict) or not bool(decision.get("terminal")):
-                    continue
-                trigger = str(decision.get("trigger") or "").strip().lower()
-                if not is_recoverable_model_error_type(trigger):
-                    non_recoverable_terminal_seen = True
-            signal = failure.get("model_recovery_signal")
-            if not isinstance(signal, dict):
-                signal = metadata.get("model_recovery_signal")
-            if not isinstance(signal, dict):
-                continue
-            raw_terminal_reason = str(signal.get("terminal_reason") or "").strip().lower()
-            if not is_recoverable_model_error_type(raw_terminal_reason):
-                non_recoverable_terminal_seen = True
-
-            signal = sanitize_terminal_model_recovery_signal(signal)
-            if signal is None:
-                non_recoverable_terminal_seen = True
-                continue
-            structured_signal_seen = True
-            attempt_count += max(0, int(signal.get("attempt_count") or 0))
-            for value in list(signal.get("error_types") or []):
-                normalized = str(value or "").strip().lower()
-                if normalized:
-                    error_types.add(normalized[:80])
-            for value in list(signal.get("failed_profile_ids") or []):
-                normalized = str(value or "").strip()
-                if normalized:
-                    profile_ids.add(normalized[:160])
-            reason_code = str(signal.get("reason_code") or "").strip().lower()
-            if reason_code:
-                failure_types.add(reason_code[:80])
-            terminal_reason = str(signal.get("terminal_reason") or "").strip().lower()
-            if terminal_reason:
-                failure_types.add(terminal_reason[:80])
-
-        if non_recoverable_terminal_seen or not structured_signal_seen:
-            return None
-        return {
-            "schema": RECOVERY_SIGNAL_SCHEMA,
-            "reason_code": "model_or_strategy_exhausted",
-            "terminal": True,
-            "attempt_count": max(attempt_count, len(list(strategy_failures or []))),
-            "failure_types": sorted(failure_types),
-            "error_types": sorted(error_types),
-            "failed_profile_ids": sorted(profile_ids),
-            "failed_models": sorted(model_ids),
-        }
-
-    @staticmethod
-    def _task_recovery_depth(task: Any) -> int:
-        data = _mapping(task)
-        reason = str(data.get("derivation_reason") or "").strip().lower()
-        if reason == "goal_task_recovery":
-            return 1
-        details = _mapping(data.get("status_reason_details"))
-        state = _mapping(details.get("model_recovery"))
-        return max(0, int(state.get("recovery_depth") or 0))
-
-    @staticmethod
-    def _existing_plan(repos: Any, *, goal_id: str, recovery_key: str):
-        for plan in list(repos.plan_repo.get_by_goal_id(goal_id) or []):
-            if str(_mapping(getattr(plan, "rationale", None)).get("recovery_key") or "") == recovery_key:
-                return plan
-        return None
-
-    @staticmethod
-    def _active_plan_for_source(
-        repos: Any,
-        *,
-        goal_id: str,
-        source_task_id: str,
-        exclude_plan_id: str | None = None,
-    ):
-        active_statuses = {
-            "draft",
-            "pending_approval",
-            "approved",
-            "materialized",
-        }
-        for plan in list(repos.plan_repo.get_by_goal_id(goal_id) or []):
-            if exclude_plan_id and str(getattr(plan, "id", "") or "") == str(exclude_plan_id):
-                continue
-            rationale = _mapping(getattr(plan, "rationale", None))
-            if (
-                str(rationale.get("source_task_id") or "") == source_task_id
-                and str(getattr(plan, "status", "") or "").strip().lower() in active_statuses
-            ):
-                return plan
-        return None
-
-    @staticmethod
-    def _plan_digest(plan: Any, nodes: list[Any]) -> str:
-        return calculate_recovery_plan_digest(plan, nodes)
+    # Pure rules live in ``task_recovery_planning_rules`` /
+    # ``task_recovery_signal_context``; the historic private names stay as
+    # aliases for callers and tests.
+    _safe_signal_summary = staticmethod(summarize_exhaustion_signal)
+    _task_recovery_depth = staticmethod(task_recovery_depth)
+    _existing_plan = staticmethod(existing_plan)
+    _active_plan_for_source = staticmethod(active_plan_for_source)
+    _plan_digest = staticmethod(plan_digest)
+    _plan_action_configured = staticmethod(plan_action_configured)
+    _is_terminal = staticmethod(is_terminal)
+    _team_binding_matches = staticmethod(team_binding_matches)
+    _stored_team_binding_matches = staticmethod(stored_team_binding_matches)
+    _reject_plan = staticmethod(reject_plan)
+    _compacted_context = staticmethod(compact_recovery_context)
+    _audit = staticmethod(record_recovery_audit)
+    _release_epoch = staticmethod(release_epoch)
 
     def _policy_binding(self, task: Any) -> tuple[list[str], bool, str]:
         routing = self._model_routing(task)
@@ -448,14 +363,6 @@ class TaskRecoveryPlanningService:
             }
         )
         return actions, approval_required, policy_hash
-
-    @staticmethod
-    def _plan_action_configured(actions: list[str]) -> bool:
-        return bool(
-            {"segment_planning", "propose_task_plan"}.intersection(
-                actions
-            )
-        )
 
     def resolve_recovery_policy(
         self,
@@ -480,118 +387,70 @@ class TaskRecoveryPlanningService:
         """Build a bounded planning/review context without persisting input."""
         return self._compacted_context(task, actions=actions)
 
-    @staticmethod
-    def _is_terminal(record: Any, terminal_statuses: set[str]) -> bool:
-        return str(getattr(record, "status", "") or "").strip().lower() in terminal_statuses
+    # -- Composition of the saga steps -------------------------------------
+    # The service is the composition root. It adapts its constructor
+    # providers (production defaults when omitted) into the narrow ports of
+    # each step. Steps are composed per call from bound methods, so a
+    # replaced compatibility hook on this instance (e.g. a test double of
+    # ``_conditional_update_task``) is the collaborator the steps receive.
 
-    @staticmethod
-    def _team_binding_matches(
-        *,
-        source_task: Any,
-        goal: Any,
-        expected_team_id: str,
-    ) -> bool:
-        normalized_expected = str(expected_team_id or "").strip()
-        return (
-            str(getattr(source_task, "team_id", "") or "").strip()
-            == normalized_expected
-            and str(getattr(goal, "team_id", "") or "").strip()
-            == normalized_expected
+    def _recovery_locks(self) -> RecoveryLocks:
+        return RecoveryLocks(
+            lock_for=self._lock_for,
+            source_mutation_lock=self._source_mutation_lock,
+            distributed_source_lock=self._distributed_source_lock,
+            distributed_recovery_lock=self._distributed_recovery_lock,
+            distributed_task_locks=self._distributed_task_locks,
+            plan_mutation_lock=self._plan_mutation_lock,
         )
 
-    @staticmethod
-    def _stored_team_binding_matches(
-        stored: dict[str, Any],
-        expected_team_id: str,
-    ) -> bool:
-        """Require an explicit persisted binding, including unscoped goals."""
-        return (
-            "team_id" in stored
-            and str(stored.get("team_id") or "").strip()
-            == str(expected_team_id or "").strip()
+    def _child_canceller(self) -> RecoveryChildCanceller:
+        if self._task_status_updater is None:
+            return DispatchGateChildCanceller()
+        return StatusCasChildCanceller(self._conditional_update_task)
+
+    def _approval_saga(self) -> RecoveryApprovalSaga:
+        return RecoveryApprovalSaga(
+            locks=self._recovery_locks(),
+            conditional_update=self._conditional_update_task,
+            approval_service=self._approval_service,
         )
 
-    @staticmethod
-    def _reject_plan(
-        repos: Any,
-        plan: Any,
-        *,
-        reason_code: str,
-    ) -> None:
-        plan.status = "rejected"
-        plan.rationale = {
-            **_mapping(getattr(plan, "rationale", None)),
-            "approval_state": "stopped",
-            "recovery_stop_reason": str(reason_code)[:160],
-        }
-        plan.updated_at = time.time()
-        repos.plan_repo.save(plan)
-
-    @staticmethod
-    def _compacted_context(task: Any, *, actions: list[str]) -> tuple[str, dict[str, Any]]:
-        data = _mapping(task)
-        title = str(data.get("title") or "").strip()
-        description = str(data.get("description") or "").strip()
-        execution_context = _mapping(data.get("worker_execution_context"))
-        context_data = _mapping(execution_context.get("context"))
-        context_text = str(context_data.get("context_text") or "")
-        if "compact_context" not in actions:
-            bounded = "\n".join(value for value in (title, description, context_text) if value)
-            limit = _recovery_context_chars()
-            _record_recovery_cut("recovery.context", bounded, limit)
-            return bounded[:limit], {
-                "status": "bounded_without_compactor",
-                "input_chars": len(title) + len(description) + len(context_text),
-                "output_chars": min(limit, len(bounded)),
-            }
-
-        from agent.services.planning_context_compactor_service import (
-            get_planning_context_compactor_service,
+    def _release_step(self) -> RecoveryRelease:
+        return RecoveryRelease(
+            locks=self._recovery_locks(),
+            conditional_update=self._conditional_update_task,
+            child_canceller=self._child_canceller(),
         )
-        from agent.services.propose_policy import ProposePolicy
 
-        compacted = get_planning_context_compactor_service().compact(
-            goal_text=title or description or "Recover delegated task",
-            context_text="\n".join(value for value in (description, context_text) if value),
-            mode="generic",
-            mode_data={"recovery": True, "segment_planning": "segment_planning" in actions},
-            planning_policy={},
-            llm_config={},
-            policy=ProposePolicy(
-                context_compaction_enabled=False,
-                context_compaction_required=False,
-                context_compactor_max_output_chars=_recovery_context_chars(),
-                context_compactor_retry_attempts=0,
-                context_compactor_fail_open=True,
-            ),
+    def _proposal_step(self) -> RecoveryProposal:
+        return RecoveryProposal(
+            locks=self._recovery_locks(),
+            saga=self._approval_saga(),
+            role=self._role_provider,
+            repositories=self._repos,
+            planner=self._planner,
+            approval_service=self._approval_service,
+            policy_binding=self._policy_binding,
+            audit=self._audit,
         )
-        payload = dict(compacted.payload or {})
-        payload.pop("compactor_meta", None)
-        compact_json = json.dumps(payload, ensure_ascii=False)
-        _record_recovery_cut("recovery.context", compact_json, _recovery_context_chars())
-        return compact_json[:_recovery_context_chars()], {
-            key: value
-            for key, value in dict(compacted.meta or {}).items()
-            if key
-            in {
-                "input_chars",
-                "output_chars",
-                "reduction_ratio",
-                "truncated_fields",
-                "status",
-                "error_classification",
-                "fallback_stage",
-            }
-        }
 
-    @staticmethod
-    def _audit(action: str, details: dict[str, Any]) -> None:
-        try:
-            from agent.common.audit import log_audit
+    def _approval_decision_step(self) -> RecoveryApprovalDecision:
+        return RecoveryApprovalDecision(
+            locks=self._recovery_locks(),
+            conditional_update=self._conditional_update_task,
+            saga=self._approval_saga(),
+            release=self._release_step(),
+            role=self._role_provider,
+            repositories=self._repos,
+            approval_service=self._approval_service,
+            planner=self._planner,
+            planning_service=self._planning_service,
+            policy_binding=self._policy_binding,
+            audit=self._audit,
+        )
 
-            log_audit(action, details)
-        except Exception:
-            log.debug("task recovery audit failed", exc_info=True)
+    # -- Compatibility delegators -------------------------------------------
 
     def _request_materialization_approval(
         self,
@@ -605,8 +464,8 @@ class TaskRecoveryPlanningService:
         policy_hash: str,
         team_id: str,
     ) -> tuple[Any, str]:
-        return _task_recovery_approval_saga.request_materialization_approval(
-            self, repos=repos, plan=plan, nodes=nodes, goal_id=goal_id, source_task_id=source_task_id,
+        return self._approval_saga().request_materialization_approval(
+            repos=repos, plan=plan, nodes=nodes, goal_id=goal_id, source_task_id=source_task_id,
             recovery_key=recovery_key, policy_hash=policy_hash, team_id=team_id,
         )
 
@@ -620,8 +479,8 @@ class TaskRecoveryPlanningService:
         node_count: int,
         team_id: str,
     ) -> bool:
-        return _task_recovery_approval_saga.mark_source_waiting_for_approval(
-            self, source_task=source_task, plan_id=plan_id, approval_request_id=approval_request_id,
+        return self._approval_saga().mark_source_waiting_for_approval(
+            source_task=source_task, plan_id=plan_id, approval_request_id=approval_request_id,
             recovery_key=recovery_key, node_count=node_count, team_id=team_id,
         )
 
@@ -639,8 +498,8 @@ class TaskRecoveryPlanningService:
         refreshed_approval_id: str,
         refreshed_digest: str,
     ) -> dict[str, Any]:
-        return _task_recovery_approval_saga.complete_approval_refresh_saga(
-            self, repos=repos, plan_id=plan_id, goal_id=goal_id, source_task_id=source_task_id,
+        return self._approval_saga().complete_approval_refresh_saga(
+            repos=repos, plan_id=plan_id, goal_id=goal_id, source_task_id=source_task_id,
             recovery_key=recovery_key, team_id=team_id, node_count=node_count,
             stale_approval_id=stale_approval_id, refreshed_approval_id=refreshed_approval_id,
             refreshed_digest=refreshed_digest,
@@ -658,8 +517,8 @@ class TaskRecoveryPlanningService:
         team_id: str,
         stale_approval_id: str,
     ) -> dict[str, Any]:
-        return _task_recovery_approval_saga.refresh_stale_plan_approval(
-            self, repos=repos, plan_id=plan_id, goal_id=goal_id, source_task_id=source_task_id,
+        return self._approval_saga().refresh_stale_plan_approval(
+            repos=repos, plan_id=plan_id, goal_id=goal_id, source_task_id=source_task_id,
             recovery_key=recovery_key, policy_hash=policy_hash, team_id=team_id,
             stale_approval_id=stale_approval_id,
         )
@@ -677,8 +536,8 @@ class TaskRecoveryPlanningService:
         policy_hash: str,
         team_id: str,
     ) -> dict[str, Any]:
-        return _task_recovery_proposal.resume_existing_plan_saga(
-            self, repos=repos, plan=plan, source_task=source_task, goal=goal, goal_id=goal_id,
+        return self._proposal_step().resume_existing_plan_saga(
+            repos=repos, plan=plan, source_task=source_task, goal=goal, goal_id=goal_id,
             source_task_id=source_task_id, recovery_key=recovery_key, policy_hash=policy_hash,
             team_id=team_id,
         )
@@ -692,21 +551,9 @@ class TaskRecoveryPlanningService:
         release_epoch: str | None = None,
         release_details: dict[str, Any] | None = None,
     ) -> bool:
-        return _task_recovery_release.save_release_state(
-            self, repos=repos, plan_id=plan_id, state=state, release_epoch=release_epoch,
+        return self._release_step().save_release_state(
+            repos=repos, plan_id=plan_id, state=state, release_epoch=release_epoch,
             release_details=release_details,
-        )
-
-    @staticmethod
-    def _release_epoch(
-        *,
-        plan_id: str,
-        approval_id: str,
-        recovery_key: str,
-        team_id: str,
-    ) -> str:
-        return _task_recovery_release.release_epoch(
-            plan_id=plan_id, approval_id=approval_id, recovery_key=recovery_key, team_id=team_id,
         )
 
     def _cancel_recovery_children(
@@ -716,8 +563,8 @@ class TaskRecoveryPlanningService:
         plan_id: str,
         source_task_id: str,
     ) -> None:
-        return _task_recovery_release.cancel_recovery_children(
-            self, created_task_ids=created_task_ids, plan_id=plan_id, source_task_id=source_task_id,
+        return self._release_step().cancel_recovery_children(
+            created_task_ids=created_task_ids, plan_id=plan_id, source_task_id=source_task_id,
         )
 
     def _release_materialized_recovery(
@@ -733,8 +580,8 @@ class TaskRecoveryPlanningService:
         team_id: str,
         created_task_ids: list[str],
     ) -> dict[str, Any]:
-        return _task_recovery_release.release_materialized_recovery(
-            self, repos=repos, plan=plan, nodes=nodes, source_task_id=source_task_id, goal_id=goal_id,
+        return self._release_step().release_materialized_recovery(
+            repos=repos, plan=plan, nodes=nodes, source_task_id=source_task_id, goal_id=goal_id,
             approval_id=approval_id, recovery_key=recovery_key, team_id=team_id,
             created_task_ids=created_task_ids,
         )
@@ -746,13 +593,13 @@ class TaskRecoveryPlanningService:
         strategy_failures: list[dict[str, Any]] | None,
     ) -> dict[str, Any]:
         """Persist one approval-gated draft for an eligible exhausted task."""
-        return _task_recovery_proposal.propose_after_model_exhaustion(
-            self, task=task, strategy_failures=strategy_failures,
+        return self._proposal_step().propose_after_model_exhaustion(
+            task=task, strategy_failures=strategy_failures,
         )
 
     def handle_approval_decision(self, approval: Any) -> dict[str, Any]:
         """Apply a recovery approval decision; no other approval tool is handled."""
-        return _task_recovery_approval_decision.handle_approval_decision(self, approval)
+        return self._approval_decision_step().handle_approval_decision(approval)
 
 
 _service = TaskRecoveryPlanningService()

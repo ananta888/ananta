@@ -4207,21 +4207,27 @@ def test_stale_digest_refresh_retries_source_cas_without_duplicate(
     )
     stale = approvals.created[0]
     stale.status = "granted"
-    original_mark = service._mark_source_waiting_for_approval
+    original_update = service._conditional_update_task
     fail_once = {"active": True}
 
-    def fail_refresh_source_once(**values):
+    # The saga parks the source through the task CAS port; failing that
+    # transition for the refreshed approval is exactly a failed source rebind.
+    def fail_refresh_source_once(task_id, status, **values):
         if (
             fail_once["active"]
-            and values["approval_request_id"] == "approval-2"
+            and status == "waiting_for_review"
+            and dict(values.get("event_details") or {}).get(
+                "approval_request_id"
+            )
+            == "approval-2"
         ):
             fail_once["active"] = False
             return False
-        return original_mark(**values)
+        return original_update(task_id, status, **values)
 
     monkeypatch.setattr(
         service,
-        "_mark_source_waiting_for_approval",
+        "_conditional_update_task",
         fail_refresh_source_once,
     )
     first = service.handle_approval_decision(stale)
