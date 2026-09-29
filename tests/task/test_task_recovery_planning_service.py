@@ -658,11 +658,7 @@ def test_recovery_materialization_decision_api_requires_admin(
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    service = ApprovalRequestService()
-    monkeypatch.setattr(
-        "agent.services.approval_request_service._engine",
-        lambda: engine,
-    )
+    service = ApprovalRequestService(engine_factory=lambda: engine)
     monkeypatch.setattr(
         "agent.routes.approvals.get_approval_request_service",
         lambda: service,
@@ -713,11 +709,7 @@ def test_granted_recovery_action_is_reconciled_after_dispatch_interruption(
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    service = ApprovalRequestService()
-    monkeypatch.setattr(
-        "agent.services.approval_request_service._engine",
-        lambda: engine,
-    )
+    service = ApprovalRequestService(engine_factory=lambda: engine)
     approval = service.create_pending_request(
         task_id="task-reconcile",
         goal_id="goal-reconcile",
@@ -1342,11 +1334,7 @@ def test_recovery_grant_expiry_cannot_overwrite_consumed(
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    service = ApprovalRequestService()
-    monkeypatch.setattr(
-        "agent.services.approval_request_service._engine",
-        lambda: engine,
-    )
+    service = ApprovalRequestService(engine_factory=lambda: engine)
     monkeypatch.setattr(service, "_audit", lambda *_args, **_kwargs: None)
     approval = service.create_pending_request(
         task_id="task-cas",
@@ -1379,11 +1367,7 @@ def test_denied_recovery_action_is_reconciled_after_dispatch_crash(
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    service = ApprovalRequestService()
-    monkeypatch.setattr(
-        "agent.services.approval_request_service._engine",
-        lambda: engine,
-    )
+    service = ApprovalRequestService(engine_factory=lambda: engine)
     monkeypatch.setattr(service, "_audit", lambda *_args, **_kwargs: None)
     approval = service.create_pending_request(
         task_id="task-denied",

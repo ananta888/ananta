@@ -20,7 +20,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import Any
 
@@ -163,8 +163,13 @@ class ApprovalRequestService:
         self,
         *,
         auto_grant_policy: ApprovalAutoGrantPolicy | None = None,
+        engine_factory: Callable[[], Any] | None = None,
     ) -> None:
         self._auto_grant_policy = auto_grant_policy or ApprovalAutoGrantPolicy()
+        self._engine_factory = engine_factory  # None: the hub database, resolved at call time
+
+    def _db(self):
+        return self._engine_factory() if self._engine_factory is not None else _engine()
 
     # --- payload store (ALWA-DD-007) -----------------------------------------
 
@@ -294,7 +299,7 @@ class ApprovalRequestService:
         for forbidden in ("prompt", "raw_messages", "raw_response", "content", "unified_diff", "file_content"):
             clean_scope.pop(forbidden, None)
 
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             normalized_intent = str(approval_intent_key or "").strip().lower() or None
             if normalized_intent is not None and (
                 len(normalized_intent) != 64 or any(char not in "0123456789abcdef" for char in normalized_intent)
@@ -381,7 +386,7 @@ class ApprovalRequestService:
         return request
 
     def get_request(self, request_id: str) -> ApprovalRequestDB | None:
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             return session.get(ApprovalRequestDB, str(request_id or ""))
 
     def list_requests(
@@ -401,7 +406,7 @@ class ApprovalRequestService:
         before_id: str | None = None,
         limit: int = 200,
     ) -> list[ApprovalRequestDB]:
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             statement = select(ApprovalRequestDB).order_by(
                 ApprovalRequestDB.created_at.desc(),  # type: ignore[attr-defined]
                 ApprovalRequestDB.id.desc(),  # type: ignore[attr-defined]
@@ -535,7 +540,7 @@ class ApprovalRequestService:
         decision_value = str(decision or "").strip().lower()
         if decision_value not in {"granted", "denied"}:
             raise ApprovalDecisionError("invalid_decision", 400)
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             request = session.get(ApprovalRequestDB, str(request_id or ""))
             if request is None:
                 raise ApprovalDecisionError("request_not_found", 404)
@@ -681,7 +686,7 @@ class ApprovalRequestService:
         restore_pending: bool,
     ) -> ApprovalRequestDB | None:
         """Persist a bounded handler result and keep failed actions retryable."""
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             request = session.get(ApprovalRequestDB, str(request_id or ""))
             if request is None:
                 return None
@@ -850,7 +855,7 @@ class ApprovalRequestService:
         canonical, _, _ = canonicalize_tool_call(tool_name, arguments)
         digest = compute_arguments_digest(tool_name, canonical, target_fingerprint)
         now = time.time()
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             rows = session.exec(
                 select(ApprovalRequestDB)
                 .where(ApprovalRequestDB.tool_name == str(tool_name or "").strip())
@@ -879,7 +884,7 @@ class ApprovalRequestService:
         if not goal_id:
             return None
         now = time.time()
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             rows = session.exec(
                 select(ApprovalRequestDB)
                 .where(ApprovalRequestDB.goal_id == str(goal_id))
@@ -895,7 +900,7 @@ class ApprovalRequestService:
         return None
 
     def consume_request(self, request_id: str) -> ApprovalRequestDB | None:
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             request = session.get(ApprovalRequestDB, str(request_id or ""))
             if request is None:
                 return None
@@ -1123,7 +1128,7 @@ class ApprovalRequestService:
     def expire_old_requests(self) -> int:
         now = time.time()
         expired_rows: list[ApprovalRequestDB] = []
-        with Session(_engine()) as session:
+        with Session(self._db()) as session:
             rows = session.exec(
                 select(ApprovalRequestDB).where(ApprovalRequestDB.status.in_(("pending", "granted")))  # type: ignore[attr-defined]
             ).all()
@@ -1189,7 +1194,7 @@ class ApprovalRequestService:
                 decided_by="goal_pre_approval_policy",
                 decision_reason="goal_level_pre_approval",
             )
-            with Session(_engine()) as session:
+            with Session(self._db()) as session:
                 session.add(request)
                 session.commit()
                 session.refresh(request)

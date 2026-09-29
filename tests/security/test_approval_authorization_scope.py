@@ -214,10 +214,6 @@ def test_tenant_scoped_list_excludes_tenantless_legacy_rows(monkeypatch) -> None
         connect_args={"check_same_thread": False},
     )
     SQLModel.metadata.create_all(engine)
-    monkeypatch.setattr(
-        "agent.services.approval_request_service._engine",
-        lambda: engine,
-    )
     with Session(engine) as session:
         session.add(
             ApprovalRequestDB(
@@ -236,7 +232,7 @@ def test_tenant_scoped_list_excludes_tenantless_legacy_rows(monkeypatch) -> None
         )
         session.commit()
 
-    rows = ApprovalRequestService().list_requests(
+    rows = ApprovalRequestService(engine_factory=lambda: engine).list_requests(
         tenant_id="tenant-a",
         organization_ids=(),
         scope_is_admin=True,
