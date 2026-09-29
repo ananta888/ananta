@@ -120,16 +120,16 @@ This overlay is optional and not required for normal Ananta startup.
 
 ```bash
 # Core adapter behavior (32 tests)
-python -m pytest tests/test_hermes_worker_adapter_track.py -q
+python -m pytest tests/hermes/test_hermes_worker_adapter_track.py -q
 
 # Security regressions: no-network/no-file side effects + cloud×sensitive matrix (18 tests)
-python -m pytest tests/test_hermes_adapter_security.py -q
+python -m pytest tests/hermes/test_hermes_adapter_security.py -q
 
 # Output schema validation per mode (17 tests)
-python -m pytest tests/test_hermes_parser.py -q
+python -m pytest tests/hermes/test_hermes_parser.py -q
 
 # All Hermes-related tests
-python -m pytest tests/test_hermes_worker_adapter_track.py tests/test_hermes_adapter_security.py tests/test_hermes_parser.py -q
+python -m pytest tests/hermes/test_hermes_worker_adapter_track.py tests/hermes/test_hermes_adapter_security.py tests/hermes/test_hermes_parser.py -q
 ```
 
 Expected: 67 passed, 0 failed, no network calls made during tests.

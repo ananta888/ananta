@@ -760,8 +760,8 @@
       "summary": "Hermes Free-Model Scenario ist in der Scenario-Struktur verankert und wird über Tests gegen Routing-/Read-only-Verträge geprüft.",
       "files": [
         "scripts/scenarios/hermes_free_models_small_task.json",
-        "tests/test_hermes_free_models_scenario.py",
-        "tests/test_hermes_opencode_small_project_flow.py"
+        "tests/hermes/test_hermes_free_models_scenario.py",
+        "tests/hermes/test_hermes_opencode_small_project_flow.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: Scenario liegt unter scripts/scenarios/hermes_free_models_small_task.json; Testreferenzen wurden auf den Scenario-Pfad umgestellt.",
       "source_origin": [
@@ -786,11 +786,11 @@
       "milestone": "M5",
       "summary": "Das Hermes-Szenario soll beweisen, dass plan_only/review/patch_propose bei Hermes read-only bleiben und coding/ops/testing nicht dorthin gehen.",
       "files": [
-        "tests/test_hermes_read_only_routing.py",
+        "tests/hermes/test_hermes_read_only_routing.py",
         "agent/services/config_profile_service.py",
         "agent/services/task_scoped_execution_service.py"
       ],
-      "code_state_after_review": "DONE_IN_CODE: dedizierter Hermes Read-only Routing Regressionstest ergänzt (tests/test_hermes_read_only_routing.py).",
+      "code_state_after_review": "DONE_IN_CODE: dedizierter Hermes Read-only Routing Regressionstest ergänzt (tests/hermes/test_hermes_read_only_routing.py).",
       "source_origin": [
         "single_hermes_free_models_scenario.json",
         "todo.latest-commits-improvements.json"

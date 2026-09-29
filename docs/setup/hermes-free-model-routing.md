@@ -65,11 +65,11 @@ Example:
 Offline:
 
 ```bash
-pytest -q tests/test_hermes_model_selection_service.py tests/test_hermes_free_models_scenario.py tests/test_hermes_free_model_routing.py tests/test_hermes_free_models_read_only.py tests/test_hermes_opencode_small_project_flow.py
+pytest -q tests/hermes/test_hermes_model_selection_service.py tests/hermes/test_hermes_free_models_scenario.py tests/hermes/test_hermes_free_model_routing.py tests/hermes/test_hermes_free_models_read_only.py tests/hermes/test_hermes_opencode_small_project_flow.py
 ```
 
 Live smoke (optional):
 
 ```bash
-pytest -q tests/test_hermes_free_models_live_smoke.py
+pytest -q tests/hermes/test_hermes_free_models_live_smoke.py
 ```

@@ -8,13 +8,13 @@
 ## Required Validation Before Enablement
 
 1. Unit tests:
-`tests/test_hermes_worker_adapter_track.py`
+`tests/hermes/test_hermes_worker_adapter_track.py`
 2. Security regression:
 `tests/test_security_regression.py`
 3. Mocked end-to-end flow:
-`tests/test_hermes_plan_only_e2e.py`
+`tests/hermes/test_hermes_plan_only_e2e.py`
 4. Optional live smoke when endpoint is available:
-`tests/test_hermes_live_smoke.py`
+`tests/hermes/test_hermes_live_smoke.py`
 
 ## Rollback
 
