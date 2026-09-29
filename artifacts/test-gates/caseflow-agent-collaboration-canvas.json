@@ -9,7 +9,7 @@
   "source_manifest": [
     {
       "path": "agent/routes/visual_process.py",
-      "sha256": "f76dd9e9863fcb03cb0fa865d30e28d1e51993cd001d1410efaf52fdd17a7761"
+      "sha256": "5a8f4c72f047abb322ef17aac9471238cb53ac389503ea96d11a8dd6390078ed"
     },
     {
       "path": "agent/routes/workflow_control_security.py",
@@ -25,19 +25,19 @@
     },
     {
       "path": "agent/services/native_graph_task_queue_adapter.py",
-      "sha256": "294f92db3ab027eeacf4f10ece174dc7cf2d2bfafa7d31c02273c7498dea6da3"
+      "sha256": "aeb0f86fe66756457105289d4beedb4c379ba84e05d3997b3acc841e0927f3a5"
     },
     {
       "path": "agent/services/native_graph_control_bridge.py",
-      "sha256": "c68517237584cd9d513500bd63471009a1f77cd3e68725e15c64bcb4fa58f511"
+      "sha256": "ce9b835f1a7bb28967aa36c2097cc84bf0a56c269b869df1fb17cb97f4065eb6"
     },
     {
       "path": "agent/services/native_graph_models.py",
-      "sha256": "de1957869a5fabfa53e7ac54bc6e8836a130af4eb5508eff4e2b04b9ab951919"
+      "sha256": "eef962cf96fca2a214599bc12dce80dc34e6f509bee242a8e79c5c75e7097452"
     },
     {
       "path": "agent/services/native_graph_orchestration_service.py",
-      "sha256": "e7d9395166a0b010c63f00b8c48f3640214f54216db65b5aa433d5166bc6376b"
+      "sha256": "0ca6bbbe1e19c1d277cc4f2a44647d7b54b0e8f69692cf8edaef72b6a6e28ed0"
     },
     {
       "path": "agent/services/langgraph_workflow_control_bridge.py",
@@ -57,11 +57,11 @@
     },
     {
       "path": "agent/services/workflow_control_bindings.py",
-      "sha256": "87d915f53dbdb74281e15401d42be1b4f286c65c20288467516eb721f111b35a"
+      "sha256": "b1a9f432016f0e7c71b6136c3b7c536b0fc72e6977b68040cb682c49fa802682"
     },
     {
       "path": "agent/services/workflow_control_composition.py",
-      "sha256": "f159eabea673ba8155906f68efb1085079f158a783fbb14f51cdb1339f4b564d"
+      "sha256": "5eb8c2a05804e80c24e9c6577d2e022aa331795aaf1341d863a99d75bcd69491"
     },
     {
       "path": "agent/services/workflow_control_command_verification.py",
@@ -69,7 +69,7 @@
     },
     {
       "path": "agent/services/workflow_control_command_receipts.py",
-      "sha256": "155359500430794e0750bf5e0bcf70c8383c367229ea8bed1fe7a8b392a11de4"
+      "sha256": "1140afbd871053347396c83d2531c5e925e5897a82197b5e5b912a21fbd59b6f"
     },
     {
       "path": "agent/services/workflow_control_command_receipt_persistence.py",
@@ -85,7 +85,7 @@
     },
     {
       "path": "agent/services/workflow_control_dispatch_service.py",
-      "sha256": "897f1db773ee0769345c906c30c46b9caf053e02d942b9c3c09bc148f82415e7"
+      "sha256": "dbff419d0f2944fe5ae5221e9d26fd7091000a1ca23edb3af17c2db297fdefc5"
     },
     {
       "path": "agent/services/workflow_control_persistence.py",
@@ -93,7 +93,7 @@
     },
     {
       "path": "agent/services/workflow_control_production_composition.py",
-      "sha256": "b266cc97cbf4f1b665257ac003f3d46ad0d2d8b4f0517d1603832e8d26e971b4"
+      "sha256": "abfd7b0d77aba14dbfc8fe06f95a76f671c287bf4db68a8006c77779e9072846"
     },
     {
       "path": "agent/services/workflow_control_runtime_registry_composition.py",
@@ -101,15 +101,15 @@
     },
     {
       "path": "agent/services/workflow_control_service.py",
-      "sha256": "aa5a53ff324649cfe5be8e1bd3ec4944e3b66c0d0635c8f5422cb4847c8bfc5b"
+      "sha256": "92c663feea2d5d29cc78439a871207b5ec35e96e936ea4d3f0a21fb7167d0f4d"
     },
     {
       "path": "agent/services/workflow_runtime_status_projection.py",
-      "sha256": "4f549401131ee409bbe142a77260109df0d325bcba82cc0d052efc5c362f97ba"
+      "sha256": "c07db0e0cd4e7ac9b3b0dfc2f64dde9a2b738c578f620110577a1c99192cc35c"
     },
     {
       "path": "agent/services/workflow_runtime/commands.py",
-      "sha256": "859fe71010c9c95bdfc60c25a5f1a63020d67ce0a4d54e971c1add33d244b688"
+      "sha256": "804ee95360ee9c8edd4c2785e3f67bd895319318ea123a98a957be96dcb5c744"
     },
     {
       "path": "agent/services/workflow_runtime/ports.py",
@@ -117,7 +117,7 @@
     },
     {
       "path": "agent/services/workflow_runtime_bridge_registry.py",
-      "sha256": "e89e6bb355ba889a3803e2a8924f11b185532334c90c1acd2f40263e5fddb8de"
+      "sha256": "944994a84a8e4db663ee7cb0fcb152d56c60aba0557c0555b0cf41c6ae17aa76"
     },
     {
       "path": "agent/visual_process/definition_snapshot_contract.py",
@@ -125,7 +125,7 @@
     },
     {
       "path": "agent/visual_process/blueprint_mapper.py",
-      "sha256": "a44a9921382d1813d218d84806cace8c54608f262ea5a57aa6f67c58ec421ae4"
+      "sha256": "e22d49dd70f4781ee810ac750d7430fa542e541892e6e8b0087691303d78404b"
     },
     {
       "path": "worker/temporal/workflows.py",
@@ -137,7 +137,7 @@
     },
     {
       "path": "agent/db_models/__init__.py",
-      "sha256": "7eacca344646eafcad978261b43a2fda3ab731ec2b2c354eef1b2c7d460d4dac"
+      "sha256": "35b52e7dbc894bd4954bf7d5c8454ab9a4819b5f76731049e820184b8a378d48"
     },
     {
       "path": "migrations/versions/c7e9a1b3d5f7_add_workflow_command_observation_pending.py",
@@ -149,11 +149,11 @@
     },
     {
       "path": "frontend-angular/tests/caseflow-agent-collaboration.spec.ts",
-      "sha256": "d70347a28306bdf298c7ccb33c9cbf4caa548a2dbc64f6315fc9f7579db9db1c"
+      "sha256": "efb0ec68869ad86e96a04d1950ce796ff1243b983735f3ed3df58070460b0e74"
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.ts",
-      "sha256": "1d7ccf5041ee6f253fc47bce13ed8e920a37d9ad0fde24425673b06edf45a1a6"
+      "sha256": "21dbc5866596f6c9edd355c81dbeb2c2eb6f33853b3d795978b7f4fe65105159"
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.mapper.ts",
@@ -169,7 +169,7 @@
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.scss",
-      "sha256": "61953d7693eb7d46fd15599b06c2255acabe6c3f40cfc7b20e82d2abc3ff2c06"
+      "sha256": "d64cec91b00ece63a3ce97ce023e7499c422c09d050747698000392f2f2b30ed"
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-inspector.component.scss",
@@ -277,7 +277,7 @@
     },
     {
       "path": "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
-      "sha256": "2d8357f3d205bc7c266eb59e45e80aa74ba6f8a91f594fa81cbc2eaa2a1a75ec"
+      "sha256": "adfc55bca5b7d2c0930c8fc105567d9a48b4c52f8fe1799693c3d992a5c58f34"
     },
     {
       "path": "schemas/testing/caseflow_agent_collaboration_gate.v1.json",
@@ -285,11 +285,11 @@
     },
     {
       "path": "scripts/run_caseflow_agent_collaboration_gate.py",
-      "sha256": "b95d0e2bfd905356d96054a237c361daa72834408446320860f4b4d2da0a72a3"
+      "sha256": "a2acace50eadb73210ac13b062b02b19fbbf6e4d273bfce539b1df29a021752e"
     },
     {
       "path": "tests/services/test_caseflow_agent_collaboration_trace_projection_service.py",
-      "sha256": "c9fad96224418a2c1d6d0d9777062d52c6ef1ff0eebdb2a8baef89430ad4fb9b"
+      "sha256": "f2c674b4d228e5e8db9c6abb4fae6babfaf6a425f6df9fab55b5db560d5cc24e"
     },
     {
       "path": "tests/test_caseflow_agent_collaboration_trace_api.py",
@@ -337,11 +337,11 @@
     },
     {
       "path": "tests/test_temporal_runtime_contracts.py",
-      "sha256": "ce11147baa11da0cf81fabdd918aba5a2b01300016a4d92007ff17d135c6aa03"
+      "sha256": "2d63f37dec023a634401eafe58e368ed17d9331e866e040033b8b7b8167271fa"
     },
     {
       "path": "tests/test_visual_process_bpmn_workflow.py",
-      "sha256": "98c445d7a6fba833e1e999bb38860f95783dca3eb52b25bc2f7b95aa1782c322"
+      "sha256": "140c0859ed527146a10b79acee7d6e282fb729f40c1ff99f5f623f8b1cb2b9af"
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-binding-catalog.service.spec.ts",
@@ -361,7 +361,7 @@
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.spec.ts",
-      "sha256": "7be880bf3d8d0a3745ee74666d82861c07168daacfe2a4163cd335918844f487"
+      "sha256": "2012e69ba2c0e280206a5835cd149f855e60f6ba6aebaa46624b8d73ec8a3861"
     },
     {
       "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-inspector.component.spec.ts",
@@ -452,7 +452,7 @@
       "sha256": "52eeac1e9d382f31784056e63f85f08401e7d380c372490f3608940f18dc6baf"
     }
   ],
-  "source_manifest_sha256": "c0f4f530dc404d447a89940d1c115ec93b0dfe2a4390bf2cdbf98a96b9d715ca",
+  "source_manifest_sha256": "ddd1b75bf242b6dc00b16cb0d467c43426e949c5930b80f06026da44f7ba8110",
   "status": "passed",
   "test_outputs": [
     {

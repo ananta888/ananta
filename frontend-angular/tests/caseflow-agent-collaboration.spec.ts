@@ -261,7 +261,12 @@ test('Studio menu keeps one Hub graph draft and its authorized runtime projectio
     || (item.method === 'PUT' && item.path === `/api/visual-process/v2/graphs/${GRAPH_ID}`));
   expect(graphLoads).toHaveLength(1);
   expect([...graphLoads, ...runtimeReads].every(item => item.authorized)).toBe(true);
-  expect(runtimeReads).toHaveLength(2);
+  // The runtime session polls status and edge trace every 3 s, so their count depends on how long the run
+  // took (a loaded parallel run polls again); each must have been read, and never unauthorized.
+  const statusReads = runtimeReads.filter(item => item.path.endsWith('/status'));
+  const traceReads = runtimeReads.filter(item => item.path.endsWith('/caseflow-edge-trace'));
+  expect(statusReads.length).toBeGreaterThanOrEqual(1);
+  expect(traceReads.length).toBeGreaterThanOrEqual(1);
   expect(graphWrites).toHaveLength(0);
   await expect(graphSelect).toHaveValue(GRAPH_ID);
 });

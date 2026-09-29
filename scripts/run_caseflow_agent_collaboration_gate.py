@@ -621,7 +621,6 @@ def gate_commands(
                 "--reporter=json",
                 f"--outputFile={vitest_json}",
                 "--maxWorkers=1",
-                "--minWorkers=1",
                 "--fileParallelism=false",
             ],
             FRONTEND,
