@@ -749,7 +749,7 @@
       "files": [
         "agent/services/task_completion_service.py",
         "agent/services/task_management_service.py",
-        "tests/test_artifact_first_completion_policy.py"
+        "tests/artifact/test_artifact_first_completion_policy.py"
       ],
       "acceptance_criteria": [
         "completed ohne Artifact-Evidenz wird blockiert",
@@ -881,7 +881,7 @@
       "acceptance_status": "largely_met",
       "summary": "Artifact-first Pfade und Verification-Gates sind im Code und durch Artifact/verification-Tests abgedeckt.",
       "evidence": [
-        "tests/test_artifact_first_verification.py:1"
+        "tests/artifact/test_artifact_first_verification.py:1"
       ]
     },
     {

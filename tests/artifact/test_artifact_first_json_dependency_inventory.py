@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 AGENT_SERVICES = REPO_ROOT / "agent" / "services"
 
 # Files where json.loads on model chat is acceptable (Hub-built contracts, schemas, etc.)

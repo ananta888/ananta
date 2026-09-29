@@ -34,7 +34,7 @@ tests/test_approval_binding.py
 tests/test_approval_policy_service.py
 tests/test_architecture_agents_compliance.py
 tests/test_artifact_provenance_hashes.py
-tests/test_artifact_type_registry.py
+tests/artifact/test_artifact_type_registry.py
 tests/test_artifacts_route.py
 tests/test_audit_append_minimum.py
 tests/test_audit_client_surface_entrypoints.py

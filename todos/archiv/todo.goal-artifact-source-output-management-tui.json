@@ -161,7 +161,7 @@
           "repo": "tui",
           "files": [
             "agent/artifacts/artifact_access_policy.py",
-            "tests/test_artifact_access_policy.py"
+            "tests/artifact/test_artifact_access_policy.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -262,7 +262,7 @@
           "files": [
             "agent/routes/goal_artifacts.py",
             "agent/artifacts/artifact_candidate_service.py",
-            "tests/test_artifact_candidate_service.py"
+            "tests/artifact/test_artifact_candidate_service.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -500,7 +500,7 @@
           "files": [
             "tests/goal/test_goal_artifact_schemas.py",
             "tests/goal/test_goal_artifact_service.py",
-            "tests/test_artifact_access_policy.py"
+            "tests/artifact/test_artifact_access_policy.py"
           ],
           "priority": "P1",
           "effort": "L",

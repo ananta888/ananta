@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agent.services.artifact_type_registry import ArtifactTypeRegistry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas" / "domain" / "artifact_type_pack.v1.json"
 
 

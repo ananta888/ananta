@@ -389,7 +389,7 @@
     "scripts/bootstrap-dev-workflow-keyrings.py",
     "tests/qdrant/qdrant_test_support.py",
     "tests/test_agent_registration.py",
-    "tests/test_artifact_reconciliation_service.py",
+    "tests/artifact/test_artifact_reconciliation_service.py",
     "tests/test_dev_workflow_keyring_bootstrap.py",
     "tests/test_human_approval_service.py",
     "tests/test_kanban_projection_service.py",
