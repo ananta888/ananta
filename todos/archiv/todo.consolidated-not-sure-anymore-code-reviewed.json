@@ -21,7 +21,7 @@
     },
     {
       "finding": "PromptTrace API/CLI Tests existieren bereits; API/CLI wird als partial/verifizieren statt neu bauen markiert.",
-      "evidence": "tests/test_prompt_trace_api.py, tests/cli/test_cli_prompt_inspect.py"
+      "evidence": "tests/prompt/test_prompt_trace_api.py, tests/cli/test_cli_prompt_inspect.py"
     },
     {
       "finding": "PlanningContract/PlanValidationResult wurden im Code nicht gefunden; diese Tasks bleiben offen und kritisch.",
@@ -642,7 +642,7 @@
         "agent/tool_capabilities.py",
         "agent/tools.py",
         "agent/services/context_delivery_service.py",
-        "tests/test_prompt_trace_context_tool_provenance.py"
+        "tests/prompt/test_prompt_trace_context_tool_provenance.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: PromptTrace-Provenance aus llm_integration fuehrt context_sources + tool provenance in die Traces; Regressionstest fuer Context-/Tool-Provenance ergänzt.",
       "source_origin": [
@@ -673,7 +673,7 @@
         "agent/services/context_file_selector.py",
         "agent/services/prompt_trace_service.py",
         "agent/services/context_delivery_service.py",
-        "tests/test_prompt_trace_sensitivity_scope.py"
+        "tests/prompt/test_prompt_trace_sensitivity_scope.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: llm_scope wird provider-/endpoint-basiert in PromptTrace gesetzt (local_only vs external_cloud_allowed) inkl. Sensitivity-Feld; Scope-Tests local/cloud vorhanden.",
       "source_origin": [
@@ -704,7 +704,7 @@
       "files": [
         "agent/services/prompt_trace_access_policy.py",
         "agent/routes/debug/prompt_traces.py",
-        "tests/test_prompt_trace_raw_access_policy.py"
+        "tests/prompt/test_prompt_trace_raw_access_policy.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: Raw Prompt Access Policy + Debug-Integration + Audit-Event vorhanden; dedizierter Policy-Test ergänzt.",
       "source_origin": [
@@ -729,7 +729,7 @@
       "milestone": "M4",
       "summary": "API- und CLI-Tests existieren bereits. Die konsolidierte TODO soll nur noch Lücken prüfen, nicht alles neu bauen.",
       "files": [
-        "tests/test_prompt_trace_api.py",
+        "tests/prompt/test_prompt_trace_api.py",
         "tests/cli/test_cli_prompt_inspect.py",
         "agent/routes/debug/prompt_traces.py",
         "agent/cli/main.py"
