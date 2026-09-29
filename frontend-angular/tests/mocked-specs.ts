@@ -11,4 +11,9 @@ export const MOCKED_SPECS: string[] = [
   'source-control-vertical-test-support.spec.ts',
   'visual-process-assistant-isolation.spec.ts',
   'visual-process-assistant-patch.spec.ts',
+  // pass with the mocked login session (E2E_MOCK_AUTH):
+  'kanban-model-dashboard.spec.ts',
+  'kanban-performance.local.spec.ts',
+  'llm-config.spec.ts',
+  'notifications.spec.ts',
 ];

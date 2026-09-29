@@ -304,8 +304,53 @@ export async function openTeamsAdminStudio(page: Page) {
   await expect(page.locator('.teams-editor-panel')).toBeVisible({ timeout: 30_000 });
 }
 
+/**
+ * Mocked-auth mode (E2E_MOCK_AUTH=1, set by playwright.mocked.config.ts): no backend exists. The session is a
+ * syntactically valid, unexpired test JWT, and every Hub/worker call a spec does not mock itself gets an
+ * empty 200 from a context-level route (page-level routes -- the spec's own mocks -- always take precedence).
+ */
+export const MOCK_AUTH = process.env.E2E_MOCK_AUTH === '1';
+
+function base64Url(value: string): string {
+  return Buffer.from(value).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+export function mockSessionToken(username = ADMIN_USERNAME, role = 'admin'): string {
+  const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = base64Url(JSON.stringify({
+    sub: username, role, mfa_enabled: false, iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  }));
+  return `${header}.${payload}.e2e-mock-signature`;
+}
+
+async function loginWithMockedBackend(page: Page, username: string): Promise<void> {
+  for (const origin of new Set([HUB_URL, ALPHA_URL, BETA_URL].map((url) => new URL(url).origin))) {
+    await page.context().route(`${origin}/**`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    );
+  }
+  await prepareLoginPage(page);
+  const token = mockSessionToken(username, username === ADMIN_USERNAME ? 'admin' : 'user');
+  await page.evaluate(({ hubUrl, alphaUrl, betaUrl, token }) => {
+    localStorage.setItem('ananta.agents.v1', JSON.stringify([
+      { name: 'hub', url: hubUrl, token, role: 'hub' },
+      { name: 'alpha', url: alphaUrl, token, role: 'worker' },
+      { name: 'beta', url: betaUrl, token, role: 'worker' },
+    ]));
+    localStorage.setItem('ananta.user.token', token);
+    localStorage.setItem('ananta.shell.mode', 'advanced');
+  }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, token });
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  await expectAuthenticatedShell(page);
+}
+
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   attachBrowserErrorGuards(page);
+  if (MOCK_AUTH) {
+    await loginWithMockedBackend(page, username);
+    return;
+  }
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
   try { await ensureLoginAttemptsCleared(); } catch {}

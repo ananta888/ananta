@@ -487,8 +487,11 @@ pytest --junitxml=test-reports/backend-junit.xml --cov=agent --cov-report=xml:te
 ### Frontend (Playwright)
 - **Gemockte Specs ohne Backend:** `npm run test:e2e:mocked` (`playwright.mocked.config.ts`) laeuft die Specs aus
   `tests/mocked-specs.ts` vollstaendig parallel, ohne Hub/Worker-Start und lokal ohne Retries (~1,5 min).
-  Eine Spec gehoert nur dorthin, wenn sie in dieser Konfiguration besteht. Die meisten Specs melden sich noch
-  ueber das echte Backend an (Login-Helfer gegen `:5500`) und laufen daher weiter mit `npm run test:e2e`.
+  Dort ist `E2E_MOCK_AUTH=1` gesetzt: `login()` aus `tests/utils.ts` legt eine Test-Session an, und eine
+  Route auf Kontext-Ebene beantwortet nicht gemockte Hub-/Worker-Aufrufe leer (die Page-Routen der Spec haben
+  Vorrang). Eine Spec gehoert nur dorthin, wenn sie so besteht und keine committeten Dateien schreibt. Specs,
+  die ihre Daten serverseitig ueber die Hub-API anlegen (`request.post` gegen `:5500`), brauchen das echte
+  Backend und laufen weiter mit `npm run test:e2e`.
 - **JUnit XML:** `frontend-angular/test-results/junit-results.xml`
 
 Der Report wird automatisch bei jedem E2E-Testlauf (`npm run test:e2e`) erstellt.
