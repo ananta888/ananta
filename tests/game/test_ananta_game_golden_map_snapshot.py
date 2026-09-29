@@ -15,7 +15,7 @@ from agent.game.models import (
 
 
 def _golden_path() -> Path:
-    return Path(__file__).parent / "golden" / "ananta-game" / "demo-gamemap.json"
+    return Path(__file__).parent.parent / "golden" / "ananta-game" / "demo-gamemap.json"
 
 
 def _build_demo_game_map() -> GameMap:

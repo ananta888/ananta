@@ -175,7 +175,7 @@
       "files": [
         "docs/ananta-game/codecompass-adapter.md",
         "agent/game/codecompass_adapter.py",
-        "tests/test_ananta_game_codecompass_adapter.py"
+        "tests/game/test_ananta_game_codecompass_adapter.py"
       ],
       "steps": [
         "Mapping von CodeCompass-Knoten auf CodeTerritory dokumentieren",
@@ -198,7 +198,7 @@
       "files": [
         "docs/ananta-game/context-aegis.md",
         "agent/game/context_aegis.py",
-        "tests/test_ananta_game_context_aegis.py"
+        "tests/game/test_ananta_game_context_aegis.py"
       ],
       "steps": [
         "Sichtbarkeit von CodeTerritories pro AgentUnit definieren",
@@ -220,7 +220,7 @@
       "files": [
         "docs/ananta-game/artifact-guard.md",
         "agent/game/artifact_guard.py",
-        "tests/test_ananta_game_artifact_guard.py"
+        "tests/game/test_ananta_game_artifact_guard.py"
       ],
       "steps": [
         "Task-Abschluss an Evidence und Artefakte koppeln",
@@ -243,7 +243,7 @@
         "docs/ananta-game/aegis-hub-flow.md",
         "agent/game/aegis_hub.py",
         "agent/game/aegis_flow.py",
-        "tests/test_ananta_game_aegis_flow.py"
+        "tests/game/test_ananta_game_aegis_flow.py"
       ],
       "steps": [
         "Spielzug als Goal -> Plan -> Task -> Action -> Verification -> Artifact modellieren",
@@ -265,7 +265,7 @@
       "files": [
         "docs/ananta-game/trustweave.md",
         "agent/game/trustweave.py",
-        "tests/test_ananta_game_trustweave.py"
+        "tests/game/test_ananta_game_trustweave.py"
       ],
       "steps": [
         "Trust-Kanten zwischen Agenten, CodeTerritories, Artefakten und Policies definieren",
