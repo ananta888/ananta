@@ -138,7 +138,7 @@ This table must be updated with actual measurements before any mode is promoted.
 ### Before any mode is labeled `recommended_experimental` or higher:
 
 - [ ] **Benchmark gate:** Benchmark results documented in `docs/worker/codecompass-vector-quantization-metrics.md` format, stored with profile `config_hash`.
-- [ ] **Security tests:** Diagnostics checked for raw vector exposure, API key leakage, auth header leakage (test: `tests/test_codecompass_vector_encoding.py` secret injection test green).
+- [ ] **Security tests:** Diagnostics checked for raw vector exposure, API key leakage, auth header leakage (test: `tests/codecompass/test_codecompass_vector_encoding.py` secret injection test green).
 - [ ] **Backward compatibility:** v1 index (entries without `encoded_vector`) loads and searches without crash.
 - [ ] **Documentation updated:** This rollout doc updated with actual benchmark numbers. `docs/worker/codecompass-vector-index-migration.md` reviewed.
 - [ ] **UI/CLI display:** Experimental flag surfaced to operator in diagnostics output.

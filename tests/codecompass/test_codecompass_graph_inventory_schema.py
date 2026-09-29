@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "artifacts" / "codecompass_graph_inventory.v1.json"
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "artifacts" / "codecompass_graph_inventory.v1.json"
 
 
 def _validator() -> Draft202012Validator:

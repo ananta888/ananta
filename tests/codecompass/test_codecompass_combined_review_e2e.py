@@ -30,7 +30,7 @@ from worker.retrieval.codecompass_review_context import (
 from worker.retrieval.codecompass_rig_importer import import_snapshot_file
 
 
-FIXTURE_DIR = Path(__file__).resolve().parents[0] / "fixtures" / "codecompass" / "combined_review"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "codecompass" / "combined_review"
 
 
 def _materialise_workspace(tmp_path: Path) -> Path:

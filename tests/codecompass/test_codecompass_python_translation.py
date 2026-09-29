@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-FIXTURE_DIR = Path(__file__).parent / "fixtures"
+FIXTURE_DIR = Path(__file__).parent.parent / "fixtures"
 
 
 # ---------------------------------------------------------------------------

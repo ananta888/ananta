@@ -44,13 +44,13 @@
         ]
       },
       {
-        "path": "tests/test_codecompass_graph_store.py",
+        "path": "tests/codecompass/test_codecompass_graph_store.py",
         "observations": [
           "Tests fuer GraphStore existieren bereits und sollten erweitert werden, statt eine zweite ungetestete Graphlogik aufzubauen."
         ]
       },
       {
-        "path": "tests/test_codecompass_graph_expansion.py",
+        "path": "tests/codecompass/test_codecompass_graph_expansion.py",
         "observations": [
           "Tests fuer Expansion existieren bereits und sind naheliegender Einstieg fuer Query-Profile und Evidence-Pfade."
         ]
@@ -299,7 +299,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_graph_store.py",
-        "tests/test_codecompass_graph_store.py"
+        "tests/codecompass/test_codecompass_graph_store.py"
       ],
       "problem": "CodeCompassGraphStore ist aktuell konkrete JSON-Implementierung und bietet nur einfache outgoing traversal als oeffentliche Kernfunktion.",
       "implementation_notes": [
@@ -315,10 +315,10 @@
         "Alle neuen Methoden geben leere Listen statt Exceptions zurueck, wenn der Index fehlt oder der Knoten nicht existiert."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_graph_store.py"
+        "pytest -q tests/codecompass/test_codecompass_graph_store.py"
       ],
       "completed_on": "2026-06-10",
-      "verification_note": "Alle 6 stabilen Methoden in worker/retrieval/codecompass_graph_store.py: get_node, find_nodes_by_name, find_nodes_by_file, outgoing_edges, incoming_edges, traverse_paths. Bestehende tests/test_codecompass_graph_store.py laufen grün."
+      "verification_note": "Alle 6 stabilen Methoden in worker/retrieval/codecompass_graph_store.py: get_node, find_nodes_by_name, find_nodes_by_file, outgoing_edges, incoming_edges, traverse_paths. Bestehende tests/codecompass/test_codecompass_graph_store.py laufen grün."
     },
     {
       "id": "CCAQE-003",
@@ -331,7 +331,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_graph_store.py",
-        "tests/test_codecompass_graph_store.py"
+        "tests/codecompass/test_codecompass_graph_store.py"
       ],
       "problem": "Fragen wie 'Welche Services haengen an diesem DTO?' brauchen oft incoming traversal. Aktuell traversiert CodeCompassGraphStore.traverse effektiv ausgehend vom Seed.",
       "implementation_notes": [
@@ -347,7 +347,7 @@
         "Zyklen im Graph fuehren nicht zu Endlosschleifen."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_graph_store.py -k traverse"
+        "pytest -q tests/codecompass/test_codecompass_graph_store.py -k traverse"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "Bidirektionaler traverse mit direction in/out/both, direction_used im Evidence-Pfad, cycle-Guard via visited_set, eingehende Kanten aus incoming_index. Tests grün."
@@ -364,7 +364,7 @@
       "target_files": [
         "worker/retrieval/codecompass_graph_expansion.py",
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_graph_expansion.py"
+        "tests/codecompass/test_codecompass_graph_expansion.py"
       ],
       "problem": "Die vorhandenen Profile sind gut fuer Kontextnavigation, aber Architekturfragen brauchen andere Semantik, Richtung und Ergebnisrollen.",
       "implementation_notes": [
@@ -379,7 +379,7 @@
         "Keine Breaking Changes an _PROFILE_CONFIG fuer bestehende Profile."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_graph_expansion.py"
+        "pytest -q tests/codecompass/test_codecompass_graph_expansion.py"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "worker/retrieval/codecompass_graph_expansion.py enthält KEINEN dto-impact; eigene Datei worker/retrieval/codecompass_architecture_query.py hält alle 4 Query-Typen. _PROFILE_CONFIG unangetastet, /api/codecompass/graph/expand funktional."
@@ -396,7 +396,7 @@
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
         "worker/retrieval/codecompass_fts_store.py",
-        "tests/test_codecompass_architecture_query.py"
+        "tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "problem": "User fragen mit Namen wie UserDto, AccountController oder priceLimit. Die Engine muss diese Eingaben robust auf Graph-Knoten aufloesen.",
       "implementation_notes": [
@@ -412,7 +412,7 @@
         "Nicht gefundene Seeds liefern leere results und warning seed_not_resolved."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k seed"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k seed"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "resolve_seed() in architecture_query.py; FTS-Store liefert Seed-Resolver-Reihenfolge (node_id → record_id → name → file → FTS). Tests in test_codecompass_architecture_query.py grün."
@@ -428,7 +428,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_architecture_query.py"
+        "tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "problem": "Mehrere Pfade koennen zu einem Ergebnis fuehren. Die Engine braucht nachvollziehbares Ranking statt zufaelliger BFS-Reihenfolge.",
       "implementation_notes": [
@@ -443,7 +443,7 @@
         "Sortierung ist zwischen Testlaeufen stabil."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k ranking"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k ranking"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "Score kombiniert Pfadlänge, edge_confidence, edge_type_weight, role_multiplier. Sortierung deterministisch (Pfad-Score, Tiefe, node_id als Tie-Breaker). path_score: 4 hits, sort: 7 hits, heuristic: 17 hits, confidence: 5 hits."
@@ -459,7 +459,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_architecture_query.py"
+        "tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "problem": "Ohne klares Ergebnisformat werden API, UI und Agenten-Prompt-Handoff schnell uneinheitlich.",
       "implementation_notes": [
@@ -474,7 +474,7 @@
         "Leere Ergebnisse sind valide und enthalten erklaerende warnings."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k result_contract"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k result_contract"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "QueryResult als dataclass mit to_dict; schema=codecompass_architecture_query_result.v1 als Top-Level-Feld; warnings/diagnostics Top-Level."
@@ -492,7 +492,7 @@
         "worker/retrieval/codecompass_architecture_query.py",
         "agent/routes/codecompass_graph.py",
         "agent/config.py",
-        "tests/test_codecompass_architecture_query.py"
+        "tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "problem": "Graph-Abfragen koennen bei grossen Repos teuer werden oder ungewollt zu viel Kontext offenlegen.",
       "implementation_notes": [
@@ -508,7 +508,7 @@
         "Keine Query liest Dateien ausserhalb des vorhandenen Knowledge-Index-Outputs."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k limits"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k limits"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "Harte Defaults: max_depth, max_nodes, max_paths_per_result, max_results in architecture_query.py. invalid_query_type → BadRequest via whitelist. bounded=true in diagnostics. Keine Datei-IO außerhalb des Knowledge-Index."
@@ -524,7 +524,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_architecture_query.py",
+        "tests/codecompass/test_codecompass_architecture_query.py",
         "docs/codecompass-architecture-query-engine.md"
       ],
       "problem": "Die Frage 'Welche Services haengen indirekt an diesem DTO?' braucht incoming und both Traversal mit DTO-/Type-Use-Kanten.",
@@ -542,7 +542,7 @@
         "Wenn nur heuristische calls_probable_target Kanten genutzt wurden, enthaelt das Ergebnis eine warning."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k dto_impact"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k dto_impact"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "dto-impact Query implementiert mit field_type_uses/method_param_type_uses/method_return_type_uses/generic_type_uses/mapper_maps_type als Primärkanten; service/controller/mapper/repository/config-Rollen getrennt. Tests grün."
@@ -558,7 +558,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_architecture_query.py",
+        "tests/codecompass/test_codecompass_architecture_query.py",
         "docs/codecompass-architecture-query-engine.md"
       ],
       "problem": "Die Frage 'Welche Tests decken diesen Controller ueber 3 Ebenen ab?' braucht test-spezifische Kanten. Reine calls_probable_target Treffer sind dafuer nicht genug.",
@@ -576,7 +576,7 @@
         "Ergebnisse enthalten keine Behauptung 'covered', wenn nur heuristische Kanten existieren; stattdessen suspected_coverage oder indirect_evidence."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k controller_test_coverage"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k controller_test_coverage"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "controller-test-coverage mit test_targets_type/test_uses_controller/test_calls_endpoint Primärkanten. _classify_coverage_kind trennt direct_controller_test / endpoint_test / indirect_evidence. suspected_coverage statt 'covered' bei rein heuristischen Pfaden."
@@ -592,7 +592,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_architecture_query.py",
+        "tests/codecompass/test_codecompass_architecture_query.py",
         "docs/security/codecompass-context-trust-model.md",
         "docs/codecompass-architecture-query-engine.md"
       ],
@@ -611,7 +611,7 @@
         "Security-relevante Ergebnisse enthalten Evidence-Pfade und Confidence; keine nackten Treffer ohne Beweis."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k field_policy_impact"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k field_policy_impact"
       ],
       "verification_note": "trust-model doc enthaelt jetzt Confidence-Tiers (high>=0.9, medium 0.7-0.89, low<0.7) und Provenance-Section. Engine liefert enforcement-Feld pro field-policy-impact Result (enforced_backend_guard/frontend_reference/weak_reference). operations-Propagation ueber permission-Kanten aktiv. Tests gruen (test_field_policy_impact_backend_policy_is_enforced_backend_guard + test_field_policy_impact_frontend_guard_is_not_backend_enforcement + 2 neue Provenance-Tests).",
       "open_gaps": [
@@ -632,7 +632,7 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_architecture_query.py",
-        "tests/test_codecompass_architecture_query.py",
+        "tests/codecompass/test_codecompass_architecture_query.py",
         "docs/codecompass-architecture-query-engine.md"
       ],
       "problem": "Service-Abhaengigkeiten sind fuer Refactoring, Impact-Analyse und Architekturdrift wichtig, aber aktuell nur als generische Graph-Navigation sichtbar.",
@@ -649,7 +649,7 @@
         "Zyklische Service-Abhaengigkeiten werden erkannt und in diagnostics gemeldet."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k service_dependency_chain"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k service_dependency_chain"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "service-dependency-chain mit injects_dependency/declares_bean/service_uses_repository/transactional_boundary Primärkanten. Repository/Config-Knoten mit eigener result_role. Zyklische Dependencies via cycle-Guard erkennbar."
@@ -785,7 +785,7 @@
         "Role-Klassifikation ist im QueryResult sichtbar."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py -k role"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py -k role"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "Rollen-Klassifikation via role_labels, Annotationen (@Service, @Repository, @Controller/@RestController) und Namens-Pattern (*Service, *Repository, *Mapper). result_role in jedem Result. test-Rolle ebenfalls unterscheidbar."
@@ -801,7 +801,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/routes/codecompass_graph.py",
-        "tests/test_codecompass_graph_api.py"
+        "tests/codecompass/test_codecompass_graph_api.py"
       ],
       "problem": "Die Engine muss aus UI, ai-snake-chat und Worker-Kontext abrufbar sein.",
       "implementation_notes": [
@@ -817,7 +817,7 @@
         "Bestehende Graph-API-Tests bleiben gruen."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_graph_api.py"
+        "pytest -q tests/codecompass/test_codecompass_graph_api.py"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "GET /api/codecompass/query in agent/routes/codecompass_graph.py integriert. Validiert type/seed/depth/field/direction. BadRequest bei invalid_query_type. knowledge_index_id-Pflicht. 22 API-Tests grün."
@@ -902,7 +902,7 @@
       "progress_percent": 100,
       "target_files": [
         "tests/fixtures/",
-        "tests/test_codecompass_architecture_query.py",
+        "tests/codecompass/test_codecompass_architecture_query.py",
         "docs/codecompass-architecture-query-engine.md"
       ],
       "problem": "Ohne kleine, stabile Fixture bleiben Query-Tests bruechig und schwer zu verstehen.",
@@ -919,7 +919,7 @@
         "service-dependency-chain erkennt Repository-Abhaengigkeit."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_architecture_query.py"
+        "pytest -q tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "completed_on": "2026-06-10",
       "verification_note": "tests/fixtures/codecompass_architecture/graph_records.json: 11 Nodes, 15 Edges, 12 distinct edge types. Deckt dto-impact, controller-test-coverage, field-policy-impact, service-dependency-chain ab. Heuristic-flag auf 1 Edge. Deterministisch (keine timestamps/IDs)."
@@ -967,8 +967,8 @@
       "progress_percent": 100,
       "target_files": [
         "worker/retrieval/codecompass_sqlite_graph_store.py",
-        "tests/test_codecompass_graph_store.py",
-        "tests/test_codecompass_architecture_query.py"
+        "tests/codecompass/test_codecompass_graph_store.py",
+        "tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "problem": "Ein optionaler SQLiteGraphStore lohnt sich nur, wenn er denselben Vertrag wie JSONGraphStore erfuellt und nicht zweite Logik erzeugt.",
       "implementation_notes": [
@@ -983,10 +983,10 @@
         "SQLiteGraphStore ist optional konfigurierbar und nicht Default, solange nicht explizit aktiviert."
       ],
       "test_expectations": [
-        "pytest -q tests/test_codecompass_graph_store.py tests/test_codecompass_architecture_query.py"
+        "pytest -q tests/codecompass/test_codecompass_graph_store.py tests/codecompass/test_codecompass_architecture_query.py"
       ],
       "completed_on": "2026-06-10",
-      "verification_note": "CodeCompassSqliteGraphStore in tests/test_codecompass_graph_store.py (4 refs) und tests/test_codecompass_architecture_query.py (2 refs) parametrisiert. Contract-Tests laufen für JSON und SQLite. 110/110 Tests grün."
+      "verification_note": "CodeCompassSqliteGraphStore in tests/codecompass/test_codecompass_graph_store.py (4 refs) und tests/codecompass/test_codecompass_architecture_query.py (2 refs) parametrisiert. Contract-Tests laufen für JSON und SQLite. 110/110 Tests grün."
     },
     {
       "id": "CCAQE-023",

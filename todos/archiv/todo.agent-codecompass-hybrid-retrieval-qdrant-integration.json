@@ -61,7 +61,7 @@
         "observation": "ALIGN-2026-08-17: Exact/FTS/Symbol-Kanaele haben hoehere Task-Weights als codecompass_vector. Dedup erfolgt ueber record_id/content_hash/path."
       },
       {
-        "path": "tests/test_codecompass_vector_reranking.py",
+        "path": "tests/codecompass/test_codecompass_vector_reranking.py",
         "observation": "ALIGN-2026-08-17: ContextManager-Regression existiert bereits: repository_map schlaegt fuzzy vector; gleiche Datei wird dedupliziert mit cross_engine_signals."
       },
       {

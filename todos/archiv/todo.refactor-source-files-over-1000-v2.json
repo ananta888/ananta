@@ -544,8 +544,8 @@
     },
     {
       "id": "SPLIT-132",
-      "title": "tests/test_codecompass_candidate_resolver_caps.py aufteilen (1020 -> <1000 Zeilen)",
-      "file": "tests/test_codecompass_candidate_resolver_caps.py",
+      "title": "tests/codecompass/test_codecompass_candidate_resolver_caps.py aufteilen (1020 -> <1000 Zeilen)",
+      "file": "tests/codecompass/test_codecompass_candidate_resolver_caps.py",
       "line_count": 772,
       "status": "done",
       "priority": "P3",

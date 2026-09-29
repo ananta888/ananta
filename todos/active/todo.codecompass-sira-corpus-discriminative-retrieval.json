@@ -24,8 +24,8 @@
       "agent/services/codecompass_sira_config_service.py",
       "agent/services/codecompass_sira_status_service.py",
       "ananta_contracts/sira_index_operation.py",
-      "tests/test_codecompass_sira_index_operations.py",
-      "tests/test_codecompass_sira_rollout_service.py",
+      "tests/codecompass/test_codecompass_sira_index_operations.py",
+      "tests/codecompass/test_codecompass_sira_rollout_service.py",
       "scripts/evaluate_sira_retrieval.py",
       "scripts/manage_sira_index.py",
       "docs/architecture/agent-codecompass-hybrid-retrieval.md",
@@ -110,7 +110,7 @@
     ],
     "implementation": [
       ".venv/bin/pytest -q tests/test_sira_*",
-      ".venv/bin/pytest -q tests/test_codecompass_fts_engine.py",
+      ".venv/bin/pytest -q tests/codecompass/test_codecompass_fts_engine.py",
       ".venv/bin/python scripts/retrieval_benchmark.py --payload-file <bound-payloads>",
       ".venv/bin/python scripts/evaluate_sira_retrieval.py --golden <golden> --baseline <baseline> --candidate <candidate>"
     ]
@@ -587,7 +587,7 @@
       "evidence": [
         "worker/retrieval/sira/incremental_enrichment.py implements deterministic change sets, tombstones, idempotent base/delta layers, pointer-last activation and compaction; scripts/manage_sira_index.py exposes build, diagnostics and compaction.",
         "ananta_contracts/sira_index_operation.py, agent/services/codecompass_sira_index_operation_service.py, agent/routes/codecompass_retrieve.py and worker/retrieval/sira/index_operation_handler.py provide a strict Hub-queued sync/compact API, task binding, Worker-local execution and bounded automatic failure path without exposing filesystem authority.",
-        "tests/test_codecompass_sira_index_operations.py and tests/test_sira_incremental_enrichment.py prove scope binding, generic-ingress protection, idempotency conflict detection, one-file targeting, atomic activation and compaction without Human-in-the-Loop."
+        "tests/codecompass/test_codecompass_sira_index_operations.py and tests/test_sira_incremental_enrichment.py prove scope binding, generic-ingress protection, idempotency conflict detection, one-file targeting, atomic activation and compaction without Human-in-the-Loop."
       ]
     },
     {

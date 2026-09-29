@@ -2,7 +2,7 @@
 Test for the Source-First Selector in RepositoryMapEngine.search().
 
 Bug: for the query "erkläre mir den codecompass" the top-1 result was
-`tests/test_codecompass_trigger_mode.py` (score 8.4) while
+`tests/codecompass/test_codecompass_trigger_mode.py` (score 8.4) while
 `worker/retrieval/codecompass_budgeting.py` scored 3.4. Test files
 accumulate more `test_codecompass_*` symbol hits than source files
 have `*codecompass*` symbol hits, so test files beat source files in
@@ -37,12 +37,12 @@ def test_codecompass_query_promotes_source_over_test_files():
     """
     The query "erkläre mir den codecompass" must rank
     `worker/retrieval/codecompass_budgeting.py` above
-    `tests/test_codecompass_trigger_mode.py` even though the test file
+    `tests/codecompass/test_codecompass_trigger_mode.py` even though the test file
     has more `codecompass` symbol hits.
     """
     engine = _make_engine_with_symbols({
         # Real test file — 6 symbols containing 'codecompass'
-        "tests/test_codecompass_trigger_mode.py": [
+        "tests/codecompass/test_codecompass_trigger_mode.py": [
             "test_codecompass_flags_are_independent",
             "test_codecompass_relative_path_is_logged",
             "test_codecompass_trigger_mode_default",
@@ -186,7 +186,7 @@ def test_test_file_with_domain_in_stem_keeps_natural_score():
     callers' ability to discover which tests cover the queried area.
     """
     engine = _make_engine_with_symbols({
-        "tests/test_codecompass_fts_engine.py": [
+        "tests/codecompass/test_codecompass_fts_engine.py": [
             "test_codecompass_fts_engine_returns_contextchunk_compatible_records",
             "test_codecompass_fts_engine_handles_empty_index",
         ],
@@ -203,7 +203,7 @@ def test_test_file_with_domain_in_stem_keeps_natural_score():
 
     # The test file WITH domain in stem should rank above the
     # collateral test file (which gets ×0.15 demotion).
-    fts_idx = paths.index("tests/test_codecompass_fts_engine.py")
+    fts_idx = paths.index("tests/codecompass/test_codecompass_fts_engine.py")
     memory_idx = paths.index("tests/test_memory_tree_store_service.py")
     assert fts_idx < memory_idx, (
         f"test_codecompass_fts_engine.py ({fts_idx}) should rank above "

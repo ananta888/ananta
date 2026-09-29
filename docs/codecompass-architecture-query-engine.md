@@ -152,7 +152,7 @@ CREATE INDEX idx_cc_edges_target ON cc_graph_edges(target_id, edge_type);
 ```
 
 Beide Stores erfüllen denselben QueryEngine-Vertrag; die Contract-Tests in
-`tests/test_codecompass_graph_store.py` laufen parametrisiert gegen beide.
+`tests/codecompass/test_codecompass_graph_store.py` laufen parametrisiert gegen beide.
 Der SQLiteGraphStore nutzt nur `sqlite3` aus der Standardbibliothek (keine neue
 Runtime-Abhängigkeit) und ist **nicht** Default — Aktivierung nur explizit über
 den aufrufenden Code. FTS-Store und Graph-Store können später dieselbe
@@ -172,8 +172,8 @@ keine Docker-Compose-Pflicht für CodeCompass.
 ## Tests
 
 ```
-pytest -q tests/test_codecompass_architecture_query.py   # Engine, Queries, Handoff
-pytest -q tests/test_codecompass_graph_store.py          # Store-Vertrag (JSON + SQLite)
-pytest -q tests/test_codecompass_graph_api.py            # REST-API
+pytest -q tests/codecompass/test_codecompass_architecture_query.py   # Engine, Queries, Handoff
+pytest -q tests/codecompass/test_codecompass_graph_store.py          # Store-Vertrag (JSON + SQLite)
+pytest -q tests/codecompass/test_codecompass_graph_api.py            # REST-API
 pytest -q rag-helper/tests/test_architecture_query_edges.py  # Extractor-Kanten
 ```

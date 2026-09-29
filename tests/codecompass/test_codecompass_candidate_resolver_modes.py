@@ -151,7 +151,7 @@ def _seed_minimal_codecompass_output(
 
 
 
-# Split from tests/test_codecompass_candidate_resolver_caps.py to keep source files below 1000 lines.
+# Split from tests/codecompass/test_codecompass_candidate_resolver_caps.py to keep source files below 1000 lines.
 
 class TestResolveWithMode:
     """End-to-end: the resolve() function honours ResolverConfig."""

@@ -14,7 +14,7 @@
     "validation_results": {
       "baseline_frontend_command": "cd frontend-angular && pnpm exec vitest run src/app/features/codecompass-graph",
       "baseline_frontend_result": "10 Testdateien und 72 Tests bestanden",
-      "baseline_backend_command": ".venv/bin/python -m pytest -q tests/test_codecompass_graph_api.py tests/test_codecompass_graph_metrics.py",
+      "baseline_backend_command": ".venv/bin/python -m pytest -q tests/codecompass/test_codecompass_graph_api.py tests/codecompass/test_codecompass_graph_metrics.py",
       "baseline_backend_result": "30 Tests bestanden",
       "baseline_planning_contract_result": "ungueltig wegen falschem $schema-Pfad und fehlendem tasks_status_summary"
     },
@@ -356,7 +356,7 @@
         "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts",
         "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts",
         "frontend-angular/src/app/features/codecompass-graph/models/graph-edge-style.ts",
-        "tests/test_codecompass_graph_api.py",
+        "tests/codecompass/test_codecompass_graph_api.py",
         "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.spec.ts"
       ],
       "implementation_notes": [
@@ -399,8 +399,8 @@
         "worker/retrieval/codecompass_blast_radius.py",
         "worker/retrieval/codecompass_graph_store.py",
         "schemas/artifacts/graph_visual_metrics.v1.json",
-        "tests/test_codecompass_graph_metrics.py",
-        "tests/test_codecompass_blast_radius.py"
+        "tests/codecompass/test_codecompass_graph_metrics.py",
+        "tests/codecompass/test_codecompass_blast_radius.py"
       ],
       "implementation_notes": [
         "Mindestens in_degree, out_degree, total_degree und direkte containment-Kinder werden fuer alle Knoten materialisiert.",
@@ -443,7 +443,7 @@
         "frontend-angular/src/app/features/codecompass-graph/models/graph.model.ts",
         "frontend-angular/src/app/features/codecompass-graph/models/graph-filter.model.ts",
         "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts",
-        "tests/test_codecompass_graph_api.py",
+        "tests/codecompass/test_codecompass_graph_api.py",
         "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.spec.ts"
       ],
       "implementation_notes": [
@@ -863,8 +863,8 @@
         "frontend-angular/tests/codecompass-graph-visualization-functional.spec.ts",
         "frontend-angular/playwright.config.ts",
         "frontend-angular/package.json",
-        "tests/test_codecompass_graph_api.py",
-        "tests/test_codecompass_graph_metrics.py",
+        "tests/codecompass/test_codecompass_graph_api.py",
+        "tests/codecompass/test_codecompass_graph_metrics.py",
         "tests/security/test_codecompass_graph_visual_profile.py"
       ],
       "implementation_notes": [
@@ -963,63 +963,63 @@
     "CCGV-001": [
       {
         "criterion": 1,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_domain_graph_schema_keeps_legacy_payload_valid sowie test_worker_artifact_is_schema_valid_deterministic_and_revision_bound"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_domain_graph_schema_keeps_legacy_payload_valid sowie test_worker_artifact_is_schema_valid_deterministic_and_revision_bound"
       },
       {
         "criterion": 2,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_partial_evidence_is_explicit_and_missing_metrics_have_no_zero_placeholder"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_partial_evidence_is_explicit_and_missing_metrics_have_no_zero_placeholder"
       },
       {
         "criterion": 3,
-        "evidence": "tests/test_codecompass_graph_projection_service.py::test_raw_types_are_preserved_byte_for_byte_while_classification_is_normalized"
+        "evidence": "tests/codecompass/test_codecompass_graph_projection_service.py::test_raw_types_are_preserved_byte_for_byte_while_classification_is_normalized"
       },
       {
         "criterion": 4,
-        "evidence": "tests/test_codecompass_graph_projection_service.py::test_zero_confidence_zero_multiplicity_parallel_edges_and_self_loops_survive und graph-adapter.service.spec.ts"
+        "evidence": "tests/codecompass/test_codecompass_graph_projection_service.py::test_zero_confidence_zero_multiplicity_parallel_edges_and_self_loops_survive und graph-adapter.service.spec.ts"
       },
       {
         "criterion": 5,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_worker_artifact_is_schema_valid_deterministic_and_revision_bound"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_worker_artifact_is_schema_valid_deterministic_and_revision_bound"
       },
       {
         "criterion": 6,
-        "evidence": "tests/test_codecompass_graph_api.py und der vollstaendige 199-Test-Vitest-Scope"
+        "evidence": "tests/codecompass/test_codecompass_graph_api.py und der vollstaendige 199-Test-Vitest-Scope"
       }
     ],
     "CCGV-002": [
       {
         "criterion": 1,
-        "evidence": "tests/test_codecompass_graph_artifact_flow.py::test_worker_graph_artifacts_are_deterministic_and_path_free"
+        "evidence": "tests/codecompass/test_codecompass_graph_artifact_flow.py::test_worker_graph_artifacts_are_deterministic_and_path_free"
       },
       {
         "criterion": 2,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_invalid_metric_values_fail_closed und test_graph_store_rejects_invalid_edge_visual_values"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_invalid_metric_values_fail_closed und test_graph_store_rejects_invalid_edge_visual_values"
       },
       {
         "criterion": 3,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_directed_degree_containment_self_loop_and_parallel_edges_are_exact"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_directed_degree_containment_self_loop_and_parallel_edges_are_exact"
       },
       {
         "criterion": 4,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_directed_degree_containment_self_loop_and_parallel_edges_are_exact sowie test_advanced_and_seed_scoped_metrics_use_versioned_worker_evidence"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_directed_degree_containment_self_loop_and_parallel_edges_are_exact sowie test_advanced_and_seed_scoped_metrics_use_versioned_worker_evidence"
       },
       {
         "criterion": 5,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_missing_graph_store_produces_valid_degraded_artifact"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_missing_graph_store_produces_valid_degraded_artifact"
       },
       {
         "criterion": 6,
-        "evidence": "tests/test_codecompass_graph_visual_metrics.py::test_worker_artifact_is_schema_valid_deterministic_and_revision_bound und test_tampering_invalidates_content_hash"
+        "evidence": "tests/codecompass/test_codecompass_graph_visual_metrics.py::test_worker_artifact_is_schema_valid_deterministic_and_revision_bound und test_tampering_invalidates_content_hash"
       }
     ],
     "CCGV-003": [
       {
         "criterion": 1,
-        "evidence": "tests/test_codecompass_graph_projection_service.py::test_full_projection_is_schema_valid_and_additive sowie tests/test_codecompass_graph_api.py"
+        "evidence": "tests/codecompass/test_codecompass_graph_projection_service.py::test_full_projection_is_schema_valid_and_additive sowie tests/codecompass/test_codecompass_graph_api.py"
       },
       {
         "criterion": 2,
-        "evidence": "tests/test_codecompass_graph_projection_service.py::test_normal_and_self_graph_use_the_same_optional_contract_shape"
+        "evidence": "tests/codecompass/test_codecompass_graph_projection_service.py::test_normal_and_self_graph_use_the_same_optional_contract_shape"
       },
       {
         "criterion": 3,
@@ -1027,15 +1027,15 @@
       },
       {
         "criterion": 4,
-        "evidence": "tests/test_codecompass_graph_projection_service.py::test_architecture_fixture_types_have_registered_semantics und graph-adapter Registry-Drifttest"
+        "evidence": "tests/codecompass/test_codecompass_graph_projection_service.py::test_architecture_fixture_types_have_registered_semantics und graph-adapter Registry-Drifttest"
       },
       {
         "criterion": 5,
-        "evidence": "tests/test_codecompass_graph_api.py::test_expand_graph_preserves_parallel_store_edges und graph-adapter Parallelkanten-Test"
+        "evidence": "tests/codecompass/test_codecompass_graph_api.py::test_expand_graph_preserves_parallel_store_edges und graph-adapter Parallelkanten-Test"
       },
       {
         "criterion": 6,
-        "evidence": "tests/test_codecompass_graph_api.py::test_get_graph_request_path_does_not_compute_advanced_metrics und test_projection_service_has_no_worker_algorithm_imports"
+        "evidence": "tests/codecompass/test_codecompass_graph_api.py::test_get_graph_request_path_does_not_compute_advanced_metrics und test_projection_service_has_no_worker_algorithm_imports"
       }
     ],
     "CCGV-004": [
@@ -1321,7 +1321,7 @@
       },
       {
         "criterion": 5,
-        "evidence": "Gate-Report browser_p95 und tests/test_codecompass_graph_visualization_gate.py Fail-closed-Budgettests"
+        "evidence": "Gate-Report browser_p95 und tests/codecompass/test_codecompass_graph_visualization_gate.py Fail-closed-Budgettests"
       },
       {
         "criterion": 6,

@@ -271,7 +271,7 @@
         "Gefaelschte, abgelaufene, fremde oder erweiterte Capabilities werden abgelehnt (Tests)."
       ],
       "evidence": [
-        "94197a2ac: codecompass_capability_issuer (HMAC, task/audience/allowed_operations), HubRetrievalCapabilityResolver, client_authority_forbidden; tests/test_codecompass_capability_issuer.py"
+        "94197a2ac: codecompass_capability_issuer (HMAC, task/audience/allowed_operations), HubRetrievalCapabilityResolver, client_authority_forbidden; tests/codecompass/test_codecompass_capability_issuer.py"
       ]
     },
     {
@@ -321,7 +321,7 @@
         "codecompass.search/retrieve laufen im Worker lokal mit gueltiger Capability; ohne sie fail-closed."
       ],
       "evidence": [
-        "94197a2ac: Capability im Step-Request, nur Worker+Service-Auth, Forwarder haengt eigene an; tests/test_codecompass_task_capability.py"
+        "94197a2ac: Capability im Step-Request, nur Worker+Service-Auth, Forwarder haengt eigene an; tests/codecompass/test_codecompass_task_capability.py"
       ]
     },
     {
@@ -344,7 +344,7 @@
         "Graph-Tools funktionieren im Worker ohne gemeinsames Volume; manipulierte Dateien werden abgelehnt."
       ],
       "evidence": [
-        "94197a2ac: GET /api/codecompass/worker-artifacts/<sha256> + Materializer am zugelassenen Pfad, doppelte sha256-Pruefung; tests/test_codecompass_worker_artifacts.py",
+        "94197a2ac: GET /api/codecompass/worker-artifacts/<sha256> + Materializer am zugelassenen Pfad, doppelte sha256-Pruefung; tests/codecompass/test_codecompass_worker_artifacts.py",
         "Live-Smoke 2026-09-27: alpha holt 14.6 MB Graph + Metriken in 0.27 s; Capability fuer beta, manipulierte und fehlende Capability -> 403"
       ]
     },

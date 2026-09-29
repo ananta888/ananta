@@ -105,7 +105,7 @@ def test_gate_rejects_malformed_policy_as_configuration_error():
 
 
 def test_production_policy_matches_checked_schema():
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     schema = json.loads((root / "schemas/codecompass.sira-evaluation-policy.v1.json").read_text())
     policy = json.loads((root / "config/retrieval/codecompass-sira-evaluation-policy.v1.json").read_text())
 

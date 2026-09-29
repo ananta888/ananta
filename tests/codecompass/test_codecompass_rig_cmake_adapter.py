@@ -32,7 +32,7 @@ from worker.retrieval.codecompass_import_provider import (
 )
 
 
-FIXTURE_DIR = Path(__file__).resolve().parents[0] / "fixtures" / "codecompass" / "rig" / "cmake"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "codecompass" / "rig" / "cmake"
 
 
 def _install_workspace(workspace: Path, *, with_ctest: bool = True) -> None:

@@ -42,7 +42,7 @@ from worker.retrieval.codecompass_import_provider import (
 )
 
 
-FIXTURE_DIR = Path(__file__).resolve().parents[0] / "fixtures" / "codecompass" / "crg"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "codecompass" / "crg"
 
 
 def _install_export(workspace: Path, payload: dict) -> None:

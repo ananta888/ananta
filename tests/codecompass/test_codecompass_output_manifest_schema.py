@@ -7,7 +7,7 @@ from jsonschema import Draft202012Validator
 
 
 def _schema() -> dict:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     return json.loads((root / "schemas" / "worker" / "codecompass_output_manifest.v1.json").read_text(encoding="utf-8"))
 
 

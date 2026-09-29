@@ -612,11 +612,11 @@ pnpm exec vitest run src/app/features/codecompass-graph
 
 cd ..
 .venv/bin/python -m pytest -q \
-  tests/test_codecompass_graph_visual_metrics.py \
-  tests/test_codecompass_graph_projection_service.py \
-  tests/test_codecompass_graph_artifact_flow.py \
-  tests/test_codecompass_graph_api.py \
-  tests/test_codecompass_graph_visualization_gate.py \
+  tests/codecompass/test_codecompass_graph_visual_metrics.py \
+  tests/codecompass/test_codecompass_graph_projection_service.py \
+  tests/codecompass/test_codecompass_graph_artifact_flow.py \
+  tests/codecompass/test_codecompass_graph_api.py \
+  tests/codecompass/test_codecompass_graph_visualization_gate.py \
   tests/security/test_codecompass_graph_visual_profile.py
 ```
 

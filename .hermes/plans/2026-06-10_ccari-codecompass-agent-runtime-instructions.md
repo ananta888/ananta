@@ -60,8 +60,8 @@
 - CCARI-006 — `agent/services/worker_workspace_service.py` AGENTS.md paragraph
 - CCARI-007 — `docs/codecompass-agent-runtime-instructions.md` AI-Snake-Chat section (documentation only)
 - CCARI-011 — `agent/services/context_delivery_service.py` reload handling + new route
-- CCARI-008 — `tests/test_codecompass_runtime_instruction_layer.py` (compiler test)
-- CCARI-009 — `tests/test_codecompass_reload_request.py` (parser test)
+- CCARI-008 — `tests/codecompass/test_codecompass_runtime_instruction_layer.py` (compiler test)
+- CCARI-009 — `tests/codecompass/test_codecompass_reload_request.py` (parser test)
 - CCARI-010 — `docs/operator-tui/ai-snake-chat-memory-codecompass-worker.md` update
 
 Total: 11 tasks, 11 commits.
@@ -134,7 +134,7 @@ git commit -m "docs(codecompass): context_reload_request contract (CCARI-002)"
 
 **Files:**
 - Modify: `agent/services/instruction_layer_compiler.py`
-- Test: `tests/test_codecompass_runtime_instruction_layer.py` (new)
+- Test: `tests/codecompass/test_codecompass_runtime_instruction_layer.py` (new)
 
 **Step 1: Write failing test**
 
@@ -162,7 +162,7 @@ def test_codecompass_runtime_layer_appears_when_flag_enabled():
 
 **Step 2: Run test, expect FAIL**
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_codecompass_runtime_layer_appears_when_flag_enabled -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_codecompass_runtime_layer_appears_when_flag_enabled -v`
 Expected: FAIL — `'codecompass_runtime' not in ['governance', 'agent_profile_template', 'task_template', 'blueprint_template', 'goal_overlay', 'task_overlay', 'user_profile', 'hub_runtime']`
 
 **Step 3: Implement minimal layer addition**
@@ -175,7 +175,7 @@ In `instruction_layer_compiler.py`:
 
 **Step 4: Run test, expect PASS**
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_codecompass_runtime_layer_appears_when_flag_enabled -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_codecompass_runtime_layer_appears_when_flag_enabled -v`
 Expected: PASS
 
 **Step 5: Verify other InstructionLayer tests still pass**
@@ -186,7 +186,7 @@ Expected: all pass
 **Step 6: Commit**
 
 ```bash
-git add agent/services/instruction_layer_compiler.py tests/test_codecompass_runtime_instruction_layer.py
+git add agent/services/instruction_layer_compiler.py tests/codecompass/test_codecompass_runtime_instruction_layer.py
 git commit -m "feat(instruction-layer): non-overridable codecompass_runtime layer (CCARI-004)"
 ```
 
@@ -197,7 +197,7 @@ git commit -m "feat(instruction-layer): non-overridable codecompass_runtime laye
 **Objective:** Assert the "non-overridable" contract works.
 
 **Files:**
-- Modify: `tests/test_codecompass_runtime_instruction_layer.py`
+- Modify: `tests/codecompass/test_codecompass_runtime_instruction_layer.py`
 
 **Step 1: Write failing test**
 
@@ -230,13 +230,13 @@ def test_user_overlay_cannot_inject_codecompass_runtime_layer():
 
 **Step 2: Run, expect PASS** (the source-attribute check in Step 3 of Task 3 already enforces this).
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_user_overlay_cannot_inject_codecompass_runtime_layer -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_user_overlay_cannot_inject_codecompass_runtime_layer -v`
 Expected: PASS
 
 **Step 3: Commit**
 
 ```bash
-git add tests/test_codecompass_runtime_instruction_layer.py
+git add tests/codecompass/test_codecompass_runtime_instruction_layer.py
 git commit -m "test(instruction-layer): user overlay cannot override codecompass_runtime (CCARI-008)"
 ```
 
@@ -245,7 +245,7 @@ git commit -m "test(instruction-layer): user overlay cannot override codecompass
 ### Task 5: Test that the layer is only active when CodeCompass context is present (CCARI-008 part 2)
 
 **Files:**
-- Modify: `tests/test_codecompass_runtime_instruction_layer.py`
+- Modify: `tests/codecompass/test_codecompass_runtime_instruction_layer.py`
 
 **Step 1: Write failing test**
 
@@ -261,13 +261,13 @@ def test_runtime_layer_not_active_without_codecompass_context():
 
 **Step 2: Run, expect PASS** (default-off is already in Step 3 of Task 3).
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_runtime_layer_not_active_without_codecompass_context -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_runtime_layer_not_active_without_codecompass_context -v`
 Expected: PASS
 
 **Step 3: Commit (amend or new)**
 
 ```bash
-git add tests/test_codecompass_runtime_instruction_layer.py
+git add tests/codecompass/test_codecompass_runtime_instruction_layer.py
 git commit -m "test(instruction-layer): runtime layer scoped to CodeCompass contexts (CCARI-008)"
 ```
 
@@ -279,7 +279,7 @@ git commit -m "test(instruction-layer): runtime layer scoped to CodeCompass cont
 
 **Files:**
 - Modify: `agent/common/sgpt_architecture_scan.py`
-- Test: `tests/test_codecompass_runtime_instruction_layer.py` (extend)
+- Test: `tests/codecompass/test_codecompass_runtime_instruction_layer.py` (extend)
 
 **Step 1: Write failing test**
 
@@ -299,7 +299,7 @@ def test_build_iteration_prompt_adds_runtime_rules_when_codecompass_present(monk
 
 **Step 2: Run, expect FAIL**
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_build_iteration_prompt_adds_runtime_rules_when_codecompass_present -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_build_iteration_prompt_adds_runtime_rules_when_codecompass_present -v`
 Expected: FAIL — "CodeCompass-Kontext" not in prompt
 
 **Step 3: Inspect the function**
@@ -312,7 +312,7 @@ Add a helper `_codecompass_runtime_rule(context) -> str | None` that returns the
 
 **Step 5: Run, expect PASS**
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_build_iteration_prompt_adds_runtime_rules_when_codecompass_present -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_build_iteration_prompt_adds_runtime_rules_when_codecompass_present -v`
 Expected: PASS
 
 **Step 6: Verify existing sgpt tests still pass**
@@ -323,7 +323,7 @@ Expected: all pass
 **Step 7: Commit**
 
 ```bash
-git add agent/common/sgpt_architecture_scan.py tests/test_codecompass_runtime_instruction_layer.py
+git add agent/common/sgpt_architecture_scan.py tests/codecompass/test_codecompass_runtime_instruction_layer.py
 git commit -m "feat(sgpt): codecompass runtime rule in iteration prompt (CCARI-005)"
 ```
 
@@ -335,7 +335,7 @@ git commit -m "feat(sgpt): codecompass runtime rule in iteration prompt (CCARI-0
 
 **Files:**
 - Modify: `agent/services/worker_workspace_service.py`
-- Test: `tests/test_codecompass_runtime_instruction_layer.py` (extend)
+- Test: `tests/codecompass/test_codecompass_runtime_instruction_layer.py` (extend)
 
 **Step 1: Write failing test**
 
@@ -356,7 +356,7 @@ def test_worker_workspace_renders_codecompass_rules_for_opencode(tmp_path, monke
 
 **Step 2: Run, expect FAIL**
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_worker_workspace_renders_codecompass_rules_for_opencode -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_worker_workspace_renders_codecompass_rules_for_opencode -v`
 Expected: FAIL
 
 **Step 3: Find the AGENTS.md renderer**
@@ -369,7 +369,7 @@ Add a constant `CODECOMPASS_RUNTIME_AGENTS_PARAGRAPH = "..."` and append it to t
 
 **Step 5: Run, expect PASS**
 
-Run: `pytest tests/test_codecompass_runtime_instruction_layer.py::test_worker_workspace_renders_codecompass_rules_for_opencode -v`
+Run: `pytest tests/codecompass/test_codecompass_runtime_instruction_layer.py::test_worker_workspace_renders_codecompass_rules_for_opencode -v`
 Expected: PASS
 
 **Step 6: Verify existing worker_workspace tests still pass**
@@ -380,7 +380,7 @@ Expected: all pass
 **Step 7: Commit**
 
 ```bash
-git add agent/services/worker_workspace_service.py tests/test_codecompass_runtime_instruction_layer.py
+git add agent/services/worker_workspace_service.py tests/codecompass/test_codecompass_runtime_instruction_layer.py
 git commit -m "feat(workspace): codecompass runtime rules in OpenCode AGENTS.md (CCARI-006)"
 ```
 
@@ -431,11 +431,11 @@ git commit -m "docs(codecompass): AI-Snake-Chat runtime instructions (CCARI-007)
 **Files:**
 - Modify: `agent/services/context_delivery_service.py`
 - Create: `agent/routes/codecompass_reload.py` (new)
-- Test: `tests/test_codecompass_reload_request.py` (new)
+- Test: `tests/codecompass/test_codecompass_reload_request.py` (new)
 
 **Step 1: Write failing test for the parser**
 
-In `tests/test_codecompass_reload_request.py`:
+In `tests/codecompass/test_codecompass_reload_request.py`:
 
 ```python
 def test_valid_request_parses_and_dedupes():
@@ -486,7 +486,7 @@ def test_too_many_entries_is_clamped():
 
 **Step 2: Run, expect FAIL**
 
-Run: `pytest tests/test_codecompass_reload_request.py -v`
+Run: `pytest tests/codecompass/test_codecompass_reload_request.py -v`
 Expected: 3 failures (module not found)
 
 **Step 3: Create `agent/services/codecompass_reload.py`**
@@ -507,7 +507,7 @@ Module with:
 
 **Step 4: Run, expect PASS**
 
-Run: `pytest tests/test_codecompass_reload_request.py -v`
+Run: `pytest tests/codecompass/test_codecompass_reload_request.py -v`
 Expected: 3 passed
 
 **Step 5: Wire into `ContextDeliveryService`**
@@ -556,13 +556,13 @@ def test_handle_reload_request_with_valid_payload(monkeypatch):
 
 **Step 7: Run, expect PASS**
 
-Run: `pytest tests/test_codecompass_reload_request.py -v`
+Run: `pytest tests/codecompass/test_codecompass_reload_request.py -v`
 Expected: 4 passed
 
 **Step 8: Commit**
 
 ```bash
-git add agent/services/codecompass_reload.py agent/services/context_delivery_service.py tests/test_codecompass_reload_request.py
+git add agent/services/codecompass_reload.py agent/services/context_delivery_service.py tests/codecompass/test_codecompass_reload_request.py
 git commit -m "feat(codecompass): parse + serve context_reload_request through hub (CCARI-011)"
 ```
 
@@ -574,7 +574,7 @@ git commit -m "feat(codecompass): parse + serve context_reload_request through h
 
 **Files:**
 - Create: `agent/routes/codecompass_reload.py`
-- Test: extend `tests/test_codecompass_reload_request.py` with a route test
+- Test: extend `tests/codecompass/test_codecompass_reload_request.py` with a route test
 
 **Step 1: Write the route**
 
@@ -617,13 +617,13 @@ Use the FastAPI TestClient to call `/api/codecompass/reload-context`. Mock the t
 
 **Step 4: Run, expect PASS**
 
-Run: `pytest tests/test_codecompass_reload_request.py -v`
+Run: `pytest tests/codecompass/test_codecompass_reload_request.py -v`
 Expected: all pass
 
 **Step 5: Commit**
 
 ```bash
-git add agent/routes/codecompass_reload.py tests/test_codecompass_reload_request.py
+git add agent/routes/codecompass_reload.py tests/codecompass/test_codecompass_reload_request.py
 git commit -m "feat(routes): /api/codecompass/reload-context endpoint (CCARI-011)"
 ```
 
@@ -647,7 +647,7 @@ Use the same pattern as the previous CCAQE sync: set all 11 tasks to `done`/`par
 
 **Step 3: Run full test sweep**
 
-Run: `pytest -q tests/test_codecompass_runtime_instruction_layer.py tests/test_codecompass_reload_request.py tests/test_instruction_layers.py tests/test_worker_workspace_service.py tests/test_sgpt_architecture_scan.py 2>&1 | tail -10`
+Run: `pytest -q tests/codecompass/test_codecompass_runtime_instruction_layer.py tests/codecompass/test_codecompass_reload_request.py tests/test_instruction_layers.py tests/test_worker_workspace_service.py tests/test_sgpt_architecture_scan.py 2>&1 | tail -10`
 Expected: all pass
 
 **Step 4: Commit**
@@ -665,7 +665,7 @@ After all 11 tasks, the following must hold:
 
 ```bash
 # All new tests pass
-pytest -q tests/test_codecompass_runtime_instruction_layer.py tests/test_codecompass_reload_request.py
+pytest -q tests/codecompass/test_codecompass_runtime_instruction_layer.py tests/codecompass/test_codecompass_reload_request.py
 
 # No regression in layer / workspace / sgpt
 pytest -q tests/test_instruction_layers.py tests/test_worker_workspace_service.py tests/test_sgpt_architecture_scan.py

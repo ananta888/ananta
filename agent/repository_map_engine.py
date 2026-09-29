@@ -729,7 +729,7 @@ class RepositoryMapEngine:
         # stem contains that token outrank test files that merely mention
         # the token in their test_<token>_* symbol names. The bug being
         # fixed: a single token "codecompass" produced a top-1 result of
-        # `tests/test_codecompass_trigger_mode.py` (8.4) above
+        # `tests/codecompass/test_codecompass_trigger_mode.py` (8.4) above
         # `worker/retrieval/codecompass_budgeting.py` (3.4) because test
         # files accumulate more `test_codecompass_*` symbols than source
         # files have `*codecompass*` symbols — so test files beat source

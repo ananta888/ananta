@@ -14,7 +14,7 @@ from ananta_contracts.file_type_support import (
     load_file_type_support_registry,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 _P2_LIMIT_PATHS = (
     ("src/Limit.kt", "kotlin"),
@@ -389,7 +389,7 @@ def test_canonical_registry_claims_only_verified_symbol_index(
     assert support.symbols.producer.endswith("StaticSymbolLanguageAdapter")
     assert set(support.symbols.evidence) == {
         "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-        "tests/test_codecompass_p2_static_symbol_adapters.py",
+        "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py",
     }
 
 

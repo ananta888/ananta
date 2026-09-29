@@ -10,7 +10,7 @@ from ananta_contracts.file_type_support import load_file_type_support_registry
 
 
 def test_snapshot_manifest_validates_against_wire_schema() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     registry = load_file_type_support_registry(root)
     report = FileTypeCoverageReport(registry, pipeline="setup_index")
     report.add(

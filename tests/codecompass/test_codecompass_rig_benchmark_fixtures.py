@@ -23,7 +23,7 @@ from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_repository_intelligence_query import run_query
 
 
-FIXTURE_DIR = Path(__file__).resolve().parents[0] / "fixtures" / "codecompass" / "rig" / "cmake"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "codecompass" / "rig" / "cmake"
 
 
 def _seed_for_benchmark(tmp_path: Path) -> CodeCompassGraphStore:
@@ -107,7 +107,7 @@ def _score_question(s: CodeCompassGraphStore, q: dict) -> dict:
 
 
 def test_benchmark_questions_have_required_fields():
-    questions = json.loads((Path(__file__).resolve().parents[1]
+    questions = json.loads((Path(__file__).resolve().parents[2]
                            / "benchmarks" / "codecompass_repository_intelligence"
                            / "questions.json").read_text())
     for q in questions:
@@ -124,7 +124,7 @@ def test_benchmark_questions_have_required_fields():
 
 
 def test_benchmark_smoke_run_is_deterministic(tmp_path):
-    questions = json.loads((Path(__file__).resolve().parents[1]
+    questions = json.loads((Path(__file__).resolve().parents[2]
                            / "benchmarks" / "codecompass_repository_intelligence"
                            / "questions.json").read_text())
     s1 = _seed_for_benchmark(tmp_path / "a")
@@ -135,7 +135,7 @@ def test_benchmark_smoke_run_is_deterministic(tmp_path):
 
 
 def test_benchmark_question_q_which_tests_cover_hello(tmp_path):
-    questions = json.loads((Path(__file__).resolve().parents[1]
+    questions = json.loads((Path(__file__).resolve().parents[2]
                            / "benchmarks" / "codecompass_repository_intelligence"
                            / "questions.json").read_text())
     q = next(q for q in questions if q["id"] == "q_which_tests_cover_hello")
@@ -146,7 +146,7 @@ def test_benchmark_question_q_which_tests_cover_hello(tmp_path):
 
 
 def test_benchmark_question_q_external_package_impact(tmp_path):
-    questions = json.loads((Path(__file__).resolve().parents[1]
+    questions = json.loads((Path(__file__).resolve().parents[2]
                            / "benchmarks" / "codecompass_repository_intelligence"
                            / "questions.json").read_text())
     q = next(q for q in questions if q["id"] == "q_external_package_impact")
@@ -157,7 +157,7 @@ def test_benchmark_question_q_external_package_impact(tmp_path):
 
 def test_benchmark_question_no_rig_data_available(tmp_path):
     """Missing seed -> accuracy 1.0 with empty results (RIG-009: not negative)."""
-    questions = json.loads((Path(__file__).resolve().parents[1]
+    questions = json.loads((Path(__file__).resolve().parents[2]
                            / "benchmarks" / "codecompass_repository_intelligence"
                            / "questions.json").read_text())
     q = next(q for q in questions if q["id"] == "q_no_rig_data_available")
@@ -177,7 +177,7 @@ def test_benchmark_aggregation_is_documented():
 
 def test_benchmark_runs_without_external_api(tmp_path):
     """The smoke benchmark must run without any external LLM API."""
-    questions = json.loads((Path(__file__).resolve().parents[1]
+    questions = json.loads((Path(__file__).resolve().parents[2]
                            / "benchmarks" / "codecompass_repository_intelligence"
                            / "questions.json").read_text())
     s = _seed_for_benchmark(tmp_path / "offline")

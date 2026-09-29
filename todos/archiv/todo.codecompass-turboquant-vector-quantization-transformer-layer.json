@@ -82,7 +82,7 @@
     },
     {
       "area": "Tests",
-      "observation": "tests/test_codecompass_vector_store.py prueft bereits rebuild, refresh, provider hash und dass Secrets nicht im State landen.",
+      "observation": "tests/codecompass/test_codecompass_vector_store.py prueft bereits rebuild, refresh, provider hash und dass Secrets nicht im State landen.",
       "impact": "Neue Tests sollten State-Hash, Profilwechsel, Ranking-Stabilitaet und Secret-Freiheit fuer QuantizationProfile ergaenzen."
     }
   ],
@@ -328,7 +328,7 @@
           ],
           "target_files": [
             "worker/retrieval/vector_encoding.py",
-            "tests/test_codecompass_vector_encoding.py"
+            "tests/codecompass/test_codecompass_vector_encoding.py"
           ],
           "acceptance_criteria": [
             "VectorEncodingProfile enthaelt mode, target_bits, seed, dimensions, block_size, store_original, algorithm_version und experimental flag.",
@@ -357,7 +357,7 @@
           ],
           "target_files": [
             "worker/retrieval/vector_encoding.py",
-            "tests/test_codecompass_vector_encoding.py"
+            "tests/codecompass/test_codecompass_vector_encoding.py"
           ],
           "acceptance_criteria": [
             "Interface bietet encode(vector) -> EncodedVector und decode(encoded) -> list[float].",
@@ -386,7 +386,7 @@
           ],
           "target_files": [
             "worker/retrieval/vector_encoding.py",
-            "tests/test_codecompass_vector_encoding.py"
+            "tests/codecompass/test_codecompass_vector_encoding.py"
           ],
           "acceptance_criteria": [
             "float16 speichert kompakter als float32 und rekonstruiert fuer Suche deterministisch.",
@@ -415,7 +415,7 @@
           ],
           "target_files": [
             "worker/retrieval/vector_encoding.py",
-            "tests/test_codecompass_vector_encoding.py"
+            "tests/codecompass/test_codecompass_vector_encoding.py"
           ],
           "acceptance_criteria": [
             "4bit-Modus ist klar als experimental markiert.",
@@ -445,7 +445,7 @@
           ],
           "target_files": [
             "worker/retrieval/codecompass_vector_store.py",
-            "tests/test_codecompass_vector_store.py"
+            "tests/codecompass/test_codecompass_vector_store.py"
           ],
           "acceptance_criteria": [
             "rebuild() kann optional VectorEncoder entgegennehmen.",
@@ -946,8 +946,8 @@
             "TQ-018"
           ],
           "target_files": [
-            "tests/test_codecompass_vector_provider_policy.py",
-            "tests/test_codecompass_vector_store.py"
+            "tests/codecompass/test_codecompass_vector_provider_policy.py",
+            "tests/codecompass/test_codecompass_vector_store.py"
           ],
           "acceptance_criteria": [
             "VectorEncodingDiagnostics enthalten keine API Keys, Authorization Header oder full raw chunks.",

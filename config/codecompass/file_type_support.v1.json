@@ -135,7 +135,7 @@
             "producer": "agent.codecompass.semantic_translation.python_adapter.PythonSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/python_adapter.py",
-              "tests/test_codecompass_python_translation.py"
+              "tests/codecompass/test_codecompass_python_translation.py"
             ],
             "runtime_requirements": []
           },
@@ -145,7 +145,7 @@
             "producer": "agent.codecompass.semantic_translation.python_adapter.PythonSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/python_adapter.py",
-              "tests/test_codecompass_python_translation.py"
+              "tests/codecompass/test_codecompass_python_translation.py"
             ],
             "runtime_requirements": []
           },
@@ -155,7 +155,7 @@
             "producer": "agent.codecompass.semantic_translation.python_adapter.PythonSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/python_adapter.py",
-              "tests/test_codecompass_python_translation.py"
+              "tests/codecompass/test_codecompass_python_translation.py"
             ],
             "runtime_requirements": []
           }
@@ -267,7 +267,7 @@
             "producer": "agent.codecompass.semantic_translation.adapters.JavaSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -277,7 +277,7 @@
             "producer": "agent.codecompass.semantic_translation.adapters.JavaSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -287,7 +287,7 @@
             "producer": "agent.codecompass.semantic_translation.adapters.JavaSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           }
@@ -442,7 +442,7 @@
             "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/typescript_adapter.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -452,7 +452,7 @@
             "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/typescript_adapter.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -462,7 +462,7 @@
             "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/typescript_adapter.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           }
@@ -558,7 +558,7 @@
             "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/typescript_adapter.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -568,7 +568,7 @@
             "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/typescript_adapter.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -578,7 +578,7 @@
             "producer": "agent.codecompass.semantic_translation.typescript_adapter.TypeScriptSemanticAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/typescript_adapter.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           }
@@ -1542,7 +1542,7 @@
             "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/symbol_adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -1552,7 +1552,7 @@
             "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/symbol_adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -1827,7 +1827,7 @@
             "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/symbol_adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -1837,7 +1837,7 @@
             "producer": "agent.codecompass.semantic_translation.symbol_adapters.RegexSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/symbol_adapters.py",
-              "tests/test_codecompass_semantic_adapter_registry.py"
+              "tests/codecompass/test_codecompass_semantic_adapter_registry.py"
             ],
             "runtime_requirements": []
           },
@@ -3056,7 +3056,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3066,7 +3066,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3138,7 +3138,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3148,7 +3148,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3220,7 +3220,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3230,7 +3230,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3339,7 +3339,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3349,7 +3349,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3507,7 +3507,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3517,7 +3517,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3589,7 +3589,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3599,7 +3599,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3671,7 +3671,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3681,7 +3681,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3753,7 +3753,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },
@@ -3763,7 +3763,7 @@
             "producer": "agent.codecompass.semantic_translation.static_symbol_adapters.StaticSymbolLanguageAdapter",
             "evidence": [
               "agent/codecompass/semantic_translation/static_symbol_adapters.py",
-              "tests/test_codecompass_p2_static_symbol_adapters.py"
+              "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py"
             ],
             "runtime_requirements": []
           },

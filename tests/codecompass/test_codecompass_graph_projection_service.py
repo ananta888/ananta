@@ -22,7 +22,7 @@ from agent.services.codecompass_graph_projection_service import (
 from worker.retrieval.codecompass_graph_store import CodeCompassGraphStore
 from worker.retrieval.codecompass_graph_visual_metrics import build_graph_visual_metrics
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DOMAIN_SCHEMA = json.loads(
     (ROOT / "schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8")
 )

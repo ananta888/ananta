@@ -63,7 +63,7 @@
         ]
       },
       {
-        "path": "tests/test_codecompass_worker_retrieval_flags.py",
+        "path": "tests/codecompass/test_codecompass_worker_retrieval_flags.py",
         "observations": [
           "Vorhandene Tests pruefen Retrieval-Flags und Worker-Konfiguration; sie sind ein guter Anknuepfungspunkt fuer source-policy regression tests."
         ]

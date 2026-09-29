@@ -16,7 +16,7 @@ from agent.services.codecompass_layer_hub_store import (
 )
 from agent.services.codecompass_layer_storage_gc import GarbageCollectionObserver, LayerStorageGarbageCollector
 from agent.services.codecompass_layer_sync_service import SyncStateStore
-from tests.test_codecompass_layer_dispatch_flow import A, B, Evidence, Queue, commit, sha, work
+from tests.codecompass.test_codecompass_layer_dispatch_flow import A, B, Evidence, Queue, commit, sha, work
 from worker.incremental_index.head_registry import LayerHeadRegistry
 from worker.incremental_index.layer_store import ArtifactLayerStore
 

@@ -14,7 +14,7 @@ from worker.retrieval.codecompass_graph_visual_metrics import (
     verify_visual_metrics_content_hash,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DOMAIN_SCHEMA = json.loads(
     (ROOT / "schemas/artifacts/domain_graph_artifact.v1.json").read_text(encoding="utf-8")
 )

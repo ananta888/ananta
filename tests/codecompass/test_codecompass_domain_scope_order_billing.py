@@ -17,7 +17,7 @@ from agent.codecompass.domain_scope import DomainScope
 from agent.codecompass.domain_scope_resolver import DomainScopeResolver
 from agent.hybrid_orchestrator import HybridOrchestrator
 
-FIXTURE = Path(__file__).parent / "fixtures" / "codecompass_domain_scope_order_billing"
+FIXTURE = Path(__file__).parent.parent / "fixtures" / "codecompass_domain_scope_order_billing"
 
 QUERY = "Rechnungserzeugung soll ins Bestellmodul: wo ist der invoice service?"
 

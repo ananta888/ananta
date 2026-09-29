@@ -389,7 +389,7 @@
         "tests/test_source_control_v1_api.py",
         "tests/test_context_policy_route_security.py",
         "tests/test_sources_route_security.py",
-        "tests/test_codecompass_reload_security.py"
+        "tests/codecompass/test_codecompass_reload_security.py"
       ],
       "acceptance_criteria": [
         "Jede List-, Detail-, Refresh-, Scan-, Index-, Graph-, Query-, Policy-, Artifact-, Download- und Delete-Operation prüft Tenant, Projekt, Objekt und Rolle über denselben Hub-Policy-Port.",
@@ -1023,9 +1023,9 @@
         "ananta_codecompass/graph_store.py",
         "ananta_codecompass/graph_expansion.py",
         "ananta_codecompass/architecture_query.py",
-        "tests/test_codecompass_artifact_manifest.py",
+        "tests/codecompass/test_codecompass_artifact_manifest.py",
         "tests/test_codecompass_container_boundary.py",
-        "tests/test_codecompass_graph_artifact_resolver_security.py",
+        "tests/codecompass/test_codecompass_graph_artifact_resolver_security.py",
         "agent/services/source_control_production_adapters.py"
       ],
       "acceptance_criteria": [
@@ -1732,7 +1732,7 @@
         "tests/test_source_registry.py",
         "tests/test_source_refresh_service.py",
         "tests/test_rag_helper_index_service.py",
-        "tests/test_codecompass_graph_api.py",
+        "tests/codecompass/test_codecompass_graph_api.py",
         "tests/test_context_access_security.py",
         "tests/security/",
         "tests/contracts/",

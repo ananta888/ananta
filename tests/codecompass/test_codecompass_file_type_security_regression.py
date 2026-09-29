@@ -5,7 +5,7 @@ from pathlib import Path
 import scripts.setup_codecompass_index as setup_index
 from ananta_contracts.file_type_support import load_file_type_support_registry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_setup_index_blocks_binary_payloads_even_for_registered_text_suffixes(

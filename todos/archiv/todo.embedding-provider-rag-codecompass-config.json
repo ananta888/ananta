@@ -51,8 +51,8 @@
       "rag-helper/codecompass_rag.py",
       "docs/worker/retrieval_and_indexing.md",
       "docs/contracts/codecompass-output-manifest.md",
-      "tests/test_codecompass_embedding_provider.py",
-      "tests/test_codecompass_vector_store.py",
+      "tests/codecompass/test_codecompass_embedding_provider.py",
+      "tests/codecompass/test_codecompass_vector_store.py",
       "tests/test_worker_codecompass_vector_channel.py",
       "tests/worker/test_retrieval_indexing.py"
     ],
@@ -546,7 +546,7 @@
       "type": "tests",
       "files": [
         "tests/test_embedding_provider_config_security.py",
-        "tests/test_codecompass_embedding_provider.py"
+        "tests/codecompass/test_codecompass_embedding_provider.py"
       ],
       "description": "Absichern, dass externe Embedding-Provider nicht zufällig oder ohne explizite Freigabe benutzt werden.",
       "acceptance_criteria": [
@@ -570,7 +570,7 @@
       "type": "tests",
       "files": [
         "tests/test_codecompass_embedding_config_integration.py",
-        "tests/test_codecompass_vector_store.py",
+        "tests/codecompass/test_codecompass_vector_store.py",
         "tests/test_worker_codecompass_vector_channel.py"
       ],
       "description": "Nachweisen, dass CodeCompass denselben Config-Pfad nutzt und Index-State/Rebuild korrekt auf Provider-Änderungen reagieren.",

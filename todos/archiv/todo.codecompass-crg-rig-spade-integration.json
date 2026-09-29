@@ -306,7 +306,7 @@
         "docs/architecture/code-review-graph-adapter.md",
         "worker/retrieval/codecompass_graph_store.py",
         "agent/config.py",
-        "tests/test_codecompass_feature_flags.py"
+        "tests/codecompass/test_codecompass_feature_flags.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -333,7 +333,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_import_provider.py",
-        "tests/test_codecompass_import_provider.py"
+        "tests/codecompass/test_codecompass_import_provider.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -361,7 +361,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_crg_adapter.py",
-        "tests/test_codecompass_crg_adapter.py",
+        "tests/codecompass/test_codecompass_crg_adapter.py",
         "tests/fixtures/codecompass/crg/"
       ],
       "notes": "",
@@ -441,7 +441,7 @@
       "target_files": [
         "agent/services/tools/codecompass_tools.py",
         "worker/retrieval/codecompass_blast_radius.py",
-        "tests/test_codecompass_blast_radius.py"
+        "tests/codecompass/test_codecompass_blast_radius.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -467,7 +467,7 @@
       "target_files": [
         "agent/services/codecompass_context_service.py",
         "worker/retrieval/codecompass_budgeting.py",
-        "tests/test_codecompass_review_context.py"
+        "tests/codecompass/test_codecompass_review_context.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -492,7 +492,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_graph_metrics.py",
-        "tests/test_codecompass_graph_metrics.py",
+        "tests/codecompass/test_codecompass_graph_metrics.py",
         "docs/codecompass-graph-viewer.md"
       ],
       "notes": "",
@@ -518,7 +518,7 @@
       "target_files": [
         "worker/retrieval/codecompass_knowledge_gaps.py",
         "agent/services/tools/codecompass_tools.py",
-        "tests/test_codecompass_knowledge_gaps.py"
+        "tests/codecompass/test_codecompass_knowledge_gaps.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -542,7 +542,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_surprising_connections.py",
-        "tests/test_codecompass_surprising_connections.py"
+        "tests/codecompass/test_codecompass_surprising_connections.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -568,7 +568,7 @@
       "target_files": [
         "worker/retrieval/codecompass_graph_diff.py",
         "worker/retrieval/codecompass_graph_store.py",
-        "tests/test_codecompass_graph_diff.py"
+        "tests/codecompass/test_codecompass_graph_diff.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -645,7 +645,7 @@
       "target_files": [
         "worker/retrieval/codecompass_graph_store.py",
         "worker/retrieval/codecompass_sqlite_graph_store.py",
-        "tests/test_codecompass_graph_store.py"
+        "tests/codecompass/test_codecompass_graph_store.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -672,7 +672,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_rig_cmake_adapter.py",
-        "tests/test_codecompass_rig_cmake_adapter.py",
+        "tests/codecompass/test_codecompass_rig_cmake_adapter.py",
         "tests/fixtures/codecompass/rig/cmake/"
       ],
       "notes": "",
@@ -699,7 +699,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_repository_intelligence_query.py",
-        "tests/test_codecompass_repository_intelligence_query.py"
+        "tests/codecompass/test_codecompass_repository_intelligence_query.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -724,7 +724,7 @@
       "target_files": [
         "agent/services/tools/codecompass_tools.py",
         "worker/retrieval/codecompass_repository_intelligence_query.py",
-        "tests/test_codecompass_repository_tools.py"
+        "tests/codecompass/test_codecompass_repository_tools.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -800,7 +800,7 @@
       "target_files": [
         "agent/services/codecompass_context_service.py",
         "docs/architecture/repository-intelligence-graph.md",
-        "tests/test_codecompass_rig_truth_precedence.py"
+        "tests/codecompass/test_codecompass_rig_truth_precedence.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -825,7 +825,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_repository_intelligence_query.py",
-        "tests/test_codecompass_rig_multimodule.py"
+        "tests/codecompass/test_codecompass_rig_multimodule.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -849,7 +849,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "benchmarks/codecompass_repository_intelligence/",
-        "tests/test_codecompass_rig_benchmark_fixtures.py"
+        "tests/codecompass/test_codecompass_rig_benchmark_fixtures.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -904,7 +904,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "agent/services/codecompass_context_planner_service.py",
-        "tests/test_codecompass_unified_context_planner.py"
+        "tests/codecompass/test_codecompass_unified_context_planner.py"
       ],
       "notes": "Integrations-Klammer fuer CRG/RIG/RAG/Policy: schwache Bucket- oder Gewichtungs-Logik hier kollabiert alle downstream Review/Bugfix-Flows. Risk auf critical hochgestuht (DD-011..DD-017, user-confirmed 2026-07-05).",
       "acceptance_criteria": [
@@ -932,7 +932,7 @@
         "agent/services/tools/_evidence.py",
         "worker/retrieval/codecompass_architecture_query.py",
         "schemas/codecompass.graph-evidence.schema.json",
-        "tests/test_codecompass_graph_trust_policy.py"
+        "tests/codecompass/test_codecompass_graph_trust_policy.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -986,7 +986,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "scripts/codecompass_import_external_graphs.py",
-        "tests/test_codecompass_import_external_graphs_cli.py"
+        "tests/codecompass/test_codecompass_import_external_graphs_cli.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -1039,7 +1039,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "tests/fixtures/codecompass/combined_review/",
-        "tests/test_codecompass_combined_review_e2e.py"
+        "tests/codecompass/test_codecompass_combined_review_e2e.py"
       ],
       "notes": "",
       "acceptance_criteria": [
@@ -1063,7 +1063,7 @@
       "integration_mode": "native_adapter_first",
       "target_files": [
         "worker/retrieval/codecompass_context_savings.py",
-        "tests/test_codecompass_context_savings.py",
+        "tests/codecompass/test_codecompass_context_savings.py",
         "docs/worker/codecompass-vector-retrieval.md"
       ],
       "notes": "",
@@ -1091,7 +1091,7 @@
       "target_files": [
         "worker/retrieval/",
         "agent/services/tools/_evidence.py",
-        "tests/test_codecompass_external_adapter_security.py"
+        "tests/codecompass/test_codecompass_external_adapter_security.py"
       ],
       "notes": "",
       "acceptance_criteria": [

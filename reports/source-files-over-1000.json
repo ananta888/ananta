@@ -361,7 +361,7 @@
       "extension": ".py",
       "line_count": 1020,
       "over_threshold": true,
-      "path": "tests/test_codecompass_candidate_resolver_caps.py",
+      "path": "tests/codecompass/test_codecompass_candidate_resolver_caps.py",
       "reason": "test_path_or_name"
     },
     {
@@ -814,7 +814,7 @@
       "extension": ".py",
       "line_count": 1020,
       "over_threshold": true,
-      "path": "tests/test_codecompass_candidate_resolver_caps.py",
+      "path": "tests/codecompass/test_codecompass_candidate_resolver_caps.py",
       "reason": "test_path_or_name"
     },
     {

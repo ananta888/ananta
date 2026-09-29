@@ -403,9 +403,9 @@
     "agent/routes/config/settings.py",
     "agent/services/evolution/context_builder.py",
     "scripts/validate_todo_consistency.py",
-    "tests/test_codecompass_retriever_providers.py",
-    "tests/test_codecompass_vector_retrieval_service.py",
-    "tests/test_codecompass_vector_store.py",
+    "tests/codecompass/test_codecompass_retriever_providers.py",
+    "tests/codecompass/test_codecompass_vector_retrieval_service.py",
+    "tests/codecompass/test_codecompass_vector_store.py",
     "tests/test_evolution_context_builder.py",
     "tests/test_hybrid_orchestrator_codecompass_vector.py",
     "tests/test_retrieval_service.py",
@@ -538,7 +538,7 @@
       "files": [
         "worker/retrieval/codecompass_vector_store.py",
         "worker/retrieval/json_vector_store.py",
-        "tests/test_codecompass_vector_store.py",
+        "tests/codecompass/test_codecompass_vector_store.py",
         "tests/test_vector_store_contract.py"
       ],
       "description": "Bestehende JSON-Persistenz hinter die neuen Ports verschieben und den bisherigen Import-, Datei- und Ergebnisvertrag erhalten.",
