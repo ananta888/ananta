@@ -11,10 +11,10 @@ from agent.services.meet_media_result import validate_response_budget, validate_
 from agent.services.meet_persona_videos import MeetPersonaVideos
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
 from tests.test_meet_media import result, turn
-from tests.test_persona_inspection_tasks import runtime as runtime
-from tests.test_persona_video_asset_service import admit
-from tests.test_persona_video_asset_service import video_assets as video_assets
-from tests.test_persona_video_tasks import video_task as video_task
+from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.persona.test_persona_video_asset_service import admit
+from tests.persona.test_persona_video_asset_service import video_assets as video_assets
+from tests.persona.test_persona_video_tasks import video_task as video_task
 from worker.meet_media.contract import validate_turn
 from worker.meet_media.persona_visual import render_visual
 

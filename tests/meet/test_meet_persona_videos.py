@@ -11,10 +11,10 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_persona_videos import MeetPersonaVideos
 from agent.services.persona_policy_domains import PersonaImagePolicyDomain
 from ananta_contracts.meet_persona_video import decode_assignment
-from tests.test_persona_inspection_tasks import runtime as runtime
-from tests.test_persona_video_asset_service import admit
-from tests.test_persona_video_asset_service import video_assets as video_assets
-from tests.test_persona_video_tasks import video_task as video_task
+from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.persona.test_persona_video_asset_service import admit
+from tests.persona.test_persona_video_asset_service import video_assets as video_assets
+from tests.persona.test_persona_video_tasks import video_task as video_task
 
 
 @pytest.mark.parametrize("purpose", ["preview", "publish"])

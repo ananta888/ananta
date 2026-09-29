@@ -12,14 +12,14 @@ from agent.services.meet_contract import MeetError
 from agent.services.meet_persona_voice_profiles import MeetPersonaVoiceProfiles
 from agent.services.meet_persona_voices import MeetPersonaVoices
 from ananta_contracts.meet_speech import speech_profile
-from tests.test_persona_inspection_tasks import runtime as runtime
-from tests.test_persona_media import profile
-from tests.test_persona_profile_service import save
-from tests.test_persona_profile_service import system as system
-from tests.test_persona_profile_voices import selected
-from tests.test_persona_profile_voices import selected_voice as selected_voice
-from tests.test_persona_voice_asset_service import voice_assets as voice_assets
-from tests.test_persona_voice_tasks import voice_task as voice_task
+from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.persona.test_persona_media import profile
+from tests.persona.test_persona_profile_service import save
+from tests.persona.test_persona_profile_service import system as system
+from tests.persona.test_persona_profile_voices import selected
+from tests.persona.test_persona_profile_voices import selected_voice as selected_voice
+from tests.persona.test_persona_voice_asset_service import voice_assets as voice_assets
+from tests.persona.test_persona_voice_tasks import voice_task as voice_task
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ def test_voice_adapter_does_not_broaden_policy_purposes(bound_voice, purpose):
 
 
 def test_preview_only_voice_is_not_a_meet_publication_grant(request):
-    from tests.test_persona_voice_asset_service import admit
+    from tests.persona.test_persona_voice_asset_service import admit
 
     fixture = request.getfixturevalue("voice_assets")
     policy = fixture.case.permission.model_copy(update={"revision": 2, "purposes": ("inspect", "store", "preview")})

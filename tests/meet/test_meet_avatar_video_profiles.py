@@ -11,13 +11,13 @@ from agent.services.meet_avatar_video_profiles import MeetAvatarVideoProfiles
 from agent.services.meet_contract import MeetError
 from tests.meet.test_meet_video_profiles import clip_profile as clip_profile
 from tests.meet.test_meet_video_profiles import selection
-from tests.test_persona_inspection_tasks import runtime as runtime
-from tests.test_persona_profile_service import save
-from tests.test_persona_profile_service import system as system
-from tests.test_persona_profile_videos import selected
-from tests.test_persona_profile_videos import selected_video as selected_video
-from tests.test_persona_video_asset_service import video_assets as video_assets
-from tests.test_persona_video_tasks import video_task as video_task
+from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.persona.test_persona_profile_service import save
+from tests.persona.test_persona_profile_service import system as system
+from tests.persona.test_persona_profile_videos import selected
+from tests.persona.test_persona_profile_videos import selected_video as selected_video
+from tests.persona.test_persona_video_asset_service import video_assets as video_assets
+from tests.persona.test_persona_video_tasks import video_task as video_task
 
 pytestmark = pytest.mark.timeout(45)
 

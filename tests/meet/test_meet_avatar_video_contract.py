@@ -23,7 +23,7 @@ from ananta_contracts.persona_video import encode_video
 from tests.meet.test_meet_avatar_image_contract import NOW
 from tests.meet.test_meet_avatar_image_contract import packet as image_packet
 from tests.meet.test_meet_dialog_avatar_selection import PIN
-from tests.test_persona_video_inspection import clip
+from tests.persona.test_persona_video_inspection import clip
 
 
 def video_assignment():

@@ -43,11 +43,11 @@ network without host ports. The only persistent worker data is its replay
 file; the only credential mount is a private inspection key. No public Hub,
 Meet instance, Caddy route or trust policy is automatically changed.
 
-Tests in `tests/test_persona_video_http.py` use real HTTP callbacks, Hub Tasks,
+Tests in `tests/persona/test_persona_video_http.py` use real HTTP callbacks, Hub Tasks,
 Registry identities and video policy persistence, with an explicitly
 structural decoder double. They cover completion, revocation during decoding,
 cross-domain requests, duplicate/oversized framing and replay after executor
-recreation. `tests/test_persona_video_http_container.py` is a separate opt-in
+recreation. `tests/persona/test_persona_video_http_container.py` is a separate opt-in
 gate against the built `ananta-persona-video:local` image. It creates and
 removes only its own disposable container/network, generates synthetic moving
 video/audio locally, registers the exact source, and runs actual FFmpeg over
@@ -63,5 +63,5 @@ technical gate, not production admission or end-to-end Meet delivery.
 ```sh
 docker build -f docker/persona-video/Dockerfile -t ananta-persona-video:local .
 PERSONA_VIDEO_HTTP_CONTAINER_GATE=1 .venv/bin/python -m pytest \
-  tests/test_persona_video_http_container.py -n0 -q --tb=short
+  tests/persona/test_persona_video_http_container.py -n0 -q --tb=short
 ```

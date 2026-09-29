@@ -18,9 +18,9 @@ from agent.services.repository_registry import get_repository_registry
 from ananta_contracts.meet_speech import speech_profile
 from tests.meet.test_meet_persona_profiles import bound as bound
 from tests.meet.test_meet_persona_profiles import selection, turn_service
-from tests.test_persona_assets import setup as setup
-from tests.test_persona_inspection_tasks import runtime as runtime
-from tests.test_persona_profile_service import system as system
+from tests.persona.test_persona_assets import setup as setup
+from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.persona.test_persona_profile_service import system as system
 from worker.meet_media.contract import load_key
 
 

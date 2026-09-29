@@ -21,11 +21,11 @@ from agent.services.meet_persona_images import MeetPersonaImages
 from agent.services.meet_persona_profiles import MeetPersonaProfiles
 from agent.services.meet_turn_service import HubMediaTasks, MeetTurnService
 from agent.services.persona_profile_images import PersonaProfileImages
-from tests.test_persona_assets import application
-from tests.test_persona_assets import setup as setup
-from tests.test_persona_inspection_tasks import runtime as runtime
-from tests.test_persona_media import profile
-from tests.test_persona_profile_service import system as system
+from tests.persona.test_persona_assets import application
+from tests.persona.test_persona_assets import setup as setup
+from tests.persona.test_persona_inspection_tasks import runtime as runtime
+from tests.persona.test_persona_media import profile
+from tests.persona.test_persona_profile_service import system as system
 from worker.meet_media.contract import validate_turn
 
 pytestmark = pytest.mark.timeout(45)

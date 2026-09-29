@@ -46,4 +46,4 @@ Integration still required in the next tasks: authorized immutable persistence,
 artifact admission and revocation (MAP-18), the editing UI (MAP-19), and current
 membership/profile/asset authorization rechecks around session transitions
 (MAP-20). Do not expose this pure resolver directly as a caller-authorized API.
-Tests in `tests/test_persona_media.py` use only deterministic synthetic metadata.
+Tests in `tests/persona/test_persona_media.py` use only deterministic synthetic metadata.

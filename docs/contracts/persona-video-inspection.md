@@ -24,12 +24,12 @@ checks, including subprocess cancellation. Corrupt-frame errors are fatal.
 The worker container must provide aggregate CPU/memory limits; FFmpeg's
 allocation option is a per-allocation cap, not a whole-process memory limit.
 
-`tests/test_persona_video_inspection.py` covers closed results, codec/time/
+`tests/persona/test_persona_video_inspection.py` covers closed results, codec/time/
 dimension bounds, all nine authority checkpoints, invalid deadlines and
 sanitized failures. No approval or human capture is used.
 
 `PERSONA_VIDEO_CONTAINER_GATE=1` enables
-`tests/test_persona_video_container.py` against the provisioned private
+`tests/persona/test_persona_video_container.py` against the provisioned private
 worker. Its built-in moving test pattern plus synthetic sine audio is
 normalized and decoded again. The first/last RGB frames must differ,
 the normalized probe must contain no audio, and actual decoded frame count

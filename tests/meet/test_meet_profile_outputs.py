@@ -16,9 +16,9 @@ from agent.db_models import (
 from agent.models.persona_media import MediaSelection, PersonaProfileSelection
 from tests.meet.test_meet_persona_profiles import bound as bound
 from tests.meet.test_meet_persona_profiles import selection, turn_service
-from tests.test_persona_assets import setup as setup
-from tests.test_persona_media import profile
-from tests.test_persona_profile_service import system as system
+from tests.persona.test_persona_assets import setup as setup
+from tests.persona.test_persona_media import profile
+from tests.persona.test_persona_profile_service import system as system
 
 pytestmark = pytest.mark.timeout(45)
 

@@ -32,12 +32,12 @@ encoding and its quality gate. The injected subprocess runner/current lease
 callback permit deterministic resource and revocation tests. Existing
 temporary-file/encoder lifecycle remains caller-owned and unchanged.
 
-`tests/test_persona_clip_frames.py` passed 23 tests in 20.59 seconds. They
+`tests/persona/test_persona_clip_frames.py` passed 23 tests in 20.59 seconds. They
 cover explicit repeat/hold, visible labels, scope-independent format checks,
 invalid frame/duration budgets, revocation, mismatched decoded counts and
 buffer release after both encoder success and failure.
 
-`MEET_MEDIA_GPU_GATE=1` enables `tests/test_persona_clip_speech_gpu.py`.
+`MEET_MEDIA_GPU_GATE=1` enables `tests/persona/test_persona_clip_speech_gpu.py`.
 The real private container generates a moving synthetic MP4 with sine audio,
 imports it, discards source audio, generates pinned Piper/CUDA speech, renders
 and NVENC-encodes a labelled loop, then decodes both final streams. The initial

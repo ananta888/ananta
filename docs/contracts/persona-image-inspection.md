@@ -27,7 +27,7 @@ The existing semantic-media compute handler still sets that global limit; it is
 left unchanged and is not reused as an asset-admission boundary. Per-image
 limits avoid introducing that implicit coupling into the new inspector.
 
-`tests/test_persona_image.py` generates tiny synthetic images in memory. It checks
+`tests/persona/test_persona_image.py` generates tiny synthetic images in memory. It checks
 metadata removal, deterministic output, animation/MIME/dimension rejection, a
 real supervised child and authority revocation. These tests require no person,
 network, model or live image fixtures.
@@ -87,7 +87,7 @@ fence; see [persona-image-api.md](persona-image-api.md). Automatic retention
 scheduling and fencing already-running publishers remain later integration work.
 Revocation alone still does not physically erase files.
 
-`tests/test_persona_assets.py` exercises real isolated SQL/catalog and immutable
+`tests/persona/test_persona_assets.py` exercises real isolated SQL/catalog and immutable
 storage with explicit synthetic policy/task fixtures. Combined persona,
 ingestion and artifact-route regression: **104 passed in 32.77 seconds**.
 
