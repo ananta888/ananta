@@ -1,8 +1,15 @@
-"""Row <-> domain mapping of the SQLAlchemy ownership store (exact revalidation of stored rows)."""
+"""Row <-> domain mapping of the SQLAlchemy ownership store (exact revalidation of stored rows)
+and the current-row access shared by the store and its transition-reservation collaborator.
+"""
 
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
+from typing import Any
+
+import sqlalchemy as sa
+from sqlalchemy import Select
 
 from agent.db_models.workflow_runtime import (
     WorkflowExecutionAttemptHistoryDB,
@@ -14,6 +21,7 @@ from agent.db_models.workflow_runtime import (
 from agent.repositories.sqlalchemy_support import (
     stable_row_id,
 )
+from agent.services.workflow_runtime.errors import OptimisticConcurrencyError
 from agent.services.workflow_runtime.ownership import (
     ExecutionOwnership,
     RetryBudgetSnapshot,
@@ -255,3 +263,68 @@ def _transition_receipt(
         raise WorkflowTransitionOwnershipReservationConflict(
             "workflow_transition_ownership_receipt_projection_conflict"
         ) from exc
+
+
+class SQLAlchemyOwnershipRows:
+    """Read the current ownership row and compare-and-set it with an immutable history row.
+
+    Sessions stay owned by the caller, so transaction boundaries and lock
+    ordering are decided by the store operation that uses this collaborator.
+    """
+
+    def __init__(self, *, for_update: Callable[[Select[Any]], Select[Any]]) -> None:
+        self._for_update = for_update
+
+    def read(
+        self,
+        session,
+        *,
+        tenant_id: str,
+        run_id: str,
+        step_id: str,
+        lock: bool,
+    ) -> WorkflowExecutionOwnershipDB | None:
+        statement = sa.select(WorkflowExecutionOwnershipDB).where(
+            WorkflowExecutionOwnershipDB.tenant_id == tenant_id,
+            WorkflowExecutionOwnershipDB.run_id == run_id,
+            WorkflowExecutionOwnershipDB.step_id == step_id,
+        )
+        if lock:
+            statement = self._for_update(statement)
+        return session.execute(statement).scalar_one_or_none()
+
+    @staticmethod
+    def write(
+        session,
+        *,
+        row: WorkflowExecutionOwnershipDB | None,
+        value: ExecutionOwnership,
+    ) -> None:
+        value.assert_valid()
+        if row is None:
+            session.add(_ownership_row(value))
+        else:
+            result = session.execute(
+                sa.update(WorkflowExecutionOwnershipDB)
+                .where(
+                    WorkflowExecutionOwnershipDB.id == row.id,
+                    WorkflowExecutionOwnershipDB.revision == row.revision,
+                    WorkflowExecutionOwnershipDB.fencing_token == row.fencing_token,
+                )
+                .values(
+                    workflow_id=value.workflow_id,
+                    attempt_id=value.attempt_id,
+                    owner_id=value.owner_id,
+                    status=value.status,
+                    revision=value.revision,
+                    fencing_token=value.fencing_token,
+                    lease_expires_at=value.lease_expires_at,
+                    last_heartbeat_at=value.last_heartbeat_at,
+                    ownership=value.to_dict(),
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                raise OptimisticConcurrencyError("execution_ownership_compare_and_set_failed")
+        session.add(_history_row(value))
+        session.flush()

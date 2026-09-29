@@ -1,4 +1,10 @@
-"""SQLAlchemy hub ownership, fencing, and combined retry-budget store."""
+"""SQLAlchemy hub ownership, fencing, and combined retry-budget store.
+
+The store composes two collaborators built in ``__init__``: the current-row
+access (``SQLAlchemyOwnershipRows``) and the transition-effect reservation
+protocol (``SQLAlchemyTransitionReservations``), which receives the store's
+transaction factories and row port explicitly instead of being mixed in.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +19,6 @@ from sqlalchemy.exc import IntegrityError
 
 from agent.db_models.workflow_runtime import (
     WorkflowExecutionAttemptHistoryDB,
-    WorkflowExecutionOwnershipDB,
     WorkflowRetryBudgetDB,
     WorkflowRetryConsumptionDB,
 )
@@ -32,6 +37,10 @@ from agent.services.workflow_runtime.ownership import (
     ExecutionOwnershipStore,
     OwnershipClaim,
     RetryBudgetSnapshot,
+    WorkflowTransitionOwnershipReservationEvidence,
+    WorkflowTransitionOwnershipReservationIntent,
+    WorkflowTransitionOwnershipReservationObservation,
+    WorkflowTransitionOwnershipReservationReceipt,
     _assert_expected_revision,
     _assert_owner,
     _heartbeat,
@@ -39,22 +48,76 @@ from agent.services.workflow_runtime.ownership import (
     _validate_lease,
 )
 from agent.services.workflow_runtime.sqlalchemy_ownership_rows import (  # noqa: F401 -- execution_ownership_from_row re-exported
-    _history_row,
+    SQLAlchemyOwnershipRows,
     _ownership,
-    _ownership_row,
     execution_ownership_from_row,
 )
-from agent.services.workflow_runtime.sqlalchemy_transition_reservations import SQLAlchemyTransitionReservationMixin
+from agent.services.workflow_runtime.sqlalchemy_transition_reservations import (
+    SQLAlchemyTransitionReservations,
+    TransitionReservationFault,
+)
 from ananta_contracts.hub_task_gateway import RETRY_CATEGORIES
 
 
-class SQLAlchemyExecutionOwnershipStore(
-    SQLAlchemyTransitionReservationMixin, SQLAlchemyStoreSupport, ExecutionOwnershipStore
-):
+class SQLAlchemyExecutionOwnershipStore(SQLAlchemyStoreSupport, ExecutionOwnershipStore):
     """Distributed lease store with database CAS and immutable attempt history."""
 
-    def __init__(self, bind: Engine | SessionFactory) -> None:
+    def __init__(
+        self,
+        bind: Engine | SessionFactory,
+        *,
+        transition_reservation_fault: TransitionReservationFault | None = None,
+    ) -> None:
         super().__init__(bind)
+        self._rows = SQLAlchemyOwnershipRows(for_update=self._for_update)
+        self._transition_reservations = SQLAlchemyTransitionReservations(
+            transaction=self._transaction,
+            read_session=self._read_session,
+            for_update=self._for_update,
+            rows=self._rows,
+            fault=transition_reservation_fault or self._store_transition_reservation_fault,
+        )
+
+    def observe_transition_reservation(
+        self,
+        intent: WorkflowTransitionOwnershipReservationIntent,
+        *,
+        claim_generation: int,
+    ) -> WorkflowTransitionOwnershipReservationObservation:
+        return self._transition_reservations.observe_transition_reservation(
+            intent,
+            claim_generation=claim_generation,
+        )
+
+    def read_transition_reservation_history(
+        self,
+        intent: WorkflowTransitionOwnershipReservationIntent,
+    ) -> WorkflowTransitionOwnershipReservationEvidence:
+        return self._transition_reservations.read_transition_reservation_history(intent)
+
+    def reserve_transition_effect(
+        self,
+        intent: WorkflowTransitionOwnershipReservationIntent,
+        *,
+        creator_claim_generation: int,
+        expected_observation_digest: str,
+        reserved_at: float,
+    ) -> WorkflowTransitionOwnershipReservationReceipt:
+        return self._transition_reservations.reserve_transition_effect(
+            intent,
+            creator_claim_generation=creator_claim_generation,
+            expected_observation_digest=expected_observation_digest,
+            reserved_at=reserved_at,
+        )
+
+    def _store_transition_reservation_fault(self, stage: str, value: object) -> None:
+        # Resolved per call so the cross-store fault seam
+        # ``_transition_reservation_fault`` (shared with the in-memory and
+        # SQLite stores) keeps working for an already-built store.
+        self._transition_reservation_fault(stage, value)
+
+    def _transition_reservation_fault(self, stage: str, value: object) -> None:
+        del stage, value
 
     def claim(
         self,
@@ -101,7 +164,7 @@ class SQLAlchemyExecutionOwnershipStore(
         maximum_retries: int,
     ) -> OwnershipClaim:
         with self._transaction() as session:
-            row = self._read_row(
+            row = self._rows.read(
                 session,
                 tenant_id=values["tenant_id"],
                 run_id=values["run_id"],
@@ -141,7 +204,7 @@ class SQLAlchemyExecutionOwnershipStore(
                 last_heartbeat_at=timestamp,
             )
             ownership.assert_valid()
-            self._write(session, row=row, value=ownership)
+            self._rows.write(session, row=row, value=ownership)
             return OwnershipClaim(ownership, True, "acquired" if current is None else "recovered")
 
     def heartbeat(self, **values: Any) -> ExecutionOwnership:
@@ -171,7 +234,7 @@ class SQLAlchemyExecutionOwnershipStore(
                 result_ack_key=result_ack_key,
                 lease_expires_at=timestamp,
             )
-            self._write(session, row=row, value=updated)
+            self._rows.write(session, row=row, value=updated)
             return updated
 
     def acknowledge_result_fenced(self, *, lease, **values):
@@ -211,7 +274,7 @@ class SQLAlchemyExecutionOwnershipStore(
     ) -> ExecutionOwnership | None:
         timestamp = float(time.time() if now is None else now)
         with self._transaction() as session:
-            row = self._read_row(
+            row = self._rows.read(
                 session,
                 tenant_id=str(tenant_id),
                 run_id=str(run_id),
@@ -229,12 +292,12 @@ class SQLAlchemyExecutionOwnershipStore(
                 status="orphaned",
                 failure_code="lease_expired",
             )
-            self._write(session, row=row, value=updated)
+            self._rows.write(session, row=row, value=updated)
             return updated
 
     def get(self, *, tenant_id: str, run_id: str, step_id: str) -> ExecutionOwnership | None:
         with self._read_session() as session:
-            row = self._read_row(
+            row = self._rows.read(
                 session,
                 tenant_id=str(tenant_id),
                 run_id=str(run_id),
@@ -384,11 +447,11 @@ class SQLAlchemyExecutionOwnershipStore(
             self._validate_control_lease(session, values)
             row, current = self._required_owned(session, values)
             updated = mutate(current)
-            self._write(session, row=row, value=updated)
+            self._rows.write(session, row=row, value=updated)
             return updated
 
     def _required_owned(self, session, values: dict[str, Any]):
-        row = self._read_row(
+        row = self._rows.read(
             session,
             tenant_id=str(values["tenant_id"]),
             run_id=str(values["run_id"]),
@@ -405,57 +468,3 @@ class SQLAlchemyExecutionOwnershipStore(
             fencing_token=int(values["fencing_token"]),
         )
         return row, current
-
-    def _read_row(
-        self,
-        session,
-        *,
-        tenant_id: str,
-        run_id: str,
-        step_id: str,
-        lock: bool,
-    ) -> WorkflowExecutionOwnershipDB | None:
-        statement = sa.select(WorkflowExecutionOwnershipDB).where(
-            WorkflowExecutionOwnershipDB.tenant_id == tenant_id,
-            WorkflowExecutionOwnershipDB.run_id == run_id,
-            WorkflowExecutionOwnershipDB.step_id == step_id,
-        )
-        if lock:
-            statement = self._for_update(statement)
-        return session.execute(statement).scalar_one_or_none()
-
-    @staticmethod
-    def _write(
-        session,
-        *,
-        row: WorkflowExecutionOwnershipDB | None,
-        value: ExecutionOwnership,
-    ) -> None:
-        value.assert_valid()
-        if row is None:
-            session.add(_ownership_row(value))
-        else:
-            result = session.execute(
-                sa.update(WorkflowExecutionOwnershipDB)
-                .where(
-                    WorkflowExecutionOwnershipDB.id == row.id,
-                    WorkflowExecutionOwnershipDB.revision == row.revision,
-                    WorkflowExecutionOwnershipDB.fencing_token == row.fencing_token,
-                )
-                .values(
-                    workflow_id=value.workflow_id,
-                    attempt_id=value.attempt_id,
-                    owner_id=value.owner_id,
-                    status=value.status,
-                    revision=value.revision,
-                    fencing_token=value.fencing_token,
-                    lease_expires_at=value.lease_expires_at,
-                    last_heartbeat_at=value.last_heartbeat_at,
-                    ownership=value.to_dict(),
-                )
-                .execution_options(synchronize_session=False)
-            )
-            if result.rowcount != 1:
-                raise OptimisticConcurrencyError("execution_ownership_compare_and_set_failed")
-        session.add(_history_row(value))
-        session.flush()

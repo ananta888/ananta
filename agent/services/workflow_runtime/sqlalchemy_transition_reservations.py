@@ -1,16 +1,25 @@
 """Transition-effect ownership reservations of the SQLAlchemy ownership store.
 
-A mixin of ``SQLAlchemyExecutionOwnershipStore``: it uses the store's session support (``_session``,
-``_read_row``, ``_write`` ...) and keeps the reservation protocol in one place.
+``SQLAlchemyTransitionReservations`` is a collaborator composed by
+``SQLAlchemyExecutionOwnershipStore``.  It receives the store's transaction and
+read-session factories, its row-lock policy, the ownership row port, and a
+fault hook, and keeps the reservation protocol in one place.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from typing import Any, Protocol
+
 import sqlalchemy as sa
+from sqlalchemy import Select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from agent.db_models.workflow_runtime import (
     WorkflowExecutionAttemptHistoryDB,
+    WorkflowExecutionOwnershipDB,
     WorkflowRetryBudgetDB,
     WorkflowRetryConsumptionDB,
     WorkflowTransitionOwnershipReservationDB,
@@ -47,7 +56,49 @@ from agent.services.workflow_runtime.sqlalchemy_ownership_rows import (
 )
 
 
-class SQLAlchemyTransitionReservationMixin:
+class OwnershipRowPort(Protocol):
+    """Current-row read and compare-and-set used inside a caller-owned session."""
+
+    def read(
+        self,
+        session: Session,
+        *,
+        tenant_id: str,
+        run_id: str,
+        step_id: str,
+        lock: bool,
+    ) -> WorkflowExecutionOwnershipDB | None: ...
+
+    def write(
+        self,
+        session: Session,
+        *,
+        row: WorkflowExecutionOwnershipDB | None,
+        value: ExecutionOwnership,
+    ) -> None: ...
+
+
+TransitionReservationFault = Callable[[str, object], None]
+
+
+class SQLAlchemyTransitionReservations:
+    """Observe, read and atomically commit transition-effect ownership reservations."""
+
+    def __init__(
+        self,
+        *,
+        transaction: Callable[[], AbstractContextManager[Session]],
+        read_session: Callable[[], AbstractContextManager[Session]],
+        for_update: Callable[[Select[Any]], Select[Any]],
+        rows: OwnershipRowPort,
+        fault: TransitionReservationFault,
+    ) -> None:
+        self._transaction = transaction
+        self._read_session = read_session
+        self._for_update = for_update
+        self._rows = rows
+        self._fault = fault
+
     def observe_transition_reservation(
         self,
         intent: WorkflowTransitionOwnershipReservationIntent,
@@ -227,7 +278,7 @@ class SQLAlchemyTransitionReservationMixin:
         if not isinstance(intent, WorkflowTransitionOwnershipReservationIntent):
             raise WorkflowTransitionOwnershipReservationConflict("workflow_transition_ownership_intent_invalid")
         with self._transaction() as session:
-            self._read_row(
+            self._rows.read(
                 session,
                 tenant_id=intent.tenant_id,
                 run_id=intent.run_id,
@@ -256,7 +307,7 @@ class SQLAlchemyTransitionReservationMixin:
             )
             if observation.receipt is not None:
                 return observation.receipt
-            self._transition_reservation_fault("before_retry", consumption)
+            self._fault("before_retry", consumption)
             if consumption is not None:
                 self._consume_transition_retry_in_session(
                     session,
@@ -266,8 +317,8 @@ class SQLAlchemyTransitionReservationMixin:
                     budget=budget,
                     reserved_at=reserved_at,
                 )
-            self._transition_reservation_fault("after_retry", consumption)
-            current_row = self._read_row(
+            self._fault("after_retry", consumption)
+            current_row = self._rows.read(
                 session,
                 tenant_id=intent.tenant_id,
                 run_id=intent.run_id,
@@ -277,14 +328,14 @@ class SQLAlchemyTransitionReservationMixin:
             current = _ownership_exact(current_row) if current_row is not None else None
             if current != observation.current:
                 raise OptimisticConcurrencyError("workflow_transition_ownership_current_compare_and_set_failed")
-            self._write(session, row=current_row, value=acquired)
-            self._transition_reservation_fault("after_current", acquired)
-            self._transition_reservation_fault("after_history", acquired)
+            self._rows.write(session, row=current_row, value=acquired)
+            self._fault("after_current", acquired)
+            self._fault("after_history", acquired)
             session.add(_transition_receipt_row(receipt))
             session.flush()
-            self._transition_reservation_fault("after_receipt", receipt)
-            self._transition_reservation_fault("before_commit", receipt)
-        self._transition_reservation_fault("after_commit", receipt)
+            self._fault("after_receipt", receipt)
+            self._fault("before_commit", receipt)
+        self._fault("after_commit", receipt)
         return receipt
 
     def _resolve_transition_reservation_winner(
@@ -319,7 +370,7 @@ class SQLAlchemyTransitionReservationMixin:
     ) -> WorkflowTransitionOwnershipReservationObservation:
         if not isinstance(intent, WorkflowTransitionOwnershipReservationIntent):
             raise WorkflowTransitionOwnershipReservationConflict("workflow_transition_ownership_intent_invalid")
-        current_row = self._read_row(
+        current_row = self._rows.read(
             session,
             tenant_id=intent.tenant_id,
             run_id=intent.run_id,
@@ -382,7 +433,7 @@ class SQLAlchemyTransitionReservationMixin:
             # Under READ COMMITTED an absent-row race cannot be gap-locked.  A
             # second exact read detects any winner before this snapshot grants
             # mutation authority.
-            current_again_row = self._read_row(
+            current_again_row = self._rows.read(
                 session,
                 tenant_id=intent.tenant_id,
                 run_id=intent.run_id,
@@ -623,6 +674,3 @@ class SQLAlchemyTransitionReservationMixin:
             if result.rowcount != 1:
                 raise OptimisticConcurrencyError("workflow_transition_ownership_retry_budget_cas_failed")
         session.flush()
-
-    def _transition_reservation_fault(self, stage: str, value: object) -> None:
-        del stage, value
