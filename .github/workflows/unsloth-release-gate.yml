@@ -32,8 +32,7 @@ on:
       - "tests/unsloth/test_unsloth_release_attestation.py"
       - "tests/hub/test_hub_evidence_unsloth_gpu_gate.py"
       - "tests/test_unsloth_*.py"
-      - "tests/test_studio_*training*.py"
-      - "tests/test_mcp_*training*.py"
+      - "tests/unsloth/test_unsloth_*.py"
       - "tests/test_ml_intern_artifact_security_service.py"
       - "tests/ml/test_ml_intern_training_config_service.py"
       - "tests/test_ml_intern_training_contract_v2.py"
@@ -79,9 +78,10 @@ on:
       - "tests/unsloth/test_unsloth_release_attestation.py"
       - "tests/hub/test_hub_evidence_unsloth_gpu_gate.py"
       - "tests/test_unsloth_*.py"
+      - "tests/unsloth/test_unsloth_*.py"
       - "tests/test_ml_intern_*.py"
-      - "tests/test_studio_*training*.py"
-      - "tests/test_mcp_*training*.py"
+      - "tests/ml/test_ml_intern_*.py"
+      - "tests/slow/ml/test_ml_intern_*.py"
       - "tests/worker/test_lora_training_*.py"
       - "tests/worker/test_unsloth_*.py"
       # test_ml_intern_training_migration.py runs the Alembic chain up, down and
@@ -137,9 +137,10 @@ jobs:
           shopt -s nullglob
           test_files=(
             tests/test_unsloth*.py
+            tests/unsloth/test_unsloth*.py
             tests/test_ml_intern_*.py
-            tests/test_studio_*training*.py
-            tests/test_mcp_*training*.py
+            tests/ml/test_ml_intern_*.py
+            tests/slow/ml/test_ml_intern_*.py
             tests/worker/test_lora_training_*.py
             tests/worker/test_unsloth_*.py
           )

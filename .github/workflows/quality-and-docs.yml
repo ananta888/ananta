@@ -329,7 +329,7 @@ jobs:
       - name: Run the workflow-transition track
         run: >
           pytest -q
-          tests/test_workflow_transition_*.py
+          tests/workflow/test_workflow_transition_*.py
           tests/workflow/test_workflow_command_transition_admission.py
           tests/workflow/test_workflow_run_history_paging.py
           tests/workflow/test_workflow_terminal_trace_reconciliation.py
