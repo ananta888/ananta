@@ -17,7 +17,7 @@ from agent.services.semantic_speech_source_correction_service import (
 from ananta_contracts.speech_evidence_governance import SpeechEvidenceGovernanceError
 
 NOW_MS = 10_000
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _audio() -> bytes:

@@ -18,7 +18,7 @@ def _digest(value: str) -> str:
 
 def _reports(*, critical: int = 0, high: int = 0, exception: bool = False):
     source = build_source_sha256()
-    policy = source_hash(Path(__file__).resolve().parents[1], SOURCE_BINDINGS)
+    policy = source_hash(Path(__file__).resolve().parents[2], SOURCE_BINDINGS)
     components = []
     images = []
     manifest_images = []

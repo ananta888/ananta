@@ -5,7 +5,7 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_ROOT = ROOT / "docker" / "compose-next"
 
 HUB_MEDIA_ENVIRONMENT = {

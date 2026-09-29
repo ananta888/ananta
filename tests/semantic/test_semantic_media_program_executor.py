@@ -9,7 +9,7 @@ import pytest
 from scripts.benchmark.semantic_media_program import evaluate
 from scripts.benchmark.semantic_media_program_executor import METRIC_FIELDS, run_benchmark
 
-_VITE_NODE = Path(__file__).resolve().parents[1] / "frontend-angular/node_modules/.bin/vite-node"
+_VITE_NODE = Path(__file__).resolve().parents[2] / "frontend-angular/node_modules/.bin/vite-node"
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(not _VITE_NODE.is_file(), reason="the Angular workspace has no vite-node (not a declared dependency); the live measurement cannot run"),

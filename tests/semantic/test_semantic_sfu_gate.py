@@ -5,7 +5,7 @@ from pathlib import Path
 
 from scripts.run_semantic_sfu_gate import evidence_binding, recompute_evidence, static_reasons
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def evidence():

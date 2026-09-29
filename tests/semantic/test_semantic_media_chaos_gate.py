@@ -5,7 +5,7 @@ from pathlib import Path
 
 from scripts.run_semantic_media_chaos_gate import evaluate_external_live_failover
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_chaos_gate_accepts_only_recomputed_external_failover_evidence() -> None:

@@ -13,7 +13,7 @@ from scripts.e2e.semantic_relay_multi_hub_e2e import (
     _source_hash,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_live_multi_hub_report_is_green_current_and_content_free() -> None:

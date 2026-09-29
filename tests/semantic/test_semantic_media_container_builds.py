@@ -15,7 +15,7 @@ from scripts.build_semantic_media_containers import (
 )
 from scripts.generate_semantic_media_supply_chain_reports import COMPONENT_SOURCES
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_container_build_inventory_covers_every_supply_chain_component() -> None:
