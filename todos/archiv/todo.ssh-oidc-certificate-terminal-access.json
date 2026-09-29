@@ -172,7 +172,7 @@
       "status": "done",
       "title": "Add SSH certificate issuer service abstraction",
       "summary": "Introduce an issuer interface that validates OIDC identity and requests or creates constrained SSH user certificates.",
-      "files": ["agent/services/ssh_certificate_issuer.py", "agent/services/ssh_principal_mapper.py", "agent/config.py", "tests/test_ssh_certificate_issuer.py"],
+      "files": ["agent/services/ssh_certificate_issuer.py", "agent/services/ssh_principal_mapper.py", "agent/config.py", "tests/auth/test_ssh_certificate_issuer.py"],
       "acceptance_criteria": [
         "Issuer refuses invalid issuer, audience, expiry, nonce or signature.",
         "Issuer refuses unknown OIDC groups by default.",
@@ -200,7 +200,7 @@
       "status": "done",
       "title": "Add server-side SSH terminal wrapper",
       "summary": "Create a strict wrapper that receives a validated SSH identity and opens only approved Ananta terminal sessions.",
-      "files": ["agent/services/ssh_terminal_wrapper.py", "agent/services/terminal_session_service.py", "agent/services/terminal_policy_service.py", "tests/test_ssh_terminal_wrapper.py", "docs/security/ssh-terminal-access.md"],
+      "files": ["agent/services/ssh_terminal_wrapper.py", "agent/services/terminal_session_service.py", "agent/services/terminal_policy_service.py", "tests/auth/test_ssh_terminal_wrapper.py", "docs/security/ssh-terminal-access.md"],
       "acceptance_criteria": [
         "Wrapper denies unmanaged direct shell mode for managed production targets unless explicitly configured.",
         "Wrapper calls TerminalPolicyService before create, attach, read, write or kill operations.",
@@ -228,7 +228,7 @@
       "status": "done",
       "title": "Add SSH audit model",
       "summary": "Ensure native SSH access is correlated with certificate issuance, terminal session lifecycle and policy decisions.",
-      "files": ["agent/common/audit.py", "agent/services/ssh_access_audit_service.py", "agent/db_models.py", "tests/test_ssh_access_audit.py", "docs/security/terminal-audit.md"],
+      "files": ["agent/common/audit.py", "agent/services/ssh_access_audit_service.py", "agent/db_models.py", "tests/auth/test_ssh_access_audit.py", "docs/security/terminal-audit.md"],
       "acceptance_criteria": [
         "Certificate issuance emits audit event with key id, user id, auth source, principal, decision id and expiry.",
         "SSH attach/create/write/kill events are correlated to the certificate issuance event where possible.",
@@ -242,7 +242,7 @@
       "status": "done",
       "title": "Add native SSH security tests",
       "summary": "Test failure modes around certificates, principals, terminal wrapper, Hub access and stale credentials.",
-      "files": ["tests/test_ssh_certificate_security.py", "tests/test_ssh_terminal_wrapper.py", "tests/terminal/test_terminal_policy_service.py"],
+      "files": ["tests/auth/test_ssh_certificate_security.py", "tests/auth/test_ssh_terminal_wrapper.py", "tests/terminal/test_terminal_policy_service.py"],
       "acceptance_criteria": [
         "Expired SSH certificate is rejected.",
         "Certificate with unknown principal is rejected.",

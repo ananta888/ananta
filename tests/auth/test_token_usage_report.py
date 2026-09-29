@@ -8,7 +8,7 @@ import pytest
 from agent.services.token_budget_service import normalize_usage
 
 
-SCHEMA_PATH = Path(__file__).parent.parent / "schemas/chat/token_usage_report.v1.json"
+SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas/chat/token_usage_report.v1.json"
 
 
 def _schema() -> dict:

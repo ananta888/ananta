@@ -311,7 +311,7 @@ Noch zu bauen:
 sources/keycloak/source_descriptor.json
 agent/sources/keycloak_fetcher.py
 agent/sources/keycloak_ingest.py
-tests/test_keycloak_fetcher.py
+tests/auth/test_keycloak_fetcher.py
 tests/source/test_source_ingestion_keycloak_e2e.py
 ```
 

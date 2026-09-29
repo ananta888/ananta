@@ -174,7 +174,7 @@
         "Ohne Bindungen verhaelt sich Ananta wie bisher (admin/nicht-admin)."
       ],
       "evidence": [
-        "4ff307e8b: Tabellen access_roles/access_role_bindings/access_policy_revisions, Admin-API /access/*, Audit access_policy_changed, Revisionen mit Rollback; 4 eingebaute Rollen; tests/test_access_roles.py, tests/test_access_principal_and_api.py",
+        "4ff307e8b: Tabellen access_roles/access_role_bindings/access_policy_revisions, Admin-API /access/*, Audit access_policy_changed, Revisionen mit Rollback; 4 eingebaute Rollen; tests/auth/test_access_roles.py, tests/auth/test_access_principal_and_api.py",
         "Live 2026-09-27: Tabellen in Postgres angelegt, /access/roles und /access/me antworten"
       ]
     },
@@ -199,7 +199,7 @@
         "Tests mit synthetischen Tokens (headless)."
       ],
       "evidence": [
-        "4ff307e8b: idp_memberships (groups, realm_access.roles, resource_access.<client>.roles) bei jedem OIDC-Login an OidcIdentityLinkDB.memberships; Aufloesung pro Request; tests/test_access_keycloak_memberships.py (Gruppe bindet Rolle, naechster Login ohne Gruppe entzieht sie)"
+        "4ff307e8b: idp_memberships (groups, realm_access.roles, resource_access.<client>.roles) bei jedem OIDC-Login an OidcIdentityLinkDB.memberships; Aufloesung pro Request; tests/auth/test_access_keycloak_memberships.py (Gruppe bindet Rolle, naechster Login ohne Gruppe entzieht sie)"
       ]
     },
     {
@@ -223,7 +223,7 @@
         "Bestehende Policy-Tests unveraendert gruen."
       ],
       "evidence": [
-        "f1e54b5d3: Worker-Tools als Operationen ananta.tool.* in Gruppen read/write/execution; OperationAuthContext.grants; AnantaToolPolicyService.evaluate(grants=); tests/test_access_role_policy.py; bestehende Policy-/MCP-Tests gruen (59)"
+        "f1e54b5d3: Worker-Tools als Operationen ananta.tool.* in Gruppen read/write/execution; OperationAuthContext.grants; AnantaToolPolicyService.evaluate(grants=); tests/auth/test_access_role_policy.py; bestehende Policy-/MCP-Tests gruen (59)"
       ]
     },
     {

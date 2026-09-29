@@ -128,7 +128,7 @@
       "description": "Zentralen Service fuer konservative Token-Schaetzung, Budgetvalidierung und Usage-Normalisierung implementieren.",
       "files_expected": [
         "agent/services/token_budget_service.py",
-        "tests/test_token_budget_service.py"
+        "tests/auth/test_token_budget_service.py"
       ],
       "acceptance_criteria": [
         "Service bietet estimate_tokens(text, model_profile=None, provider=None, model=None).",
@@ -236,7 +236,7 @@
       "files_expected": [
         "agent/services/token_budget_service.py",
         "schemas/chat/token_usage_report.v1.json",
-        "tests/test_token_usage_report.py"
+        "tests/auth/test_token_usage_report.py"
       ],
       "acceptance_criteria": [
         "normalize_usage akzeptiert OpenAI-kompatible usage-Felder wie prompt_tokens, completion_tokens und total_tokens.",

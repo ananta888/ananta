@@ -161,7 +161,7 @@
           "repo": "tui",
           "files": [
             "agent/sources/keycloak_fetcher.py",
-            "tests/test_keycloak_fetcher.py"
+            "tests/auth/test_keycloak_fetcher.py"
           ],
           "priority": "P1",
           "effort": "M",
