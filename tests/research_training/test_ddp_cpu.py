@@ -61,6 +61,7 @@ def test_two_process_cpu_ddp_and_single_process_losses_are_comparable(tmp_path: 
     ddp_output.mkdir()
     environment = {
         **os.environ,
+        "GLOO_SOCKET_IFNAME": "lo",  # gloo on loopback, independent of the host network
         "ANANTA_RESEARCH_REPOSITORY_REVISION": "a" * 64,
         "ANANTA_RESEARCH_IMAGE_DIGEST": "c" * 64,
         "ANANTA_RESEARCH_HARDWARE_PROFILE_DIGEST": "d" * 64,
@@ -73,6 +74,8 @@ def test_two_process_cpu_ddp_and_single_process_losses_are_comparable(tmp_path: 
             "-m",
             "torch.distributed.run",
             "--standalone",
+            # rendezvous on loopback: resolving the container hostname stalls without network
+            "--local-addr=127.0.0.1",
             "--nproc-per-node=2",
             "-m",
             "worker.training.research.job_runner",
@@ -151,6 +154,7 @@ def test_two_process_gpu_ddp_and_single_gpu_losses_are_comparable(tmp_path: Path
     output.mkdir()
     environment = {
         **os.environ,
+        "GLOO_SOCKET_IFNAME": "lo",  # gloo on loopback, independent of the host network
         "ANANTA_RESEARCH_REPOSITORY_REVISION": "a" * 64,
         "ANANTA_RESEARCH_IMAGE_DIGEST": "c" * 64,
         "ANANTA_RESEARCH_HARDWARE_PROFILE_DIGEST": "d" * 64,
@@ -163,6 +167,8 @@ def test_two_process_gpu_ddp_and_single_gpu_losses_are_comparable(tmp_path: Path
             "-m",
             "torch.distributed.run",
             "--standalone",
+            # rendezvous on loopback: resolving the container hostname stalls without network
+            "--local-addr=127.0.0.1",
             "--nproc-per-node=2",
             "-m",
             "worker.training.research.job_runner",

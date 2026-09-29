@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from agent.services.semantic_media_program_evidence import source_hash
 from scripts.e2e import semantic_media_e2e_report
 from scripts.e2e.semantic_media_e2e_report import (
@@ -80,6 +82,14 @@ def _product_metrics(**overrides: int) -> dict[str, int]:
     }
     value.update(overrides)
     return value
+
+
+@pytest.fixture(autouse=True)
+def _fixed_private_runtime_host(monkeypatch):
+    """The run configuration embeds this host's private address (for live runs). A fixed one keeps these
+    tests independent of the runner's hostname resolution (they failed in a run without network)."""
+    monkeypatch.setattr(semantic_media_e2e_report, "private_runtime_host", lambda: "10.0.0.2")
+    monkeypatch.setattr(semantic_media_e2e_report, "_private_runtime_host", lambda: "10.0.0.2")
 
 
 def test_playwright_summary_rejects_legacy_simulation_metrics() -> None:
