@@ -207,9 +207,16 @@ def select(changed_paths: Sequence[str], graph: ImportGraph, *, depth: int | Non
                     selection.add(dependent, f"imports {path}" + (f" (via {via})" if via != path else ""))
             continue
         if not path.endswith(".py"):
-            for test, source in graph.files.items():
-                if is_test_file(test) and path in source:
-                    selection.add(test, f"references {path}")
+            # tests that name the path, and tests reaching a module that names it (e.g. a gate script
+            # whose source projection lists the file)
+            for referencing, source in graph.files.items():
+                if path not in source:
+                    continue
+                if is_test_file(referencing):
+                    selection.add(referencing, f"references {path}")
+                for dependent, via in graph.dependents(referencing, depth=depth).items():
+                    if is_test_file(dependent):
+                        selection.add(dependent, f"imports {referencing}, which references {path}")
     return selection
 
 

@@ -15,6 +15,9 @@ SOURCES = {
     "tests/test_relative.py": "import agent.services.relative\n",
     "tests/test_docs.py": "DOC = 'docs/guide.md'\n",
     "tests/test_unrelated.py": "from agent.unrelated import X\n",
+    "scripts/__init__.py": "",
+    "scripts/gate.py": "SOURCES = ('.env.example',)\n",
+    "tests/test_gate.py": "from scripts.gate import SOURCES\n",
 }
 
 
@@ -63,3 +66,7 @@ def test_test_infrastructure_changes_select_the_full_suite() -> None:
 
 def test_unrelated_changes_do_not_pull_in_other_tests() -> None:
     assert set(select(["agent/unrelated.py"], _graph()).tests) == {"tests/test_unrelated.py"}
+
+
+def test_non_python_files_select_tests_of_modules_that_name_them() -> None:
+    assert "tests/test_gate.py" in select([".env.example"], _graph()).tests
