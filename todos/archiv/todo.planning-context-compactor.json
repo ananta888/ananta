@@ -564,7 +564,7 @@
       "type": "test",
       "files": [
         "tests/planning/test_planning_context_compactor_integration.py",
-        "tests/test_task_scoped_handler_propose.py"
+        "tests/task/test_task_scoped_handler_propose.py"
       ],
       "description": "End-to-end im bestehenden Propose-Flow testen.",
       "acceptance_criteria": [

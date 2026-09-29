@@ -407,7 +407,7 @@
         "agent/services/task_management_service.py",
         "agent/services/lifecycle_service.py",
         "tests/test_workspace_git_tools.py",
-        "tests/test_task_scoped_propose_llm_profile_persist.py",
+        "tests/task/test_task_scoped_propose_llm_profile_persist.py",
         "tests/worker/test_worker_security_regression.py"
       ],
       "changes": [
@@ -425,7 +425,7 @@
         "Regressionstest beweist advisory_parse_failed_ignored blockiert Artifact Completion nicht."
       ],
       "tests": [
-        "tests/test_task_scoped_propose_llm_profile_persist.py::test_artifact_evidence_required_for_completion",
+        "tests/task/test_task_scoped_propose_llm_profile_persist.py::test_artifact_evidence_required_for_completion",
         "tests/test_workspace_git_tools.py::test_workspace_diff_manifest_created"
       ],
       "implementation_notes": "Zentraler artifact-first Completion-Gate eingefuehrt (TaskArtifactCompletionGateService) und in Runtime/Finalization/Reconciliation als single source verdrahtet."

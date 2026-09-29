@@ -131,7 +131,7 @@ command: "git status --short"
 → TaskClassResolver:  task_class=deterministic
 → PolicyGate:         bypass_llm=true, handler_id=git_status
 → GitStatusHandler.execute()
-→ output: "M agent/models.py\n?? tests/test_task_engine.py"
+→ output: "M agent/models.py\n?? tests/task/test_task_engine.py"
 ```
 
 ---

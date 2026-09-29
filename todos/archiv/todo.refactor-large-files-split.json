@@ -271,7 +271,7 @@
         }
       ],
       "acceptance_criteria": [
-        "Alle Tests in tests/test_task_endpoints.py bleiben grün",
+        "Alle Tests in tests/task/test_task_endpoints.py bleiben grün",
         "Alle 112 task_scoped Tests grün (1 pre-existing failure in test_client_thinness.py bleibt pre-existing)",
         "Imports in allen Konsumenten aktualisiert",
         "task_scoped_execution_service.py unter 1500 Zeilen",
@@ -1438,8 +1438,8 @@
       "id": "SPLIT-038",
       "milestone": "M5",
       "priority": "P3",
-      "title": "tests/test_task_endpoints.py nach Domain aufteilen (1752 Zeilen)",
-      "file": "tests/test_task_endpoints.py",
+      "title": "tests/task/test_task_endpoints.py nach Domain aufteilen (1752 Zeilen)",
+      "file": "tests/task/test_task_endpoints.py",
       "current_lines": 1752,
       "proposed_split": [
         {

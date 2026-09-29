@@ -246,7 +246,7 @@
         "agent/services/task_execution_service.py",
         "agent/services/task_execution_context_builder.py",
         "agent/services/hub_direct_execution_router.py",
-        "tests/test_task_execution_service_hub_direct.py"
+        "tests/task/test_task_execution_service_hub_direct.py"
       ],
       "acceptance_criteria": [
         "TaskExecutionService.propose_direct_step prueft vor _call_llm optional HubDirectExecutionRouter, wenn hub_direct_execution.enabled und direct_before_worker aktiv sind.",

@@ -38,7 +38,7 @@ def force_hub_role(monkeypatch):
 
 
 
-# Split from tests/test_task_endpoints.py to keep source files below 1000 lines.
+# Split from tests/task/test_task_endpoints.py to keep source files below 1000 lines.
 
 def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path, admin_auth_header):
     tid = "T-BENCH-AUTO"

@@ -25,7 +25,7 @@ jobs:
       - name: Run timeout-focused regression tests
         run: >
           pytest -q
-          tests/test_task_endpoints.py -k "timeout or retryable"
+          tests/task/test_task_endpoints.py -k "timeout or retryable"
           tests/test_doom_loop_service.py
           tests/test_live_terminal_session_service.py -k "timeout or crash"
 
@@ -45,7 +45,7 @@ jobs:
       - name: Run claim and autopilot race regression tests
         run: >
           pytest -q
-          tests/test_task_orchestration_api.py -k "claim or lease"
+          tests/task/test_task_orchestration_api.py -k "claim or lease"
           tests/test_tasks_autopilot.py -k "tick"
 
   failure-recovery-tests:
@@ -65,9 +65,9 @@ jobs:
         run: |
           set +e
           pytest -q \
-            tests/test_task_execution_reconciliation.py \
+            tests/task/test_task_execution_reconciliation.py \
             tests/worker/test_worker_job_flow.py \
-            tests/test_task_orchestration_dependencies.py \
+            tests/task/test_task_orchestration_dependencies.py \
             -k "failed or timeout or retry"
           rc=$?
           set -e

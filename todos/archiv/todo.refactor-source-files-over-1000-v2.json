@@ -622,8 +622,8 @@
     },
     {
       "id": "SPLIT-138",
-      "title": "tests/test_task_endpoints.py aufteilen (1752 -> <1000 Zeilen)",
-      "file": "tests/test_task_endpoints.py",
+      "title": "tests/task/test_task_endpoints.py aufteilen (1752 -> <1000 Zeilen)",
+      "file": "tests/task/test_task_endpoints.py",
       "line_count": 980,
       "status": "done",
       "priority": "P3",

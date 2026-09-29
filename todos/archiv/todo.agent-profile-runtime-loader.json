@@ -57,7 +57,7 @@
       "worker/core/propose.py",
       "tests/test_e2e_workspace_artifact_flow.py",
       "tests/test_workspace_context_policy_resolver.py",
-      "tests/test_task_endpoints.py"
+      "tests/task/test_task_endpoints.py"
     ],
     "non_goals": [
       "Keine direkte Codeaenderung durch AI-Snake-Chat einfuehren.",
@@ -514,7 +514,7 @@
       "priority": "P1-high",
       "risk": "medium",
       "source_code_refs": [
-        "tests/test_task_endpoints.py",
+        "tests/task/test_task_endpoints.py",
         "agent/services/task_scoped_execution_service.py",
         "agent/services/instruction_layer_service.py"
       ],

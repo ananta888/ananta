@@ -44,7 +44,7 @@
         "reason": "Neuen Pattern-Katalog/Service sauber registrieren und testbar machen."
       },
       {
-        "path": "tests/test_task_prompt_templates.py",
+        "path": "tests/task/test_task_prompt_templates.py",
         "reason": "Belegt vorhandene TemplateDB-/Prompt- und Workspace-Kontext-Testmuster, die für Pattern-Plan/Pattern-Dateien erweitert werden sollen."
       }
     ],
@@ -798,7 +798,7 @@
       ],
       "acceptance_criteria": [
         "Alle vorhandenen Workflow-/Blueprint-Tests laufen ohne Anpassung oder nur mit klar begründeter Erweiterung weiter.",
-        "tests/test_task_prompt_templates.py bleibt grün.",
+        "tests/task/test_task_prompt_templates.py bleibt grün.",
         "PatternCatalog Tests nutzen force_reload/tmp_path und sind unabhängig von globaler Repo-Konfiguration.",
         "Ein Test beweist: Blueprint ohne pattern_hints erzeugt exakt denselben Subtask-Kern wie vorher.",
         "Ein Test beweist: workflow.steps[].depends_on bleibt maßgeblich, Pattern-Hints ändern keine DAG-Reihenfolge.",

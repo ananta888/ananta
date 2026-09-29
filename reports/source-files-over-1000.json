@@ -427,7 +427,7 @@
       "extension": ".py",
       "line_count": 1752,
       "over_threshold": true,
-      "path": "tests/test_task_endpoints.py",
+      "path": "tests/task/test_task_endpoints.py",
       "reason": "test_path_or_name"
     },
     {
@@ -880,7 +880,7 @@
       "extension": ".py",
       "line_count": 1752,
       "over_threshold": true,
-      "path": "tests/test_task_endpoints.py",
+      "path": "tests/task/test_task_endpoints.py",
       "reason": "test_path_or_name"
     },
     {

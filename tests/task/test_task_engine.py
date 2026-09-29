@@ -322,8 +322,8 @@ class TestRunTestsHandler:
 
     def test_propose_uses_canvas_det_command_metadata(self):
         from agent.services.run_tests_handler import RunTestsHandler
-        p = RunTestsHandler().propose(task={"metadata": {"det_command": "pytest tests/test_task_engine.py"}})
-        assert p["command"] == "pytest tests/test_task_engine.py"
+        p = RunTestsHandler().propose(task={"metadata": {"det_command": "pytest tests/task/test_task_engine.py"}})
+        assert p["command"] == "pytest tests/task/test_task_engine.py"
         assert p["tool_calls"][0]["name"] == "run_tests"
 
     def test_blocked_unknown_command(self):
