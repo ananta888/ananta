@@ -16,6 +16,7 @@ from agent.services.workflow_control_command_receipts import (
     COMMAND_RECEIPT_COMPLETED,
     COMMAND_RECEIPT_PENDING,
     WorkflowControlCommandReceipt,
+    validate_persisted_public_status,
 )
 from agent.services.workflow_control_composition import (
     AuthorizedWorkflowBackend,
@@ -131,16 +132,30 @@ def _attributed_receipt() -> WorkflowControlCommandReceipt:
     )
 
 
+def _accept_any_persisted_status(*args: Any, **kwargs: Any) -> None:
+    return None
+
+
 def _backend(
     *,
     receipts: _Receipts,
     transitions: WorkflowCommandTransitionRuntime | None,
+    persisted_status_validator: Any = validate_persisted_public_status,
 ) -> AuthorizedWorkflowBackend:
-    backend = AuthorizedWorkflowBackend.__new__(AuthorizedWorkflowBackend)
-    backend._command_receipts = receipts  # type: ignore[attr-defined]
-    backend._bindings = _Bindings(_binding())  # type: ignore[attr-defined]
-    backend._transitions = transitions  # type: ignore[attr-defined]
-    return backend
+    # Only the receipt-recovery collaborators are exercised; the unused
+    # request-scoped dependencies stay unset.
+    return AuthorizedWorkflowBackend(
+        control=None,  # type: ignore[arg-type]
+        bridge=None,  # type: ignore[arg-type]
+        bindings=_Bindings(_binding()),  # type: ignore[arg-type]
+        command_receipts=receipts,  # type: ignore[arg-type]
+        receipt_reconciler=None,  # type: ignore[arg-type]
+        registry=None,  # type: ignore[arg-type]
+        project_public_status=None,
+        principal=None,  # type: ignore[arg-type]
+        transitions=transitions,
+        persisted_status_validator=persisted_status_validator,
+    )
 
 
 def _runtime(runner: _Runner, *, admission: _Admission | None = None) -> WorkflowCommandTransitionRuntime:
@@ -150,15 +165,13 @@ def _runtime(runner: _Runner, *, admission: _Admission | None = None) -> Workflo
     )
 
 
-def test_an_attributed_receipt_is_driven_to_its_persisted_terminal_status(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_an_attributed_receipt_is_driven_to_its_persisted_terminal_status() -> None:
     receipts = _Receipts(_attributed_receipt())
     runner = _Runner(receipts, completes_after=1)
-    backend = _backend(receipts=receipts, transitions=_runtime(runner))
-    monkeypatch.setattr(
-        "agent.services.workflow_control_composition.validate_persisted_public_status",
-        lambda *args, **kwargs: None,
+    backend = _backend(
+        receipts=receipts,
+        transitions=_runtime(runner),
+        persisted_status_validator=_accept_any_persisted_status,
     )
 
     result = backend._recover_command_receipt(receipts.receipt)
@@ -171,15 +184,13 @@ def test_an_attributed_receipt_is_driven_to_its_persisted_terminal_status(
     assert runner.ticks == 1
 
 
-def test_a_transition_that_never_terminates_stays_pending_and_is_never_answered(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_a_transition_that_never_terminates_stays_pending_and_is_never_answered() -> None:
     receipts = _Receipts(_attributed_receipt())
     runner = _Runner(receipts, completes_after=99)
-    backend = _backend(receipts=receipts, transitions=_runtime(runner))
-    monkeypatch.setattr(
-        "agent.services.workflow_control_composition.validate_persisted_public_status",
-        lambda *args, **kwargs: None,
+    backend = _backend(
+        receipts=receipts,
+        transitions=_runtime(runner),
+        persisted_status_validator=_accept_any_persisted_status,
     )
 
     with pytest.raises(RuntimeError, match="workflow_control_command_transition_pending"):

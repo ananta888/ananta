@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
+from typing import Any, Protocol
 
 from agent.common.audit import log_audit
 from agent.services.bpmn_workflow_preflight import (
@@ -34,6 +34,7 @@ from agent.services.workflow_control_command_receipts import (
     WorkflowControlCommandRejectedError,
     admitted_receipt_command,
     assert_stable_receipt_retry,
+    validate_persisted_public_status,
 )
 from agent.services.workflow_control_command_receipts import status_revision as command_receipt_status_revision
 from agent.services.workflow_control_dispatch_service import START_OBSERVATION_PENDING
@@ -50,16 +51,15 @@ from agent.services.workflow_runtime_selection_composition import configured_run
 from agent.services.workflow_transition_native_composition import WorkflowCommandTransitionRuntime
 
 
-def _validate_persisted_public_status(*args: Any, **kwargs: Any) -> Any:
-    """Resolve the persisted-status validator through the public composition module.
+class PersistedPublicStatusValidator(Protocol):
+    """Validate a persisted public status against its immutable receipt and run binding."""
 
-    ``workflow_control_composition.validate_persisted_public_status`` is an
-    established seam (tests replace it there), so the lookup happens at call
-    time instead of binding the function when this module is imported.
-    """
-    from agent.services import workflow_control_composition
-
-    return workflow_control_composition.validate_persisted_public_status(*args, **kwargs)
+    def __call__(
+        self,
+        receipt: WorkflowControlCommandReceipt,
+        binding: WorkflowControlRunBinding,
+        status: dict[str, Any],
+    ) -> None: ...
 
 
 class AuthorizedWorkflowBackend:
@@ -77,6 +77,7 @@ class AuthorizedWorkflowBackend:
         project_public_status: Any,
         principal: WorkflowPrincipal,
         transitions: WorkflowCommandTransitionRuntime | None = None,
+        persisted_status_validator: PersistedPublicStatusValidator = validate_persisted_public_status,
     ) -> None:
         self._control = control
         self._bridge = bridge
@@ -87,6 +88,7 @@ class AuthorizedWorkflowBackend:
         self._project_public_status = project_public_status
         self._principal = principal
         self._transitions = transitions
+        self._validate_persisted_status = persisted_status_validator
 
     @property
     def backend_id(self) -> str:
@@ -392,7 +394,7 @@ class AuthorizedWorkflowBackend:
                 raise RuntimeError("workflow_control_command_receipt_missing")
             if current.state == COMMAND_RECEIPT_COMPLETED:
                 persisted = dict(current.result_status or {})
-                _validate_persisted_public_status(current, binding, persisted)
+                self._validate_persisted_status(current, binding, persisted)
                 return persisted
             if current.state == COMMAND_RECEIPT_REJECTED:
                 raise WorkflowControlCommandRejectedError(current.rejection_reason)
@@ -407,7 +409,7 @@ class AuthorizedWorkflowBackend:
             raise LookupError("workflow_control_binding_not_found")
         if receipt.state == COMMAND_RECEIPT_COMPLETED:
             persisted = dict(receipt.result_status or {})
-            _validate_persisted_public_status(receipt, binding, persisted)
+            self._validate_persisted_status(receipt, binding, persisted)
             return persisted
         if receipt.state == COMMAND_RECEIPT_REJECTED:
             raise WorkflowControlCommandRejectedError(receipt.rejection_reason)
@@ -425,7 +427,7 @@ class AuthorizedWorkflowBackend:
                 raise RuntimeError("workflow_control_command_receipt_missing")
             if current.state == COMMAND_RECEIPT_COMPLETED:
                 persisted = dict(current.result_status or {})
-                _validate_persisted_public_status(current, binding, persisted)
+                self._validate_persisted_status(current, binding, persisted)
                 return persisted
             if current.state == COMMAND_RECEIPT_REJECTED:
                 raise WorkflowControlCommandRejectedError(current.rejection_reason)
@@ -476,7 +478,7 @@ class AuthorizedWorkflowBackend:
             current = self._command_receipts.get(receipt.command_id)
             if current is not None and current.state == COMMAND_RECEIPT_COMPLETED:
                 persisted = dict(current.result_status or {})
-                _validate_persisted_public_status(current, binding, persisted)
+                self._validate_persisted_status(current, binding, persisted)
                 return persisted
             # The runtime observation and canonical public status are already
             # durable. Releasing only this receipt lease makes a retry adopt

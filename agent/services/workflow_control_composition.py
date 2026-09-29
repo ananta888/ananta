@@ -74,7 +74,8 @@ from agent.services.workflow_control_command_receipt_persistence import (
 )
 from agent.services.workflow_control_command_receipts import (
     WorkflowControlCommandReceiptStore,
-    # Seam: workflow_authorized_backend resolves this name here at call time.
+    # Compatibility re-export; AuthorizedWorkflowBackend now receives the
+    # validator through its ``persisted_status_validator`` parameter.
     validate_persisted_public_status,  # noqa: F401
 )
 from agent.services.workflow_control_command_verification import (
