@@ -145,7 +145,7 @@
           "repo": "tui",
           "files": [
             "client_surfaces/operator_tui/ai_snake_training_migration.py",
-            "tests/test_ai_snake_training_schema_migration.py"
+            "tests/snake/test_ai_snake_training_schema_migration.py"
           ],
           "priority": "P2",
           "effort": "M",
@@ -471,7 +471,7 @@
           "description": "Exportierte Daten müssen wieder importierbar sein, ohne Informationen zu verlieren, außer explizit ausgelassene Eventlogs.",
           "repo": "tui",
           "files": [
-            "tests/test_ai_snake_training_import_export.py"
+            "tests/snake/test_ai_snake_training_import_export.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -713,7 +713,7 @@
           "description": "Alle neuen JSON-Schemas werden mit positiven und negativen Beispielen getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_ai_snake_training_schemas.py",
+            "tests/snake/test_ai_snake_training_schemas.py",
             "tests/fixtures/ai_snake_training/"
           ],
           "priority": "P1",
@@ -735,7 +735,7 @@
           "description": "Lokaler Store wird gegen korrupte Dateien, leere Profile und Backups getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_ai_snake_training_store.py"
+            "tests/snake/test_ai_snake_training_store.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -756,7 +756,7 @@
           "description": "Exportierte Bundles müssen importierbar und reproduzierbar sein.",
           "repo": "tui",
           "files": [
-            "tests/test_ai_snake_training_import_export.py"
+            "tests/snake/test_ai_snake_training_import_export.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -777,7 +777,7 @@
           "description": "Aus Beispiel-Eventsequenzen entstehen nachvollziehbare Patterns.",
           "repo": "tui",
           "files": [
-            "tests/test_ai_snake_learning_pipeline.py"
+            "tests/snake/test_ai_snake_learning_pipeline.py"
           ],
           "priority": "P1",
           "effort": "L",
