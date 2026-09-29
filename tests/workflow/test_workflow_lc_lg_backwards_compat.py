@@ -3,52 +3,18 @@
 This test guards the contract that the four LCG commits did not break
 the existing n8n/webhook/mock workflow integration:
 
-- Existing n8n provider tests still collect and pass
 - The WorkflowRegistry, WorkflowAdapter contract and descriptor shape
   are unchanged from the caller's perspective
 - A consumer using the pre-LCG API surface continues to work without
   modification
 
-We assert the contract by running the pre-existing workflow tests as
-a sub-suite and re-checking the dataclass / provider-config
-back-compat surface explicitly.
+We assert the contract by re-checking the dataclass / provider-config
+back-compat surface explicitly. The pre-existing workflow tests
+(n8n provider, provider contract, descriptor schema, registry) run as
+part of the suite themselves; re-running them here as a subprocess only
+cost ~50 s per run.
 """
 from __future__ import annotations
-
-import subprocess
-import sys
-from pathlib import Path
-
-import pytest
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
-# ── Existing workflow test files still pass ────────────────────────────
-
-
-PRE_LCG_TESTS = [
-    "tests/workflow/test_workflow_n8n_provider.py",
-    "tests/workflow/test_workflow_provider_contract.py",
-    "tests/workflow/test_workflow_descriptor_schema.py",
-    "tests/workflow/test_workflow_registry.py",
-]
-
-
-@pytest.mark.parametrize("test_path", PRE_LCG_TESTS)
-@pytest.mark.slow
-def test_existing_workflow_test_still_passes(test_path):
-    """The pre-LCG workflow tests must continue to pass after the LCG
-    commits, proving we did not break the contract."""
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", test_path, "-q", "--no-header"],
-        cwd=REPO_ROOT, capture_output=True, text=True, timeout=120,
-    )
-    assert result.returncode == 0, (
-        f"{test_path} failed:\n"
-        f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-    )
-
 
 # ── Pre-LCG dataclass shape is preserved (positional + kwarg) ─────────
 

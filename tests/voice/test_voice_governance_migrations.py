@@ -39,8 +39,8 @@ def _voice_schema(database: Path) -> tuple[set[str | None], set[str], set[str | 
 
 
 @pytest.mark.slow
-def test_voice_governance_migration_up_down_and_reupgrade(tmp_path: Path) -> None:
-    database = tmp_path / "voice-migrations.db"
+def test_voice_governance_migration_up_down_and_reupgrade(ram_tmp_path: Path) -> None:
+    database = ram_tmp_path / "voice-migrations.db"
     _alembic(database, "upgrade", "head")
     constraints, columns, indexes = _voice_schema(database)
     assert "uq_voice_feedback_scope_source_kind" in constraints

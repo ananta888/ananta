@@ -1195,6 +1195,25 @@ def ensure_state_ownership_matrix_file():
 
 
 @pytest.fixture
+def ram_tmp_path(tmp_path):
+    """A per-test directory in RAM (/dev/shm) for disk-heavy SQLite work such as full migration runs:
+    every DDL statement is synced to disk otherwise (an alembic upgrade takes ~2x as long). Falls back to
+    ``tmp_path`` where no writable /dev/shm exists."""
+    import shutil
+    import tempfile
+
+    shm = Path("/dev/shm")
+    if not (shm.is_dir() and os.access(shm, os.W_OK)):
+        yield tmp_path
+        return
+    directory = Path(tempfile.mkdtemp(prefix="ananta-pytest-", dir=shm))
+    try:
+        yield directory
+    finally:
+        shutil.rmtree(directory, ignore_errors=True)
+
+
+@pytest.fixture
 def app():
     _ensure_test_db()
     from agent.ai_agent import create_app

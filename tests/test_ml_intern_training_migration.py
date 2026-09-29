@@ -195,8 +195,8 @@ def _assert_schema(database: Path) -> None:
 
 
 @pytest.mark.slow
-def test_ml_intern_training_migration_up_down_and_reupgrade(tmp_path: Path) -> None:
-    database = tmp_path / "ml-intern-training-migrations.db"
+def test_ml_intern_training_migration_up_down_and_reupgrade(ram_tmp_path: Path) -> None:
+    database = ram_tmp_path / "ml-intern-training-migrations.db"
 
     _alembic(database, "upgrade", "head")
     _assert_schema(database)
