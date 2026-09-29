@@ -22,7 +22,7 @@ def _register_member_agents():
 
 
 
-# Split from tests/test_team_blueprints.py to keep source files below 1000 lines.
+# Split from tests/team/test_team_blueprints.py to keep source files below 1000 lines.
 
 def test_delete_blueprint_blocks_when_team_references_it(client):
     admin_token = _login_admin(client)

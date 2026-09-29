@@ -449,7 +449,7 @@
       "extension": ".py",
       "line_count": 1186,
       "over_threshold": true,
-      "path": "tests/test_team_blueprints.py",
+      "path": "tests/team/test_team_blueprints.py",
       "reason": "test_path_or_name"
     },
     {
@@ -902,7 +902,7 @@
       "extension": ".py",
       "line_count": 1186,
       "over_threshold": true,
-      "path": "tests/test_team_blueprints.py",
+      "path": "tests/team/test_team_blueprints.py",
       "reason": "test_path_or_name"
     },
     {

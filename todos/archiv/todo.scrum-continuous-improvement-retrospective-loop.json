@@ -769,7 +769,7 @@
     "SCI-016_SCI-017_SCI-018": [
       "config/blueprints/standard/workflows.d/scrum-continuous-improvement.json adds a strict ten-step reusable workflow while preserving normal Hub task delegation.",
       "The authenticated Control Center dashboard shows Sprint, architecture, commitment and effect histories from a project-scoped Hub read model.",
-      "tests/test_scrum_continuous_improvement.py covers the complete three-loop Sprint N -> retrospective -> commitment -> Sprint N+1 -> measurement cycle, architecture revision feedback, automatic exceptions, protected-target denial, rollback and restart persistence. API, bootstrap, catalog and Angular tests cover product composition."
+      "tests/team/test_scrum_continuous_improvement.py covers the complete three-loop Sprint N -> retrospective -> commitment -> Sprint N+1 -> measurement cycle, architecture revision feedback, automatic exceptions, protected-target denial, rollback and restart persistence. API, bootstrap, catalog and Angular tests cover product composition."
     ],
     "verification": [
       "32 focused Python tests passed with Ruff clean before Todo finalization, including Scrum, API, bootstrap, blueprint catalog, EvolutionEngine, app composition and frontend integration coverage.",

@@ -253,7 +253,7 @@
         "verified_by": [
           "tests/pattern/test_pattern_service.py",
           "tests/pattern/test_pattern_registry.py",
-          "tests/test_blueprint_planning_pattern_binding.py"
+          "tests/team/test_blueprint_planning_pattern_binding.py"
         ]
       },
       "progress_percent": 100.0
@@ -289,7 +289,7 @@
         "verified_by": [
           "tests/pattern/test_pattern_service.py",
           "tests/pattern/test_pattern_registry.py",
-          "tests/test_blueprint_planning_pattern_binding.py"
+          "tests/team/test_blueprint_planning_pattern_binding.py"
         ]
       },
       "progress_percent": 100.0
@@ -324,7 +324,7 @@
         "verified_by": [
           "tests/pattern/test_pattern_service.py",
           "tests/pattern/test_pattern_registry.py",
-          "tests/test_blueprint_planning_pattern_binding.py"
+          "tests/team/test_blueprint_planning_pattern_binding.py"
         ]
       },
       "progress_percent": 100.0
@@ -356,7 +356,7 @@
         "verified_by": [
           "tests/pattern/test_pattern_service.py",
           "tests/pattern/test_pattern_registry.py",
-          "tests/test_blueprint_planning_pattern_binding.py"
+          "tests/team/test_blueprint_planning_pattern_binding.py"
         ]
       },
       "progress_percent": 100.0
@@ -390,7 +390,7 @@
         "verified_by": [
           "tests/pattern/test_pattern_service.py",
           "tests/pattern/test_pattern_registry.py",
-          "tests/test_blueprint_planning_pattern_binding.py"
+          "tests/team/test_blueprint_planning_pattern_binding.py"
         ]
       },
       "progress_percent": 100.0
@@ -427,7 +427,7 @@
         "verified_by": [
           "tests/pattern/test_pattern_service.py",
           "tests/pattern/test_pattern_registry.py",
-          "tests/test_blueprint_planning_pattern_binding.py"
+          "tests/team/test_blueprint_planning_pattern_binding.py"
         ]
       },
       "progress_percent": 100.0

@@ -648,8 +648,8 @@
     },
     {
       "id": "SPLIT-140",
-      "title": "tests/test_team_blueprints.py aufteilen (1186 -> <1000 Zeilen)",
-      "file": "tests/test_team_blueprints.py",
+      "title": "tests/team/test_team_blueprints.py aufteilen (1186 -> <1000 Zeilen)",
+      "file": "tests/team/test_team_blueprints.py",
       "line_count": 799,
       "status": "done",
       "priority": "P3",
