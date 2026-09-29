@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import copy
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from flask import Flask
 
 from agent.routes.chat import chat_bp
+from agent.routes.chat_route_dependencies import CHAT_ROUTE_DEPENDENCIES
 from agent.services.user_session_tokens import issue_user_access_token
 from client_surfaces.operator_tui.chat_state import default_sessions, make_session
 
@@ -21,7 +22,7 @@ def client():
     return client
 
 
-def _store(sessions: list[dict] | None = None):
+def _store(app, sessions: list[dict] | None = None):
     data = {
         "chat_sessions": copy.deepcopy(sessions or []),
         "chat_active_session_id": (sessions or [{}])[0].get("id", "") if sessions else "",
@@ -36,7 +37,7 @@ def _store(sessions: list[dict] | None = None):
         return True
 
     manager.save.side_effect = save
-    return data, patch("agent.routes.chat.get_manager", return_value=manager)
+    return data, CHAT_ROUTE_DEPENDENCIES.override(app, get_manager=lambda: manager)
 
 
 def _auth_headers(username: str) -> dict[str, str]:
@@ -45,8 +46,8 @@ def _auth_headers(username: str) -> dict[str, str]:
 
 
 def test_builtin_profiles_are_configs_not_default_conversations(client):
-    _, manager_patch = _store()
-    with manager_patch:
+    _, manager_override = _store(client.application)
+    with manager_override:
         profiles = client.get("/api/chat/profiles")
         chats = client.get("/api/chat/sessions")
 
@@ -59,8 +60,8 @@ def test_legacy_profile_session_is_migrated_without_changing_identity(client):
     legacy = next(session for session in default_sessions() if session["id"] == "code-help")
     legacy.pop("profile_id", None)
     legacy.pop("system_prompt_override", None)
-    _, manager_patch = _store([legacy])
-    with manager_patch:
+    _, manager_override = _store(client.application, [legacy])
+    with manager_override:
         response = client.get("/api/chat/sessions")
 
     migrated = response.json[0]
@@ -70,8 +71,8 @@ def test_legacy_profile_session_is_migrated_without_changing_identity(client):
 
 
 def test_custom_profile_can_be_assigned_and_cannot_be_deleted_while_used(client):
-    _, manager_patch = _store([make_session(session_id="chat-1", name="Chat")])
-    with manager_patch:
+    _, manager_override = _store(client.application, [make_session(session_id="chat-1", name="Chat")])
+    with manager_override:
         created = client.post(
             "/api/chat/profiles",
             json={
@@ -118,8 +119,8 @@ def test_setting_schema_is_deterministic_and_scope_aware(client):
 
 
 def test_profile_settings_reject_unknown_keys_and_support_null_reset(client):
-    store, manager_patch = _store()
-    with manager_patch:
+    store, manager_override = _store(client.application)
+    with manager_override:
         invalid = client.post(
             "/api/chat/profiles",
             json={"id": "invalid", "name": "Invalid", "settings": {"made_up_secret": "value"}},
@@ -139,8 +140,8 @@ def test_profile_settings_reject_unknown_keys_and_support_null_reset(client):
 
 
 def test_effective_profile_preview_reports_value_provenance(client):
-    _, manager_patch = _store()
-    with manager_patch:
+    _, manager_override = _store(client.application)
+    with manager_override:
         client.post(
             "/api/chat/profiles", json={"id": "preview", "name": "Preview", "settings": {"chat_backend": "opencode"}}
         )
@@ -153,8 +154,8 @@ def test_effective_profile_preview_reports_value_provenance(client):
 
 
 def test_profile_accepts_credential_reference_but_not_plain_secret(client):
-    _, manager_patch = _store()
-    with manager_patch:
+    _, manager_override = _store(client.application)
+    with manager_override:
         accepted = client.post(
             "/api/chat/profiles",
             json={
@@ -174,11 +175,11 @@ def test_profile_accepts_credential_reference_but_not_plain_secret(client):
 
 
 def test_v3_migration_quarantines_unknown_profile_keys_idempotently(client):
-    store, manager_patch = _store()
+    store, manager_override = _store(client.application)
     store["chat_profiles"] = [
         {"id": "legacy", "name": "Legacy", "settings": {"chat_backend": "opencode", "retired_key": "keep-me"}}
     ]
-    with manager_patch:
+    with manager_override:
         first = client.get("/api/chat/profiles")
         snapshot = copy.deepcopy(store["chat_profiles"])
         second = client.get("/api/chat/profiles")
@@ -190,8 +191,8 @@ def test_v3_migration_quarantines_unknown_profile_keys_idempotently(client):
 
 
 def test_effective_preview_uses_global_profile_session_precedence(client):
-    _, manager_patch = _store()
-    with manager_patch:
+    _, manager_override = _store(client.application)
+    with manager_override:
         client.post(
             "/api/chat/profiles", json={"id": "layers", "name": "Layers", "settings": {"chat_max_tokens": 2000}}
         )
@@ -204,8 +205,8 @@ def test_effective_preview_uses_global_profile_session_precedence(client):
 
 
 def test_profile_validation_covers_ranges_urls_provider_scope_and_empty_model_inheritance(client):
-    _, manager_patch = _store()
-    with manager_patch:
+    _, manager_override = _store(client.application)
+    with manager_override:
         bad_range = client.post(
             "/api/chat/profiles", json={"id": "bad-range", "name": "Bad", "settings": {"chat_max_tokens": 999999}}
         )
@@ -241,8 +242,8 @@ def test_v3_session_migration_preserves_unknown_delta_in_quarantine(client):
     legacy = make_session(session_id="legacy-v3", name="Legacy")
     legacy["settings_delta"] = {"chat_backend": "opencode", "retired_session_key": 7}
     legacy.pop("process_ref", None)
-    store, manager_patch = _store([legacy])
-    with manager_patch:
+    store, manager_override = _store(client.application, [legacy])
+    with manager_override:
         response = client.get("/api/chat/sessions")
     migrated = response.json[0]
     assert migrated["settings_delta"] == {"chat_backend": "opencode"}
@@ -261,7 +262,7 @@ def test_profile_routes_require_authentication():
 
 
 def test_foreign_custom_profile_is_hidden_and_immutable(client):
-    data, manager_patch = _store()
+    data, manager_override = _store(client.application)
     data["chat_profiles"] = [
         {
             "id": "foreign-profile",
@@ -272,7 +273,7 @@ def test_foreign_custom_profile_is_hidden_and_immutable(client):
         }
     ]
     headers = _auth_headers("intruder")
-    with manager_patch:
+    with manager_override:
         listed = client.get("/api/chat/profiles", headers=headers)
         updated = client.patch(
             "/api/chat/profiles/foreign-profile",
@@ -287,7 +288,7 @@ def test_foreign_custom_profile_is_hidden_and_immutable(client):
 
 
 def test_profile_owner_metadata_is_not_exposed(client):
-    data, manager_patch = _store()
+    data, manager_override = _store(client.application)
     data["chat_profiles"] = [
         {
             "id": "owned-profile",
@@ -297,7 +298,7 @@ def test_profile_owner_metadata_is_not_exposed(client):
             "owner_principal": {"tenant_id": "admin", "subject_id": "admin"},
         }
     ]
-    with manager_patch:
+    with manager_override:
         listed = client.get("/api/chat/profiles")
     owned = next(profile for profile in listed.json if profile["id"] == "owned-profile")
     assert "owner_principal" not in owned

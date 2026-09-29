@@ -6,6 +6,7 @@ import pytest
 from flask import Flask
 
 from agent.routes.chat import chat_bp
+from agent.routes.chat_route_dependencies import CHAT_ROUTE_DEPENDENCIES
 from agent.services.chat_process_binding import (
     derive_chat_workflow_id,
     normalize_process_ref,
@@ -115,14 +116,15 @@ def test_session_process_run_endpoints_persist_and_return_overlay(client):
         "started_at": 1,
     }
     overlay = {"run_id": "wf-1", "workflow_id": "wf-1", "overall_status": "running", "steps": {}, "step_states": {}}
-    with (
-        patch("agent.routes.chat.get_manager", return_value=manager),
-        patch(
-            "agent.routes.chat.resolve_effective_process",
+    start = MagicMock(return_value=run)
+    with CHAT_ROUTE_DEPENDENCIES.override(
+        client.application,
+        get_manager=lambda: manager,
+        resolve_effective_process=MagicMock(
             return_value={"graph": graph, "process_ref": session["process_ref"], "source": "session_override"},
         ),
-        patch("agent.routes.chat.start_session_process", return_value=run) as start,
-        patch("agent.routes.chat.runtime_overlay", return_value=overlay),
+        start_session_process=start,
+        runtime_overlay=MagicMock(return_value=overlay),
     ):
         headers = _auth_headers()
         started = client.post(
@@ -164,9 +166,9 @@ def test_gate_endpoint_requires_idempotency_and_replays_duplicate_safely(client)
         }
     ]
     data, manager = _manager_for(session)
-    with (
-        patch("agent.routes.chat.get_manager", return_value=manager),
-        patch("agent.routes.chat.signal_session_gate", return_value={"status": "running"}) as signal,
+    signal = MagicMock(return_value={"status": "running"})
+    with CHAT_ROUTE_DEPENDENCIES.override(
+        client.application, get_manager=lambda: manager, signal_session_gate=signal
     ):
         headers = _auth_headers()
         missing = client.post(
@@ -210,7 +212,7 @@ def test_process_run_reads_fail_closed_across_tenants(client):
         }
     ]
     _, manager = _manager_for(session)
-    with patch("agent.routes.chat.get_manager", return_value=manager):
+    with CHAT_ROUTE_DEPENDENCIES.override(client.application, get_manager=lambda: manager):
         headers = _auth_headers("intruder")
         listed = client.get("/api/chat/sessions/chat-private/process/runs", headers=headers)
         fetched = client.get(
@@ -232,9 +234,9 @@ def test_gate_idempotency_rejects_payload_reuse_without_second_signal(client):
         }
     ]
     _, manager = _manager_for(session)
-    with (
-        patch("agent.routes.chat.get_manager", return_value=manager),
-        patch("agent.routes.chat.signal_session_gate", return_value={"status": "running"}) as signal,
+    signal = MagicMock(return_value={"status": "running"})
+    with CHAT_ROUTE_DEPENDENCIES.override(
+        client.application, get_manager=lambda: manager, signal_session_gate=signal
     ):
         headers = _auth_headers()
         first = client.post(
@@ -277,9 +279,9 @@ def test_gate_idempotency_is_atomic_for_concurrent_replays():
                 headers=headers,
             )
 
+    signal = MagicMock(return_value={"status": "running"})
     with (
-        patch("agent.routes.chat.get_manager", return_value=manager),
-        patch("agent.routes.chat.signal_session_gate", return_value={"status": "running"}) as signal,
+        CHAT_ROUTE_DEPENDENCIES.override(app, get_manager=lambda: manager, signal_session_gate=signal),
         ThreadPoolExecutor(max_workers=2) as pool,
     ):
         responses = list(pool.map(lambda _: send_gate(), range(2)))
@@ -301,9 +303,9 @@ def test_gate_aborts_before_signal_when_reservation_is_not_durable(client):
     ]
     _, manager = _manager_for(session)
     manager.save.side_effect = lambda _values: False
-    with (
-        patch("agent.routes.chat.get_manager", return_value=manager),
-        patch("agent.routes.chat.signal_session_gate") as signal,
+    signal = MagicMock()
+    with CHAT_ROUTE_DEPENDENCIES.override(
+        client.application, get_manager=lambda: manager, signal_session_gate=signal
     ):
         response = client.post(
             "/api/chat/sessions/chat-gate-save-failure/process/runs/wf-save-failure/gate",
@@ -340,9 +342,9 @@ def test_stale_pending_gate_requires_manual_reconciliation_without_resignal(clie
     ]
     session["process_gate_actions"] = [action]
     data, manager = _manager_for(session)
-    with (
-        patch("agent.routes.chat.get_manager", return_value=manager),
-        patch("agent.routes.chat.signal_session_gate") as signal,
+    signal = MagicMock()
+    with CHAT_ROUTE_DEPENDENCIES.override(
+        client.application, get_manager=lambda: manager, signal_session_gate=signal
     ):
         response = client.post(
             "/api/chat/sessions/chat-gate-stale/process/runs/wf-stale/gate",

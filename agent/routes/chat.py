@@ -3,6 +3,8 @@
 The former 1982-line module is split into single-responsibility siblings:
 
 * :mod:`agent.routes.chat_blueprint` - the shared ``chat_bp`` blueprint object.
+* :mod:`agent.routes.chat_route_dependencies` - the collaborators the chat
+  handlers delegate to, and their per-application override seam.
 * :mod:`agent.routes.chat_route_access` - request principal, ownership and
   authorization guards (decorators) for chat records.
 * :mod:`agent.routes.chat_route_settings` - setting validation, redaction and
@@ -20,10 +22,15 @@ The former 1982-line module is split into single-responsibility siblings:
   partial summary and prompt-preview endpoints.
 
 Importing this module registers every route on ``chat_bp``. All names that
-used to live here stay importable from this module, and collaborators that
-tests monkeypatch here (``get_manager``, ``resolve_effective_process``,
+used to live here stay importable from this module.
+
+The handlers' collaborators (``get_manager``, ``resolve_effective_process``,
 ``start_session_process``, ``runtime_overlay``, ``signal_session_gate``) are
-resolved through this module at call time by the sibling modules.
+bundled in :class:`agent.routes.chat_route_dependencies.ChatRouteDependencies`
+and resolved per application through ``CHAT_ROUTE_DEPENDENCIES``; tests replace
+them with ``CHAT_ROUTE_DEPENDENCIES.override(app, ...)`` instead of patching
+names on this module. The re-exported service functions below are kept only
+for import compatibility.
 """
 
 from __future__ import annotations
@@ -60,7 +67,6 @@ from agent.routes.chat_profile_routes import (
     update_chat_profile,
 )
 from agent.routes.chat_route_access import (
-    _chat_module,
     _chat_workflow_principal,
     _chat_workflow_run_is_owned_by,
     _legacy_chat_owner,
@@ -128,7 +134,6 @@ from client_surfaces.operator_tui.config.user_config_manager import get_manager
 
 __all__ = [
     "_apply_profile",
-    "_chat_module",
     "_chat_setting_contract",
     "_chat_workflow_principal",
     "_chat_workflow_run_is_owned_by",

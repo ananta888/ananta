@@ -14,6 +14,7 @@ from flask import (
 
 from agent.auth import get_request_auth_context
 from agent.config import settings as agent_settings
+from agent.routes.chat_route_dependencies import chat_route_dependencies
 from agent.services.chat_organization_service import (
     ChatOrganizationService,
     OrganizationError,
@@ -33,24 +34,12 @@ from client_surfaces.operator_tui.chat_state import (
     get_sessions,
 )
 
-
-def _chat_module():
-    """Resolve monkeypatch seams through the public ``agent.routes.chat`` module at call time.
-
-    Tests patch collaborators such as service getters on ``agent.routes.chat``;
-    looking them up lazily keeps those patches effective for code that
-    now lives in sibling modules (and avoids an import-time cycle).
-    """
-    import importlib
-
-    return importlib.import_module("agent.routes.chat")
-
-
 _log = logging.getLogger("agent.routes.chat")
 
 
 def _organization_service() -> ChatOrganizationService:
-    return ChatOrganizationService(_chat_module().get_manager())
+    dependencies = chat_route_dependencies()
+    return ChatOrganizationService(dependencies.get_manager())
 
 
 def _organization_error(exc: OrganizationError):

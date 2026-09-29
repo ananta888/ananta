@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import copy
-from unittest.mock import patch
 
 import pytest
 from flask import Flask
 
 from agent.routes.chat import chat_bp
+from agent.routes.chat_route_dependencies import CHAT_ROUTE_DEPENDENCIES
 from agent.services.user_session_tokens import issue_user_access_token
 from client_surfaces.operator_tui.chat_state import make_session
 
@@ -37,7 +37,7 @@ def api():
     app = Flask(__name__)
     app.register_blueprint(chat_bp)
     manager = MemoryManager()
-    with patch("agent.routes.chat.get_manager", return_value=manager):
+    with CHAT_ROUTE_DEPENDENCIES.override(app, get_manager=lambda: manager):
         client = app.test_client()
         token = issue_user_access_token(username="admin", role="admin")
         client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"

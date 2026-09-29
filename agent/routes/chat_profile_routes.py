@@ -13,13 +13,13 @@ from flask import (
 from agent.auth import check_user_auth
 from agent.routes.chat_blueprint import chat_bp
 from agent.routes.chat_route_access import (
-    _chat_module,
     _chat_workflow_principal,
     _legacy_chat_owner,
     _owned_sessions,
     _require_global_chat_admin,
     _serialized_chat_mutation,
 )
+from agent.routes.chat_route_dependencies import chat_route_dependencies
 from agent.routes.chat_route_persistence import (
     _apply_profile,
     _load_chat,
@@ -99,6 +99,7 @@ def test_chat_profile_connection():
 @check_user_auth
 @_serialized_chat_mutation
 def create_chat_profile():
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -107,7 +108,7 @@ def create_chat_profile():
     profile_id = str(data.get("id") or f"profile-{uuid.uuid4().hex[:12]}").strip()
     if not name or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", profile_id):
         return jsonify({"error": "valid profile id and name are required"}), 400
-    custom = list((_chat_module().get_manager().load().get("chat_profiles") or []))
+    custom = list((dependencies.get_manager().load().get("chat_profiles") or []))
     if profile_id in {str(profile.get("id") or "") for profile in default_chat_profiles()} or any(
         str((profile or {}).get("id") or "") == profile_id for profile in custom
     ):
@@ -139,6 +140,7 @@ def create_chat_profile():
 @check_user_auth
 @_serialized_chat_mutation
 def update_chat_profile(profile_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -146,7 +148,7 @@ def update_chat_profile(profile_id: str):
     if profile_id in builtin_ids:
         return jsonify({"error": "built-in profiles are read-only"}), 409
     data = request.get_json(silent=True) or {}
-    custom = list((_chat_module().get_manager().load().get("chat_profiles") or []))
+    custom = list((dependencies.get_manager().load().get("chat_profiles") or []))
     profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
     if profile is None or not authorize_owned_record(
         profile,
@@ -200,6 +202,7 @@ def update_chat_profile(profile_id: str):
 @check_user_auth
 @_serialized_chat_mutation
 def delete_chat_profile(profile_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -210,7 +213,7 @@ def delete_chat_profile(profile_id: str):
     owned_sessions, _ = _owned_sessions(chat, principal)
     if any(str(session.get("profile_id") or "") == profile_id for session in owned_sessions):
         return jsonify({"error": "profile is still used by chats"}), 409
-    custom = list((_chat_module().get_manager().load().get("chat_profiles") or []))
+    custom = list((dependencies.get_manager().load().get("chat_profiles") or []))
     profile = next((p for p in custom if str((p or {}).get("id") or "") == profile_id), None)
     if profile is None or not authorize_owned_record(
         profile,
@@ -296,6 +299,7 @@ def list_chat_types():
 @_require_global_chat_admin
 @_serialized_chat_mutation
 def create_chat_type():
+    dependencies = chat_route_dependencies()
     data = request.get_json(silent=True) or {}
     name = str(data.get("name") or "").strip()
     type_id = str(data.get("id") or f"type-{uuid.uuid4().hex[:12]}").strip()
@@ -311,9 +315,9 @@ def create_chat_type():
         "description": str(data.get("description") or ""),
         "subtypes": subtypes,
     }
-    custom = list((_chat_module().get_manager().load().get("chat_session_types") or []))
+    custom = list((dependencies.get_manager().load().get("chat_session_types") or []))
     custom.append(item)
-    _chat_module().get_manager().save({"chat_session_types": custom})
+    dependencies.get_manager().save({"chat_session_types": custom})
     return jsonify({**item, "builtin": False}), 201
 
 
@@ -322,9 +326,10 @@ def create_chat_type():
 @_require_global_chat_admin
 @_serialized_chat_mutation
 def mutate_chat_type(type_id: str):
+    dependencies = chat_route_dependencies()
     if type_id in {str(item["id"]) for item in DEFAULT_CHAT_TYPES}:
         return jsonify({"error": "built-in types are read-only"}), 409
-    custom = list((_chat_module().get_manager().load().get("chat_session_types") or []))
+    custom = list((dependencies.get_manager().load().get("chat_session_types") or []))
     item = next((entry for entry in custom if str((entry or {}).get("id") or "") == type_id), None)
     if item is None:
         return jsonify({"error": f"Type '{type_id}' not found"}), 404
@@ -332,7 +337,7 @@ def mutate_chat_type(type_id: str):
         chat = _load_chat()
         if any(str(session.get("session_type") or "") == type_id for session in get_sessions(chat)):
             return jsonify({"error": "type is still used by chats", "error_code": "type_in_use"}), 409
-        _chat_module().get_manager().save({"chat_session_types": [entry for entry in custom if entry is not item]})
+        dependencies.get_manager().save({"chat_session_types": [entry for entry in custom if entry is not item]})
         return "", 204
     data = request.get_json(silent=True) or {}
     for key in ("name", "icon", "description"):
@@ -340,5 +345,5 @@ def mutate_chat_type(type_id: str):
             item[key] = str(data.get(key) or "")
     if "subtypes" in data and isinstance(data["subtypes"], list):
         item["subtypes"] = [str(value).strip() for value in data["subtypes"] if str(value).strip()]
-    _chat_module().get_manager().save({"chat_session_types": custom})
+    dependencies.get_manager().save({"chat_session_types": custom})
     return jsonify({**item, "builtin": False})

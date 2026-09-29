@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from agent.ai_agent import create_app
+from agent.routes.chat_route_dependencies import CHAT_ROUTE_DEPENDENCIES
 from agent.services.user_session_tokens import issue_user_access_token
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
@@ -40,8 +41,8 @@ def _auth_headers(username: str) -> dict[str, str]:
 
 
 @contextmanager
-def sessions_ctx(sessions: list, active_id: str = ""):
-    """Patch get_manager in chat routes so _load_chat / _save_chat operate on a
+def sessions_ctx(app, sessions: list, active_id: str = ""):
+    """Override get_manager in the chat route dependencies so _load_chat / _save_chat operate on a
     controlled in-memory store instead of the real user.json file.
 
     Note: get_sessions() always ensures at least the default sessions when the
@@ -70,7 +71,7 @@ def sessions_ctx(sessions: list, active_id: str = ""):
 
     mock_mgr.save.side_effect = _save
 
-    with patch("agent.routes.chat.get_manager", return_value=mock_mgr):
+    with CHAT_ROUTE_DEPENDENCIES.override(app, get_manager=lambda: mock_mgr):
         yield store, mock_mgr
 
 
@@ -79,7 +80,7 @@ def sessions_ctx(sessions: list, active_id: str = ""):
 
 def test_list_sessions_returns_defaults_when_none_stored(client):
     """When none are persisted, return the starter chat and visual log."""
-    with sessions_ctx([]):
+    with sessions_ctx(client.application, []):
         r = client.get("/api/chat/sessions")
     assert r.status_code == 200
     assert [session["id"] for session in r.json] == ["chat-default", "ananta-visual"]
@@ -89,7 +90,7 @@ def test_list_sessions_with_saved_sessions(client):
     """When specific sessions are stored, only those are returned."""
     s1 = _default_session("code-help", "Code-Help")
     s2 = _default_session("writing-coach", "Schreib-Coach")
-    with sessions_ctx([s1, s2]):
+    with sessions_ctx(client.application, [s1, s2]):
         r = client.get("/api/chat/sessions")
     assert r.status_code == 200
     assert len(r.json) == 2
@@ -102,7 +103,7 @@ def test_list_sessions_with_saved_sessions(client):
 
 def test_create_session_success(client):
     s1 = _default_session("existing")
-    with sessions_ctx([s1]) as (store, mock_mgr):
+    with sessions_ctx(client.application, [s1]) as (store, mock_mgr):
         r = client.post(
             "/api/chat/sessions",
             json={
@@ -121,21 +122,21 @@ def test_create_session_success(client):
 
 
 def test_create_session_missing_id(client):
-    with sessions_ctx([]):
+    with sessions_ctx(client.application, []):
         r = client.post("/api/chat/sessions", json={"name": "Unvollständig"})
     assert r.status_code == 400
     assert "Session ID and name are required" in r.json["error"]
 
 
 def test_create_session_missing_name(client):
-    with sessions_ctx([]):
+    with sessions_ctx(client.application, []):
         r = client.post("/api/chat/sessions", json={"id": "x"})
     assert r.status_code == 400
 
 
 def test_create_session_duplicate_id(client):
     existing = _default_session("existing")
-    with sessions_ctx([existing]):
+    with sessions_ctx(client.application, [existing]):
         r = client.post("/api/chat/sessions", json={"id": "existing", "name": "Neu"})
     assert r.status_code == 409
     assert r.json == {
@@ -149,7 +150,7 @@ def test_create_session_duplicate_id(client):
 
 def test_get_session_found(client):
     session = _default_session("specific", "Spezifisch")
-    with sessions_ctx([session]):
+    with sessions_ctx(client.application, [session]):
         r = client.get("/api/chat/sessions/specific")
     assert r.status_code == 200
     assert r.json["id"] == "specific"
@@ -157,7 +158,7 @@ def test_get_session_found(client):
 
 def test_get_session_not_found(client):
     s1 = _default_session("only")
-    with sessions_ctx([s1]):
+    with sessions_ctx(client.application, [s1]):
         r = client.get("/api/chat/sessions/non-existent")
     assert r.status_code == 404
     assert "error" in r.json
@@ -174,7 +175,7 @@ def test_update_session_success(client):
         "icon": "📝",
         "settings": {"chat_backend": "old"},
     }
-    with sessions_ctx([session]) as (_, mock_mgr):
+    with sessions_ctx(client.application, [session]) as (_, mock_mgr):
         r = client.put(
             "/api/chat/sessions/editable",
             json={
@@ -194,7 +195,7 @@ def test_update_session_success(client):
 
 def test_update_session_not_found(client):
     s1 = _default_session("only")
-    with sessions_ctx([s1]):
+    with sessions_ctx(client.application, [s1]):
         r = client.put("/api/chat/sessions/non-existent", json={"name": "Test"})
     assert r.status_code == 404
 
@@ -205,7 +206,7 @@ def test_update_session_not_found(client):
 def test_delete_session_success(client):
     s1 = _default_session("removable")
     s2 = _default_session("keep")
-    with sessions_ctx([s1, s2], active_id="removable") as (store, mock_mgr):
+    with sessions_ctx(client.application, [s1, s2], active_id="removable") as (store, mock_mgr):
         r = client.delete("/api/chat/sessions/removable")
     assert r.status_code == 204
     assert r.data == b""  # 204 must have no body
@@ -215,14 +216,14 @@ def test_delete_session_success(client):
 
 def test_delete_session_not_found(client):
     s1 = _default_session("only")
-    with sessions_ctx([s1]):
+    with sessions_ctx(client.application, [s1]):
         r = client.delete("/api/chat/sessions/non-existent")
     assert r.status_code == 404
 
 
 def test_delete_last_session_blocked(client):
     only = _default_session("only-one")
-    with sessions_ctx([only]) as (store, mock_mgr):
+    with sessions_ctx(client.application, [only]) as (store, mock_mgr):
         r = client.delete("/api/chat/sessions/only-one")
     assert r.status_code == 400
     assert "Cannot delete the last remaining session" in r.json["error"]
@@ -236,7 +237,7 @@ def test_delete_last_session_blocked(client):
 def test_activate_session_success(client):
     s1 = _default_session("s1")
     s2 = _default_session("s2")
-    with sessions_ctx([s1, s2], active_id="s1") as (store, mock_mgr):
+    with sessions_ctx(client.application, [s1, s2], active_id="s1") as (store, mock_mgr):
         r = client.post("/api/chat/sessions/s2/activate")
     assert r.status_code == 200
     assert store["chat_active_session_id"] == "s2"
@@ -245,7 +246,7 @@ def test_activate_session_success(client):
 
 def test_activate_session_not_found(client):
     s1 = _default_session("only")
-    with sessions_ctx([s1]):
+    with sessions_ctx(client.application, [s1]):
         r = client.post("/api/chat/sessions/non-existent/activate")
     assert r.status_code == 404
 
@@ -267,7 +268,7 @@ def test_foreign_session_is_hidden_from_every_session_control_path(client):
     own = _default_session("intruder-own")
     own["owner_principal"] = {"tenant_id": "intruder", "subject_id": "intruder"}
     headers = _auth_headers("intruder")
-    with sessions_ctx([foreign, own]):
+    with sessions_ctx(client.application, [foreign, own]):
         listed = client.get("/api/chat/sessions", headers=headers)
         fetched = client.get("/api/chat/sessions/private", headers=headers)
         updated = client.patch("/api/chat/sessions/private", json={"name": "stolen"}, headers=headers)
@@ -295,7 +296,7 @@ def test_foreign_session_is_hidden_from_every_session_control_path(client):
 def test_cross_tenant_session_id_reservation_is_fail_closed(client):
     foreign = _default_session("reserved")
     foreign["owner_principal"] = {"tenant_id": "owner", "subject_id": "owner"}
-    with sessions_ctx([foreign]):
+    with sessions_ctx(client.application, [foreign]):
         response = client.post(
             "/api/chat/sessions",
             json={"id": "reserved", "name": "Collision"},
@@ -311,7 +312,7 @@ def test_cross_tenant_session_id_reservation_is_fail_closed(client):
 def test_session_owner_metadata_is_never_returned(client):
     owned = _default_session("owned")
     owned["owner_principal"] = {"tenant_id": "admin", "subject_id": "admin"}
-    with sessions_ctx([owned]):
+    with sessions_ctx(client.application, [owned]):
         listed = client.get("/api/chat/sessions")
         fetched = client.get("/api/chat/sessions/owned")
     assert "owner_principal" not in listed.json[0]

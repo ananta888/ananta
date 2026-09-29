@@ -12,7 +12,6 @@ from flask import (
 from agent.auth import check_user_auth
 from agent.routes.chat_blueprint import chat_bp
 from agent.routes.chat_route_access import (
-    _chat_module,
     _chat_workflow_principal,
     _chat_workflow_run_is_owned_by,
     _log,
@@ -20,6 +19,7 @@ from agent.routes.chat_route_access import (
     _public_process_payload,
     _serialized_chat_mutation,
 )
+from agent.routes.chat_route_dependencies import chat_route_dependencies
 from agent.routes.chat_route_persistence import (
     _load_chat,
     _profile_by_id,
@@ -42,6 +42,7 @@ from agent.services.chat_session_security import (
 @chat_bp.get("/sessions/<session_id>/process")
 @check_user_auth
 def get_effective_session_process(session_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -53,7 +54,7 @@ def get_effective_session_process(session_id: str):
     if session is None:
         return jsonify({"error": "session_not_found"}), 404
     profile = _profile_by_id(str(session.get("profile_id") or "general"), principal)
-    result = _chat_module().resolve_effective_process(
+    result = dependencies.resolve_effective_process(
         session,
         profile,
         tenant_id=principal.tenant_id,
@@ -68,6 +69,7 @@ def get_effective_session_process(session_id: str):
 @check_user_auth
 @_serialized_chat_mutation
 def clone_effective_session_process(session_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -76,7 +78,7 @@ def clone_effective_session_process(session_id: str):
     if session is None:
         return jsonify({"error": "session_not_found"}), 404
     profile = _profile_by_id(str(session.get("profile_id") or "general"), principal)
-    effective = _chat_module().resolve_effective_process(
+    effective = dependencies.resolve_effective_process(
         session,
         profile,
         tenant_id=principal.tenant_id,
@@ -108,6 +110,7 @@ def clone_effective_session_process(session_id: str):
 @chat_bp.get("/sessions/<session_id>/process/runs")
 @check_user_auth
 def list_session_process_runs(session_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -130,7 +133,7 @@ def list_session_process_runs(session_id: str):
     summaries = []
     for item in runs:
         summary = {key: value for key, value in item.items() if key != "graph_snapshot"}
-        summary["status"] = _chat_module().runtime_overlay(item)["overall_status"]
+        summary["status"] = dependencies.runtime_overlay(item)["overall_status"]
         summaries.append(summary)
     return jsonify(summaries)
 
@@ -139,6 +142,7 @@ def list_session_process_runs(session_id: str):
 @check_user_auth
 @_serialized_chat_mutation
 def start_session_process_run(session_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -146,7 +150,7 @@ def start_session_process_run(session_id: str):
     session, _ = _owned_session(chat, session_id, principal)
     if session is None:
         return jsonify({"error": "session_not_found", "error_code": "session_not_found"}), 404
-    effective = _chat_module().resolve_effective_process(
+    effective = dependencies.resolve_effective_process(
         session,
         _profile_by_id(str(session.get("profile_id") or "general"), principal),
         tenant_id=principal.tenant_id,
@@ -156,7 +160,7 @@ def start_session_process_run(session_id: str):
         return jsonify({"error": "process_not_configured", "error_code": "process_not_configured"}), 409
     body = request.get_json(silent=True) or {}
     try:
-        run = _chat_module().start_session_process(
+        run = dependencies.start_session_process(
             session_id=session_id,
             graph=effective["graph"],
             message_id=str(body.get("message_id") or ""),
@@ -175,6 +179,7 @@ def start_session_process_run(session_id: str):
 @chat_bp.get("/sessions/<session_id>/process/runs/<run_id>")
 @check_user_auth
 def get_session_process_run(session_id: str, run_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -197,13 +202,14 @@ def get_session_process_run(session_id: str, run_id: str):
     )
     if run is None:
         return jsonify({"error": "process_run_not_found", "error_code": "process_run_not_found"}), 404
-    return jsonify(_public_process_payload(_chat_module().runtime_overlay(run)))
+    return jsonify(_public_process_payload(dependencies.runtime_overlay(run)))
 
 
 @chat_bp.post("/sessions/<session_id>/process/runs/<run_id>/gate")
 @check_user_auth
 @_serialized_chat_mutation
 def signal_session_process_run_gate(session_id: str, run_id: str):
+    dependencies = chat_route_dependencies()
     principal = _chat_workflow_principal()
     if principal is None:
         return jsonify({"error": "forbidden", "error_code": "forbidden"}), 403
@@ -277,7 +283,7 @@ def signal_session_process_run_gate(session_id: str, run_id: str):
             }
         ), 503
     try:
-        result = _chat_module().signal_session_gate(
+        result = dependencies.signal_session_gate(
             run=run,
             step_id=command.step_id,
             decision=command.decision,

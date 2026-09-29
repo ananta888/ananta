@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent.ai_agent import create_app
+from agent.routes.chat_route_dependencies import CHAT_ROUTE_DEPENDENCIES
 from agent.services.user_session_tokens import issue_user_access_token
 
 LLM_PATCH_TARGET = "agent.services.chat_partial_summary_service.call_llm_text"
@@ -55,7 +56,7 @@ def _make_session(session_id: str, **kwargs) -> dict:
 
 
 @contextmanager
-def store_ctx(sessions: list | None = None, folders: list | None = None, active_id: str = ""):
+def store_ctx(app, sessions: list | None = None, folders: list | None = None, active_id: str = ""):
     """Patch get_manager in chat routes to an in-memory store (never touches
     the real user.json). Same isolation approach as test_chat_api.py."""
     sessions = sessions or []
@@ -75,7 +76,7 @@ def store_ctx(sessions: list | None = None, folders: list | None = None, active_
 
     mock_mgr.save.side_effect = _save
 
-    with patch("agent.routes.chat.get_manager", return_value=mock_mgr):
+    with CHAT_ROUTE_DEPENDENCIES.override(app, get_manager=lambda: mock_mgr):
         yield store, mock_mgr
 
 
@@ -91,7 +92,7 @@ def _three_sessions() -> list[dict]:
 
 def test_ai_reorganize_heuristic_fallback_when_llm_empty(client):
     """Empty LLM response → heuristic grouping by session group/type."""
-    with store_ctx(sessions=_three_sessions()):
+    with store_ctx(client.application, sessions=_three_sessions()):
         with patch(LLM_PATCH_TARGET, return_value=""):
             r = client.post("/api/chat/sessions/ai-reorganize")
     assert r.status_code == 200
@@ -108,7 +109,7 @@ def test_ai_reorganize_heuristic_fallback_when_llm_empty(client):
 
 
 def test_ai_reorganize_heuristic_fallback_when_llm_raises(client):
-    with store_ctx(sessions=_three_sessions()):
+    with store_ctx(client.application, sessions=_three_sessions()):
         with patch(LLM_PATCH_TARGET, side_effect=RuntimeError("backend down")):
             r = client.post("/api/chat/sessions/ai-reorganize")
     assert r.status_code == 200
@@ -119,7 +120,7 @@ def test_ai_reorganize_heuristic_fallback_when_llm_raises(client):
 def test_ai_reorganize_llm_success_remaps_folder_ids(client):
     """Valid strict LLM JSON → method 'llm'; proposed ids (f1, f2) are
     remapped to fresh folder-<uuid12> ids, assignments consistently."""
-    with store_ctx(sessions=_three_sessions()):
+    with store_ctx(client.application, sessions=_three_sessions()):
         # Build the fake LLM answer dynamically from the real session ids
         listing = client.get("/api/chat/sessions")
         assert listing.status_code == 200
@@ -152,7 +153,7 @@ def test_ai_reorganize_llm_success_remaps_folder_ids(client):
 
 
 def test_ai_reorganize_llm_garbage_falls_back_to_heuristic(client):
-    with store_ctx(sessions=_three_sessions()):
+    with store_ctx(client.application, sessions=_three_sessions()):
         with patch(LLM_PATCH_TARGET, return_value="Klar! Hier dein Vorschlag: keine JSON."):
             r = client.post("/api/chat/sessions/ai-reorganize")
     assert r.status_code == 200
@@ -166,7 +167,7 @@ def test_ai_reorganize_llm_garbage_falls_back_to_heuristic(client):
 def test_context_overview_known_session(client):
     long_prompt = "Du bist ein sehr hilfreicher Assistent. " * 10  # > 200 chars
     session = _make_session("ctx-sess", system_prompt=long_prompt)
-    with store_ctx(sessions=[session]):
+    with store_ctx(client.application, sessions=[session]):
         r = client.get("/api/chat/sessions/ctx-sess/context-overview")
     assert r.status_code == 200
     body = r.json
@@ -186,7 +187,7 @@ def test_context_overview_known_session(client):
 
 
 def test_context_overview_unknown_session_returns_404(client):
-    with store_ctx(sessions=[_make_session("only")]):
+    with store_ctx(client.application, sessions=[_make_session("only")]):
         r = client.get("/api/chat/sessions/nope/context-overview")
     assert r.status_code == 404
     assert "not found" in r.json["error"]
@@ -202,7 +203,7 @@ _SUMMARIZE_MESSAGES = [
 
 def test_summarize_llm_success(client):
     fixed = "Bug in parser.py gefunden, Fix in Zeile 42."
-    with store_ctx(sessions=[_make_session("s1")]):
+    with store_ctx(client.application, sessions=[_make_session("s1")]):
         with patch(LLM_PATCH_TARGET, return_value=fixed):
             r = client.post("/api/chat/sessions/s1/summarize",
                             json={"messages": _SUMMARIZE_MESSAGES})
@@ -215,7 +216,7 @@ def test_summarize_llm_success(client):
 
 
 def test_summarize_extractive_fallback_when_llm_empty(client):
-    with store_ctx(sessions=[_make_session("s1")]):
+    with store_ctx(client.application, sessions=[_make_session("s1")]):
         with patch(LLM_PATCH_TARGET, return_value=""):
             r = client.post("/api/chat/sessions/s1/summarize",
                             json={"messages": _SUMMARIZE_MESSAGES, "target_chars": 200})
@@ -230,7 +231,7 @@ def test_summarize_extractive_fallback_when_llm_empty(client):
 
 
 def test_summarize_empty_messages_returns_400(client):
-    with store_ctx(sessions=[_make_session("s1")]):
+    with store_ctx(client.application, sessions=[_make_session("s1")]):
         r = client.post("/api/chat/sessions/s1/summarize", json={"messages": []})
         assert r.status_code == 400
         assert "messages" in r.json["error"]
@@ -241,7 +242,7 @@ def test_summarize_empty_messages_returns_400(client):
 
 
 def test_summarize_unknown_session_returns_404(client):
-    with store_ctx(sessions=[_make_session("only")]):
+    with store_ctx(client.application, sessions=[_make_session("only")]):
         r = client.post("/api/chat/sessions/nope/summarize",
                         json={"messages": _SUMMARIZE_MESSAGES})
     assert r.status_code == 404
@@ -260,7 +261,7 @@ def test_prompt_preview_basic(client):
         {"sender": "ai", "text": "Antwort 1"},
         {"sender": "user", "text": "Frage 2"},
     ]
-    with store_ctx(sessions=[session]):
+    with store_ctx(client.application, sessions=[session]):
         r = client.post("/api/chat/sessions/pp/prompt-preview",
                         json={"message": "Was ist X?", "history": history})
     assert r.status_code == 200
@@ -282,7 +283,7 @@ def test_prompt_preview_basic(client):
 def test_prompt_preview_history_truncated_by_turn_limit(client):
     session = _make_session("pp-trunc", settings={"chat_history_turns": 2})
     history = [{"sender": "user", "text": f"Nachricht {i}"} for i in range(5)]
-    with store_ctx(sessions=[session]):
+    with store_ctx(client.application, sessions=[session]):
         r = client.post("/api/chat/sessions/pp-trunc/prompt-preview",
                         json={"message": "Weiter", "history": history})
     assert r.status_code == 200
@@ -295,7 +296,7 @@ def test_prompt_preview_history_truncated_by_turn_limit(client):
 
 def test_prompt_preview_summary_section(client):
     session = _make_session("pp-sum")  # chat_use_summary defaults to True
-    with store_ctx(sessions=[session]):
+    with store_ctx(client.application, sessions=[session]):
         r = client.post("/api/chat/sessions/pp-sum/prompt-preview",
                         json={"message": "Weiter", "summary": "Bisher: alles gut."})
     assert r.status_code == 200
@@ -307,7 +308,7 @@ def test_prompt_preview_summary_section(client):
 
 
 def test_prompt_preview_missing_message_returns_400(client):
-    with store_ctx(sessions=[_make_session("pp")]):
+    with store_ctx(client.application, sessions=[_make_session("pp")]):
         r = client.post("/api/chat/sessions/pp/prompt-preview", json={"summary": "x"})
         assert r.status_code == 400
         # Whitespace-only message is also rejected
@@ -316,7 +317,7 @@ def test_prompt_preview_missing_message_returns_400(client):
 
 
 def test_prompt_preview_unknown_session_returns_404(client):
-    with store_ctx(sessions=[_make_session("only")]):
+    with store_ctx(client.application, sessions=[_make_session("only")]):
         r = client.post("/api/chat/sessions/nope/prompt-preview", json={"message": "Hi"})
     assert r.status_code == 404
     assert "not found" in r.json["error"]
@@ -324,7 +325,7 @@ def test_prompt_preview_unknown_session_returns_404(client):
 
 def test_prompt_preview_is_read_only(client):
     """The preview must not modify any persisted session state."""
-    with store_ctx(sessions=[_make_session("pp", system_prompt="SP")]):
+    with store_ctx(client.application, sessions=[_make_session("pp", system_prompt="SP")]):
         before = client.get("/api/chat/sessions").json
         r = client.post("/api/chat/sessions/pp/prompt-preview",
                         json={"message": "Hi", "summary": "S",

@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from agent.routes.chat_route_access import (
-    _chat_module,
     _legacy_chat_owner,
     _owned_sessions,
 )
+from agent.routes.chat_route_dependencies import chat_route_dependencies
 from agent.routes.chat_route_settings import (
     _migrate_profile_settings_v3,
     _migrate_session_settings_v3,
@@ -32,7 +32,8 @@ def _load_chat(
     principal: ChatSessionPrincipal | None = None,
 ) -> dict[str, Any]:
     """Build a minimal chat dict from persisted user.json for session operations."""
-    manager = _chat_module().get_manager()
+    dependencies = chat_route_dependencies()
+    manager = dependencies.get_manager()
     settings = manager.load()
     sessions = settings.get("chat_sessions") or default_conversations()
     active_ids = settings.get("chat_active_session_ids")
@@ -65,7 +66,8 @@ def _load_chat(
 
 def _save_chat(chat: dict[str, Any], *, principal: ChatSessionPrincipal | None = None) -> bool:
     """Persist sessions back to user.json."""
-    manager = _chat_module().get_manager()
+    dependencies = chat_route_dependencies()
+    manager = dependencies.get_manager()
     payload: dict[str, Any] = {
         "chat_sessions": chat.get("ai_sessions") or [],
         "chat_active_session_id": chat.get("active_session_id") or "",
@@ -85,20 +87,23 @@ def _save_chat(chat: dict[str, Any], *, principal: ChatSessionPrincipal | None =
 
 def _load_folders() -> list[dict]:
     """Load chat_folders from user.json."""
-    settings = _chat_module().get_manager().load()
+    dependencies = chat_route_dependencies()
+    settings = dependencies.get_manager().load()
     raw = settings.get("chat_folders") or []
     return raw if isinstance(raw, list) else []
 
 
 def _save_folders(folders: list[dict]) -> None:
     """Persist chat_folders to user.json (merging with existing keys)."""
-    _chat_module().get_manager().save({"chat_folders": folders})
+    dependencies = chat_route_dependencies()
+    dependencies.get_manager().save({"chat_folders": folders})
 
 
 def _load_profiles(principal: ChatSessionPrincipal | None = None) -> list[dict[str, Any]]:
     """Load built-in and user profiles, with user profiles stored separately."""
+    dependencies = chat_route_dependencies()
     with chat_session_mutation_lock:
-        manager = _chat_module().get_manager()
+        manager = dependencies.get_manager()
         settings = manager.load()
         raw_custom = settings.get("chat_profiles") or []
         custom = list(raw_custom) if isinstance(raw_custom, list) else []
@@ -128,11 +133,13 @@ def _load_profiles(principal: ChatSessionPrincipal | None = None) -> list[dict[s
 
 
 def _save_custom_profiles(profiles: list[dict[str, Any]]) -> None:
-    _chat_module().get_manager().save({"chat_profiles": profiles})
+    dependencies = chat_route_dependencies()
+    dependencies.get_manager().save({"chat_profiles": profiles})
 
 
 def _load_chat_types() -> list[dict[str, Any]]:
-    custom = _chat_module().get_manager().load().get("chat_session_types") or []
+    dependencies = chat_route_dependencies()
+    custom = dependencies.get_manager().load().get("chat_session_types") or []
     by_id = {str(item["id"]): dict(item) for item in DEFAULT_CHAT_TYPES}
     for item in custom if isinstance(custom, list) else []:
         if isinstance(item, dict) and item.get("id"):

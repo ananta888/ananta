@@ -5,11 +5,12 @@ from __future__ import annotations
 import copy
 import re
 from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from agent.ai_agent import create_app
+from agent.routes.chat_route_dependencies import CHAT_ROUTE_DEPENDENCIES
 from agent.services.user_session_tokens import issue_user_access_token
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ def _make_session(session_id: str, **kwargs) -> dict:
 
 
 @contextmanager
-def store_ctx(sessions: list | None = None, folders: list | None = None, active_id: str = ""):
+def store_ctx(app, sessions: list | None = None, folders: list | None = None, active_id: str = ""):
     """Patch get_manager in chat routes so _load_chat/_save_chat and
     _load_folders/_save_folders operate on a controlled in-memory store
     instead of the real user.json file. The store persists across requests
@@ -64,7 +65,7 @@ def store_ctx(sessions: list | None = None, folders: list | None = None, active_
 
     mock_mgr.save.side_effect = _save
 
-    with patch("agent.routes.chat.get_manager", return_value=mock_mgr):
+    with CHAT_ROUTE_DEPENDENCIES.override(app, get_manager=lambda: mock_mgr):
         yield store, mock_mgr
 
 
@@ -72,7 +73,7 @@ def store_ctx(sessions: list | None = None, folders: list | None = None, active_
 
 
 def test_list_folders_initially_empty(client):
-    with store_ctx():
+    with store_ctx(client.application):
         r = client.get("/api/chat/folders")
     assert r.status_code == 200
     assert r.json == []
@@ -82,7 +83,7 @@ def test_list_folders_initially_empty(client):
 
 
 def test_create_folder_success(client):
-    with store_ctx() as (store, _):
+    with store_ctx(client.application) as (store, _):
         r = client.post("/api/chat/folders", json={"name": "Projekte"})
     assert r.status_code == 201
     folder = r.json
@@ -97,7 +98,7 @@ def test_create_folder_success(client):
 
 
 def test_create_folder_with_explicit_id_then_duplicate_conflict(client):
-    with store_ctx():
+    with store_ctx(client.application):
         r1 = client.post("/api/chat/folders", json={"id": "folder-custom", "name": "Erster"})
         assert r1.status_code == 201
         assert r1.json["id"] == "folder-custom"
@@ -107,7 +108,7 @@ def test_create_folder_with_explicit_id_then_duplicate_conflict(client):
 
 
 def test_create_folder_without_name_returns_400(client):
-    with store_ctx():
+    with store_ctx(client.application):
         r = client.post("/api/chat/folders", json={"icon": "📁"})
         assert r.status_code == 400
         assert "name" in r.json["error"]
@@ -120,7 +121,7 @@ def test_create_folder_without_name_returns_400(client):
 
 
 def test_patch_folder_updates_fields_and_timestamp(client):
-    with store_ctx():
+    with store_ctx(client.application):
         parent = client.post("/api/chat/folders", json={"name": "Parent"}).json
         created = client.post("/api/chat/folders", json={"name": "Alt"}).json
         r = client.patch(
@@ -140,7 +141,7 @@ def test_patch_folder_updates_fields_and_timestamp(client):
 
 
 def test_patch_unknown_folder_returns_404(client):
-    with store_ctx():
+    with store_ctx(client.application):
         r = client.patch("/api/chat/folders/folder-nonexistent", json={"name": "X"})
     assert r.status_code == 404
     assert "not found" in r.json["error"]
@@ -150,7 +151,7 @@ def test_patch_unknown_folder_returns_404(client):
 
 
 def test_delete_folder_removes_it_from_list(client):
-    with store_ctx():
+    with store_ctx(client.application):
         fid = client.post("/api/chat/folders", json={"name": "Weg damit"}).json["id"]
         r = client.delete(f"/api/chat/folders/{fid}")
         assert r.status_code == 204
@@ -160,14 +161,14 @@ def test_delete_folder_removes_it_from_list(client):
 
 
 def test_delete_unknown_folder_returns_404(client):
-    with store_ctx():
+    with store_ctx(client.application):
         r = client.delete("/api/chat/folders/folder-nonexistent")
     assert r.status_code == 404
     assert "not found" in r.json["error"]
 
 
 def test_delete_non_empty_folder_is_rejected_without_partial_mutation(client):
-    with store_ctx(sessions=[_make_session("keep-me")]):
+    with store_ctx(client.application, sessions=[_make_session("keep-me")]):
         fid = client.post("/api/chat/folders", json={"name": "Projekt-X"}).json["id"]
         r = client.post(
             "/api/chat/sessions",
@@ -190,7 +191,7 @@ def test_delete_non_empty_folder_is_rejected_without_partial_mutation(client):
 
 
 def test_folders_persist_across_requests(client):
-    with store_ctx():
+    with store_ctx(client.application):
         created = client.post("/api/chat/folders", json={"name": "Dauerhaft", "icon": "💾"}).json
         # Fresh request against the same persisted store
         r = client.get("/api/chat/folders")
@@ -202,7 +203,7 @@ def test_folders_persist_across_requests(client):
 
 
 def test_nested_folders_child_references_parent(client):
-    with store_ctx():
+    with store_ctx(client.application):
         parent = client.post("/api/chat/folders", json={"name": "Eltern"}).json
         child = client.post(
             "/api/chat/folders",
