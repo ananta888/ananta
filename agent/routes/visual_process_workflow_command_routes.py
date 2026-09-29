@@ -12,7 +12,7 @@ from agent.common.redaction import (
     redact,
 )
 from agent.routes.visual_process_blueprint import vp_bp
-from agent.routes.visual_process_graph_support import _visual_process_module
+from agent.routes.visual_process_route_dependencies import visual_process_route_dependencies
 from agent.services.workflow_backend import WorkflowSignal
 from agent.services.workflow_control_command_receipts import WorkflowControlCommandRejectedError
 from agent.services.workflow_runtime._serialization import redact_json
@@ -28,7 +28,8 @@ from .workflow_control_security import (
 @vp_bp.post("/workflow/<workflow_id>/signal")
 @check_strict_auth
 def workflow_signal(workflow_id: str):
-    principal, auth_error = _visual_process_module().require_workflow_owner(workflow_id)
+    dependencies = visual_process_route_dependencies()
+    principal, auth_error = dependencies.require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
     body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_SIGNAL_BYTES)
@@ -36,9 +37,9 @@ def workflow_signal(workflow_id: str):
         return body_error
     assert body is not None and principal is not None
     if body.get("name") == "bpmn_message":
-        return _visual_process_module().backend_error("bpmn_message_endpoint_required", code=422)
+        return dependencies.backend_error("bpmn_message_endpoint_required", code=422)
     if "expected_revision" in body and (type(body["expected_revision"]) is not int or body["expected_revision"] < 0):
-        return _visual_process_module().backend_error("workflow_control_revision_invalid", code=422)
+        return dependencies.backend_error("workflow_control_revision_invalid", code=422)
     target_bindings, binding_error = _workflow_command_target_bindings(body)
     if binding_error is not None:
         return binding_error
@@ -87,7 +88,8 @@ def workflow_signal(workflow_id: str):
 @vp_bp.post("/workflow/<workflow_id>/message")
 @check_strict_auth
 def workflow_message(workflow_id: str):
-    principal, error = _visual_process_module().require_workflow_owner(workflow_id)
+    dependencies = visual_process_route_dependencies()
+    principal, error = dependencies.require_workflow_owner(workflow_id)
     if error is not None:
         return error
     body, error = workflow_json_body(max_bytes=MAX_WORKFLOW_SIGNAL_BYTES)
@@ -95,7 +97,7 @@ def workflow_message(workflow_id: str):
         return error
     required = {"command_id", "expected_revision", "plan_hash", "step_id", "payload"}
     if not required.issubset(body) or set(body) - required - {"run_id", "checkpoint_ref"}:
-        return _visual_process_module().backend_error("bpmn_message_envelope_invalid", code=422)
+        return dependencies.backend_error("bpmn_message_envelope_invalid", code=422)
     target_bindings, error = _workflow_command_target_bindings(body)
     if error is not None:
         return error
@@ -103,18 +105,18 @@ def workflow_message(workflow_id: str):
     if error is not None:
         return error
     if not command_id:
-        return _visual_process_module().backend_error("bpmn_message_command_binding_required", code=422)
+        return dependencies.backend_error("bpmn_message_command_binding_required", code=422)
     if type(body["expected_revision"]) is not int or body["expected_revision"] < 0:
-        return _visual_process_module().backend_error("workflow_control_revision_invalid", code=422)
+        return dependencies.backend_error("workflow_control_revision_invalid", code=422)
     if not isinstance(body["step_id"], str) or not body["step_id"] or body["step_id"] != body["step_id"].strip():
-        return _visual_process_module().backend_error("bpmn_message_target_required", code=422)
+        return dependencies.backend_error("bpmn_message_target_required", code=422)
     plan_hash = body["plan_hash"]
     if not isinstance(plan_hash, str) or len(plan_hash) != 64 or any(c not in "0123456789abcdef" for c in plan_hash):
-        return _visual_process_module().backend_error("workflow_control_plan_binding_mismatch", code=422)
+        return dependencies.backend_error("workflow_control_plan_binding_mismatch", code=422)
     try:
         validate_bpmn_message_payload(body["payload"])
     except (ValueError, TypeError, OverflowError):
-        return _visual_process_module().backend_error("bpmn_message_payload_invalid", code=422)
+        return dependencies.backend_error("bpmn_message_payload_invalid", code=422)
     return _dispatch_workflow_signal(
         workflow_id, principal,
         WorkflowSignal(name="bpmn_message", payload=body["payload"], actor=principal.subject),
@@ -137,7 +139,8 @@ def workflow_retry(workflow_id: str):
 
 
 def _named_workflow_control(workflow_id: str, command_name: str):
-    principal, auth_error = _visual_process_module().require_workflow_owner(workflow_id)
+    dependencies = visual_process_route_dependencies()
+    principal, auth_error = dependencies.require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
     body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_SIGNAL_BYTES, required=False)
@@ -145,7 +148,7 @@ def _named_workflow_control(workflow_id: str, command_name: str):
         return body_error
     assert body is not None and principal is not None
     if "expected_revision" in body and (type(body["expected_revision"]) is not int or body["expected_revision"] < 0):
-        return _visual_process_module().backend_error("workflow_control_revision_invalid", code=422)
+        return dependencies.backend_error("workflow_control_revision_invalid", code=422)
     target_bindings, binding_error = _workflow_command_target_bindings(body)
     if binding_error is not None:
         return binding_error
@@ -182,6 +185,7 @@ def _named_workflow_control(workflow_id: str, command_name: str):
 
 def _workflow_command_target_bindings(body: dict[str, Any]):
     """Accept the established nested control form and the top-level envelope."""
+    dependencies = visual_process_route_dependencies()
     nested = body.get("payload")
     nested = nested if isinstance(nested, dict) else {}
     bindings = {}
@@ -189,10 +193,10 @@ def _workflow_command_target_bindings(body: dict[str, Any]):
         if key not in body and key not in nested:
             continue
         if key in body and key in nested and body[key] != nested[key]:
-            return None, _visual_process_module().backend_error("workflow_control_target_binding_conflict", code=422)
+            return None, dependencies.backend_error("workflow_control_target_binding_conflict", code=422)
         value = body[key] if key in body else nested[key]
         if not isinstance(value, str) or not value or value != value.strip() or len(value) > 512:
-            return None, _visual_process_module().backend_error("workflow_control_target_binding_invalid", code=422)
+            return None, dependencies.backend_error("workflow_control_target_binding_invalid", code=422)
         bindings[key] = value
     return bindings, None
 
@@ -209,9 +213,10 @@ def _dispatch_workflow_signal(
     run_id: str | None = None,
     checkpoint_ref: str | None = None,
 ):
+    dependencies = visual_process_route_dependencies()
     if expected_revision is not None and (type(expected_revision) is not int or expected_revision < 0):
-        return _visual_process_module().backend_error("workflow_control_revision_invalid", code=422)
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+        return dependencies.backend_error("workflow_control_revision_invalid", code=422)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
@@ -228,7 +233,7 @@ def _dispatch_workflow_signal(
         if checkpoint_ref is not None:
             bindings["checkpoint_ref"] = checkpoint_ref
         if (bindings or signal.name == "bpmn_message") and not callable(command):
-            return _visual_process_module().backend_error("workflow_control_command_unavailable", code=503)
+            return dependencies.backend_error("workflow_control_command_unavailable", code=503)
         status = (
             command(
                 workflow_id,
@@ -246,7 +251,7 @@ def _dispatch_workflow_signal(
             "workflow_control_command_rejected",
             {"workflow_id": workflow_id, "reason_code": safe_reason},
         )
-        return _visual_process_module().backend_error(safe_reason, code=409)
+        return dependencies.backend_error(safe_reason, code=409)
     except PermissionError as exc:
         reason_code = str(exc)
         safe_reason = (
@@ -266,7 +271,7 @@ def _dispatch_workflow_signal(
             "workflow_control_command_denied",
             {"workflow_id": workflow_id, "reason_code": safe_reason},
         )
-        return _visual_process_module().backend_error(safe_reason, code=409)
+        return dependencies.backend_error(safe_reason, code=409)
     except Exception as exc:  # noqa: BLE001
         log_audit(
             "workflow_backend_signal_failed",
@@ -276,9 +281,9 @@ def _dispatch_workflow_signal(
             try:
                 pending_status = backend.get_workflow_status(workflow_id)
             except Exception:
-                return _visual_process_module().backend_error(str(exc), code=503)
+                return dependencies.backend_error(str(exc), code=503)
             return backend_result(pending_status, success_code=202)
-        return _visual_process_module().backend_error("workflow_backend_unavailable", code=503)
+        return dependencies.backend_error("workflow_backend_unavailable", code=503)
     return backend_result(status)
 
 

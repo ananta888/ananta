@@ -209,6 +209,7 @@ def test_http_admission_fails_before_runtime_selection_or_reservation(monkeypatc
     from flask import Flask
 
     from agent.routes import visual_process as routes
+    from agent.routes.visual_process_route_dependencies import VISUAL_PROCESS_ROUTE_DEPENDENCIES
 
     # Authentication is independently covered by route-security tests. This
     # isolated transport fixture exercises the authenticated handler itself.
@@ -220,7 +221,7 @@ def test_http_admission_fails_before_runtime_selection_or_reservation(monkeypatc
     def forbidden(*args, **kwargs):
         pytest.fail("Invalid semantics reached runtime selection / ownership writes")
 
-    monkeypatch.setattr(routes, "configured_workflow_backend", forbidden)
+    VISUAL_PROCESS_ROUTE_DEPENDENCIES.install(app, configured_workflow_backend=forbidden)
     monkeypatch.setattr(routes.workflow_route_authorization_service, "reserve", forbidden)
     if body_kind == "graph":
         graph = import_bpmn_xml(

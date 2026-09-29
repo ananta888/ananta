@@ -14,6 +14,7 @@ from flask import Flask
 from agent.auth import generate_token
 from agent.config import settings
 from agent.routes.visual_process import vp_bp
+from agent.routes.visual_process_route_dependencies import VISUAL_PROCESS_ROUTE_DEPENDENCIES
 from agent.services.workflow_backend import (
     WORKFLOW_STATUS_SCHEMA,
     WorkflowRequest,
@@ -1096,9 +1097,7 @@ def test_visual_routes_expose_resume_and_retry_through_hub_control(
     assert any(event["event_type"] == "workflow.run.retry_requested" for event in events.get_json()["events"])
 
 
-def test_cancel_route_returns_stable_nonretryable_conflict_for_typed_rejection(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_cancel_route_returns_stable_nonretryable_conflict_for_typed_rejection() -> None:
     workflow_route_authorization_service.clear()
     principal = WorkflowRoutePrincipal("route-tenant", "route-owner")
     workflow_id = "workflow-cancel-rejected"
@@ -1119,13 +1118,13 @@ def test_cancel_route_returns_stable_nonretryable_conflict_for_typed_rejection(
             }
 
     backend = Backend()
-    monkeypatch.setattr(
-        "agent.routes.visual_process.configured_workflow_backend",
-        lambda _principal: (backend, None),
-    )
     app = Flask(__name__)
     app.config.update(TESTING=True, AGENT_TOKEN=None)
     app.register_blueprint(vp_bp)
+    VISUAL_PROCESS_ROUTE_DEPENDENCIES.install(
+        app,
+        configured_workflow_backend=lambda _principal: (backend, None),
+    )
     token = generate_token(
         {"sub": "route-owner", "tenant_id": "route-tenant", "role": "user"},
         settings.secret_key,

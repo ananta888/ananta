@@ -33,6 +33,8 @@ every route on ``vp_bp``. The implementation lives in single-responsibility
 siblings:
 
 * :mod:`agent.routes.visual_process_blueprint` - the shared ``vp_bp`` blueprint.
+* :mod:`agent.routes.visual_process_route_dependencies` - the workflow handlers'
+  collaborators and their per-application override seam.
 * :mod:`agent.routes.visual_process_graph_support` - graph parsing, ownership,
   revision archiving and definition-save responses.
 * :mod:`agent.routes.visual_process_model_plan` - workflow options/compilation and
@@ -49,10 +51,13 @@ siblings:
 * :mod:`agent.routes.visual_process_workflow_event_routes` - events, event stream
   and caseflow edge trace.
 
-Collaborators that tests monkeypatch on this module (``configured_workflow_backend``,
+The workflow handlers' collaborators (``configured_workflow_backend``,
 ``backend_error``, ``require_workflow_owner``, ``workflow_route_authorization_service``,
-``get_caseflow_agent_collaboration_trace_projection_service``) are resolved here at
-call time by the siblings.
+``get_caseflow_agent_collaboration_trace_projection_service``) are bundled in
+:class:`agent.routes.visual_process_route_dependencies.VisualProcessRouteDependencies`
+and resolved per application through ``VISUAL_PROCESS_ROUTE_DEPENDENCIES``; tests
+replace them with ``VISUAL_PROCESS_ROUTE_DEPENDENCIES.override(app, ...)``. The
+names re-exported below are kept for import compatibility only.
 """
 
 from __future__ import annotations
@@ -103,7 +108,6 @@ from agent.routes.visual_process_graph_support import (
     _owned_graph_model,
     _parse_graph,
     _validator,
-    _visual_process_module,
 )
 from agent.routes.visual_process_model_plan import (
     _build_model_plan,
@@ -167,7 +171,6 @@ __all__ = [
     "_public_command_rejection_reason",
     "_save_graph_v2_impl",
     "_validator",
-    "_visual_process_module",
     "_workflow_command_id",
     "_workflow_command_target_bindings",
     "_workflow_options",

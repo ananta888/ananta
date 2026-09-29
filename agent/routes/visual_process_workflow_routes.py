@@ -14,9 +14,9 @@ from agent.routes.visual_process_blueprint import vp_bp
 from agent.routes.visual_process_graph_support import (
     _parse_graph,
     _validator,
-    _visual_process_module,
 )
 from agent.routes.visual_process_model_plan import _compile_workflow_request
+from agent.routes.visual_process_route_dependencies import visual_process_route_dependencies
 from agent.routes.visual_process_workflow_command_routes import (
     _public_command_rejection_reason,
     _workflow_command_id,
@@ -129,6 +129,7 @@ def _principal_workflow_request(workflow: WorkflowRequest, principal) -> Workflo
 @vp_bp.post("/workflow/preflight")
 @check_strict_auth
 def workflow_preflight():
+    dependencies = visual_process_route_dependencies()
     body, error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
     if error is not None:
         return error
@@ -138,23 +139,24 @@ def workflow_preflight():
     try:
         principal = workflow_principal()
     except ValueError:
-        return _visual_process_module().backend_error("workflow_principal_required", code=401)
-    backend, error = _visual_process_module().configured_workflow_backend(principal)
+        return dependencies.backend_error("workflow_principal_required", code=401)
+    backend, error = dependencies.configured_workflow_backend(principal)
     if error is not None:
         return error
     try:
         result = backend.preflight_workflow(_principal_workflow_request(workflow, principal))
     except ValueError:
-        return _visual_process_module().backend_error("workflow_execution_plan_invalid", code=422)
+        return dependencies.backend_error("workflow_execution_plan_invalid", code=422)
     except Exception as exc:
         log_audit("workflow_preflight_failed", {"exception_type": type(exc).__name__})
-        return _visual_process_module().backend_error("workflow_preflight_unavailable", code=503)
+        return dependencies.backend_error("workflow_preflight_unavailable", code=503)
     return jsonify(result), 200
 
 
 @vp_bp.post("/workflow/start")
 @check_strict_auth
 def workflow_start():
+    dependencies = visual_process_route_dependencies()
     body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_REQUEST_BYTES)
     if body_error is not None:
         return body_error
@@ -178,21 +180,21 @@ def workflow_start():
             continue
         value = body[key]
         if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
-            return _visual_process_module().backend_error("workflow_start_hash_invalid", code=422)
+            return dependencies.backend_error("workflow_start_hash_invalid", code=422)
         preconditions[key] = value
     if preconditions:
         try:
             plan = workflow_start_plan(workflow, tenant_id=principal.tenant_id)
         except ValueError:
-            return _visual_process_module().backend_error("workflow_execution_plan_invalid", code=422)
+            return dependencies.backend_error("workflow_execution_plan_invalid", code=422)
         try:
             assert_workflow_start_hashes(workflow, plan, **preconditions)
         except ValueError as exc:
-            return _visual_process_module().backend_error(str(exc), code=409)
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+            return dependencies.backend_error(str(exc), code=409)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
-    reservation = _visual_process_module().workflow_route_authorization_service.reserve(workflow.workflow_id, principal)
+    reservation = dependencies.workflow_route_authorization_service.reserve(workflow.workflow_id, principal)
     if reservation == "foreign":
         return api_response(
             status="error",
@@ -201,7 +203,7 @@ def workflow_start():
             code=409,
         )
     if reservation not in {"reserved", "duplicate"}:
-        return _visual_process_module().backend_error("workflow_id_invalid", code=400)
+        return dependencies.backend_error("workflow_id_invalid", code=400)
 
     try:
         start_options = {**preconditions, **({"command_id": command_id} if command_id else {})}
@@ -209,7 +211,7 @@ def workflow_start():
     except Exception as exc:  # noqa: BLE001
         pending = str(exc) == "workflow_control_start_observation_pending"
         if not pending and reservation != "duplicate":
-            _visual_process_module().workflow_route_authorization_service.release(workflow.workflow_id, principal)
+            dependencies.workflow_route_authorization_service.release(workflow.workflow_id, principal)
         log_audit(
             ("workflow_control_start_observation_pending" if pending else "workflow_backend_start_failed"),
             {"workflow_id": workflow.workflow_id, "exception_type": type(exc).__name__},
@@ -218,25 +220,26 @@ def workflow_start():
             try:
                 pending_status = backend.get_workflow_status(workflow.workflow_id)
             except Exception:  # the persisted binding remains queryable on retry
-                return _visual_process_module().backend_error(
+                return dependencies.backend_error(
                     "workflow_control_start_observation_pending",
                     code=503,
                 )
             return backend_result(pending_status, success_code=202)
-        return _visual_process_module().backend_error("workflow_backend_unavailable", code=503)
+        return dependencies.backend_error("workflow_backend_unavailable", code=503)
     if str(status.get("status") or "").lower() in {"degraded", "unavailable", "not_found"}:
-        _visual_process_module().workflow_route_authorization_service.release(workflow.workflow_id, principal)
+        dependencies.workflow_route_authorization_service.release(workflow.workflow_id, principal)
     return backend_result(status)
 
 
 @vp_bp.get("/workflow/<workflow_id>/status")
 @check_strict_auth
 def workflow_status(workflow_id: str):
-    principal, auth_error = _visual_process_module().require_workflow_owner(workflow_id)
+    dependencies = visual_process_route_dependencies()
+    principal, auth_error = dependencies.require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
     assert principal is not None
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
@@ -246,16 +249,17 @@ def workflow_status(workflow_id: str):
             "workflow_backend_status_failed",
             {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
         )
-        return _visual_process_module().backend_error("workflow_backend_unavailable", code=503)
+        return dependencies.backend_error("workflow_backend_unavailable", code=503)
     if str(status.get("status") or "").lower() == "not_found" and principal is not None:
-        _visual_process_module().workflow_route_authorization_service.release(workflow_id, principal)
+        dependencies.workflow_route_authorization_service.release(workflow_id, principal)
     return backend_result(status)
 
 
 @vp_bp.post("/workflow/<workflow_id>/cancel")
 @check_strict_auth
 def workflow_cancel(workflow_id: str):
-    principal, auth_error = _visual_process_module().require_workflow_owner(workflow_id)
+    dependencies = visual_process_route_dependencies()
+    principal, auth_error = dependencies.require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
     body, body_error = workflow_json_body(max_bytes=MAX_WORKFLOW_CANCEL_BYTES, required=False)
@@ -267,7 +271,7 @@ def workflow_cancel(workflow_id: str):
         return binding_error
     expected_revision = body.get("expected_revision")
     if "expected_revision" in body and (type(expected_revision) is not int or expected_revision < 0):
-        return _visual_process_module().backend_error("workflow_control_revision_invalid", code=422)
+        return dependencies.backend_error("workflow_control_revision_invalid", code=422)
     reason = str(body.get("reason") or "").strip()
     command_id, command_id_error = _workflow_command_id(body.get("command_id"))
     if command_id_error is not None:
@@ -280,7 +284,7 @@ def workflow_cancel(workflow_id: str):
             code=422,
         )
     assert principal is not None
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
@@ -291,7 +295,7 @@ def workflow_cancel(workflow_id: str):
         if body.get("plan_hash") is not None:
             bindings["plan_hash"] = body["plan_hash"]
         if bindings and not callable(command):
-            return _visual_process_module().backend_error("workflow_control_command_unavailable", code=503)
+            return dependencies.backend_error("workflow_control_command_unavailable", code=503)
         status = (
             command(
                 workflow_id,
@@ -309,7 +313,7 @@ def workflow_cancel(workflow_id: str):
             "workflow_control_command_rejected",
             {"workflow_id": workflow_id, "reason_code": safe_reason},
         )
-        return _visual_process_module().backend_error(safe_reason, code=409)
+        return dependencies.backend_error(safe_reason, code=409)
     except Exception as exc:  # noqa: BLE001
         log_audit(
             "workflow_backend_cancel_failed",
@@ -319,7 +323,7 @@ def workflow_cancel(workflow_id: str):
             try:
                 pending_status = backend.get_workflow_status(workflow_id)
             except Exception:
-                return _visual_process_module().backend_error(str(exc), code=503)
+                return dependencies.backend_error(str(exc), code=503)
             return backend_result(pending_status, success_code=202)
-        return _visual_process_module().backend_error("workflow_backend_unavailable", code=503)
+        return dependencies.backend_error("workflow_backend_unavailable", code=503)
     return backend_result(status)

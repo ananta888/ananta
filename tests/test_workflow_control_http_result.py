@@ -7,8 +7,8 @@ from flask import Flask
 
 from agent.auth import generate_token
 from agent.config import settings
-from agent.routes import visual_process as visual_process_routes
 from agent.routes.visual_process import vp_bp
+from agent.routes.visual_process_route_dependencies import VISUAL_PROCESS_ROUTE_DEPENDENCIES
 
 
 class _TerminalStatusBackend:
@@ -37,22 +37,16 @@ def _headers() -> dict[str, str]:
 
 @pytest.mark.parametrize("terminal_status", ["failed", "cancelled", "succeeded"])
 def test_workflow_status_route_returns_terminal_domain_status_as_success(
-    monkeypatch: pytest.MonkeyPatch,
     terminal_status: str,
 ) -> None:
     app = Flask(__name__)
     app.config.update(TESTING=True, AGENT_TOKEN=None)
     app.register_blueprint(vp_bp)
     backend = _TerminalStatusBackend(terminal_status)
-    monkeypatch.setattr(
-        visual_process_routes,
-        "require_workflow_owner",
-        lambda _workflow_id: (object(), None),
-    )
-    monkeypatch.setattr(
-        visual_process_routes,
-        "configured_workflow_backend",
-        lambda _principal: (backend, None),
+    VISUAL_PROCESS_ROUTE_DEPENDENCIES.install(
+        app,
+        require_workflow_owner=lambda _workflow_id: (object(), None),
+        configured_workflow_backend=lambda _principal: (backend, None),
     )
 
     response = app.test_client().get(

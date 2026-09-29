@@ -185,16 +185,16 @@ def test_visual_process_bpmn_and_workflow_routes(
     from agent.services.workflow_control_composition import get_workflow_backend_control_facade
 
     get_workflow_backend_control_facade()
-    from agent.routes import visual_process as routes
+    from agent.routes.visual_process_route_dependencies import VISUAL_PROCESS_ROUTE_DEPENDENCIES
 
-    original_error = routes.backend_error
+    original_error = VISUAL_PROCESS_ROUTE_DEPENDENCIES.production().backend_error
 
     def diagnostic_backend_error(reason, **kwargs):
         if reason == "workflow_backend_unavailable":
             raise AssertionError("BPMN test backend failed; inspect chained exception")
         return original_error(reason, **kwargs)
 
-    monkeypatch.setattr(routes, "backend_error", diagnostic_backend_error)
+    VISUAL_PROCESS_ROUTE_DEPENDENCIES.install(app, backend_error=diagnostic_backend_error)
 
     started = client.post(
         "/api/visual-process/workflow/start",

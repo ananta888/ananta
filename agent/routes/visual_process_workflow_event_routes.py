@@ -19,7 +19,7 @@ from agent.common.redaction import (
     redact,
 )
 from agent.routes.visual_process_blueprint import vp_bp
-from agent.routes.visual_process_graph_support import _visual_process_module
+from agent.routes.visual_process_route_dependencies import visual_process_route_dependencies
 from agent.services.caseflow_agent_collaboration_trace_projection_service import (
     MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES,
     CaseflowEdgeTraceProjectionError,
@@ -40,11 +40,12 @@ from .workflow_control_security import (
 @vp_bp.get("/workflow/<workflow_id>/events")
 @check_strict_auth
 def workflow_events(workflow_id: str):
-    principal, auth_error = _visual_process_module().require_workflow_owner(workflow_id)
+    dependencies = visual_process_route_dependencies()
+    principal, auth_error = dependencies.require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
     assert principal is not None
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
@@ -57,7 +58,7 @@ def workflow_events(workflow_id: str):
             "workflow_backend_events_failed",
             {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
         )
-        return _visual_process_module().backend_error("workflow_backend_unavailable", code=503)
+        return dependencies.backend_error("workflow_backend_unavailable", code=503)
     safe_events = [dict(redact(event, VisibilityLevel.USER) or {}) for event in events if isinstance(event, dict)]
     return jsonify({"events": safe_events}), 200
 
@@ -67,6 +68,7 @@ def workflow_events(workflow_id: str):
 def caseflow_edge_trace(workflow_id: str):
     """Project bounded directional edge evidence from existing Hub history."""
 
+    dependencies = visual_process_route_dependencies()
     if request.args:
         return api_response(
             status="error",
@@ -74,7 +76,7 @@ def caseflow_edge_trace(workflow_id: str):
             data={"reason_code": "caseflow_edge_trace_query_transport_forbidden"},
             code=400,
         )
-    principal, auth_error = _visual_process_module().require_workflow_owner(workflow_id)
+    principal, auth_error = dependencies.require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
     body, body_error = workflow_json_body(max_bytes=MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES)
@@ -90,11 +92,11 @@ def caseflow_edge_trace(workflow_id: str):
             code=exc.status_code,
         )
     assert principal is not None
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
-        projection = _visual_process_module().get_caseflow_agent_collaboration_trace_projection_service().read(
+        projection = dependencies.get_caseflow_agent_collaboration_trace_projection_service().read(
             principal=principal,
             workflow_id=workflow_id,
             run_id=query.run_id,
@@ -115,7 +117,7 @@ def caseflow_edge_trace(workflow_id: str):
                 "exception_type": type(exc).__name__,
             },
         )
-        return _visual_process_module().backend_error("caseflow_edge_trace_unavailable", code=503)
+        return dependencies.backend_error("caseflow_edge_trace_unavailable", code=503)
     return jsonify(projection), 200
 
 
@@ -124,6 +126,7 @@ def caseflow_edge_trace(workflow_id: str):
 def workflow_event_stream():
     """Return a bounded, cursor-resumable NDJSON page from the Hub stream."""
 
+    dependencies = visual_process_route_dependencies()
     if request.args:
         return api_response(
             status="error",
@@ -143,11 +146,11 @@ def workflow_event_stream():
             data={"reason_code": exc.reason_code},
             code=422,
         )
-    principal, auth_error = _visual_process_module().require_workflow_owner(stream_request.workflow_id)
+    principal, auth_error = dependencies.require_workflow_owner(stream_request.workflow_id)
     if auth_error is not None:
         return auth_error
     assert principal is not None
-    backend, backend_failure = _visual_process_module().configured_workflow_backend(principal)
+    backend, backend_failure = dependencies.configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
@@ -170,7 +173,7 @@ def workflow_event_stream():
                 "exception_type": type(exc).__name__,
             },
         )
-        return _visual_process_module().backend_error("workflow_stream_unavailable", code=503)
+        return dependencies.backend_error("workflow_stream_unavailable", code=503)
 
     log_audit(
         "workflow_stream_opened",

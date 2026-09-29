@@ -21,19 +21,6 @@ from agent.services.visual_process_definition_service import (
 from agent.visual_process.models import VisualProcessGraph
 from agent.visual_process.validator import VisualProcessValidator
 
-
-def _visual_process_module():
-    """Resolve monkeypatch seams through the public ``agent.routes.visual_process`` module at call time.
-
-    Tests patch collaborators such as service getters on ``agent.routes.visual_process``;
-    looking them up lazily keeps those patches effective for code that
-    now lives in sibling modules (and avoids an import-time cycle).
-    """
-    import importlib
-
-    return importlib.import_module("agent.routes.visual_process")
-
-
 _validator = VisualProcessValidator()
 
 

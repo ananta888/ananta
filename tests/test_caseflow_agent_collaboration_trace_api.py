@@ -5,6 +5,7 @@ from flask import Flask
 from agent.auth import generate_token
 from agent.config import settings
 from agent.routes import visual_process as visual_process_routes
+from agent.routes.visual_process_route_dependencies import VISUAL_PROCESS_ROUTE_DEPENDENCIES
 from agent.services.caseflow_agent_collaboration_trace_projection_service import (
     CASEFLOW_EDGE_TRACE_QUERY_SCHEMA,
     CaseflowAgentCollaborationTraceProjectionService,
@@ -100,21 +101,11 @@ def _binding() -> WorkflowControlRunBinding:
     )
 
 
-def test_caseflow_edge_trace_endpoint_is_owner_bound_and_run_bound(monkeypatch) -> None:
+def test_caseflow_edge_trace_endpoint_is_owner_bound_and_run_bound() -> None:
     store = InMemoryWorkflowControlBindingStore()
     store.put(_binding())
     service = CaseflowAgentCollaborationTraceProjectionService(store)
     history = _History()
-    monkeypatch.setattr(
-        visual_process_routes,
-        "configured_workflow_backend",
-        lambda _principal: (history, None),
-    )
-    monkeypatch.setattr(
-        visual_process_routes,
-        "get_caseflow_agent_collaboration_trace_projection_service",
-        lambda: service,
-    )
 
     workflow_route_authorization_service.clear()
     workflow_route_authorization_service.reserve(
@@ -124,6 +115,11 @@ def test_caseflow_edge_trace_endpoint_is_owner_bound_and_run_bound(monkeypatch) 
     app = Flask(__name__)
     app.config.update(TESTING=True, AGENT_TOKEN=None)
     app.register_blueprint(visual_process_routes.vp_bp)
+    VISUAL_PROCESS_ROUTE_DEPENDENCIES.install(
+        app,
+        configured_workflow_backend=lambda _principal: (history, None),
+        get_caseflow_agent_collaboration_trace_projection_service=lambda: service,
+    )
     client = app.test_client()
     query = {"schema": CASEFLOW_EDGE_TRACE_QUERY_SCHEMA, "run_id": "run-a"}
 
@@ -193,17 +189,16 @@ def test_caseflow_edge_trace_endpoint_rejects_url_and_unversioned_queries(
     workflow_route_authorization_service.clear()
 
 
-def test_direct_workflow_request_cannot_assert_hub_edge_catalog(monkeypatch) -> None:
+def test_direct_workflow_request_cannot_assert_hub_edge_catalog() -> None:
     backend = _CapturingStartBackend()
-    monkeypatch.setattr(
-        visual_process_routes,
-        "configured_workflow_backend",
-        lambda _principal: (backend, None),
-    )
     workflow_route_authorization_service.clear()
     app = Flask(__name__)
     app.config.update(TESTING=True, AGENT_TOKEN=None)
     app.register_blueprint(visual_process_routes.vp_bp)
+    VISUAL_PROCESS_ROUTE_DEPENDENCIES.install(
+        app,
+        configured_workflow_backend=lambda _principal: (backend, None),
+    )
     client = app.test_client()
     forged_catalog = build_caseflow_edge_catalog(
         [{
