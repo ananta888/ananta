@@ -105,7 +105,7 @@ def _catalog(
 
 
 def test_default_catalog_contains_pilot_entries_but_remains_fail_closed() -> None:
-    path = Path(__file__).parents[1] / "config" / "scientific-skills-catalog.json"
+    path = Path(__file__).parents[2] / "config" / "scientific-skills-catalog.json"
     catalog = ScientificSkillCatalog.from_mapping(json.loads(path.read_text(encoding="utf-8")))
     assert tuple(entry.skill_name for entry in catalog.entries) == (
         "astropy",
