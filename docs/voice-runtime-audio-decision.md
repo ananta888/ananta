@@ -13,9 +13,9 @@ Grundlage ist der Provider-Vertrag `docs/audio-decision-ananta.md` im Fork (WADE
   `agent/routes/voice_audio_decision.py`
 - Ausfuehrung mit Bestaetigung: `agent/services/audio_decision_command_executor.py`
   (`VoiceCommandExecutor`, `VoiceCommandConfirmationStore`), Route `POST /v1/voice/command/confirm`
-- Tests: `tests/test_voice_audio_decision_provider.py`, `tests/test_voice_audio_decision_command_policy.py`,
-  `tests/test_voice_audio_decision_stream.py`, `tests/test_voice_audio_decision_route.py`,
-  `tests/test_voice_audio_decision_execution.py`, `tests/test_voice_audio_decision_integration.py`
+- Tests: `tests/voice/test_voice_audio_decision_provider.py`, `tests/voice/test_voice_audio_decision_command_policy.py`,
+  `tests/voice/test_voice_audio_decision_stream.py`, `tests/voice/test_voice_audio_decision_route.py`,
+  `tests/voice/test_voice_audio_decision_execution.py`, `tests/voice/test_voice_audio_decision_integration.py`
 - Todo-Track: `todos/active/todo.whisper-audio-decision-hub-integration.json`
 
 ## Betrieb
@@ -200,9 +200,9 @@ closed)`; `session.close()` (idempotentes `DELETE`, auch als Kontextmanager).
 ## Tests
 
 ```
-docker exec -w /app compose-next-ai-agent-hub-1 python -m pytest -q tests/test_voice_audio_decision_provider.py
+docker exec -w /app compose-next-ai-agent-hub-1 python -m pytest -q tests/voice/test_voice_audio_decision_provider.py
 RUN_INTEGRATION_TESTS=1 VOICE_AUDIO_DECISION_IT_URL=... VOICE_AUDIO_DECISION_IT_API_KEY=... \
-  VOICE_AUDIO_DECISION_IT_AUDIO=samples/jfk.wav python -m pytest -q tests/test_voice_audio_decision_integration.py
+  VOICE_AUDIO_DECISION_IT_AUDIO=samples/jfk.wav python -m pytest -q tests/voice/test_voice_audio_decision_integration.py
 ```
 
 Der Integrationstest startet den Server alternativ selbst (`VOICE_AUDIO_DECISION_IT_SERVER_BIN`,
@@ -226,11 +226,11 @@ whisper-server -m ggml-base.en.bin --host 172.19.0.1 --port 8081 --decision-prof
 docker exec -w /app -e RUN_INTEGRATION_TESTS=1 -e VOICE_AUDIO_DECISION_IT_URL=http://172.19.0.1:8081 \
   -e VOICE_AUDIO_DECISION_IT_API_KEY="$KEY" -e VOICE_AUDIO_DECISION_IT_AUDIO=/tmp/wadec-it/jfk.wav \
   -e VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO=/tmp/wadec-it/stop.wav compose-next-ai-agent-hub-1 \
-  env -u AGENT_TOKEN_FILE python -m pytest -q tests/test_voice_audio_decision_integration.py
+  env -u AGENT_TOKEN_FILE python -m pytest -q tests/voice/test_voice_audio_decision_integration.py
 ```
 
 Hub-Routentests im Container brauchen `env -u AGENT_TOKEN_FILE`: das Container-Token-File kollidiert sonst
-mit dem Inline-Testtoken der `app`-Fixture (HTTP 401, betrifft auch `tests/test_voice_api_contract.py`).
+mit dem Inline-Testtoken der `app`-Fixture (HTTP 401, betrifft auch `tests/voice/test_voice_api_contract.py`).
 
 ## Submodule
 

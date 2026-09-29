@@ -18,7 +18,7 @@ from voice_runtime.fusion.alignment import align_tokens_to_anchor, tokenize
 from voice_runtime.fusion.consensus import DeterministicFusionService
 from voice_runtime.fusion.scoring import CandidateScorer
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "voice" / "fusion-golden.v1.json"
 
 
@@ -168,7 +168,7 @@ def test_fusion_golden_projection_is_identical_across_hash_seeds() -> None:
     script = """
 import json, runpy
 from pathlib import Path
-ns = runpy.run_path('tests/test_voice_fusion_golden.py')
+ns = runpy.run_path('tests/voice/test_voice_fusion_golden.py')
 fixture = json.loads(Path('tests/fixtures/voice/fusion-golden.v1.json').read_text(encoding='utf-8'))
 print(json.dumps({
     case['case_id']: ns['_digest'](ns['_projection'](tuple(

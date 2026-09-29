@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from agent.services import audio_decision_command_service
-from tests.test_voice_audio_decision_provider import KEY, FakeTransport, _config, _field, _result, _wav
+from tests.voice.test_voice_audio_decision_provider import KEY, FakeTransport, _config, _field, _result, _wav
 from voice_runtime.backends.audio_decision import AudioDecisionProvider
 
 ROUTE = "/v1/voice/audio-decisions/command"

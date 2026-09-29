@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 VOICE_PRE_TTL_REVISION = "m1n2o3p4q5r6"
 
 

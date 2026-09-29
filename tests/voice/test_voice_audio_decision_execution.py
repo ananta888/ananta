@@ -24,7 +24,7 @@ from agent.services.audio_decision_command_policy import PolicyDecision, VoiceCo
 from agent.services.audio_decision_command_service import AudioDecisionCommandResult, run_audio_decision_command
 from agent.services.audio_decision_hub_gate import AudioDecisionKind, HubAction, HubAudioDecision, PolicyVerdict
 from agent.services.voice_governance_domain import VoicePrincipal
-from tests.test_voice_audio_decision_provider import FakeTransport, _config, _field, _result, _wav
+from tests.voice.test_voice_audio_decision_provider import FakeTransport, _config, _field, _result, _wav
 from voice_runtime.backends.audio_decision import AudioDecisionProvider, DecisionOutcome
 
 COMMAND = "/v1/voice/command"

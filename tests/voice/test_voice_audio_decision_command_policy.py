@@ -17,8 +17,8 @@ from agent.services.audio_decision_hub_gate import (
     PolicyVerdict,
     gate_audio_decision,
 )
-from tests.test_voice_audio_decision_provider import KEY, FakeTransport, _config, _error, _field, _result, _wav
-from tests.test_voice_audio_decision_stream import decision_log
+from tests.voice.test_voice_audio_decision_provider import KEY, FakeTransport, _config, _error, _field, _result, _wav
+from tests.voice.test_voice_audio_decision_stream import decision_log
 from voice_runtime.backends.audio_decision import AudioDecisionProvider, parse_decision_response
 
 MODEL = "base/v51864/l6/f1"

@@ -2311,7 +2311,7 @@
       "affected_files": [
         "voice_runtime/schemas.py",
         "voice_runtime/backends/base.py",
-        "tests/test_voice_runtime_result_contract.py"
+        "tests/voice/test_voice_runtime_result_contract.py"
       ],
       "acceptance_criteria": [
         "Optionale Felder modellieren turn_id, revision, authority, source_digest, semantic_frame_refs, correction_state und supersedes_revision.",
@@ -2339,7 +2339,7 @@
         "frontend-angular/src/app/features/voice/voice.models.ts",
         "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
         "frontend-angular/src/app/services/semantic-speech-capture-producer.service.spec.ts",
-        "tests/test_voice_streaming_transcript.py"
+        "tests/voice/test_voice_streaming_transcript.py"
       ],
       "acceptance_criteria": [
         "Bei aktiviertem live mode wird eine verfuegbare Partialrevision im synthetischen Clock-Test innerhalb 250 ms emittiert und nicht bis Segmentende gepuffert.",
@@ -2365,7 +2365,7 @@
       "affected_files": [
         "voice_runtime/features/base.py",
         "voice_runtime/features/prosody.py",
-        "tests/test_voice_feature_extractors.py"
+        "tests/voice/test_voice_feature_extractors.py"
       ],
       "acceptance_criteria": [
         "Port trennt pitch, energy, timing und optional residual, kennt aber weder Transport, Consentservice, Dataset noch Training.",
@@ -2477,7 +2477,7 @@
         "frontend-angular/src/app/services/semantic-speech-capture-producer.service.ts",
         "frontend-angular/src/app/services/semantic-speech-runtime-coordinator.service.ts",
         "frontend-angular/src/app/services/semantic-speech-source-correction-api.service.ts",
-        "tests/test_voice_source_correction.py"
+        "tests/voice/test_voice_source_correction.py"
       ],
       "acceptance_criteria": [
         "Genau der vorhandene Fusion-Alignment-Pfad wird erweitert; es entsteht kein konkurrierendes voice_runtime/alignment.py.",

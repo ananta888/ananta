@@ -13,7 +13,7 @@ import pytest
 
 from agent.services.audio_decision_command_policy import VoiceCommandAudioDecisionPolicy
 from agent.services.audio_decision_hub_gate import HubAction, gate_stream_event
-from tests.test_voice_audio_decision_provider import KEY, _config, _error, _field, _result, _wav
+from tests.voice.test_voice_audio_decision_provider import KEY, _config, _error, _field, _result, _wav
 from voice_runtime.backends.audio_decision import (
     AudioDecisionProvider,
     HttpClientTransport,

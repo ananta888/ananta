@@ -14,7 +14,7 @@ from scripts.run_voice_restricted_release_gates import (
     select_nodes,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 GATE_PATH = ROOT / "config" / "release-gates" / "voice-restricted-core.v1.json"
 PROFILES_PATH = ROOT / "config" / "release-gates" / "voice-restricted-hardware-profiles.v1.json"
 HARDWARE_GATE_PATH = ROOT / "tests" / "e2e" / "test_voice_restricted_compose_hardware_gate.py"
@@ -68,7 +68,7 @@ def test_release_gate_runner_separates_core_from_hardware_and_deduplicates_nodes
     assert all(gate["groups"][name]["hardware"] is False for name in core_groups)
     nodes = select_nodes(gate, core_groups)
     assert len(nodes) == len(set(nodes))
-    assert "tests/test_voice_fusion_golden.py" in nodes
+    assert "tests/voice/test_voice_fusion_golden.py" in nodes
     assert select_commands(gate, core_groups) == (
         (ROOT / "frontend-angular", ("npm", "run", "test:unit")),
         (
@@ -138,13 +138,13 @@ def test_optional_capability_gate_is_explicit_and_does_not_block_core() -> None:
     assert "tests/test_generative_judge_worker_contract.py" in optional_nodes
     assert "tests/services/test_generative_judge_worker_port.py" in optional_nodes
     assert "tests/worker/test_generative_judge_app.py" in optional_nodes
-    assert "tests/test_voice_corrector_worker_contract.py" in optional_nodes
+    assert "tests/voice/test_voice_corrector_worker_contract.py" in optional_nodes
     assert "tests/services/test_generative_corrector_worker_port.py" in optional_nodes
     assert "tests/services/test_voice_generative_corrector_service.py" in optional_nodes
-    assert "tests/test_voice_generative_corrector_routes.py" in optional_nodes
+    assert "tests/voice/test_voice_generative_corrector_routes.py" in optional_nodes
     assert "tests/worker/test_generative_corrector_app.py" in optional_nodes
-    assert "tests/test_voice_runtime_optional_extensions.py" in optional_nodes
-    assert "tests/test_voice_runtime_streaming_api.py" in optional_nodes
+    assert "tests/voice/test_voice_runtime_optional_extensions.py" in optional_nodes
+    assert "tests/voice/test_voice_runtime_streaming_api.py" in optional_nodes
 
 
 def test_hardware_profiles_are_versioned_bounded_and_require_real_evidence() -> None:

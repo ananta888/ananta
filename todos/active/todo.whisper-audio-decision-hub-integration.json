@@ -105,8 +105,8 @@
         "agent/services/audio_decision_command_policy.py"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_command_policy.py::test_policy_rules_are_deterministic_and_named (20 Faelle)",
-        "tests/test_voice_audio_decision_command_policy.py::test_permitted_action_types_restrict_the_catalog"
+        "tests/voice/test_voice_audio_decision_command_policy.py::test_policy_rules_are_deterministic_and_named (20 Faelle)",
+        "tests/voice/test_voice_audio_decision_command_policy.py::test_permitted_action_types_restrict_the_catalog"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -130,7 +130,7 @@
         "Feature aus: Route antwortet normal_path ohne Dienstkontakt und ohne Audio zu lesen; Ananta-Start unveraendert.",
         "Audit/Logs ohne Audio, Transkript, Label, Key."
       ],
-      "implemented_solution": "agent/services/audio_decision_command_service.py (lazy get_audio_decision_provider aus der Umgebung, bei Feature aus None ohne weitere Konfiguration; run_audio_decision_command zeichnet die Policy-Regel auf; AudioDecisionCommandResult.as_response/as_audit_dict) und agent/routes/voice_audio_decision.py (Blueprint voice_audio_decision_bp, registriert in agent/bootstrap/routes.py; check_auth + Exposure-Operation command; Body-Limit; 422 fuer nicht freigegebene Profile/Felder/Fallbacks vor Dienstkontakt; 503 audio_decision.misconfigured ohne Key; Deadline ueber X-Ananta-Deadline-Seconds -> BackendCancellationToken). System-2: Transkript + proposed_goal mit requires_approval=true und goal_route /v1/voice/goal; normal_path verweist auf /v1/voice/command. voice_http_adapter exportiert deadline_seconds. Die Route importiert kein voice_runtime (Architekturgrenze tests/test_voice_restricted_architecture_boundaries.py); Token und Konfigurationsfehler kommen ueber den Service.",
+      "implemented_solution": "agent/services/audio_decision_command_service.py (lazy get_audio_decision_provider aus der Umgebung, bei Feature aus None ohne weitere Konfiguration; run_audio_decision_command zeichnet die Policy-Regel auf; AudioDecisionCommandResult.as_response/as_audit_dict) und agent/routes/voice_audio_decision.py (Blueprint voice_audio_decision_bp, registriert in agent/bootstrap/routes.py; check_auth + Exposure-Operation command; Body-Limit; 422 fuer nicht freigegebene Profile/Felder/Fallbacks vor Dienstkontakt; 503 audio_decision.misconfigured ohne Key; Deadline ueber X-Ananta-Deadline-Seconds -> BackendCancellationToken). System-2: Transkript + proposed_goal mit requires_approval=true und goal_route /v1/voice/goal; normal_path verweist auf /v1/voice/command. voice_http_adapter exportiert deadline_seconds. Die Route importiert kein voice_runtime (Architekturgrenze tests/voice/test_voice_restricted_architecture_boundaries.py); Token und Konfigurationsfehler kommen ueber den Service.",
       "affected_files": [
         "agent/services/audio_decision_command_service.py",
         "agent/routes/voice_audio_decision.py",
@@ -138,8 +138,8 @@
         "agent/bootstrap/routes.py"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_route.py (17 passed): Feature aus ohne Socket-Kontakt und ohne Audit, 401 ohne Auth, 503 fehlkonfiguriert, act/confirm/ranking, Fehler/Timeout/abstain nie act, System-2 mit Transkript nur in der Antwort, 422 vor Dienstkontakt",
-        "tests/test_voice_audio_decision_command_policy.py::test_command_flow_*"
+        "tests/voice/test_voice_audio_decision_route.py (17 passed): Feature aus ohne Socket-Kontakt und ohne Audit, 401 ohne Auth, 503 fehlkonfiguriert, act/confirm/ranking, Fehler/Timeout/abstain nie act, System-2 mit Transkript nur in der Antwort, 422 vor Dienstkontakt",
+        "tests/voice/test_voice_audio_decision_command_policy.py::test_command_flow_*"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -164,11 +164,11 @@
       ],
       "implemented_solution": "Gezielte Tests: grants_permission immer False und nur Policy-allow ergibt act; 7 Fehlercodes -> normal_path ohne Policy-Aufruf; abstain/ambiguous/unsupported/kaputter Status mit Streuwert -> ask_again ohne Wert; Policy-Exception und unbekanntes Verdikt -> deny; unkalibriertes ok mit allow-Policy -> confirm; Transkript + system2_required -> system2, Audit transkriptfrei.",
       "affected_files": [
-        "tests/test_voice_audio_decision_command_policy.py",
-        "tests/test_voice_audio_decision_route.py"
+        "tests/voice/test_voice_audio_decision_command_policy.py",
+        "tests/voice/test_voice_audio_decision_route.py"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_command_policy.py: 43 passed (Container compose-next-ai-agent-hub-1, 2026-09-23)"
+        "tests/voice/test_voice_audio_decision_command_policy.py: 43 passed (Container compose-next-ai-agent-hub-1, 2026-09-23)"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -191,9 +191,9 @@
         "Echter Server mit ggml-base.en.bin liefert fuer einen Kommando-Clip status=ok, calibrated=true, confidence; Gate -> proposal; Policy entscheidet.",
         "Ohne Clip/Server ehrlich SKIPPED, nie bestanden."
       ],
-      "implemented_solution": "tests/test_voice_audio_decision_integration.py::test_calibrated_ok_command_is_a_policy_checked_proposal: Clip ueber VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO/_LABEL (Speech Commands v0.02, Holdout-Split, nicht im Repo), prueft ok/calibrated/confidence/Provenienz, proposal, deny-Policy -> deny, erwartete Aktion aus Policy-Regeln, und den kompletten run_audio_decision_command-Ablauf. Anderes Server-Modell -> SKIPPED (keine Kalibrierung). Fork unveraendert.",
+      "implemented_solution": "tests/voice/test_voice_audio_decision_integration.py::test_calibrated_ok_command_is_a_policy_checked_proposal: Clip ueber VOICE_AUDIO_DECISION_IT_COMMAND_AUDIO/_LABEL (Speech Commands v0.02, Holdout-Split, nicht im Repo), prueft ok/calibrated/confidence/Provenienz, proposal, deny-Policy -> deny, erwartete Aktion aus Policy-Regeln, und den kompletten run_audio_decision_command-Ablauf. Anderes Server-Modell -> SKIPPED (keine Kalibrierung). Fork unveraendert.",
       "affected_files": [
-        "tests/test_voice_audio_decision_integration.py",
+        "tests/voice/test_voice_audio_decision_integration.py",
         "docs/voice-runtime-audio-decision.md"
       ],
       "verification": [
@@ -228,8 +228,8 @@
         "agent/services/audio_decision_hub_gate.py"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_stream.py (gemocktes HTTP + Stub-HTTP-Server fuer den Query-String)",
-        "tests/test_voice_audio_decision_integration.py::test_stream_session_finalizes_the_command_clip, ::test_stream_session_cancellation_closes_the_server_session: gegen echten Server passed (speech_start, final ok confidence=0.9994; nach Abbruch GET -> 404)"
+        "tests/voice/test_voice_audio_decision_stream.py (gemocktes HTTP + Stub-HTTP-Server fuer den Query-String)",
+        "tests/voice/test_voice_audio_decision_integration.py::test_stream_session_finalizes_the_command_clip, ::test_stream_session_cancellation_closes_the_server_session: gegen echten Server passed (speech_start, final ok confidence=0.9994; nach Abbruch GET -> 404)"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -252,13 +252,13 @@
         "Open-/Push-/Close-Fehler, Event-Typen, Abbruch, Timeout, Chunking, Privacy abgedeckt.",
         "Ohne Server SKIPPED."
       ],
-      "implemented_solution": "tests/test_voice_audio_decision_stream.py: Request-Body, semantischer Fallback, ungueltige Optionen lokal, Allowlist, Open-Fehler (not_configured, too_many_sessions, unauthorized, kaputte ID/JSON, Timeout, unreachable), Sample-Rate-Mismatch schliesst, Event-Typen inkl. unbekannter/ohne seq ignoriert, final ohne/kaputtes Ergebnis -> no_decision, gate_stream_event (partial/debounced -> None), Chunking/flush, lokale Limits, Abbruch vor/waehrend Push, abgelaufene Deadline, Timeout-Begrenzung, Push-Fehlercodes, idempotentes close, Log-Privacy.",
+      "implemented_solution": "tests/voice/test_voice_audio_decision_stream.py: Request-Body, semantischer Fallback, ungueltige Optionen lokal, Allowlist, Open-Fehler (not_configured, too_many_sessions, unauthorized, kaputte ID/JSON, Timeout, unreachable), Sample-Rate-Mismatch schliesst, Event-Typen inkl. unbekannter/ohne seq ignoriert, final ohne/kaputtes Ergebnis -> no_decision, gate_stream_event (partial/debounced -> None), Chunking/flush, lokale Limits, Abbruch vor/waehrend Push, abgelaufene Deadline, Timeout-Begrenzung, Push-Fehlercodes, idempotentes close, Log-Privacy.",
       "affected_files": [
-        "tests/test_voice_audio_decision_stream.py",
-        "tests/test_voice_audio_decision_integration.py"
+        "tests/voice/test_voice_audio_decision_stream.py",
+        "tests/voice/test_voice_audio_decision_integration.py"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_stream.py: 41 passed (Container, 2026-09-23)",
+        "tests/voice/test_voice_audio_decision_stream.py: 41 passed (Container, 2026-09-23)",
         "Integration ohne Server: SKIPPED"
       ],
       "completed_at": "2026-09-23",
@@ -291,7 +291,7 @@
         "todos/active/todo.whisper-audio-parallel-decision-runner.json"
       ],
       "verification": [
-        "Regression 2026-09-23 im Container (env -u AGENT_TOKEN_FILE): tests/test_voice_*.py 616 passed, 9 skipped (inkl. test_voice_api_contract.py, test_voice_restricted_architecture_boundaries.py, test_voice_runtime_*); tests/test_voice_audio_decision_provider.py weiterhin gruen.",
+        "Regression 2026-09-23 im Container (env -u AGENT_TOKEN_FILE): tests/test_voice_*.py 616 passed, 9 skipped (inkl. test_voice_api_contract.py, test_voice_restricted_architecture_boundaries.py, test_voice_runtime_*); tests/voice/test_voice_audio_decision_provider.py weiterhin gruen.",
         "python3 devtools/validate_todo_schema.py todos/active/todo.whisper-audio-decision-hub-integration.json",
         "python3 scripts/validate_todo_consistency.py --todo todos/active/todo.whisper-audio-decision-hub-integration.json"
       ],
@@ -324,12 +324,12 @@
         "docs/voice-runtime-audio-decision.md"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_execution.py::test_feature_off_keeps_the_command_route_unchanged (gleiche Antwortfelder, kein Socket, nur Audit voice_command)",
+        "tests/voice/test_voice_audio_decision_execution.py::test_feature_off_keeps_the_command_route_unchanged (gleiche Antwortfelder, kein Socket, nur Audit voice_command)",
         "::test_enabled_feature_without_decision_profile_never_builds_the_provider",
         "::test_exposure_policy_is_enforced_before_the_decision_path",
         "::test_unusable_decision_falls_through_to_the_regular_pipeline (gleiches Audio an Voice-Runtime)",
         "::test_invalid_decision_parameters_are_rejected_before_any_contact, ::test_misconfigured_feature_is_a_503_on_the_command_route",
-        "tests/test_voice_audio_decision_route.py (Fassade, 17 passed unveraendert)"
+        "tests/voice/test_voice_audio_decision_route.py (Fassade, 17 passed unveraendert)"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -362,7 +362,7 @@
         "docs/voice-runtime-audio-decision.md"
       ],
       "verification": [
-        "tests/test_voice_audio_decision_execution.py::test_calibrated_direct_command_is_executed_and_audited",
+        "tests/voice/test_voice_audio_decision_execution.py::test_calibrated_direct_command_is_executed_and_audited",
         "::test_confirm_issues_a_single_use_confirmation_and_only_an_explicit_request_executes (inkl. Replay)",
         "::test_expired_confirmation_is_denied, ::test_foreign_principal_cannot_use_and_burns_the_confirmation, ::test_confirmation_is_bound_to_the_concrete_action, ::test_only_a_literal_boolean_confirms, ::test_confirm_route_enforces_auth_and_exposure_policy",
         "::test_unknown_action_type_is_denied_and_never_guessed, ::test_confirm_for_an_unregistered_action_type_is_denied_without_a_confirmation",
@@ -391,9 +391,9 @@
         "Unit-Tests fuer an/aus, act, confirm inkl. Ablauf/Replay/fremde Bindung, unbekannter action_type, Audit ohne Audio/Transkript.",
         "Integrationstests ohne Server SKIPPED; bestehende Voice-Tests gruen."
       ],
-      "implemented_solution": "tests/test_voice_audio_decision_execution.py (57 Tests): Route-Tests ueber /v1/voice/command, /v1/voice/command/confirm und die Fassade mit gemocktem AudioDecision-HTTP und gemockter Voice-Runtime; Unit-Tests fuer Executor, Store (Uhr injiziert), dispatch und TTL.",
+      "implemented_solution": "tests/voice/test_voice_audio_decision_execution.py (57 Tests): Route-Tests ueber /v1/voice/command, /v1/voice/command/confirm und die Fassade mit gemocktem AudioDecision-HTTP und gemockter Voice-Runtime; Unit-Tests fuer Executor, Store (Uhr injiziert), dispatch und TTL.",
       "affected_files": [
-        "tests/test_voice_audio_decision_execution.py"
+        "tests/voice/test_voice_audio_decision_execution.py"
       ],
       "verification": [],
       "completed_at": "2026-09-23",
@@ -470,7 +470,7 @@
     "Kein Frontend/Client nutzt decision_profile bzw. /v1/voice/command/confirm bisher; die Executor-Handler liefern typisierte Client-Direktiven, der Client muss sie umsetzen.",
     "Stream-Sessions sind im Provider angebunden, aber noch nicht an den Hub-Voice-Stream (/v1/voice/streams) bzw. einen Live-Audio-Pfad gekoppelt.",
     "Kalibrierter Nachweis nur fuer speech-commands-en mit einem Holdout-Clip (stop); home-control-en nur synthetische Stimmen, confirm-en-de Deutsch nicht validiert.",
-    "Hub-Routentests im Container nur mit env -u AGENT_TOKEN_FILE gruen (vorbestehende Kollision Token-File vs. Inline-Testtoken, betrifft auch tests/test_voice_api_contract.py).",
+    "Hub-Routentests im Container nur mit env -u AGENT_TOKEN_FILE gruen (vorbestehende Kollision Token-File vs. Inline-Testtoken, betrifft auch tests/voice/test_voice_api_contract.py).",
     "Integrationstests brauchen einen manuell gestarteten Server (Host-Build des Forks); im Standard-CI SKIPPED.",
     "Idempotency-Key wird im Decision-Pfad nicht ausgewertet: ein wiederholter act-Request fuehrt die (nicht-destruktive) Direktive erneut aus.",
     "home.* (home-control-en) hat keine Handler: confirm wird dort fail-closed zu deny.",

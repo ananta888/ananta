@@ -7,7 +7,7 @@ from pathlib import Path
 
 import tomllib
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ANGULAR_VOICE = ROOT / "frontend-angular" / "src" / "app" / "features" / "voice"
 HUB_BOUNDARY_FILES = (
     *(ROOT / "agent" / "routes").glob("voice*.py"),

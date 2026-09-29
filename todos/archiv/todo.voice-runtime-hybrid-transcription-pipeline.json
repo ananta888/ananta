@@ -91,7 +91,7 @@
         "docs/backend.md",
         ".env.example",
         "docker-compose.voice-runtime.yml",
-        "tests/test_voice_runtime_mock_backend.py"
+        "tests/voice/test_voice_runtime_mock_backend.py"
       ],
       "tasks": [
         "Kurzes Architektur-Dokument docs/voice-runtime-hybrid-transcription.md anlegen.",
@@ -430,13 +430,13 @@
       "title": "Tests fuer Variantenmatrix erstellen",
       "type": "tests",
       "files_to_change": [
-        "tests/test_voice_runtime_mock_backend.py"
+        "tests/voice/test_voice_runtime_mock_backend.py"
       ],
       "files_to_add": [
-        "tests/test_voice_runtime_pipeline_config.py",
-        "tests/test_voice_runtime_pipeline_variants.py",
-        "tests/test_voice_runtime_postprocessing.py",
-        "tests/test_voice_runtime_backends_optional.py"
+        "tests/voice/test_voice_runtime_pipeline_config.py",
+        "tests/voice/test_voice_runtime_pipeline_variants.py",
+        "tests/voice/test_voice_runtime_postprocessing.py",
+        "tests/voice/test_voice_runtime_backends_optional.py"
       ],
       "tasks": [
         "Parametrisierte Tests fuer simple, oldschool_light, whisper_cpp, meeting, confidence_rerun.",
@@ -532,7 +532,7 @@
       "Documentation, docker compose env passthrough, .env defaults and example glossary."
     ],
     "validation": [
-      "python -m pytest tests/test_voice_runtime_mock_backend.py tests/test_voice_runtime_pipeline_config.py tests/test_voice_runtime_pipeline_variants.py tests/test_voice_runtime_postprocessing.py tests/test_voice_runtime_backends_optional.py tests/test_voice_api_contract.py tests/test_task_engine.py -q"
+      "python -m pytest tests/voice/test_voice_runtime_mock_backend.py tests/voice/test_voice_runtime_pipeline_config.py tests/voice/test_voice_runtime_pipeline_variants.py tests/voice/test_voice_runtime_postprocessing.py tests/voice/test_voice_runtime_backends_optional.py tests/voice/test_voice_api_contract.py tests/test_task_engine.py -q"
     ],
     "result": "115 passed"
   },

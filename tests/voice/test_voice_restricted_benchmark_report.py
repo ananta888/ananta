@@ -15,7 +15,7 @@ from benchmarks.release_report import (
     ThresholdSet,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _execution(*, profile_id: str = "cpu") -> ExecutionEvidence:
