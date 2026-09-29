@@ -25,6 +25,7 @@ def test_e2e_autonomous_scrum_progress_with_followup_chain(app, monkeypatch):
                 status="online",
             )
         )
+        team_repo.save(TeamDB(id="team-e2e", name="E2E Team"))  # tasks.team_id -> teams.id
         _update_local_task_status("E2E-PARENT", "todo", title="Parent", team_id="team-e2e")
         _update_local_task_status(
             "E2E-CHILD",

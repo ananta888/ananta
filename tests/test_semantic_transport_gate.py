@@ -4,10 +4,17 @@ import json
 
 import pytest
 
-from scripts.run_semantic_transport_gate import ARTIFACT, FORBIDDEN_KEYS, _verify_persisted, expected_document
+from scripts.run_semantic_transport_gate import ARTIFACT, FORBIDDEN_KEYS, ROOT, _verify_persisted, expected_document
+
+# The gate's measurement (and the regeneration of its artifact) runs the product queue under vite-node.
+requires_vite_node = pytest.mark.skipif(
+    not (ROOT / "frontend-angular/node_modules/.bin/vite-node").is_file(),
+    reason="the Angular workspace has no vite-node (not a declared dependency); the live measurement cannot run",
+)
 
 
 @pytest.mark.integration
+@requires_vite_node
 def test_semantic_transport_gate_is_current_measured_and_green() -> None:
     artifact = json.loads(ARTIFACT.read_text())
     assert _verify_persisted(artifact)
@@ -18,6 +25,7 @@ def test_semantic_transport_gate_is_current_measured_and_green() -> None:
 
 
 @pytest.mark.integration
+@requires_vite_node
 def test_live_product_queue_saturation_probe_meets_priority_budgets() -> None:
     measured = expected_document()
     assert measured["passed"] is True

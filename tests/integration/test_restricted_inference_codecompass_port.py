@@ -65,6 +65,14 @@ def test_codecompass_rerank_uses_worker_port_and_traces_manifest_digest() -> Non
                 "restricted_inference_rerank_enabled": True,
                 "trace_scores": True,
                 "fallback_without_model": True,
+                # custom weights only apply as a governed, unexpired override
+                "override_metadata": {
+                    "owner": "rtipm-integration",
+                    "reason": "rank by the restricted transformer only",
+                    "scope": "test",
+                    "version": "1",
+                    "expires_at": "2099-01-01T00:00:00+00:00",
+                },
                 "score_weights": {
                     "embedding_score": 0.0,
                     "graph_score": 0.0,

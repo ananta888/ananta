@@ -52,6 +52,14 @@ def test_path_rule_blocks_full_llm_but_allows_codecompass_rtipm_context() -> Non
             "codecompass_ranking": {
                 "restricted_inference_rerank_enabled": True,
                 "trace_scores": True,
+                # custom weights only apply as a governed, unexpired override
+                "override_metadata": {
+                    "owner": "rtipm-e2e",
+                    "reason": "rank by the restricted transformer only",
+                    "scope": "test",
+                    "version": "1",
+                    "expires_at": "2099-01-01T00:00:00+00:00",
+                },
                 "score_weights": {
                     "embedding_score": 0.0,
                     "graph_score": 0.0,
