@@ -94,6 +94,7 @@ class IdentityLinkRepository(Protocol):
     def get_for_user(self, username: str, issuer: str) -> OidcIdentityLinkDB | None: ...
     def save(self, link: OidcIdentityLinkDB) -> OidcIdentityLinkDB: ...
     def delete_for_user(self, username: str, issuer: str) -> bool: ...
+    def update_memberships(self, issuer: str, subject: str, memberships: dict) -> bool: ...
     def provision_user_with_link(
         self,
         *,
@@ -231,6 +232,10 @@ class OidcIdentityLinkService:
         if link is None:
             return None
         return LinkResult(username=link.username, issuer=link.issuer, subject=link.subject)
+
+    def record_idp_memberships(self, *, issuer: str, subject: str, memberships: Any) -> bool:
+        """Store the identity provider memberships (e.g. Keycloak groups) of a linked identity."""
+        return self._links.update_memberships(issuer, subject, dict(memberships or {}))
 
     def unlink(self, *, username: str, issuer: str) -> bool:
         canonical_username = local_user_tenant_id(username)

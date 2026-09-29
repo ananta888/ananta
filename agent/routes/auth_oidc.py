@@ -125,10 +125,8 @@ def _ensure_local_user_account(auth_ctx: dict[str, Any]) -> UserDB:
 
 def _record_idp_memberships(issuer: str, subject: str, memberships: Any) -> None:
     """Keep the linked identity's Keycloak memberships current at every login (WCRB-004)."""
-    from agent.repositories.auth import OidcIdentityLinkRepository
-
     try:
-        OidcIdentityLinkRepository().update_memberships(issuer, subject, dict(memberships or {}))
+        _identity_link_service().record_idp_memberships(issuer=issuer, subject=subject, memberships=memberships)
     except Exception:  # noqa: BLE001 -- a failed refresh must not block the login; it is logged
         logging.getLogger(__name__).warning("oidc membership refresh failed", exc_info=True)
 
