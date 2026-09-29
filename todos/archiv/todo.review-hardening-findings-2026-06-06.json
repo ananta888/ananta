@@ -111,7 +111,7 @@
       "progress_percent": 100,
       "target_files": [
         "agent/services/model_profile_resolver.py",
-        "tests/test_model_profile_resolver.py"
+        "tests/model/test_model_profile_resolver.py"
       ],
       "problem": "ProviderHealthCache wurde nur im capability_match-Pfad berücksichtigt; globale, Rollen-, Blueprint- oder Template-Regeln konnten ausgefallene Provider weiterhin auswählen.",
       "resolution": "Health-Prüfung ist Teil des gemeinsamen Kandidatenpfads _try() und gilt damit für explizite Regeln und Fallbacks.",
@@ -122,7 +122,7 @@
         "Security- und Capability-Prüfungen bleiben weiterhin aktiv."
       ],
       "test_expectations": [
-        "pytest -q tests/test_model_profile_resolver.py"
+        "pytest -q tests/model/test_model_profile_resolver.py"
       ],
       "solid_review": "OCP wird verbessert: neue Ausschlussgründe laufen durch denselben Kandidatenpfad statt an einzelnen Rängen dupliziert zu werden."
     },

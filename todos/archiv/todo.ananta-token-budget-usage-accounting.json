@@ -150,7 +150,7 @@
       "files_expected": [
         "agent/services/model_profile_loader.py",
         "config/schemas/model_profiles.schema.json",
-        "tests/test_model_profile_resolver.py"
+        "tests/model/test_model_profile_resolver.py"
       ],
       "acceptance_criteria": [
         "ModelProfile kann context_window_tokens, default_max_output_tokens und hard_max_output_tokens laden.",
@@ -256,7 +256,7 @@
       "description": "Routing und Benchmarks sollen Schaetzung und echte Usage als Bayes-/Benchmark-Signal nutzen koennen.",
       "files_expected": [
         "agent/services/routing_decision_service.py",
-        "tests/test_model_profile_benchmark_routing.py",
+        "tests/model/test_model_profile_benchmark_routing.py",
         "tests/test_model_routing_e2e.py"
       ],
       "acceptance_criteria": [

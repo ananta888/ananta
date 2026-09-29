@@ -230,7 +230,7 @@ Gibt Resolver-Status, geladene Profile, Template-Policies und Legacy-Config zur√
 | `agent/models.py` | `TaskRoutingContract`-Felder |
 | `agent/services/model_invocation_service.py` | `_get_resolver()`, `_make_chat_call()` |
 | `agent/routes/config/read_models.py` | GET /config/model-routing/read-model |
-| `tests/test_model_profile_loader.py` | Loader-Unit-Tests |
-| `tests/test_model_profile_resolver.py` | Resolver-Unit-Tests |
+| `tests/model/test_model_profile_loader.py` | Loader-Unit-Tests |
+| `tests/model/test_model_profile_resolver.py` | Resolver-Unit-Tests |
 | `tests/test_model_routing_security_policy.py` | Security-Policy-Tests |
 | `tests/test_model_routing_e2e.py` | E2E-Integrationstests |

@@ -43,7 +43,7 @@
     "contracts": {
       "hardware": false,
       "pytest_nodes": [
-        "tests/test_model_capability_contract.py",
+        "tests/model/test_model_capability_contract.py",
         "tests/voice/test_voice_runtime_result_contract.py",
         "tests/voice/test_voice_runtime_backends_optional.py",
         "tests/voice/test_voice_runtime_pipeline_config.py",

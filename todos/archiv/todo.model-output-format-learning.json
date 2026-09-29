@@ -136,7 +136,7 @@
             "agent/services/model_response_behavior_aggregation_service.py",
             "agent/services/planning_metrics_service.py",
             "agent/routes/config/read_models.py",
-            "tests/test_model_response_behavior_aggregation_service.py"
+            "tests/model/test_model_response_behavior_aggregation_service.py"
           ],
           "description": "Baue eine Aggregation, die pro provider, model_name, profile_name und model_family bevorzugte Output-Formen, Repair-Rate, Parse-Rate und Truncation-Neigung zusammenfasst.",
           "implementation_notes": [
@@ -176,7 +176,7 @@
             "agent/services/model_response_behavior_profile_service.py",
             "agent/services/planning_prompt_optimizer_service.py",
             "agent/services/planning_prompt_registry.py",
-            "tests/test_model_response_behavior_profile_service.py",
+            "tests/model/test_model_response_behavior_profile_service.py",
             "tests/planning/test_planning_prompt_optimizer_service.py"
           ],
           "description": "Erweitere das Modellprofil um preferred_output_format, preferred_prompt_style und observed_output_shape und leite daraus eine passende Prompt-/Repair-Strategie ab.",

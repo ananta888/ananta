@@ -287,7 +287,7 @@
       "id": "LMM-ROUTE-004", "title": "Provider-Ausfall-, Timeout- und Schema-Fallback Ende-zu-Ende testen", "status": "done", "priority": "P0", "risk": "high", "type": "test", "milestone_id": "M03", "depends_on": ["LMM-ROUTE-002", "LMM-ROUTE-003"], "progress_percent": 100,
       "description": "Kontrollierte Fehler müssen nachvollziehbar eskalieren, ohne Cloud-Egress, Doppelmutation oder Worker-zu-Worker-Routing.",
       "acceptance_criteria": ["LFM-Ausfall eskaliert innerhalb des Hub-Budgets zu KAT.", "Needle-Timeout oder ungültige Ausgabe führt zum Hauptmodellpfad.", "Policy-, Security- und Budget-Denials werden nicht als Provider-Recovery umgedeutet.", "Fallbackversuche sind begrenzt und auditiert."],
-      "evidence": ["tests/test_model_invocation_service.py", "tests/services/tiny_router/test_tiny_router_tool_loop.py", "tests/services/test_model_invocation_local_runtime_observation.py"]
+      "evidence": ["tests/model/test_model_invocation_service.py", "tests/services/tiny_router/test_tiny_router_tool_loop.py", "tests/services/test_model_invocation_local_runtime_observation.py"]
     },
     {
       "id": "LMM-DATA-001", "title": "Governed Tool-Interaktionscollector implementieren", "status": "done", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M04", "depends_on": ["LMM-ROUTE-003"], "progress_percent": 100,

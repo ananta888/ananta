@@ -133,7 +133,7 @@
             "agent/services/model_response_behavior_aggregation_service.py",
             "agent/services/planning_metrics_service.py",
             "agent/routes/config/read_models.py",
-            "tests/test_model_response_behavior_aggregation_service.py"
+            "tests/model/test_model_response_behavior_aggregation_service.py"
           ],
           "description": "Baue eine Aggregation, die pro model_provider, model_name, profile_name und model_family erkannte Stilmerkmale zusammenfasst: bevorzugte Output-Form, Reparaturquote, Validierungsquote und Truncation-Neigung.",
           "implementation_notes": [

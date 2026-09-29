@@ -230,7 +230,7 @@
         "ananta_contracts/model_catalog.py",
         "agent/services/local_runtime_capability_contracts.py",
         "tests/test_local_runtime_capability_integration.py",
-        "tests/test_model_capability_contract.py"
+        "tests/model/test_model_capability_contract.py"
       ],
       "details": [
         "Bestehende ModelCapability- und ModelCatalog-Vertraege additiv erweitern.",
@@ -487,7 +487,7 @@
         "agent/services/model_profile_resolver.py",
         "agent/services/tool_calling_mode_service.py",
         "agent/services/local_runtime_routing_policy.py",
-        "tests/test_model_profile_resolver.py",
+        "tests/model/test_model_profile_resolver.py",
         "tests/services/test_tool_calling_mode_service.py",
         "tests/test_local_runtime_capability_integration.py"
       ],
@@ -522,7 +522,7 @@
         "agent/services/local_runtime_request_policy.py",
         "agent/services/model_invocation_service.py",
         "tests/test_local_runtime_capability_integration.py",
-        "tests/test_model_invocation_service.py"
+        "tests/model/test_model_invocation_service.py"
       ],
       "details": [
         "Runtime- und lokale Grenzen fuer Kontext, Requests, Responses, Bilder, Tool-Calls, Streaming und Deadlines kombinieren.",
@@ -956,7 +956,7 @@
       "id": "LMR-VG-01",
       "name": "Capability contract, normalization and cache",
       "status": "passed",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_local_runtime_capability_integration.py tests/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_local_runtime_capability_integration.py tests/model/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py",
       "result": "47 passed in 32.02s",
       "validated_at": "2026-09-01"
     },
@@ -972,7 +972,7 @@
       "id": "LMR-VG-03",
       "name": "Routing, tool loop and compatibility",
       "status": "passed",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/provider/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/agent/test_agent_loop_tool_calling_strategy.py tests/tool/test_tool_calling_pipeline.py",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/model/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/provider/test_provider_invocation_middleware.py tests/model/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/agent/test_agent_loop_tool_calling_strategy.py tests/tool/test_tool_calling_pipeline.py",
       "result": "148 passed in 86.09s",
       "validated_at": "2026-09-01"
     },

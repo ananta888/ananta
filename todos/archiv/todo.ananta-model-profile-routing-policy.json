@@ -333,7 +333,7 @@
       ],
       "target_files": [
         "agent/services/model_profile_loader.py",
-        "tests/test_model_profile_loader.py"
+        "tests/model/test_model_profile_loader.py"
       ],
       "acceptance_criteria": [
         "Neuer Service agent/services/model_profile_loader.py lädt model_profiles und model_routing aus konfigurierten Pfaden.",
@@ -366,7 +366,7 @@
       ],
       "target_files": [
         "agent/services/model_profile_resolver.py",
-        "tests/test_model_profile_resolver.py"
+        "tests/model/test_model_profile_resolver.py"
       ],
       "acceptance_criteria": [
         "Neuer Service agent/services/model_profile_resolver.py löst ein Runtime-Modellprofil deterministisch aus Task-Kontext, Blueprint-Rolle, Team, Template, Task-Kind, Risk-Level, Context-Policy und Request-Overrides auf.",
@@ -705,7 +705,7 @@
         "agent/llm_benchmarks.py",
         "agent/routes/config/benchmarks.py",
         "agent/services/model_profile_resolver.py",
-        "tests/test_model_profile_benchmark_routing.py"
+        "tests/model/test_model_profile_benchmark_routing.py"
       ],
       "acceptance_criteria": [
         "Benchmark-Ergebnisse können profile_id zusätzlich zu provider/model speichern.",
@@ -1268,7 +1268,7 @@
         "Abschlussreview lokal unter test-reports/model-routing-final-review.md erstellt; relevante Backend- und Frontend-Tests dokumentiert und ausgefuehrt."
       ],
       "tests": [
-        "pytest -q tests/test_model_profile_benchmark_routing.py tests/worker/test_worker_model_profile_routing.py tests/test_system_integration_planning_pipeline.py tests/test_model_profile_resolver.py tests/test_routing_decision_service.py tests/test_cwfh_handoff_services.py",
+        "pytest -q tests/model/test_model_profile_benchmark_routing.py tests/worker/test_worker_model_profile_routing.py tests/test_system_integration_planning_pipeline.py tests/model/test_model_profile_resolver.py tests/test_routing_decision_service.py tests/test_cwfh_handoff_services.py",
         "pytest -q tests/test_config_api.py::test_set_config_validates_opencode_execution_mode",
         "npm run test:unit -- dashboard.component.spec.ts"
       ]

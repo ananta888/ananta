@@ -427,7 +427,7 @@ def test_local_phi_gemma_group_budget_matches_profile_retry_budgets():
 
     from agent.services.model_profile_loader import ModelProfileLoader
 
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     routing = json.loads(
         (
             root
