@@ -492,7 +492,7 @@
           "files": [
             "agent/routes/sources.py",
             "agent/bootstrap/routes.py",
-            "tests/test_sources_api.py"
+            "tests/source/test_sources_api.py"
           ],
           "priority": "P1",
           "effort": "L",

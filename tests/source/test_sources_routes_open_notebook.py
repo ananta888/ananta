@@ -4,7 +4,7 @@ import io
 import json
 from pathlib import Path
 
-FIXTURES = Path(__file__).resolve().parents[0] / "fixtures" / "open_notebook"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "open_notebook"
 
 
 def _fixture(name: str) -> dict:

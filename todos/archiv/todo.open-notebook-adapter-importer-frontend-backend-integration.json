@@ -610,7 +610,7 @@
           "description": "Endpoint im bestehenden sources_bp-Blueprint ermöglicht Fragen zu einer Quelle oder Collection und nutzt SourceChatContextService.",
           "files": [
             "agent/routes/sources.py",
-            "tests/test_sources_chat_route.py"
+            "tests/source/test_sources_chat_route.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -800,7 +800,7 @@
           "description": "Der bestehende sources_bp-Blueprint (bereits registriert in agent/bootstrap/routes.py) erhält den Import-Endpoint; GET /sources, /snapshots und /citation existieren bereits und zeigen importierte Quellen automatisch, sobald der Importer Descriptors in der SourceRegistry registriert (T02.02).",
           "files": [
             "agent/routes/sources.py",
-            "tests/test_sources_routes_open_notebook.py"
+            "tests/source/test_sources_routes_open_notebook.py"
           ],
           "priority": "P1",
           "effort": "L",
