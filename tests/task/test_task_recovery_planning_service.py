@@ -8,6 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 from flask import g
+# In-memory engines use StaticPool: SQLite's default pool for :memory: may close a thread's connection when
+# many threads of the worker use the engine, and the replacement connection opens an empty database.
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from agent.db_models import ApprovalRequestDB, GoalDB, TaskDB
@@ -652,6 +655,7 @@ def test_recovery_materialization_decision_api_requires_admin(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     service = ApprovalRequestService()
@@ -706,6 +710,7 @@ def test_granted_recovery_action_is_reconciled_after_dispatch_interruption(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     service = ApprovalRequestService()
@@ -1334,6 +1339,7 @@ def test_recovery_grant_expiry_cannot_overwrite_consumed(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     service = ApprovalRequestService()
@@ -1370,6 +1376,7 @@ def test_denied_recovery_action_is_reconciled_after_dispatch_crash(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     service = ApprovalRequestService()
@@ -1468,6 +1475,7 @@ def test_task_status_compare_and_set_rejects_stale_source_state(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -3747,6 +3755,7 @@ def test_task_repository_rejects_stale_recovery_save_after_owner_terminal(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     release = {
@@ -3856,6 +3865,7 @@ def test_task_repository_rejects_recovery_binding_mutation_without_corruption(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -3931,6 +3941,7 @@ def test_goal_repository_terminal_status_is_sticky_against_detached_save(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -4079,6 +4090,7 @@ def test_plan_lock_does_not_mask_body_exception(monkeypatch):
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     monkeypatch.setattr("agent.database.engine", engine)
 
@@ -4110,6 +4122,7 @@ def test_terminal_source_cas_cancels_children_and_finalizes_goal(
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
