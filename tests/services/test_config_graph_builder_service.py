@@ -91,14 +91,6 @@ def test_graph_schema():
     assert GRAPH_SCHEMA == "ananta_configuration_graph.v1"
 
 
-def test_build_returns_config_graph():
-    tmp = make_temp_repo()
-    builder = ConfigGraphBuilderService(repo_root=tmp)
-    graph = builder.build()
-    assert isinstance(graph, ConfigGraph)
-    assert graph.schema == GRAPH_SCHEMA
-
-
 def test_snapshot_id_is_unique():
     tmp = make_temp_repo()
     builder = ConfigGraphBuilderService(repo_root=tmp)
@@ -107,27 +99,7 @@ def test_snapshot_id_is_unique():
     assert g1.snapshot_id != g2.snapshot_id
 
 
-def test_to_dict_has_required_keys():
-    tmp = make_temp_repo()
-    builder = ConfigGraphBuilderService(repo_root=tmp)
-    d = builder.build().to_dict()
-    for key in ("schema", "snapshot_id", "nodes", "edges", "views", "diagnostics",
-                 "generated_at", "node_count", "edge_count"):
-        assert key in d, f"missing key: {key}"
-
-
 # ── Instruction layer tests ───────────────────────────────────────────────────
-
-def test_root_instruction_layer_added():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert "instruction_layer::root" in graph.nodes
-
-
-def test_root_instruction_layer_active_when_file_exists():
-    tmp = make_temp_repo(with_agents_md=True)
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert graph.nodes["instruction_layer::root"].runtime_active is True
 
 
 def test_root_instruction_layer_inactive_when_missing():
@@ -138,56 +110,7 @@ def test_root_instruction_layer_inactive_when_missing():
     assert len(node.diagnostics) > 0
 
 
-def test_profile_instruction_layer_added():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert "instruction_layer::test_profile" in graph.nodes
-
-
-def test_profile_layer_inherits_from_root():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    edges = [e for e in graph.edges if e.edge_type == EDGE_INHERITS_FROM]
-    assert any(e.source == "instruction_layer::test_profile" and e.target == "instruction_layer::root"
-               for e in edges)
-
-
 # ── Agent profile tests ───────────────────────────────────────────────────────
-
-def test_agent_profile_node_added():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert "agent_profile::test_profile" in graph.nodes
-
-
-def test_agent_profile_node_type():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert graph.nodes["agent_profile::test_profile"].node_type == NODE_AGENT_PROFILE
-
-
-def test_agent_profile_data_fields():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    data = graph.nodes["agent_profile::test_profile"].data
-    assert data["profile_id"] == "test_profile"
-    assert "bugfix" in data["allowed_task_kinds"]
-
-
-def test_role_node_added():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert "role::planner" in graph.nodes
-
-
-def test_role_assigned_to_edge():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    edges = [e for e in graph.edges if e.edge_type == EDGE_ASSIGNED_TO]
-    assert any(
-        e.source == "agent_profile::test_profile" and e.target == "role::planner"
-        for e in edges
-    )
 
 
 def test_missing_agents_file_adds_diagnostic():
@@ -211,19 +134,6 @@ def test_missing_agents_file_adds_diagnostic():
 
 # ── Surface tests ─────────────────────────────────────────────────────────────
 
-def test_surface_nodes_added():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    surface_nodes = [n for n in graph.nodes.values() if n.node_type == NODE_SURFACE]
-    assert len(surface_nodes) >= 2  # ai_snake_chat and ananta_worker at minimum
-
-
-def test_surface_in_profile_activation_view():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    view = graph.views.get(VIEW_PROFILE_ACTIVATION, [])
-    assert any("surface::" in nid for nid in view)
-
 
 # ── Path rule tests ───────────────────────────────────────────────────────────
 
@@ -238,12 +148,6 @@ def test_path_rules_added_from_config():
     rule_nodes = [n for n in graph.nodes.values() if n.node_type == NODE_PATH_RULE]
     assert len(rule_nodes) == 1
     assert rule_nodes[0].data["path_glob"] == "src/security/**"
-
-
-def test_no_path_rules_adds_diagnostic():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert any("path_ai_modes" in d for d in graph.diagnostics)
 
 
 def test_rtipm_nodes_added_from_config():
@@ -288,11 +192,6 @@ def test_path_rule_in_policy_view():
 
 # ── Model tests ───────────────────────────────────────────────────────────────
 
-def test_embedding_model_node_added():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert "embedding_model::default" in graph.nodes
-
 
 def test_model_provider_node_added():
     tmp = make_temp_repo()
@@ -301,65 +200,10 @@ def test_model_provider_node_added():
     assert "model_provider::lmstudio" in graph.nodes
 
 
-def test_embedding_model_in_context_pipeline_view():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    view = graph.views.get(VIEW_CONTEXT_PIPELINE, [])
-    assert "embedding_model::default" in view
-
-
 # ── Planning template tests ───────────────────────────────────────────────────
-
-def test_planning_templates_added_from_profile_kinds():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    tmpl_nodes = [n for n in graph.nodes.values() if n.node_type == NODE_GOAL_TEMPLATE]
-    assert len(tmpl_nodes) >= 1
-
-
-def test_stale_template_has_diagnostic():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    stale = [n for n in graph.nodes.values()
-             if n.node_type == NODE_GOAL_TEMPLATE and n.stale]
-    assert len(stale) >= 1
-    for n in stale:
-        assert any("stale" in d for d in n.diagnostics)
-
-
-def test_task_kind_node_links_to_template():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    edges = [e for e in graph.edges if e.edge_type == "uses_template"]
-    assert len(edges) >= 1
 
 
 # ── View tests ────────────────────────────────────────────────────────────────
-
-def test_all_views_exist():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    for view_id in (
-        VIEW_CONFIGURATION_OVERVIEW,
-        VIEW_PROFILE_ACTIVATION, VIEW_PLANNING_FLOW, VIEW_AGENT_RUNTIME,
-        VIEW_POLICY_PATH, VIEW_CONTEXT_PIPELINE, VIEW_EFFECTIVE_CONFIG,
-    ):
-        assert view_id in graph.views, f"view missing: {view_id}"
-
-
-def test_configuration_overview_view_contains_all_nodes():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert set(graph.views[VIEW_CONFIGURATION_OVERVIEW]) == set(graph.nodes)
-
-
-def test_effective_config_view_contains_active_nodes():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    view = graph.views[VIEW_EFFECTIVE_CONFIG]
-    assert len(view) >= 1
-    for nid in view:
-        assert graph.nodes[nid].runtime_active is True
 
 
 # ── Factory function ──────────────────────────────────────────────────────────
@@ -377,14 +221,6 @@ def test_factory_with_user_config():
 
 # ── Edge integrity ────────────────────────────────────────────────────────────
 
-def test_all_edges_reference_existing_nodes():
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    node_ids = set(graph.nodes.keys())
-    for edge in graph.edges:
-        assert edge.source in node_ids, f"edge source not in nodes: {edge.source}"
-        assert edge.target in node_ids, f"edge target not in nodes: {edge.target}"
-
 
 def test_profile_map_missing_graceful():
     tmp = Path(tempfile.mkdtemp())
@@ -393,8 +229,78 @@ def test_profile_map_missing_graceful():
     assert any("profile-map.json" in d for d in graph.diagnostics)
 
 
-def test_build_does_not_raise_without_external_services():
-    """No tool registry / planning catalog → diagnostics, not exceptions."""
-    tmp = make_temp_repo()
-    graph = ConfigGraphBuilderService(repo_root=tmp).build()
-    assert graph is not None
+# ── The default graph: one build, every structural expectation ────────────────
+
+
+@pytest.fixture(scope="module")
+def default_graph() -> ConfigGraph:
+    """The graph of the default temp repository (with AGENTS.md, one profile, no user config), built once."""
+    return ConfigGraphBuilderService(repo_root=make_temp_repo()).build()
+
+
+def test_default_graph_structure_and_integrity(default_graph: ConfigGraph) -> None:
+    graph = default_graph
+    assert isinstance(graph, ConfigGraph)
+    assert graph.schema == GRAPH_SCHEMA
+    data = graph.to_dict()
+    for key in ("schema", "snapshot_id", "nodes", "edges", "views", "diagnostics",
+                "generated_at", "node_count", "edge_count"):
+        assert key in data, f"missing key: {key}"
+    # instruction layers: the root is active when AGENTS.md exists; the profile layer inherits from it
+    assert "instruction_layer::root" in graph.nodes
+    assert graph.nodes["instruction_layer::root"].runtime_active is True
+    assert "instruction_layer::test_profile" in graph.nodes
+    assert any(
+        e.edge_type == EDGE_INHERITS_FROM
+        and e.source == "instruction_layer::test_profile" and e.target == "instruction_layer::root"
+        for e in graph.edges
+    )
+    node_ids = set(graph.nodes)
+    for edge in graph.edges:
+        assert edge.source in node_ids, f"edge source not in nodes: {edge.source}"
+        assert edge.target in node_ids, f"edge target not in nodes: {edge.target}"
+    # no path_ai_modes configured and no external services: diagnostics, not exceptions
+    assert any("path_ai_modes" in d for d in graph.diagnostics)
+
+
+def test_default_graph_agent_profile_and_role(default_graph: ConfigGraph) -> None:
+    graph = default_graph
+    profile = graph.nodes["agent_profile::test_profile"]
+    assert profile.node_type == NODE_AGENT_PROFILE
+    assert profile.data["profile_id"] == "test_profile"
+    assert "bugfix" in profile.data["allowed_task_kinds"]
+    assert "role::planner" in graph.nodes
+    assert any(
+        e.edge_type == EDGE_ASSIGNED_TO and e.source == "agent_profile::test_profile" and e.target == "role::planner"
+        for e in graph.edges
+    )
+
+
+def test_default_graph_surfaces_models_and_templates(default_graph: ConfigGraph) -> None:
+    graph = default_graph
+    surfaces = [n for n in graph.nodes.values() if n.node_type == NODE_SURFACE]
+    assert len(surfaces) >= 2  # ai_snake_chat and ananta_worker at minimum
+    assert "embedding_model::default" in graph.nodes
+    templates = [n for n in graph.nodes.values() if n.node_type == NODE_GOAL_TEMPLATE]
+    assert len(templates) >= 1
+    stale = [n for n in templates if n.stale]
+    assert len(stale) >= 1
+    for node in stale:
+        assert any("stale" in d for d in node.diagnostics)
+    assert any(e.edge_type == "uses_template" for e in graph.edges)
+
+
+def test_default_graph_views(default_graph: ConfigGraph) -> None:
+    graph = default_graph
+    for view_id in (
+        VIEW_CONFIGURATION_OVERVIEW, VIEW_PROFILE_ACTIVATION, VIEW_PLANNING_FLOW, VIEW_AGENT_RUNTIME,
+        VIEW_POLICY_PATH, VIEW_CONTEXT_PIPELINE, VIEW_EFFECTIVE_CONFIG,
+    ):
+        assert view_id in graph.views, f"view missing: {view_id}"
+    assert set(graph.views[VIEW_CONFIGURATION_OVERVIEW]) == set(graph.nodes)
+    effective = graph.views[VIEW_EFFECTIVE_CONFIG]
+    assert len(effective) >= 1
+    for node_id in effective:
+        assert graph.nodes[node_id].runtime_active is True
+    assert any("surface::" in node_id for node_id in graph.views.get(VIEW_PROFILE_ACTIVATION, []))
+    assert "embedding_model::default" in graph.views.get(VIEW_CONTEXT_PIPELINE, [])
