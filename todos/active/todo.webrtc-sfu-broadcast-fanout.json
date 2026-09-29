@@ -2102,7 +2102,7 @@
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
         "tests/sfu/test_sfu_receiver_quality_ingestion.py",
-        "tests/test_webrtc_sfu_broadcast_quality_routes.py"
+        "tests/webrtc/test_webrtc_sfu_broadcast_quality_routes.py"
       ],
       "acceptance_criteria": [
         "Ingestion authentifiziert Subscriber und bindet Observation an aktuelle Subscription, Publication, Route-Epoch und Browserinstanz.",
@@ -3227,7 +3227,7 @@
       "affected_files": [
         "agent/services/webrtc_turn_admission_policy.py",
         "config/webrtc_turn_quotas.default.json",
-        "tests/test_webrtc_turn_admission_policy.py"
+        "tests/webrtc/test_webrtc_turn_admission_policy.py"
       ],
       "acceptance_criteria": [
         "Policy besitzt harte Limits fuer Allocations, Ports, concurrent Receivers, bps, bytes_per_window und cost_units pro Receiver, Room, Tenant, Region und TURN-Pool.",
@@ -3255,7 +3255,7 @@
       "affected_files": [
         "agent/services/webrtc_turn_degradation_policy.py",
         "frontend-angular/src/app/services/turn-degradation-state.service.ts",
-        "tests/test_webrtc_turn_degradation_policy.py"
+        "tests/webrtc/test_webrtc_turn_degradation_policy.py"
       ],
       "acceptance_criteria": [
         "Die autoritative Hub-State-Machine definiert direct, relay_ok, relay_capped, control_only, fallback und rejected mit Guards, Retrybudget, Cooldown, signierter Version und sichtbaren Reason-Codes; Angular stellt diesen Zustand nur dar und vollzieht erlaubte lokale Aktionen.",
@@ -3618,7 +3618,7 @@
         "agent/bootstrap/routes.py",
         "agent/bootstrap/semantic_media_services.py",
         "tests/sfu/test_sfu_broadcast_operations_read_model.py",
-        "tests/test_webrtc_sfu_broadcast_operations_routes.py"
+        "tests/webrtc/test_webrtc_sfu_broadcast_operations_routes.py"
       ],
       "acceptance_criteria": [
         "Read-Model liefert Group-/Route-Status, Epochenklassen, Topology, Health, Layerverteilung, Queue-/Dropgruende, Ingress/Egress/TURN, Rekey/Failover und Capacityprofil als content-free Aggregate; Member-/Audience-Digests und Grantreferenzen werden weder Nutzer noch Operatoren ausgegeben.",

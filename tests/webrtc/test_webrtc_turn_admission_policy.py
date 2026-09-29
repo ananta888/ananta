@@ -10,7 +10,7 @@ from agent.services.webrtc_turn_admission_policy import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _request(index=1, high=TurnQuotaVector(1, 2, 1, 6_000_000, 1_000_000), **changes):

@@ -17,7 +17,7 @@ from agent.services.sfu_receiver_quality_ingestion_service import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads(
     (ROOT / "tests/fixtures/webrtc/receiver_quality_observation/valid_privacy_bounded.v1.json").read_text(
         encoding="utf-8"

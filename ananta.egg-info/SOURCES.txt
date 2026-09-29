@@ -3046,11 +3046,11 @@ tests/voice/test_voice_streaming_transcript.py
 tests/voice/test_voice_websocket_protocol.py
 tests/test_vp_runtime_truth.py
 tests/test_vscode_extension_bootstrap.py
-tests/test_webrtc_sfu_broadcast_operations_routes.py
-tests/test_webrtc_sfu_broadcast_quality_routes.py
-tests/test_webrtc_signaling.py
-tests/test_webrtc_turn_admission_policy.py
-tests/test_webrtc_turn_degradation_policy.py
+tests/webrtc/test_webrtc_sfu_broadcast_operations_routes.py
+tests/webrtc/test_webrtc_sfu_broadcast_quality_routes.py
+tests/webrtc/test_webrtc_signaling.py
+tests/webrtc/test_webrtc_turn_admission_policy.py
+tests/webrtc/test_webrtc_turn_degradation_policy.py
 tests/wiki/test_wiki_chunking_policy.py
 tests/wiki/test_wiki_codecompass_bridge.py
 tests/wiki/test_wiki_codecompass_graph_outputs.py

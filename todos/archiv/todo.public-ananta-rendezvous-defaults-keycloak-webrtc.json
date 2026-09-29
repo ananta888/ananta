@@ -239,7 +239,7 @@
             "agent/routes/webrtc_signaling.py",
             "client_surfaces/operator_tui/webrtc_transport.py",
             "tests/operator_tui/test_share_client.py",
-            "tests/test_webrtc_signaling.py"
+            "tests/webrtc/test_webrtc_signaling.py"
           ],
           "acceptance_criteria": [
             "Signaling-Endpunkt ist an ShareSession und Participant gebunden.",

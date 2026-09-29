@@ -420,7 +420,7 @@
             "agent/routes/webrtc_signaling.py",
             "client_surfaces/operator_tui/webrtc_transport.py",
             "docs/security/webrtc-artifact-transfer.md",
-            "tests/test_webrtc_signaling.py"
+            "tests/webrtc/test_webrtc_signaling.py"
           ],
           "acceptance_criteria": [
             "Signaling laeuft ueber Hub und ist an ShareSession/Participant gebunden.",
