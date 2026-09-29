@@ -7,6 +7,7 @@ on:
       - "ananta_contracts/dspy_*"
       - "worker/optimization/dspy/**"
       - "tests/dspy_optimization/**"
+      - "tests/slow/dspy_optimization/**"
       - "schemas/dspy/**"
       - "config/dspy/**"
       - "config/licenses/dspy-*"
@@ -20,6 +21,7 @@ on:
       - "ananta_contracts/dspy_*"
       - "worker/optimization/dspy/**"
       - "tests/dspy_optimization/**"
+      - "tests/slow/dspy_optimization/**"
       - "schemas/dspy/**"
       - "config/dspy/**"
       - "config/licenses/dspy-*"
@@ -36,9 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
-      - run: uv sync --frozen --extra dev
-      - run: uv run python -c "from worker.optimization.dspy.compatibility import DspyCompatibilityAdapter; assert DspyCompatibilityAdapter().inspect()['state'] == 'unavailable'"
-      - run: uv run pytest -q -p no:cacheprovider tests/dspy_optimization -m "not dspy_real"
+      # the hub's pinned environment without DSPy (the repository has no uv.lock; the pip locks are canonical)
+      - run: uv venv --python 3.11
+      - run: uv pip install -r requirements.lock -r requirements-dev.lock
+      - run: .venv/bin/python -c "from worker.optimization.dspy.compatibility import DspyCompatibilityAdapter; assert DspyCompatibilityAdapter().inspect()['state'] == 'unavailable'"
+      - run: .venv/bin/pytest -q -p no:cacheprovider --tier all tests/dspy_optimization tests/slow/dspy_optimization
 
   pinned-dspy-compatibility:
     runs-on: ubuntu-latest
@@ -51,9 +55,11 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - run: uv python install ${{ matrix.python-version }}
       - run: uv venv --python ${{ matrix.python-version }}
+      # the tests exercise the hub side too: hub environment first, then the hash-checked DSPy worker lock
+      - run: uv pip install -r requirements.lock -r requirements-dev.lock
       - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.dspy-optimization.lock
       - run: uv pip install -e . --no-deps
-      - run: .venv/bin/pytest -q -p no:cacheprovider tests/dspy_optimization
+      - run: .venv/bin/pytest -q -p no:cacheprovider --tier all tests/dspy_optimization tests/slow/dspy_optimization
       - run: .venv/bin/python scripts/build_dspy_worker_sbom.py
       - name: Audit dependency advisories
         run: |

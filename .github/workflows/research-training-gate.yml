@@ -54,7 +54,7 @@ jobs:
       - name: Enforce Hub and Worker boundaries
         run: python scripts/check_research_training_boundaries.py
       - name: Run headless CPU, DDP, policy and failure gates
-        run: pytest -q -n 2 tests/research_training
+        run: pytest -q -n 2 --tier all tests/research_training
       - name: Validate and build isolated Worker image
         env:
           ANANTA_RESEARCH_TRAINING_INPUT_ROOT: /tmp/research-input

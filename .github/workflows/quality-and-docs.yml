@@ -937,7 +937,7 @@ jobs:
       - name: Run mandatory Temporal SDK failure and replay gate
         run: |
           mkdir -p ci-artifacts/temporal-failure-gate
-          pytest -q tests/workflow_runtime/temporal \
+          pytest -q --tier all tests/workflow_runtime/temporal \
             --junitxml=ci-artifacts/temporal-failure-gate/test-environment.xml
           cp tests/workflow_runtime/temporal/failure_scenarios.v1.json \
             ci-artifacts/temporal-failure-gate/scenario-manifest.json
