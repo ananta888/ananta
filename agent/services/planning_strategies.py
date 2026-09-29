@@ -310,13 +310,6 @@ class LLMPlanningStrategy:
             return None
         return subtasks_merged, "\n\n--- SEGMENT BREAK ---\n\n".join(raw_parts), "segmented_context"
 
-        # Sensible generic default: first try hub/evolver at moderate temperature,
-        # then local llm with progressively lower temperature for stricter JSON.
-        defaults: list[dict[str, Any]] = [{"name": "hub_copilot", "temperature": 0.35}]
-        for i in range(max(1, repair_attempts)):
-            defaults.append({"name": "llm_config", "temperature": max(0.0, 0.30 - (0.10 * i))})
-        return defaults
-
     def __init__(self, use_repo_context: bool) -> None:
         self._use_repo_context = bool(use_repo_context)
 
