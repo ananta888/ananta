@@ -23,6 +23,7 @@
     "test:unit": "vitest run",
     "test:strategy-game:browser": "node scripts/test-strategy-game-browser.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:mocked": "playwright test -c playwright.mocked.config.ts",
     "test:e2e:compose": "node ./scripts/run-e2e-compose.js",
     "test:e2e:lite": "node ./scripts/run-e2e-lite.js",
     "test:e2e:cleanup:selftest": "node ./scripts/e2e-cleanup-selftest.js",

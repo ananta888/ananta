@@ -436,6 +436,9 @@ docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user 100
 
 Richtwert: ~11 Minuten mit `-n 8` (43 GB Host). Mehr Worker helfen kaum und kosten Speicher.
 Ohne Langlaeufer: `-m "not slow"`.
+Integrationstests (Marker `integration` und alles unter `tests/integration/`) laufen nur mit
+`RUN_INTEGRATION_TESTS=1`. Tests, die eine Live-Runtime brauchen (z. B. vite-node, Live-Dienste), ueberspringen
+sich mit Begruendung.
 
 Fuer die Arbeit an einer Aenderung reicht meist die **betroffene Auswahl**:
 
@@ -482,6 +485,10 @@ pytest --junitxml=test-reports/backend-junit.xml --cov=agent --cov-report=xml:te
 ```
 
 ### Frontend (Playwright)
+- **Gemockte Specs ohne Backend:** `npm run test:e2e:mocked` (`playwright.mocked.config.ts`) laeuft die Specs aus
+  `tests/mocked-specs.ts` vollstaendig parallel, ohne Hub/Worker-Start und lokal ohne Retries (~1,5 min).
+  Eine Spec gehoert nur dorthin, wenn sie in dieser Konfiguration besteht. Die meisten Specs melden sich noch
+  ueber das echte Backend an (Login-Helfer gegen `:5500`) und laufen daher weiter mit `npm run test:e2e`.
 - **JUnit XML:** `frontend-angular/test-results/junit-results.xml`
 
 Der Report wird automatisch bei jedem E2E-Testlauf (`npm run test:e2e`) erstellt.
