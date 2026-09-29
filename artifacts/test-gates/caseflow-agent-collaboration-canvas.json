@@ -9,7 +9,23 @@
   "source_manifest": [
     {
       "path": "agent/routes/visual_process.py",
-      "sha256": "5a8f4c72f047abb322ef17aac9471238cb53ac389503ea96d11a8dd6390078ed"
+      "sha256": "853ca9e63212baecf49106011e1e618be860f520528163b77afc3d327011583c"
+    },
+    {
+      "path": "agent/routes/visual_process_blueprint.py",
+      "sha256": "cef73f327fb681c152cc38065347b9f27f5ec0060f1da36eeacfb9901001fbfb"
+    },
+    {
+      "path": "agent/routes/visual_process_workflow_command_routes.py",
+      "sha256": "18dbab5ef901d793ec8df66c652e6112940cb0338212de2dce4936917b264b2c"
+    },
+    {
+      "path": "agent/routes/visual_process_workflow_event_routes.py",
+      "sha256": "d60ae6784a345264d5ac4f348614e2b206c3815613a8a60fe2acc1773954c860"
+    },
+    {
+      "path": "agent/routes/visual_process_workflow_routes.py",
+      "sha256": "9126f0f2709ff464e3543642252545832bd690891b44afbd7ea279af7f53bc39"
     },
     {
       "path": "agent/routes/workflow_control_security.py",
@@ -37,7 +53,23 @@
     },
     {
       "path": "agent/services/native_graph_orchestration_service.py",
-      "sha256": "0ca6bbbe1e19c1d277cc4f2a44647d7b54b0e8f69692cf8edaef72b6a6e28ed0"
+      "sha256": "147e7f59d97ee406984eb3a758d2b471ffccf279c6b9cd1eee04974394718583"
+    },
+    {
+      "path": "agent/services/native_graph_command_application.py",
+      "sha256": "99405c45fb7b446de58562a7d2d39850be4d3bc0657bff644cbf19f94904ba80"
+    },
+    {
+      "path": "agent/services/native_graph_node_evaluation.py",
+      "sha256": "c42699d80c96cef38cd259c91f921a7ae90ca70409e193870e59c80c9a9b6b83"
+    },
+    {
+      "path": "agent/services/native_graph_run_persistence.py",
+      "sha256": "c3194484cad2548dd4b481999df13219ad57cd81f1f3dc8f26b546ed30e8d16b"
+    },
+    {
+      "path": "agent/services/native_graph_scheduling.py",
+      "sha256": "670a75494a32004723bcfff4b24ae13c86bbde0961b5159cdf950974121fd368"
     },
     {
       "path": "agent/services/langgraph_workflow_control_bridge.py",
@@ -61,7 +93,23 @@
     },
     {
       "path": "agent/services/workflow_control_composition.py",
-      "sha256": "5eb8c2a05804e80c24e9c6577d2e022aa331795aaf1341d863a99d75bcd69491"
+      "sha256": "0bcc213213fa5d0e721ed2e2b67ed63fc60ff1fddfacef2703023304d5fdafbb"
+    },
+    {
+      "path": "agent/services/workflow_authorized_backend.py",
+      "sha256": "6b0247f2742db0ccaaabbba1cba46ff5a1d897200f992747b8c37b28bd5dbd3e"
+    },
+    {
+      "path": "agent/services/workflow_backend_control_facade.py",
+      "sha256": "f60f56a6967d169523da93dedb1f2c97e333ea24b693078617eb64ccf8c3b6ba"
+    },
+    {
+      "path": "agent/services/workflow_configured_backend_bridge.py",
+      "sha256": "38ab83b71f95ce099f1b8b4299ed693bee61ebab4f9626947c3cebc6e9936990"
+    },
+    {
+      "path": "agent/services/workflow_control_command_guards.py",
+      "sha256": "f6a7274b6876a6530ecb05326f7c6049149f5552bfbf9f64f7b87796787d54c9"
     },
     {
       "path": "agent/services/workflow_control_command_verification.py",
@@ -105,7 +153,23 @@
     },
     {
       "path": "agent/services/workflow_runtime_status_projection.py",
-      "sha256": "c07db0e0cd4e7ac9b3b0dfc2f64dde9a2b738c578f620110577a1c99192cc35c"
+      "sha256": "11f520e4fab8306ccd8a9962f380dab54dca69f9c8adb98498d20bd0ba4085fd"
+    },
+    {
+      "path": "agent/services/workflow_runtime_status_redaction.py",
+      "sha256": "8c51ee462f7d9f04eecc0c46abba462e5a1513c4750a726d1d8804705738b8a9"
+    },
+    {
+      "path": "agent/services/workflow_runtime_status_scalars.py",
+      "sha256": "65204b86787f6a2276148bc0dde49975c5d5dde62292f575b326efa726c38974"
+    },
+    {
+      "path": "agent/services/workflow_runtime_status_steps.py",
+      "sha256": "5546c43a514d006ebf29ee13116e8e231890503402dcdb5175d6193d7b8b111c"
+    },
+    {
+      "path": "agent/services/workflow_runtime_status_vocabulary.py",
+      "sha256": "1142d9a75839aa7a4fd938da06b15372f3e0eeaa2df377579965b5eb290f70a8"
     },
     {
       "path": "agent/services/workflow_runtime/commands.py",
@@ -285,7 +349,7 @@
     },
     {
       "path": "scripts/run_caseflow_agent_collaboration_gate.py",
-      "sha256": "a2acace50eadb73210ac13b062b02b19fbbf6e4d273bfce539b1df29a021752e"
+      "sha256": "c2ba49f6264d1753d985da32ebfb48c84b1c9e5072d79054df23f8481d2aec44"
     },
     {
       "path": "tests/services/test_caseflow_agent_collaboration_trace_projection_service.py",
@@ -452,7 +516,7 @@
       "sha256": "52eeac1e9d382f31784056e63f85f08401e7d380c372490f3608940f18dc6baf"
     }
   ],
-  "source_manifest_sha256": "ddd1b75bf242b6dc00b16cb0d467c43426e949c5930b80f06026da44f7ba8110",
+  "source_manifest_sha256": "e2725524fb0c800a1a0628647170e5334f129e6d39417f5e6630348cce5aa0ce",
   "status": "passed",
   "test_outputs": [
     {
