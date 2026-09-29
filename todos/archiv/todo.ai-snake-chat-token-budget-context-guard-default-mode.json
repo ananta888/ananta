@@ -64,7 +64,7 @@
       "agent/services/worker_selection_policy_service.py - Worker-Auswahl; darf keine teuren/externen Worker ohne ContextBudgetDecision waehlen.",
       "tests/tui/test_tui_snake_chat_policy.py - Basis fuer neue Policy-Tests.",
       "tests/tui/test_tui_snake_chat_state.py - Basis fuer Chat-State/Budget-Trace Tests.",
-      "tests/test_snakes_chat_api.py - Basis fuer API-/Request-Flow Tests.",
+      "tests/snake/test_snakes_chat_api.py - Basis fuer API-/Request-Flow Tests.",
       "tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py - Basis fuer CodeCompass-Gating Tests."
     ],
     "current_relevant_strengths": [

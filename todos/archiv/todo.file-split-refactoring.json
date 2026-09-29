@@ -394,7 +394,7 @@
         "pytest agent/ grün; Chat-Antworten haben weiterhin korrekte Längenbeschränkung und Prompt-Formatierung.",
         "Mindestens ein pytest-Unit-Test für _fit_answer_to_chars und _build_grounded_snake_prompt ohne Flask-App-Kontext."
       ],
-      "completion_notes": "snakes_chat_helpers.py mit 488 Zeilen sauber extrahiert. test_fit_answer_to_chars existiert (2 Tests) UND test_build_grounded_snake_prompt existiert: tests/test_snakes_chat_helpers_prompt.py mit 6 Charakterisierungs-Tests für die deterministische Empty-Input-Branch (leerer/whitespace/None Input → leerer Prompt, has_context=False, summary='', domain_info={}, chunk_meta=[]). Tests verifizieren zudem Verträge: chunk_meta ist immer Liste, summary ist immer string, domain_info ist immer dict.",
+      "completion_notes": "snakes_chat_helpers.py mit 488 Zeilen sauber extrahiert. test_fit_answer_to_chars existiert (2 Tests) UND test_build_grounded_snake_prompt existiert: tests/snake/test_snakes_chat_helpers_prompt.py mit 6 Charakterisierungs-Tests für die deterministische Empty-Input-Branch (leerer/whitespace/None Input → leerer Prompt, has_context=False, summary='', domain_info={}, chunk_meta=[]). Tests verifizieren zudem Verträge: chunk_meta ist immer Liste, summary ist immer string, domain_info ist immer dict.",
       "progress_percent": 100.0
     },
     {
@@ -1364,7 +1364,7 @@
     "Die Angular-Orchestrator-Shells erfüllen ihre Zielgrößen: CodeHug 440, Visual Process 400, Config Graph 326, Settings 30 und CodeHug-Canvas 298 Zeilen. VP-Editor und CodeHug-Canvas stehen exakt am Limit (null Headroom).",
     "Die Python-Splits bewahren die bestehenden Flat-Import-Verträge durch explizite Kompatibilitäts-Fassaden (snakes_execution_routes.py ist 10-Zeilen-Facade auf snakes_execution_handlers.py) und Re-Exports.",
     "Verifikation: Angular-Produktionsbuild erfolgreich; 613 Vitest-Tests in 112 spec-Dateien sind grün (Stand 2026-06-28).",
-    "Neue Vitest-Tests in dieser Session: codehug-canvas-interaction.service.spec.ts (6), visual-process-editor.component.spec.ts (7), codehug-canvas.component.spec.ts (9). Neuer pytest-Test: tests/test_snakes_chat_helpers_prompt.py (6 Charakterisierungs-Tests für _build_grounded_snake_prompt Empty-Input-Branch).",
+    "Neue Vitest-Tests in dieser Session: codehug-canvas-interaction.service.spec.ts (6), visual-process-editor.component.spec.ts (7), codehug-canvas.component.spec.ts (9). Neuer pytest-Test: tests/snake/test_snakes_chat_helpers_prompt.py (6 Charakterisierungs-Tests für _build_grounded_snake_prompt Empty-Input-Branch).",
     "FSR-T001: CodehugCanvasInteractionService hat jetzt readonly centerX/centerY computed signals und registerSvgElement API. CodehugNodeInspectorComponent liest Geometrie via inject(); CodeHugInternalsComponent ruft registerSvgElement in ngAfterViewInit/ngOnDestroy auf. viewCenter-Function und centerProvider-Input sind entfernt.",
     "FSR-T015: 6 dead-code-imports in visual-process-editor.component.ts entfernt (ArtifactRef, ValidationResult, DryRunResult, WorkflowStatus, StepExecutionPlan, NODE_H). Verifikation über neue Vitest-Spec deckt Mount, Initial-Loads, addStep, validateGraph, runDryRun, listSavedGraphs-Error-Handling und svg-Render ab.",
     "FSR-T042: 9 neue Vitest-Tests verifizieren Canvas-Mount, ngOnChanges-Topology-Rebuild, zoomIn/zoomOut mit Clamps, resetView, clearSelection, refreshRequested-Event und svg-Render.",

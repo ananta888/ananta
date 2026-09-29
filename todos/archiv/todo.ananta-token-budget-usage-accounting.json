@@ -280,7 +280,7 @@
         "client_surfaces/operator_tui/chat_state.py",
         "tests/tui/test_tui_snake_chat_policy.py",
         "tests/tui/test_tui_snake_chat_state.py",
-        "tests/test_snakes_chat_api.py"
+        "tests/snake/test_snakes_chat_api.py"
       ],
       "acceptance_criteria": [
         "Smalltalk wie 'hallo' landet in safe_minimal_chat.",

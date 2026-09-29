@@ -55,7 +55,7 @@ def test_visual_tick_persists_delta_when_log_deltas_only_enabled(app, reset_visu
     backend stores a SECOND message containing the human-readable delta
     in addition to the raw [ui-tick] snapshot."""
     from agent.routes.snakes import _room_messages
-    from tests.test_snakes_chat_api import _register
+    from tests.snake.test_snakes_chat_api import _register
     _room_messages.clear()
     _build_session(log_deltas_only=True)
 
@@ -100,7 +100,7 @@ def test_visual_tick_persists_only_raw_when_log_deltas_only_disabled(app, reset_
     """When the session has predictive_guide_log_deltas_only=False (default),
     only the raw [ui-tick] is persisted, no extra delta message."""
     from agent.routes.snakes import _room_messages
-    from tests.test_snakes_chat_api import _register
+    from tests.snake.test_snakes_chat_api import _register
     _room_messages.clear()
     _build_session(log_deltas_only=False)
 

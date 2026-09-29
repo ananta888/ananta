@@ -65,7 +65,7 @@
       "tests": [
         "tests/tui/test_tui_snake_chat_state.py (32 Tests)",
         "tests/tui/test_tui_snake_chat_policy.py (20 Tests)",
-        "tests/test_snakes_chat_api.py (14 Tests)",
+        "tests/snake/test_snakes_chat_api.py (14 Tests)",
         "tests/test_ai_snake_prediction.py",
         "tests/test_ai_snake_policy.py",
         "tests/test_ai_snake_follow.py",
@@ -935,7 +935,7 @@
         "T06.01",
         "T07.01"
       ],
-      "code_notes": "Bestehend: tests/tui/test_tui_snake_chat_state.py (32 Tests), tests/tui/test_tui_snake_chat_policy.py (20 Tests), tests/test_snakes_chat_api.py (14 Tests), tests/test_ai_snake_prediction.py, tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests).",
+      "code_notes": "Bestehend: tests/tui/test_tui_snake_chat_state.py (32 Tests), tests/tui/test_tui_snake_chat_policy.py (20 Tests), tests/snake/test_snakes_chat_api.py (14 Tests), tests/test_ai_snake_prediction.py, tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests).",
       "acceptance_criteria": [
         "Neue Testdateien erstellt (alle laufen ohne echtes LLM): tests/test_heuristic_registry.py, tests/test_heuristic_decision_lease.py, tests/snake/test_snake_decision_manager.py, tests/chat/test_chat_decision_manager.py, tests/chat/test_chat_query_classifier.py, tests/test_heuristic_proposal_validator.py, tests/test_activation_gate.py, tests/test_ttl_reevaluation.py.",
         "Bestehende Tests werden erweitert: tests/test_ai_snake_follow.py um Lurk-State und TTL-Fallback, tests/tui/test_tui_snake_chat_policy.py um HallucinationGuardrail.",

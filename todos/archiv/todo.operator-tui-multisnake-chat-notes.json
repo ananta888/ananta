@@ -662,7 +662,7 @@
           "description": "Hub-Endpunkte werden mit mehreren Snakes getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_snakes_chat_api.py"
+            "tests/snake/test_snakes_chat_api.py"
           ],
           "priority": "P1",
           "effort": "M",

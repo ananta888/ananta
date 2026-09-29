@@ -162,7 +162,7 @@
         "tests/test_ws_terminal.py",
         "tests/test_todo_tasks.py",
         "tests/test_control_center_api_contracts.py",
-        "tests/test_snakes_chat_api.py",
+        "tests/snake/test_snakes_chat_api.py",
         "tests/visual/test_visual_process.py",
         "tests/workflow/test_workflow_runtime_test_support.py"
       ]
