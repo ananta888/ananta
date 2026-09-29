@@ -159,7 +159,7 @@
       ],
       "done_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/test_splash_logo_assets.py tests/test_splash_logo_layout.py tests/test_splash_status_snapshot.py tests/test_splash_lifecycle.py tests/test_splash_cli_flags.py -q -> 73 passed"
+        ".venv/bin/python -m pytest tests/tui/test_splash_logo_assets.py tests/tui/test_splash_logo_layout.py tests/tui/test_splash_status_snapshot.py tests/tui/test_splash_lifecycle.py tests/tui/test_splash_cli_flags.py -q -> 73 passed"
       ]
     },
     {
@@ -182,7 +182,7 @@
       ],
       "done_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/test_splash_logo_assets.py tests/test_splash_logo_layout.py tests/test_splash_status_snapshot.py tests/test_splash_lifecycle.py tests/test_splash_cli_flags.py -q -> 73 passed"
+        ".venv/bin/python -m pytest tests/tui/test_splash_logo_assets.py tests/tui/test_splash_logo_layout.py tests/tui/test_splash_status_snapshot.py tests/tui/test_splash_lifecycle.py tests/tui/test_splash_cli_flags.py -q -> 73 passed"
       ]
     },
     {
@@ -193,7 +193,7 @@
       "type": "utility",
       "files": [
         "agent/cli/logo_layout.py",
-        "tests/test_splash_logo_layout.py"
+        "tests/tui/test_splash_logo_layout.py"
       ],
       "summary": "logo_layout.py: _visible_length() strips ANSI escapes for correct width; _pad_to(), _truncate_to(), _max_line_width() for layout. Tests cover plain, ANSI, and empty lines.",
       "depends_on": [
@@ -214,7 +214,7 @@
       "type": "feature",
       "files": [
         "agent/cli/status_snapshot.py",
-        "tests/test_splash_status_snapshot.py"
+        "tests/tui/test_splash_status_snapshot.py"
       ],
       "summary": "status_snapshot.py: StatusSnapshot dataclass (tasks_queued, tasks_running, tasks_completed, tasks_failed, workers_connected, uptime_seconds, mode, goal_active, timestamp). format_status_lines() and format_status_compact_right() for rendering.",
       "acceptance_criteria": [
@@ -244,7 +244,7 @@
       ],
       "done_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/test_splash_logo_assets.py tests/test_splash_logo_layout.py tests/test_splash_status_snapshot.py tests/test_splash_lifecycle.py tests/test_splash_cli_flags.py -q -> 73 passed"
+        ".venv/bin/python -m pytest tests/tui/test_splash_logo_assets.py tests/tui/test_splash_logo_layout.py tests/tui/test_splash_status_snapshot.py tests/tui/test_splash_lifecycle.py tests/tui/test_splash_cli_flags.py -q -> 73 passed"
       ]
     },
     {
@@ -257,7 +257,7 @@
         "client_surfaces/operator_tui/renderer.py",
         "agent/cli/logo_layout.py",
         "agent/cli/status_snapshot.py",
-        "tests/test_splash_logo_layout.py"
+        "tests/tui/test_splash_logo_layout.py"
       ],
       "summary": "logo_layout.render_compact_header() produces 8 lines: logo-left + status-right. Narrow terminals fall back to status-only or logo-only. Integrated into render_operator_shell via splash parameter.",
       "depends_on": [
@@ -301,7 +301,7 @@
       "type": "architecture",
       "files": [
         "agent/cli/splash.py",
-        "tests/test_splash_lifecycle.py"
+        "tests/tui/test_splash_lifecycle.py"
       ],
       "summary": "SplashMachine with states: disabled, fullscreen, transition, compact_header, skipped. Injected clock for deterministic tests. Fullscreen→transition→compact_header auto-tick. Env var ANANTA_TUI_SPLASH=0 disables.",
       "acceptance_criteria": [
@@ -319,7 +319,7 @@
       "type": "renderer",
       "files": [
         "agent/cli/splash.py",
-        "tests/test_splash_lifecycle.py"
+        "tests/tui/test_splash_lifecycle.py"
       ],
       "summary": "SplashMachine.render() returns full logo lines for FULLSCREEN state via load_logo(). TRANSITION state returns progressively fewer lines. COMPACT_HEADER state delegates to render_compact_header().",
       "depends_on": [
@@ -340,7 +340,7 @@
       "type": "animation",
       "files": [
         "agent/cli/splash.py",
-        "tests/test_splash_lifecycle.py"
+        "tests/tui/test_splash_lifecycle.py"
       ],
       "summary": "TRANSITION state in SplashMachine: transition_progress (0.0→1.0) controls line count from full logo down to COMPACT_HEADER_LINES. Deterministic via injected clock; configurable transition_seconds.",
       "depends_on": [
@@ -499,9 +499,9 @@
       "priority": "critical",
       "type": "test",
       "files": [
-        "tests/test_splash_logo_assets.py",
-        "tests/test_splash_logo_layout.py",
-        "tests/test_splash_status_snapshot.py"
+        "tests/tui/test_splash_logo_assets.py",
+        "tests/tui/test_splash_logo_layout.py",
+        "tests/tui/test_splash_status_snapshot.py"
       ],
       "summary": "7 tests for logo_assets, 9 tests for logo_layout, 8 tests for status_snapshot. Cover: asset loading, max_lines, env disable, ANSI stripping, line counting, visible width, padding, compact header rendering.",
       "depends_on": [
@@ -522,7 +522,7 @@
       "priority": "high",
       "type": "test",
       "files": [
-        "tests/test_splash_lifecycle.py"
+        "tests/tui/test_splash_lifecycle.py"
       ],
       "summary": "19 tests for SplashMachine: initial state, transitions, tick, progress, skip, disable, reset, invalid transitions, render in all states, elapsed time. Uses fake clock, no real sleeps.",
       "depends_on": [
@@ -546,7 +546,7 @@
       "files": [
         "tests/test_operator_tui_cli_splash_flags.py"
       ],
-      "summary": "CLI/render-once splash flag tests exist in tests/test_splash_cli_flags.py, including main(... --render-once --skip-splash ...) and compact splash-frame smoke coverage without a real TTY.",
+      "summary": "CLI/render-once splash flag tests exist in tests/tui/test_splash_cli_flags.py, including main(... --render-once --skip-splash ...) and compact splash-frame smoke coverage without a real TTY.",
       "depends_on": [
         "TUI-SPLASH-014",
         "TUI-SPLASH-016"
@@ -558,8 +558,8 @@
       ],
       "done_at": "2026-05-31",
       "evidence": [
-        ".venv/bin/python -m pytest tests/test_splash_logo_assets.py tests/test_splash_logo_layout.py tests/test_splash_status_snapshot.py tests/test_splash_lifecycle.py tests/test_splash_cli_flags.py -q -> 73 passed",
-        ".venv/bin/python -m ruff check tests/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed"
+        ".venv/bin/python -m pytest tests/tui/test_splash_logo_assets.py tests/tui/test_splash_logo_layout.py tests/tui/test_splash_status_snapshot.py tests/tui/test_splash_lifecycle.py tests/tui/test_splash_cli_flags.py -q -> 73 passed",
+        ".venv/bin/python -m ruff check tests/tui/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed"
       ]
     },
     {
@@ -671,8 +671,8 @@
   "verification": {
     "updated": "2026-05-31",
     "evidence": [
-      ".venv/bin/python -m pytest tests/test_splash_logo_assets.py tests/test_splash_logo_layout.py tests/test_splash_status_snapshot.py tests/test_splash_lifecycle.py tests/test_splash_cli_flags.py -q -> 73 passed",
-      ".venv/bin/python -m ruff check tests/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed",
+      ".venv/bin/python -m pytest tests/tui/test_splash_logo_assets.py tests/tui/test_splash_logo_layout.py tests/tui/test_splash_status_snapshot.py tests/tui/test_splash_lifecycle.py tests/tui/test_splash_cli_flags.py -q -> 73 passed",
+      ".venv/bin/python -m ruff check tests/tui/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed",
       "Render-once first-paint smoke exited 0 and rendered first_paint status."
     ],
     "remaining_partial": [

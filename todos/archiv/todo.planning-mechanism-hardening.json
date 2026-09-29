@@ -974,7 +974,7 @@
     "evidence": [
       ".venv/bin/python -m pytest tests/goal/test_goal_config_resolver_service.py tests/e2e/test_parallel_scenario_goal_scoped_config.py tests/context/test_context_file_selector.py tests/context/test_context_delivery_service.py tests/workspace/test_workspace_context_policy_resolver.py tests/worker/test_worker_runtime_selection_service.py tests/llm/test_ollama_parallel_runtime_service.py tests/worker/test_worker_pool_scheduler_service.py -q -> 71 passed",
       ".venv/bin/python -m pytest tests/test_release_gate_planning_cleanup.py -q -k 'dyndns or secret or runtime_path' -> 2 passed, 3 deselected",
-      ".venv/bin/python -m ruff check scripts/run_release_gate.py tests/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed"
+      ".venv/bin/python -m ruff check scripts/run_release_gate.py tests/tui/test_splash_cli_flags.py --select F401,F811,E501,I001 -> All checks passed"
     ],
     "notes": [
       "All previously partial hardening tasks are now completed from repository-code perspective.",

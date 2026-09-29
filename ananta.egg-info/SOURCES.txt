@@ -2768,11 +2768,11 @@ tests/test_speech_reconciliation_state_machine.py
 tests/test_speech_reconciliation_task_projection.py
 tests/test_speech_reconciliation_worker_transport.py
 tests/test_speech_sharing_consent.py
-tests/test_splash_cli_flags.py
-tests/test_splash_lifecycle.py
-tests/test_splash_logo_assets.py
-tests/test_splash_logo_layout.py
-tests/test_splash_status_snapshot.py
+tests/tui/test_splash_cli_flags.py
+tests/tui/test_splash_lifecycle.py
+tests/tui/test_splash_logo_assets.py
+tests/tui/test_splash_logo_layout.py
+tests/tui/test_splash_status_snapshot.py
 tests/auth/test_ssh_access_audit.py
 tests/auth/test_ssh_certificate_issuer.py
 tests/auth/test_ssh_certificate_security.py
