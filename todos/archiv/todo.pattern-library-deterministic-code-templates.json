@@ -101,8 +101,8 @@
     "agent/services/pattern_artifact_service.py",
     "tests/test_pattern_catalog.py",
     "tests/test_pattern_plan_service.py",
-    "tests/test_pattern_template_renderer.py",
-    "tests/test_pattern_blueprint_integration.py",
+    "tests/pattern/test_pattern_template_renderer.py",
+    "tests/pattern/test_pattern_blueprint_integration.py",
     "tests/test_pattern_task_prompt_context.py"
   ],
   "initial_pattern_catalog_scope": {
@@ -251,8 +251,8 @@
       "completion": {
         "commit_ref": "db7d827f",
         "verified_by": [
-          "tests/test_pattern_service.py",
-          "tests/test_pattern_registry.py",
+          "tests/pattern/test_pattern_service.py",
+          "tests/pattern/test_pattern_registry.py",
           "tests/test_blueprint_planning_pattern_binding.py"
         ]
       },
@@ -287,8 +287,8 @@
       "completion": {
         "commit_ref": "db7d827f",
         "verified_by": [
-          "tests/test_pattern_service.py",
-          "tests/test_pattern_registry.py",
+          "tests/pattern/test_pattern_service.py",
+          "tests/pattern/test_pattern_registry.py",
           "tests/test_blueprint_planning_pattern_binding.py"
         ]
       },
@@ -322,8 +322,8 @@
       "completion": {
         "commit_ref": "7ca2e0ea",
         "verified_by": [
-          "tests/test_pattern_service.py",
-          "tests/test_pattern_registry.py",
+          "tests/pattern/test_pattern_service.py",
+          "tests/pattern/test_pattern_registry.py",
           "tests/test_blueprint_planning_pattern_binding.py"
         ]
       },
@@ -354,8 +354,8 @@
       "completion": {
         "commit_ref": "7ca2e0ea",
         "verified_by": [
-          "tests/test_pattern_service.py",
-          "tests/test_pattern_registry.py",
+          "tests/pattern/test_pattern_service.py",
+          "tests/pattern/test_pattern_registry.py",
           "tests/test_blueprint_planning_pattern_binding.py"
         ]
       },
@@ -388,8 +388,8 @@
       "completion": {
         "commit_ref": "8d0ed272",
         "verified_by": [
-          "tests/test_pattern_service.py",
-          "tests/test_pattern_registry.py",
+          "tests/pattern/test_pattern_service.py",
+          "tests/pattern/test_pattern_registry.py",
           "tests/test_blueprint_planning_pattern_binding.py"
         ]
       },
@@ -425,8 +425,8 @@
       "completion": {
         "commit_ref": "8d0ed272",
         "verified_by": [
-          "tests/test_pattern_service.py",
-          "tests/test_pattern_registry.py",
+          "tests/pattern/test_pattern_service.py",
+          "tests/pattern/test_pattern_registry.py",
           "tests/test_blueprint_planning_pattern_binding.py"
         ]
       },

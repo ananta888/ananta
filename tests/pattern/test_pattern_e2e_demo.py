@@ -2,7 +2,7 @@
 
 This module is both a test suite and a runnable demo.  Run it with:
 
-    pytest tests/test_pattern_e2e_demo.py -v
+    pytest tests/pattern/test_pattern_e2e_demo.py -v
 
 Each test represents one step of the full pipeline.  The shared ``tmp_path``
 fixture acts as the demo workspace.
@@ -36,7 +36,7 @@ from agent.services.pattern_artifact_service import (
 from agent.services.pattern_proposal_normalizer import get_pattern_proposal_normalizer
 from agent.services.pattern_registry import get_registry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES_ROOT = ROOT / "config" / "patterns" / "templates"
 
 

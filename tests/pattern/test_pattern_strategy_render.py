@@ -32,7 +32,7 @@ from agent.services.pattern_template_renderer import (
 )
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PY_TMPL_DIR = REPO_ROOT / "config" / "patterns" / "templates" / "python" / "strategy"
 JAVA_TMPL_DIR = REPO_ROOT / "config" / "patterns" / "templates" / "java" / "strategy"
 TS_TMPL_DIR = REPO_ROOT / "config" / "patterns" / "templates" / "typescript" / "strategy"
