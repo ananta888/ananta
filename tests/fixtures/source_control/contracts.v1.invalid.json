@@ -2,7 +2,7 @@
   "fixture_version": "ananta.source-control.contracts.invalid.v1",
   "_meta": {
     "deterministic": true,
-    "purpose": "Minimal fail-closed mutations for tests/test_source_control_contracts.py"
+    "purpose": "Minimal fail-closed mutations for tests/source/test_source_control_contracts.py"
   },
   "cases": [
     {

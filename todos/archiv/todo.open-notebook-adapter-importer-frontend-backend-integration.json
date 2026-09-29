@@ -589,7 +589,7 @@
           "description": "Service baut Kontext für eine einzelne Source/Snapshot/Collection mit Insights und Notes optional zusammen; die schwere Arbeit macht RagService.retrieve_context_bundle.",
           "files": [
             "agent/services/source_chat_context_service.py",
-            "tests/test_source_chat_context_service.py"
+            "tests/source/test_source_chat_context_service.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -660,7 +660,7 @@
           "files": [
             "agent/sources/source_transformation_templates.py",
             "docs/integrations/open-notebook/source_transformations.md",
-            "tests/test_source_transformation_templates.py"
+            "tests/source/test_source_transformation_templates.py"
           ],
           "priority": "P3",
           "effort": "M",
@@ -679,7 +679,7 @@
           "description": "Service führt Transformationen synchron auf SourceSnapshot/Artifact aus und speichert abgeleitete Artefakte mit Provenance. Ergebnisobjekt trägt status/reason_code (kein Async-Statusservice).",
           "files": [
             "agent/services/source_transformation_service.py",
-            "tests/test_source_transformation_service.py"
+            "tests/source/test_source_transformation_service.py"
           ],
           "priority": "P3",
           "effort": "L",

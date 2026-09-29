@@ -28,7 +28,7 @@ def test_source_ref_v2_round_trip_and_schema() -> None:
     )
     payload = value.to_dict()
     schema = json.loads(
-        (Path(__file__).resolve().parents[1] / "schemas" / "source" / "source_ref.v2.json").read_text(encoding="utf-8")
+        (Path(__file__).resolve().parents[2] / "schemas" / "source" / "source_ref.v2.json").read_text(encoding="utf-8")
     )
 
     assert SourceRef.from_mapping(payload) == value

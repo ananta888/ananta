@@ -12,7 +12,7 @@ from scripts.source_control_control_center_harness import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_container_definition_has_no_invented_measurements() -> None:

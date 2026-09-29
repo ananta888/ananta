@@ -2,7 +2,7 @@
   "fixture_version": "ananta.source-control.contracts.valid.v1",
   "_meta": {
     "deterministic": true,
-    "purpose": "Minimal golden payloads for tests/test_source_control_contracts.py"
+    "purpose": "Minimal golden payloads for tests/source/test_source_control_contracts.py"
   },
   "contracts": {
     "source_connection": {

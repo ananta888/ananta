@@ -88,7 +88,7 @@
           "files": [
             "agent/sources/source_registry.py",
             "agent/sources/source_snapshot_store.py",
-            "tests/test_source_registry.py"
+            "tests/source/test_source_registry.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -374,7 +374,7 @@
           "repo": "tui",
           "files": [
             "agent/sources/source_refresh_service.py",
-            "tests/test_source_refresh_service.py"
+            "tests/source/test_source_refresh_service.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -520,7 +520,7 @@
           "description": "Ein E2E-/Integrationstest importiert eine kleine Keycloak-Doku-Fixture und prüft Chunk, Snapshot und Citation.",
           "repo": "tui",
           "files": [
-            "tests/test_source_ingestion_keycloak_e2e.py",
+            "tests/source/test_source_ingestion_keycloak_e2e.py",
             "tests/fixtures/sources/keycloak/"
           ],
           "priority": "P1",
@@ -541,7 +541,7 @@
           "description": "Ein kleiner Fixture-Dump testet Wikipedia-Parsing, Chunking, Attribution und Snapshot.",
           "repo": "tui",
           "files": [
-            "tests/test_source_ingestion_wikipedia_e2e.py",
+            "tests/source/test_source_ingestion_wikipedia_e2e.py",
             "tests/fixtures/sources/wikipedia/"
           ],
           "priority": "P1",

@@ -17,7 +17,7 @@ from ananta_contracts.source_control import (
     parse_source_control_contract,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_ROOT = ROOT / "tests" / "fixtures" / "source_control"
 VALID_FIXTURE = FIXTURE_ROOT / "contracts.v1.valid.json"
 INVALID_FIXTURE = FIXTURE_ROOT / "contracts.v1.invalid.json"

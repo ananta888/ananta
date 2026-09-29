@@ -2,7 +2,7 @@
   "fixture_version": "ananta.source-control.legacy-migration.v1",
   "_meta": {
     "deterministic": true,
-    "purpose": "Minimal migration inventory for tests/test_source_control_legacy_migration.py"
+    "purpose": "Minimal migration inventory for tests/source/test_source_control_legacy_migration.py"
   },
   "scope": {
     "tenant_id": "tenant-alpha",

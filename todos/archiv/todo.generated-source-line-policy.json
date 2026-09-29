@@ -572,7 +572,7 @@
       "target_files": [
         "scripts/audit/source_file_line_count.py",
         ".github/workflows/",
-        "tests/test_source_file_line_count_audit.py"
+        "tests/source/test_source_file_line_count_audit.py"
       ],
       "acceptance_criteria": [
         "source_file_line_count.py kann die gleichen Schwellen aus generated_source_line_policy oder einer kompatiblen JSON-Policy-Datei verwenden.",

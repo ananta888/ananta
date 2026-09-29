@@ -32,7 +32,7 @@ from agent.services.source_control_legacy_migration import (
     SourceControlMigrationError,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = (
     ROOT
     / "tests"

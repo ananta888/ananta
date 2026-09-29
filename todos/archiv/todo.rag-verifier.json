@@ -144,7 +144,7 @@
       "priority": "high",
       "files_to_create": [
         "agent/services/source_catalog_service.py",
-        "tests/test_source_catalog_service.py"
+        "tests/source/test_source_catalog_service.py"
       ],
       "files_to_update": [
         "agent/services/service_registry.py"
@@ -347,7 +347,7 @@
       "priority": "medium",
       "files_to_create": [
         "agent/routes/tasks/source_verification.py",
-        "tests/test_source_verification_routes.py"
+        "tests/source/test_source_verification_routes.py"
       ],
       "files_to_update": [
         "agent/routes/tasks/__init__.py"

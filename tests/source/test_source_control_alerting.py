@@ -13,7 +13,7 @@ from agent.services.source_control_observability import (
     SourceControlHealthMonitor,
 )
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 RULES = ROOT / "config/monitoring/source-control-alerts.yml"
 SCRIPT = ROOT / "scripts/run-source-control-alert-drill.py"
 ALLOWED_METRICS = {

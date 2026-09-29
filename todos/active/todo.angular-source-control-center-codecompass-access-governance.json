@@ -97,7 +97,7 @@
         "agent/routes/context_policy.py",
         "agent/services/source_control_access_policy.py",
         "agent/routes/source_control_v1.py",
-        "tests/test_source_control_access_governance.py"
+        "tests/source/test_source_control_access_governance.py"
       ],
       "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
@@ -109,7 +109,7 @@
       "evidence_paths": [
         "agent/sources/source_registry.py",
         "agent/routes/sources.py",
-        "tests/test_source_registry_security.py"
+        "tests/source/test_source_registry_security.py"
       ],
       "local_verification_ref": "artifacts/test-gates/source-control-center-backend-verification.json#sha256=d3407d74da847d2e913536c812a8578142e4c3faff34cefcd46340c36897cd10"
     },
@@ -385,8 +385,8 @@
         "agent/services/source_control_access_policy.py",
         "agent/routes/source_control_access.py",
         "agent/routes/source_control_v1.py",
-        "tests/test_source_control_access_governance.py",
-        "tests/test_source_control_v1_api.py",
+        "tests/source/test_source_control_access_governance.py",
+        "tests/source/test_source_control_v1_api.py",
         "tests/test_context_policy_route_security.py",
         "tests/test_sources_route_security.py",
         "tests/codecompass/test_codecompass_reload_security.py"
@@ -419,8 +419,8 @@
       "paths": [
         "agent/sources/source_registry.py",
         "agent/routes/sources.py",
-        "tests/test_source_registry.py",
-        "tests/test_source_registry_security.py"
+        "tests/source/test_source_registry.py",
+        "tests/source/test_source_registry_security.py"
       ],
       "acceptance_criteria": [
         "Source-IDs werden vor jedem Dateipfadzugriff kanonisch validiert; Root-Containment und Symlink-Schutz sind fail-closed.",
@@ -536,7 +536,7 @@
         "schemas/source-control/source_revision.v1.json",
         "schemas/source-control/source_ref_mapping.v1.json",
         "tests/fixtures/source_control/contracts.v1.valid.json",
-        "tests/test_source_control_contracts.py"
+        "tests/source/test_source_control_contracts.py"
       ],
       "acceptance_criteria": [
         "Versionierte Draft-2020-12-Schemas definieren Connection, immutable Revision und das explizite Mapping zu SourceRef ohne die Identitäten gleichzusetzen.",
@@ -576,7 +576,7 @@
         "schemas/source-control/source_access_grant.v1.json",
         "agent/services/source_destination_resolution.py",
         "frontend-angular/src/app/models/source-control-v1-api.model.ts",
-        "tests/test_source_destination_resolution.py",
+        "tests/source/test_source_destination_resolution.py",
         "agent/services/source_control_connection_intent.py"
       ],
       "acceptance_criteria": [
@@ -658,10 +658,10 @@
         "agent/services/source_control_legacy_migration.py",
         "agent/repositories/source_control_migration_repository.py",
         "agent/db_models/source_control_migration.py",
-        "tests/test_source_control_legacy_migration.py",
+        "tests/source/test_source_control_legacy_migration.py",
         "agent/services/source_control_legacy_migration_cli.py",
         "agent/cli/commands/hub.py",
-        "tests/test_source_control_legacy_migration_cli.py",
+        "tests/source/test_source_control_legacy_migration_cli.py",
         "migrations/versions/2f7c9e1a4b6d_merge_source_control_heads.py"
       ],
       "acceptance_criteria": [
@@ -701,8 +701,8 @@
         "agent/repositories/knowledge_index_execution_repository.py",
         "agent/services/knowledge_index_execution_binding_service.py",
         "agent/services/source_index_lifecycle_service.py",
-        "tests/test_source_index_lifecycle_service.py",
-        "tests/test_source_control_integrity_hardening.py",
+        "tests/source/test_source_index_lifecycle_service.py",
+        "tests/source/test_source_control_integrity_hardening.py",
         "migrations/versions/2f7c9e1a4b6d_merge_source_control_heads.py"
       ],
       "acceptance_criteria": [
@@ -741,8 +741,8 @@
         "agent/sources/source_connectors.py",
         "agent/services/source_control_connector_composition.py",
         "agent/services/source_control_legacy_inventory_adapters.py",
-        "tests/test_source_connector_registry.py",
-        "tests/test_source_connector_composition.py"
+        "tests/source/test_source_connector_registry.py",
+        "tests/source/test_source_connector_composition.py"
       ],
       "acceptance_criteria": [
         "Der Port trennt Validate, ResolveRevision, Inventory, Refresh und Health in kleine substituierbare Interfaces.",
@@ -941,7 +941,7 @@
         "agent/services/",
         "agent/sources/source_admission_gate.py",
         "agent/services/source_admission_service.py",
-        "tests/test_source_admission_service.py"
+        "tests/source/test_source_admission_service.py"
       ],
       "acceptance_criteria": [
         "Der Hub erstellt aus Connector-Inventar und Scan-Ergebnis einen unveränderlichen Admission-Entscheid mit Revision-Digest.",
@@ -1072,9 +1072,9 @@
         "agent/routes/source_control_v1.py",
         "agent/bootstrap/source_control_api.py",
         "agent/services/source_control_legacy_usage.py",
-        "tests/test_source_control_projection_service.py",
-        "tests/test_source_control_v1_api.py",
-        "tests/test_source_control_api_runtime.py",
+        "tests/source/test_source_control_projection_service.py",
+        "tests/source/test_source_control_v1_api.py",
+        "tests/source/test_source_control_api_runtime.py",
         "agent/services/source_control_connection_intent.py",
         "agent/services/source_control_catalogs.py",
         "agent/services/source_control_production_adapters.py"
@@ -1133,9 +1133,9 @@
         "agent/services/source_control_job_events.py",
         "agent/services/source_control_bulk_service.py",
         "agent/services/source_control_api_runtime.py",
-        "tests/test_source_control_bulk_and_events.py",
-        "tests/test_source_control_api_runtime.py",
-        "tests/test_source_control_integrity_hardening.py"
+        "tests/source/test_source_control_bulk_and_events.py",
+        "tests/source/test_source_control_api_runtime.py",
+        "tests/source/test_source_control_integrity_hardening.py"
       ],
       "acceptance_criteria": [
         "SSE oder Polling projiziert typisierte, tenantgebundene und content-freie Source-/Index-Jobzustände.",
@@ -1175,10 +1175,10 @@
         "agent/services/source_index_lifecycle_service.py",
         "agent/routes/source_control_v1.py",
         "agent/services/source_control_api_runtime.py",
-        "tests/test_source_index_lifecycle_service.py",
+        "tests/source/test_source_index_lifecycle_service.py",
         "agent/services/source_control_purge_approval.py",
         "agent/services/source_control_artifact_download.py",
-        "tests/test_source_control_integrity_hardening.py"
+        "tests/source/test_source_control_integrity_hardening.py"
       ],
       "acceptance_criteria": [
         "API liefert vollständige sourcegebundene Run-Historie, aktiven Index und bounded Vergleich von Revision, Coverage, Status und Manifest.",
@@ -1214,7 +1214,7 @@
         "worker/core/runtime_target.py",
         "agent/services/source_destination_resolution.py",
         "agent/services/effective_source_access_service.py",
-        "tests/test_source_destination_resolution.py",
+        "tests/source/test_source_destination_resolution.py",
         "tests/test_knowledge_index_destination_dispatch.py"
       ],
       "acceptance_criteria": [
@@ -1256,8 +1256,8 @@
         "agent/services/source_access_manifest_signing.py",
         "agent/services/source_access_persistence_adapter.py",
         "agent/db_models/source_access_enforcement.py",
-        "tests/test_source_access_enforcement.py",
-        "tests/test_source_access_persistence_adapter.py"
+        "tests/source/test_source_access_enforcement.py",
+        "tests/source/test_source_access_persistence_adapter.py"
       ],
       "acceptance_criteria": [
         "Grant bindet SourceRevision, DestinationDescriptor, Operation, Roh/Redacted/Summary-Transformation, Zweck, Ablauf und Policy-Version.",
@@ -1345,7 +1345,7 @@
         "agent/services/effective_source_access_service.py",
         "agent/routes/source_control_v1.py",
         "tests/test_effective_source_access_service.py",
-        "tests/test_source_control_v1_api.py",
+        "tests/source/test_source_control_v1_api.py",
         "agent/services/source_control_production_adapters.py"
       ],
       "acceptance_criteria": [
@@ -1677,11 +1677,11 @@
         "docs/operations/",
         "agent/services/source_control_observability.py",
         "docs/source-control-center-operations.md",
-        "tests/test_source_control_observability.py",
+        "tests/source/test_source_control_observability.py",
         "agent/adapters/source_control_metrics_adapter.py",
         "agent/services/source_control_runtime_observability.py",
         "agent/routes/source_control_operations.py",
-        "tests/test_source_control_runtime_observability.py"
+        "tests/source/test_source_control_runtime_observability.py"
       ],
       "acceptance_criteria": [
         "Audit umfasst Create, Validate, Scan, Refresh, Index, Activate, Rollback, Grant, Deny, Approval, Disable und Purge.",
@@ -1729,22 +1729,22 @@
         "SRCCTRL-TEST-002"
       ],
       "paths": [
-        "tests/test_source_registry.py",
-        "tests/test_source_refresh_service.py",
+        "tests/source/test_source_registry.py",
+        "tests/source/test_source_refresh_service.py",
         "tests/test_rag_helper_index_service.py",
         "tests/codecompass/test_codecompass_graph_api.py",
         "tests/test_context_access_security.py",
         "tests/security/",
         "tests/contracts/",
-        "tests/test_source_control_contracts.py",
-        "tests/test_source_control_persistence.py",
-        "tests/test_source_control_v1_api.py",
-        "tests/test_source_control_api_runtime.py",
-        "tests/test_source_control_boundary_gate.py",
+        "tests/source/test_source_control_contracts.py",
+        "tests/source/test_source_control_persistence.py",
+        "tests/source/test_source_control_v1_api.py",
+        "tests/source/test_source_control_api_runtime.py",
+        "tests/source/test_source_control_boundary_gate.py",
         "tests/test_git_source_connectors.py",
         "scripts/check_source_control_boundaries.py",
-        "tests/test_source_control_boundary_gate_extended.py",
-        "tests/test_source_control_integrity_hardening.py"
+        "tests/source/test_source_control_boundary_gate_extended.py",
+        "tests/source/test_source_control_integrity_hardening.py"
       ],
       "acceptance_criteria": [
         "Jeder Domain-Task liefert Unit-, Contract- und relevante Negativtests im selben Änderungsscope; dieses Task aggregiert nur das Release-Gate.",
@@ -1906,8 +1906,8 @@
         "artifacts/test-gates/source-control-center-release-gate-manifest.json",
         "docs/source-control-center.md",
         "docs/source-control-center-operations.md",
-        "tests/test_source_control_release_gate.py",
-        "tests/test_source_control_rollout_policy.py",
+        "tests/source/test_source_control_release_gate.py",
+        "tests/source/test_source_control_rollout_policy.py",
         "scripts/source_control_container_smoke.py",
         "scripts/source_control_control_center_harness.py",
         "artifacts/test-gates/source-control-container-smoke-definition.json",

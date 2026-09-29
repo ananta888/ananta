@@ -312,7 +312,7 @@ sources/keycloak/source_descriptor.json
 agent/sources/keycloak_fetcher.py
 agent/sources/keycloak_ingest.py
 tests/test_keycloak_fetcher.py
-tests/test_source_ingestion_keycloak_e2e.py
+tests/source/test_source_ingestion_keycloak_e2e.py
 ```
 
 ### 7.2 Soll
@@ -388,7 +388,7 @@ agent/sources/wikimedia_downloader.py
 agent/sources/wikipedia_ingest.py
 docs/sources/wikipedia_initial_dump.md
 tests/fixtures/sources/wikipedia/
-tests/test_source_ingestion_wikipedia_e2e.py
+tests/source/test_source_ingestion_wikipedia_e2e.py
 ```
 
 ### 8.2 Soll
