@@ -25,7 +25,7 @@ class _Metric:
 def _service():
     values = [_Metric() for _ in range(7)]
     ports = FileTypeMetricPorts(*values)
-    registry = load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    registry = load_file_type_support_registry(Path(__file__).resolve().parents[2])
     return FileTypeMetricsService(registry=registry, ports=ports), ports
 
 

@@ -8,7 +8,7 @@ from agent.services.file_type_support_service import (
 )
 from ananta_contracts.file_type_support import load_file_type_support_registry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _service(*, runtime_available: bool = True) -> FileTypeSupportService:

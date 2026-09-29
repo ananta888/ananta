@@ -12,7 +12,7 @@ from ananta_contracts.file_type_support import load_file_type_support_registry
 
 
 def _registry():
-    return load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    return load_file_type_support_registry(Path(__file__).resolve().parents[2])
 
 
 def test_rollout_policy_allows_only_explicit_active_descriptors() -> None:

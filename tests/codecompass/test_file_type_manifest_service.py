@@ -8,7 +8,7 @@ from worker.retrieval.codecompass_output_reader import build_output_manifest
 
 
 def _service() -> FileTypeManifestService:
-    registry = load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    registry = load_file_type_support_registry(Path(__file__).resolve().parents[2])
     requirements = {
         requirement
         for descriptor in registry.descriptors

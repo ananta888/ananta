@@ -8,7 +8,7 @@ from ananta_contracts.file_type_support import FileTypeSupportRegistry, load_fil
 
 
 def _registry() -> FileTypeSupportRegistry:
-    return load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    return load_file_type_support_registry(Path(__file__).resolve().parents[2])
 
 
 def test_registry_diff_invalidates_only_changed_format():

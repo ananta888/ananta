@@ -14,7 +14,7 @@ from ananta_contracts.file_type_support import load_file_type_support_registry
 def registry():
     from pathlib import Path
 
-    return load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    return load_file_type_support_registry(Path(__file__).resolve().parents[2])
 
 
 def test_coverage_report_records_every_outcome_and_aggregates_deterministically(registry):

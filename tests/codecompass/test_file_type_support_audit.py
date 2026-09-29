@@ -13,7 +13,7 @@ from scripts.audit_codecompass_file_type_support import (
     probe_runtime_requirements,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_audit_counts_tracked_files_by_classifier_stage(tmp_path: Path) -> None:

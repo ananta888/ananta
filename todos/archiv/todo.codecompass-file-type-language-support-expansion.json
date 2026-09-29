@@ -144,7 +144,7 @@
       ],
       "evidence": {
         "implementation": ["config/codecompass/file_type_support.v1.json", "ananta_contracts/file_type_support.py", "ananta_contracts/file_type_classifier.py"],
-        "tests": ["tests/test_file_type_support_contract.py", "tests/test_file_type_support_audit.py"],
+        "tests": ["tests/codecompass/test_file_type_support_contract.py", "tests/codecompass/test_file_type_support_audit.py"],
         "result": "met"
       }
     },
@@ -168,7 +168,7 @@
       ],
       "evidence": {
         "implementation": ["agent/services/file_type_support_service.py", "scripts/audit_codecompass_file_type_support.py"],
-        "tests": ["tests/test_file_type_support_contract.py", "tests/test_file_type_support_audit.py", "tests/test_repository_map_tree_sitter_runtime.py"],
+        "tests": ["tests/codecompass/test_file_type_support_contract.py", "tests/codecompass/test_file_type_support_audit.py", "tests/test_repository_map_tree_sitter_runtime.py"],
         "checks": ["python scripts/audit_codecompass_file_type_support.py --output table"],
         "result": "met"
       }
@@ -242,7 +242,7 @@
       ],
       "evidence": {
         "implementation": ["ananta_contracts/file_type_coverage.py", "agent/services/file_type_manifest_service.py", "worker/retrieval/codecompass_output_reader.py"],
-        "tests": ["tests/test_file_type_coverage_contract.py", "tests/test_file_type_manifest_service.py", "tests/codecompass/test_codecompass_output_manifest_schema.py", "tests/codecompass/test_codecompass_file_type_manifest_projection.py"],
+        "tests": ["tests/codecompass/test_file_type_coverage_contract.py", "tests/codecompass/test_file_type_manifest_service.py", "tests/codecompass/test_codecompass_output_manifest_schema.py", "tests/codecompass/test_codecompass_file_type_manifest_projection.py"],
         "checks": ["python scripts/setup_codecompass_index.py --dry-run --coverage-json <temporary-path>"],
         "result": "met"
       }
@@ -267,7 +267,7 @@
       ],
       "evidence": {
         "implementation": ["agent/routes/knowledge.py", "agent/services/file_type_support_service.py", "scripts/audit_codecompass_file_type_support.py"],
-        "tests": ["tests/test_file_type_support_api.py", "tests/test_file_type_support_audit.py"],
+        "tests": ["tests/codecompass/test_file_type_support_api.py", "tests/codecompass/test_file_type_support_audit.py"],
         "result": "met"
       }
     },
@@ -571,7 +571,7 @@
       "priority": "P0",
       "risk": "high",
       "depends_on": ["CFT-005", "CFT-007", "CFT-008", "CFT-009", "CFT-010", "CFT-011", "CFT-012", "CFT-013", "CFT-014", "CFT-015", "CFT-016", "CFT-017", "CFT-018"],
-      "affected_files": ["tests/test_file_type_support_contract.py", "tests/codecompass/test_codecompass_semantic_adapter_registry.py", "tests/codecompass/test_codecompass_file_type_security_regression.py", "rag-helper/tests/test_file_type_security_regression.py"],
+      "affected_files": ["tests/codecompass/test_file_type_support_contract.py", "tests/codecompass/test_codecompass_semantic_adapter_registry.py", "tests/codecompass/test_codecompass_file_type_security_regression.py", "rag-helper/tests/test_file_type_security_regression.py"],
       "acceptance_criteria": [
         "Golden-Tests prüfen Symbole, Knoten, Kanten, Diagnostics, Provenienz, Confidence und Capability-Claims für alle implementierten Gruppen.",
         "Risikobasierte Negativfälle prüfen Syntaxfehler, XXE, Alias-Bomben, Binärinhalt, Oversize, Traversal, aktive Skriptkonstrukte und Ressourcenlimits.",
@@ -580,7 +580,7 @@
         "Bestehende Python-, Java-, RepositoryMap-, Hybrid-, Retrieval- und vollständige Rag-helper-Regressionen bleiben erfolgreich."
       ],
       "evidence": {
-        "tests": ["tests/test_file_type_support_contract.py", "tests/test_file_type_coverage_contract.py", "tests/codecompass/test_codecompass_semantic_adapter_registry.py", "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py", "tests/test_repository_map_tree_sitter_runtime.py", "rag-helper/tests/test_file_type_security_regression.py"],
+        "tests": ["tests/codecompass/test_file_type_support_contract.py", "tests/codecompass/test_file_type_coverage_contract.py", "tests/codecompass/test_codecompass_semantic_adapter_registry.py", "tests/codecompass/test_codecompass_p2_static_symbol_adapters.py", "tests/test_repository_map_tree_sitter_runtime.py", "rag-helper/tests/test_file_type_security_regression.py"],
         "checks": ["Final semantic translation gate: 158 passed", "Final P2, parser-limit and semantic-registry gate: 85 passed", "Final registry/setup/coverage/metrics gate: 42 passed", "Final operational integration gate: 103 passed", "Rag-helper suite: 298 passed from repository-root-compatible invocation"],
         "result": "met"
       }
@@ -607,7 +607,7 @@
       ],
       "evidence": {
         "implementation": ["agent/services/rag_helper_file_type_migration.py", "rag-helper/rag_helper/application/incremental_cache.py", "agent/services/file_type_metrics_service.py", "agent/codecompass/file_type_telemetry.py", "docs/architecture/codecompass-file-type-support.md"],
-        "tests": ["tests/test_file_type_rollout.py", "tests/test_file_type_migration.py", "tests/rag/test_rag_helper_file_type_migration.py", "rag-helper/tests/test_incremental_cache_invalidation.py", "tests/test_file_type_metrics_service.py", "tests/test_file_type_coverage_contract.py", "tests/test_setup_codecompass_file_type_index.py"],
+        "tests": ["tests/codecompass/test_file_type_rollout.py", "tests/codecompass/test_file_type_migration.py", "tests/rag/test_rag_helper_file_type_migration.py", "rag-helper/tests/test_incremental_cache_invalidation.py", "tests/codecompass/test_file_type_metrics_service.py", "tests/codecompass/test_file_type_coverage_contract.py", "tests/test_setup_codecompass_file_type_index.py"],
         "result": "met"
       }
     }
@@ -677,7 +677,7 @@
       "python scripts/validate_todo_consistency.py --todo todos/todo.codecompass-file-type-language-support-expansion.json",
       "python scripts/audit_codecompass_file_type_support.py --output table",
       "python scripts/setup_codecompass_index.py --dry-run --coverage-json <temporary-path>",
-      "python -m pytest tests/test_file_type_support_contract.py tests/test_file_type_coverage_contract.py tests/test_file_type_support_api.py tests/test_file_type_support_audit.py",
+      "python -m pytest tests/codecompass/test_file_type_support_contract.py tests/codecompass/test_file_type_coverage_contract.py tests/codecompass/test_file_type_support_api.py tests/codecompass/test_file_type_support_audit.py",
       "python -m pytest tests/codecompass/test_codecompass_semantic_adapter_registry.py tests/codecompass/test_codecompass_p2_static_symbol_adapters.py tests/test_repository_map_tree_sitter_runtime.py",
       "PYTHONPATH=rag-helper python -m pytest rag-helper/tests",
       "ruff check --ignore E501,C901 <changed Python files>",

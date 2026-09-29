@@ -15,7 +15,7 @@ from ananta_contracts.file_type_support import (
     load_file_type_support_registry,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas" / "codecompass" / "file_type_support_registry.v1.json"
 REGISTRY_PATH = ROOT / "config" / "codecompass" / "file_type_support.v1.json"
 
@@ -144,7 +144,7 @@ def test_relationship_support_requires_symbols_and_indexing() -> None:
                 "implementation": "heuristic",
                 "verified": False,
                 "producer": "test.producer",
-                "evidence": ["tests/test_file_type_support_contract.py"],
+                "evidence": ["tests/codecompass/test_file_type_support_contract.py"],
                 "runtime_requirements": [],
             },
         }
@@ -182,7 +182,7 @@ def test_programmatic_registry_rejects_unknown_runtime_requirement_kind() -> Non
                 "implementation": "text_fallback",
                 "verified": True,
                 "producer": "test.producer",
-                "evidence": ["tests/test_file_type_support_contract.py"],
+                "evidence": ["tests/codecompass/test_file_type_support_contract.py"],
                 "runtime_requirements": ["user-controlled:parser"],
             },
             "symbols": _unsupported(),
