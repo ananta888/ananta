@@ -1992,9 +1992,9 @@ tests/test_e2e_auth.py
 tests/test_e2e_git_workspace_profile.py
 tests/test_e2e_goal_scoped_workspace.py
 tests/test_e2e_workspace_artifact_flow.py
-tests/test_eclipse_hub_contract_routes.py
+tests/plugin/test_eclipse_hub_contract_routes.py
 tests/test_eclipse_plugin_adapter_foundation_service.py
-tests/test_eclipse_release_evidence.py
+tests/plugin/test_eclipse_release_evidence.py
 tests/test_eclipse_runtime_bootstrap.py
 tests/test_editor_resolver.py
 tests/test_editor_tui_surface_foundation_service.py
@@ -2395,10 +2395,10 @@ tests/planning/test_planning_track_planner_service.py
 tests/planning/test_planning_track_task_integration_service.py
 tests/planning/test_planning_utils.py
 tests/test_platform_governance_service.py
-tests/test_plugin_canary_boundaries.py
-tests/test_plugin_contract_boundaries.py
-tests/test_plugin_loader.py
-tests/test_plugin_robustness.py
+tests/plugin/test_plugin_canary_boundaries.py
+tests/plugin/test_plugin_contract_boundaries.py
+tests/plugin/test_plugin_loader.py
+tests/plugin/test_plugin_robustness.py
 tests/test_policy_capability_helpers.py
 tests/test_policy_snapshot_service.py
 tests/test_powershell.py

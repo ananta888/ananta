@@ -182,10 +182,10 @@ tests/planning/test_planning_template_catalog.py
 tests/planning/test_planning_template_catalog_schema.py
 tests/planning/test_planning_utils.py
 tests/test_platform_governance_service.py
-tests/test_plugin_canary_boundaries.py
-tests/test_plugin_contract_boundaries.py
-tests/test_plugin_loader.py
-tests/test_plugin_robustness.py
+tests/plugin/test_plugin_canary_boundaries.py
+tests/plugin/test_plugin_contract_boundaries.py
+tests/plugin/test_plugin_loader.py
+tests/plugin/test_plugin_robustness.py
 tests/test_policy_capability_helpers.py
 tests/test_powershell.py
 tests/test_powershell_validation.py
