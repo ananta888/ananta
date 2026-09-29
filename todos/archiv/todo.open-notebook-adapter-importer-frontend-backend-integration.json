@@ -255,7 +255,7 @@
           "description": "Schema für den von Ananta akzeptierten OpenNotebook-Export, bewusst unabhängig von OpenNotebook-interner SurrealDB-Darstellung. Liegt neben workflow_descriptor.v1.json in schemas/integrations/.",
           "files": [
             "schemas/integrations/open_notebook_export.v1.json",
-            "tests/test_open_notebook_export_schema.py"
+            "tests/open_notebook/test_open_notebook_export_schema.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -283,7 +283,7 @@
           "description": "Mapper wandelt validierte Export-Daten in Ananta-interne DTOs um, ohne Persistenz-Seiteneffekte.",
           "files": [
             "agent/sources/open_notebook_mapper.py",
-            "tests/test_open_notebook_mapper.py"
+            "tests/open_notebook/test_open_notebook_mapper.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -305,7 +305,7 @@
           "description": "Importer nutzt IngestionService, Artifact-/KnowledgeCollection-Repositories und die SourceRegistry, um gemappte Objekte zu speichern. Import läuft synchron und liefert ein Ergebnisobjekt mit status, reason_code und Zählern (kein Async-Statusservice, siehe removed_tasks).",
           "files": [
             "agent/sources/open_notebook_importer.py",
-            "tests/test_open_notebook_importer.py"
+            "tests/open_notebook/test_open_notebook_importer.py"
           ],
           "priority": "P1",
           "effort": "XL",
@@ -330,7 +330,7 @@
           "description": "Importierte Sources erhalten immutable Snapshots über den BESTEHENDEN SourceSnapshotStore und das bestehende Schema schemas/sources/source_snapshot.v1.json; OpenNotebook-spezifische Felder wandern in dessen extensions-Feld. Kein neues Snapshot-Modul, kein neues Schema.",
           "files": [
             "agent/sources/open_notebook_importer.py",
-            "tests/test_open_notebook_snapshot.py"
+            "tests/open_notebook/test_open_notebook_snapshot.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -351,7 +351,7 @@
           "description": "Notes werden nicht automatisch als Quellenwahrheit behandelt, sondern als menschliche/AI-Notizen mit niedrigerem oder konfigurierbarem Trust-Level.",
           "files": [
             "agent/sources/open_notebook_notes_importer.py",
-            "tests/test_open_notebook_notes_importer.py"
+            "tests/open_notebook/test_open_notebook_notes_importer.py"
           ],
           "priority": "P2",
           "effort": "M",
@@ -372,7 +372,7 @@
           "description": "Insights werden mit parent_source_ref und transformation metadata importiert, damit sie im Retrieval transparent bleiben.",
           "files": [
             "agent/sources/open_notebook_insights_importer.py",
-            "tests/test_open_notebook_insights_importer.py"
+            "tests/open_notebook/test_open_notebook_insights_importer.py"
           ],
           "priority": "P2",
           "effort": "L",
@@ -401,7 +401,7 @@
           "files": [
             "sources/open_notebook/source_descriptor.json",
             "agent/sources/builtin_sources.py",
-            "tests/test_open_notebook_source_descriptor.py"
+            "tests/open_notebook/test_open_notebook_source_descriptor.py"
           ],
           "priority": "P1",
           "effort": "S",
@@ -422,7 +422,7 @@
           "description": "OpenNotebook kann über RagSourceProfileLoader als indexierbares Profil geladen und für Retrieval-Intent ausgewählt werden. Pfadkonvention domains/<domain>/rag_sources/*.profile.json wie bei blender/freecad.",
           "files": [
             "domains/open_notebook/rag_sources/open_notebook_source.profile.json",
-            "tests/test_open_notebook_rag_source_profile.py"
+            "tests/open_notebook/test_open_notebook_rag_source_profile.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -444,7 +444,7 @@
           "files": [
             "sources/source-packs/open-notebook.source-pack.json",
             "docs/sources/open-notebook-source-pack.md",
-            "tests/test_open_notebook_source_pack.py"
+            "tests/open_notebook/test_open_notebook_source_pack.py"
           ],
           "priority": "P2",
           "effort": "S",
@@ -472,7 +472,7 @@
           "description": "Neuer Retrieval-Adapter nach dem Muster von ArtifactKnowledgeSourceAdapter greift auf importierte OpenNotebook-Artefakte/KnowledgeIndex-Chunks zu.",
           "files": [
             "agent/services/retrieval_source_adapters.py",
-            "tests/test_open_notebook_retrieval_source_adapter.py"
+            "tests/open_notebook/test_open_notebook_retrieval_source_adapter.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -519,7 +519,7 @@
           "description": "OpenNotebook bekommt sinnvolle Gewichtung in der bestehenden Fusion-Logik: User Research stärker bei research/notebook-Fragen, schwächer bei Code-/API-Wahrheitsfragen.",
           "files": [
             "agent/services/retrieval_query_builder.py",
-            "tests/test_open_notebook_retrieval_priority.py"
+            "tests/open_notebook/test_open_notebook_retrieval_priority.py"
           ],
           "priority": "P2",
           "effort": "M",
@@ -561,7 +561,7 @@
           "description": "Jeder importierte oder abgerufene OpenNotebook-Chunk erhält eine zitierfähige Referenz nach dem BESTEHENDEN Schema schemas/sources/source_reference.v1.json; Formatierung über agent/sources/citation_formatter.format_citation.",
           "files": [
             "agent/sources/open_notebook_source_reference.py",
-            "tests/test_open_notebook_source_reference.py"
+            "tests/open_notebook/test_open_notebook_source_reference.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -847,7 +847,7 @@
           "description": "Policy entscheidet, welche Exportteile importiert/indexiert werden dürfen.",
           "files": [
             "agent/sources/open_notebook_import_policy.py",
-            "tests/test_open_notebook_import_policy.py"
+            "tests/open_notebook/test_open_notebook_import_policy.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -868,7 +868,7 @@
           "description": "Sensible Werte in Exporten und Metadaten werden vor Speicherung und Explainability entfernt oder maskiert; Muster analog zur bestehenden RagService._redact_sensitive.",
           "files": [
             "agent/sources/open_notebook_redaction.py",
-            "tests/test_open_notebook_redaction.py"
+            "tests/open_notebook/test_open_notebook_redaction.py"
           ],
           "priority": "P1",
           "effort": "S",
@@ -889,7 +889,7 @@
           "files": [
             "agent/sources/open_notebook_provenance.py",
             "frontend-angular/src/app/features/sources/source-citation-panel.component.ts",
-            "tests/test_open_notebook_provenance.py"
+            "tests/open_notebook/test_open_notebook_provenance.py"
           ],
           "priority": "P2",
           "effort": "M",
@@ -914,7 +914,7 @@
           "title": "E2E Fixture Flow OpenNotebook Import bis Retrieval",
           "description": "Ein Test beweist den Kernflow mit complex_export.json.",
           "files": [
-            "tests/test_open_notebook_e2e_import_retrieval.py"
+            "tests/open_notebook/test_open_notebook_e2e_import_retrieval.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -935,7 +935,7 @@
           "title": "E2E Source Chat mit Citations",
           "description": "Ein Test beweist source-focused chat ohne echten Provider durch Fake-LLM oder Stub.",
           "files": [
-            "tests/test_open_notebook_e2e_source_chat.py"
+            "tests/open_notebook/test_open_notebook_e2e_source_chat.py"
           ],
           "priority": "P2",
           "effort": "M",
@@ -995,7 +995,7 @@
           "title": "Backward Compatibility Gate",
           "description": "Bestehende Repo/Artifact/Wiki/TaskMemory Retrievals dürfen durch OpenNotebook-Erweiterung nicht brechen.",
           "files": [
-            "tests/test_open_notebook_backward_compatibility.py"
+            "tests/open_notebook/test_open_notebook_backward_compatibility.py"
           ],
           "priority": "P1",
           "effort": "M",

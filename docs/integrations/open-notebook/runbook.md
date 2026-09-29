@@ -24,9 +24,9 @@ and Source Chat.
 Run:
 
 ```bash
-pytest -q tests/test_open_notebook_e2e_import_retrieval.py \
-  tests/test_open_notebook_e2e_source_chat.py \
-  tests/test_open_notebook_backward_compatibility.py
+pytest -q tests/open_notebook/test_open_notebook_e2e_import_retrieval.py \
+  tests/open_notebook/test_open_notebook_e2e_source_chat.py \
+  tests/open_notebook/test_open_notebook_backward_compatibility.py
 cd frontend-angular && npm run test:unit -- --run \
   src/app/components/sources.component.spec.ts \
   src/app/features/sources/source-import-dialog.component.spec.ts \

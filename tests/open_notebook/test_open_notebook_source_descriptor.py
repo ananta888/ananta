@@ -4,7 +4,7 @@ from pathlib import Path
 from agent.sources.builtin_sources import load_builtin_source_descriptors
 from agent.sources.source_registry import validate_source_descriptor_payload
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTOR_PATH = ROOT / "sources" / "open_notebook" / "source_descriptor.json"
 
 

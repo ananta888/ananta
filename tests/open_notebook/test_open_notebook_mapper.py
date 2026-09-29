@@ -9,7 +9,7 @@ from agent.sources.open_notebook_mapper import (
     source_content_hash,
 )
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "open_notebook"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "open_notebook"
 
 
 def _load(name: str) -> dict:

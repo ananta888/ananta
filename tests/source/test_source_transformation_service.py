@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from agent.services.source_transformation_service import SourceTransformationService
 from agent.sources.open_notebook_import_state import OpenNotebookImportStateStore
-from tests.open_notebook_test_fakes import FakeArtifactRepo, FakeIngestionService
+from tests.open_notebook.open_notebook_test_fakes import FakeArtifactRepo, FakeIngestionService
 
 
 class _Chat:

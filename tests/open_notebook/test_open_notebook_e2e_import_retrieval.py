@@ -3,9 +3,9 @@ from pathlib import Path
 
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 from agent.services.retrieval_source_adapters import OpenNotebookKnowledgeSourceAdapter
-from tests.open_notebook_test_fakes import build_importer
+from tests.open_notebook.open_notebook_test_fakes import build_importer
 
-FIXTURE = Path(__file__).parent / "fixtures" / "open_notebook" / "complex_export.json"
+FIXTURE = Path(__file__).parent.parent / "fixtures" / "open_notebook" / "complex_export.json"
 
 
 def test_fixture_import_to_retrieval_is_offline_and_grounded(tmp_path):

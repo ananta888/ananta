@@ -4,9 +4,9 @@ from pathlib import Path
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 from agent.services.retrieval_source_adapters import OpenNotebookKnowledgeSourceAdapter
 from agent.services.retrieval_source_contract import enabled_source_types_from_settings
-from tests.open_notebook_test_fakes import build_importer
+from tests.open_notebook.open_notebook_test_fakes import build_importer
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "open_notebook"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "open_notebook"
 
 
 def _load(name: str) -> dict:

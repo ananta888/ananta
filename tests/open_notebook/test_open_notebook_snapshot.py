@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 
 from agent.sources.source_snapshot_store import validate_source_snapshot_payload
-from tests.open_notebook_test_fakes import build_importer
+from tests.open_notebook.open_notebook_test_fakes import build_importer
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "open_notebook"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "open_notebook"
 
 
 def _load(name: str) -> dict:

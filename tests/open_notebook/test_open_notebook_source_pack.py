@@ -3,7 +3,7 @@ from pathlib import Path
 
 from agent.sources.source_registry import SourceRegistry, validate_source_pack_payload
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PACK_PATH = ROOT / "sources" / "source-packs" / "open-notebook.source-pack.json"
 
 

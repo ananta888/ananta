@@ -5,7 +5,7 @@ from jsonschema import Draft202012Validator
 
 from agent.services.rag_source_profile_loader import RagSourceProfileLoader
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROFILE_PATH = ROOT / "domains" / "open_notebook" / "rag_sources" / "open_notebook_source.profile.json"
 SCHEMA_PATH = ROOT / "schemas" / "domain" / "rag_source_profile.v1.json"
 

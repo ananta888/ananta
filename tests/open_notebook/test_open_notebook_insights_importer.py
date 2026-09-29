@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from agent.sources.open_notebook_insights_importer import OpenNotebookInsightsImporter
-from tests.open_notebook_test_fakes import FakeArtifactRepo, FakeIngestionService
+from tests.open_notebook.open_notebook_test_fakes import FakeArtifactRepo, FakeIngestionService
 
 
 def _importer():
