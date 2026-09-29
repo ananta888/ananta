@@ -367,7 +367,7 @@
       ],
       "evidence": [
         "tests/fixtures/retrieval/sira_golden_queries.json and benchmarks/retrieval/sira_baseline.json bind one deterministic snapshot and seven query classes.",
-        "tests/test_sira_benchmark_fixture.py rebuilds the legacy FTS result exactly; scripts/evaluate_sira_retrieval.py skips unverified labels instead of self-grading them."
+        "tests/sira/test_sira_benchmark_fixture.py rebuilds the legacy FTS result exactly; scripts/evaluate_sira_retrieval.py skips unverified labels instead of self-grading them."
       ]
     },
     {
@@ -541,14 +541,14 @@
         "Poisoning- und Prompt-Injection-Fixtures in die Tests aufnehmen."
       ],
       "target_files": [
-        "tests/test_sira_enrichment_security.py"
+        "tests/sira/test_sira_enrichment_security.py"
       ],
       "test_expectations": [
         "Validierungsfehler sind typisiert, gezählt und führen zu sicherem Originaltext-Fallback."
       ],
       "evidence": [
         "DocumentEnrichmentService treats source text as untrusted data, uses a closed output shape, local-model policy, path filtering, redaction and bounded inputs.",
-        "tests/test_sira_enrichment_security.py covers prompt injection, secrets, forbidden paths and model failure with safe original-text fallback."
+        "tests/sira/test_sira_enrichment_security.py covers prompt injection, secrets, forbidden paths and model failure with safe original-text fallback."
       ]
     },
     {
@@ -587,7 +587,7 @@
       "evidence": [
         "worker/retrieval/sira/incremental_enrichment.py implements deterministic change sets, tombstones, idempotent base/delta layers, pointer-last activation and compaction; scripts/manage_sira_index.py exposes build, diagnostics and compaction.",
         "ananta_contracts/sira_index_operation.py, agent/services/codecompass_sira_index_operation_service.py, agent/routes/codecompass_retrieve.py and worker/retrieval/sira/index_operation_handler.py provide a strict Hub-queued sync/compact API, task binding, Worker-local execution and bounded automatic failure path without exposing filesystem authority.",
-        "tests/codecompass/test_codecompass_sira_index_operations.py and tests/test_sira_incremental_enrichment.py prove scope binding, generic-ingress protection, idempotency conflict detection, one-file targeting, atomic activation and compaction without Human-in-the-Loop."
+        "tests/codecompass/test_codecompass_sira_index_operations.py and tests/sira/test_sira_incremental_enrichment.py prove scope binding, generic-ingress protection, idempotency conflict detection, one-file targeting, atomic activation and compaction without Human-in-the-Loop."
       ]
     },
     {
@@ -692,7 +692,7 @@
       ],
       "target_files": [
         "worker/retrieval/sira/term_validator.py",
-        "tests/test_sira_term_validation.py"
+        "tests/sira/test_sira_term_validation.py"
       ],
       "test_expectations": [
         "Kein validierter Begriff stammt außerhalb des erlaubten Corpus-Scope.",
@@ -700,7 +700,7 @@
       ],
       "evidence": [
         "CorpusTermValidator accepts terms only from snapshot-bound precomputed DF/CF statistics and records an explicit reason plus statistics for every decision.",
-        "tests/test_sira_term_validation.py covers absent, common, low-confidence, duplicate and untrusted rare-identifier terms without an online corpus scan."
+        "tests/sira/test_sira_term_validation.py covers absent, common, low-confidence, duplicate and untrusted rare-identifier terms without an online corpus scan."
       ]
     },
     {
@@ -739,7 +739,7 @@
       ],
       "evidence": [
         "WeightedQueryCompiler creates one bounded FTS expression with preserved original terms and reconstructable weights; WeightedLexicalRetriever performs exactly one corpus action.",
-        "tests/test_sira_retrieval_pipeline.py and tests/test_sira_benchmark_fixture.py cover call count, deterministic ranking and original-only parity."
+        "tests/sira/test_sira_retrieval_pipeline.py and tests/sira/test_sira_benchmark_fixture.py cover call count, deterministic ranking and original-only parity."
       ]
     },
     {
@@ -848,7 +848,7 @@
       ],
       "evidence": [
         "SiraRouter implements off, shadow, on_demand, preferred and required modes with exact-query, baseline-margin, cache, budget and circuit features.",
-        "tests/test_sira_retrieval_pipeline.py verifies bypass/fallback behavior and that required mode alone returns typed unavailability."
+        "tests/sira/test_sira_retrieval_pipeline.py verifies bypass/fallback behavior and that required mode alone returns typed unavailability."
       ]
     },
     {

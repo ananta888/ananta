@@ -11,7 +11,7 @@ from worker.retrieval.sira.config import SiraConfig, SiraMode
 from worker.retrieval.sira.contracts import CorpusBinding
 from worker.retrieval.sira.query_expander import QueryExpander, classify_exact_query
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class FakeGenerator:

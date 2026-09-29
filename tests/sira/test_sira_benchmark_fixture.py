@@ -10,7 +10,7 @@ from worker.retrieval.sira.enriched_fts_store import EnrichedFtsStore
 from worker.retrieval.sira.term_validator import CorpusTermValidator
 from worker.retrieval.sira.weighted_query_compiler import WeightedQueryCompiler, tokenize_original_query
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_sira_baseline_is_reproducible_from_bound_fixture(tmp_path: Path):

@@ -11,7 +11,7 @@ from worker.retrieval.sira.config import SiraConfig
 from worker.retrieval.sira.contracts import CorpusBinding
 from worker.retrieval.sira.document_enrichment import DocumentEnrichmentService
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class CapturingGenerator:

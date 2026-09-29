@@ -7,7 +7,7 @@ symbol, bugfix vocabulary gap, architecture vocabulary gap, configuration,
 German/English vocabulary, no-result and adversarial input. Its labels are
 fixture-verified and do not claim production-repository relevance.
 
-`tests/test_sira_benchmark_fixture.py` rebuilds the legacy
+`tests/sira/test_sira_benchmark_fixture.py` rebuilds the legacy
 `CodeCompassFtsStore` and proves that stored baseline ranking exactly matches.
 The baseline exposes expected vocabulary gaps and records the legacy
 adversarial false positive rather than hiding it.
