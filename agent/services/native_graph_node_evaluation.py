@@ -1,4 +1,8 @@
-"""Evaluation helpers for Native graph nodes: routing, conditions, inputs, artifacts, budgets, and result bindings."""
+"""Evaluation of Native graph nodes: routing, conditions, inputs, artifacts, budgets, and result bindings.
+
+``NativeGraphNodeEvaluator`` is a collaborator of ``NativeGraphOrchestrator``;
+it owns only the declarative condition evaluator and is otherwise stateless.
+"""
 
 from __future__ import annotations
 
@@ -7,18 +11,22 @@ from typing import Any
 
 from agent.services.bpmn_input_projection import PROJECTION_KEY, project_bpmn_inputs
 from agent.services.native_graph_models import NativeGraphRequest, NativeRunState
+from agent.services.workflow_runtime.condition_evaluator import ConditionResult, DeclarativeConditionEvaluator
 from agent.services.workflow_runtime.execution_plan import ExecutionNode, ExecutionPlan
 from agent.services.workflow_runtime.native_graph_contracts import NativeNodeResult
 
 
-class NativeGraphNodeEvaluationMixin:
-    """Evaluate node routing, inputs, and results; mixed into ``NativeGraphOrchestrator``."""
+class NativeGraphNodeEvaluator:
+    """Evaluate node routing, inputs, and results against one run state."""
 
-    def _route_matches(self, plan: ExecutionPlan, node: ExecutionNode, state: NativeRunState) -> bool:
+    def __init__(self, *, conditions: DeclarativeConditionEvaluator | None = None) -> None:
+        self._conditions = conditions or DeclarativeConditionEvaluator()
+
+    def route_matches(self, plan: ExecutionPlan, node: ExecutionNode, state: NativeRunState) -> bool:
         edges = [edge for edge in plan.edges if edge.target == node.node_id]
         if not edges:
             return True
-        results = [self._edge_result(edge, state) for edge in edges]
+        results = [self.edge_result(edge, state) for edge in edges]
         if any(result.value is None for result in results):
             return False
         return (
@@ -27,15 +35,13 @@ class NativeGraphNodeEvaluationMixin:
             else any(result.matches for result in results)
         )
 
-    def _edge_result(self, edge, state):
-        from agent.services.workflow_runtime.condition_evaluator import ConditionResult
-
+    def edge_result(self, edge, state) -> ConditionResult:
         if edge.source in state.skipped:
             return ConditionResult(False, "native_source_skipped")
-        return self._conditions.evaluate(edge.condition, self._condition_context(state))
+        return self._conditions.evaluate(edge.condition, self.condition_context(state))
 
     @staticmethod
-    def _condition_context(state: NativeRunState, *, node: ExecutionNode | None = None) -> dict[str, Any]:
+    def condition_context(state: NativeRunState, *, node: ExecutionNode | None = None) -> dict[str, Any]:
         if node is not None and PROJECTION_KEY in node.metadata:
             projected = project_bpmn_inputs(
                 node.metadata[PROJECTION_KEY], input_data=state.input_data, results=state.node_results
@@ -49,7 +55,7 @@ class NativeGraphNodeEvaluationMixin:
         }
 
     @staticmethod
-    def _node_input(node: ExecutionNode, state: NativeRunState) -> dict[str, Any]:
+    def node_input(node: ExecutionNode, state: NativeRunState) -> dict[str, Any]:
         if PROJECTION_KEY in node.metadata:
             projected = project_bpmn_inputs(
                 node.metadata[PROJECTION_KEY], input_data=state.input_data, results=state.node_results
@@ -62,7 +68,7 @@ class NativeGraphNodeEvaluationMixin:
         }
 
     @staticmethod
-    def _validate_artifacts(node: ExecutionNode, result: NativeNodeResult) -> None:
+    def validate_artifacts(node: ExecutionNode, result: NativeNodeResult) -> None:
         unexpected = set(result.artifact_refs) - set(node.output_artifacts)
         missing = set(node.output_artifacts) - set(result.artifact_refs)
         if unexpected:
@@ -70,12 +76,13 @@ class NativeGraphNodeEvaluationMixin:
         if missing:
             raise ValueError("native_node_artifact_missing")
 
-    def _consume_budget(self, plan: ExecutionPlan, state: NativeRunState, result: NativeNodeResult) -> None:
+    @staticmethod
+    def consume_budget(plan: ExecutionPlan, state: NativeRunState, result: NativeNodeResult) -> None:
         for key, value in result.budget_usage.items():
             state.budget_usage[key] = state.budget_usage.get(key, 0) + value
 
     @staticmethod
-    def _budget_exceeded(plan: ExecutionPlan, state: NativeRunState, result: NativeNodeResult) -> str:
+    def budget_exceeded(plan: ExecutionPlan, state: NativeRunState, result: NativeNodeResult) -> str:
         combined = dict(state.budget_usage)
         for key, value in result.budget_usage.items():
             combined[key] = combined.get(key, 0) + value
@@ -91,7 +98,7 @@ class NativeGraphNodeEvaluationMixin:
         return ""
 
     @staticmethod
-    def _assert_result_binding(
+    def assert_result_binding(
         plan: ExecutionPlan,
         request: NativeGraphRequest,
         result: NativeNodeResult,

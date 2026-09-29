@@ -137,12 +137,13 @@ def test_run_deadline_survives_restart_and_prevents_any_late_delegation():
 
 
 def test_active_bpmn_definition_cannot_be_replaced_after_start():
+    from agent.services.native_graph_command_application import assert_safe_plan_edit
     from agent.services.native_graph_models import NativeRunState
 
     plan = execution_plan(compile_request(xor_xml()))
     replacement = replace(plan, metadata={**plan.metadata, "bpmn_definition_hash": "different"})
     with pytest.raises(ValueError, match="bpmn_running_definition_immutable"):
-        NativeGraphOrchestrator._assert_safe_plan_edit(plan, replacement, NativeRunState())
+        assert_safe_plan_edit(plan, replacement, NativeRunState())
 
 
 def test_expired_approval_cannot_revive_a_bpmn_run():

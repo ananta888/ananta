@@ -5,8 +5,12 @@ control-plane work (routing, gates, fan-out selection, deterministic merge,
 ownership and persistence).  Every executable task node is submitted through
 ``HubTaskQueuePort``; the service has no in-process worker fallback.
 
-Scheduling, command application, node evaluation, and run persistence steps
-are implemented in ``native_graph_*`` mixin modules.
+The orchestrator composes collaborators built in ``__init__``: a node
+evaluator, an event emitter, a run lifecycle (termination, BPMN
+reconciliation, checkpoints), a tick scheduler and a command applier from the
+``native_graph_*`` modules.  Each receives only its own stores and ports; the
+evaluator and emitter can be replaced through keyword-only constructor
+parameters.
 """
 
 from __future__ import annotations
@@ -19,22 +23,27 @@ from agent.services.bpmn_event_wait_store import CheckpointEventWaitStore
 from agent.services.bpmn_native_event_runtime import BpmnNativeEventRuntime, event_plan_scope
 from agent.services.bpmn_run_lease import BpmnRunLeaseService
 from agent.services.native_graph_checkpoint_service import NativeGraphCheckpointService
-from agent.services.native_graph_command_application import NativeGraphCommandApplicationMixin
+from agent.services.native_graph_command_application import NativeGraphCommandApplier
 from agent.services.native_graph_delegation_service import NativeGraphDelegationService
 from agent.services.native_graph_models import (
     NATIVE_GRAPH_RUNTIME_ID,
     NATIVE_GRAPH_RUNTIME_VERSION,
     NATIVE_GRAPH_TERMINAL_STATUSES,
     NativeControlPolicyPort,
+    NativeGraphEventEmitterPort,
     NativeGraphRequest,
     NativeGraphResult,
     NativeGraphValidation,
     NativeRunState,
     WorkflowPlanArtifactPort,
 )
-from agent.services.native_graph_node_evaluation import NativeGraphNodeEvaluationMixin
-from agent.services.native_graph_run_persistence import NativeGraphRunPersistenceMixin
-from agent.services.native_graph_scheduling import NativeGraphSchedulingMixin
+from agent.services.native_graph_node_evaluation import NativeGraphNodeEvaluator
+from agent.services.native_graph_run_persistence import (
+    NativeGraphEventEmitter,
+    NativeGraphRunLifecycle,
+    native_graph_result,
+)
+from agent.services.native_graph_scheduling import NativeGraphScheduler
 from agent.services.workflow_authorization_grant_service import (
     InMemoryWorkflowAuthorizationGrantService,
     WorkflowAuthorizationGrantPort,
@@ -48,15 +57,10 @@ from agent.services.workflow_runtime.commands import SignedWorkflowCommand, Work
 from agent.services.workflow_runtime.components import (
     WorkflowComponentCompiler,
 )
-from agent.services.workflow_runtime.condition_evaluator import DeclarativeConditionEvaluator
 from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 from agent.services.workflow_runtime.native_graph_ports import HubTaskQueuePort
 from agent.services.workflow_runtime.ownership import ExecutionOwnershipStore
-from agent.services.workflow_runtime.parallel import (
-    BoundedFanOutScheduler,
-    DeterministicMergeService,
-)
 from agent.services.workflow_runtime.persistence import CheckpointStore
 from agent.services.workflow_runtime.security import (
     HmacKeyRing,
@@ -89,12 +93,7 @@ def _command_fingerprint(command: SignedWorkflowCommand) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
-class NativeGraphOrchestrator(
-    NativeGraphSchedulingMixin,
-    NativeGraphCommandApplicationMixin,
-    NativeGraphNodeEvaluationMixin,
-    NativeGraphRunPersistenceMixin,
-):
+class NativeGraphOrchestrator:
     """Production Native runtime coordinator owned exclusively by the Hub."""
 
     runtime_id = NATIVE_GRAPH_RUNTIME_ID
@@ -131,25 +130,22 @@ class NativeGraphOrchestrator(
         provider_decisions: WorkflowProviderDecisionPort | None = None,
         bpmn_events: BpmnNativeEventRuntime | None = None,
         clock=time.time,
+        node_evaluator: NativeGraphNodeEvaluator | None = None,
+        event_emitter: NativeGraphEventEmitterPort | None = None,
     ) -> None:
-        self._queue = queue
         self._checkpoints = checkpoints
         self._events = events
-        self._ownership = ownership
-        self._ledger = ledger
-        self._key_ring = key_ring
         grants = authorization_grants or InMemoryWorkflowAuthorizationGrantService(clock=clock)
         self._commands = command_verifier
         self._policy = policy
         self._components = component_compiler
-        self._plan_artifacts = plan_artifacts
         self._clock = clock
         self._run_leases = BpmnRunLeaseService(checkpoints=checkpoints, keys=key_ring, clock=clock)
-        self._bpmn_events = bpmn_events or BpmnNativeEventRuntime(
+        bpmn_events = bpmn_events or BpmnNativeEventRuntime(
             store=CheckpointEventWaitStore(checkpoints, key_ring),
             clock=clock,
         )
-        self._delegation = NativeGraphDelegationService(
+        delegation = NativeGraphDelegationService(
             queue=queue,
             ownership=ownership,
             ledger=ledger,
@@ -158,7 +154,7 @@ class NativeGraphOrchestrator(
             provider_decisions=(provider_decisions or build_workflow_provider_decision_service()),
             clock=clock,
         )
-        self._checkpoint_service = NativeGraphCheckpointService(
+        checkpoint_service = NativeGraphCheckpointService(
             checkpoints=checkpoints,
             key_ring=key_ring,
             runtime_id=self.runtime_id,
@@ -166,9 +162,38 @@ class NativeGraphOrchestrator(
             clock=clock,
             compile_plan=self._compile,
         )
-        self._conditions = DeclarativeConditionEvaluator()
-        self._fan_out = BoundedFanOutScheduler()
-        self._merge = DeterministicMergeService()
+        evaluator = node_evaluator or NativeGraphNodeEvaluator()
+        emitter: NativeGraphEventEmitterPort = event_emitter or NativeGraphEventEmitter(
+            events=events, ledger=ledger, clock=clock
+        )
+        self._emitter = emitter
+        self._lifecycle = NativeGraphRunLifecycle(
+            emitter=emitter,
+            events=events,
+            checkpoints=checkpoint_service,
+            bpmn_events=bpmn_events,
+            delegation=delegation,
+            node_input=evaluator.node_input,
+        )
+        self._scheduler = NativeGraphScheduler(
+            queue=queue,
+            ownership=ownership,
+            policy=policy,
+            delegation=delegation,
+            bpmn_events=bpmn_events,
+            lifecycle=self._lifecycle,
+            emitter=emitter,
+            evaluator=evaluator,
+            clock=clock,
+        )
+        self._command_applier = NativeGraphCommandApplier(
+            emitter=emitter,
+            run_control=self._lifecycle,
+            bpmn_events=bpmn_events,
+            plan_artifacts=plan_artifacts,
+            compile_plan=self._compile,
+            validate_plan=self.validate,
+        )
 
     def validate(self, plan: ExecutionPlan) -> NativeGraphValidation:
         reasons = [issue.code for issue in plan.validate()]
@@ -242,7 +267,7 @@ class NativeGraphOrchestrator(
             state.bpmn_deadline_at = state.bpmn_started_at + plan.budget.timeout_seconds
             if not math.isfinite(state.bpmn_deadline_at):
                 raise ValueError("bpmn_deadline_invalid")
-        self._emit(
+        self._emitter.emit(
             state,
             plan=plan,
             request=request,
@@ -250,9 +275,9 @@ class NativeGraphOrchestrator(
             dedupe_key=f"native:{request.run_id}:started",
             payload={"runtime_id": self.runtime_id, "plan_hash": plan.plan_hash},
         )
-        self._tick(plan, request, state)
-        checkpoint = self._save_checkpoint(plan, request, state)
-        return self._result(plan, request, state, checkpoint)
+        self._scheduler.tick(plan, request, state)
+        checkpoint = self._lifecycle.save_checkpoint(plan, request, state)
+        return native_graph_result(plan, request, state, checkpoint)
 
     def advance(self, request: NativeGraphRequest) -> NativeGraphResult:
         request.assert_valid()
@@ -262,27 +287,27 @@ class NativeGraphOrchestrator(
     def _advance_owned(self, request: NativeGraphRequest, lease) -> NativeGraphResult:
         request.assert_valid()
         requested_plan = self._compile(request.plan)
-        checkpoint, state, plan = self._load_verified(requested_plan, request)
+        checkpoint, state, plan = self._lifecycle.load_verified(requested_plan, request)
         state.control_lease = lease
         self._assert_request_state_binding(request, checkpoint, state)
         if state.status in _TERMINAL:
-            return self._result(plan, request, state, checkpoint)
-        if self._expire_bpmn_run(plan, request, state):
-            return self._result(plan, request, state, self._save_checkpoint(plan, request, state))
+            return native_graph_result(plan, request, state, checkpoint)
+        if self._scheduler.expire_bpmn_run(plan, request, state):
+            return native_graph_result(plan, request, state, self._lifecycle.save_checkpoint(plan, request, state))
         if state.status != "running":
-            return self._result(plan, request, state, checkpoint)
-        self._tick(plan, request, state)
-        updated = self._save_checkpoint(plan, request, state)
-        return self._result(plan, request, state, updated)
+            return native_graph_result(plan, request, state, checkpoint)
+        self._scheduler.tick(plan, request, state)
+        updated = self._lifecycle.save_checkpoint(plan, request, state)
+        return native_graph_result(plan, request, state, updated)
 
     def inspect(self, request: NativeGraphRequest) -> NativeGraphResult:
         """Read the latest verified state without ticking or persisting it."""
 
         request.assert_valid()
         requested_plan = self._compile(request.plan)
-        checkpoint, state, plan = self._load_verified(requested_plan, request)
+        checkpoint, state, plan = self._lifecycle.load_verified(requested_plan, request)
         self._assert_request_state_binding(request, checkpoint, state)
-        return self._result(plan, request, state, checkpoint)
+        return native_graph_result(plan, request, state, checkpoint)
 
     def resume(
         self,
@@ -310,7 +335,7 @@ class NativeGraphOrchestrator(
         request.assert_valid()
         requested_plan = self._compile(request.plan)
         if checkpoint is None:
-            current, state, plan = self._load_verified(requested_plan, request)
+            current, state, plan = self._lifecycle.load_verified(requested_plan, request)
         else:
             current = checkpoint
             if lease is not None:
@@ -320,8 +345,8 @@ class NativeGraphOrchestrator(
                 if authoritative is None or authoritative.checkpoint_id != current.checkpoint_id:
                     raise ValueError("bpmn_checkpoint_revision_stale")
             state = NativeRunState.from_workflow_state(current.state)
-            plan = self._effective_plan(requested_plan, state, current)
-            self._verify_checkpoint(current, plan, request)
+            plan = self._lifecycle.effective_plan(requested_plan, state, current)
+            self._lifecycle.verify_checkpoint(current, plan, request)
         state.control_lease = lease
         state.checkpoint_revision = current.revision
         self._assert_request_state_binding(request, current, state)
@@ -345,7 +370,7 @@ class NativeGraphOrchestrator(
             )
             if state.last_command_fingerprint != command_fingerprint:
                 raise PermissionError("native_control_command_receipt_conflict")
-            return self._result(plan, request, state, current)
+            return native_graph_result(plan, request, state, current)
         verifier = self._commands.verify_persisted if admitted_replay else self._commands.verify_once
         verifier(
             command,
@@ -362,17 +387,17 @@ class NativeGraphOrchestrator(
         allowed, reason = self._policy.authorize_command(command, plan=plan, state=state)
         if not allowed:
             raise PermissionError(reason or "native_control_policy_denied")
-        if not self._expire_bpmn_run(plan, request, state):
-            plan = self._apply_command(plan, request, state, command)
+        if not self._scheduler.expire_bpmn_run(plan, request, state):
+            plan = self._command_applier.apply(plan, request, state, command)
         if state.status == "running":
-            self._tick(plan, request, state)
+            self._scheduler.tick(plan, request, state)
         state.last_command_id = command.command_id
         state.last_command_fingerprint = command_fingerprint
-        updated = self._save_checkpoint(plan, request, state)
-        return self._result(plan, request, state, updated)
+        updated = self._lifecycle.save_checkpoint(plan, request, state)
+        return native_graph_result(plan, request, state, updated)
 
     def checkpoint(self, request: NativeGraphRequest) -> SignedCheckpoint:
-        checkpoint, _state, _plan = self._load_verified(self._compile(request.plan), request)
+        checkpoint, _state, _plan = self._lifecycle.load_verified(self._compile(request.plan), request)
         return checkpoint
 
     def available_commands(self, *, plan: ExecutionPlan, checkpoint: SignedCheckpoint) -> tuple[str, ...]:

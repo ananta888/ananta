@@ -1,30 +1,78 @@
 """Tick-driven scheduling steps of the Native graph orchestrator: result collection,
 conditional skips, merges, dispatch, and gates.
+
+``NativeGraphScheduler`` is a collaborator composed by ``NativeGraphOrchestrator``.
+It depends on the run lifecycle and event emitter ports and on the node
+evaluator, never on the orchestrator itself.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from agent.services.bpmn_control_nodes import decide_control
 from agent.services.bpmn_event_wait_contracts import EventWaitError
+from agent.services.bpmn_native_event_runtime import BpmnNativeEventRuntime
 from agent.services.bpmn_projection_control import project_control_result
-from agent.services.native_graph_models import NATIVE_GRAPH_TERMINAL_STATUSES, NativeGraphRequest, NativeRunState
+from agent.services.native_graph_delegation_service import NativeGraphDelegationService
+from agent.services.native_graph_models import (
+    NATIVE_GRAPH_TERMINAL_STATUSES,
+    NativeControlPolicyPort,
+    NativeGraphEventEmitterPort,
+    NativeGraphRequest,
+    NativeGraphRunLifecyclePort,
+    NativeRunState,
+)
+from agent.services.native_graph_node_evaluation import NativeGraphNodeEvaluator
 from agent.services.workflow_runtime._serialization import sha256_json
 from agent.services.workflow_runtime.components import validate_compiled_component_output
 from agent.services.workflow_runtime.execution_plan import ExecutionNode, ExecutionPlan
-from agent.services.workflow_runtime.parallel import BranchResult
+from agent.services.workflow_runtime.native_graph_ports import HubTaskQueuePort
+from agent.services.workflow_runtime.ownership import ExecutionOwnershipStore
+from agent.services.workflow_runtime.parallel import (
+    BoundedFanOutScheduler,
+    BranchResult,
+    DeterministicMergeService,
+)
 
 _TERMINAL = NATIVE_GRAPH_TERMINAL_STATUSES
 
 
-class NativeGraphSchedulingMixin:
-    """Advance a Native graph run by one scheduling tick; mixed into ``NativeGraphOrchestrator``."""
+class NativeGraphScheduler:
+    """Advance a Native graph run by one scheduling tick."""
 
-    def _tick(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> None:
+    def __init__(
+        self,
+        *,
+        queue: HubTaskQueuePort,
+        ownership: ExecutionOwnershipStore,
+        policy: NativeControlPolicyPort,
+        delegation: NativeGraphDelegationService,
+        bpmn_events: BpmnNativeEventRuntime,
+        lifecycle: NativeGraphRunLifecyclePort,
+        emitter: NativeGraphEventEmitterPort,
+        evaluator: NativeGraphNodeEvaluator,
+        clock: Callable[[], float],
+        fan_out: BoundedFanOutScheduler | None = None,
+        merge: DeterministicMergeService | None = None,
+    ) -> None:
+        self._queue = queue
+        self._ownership = ownership
+        self._policy = policy
+        self._delegation = delegation
+        self._bpmn_events = bpmn_events
+        self._lifecycle = lifecycle
+        self._emitter = emitter
+        self._evaluator = evaluator
+        self._clock = clock
+        self._fan_out = fan_out or BoundedFanOutScheduler()
+        self._merge = merge or DeterministicMergeService()
+
+    def tick(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> None:
         if state.status != "running":
             return
-        if self._expire_bpmn_run(plan, request, state):
+        if self.expire_bpmn_run(plan, request, state):
             return
         self._collect_results(plan, request, state)
         if state.status != "running":
@@ -35,18 +83,18 @@ class NativeGraphSchedulingMixin:
         self._execute_ready_merges(plan, request, state)
         if state.status != "running":
             return
-        self._reconcile_bpmn_events(plan, request, state)
+        self._lifecycle.reconcile_bpmn_events(plan, request, state)
         if state.status != "running":
             return
         self._dispatch_ready(plan, request, state)
-        self._finish_if_terminal(plan, request, state)
+        self._lifecycle.finish_if_terminal(plan, request, state)
 
-    def _expire_bpmn_run(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> bool:
+    def expire_bpmn_run(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> bool:
         if state.status in _TERMINAL or state.bpmn_deadline_at is None:
             return False
         if float(self._clock()) < state.bpmn_deadline_at:
             return False
-        self._fail_run(plan, request, state, "bpmn_run_deadline_exceeded")
+        self._lifecycle.fail_run(plan, request, state, "bpmn_run_deadline_exceeded")
         return True
 
     def _collect_results(self, plan: ExecutionPlan, request: NativeGraphRequest, state: NativeRunState) -> None:
@@ -62,13 +110,13 @@ class NativeGraphSchedulingMixin:
             running = state.running.get(result.node_id)
             if running is None:
                 continue
-            self._assert_result_binding(plan, request, result, running)
+            self._evaluator.assert_result_binding(plan, request, result, running)
             node = nodes[result.node_id]
             if state.control_lease is not None:
                 state.control_lease.ensure_valid()
-            exceeded = self._budget_exceeded(plan, state, result)
+            exceeded = self._evaluator.budget_exceeded(plan, state, result)
             if exceeded:
-                self._fail_run(plan, request, state, exceeded)
+                self._lifecycle.fail_run(plan, request, state, exceeded)
                 return
             owner_values = {
                 "tenant_id": plan.tenant_id,
@@ -82,7 +130,7 @@ class NativeGraphSchedulingMixin:
             }
             if result.status == "completed":
                 validate_compiled_component_output(node, result.output_data)
-                self._validate_artifacts(node, result)
+                self._evaluator.validate_artifacts(node, result)
                 if state.control_lease is not None:
                     state.control_lease.ensure_valid()
                 acknowledge = self._ownership.acknowledge_result
@@ -102,11 +150,11 @@ class NativeGraphSchedulingMixin:
                     ),
                 )
                 state.running.pop(result.node_id, None)
-                self._consume_budget(plan, state, result)
+                self._evaluator.consume_budget(plan, state, result)
                 state.completed.add(result.node_id)
                 state.node_results[result.node_id] = dict(result.output_data)
                 state.artifact_refs.update(result.artifact_refs)
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -119,7 +167,7 @@ class NativeGraphSchedulingMixin:
                         "budget_usage": dict(result.budget_usage),
                     },
                 )
-                self._emit_side_effect_if_present(plan, request, state, result, running)
+                self._emitter.emit_side_effect_if_present(plan, request, state, result, running)
                 continue
             state.running.pop(result.node_id, None)
             failure = result.reason_code or f"native_node_{result.status}"
@@ -136,11 +184,11 @@ class NativeGraphSchedulingMixin:
                 failure_code=failure,
                 dead_letter=False,
             )
-            self._consume_budget(plan, state, result)
+            self._evaluator.consume_budget(plan, state, result)
             attempt_count = state.attempts.get(result.node_id, 1)
             maximum = (node.budget or plan.budget).max_attempts
             if attempt_count < maximum:
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -152,7 +200,7 @@ class NativeGraphSchedulingMixin:
                 )
                 continue
             state.failed[result.node_id] = failure
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -163,7 +211,7 @@ class NativeGraphSchedulingMixin:
                 payload={"reason_code": failure},
             )
             if str(node.metadata.get("failure_policy") or "fail") != "continue":
-                self._fail_run(plan, request, state, failure)
+                self._lifecycle.fail_run(plan, request, state, failure)
                 return
 
     def _resolve_conditional_skips(
@@ -182,19 +230,19 @@ class NativeGraphSchedulingMixin:
                     continue
                 if not all(edge.source in terminal for edge in incoming[node.node_id]):
                     continue
-                evaluations = [self._edge_result(edge, state) for edge in incoming[node.node_id]]
+                evaluations = [self._evaluator.edge_result(edge, state) for edge in incoming[node.node_id]]
                 if any(result.value is None for result in evaluations):
                     reason = next(result.reason_code for result in evaluations if result.value is None)
-                    self._fail_run(plan, request, state, reason)
+                    self._lifecycle.fail_run(plan, request, state, reason)
                     return
                 mode = str(node.metadata.get("join_mode") or "any")
                 control = node.metadata.get("bpmn_control", {})
                 active = sum(result.matches for result in evaluations)
                 if control.get("kind") == "parallel" and 0 < active < len(evaluations):
-                    self._fail_run(plan, request, state, "bpmn_parallel_incomplete_activation")
+                    self._lifecycle.fail_run(plan, request, state, "bpmn_parallel_incomplete_activation")
                     return
                 if control.get("kind") == "exclusive" and active > 1:
-                    self._fail_run(plan, request, state, "bpmn_exclusive_multiple_arrivals")
+                    self._lifecycle.fail_run(plan, request, state, "bpmn_exclusive_multiple_arrivals")
                     return
                 route_matches = (
                     all(result.matches for result in evaluations)
@@ -204,7 +252,7 @@ class NativeGraphSchedulingMixin:
                 if route_matches:
                     continue
                 state.skipped.add(node.node_id)
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -242,13 +290,13 @@ class NativeGraphSchedulingMixin:
             )
             if merged.status != "completed":
                 state.failed[node.node_id] = merged.reason_code
-                self._fail_run(plan, request, state, merged.reason_code)
+                self._lifecycle.fail_run(plan, request, state, merged.reason_code)
                 return
             state.completed.add(node.node_id)
             state.node_results[node.node_id] = merged.value
             for artifact_id in node.output_artifacts:
                 state.artifact_refs[artifact_id] = f"artifact://native/{request.run_id}/{node.node_id}/{artifact_id}"
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -274,24 +322,24 @@ class NativeGraphSchedulingMixin:
         )
         nodes = {node.node_id: node for node in plan.nodes}
         for candidate in batch.candidates:
-            if self._expire_bpmn_run(plan, request, state):
+            if self.expire_bpmn_run(plan, request, state):
                 return
             node = nodes[candidate.node_id]
             if node.node_type == "merge":
                 continue
-            if not self._route_matches(plan, node, state):
+            if not self._evaluator.route_matches(plan, node, state):
                 continue
             if node.gate_id and node.gate_id not in state.approved_gates:
                 self._open_gate(plan, request, state, node)
                 continue
             if node.node_type == "bpmn_wait":
                 try:
-                    view = self._bpmn_events.arm(**self._bpmn_event_hooks(plan, request, state), node=node)
+                    view = self._bpmn_events.arm(**self._lifecycle.bpmn_event_hooks(plan, request, state), node=node)
                 except EventWaitError as exc:
                     state.failed[node.node_id] = str(exc)
-                    self._fail_run(plan, request, state, str(exc))
+                    self._lifecycle.fail_run(plan, request, state, str(exc))
                     return
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -309,7 +357,7 @@ class NativeGraphSchedulingMixin:
                 continue
             if node.node_type == "bpmn_control":
                 try:
-                    context = self._condition_context(state, node=node)
+                    context = self._evaluator.condition_context(state, node=node)
                     output = (
                         project_control_result(
                             node,
@@ -322,11 +370,11 @@ class NativeGraphSchedulingMixin:
                         else decide_control(node.metadata["bpmn_control"], context)
                     )
                 except ValueError as exc:
-                    self._fail_run(plan, request, state, str(exc))
+                    self._lifecycle.fail_run(plan, request, state, str(exc))
                     return
                 state.node_results[node.node_id] = output
                 state.completed.add(node.node_id)
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -350,7 +398,7 @@ class NativeGraphSchedulingMixin:
                     state.artifact_refs[artifact_id] = (
                         f"checkpoint://{plan.tenant_id}/{request.run_id}/{request.control_task_id}"
                     )
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -362,7 +410,7 @@ class NativeGraphSchedulingMixin:
                 continue
             allowed, reason = self._policy.authorize_delegation(plan=plan, node=node, state=state)
             if not allowed:
-                self._fail_run(plan, request, state, reason or "native_delegation_policy_denied")
+                self._lifecycle.fail_run(plan, request, state, reason or "native_delegation_policy_denied")
                 return
             self._submit_node(plan, request, state, node)
 
@@ -375,11 +423,11 @@ class NativeGraphSchedulingMixin:
             # the Hub. A post-ingest interruption can then adopt the exact task.
             previous_owner = self._ownership.get(tenant_id=plan.tenant_id, run_id=request.run_id, step_id=node.node_id)
             if previous_owner is None or previous_owner.status not in {"active", "completed"}:
-                self._save_checkpoint(plan, request, state)
+                self._lifecycle.save_checkpoint(plan, request, state)
         try:
-            node_input = self._node_input(node, state)
+            node_input = self._evaluator.node_input(node, state)
         except ValueError as exc:
-            self._fail_run(plan, request, state, str(exc))
+            self._lifecycle.fail_run(plan, request, state, str(exc))
             return
         self._delegation.submit(
             plan=plan,
@@ -387,8 +435,8 @@ class NativeGraphSchedulingMixin:
             state=state,
             node=node,
             input_data=node_input,
-            fail=self._fail_run,
-            emit=self._emit,
+            fail=self._lifecycle.fail_run,
+            emit=self._emitter.emit,
         )
 
     def _open_gate(
@@ -397,7 +445,7 @@ class NativeGraphSchedulingMixin:
         if node.gate_id in state.open_gates:
             return
         state.open_gates[node.gate_id] = node.node_id
-        self._emit(
+        self._emitter.emit(
             state,
             plan=plan,
             request=request,
@@ -409,7 +457,7 @@ class NativeGraphSchedulingMixin:
         gate = next(gate for gate in plan.gates if gate.gate_id == node.gate_id)
         if gate.gate_type == "resume":
             state.status = "paused"
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,

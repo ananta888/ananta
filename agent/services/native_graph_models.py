@@ -7,7 +7,9 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand
+from agent.services.workflow_runtime.events import CanonicalWorkflowEvent
 from agent.services.workflow_runtime.execution_plan import ExecutionNode, ExecutionPlan
+from agent.services.workflow_runtime.native_graph_contracts import NativeNodeResult
 from agent.services.workflow_runtime.security import SignedCheckpoint, WorkflowState
 
 NATIVE_GRAPH_RUNTIME_ID = "ananta-native"
@@ -37,6 +39,65 @@ class NativeControlPolicyPort(Protocol):
 
 class WorkflowPlanArtifactPort(Protocol):
     def load_plan(self, *, tenant_id: str, plan_ref: str) -> ExecutionPlan: ...
+
+
+class NativeGraphEventEmitterPort(Protocol):
+    """Append canonical run events under the run's control lease."""
+
+    def emit(
+        self,
+        state: "NativeRunState",
+        *,
+        plan: ExecutionPlan,
+        request: "NativeGraphRequest",
+        event_type: str,
+        dedupe_key: str,
+        step_id: str = "",
+        attempt: int = 0,
+        actor: str = "hub",
+        payload: dict[str, Any] | None = None,
+    ) -> CanonicalWorkflowEvent: ...
+
+    def emit_side_effect_if_present(
+        self,
+        plan: ExecutionPlan,
+        request: "NativeGraphRequest",
+        state: "NativeRunState",
+        result: NativeNodeResult,
+        running: dict[str, Any],
+    ) -> None: ...
+
+
+class NativeGraphRunControlPort(Protocol):
+    """Terminate or cancel a run and expose its BPMN event hooks."""
+
+    def fail_run(
+        self, plan: ExecutionPlan, request: "NativeGraphRequest", state: "NativeRunState", reason: str
+    ) -> None: ...
+
+    def cancel_running(
+        self, plan: ExecutionPlan, request: "NativeGraphRequest", state: "NativeRunState", reason: str
+    ) -> None: ...
+
+    def bpmn_event_hooks(
+        self, plan: ExecutionPlan, request: "NativeGraphRequest", state: "NativeRunState"
+    ) -> dict[str, Any]: ...
+
+
+class NativeGraphRunLifecyclePort(NativeGraphRunControlPort, Protocol):
+    """Run control plus completion, BPMN reconciliation and checkpoint persistence."""
+
+    def finish_if_terminal(
+        self, plan: ExecutionPlan, request: "NativeGraphRequest", state: "NativeRunState"
+    ) -> None: ...
+
+    def reconcile_bpmn_events(
+        self, plan: ExecutionPlan, request: "NativeGraphRequest", state: "NativeRunState"
+    ) -> None: ...
+
+    def save_checkpoint(
+        self, plan: ExecutionPlan, request: "NativeGraphRequest", state: "NativeRunState"
+    ) -> SignedCheckpoint: ...
 
 
 @dataclass(frozen=True)
@@ -221,8 +282,11 @@ __all__ = [
     "NATIVE_GRAPH_RUNTIME_VERSION",
     "NATIVE_GRAPH_TERMINAL_STATUSES",
     "NativeControlPolicyPort",
+    "NativeGraphEventEmitterPort",
     "NativeGraphRequest",
     "NativeGraphResult",
+    "NativeGraphRunControlPort",
+    "NativeGraphRunLifecyclePort",
     "NativeGraphValidation",
     "NativeRunState",
     "WorkflowPlanArtifactPort",

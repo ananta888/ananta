@@ -1,16 +1,48 @@
-"""Application of signed operator commands (including safe plan edits) to Native graph runs."""
+"""Application of signed operator commands (including safe plan edits) to Native graph runs.
+
+``NativeGraphCommandApplier`` is a collaborator composed by
+``NativeGraphOrchestrator``; plan compilation and validation are injected as
+callables so the applier does not depend on the orchestrator itself.
+"""
 
 from __future__ import annotations
 
-from agent.services.native_graph_models import NativeGraphRequest, NativeRunState
+from collections.abc import Callable
+
+from agent.services.bpmn_native_event_runtime import BpmnNativeEventRuntime
+from agent.services.native_graph_models import (
+    NativeGraphEventEmitterPort,
+    NativeGraphRequest,
+    NativeGraphRunControlPort,
+    NativeGraphValidation,
+    NativeRunState,
+    WorkflowPlanArtifactPort,
+)
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 
 
-class NativeGraphCommandApplicationMixin:
-    """Apply verified workflow commands to a Native graph run; mixed into ``NativeGraphOrchestrator``."""
+class NativeGraphCommandApplier:
+    """Apply verified workflow commands to a Native graph run."""
 
-    def _apply_command(
+    def __init__(
+        self,
+        *,
+        emitter: NativeGraphEventEmitterPort,
+        run_control: NativeGraphRunControlPort,
+        bpmn_events: BpmnNativeEventRuntime,
+        plan_artifacts: WorkflowPlanArtifactPort | None,
+        compile_plan: Callable[[ExecutionPlan], ExecutionPlan],
+        validate_plan: Callable[[ExecutionPlan], NativeGraphValidation],
+    ) -> None:
+        self._emitter = emitter
+        self._run_control = run_control
+        self._bpmn_events = bpmn_events
+        self._plan_artifacts = plan_artifacts
+        self._compile_plan = compile_plan
+        self._validate_plan = validate_plan
+
+    def apply(
         self,
         plan: ExecutionPlan,
         request: NativeGraphRequest,
@@ -19,10 +51,10 @@ class NativeGraphCommandApplicationMixin:
     ) -> ExecutionPlan:
         if command.command_type == "bpmn_message":
             delivery = self._bpmn_events.deliver_message(
-                **self._bpmn_event_hooks(plan, request, state),
+                **self._run_control.bpmn_event_hooks(plan, request, state),
                 command=command,
             )
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -41,7 +73,7 @@ class NativeGraphCommandApplicationMixin:
             gate_id = next((gate for gate, node in state.open_gates.items() if node == command.step_id), "")
             if command.command_type == "resume" and not gate_id and state.status == "paused":
                 state.status = "running"
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -60,7 +92,7 @@ class NativeGraphCommandApplicationMixin:
             if command.command_type == "reject":
                 state.open_gates.pop(gate_id, None)
                 state.failed[command.step_id] = "native_approval_rejected"
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -70,7 +102,7 @@ class NativeGraphCommandApplicationMixin:
                     dedupe_key=f"native:{request.run_id}:{command.command_id}:rejected",
                     payload={"gate_id": gate_id, "command_id": command.command_id},
                 )
-                self._fail_run(plan, request, state, "native_approval_rejected")
+                self._run_control.fail_run(plan, request, state, "native_approval_rejected")
                 return plan
             if command.command_type == "resume" and gate.gate_type != "resume":
                 raise ValueError("native_resume_gate_type_mismatch")
@@ -79,7 +111,7 @@ class NativeGraphCommandApplicationMixin:
             state.approved_gates.add(gate_id)
             state.open_gates.pop(gate_id, None)
             state.status = "running"
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -90,7 +122,7 @@ class NativeGraphCommandApplicationMixin:
                 payload={"gate_id": gate_id, "command_id": command.command_id},
             )
             if command.command_type == "resume":
-                self._emit(
+                self._emitter.emit(
                     state,
                     plan=plan,
                     request=request,
@@ -103,7 +135,7 @@ class NativeGraphCommandApplicationMixin:
             return plan
         if command.command_type == "pause":
             state.status = "paused"
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -115,10 +147,10 @@ class NativeGraphCommandApplicationMixin:
             )
             return plan
         if command.command_type == "cancel":
-            self._cancel_running(plan, request, state, "native_operator_cancel")
+            self._run_control.cancel_running(plan, request, state, "native_operator_cancel")
             state.status = "cancelled"
             state.reason_code = "native_operator_cancelled"
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -144,7 +176,7 @@ class NativeGraphCommandApplicationMixin:
                 state.failed.clear()
             state.status = "running"
             state.reason_code = ""
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=plan,
                 request=request,
@@ -161,14 +193,14 @@ class NativeGraphCommandApplicationMixin:
             replacement = self._replacement_plan(command)
             if replacement.plan_hash != str(command.payload.get("replacement_plan_hash") or ""):
                 raise ValueError("native_replacement_plan_hash_mismatch")
-            self._assert_safe_plan_edit(plan, replacement, state)
-            replacement = self._compile(replacement)
-            validation = self.validate(replacement)
+            assert_safe_plan_edit(plan, replacement, state)
+            replacement = self._compile_plan(replacement)
+            validation = self._validate_plan(replacement)
             if not validation.valid:
                 raise ValueError(f"native_replacement_plan_invalid:{','.join(validation.reason_codes)}")
             state.plan_revision += 1
             state.effective_plan = replacement.to_dict()
-            self._emit(
+            self._emitter.emit(
                 state,
                 plan=replacement,
                 request=request,
@@ -196,22 +228,24 @@ class NativeGraphCommandApplicationMixin:
             raise ValueError("native_plan_artifact_resolver_required")
         return self._plan_artifacts.load_plan(tenant_id=command.tenant_id, plan_ref=plan_ref)
 
-    @staticmethod
-    def _assert_safe_plan_edit(current: ExecutionPlan, replacement: ExecutionPlan, state: NativeRunState) -> None:
-        if (
-            current.metadata.get("bpmn_definition_hash") or current.metadata.get("bpmn_activation_expansion")
-        ) and replacement.plan_hash != current.plan_hash:
-            raise ValueError("bpmn_running_definition_immutable")
-        if replacement.tenant_id != current.tenant_id or replacement.workflow_id != current.workflow_id:
-            raise ValueError("native_plan_edit_binding_mismatch")
-        if replacement.policy_version != current.policy_version:
-            raise ValueError("native_plan_edit_policy_change_denied")
-        if set(replacement.capabilities) - set(current.capabilities):
-            raise ValueError("native_plan_edit_capability_escalation")
-        current_nodes = {node.node_id: node for node in current.nodes}
-        replacement_nodes = {node.node_id: node for node in replacement.nodes}
-        for node_id in state.completed | set(state.running):
-            missing = node_id not in replacement_nodes
-            changed = not missing and replacement_nodes[node_id].to_dict() != current_nodes[node_id].to_dict()
-            if missing or changed:
-                raise ValueError("native_plan_edit_executed_node_changed")
+
+def assert_safe_plan_edit(current: ExecutionPlan, replacement: ExecutionPlan, state: NativeRunState) -> None:
+    """Reject plan edits that would rewrite executed work, bindings, policy, or capabilities."""
+
+    if (
+        current.metadata.get("bpmn_definition_hash") or current.metadata.get("bpmn_activation_expansion")
+    ) and replacement.plan_hash != current.plan_hash:
+        raise ValueError("bpmn_running_definition_immutable")
+    if replacement.tenant_id != current.tenant_id or replacement.workflow_id != current.workflow_id:
+        raise ValueError("native_plan_edit_binding_mismatch")
+    if replacement.policy_version != current.policy_version:
+        raise ValueError("native_plan_edit_policy_change_denied")
+    if set(replacement.capabilities) - set(current.capabilities):
+        raise ValueError("native_plan_edit_capability_escalation")
+    current_nodes = {node.node_id: node for node in current.nodes}
+    replacement_nodes = {node.node_id: node for node in replacement.nodes}
+    for node_id in state.completed | set(state.running):
+        missing = node_id not in replacement_nodes
+        changed = not missing and replacement_nodes[node_id].to_dict() != current_nodes[node_id].to_dict()
+        if missing or changed:
+            raise ValueError("native_plan_edit_executed_node_changed")
