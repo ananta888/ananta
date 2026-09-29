@@ -115,10 +115,12 @@ class MlInternTrainingRepository:
                 session.expunge(existing)
                 return existing, True
 
+    @_serialized_sqlite_read
     def get_dataset(self, principal: MlInternTrainingPrincipal, dataset_id: str) -> MlInternDatasetDB | None:
         with Session(self._engine) as session:
             return session.exec(self._dataset_query(principal).where(MlInternDatasetDB.id == dataset_id)).first()
 
+    @_serialized_sqlite_read
     def list_datasets(
         self, principal: MlInternTrainingPrincipal, *, limit: int, offset: int
     ) -> list[MlInternDatasetDB]:
@@ -325,6 +327,7 @@ class MlInternTrainingRepository:
         with Session(self._engine) as session:
             return session.exec(self._job_query(principal).where(MlInternTrainingJobDB.id == job_id)).first()
 
+    @_serialized_sqlite_read
     def get_job_by_idempotency(
         self,
         principal: MlInternTrainingPrincipal,
@@ -333,6 +336,7 @@ class MlInternTrainingRepository:
         with Session(self._engine) as session:
             return self._job_by_idempotency(session, principal, idempotency_key_digest)
 
+    @_serialized_sqlite_read
     def count_active_jobs(self) -> int:
         with Session(self._engine) as session:
             count = session.exec(
@@ -344,6 +348,7 @@ class MlInternTrainingRepository:
             ).one()
         return int(count or 0)
 
+    @_serialized_sqlite_read
     def count_executing_jobs(self) -> int:
         """Return jobs that currently consume a Hub execution slot."""
 
@@ -355,6 +360,7 @@ class MlInternTrainingRepository:
             ).one()
         return int(count or 0)
 
+    @_serialized_sqlite_read
     def count_queued_jobs(self) -> int:
         with Session(self._engine) as session:
             count = session.exec(
@@ -362,6 +368,7 @@ class MlInternTrainingRepository:
             ).one()
         return int(count or 0)
 
+    @_serialized_sqlite_read
     def list_active_jobs(self, *, limit: int = 1000) -> list[MlInternTrainingJobDB]:
         with Session(self._engine) as session:
             return list(
@@ -377,6 +384,7 @@ class MlInternTrainingRepository:
                 ).all()
             )
 
+    @_serialized_sqlite_read
     def list_queued_jobs(self, *, limit: int = 10_000) -> list[MlInternTrainingJobDB]:
         """Return the durable global queue in deterministic arrival order."""
 
@@ -390,6 +398,7 @@ class MlInternTrainingRepository:
                 ).all()
             )
 
+    @_serialized_sqlite_read
     def list_jobs(
         self,
         principal: MlInternTrainingPrincipal,
@@ -416,6 +425,7 @@ class MlInternTrainingRepository:
                 ).all()
             )
 
+    @_serialized_sqlite_read
     def count_jobs(
         self,
         principal: MlInternTrainingPrincipal,
@@ -848,6 +858,7 @@ class MlInternTrainingRepository:
                     session.rollback()
         raise MlInternTrainingRepositoryConflict("event_sequence_conflict")
 
+    @_serialized_sqlite_read
     def list_events(
         self,
         principal: MlInternTrainingPrincipal,
@@ -942,10 +953,12 @@ class MlInternTrainingRepository:
                 session.expunge(existing)
                 return existing
 
+    @_serialized_sqlite_read
     def get_attempt(self, attempt_id: str) -> MlInternTrainingAttemptDB | None:
         with Session(self._engine) as session:
             return session.get(MlInternTrainingAttemptDB, attempt_id)
 
+    @_serialized_sqlite_read
     def list_attempts(self, job_id: str, *, limit: int = 100) -> list[MlInternTrainingAttemptDB]:
         with Session(self._engine) as session:
             return list(
@@ -957,6 +970,7 @@ class MlInternTrainingRepository:
                 ).all()
             )
 
+    @_serialized_sqlite_read
     def next_attempt_number(self, job_id: str) -> int:
         with Session(self._engine) as session:
             latest = session.exec(

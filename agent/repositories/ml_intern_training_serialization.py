@@ -3,14 +3,23 @@
 from __future__ import annotations
 
 import threading
+import time
 from functools import wraps
 from typing import Callable, ParamSpec, TypeVar
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 _REPOSITORY_WRITE_LOCK = threading.RLock()
+# A write that meets a transient SQLite lock ("database is locked" after the busy timeout, or a
+# shared-cache "database table is locked") is retried: it committed nothing, so it is repeatable.
+_SQLITE_LOCK_RETRIES = 5
+_SQLITE_LOCK_BACKOFF_SECONDS = 0.05
+
+
+def _is_transient_sqlite_lock(exc: OperationalError) -> bool:
+    return "locked" in str(getattr(exc, "orig", exc)).lower()
 
 
 def serialized_write(callback: Callable[_P, _R]) -> Callable[_P, _R]:
@@ -18,8 +27,15 @@ def serialized_write(callback: Callable[_P, _R]) -> Callable[_P, _R]:
 
     @wraps(callback)
     def guarded(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        with _REPOSITORY_WRITE_LOCK:
-            return callback(*args, **kwargs)
+        for attempt in range(_SQLITE_LOCK_RETRIES + 1):
+            with _REPOSITORY_WRITE_LOCK:
+                try:
+                    return callback(*args, **kwargs)
+                except OperationalError as exc:
+                    if attempt >= _SQLITE_LOCK_RETRIES or not _is_transient_sqlite_lock(exc):
+                        raise
+            time.sleep(_SQLITE_LOCK_BACKOFF_SECONDS * (attempt + 1))  # outside the lock: let the holder finish
+        raise AssertionError("unreachable")
 
     return guarded
 
