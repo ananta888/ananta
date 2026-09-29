@@ -245,7 +245,7 @@
       "id": "LMM-PROV-002", "title": "Fokussierten Provider-Statusvertrag für KAT, LFM und Needle integrieren", "status": "done", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M02", "depends_on": ["LMM-PROV-001"], "progress_percent": 100,
       "description": "Ein kleiner Port vereinheitlicht health, readiness, list_models, context_capacity, current_resource_usage, timeout und cancellation, ohne runtimespezifische Details in zentrale Hub-Services zu ziehen.",
       "acceptance_criteria": ["Health und Readiness sind getrennte Zustände.", "Capability-Metadaten sind explizit und versioniert.", "Provider-Ausfälle liefern stabile Reason-Codes.", "Cancellation und Timeout sind pro Invocation testbar.", "Needle-Status enthält keine Orchestrierungsoperationen."],
-      "evidence": ["ananta_contracts/local_model_runtime.py", "agent/services/local_model_runtime_status_service.py", "tests/services/test_local_model_runtime_status_service.py", "tests/test_local_model_runtime_contract.py"]
+      "evidence": ["ananta_contracts/local_model_runtime.py", "agent/services/local_model_runtime_status_service.py", "tests/services/test_local_model_runtime_status_service.py", "tests/local_model/test_local_model_runtime_contract.py"]
     },
     {
       "id": "LMM-PROV-003", "title": "Placement-Policy in einen produktiven Hub-Ressourcenservice verdrahten", "status": "done", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M02", "depends_on": ["LMM-PROV-002"], "progress_percent": 100,
@@ -257,7 +257,7 @@
       "id": "LMM-PROV-004", "title": "Provider-Readiness und Ressourcenstatus im Hub-Readmodel ausweisen", "status": "done", "priority": "P1", "risk": "medium", "type": "api", "milestone_id": "M02", "depends_on": ["LMM-PROV-002", "LMM-PROV-003"], "progress_percent": 100,
       "description": "Operatoren benötigen getrennte Zustände und Budgets je Modell, statt eines aggregierten grünen Runtime-Status.",
       "acceptance_criteria": ["KAT, LFM und Needle erscheinen getrennt mit health, readiness und effective_context.", "VRAM-/RAM-Nutzung und KAT-Expert-Budget werden begrenzt dargestellt.", "Keine Secrets, Prompts oder Argumente gelangen in das Readmodel.", "Bestehende Status-APIs bleiben kompatibel."],
-      "evidence": ["agent/routes/config/local_model_runtime.py", "agent/services/local_model_runtime_inventory_adapter.py", "agent/services/local_model_runtime_status_service.py", "tests/test_local_model_runtime_api.py", "tests/test_local_model_runtime_inventory_adapter.py"]
+      "evidence": ["agent/routes/config/local_model_runtime.py", "agent/services/local_model_runtime_inventory_adapter.py", "agent/services/local_model_runtime_status_service.py", "tests/local_model/test_local_model_runtime_api.py", "tests/local_model/test_local_model_runtime_inventory_adapter.py"]
     },
     {
       "id": "LMM-PROV-005", "title": "Provider-Invocation-Telemetrie und Auditfelder vervollständigen", "status": "done", "priority": "P1", "risk": "high", "type": "observability", "milestone_id": "M02", "depends_on": ["LMM-PROV-002"], "progress_percent": 100,

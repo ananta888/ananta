@@ -12,7 +12,7 @@ from agent.repositories.local_model_runtime_decision import SqliteLocalRuntimeDe
 from agent.services.local_model_runtime_lifecycle_service import LocalRuntimeLifecycleService
 from agent.services.local_multi_model_runtime import GiB, ResourceSnapshot, rtx3080_local_model_capabilities
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
     "local_model_runtime_control_script",
     ROOT / "scripts/local-model-runtime-control.py",

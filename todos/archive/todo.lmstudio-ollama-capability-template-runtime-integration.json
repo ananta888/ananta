@@ -980,7 +980,7 @@
       "id": "LMR-VG-04",
       "name": "API, catalog, Angular, TUI and security regressions",
       "status": "passed",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/test_local_model_runtime_api.py tests/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/local_model/test_local_model_runtime_api.py tests/local_model/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py",
       "result": "36 passed in 54.40s",
       "validated_at": "2026-09-01"
     }
