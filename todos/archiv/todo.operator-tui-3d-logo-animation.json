@@ -171,7 +171,7 @@
       "type": "architecture",
       "files": [
         "client_surfaces/operator_tui/animation3d/backends.py",
-        "tests/test_operator_tui_3d_backends.py"
+        "tests/operator_tui/test_operator_tui_3d_backends.py"
       ],
       "summary": "Abstract the animation backend so custom ASCII and optional library-backed renderers can coexist.",
       "acceptance_criteria": [
@@ -191,7 +191,7 @@
       "files": [
         "client_surfaces/operator_tui/animation3d/capabilities.py",
         "client_surfaces/operator_tui/capabilities.py",
-        "tests/test_operator_tui_3d_capabilities.py"
+        "tests/operator_tui/test_operator_tui_3d_capabilities.py"
       ],
       "summary": "Decide at runtime which animation mode is safe for terminal, CI and user preferences.",
       "depends_on": [
@@ -231,7 +231,7 @@
       "type": "feature",
       "files": [
         "client_surfaces/operator_tui/animation3d/geometry.py",
-        "tests/test_operator_tui_3d_geometry.py"
+        "tests/operator_tui/test_operator_tui_3d_geometry.py"
       ],
       "summary": "Represent the A as deterministic 3D points/segments/faces suitable for terminal projection.",
       "depends_on": [
@@ -299,7 +299,7 @@
       "type": "feature",
       "files": [
         "client_surfaces/operator_tui/animation3d/presets.py",
-        "tests/test_operator_tui_3d_presets.py"
+        "tests/operator_tui/test_operator_tui_3d_presets.py"
       ],
       "summary": "Allow different startup styles without changing renderer internals.",
       "depends_on": [
@@ -322,7 +322,7 @@
       "type": "renderer",
       "files": [
         "client_surfaces/operator_tui/animation3d/projection.py",
-        "tests/test_operator_tui_3d_projection.py"
+        "tests/operator_tui/test_operator_tui_3d_projection.py"
       ],
       "summary": "Convert 3D points into terminal character coordinates with perspective/orthographic modes.",
       "depends_on": [
@@ -345,7 +345,7 @@
       "type": "renderer",
       "files": [
         "client_surfaces/operator_tui/animation3d/rasterizer.py",
-        "tests/test_operator_tui_3d_zbuffer.py"
+        "tests/operator_tui/test_operator_tui_3d_zbuffer.py"
       ],
       "summary": "Ensure snake can pass in front of/behind the A convincingly.",
       "depends_on": [
@@ -367,7 +367,7 @@
       "type": "renderer",
       "files": [
         "client_surfaces/operator_tui/animation3d/shading.py",
-        "tests/test_operator_tui_3d_shading.py"
+        "tests/operator_tui/test_operator_tui_3d_shading.py"
       ],
       "summary": "Map depth, surface brightness and edge direction to suitable ASCII characters.",
       "depends_on": [
@@ -390,7 +390,7 @@
       "type": "renderer",
       "files": [
         "client_surfaces/operator_tui/animation3d/color.py",
-        "tests/test_operator_tui_3d_color.py"
+        "tests/operator_tui/test_operator_tui_3d_color.py"
       ],
       "summary": "Color A and snake separately while keeping visible characters ASCII.",
       "depends_on": [
@@ -413,7 +413,7 @@
       "files": [
         "client_surfaces/operator_tui/animation3d/cache.py",
         "client_surfaces/operator_tui/performance.py",
-        "tests/test_operator_tui_3d_frame_cache.py"
+        "tests/operator_tui/test_operator_tui_3d_frame_cache.py"
       ],
       "summary": "Avoid expensive frame regeneration in the interactive redraw loop.",
       "depends_on": [
@@ -633,10 +633,10 @@
       "priority": "critical",
       "type": "test",
       "files": [
-        "tests/test_operator_tui_3d_geometry.py",
-        "tests/test_operator_tui_3d_projection.py",
-        "tests/test_operator_tui_3d_shading.py",
-        "tests/test_operator_tui_3d_color.py"
+        "tests/operator_tui/test_operator_tui_3d_geometry.py",
+        "tests/operator_tui/test_operator_tui_3d_projection.py",
+        "tests/operator_tui/test_operator_tui_3d_shading.py",
+        "tests/operator_tui/test_operator_tui_3d_color.py"
       ],
       "summary": "Verify renderer logic independent of interactive terminal.",
       "depends_on": [

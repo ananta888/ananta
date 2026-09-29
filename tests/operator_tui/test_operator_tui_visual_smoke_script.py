@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def _script_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "scripts" / "operator_tui_visual_smoke.py"
+    return Path(__file__).resolve().parent.parent.parent / "scripts" / "operator_tui_visual_smoke.py"
 
 
 def test_visual_smoke_capabilities_only_outputs_json() -> None:

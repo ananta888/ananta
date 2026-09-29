@@ -22,7 +22,7 @@ from typing import NamedTuple
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
 _W, _H = 100, 30
-_SPLASH_CAST_FILE = Path(__file__).parent / "output" / "operator_tui_splash.cast"
+_SPLASH_CAST_FILE = Path(__file__).parent.parent / "output" / "operator_tui_splash.cast"
 
 _CLEAR = "\x1b[2J\x1b[H"   # clear screen + cursor home
 
