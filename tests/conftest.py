@@ -57,6 +57,10 @@ os.environ["REDIS_URL"] = ""
 # TUI unit tests made real HTTP calls (connect timeouts, or real inference and GBs of worker memory).
 # A local port that refuses at once keeps them offline; tests that configure an endpoint still win.
 os.environ.setdefault("ANANTA_TUI_CHAT_API_BASE_URL", "http://127.0.0.1:9/v1")
+# Likewise the hub's LM Studio default (192.168.56.1:1234): runtime probes (backend routing, opencode target
+# inference) sent SYNs into an unreachable LAN, and connect timeouts times three retries stalled tests for
+# 7-10 s. Live runners that set LMSTUDIO_URL keep theirs.
+os.environ.setdefault("LMSTUDIO_URL", "http://127.0.0.1:9/v1")
 # Every InteractiveOperatorTui auto-builds a CodeCompass index of the working directory (the whole
 # repository) on a background thread: the TUI tests' xdist worker grew to ~15 GB.
 os.environ.setdefault("ANANTA_TUI_AUTO_BUILD_CODECOMPASS", "0")
@@ -835,6 +839,11 @@ def cleanup_db_and_runtime():
             raise RuntimeError("ML-Intern training control executor did not become idle")
 
         reset_auth_state()
+        # the provider catalog caches LM Studio model lists per URL (TTL): a test that patches the candidate
+        # listing must not see what an earlier test of the same worker cached for the same URL
+        from agent.routes.config.shared import _LMSTUDIO_CATALOG_CACHE
+
+        _LMSTUDIO_CATALOG_CACHE.clear()
         try:
             from agent.routes.control_center_api import stop_control_center_event_poller
 
