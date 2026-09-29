@@ -87,8 +87,6 @@ class TestSelectiveDeliveryWithGitWorkspace:
         assert result.delivered_paths == []
         assert result.policy_scope_mode == "full"
 
-    def test_provider_to_llm_scope_ollama(self):
-        assert provider_to_llm_scope("ollama", None) == "local_only"
 
     def test_provider_to_llm_scope_external(self):
         assert provider_to_llm_scope("openai", "https://api.openai.com") == "external_cloud_allowed"

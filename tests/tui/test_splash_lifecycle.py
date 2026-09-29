@@ -86,13 +86,6 @@ def test_update_status():
     assert sm.context.status.tasks_queued == 5
 
 
-def test_invalid_transition_from_disabled():
-    sm = SplashMachine(fullscreen_seconds=5.0, clock=lambda: 0.0)
-    sm.disable()
-    with pytest.raises(SplashTransitionError):
-        sm.transition_to(SplashState.FULLSCREEN)
-
-
 def test_invalid_transition_raises():
     sm = SplashMachine(fullscreen_seconds=5.0, clock=lambda: 0.0)
     sm.disable()

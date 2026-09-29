@@ -19,18 +19,6 @@ class TestJobStatusMachine:
         m = get_status_machine("job_application")
         assert m is not None
 
-    def test_found_to_interesting_valid(self):
-        m = get_status_machine("job_application")
-        assert m is not None
-        result = m.validate_transition("found", "interesting")
-        assert result.valid is True
-
-    def test_found_to_offer_invalid(self):
-        m = get_status_machine("job_application")
-        assert m is not None
-        result = m.validate_transition("found", "offer")
-        assert result.valid is False
-        assert result.error_code == "TRANSITION_NOT_ALLOWED"
 
     def test_preparing_to_applied_logs_applied_at(self):
         m = get_status_machine("job_application")

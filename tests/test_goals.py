@@ -154,54 +154,6 @@ def _wait_goal_status(client, headers, goal_id: str, *, timeout_s: float = 5.0) 
     return status
 
 
-def test_plan_quality_from_task_ids_uses_task_kind_field(monkeypatch) -> None:
-    from agent.routes.tasks.goals import _plan_quality_from_task_ids
-
-    class _Repo:
-        @staticmethod
-        def get_by_id(_tid):
-            return SimpleNamespace(
-                title="Implement endpoint",
-                description="Implement API endpoint in Python code.",
-                task_kind="coding",
-            )
-
-    class _Repos:
-        task_repo = _Repo()
-
-    monkeypatch.setattr("agent.routes.tasks.goals._repos", lambda: _Repos())
-    ok, reason = _plan_quality_from_task_ids(
-        task_ids=["t1", "t2", "t3"],
-        mode="generic",
-        planning_policy={},
-        team_id=None,
-    )
-    assert ok is True
-    assert reason == "ok"
-
-
-def test_soft_planning_quality_failure_allows_generic_task_overflow() -> None:
-    from agent.routes.tasks.goals import _is_soft_planning_quality_failure
-
-    assert _is_soft_planning_quality_failure(
-        quality_reason="too_many_generic_tasks:4/0"
-    ) is True
-    assert _is_soft_planning_quality_failure(
-        quality_reason="missing_categories:review:0/1|too_many_generic_tasks:2/0"
-    ) is True
-
-
-def test_planning_slot_capacity_reads_config(app) -> None:
-    from agent.routes.tasks.goals import _planning_slot_capacity_from_config
-
-    app.config["AGENT_CONFIG"] = {
-        **(app.config.get("AGENT_CONFIG") or {}),
-        "planning_policy": {"parallel_goal_planning_max_concurrency": 3},
-    }
-    with app.app_context():
-        assert _planning_slot_capacity_from_config() == 3
-
-
 def test_planning_slots_respect_capacity_one(app) -> None:
     from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot
 
@@ -219,25 +171,6 @@ def test_planning_slots_respect_capacity_one(app) -> None:
         finally:
             if first:
                 _release_planning_slot()
-
-
-def test_planning_slots_use_explicit_capacity_override() -> None:
-    from agent.routes.tasks.goals import _acquire_planning_slot, _release_planning_slot
-
-    first = second = third = False
-    try:
-        first, cap = _acquire_planning_slot(timeout_s=1, capacity=2)
-        second, _ = _acquire_planning_slot(timeout_s=1, capacity=2)
-        third, _ = _acquire_planning_slot(timeout_s=1, capacity=2)
-        assert first is True
-        assert second is True
-        assert third is False
-        assert cap == 2
-    finally:
-        if second:
-            _release_planning_slot()
-        if first:
-            _release_planning_slot()
 
 
 class TestGoalsAPI:

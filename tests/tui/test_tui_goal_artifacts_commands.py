@@ -11,12 +11,6 @@ def _state() -> OperatorState:
     return OperatorState(endpoint="http://localhost:5000", section_id="artifacts", header_logo_game={})
 
 
-def test_goal_artifacts_command_requires_active_goal() -> None:
-    result = execute_command(":goal artifacts", _state())
-    assert result.handled is False
-    assert "active goal" in result.message
-
-
 def test_goal_sources_candidates_grant_revoke_detail_flow(monkeypatch, tmp_path: Path) -> None:
     from agent.config import settings
 

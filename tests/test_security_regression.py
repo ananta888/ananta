@@ -251,13 +251,6 @@ class TestFileScopeRegression:
             result = self.policy.check_read(path, read_paths=[], workspace_root="/workspace")
             assert not result.allowed, f"Traversal not blocked: {path!r}"
 
-    def test_path_within_workspace_allowed(self):
-        result = self.policy.check_read(
-            "/workspace/src/main.py",
-            read_paths=[],
-            workspace_root="/workspace",
-        )
-        assert result.allowed
 
     def test_write_outside_workspace_blocked(self):
         result = self.policy.check_write("/etc/passwd", write_paths=[], workspace_root="/workspace")

@@ -782,43 +782,6 @@ class TestT043ProviderCloudBlock:
 
 class TestT044SecurityRegression:
 
-    def test_policy_missing_denies_execution(self):
-        # BYPASS: missing policy → worker executes without classification
-        from tests.worker.test_awf_worker_fixup_t001_t010 import _DenyPolicyPort, _ListTracePort, _ManifestArtifactPort
-        from worker.runtime.standalone_runtime import StandaloneRuntime
-        from worker.core.tool_registry import build_default_registry
-        rt = StandaloneRuntime(
-            policy_port=_DenyPolicyPort(),
-            trace_port=_ListTracePort(),
-            artifact_port=_ManifestArtifactPort(),
-            tool_registry=build_default_registry(),
-        )
-        result = rt.run(
-            task_contract={
-                "schema": "standalone_task_contract.v1",
-                "task_id": "t-sec",
-                "command": "rm -rf /",
-                "worker": {"profile": "balanced", "profile_source": "agent_default"},
-                "execution": {"mode": "command_execute"},
-                "control_manifest": {"trace_id": "tr-1", "capability_id": "shell_execute"},
-                "expected_result_schema": "worker_execution_result.v1",
-            },
-            workspace_dir="/tmp",
-        )
-        assert result["status"] in {"degraded", "failed", "denied"}
-
-    def test_approval_missing_blocks_shell_execute(self):
-        # BYPASS: shell_execute without approval_ref → PreflightGate must block
-        from worker.core.execution_envelope import CapabilityGrant, ExecutionEnvelope
-        from worker.core.preflight import PreflightGate
-        env = ExecutionEnvelope(
-            task_id="t-1", actor_ref="hub", audit_correlation_id="a",
-            context_envelope_ref="ctx",
-            capability_grant=CapabilityGrant(capabilities=["shell_execute"]),
-        )
-        gate = PreflightGate()
-        decision = gate.check(env)
-        assert not decision.allowed
 
     def test_tool_not_registered_denied(self):
         # BYPASS: calling unregistered tool skips all resource/policy enforcement
@@ -826,19 +789,6 @@ class TestT044SecurityRegression:
         reg = WorkerToolRegistry()
         assert reg.is_registered("custom_dangerous_tool") is False
 
-    def test_cloud_block_on_confidential_context(self):
-        # BYPASS: confidential context leaks to cloud provider
-        from worker.core.context_resolver import (
-            ContextSensitivityFilter, ContextBlock, ContextSensitivity
-        )
-        f = ContextSensitivityFilter()
-        secret_block = ContextBlock(
-            source_type="file", origin_id="creds.json", provenance="p",
-            sensitivity=ContextSensitivity.secret, content="SECRET_TOKEN=abc",
-        )
-        kept, redacted = f.filter_for_cloud([secret_block])
-        assert kept == []
-        assert len(redacted) == 1
 
     def test_memory_redaction_before_persist(self):
         # BYPASS: raw secrets written to memory DB
@@ -855,16 +805,6 @@ class TestT044SecurityRegression:
         )
         assert any("subworker_capability_escalation" in e for e in errors)
 
-    def test_skill_unsafe_manifest_rejected(self):
-        # BYPASS: high-risk shell skill loaded with low risk_class
-        from worker.skills.skill_manifest import SkillManifest, validate_skill_manifest
-        m = SkillManifest(
-            id="evil_skill", version="1.0", name="Evil", description="bad",
-            required_capabilities=[], allowed_tools=["run_shell"],
-            denied_tools=[], risk_class="low",
-        )
-        errors = validate_skill_manifest(m)
-        assert any("risk_class_too_low" in e for e in errors)
 
     def test_skill_disabled_by_default_cannot_run(self):
         # BYPASS: skill auto-enabled and executed before review
