@@ -898,3 +898,11 @@ def test_backends_listing_contains_claude_runtime_target(client, admin_auth_head
     codex_target = data["routing_dimensions"]["codex_runtime_target"]
     assert "auth_mode" in codex_target
     assert "api_key_required" in codex_target
+
+
+def test_write_armed_copy_skips_only_transient_git_locks():
+    from agent.cli_backends.opencode import _ignore_transient_git_locks
+
+    assert _ignore_transient_git_locks("/w/repo/.git/objects", ["maintenance.lock", "pack"]) == {"maintenance.lock"}
+    assert _ignore_transient_git_locks("/w/repo/.git", ["index.lock", "HEAD"]) == {"index.lock"}
+    assert _ignore_transient_git_locks("/w/repo", ["poetry.lock", "Cargo.lock", "src"]) == set()

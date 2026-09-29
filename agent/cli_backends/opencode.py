@@ -779,6 +779,15 @@ def run_claude_command(
     )
 
 
+def _ignore_transient_git_locks(directory: str, names: list[str]) -> set[str]:
+    """``copytree`` ignore hook: git's ``*.lock`` files inside ``.git`` are transient (a concurrent git
+    process, e.g. auto-maintenance, creates and removes them) and would block git in the copy; project files
+    named ``*.lock`` outside ``.git`` are copied as usual."""
+    if ".git" not in Path(directory).parts:
+        return set()
+    return {name for name in names if name.endswith(".lock")}
+
+
 def _run_git(args: list[str], cwd: str, timeout: int = 60, input_text: str | None = None) -> tuple[int, str, str]:
     """Hilfsroutine fuer git-Aufrufe im write_armed-Workspace."""
     git_bin = shutil.which("git")
@@ -881,7 +890,7 @@ def run_claude_write_armed(
     tmp_root = tempfile.mkdtemp(prefix="ananta-claude-write-armed-")
     try:
         workspace = os.path.join(tmp_root, "workspace")
-        shutil.copytree(workdir_abs, workspace, symlinks=True)
+        shutil.copytree(workdir_abs, workspace, symlinks=True, ignore=_ignore_transient_git_locks)
         rc, _, err = _run_git(["add", "-A"], workspace)
         if rc == 0:
             rc, _, err = _run_git([*_WRITE_ARMED_GIT_IDENTITY, "commit", "--allow-empty", "-m", "ananta write_armed baseline"], workspace)
