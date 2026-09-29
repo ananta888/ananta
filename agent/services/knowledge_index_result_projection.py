@@ -7,16 +7,26 @@ passages from raw record content.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Protocol
 
 from agent.hybrid_orchestrator import ContextChunk
 
 
-class KnowledgeIndexResultProjectionMixin:
+class KnowledgeIndexResultProjecting(Protocol):
+    """What the retrieval service needs to shape ranked results."""
+
+    def passage(self, raw_record: dict[str, Any], query: str, max_chars: int) -> dict[str, Any] | None: ...
+
+    def record_projection(
+        self, chunk: ContextChunk, authoritative_scope: Mapping[str, Any] | None
+    ) -> dict[str, Any] | None: ...
+
+
+class KnowledgeIndexResultProjector:
     """Projects ranked chunks/raw records into caller-facing shapes."""
 
     @staticmethod
-    def _passage(raw_record: dict[str, Any], query: str, max_chars: int) -> dict[str, Any] | None:
+    def passage(raw_record: dict[str, Any], query: str, max_chars: int) -> dict[str, Any] | None:
         from agent.services.knowledge_passage import best_passage
 
         content = raw_record.get("content") if isinstance(raw_record.get("content"), str) else raw_record.get("text")
@@ -31,7 +41,7 @@ class KnowledgeIndexResultProjectionMixin:
         return {"text": passage.text, "line_start": passage.line_start, "line_end": passage.line_end}
 
     @staticmethod
-    def _record_projection(
+    def record_projection(
         chunk: ContextChunk, authoritative_scope: Mapping[str, Any] | None
     ) -> dict[str, Any] | None:
         metadata = dict(chunk.metadata or {})

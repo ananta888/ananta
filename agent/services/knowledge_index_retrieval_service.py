@@ -12,17 +12,22 @@ from agent.services.knowledge_index_consumption_policy import (
     get_knowledge_index_consumption_policy,
 )
 from agent.services.knowledge_index_manifest_identity import (
-    KnowledgeIndexManifestIdentityMixin,
+    KnowledgeIndexManifestIdentityResolver,
+    KnowledgeIndexManifestIdentitySource,
 )
 from agent.services.knowledge_index_record_loading import (
-    KnowledgeIndexRecordLoadingMixin,
+    KnowledgeIndexRecordReader,
+    KnowledgeIndexRecordSource,
+    nested_metadata_value,
 )
 from agent.services.knowledge_index_record_loading import _is_sha256 as _is_sha256
 from agent.services.knowledge_index_record_scoring import (
-    KnowledgeIndexRecordScoringMixin,
+    KnowledgeIndexRecordRanking,
+    KnowledgeIndexRecordScorer,
 )
 from agent.services.knowledge_index_result_projection import (
-    KnowledgeIndexResultProjectionMixin,
+    KnowledgeIndexResultProjecting,
+    KnowledgeIndexResultProjector,
 )
 from agent.services.knowledge_index_result_projection import (
     _strip_index_header as _strip_index_header,
@@ -35,17 +40,16 @@ from ananta_contracts.file_type_support import (
 )
 
 
-class KnowledgeIndexRetrievalService(
-    KnowledgeIndexRecordLoadingMixin,
-    KnowledgeIndexRecordScoringMixin,
-    KnowledgeIndexManifestIdentityMixin,
-    KnowledgeIndexResultProjectionMixin,
-):
+class KnowledgeIndexRetrievalService:
     """Reads completed rag-helper outputs as an additive retrieval source.
 
-    Orchestrates index selection and candidate ranking; record loading,
-    scoring, manifest identity and result projection live in the mixins.
+    Orchestrates index selection and candidate ranking. It composes four
+    collaborators behind narrow protocols (record reading, record ranking,
+    manifest identity, result projection); each is built here with its
+    production default and can be replaced through a keyword-only parameter.
     """
+
+    OUTPUT_FILENAMES = KnowledgeIndexRecordReader.OUTPUT_FILENAMES
 
     def __init__(
         self,
@@ -54,16 +58,40 @@ class KnowledgeIndexRetrievalService(
         *,
         file_type_registry: FileTypeSupportRegistry | None = None,
         consumption_policy: KnowledgeIndexConsumptionPolicy | None = None,
+        record_source: KnowledgeIndexRecordSource | None = None,
+        record_ranking: KnowledgeIndexRecordRanking | None = None,
+        manifest_identity: KnowledgeIndexManifestIdentitySource | None = None,
+        result_projector: KnowledgeIndexResultProjecting | None = None,
     ) -> None:
         self._knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
         self._knowledge_link_repository = knowledge_link_repository or knowledge_link_repo
-        registry = file_type_registry or load_file_type_support_registry(
-            Path(__file__).resolve().parents[2]
-        )
-        self._file_type_classifier = FileTypeClassifier(registry)
         self._consumption_policy = (
             consumption_policy or get_knowledge_index_consumption_policy()
         )
+        self._records: KnowledgeIndexRecordSource = record_source or KnowledgeIndexRecordReader()
+        if record_ranking is None:
+            registry = file_type_registry or load_file_type_support_registry(
+                Path(__file__).resolve().parents[2]
+            )
+            record_ranking = KnowledgeIndexRecordScorer(FileTypeClassifier(registry))
+        self._ranking: KnowledgeIndexRecordRanking = record_ranking
+        self._manifest_identity: KnowledgeIndexManifestIdentitySource = (
+            manifest_identity or KnowledgeIndexManifestIdentityResolver(self._iter_completed_indices)
+        )
+        self._projector: KnowledgeIndexResultProjecting = result_projector or KnowledgeIndexResultProjector()
+
+    def load_bound_records(
+        self,
+        *,
+        knowledge_index: Any,
+        bindings: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Hydrate exact, hash-verified records (see ``KnowledgeIndexRecordReader``)."""
+        return self._records.load_bound_records(knowledge_index=knowledge_index, bindings=bindings)
+
+    def current_manifest_identity(self) -> dict[str, Any]:
+        """Return the newest immutable snapshot revision, never a host-path hash."""
+        return self._manifest_identity.current_manifest_identity()
 
     def _collection_metadata(self, artifact_id: str) -> tuple[list[str], list[str]]:
         if not artifact_id:
@@ -137,7 +165,7 @@ class KnowledgeIndexRetrievalService(
                 issues.append("output_dir_missing")
                 bucket["issues"] = issues
                 continue
-            if not any((output_dir / name).exists() for name in self.OUTPUT_FILENAMES):
+            if not any((output_dir / name).exists() for name in self._records.OUTPUT_FILENAMES):
                 issues = list(bucket.get("issues") or [])
                 issues.append("no_index_outputs")
                 bucket["issues"] = issues
@@ -207,8 +235,8 @@ class KnowledgeIndexRetrievalService(
         ``index_ids`` is a strict allow-list applied to every index, legacy ones
         included, on top of the consumption policy's ``allowed_index_ids``.
         """
-        query_features = self._query_features(query)
-        profile = self._task_profile(task_kind, retrieval_intent)
+        query_features = self._ranking.query_features(query)
+        profile = self._ranking.task_profile(task_kind, retrieval_intent)
         candidates: list[tuple[ContextChunk, dict[str, Any]]] = []
         for knowledge_index in self._iter_completed_indices(
             allowed_index_ids=allowed_index_ids,
@@ -263,24 +291,24 @@ class KnowledgeIndexRetrievalService(
                 output_dir = Path(output_dir_raw)
                 if not output_dir.exists():
                     continue
-                output_records = list(self._iter_output_records(output_dir))
-            duplicate_ids = self._duplicate_candidate_ids(output_records)
+                output_records = list(self._records.iter_output_records(output_dir))
+            duplicate_ids = self._ranking.duplicate_candidate_ids(output_records)
             for filename, record in output_records:
                 if record_predicate is not None and not record_predicate(record):
                     continue
-                display_path = self._display_path(record)
+                display_path = self._records.display_path(record)
                 source = str(
                     display_path
                     or record.get("id")
                     or artifact_id
                     or "knowledge-index"
                 )
-                record_text = self._record_text(record)
+                record_text = self._records.record_text(record)
                 if not record_text:
                     continue
                 record_kind = str(record.get("kind", ""))
-                field_texts = self._record_field_texts(record, source)
-                score, breakdown = self._score_record(
+                field_texts = self._records.record_field_texts(record, source)
+                score, breakdown = self._ranking.score_record(
                     query=query,
                     record=record,
                     query_features=query_features,
@@ -308,7 +336,7 @@ class KnowledgeIndexRetrievalService(
                     "importance_score": record.get("importance_score"),
                     "generated_code": bool(record.get("generated_code", False)),
                     "duplicate_candidate": bool(str(record.get("id") or "").strip() in duplicate_ids),
-                    "boilerplate_candidate": self._is_boilerplate_candidate(
+                    "boilerplate_candidate": self._ranking.is_boilerplate_candidate(
                         record,
                         source_hint=source,
                         record_kind=record_kind,
@@ -331,7 +359,9 @@ class KnowledgeIndexRetrievalService(
                     # ``metadata.relative_path`` (records ingestion). Display
                     # only: ``repo_relative_path`` stays the hydration locator.
                     "display_path": display_path or None,
-                    "symbol": str(record.get("symbol") or self._nested(record, "symbol") or "").strip() or None,
+                    "symbol": (
+                        str(record.get("symbol") or nested_metadata_value(record, "symbol") or "").strip() or None
+                    ),
                     # Provider-issued identity remains unverified here and is
                     # released only after SourceCatalogAuthority validation.
                     "source_id": str(record.get("source_id") or "").strip() or None,
@@ -388,7 +418,7 @@ class KnowledgeIndexRetrievalService(
             allowed_index_ids=allowed_index_ids,
             authoritative_scope=authoritative_scope,
         )
-        records = (self._record_projection(chunk, authoritative_scope) for chunk in chunks)
+        records = (self._projector.record_projection(chunk, authoritative_scope) for chunk in chunks)
         return [record for record in records if record is not None]
 
     def search_records_page(
@@ -425,14 +455,14 @@ class KnowledgeIndexRetrievalService(
         records: list[dict[str, Any]] = []
         total = sum(unscored)
         for chunk, raw_record in ranked:
-            record = self._record_projection(chunk, authoritative_scope)
+            record = self._projector.record_projection(chunk, authoritative_scope)
             if record is None:
                 continue
             total += 1
             if len(records) >= max(1, int(limit)):
                 continue
             if passage_chars:
-                record["passage"] = self._passage(raw_record, query, int(passage_chars))
+                record["passage"] = self._projector.passage(raw_record, query, int(passage_chars))
             records.append(record)
         return {"records": records, "total": total}
 

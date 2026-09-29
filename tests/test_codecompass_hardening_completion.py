@@ -111,7 +111,9 @@ def test_scope_mismatched_hits_are_removed_for_every_channel() -> None:
 
 
 def test_knowledge_projection_rejects_stale_scope_metadata() -> None:
-    service = object.__new__(KnowledgeIndexRetrievalService)
+    service = KnowledgeIndexRetrievalService(
+        knowledge_index_repository=SimpleNamespace(list_completed=list),
+    )
     service.search = lambda *args, **kwargs: [
         SimpleNamespace(
             metadata={

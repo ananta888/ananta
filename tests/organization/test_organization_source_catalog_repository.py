@@ -18,8 +18,8 @@ from agent.repositories.organization_source_catalog_repository import (
 from agent.services.codecompass_artifact_manifest import (
     CodeCompassArtifactManifestProjector,
 )
-from agent.services.knowledge_index_retrieval_service import (
-    KnowledgeIndexRetrievalService,
+from agent.services.knowledge_index_record_loading import (
+    KnowledgeIndexRecordReader,
 )
 
 
@@ -125,7 +125,7 @@ def _snapshot(tmp_path):
         manifest_path=str(tmp_path / "manifest.json"),
         index_metadata={"artifact_manifest": public_manifest},
     )
-    content = KnowledgeIndexRetrievalService()._record_text(record)
+    content = KnowledgeIndexRecordReader().record_text(record)
     binding = {
         "source_id": "SRC_0001",
         "record_file": "index.jsonl",

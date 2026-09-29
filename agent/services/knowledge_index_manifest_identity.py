@@ -3,23 +3,34 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from agent.services.knowledge_index_record_loading import _is_sha256
 
 
-class KnowledgeIndexManifestIdentityMixin:
+class KnowledgeIndexManifestIdentitySource(Protocol):
+    """What the retrieval service needs to report the current snapshot revision."""
+
+    def current_manifest_identity(self) -> dict[str, Any]: ...
+
+
+class KnowledgeIndexManifestIdentityResolver:
     """Resolves the current immutable snapshot revision.
 
-    Host contract: provides ``_iter_completed_indices``.
+    ``completed_indices`` yields the consumable completed indices; the resolver
+    never reaches back into the service that composes it.
     """
+
+    def __init__(self, completed_indices: Callable[[], Iterable[Any]]) -> None:
+        self._completed_indices = completed_indices
 
     def current_manifest_identity(self) -> dict[str, Any]:
         """Return the newest immutable snapshot revision, never a host-path hash."""
 
         indices = sorted(
-            list(self._iter_completed_indices()),
+            list(self._completed_indices()),
             key=lambda item: (
                 -float(getattr(item, "updated_at", 0.0) or 0.0),
                 str(getattr(item, "id", "") or ""),

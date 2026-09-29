@@ -8,7 +8,9 @@ from agent.services.knowledge_index_consumption_policy import (
     KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
     KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
 )
+from agent.services.knowledge_index_record_scoring import KnowledgeIndexRecordScorer
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
+from ananta_contracts.file_type_classifier import FileTypeClassifier
 from ananta_contracts.file_type_support import load_file_type_support_registry
 
 
@@ -601,20 +603,20 @@ def test_knowledge_index_retrieval_wiki_metadata_preserves_revision_and_import_f
 
 def test_file_kind_buckets_follow_canonical_registry_families_and_selectors():
     registry = load_file_type_support_registry(Path(__file__).resolve().parents[2])
-    service = KnowledgeIndexRetrievalService(file_type_registry=registry)
+    scorer = KnowledgeIndexRecordScorer(FileTypeClassifier(registry))
 
     assert {descriptor.family for descriptor in registry.descriptors} <= set(
-        service.FILE_KIND_BY_FAMILY
+        scorer.FILE_KIND_BY_FAMILY
     )
-    assert service._file_kind_bucket("Sources/Account.swift") == "code"
-    assert service._file_kind_bucket("frontend/UserCard.vue") == "code"
-    assert service._file_kind_bucket("scripts/deploy.ps1") == "code"
-    assert service._file_kind_bucket("Dockerfile") == "config"
-    assert service._file_kind_bucket(".github/workflows/ci.yml") == "config"
-    assert service._file_kind_bucket("schemas/order.schema.json") == "config"
-    assert service._file_kind_bucket("docs/architecture/system.mmd") == "doc"
-    assert service._file_kind_bucket("README.md") == "doc"
-    assert service._file_kind_bucket("unknown.custom") == "other"
+    assert scorer.file_kind_bucket("Sources/Account.swift") == "code"
+    assert scorer.file_kind_bucket("frontend/UserCard.vue") == "code"
+    assert scorer.file_kind_bucket("scripts/deploy.ps1") == "code"
+    assert scorer.file_kind_bucket("Dockerfile") == "config"
+    assert scorer.file_kind_bucket(".github/workflows/ci.yml") == "config"
+    assert scorer.file_kind_bucket("schemas/order.schema.json") == "config"
+    assert scorer.file_kind_bucket("docs/architecture/system.mmd") == "doc"
+    assert scorer.file_kind_bucket("README.md") == "doc"
+    assert scorer.file_kind_bucket("unknown.custom") == "other"
 
 
 def _records_index(tmp_path, records):
@@ -677,10 +679,11 @@ def test_records_ingestion_path_is_citable_and_a_repetitive_blob_no_longer_wins(
 
 
 def test_repeated_token_hits_saturate():
-    service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=lambda: []))
-    capped = service._weighted_token_hits(["rag"], "rag " * 9, 1.0)
-    assert capped == service._weighted_token_hits(["rag"], "rag " * 900, 1.0)
-    assert service._weighted_token_hits(["rag"], "rag " * 2, 1.0) < capped
+    registry = load_file_type_support_registry(Path(__file__).resolve().parents[2])
+    scorer = KnowledgeIndexRecordScorer(FileTypeClassifier(registry))
+    capped = scorer.weighted_token_hits(["rag"], "rag " * 9, 1.0)
+    assert capped == scorer.weighted_token_hits(["rag"], "rag " * 900, 1.0)
+    assert scorer.weighted_token_hits(["rag"], "rag " * 2, 1.0) < capped
 
 
 def test_underscore_hyphen_and_space_variants_name_the_same_file_stem(tmp_path):

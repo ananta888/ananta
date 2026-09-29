@@ -2,19 +2,53 @@
 
 Tokenizes queries, derives task-specific weighting profiles and scores index
 records (field hits, path stem, definitions, quality penalties).
+
+``KnowledgeIndexRecordScorer`` is a collaborator of
+``KnowledgeIndexRetrievalService``; its only dependency is the file-type
+classifier it receives explicitly.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Protocol
+
+from agent.services.knowledge_index_record_loading import nested_metadata_value
 
 
-class KnowledgeIndexRecordScoringMixin:
-    """Ranks knowledge-index records against a query.
+class FileTypeClassifying(Protocol):
+    """The part of ``FileTypeClassifier`` the scorer uses."""
 
-    Host contract: provides ``_file_type_classifier`` and ``_nested``.
-    """
+    def classify(self, path: str, *, is_text: bool) -> Any: ...
+
+
+class KnowledgeIndexRecordRanking(Protocol):
+    """What the retrieval service needs to rank index records."""
+
+    def query_features(self, query: str) -> dict[str, list[str]]: ...
+
+    def task_profile(self, task_kind: str | None, retrieval_intent: str | None) -> dict[str, Any]: ...
+
+    def duplicate_candidate_ids(self, records: list[tuple[str, dict[str, Any]]]) -> set[str]: ...
+
+    def is_boilerplate_candidate(self, record: dict[str, Any], *, source_hint: str, record_kind: str) -> bool: ...
+
+    def score_record(
+        self,
+        *,
+        query: str,
+        record: dict[str, Any],
+        query_features: dict[str, list[str]],
+        field_texts: dict[str, str],
+        record_kind: str,
+        source_hint: str,
+        profile: dict[str, Any],
+        duplicate_ids: set[str],
+    ) -> tuple[float, dict[str, float]]: ...
+
+
+class KnowledgeIndexRecordScorer:
+    """Ranks knowledge-index records against a query."""
 
     # Repeats of one query token beyond this count add no further score.
     MAX_COUNTED_REPEATS = 8
@@ -82,13 +116,16 @@ class KnowledgeIndexRecordScoringMixin:
     RELATION_KIND_MARKERS = ("relation", "edge", "link", "reference", "dependency", "call", "import")
     BROAD_SUMMARY_KIND_MARKERS = ("summary", "overview")
 
+    def __init__(self, file_type_classifier: FileTypeClassifying) -> None:
+        self._file_type_classifier = file_type_classifier
+
     def _tokenize(self, value: str) -> list[str]:
         return [
             t for t in (token.lower() for token in self.TOKEN_PATTERN.findall(value or ""))
             if len(t) >= 3 and t not in self._STOP_TOKENS
         ]
 
-    def _query_features(self, query: str) -> dict[str, list[str]]:
+    def query_features(self, query: str) -> dict[str, list[str]]:
         tokens = self._tokenize(query)
         symbols: list[str] = []
         for token in tokens:
@@ -107,7 +144,7 @@ class KnowledgeIndexRecordScoringMixin:
         unique_symbols = sorted(set(symbols))
         return {"tokens": unique_tokens, "symbols": unique_symbols}
 
-    def _task_profile(self, task_kind: str | None, retrieval_intent: str | None) -> dict[str, Any]:
+    def task_profile(self, task_kind: str | None, retrieval_intent: str | None) -> dict[str, Any]:
         normalized_kind = str(task_kind or "").strip().lower()
         normalized_intent = str(retrieval_intent or "").strip().lower()
         profile = {
@@ -159,7 +196,7 @@ class KnowledgeIndexRecordScoringMixin:
 
         return profile
 
-    def _duplicate_candidate_ids(self, records: list[tuple[str, dict[str, Any]]]) -> set[str]:
+    def duplicate_candidate_ids(self, records: list[tuple[str, dict[str, Any]]]) -> set[str]:
         duplicate_ids: set[str] = set()
         for _filename, record in records:
             relation = str(record.get("relation") or record.get("type") or "").strip().lower()
@@ -171,7 +208,7 @@ class KnowledgeIndexRecordScoringMixin:
                     duplicate_ids.add(value)
         return duplicate_ids
 
-    def _is_boilerplate_candidate(self, record: dict[str, Any], *, source_hint: str, record_kind: str) -> bool:
+    def is_boilerplate_candidate(self, record: dict[str, Any], *, source_hint: str, record_kind: str) -> bool:
         source_lower = str(source_hint or "").lower()
         role_labels = {str(item).strip().lower() for item in list(record.get("role_labels") or []) if str(item).strip()}
         if record.get("generated_code"):
@@ -195,7 +232,7 @@ class KnowledgeIndexRecordScoringMixin:
             return "relation"
         return "other"
 
-    def _file_kind_bucket(self, source_hint: str) -> str:
+    def file_kind_bucket(self, source_hint: str) -> str:
         classification = self._file_type_classifier.classify(
             str(source_hint or ""),
             is_text=True,
@@ -207,7 +244,7 @@ class KnowledgeIndexRecordScoringMixin:
             "other",
         )
 
-    def _weighted_token_hits(self, tokens: list[str], text: str, weight: float) -> float:
+    def weighted_token_hits(self, tokens: list[str], text: str, weight: float) -> float:
         if not tokens or not text:
             return 0.0
         # Tokens never contain "-": "rag_helper" must also find "rag-helper".
@@ -236,7 +273,7 @@ class KnowledgeIndexRecordScoringMixin:
             or ".test." in name
         )
 
-    def _score_record(
+    def score_record(
         self,
         *,
         query: str,
@@ -263,10 +300,10 @@ class KnowledgeIndexRecordScoringMixin:
             "focus": 1.9,
         }
         weighted_hits = {
-            field: self._weighted_token_hits(query_tokens, field_texts.get(field, ""), weight)
+            field: self.weighted_token_hits(query_tokens, field_texts.get(field, ""), weight)
             for field, weight in field_weights.items()
         }
-        symbol_hit_score = self._weighted_token_hits(symbol_tokens, field_texts.get("symbol", ""), 2.5) * float(
+        symbol_hit_score = self.weighted_token_hits(symbol_tokens, field_texts.get("symbol", ""), 2.5) * float(
             profile.get("symbol_multiplier", 1.0)
         )
         phrase_bonus = 0.0
@@ -284,7 +321,7 @@ class KnowledgeIndexRecordScoringMixin:
         query_parts = {part for token in query_tokens for part in token.split("_") if len(part) >= 3}
         path_stem_bonus = self.PATH_STEM_TOKEN_WEIGHT * len(query_parts & stem_tokens)
 
-        definition_bonus = self._definition_bonus(query, record)
+        definition_bonus = self.definition_bonus(query, record)
 
         relation_signal = 0.0
         if field_texts.get("relations"):
@@ -293,7 +330,7 @@ class KnowledgeIndexRecordScoringMixin:
             relation_signal += 0.4
 
         record_bucket = self._record_kind_bucket(record_kind)
-        file_bucket = self._file_kind_bucket(source_hint)
+        file_bucket = self.file_kind_bucket(source_hint)
         record_multiplier = float((profile.get("record_kind_weights") or {}).get(record_bucket, 1.0))
         file_multiplier = float((profile.get("file_kind_weights") or {}).get(file_bucket, 1.0))
         base_score = (
@@ -311,7 +348,7 @@ class KnowledgeIndexRecordScoringMixin:
         generated_penalty = float(profile.get("generated_penalty", 0.0)) if bool(record.get("generated_code")) else 0.0
         boilerplate_penalty = (
             float(profile.get("boilerplate_penalty", 0.0))
-            if self._is_boilerplate_candidate(record, source_hint=source_hint, record_kind=record_kind)
+            if self.is_boilerplate_candidate(record, source_hint=source_hint, record_kind=record_kind)
             else 0.0
         )
         test_penalty = float(profile.get("test_penalty", 0.0)) if self._is_test_path(source_hint) else 0.0
@@ -344,11 +381,11 @@ class KnowledgeIndexRecordScoringMixin:
     DEFINITION_BONUS = 60.0
     _QUERY_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:_[A-Za-z0-9]+|[a-z0-9][A-Z][A-Za-z0-9]*)")
 
-    def _definition_bonus(self, query: str, record: dict[str, Any]) -> float:
+    def definition_bonus(self, query: str, record: dict[str, Any]) -> float:
         identifiers = [value for value in self._QUERY_IDENTIFIER.findall(str(query or "")) if len(value) >= 6]
         if not identifiers:
             return 0.0
-        symbol = str(record.get("symbol") or self._nested(record, "symbol") or "")
+        symbol = str(record.get("symbol") or nested_metadata_value(record, "symbol") or "")
         content = str(record.get("content") or record.get("text") or "")[:200_000]
         for identifier in identifiers[:4]:
             if symbol == identifier or symbol.endswith("." + identifier):

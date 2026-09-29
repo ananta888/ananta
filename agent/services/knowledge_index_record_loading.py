@@ -2,6 +2,9 @@
 
 Reads rag-helper output files, flattens records into retrieval text and
 hydrates exact, hash-verified records from Hub-persisted selectors.
+
+``KnowledgeIndexRecordReader`` is a stateless collaborator of
+``KnowledgeIndexRetrievalService``; it owns no repository and needs no host.
 """
 
 from __future__ import annotations
@@ -11,10 +14,31 @@ import json
 import re
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 
-class KnowledgeIndexRecordLoadingMixin:
+class KnowledgeIndexRecordSource(Protocol):
+    """What the retrieval service needs to read and describe index records."""
+
+    OUTPUT_FILENAMES: tuple[str, ...]
+
+    def iter_output_records(self, output_dir: Path) -> Iterable[tuple[str, dict[str, Any]]]: ...
+
+    def record_text(self, record: dict[str, Any]) -> str: ...
+
+    def record_field_texts(self, record: dict[str, Any], source_hint: str) -> dict[str, str]: ...
+
+    def display_path(self, record: dict[str, Any]) -> str: ...
+
+    def load_bound_records(
+        self,
+        *,
+        knowledge_index: Any,
+        bindings: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]: ...
+
+
+class KnowledgeIndexRecordReader:
     """Reads and flattens index records; hydrates hash-bound records."""
 
     OUTPUT_FILENAMES = ("index.jsonl", "details.jsonl", "relations.jsonl")
@@ -23,7 +47,7 @@ class KnowledgeIndexRecordLoadingMixin:
     MAX_BOUND_RECORD_LINE_BYTES = 2 * 1024 * 1024
     FIELD_EXCLUDE_KEYS = {"id", "parent_id", "node_id", "edge_id", "hash", "sha1", "sha256"}
 
-    def _iter_output_records(self, output_dir: Path) -> Iterable[tuple[str, dict[str, Any]]]:
+    def iter_output_records(self, output_dir: Path) -> Iterable[tuple[str, dict[str, Any]]]:
         for filename in self.OUTPUT_FILENAMES:
             path = output_dir / filename
             if not path.exists():
@@ -60,7 +84,7 @@ class KnowledgeIndexRecordLoadingMixin:
             return parts
         return []
 
-    def _record_text(self, record: dict[str, Any]) -> str:
+    def record_text(self, record: dict[str, Any]) -> str:
         preferred_parts: list[str] = []
         for key in ("title", "name", "content", "text", "path", "tag", "relation", "file", "kind"):
             if key in record:
@@ -170,7 +194,7 @@ class KnowledgeIndexRecordLoadingMixin:
                             continue
                         if key in matches:
                             raise ValueError("knowledge_index_bound_record_ambiguous")
-                        content = self._record_text(payload)
+                        content = self.record_text(payload)
                         content_hash = hashlib.sha256(
                             content.encode("utf-8", errors="strict")
                         ).hexdigest()
@@ -208,7 +232,7 @@ class KnowledgeIndexRecordLoadingMixin:
             raise ValueError("knowledge_index_bound_record_line_invalid")
         return normalized
 
-    def _record_field_texts(self, record: dict[str, Any], source_hint: str) -> dict[str, str]:
+    def record_field_texts(self, record: dict[str, Any], source_hint: str) -> dict[str, str]:
         def _join(keys: tuple[str, ...]) -> str:
             values: list[str] = []
             for key in keys:
@@ -239,23 +263,24 @@ class KnowledgeIndexRecordLoadingMixin:
         }
 
     @staticmethod
-    def _nested(record: dict[str, Any], key: str) -> Any:
-        metadata = record.get("metadata")
-        return metadata.get(key) if isinstance(metadata, dict) else None
-
-    @classmethod
-    def _display_path(cls, record: dict[str, Any]) -> str:
+    def display_path(record: dict[str, Any]) -> str:
         """Repository path of a record, wherever the producer put it."""
         for value in (
             record.get("file"),
             record.get("path"),
-            cls._nested(record, "relative_path"),
-            cls._nested(record, "path"),
-            cls._nested(record, "file"),
+            nested_metadata_value(record, "relative_path"),
+            nested_metadata_value(record, "path"),
+            nested_metadata_value(record, "file"),
         ):
             if isinstance(value, str) and value.strip():
                 return value.strip()
         return ""
+
+
+def nested_metadata_value(record: dict[str, Any], key: str) -> Any:
+    """Value of ``record["metadata"][key]`` when the record carries metadata."""
+    metadata = record.get("metadata")
+    return metadata.get(key) if isinstance(metadata, dict) else None
 
 
 def _is_sha256(value: str) -> bool:

@@ -27,8 +27,8 @@ from agent.db_models.source_control import (
 from agent.repositories.organization_source_catalog_repository import (
     SourceCatalogPublishingAuthority,
 )
-from agent.services.knowledge_index_retrieval_service import (
-    KnowledgeIndexRetrievalService,
+from agent.services.knowledge_index_record_loading import (
+    KnowledgeIndexRecordReader,
 )
 from agent.services.organization_source_catalog_binding_service import (
     OrganizationSourceCatalogBindingService,
@@ -102,10 +102,10 @@ def catalog_environment(tmp_path):
         "status": "completed",
         "manifest_digest": "5" * 64,
     }
-    reader = KnowledgeIndexRetrievalService()
+    reader = KnowledgeIndexRecordReader()
     # Bind the exact reconstruction returned from the persisted JSONL record;
     # mapping order is part of the current retrieval text implementation.
-    content = reader._record_text(json.loads(serialized_record))
+    content = reader.record_text(json.loads(serialized_record))
     content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
     provenance_digest = canonical_sha256(
         {

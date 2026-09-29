@@ -8,6 +8,7 @@ import pytest
 from flask import Flask
 
 from agent.routes.meet import meet_bp
+from agent.services.knowledge_index_record_scoring import KnowledgeIndexRecordScorer
 from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
 from agent.services.knowledge_passage import best_passage, query_tokens
 from agent.services.meet_knowledge_scope import ENV_NAME, allowed_index_ids, load_bindings
@@ -188,13 +189,18 @@ def test_route_honours_the_default_binding(app, monkeypatch):
     }
 
 
+def _record_scorer() -> KnowledgeIndexRecordScorer:
+    # The classifier is irrelevant to query features and definition bonuses.
+    return KnowledgeIndexRecordScorer(SimpleNamespace(classify=lambda _path, *, is_text: None))
+
+
 def test_all_caps_identifiers_do_not_become_single_letter_symbols():
     """Live regression: HANDLER_ONLY_TASK_KINDS became symbols a, d, e, h, ... matching any text."""
-    features = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=list))
-    symbols = features._query_features("HANDLER_ONLY_TASK_KINDS")["symbols"]
+    features = _record_scorer()
+    symbols = features.query_features("HANDLER_ONLY_TASK_KINDS")["symbols"]
     assert all(len(symbol) >= 3 for symbol in symbols)
     assert "handler_only_task_kinds" in symbols
-    assert {"rag", "helper", "index", "service"} <= set(features._query_features("RagHelperIndexService")["symbols"])
+    assert {"rag", "helper", "index", "service"} <= set(features.query_features("RagHelperIndexService")["symbols"])
 
 
 @pytest.mark.parametrize("content, symbol, expected", [
@@ -207,8 +213,8 @@ def test_all_caps_identifiers_do_not_become_single_letter_symbols():
     ("", "RagHelperIndexService.index_artifact", False),
 ])
 def test_records_defining_a_query_identifier_get_the_definition_bonus(content, symbol, expected):
-    service = KnowledgeIndexRetrievalService(knowledge_index_repository=SimpleNamespace(list_completed=list))
+    service = _record_scorer()
     query = {"HANDLER_ONLY_TASK_KINDS": "HANDLER_ONLY_TASK_KINDS"}.get(content.split(" ")[0].strip(), "")
     query = query or "HANDLER_ONLY_TASK_KINDS chunk_records RagHelperIndexService layerRoot"
-    bonus = service._definition_bonus(query, {"content": content, "symbol": symbol})
+    bonus = service.definition_bonus(query, {"content": content, "symbol": symbol})
     assert (bonus > 0) is expected
