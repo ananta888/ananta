@@ -67,6 +67,7 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
     monkeypatch,
 ):
     from agent.routes.tasks import autopilot as autopilot_module
+    from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
     from agent.services import recovery_dispatch_gate_service
     from agent.services.recovery_dispatch_gate_service import (
         RecoveryDispatchGateDecision,
@@ -155,10 +156,9 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
             raise AssertionError("valid recovery dispatch was invalidated")
 
     gate = Gate()
-    monkeypatch.setattr(
-        "agent.routes.tasks.autopilot_task_dispatcher."
-        "get_recovery_dispatch_gate_service",
-        lambda: gate,
+    AUTOPILOT_DISPATCH_DEPENDENCIES.install(
+        app,
+        recovery_dispatch_gate=lambda: gate,
     )
     monkeypatch.setattr(
         recovery_dispatch_gate_service,

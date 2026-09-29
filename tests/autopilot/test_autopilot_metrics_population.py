@@ -6,7 +6,7 @@ from agent.metrics import TASK_SUCCESS_RATE, WORKER_BUSY_SECONDS, WORKER_PROPOSE
 from agent.db_models import TaskDB
 from agent.repository import task_repo
 from agent.routes.tasks.autopilot_tick_engine import _dispatch_one_task
-from agent.routes.tasks import autopilot_task_dispatcher
+from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
 from agent.routes.tasks.auto_planner import auto_planner
 
 
@@ -61,16 +61,6 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
 
     services = SimpleNamespace(autopilot_decision_service=_DecisionService())
 
-    monkeypatch.setattr(
-        autopilot_task_dispatcher,
-        "_select_model_for_task",
-        lambda **kwargs: ("m1", {"selected_model": "m1", "source": "test"}),
-    )
-    monkeypatch.setattr(
-        autopilot_task_dispatcher,
-        "_proposal_strategy_candidates",
-        lambda **kwargs: [{"model": "m1", "source": "test", "temperature": None}],
-    )
     monkeypatch.setattr(auto_planner, "auto_followup_enabled", False)
 
     task = task_repo.save(
@@ -82,10 +72,11 @@ def test_dispatch_populates_core_bottleneck_metrics(monkeypatch):
         )
     )
     runtime_status = {"value": "todo"}
-    monkeypatch.setattr(
-        autopilot_task_dispatcher,
-        "_current_task_status",
-        lambda *_args, **_kwargs: runtime_status["value"],
+    AUTOPILOT_DISPATCH_DEPENDENCIES.install(
+        app,
+        select_model_for_task=lambda **kwargs: ("m1", {"selected_model": "m1", "source": "test"}),
+        proposal_strategy_candidates=lambda **kwargs: [{"model": "m1", "source": "test", "temperature": None}],
+        current_task_status=lambda *_args, **_kwargs: runtime_status["value"],
     )
 
     def update_task_status(_task_id, status, **_kwargs):

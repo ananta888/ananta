@@ -11,7 +11,6 @@ import time
 from typing import Any
 
 from agent.routes.tasks.autopilot_model_selector import _normalize_temperature_value
-from agent.services.repository_registry import get_repository_registry
 
 from .autopilot_dispatch_context import DispatchContext
 from .autopilot_proposal_strategies import ProposalStrategyOutcome
@@ -42,7 +41,7 @@ def handle_strategy_exhaustion(  # noqa: C901
     result = ctx.result
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     log = ctx.log
     strategy_failures = outcome.strategy_failures
     collected_llm_profiles = outcome.collected_llm_profiles
@@ -248,7 +247,7 @@ def handle_strategy_exhaustion(  # noqa: C901
     )
     if recovery_pending:
         authoritative_task = (
-            get_repository_registry(app_ctx)
+            ctx.dependencies.repository_registry(app_ctx)
             .task_repo.get_by_id(task.id)
         )
         authoritative_recovery = dict(

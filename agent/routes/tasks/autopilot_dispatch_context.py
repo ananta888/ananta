@@ -2,11 +2,10 @@
 
 The dispatch of one task runs through several phases (gates, execution-scope
 allocation, proposal strategies, strategy exhaustion). Each phase receives this
-immutable parameter object instead of a dozen positional collaborators.
-Collaborators that tests monkeypatch on
-:mod:`agent.routes.tasks.autopilot_task_dispatcher` (the recovery gate service
-and ``_current_task_status``) are resolved by the dispatcher at call time and
-injected here, so the phases never import them directly.
+immutable parameter object instead of a dozen positional collaborators. Its
+``dependencies`` bundle (:class:`.autopilot_dispatch_dependencies.DispatchDependencies`)
+carries the services and policies the phases delegate to; ``recovery_gate`` is
+the gate instance the bundle produced for this dispatch.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .autopilot_dispatch_dependencies import DispatchDependencies
 from .autopilot_task_dispatcher_helpers import TaskDispatchResult
 
 
@@ -28,5 +28,6 @@ class DispatchContext:
     recovery_gate: Any
     append_trace_event: Callable[..., None]
     update_local_task_status: Callable[..., None]
-    current_task_status: Callable[..., Any]
+    dependencies: DispatchDependencies
     log: Any
+

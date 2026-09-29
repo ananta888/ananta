@@ -9,12 +9,14 @@ single-responsibility siblings:
 * :mod:`.autopilot_proposal_strategies` - propose guards and the strategy loop.
 * :mod:`.autopilot_strategy_exhaustion` - model recovery and retry scheduling
   after all strategies failed.
+* :mod:`.autopilot_dispatch_dependencies` - the collaborators every phase
+  delegates to, and their per-application override seam.
 
 This module keeps the long-context helpers, the propose-failure handling and the
-evaluation/execution of an accepted proposal. Collaborators that tests
-monkeypatch here (``_current_task_status``, ``_select_model_for_task``,
-``_proposal_strategy_candidates``, ``get_recovery_dispatch_gate_service``) are
-looked up in this module's globals at call time and injected into the phases.
+evaluation/execution of an accepted proposal. The coordinator resolves the
+:class:`.autopilot_dispatch_dependencies.DispatchDependencies` bundle once per
+dispatch (or receives it explicitly) and passes it to every phase inside the
+:class:`.autopilot_dispatch_context.DispatchContext`.
 """
 
 from __future__ import annotations
@@ -23,19 +25,11 @@ import time
 from dataclasses import replace
 from typing import Any, Callable
 
-from agent.routes.tasks.autopilot_model_selector import (
-    _select_model_for_task,
-)
-from agent.routes.tasks.autopilot_strategy_candidates import (
-    _extract_strategy_state,
-    _proposal_strategy_candidates,
-)
-from agent.services.recovery_dispatch_gate_service import (
-    get_recovery_dispatch_gate_service,
-)
-from agent.services.repository_registry import get_repository_registry
-
 from .autopilot_dispatch_context import DispatchContext
+from .autopilot_dispatch_dependencies import (
+    AUTOPILOT_DISPATCH_DEPENDENCIES,
+    DispatchDependencies,
+)
 from .autopilot_dispatch_preflight import (
     allocate_execution_scope,
     evaluate_dispatch_gates,
@@ -46,7 +40,6 @@ from .autopilot_proposal_strategies import run_proposal_strategies
 from .autopilot_strategy_exhaustion import handle_strategy_exhaustion
 from .autopilot_task_dispatcher_helpers import (
     TaskDispatchResult,
-    _current_task_status,
     _effective_agent_cfg_for_task,
     _ensure_llm_profile_snapshot,
     _execute_proposed_step,
@@ -133,13 +126,16 @@ def _dispatch_one_task_inner(
     local_worker_url: str,
     append_trace_event: Callable[..., None],
     update_local_task_status: Callable[..., None],
+    dependencies: DispatchDependencies | None = None,
 ) -> TaskDispatchResult:
+    if dependencies is None:
+        dependencies = AUTOPILOT_DISPATCH_DEPENDENCIES.resolve()
     log = _task_log(task.id)  # thr-009
     result = TaskDispatchResult(task_id=task.id)
     # Skip stale dispatch candidates when a parallel thread already finalized
     # this task in the database.
     app_ctx = getattr(loop, "_app", None)
-    recovery_gate = get_recovery_dispatch_gate_service()
+    recovery_gate = dependencies.recovery_dispatch_gate()
     ctx = DispatchContext(
         task=task,
         target_worker=target_worker,
@@ -150,7 +146,7 @@ def _dispatch_one_task_inner(
         recovery_gate=recovery_gate,
         append_trace_event=append_trace_event,
         update_local_task_status=update_local_task_status,
-        current_task_status=_current_task_status,
+        dependencies=dependencies,
         log=log,
     )
     stop_result, current_task = evaluate_dispatch_gates(ctx)
@@ -166,7 +162,7 @@ def _dispatch_one_task_inner(
             result.dispatched = True
             return result
         # externalized: the task now fits and goes on to a worker with its material as a workspace file
-        task = get_repository_registry(app_ctx).task_repo.get_by_id(task.id) or task
+        task = dependencies.repository_registry(app_ctx).task_repo.get_by_id(task.id) or task
         current_task = task
         ctx = replace(ctx, task=task)
 
@@ -183,15 +179,15 @@ def _dispatch_one_task_inner(
         return stop_result
 
     model_meta: dict[str, Any] = {}
-    strategy_state = _extract_strategy_state(task)
+    strategy_state = dependencies.extract_strategy_state(task)
     try:
-        selected_model, model_meta = _select_model_for_task(
+        selected_model, model_meta = dependencies.select_model_for_task(
             loop=loop,
             task=task,
             excluded_models=set(strategy_state.get("failed_models") or []),
         )
         model_meta["selected_model"] = selected_model
-        strategy_candidates = _proposal_strategy_candidates(
+        strategy_candidates = dependencies.proposal_strategy_candidates(
             loop=loop,
             task=task,
             base_model_meta=model_meta,
@@ -246,7 +242,7 @@ def _handle_propose_failure(ctx: DispatchContext, exc: Exception) -> TaskDispatc
     result = ctx.result
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     if _is_transient_worker_transport_error(exc):
         defer_until = time.time() + 30
         update_local_task_status(
@@ -320,7 +316,7 @@ def _evaluate_and_execute_proposal(
     result = ctx.result
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     log = ctx.log
     command = propose_data.get("command")
     tool_calls = propose_data.get("tool_calls")

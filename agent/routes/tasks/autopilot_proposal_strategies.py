@@ -215,7 +215,7 @@ def run_proposal_strategies(  # noqa: C901
     recovery_gate = ctx.recovery_gate
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     propose_data = None
     strategy_failures: list[dict[str, Any]] = []
     collected_llm_profiles: list[dict[str, Any]] = []

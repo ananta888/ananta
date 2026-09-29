@@ -14,7 +14,6 @@ from agent.config import settings
 from agent.services.organization_task_dispatch_gate_service import (
     get_organization_task_dispatch_gate_service,
 )
-from agent.services.repository_registry import get_repository_registry
 
 from .autopilot_dispatch_context import DispatchContext
 from .autopilot_task_dispatcher_helpers import (
@@ -36,7 +35,7 @@ def evaluate_dispatch_gates(ctx: DispatchContext) -> tuple[TaskDispatchResult | 
     result = ctx.result
     recovery_gate = ctx.recovery_gate
     append_trace_event = ctx.append_trace_event
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     with recovery_gate.dispatch_guard(
         task.id,
         app=app_ctx,
@@ -55,7 +54,7 @@ def evaluate_dispatch_gates(ctx: DispatchContext) -> tuple[TaskDispatchResult | 
             result.failed = True
             result.failure_type = gate_decision.reason_code
             return result, None
-    current_task = get_repository_registry(app_ctx).task_repo.get_by_id(task.id)
+    current_task = ctx.dependencies.repository_registry(app_ctx).task_repo.get_by_id(task.id)
     organization_decision = (
         get_organization_task_dispatch_gate_service().evaluate(
             current_task or task
@@ -87,7 +86,7 @@ def evaluate_dispatch_gates(ctx: DispatchContext) -> tuple[TaskDispatchResult | 
     # Skip dispatch if the parent goal is already in a terminal state.
     goal_id = str(getattr(task, "goal_id", "") or "").strip()
     if goal_id:
-        repos = get_repository_registry(app_ctx)
+        repos = ctx.dependencies.repository_registry(app_ctx)
         goal_obj = repos.goal_repo.get_by_id(goal_id)
         goal_status = str(getattr(goal_obj, "status", "") or "").strip().lower()
         if goal_status in {
@@ -120,7 +119,7 @@ def hand_off_assigned_task(ctx: DispatchContext) -> TaskDispatchResult | None:
     recovery_gate = ctx.recovery_gate
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     latest_status = current_task_status(task.id, app=app_ctx)
     if latest_status in {"waiting_for_review", "needs_review"}:
         append_trace_event(
@@ -185,7 +184,7 @@ def throttle_repeated_propose(ctx: DispatchContext) -> TaskDispatchResult | None
     result = ctx.result
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     # Throttle repeated propose attempts for already-assigned tasks.
     # Without this guard, tight autopilot ticks can flood propose calls,
     # quickly tripping hard-guard windows without meaningful progress.
@@ -234,7 +233,7 @@ def allocate_execution_scope(
     result = ctx.result
     append_trace_event = ctx.append_trace_event
     update_local_task_status = ctx.update_local_task_status
-    current_task_status = ctx.current_task_status
+    current_task_status = ctx.dependencies.current_task_status
     is_local_fallback = (
         settings.role == "hub"
         and settings.hub_can_be_worker
