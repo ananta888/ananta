@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from io import BytesIO
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from agent.services.voice_generative_corrector_service import VoiceGenerativeCorrectorOutcome
+from tests.voice.voice_route_seam import override_voice_route
 from voice_runtime.context import VoiceRecognitionContext
 
 
@@ -89,8 +90,8 @@ def test_batch_projects_hub_only_corrector_policy_away_from_runtime(
     )
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice.get_voice_generative_corrector_service", return_value=corrector),
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "get_voice_generative_corrector_service", return_value=corrector),
     ):
         response = client.post(
             "/v1/voice/transcribe",
@@ -138,8 +139,8 @@ def test_stream_final_uses_creation_snapshot_when_profile_changes_mid_stream(
     )
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice.get_voice_generative_corrector_service", return_value=corrector),
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "get_voice_generative_corrector_service", return_value=corrector),
     ):
         created = client.post(
             "/v1/voice/streams",
@@ -190,9 +191,9 @@ def test_capability_is_not_advertised_when_configured_model_is_not_worker_ready(
         "reason_code": "generative_corrector_model_missing",
     }
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch(
-            "agent.routes.voice.generative_corrector_capability_bundle",
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(
+            client.application, "generative_corrector_capability_bundle",
             return_value={
                 "correction_models": [missing_model],
                 "correction_providers": [],
@@ -240,8 +241,8 @@ def test_batch_resolves_inherit_from_general_llm_configuration_at_the_hub_bounda
     )
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice.get_voice_generative_corrector_service", return_value=corrector),
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "get_voice_generative_corrector_service", return_value=corrector),
     ):
         response = client.post(
             "/v1/voice/transcribe",

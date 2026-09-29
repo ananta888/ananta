@@ -23,19 +23,21 @@ from agent.routes.voice_request_deadlines import (
     _context_with_remaining_deadline,
     _deadline_epoch_ms,
 )
+from agent.routes.voice_request_policy import (
+    _enforce_voice_policy,
+    _voice_privacy_state,
+)
 from agent.routes.voice_request_support import (
     _deadline_seconds,
-    _enforce_voice_policy,
     _governance_error,
     _max_audio_mb,
     _observe,
     _principal,
     _provider_error,
     _read_audio_field,
-    _voice_module,
-    _voice_privacy_state,
     _voice_request_ref,
 )
+from agent.routes.voice_route_dependencies import voice_route_dependencies
 from agent.services.voice_admission_service import (
     VoiceAdmissionLease,
     estimate_batch_audio_seconds,
@@ -58,10 +60,11 @@ from agent.services.voice_transcription_postprocessing_service import get_voice_
 @_observe("capabilities")
 @check_auth
 def capabilities():
+    dependencies = voice_route_dependencies()
     blocked, _policy = _enforce_voice_policy("capabilities")
     if blocked:
         return blocked
-    provider = _voice_module().get_voice_provider_service()
+    provider = dependencies.get_voice_provider_service()
     try:
         health = provider.health()
         models = provider.models()
@@ -74,7 +77,7 @@ def capabilities():
         catalog = []
         available = False
 
-    correction_catalog = _voice_module().generative_corrector_capability_bundle(
+    correction_catalog = dependencies.generative_corrector_capability_bundle(
         current_app.config.get("AGENT_CONFIG", {}) or {}
     )
     correction_models = correction_catalog["correction_models"]
@@ -122,6 +125,7 @@ def capabilities():
 @_observe("transcribe")
 @check_auth
 def transcribe():
+    dependencies = voice_route_dependencies()
     request_started_epoch_ms = time.time_ns() // 1_000_000
     blocked, _policy = _enforce_voice_policy("transcribe")
     if blocked:
@@ -129,7 +133,7 @@ def transcribe():
     (filename, payload), error = _read_audio_field("file")
     if error:
         return error
-    provider = _voice_module().get_voice_provider_service()
+    provider = dependencies.get_voice_provider_service()
     audit_id = f"audit-voice-{uuid.uuid4()}"
     principal = _principal()
     profile_id = str(request.form.get("profile_id") or "default")
@@ -146,9 +150,9 @@ def transcribe():
     claim = None
     delegation: VoiceDelegationTask | None = None
     admission_lease: VoiceAdmissionLease | None = None
-    admission_service = _voice_module().get_voice_admission_service()
+    admission_service = dependencies.get_voice_admission_service()
     try:
-        context = _voice_module()._recognition_context(
+        context = dependencies.recognition_context(
             principal,
             profile_id=profile_id,
             session_id=configuration_session_id,
@@ -193,7 +197,7 @@ def transcribe():
             )
             if claim.replayed:
                 result_ref = str(claim.result_metadata.get("result_ref") or "")
-                artifact = _voice_module().get_voice_result_artifact_service().get(principal, result_ref)
+                artifact = dependencies.get_voice_result_artifact_service().get(principal, result_ref)
                 return api_response(
                     data={
                         **artifact["result"],
@@ -204,6 +208,7 @@ def transcribe():
                     }
                 )
             recovered = _recover_hub_voice_execution(
+                dependencies=dependencies,
                 operation="transcribe",
                 principal=principal,
                 request_ref=request_hash,
@@ -231,7 +236,7 @@ def transcribe():
                         "audit_id": audit_id,
                     }
                 )
-        admission_limits = _voice_module()._voice_admission_limits()
+        admission_limits = dependencies.admission_limits()
         admission_lease = admission_service.acquire(
             principal,
             audio_seconds=estimate_batch_audio_seconds(
@@ -274,9 +279,9 @@ def transcribe():
             request_id=audit_id,
             language=str(request.form.get("language") or "").strip() or None,
             run_id=str(request.headers.get("X-Run-ID") or "").strip() or None,
-            restricted_choice_service=_voice_module().get_voice_restricted_choice_service(),
-            generative_judge_service=_voice_module().get_voice_generative_judge_service(),
-            generative_corrector_service=_voice_module().get_voice_generative_corrector_service(),
+            restricted_choice_service=dependencies.get_voice_restricted_choice_service(),
+            generative_judge_service=dependencies.get_voice_generative_judge_service(),
+            generative_corrector_service=dependencies.get_voice_generative_corrector_service(),
         )
         result = postprocess.result
         choice_applied = postprocess.choice_applied
@@ -284,7 +289,7 @@ def transcribe():
         choice_manifest_digest = postprocess.choice_manifest_digest
         corrector_applied = postprocess.corrector_applied
         corrector_reason = postprocess.corrector_reason
-        artifact = _voice_module().get_voice_result_artifact_service().create(
+        artifact = dependencies.get_voice_result_artifact_service().create(
             principal,
             request_hash=request_hash,
             result=result,
@@ -314,7 +319,7 @@ def transcribe():
     finally:
         admission_service.release(admission_lease)
 
-    _voice_module().log_audit(
+    dependencies.log_audit(
         "voice_transcribe",
         {
             "actor": principal.subject,

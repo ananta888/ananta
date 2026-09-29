@@ -1,4 +1,4 @@
-"""Voice request parsing, identity, error envelopes, observation and policy guard."""
+"""Voice request parsing, identity, error envelopes, observation and request limits."""
 
 from __future__ import annotations
 
@@ -27,18 +27,6 @@ from agent.services.voice_governance_domain import (
 )
 from agent.services.voice_observability import record_voice_request
 from agent.services.voice_provider import VoiceProviderError
-
-
-def _voice_module():
-    """Resolve monkeypatch seams through the public ``agent.routes.voice`` module at call time.
-
-    Tests patch collaborators such as service getters on ``agent.routes.voice``;
-    looking them up lazily keeps those patches effective for code that
-    now lives in sibling modules (and avoids an import-time cycle).
-    """
-    import importlib
-
-    return importlib.import_module("agent.routes.voice")
 
 
 def _observe(operation: str):
@@ -125,19 +113,6 @@ def _store_audio_enabled() -> bool:
     app_cfg = _mapping(current_app.config.get("AGENT_CONFIG"))
     voice_cfg = _mapping(app_cfg.get("voice_runtime"))
     return bool(voice_cfg.get("store_audio"))
-
-
-def _voice_privacy_state() -> dict:
-    # Raw audio persistence is intentionally fail-closed until explicit storage wiring exists.
-    return {
-        "store_audio_requested": bool(_voice_module()._store_audio_enabled()),
-        "store_audio_effective": False,
-        "effective_audio_retention": "none",
-        "policy_hint": "raw_audio_persistence_not_wired",
-        "raw_audio_persisted": False,
-        "raw_audio_persisted_after_request": False,
-        "transient_request_spooling": True,
-    }
 
 
 def _mapping(value: object) -> dict[str, Any]:
@@ -248,41 +223,3 @@ def _deadline_seconds() -> float | None:
             message="deadline_seconds must be numeric",
             status_code=422,
         ) from exc
-
-
-def _enforce_voice_policy(operation: str):
-    from flask import g
-
-    is_agent_auth = bool(getattr(g, "auth_payload", None))
-    is_user_auth = bool(getattr(g, "user", None))
-    decision = _voice_module().get_exposure_policy_service().evaluate_voice_access(
-        cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
-        is_agent_auth=is_agent_auth,
-        is_user_auth=is_user_auth,
-        is_admin=bool(getattr(g, "is_admin", False)),
-        operation=operation,
-    )
-    if decision.allowed:
-        return None, decision.policy
-    if decision.policy.get("emit_audit_events", True):
-        actor, tenant_id = _audit_identity()
-        _voice_module().log_audit(
-            "voice_access_blocked",
-            {
-                "actor": actor,
-                "tenant_id": tenant_id,
-                "reason": decision.reason,
-                "auth_source": decision.auth_source,
-                "operation": operation,
-                "policy_decision": "denied",
-                "request_id": str(request.headers.get("X-Request-ID") or f"voice-policy-{uuid.uuid4().hex}"),
-            },
-        )
-    return (
-        api_response(
-            status="error",
-            code=403,
-            data={"error": {"code": "policy_denied", "message": decision.reason, "retriable": False}},
-        ),
-        decision.policy,
-    )

@@ -22,15 +22,17 @@ from agent.routes.voice_request_deadlines import (
     _stream_preview_payload,
     _stream_request_context,
 )
-from agent.routes.voice_request_support import (
+from agent.routes.voice_request_policy import (
     _enforce_voice_policy,
+)
+from agent.routes.voice_request_support import (
     _governance_error,
     _max_audio_mb,
     _observe,
     _principal,
     _provider_error,
-    _voice_module,
 )
+from agent.routes.voice_route_dependencies import voice_route_dependencies
 from agent.services.voice_admission_service import (
     VoiceAdmissionLease,
     reserve_stream_audio_seconds,
@@ -58,6 +60,7 @@ from agent.services.voice_stream_session_service import get_voice_stream_session
 @_observe("stream")
 @check_auth
 def create_voice_stream():
+    dependencies = voice_route_dependencies()
     request_started_epoch_ms = time.time_ns() // 1_000_000
     blocked, _policy = _enforce_voice_policy("stream")
     if blocked:
@@ -95,7 +98,7 @@ def create_voice_stream():
             code=422,
             data={"error": {"code": "voice_stream.invalid_deadline", "message": "deadline_seconds is invalid"}},
         )
-    admission_limits = _voice_module()._voice_admission_limits()
+    admission_limits = dependencies.admission_limits()
     media_type = str(body.get("media_type") or "audio/pcm;rate=16000;channels=1")
     try:
         stream_audio_limit = min(
@@ -150,7 +153,7 @@ def create_voice_stream():
     session = None
     stream_committed = False
     stream_request_id = ""
-    admission_service = _voice_module().get_voice_admission_service()
+    admission_service = dependencies.get_voice_admission_service()
     try:
         payload["profile_id"] = validate_identifier(payload["profile_id"], field="profile_id")
         _assert_stream_preview_context(
@@ -161,7 +164,7 @@ def create_voice_stream():
             configuration_session_id=payload["configuration_session_id"],
             language=payload["language"],
         )
-        recognition_context = _voice_module()._recognition_context(
+        recognition_context = dependencies.recognition_context(
             principal,
             profile_id=payload["profile_id"],
             session_id=payload["configuration_session_id"],
@@ -237,7 +240,7 @@ def create_voice_stream():
             ),
             provisional=True,
         )
-        runtime = _voice_module().get_voice_provider_service().create_stream(
+        runtime = dependencies.get_voice_provider_service().create_stream(
             filename=payload["filename"],
             language=payload["language"],
             media_type=payload["media_type"],
@@ -327,7 +330,7 @@ def create_voice_stream():
         admission_lease = None  # The stream session now owns and releases the lease.
         idempotency.complete(claim, {"session_id": session.session_id, "task_id": delegation.task_id})
         stream_committed = True
-        _voice_module().log_audit(
+        dependencies.log_audit(
             "voice_stream_created",
             {
                 "actor": principal.subject,

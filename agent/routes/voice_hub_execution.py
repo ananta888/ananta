@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Mapping,
@@ -16,7 +17,6 @@ from agent.routes.voice_request_deadlines import (
 )
 from agent.routes.voice_request_support import (
     _deadline_seconds,
-    _voice_module,
     _voice_request_ref,
 )
 from agent.services.voice_admission_service import (
@@ -36,6 +36,10 @@ from agent.services.voice_idempotency_service import (
     VoiceIdempotencyService,
 )
 from agent.services.voice_provider import VoiceProviderError
+
+if TYPE_CHECKING:
+    # Type-only: the bundle references this module's executor, so it is passed in, not imported.
+    from agent.routes.voice_route_dependencies import VoiceRouteDependencies
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,7 @@ class _HubVoiceFailureContext:
 
 def _recover_hub_voice_execution(
     *,
+    dependencies: VoiceRouteDependencies,
     operation: str,
     principal: VoicePrincipal,
     request_ref: str,
@@ -88,7 +93,7 @@ def _recover_hub_voice_execution(
         return None
     if completion_fence is not None:
         completion_fence()
-    artifact = _voice_module().get_voice_result_artifact_service().find_live_envelope(
+    artifact = dependencies.get_voice_result_artifact_service().find_live_envelope(
         principal,
         request_ref=request_ref,
         profile_id=profile_id,
@@ -142,6 +147,7 @@ def _recover_hub_voice_execution(
 
 def _execute_hub_voice_request(
     *,
+    dependencies: VoiceRouteDependencies,
     operation: str,
     principal: VoicePrincipal,
     filename: str,
@@ -171,14 +177,14 @@ def _execute_hub_voice_request(
     delegation: VoiceDelegationTask | None = None
     admission_lease: VoiceAdmissionLease | None = None
     artifact_ref: str | None = None
-    admission_service = _voice_module().get_voice_admission_service()
+    admission_service = dependencies.get_voice_admission_service()
     request_hash = _voice_request_ref(
         principal,
         operation=operation,
         idempotency_key=idempotency_key,
     )
     try:
-        recognition_context = _voice_module()._recognition_context(
+        recognition_context = dependencies.recognition_context(
             principal,
             profile_id=profile_id,
             session_id=configuration_session_id,
@@ -229,7 +235,7 @@ def _execute_hub_voice_request(
                 if completion_fence is not None:
                     completion_fence()
                 result_ref = str(claim.result_metadata.get("result_ref") or "")
-                artifact = _voice_module().get_voice_result_artifact_service().get(principal, result_ref)
+                artifact = dependencies.get_voice_result_artifact_service().get(principal, result_ref)
                 return _HubVoiceExecution(
                     result=dict(artifact["result"]),
                     result_ref=result_ref,
@@ -259,6 +265,7 @@ def _execute_hub_voice_request(
                 artifact_ref = value
 
             recovered = _recover_hub_voice_execution(
+                dependencies=dependencies,
                 operation=operation,
                 principal=principal,
                 request_ref=request_hash,
@@ -282,7 +289,7 @@ def _execute_hub_voice_request(
             if recovered is not None:
                 return recovered
 
-        admission_limits = _voice_module()._voice_admission_limits()
+        admission_limits = dependencies.admission_limits()
         admission_lease = admission_service.acquire(
             principal,
             audio_seconds=estimate_batch_audio_seconds(
@@ -326,7 +333,7 @@ def _execute_hub_voice_request(
             result = transform_result(result, effective_configuration, delegation)
         if completion_fence is not None:
             completion_fence()
-        artifact = _voice_module().get_voice_result_artifact_service().create(
+        artifact = dependencies.get_voice_result_artifact_service().create(
             principal,
             request_hash=request_hash,
             result=result,

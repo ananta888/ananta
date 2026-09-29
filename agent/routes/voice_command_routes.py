@@ -22,16 +22,18 @@ from agent.routes.voice_hub_execution import (
     _complete_deferred_hub_voice_execution,
     _fail_deferred_hub_voice_execution,
 )
-from agent.routes.voice_request_support import (
+from agent.routes.voice_request_policy import (
     _enforce_voice_policy,
+    _voice_privacy_state,
+)
+from agent.routes.voice_request_support import (
     _governance_error,
     _observe,
     _principal,
     _provider_error,
     _read_audio_field,
-    _voice_module,
-    _voice_privacy_state,
 )
+from agent.routes.voice_route_dependencies import voice_route_dependencies
 from agent.services.voice_governance_domain import VoiceGovernanceError
 from agent.services.voice_provider import VoiceProviderError
 
@@ -40,6 +42,7 @@ from agent.services.voice_provider import VoiceProviderError
 @_observe("command")
 @check_auth
 def command():
+    dependencies = voice_route_dependencies()
     request_started_epoch_ms = time.time_ns() // 1_000_000
     blocked, _policy = _enforce_voice_policy("command")
     if blocked:
@@ -70,8 +73,8 @@ def command():
         except ValueError:
             parsed_context = None
     try:
-        provider = _voice_module().get_voice_provider_service()
-        execution = _voice_module()._execute_hub_voice_request(
+        provider = dependencies.get_voice_provider_service()
+        execution = dependencies.run_hub_voice_request(
             operation="command",
             principal=principal,
             filename=filename,
@@ -114,7 +117,7 @@ def command():
     }
     if audio_decision_note is not None:
         response["audio_decision"] = audio_decision_note
-    _voice_module().log_audit(
+    dependencies.log_audit(
         "voice_command",
         {
             "actor": principal.subject,
@@ -138,6 +141,7 @@ def command():
 @_observe("goal")
 @check_auth
 def goal():
+    dependencies = voice_route_dependencies()
     request_started_epoch_ms = time.time_ns() // 1_000_000
     blocked, policy = _enforce_voice_policy("goal")
     if blocked:
@@ -174,8 +178,8 @@ def goal():
     }
     governance_mode = str(request.form.get("governance_mode") or "").strip()
     try:
-        provider = _voice_module().get_voice_provider_service()
-        execution = _voice_module()._execute_hub_voice_request(
+        provider = dependencies.get_voice_provider_service()
+        execution = dependencies.run_hub_voice_request(
             operation="goal",
             principal=principal,
             filename=filename,
@@ -236,7 +240,7 @@ def goal():
                     }
                 },
             )
-        _voice_module().log_audit(
+        dependencies.log_audit(
             "voice_goal_replayed",
             {
                 "actor": principal.subject,
@@ -292,7 +296,7 @@ def goal():
             execution,
             RuntimeError(f"goal policy path rejected request: {message}"),
         )
-        _voice_module().log_audit(
+        dependencies.log_audit(
             "voice_goal_blocked",
             {
                 "actor": principal.subject,
@@ -322,7 +326,7 @@ def goal():
             "created_tasks": bool(create_tasks),
         },
     )
-    _voice_module().log_audit(
+    dependencies.log_audit(
         "voice_goal_created",
         {
             "actor": principal.subject,

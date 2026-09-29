@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from typing import Any, Mapping
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from agent.services.restricted_inference_contract import (
     CONTRACT_VERSION,
@@ -11,6 +11,7 @@ from agent.services.restricted_inference_contract import (
 from agent.services.restricted_inference_port import ContractRestrictedInferencePort
 from agent.services.voice_generative_judge_service import VoiceGenerativeJudgeOutcome
 from agent.services.voice_restricted_choice_service import VoiceRestrictedChoiceService
+from tests.voice.voice_route_seam import override_voice_route
 
 
 class _ChoiceTransport:
@@ -103,10 +104,12 @@ def test_transcribe_route_applies_hub_choice_to_a_known_candidate(client, admin_
     artifacts.create.return_value = {"id": "voice-result-1", "payload_digest": "a" * 64}
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice._recognition_context", return_value=_recognition_context()),
-        patch("agent.routes.voice.get_voice_restricted_choice_service", return_value=_service(transport)),
-        patch("agent.routes.voice.get_voice_result_artifact_service", return_value=artifacts),
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "recognition_context", return_value=_recognition_context()),
+        override_voice_route(
+            client.application, "get_voice_restricted_choice_service", return_value=_service(transport)
+        ),
+        override_voice_route(client.application, "get_voice_result_artifact_service", return_value=artifacts),
     ):
         response = _post_transcription(client, admin_auth_header)
 
@@ -130,13 +133,13 @@ def test_transcribe_route_worker_failure_persists_exact_baseline_object(client, 
     artifacts.create.return_value = {"id": "voice-result-2", "payload_digest": "b" * 64}
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice._recognition_context", return_value=_recognition_context()),
-        patch(
-            "agent.routes.voice.get_voice_restricted_choice_service",
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "recognition_context", return_value=_recognition_context()),
+        override_voice_route(
+            client.application, "get_voice_restricted_choice_service",
             return_value=_service(_ChoiceTransport(fail=True)),
         ),
-        patch("agent.routes.voice.get_voice_result_artifact_service", return_value=artifacts),
+        override_voice_route(client.application, "get_voice_result_artifact_service", return_value=artifacts),
     ):
         response = _post_transcription(client, admin_auth_header)
 
@@ -168,10 +171,10 @@ def test_transcribe_route_delegates_generative_policy_only_from_the_hub(client, 
     }
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice._recognition_context", return_value=context),
-        patch("agent.routes.voice.get_voice_generative_judge_service", return_value=judge),
-        patch("agent.routes.voice.get_voice_result_artifact_service", return_value=artifacts),
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "recognition_context", return_value=context),
+        override_voice_route(client.application, "get_voice_generative_judge_service", return_value=judge),
+        override_voice_route(client.application, "get_voice_result_artifact_service", return_value=artifacts),
     ):
         response = _post_transcription(client, admin_auth_header)
 

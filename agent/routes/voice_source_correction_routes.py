@@ -17,15 +17,17 @@ from flask import (
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.routes.voice_blueprint import voice_bp
-from agent.routes.voice_request_support import (
+from agent.routes.voice_request_policy import (
     _enforce_voice_policy,
+)
+from agent.routes.voice_request_support import (
     _governance_error,
     _observe,
     _principal,
     _provider_error,
     _read_audio_field,
-    _voice_module,
 )
+from agent.routes.voice_route_dependencies import voice_route_dependencies
 from agent.services.semantic_speech_source_correction_service import (
     SemanticSpeechSourceCorrectionError,
     get_semantic_speech_source_correction_service,
@@ -44,6 +46,7 @@ from ananta_contracts.speech_evidence_governance import SpeechEvidenceGovernance
 def correct_semantic_speech_source():
     """Run one consent-bound source correction through a Hub child task."""
 
+    dependencies = voice_route_dependencies()
     request_started_epoch_ms = time.time_ns() // 1_000_000
     blocked, _policy = _enforce_voice_policy("transcribe")
     if blocked:
@@ -71,9 +74,9 @@ def correct_semantic_speech_source():
         def authorize_current_state() -> None:
             """Fence delegation and publication against mid-request revocation."""
 
-            session = _voice_module().get_share_session_service().get_session(session_id)
+            session = dependencies.get_share_session_service().get_session(session_id)
             _authorize_semantic_source_session(principal, session, epoch=epoch)
-            consent = _voice_module().get_speech_evidence_consent_service().get(principal, consent_id)
+            consent = dependencies.get_speech_evidence_consent_service().get(principal, consent_id)
             _authorize_semantic_source_consent(
                 principal,
                 consent,
@@ -94,8 +97,8 @@ def correct_semantic_speech_source():
         )
         profile_id = str(request.form.get("profile_id") or "default")
         audit_id = f"audit-semantic-source-correction-{uuid.uuid4().hex}"
-        provider = _voice_module().get_voice_provider_service()
-        execution = _voice_module()._execute_hub_voice_request(
+        provider = dependencies.get_voice_provider_service()
+        execution = dependencies.run_hub_voice_request(
             operation="semantic_source_correction",
             principal=principal,
             filename=filename,
@@ -140,7 +143,7 @@ def correct_semantic_speech_source():
             data={"error": {"code": "source_correction_context_invalid", "message": "invalid correction context"}},
         )
 
-    _voice_module().log_audit(
+    dependencies.log_audit(
         "semantic_speech_source_corrected",
         {
             "actor": principal.subject,
@@ -169,6 +172,7 @@ def _authorize_semantic_source_session(
     *,
     epoch: int,
 ) -> None:
+    dependencies = voice_route_dependencies()
     now = time.time()
     if not isinstance(session, Mapping) or session.get("revoked_at") is not None:
         raise SemanticSpeechSourceCorrectionError("source_correction_session_inactive", status_code=403)
@@ -181,7 +185,7 @@ def _authorize_semantic_source_session(
         raise SemanticSpeechSourceCorrectionError("source_correction_tenant_mismatch", status_code=403)
     if str(session.get("owner_user_id") or "") == principal.subject:
         return
-    participants = _voice_module().get_share_session_service().get_participants(str(session.get("id") or ""))
+    participants = dependencies.get_share_session_service().get_participants(str(session.get("id") or ""))
     if not any(
         str(item.get("user_id") or "") == principal.subject and item.get("revoked_at") is None
         for item in participants

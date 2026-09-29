@@ -26,6 +26,7 @@ from agent.services.voice_stream_session_service import (
     VoiceStreamSessionService,
     get_voice_stream_session_service,
 )
+from tests.voice.voice_route_seam import override_voice_route
 
 
 def _transcription_result():
@@ -58,7 +59,7 @@ def _created_runtime_stream(**kwargs):
 
 def test_batch_transcription_idempotency_replays_encrypted_result(client, admin_auth_header):
     headers = {**admin_auth_header, "Idempotency-Key": "voice-batch-result-1"}
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.return_value = _transcription_result()
         first = client.post(
             "/v1/voice/transcribe",
@@ -120,7 +121,7 @@ def test_transcription_recovers_artifact_after_crash_before_task_completion(
     idempotency_key = "voice-transcribe-artifact-crash"
     headers = {**admin_auth_header, "Idempotency-Key": idempotency_key}
     audio = b"opaque recovery audio"
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.return_value = _transcription_result()
         with patch(
             "agent.services.voice_delegation_task_service.VoiceDelegationTaskService.complete",
@@ -191,7 +192,7 @@ def test_batch_without_fingerprint_consent_persists_only_opaque_audio_lineage(
     audio = b"private-audio-fixture-that-must-not-be-fingerprinted"
     raw_digest = hashlib.sha256(audio).hexdigest()
     profile_id = f"no-fingerprint-{uuid.uuid4().hex}"
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.return_value = _transcription_result()
         response = client.post(
             "/v1/voice/transcribe",
@@ -241,7 +242,7 @@ def test_batch_idempotency_is_bound_to_effective_profile_configuration(client, a
     )
     assert first_configuration.status_code == 200
     headers = {**admin_auth_header, "Idempotency-Key": "voice-config-bound-request"}
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.return_value = _transcription_result()
         first = client.post(
             "/v1/voice/transcribe",
@@ -275,7 +276,7 @@ def test_batch_idempotency_is_bound_to_effective_profile_configuration(client, a
 
 def test_batch_idempotency_rejects_different_same_length_audio(client, admin_auth_header):
     headers = {**admin_auth_header, "Idempotency-Key": "voice-audio-binding"}
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.return_value = _transcription_result()
         first = client.post(
             "/v1/voice/transcribe",
@@ -297,7 +298,7 @@ def test_batch_idempotency_rejects_different_same_length_audio(client, admin_aut
 
 
 def test_hub_streaming_is_principal_bound_and_finalizes_to_result_artifact(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.push_stream_chunk.return_value = {"event": {"event_type": "partial", "payload": {"text": "Hallo"}}}
@@ -375,7 +376,7 @@ def test_hub_rejects_stream_gap_and_conflicting_replay_before_runtime_dispatch(
     client,
     admin_auth_header,
 ):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.push_stream_chunk.return_value = {
@@ -475,7 +476,7 @@ def test_hub_stream_creation_requires_idempotency_key(client, admin_auth_header)
 
 
 def test_hub_stream_forwards_and_enforces_pcm_audio_budget(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.delete_stream.return_value = {"deleted": True}
@@ -540,7 +541,7 @@ def test_hub_stream_deadline_reserves_capture_and_candidate_budgets(client, admi
     )
     assert configured.status_code == 200
 
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.delete_stream.return_value = {"deleted": True}
@@ -578,8 +579,8 @@ def test_hub_stream_reserves_configured_maximum_for_opaque_container(client, adm
     )
     admission_service = get_voice_admission_service()
     with (
-        patch("agent.routes.voice._voice_admission_limits", return_value=limits),
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "admission_limits", return_value=limits),
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(admission_service, "acquire", wraps=admission_service.acquire) as acquire,
     ):
         provider = provider_factory.return_value
@@ -608,7 +609,7 @@ def test_hub_stream_creation_failure_durably_deletes_runtime_orphan(client, admi
     cleanup = get_voice_runtime_cleanup_service()
     session_service = get_voice_stream_session_service()
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
         patch.object(
             session_service,
@@ -638,7 +639,7 @@ def test_hub_stream_creation_failure_durably_deletes_runtime_orphan(client, admi
 def test_expired_hub_stream_deletes_runtime_and_terminalizes_task(client, admin_auth_header):
     cleanup = get_voice_runtime_cleanup_service()
     principal = VoicePrincipal(tenant_id="admin", subject="admin")
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
         created = client.post(
             "/v1/voice/streams",
@@ -687,7 +688,7 @@ def test_client_task_header_never_creates_batch_or_stream_parent_link(client, ad
         )
     )
     parent_header = {**admin_auth_header, "X-Task-ID": foreign_task_id}
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.return_value = _transcription_result()
         provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
         provider_factory.return_value.delete_stream.return_value = {"deleted": True}
@@ -770,7 +771,7 @@ def test_hub_stream_forwards_effective_profile_configuration(client, admin_auth_
     )
     assert configured.status_code == 200
 
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
         created = client.post(
             "/v1/voice/streams",

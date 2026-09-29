@@ -20,11 +20,20 @@ The former 2333-line module is split into single-responsibility siblings:
 * :mod:`agent.routes.voice_stream_lifecycle_routes` - stream chunk, finalize,
   status and delete endpoints.
 
+* :mod:`agent.routes.voice_request_policy` - exposure-policy guard and privacy
+  state.
+* :mod:`agent.routes.voice_route_dependencies` - the collaborators the Voice
+  handlers delegate to, and their per-application override seam.
+
 Importing this module registers every route on ``voice_bp``. All names that
-used to live here stay importable from this module. Collaborators that tests
-monkeypatch on this module (service getters, ``log_audit`` and a few request
-helpers) are resolved through it at call time by the sibling modules via
-:func:`agent.routes.voice_request_support._voice_module`.
+used to live here stay importable from this module. The handlers' collaborators
+(service getters, ``log_audit``, recognition context, admission limits, audio
+storage policy and the Hub executor) are bundled in
+:class:`agent.routes.voice_route_dependencies.VoiceRouteDependencies` and resolved
+per application through ``VOICE_ROUTE_DEPENDENCIES``; tests replace them with
+``VOICE_ROUTE_DEPENDENCIES.override(app, ...)`` instead of patching names on
+this module. The re-exported service getters below are kept for import
+compatibility only.
 """
 
 from __future__ import annotations
@@ -64,10 +73,13 @@ from agent.routes.voice_request_deadlines import (
     _stream_preview_payload,
     _stream_request_context,
 )
+from agent.routes.voice_request_policy import (
+    _enforce_voice_policy,
+    _voice_privacy_state,
+)
 from agent.routes.voice_request_support import (
     _audit_identity,
     _deadline_seconds,
-    _enforce_voice_policy,
     _governance_error,
     _mapping,
     _max_audio_mb,
@@ -78,8 +90,6 @@ from agent.routes.voice_request_support import (
     _response_observation,
     _store_audio_enabled,
     _voice_admission_limits,
-    _voice_module,
-    _voice_privacy_state,
     _voice_request_ref,
 )
 from agent.routes.voice_source_correction_routes import (
@@ -151,7 +161,6 @@ __all__ = [
     "_stream_preview_payload",
     "_stream_request_context",
     "_voice_admission_limits",
-    "_voice_module",
     "_voice_privacy_state",
     "_voice_request_ref",
     "_voice_request_too_large",

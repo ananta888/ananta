@@ -5,7 +5,7 @@ import time
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,6 +15,7 @@ from agent.services.semantic_speech_source_correction_service import (
     semantic_speech_security_contract_digest,
 )
 from ananta_contracts.speech_evidence_governance import SpeechEvidenceGovernanceError
+from tests.voice.voice_route_seam import override_voice_route
 
 NOW_MS = 10_000
 ROOT = Path(__file__).resolve().parents[2]
@@ -114,7 +115,7 @@ def test_voice_capabilities_advertise_source_correction_only_when_runtime_is_ena
     provider.capability_catalog.return_value = []
     flags = client.application.extensions.get("semantic_media_feature_flags")
     try:
-        with patch("agent.routes.voice.get_voice_provider_service", return_value=provider):
+        with override_voice_route(client.application, "get_voice_provider_service", return_value=provider):
             client.application.extensions["semantic_media_feature_flags"] = {
                 "semantic_speech_runtime": True
             }
@@ -162,10 +163,10 @@ def test_hub_route_delegates_source_asr_then_returns_canonical_correction(
 
     client.application.extensions["semantic_media_feature_flags"] = {"semantic_speech_runtime": True}
     with (
-        patch("agent.routes.voice.get_share_session_service", return_value=share_service),
-        patch("agent.routes.voice.get_speech_evidence_consent_service", return_value=consent_service),
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
-        patch("agent.routes.voice.log_audit") as audit,
+        override_voice_route(client.application, "get_share_session_service", return_value=share_service),
+        override_voice_route(client.application, "get_speech_evidence_consent_service", return_value=consent_service),
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "log_audit") as audit,
     ):
         provider_factory.return_value.transcribe.return_value = _source_result()
         response = client.post(
@@ -248,9 +249,9 @@ def test_hub_route_rejects_missing_raw_audio_grant_before_delegation(
     consent_service.get.return_value = consent
     client.application.extensions["semantic_media_feature_flags"] = {"semantic_speech_runtime": True}
     with (
-        patch("agent.routes.voice.get_share_session_service", return_value=share_service),
-        patch("agent.routes.voice.get_speech_evidence_consent_service", return_value=consent_service),
-        patch("agent.routes.voice._execute_hub_voice_request") as delegated,
+        override_voice_route(client.application, "get_share_session_service", return_value=share_service),
+        override_voice_route(client.application, "get_speech_evidence_consent_service", return_value=consent_service),
+        override_voice_route(client.application, "execute_hub_voice_request") as delegated,
     ):
         response = client.post(
             "/v1/voice/source-corrections",
@@ -314,10 +315,10 @@ def test_hub_route_completion_fence_rejects_consent_revoked_during_source_asr(
     provider.transcribe.side_effect = transcribe_after_revocation
     client.application.extensions["semantic_media_feature_flags"] = {"semantic_speech_runtime": True}
     with (
-        patch("agent.routes.voice.get_share_session_service", return_value=share_service),
-        patch("agent.routes.voice.get_speech_evidence_consent_service", return_value=consent_service),
-        patch("agent.routes.voice.get_voice_provider_service", return_value=provider),
-        patch("agent.routes.voice.log_audit") as audit,
+        override_voice_route(client.application, "get_share_session_service", return_value=share_service),
+        override_voice_route(client.application, "get_speech_evidence_consent_service", return_value=consent_service),
+        override_voice_route(client.application, "get_voice_provider_service", return_value=provider),
+        override_voice_route(client.application, "log_audit") as audit,
     ):
         response = client.post(
             "/v1/voice/source-corrections",

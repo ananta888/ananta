@@ -11,6 +11,7 @@ from agent.db_models import TaskDB, VoiceGovernanceIdempotencyDB, VoiceResultArt
 from agent.services.voice_governance_domain import VoiceGovernanceError
 from agent.services.voice_provider import VoiceProviderError
 from agent.services.voice_result_artifact_service import get_voice_result_artifact_service
+from tests.voice.voice_route_seam import override_voice_route
 
 
 def test_voice_transcribe_requires_file(client, admin_auth_header):
@@ -24,7 +25,7 @@ def test_voice_transcribe_rejects_body_before_multipart_materialization(client, 
     original = client.application.config.get("AGENT_CONFIG")
     client.application.config["AGENT_CONFIG"] = {"voice_runtime": {"max_audio_mb": 1}}
     try:
-        with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+        with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
             res = client.post(
                 "/v1/voice/transcribe",
                 headers=admin_auth_header,
@@ -40,7 +41,7 @@ def test_voice_transcribe_rejects_body_before_multipart_materialization(client, 
 
 
 def test_voice_capabilities_degraded_when_runtime_unavailable(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.health.side_effect = VoiceProviderError(
             code="voice.runtime_unavailable",
             message="voice runtime unavailable",
@@ -69,7 +70,7 @@ def test_provider_catalog_contains_voice_runtime_entry(client, admin_auth_header
 
 
 def test_voice_goal_requires_explicit_approval(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.voice_command.return_value = {"text": "create goal", "transcript": "create goal"}
         res = client.post(
             "/v1/voice/goal",
@@ -82,7 +83,7 @@ def test_voice_goal_requires_explicit_approval(client, admin_auth_header):
 
 
 def test_voice_capabilities_blocked_when_policy_disabled(client, admin_auth_header):
-    with patch("agent.routes.voice.get_exposure_policy_service") as policy_factory:
+    with override_voice_route(client.application, "get_exposure_policy_service") as policy_factory:
         policy_factory.return_value.evaluate_voice_access.return_value = type(
             "Decision",
             (),
@@ -99,10 +100,10 @@ def test_voice_capabilities_blocked_when_policy_disabled(client, admin_auth_head
 
 
 def test_voice_capabilities_privacy_stays_fail_closed(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.health.return_value = {"ok": True, "status": "ok"}
         provider_factory.return_value.models.return_value = [{"id": "voxtral"}]
-        with patch("agent.routes.voice._store_audio_enabled", return_value=True):
+        with override_voice_route(client.application, "store_audio_enabled", return_value=True):
             res = client.get("/v1/voice/capabilities", headers=admin_auth_header)
     assert res.status_code == 200
     privacy = (res.json.get("data") or {}).get("privacy") or {}
@@ -114,7 +115,7 @@ def test_voice_capabilities_privacy_stays_fail_closed(client, admin_auth_header)
 
 
 def test_voice_transcribe_propagates_provider_error_shape(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.transcribe.side_effect = VoiceProviderError(
             code="voice.runtime_unavailable",
             message="voice runtime unavailable",
@@ -135,8 +136,8 @@ def test_voice_transcribe_propagates_provider_error_shape(client, admin_auth_hea
 
 def test_voice_command_passes_parsed_context_to_provider(client, admin_auth_header):
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
-        patch("agent.routes.voice.log_audit") as audit,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "log_audit") as audit,
     ):
         provider_factory.return_value.voice_command.return_value = {
             "text": "create repo health goal",
@@ -165,7 +166,7 @@ def test_voice_command_passes_parsed_context_to_provider(client, admin_auth_head
 
 
 def test_voice_goal_rejects_empty_transcript_even_if_approved(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.voice_command.return_value = {"text": "", "transcript": ""}
         res = client.post(
             "/v1/voice/goal",
@@ -192,7 +193,7 @@ def test_voice_command_uses_hub_task_encrypted_artifact_and_idempotent_replay(
         "transcript": "create a private goal",
         "tool_intent": {"type": "voice_command", "confidence": 0.9},
     }
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.voice_command.return_value = runtime_result
         first = client.post(
             "/v1/voice/command",
@@ -239,7 +240,7 @@ def test_shared_hub_voice_helper_recovers_artifact_after_claim_completion_crash(
         "transcript": "recover this command",
         "tool_intent": {"type": "voice_command", "confidence": 0.9},
     }
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.voice_command.return_value = runtime_result
         with patch(
             "agent.services.voice_idempotency_service.VoiceIdempotencyService.complete",
@@ -303,8 +304,8 @@ def test_voice_command_admission_rejection_never_calls_provider_or_creates_task(
     admin_auth_header,
 ):
     with (
-        patch("agent.routes.voice.get_voice_admission_service") as admission_factory,
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_admission_service") as admission_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
     ):
         admission_factory.return_value.acquire.side_effect = VoiceGovernanceError(
             code="voice_admission.queue_full",
@@ -326,7 +327,7 @@ def test_voice_command_admission_rejection_never_calls_provider_or_creates_task(
 
 
 def test_voice_command_provider_failure_marks_hub_task_failed(client, admin_auth_header):
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider_factory.return_value.voice_command.side_effect = VoiceProviderError(
             code="voice.runtime_unavailable",
             message="voice runtime unavailable",
@@ -355,7 +356,7 @@ def test_voice_goal_uses_existing_goal_policy_path_and_replays_once(client, admi
         get_json=lambda silent=True: {"data": {"goal": {"id": "goal-from-policy-path"}}},
     )
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(client.application, "test_client") as internal_client_factory,
     ):
         provider_factory.return_value.voice_command.return_value = {
@@ -425,7 +426,7 @@ def test_voice_goal_reuses_recovered_transcript_before_resuming_goal_policy(
         raise SystemExit("simulated goal artifact crash")
 
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(client.application, "test_client") as internal_client_factory,
     ):
         provider_factory.return_value.voice_command.return_value = {
@@ -492,7 +493,7 @@ def test_voice_goal_policy_rejection_marks_deferred_hub_task_failed(client, admi
         get_json=lambda silent=True: {"message": "goal_precondition_failed"},
     )
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(client.application, "test_client") as internal_client_factory,
     ):
         provider_factory.return_value.voice_command.return_value = {
@@ -521,7 +522,7 @@ def test_voice_goal_policy_rejection_marks_deferred_hub_task_failed(client, admi
 
 def test_voice_goal_policy_exception_marks_deferred_hub_task_failed(client, admin_auth_header):
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(client.application, "test_client") as internal_client_factory,
     ):
         provider_factory.return_value.voice_command.return_value = {

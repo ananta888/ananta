@@ -12,14 +12,16 @@ from flask import request
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.routes.voice_blueprint import voice_bp
-from agent.routes.voice_request_support import (
+from agent.routes.voice_request_policy import (
     _enforce_voice_policy,
+)
+from agent.routes.voice_request_support import (
     _governance_error,
     _observe,
     _principal,
     _provider_error,
-    _voice_module,
 )
+from agent.routes.voice_route_dependencies import voice_route_dependencies
 from agent.services.voice_delegation_task_service import (
     VoiceDelegationTask,
     get_voice_delegation_task_service,
@@ -41,6 +43,7 @@ from agent.services.voice_stream_session_service import get_voice_stream_session
 @_observe("stream")
 @check_auth
 def push_voice_stream_chunk(session_id: str, chunk_sequence: int):
+    dependencies = voice_route_dependencies()
     blocked, _policy = _enforce_voice_policy("stream")
     if blocked:
         return blocked
@@ -73,7 +76,7 @@ def push_voice_stream_chunk(session_id: str, chunk_sequence: int):
             }
             record_stream_event("chunk_replayed")
             return api_response(data={"stream": session.public(), "event": replay_event}, code=202)
-        provider = _voice_module().get_voice_provider_service()
+        provider = dependencies.get_voice_provider_service()
         try:
             runtime = provider.push_stream_chunk(
                 runtime_session_id=session.runtime_session_id,
@@ -127,6 +130,7 @@ def push_voice_stream_chunk(session_id: str, chunk_sequence: int):
 @_observe("stream")
 @check_auth
 def finalize_voice_stream(session_id: str):
+    dependencies = voice_route_dependencies()
     blocked, _policy = _enforce_voice_policy("stream")
     if blocked:
         return blocked
@@ -138,7 +142,7 @@ def finalize_voice_stream(session_id: str):
         finalize_reservation = session_service.begin_finalize(principal, session_id)
         session = finalize_reservation.session
         finalize_token = finalize_reservation.token
-        runtime = _voice_module().get_voice_provider_service().finalize_stream(
+        runtime = dependencies.get_voice_provider_service().finalize_stream(
             runtime_session_id=session.runtime_session_id,
             request_id=session.request_id,
             deadline_seconds=max(0.001, session.deadline_at - time.time()),
@@ -160,7 +164,7 @@ def finalize_voice_stream(session_id: str):
             and isinstance(feature_flags, dict)
             and feature_flags.get("generative_corrector") is True
         ):
-            corrector_outcome = _voice_module().get_voice_generative_corrector_service().apply(
+            corrector_outcome = dependencies.get_voice_generative_corrector_service().apply(
                 result,
                 effective_configuration=effective_configuration,
                 tenant_id=principal.tenant_id,
@@ -172,7 +176,7 @@ def finalize_voice_stream(session_id: str):
             result = corrector_outcome.result
             payload = {**payload, "result": result}
             event = {**event, "payload": payload}
-        artifact = _voice_module().get_voice_result_artifact_service().create(
+        artifact = dependencies.get_voice_result_artifact_service().create(
             principal,
             request_hash=hashlib.sha256(f"stream:{session.session_id}".encode()).hexdigest(),
             result=result,
@@ -257,6 +261,7 @@ def _fail_finalize_and_cleanup(
 @_observe("stream")
 @check_auth
 def get_voice_stream(session_id: str):
+    dependencies = voice_route_dependencies()
     blocked, _policy = _enforce_voice_policy("stream")
     if blocked:
         return blocked
@@ -264,7 +269,7 @@ def get_voice_stream(session_id: str):
     try:
         session = get_voice_stream_session_service().require(principal, session_id)
         after_event = int(request.args.get("after_event", -1))
-        runtime = _voice_module().get_voice_provider_service().get_stream(
+        runtime = dependencies.get_voice_provider_service().get_stream(
             runtime_session_id=session.runtime_session_id,
             after_event=after_event,
             request_id=session.request_id,
@@ -287,6 +292,7 @@ def get_voice_stream(session_id: str):
 @_observe("stream")
 @check_auth
 def delete_voice_stream(session_id: str):
+    dependencies = voice_route_dependencies()
     blocked, _policy = _enforce_voice_policy("stream")
     if blocked:
         return blocked
@@ -301,7 +307,7 @@ def delete_voice_stream(session_id: str):
             session.session_id,
             operation="stream_orphan",
         )
-        _voice_module().get_voice_provider_service().delete_stream(
+        dependencies.get_voice_provider_service().delete_stream(
             runtime_session_id=session.runtime_session_id,
             request_id=session.request_id,
             deadline_seconds=max(0.001, session.deadline_at - time.time()),

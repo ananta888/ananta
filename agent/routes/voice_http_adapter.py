@@ -12,9 +12,6 @@ from agent.routes.voice import (
     _enforce_voice_policy as enforce_voice_policy,
 )
 from agent.routes.voice import (
-    _execute_hub_voice_request as execute_hub_voice_request,
-)
-from agent.routes.voice import (
     _governance_error as governance_error,
 )
 from agent.routes.voice import (
@@ -32,6 +29,14 @@ from agent.routes.voice import (
 from agent.routes.voice import (
     _read_audio_field as read_audio_field,
 )
+from agent.routes.voice_route_dependencies import voice_route_dependencies
+
+
+def execute_hub_voice_request(**kwargs):
+    """Run the artifact-first Hub execution with the current application's Voice collaborators."""
+
+    return voice_route_dependencies().run_hub_voice_request(**kwargs)
+
 
 __all__ = [
     "deadline_seconds",

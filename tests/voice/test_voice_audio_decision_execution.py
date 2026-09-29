@@ -25,6 +25,7 @@ from agent.services.audio_decision_command_service import AudioDecisionCommandRe
 from agent.services.audio_decision_hub_gate import AudioDecisionKind, HubAction, HubAudioDecision, PolicyVerdict
 from agent.services.voice_governance_domain import VoicePrincipal
 from tests.voice.test_voice_audio_decision_provider import FakeTransport, _config, _field, _result, _wav
+from tests.voice.voice_route_seam import override_voice_route
 from voice_runtime.backends.audio_decision import AudioDecisionProvider, DecisionOutcome
 
 COMMAND = "/v1/voice/command"
@@ -68,9 +69,9 @@ def store(clock):
 
 
 @pytest.fixture
-def runtime():
+def runtime(client):
     """The regular voice-runtime pipeline of ``/v1/voice/command``."""
-    with patch("agent.routes.voice.get_voice_provider_service") as factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as factory:
         factory.return_value.voice_command.return_value = {
             "text": RUNTIME_TRANSCRIPT,
             "transcript": RUNTIME_TRANSCRIPT,
@@ -132,7 +133,7 @@ def _forbid_network(monkeypatch) -> list:
 def test_feature_off_keeps_the_command_route_unchanged(client, admin_auth_header, runtime, monkeypatch):
     contacted = _forbid_network(monkeypatch)
     with (
-        patch("agent.routes.voice.log_audit") as audit,
+        override_voice_route(client.application, "log_audit") as audit,
         patch("agent.routes.voice_audio_decision.log_audit") as decision_audit,
     ):
         plain = _command(client, admin_auth_header)
@@ -163,7 +164,7 @@ def test_exposure_policy_is_enforced_before_the_decision_path(client, admin_auth
     denied = SimpleNamespace(
         allowed=False, reason="voice_exposure_disabled", auth_source="user_jwt", policy={"emit_audit_events": False}
     )
-    with _with_provider(transport), patch("agent.routes.voice.get_exposure_policy_service") as policy:
+    with _with_provider(transport), override_voice_route(client.application, "get_exposure_policy_service") as policy:
         policy.return_value.evaluate_voice_access.return_value = denied
         res = _command(client, admin_auth_header, decision_profile="speech-commands-en")
     assert res.status_code == 403 and res.get_json()["data"]["error"]["code"] == "policy_denied"
@@ -252,7 +253,7 @@ def test_system2_hands_off_to_the_goal_path_without_logging_the_transcript(clien
     with (
         _with_provider(FakeTransport(200, payload)),
         patch("agent.routes.voice_audio_decision.log_audit") as audit,
-        patch("agent.routes.voice.log_audit") as command_audit,
+        override_voice_route(client.application, "log_audit") as command_audit,
     ):
         data = _command(client, admin_auth_header, decision_profile="speech-commands-en").get_json()["data"]
     assert data["hub_action"] == "system2" and data["execution"] is None and data["confirmation"] is None
@@ -366,7 +367,7 @@ def test_confirm_route_enforces_auth_and_exposure_policy(client, admin_auth_head
     denied = SimpleNamespace(
         allowed=False, reason="voice_exposure_disabled", auth_source="user_jwt", policy={"emit_audit_events": False}
     )
-    with patch("agent.routes.voice.get_exposure_policy_service") as policy:
+    with override_voice_route(client.application, "get_exposure_policy_service") as policy:
         policy.return_value.evaluate_voice_access.return_value = denied
         res = _confirm(client, admin_auth_header, body)
     assert res.status_code == 403 and res.get_json()["data"]["error"]["code"] == "policy_denied"

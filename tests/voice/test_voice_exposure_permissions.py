@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from agent.services.exposure_policy_service import ExposurePolicyService
+from tests.voice.voice_route_seam import override_voice_route
 
 
 def test_voice_operations_have_separate_user_and_agent_permissions() -> None:
@@ -80,7 +81,7 @@ def test_voice_route_keeps_valid_user_identity_when_agent_auth_is_disabled(
     provider.models.return_value = []
     provider.capability_catalog.return_value = []
 
-    with patch("agent.routes.voice.get_voice_provider_service", return_value=provider):
+    with override_voice_route(client.application, "get_voice_provider_service", return_value=provider):
         response = client.get("/v1/voice/capabilities", headers=user_auth_header)
 
     assert response.status_code == 200

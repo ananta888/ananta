@@ -55,6 +55,7 @@ from agent.services.voice_provider import VoiceProviderError
 from agent.services.voice_result_artifact_service import get_voice_result_artifact_service
 from agent.services.voice_runtime_cleanup_service import get_voice_runtime_cleanup_service
 from agent.services.voice_stream_session_service import VoiceStreamSessionService
+from tests.voice.voice_route_seam import override_voice_route
 
 
 def _wav(duration_ms: int = 1_000, sample: int = 0) -> bytes:
@@ -273,7 +274,7 @@ def test_live_preview_is_bound_bounded_parented_and_delete_only(
     assert created_run.status_code == 201
     run = created_run.get_json()["data"]["run"]
 
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.push_stream_chunk.return_value = {
@@ -360,7 +361,7 @@ def test_live_preview_requires_complete_matching_binding_and_is_unique(
         max_seconds=120,
     )
     run = created_run.get_json()["data"]["run"]
-    with patch("agent.routes.voice.get_voice_provider_service") as provider_factory:
+    with override_voice_route(client.application, "get_voice_provider_service") as provider_factory:
         provider = provider_factory.return_value
         provider.create_stream.side_effect = _created_runtime_stream
         provider.delete_stream.return_value = {"deleted": True}
@@ -481,7 +482,7 @@ def test_live_preview_create_race_compensates_losing_runtime_task_and_outbox(
     cleanup = get_voice_runtime_cleanup_service()
     preview_service = get_voice_live_run_preview_service()
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
     ):
         provider = provider_factory.return_value
@@ -545,7 +546,7 @@ def test_audio_segment_put_cleans_bound_preview_through_durable_outbox(
     run_id = created_run.get_json()["data"]["run"]["id"]
     cleanup = get_voice_runtime_cleanup_service()
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch(
             "agent.routes.voice_live_runs.get_voice_provider_service"
         ) as segment_provider_factory,
@@ -611,7 +612,7 @@ def test_result_reference_segment_put_cleans_bound_preview(
     )
     cleanup = get_voice_runtime_cleanup_service()
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
     ):
         provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
@@ -659,7 +660,7 @@ def test_live_run_stop_cleans_all_bound_previews_before_finalization(
     run_id = created_run.get_json()["data"]["run"]["id"]
     cleanup = get_voice_runtime_cleanup_service()
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch.object(cleanup, "_runtime_stream_delete") as runtime_delete,
     ):
         provider_factory.return_value.create_stream.side_effect = _created_runtime_stream
@@ -746,7 +747,7 @@ def test_preview_cleanup_failure_does_not_block_segment_or_stop(
     ).get_json()["data"]["run"]
     cleanup = get_voice_runtime_cleanup_service()
     with (
-        patch("agent.routes.voice.get_voice_provider_service") as provider_factory,
+        override_voice_route(client.application, "get_voice_provider_service") as provider_factory,
         patch(
             "agent.routes.voice_live_runs.get_voice_provider_service"
         ) as segment_provider_factory,
