@@ -134,6 +134,7 @@ class HubSpeechAdaptationDispatcher:
                             reason_code="speech_capacity_unavailable",
                             worker_status="waiting_capacity",
                             retry_delay_ms=1_000,
+                            now_ms=self._clock_ms(),
                         )
                         self._audit_row(waiting_row)
                         counts["waiting_capacity"] += 1
@@ -179,6 +180,7 @@ class HubSpeechAdaptationDispatcher:
                             reason_code="speech_training_running",
                             worker_status="running",
                             retry_delay_ms=250,
+                            now_ms=self._clock_ms(),
                         )
                         self._audit_row(running_row, job)
                         self._mark_task_running(running_row.task_id, job)
@@ -227,6 +229,7 @@ class HubSpeechAdaptationDispatcher:
                 reason_code="speech_training_dispatching",
                 worker_status="dispatching",
                 increment_dispatch_attempts=True,
+                now_ms=self._clock_ms(),
             )
             self._audit_row(current, job)
         submission = self._worker.submit(job)
@@ -237,6 +240,7 @@ class HubSpeechAdaptationDispatcher:
             reason_code="speech_training_submitted",
             worker_status=submission.status,
             retry_delay_ms=100,
+            now_ms=self._clock_ms(),
         )
         self._audit_row(submitted, job)
         self._mark_task_running(row.task_id, job)
@@ -262,6 +266,7 @@ class HubSpeechAdaptationDispatcher:
                 worker_status="unavailable",
                 retry_delay_ms=delay,
                 increment_dispatch_attempts=True,
+                now_ms=self._clock_ms(),
             )
             self._audit_row(retrying)
             return
@@ -287,6 +292,7 @@ class HubSpeechAdaptationDispatcher:
             status=status,
             reason_code=reason_code,
             worker_status=status,
+            now_ms=self._clock_ms(),
         )
         self._audit_row(saved, job)
         self._capacity.release(job.fencing.lease_id)

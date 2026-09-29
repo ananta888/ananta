@@ -14,11 +14,6 @@ tests/test_codecompass_e2e_acceptance_gate.py  # gate-hashed
 tests/test_native_graph_production_bridge.py  # gate-hashed
 tests/workflow_runtime/release_gate/test_temporal_reference_probes.py  # gate-hashed
 tests/test_project_lifecycle_service.py  # gate-hashed (config/test-gates/meet-integration.json)
-# timing-sensitive until fixed: the dispatcher reads with its injected clock but the repository schedules
-# next_dispatch_at_ms on the wall clock; a first dispatch > ~900 ms after the test's clock start leaves the
-# job undispatchable. The fix (pass the dispatcher clock into transition_worker_state) touches files the
-# semantic-media chaos gate hashes, so it waits for that gate's next live run.
-tests/test_speech_adaptation_dispatcher.py::test_dispatcher_recovers_persisted_submission_and_collects_result
 # single expensive tests (>= 2 s) in otherwise fast files
 tests/agent/test_agent_endpoints.py::test_auth_required_when_token_set
 tests/agent/test_agent_endpoints.py::test_health_endpoint_marks_lmstudio_unstable_when_reachable_without_models

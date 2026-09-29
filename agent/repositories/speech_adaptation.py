@@ -290,7 +290,10 @@ class SqlSpeechAdaptationDecisionStore:
         result: SpeechAdaptationResult | None = None,
         retry_delay_ms: int = 0,
         increment_dispatch_attempts: bool = False,
+        now_ms: int | None = None,
     ) -> SpeechAdaptationJobDB:
+        """``now_ms``: the caller's clock (the dispatcher lists due jobs with the same clock it schedules
+        ``next_dispatch_at_ms`` with); default wall-clock time."""
         if status not in _ACTIVE | _TERMINAL:
             raise ValueError("speech_adaptation_status_invalid")
         with _WRITE_LOCK:
@@ -301,7 +304,7 @@ class SqlSpeechAdaptationDecisionStore:
                 if current.status == status:
                     return current
                 raise SpeechAdaptationDecisionConflict("speech_job_state_conflict")
-            now = time.time_ns() // 1_000_000
+            now = int(now_ms) if now_ms is not None else time.time_ns() // 1_000_000
             values: dict[str, object] = {
                 "status": status,
                 "reason_code": reason_code,
