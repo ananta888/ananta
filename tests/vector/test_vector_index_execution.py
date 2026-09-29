@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.qdrant_test_support import FakeQdrantClient
+from tests.qdrant.qdrant_test_support import FakeQdrantClient
 from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager
 from worker.retrieval.qdrant_vector_store import QdrantVectorStore
 from worker.retrieval.vector_index_artifact_locator import (

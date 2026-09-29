@@ -10,9 +10,9 @@
   "source_paths": [
     "docker/compose-next/compose.qdrant.yml",
     "docker/compose-next/requirements.qdrant-worker.lock",
-    "tests/qdrant_test_support.py",
-    "tests/test_qdrant_compose_contract.py",
-    "tests/test_qdrant_vector_store_integration.py",
+    "tests/qdrant/qdrant_test_support.py",
+    "tests/qdrant/test_qdrant_compose_contract.py",
+    "tests/qdrant/test_qdrant_vector_store_integration.py",
     "worker/retrieval/qdrant_vector_store.py",
     "worker/retrieval/qdrant_collection_manager.py"
   ],
@@ -22,7 +22,7 @@
     "no:cacheprovider",
     "-m",
     "qdrant_integration",
-    "tests/test_qdrant_vector_store_integration.py"
+    "tests/qdrant/test_qdrant_vector_store_integration.py"
   ],
   "environment": {
     "RUN_INTEGRATION_TESTS": "1"

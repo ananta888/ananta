@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from tests.qdrant_test_support import FakeQdrantClient
+from tests.qdrant.qdrant_test_support import FakeQdrantClient
 from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager
 from worker.retrieval.vector_store_contract import CompatibilitySpec, VectorScope
 

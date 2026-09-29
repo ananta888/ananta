@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from tests.qdrant_test_support import FakeQdrantClient
+from tests.qdrant.qdrant_test_support import FakeQdrantClient
 from worker.retrieval.qdrant_client_port import (
     QdrantClientError,
     normalise_origin,

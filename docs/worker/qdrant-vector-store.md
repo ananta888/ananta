@@ -832,7 +832,7 @@ export ANANTA_QDRANT_API_KEY="$(tr -d '\r\n' < "$ANANTA_QDRANT_API_KEY_FILE")"
 export ANANTA_QDRANT_URL=https://localhost:6333
 RUN_INTEGRATION_TESTS=1 \
   python -m pytest -q -m qdrant_integration \
-  tests/test_qdrant_vector_store_integration.py
+  tests/qdrant/test_qdrant_vector_store_integration.py
 ```
 
 Each test uses a run-isolated prefix and `finally` cleanup. The real suite

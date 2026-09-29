@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 
 import pytest
 
-from tests.qdrant_test_support import FakeQdrantClient
+from tests.qdrant.qdrant_test_support import FakeQdrantClient
 from worker.retrieval.json_vector_store import JsonVectorStore
 from worker.retrieval.qdrant_client_port import ClientAvailability, ClientPoint
 from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager

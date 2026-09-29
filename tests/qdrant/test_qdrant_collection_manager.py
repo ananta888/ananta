@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.qdrant_test_support import FakeQdrantClient
+from tests.qdrant.qdrant_test_support import FakeQdrantClient
 from worker.retrieval.qdrant_collection_manager import QdrantCollectionManager
 from worker.retrieval.qdrant_collection_schema import (
     QDRANT_BACKEND_SCHEMA_VERSION,

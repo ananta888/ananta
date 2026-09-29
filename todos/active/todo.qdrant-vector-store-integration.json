@@ -108,14 +108,14 @@
       "docs/worker/qdrant-vector-store-error-codes.md",
       "docs/worker/qdrant-vector-store-tls.md",
       "docs/worker/qdrant-vector-index-taskflow.md",
-      "tests/test_qdrant_vector_store_integration.py",
-      "tests/test_qdrant_compose_contract.py",
-      "tests/test_qdrant_collection_schema.py",
+      "tests/qdrant/test_qdrant_vector_store_integration.py",
+      "tests/qdrant/test_qdrant_compose_contract.py",
+      "tests/qdrant/test_qdrant_collection_schema.py",
       "tests/vector/test_vector_index_input_artifact_service.py",
       "tests/vector/test_vector_index_input_loader.py",
       "tests/vector/test_vector_index_preparation.py",
       "tests/wiki/test_wiki_retrieval_index_service.py",
-      "tests/test_qdrant_operations_docs.py",
+      "tests/qdrant/test_qdrant_operations_docs.py",
       "ananta_contracts/vector_index_dispatch.py",
       "ananta_contracts/vector_index_task_attestation.py",
       "agent/routes/tasks/vector_index_dispatch_admission.py",
@@ -255,14 +255,14 @@
     "tests/vector/test_vector_store_compatibility.py",
     "tests/vector/test_vector_store_endpoint_policy.py",
     "tests/vector/test_vector_store_factory.py",
-    "tests/test_qdrant_client_adapter.py",
-    "tests/test_qdrant_collection_manager.py",
-    "tests/test_qdrant_collection_schema.py",
-    "tests/test_qdrant_query_compatibility.py",
-    "tests/test_qdrant_vector_store_unit.py",
-    "tests/test_qdrant_vector_store_integration.py",
-    "tests/test_qdrant_vector_store_security.py",
-    "tests/test_qdrant_vector_store_migration.py",
+    "tests/qdrant/test_qdrant_client_adapter.py",
+    "tests/qdrant/test_qdrant_collection_manager.py",
+    "tests/qdrant/test_qdrant_collection_schema.py",
+    "tests/qdrant/test_qdrant_query_compatibility.py",
+    "tests/qdrant/test_qdrant_vector_store_unit.py",
+    "tests/qdrant/test_qdrant_vector_store_integration.py",
+    "tests/qdrant/test_qdrant_vector_store_security.py",
+    "tests/qdrant/test_qdrant_vector_store_migration.py",
     "tests/vector/test_vector_index_task_service.py",
     "tests/vector/test_vector_index_execution.py",
     "tests/vector/test_vector_index_input_artifact_service.py",
@@ -272,8 +272,8 @@
     "tests/vector/test_vector_store_control_routes.py",
     "tests/vector/test_vector_store_rollout_service.py",
     "tests/vector/test_vector_store_metrics_adapter.py",
-    "tests/test_qdrant_compose_contract.py",
-    "tests/test_qdrant_operations_docs.py",
+    "tests/qdrant/test_qdrant_compose_contract.py",
+    "tests/qdrant/test_qdrant_operations_docs.py",
     "tests/wiki/test_wiki_qdrant_adapter.py",
     "tests/wiki/test_wiki_retrieval_index_service.py",
     "agent/routes/control_center_task_mutations.py",
@@ -387,7 +387,7 @@
     "docker/compose-next/Dockerfile.quickstart-no-ollama",
     "docker/compose-next/README.md",
     "scripts/bootstrap-dev-workflow-keyrings.py",
-    "tests/qdrant_test_support.py",
+    "tests/qdrant/qdrant_test_support.py",
     "tests/test_agent_registration.py",
     "tests/test_artifact_reconciliation_service.py",
     "tests/test_dev_workflow_keyring_bootstrap.py",
@@ -599,7 +599,7 @@
         "worker/retrieval/vector_store_config.py",
         "worker/retrieval/vector_store_endpoint_policy.py",
         "worker/retrieval/qdrant_client_port.py",
-        "tests/test_qdrant_vector_store_security.py",
+        "tests/qdrant/test_qdrant_vector_store_security.py",
         "tests/vector/test_vector_store_endpoint_policy.py",
         ".env.example"
       ],
@@ -667,7 +667,7 @@
         "worker/retrieval/qdrant_client_port.py",
         "pyproject.toml",
         "docker/compose-next/Dockerfile.quickstart-no-ollama",
-        "tests/test_qdrant_client_adapter.py",
+        "tests/qdrant/test_qdrant_client_adapter.py",
         ".github/workflows/ananta-codecompass-review.yml",
         ".github/workflows/quality-and-docs.yml"
       ],
@@ -699,7 +699,7 @@
       "files": [
         "worker/retrieval/qdrant_collection_schema.py",
         "worker/retrieval/qdrant_collection_manager.py",
-        "tests/test_qdrant_collection_manager.py"
+        "tests/qdrant/test_qdrant_collection_manager.py"
       ],
       "description": "Vektorparameter, kanonische Point-ID, trusted Scope und Payload-Schema stabil und versioniert festlegen.",
       "status_note": "Das versionierte Collection-/Payload-Schema erzwingt Dimension, Distance, Pflichtfelder und trusted Scope, begrenzt optionale Felder und erzeugt kanonische kollisionsresistente Point-IDs. Volltext wird ausschliesslich ueber das standardmaessig deaktivierte embedding_text-Opt-in gespeichert; Schema- und Negativtests decken den Vertrag ab.",
@@ -730,8 +730,8 @@
         "worker/retrieval/qdrant_collection_schema.py",
         "worker/retrieval/qdrant_collection_manager.py",
         "worker/retrieval/codecompass_vector_store.py",
-        "tests/test_qdrant_collection_manager.py",
-        "tests/test_qdrant_query_compatibility.py",
+        "tests/qdrant/test_qdrant_collection_manager.py",
+        "tests/qdrant/test_qdrant_query_compatibility.py",
         "tests/vector/test_vector_store_compatibility.py"
       ],
       "description": "Bestehende JSON-Kompatibilitaetssemantik in einen backendneutralen Validator ueberfuehren und vor Alias-Aktivierung sowie Search anwenden.",
@@ -762,8 +762,8 @@
       "files": [
         "worker/retrieval/qdrant_filter_builder.py",
         "worker/retrieval/codecompass_channel_providers.py",
-        "tests/test_qdrant_vector_store_unit.py",
-        "tests/test_qdrant_vector_store_security.py"
+        "tests/qdrant/test_qdrant_vector_store_unit.py",
+        "tests/qdrant/test_qdrant_vector_store_security.py"
       ],
       "description": "Trusted Workspace-/Repository-Scope und zusaetzliche Metadatenfilter vor jeder Search in einen serverseitigen Qdrant-Filter uebersetzen.",
       "status_note": "Der gemeinsame Filter-Builder erzwingt trusted Workspace-/Repository-Scope fuer Search, Delete und Cleanup und erlaubt Caller-Filtern nur Verengungen. Rollen-, Metadaten-, manipulierte-Scope- und Cross-Workspace/-Repository-Negativtests pruefen das konkrete serverseitige Filterobjekt und verhindern Cross-Scope-Zugriffe.",
@@ -795,7 +795,7 @@
         "worker/retrieval/qdrant_vector_store.py",
         "worker/retrieval/qdrant_filter_builder.py",
         "worker/retrieval/codecompass_channel_providers.py",
-        "tests/test_qdrant_vector_store_unit.py"
+        "tests/qdrant/test_qdrant_vector_store_unit.py"
       ],
       "description": "Dense Query-Vektoren serverseitig filtern und in das bestehende Candidate-Format zurueckfuehren, ohne den Index zu mutieren.",
       "status_note": "Read-only Qdrant Dense Search ist produktiv mit verpflichtendem trusted Scope, vollstaendiger Compatibility und serverseitigem top_k-/Metadatenfilter verdrahtet. Score-Mapping, leere Collections, Dimensionskonflikte sowie Timeout, Unauthorized und collection_missing sind inklusive explizitem No-Mutation-Nachweis getestet.",
@@ -825,8 +825,8 @@
       ],
       "files": [
         "worker/retrieval/qdrant_collection_manager.py",
-        "tests/test_qdrant_collection_manager.py",
-        "tests/test_qdrant_vector_store_unit.py"
+        "tests/qdrant/test_qdrant_collection_manager.py",
+        "tests/qdrant/test_qdrant_vector_store_unit.py"
       ],
       "description": "Rebuilds in versionierte Collections schreiben, validieren und erst danach atomar per Alias aktivieren.",
       "status_note": "Rebuilds verwenden stets eine frische inaktive Staging-Collection und aktivieren sie erst nach Compatibility- und Point-Count-Pruefung in einer atomaren Aliasoperation. Failure-Injection an allen Phasen, Concurrent-Reader und scopegebundene Retention belegen, dass der alte Alias bei Fehlern aktiv und Cross-Scope-State unangetastet bleibt.",
@@ -856,7 +856,7 @@
       "files": [
         "worker/retrieval/qdrant_vector_store.py",
         "worker/retrieval/qdrant_collection_manager.py",
-        "tests/test_qdrant_vector_store_unit.py"
+        "tests/qdrant/test_qdrant_vector_store_unit.py"
       ],
       "description": "Bereits eingebettete, validierte Points in begrenzten Batches upserten und unveraenderte Source-Hashes ueberspringen.",
       "status_note": "Der Store akzeptiert ausschliesslich vorbereitete Points, validiert Batchgroessen 1..1000 mit Default 128 und streamt groessere Eingaben. Nichtleere Source-Hashes, stabile IDs, idempotente Wiederholung, Batchgrenzen und Teilfehler mit accepted/upserted/skipped/failed sind ohne Embedding- oder Netzwerkzugriff getestet.",
@@ -885,7 +885,7 @@
       "files": [
         "worker/retrieval/qdrant_vector_store.py",
         "worker/retrieval/qdrant_filter_builder.py",
-        "tests/test_qdrant_vector_store_unit.py"
+        "tests/qdrant/test_qdrant_vector_store_unit.py"
       ],
       "description": "Vom Hub-Task vorbereitete Point- und Scope-Loeschungen deterministisch und fail-closed ausfuehren.",
       "status_note": "Vorbereitete Point-Deletes, Rename als Upsert-plus-Delete und vollstaendige scopegebundene Bereinigung werden im delegierten Pfad angewendet. Teilfehler, Cross-Scope-Schutz, transiente Wiederholung, Idempotenz und exakte deleted/failed-Zaehler sind mit Fake-Client-Matrizen belegt.",
@@ -916,7 +916,7 @@
       "files": [
         "worker/retrieval/vector_store_fallback.py",
         "worker/retrieval/qdrant_client_port.py",
-        "tests/test_qdrant_vector_store_unit.py"
+        "tests/qdrant/test_qdrant_vector_store_unit.py"
       ],
       "description": "AvailabilityPolicy in einem separaten Search-Decorator auswerten; Factory und Store enthalten keine versteckte Fallback-Entscheidung.",
       "status_note": "Der produktiv komponierte Availability-Decorator unterscheidet ready, unavailable, unauthorized und incompatible_collection, verwendet getrennte Connect-/Request-Timeouts und entscheidet allein ueber fail_fast, degraded_empty oder kompatiblen read-only JSON-Fallback. Trace, abgelehnter Schreibfallback, inkompatibler State und Factory-Komposition sind getestet.",
@@ -1033,7 +1033,7 @@
       "files": [
         "worker/retrieval/vector_store_migration.py",
         "worker/retrieval/vector_index_execution.py",
-        "tests/test_qdrant_vector_store_migration.py",
+        "tests/qdrant/test_qdrant_vector_store_migration.py",
         "docs/worker/qdrant-vector-store.md"
       ],
       "description": "Kompatible JSON-Vektoren ueber einen dedizierten, wiederaufnehmbaren Migrator in eine inaktive Qdrant-Collection uebertragen.",
@@ -1068,7 +1068,7 @@
         "README.md",
         ".github/workflows/ananta-codecompass-review.yml",
         ".github/workflows/quality-and-docs.yml",
-        "tests/test_qdrant_compose_contract.py",
+        "tests/qdrant/test_qdrant_compose_contract.py",
         "agent/routes/worker_vector_index_readiness.py",
         "agent/services/background/registration.py",
         "worker/retrieval/vector_index_worker_readiness.py",
@@ -1110,7 +1110,7 @@
         "worker/retrieval/qdrant_vector_store.py",
         "agent/adapters/vector_store_metrics_adapter.py",
         "tests/vector/test_vector_store_metrics_adapter.py",
-        "tests/test_qdrant_vector_store_unit.py"
+        "tests/qdrant/test_qdrant_vector_store_unit.py"
       ],
       "description": "Vector-Store-Ereignisse ueber einen kleinen Observer-Port an bestehende Metrics und Retrieval-Traces anbinden.",
       "status_note": "Der typisierte Observer-Port emittiert produktiv Search-, Index-, Delete-, Fallback- und Lifecycle-Ereignisse an No-op- oder Prometheus-Adapter. Labels und reason_enum sind begrenzt; Scope, IDs, Pfade, Vektoren, Texte und Secrets bleiben ausgeschlossen, waehrend Dauer und Zaehler als Werte erfasst werden.",
@@ -1146,12 +1146,12 @@
         "QVS-024"
       ],
       "files": [
-        "tests/test_qdrant_vector_store_integration.py",
+        "tests/qdrant/test_qdrant_vector_store_integration.py",
         "docker/compose-next/compose.qdrant.yml",
         ".github/workflows/ananta-codecompass-review.yml",
         ".github/workflows/quality-and-docs.yml",
-        "tests/qdrant_test_support.py",
-        "tests/test_qdrant_compose_contract.py",
+        "tests/qdrant/qdrant_test_support.py",
+        "tests/qdrant/test_qdrant_compose_contract.py",
         "docker/compose-next/compose.qdrant-workers.yml",
         "docker/compose-next/requirements.qdrant-worker.lock"
       ],
@@ -1255,7 +1255,7 @@
         "agent/services/wiki_retrieval_index_service.py",
         "tests/wiki/test_wiki_vector_store.py",
         "tests/wiki/test_wiki_qdrant_adapter.py",
-        "tests/test_qdrant_vector_store_integration.py",
+        "tests/qdrant/test_qdrant_vector_store_integration.py",
         "agent/services/wiki_vector_index_mutation_service.py",
         "agent/services/wiki_vector_runtime_service.py",
         "worker/retrieval/wiki_hybrid_engine.py",
@@ -1359,7 +1359,7 @@
         "docs/worker/qdrant-vector-store-hub-read.md",
         "docs/worker/qdrant-vector-store-tls.md",
         "docs/worker/qdrant-vector-worker-identity.md",
-        "tests/test_qdrant_operations_docs.py"
+        "tests/qdrant/test_qdrant_operations_docs.py"
       ],
       "description": "Konfiguration, Betrieb, Migration, Backup, Restore, Reset, Wiki-Aktivierung und Rollback mit ausfuehrbaren Beispielen dokumentieren.",
       "status_note": "Lokale/Remote-/JSON-Beispiele, Compose-, Start-, Readiness-, Stop-, Snapshot-, Restore-, Reset-, Migration-, Wiki- und Rollback-Kommandos sind parsebar und CI-geprueft; die stabile Errorcode-Tabelle und gepinnte Server-/Client-Kompatibilitaet sind dokumentiert. Die Hub-verifizierte Integrationsevidence liegt vor; der Release-Abschnitt wartet nur noch auf das vollstaendige Referenzhost-BenchmarkRunArtifact und die davon abhaengige Rolloutfreigabe.",

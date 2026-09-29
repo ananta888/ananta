@@ -19,7 +19,7 @@ from agent.services.wiki_vector_runtime_service import (
     build_default_wiki_vector_runtime_resolver,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "docker/compose-next/compose.qdrant.yml"
 WORKER_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-workers.yml"
 DEV_AUTH_OVERLAY = ROOT / "docker/compose-next/compose.workflow-runtime.dev-auth.yml"

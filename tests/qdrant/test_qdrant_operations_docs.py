@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK = ROOT / "docs/worker/qdrant-vector-store.md"
 AVAILABILITY_RUNBOOK = ROOT / "docs/worker/qdrant-vector-store-availability.md"
 HUB_READ_RUNBOOK = ROOT / "docs/worker/qdrant-vector-store-hub-read.md"
