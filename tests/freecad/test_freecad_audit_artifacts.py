@@ -5,7 +5,7 @@ from pathlib import Path
 
 import jsonschema
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 AUDIT_SCHEMA = json.loads((ROOT / "schemas" / "freecad" / "freecad_audit_event.v1.json").read_text(encoding="utf-8"))
 VERIFY_SCHEMA = json.loads((ROOT / "schemas" / "freecad" / "freecad_verification_artifact.v1.json").read_text(encoding="utf-8"))
 
