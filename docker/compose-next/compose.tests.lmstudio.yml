@@ -556,7 +556,7 @@ services:
     depends_on:
       t-e2e-subdir:
         condition: service_completed_successfully
-    command: ["python", "-m", "pytest", "-q", "--timeout=120", "tests/test_goal_live_lmstudio.py"]
+    command: ["python", "-m", "pytest", "-q", "--timeout=120", "tests/goal/test_goal_live_lmstudio.py"]
 
   # ════════════════════════════════════════════════════════════════════════════
   # Frontend-Tests

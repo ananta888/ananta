@@ -278,7 +278,7 @@
           "files": [
             "agent/routes/goal_artifacts.py",
             "agent/artifacts/goal_artifact_service.py",
-            "tests/test_goal_artifact_execution_provenance_api.py"
+            "tests/goal/test_goal_artifact_execution_provenance_api.py"
           ],
           "priority": "P1",
           "effort": "L",

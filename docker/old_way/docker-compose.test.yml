@@ -149,7 +149,7 @@ services:
         condition: service_healthy
       autoimport:
         condition: service_started
-    command: pytest -q tests/test_goal_live_lmstudio.py
+    command: pytest -q tests/goal/test_goal_live_lmstudio.py
 
   frontend-test:
     image: ananta-frontend-compose-test:local

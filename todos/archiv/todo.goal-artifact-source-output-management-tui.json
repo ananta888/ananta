@@ -138,7 +138,7 @@
           "files": [
             "agent/artifacts/goal_artifact_service.py",
             "agent/artifacts/goal_artifact_repository.py",
-            "tests/test_goal_artifact_service.py"
+            "tests/goal/test_goal_artifact_service.py"
           ],
           "priority": "P1",
           "effort": "XL",
@@ -238,7 +238,7 @@
           "files": [
             "agent/routes/goal_artifacts.py",
             "agent/bootstrap/routes.py",
-            "tests/test_goal_artifacts_api.py"
+            "tests/goal/test_goal_artifacts_api.py"
           ],
           "priority": "P1",
           "effort": "L",
@@ -284,7 +284,7 @@
           "files": [
             "agent/routes/goal_artifacts.py",
             "agent/artifacts/citation_bundle_service.py",
-            "tests/test_goal_citation_bundle.py"
+            "tests/goal/test_goal_citation_bundle.py"
           ],
           "priority": "P2",
           "effort": "M",
@@ -498,8 +498,8 @@
           "description": "Datenmodelle und Services werden isoliert getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_goal_artifact_schemas.py",
-            "tests/test_goal_artifact_service.py",
+            "tests/goal/test_goal_artifact_schemas.py",
+            "tests/goal/test_goal_artifact_service.py",
             "tests/test_artifact_access_policy.py"
           ],
           "priority": "P1",
@@ -520,7 +520,7 @@
           "description": "REST-Endpunkte werden mit typischen Goal-Artefakt-Flows getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_goal_artifacts_api.py"
+            "tests/goal/test_goal_artifacts_api.py"
           ],
           "priority": "P1",
           "effort": "L",

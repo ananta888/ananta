@@ -325,9 +325,9 @@ pytest -q tests/task/test_task_queue_service.py
 Zusätzlich nach Umsetzung von goal-scoped config:
 
 ```bash
-pytest -q tests/test_goal_config_resolver_service.py
-pytest -q tests/test_goal_scoped_config_api.py
-pytest -q tests/test_goal_scoped_config_runtime_integration.py
+pytest -q tests/goal/test_goal_config_resolver_service.py
+pytest -q tests/goal/test_goal_scoped_config_api.py
+pytest -q tests/goal/test_goal_scoped_config_runtime_integration.py
 pytest -q tests/test_first_goal_acceptance_runner_config_modes.py
 pytest -q tests/e2e/test_parallel_scenario_goal_scoped_config.py
 ```

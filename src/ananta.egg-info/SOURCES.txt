@@ -131,8 +131,8 @@ tests/test_execution_risk_policy_service.py
 tests/test_federation_e2e.py
 tests/test_frontend_integration_scenarios.py
 tests/test_git_webhook_receiver.py
-tests/test_goal_command_aliases.py
-tests/test_goal_live_lmstudio.py
+tests/goal/test_goal_command_aliases.py
+tests/goal/test_goal_live_lmstudio.py
 tests/test_goals.py
 tests/test_grm_extended.py
 tests/test_hotspot_guardrails.py

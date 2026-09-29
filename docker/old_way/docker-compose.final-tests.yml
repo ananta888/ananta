@@ -203,7 +203,7 @@ services:
         condition: service_healthy
       autoimport:
         condition: service_started
-    command: python -m pytest -q tests/test_goal_live_lmstudio.py
+    command: python -m pytest -q tests/goal/test_goal_live_lmstudio.py
 
   frontend-test:
     extends:

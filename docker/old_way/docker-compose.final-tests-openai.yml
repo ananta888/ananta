@@ -162,7 +162,7 @@ services:
     depends_on:
       backend-test:
         condition: service_completed_successfully
-    command: python -m pytest -q tests/test_goal_live_lmstudio.py
+    command: python -m pytest -q tests/goal/test_goal_live_lmstudio.py
 
   frontend-test:
     image: ananta-frontend-compose-test:local
