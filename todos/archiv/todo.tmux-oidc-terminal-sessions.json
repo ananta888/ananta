@@ -301,7 +301,7 @@
         "agent/routes/terminal.py",
         "agent/services/terminal_target_service.py",
         "agent/config.py",
-        "tests/test_terminal_targets.py",
+        "tests/terminal/test_terminal_targets.py",
         "docs/security/terminal-sessions.md"
       ],
       "details": [
@@ -328,7 +328,7 @@
         "agent/db_models.py",
         "agent/repository.py",
         "agent/services/repository_registry.py",
-        "tests/test_terminal_session_repository.py"
+        "tests/terminal/test_terminal_session_repository.py"
       ],
       "details": [
         "Add TerminalSessionDB model.",
@@ -381,7 +381,7 @@
         "agent/auth.py",
         "agent/services/terminal_policy_service.py",
         "agent/common/audit.py",
-        "tests/test_terminal_policy_service.py",
+        "tests/terminal/test_terminal_policy_service.py",
         "docs/security/authorization-terminal.md"
       ],
       "details": [
@@ -408,7 +408,7 @@
       "files": [
         "agent/routes/terminal.py",
         "agent/ai_agent.py",
-        "tests/test_terminal_routes.py",
+        "tests/terminal/test_terminal_routes.py",
         "docs/API_TERMINAL.md"
       ],
       "details": [
@@ -496,7 +496,7 @@
         "frontend-angular/src/app/services/terminal.service.ts",
         "frontend-angular/src/app/components/terminal-session.component.ts",
         "frontend-angular/src/app/app.routes.ts",
-        "tests/test_terminal_gateway_auth.py",
+        "tests/terminal/test_terminal_gateway_auth.py",
         "docs/security/terminal-gateway.md"
       ],
       "details": [
@@ -556,7 +556,7 @@
         "agent/services/terminal_session_service.py",
         "agent/services/terminal_cleanup_service.py",
         "agent/config.py",
-        "tests/test_terminal_session_cleanup.py"
+        "tests/terminal/test_terminal_session_cleanup.py"
       ],
       "details": [
         "Add max idle timeout.",
@@ -582,7 +582,7 @@
         "agent/services/terminal_recording_service.py",
         "agent/common/audit.py",
         "agent/config.py",
-        "tests/test_terminal_recording_redaction.py",
+        "tests/terminal/test_terminal_recording_redaction.py",
         "docs/security/terminal-audit.md"
       ],
       "details": [

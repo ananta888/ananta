@@ -269,7 +269,7 @@ tests/test_team_blueprints.py
 tests/test_team_validation.py
 tests/test_teams_visibility.py
 tests/test_templates_api.py
-tests/test_terminal_bridge.py
+tests/terminal/test_terminal_bridge.py
 tests/test_test_diagnostics_contract.py
 tests/test_test_track_todo_consistency.py
 tests/test_thread_lifecycle.py

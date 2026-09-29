@@ -242,7 +242,7 @@
       "status": "done",
       "title": "Add native SSH security tests",
       "summary": "Test failure modes around certificates, principals, terminal wrapper, Hub access and stale credentials.",
-      "files": ["tests/test_ssh_certificate_security.py", "tests/test_ssh_terminal_wrapper.py", "tests/test_terminal_policy_service.py"],
+      "files": ["tests/test_ssh_certificate_security.py", "tests/test_ssh_terminal_wrapper.py", "tests/terminal/test_terminal_policy_service.py"],
       "acceptance_criteria": [
         "Expired SSH certificate is rejected.",
         "Certificate with unknown principal is rejected.",
