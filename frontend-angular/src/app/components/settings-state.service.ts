@@ -7,18 +7,44 @@ import { SystemFacade } from '../features/system/system.facade';
 import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
 import {
   buildOllamaModelStrategyRowsValue, buildProjectModelRoutingRecommendationValue,
-  createDefaultSettingsConfig, findMatchingCatalogModelId,
-  normalizeArtifactFlowConfigValue, normalizeContextBundlePolicyConfigValue,
+  createDefaultSettingsConfig,
   CONTEXT_WINDOW_PROFILES, contextWindowConfigError, contextWindowSummaryRows,
   normalizeContextWindowConfigValue, normalizeContextWindowDraftValue,
   normalizeHubCopilotConfigValue, normalizeModelOverrideMapValue,
-  normalizeOpencodeRuntimeConfigValue, normalizeOpenAICompatibleBaseUrlValue,
-  normalizeResearchBackendConfigValue, normalizeWorkerRuntimeConfigValue,
+  normalizeOpenAICompatibleBaseUrlValue,
   resolveContextBundlePolicyValue, resolveHubCopilotModelSourceValue,
   resolveHubCopilotModelValue, resolveHubCopilotProviderSourceValue,
   resolveHubCopilotProviderValue, type OllamaStrategyRow,
   type ProjectModelRoutingRecommendation,
 } from './settings-config.helpers';
+import {
+  buildNormalizedSettingsSections, normalizeApprovalLifecycleValue,
+  normalizeAutopilotSecurityPoliciesValue, normalizeKnowledgeContextValue,
+  normalizeLoadedCodexCliValue, normalizeLocalAiValue, normalizeMutationGateValue,
+  normalizeObjValue, normalizeSavedCodexCliValue, normalizeSgptRoutingValue,
+} from './settings-config-sections.helpers';
+import {
+  classifyProviderRuntimeValue, collectLlmConfigurationWarnings,
+  createEmptyLocalOpenAiBackend, describeCodexCliTargetValue,
+  groupProvidersForSelectValue, hasApiKeyValue, isModelInCatalogValue,
+  listCatalogModelsValue, listCatalogProvidersValue, normalizeLocalOpenAiBackendsValue,
+  parseCommaListValue, requiresApiKeyValue, resolveBaseUrlForProviderValue,
+  resolveCodexCliEffectiveBaseUrlValue, resolveConsistentCatalogModelId,
+  type CatalogModelEntry, type CatalogProviderEntry, type LocalOpenAiBackendDraft,
+} from './settings-provider-runtime.helpers';
+import {
+  collectEvolutionWarnings, collectResearchBackendWarnings,
+  listEvolutionProvidersValue, listResearchBackendPreflightEntriesValue,
+  listSupportedResearchProvidersValue, resolveEvolutionConfigValue,
+  summarizeEvolutionModeValue,
+} from './settings-backend-status.helpers';
+import {
+  agentLlmDraftError, agentLlmDraftFromConfig, benchmarkEditorStateFromConfig,
+  benchmarkOrderValidationError, buildAgentLlmConfigPayload, buildBenchmarkConfigPayload,
+  buildQualityGatesPayload, clampBenchmarkRetentionDays, clampBenchmarkRetentionSamples,
+  createDefaultAgentLlmDraft, formatBenchmarkOrderText, invalidJsonMessage,
+  parseJsonObjectText, parseModelOverrideText, qualityGateEditorStateFromConfig,
+} from './settings-editor-payloads.helpers';
 
 export type SettingsSection = 'account' | 'llm' | 'models' | 'quality' | 'voice' | 'network' | 'system' | 'erweitert';
 
@@ -27,6 +53,11 @@ export function settingsSectionFromQuery(value: string | null): SettingsSection 
   return sections.includes(value as SettingsSection) ? value as SettingsSection : null;
 }
 
+/**
+ * Stateful facade behind the settings page: owns the editable form state and the
+ * hub I/O. Normalization, provider resolution, status projections and editor
+ * payload mapping live in the pure `settings-*.helpers.ts` modules it delegates to.
+ */
 @Directive()
 export class SettingsState implements OnInit {
   readonly dashboardFeatures = inject(DashboardFeatureFlagStore);
@@ -101,55 +132,14 @@ export class SettingsState implements OnInit {
     if (!this.hub) return;
     this.system.getConfig(this.hub.url).subscribe({
       next: cfg => {
-        const loadedConfig = {
+        const loadedConfig: any = {
           ...createDefaultSettingsConfig(),
           ...(cfg && typeof cfg === 'object' ? cfg : {}),
-          agent_offline_timeout: Number(cfg?.agent_offline_timeout ?? 30),
-          http_timeout: Number(cfg?.http_timeout ?? 30),
-          command_timeout: Number(cfg?.command_timeout ?? 120),
-          hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
-          context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
-          context_window: normalizeContextWindowDraftValue(cfg?.context_window),
-          artifact_flow: normalizeArtifactFlowConfigValue(cfg?.artifact_flow),
-          opencode_runtime: normalizeOpencodeRuntimeConfigValue(cfg?.opencode_runtime),
-          worker_runtime: normalizeWorkerRuntimeConfigValue(cfg?.worker_runtime),
-          role_model_overrides: normalizeModelOverrideMapValue(cfg?.role_model_overrides),
-          template_model_overrides: normalizeModelOverrideMapValue(cfg?.template_model_overrides),
-          task_kind_model_overrides: normalizeModelOverrideMapValue(cfg?.task_kind_model_overrides),
-          research_backend: normalizeResearchBackendConfigValue(cfg?.research_backend),
-          sgpt_routing: this.normalizeSgptRouting(cfg?.sgpt_routing),
-          approval_lifecycle: this.normalizeApprovalLifecycle(cfg?.approval_lifecycle),
-          mutation_gate: this.normalizeMutationGate(cfg?.mutation_gate),
-          adaptive_model_routing_enabled: cfg?.adaptive_model_routing_enabled !== false,
-          adaptive_model_routing_min_samples: Number(cfg?.adaptive_model_routing_min_samples ?? 3),
-          adaptive_model_routing_top_k: Number(cfg?.adaptive_model_routing_top_k ?? 3),
-          routing_fallback_policy: this.normalizeObj(cfg?.routing_fallback_policy, { enabled: true, allow_static_providers: true, allow_local_backends: true, allow_remote_hubs: true, allow_stateful_cli: true, allow_stateless_generation: true, unavailable_action: 'mark_unavailable' }),
-          execution_fallback_policy: this.normalizeObj(cfg?.execution_fallback_policy, { allow_hub_worker_fallback: true, escalate_on_fallback_block: true, fallback_block_status: 'blocked', worker_404_hub_fallback_enabled: true, worker_task_sync_from_hub_enabled: true }),
-          autopilot_security_policies: this.normalizeAutopilotSecurityPolicies(cfg?.autopilot_security_policies),
-          planning: this.normalizeObj(cfg?.planning, { default_strategy: 'auto' }),
-          planning_policy: this.normalizeObj(cfg?.planning_policy, { delegated_planning_enabled: false, require_review: true, max_nodes: 8, max_depth: 8, timeout_seconds: 600, parallel_goal_planning_max_concurrency: 1 }),
-          goal_plan_limits: this.normalizeObj(cfg?.goal_plan_limits, { max_plan_nodes: 8, max_plan_depth: 8 }),
-          task_propose_timeout_seconds: Number(cfg?.task_propose_timeout_seconds ?? 300),
-          proposal_budget: this.normalizeObj(cfg?.proposal_budget, { max_total_seconds: 90, max_llm_calls: 2, max_strategy_attempts: 2, allow_parallel_strategy_race: false }),
-          ananta_worker_tool_loop: this.normalizeObj(cfg?.ananta_worker_tool_loop, { enabled: false, max_iterations: 6, max_tool_calls: 12, max_tool_result_chars: 8000 }),
-          ananta_worker_workspace_mutation: this.normalizeObj(cfg?.ananta_worker_workspace_mutation, { enabled: false, mutation_mode: 'read_only', max_diff_chars: 12000, max_write_file_bytes: 262144 }),
-          hub_direct_execution: this.normalizeObj(cfg?.hub_direct_execution, { enabled: false, direct_before_worker: true, fallback_to_worker: true, require_policy_gate: true, confidence_threshold: 0.8 }),
-          git_workspace: this.normalizeObj(cfg?.git_workspace, { enabled: false, remote_url: '', branch_strategy: 'goal', merge_strategy: 'squash', auto_commit: false }),
-          terminal_policy: this.normalizeObj(cfg?.terminal_policy, { enabled: false, allow_read: false, allow_interactive: false, require_authenticated: false, require_admin: true, require_admin_for_interactive: true, max_session_seconds: 1800, idle_timeout_seconds: 300 }),
-          evolution: this.normalizeObj(cfg?.evolution, { enabled: true, analyze_only: true, validate_allowed: true, apply_allowed: false, auto_triggers_enabled: false, manual_triggers_enabled: true, require_review_before_apply: true }),
-          local_ai: this.normalizeLocalAi(cfg?.local_ai),
-          memory_tree: this.normalizeObj(cfg?.memory_tree, { enabled: false, mode: 'safe_readonly', auto_ingest_knowledge_index: false, auto_ingest_result_memory: false, llm_summary_enabled: false }),
-          result_memory_policy: this.normalizeObj(cfg?.result_memory_policy, { enabled: true, create_followup_artifact: true, retrieval_document_max_chars: 2200, raw_history_max_chars: 12000, archive_raw_output: false }),
-          tool_output_compaction: this.normalizeObj(cfg?.tool_output_compaction, { enabled: true, fail_open: true, builtin_rules_enabled: true, max_input_chars_for_compaction: 4000, max_output_chars: 2000 }),
-          propose_policy: this.normalizeObj(cfg?.propose_policy, { context_compaction_enabled: true, context_compaction_required: false }),
-          workspace_context_policy: this.normalizeObj(cfg?.workspace_context_policy, { scope_mode: 'full', max_files: 200 }),
-          shell_command_policy: this.normalizeObj(cfg?.shell_command_policy, { enabled: true, allow_complex_shell_mode: false }),
-          execution_risk_policy: this.normalizeObj(cfg?.execution_risk_policy, { enabled: true, default_action: 'deny' }),
-          review_policy: this.normalizeObj(cfg?.review_policy, { enabled: true }),
-          remote_federation_policy: this.normalizeObj(cfg?.remote_federation_policy, { enabled: true, max_hops: 3, allow_artifact_access: false, allow_file_access: false }),
-          knowledge_context: this.normalizeKnowledgeContext(cfg?.knowledge_context),
-          hint_routing: this.normalizeObj(cfg?.hint_routing, { enabled: false, mode: 'compatibility' }),
-          goal_scoped_config_enabled: cfg?.goal_scoped_config_enabled !== false,
+          ...buildNormalizedSettingsSections(cfg, {
+            context_window: normalizeContextWindowDraftValue(cfg?.context_window),
+            role_model_overrides: normalizeModelOverrideMapValue(cfg?.role_model_overrides),
+            template_model_overrides: normalizeModelOverrideMapValue(cfg?.template_model_overrides),
+          }),
         };
         if (this.systemFormDirty) {
           loadedConfig.log_level = this.config?.log_level ?? loadedConfig.log_level;
@@ -158,17 +148,8 @@ export class SettingsState implements OnInit {
           loadedConfig.command_timeout = this.config?.command_timeout ?? loadedConfig.command_timeout;
         }
         this.config = loadedConfig;
-        if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
-          this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
-        } else {
-          this.config.codex_cli = {
-            target_provider: String(this.config.codex_cli.target_provider || '').trim().toLowerCase(),
-            base_url: normalizeOpenAICompatibleBaseUrlValue(this.config.codex_cli.base_url),
-            api_key_profile: this.config.codex_cli.api_key_profile || '',
-            prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
-          };
-        }
-        this.config.local_openai_backends = this.normalizeLocalOpenAiBackends(this.config.local_openai_backends);
+        this.config.codex_cli = normalizeLoadedCodexCliValue(this.config.codex_cli);
+        this.config.local_openai_backends = normalizeLocalOpenAiBackendsValue(this.config.local_openai_backends);
         this.configRaw = JSON.stringify(cfg, null, 2);
         this.llmApiKeyProfilesRaw = JSON.stringify(cfg?.llm_api_key_profiles || {}, null, 2);
         this.llmApiKeyProfilesError = '';
@@ -186,21 +167,13 @@ export class SettingsState implements OnInit {
     this.systemFormDirty = true;
   }
   normalizeSgptRouting(raw: any): any {
-    const defaults = {
-      default_backend: 'ananta-worker',
-      task_kind_backend: { coding: 'ananta-worker', analysis: 'ananta-worker', doc: 'ananta-worker', ops: 'ananta-worker', research: 'deerflow' },
-    };
-    if (!raw || typeof raw !== 'object') return defaults;
-    return { ...defaults, ...raw, task_kind_backend: { ...defaults.task_kind_backend, ...(raw.task_kind_backend || {}) } };
+    return normalizeSgptRoutingValue(raw);
   }
   normalizeApprovalLifecycle(raw: any): any {
-    const defaults = { enabled: false, grant_one_shot: true, default_ttl_seconds: 3600, goal_pre_approvals: { enabled: false, ttl_seconds: 7200 } };
-    if (!raw || typeof raw !== 'object') return defaults;
-    return { ...defaults, ...raw, goal_pre_approvals: { ...defaults.goal_pre_approvals, ...(raw.goal_pre_approvals || {}) } };
+    return normalizeApprovalLifecycleValue(raw);
   }
   normalizeMutationGate(raw: any): any {
-    if (!raw || typeof raw !== 'object') return { enabled: true, global_deny_mutations: false };
-    return { enabled: raw.enabled !== false, global_deny_mutations: !!raw.global_deny_mutations };
+    return normalizeMutationGateValue(raw);
   }
   taskKindBackendOptions(): string[] {
     return ['ananta-worker', 'deerflow', 'codex', 'opencode', 'aider', 'sgpt'];
@@ -210,26 +183,16 @@ export class SettingsState implements OnInit {
     return Object.keys(routing).map(kind => ({ kind }));
   }
   normalizeObj(raw: any, defaults: Record<string, any>): any {
-    if (!raw || typeof raw !== 'object') return { ...defaults };
-    return { ...defaults, ...raw };
+    return normalizeObjValue(raw, defaults);
   }
   normalizeLocalAi(raw: any): any {
-    const defaults = { enabled: false, provider: 'ollama', base_url: 'http://localhost:11434', model: '', api_key: '' };
-    if (!raw || typeof raw !== 'object') return defaults;
-    return { ...defaults, ...raw };
+    return normalizeLocalAiValue(raw);
   }
   normalizeAutopilotSecurityPolicies(raw: any): any {
-    const defaults = {
-      allow_file_write: false, allow_shell_exec: false, allow_network_access: false,
-      allow_tool_use: true, allow_memory_write: false, max_auto_tasks: 10
-    };
-    if (!raw || typeof raw !== 'object') return defaults;
-    return { ...defaults, ...raw };
+    return normalizeAutopilotSecurityPoliciesValue(raw);
   }
   normalizeKnowledgeContext(raw: any): any {
-    const defaults = { enabled: false, max_chunks: 5, min_score: 0.6, inject_into_planning: true, inject_into_execution: true };
-    if (!raw || typeof raw !== 'object') return defaults;
-    return { ...defaults, ...raw };
+    return normalizeKnowledgeContextValue(raw);
   }
   workerParallelismOptions(): number[] { return [1, 2, 3, 4, 6, 8]; }
   getRuntimeProfileOptions(): string[] {
@@ -250,25 +213,13 @@ export class SettingsState implements OnInit {
   private bootstrapAgentLlmDrafts() {
     for (const a of this.allAgents) {
       if (!this.agentLlmDrafts[a.name]) {
-        this.agentLlmDrafts[a.name] = {
-          provider: 'lmstudio',
-          model: '',
-          temperature: 0.2,
-          context_limit: 4096,
-          api_key_profile: ''
-        };
+        this.agentLlmDrafts[a.name] = createDefaultAgentLlmDraft();
       }
     }
   }
   getAgentLlmDraft(agentName: string): any {
     if (!this.agentLlmDrafts[agentName]) {
-      this.agentLlmDrafts[agentName] = {
-        provider: 'lmstudio',
-        model: '',
-        temperature: 0.2,
-        context_limit: 4096,
-        api_key_profile: ''
-      };
+      this.agentLlmDrafts[agentName] = createDefaultAgentLlmDraft();
     }
     return this.agentLlmDrafts[agentName];
   }
@@ -278,18 +229,9 @@ export class SettingsState implements OnInit {
     for (const a of this.allAgents) {
       this.api.getConfig(a.url).subscribe({
         next: cfg => {
-          const llm = (cfg && cfg.llm_config) ? cfg.llm_config : {};
-          const provider = String(llm.provider || cfg?.default_provider || 'lmstudio');
-          const model = String(llm.model || cfg?.default_model || '');
-          const temperature = Number(llm.temperature ?? 0.2);
-          const contextLimit = Number(llm.context_limit ?? 4096);
           this.agentLlmDrafts[a.name] = {
             ...this.agentLlmDrafts[a.name],
-            provider,
-            model,
-            temperature: Number.isFinite(temperature) ? temperature : 0.2,
-            context_limit: Number.isFinite(contextLimit) ? contextLimit : 4096,
-            api_key_profile: String(llm.api_key_profile || '')
+            ...agentLlmDraftFromConfig(cfg),
           };
           this.changeDetector?.markForCheck();
         },
@@ -301,30 +243,16 @@ export class SettingsState implements OnInit {
     const agent = this.allAgents.find(a => a.name === agentName);
     if (!agent) return;
     const draft = this.agentLlmDrafts[agentName] || {};
-    const temp = Number(draft.temperature);
-    const ctx = Number(draft.context_limit);
-    if (!Number.isFinite(temp) || temp < 0 || temp > 2) {
-      this.ns.error(`Temperature ungueltig fuer Agent ${agentName}`);
+    const draftError = agentLlmDraftError(agentName, draft);
+    if (draftError) {
+      this.ns.error(draftError);
       return;
     }
-    if (!Number.isFinite(ctx) || ctx < 256) {
-      this.ns.error(`Context Limit ungueltig fuer Agent ${agentName}`);
-      return;
-    }
+    const temperature = Number(draft.temperature);
+    const contextLimit = Number(draft.context_limit);
     this.api.getConfig(agent.url).subscribe({
       next: cfg => {
-        const current = cfg && typeof cfg === 'object' ? cfg : {};
-        const nextCfg = {
-          ...current,
-          llm_config: {
-            ...(current.llm_config || {}),
-            provider: String(draft.provider || 'lmstudio'),
-            model: String(draft.model || ''),
-            temperature: temp,
-            context_limit: Math.round(ctx),
-            api_key_profile: String(draft.api_key_profile || '')
-          }
-        };
+        const nextCfg = buildAgentLlmConfigPayload(cfg, draft, temperature, contextLimit);
         this.api.setConfig(agent.url, nextCfg).subscribe({
           next: () => this.ns.success(`LLM-Konfiguration gespeichert: ${agentName}`),
           error: () => this.ns.error(`Speichern fehlgeschlagen: ${agentName}`)
@@ -388,63 +316,16 @@ export class SettingsState implements OnInit {
     }
     this.config = {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
-      agent_offline_timeout: Number(this.config?.agent_offline_timeout ?? 30),
-      http_timeout: Number(this.config?.http_timeout ?? 30),
-      command_timeout: Number(this.config?.command_timeout ?? 120),
-      hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
-      context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
-      context_window: normalizeContextWindowConfigValue(this.config?.context_window),
-      artifact_flow: normalizeArtifactFlowConfigValue(this.config?.artifact_flow),
-      opencode_runtime: normalizeOpencodeRuntimeConfigValue(this.config?.opencode_runtime),
-      worker_runtime: normalizeWorkerRuntimeConfigValue(this.config?.worker_runtime),
-      role_model_overrides: roleModelOverrides,
-      template_model_overrides: templateModelOverrides,
-      task_kind_model_overrides: normalizeModelOverrideMapValue(this.config?.task_kind_model_overrides),
-      research_backend: normalizeResearchBackendConfigValue(this.config?.research_backend),
-      sgpt_routing: this.normalizeSgptRouting(this.config?.sgpt_routing),
-      approval_lifecycle: this.normalizeApprovalLifecycle(this.config?.approval_lifecycle),
-      mutation_gate: this.normalizeMutationGate(this.config?.mutation_gate),
-      adaptive_model_routing_enabled: this.config?.adaptive_model_routing_enabled !== false,
-      adaptive_model_routing_min_samples: Number(this.config?.adaptive_model_routing_min_samples ?? 3),
-      adaptive_model_routing_top_k: Number(this.config?.adaptive_model_routing_top_k ?? 3),
-      routing_fallback_policy: this.normalizeObj(this.config?.routing_fallback_policy, { enabled: true, allow_static_providers: true, allow_local_backends: true, allow_remote_hubs: true, allow_stateful_cli: true, allow_stateless_generation: true, unavailable_action: 'mark_unavailable' }),
-      execution_fallback_policy: this.normalizeObj(this.config?.execution_fallback_policy, { allow_hub_worker_fallback: true, escalate_on_fallback_block: true, fallback_block_status: 'blocked', worker_404_hub_fallback_enabled: true, worker_task_sync_from_hub_enabled: true }),
-      autopilot_security_policies: this.normalizeAutopilotSecurityPolicies(this.config?.autopilot_security_policies),
-      planning: this.normalizeObj(this.config?.planning, { default_strategy: 'auto' }),
-      planning_policy: this.normalizeObj(this.config?.planning_policy, { delegated_planning_enabled: false, require_review: true, max_nodes: 8, max_depth: 8, timeout_seconds: 600, parallel_goal_planning_max_concurrency: 1 }),
-      goal_plan_limits: this.normalizeObj(this.config?.goal_plan_limits, { max_plan_nodes: 8, max_plan_depth: 8 }),
-      task_propose_timeout_seconds: Number(this.config?.task_propose_timeout_seconds ?? 300),
-      proposal_budget: this.normalizeObj(this.config?.proposal_budget, { max_total_seconds: 90, max_llm_calls: 2, max_strategy_attempts: 2, allow_parallel_strategy_race: false }),
-      ananta_worker_tool_loop: this.normalizeObj(this.config?.ananta_worker_tool_loop, { enabled: false, max_iterations: 6, max_tool_calls: 12, max_tool_result_chars: 8000 }),
-      ananta_worker_workspace_mutation: this.normalizeObj(this.config?.ananta_worker_workspace_mutation, { enabled: false, mutation_mode: 'read_only', max_diff_chars: 12000, max_write_file_bytes: 262144 }),
-      hub_direct_execution: this.normalizeObj(this.config?.hub_direct_execution, { enabled: false, direct_before_worker: true, fallback_to_worker: true, require_policy_gate: true, confidence_threshold: 0.8 }),
-      git_workspace: this.normalizeObj(this.config?.git_workspace, { enabled: false, remote_url: '', branch_strategy: 'goal', merge_strategy: 'squash', auto_commit: false }),
-      terminal_policy: this.normalizeObj(this.config?.terminal_policy, { enabled: false, allow_read: false, allow_interactive: false, require_authenticated: false, require_admin: true, require_admin_for_interactive: true, max_session_seconds: 1800, idle_timeout_seconds: 300 }),
-      evolution: this.normalizeObj(this.config?.evolution, { enabled: true, analyze_only: true, validate_allowed: true, apply_allowed: false, auto_triggers_enabled: false, manual_triggers_enabled: true, require_review_before_apply: true }),
-      local_ai: this.normalizeLocalAi(this.config?.local_ai),
-      memory_tree: this.normalizeObj(this.config?.memory_tree, { enabled: false, mode: 'safe_readonly', auto_ingest_knowledge_index: false, auto_ingest_result_memory: false, llm_summary_enabled: false }),
-      result_memory_policy: this.normalizeObj(this.config?.result_memory_policy, { enabled: true, create_followup_artifact: true, retrieval_document_max_chars: 2200, raw_history_max_chars: 12000, archive_raw_output: false }),
-      tool_output_compaction: this.normalizeObj(this.config?.tool_output_compaction, { enabled: true, fail_open: true, builtin_rules_enabled: true, max_input_chars_for_compaction: 4000, max_output_chars: 2000 }),
-      propose_policy: this.normalizeObj(this.config?.propose_policy, { context_compaction_enabled: true, context_compaction_required: false }),
-      workspace_context_policy: this.normalizeObj(this.config?.workspace_context_policy, { scope_mode: 'full', max_files: 200 }),
-      shell_command_policy: this.normalizeObj(this.config?.shell_command_policy, { enabled: true, allow_complex_shell_mode: false }),
-      execution_risk_policy: this.normalizeObj(this.config?.execution_risk_policy, { enabled: true, default_action: 'deny' }),
-      review_policy: this.normalizeObj(this.config?.review_policy, { enabled: true }),
-      remote_federation_policy: this.normalizeObj(this.config?.remote_federation_policy, { enabled: true, max_hops: 3, allow_artifact_access: false, allow_file_access: false }),
-      knowledge_context: this.normalizeKnowledgeContext(this.config?.knowledge_context),
-      hint_routing: this.normalizeObj(this.config?.hint_routing, { enabled: false, mode: 'compatibility' }),
-      goal_scoped_config_enabled: this.config?.goal_scoped_config_enabled !== false,
+      ...buildNormalizedSettingsSections(this.config, {
+        context_window: normalizeContextWindowConfigValue(this.config?.context_window),
+        role_model_overrides: roleModelOverrides,
+        template_model_overrides: templateModelOverrides,
+      }),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
-      this.config.codex_cli = {
-        ...this.config.codex_cli,
-        target_provider: String(this.config.codex_cli.target_provider || '').trim().toLowerCase(),
-        base_url: normalizeOpenAICompatibleBaseUrlValue(this.config.codex_cli.base_url),
-        api_key_profile: String(this.config.codex_cli.api_key_profile || '').trim(),
-        prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
-      };
+      this.config.codex_cli = normalizeSavedCodexCliValue(this.config.codex_cli);
     }
-    this.config.local_openai_backends = this.normalizeLocalOpenAiBackends(this.config?.local_openai_backends);
+    this.config.local_openai_backends = normalizeLocalOpenAiBackendsValue(this.config?.local_openai_backends);
     // computed by the hub on read (configured/detected/effective window), never persisted
     const { context_window_effective: _contextWindowEffective, ...configToSave } = this.config;
     this.system.setConfig(this.hub.url, configToSave).subscribe({
@@ -585,7 +466,7 @@ export class SettingsState implements OnInit {
   }
 
   requiresApiKey(provider: string): boolean {
-    return provider === 'openai' || provider === 'codex' || provider === 'anthropic';
+    return requiresApiKeyValue(provider);
   }
 
   getProviderEndpointSummary(provider: string): string {
@@ -597,71 +478,27 @@ export class SettingsState implements OnInit {
   }
 
   getProviderRuntimeKind(provider: string): string {
-    const p = String(provider || '').trim().toLowerCase();
-    const baseUrl = this.getBaseUrlForProvider(p);
-    if (p === 'lmstudio' || p === 'ollama' || this.getConfiguredLocalBackends().some((entry) => entry.provider === p)) return 'local runtime';
-    if (p === 'codex') return this.isProbablyLocalUrl(this.getCodexCliEffectiveBaseUrl()) ? 'local openai-compatible' : 'cloud/openai-compatible';
-    if (this.isProbablyLocalUrl(baseUrl)) return 'local openai-compatible';
-    return 'cloud provider';
+    const baseUrl = this.getBaseUrlForProvider(String(provider || '').trim().toLowerCase());
+    return classifyProviderRuntimeValue(provider, baseUrl, this.getCodexCliEffectiveBaseUrl(), this.getConfiguredLocalBackends());
   }
 
   getCodexCliEffectiveBaseUrl(): string {
-    const codexCfg = this.config?.codex_cli || {};
-    const targetProvider = String(codexCfg?.target_provider || '').trim().toLowerCase();
-    if (targetProvider) {
-      const localBackend = this.getConfiguredLocalBackends().find((entry) => entry.provider === targetProvider);
-      if (targetProvider === 'lmstudio') {
-        return this.normalizeOpenAICompatibleBaseUrl(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
-      }
-      if (localBackend?.base_url) return this.normalizeOpenAICompatibleBaseUrl(localBackend.base_url);
-    }
-    if (codexCfg?.base_url) return this.normalizeOpenAICompatibleBaseUrl(codexCfg.base_url);
-    if (codexCfg?.prefer_lmstudio !== false) return this.normalizeOpenAICompatibleBaseUrl(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
-    return this.normalizeOpenAICompatibleBaseUrl(this.config?.openai_url || 'https://api.openai.com/v1/chat/completions');
+    return resolveCodexCliEffectiveBaseUrlValue(this.config, this.getConfiguredLocalBackends());
   }
 
   getCodexCliTargetSummary(): string {
-    const url = this.getCodexCliEffectiveBaseUrl();
-    const runtime = this.isProbablyLocalUrl(url) ? 'local openai-compatible' : 'cloud/openai-compatible';
-    const targetProvider = String(this.config?.codex_cli?.target_provider || '').trim().toLowerCase();
-    return `${runtime}${targetProvider ? ` via ${targetProvider}` : ''} (${url})`;
+    return describeCodexCliTargetValue(this.config, this.getCodexCliEffectiveBaseUrl());
   }
 
   getLlmConfigurationWarnings(): string[] {
-    const warnings: string[] = [];
-    const provider = this.getEffectiveProvider();
-    const effectiveBaseUrl = this.getEffectiveBaseUrl();
-    const providerBlock = this.getCatalogProviders().find((entry) => entry.id === provider);
-    if (providerBlock && !providerBlock.available) {
-      warnings.push(`Provider ${provider} ist laut Katalog aktuell nicht verfuegbar.`);
-    }
-    if (provider === 'lmstudio') {
-      if (!String(this.config?.lmstudio_url || '').trim()) {
-        warnings.push('LM Studio ist Default-Provider, aber die LM-Studio-URL ist nicht gesetzt.');
-      } else if (!this.isProbablyLocalUrl(effectiveBaseUrl)) {
-        warnings.push('LM Studio ist als lokaler Standard gesetzt, die konfigurierte URL wirkt jedoch nicht lokal.');
-      }
-    }
-    if (provider === 'ollama' && !this.isProbablyLocalUrl(effectiveBaseUrl)) {
-      warnings.push('Ollama sollte auf eine lokale Runtime zeigen, die aktuelle URL wirkt jedoch nicht lokal.');
-    }
-    if (this.requiresApiKey(provider) && !this.hasApiKey(provider)) {
-      warnings.push(`Provider ${provider} benoetigt einen API-Key oder ein passendes Profil.`);
-    }
-
-    const codexUrl = this.getCodexCliEffectiveBaseUrl();
-    const codexProfile = String(this.config?.codex_cli?.api_key_profile || '').trim();
-    const codexTargetProvider = String(this.config?.codex_cli?.target_provider || '').trim().toLowerCase();
-    if (codexTargetProvider && codexTargetProvider !== 'lmstudio' && !this.getConfiguredLocalBackends().some((entry) => entry.provider === codexTargetProvider)) {
-      warnings.push(`Codex CLI target_provider ${codexTargetProvider} ist nicht in local_openai_backends konfiguriert.`);
-    }
-    if (!codexUrl) {
-      warnings.push('Codex CLI hat kein effektives Ziel; setzen Sie codex_cli.base_url oder aktivieren Sie LM Studio als Fallback.');
-    }
-    if (!this.isProbablyLocalUrl(codexUrl) && !codexProfile && !this.hasApiKey('codex')) {
-      warnings.push('Codex CLI zeigt auf eine Cloud/OpenAI-kompatible Runtime, aber weder API-Key-Profil noch globaler Key sind erkennbar.');
-    }
-    return warnings;
+    return collectLlmConfigurationWarnings({
+      config: this.config,
+      provider: this.getEffectiveProvider(),
+      effectiveBaseUrl: this.getEffectiveBaseUrl(),
+      codexUrl: this.getCodexCliEffectiveBaseUrl(),
+      catalogProviders: this.getCatalogProviders(),
+      localBackends: this.getConfiguredLocalBackends(),
+    });
   }
 
   loadResearchBackendStatus() {
@@ -681,34 +518,15 @@ export class SettingsState implements OnInit {
   }
 
   getSupportedResearchProviders(): string[] {
-    const providers = this.researchBackendStatus?.research_backends;
-    if (providers && typeof providers === 'object') {
-      const names = Object.keys(providers).filter((entry) => !!String(entry || '').trim());
-      if (names.length) return names;
-    }
-    return ['deerflow', 'ananta_research'];
+    return listSupportedResearchProvidersValue(this.researchBackendStatus);
   }
 
   getResearchBackendPreflightEntries(): any[] {
-    const providers = this.researchBackendStatus?.research_backends;
-    if (!providers || typeof providers !== 'object') return [];
-    return Object.values(providers) as any[];
+    return listResearchBackendPreflightEntriesValue(this.researchBackendStatus);
   }
 
   getResearchBackendWarnings(): string[] {
-    const warnings: string[] = [];
-    const current = normalizeResearchBackendConfigValue(this.config?.research_backend);
-    const selected = (this.researchBackendStatus?.research_backends || {})?.[current.provider] || null;
-    if (current.enabled && !String(current.command || '').trim()) {
-      warnings.push(`Research-Backend ${current.provider} ist aktiviert, aber ohne command konfiguriert.`);
-    }
-    if (current.enabled && selected && selected.binary_available === false) {
-      warnings.push(`Research-Backend ${current.provider} ist aktiviert, aber das konfigurierte Binary ist aktuell nicht verfuegbar.`);
-    }
-    if (current.enabled && selected && selected.working_dir && selected.working_dir_exists === false) {
-      warnings.push(`Research-Backend ${current.provider} verwendet ein fehlendes working_dir: ${selected.working_dir}`);
-    }
-    return warnings;
+    return collectResearchBackendWarnings(this.config, this.researchBackendStatus);
   }
 
   loadEvolutionProviderStatus() {
@@ -727,85 +545,23 @@ export class SettingsState implements OnInit {
   }
 
   getEvolutionProviders(): any[] {
-    const providers = this.evolutionProviderStatus?.providers;
-    return Array.isArray(providers) ? providers : [];
+    return listEvolutionProvidersValue(this.evolutionProviderStatus);
   }
 
   getEvolutionModeSummary(): string {
-    const cfg = this.getEvolutionConfig();
-    if (!cfg.enabled) return 'disabled';
-    if (cfg.analyze_only) return 'analyze_only';
-    if (!cfg.apply_allowed) return 'proposal_review';
-    return 'controlled_apply';
+    return summarizeEvolutionModeValue(this.getEvolutionConfig());
   }
 
   getEvolutionConfig(): any {
-    const cfg = this.evolutionProviderStatus?.config;
-    return cfg && typeof cfg === 'object'
-      ? cfg
-      : {
-          enabled: false,
-          analyze_only: true,
-          validate_allowed: false,
-          apply_allowed: false,
-          require_review_before_apply: true,
-        };
+    return resolveEvolutionConfigValue(this.evolutionProviderStatus);
   }
 
   getEvolutionWarnings(): string[] {
-    const warnings: string[] = [];
-    const cfg = this.getEvolutionConfig();
-    if (!cfg.enabled) {
-      warnings.push('Evolution ist global deaktiviert.');
-      return warnings;
-    }
-    if (cfg.apply_allowed === true && cfg.require_review_before_apply !== true) {
-      warnings.push('Apply ist freigegeben, aber Review vor Apply ist nicht erzwungen.');
-    }
-    if (cfg.apply_allowed === true && cfg.analyze_only === true) {
-      warnings.push('Apply ist global freigegeben, aber Provider koennen weiter analyze-only fail-closed bleiben.');
-    }
-    if (cfg.validate_allowed !== true) {
-      warnings.push('Validation ist aktuell nicht global freigegeben.');
-    }
-    for (const provider of this.getEvolutionProviders()) {
-      const apply = provider?.capability_matrix?.apply;
-      const validate = provider?.capability_matrix?.validate;
-      if (apply?.supported && !apply?.available && apply?.fail_closed_reason) {
-        warnings.push(`Provider ${provider.provider_name} blockiert Apply: ${apply.fail_closed_reason}`);
-      }
-      if (validate?.supported && !validate?.available && validate?.fail_closed_reason) {
-        warnings.push(`Provider ${provider.provider_name} blockiert Validate: ${validate.fail_closed_reason}`);
-      }
-    }
-    return warnings;
+    return collectEvolutionWarnings(this.getEvolutionConfig(), this.getEvolutionProviders());
   }
 
   private getBaseUrlForProvider(provider: string): string {
-    const normalizedProvider = String(provider || '').trim().toLowerCase();
-    const llmCfg = this.config?.llm_config || {};
-    if (llmCfg?.provider === normalizedProvider && llmCfg?.base_url) {
-      return this.normalizeOpenAICompatibleBaseUrl(llmCfg.base_url);
-    }
-    const localBackend = this.getConfiguredLocalBackends().find((entry) => entry.provider === normalizedProvider);
-    if (localBackend?.base_url) {
-      return this.normalizeOpenAICompatibleBaseUrl(localBackend.base_url);
-    }
-    const providerDefaults: Record<string, string> = {
-      ollama: 'http://localhost:11434/api/generate',
-      lmstudio: 'http://192.168.56.1:1234/v1',
-      openai: 'https://api.openai.com/v1/chat/completions',
-      codex: 'https://api.openai.com/v1/chat/completions',
-      anthropic: 'https://api.anthropic.com/v1/messages'
-    };
-    const key = `${normalizedProvider}_url`;
-    return this.normalizeOpenAICompatibleBaseUrl(this.config?.[key] || providerDefaults[normalizedProvider] || '(nicht gesetzt)');
-  }
-
-  private isProbablyLocalUrl(url: string): boolean {
-    const raw = String(url || '').trim().toLowerCase();
-    if (!raw) return false;
-    return ['localhost', '127.0.0.1', 'host.docker.internal', '192.168.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.'].some(marker => raw.includes(marker));
+    return resolveBaseUrlForProviderValue(this.config, provider, this.getConfiguredLocalBackends());
   }
 
   private normalizeOpenAICompatibleBaseUrl(url: any): string {
@@ -822,39 +578,24 @@ export class SettingsState implements OnInit {
     this.templateModelOverridesError = '';
   }
 
+  /** Parses one override editor and records its error message; rethrows on invalid JSON. */
   private parseModelOverrideEditor(text: string, kind: 'role' | 'template'): Record<string, string> {
-    const raw = String(text || '').trim();
+    let message = '';
     try {
-      const parsed = raw ? JSON.parse(raw) : {};
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('Root muss ein Objekt sein.');
-      }
-      const normalized = normalizeModelOverrideMapValue(parsed);
-      if (kind === 'role') {
-        this.roleModelOverridesError = '';
-      } else {
-        this.templateModelOverridesError = '';
-      }
-      return normalized;
+      return parseModelOverrideText(text);
     } catch (error) {
-      const message = `Ungueltiges JSON: ${error instanceof Error ? error.message : String(error)}`;
+      message = invalidJsonMessage(error);
+      throw error;
+    } finally {
       if (kind === 'role') {
         this.roleModelOverridesError = message;
       } else {
         this.templateModelOverridesError = message;
       }
-      throw error;
     }
   }
 
-  getConfiguredLocalBackends(): Array<{
-    provider: string;
-    name: string;
-    base_url: string;
-    api_key_profile: string;
-    models_text: string;
-    supports_tool_calls: boolean;
-  }> {
+  getConfiguredLocalBackends(): LocalOpenAiBackendDraft[] {
     if (!Array.isArray(this.config?.local_openai_backends)) {
       this.config.local_openai_backends = [];
     }
@@ -862,39 +603,11 @@ export class SettingsState implements OnInit {
   }
 
   addLocalOpenAiBackend() {
-    this.getConfiguredLocalBackends().push({
-      provider: '',
-      name: '',
-      base_url: '',
-      api_key_profile: '',
-      models_text: '',
-      supports_tool_calls: true,
-    });
+    this.getConfiguredLocalBackends().push(createEmptyLocalOpenAiBackend());
   }
 
   removeLocalOpenAiBackend(index: number) {
     this.getConfiguredLocalBackends().splice(index, 1);
-  }
-
-  private normalizeLocalOpenAiBackends(items: any): any[] {
-    if (!Array.isArray(items)) return [];
-    return items
-      .map((item) => {
-        const provider = String(item?.provider || item?.id || '').trim().toLowerCase();
-        const models = this.parseCommaList(item?.models_text ?? item?.models);
-        if (!provider) return null;
-        return {
-          id: provider,
-          provider,
-          name: String(item?.name || provider).trim(),
-          base_url: this.normalizeOpenAICompatibleBaseUrl(item?.base_url),
-          api_key_profile: String(item?.api_key_profile || '').trim(),
-          models,
-          models_text: models.join(', '),
-          supports_tool_calls: item?.supports_tool_calls !== false,
-        };
-      })
-      .filter((item): item is any => !!item);
   }
 
   saveApiKeyProfiles() {
@@ -902,12 +615,9 @@ export class SettingsState implements OnInit {
     this.llmApiKeyProfilesError = '';
     let parsed: any = {};
     try {
-      parsed = JSON.parse(this.llmApiKeyProfilesRaw || '{}');
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('Root muss ein Objekt sein.');
-      }
+      parsed = parseJsonObjectText(this.llmApiKeyProfilesRaw || '{}');
     } catch (e) {
-      this.llmApiKeyProfilesError = 'Ungueltiges JSON: ' + (e instanceof Error ? e.message : String(e));
+      this.llmApiKeyProfilesError = invalidJsonMessage(e);
       return;
     }
     this.system.setConfig(this.hub.url, { llm_api_key_profiles: parsed }).subscribe({
@@ -920,52 +630,18 @@ export class SettingsState implements OnInit {
   }
 
   hasApiKey(provider: string): boolean {
-    const llmCfg = this.config?.llm_config || {};
-    if (llmCfg?.provider === provider && llmCfg?.api_key) return true;
-    if (provider === 'openai' || provider === 'codex') return Boolean(this.config?.openai_api_key);
-    if (provider === 'anthropic') return Boolean(this.config?.anthropic_api_key);
-    return false;
+    return hasApiKeyValue(this.config, provider);
   }
 
-  getCatalogProviders(): Array<{ id: string; available: boolean; model_count: number }> {
-    const providers = Array.isArray(this.providerCatalog?.providers) ? this.providerCatalog.providers : [];
-    if (!providers.length) {
-      return [
-        { id: 'ollama', available: true, model_count: 0 },
-        { id: 'lmstudio', available: true, model_count: 0 },
-        { id: 'openai', available: true, model_count: 0 },
-        { id: 'codex', available: true, model_count: 0 },
-        { id: 'anthropic', available: true, model_count: 0 },
-        ...this.getConfiguredLocalBackends().map((backend) => ({
-          id: backend.provider,
-          available: Boolean(backend.base_url),
-          model_count: this.parseCommaList(backend.models_text).length,
-        })),
-      ];
-    }
-    return providers
-      .map((p: any) => ({
-        id: String(p?.provider || ''),
-        available: !!p?.available,
-        model_count: Number(p?.model_count || 0),
-      }))
-      .filter((p) => !!p.id);
+  getCatalogProviders(): CatalogProviderEntry[] {
+    const hasCatalog = Array.isArray(this.providerCatalog?.providers) && this.providerCatalog.providers.length > 0;
+    // local backends only feed the offline fallback list; avoid touching config otherwise
+    return listCatalogProvidersValue(this.providerCatalog, hasCatalog ? [] : this.getConfiguredLocalBackends());
   }
 
-  getProviderSelectGroups(): Array<{ label: string; providers: Array<{ id: string; available: boolean; model_count: number }> }> {
+  getProviderSelectGroups(): Array<{ label: string; providers: CatalogProviderEntry[] }> {
     const providers = this.getCatalogProviders();
-    const localIds = new Set(['lmstudio', 'ollama', ...this.getConfiguredLocalBackends().map((entry) => entry.provider)]);
-    const cloudIds = new Set(['openai', 'codex', 'anthropic']);
-    return [
-      {
-        label: 'Lokale Runtimes',
-        providers: providers.filter((provider) => localIds.has(provider.id)),
-      },
-      {
-        label: 'Cloud / Hosted Provider',
-        providers: providers.filter((provider) => cloudIds.has(provider.id)),
-      },
-    ].filter((group) => group.providers.length > 0);
+    return groupProvidersForSelectValue(providers, this.getConfiguredLocalBackends());
   }
 
   getRuntimeGroupSummary(kind: 'local' | 'cloud' | 'cli'): string {
@@ -982,116 +658,55 @@ export class SettingsState implements OnInit {
     return providers.map((provider) => `${provider.id}${provider.available ? '' : ' (offline)'}`).join(', ');
   }
 
-  getCatalogModels(providerId: string): Array<{ id: string; display_name: string; context_length: number | null }> {
-    const providers = Array.isArray(this.providerCatalog?.providers) ? this.providerCatalog.providers : [];
-    const block = providers.find((p: any) => String(p?.provider || '') === String(providerId || ''));
-    const models = Array.isArray(block?.models) ? block.models : [];
-    if (!models.length) {
-      return [];
-    }
-    return models
-      .map((m: any) => ({
-        id: String(m?.id || ''),
-        display_name: String(m?.display_name || m?.id || ''),
-        context_length: m?.context_length ?? null,
-      }))
-      .filter((m) => !!m.id);
+  getCatalogModels(providerId: string): CatalogModelEntry[] {
+    return listCatalogModelsValue(this.providerCatalog, providerId);
   }
 
   ensureProviderModelConsistency() {
-    const provider = this.getEffectiveProvider();
-    const models = this.getCatalogModels(provider);
-    if (!models.length) return;
-    const current = String(this.config?.default_model || '').trim();
-    const matched = findMatchingCatalogModelId(current, models);
-    if (matched) {
-      this.config.default_model = matched;
-      return;
-    }
-    if (!current || !models.some(m => m.id === current)) {
-      this.config.default_model = models[0].id;
-    }
+    const next = resolveConsistentCatalogModelId(this.config?.default_model, this.getCatalogModels(this.getEffectiveProvider()));
+    if (next) this.config.default_model = next;
   }
 
   ensureHubCopilotModelConsistency() {
-    const provider = this.getHubCopilotProvider();
-    const models = this.getCatalogModels(provider);
-    if (!models.length) return;
-    const current = String(this.config?.hub_copilot?.model || '').trim();
-    const matched = findMatchingCatalogModelId(current, models);
-    if (matched) {
-      this.config.hub_copilot.model = matched;
-      return;
-    }
-    if (!current || !models.some(m => m.id === current)) {
-      this.config.hub_copilot.model = models[0].id;
-    }
+    const next = resolveConsistentCatalogModelId(this.config?.hub_copilot?.model, this.getCatalogModels(this.getHubCopilotProvider()));
+    if (next) this.config.hub_copilot.model = next;
   }
 
   isCurrentModelInCatalog(): boolean {
-    const provider = this.getEffectiveProvider();
-    const models = this.getCatalogModels(provider);
-    const current = String(this.config?.default_model || '').trim();
-    if (!current || !models.length) return false;
-    return !!findMatchingCatalogModelId(current, models);
+    return isModelInCatalogValue(this.config?.default_model, this.getCatalogModels(this.getEffectiveProvider()));
   }
 
   isHubCopilotCurrentModelInCatalog(): boolean {
-    const provider = this.getHubCopilotProvider();
-    const models = this.getCatalogModels(provider);
-    const current = String(this.config?.hub_copilot?.model || '').trim();
-    if (!current || !models.length) return false;
-    return !!findMatchingCatalogModelId(current, models);
+    return isModelInCatalogValue(this.config?.hub_copilot?.model, this.getCatalogModels(this.getHubCopilotProvider()));
   }
 
   benchmarkProviderOrderText(): string {
-    const arr = this.parseCommaList(this.benchmarkProviderOrderTextValue);
-    return Array.isArray(arr) && arr.length ? arr.join(' -> ') : '-';
+    return formatBenchmarkOrderText(this.benchmarkProviderOrderTextValue);
   }
 
   benchmarkModelOrderText(): string {
-    const arr = this.parseCommaList(this.benchmarkModelOrderTextValue);
-    return Array.isArray(arr) && arr.length ? arr.join(' -> ') : '-';
+    return formatBenchmarkOrderText(this.benchmarkModelOrderTextValue);
   }
 
   saveBenchmarkConfig() {
     if (!this.hub) return;
     this.benchmarkValidationError = '';
 
-    const providerOrder = this.parseCommaList(this.benchmarkProviderOrderTextValue);
-    const modelOrder = this.parseCommaList(this.benchmarkModelOrderTextValue);
-    const providerAllowed = new Set(['proposal_backend', 'routing_effective_backend', 'llm_config_provider', 'default_provider', 'provider']);
-    const modelAllowed = new Set(['proposal_model', 'llm_config_model', 'default_model', 'model']);
-
-    const invalidProviderKeys = providerOrder.filter((k) => !providerAllowed.has(k));
-    const invalidModelKeys = modelOrder.filter((k) => !modelAllowed.has(k));
-    if (invalidProviderKeys.length || invalidModelKeys.length) {
-      const invalidMsg = [
-        invalidProviderKeys.length ? `ungueltige provider_order keys: ${invalidProviderKeys.join(', ')}` : '',
-        invalidModelKeys.length ? `ungueltige model_order keys: ${invalidModelKeys.join(', ')}` : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
+    const providerOrder = parseCommaListValue(this.benchmarkProviderOrderTextValue);
+    const modelOrder = parseCommaListValue(this.benchmarkModelOrderTextValue);
+    const invalidMsg = benchmarkOrderValidationError(providerOrder, modelOrder);
+    if (invalidMsg) {
       this.benchmarkValidationError = invalidMsg;
       this.ns.error('Benchmark-Konfiguration ist ungueltig');
       return;
     }
 
-    const days = Math.max(1, Math.min(3650, Number(this.benchmarkRetentionDays || 90)));
-    const samples = Math.max(50, Math.min(50000, Number(this.benchmarkRetentionSamples || 2000)));
+    const days = clampBenchmarkRetentionDays(this.benchmarkRetentionDays);
+    const samples = clampBenchmarkRetentionSamples(this.benchmarkRetentionSamples);
     this.benchmarkRetentionDays = days;
     this.benchmarkRetentionSamples = samples;
 
-    const payload = {
-      benchmark_retention: {
-        max_days: days,
-        max_samples: samples,
-      },
-      benchmark_identity_precedence: {
-        provider_order: providerOrder,
-        model_order: modelOrder,
-      },
-    };
+    const payload = buildBenchmarkConfigPayload(days, samples, providerOrder, modelOrder);
     this.system.setConfig(this.hub.url, payload).subscribe({
       next: () => {
         this.ns.success('Benchmark-Konfiguration gespeichert');
@@ -1102,10 +717,7 @@ export class SettingsState implements OnInit {
   }
 
   private parseCommaList(text: string): string[] {
-    return String(text || '')
-      .split(',')
-      .map((v) => v.trim())
-      .filter(Boolean);
+    return parseCommaListValue(text);
   }
 
   private normalizeHubCopilotConfig(value: any): any {
@@ -1113,25 +725,26 @@ export class SettingsState implements OnInit {
   }
 
   private syncBenchmarkConfigEditor(cfg: any) {
-    const retention = cfg?.retention || {};
-    const precedence = cfg?.identity_precedence || {};
-    this.benchmarkRetentionDays = Number(retention.max_days || 90);
-    this.benchmarkRetentionSamples = Number(retention.max_samples || 2000);
-    const providerOrder = Array.isArray(precedence.provider_order) ? precedence.provider_order : [];
-    const modelOrder = Array.isArray(precedence.model_order) ? precedence.model_order : [];
-    this.benchmarkProviderOrderTextValue = providerOrder.join(', ');
-    this.benchmarkModelOrderTextValue = modelOrder.join(', ');
+    const state = benchmarkEditorStateFromConfig(cfg);
+    this.benchmarkRetentionDays = state.retentionDays;
+    this.benchmarkRetentionSamples = state.retentionSamples;
+    this.benchmarkProviderOrderTextValue = state.providerOrderText;
+    this.benchmarkModelOrderTextValue = state.modelOrderText;
   }
 
   private syncQualityGatesFromConfig(cfg: any) {
-    const qg = (cfg && cfg.quality_gates) ? cfg.quality_gates : {};
-    this.qgEnabled = qg.enabled !== false;
-    this.qgAutopilotEnforce = qg.autopilot_enforce !== false;
-    this.qgMinOutputChars = Number(qg.min_output_chars || 8);
-    this.qgCodingKeywordsText = Array.isArray(qg.coding_keywords) ? qg.coding_keywords.join(', ') : this.qgCodingKeywordsText;
-    this.qgMarkersText = Array.isArray(qg.required_output_markers_for_coding)
-      ? qg.required_output_markers_for_coding.join(', ')
-      : this.qgMarkersText;
+    const state = qualityGateEditorStateFromConfig(cfg, {
+      enabled: this.qgEnabled,
+      autopilotEnforce: this.qgAutopilotEnforce,
+      minOutputChars: this.qgMinOutputChars,
+      codingKeywordsText: this.qgCodingKeywordsText,
+      markersText: this.qgMarkersText,
+    });
+    this.qgEnabled = state.enabled;
+    this.qgAutopilotEnforce = state.autopilotEnforce;
+    this.qgMinOutputChars = state.minOutputChars;
+    this.qgCodingKeywordsText = state.codingKeywordsText;
+    this.qgMarkersText = state.markersText;
   }
 
   loadQualityGates() {
@@ -1144,15 +757,13 @@ export class SettingsState implements OnInit {
 
   saveQualityGates() {
     if (!this.hub) return;
-    const payload = {
-      quality_gates: {
-        enabled: !!this.qgEnabled,
-        autopilot_enforce: !!this.qgAutopilotEnforce,
-        min_output_chars: Math.max(1, Number(this.qgMinOutputChars || 8)),
-        coding_keywords: this.parseCommaList(this.qgCodingKeywordsText),
-        required_output_markers_for_coding: this.parseCommaList(this.qgMarkersText),
-      }
-    };
+    const payload = buildQualityGatesPayload({
+      enabled: this.qgEnabled,
+      autopilotEnforce: this.qgAutopilotEnforce,
+      minOutputChars: this.qgMinOutputChars,
+      codingKeywordsText: this.qgCodingKeywordsText,
+      markersText: this.qgMarkersText,
+    });
     this.system.setConfig(this.hub.url, payload).subscribe({
       next: () => {
         this.ns.success('Quality-Gates gespeichert');
