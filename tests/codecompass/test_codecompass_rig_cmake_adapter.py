@@ -156,10 +156,11 @@ def test_partial_coverage_does_not_pretend_complete(tmp_path):
 
 def test_does_not_call_sqlite(tmp_path, monkeypatch):
     import sqlite3 as _real
+    original_connect = _real.connect  # captured before patching: calling _real.connect would recurse
     opened = []
     def _spy_connect(*a, **kw):
         opened.append((a, kw))
-        return _real.connect(*a, **kw)
+        return original_connect(*a, **kw)
     monkeypatch.setattr(_real, "connect", _spy_connect)
     _install_workspace(tmp_path, with_ctest=True)
     CmakeRigAdapter(workspace_dir=tmp_path).import_snapshot()
