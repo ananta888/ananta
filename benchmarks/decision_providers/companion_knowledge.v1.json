@@ -18,7 +18,7 @@
       "state": "was weisst du ueber den rag-helper wie der funktioniert?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-002",
@@ -26,7 +26,7 @@
       "state": "Was macht RagHelperIndexService?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-003",
@@ -34,7 +34,7 @@
       "state": "erklär mir docs/rag-helper.md",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-004",
@@ -42,7 +42,7 @@
       "state": "Was weißt du über den RAG helper?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-005",
@@ -50,7 +50,7 @@
       "state": "Wie funktioniert deine Sprachausgabe?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-006",
@@ -58,7 +58,7 @@
       "state": "Welche Datei macht das?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-007",
@@ -66,7 +66,7 @@
       "state": "was sind das alles für funktionen die du dafür aufrufen kannst?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-008",
@@ -74,7 +74,7 @@
       "state": "erkläre mir den codecompass",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-009",
@@ -82,7 +82,7 @@
       "state": "dann erkläre mir wie der codecompass funktioniert und was zentrale wichtige python files davon sind?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-010",
@@ -90,7 +90,7 @@
       "state": "Wo stehen die Antworten des Companion im Code?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_knowledge_questions_are_marked_for_a_forced_lookup_with_a_focused_query"
     },
     {
       "id": "companion_knowledge-011",
@@ -98,7 +98,7 @@
       "state": "Hallo! Wie geht es dir heute?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
     },
     {
       "id": "companion_knowledge-012",
@@ -106,7 +106,7 @@
       "state": "Erzähl mir einen Witz",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
     },
     {
       "id": "companion_knowledge-013",
@@ -114,7 +114,7 @@
       "state": "Was ist die Hauptstadt von Frankreich?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
     },
     {
       "id": "companion_knowledge-014",
@@ -122,7 +122,7 @@
       "state": "Wie funktioniert ein Kühlschrank?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
     },
     {
       "id": "companion_knowledge-015",
@@ -130,7 +130,7 @@
       "state": "Was ist Covid-19?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
     },
     {
       "id": "companion_knowledge-016",
@@ -138,7 +138,7 @@
       "state": "Wer ist gerade im Raum?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_smalltalk_and_general_questions_are_never_knowledge_questions"
     },
     {
       "id": "companion_knowledge-017",
@@ -146,7 +146,7 @@
       "state": "erklaere mir wofuer der rag-helper gut ist?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_the_live_sequence_ends_in_an_answer_instead_of_tool_markup"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_the_live_sequence_ends_in_an_answer_instead_of_tool_markup"
     },
     {
       "id": "companion_knowledge-018",
@@ -154,7 +154,7 @@
       "state": "Hallo zusammen!",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_without_a_confident_choice_the_reply_path_is_unchanged"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_without_a_confident_choice_the_reply_path_is_unchanged"
     },
     {
       "id": "companion_knowledge-019",
@@ -162,7 +162,7 @@
       "state": "Hallo, wie geht es dir?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_smalltalk_skips_codecompass_and_meet_questions_attach_runtime_context"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_smalltalk_skips_codecompass_and_meet_questions_attach_runtime_context"
     },
     {
       "id": "companion_knowledge-020",
@@ -170,7 +170,7 @@
       "state": "Wie funktioniert die ToolBox in Ananta?",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
+      "source": "tests/meet/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
     },
     {
       "id": "companion_knowledge-021",
@@ -178,7 +178,7 @@
       "state": "Wie geht es dir heute?",
       "expected": false,
       "acceptable": [],
-      "source": "tests/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
+      "source": "tests/meet/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
     }
   ]
 }

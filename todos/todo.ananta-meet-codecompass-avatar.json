@@ -134,9 +134,9 @@
       "docs/meet-companion-avatar.md"
     ],
     "tests": [
-      "tests/test_meet_snake_avatar_sync.py",
-      "tests/test_meet_companion_dialog.py",
-      "tests/test_meet_assist_retrieve_route.py"
+      "tests/meet/test_meet_snake_avatar_sync.py",
+      "tests/meet/test_meet_companion_dialog.py",
+      "tests/meet/test_meet_assist_retrieve_route.py"
     ],
     "acceptance": {
       "avatar_participant": "done (companion publiziert persona-video-v1 Clips)",

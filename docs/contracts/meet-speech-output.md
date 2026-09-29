@@ -67,9 +67,9 @@ Current MP4 publication still has its independent Hub lease checks.
 
 ## Headless checks
 
-`tests/test_meet_speech_output.py` covers split sentence boundaries, exact PCM,
+`tests/meet/test_meet_speech_output.py` covers split sentence boundaries, exact PCM,
 pull backpressure, local revocation, budget rejection, provider errors, output
-cleanup and safe refusal to overwrite a file. `tests/test_meet_speech_gpu.py`
+cleanup and safe refusal to overwrite a file. `tests/meet/test_meet_speech_gpu.py`
 is opt-in with `MEET_SPEECH_GPU_GATE=1` against the private provisioned worker.
 It runs actual Piper CUDA, measures first-frame time including model loading,
 checks sample continuity, and stops another iterator without human input.

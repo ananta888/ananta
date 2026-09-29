@@ -7,7 +7,7 @@ import subprocess
 import time
 import uuid
 
-from tests.meet_egress_containers import EgressContainers, docker
+from tests.meet.meet_egress_containers import EgressContainers, docker
 
 PROFILES = {
     "generation": (8098, "PERSONA_GENERATION", "persona_generation_server", "256m", "32m"),

@@ -151,7 +151,7 @@ Der private Callback verlangt jetzt [anfragegebundene Lease V2](../contracts/mee
 Hub und Worker gemeinsam aktualisieren; ältere Zwei-Feld-Anfragen erhalten eine
 maschinenlesbare Upgrade-Meldung, keine wiederverwendbare Freigabe.
 
-Das zusätzliche Opt-in-Gate `tests/test_meet_profile_gpu.py` führt einen echten
+Das zusätzliche Opt-in-Gate `tests/meet/test_meet_profile_gpu.py` führt einen echten
 lokalen LLM-/Piper-CUDA-/Persona-NVENC-Turn mit realer Profil-SQL, regulärem
 Hub-Task und anfragegebundenem HTTP-Callback aus. Seine Bildzulassungs-Policies
 sind ausdrücklich synthetische Test-Fixtures; es veröffentlicht weder in Meet
@@ -221,7 +221,7 @@ einzelne technische Beobachtung, kein belastbarer Lastbenchmark.
 MEET_MEDIA_GPU_GATE=1 \
 MEET_MEDIA_GPU_ENDPOINT=http://PRIVATE-WORKER-IP:8094/v1/turns \
 MEET_MEDIA_GPU_KEY_FILE=/home/krusty/ananta/data/meet-media/worker-key \
-.venv/bin/python -m pytest tests/test_meet_media_gpu.py -q
+.venv/bin/python -m pytest tests/meet/test_meet_media_gpu.py -q
 ```
 
 `scripts/check_meet_media_local.py` erzeugt optional ein ausdrücklich

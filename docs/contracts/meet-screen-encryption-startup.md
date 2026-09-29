@@ -34,7 +34,7 @@ the measured counters rather than declaring a cause from an assumption.
 
 ## Implemented diagnostic and result (2026-09-08)
 
-`tests/test_meet_screen_key_startup.py` now tests both sender and receiver key
+`tests/meet/test_meet_screen_key_startup.py` now tests both sender and receiver key
 delivery, using the existing private fixture with a separate test-only timing
 adapter. Normal consent renewal can replace the first held key before delivery;
 the injector therefore admits at most three incoming current generations until

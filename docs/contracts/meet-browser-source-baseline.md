@@ -51,7 +51,7 @@ memory. These simple color frames are not a representative website bandwidth
 benchmark. No page network request or human capture was used.
 
 Run the opt-in container gate with `MEET_BROWSER_PROBE_GATE=1` and
-`tests/test_meet_browser_probe.py`. The driver enforces a 30-second process limit
+`tests/meet/test_meet_browser_probe.py`. The driver enforces a 30-second process limit
 and a 45-second test limit. It needs the provisioned private browser image; it
 does not attach to the desktop or another browser profile. Unit tests need no
 browser or person.

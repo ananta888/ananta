@@ -108,7 +108,7 @@ recording or an unlimited audio stream: the original30s reservation budget and
 language profiles and visual image-features are the supported closed profiles.
 The visual profile is not OCR or semantic object understanding.
 
-`tests/test_meet_audio_packaged.py` uses explicit `MEET_AUDIO_PACKAGED_GATE=1`,
+`tests/meet/test_meet_audio_packaged.py` uses explicit `MEET_AUDIO_PACKAGED_GATE=1`,
 `MEET_AUDIO_WORKER_IMAGE` as an immutable image ID, a fresh private
 `MEET_TEST_PUBLIC_DIR`, and `ANANTA_TEST_DATABASE_MODE=wal`. The shared fixture
 keeps infrastructure separate from scenario assertions; all grants, source

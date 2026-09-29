@@ -111,7 +111,7 @@ service rebuild:
 
 ```sh
 MEET_CURRENT_SOURCE_GPU_GATE=1 .venv/bin/python -m pytest \
-  tests/test_meet_gpu_source_fixture.py tests/test_meet_current_source_gpu.py \
+  tests/meet/test_meet_gpu_source_fixture.py tests/meet/test_meet_current_source_gpu.py \
   -q -n 0 -o cache_dir=/tmp/ananta-meet-current-gpu-pytest-cache
 ```
 

@@ -128,10 +128,10 @@ Turn-Service an `worker.meet_media.contract` bleibt unverändert; eine gemeinsam
 transportneutrale Contract-Bibliothek wäre ein späterer Extraktionspfad, kein
 Grund, jetzt Worker-Orchestrierung in den Hub-Dialog einzubauen.
 
-Prüfung: `.venv/bin/python -m pytest tests/test_meet_chat_admission.py -q -n4`.
+Prüfung: `.venv/bin/python -m pytest tests/meet/test_meet_chat_admission.py -q -n4`.
 Alle Fälle sind synthetisch, headless und ohne Produktions-Release-Evidenz.
-Referenzlauf mit `tests/test_meet_chat_admission.py`, `tests/test_meet_media.py`
-und `tests/test_meet_integration.py`: **177 bestanden in 41,50 Sekunden**, davon
+Referenzlauf mit `tests/meet/test_meet_chat_admission.py`, `tests/test_meet_media.py`
+und `tests/meet/test_meet_integration.py`: **177 bestanden in 41,50 Sekunden**, davon
 80 neue Chat-Admission-Fälle. Ruff und TODO-Konsistenzprüfung erfolgreich.
 Kein neuer GPU-, öffentlicher Meet-, PostgreSQL- oder Soak-Lauf in diesem Slice.
 

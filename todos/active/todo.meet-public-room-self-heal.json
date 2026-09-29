@@ -61,7 +61,7 @@
     "agent/routes/meet.py",
     "agent/services/meet_turn_service.py",
     "agent/services/meet_public_room_binding.py",
-    "tests/test_meet_public_room_internal.py"
+    "tests/meet/test_meet_public_room_internal.py"
    ],
    "acceptance_criteria": [
     "Gueltiger Worker-Key: Eintrag ensured, Binding auf die Invite-URL gesetzt, wiederholter Aufruf idempotent ohne Revision",
@@ -72,7 +72,7 @@
     "Operator-Route bleibt user-only"
    ],
    "verification": [
-    "pytest tests/test_meet_public_room_internal.py: 20 passed; tests/test_meet_public_room.py unveraendert gruen (Hub-Image ananta-quickstart-no-ollama-qdrant-hub:local, env -i)"
+    "pytest tests/meet/test_meet_public_room_internal.py: 20 passed; tests/meet/test_meet_public_room.py unveraendert gruen (Hub-Image ananta-quickstart-no-ollama-qdrant-hub:local, env -i)"
    ]
   },
   {
@@ -86,7 +86,7 @@
    "implemented_solution": "ensure_public_room() ruft vor dem ersten Grant /internal/public-room (MEET_HUB_PUBLIC_ROOM_URL, Default neben MEET_HUB_COMPANION_URL). Der Hub prueft das Directory selbst und legt nur bei fehlendem Eintrag neu an; der folgende Grant nennt dann den neu gebundenen Raum. advertise_room schreibt die Hub-Invite-URL (nur wenn sie denselben Raum nennt) nach /state/room.json und ROOM-Log. Alle MEET_COMPANION_PUBLIC_ROOM_CHECK s (Default 300, 0 = nur beim Join) wird erneut geheilt; nennt der Hub einen anderen Raum, verlaesst der Companion den alten (ROOM_MOVED) und tritt im selben Prozess mit frischem Grant dem neuen bei. Fehler sind nie fatal; 404 disabled stoppt weitere Aufrufe.",
    "affected_files": [
     "worker/meet_media/companion.py",
-    "tests/test_meet_companion_public_room.py"
+    "tests/meet/test_meet_companion_public_room.py"
    ],
    "acceptance_criteria": [
     "Reihenfolge Ensure vor Grant; Join in den (neu) gebundenen Raum; room.json/ROOM-Log mit oeffentlicher Invite-URL",
@@ -95,7 +95,7 @@
     "Verlorener Eintrag waehrend des Joins: Wechsel in den neuen Raum mit neuer Session, ohne externen Neustart"
    ],
    "verification": [
-    "pytest tests/test_meet_companion_public_room.py: 14 passed (Playwright und Hub als Test-Doubles)"
+    "pytest tests/meet/test_meet_companion_public_room.py: 14 passed (Playwright und Hub als Test-Doubles)"
    ]
   },
   {

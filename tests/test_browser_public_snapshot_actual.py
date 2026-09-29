@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from tests.meet_private_browser_container import run_private_browser_probe
+from tests.meet.meet_private_browser_container import run_private_browser_probe
 
 
 @pytest.mark.skipif(os.environ.get("BROWSER_PUBLIC_VIEW_GATE") != "1", reason="explicit private sanitized-view probe")

@@ -15,14 +15,14 @@
     "agent/services/meet_contract.py",
     "agent/services/meet_binding_service.py",
     "agent/services/meet_health_probe.py",
-    "tests/test_meet_integration.py",
+    "tests/meet/test_meet_integration.py",
     "tests/test_project_lifecycle_service.py",
     "tests/contracts/test_public_rendezvous_compose.py",
     "public-rendezvous/caddy/Caddyfile",
     "docker-compose.meet.yml"
   ],
   "pytest_args": [
-    "tests/test_meet_integration.py",
+    "tests/meet/test_meet_integration.py",
     "tests/test_project_lifecycle_service.py",
     "tests/contracts/test_public_rendezvous_compose.py",
     "-q", "-p", "no:cacheprovider", "--maxfail=1"

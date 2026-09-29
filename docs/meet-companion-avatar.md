@@ -105,7 +105,7 @@ Reply-Text -> Piper TTS (einmal) -> PCM s16le 22.05 kHz
   beobachtete Clip-Öffnung mit `t0 + start_us` des Segments und wirft
   `meet_avatar_drift_exceeded`, wenn ein Clip mehr als einen halben Frame
   (41 ms) abweicht. Der Companion loggt `SYNC max_drift_us=…` bzw. `SYNC_ERR`.
-  Test: `tests/test_meet_snake_avatar_sync.py` (3,3 s und 31 s Antworten).
+  Test: `tests/meet/test_meet_snake_avatar_sync.py` (3,3 s und 31 s Antworten).
   Die browserseitige Wahrheit bleibt das bestehende `MediaTimingGate`.
 * **Lip-Sync (MVP):** RMS-Envelope pro Frame, Silence-Gate schließt den Mund in
   Pausen, Attack/Release < 1 Frame. Phonem-/Visem-Mapping kann später als
@@ -252,13 +252,13 @@ docker exec -d ananta-meet-media-meet-media-worker-1 python -m worker.meet_media
 ```bash
 cd docker/compose-next
 docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm t-infra \
-  sh -c "python -m pytest -q tests/test_meet_snake_avatar_sync.py tests/test_meet_companion_dialog.py tests/test_meet_llm_tools.py tests/test_meet_assist_retrieve_route.py tests/test_meet_avatar_service.py tests/test_meet_companion_supervisor.py tests/test_meet_companion_public_room.py tests/test_meet_companion_knowledge_scope.py tests/test_meet_llm_tools_hub.py"
+  sh -c "python -m pytest -q tests/meet/test_meet_snake_avatar_sync.py tests/meet/test_meet_companion_dialog.py tests/meet/test_meet_llm_tools.py tests/meet/test_meet_assist_retrieve_route.py tests/meet/test_meet_avatar_service.py tests/meet/test_meet_companion_supervisor.py tests/meet/test_meet_companion_public_room.py tests/meet/test_meet_companion_knowledge_scope.py tests/meet/test_meet_llm_tools_hub.py"
 ```
 
-`tests/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,
+`tests/meet/test_meet_avatar_service.py` mockt den Dienst (Wire-Format, Fehlercodes,
 Fallback-Policy); der markierte Integrationstest ruft den echten Dienst nur mit
 `RUN_INTEGRATION_TESTS=1` und erreichbarem `/health` auf, sonst wird er übersprungen.
-`tests/test_meet_avatar_assets.py` deckt Portrait-Auswahl (Env, fehlend,
+`tests/meet/test_meet_avatar_assets.py` deckt Portrait-Auswahl (Env, fehlend,
 ungültig) und den Idle-Clip-Pfad (MP4-Frame-Zählung, Loop-Payload, Cache,
 Fallback) mit synthetischen Dateien ab; der Integrationsteil lädt die echten
 Assets aus `data/meet-media/worker-state/` und ruft den Dienst mit dem Portrait

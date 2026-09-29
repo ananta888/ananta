@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from tests.test_meet_browser_workspace_contract import parent, projection
+from tests.meet.test_meet_browser_workspace_contract import parent, projection
 from worker.meet_media.browser_execution_lease import (
     BrowserExecutionLease,
     browser_execution_key,

@@ -245,7 +245,7 @@ Deterministic backend and UI checks do not require credentials, interaction or
 a live provider:
 
 ```bash
-.venv/bin/pytest tests/test_meet_integration.py tests/test_project_lifecycle_service.py tests/contracts/test_public_rendezvous_compose.py -q
+.venv/bin/pytest tests/meet/test_meet_integration.py tests/test_project_lifecycle_service.py tests/contracts/test_public_rendezvous_compose.py -q
 cd frontend-angular
 npx vitest run src/app/features/meet src/app/features/projects/project-management.component.spec.ts src/app/components/task-detail.component.spec.ts
 npx tsc --noEmit -p tsconfig.app.json

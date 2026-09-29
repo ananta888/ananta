@@ -60,7 +60,7 @@
    "affected_files": [
     "agent/routes/meet_companion_tools.py",
     "agent/routes/meet.py",
-    "tests/test_meet_companion_tools_route.py"
+    "tests/meet/test_meet_companion_tools_route.py"
    ],
    "acceptance_criteria": [
     "Falscher/fehlender Worker-Key und User-Bearer: 401, kein Tool-Aufruf",
@@ -70,7 +70,7 @@
     "Groesse, Argumente, Timeout und Fehler liefern klare Codes ohne Reason-Leak"
    ],
    "verification": [
-    "pytest tests/test_meet_companion_tools_route.py: 54 passed (Hub-Image ananta-quickstart-no-ollama-qdrant-hub:local, env -i); tests/test_meet_assist_retrieve_route.py unveraendert gruen"
+    "pytest tests/meet/test_meet_companion_tools_route.py: 54 passed (Hub-Image ananta-quickstart-no-ollama-qdrant-hub:local, env -i); tests/meet/test_meet_assist_retrieve_route.py unveraendert gruen"
    ]
   },
   {
@@ -86,7 +86,7 @@
     "worker/meet_media/llm_tools.py",
     "worker/meet_media/assist.py",
     "worker/meet_media/companion.py",
-    "tests/test_meet_llm_tools_hub.py"
+    "tests/meet/test_meet_llm_tools_hub.py"
    ],
    "acceptance_criteria": [
     "Alle Tools als gueltige Function-Definitionen angeboten; Ausfuehrung ueber den Hub-Port mit begrenzten Argumenten",
@@ -96,7 +96,7 @@
     "Budget ueber alle Tools, Ergebnis begrenzt, Fehler ohne Reason-Leak"
    ],
    "verification": [
-    "pytest tests/test_meet_llm_tools_hub.py: 53 passed; tests/test_meet_llm_tools.py unveraendert gruen (Hub-Image, env -i)"
+    "pytest tests/meet/test_meet_llm_tools_hub.py: 53 passed; tests/meet/test_meet_llm_tools.py unveraendert gruen (Hub-Image, env -i)"
    ]
   },
   {
@@ -118,7 +118,7 @@
     "Prompt nennt genau die angebotenen Werkzeuge"
    ],
    "verification": [
-    "tests/test_meet_llm_tools_hub.py (Router/Persona) sowie tests/test_meet_companion_knowledge.py und tests/test_meet_companion_dialog.py unveraendert gruen"
+    "tests/meet/test_meet_llm_tools_hub.py (Router/Persona) sowie tests/meet/test_meet_companion_knowledge.py und tests/meet/test_meet_companion_dialog.py unveraendert gruen"
    ]
   },
   {
@@ -184,6 +184,6 @@
   "Abweichung: keine neue Registry-Gruppe (die Operation-Policy ist nicht principal-spezifisch, eine Gruppe haette das Gate-Artefakt mcp-api-operation-allowlists geaendert ohne Mehrwert); stattdessen harte Meet-Allowlist + Env-Einschraenkung + unveraenderte Operator-Policy.",
   "Abweichung: codecompass.retrieve laeuft im Companion-Endpoint ueber den Knowledge-Index-Pfad von /internal/assist/retrieve statt ueber die capability-versiegelte agentische Retrieval-Strecke, die ohne registrierten codecompass_retrieval_capability_resolver fail-closed leer bleibt.",
   "Die externe MCP-Exposure-Policy (exposure_policy.mcp, Standard aus) gilt fuer /v1/mcp und wird hier bewusst nicht ausgewertet; sie regelt externe MCP-Clients, nicht den Hub-internen Worker-Key-Weg.",
-  "Regression (Hub-Image, env -i): 19 Testdateien (Meet-Companion/assist/llm_tools/MCP/public-room): 450 passed, 5 failed. Die 5 Fehler in tests/test_meet_untrusted_llm_input.py sind vorbestehend und unabhaengig (Ollama-Payload enthaelt 'think', der Test erwartet es nicht; llm_backends.py ist nicht geaendert)."
+  "Regression (Hub-Image, env -i): 19 Testdateien (Meet-Companion/assist/llm_tools/MCP/public-room): 450 passed, 5 failed. Die 5 Fehler in tests/meet/test_meet_untrusted_llm_input.py sind vorbestehend und unabhaengig (Ollama-Payload enthaelt 'think', der Test erwartet es nicht; llm_backends.py ist nicht geaendert)."
  ]
 }

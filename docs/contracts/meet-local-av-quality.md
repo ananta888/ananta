@@ -37,7 +37,7 @@ validation remain separate responsibilities (SRP/DIP). The fixed profile
 deliberately rejects alternative codec/rate adapters; those require their own
 declared profiles, not an implicit weakening of these checks.
 
-Headless negatives are in `tests/test_meet_av_quality.py`. The opt-in
+Headless negatives are in `tests/meet/test_meet_av_quality.py`. The opt-in
 `MEET_AV_QUALITY_GPU_GATE=1` test generates actual local Piper CUDA speech and
 NVENC video, then decodes both tracks. An initial private reference probe
 decoded 28 video frames, 50 audio frames and 51,200 AAC samples from 50,432

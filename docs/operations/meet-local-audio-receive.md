@@ -117,8 +117,8 @@ preserving its public call while removing the accidental dependency from a
 worker backend import to the Flask application. The subprocess runner's GPU
 library-path option is additive; its default environment is unchanged.
 
-Headless coverage lives in `tests/test_meet_audio_receive.py` and
-`tests/test_meet_asr_provisioning.py`, with existing Voice audio-security,
+Headless coverage lives in `tests/meet/test_meet_audio_receive.py` and
+`tests/meet/test_meet_asr_provisioning.py`, with existing Voice audio-security,
 streaming and backend regressions. Synthetic model bytes are generated inside
 tests; no live recordings, credentials or model binaries are committed.
 

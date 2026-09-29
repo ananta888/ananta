@@ -58,15 +58,15 @@ own bounded memory, lease and cleanup contracts.
 
 ## Verification and remaining integration
 
-`tests/test_meet_speech_publication.py` exercises exact PCM, queue pressure,
+`tests/meet/test_meet_speech_publication.py` exercises exact PCM, queue pressure,
 partial final frames, stale generations, closed/malformed receipts, authority
-races and deadlines. `tests/test_meet_speech_browser.py` tests unresolved Promise
+races and deadlines. `tests/meet/test_meet_speech_browser.py` tests unresolved Promise
 cancellation and executes the exact JavaScript phase functions with controlled
 Promises. These are deterministic technical tests, not real TTS/Meet evidence.
 The companion repository separately tests actual decrypted audio in Chromium
 and Firefox, including reopening and renewal.
 
-The opt-in `tests/test_meet_speech_cross_repository.py` now connects actual
+The opt-in `tests/meet/test_meet_speech_cross_repository.py` now connects actual
 Piper/CUDA output from a separate current-source, read-only, networkless GPU
 container through `SpeechPublication` to the companion's private stdio fixture
 and required-SFrame receiver. On 2026-09-07 both browser variants passed in
@@ -78,7 +78,7 @@ No generated PCM is included in the report. The test bridge has synthetic,
 cryptographically verified Hub admission, **not the productive Hub callback**.
 
 Run with `MEET_SPEECH_CROSS_GATE=1 .venv/bin/python -m pytest
-tests/test_meet_speech_cross_repository.py -n 0`; build current companion source
+tests/meet/test_meet_speech_cross_repository.py -n 0`; build current companion source
 first. This requires the existing local GPU model/image and private TLS/STUN
 fixture images, not production credentials or changes to running services.
 For an XML report with `record_property`, use `-o junit_family=legacy`.

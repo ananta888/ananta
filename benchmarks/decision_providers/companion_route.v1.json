@@ -24,7 +24,7 @@
       "state": "Was ist Ananta?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-002",
@@ -32,7 +32,7 @@
       "state": "Wie funktioniert Ananta Meet?",
       "expected": "meet_runtime_current_dialog",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-003",
@@ -40,7 +40,7 @@
       "state": "Wie funktioniert deine Sprachausgabe?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-004",
@@ -48,7 +48,7 @@
       "state": "Welche Datei macht das?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-005",
@@ -56,7 +56,7 @@
       "state": "Wie hast du diese Antwort erzeugt?",
       "expected": "self_explanation",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-006",
@@ -64,7 +64,7 @@
       "state": "How did you generate that answer?",
       "expected": "self_explanation",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-007",
@@ -72,7 +72,7 @@
       "state": "Wer ist gerade im Raum?",
       "expected": "meet_runtime_current_dialog",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-008",
@@ -80,7 +80,7 @@
       "state": "Hallo! Wie geht es dir heute?",
       "expected": "general_question",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-009",
@@ -88,7 +88,7 @@
       "state": "Erzähl mir einen Witz",
       "expected": "general_question",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-010",
@@ -96,7 +96,7 @@
       "state": "",
       "expected": "general_question",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_grounds_repository_questions_only"
     },
     {
       "id": "companion_route-011",
@@ -104,7 +104,7 @@
       "state": "Welche Datei implementiert den Hub?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_router_never_uses_codecompass_when_the_flag_is_off"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_router_never_uses_codecompass_when_the_flag_is_off"
     },
     {
       "id": "companion_route-012",
@@ -112,7 +112,7 @@
       "state": "Welche Datei macht die Sprachausgabe?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_companion_dialog.py::test_self_explanation_separates_observed_repository_and_generated_without_a_model_call"
+      "source": "tests/meet/test_meet_companion_dialog.py::test_self_explanation_separates_observed_repository_and_generated_without_a_model_call"
     },
     {
       "id": "companion_route-013",
@@ -120,7 +120,7 @@
       "state": "was weisst du ueber den rag-helper wie der funktioniert?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_the_live_question_routes_to_code_architecture"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_the_live_question_routes_to_code_architecture"
     },
     {
       "id": "companion_route-014",
@@ -128,7 +128,7 @@
       "state": "Wie geht es dir?",
       "expected": "general_question",
       "acceptable": [],
-      "source": "tests/test_meet_companion_knowledge.py::test_the_live_question_routes_to_code_architecture"
+      "source": "tests/meet/test_meet_companion_knowledge.py::test_the_live_question_routes_to_code_architecture"
     },
     {
       "id": "companion_route-015",
@@ -136,7 +136,7 @@
       "state": "Wie funktioniert die ToolBox in Ananta?",
       "expected": "ananta_code_architecture",
       "acceptable": [],
-      "source": "tests/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
+      "source": "tests/meet/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
     },
     {
       "id": "companion_route-016",
@@ -144,7 +144,7 @@
       "state": "Wie geht es dir heute?",
       "expected": "general_question",
       "acceptable": [],
-      "source": "tests/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
+      "source": "tests/meet/test_meet_llm_tools_hub.py::test_knowledge_questions_still_force_the_search_not_a_hub_tool"
     }
   ]
 }

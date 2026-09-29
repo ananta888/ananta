@@ -134,7 +134,7 @@ be represented as the strict profile.
 
 ## Verification boundaries
 
-The isolated gate `tests/test_meet_egress_containers.py` requires explicit
+The isolated gate `tests/meet/test_meet_egress_containers.py` requires explicit
 `MEET_EGRESS_GATE=1` and an immutable locally built `MEET_EGRESS_IMAGE`.
 It creates its own label-bound internal bridge and temporary containers,
 checks exact resource IDs before cleanup, and does not contact public hosts.
