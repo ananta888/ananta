@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_hrm_research_pack_gate_is_deterministic_and_fail_closed() -> None:
