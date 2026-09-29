@@ -399,7 +399,7 @@
     "tests/task/test_task_admin_service.py",
     "tests/task/test_task_endpoints.py",
     "tests/task/test_task_recovery_planning_service.py",
-    "tests/test_tasks_utils_module.py",
+    "tests/task/test_tasks_utils_module.py",
     "agent/routes/config/settings.py",
     "agent/services/evolution/context_builder.py",
     "scripts/validate_todo_consistency.py",

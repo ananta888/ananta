@@ -317,7 +317,7 @@ Worauf achten:
 
 ```bash
 pytest -q tests/provider/test_provider_observer_service.py
-pytest -q tests/test_propose_policy_service.py tests/test_new_project_llm_required_policy.py
+pytest -q tests/task/test_propose_policy_service.py tests/test_new_project_llm_required_policy.py
 pytest -q tests/task/test_task_scoped_propose_llm_profile_persist.py tests/llm/test_llm_usage.py
 pytest -q tests/task/test_task_queue_service.py
 ```

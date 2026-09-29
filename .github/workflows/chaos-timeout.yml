@@ -46,7 +46,7 @@ jobs:
         run: >
           pytest -q
           tests/task/test_task_orchestration_api.py -k "claim or lease"
-          tests/test_tasks_autopilot.py -k "tick"
+          tests/task/test_tasks_autopilot.py -k "tick"
 
   failure-recovery-tests:
     runs-on: ubuntu-latest

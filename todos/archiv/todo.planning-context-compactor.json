@@ -70,8 +70,8 @@
     "agent/services/propose_policy.py",
     "agent/services/propose_policy_service.py",
     "worker/core/propose_orchestrator.py",
-    "tests/test_propose_policy_service.py",
-    "tests/test_propose_orchestrator.py",
+    "tests/task/test_propose_policy_service.py",
+    "tests/task/test_propose_orchestrator.py",
     "agent/config_defaults.py",
     "agent/services/planning_validation_service.py"
   ],
@@ -584,7 +584,7 @@
       "risk": "high",
       "type": "test",
       "files": [
-        "tests/test_propose_orchestrator.py",
+        "tests/task/test_propose_orchestrator.py",
         "tests/test_strategy_mode_fallbacks.py",
         "tests/e2e/test_autopilot_new_project_fibonacci.py"
       ],

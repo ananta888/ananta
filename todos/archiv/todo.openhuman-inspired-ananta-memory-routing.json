@@ -761,7 +761,7 @@
         "tests/context/test_context_bundle_service.py",
         "tests/context/test_context_bundle_codecompass_provenance.py",
         "tests/task/test_task_scoped_handler_propose.py",
-        "tests/test_propose_orchestrator.py"
+        "tests/task/test_propose_orchestrator.py"
       ],
       "description": "Neue Features dürfen Planning, Propose, ContextBundle, Execution und ResultMemory nicht brechen.",
       "acceptance_criteria": [

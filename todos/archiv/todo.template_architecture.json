@@ -287,7 +287,7 @@
       "priority": "P0",
       "risk": "high",
       "type": "test",
-      "files": ["tests/test_template_architecture_regression.py", "tests/test_propose_orchestrator.py"],
+      "files": ["tests/test_template_architecture_regression.py", "tests/task/test_propose_orchestrator.py"],
       "description": "Bestehende Tasks/Propose-Flows ohne Profile, Overlays oder Role Templates müssen unverändert funktionieren.",
       "acceptance_criteria": ["Task ohne instruction_context läuft weiter.", "Task ohne team_id/assigned_role_id läuft weiter.", "ProposeContext ohne Stack läuft weiter.", "ToolCallingLLMStrategy baut gültigen Prompt.", "Feature-Flag off ergibt altes Verhalten."]
     },

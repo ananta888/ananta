@@ -642,7 +642,7 @@
         }
       ],
       "acceptance_criteria": [
-        "tests/test_tasks_autopilot.py bleibt grün",
+        "tests/task/test_tasks_autopilot.py bleibt grün",
         "execute_autopilot_tick() weiterhin importierbar",
         "autopilot_tick_engine.py unter 400 Zeilen"
       ]
@@ -1589,8 +1589,8 @@
       "id": "SPLIT-044",
       "milestone": "M5",
       "priority": "P3",
-      "title": "tests/test_tasks_autopilot.py nach Phase aufteilen (1065 Zeilen)",
-      "file": "tests/test_tasks_autopilot.py",
+      "title": "tests/task/test_tasks_autopilot.py nach Phase aufteilen (1065 Zeilen)",
+      "file": "tests/task/test_tasks_autopilot.py",
       "current_lines": 1065,
       "proposed_split": [
         {

@@ -438,7 +438,7 @@
       "extension": ".py",
       "line_count": 1065,
       "over_threshold": true,
-      "path": "tests/test_tasks_autopilot.py",
+      "path": "tests/task/test_tasks_autopilot.py",
       "reason": "test_path_or_name"
     },
     {
@@ -891,7 +891,7 @@
       "extension": ".py",
       "line_count": 1065,
       "over_threshold": true,
-      "path": "tests/test_tasks_autopilot.py",
+      "path": "tests/task/test_tasks_autopilot.py",
       "reason": "test_path_or_name"
     },
     {

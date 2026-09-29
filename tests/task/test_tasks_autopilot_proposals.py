@@ -59,7 +59,7 @@ def _isolate_autopilot_queue(app):
 
 
 
-# Split from tests/test_tasks_autopilot.py to keep source files below 1000 lines.
+# Split from tests/task/test_tasks_autopilot.py to keep source files below 1000 lines.
 
 
 def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(

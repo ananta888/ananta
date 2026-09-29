@@ -514,7 +514,7 @@ def test_autopilot_blocks_hub_fallback_when_policy_disallows_it(app, monkeypatch
 
 
 def test_fallback_docs_include_runtime_vocabulary_mapping() -> None:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     doc_text = (root / "docs" / "hub-fallback-and-reliability.md").read_text(encoding="utf-8")
     assert "delegated_worker" in doc_text
     assert "hub_as_worker_fallback" in doc_text

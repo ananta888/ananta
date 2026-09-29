@@ -126,8 +126,8 @@ tests/test_evolution_persistence_service.py
 tests/test_evolution_registry_service.py
 tests/test_evolver_adapter.py
 tests/test_evolver_live_compose.py
-tests/test_execution_focused_planning.py
-tests/test_execution_risk_policy_service.py
+tests/task/test_execution_focused_planning.py
+tests/task/test_execution_risk_policy_service.py
 tests/test_federation_e2e.py
 tests/test_frontend_integration_scenarios.py
 tests/test_git_webhook_receiver.py
@@ -257,11 +257,11 @@ tests/task/test_task_prompt_templates.py
 tests/task/test_task_session_scope.py
 tests/task/test_task_state_machine.py
 tests/test_task_state_machine_service.py
-tests/test_tasks_archiving.py
-tests/test_tasks_autopilot.py
-tests/test_tasks_cache.py
+tests/task/test_tasks_archiving.py
+tests/task/test_tasks_autopilot.py
+tests/task/test_tasks_cache.py
 tests/test_tasks_opencode_e2e.py
-tests/test_tasks_utils_module.py
+tests/task/test_tasks_utils_module.py
 tests/test_tdd_artifact_schemas.py
 tests/test_tdd_policy_mapping.py
 tests/test_team_blueprint_seed_reconcile.py

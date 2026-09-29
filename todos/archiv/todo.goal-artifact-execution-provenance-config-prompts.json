@@ -301,7 +301,7 @@
           "files": [
             "tests/test_config_snapshot_service.py",
             "tests/prompt/test_prompt_snapshot_service.py",
-            "tests/test_execution_provenance_schema.py"
+            "tests/task/test_execution_provenance_schema.py"
           ],
           "priority": "P1",
           "effort": "M",

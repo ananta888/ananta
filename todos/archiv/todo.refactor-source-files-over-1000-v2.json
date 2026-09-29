@@ -635,8 +635,8 @@
     },
     {
       "id": "SPLIT-139",
-      "title": "tests/test_tasks_autopilot.py aufteilen (1065 -> <1000 Zeilen)",
-      "file": "tests/test_tasks_autopilot.py",
+      "title": "tests/task/test_tasks_autopilot.py aufteilen (1065 -> <1000 Zeilen)",
+      "file": "tests/task/test_tasks_autopilot.py",
       "line_count": 801,
       "status": "done",
       "priority": "P3",
