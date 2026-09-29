@@ -2,8 +2,8 @@
 
 import re
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_membership import validate_membership
-from agent.services.meet_contract import MeetError
 
 SCHEMA = "ananta.meet-session-observation.v1"
 SOURCE_RIGHTS = {"screen": "screen.publish", "camera": "avatar.publish", "microphone": "speech.publish"}

@@ -6,7 +6,7 @@ import math
 import re
 from dataclasses import asdict, dataclass
 
-from agent.services.meet_contract import MeetError, MeetProfile
+from agent.models.meet_contract import MeetError, MeetProfile
 from ananta_contracts.meet_source_profile import CAPABILITIES
 
 

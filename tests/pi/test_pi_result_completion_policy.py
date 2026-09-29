@@ -16,9 +16,9 @@ from agent.db_models.workflow_runtime import (
     WorkflowExecutionOwnershipDB,
     WorkflowWorkerAssignmentDB,
 )
-from agent.repositories.pi_result_authority import SQLAlchemyPiResultAuthority
 from agent.repositories.tasks import TaskRepository
 from agent.services.native_graph_task_queue_adapter import AnantaHubTaskQueueAdapter
+from agent.services.pi_result_authority import SQLAlchemyPiResultAuthority
 from agent.services.pi_result_completion_policy import PiResultCompletionPolicy
 from agent.services.workflow_authorization_grant_service import SQLAlchemyWorkflowAuthorizationGrantService
 from agent.services.workflow_runtime import HmacKeyRing

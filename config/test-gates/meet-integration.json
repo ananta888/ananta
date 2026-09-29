@@ -12,6 +12,7 @@
     "agent/bootstrap/routes.py",
     "agent/repositories/meet_bindings.py",
     "agent/routes/meet.py",
+    "agent/models/meet_contract.py",
     "agent/services/meet_contract.py",
     "agent/services/meet_binding_service.py",
     "agent/services/meet_health_probe.py",

@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 from ananta_contracts.meet_reconnect import MAX_RECOVERIES
 
 SCHEMA = "ananta.meet-dialog-phase-record.v1"

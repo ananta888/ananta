@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 
 
 def canonical(value):

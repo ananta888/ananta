@@ -1,7 +1,7 @@
 """Closed request-bound absence receipt; never proof of historical membership."""
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_membership import membership_binding
-from agent.services.meet_contract import MeetError
 
 
 def validate_retirement(value, scope, issuer, session_id, nonce, now_ms):

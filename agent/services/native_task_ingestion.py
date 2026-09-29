@@ -9,6 +9,27 @@ from agent.services.task_organization_scope import resolve_ingest_scope
 from agent.services.task_runtime_service import append_task_history_event
 from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
+from agent.services.workflow_runtime.lease_fencing import validate_sqlalchemy_lease
+from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
+
+
+def native_command_bound_to_lease(task, lease) -> NativeNodeCommand:
+    """The Native node command of ``task``, verified against the run-control lease it is delegated under."""
+    context = task.worker_execution_context or {}
+    command = NativeNodeCommand.from_mapping(context.get("native_node_command") or {})
+    if (
+        context.get("schema") != "ananta.native_graph_worker_context.v1"
+        or context.get("runtime_path") != "native_graph_node"
+        or task.tenant_id != command.tenant_id
+        or task.task_kind != command.node.task_kind
+        or set(task.required_capabilities or []) != set(command.node.required_capabilities)
+        or task.derivation_reason != "native_graph_hub_delegation"
+        or command.plan_hash != lease.checkpoint.plan_hash
+        or command.policy_version != lease.checkpoint.policy_version
+        or command.control_task_id != lease.checkpoint.state.business_data["control_task_id"]
+    ):
+        raise ValueError("bpmn_fenced_task_binding_mismatch")
+    return command
 
 
 def ingest_native_task_fenced(
@@ -60,6 +81,11 @@ def ingest_native_task_fenced(
     if isinstance(event_details, dict):
         details.update(event_details)
     append_task_history_event(task, event_type=event_type, actor=created_by or "unknown", details=details)
-    _persisted, inserted = repository.insert_native_task_fenced(task, lease=lease)
+    command = native_command_bound_to_lease(task, lease)
+    _persisted, inserted = repository.insert_native_task_fenced(
+        task,
+        native_command=command.to_dict(),
+        lease_guard=lambda session: validate_sqlalchemy_lease(session, lease, command),
+    )
     if inserted:
         post_commit(task_id, old_status="todo", event_type=event_type)

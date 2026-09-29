@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 
 
 class TaskDialogPhases:
@@ -16,7 +16,7 @@ class TaskDialogPhases:
             raise MeetError("meet_dialog_phase_storage_unavailable", 503) from None
 
     def replace(self, snapshot, record):
-        from agent.services.meet_dialog_lifecycle import organization_tuple
+        from agent.models.meet_task_scope import organization_tuple
 
         context = deepcopy(snapshot.worker_execution_context)
         organization = organization_tuple(snapshot)

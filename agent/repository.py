@@ -126,7 +126,7 @@ class _HubTaskCompletionPolicy:
             authoritative_task=authoritative_task, candidate_task=candidate_task, session=session,
         )
         if is_pi_task(authoritative_task) or is_pi_task(candidate_task):
-            from agent.repositories.pi_result_authority import SQLAlchemyPiResultAuthority
+            from agent.services.pi_result_authority import SQLAlchemyPiResultAuthority
             from agent.services.pi_result_completion_policy import PiResultCompletionPolicy
             from agent.services.workflow_hub_task_gateway_runtime import get_workflow_authorization_key_ring
 

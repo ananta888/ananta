@@ -5,8 +5,8 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, Column, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_dialog_start import DialogStartClaim, start_receipt
-from agent.services.meet_contract import MeetError
 
 _metadata = MetaData()
 starts = Table(

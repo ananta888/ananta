@@ -1,35 +1,14 @@
 """Hub-only admission foundation, deliberately not exposed as an HTTP ingress."""
 
 import time
-from dataclasses import dataclass, field
 from typing import Protocol
 
-from agent.services.meet_chat_contract import ChatEvent, ChatScope
-from agent.services.meet_chat_policy import ChatReplyPolicy
-
-
-@dataclass(frozen=True)
-class AuthorizedChatSession:
-    scope: ChatScope
-    policy: ChatReplyPolicy
-
-
-@dataclass(frozen=True)
-class ChatReservation:
-    intent_id: str
-    scope: ChatScope
-    message_id: str
-    sender_peer_id: str
-    max_reply_chars: int
-    max_output_tokens: int
-
-
-@dataclass(frozen=True)
-class ChatAdmission:
-    code: str
-    reservation: ChatReservation | None = None
-    # Volatile untrusted user input only, never audit metadata or a system prompt.
-    text: str | None = field(default=None, repr=False)
+from agent.models.meet_chat_admission import (  # noqa: F401 -- ChatReservation re-exported
+    AuthorizedChatSession,
+    ChatAdmission,
+    ChatReservation,
+)
+from agent.models.meet_chat_contract import ChatEvent
 
 
 class ChatAuthorityPort(Protocol):

@@ -3,8 +3,8 @@
 from sqlalchemy import Column, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+from agent.models.meet_contract import MeetError
 from agent.repositories.meet_chat_reservations import chat_event_key, receipts, room_scope_key
-from agent.services.meet_contract import MeetError
 
 _metadata = MetaData()
 dispatches = Table(

@@ -11,9 +11,9 @@ from agent.db_models.workflow_runtime import (
     WorkflowWorkerAssignmentDB,
 )
 from agent.ports.pi_result_authority import PiResultAuthority
+from agent.repositories.sqlalchemy_support import stable_row_id
 from agent.services.workflow_authorization_grant_service import require_current_workflow_grant_row
 from agent.services.workflow_runtime.sqlalchemy_ownership import execution_ownership_from_row
-from agent.services.workflow_runtime.sqlalchemy_support import stable_row_id
 from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
 
 

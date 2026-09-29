@@ -7,9 +7,9 @@ import uuid
 from sqlalchemy import JSON, BigInteger, Column, Integer, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_preauthorization_binding import policy_binding, scope_key, validate_policy_binding
 from agent.models.meet_preauthorization_policy import MeetPreauthorizationPolicy, digest, identifier, integer, timestamp
-from agent.services.meet_contract import MeetError
 
 _metadata = MetaData()
 policies = Table(

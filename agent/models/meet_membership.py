@@ -2,7 +2,7 @@
 
 import re
 
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 
 
 def membership_binding(scope, issuer):

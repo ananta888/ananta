@@ -3,8 +3,8 @@
 import re
 from copy import deepcopy
 
+from agent.models.meet_contract import MeetError, MeetProfile
 from agent.models.meet_preauthorization_policy import SCOPE_FIELDS, digest, identifier, integer
-from agent.services.meet_contract import MeetError, MeetProfile
 from ananta_contracts.meet_audio_profile import parse_audio_profile
 from ananta_contracts.meet_initial_persona import validate_initial_persona
 from ananta_contracts.meet_source_profile import dialog_source_profile

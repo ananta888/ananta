@@ -7,7 +7,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
-from agent.services.workflow_runtime.sqlalchemy_support import sqlite_transaction_guard
+from agent.repositories.sqlalchemy_support import sqlite_transaction_guard
 
 
 @contextmanager

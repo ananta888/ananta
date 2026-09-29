@@ -9,7 +9,7 @@ from sqlalchemy import BigInteger, Column, MetaData, String, Table, insert, sele
 from sqlalchemy.exc import IntegrityError
 
 from agent.db_models import WorkerSlotLeaseDB
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 
 _metadata = MetaData()
 pools = Table(

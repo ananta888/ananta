@@ -13,7 +13,7 @@ class SqlDialogDeadlines:
         self.task_status_cas = task_status_cas
 
     def page(self, after, limit):
-        from agent.services.meet_dialog_deadlines import KINDS
+        from agent.models.meet_deadline_bindings import KINDS
 
         if type(limit) is not int or not 1 <= limit <= 100 or after is not None and not isinstance(after, str):
             raise ValueError("meet_deadline_page_invalid")
@@ -42,8 +42,7 @@ class SqlDialogDeadlines:
             ]
 
     def settle(self, candidate, still_expired):
-        from agent.services.meet_deadline_bindings import DEADLINE_BINDINGS
-        from agent.services.meet_dialog_deadlines import original_deadline
+        from agent.models.meet_deadline_bindings import DEADLINE_BINDINGS, original_deadline
 
         original_deadline(candidate)  # This port cannot settle arbitrary task kinds or malformed bindings.
         expected = copy.deepcopy(candidate)

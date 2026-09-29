@@ -3,7 +3,7 @@
 from sqlalchemy import Column, Integer, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from agent.services.meet_contract import MeetError, MeetingBinding
+from agent.models.meet_contract import MeetError, MeetingBinding
 
 _metadata = MetaData()
 bindings = Table(

@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from sqlalchemy import JSON, BigInteger, Column, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_dialog_recovery import (
     MAX_RECOVERIES,
     RECOVERY_MS,
@@ -13,7 +14,6 @@ from agent.models.meet_dialog_recovery import (
     instant,
     validate_recovery_record,
 )
-from agent.services.meet_contract import MeetError
 
 _metadata = MetaData()
 recoveries = Table(

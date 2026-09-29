@@ -6,8 +6,8 @@ from copy import deepcopy
 from sqlalchemy import JSON, Column, MetaData, String, Table, insert, select
 from sqlalchemy.exc import SQLAlchemyError
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_dialog_diagnostics import TASK_FIELDS, task_binding, timestamp_ms, validate_record
-from agent.services.meet_contract import MeetError
 
 _metadata = MetaData()
 observations = Table(

@@ -4,29 +4,12 @@ import math
 import time
 from typing import Callable, Protocol
 
-from agent.services.meet_deadline_bindings import DEADLINE_BINDINGS, deadline_identifier
-
-KINDS = {kind: binding.context_key for kind, binding in DEADLINE_BINDINGS.items()}
+from agent.models.meet_deadline_bindings import KINDS, original_deadline  # noqa: F401 -- KINDS re-exported
 
 
 class DialogDeadlineStore(Protocol):
     def page(self, after: str | None, limit: int) -> list[dict]: ...
     def settle(self, candidate: dict, still_expired: Callable[[], bool]) -> bool: ...
-
-
-def original_deadline(candidate):
-    """Inspect only a known task's captured identity; missing fields are not defaults."""
-    if (
-        not isinstance(candidate, dict)
-        or set(candidate) != {"task_id", "task_kind", "tenant_id", "project_id", "parent_task_id", "context"}
-        or not all(deadline_identifier(candidate[key]) for key in ("task_id", "tenant_id", "project_id"))
-        or not isinstance(candidate["task_kind"], str)
-        or candidate["task_kind"] not in KINDS
-        or not isinstance(candidate["context"], dict)
-    ):
-        raise ValueError("meet_deadline_task_invalid")
-    binding = DEADLINE_BINDINGS[candidate["task_kind"]]
-    return binding.read(candidate, candidate["context"].get(binding.context_key))
 
 
 class MeetDialogDeadlines:

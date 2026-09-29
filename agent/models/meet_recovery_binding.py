@@ -4,8 +4,8 @@ import hashlib
 import json
 from dataclasses import asdict
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_dialog_recovery import RecoveryOwner
-from agent.services.meet_contract import MeetError
 
 
 def recovery_owner(scope):

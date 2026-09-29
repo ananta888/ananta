@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from sqlalchemy import JSON, BigInteger, Column, MetaData, String, Table, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
+from agent.models.meet_contract import MeetError
 from agent.models.meet_speaker_floor import AGING_MS, CLEANUP_MS, OUTPUT_MS, WAIT_MS, require_clock
-from agent.services.meet_contract import MeetError
 from ananta_contracts.meet_speaker_floor import validate_speaker_permit
 
 _metadata = MetaData()

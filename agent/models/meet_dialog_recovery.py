@@ -3,7 +3,7 @@
 import re
 from dataclasses import asdict, dataclass
 
-from agent.services.meet_contract import MeetError
+from agent.models.meet_contract import MeetError
 from ananta_contracts.meet_reconnect import MAX_RECOVERIES as MAX_RECOVERIES
 from ananta_contracts.meet_reconnect import RECOVERY_MS as RECOVERY_MS
 from ananta_contracts.meet_reconnect import RECOVERY_QUIET_MS as RECOVERY_QUIET_MS

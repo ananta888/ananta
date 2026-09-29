@@ -7,8 +7,8 @@ import uuid
 from sqlalchemy import BigInteger, Column, Index, Integer, MetaData, String, Table, func, insert, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from agent.services.meet_chat_admission import ChatAdmission, ChatReservation
-from agent.services.meet_contract import MeetError
+from agent.models.meet_chat_admission import ChatAdmission, ChatReservation
+from agent.models.meet_contract import MeetError
 
 _metadata = MetaData()
 rooms = Table(

@@ -97,32 +97,3 @@ Layer violation: agent.routes.organization_topology_patches imports agent.reposi
 Layer violation: agent.routes.source_control_git_authorizations imports agent.repositories.hub_git_authorization_repository (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.source_control_public_remotes imports agent.repositories.source_control_public_remote_repository (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.source_control_workspace_registrations imports agent.repositories.source_control_workspace_registration_repository (Layer agent.routes -> agent.repositories not allowed)
-
-# Added 2026-09-29 (accumulated since 2026-09-04 while the check was red, now preserved as explicit debt):
-# repositories importing service-layer contracts/helpers (DIP/layering). meet_contract is gate-hashed and the
-# workflow_runtime helpers are entangled with sqlalchemy_ownership; moving them into agent.models/agent.common
-# needs a dedicated refactor that regenerates the affected gate evidence.
-Layer violation: agent.repositories.evidence_identity imports agent.services.workflow_runtime.sqlalchemy_support (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_bindings imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_capacity imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_chat_dispatches imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_chat_reservations imports agent.services.meet_chat_admission (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_chat_reservations imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_capacity imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_deadlines imports agent.services.meet_deadline_bindings (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_deadlines imports agent.services.meet_dialog_deadlines (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_diagnostics imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_phases imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_phases imports agent.services.meet_dialog_lifecycle (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_recovery imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_dialog_starts imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_preauthorizations imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.meet_speaker_floor imports agent.services.meet_contract (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.native_workflow_ingestion imports agent.services.workflow_runtime._serialization (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.native_workflow_ingestion imports agent.services.workflow_runtime.lease_fencing (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.native_workflow_ingestion imports agent.services.workflow_runtime.native_graph_contracts (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.pi_result_authority imports agent.services.workflow_authorization_grant_service (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.pi_result_authority imports agent.services.workflow_runtime.sqlalchemy_ownership (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.pi_result_authority imports agent.services.workflow_runtime.sqlalchemy_support (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.pi_result_authority imports agent.services.workflow_worker_service_auth (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.task_repository_session imports agent.services.workflow_runtime.sqlalchemy_support (Layer agent.repositories -> agent.services not allowed)
