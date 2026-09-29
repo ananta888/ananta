@@ -473,7 +473,7 @@
       "priority": "P0-critical",
       "risk": "low",
       "source_code_refs": [
-        "tests/test_agent_profile_service.py",
+        "tests/agent/test_agent_profile_service.py",
         "docs/agent-profiles/profile-map.json"
       ],
       "description": "Der Loader braucht solide Unit-Tests, weil falsche Profilwahl spaeter schwer zu debuggen ist.",

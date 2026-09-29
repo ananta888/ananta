@@ -388,7 +388,7 @@
     "docker/compose-next/README.md",
     "scripts/bootstrap-dev-workflow-keyrings.py",
     "tests/qdrant/qdrant_test_support.py",
-    "tests/test_agent_registration.py",
+    "tests/agent/test_agent_registration.py",
     "tests/artifact/test_artifact_reconciliation_service.py",
     "tests/test_dev_workflow_keyring_bootstrap.py",
     "tests/test_human_approval_service.py",
@@ -1075,7 +1075,7 @@
         "docker/compose-next/compose.qdrant-workers.yml",
         "docker/compose-next/requirements.qdrant-worker.lock",
         "tests/vector/test_vector_index_worker_readiness.py",
-        "tests/test_agent_registration.py"
+        "tests/agent/test_agent_registration.py"
       ],
       "description": "Qdrant als explizites Compose-Profil mit unveraenderlichem Image, privatem Netzwerk und reproduzierbarem Snapshot-Betrieb ergaenzen.",
       "status_note": "Das eigenstaendig parsebare Compose-Profil pinnt Qdrant 1.18.3 per Multi-Arch-Digest und qdrant-client 1.18.0 in einem isolierten Worker-Image, aktiviert native TLS, bindet REST lokal und gRPC nur per Opt-in, nutzt Compose-Secrets, persistente Volumes, Readiness, Restart und Ressourcenlimits. Ein Worker wird erst nach identitaetsgebundener Hub-Registrierung aller Vector-Capabilities ready; der Hub exponiert keine Worker-Readiness. Worker-Overlay, CI-Render sowie dokumentierte scope-/volumengebundene Backup-, Restore- und Reset-Gates sind vorhanden.",

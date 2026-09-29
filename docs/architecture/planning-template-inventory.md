@@ -238,7 +238,7 @@ Profile governance rules:
 
 1. Create `docs/agent-profiles/<profile_id>/AGENTS.md`.
 2. Add an entry in `docs/agent-profiles/profile-map.json` with: `activation`, `agents_file`, `primary_role`, `allowed_task_kinds`, `code_change_policy`, `context_policy_hint`.
-3. Add unit test in `tests/test_agent_profile_service.py`.
+3. Add unit test in `tests/agent/test_agent_profile_service.py`.
 4. Add entry to this table above.
 
 No restart required; `AgentProfileService` reads the map on first call per process.

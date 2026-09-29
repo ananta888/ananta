@@ -55,12 +55,12 @@
       "docs/security/kritis-sandbox-threat-model.md",
       "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
       "tests/e2e/test_agent_safety_automatic_chaos.py",
-      "tests/test_agent_safety_api.py",
-      "tests/test_agent_safety_automation.py",
-      "tests/test_agent_safety_contracts.py",
-      "tests/test_agent_safety_release_gate.py",
-      "tests/test_agent_safety_service.py",
-      "tests/test_agent_safety_state_store.py",
+      "tests/agent/test_agent_safety_api.py",
+      "tests/agent/test_agent_safety_automation.py",
+      "tests/agent/test_agent_safety_contracts.py",
+      "tests/agent/test_agent_safety_release_gate.py",
+      "tests/agent/test_agent_safety_service.py",
+      "tests/agent/test_agent_safety_state_store.py",
       "tests/test_sandbox_backend.py"
     ]
   },
@@ -433,8 +433,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -459,8 +459,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -483,8 +483,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -508,8 +508,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -534,8 +534,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -559,8 +559,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -585,8 +585,8 @@
         "ananta_contracts/agent_safety.py",
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_evaluation_service.py",
-        "tests/test_agent_safety_contracts.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_contracts.py",
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -610,7 +610,7 @@
         "agent/services/agent_safety_ports.py",
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
-        "tests/test_agent_safety_service.py",
+        "tests/agent/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ]
     },
@@ -638,7 +638,7 @@
         "agent/services/agent_safety_service.py",
         "agent/services/agent_safety_runtime_adapters.py",
         "agent/services/sandbox_backend.py",
-        "tests/test_agent_safety_service.py",
+        "tests/agent/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
       "completion_note": "Der opt-in Docker-Adapter erzwingt Freeze, Terminate und Isolate gegen eine exakte Hub-Allowlist und liefert runtime-verifizierte, idempotente Receipts; FakeSandbox und der konkrete Adapter sind deterministisch getestet."
@@ -664,7 +664,7 @@
         "agent/services/agent_safety_ports.py",
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
-        "tests/test_agent_safety_service.py",
+        "tests/agent/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
       "completion_note": "Der konkrete Docker-Adapter inspiziert die gebundenen Netzwerke und trennt alle Sessions per force-disconnect; Zustand und Adapter-Receipt fließen in Control Operation und Incident Bundle."
@@ -690,7 +690,7 @@
         "agent/services/agent_safety_ports.py",
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
-        "tests/test_agent_safety_service.py",
+        "tests/agent/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
       "completion_note": "Die Hub Credential Lease Authority gibt kurzlebige run-/agent-gebundene Capabilities aus, persistiert nur Token-Digests und widerruft alle aktiven Leases automatisch mit auditierbarem Runtime-Receipt."
@@ -716,7 +716,7 @@
         "agent/services/agent_safety_ports.py",
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
-        "tests/test_agent_safety_service.py",
+        "tests/agent/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
       "completion_note": "Freeze erfasst vor dem Incident ein inhaltlich reduziertes, größenbegrenztes Snapshot-Artefakt; der lifecycle-eigene Reconciler entfernt nur abgelaufene Sandboxes mit vorhandenem Incident Bundle."
@@ -741,7 +741,7 @@
         "agent/services/agent_safety_ports.py",
         "agent/services/agent_safety_service.py",
         "agent/services/sandbox_backend.py",
-        "tests/test_agent_safety_service.py",
+        "tests/agent/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ]
     },
@@ -766,7 +766,7 @@
         "agent/services/agent_safety_state_store.py",
         "agent/services/agent_safety_service.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
-        "tests/test_agent_safety_state_store.py"
+        "tests/agent/test_agent_safety_state_store.py"
       ],
       "completion_note": "Das versionierte Runtime-Event-Ingress deckt Tool-, Policy-, Netzwerk-, Datei-, Prozess- und Orchestrierungsereignisse ab; Identitäten, Redaction, Digest und Hashkette bleiben erhalten."
     },
@@ -792,7 +792,7 @@
         "agent/services/agent_safety_state_store.py",
         "agent/services/agent_safety_service.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
-        "tests/test_agent_safety_state_store.py"
+        "tests/agent/test_agent_safety_state_store.py"
       ],
       "completion_note": "Das zentrale Runtime-Event-Ingress schaltet automatisch zwischen High-Fidelity im adversarial_eval und digestgebundener Produktions-Minimierung um; Trace- und Snapshot-Budgets sind policy-gesteuert."
     },
@@ -817,7 +817,7 @@
         "agent/services/agent_safety_state_store.py",
         "agent/services/agent_safety_service.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
-        "tests/test_agent_safety_state_store.py"
+        "tests/agent/test_agent_safety_state_store.py"
       ]
     },
     {
@@ -843,7 +843,7 @@
         "agent/services/agent_safety_state_store.py",
         "agent/services/agent_safety_service.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
-        "tests/test_agent_safety_state_store.py"
+        "tests/agent/test_agent_safety_state_store.py"
       ]
     },
     {
@@ -869,7 +869,7 @@
         "agent/services/agent_safety_state_store.py",
         "agent/services/agent_safety_service.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
-        "tests/test_agent_safety_state_store.py"
+        "tests/agent/test_agent_safety_state_store.py"
       ]
     },
     {
@@ -894,7 +894,7 @@
         "agent/services/agent_safety_state_store.py",
         "agent/services/agent_safety_service.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
-        "tests/test_agent_safety_state_store.py"
+        "tests/agent/test_agent_safety_state_store.py"
       ]
     },
     {
@@ -919,7 +919,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -943,7 +943,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -967,7 +967,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Der Hub registriert automatisch bis zu 100 einzelne Runs mit jeweils eigener Agent-, Sandbox- und Credential-Lease-Identität; gruppenweiter Stop ist im vollständigen Chaos-Flow verifiziert."
     },
@@ -990,7 +990,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1015,7 +1015,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1039,7 +1039,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1061,7 +1061,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Die Kaskadenauswertung berechnet Einzelraten, Kaskadenrate, Redundanzgewinn und korrelierte Fehlerpaare für parallel oder sequenziell platzierte Trigger."
     },
@@ -1084,7 +1084,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "agent/routes/agent_safety.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1108,7 +1108,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "agent/routes/agent_safety.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Die konkrete Hub Training-Outbox persistiert providerneutrale, digestgebundene Aufträge zur Worker-Delegation; deaktiviertes oder nicht konsumiertes Training blockiert keine Safety-Kontrolle und wartet nie auf Menschen."
     },
@@ -1132,7 +1132,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "agent/routes/agent_safety.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1154,7 +1154,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "agent/routes/agent_safety.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Die deterministische Matrix materialisiert das Kreuzprodukt aus Toolsets, Sandboxes, Symbolnamen und Hauptzielen mit Größenlimit und Digest; Train-/Holdout-Symbole bleiben getrennt."
     },
@@ -1177,7 +1177,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_evaluation_service.py",
         "agent/routes/agent_safety.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Ein vollständiges automatisches Variantenraster vergleicht Training, Evaluation, Produktion und unspezifizierten Kontext und meldet die Compliance-Spannweite sowie Eval-Awareness."
     },
@@ -1200,7 +1200,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_recovery_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1222,7 +1222,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_recovery_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Jede patched-Disposition erzeugt automatisch einen dauerhaften, digestgebundenen Regression Case; er verlangt ausführbare Exact- und Mutated-Replays und kann nicht durch Deaktivierung grün werden."
     },
@@ -1246,7 +1246,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_recovery_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1268,7 +1268,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_recovery_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ]
     },
     {
@@ -1291,7 +1291,7 @@
       "implementation_evidence": [
         "agent/services/agent_safety_recovery_service.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py",
-        "tests/test_agent_safety_service.py"
+        "tests/agent/test_agent_safety_service.py"
       ],
       "completion_note": "Der automatische Fix-Gate akzeptiert nur gebundene Exact- und Mutated-Replay-Ergebnisse, wenn beide enthalten sind und die Sicherheitsinvariante wiederhergestellt wurde; Fehler werden dauerhaft als failed gespeichert."
     },
@@ -1318,8 +1318,8 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ]
     },
@@ -1346,8 +1346,8 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
       "completion_note": "Die Control-Center-Admin-UI zeigt und versioniert Prävention, Training, Sentinel, Freeze, Red-Team und Stop-Scope separat; Telemetrie und externer Kill-Switch bleiben zwingend aktiv."
@@ -1374,8 +1374,8 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
       "completion_note": "Die explizite Hub Preauthorization Policy prüft kritische Konfigurationen automatisch, bindet Allow/Deny an den Request-Digest und auditiert Start, Revision und Stop ohne ausstehende Human-Approval."
@@ -1403,8 +1403,8 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ]
     },
@@ -1431,8 +1431,8 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ]
     },
@@ -1465,8 +1465,8 @@
         "docs/security/agent-safety-operations-runbook.md",
         "config/release-gates/hub-evidence/agent-safety.v1.json",
         "artifacts/domain/agent-safety-hub-evidence.json",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
       "status_note": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Das feste Profil wurde auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 vorab unter SRC_22cb3cfa7bce28e84e1219ba0b7f8c8f / RUN_f43b7f20c362546b51b3dd332dae6fd6 gebunden; 21 Tests bestanden ohne Skip und die lokale Release-Bindung wurde automatisch verifiziert."
@@ -1495,8 +1495,8 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
-        "tests/test_agent_safety_api.py",
-        "tests/test_agent_safety_release_gate.py",
+        "tests/agent/test_agent_safety_api.py",
+        "tests/agent/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ]
     }

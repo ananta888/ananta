@@ -20,10 +20,10 @@ tests/test_action_packs.py
 tests/test_admin_auth.py
 tests/test_admin_repair_contracts.py
 tests/test_adversarial_llm_security.py
-tests/test_agent_endpoints.py
-tests/test_agent_extensions.py
-tests/test_agent_registration.py
-tests/test_agent_status.py
+tests/agent/test_agent_endpoints.py
+tests/agent/test_agent_extensions.py
+tests/agent/test_agent_registration.py
+tests/agent/test_agent_status.py
 tests/test_ai_agent_create_app_refactor.py
 tests/test_ananta_init_command.py
 tests/test_ananta_update_command.py

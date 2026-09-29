@@ -686,7 +686,7 @@
         "worker/core/agent_loop_tool_calling_strategy.py",
         "worker/core/tool_calling_llm_strategy.py",
         "worker/core/tool_calling_pipeline.py",
-        "tests/test_agent_loop_tool_calling_strategy.py",
+        "tests/agent/test_agent_loop_tool_calling_strategy.py",
         "tests/tool/test_tool_calling_pipeline.py"
       ],
       "details": [
@@ -878,7 +878,7 @@
         "tests/test_local_runtime_capability_integration.py",
         "tests/services/test_ollama_model_discovery_service.py",
         "tests/test_provider_invocation_middleware.py",
-        "tests/test_agent_loop_tool_calling_strategy.py",
+        "tests/agent/test_agent_loop_tool_calling_strategy.py",
         "tests/tool/test_tool_calling_pipeline.py",
         "docs/local-runtime-capabilities.md"
       ],
@@ -972,7 +972,7 @@
       "id": "LMR-VG-03",
       "name": "Routing, tool loop and compatibility",
       "status": "passed",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/test_agent_loop_tool_calling_strategy.py tests/tool/test_tool_calling_pipeline.py",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/agent/test_agent_loop_tool_calling_strategy.py tests/tool/test_tool_calling_pipeline.py",
       "result": "148 passed in 86.09s",
       "validated_at": "2026-09-01"
     },

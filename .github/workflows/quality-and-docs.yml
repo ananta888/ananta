@@ -631,7 +631,7 @@ jobs:
           pytest -q
           tests/test_system_health_standard.py
           tests/test_task_state_machine_service.py
-          tests/test_agent_endpoints.py::test_contract_catalog_exposes_core_json_schemas
+          tests/agent/test_agent_endpoints.py::test_contract_catalog_exposes_core_json_schemas
           tests/test_verification_governance.py::TestVerificationGovernance::test_goal_governance_summary_aggregates_policy_and_verification
       - name: Print backend test-count summary
         run: |

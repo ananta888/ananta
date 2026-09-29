@@ -302,7 +302,7 @@ class TestProfileComposition:
 # APRL-021: validate_agent_profiles.py script tests
 # ---------------------------------------------------------------------------
 
-VALIDATE_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "validate_agent_profiles.py"
+VALIDATE_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "validate_agent_profiles.py"
 
 
 class TestValidateAgentProfilesScript:

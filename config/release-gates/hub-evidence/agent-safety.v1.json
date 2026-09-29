@@ -12,9 +12,9 @@
     "agent/services/agent_safety_service.py",
     "agent/services/agent_safety_recovery_service.py",
     "agent/services/agent_safety_evaluation_service.py",
-    "tests/test_agent_safety_contracts.py",
-    "tests/test_agent_safety_service.py",
-    "tests/test_agent_safety_release_gate.py",
+    "tests/agent/test_agent_safety_contracts.py",
+    "tests/agent/test_agent_safety_service.py",
+    "tests/agent/test_agent_safety_release_gate.py",
     "tests/e2e/test_agent_safety_automatic_chaos.py"
   ],
   "pytest_args": [
@@ -25,9 +25,9 @@
     "error",
     "-n",
     "auto",
-    "tests/test_agent_safety_contracts.py",
-    "tests/test_agent_safety_service.py",
-    "tests/test_agent_safety_release_gate.py",
+    "tests/agent/test_agent_safety_contracts.py",
+    "tests/agent/test_agent_safety_service.py",
+    "tests/agent/test_agent_safety_release_gate.py",
     "tests/e2e/test_agent_safety_automatic_chaos.py"
   ],
   "environment": {},

@@ -142,4 +142,4 @@ Profiles are **runtime-active** from the APRL implementation:
    - `agents_file`: `docs/agent-profiles/<profile_id>/AGENTS.md`
    - `primary_role`, `allowed_task_kinds`, `code_change_policy`, `context_policy_hint`
 3. The `AgentProfileService` singleton picks it up automatically on next call (no restart needed).
-4. Add a unit test in `tests/test_agent_profile_service.py`.
+4. Add a unit test in `tests/agent/test_agent_profile_service.py`.
