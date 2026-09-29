@@ -446,7 +446,7 @@
           "repo": "tui",
           "files": [
             "agent/sources/citation_formatter.py",
-            "tests/test_citation_formatter.py"
+            "tests/knowledge/test_citation_formatter.py"
           ],
           "priority": "P1",
           "effort": "M",

@@ -229,7 +229,7 @@
       "priority": "high",
       "files_to_create": [
         "agent/services/citation_verification_service.py",
-        "tests/test_citation_verification_service.py"
+        "tests/knowledge/test_citation_verification_service.py"
       ],
       "description": "Validate grounded_answer.v1 against the SourceCatalog and ToolRunCatalog.",
       "verification_rules": [
@@ -499,7 +499,7 @@
       "type": "test",
       "priority": "high",
       "files_to_create": [
-        "tests/test_citation_negative_cases.py"
+        "tests/knowledge/test_citation_negative_cases.py"
       ],
       "description": "Ensure source-grounding cannot be bypassed by plausible-looking LLM output.",
       "negative_cases": [

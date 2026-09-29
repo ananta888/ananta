@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "rag-helper"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
 from rag_helper.extractors.obsidian_canvas import CanvasExtractor
 
-VAULT_DIR = Path(__file__).parent / "fixtures" / "obsidian_test_vault"
+VAULT_DIR = Path(__file__).parent.parent / "fixtures" / "obsidian_test_vault"
 CANVAS_TEXT = (VAULT_DIR / "overview.canvas").read_text(encoding="utf-8")
 
 

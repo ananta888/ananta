@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "rag-helper"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
 from rag_helper.application.vault_scanner import scan, compute_diff, load_manifest
 from rag_helper.application.privacy_filter import list_excluded, is_private
@@ -19,7 +19,7 @@ from rag_helper.extractors.obsidian_canvas import CanvasExtractor
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.importance_scoring import compute_importance_score, score_index_records
 
-VAULT_DIR = Path(__file__).parent / "fixtures" / "obsidian_test_vault"
+VAULT_DIR = Path(__file__).parent.parent / "fixtures" / "obsidian_test_vault"
 
 
 class _VaultProfile:

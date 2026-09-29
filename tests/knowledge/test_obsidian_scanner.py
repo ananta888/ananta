@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "rag-helper"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
 from rag_helper.application.vault_scanner import (
     VaultFile,
@@ -20,7 +20,7 @@ from rag_helper.application.vault_scanner import (
     update_manifest_entry,
 )
 
-VAULT_DIR = Path(__file__).parent / "fixtures" / "obsidian_test_vault"
+VAULT_DIR = Path(__file__).parent.parent / "fixtures" / "obsidian_test_vault"
 
 
 class _FakeProfile:

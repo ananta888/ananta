@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "rag-helper"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "rag-helper"))
 
 from rag_helper.extractors.obsidian import (
     ObsidianExtractor,
@@ -21,7 +21,7 @@ from rag_helper.extractors.obsidian import (
     resolve_link,
 )
 
-VAULT_DIR = Path(__file__).parent / "fixtures" / "obsidian_test_vault"
+VAULT_DIR = Path(__file__).parent.parent / "fixtures" / "obsidian_test_vault"
 
 ALPHA_MD = (VAULT_DIR / "projects" / "Alpha.md").read_text(encoding="utf-8")
 INDEX_MD = (VAULT_DIR / "index.md").read_text(encoding="utf-8")

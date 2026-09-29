@@ -324,7 +324,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/test_obsidian_canvas.py tests/test_obsidian_config.py tests/test_obsidian_extractor.py tests/test_obsidian_integration.py tests/test_obsidian_privacy.py tests/test_obsidian_scanner.py; echo $? > /results/t-rag-obsidian; exit 0"]
+    command: ["sh", "-c", "python -m pytest -q --timeout=60 tests/knowledge/test_obsidian_canvas.py tests/knowledge/test_obsidian_config.py tests/knowledge/test_obsidian_extractor.py tests/knowledge/test_obsidian_integration.py tests/knowledge/test_obsidian_privacy.py tests/knowledge/test_obsidian_scanner.py; echo $? > /results/t-rag-obsidian; exit 0"]
 
   # ~53 Dateien: operator_tui
   t-tui-operator:
