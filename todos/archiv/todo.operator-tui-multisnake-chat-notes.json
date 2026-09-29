@@ -639,7 +639,7 @@
           "description": "Channel-, Nachrichten-, Unread- und Notes-Invarianten werden isoliert getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_tui_snake_chat_state.py"
+            "tests/tui/test_tui_snake_chat_state.py"
           ],
           "priority": "P1",
           "effort": "M",
@@ -684,7 +684,7 @@
           "description": "Sicherheitsrelevante Grenzen werden festgeschrieben.",
           "repo": "tui",
           "files": [
-            "tests/test_tui_snake_chat_policy.py"
+            "tests/tui/test_tui_snake_chat_policy.py"
           ],
           "priority": "P1",
           "effort": "M",

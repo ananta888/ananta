@@ -278,8 +278,8 @@
       "files_expected": [
         "client_surfaces/operator_tui/chat_policy.py",
         "client_surfaces/operator_tui/chat_state.py",
-        "tests/test_tui_snake_chat_policy.py",
-        "tests/test_tui_snake_chat_state.py",
+        "tests/tui/test_tui_snake_chat_policy.py",
+        "tests/tui/test_tui_snake_chat_state.py",
         "tests/test_snakes_chat_api.py"
       ],
       "acceptance_criteria": [

@@ -121,7 +121,7 @@ flowchart LR
 | Bereich | Tests |
 |---|---|
 | Mock-IMAP Integration, Timeout/Login/TLS, headers-only | `tests/test_imap_mock_integration_flow.py`, `tests/test_imap_connector_service.py` |
-| TUI Mail-View/Commands inkl. offline/degraded und explizites Body-Load | `tests/test_tui_imap_mail_view_commands.py`, `tests/test_tui_imap_mail_integration_commands.py`, `tests/test_tui_imap_account_commands.py` |
+| TUI Mail-View/Commands inkl. offline/degraded und explizites Body-Load | `tests/tui/test_tui_imap_mail_view_commands.py`, `tests/tui/test_tui_imap_mail_integration_commands.py`, `tests/tui/test_tui_imap_account_commands.py` |
 | Artifact/Worker Security, Redaction, Cloud denied default | `tests/test_imap_artifact_worker_security.py`, `tests/test_imap_mail_context_envelope_service.py`, `tests/test_imap_redaction_pipeline_service.py`, `tests/test_imap_schema_policy_unit.py` |
 | E2E Mail lesen + Goal-Freigabe (Excerpt-only) | `tests/test_imap_mail_goal_grant_e2e.py` |
 

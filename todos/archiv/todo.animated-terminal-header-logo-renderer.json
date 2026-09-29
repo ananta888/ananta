@@ -57,10 +57,10 @@
       "client_surfaces/operator_tui/logo_renderer/frame_cache.py",
       "client_surfaces/operator_tui/logo_renderer/animated_header.py",
       "client_surfaces/operator_tui/terminal.py",
-      "tests/test_tui_logo_renderer_detection.py",
-      "tests/test_tui_logo_renderer_ansi.py",
-      "tests/test_tui_logo_renderer_header_layout.py",
-      "tests/test_tui_logo_renderer_frame_cache.py",
+      "tests/tui/test_tui_logo_renderer_detection.py",
+      "tests/tui/test_tui_logo_renderer_ansi.py",
+      "tests/tui/test_tui_logo_renderer_header_layout.py",
+      "tests/tui/test_tui_logo_renderer_frame_cache.py",
       "docs/development/terminal-header-logo-renderer.md"
     ],
     "modify": [
@@ -423,8 +423,8 @@
       "priority": "P2",
       "risk": "medium",
       "files": [
-        "tests/test_tui_logo_renderer_detection.py",
-        "tests/test_tui_logo_renderer_header_layout.py"
+        "tests/tui/test_tui_logo_renderer_detection.py",
+        "tests/tui/test_tui_logo_renderer_header_layout.py"
       ],
       "acceptance_criteria": [
         "Tests pruefen, dass Kitty-Frames dieselbe Bildposition/Placement-Zone verwenden.",
@@ -651,7 +651,7 @@
       "priority": "P0",
       "risk": "medium",
       "files": [
-        "tests/test_tui_logo_renderer_detection.py"
+        "tests/tui/test_tui_logo_renderer_detection.py"
       ],
       "acceptance_criteria": [
         "Tests pruefen auto-Auswahl fuer kitty, sixel und ansi anhand simulierter Env-Variablen.",
@@ -669,7 +669,7 @@
       "priority": "P0",
       "risk": "medium",
       "files": [
-        "tests/test_tui_logo_renderer_ansi.py"
+        "tests/tui/test_tui_logo_renderer_ansi.py"
       ],
       "acceptance_criteria": [
         "Tests pruefen, dass ein kleines RGBA-Testbild erwartete Halfblock-Zeichen erzeugt.",
@@ -687,7 +687,7 @@
       "priority": "P0",
       "risk": "high",
       "files": [
-        "tests/test_tui_logo_renderer_header_layout.py"
+        "tests/tui/test_tui_logo_renderer_header_layout.py"
       ],
       "acceptance_criteria": [
         "Tests pruefen, dass Logo-Zone links und Status-Zone rechts getrennt bleiben.",

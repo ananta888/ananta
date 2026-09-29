@@ -17,7 +17,7 @@
     }
   },
   "label_source": "policy_rule",
-  "provenance": "Every classify_chat_intent assertion in tests/ (only tests/test_tui_snake_chat_policy.py calls it). 'unknown' is kept as a label because test_classify_empty asserts it. Note: no production caller of classify_chat_intent was found outside tests.",
+  "provenance": "Every classify_chat_intent assertion in tests/ (only tests/tui/test_tui_snake_chat_policy.py calls it). 'unknown' is kept as a label because test_classify_empty asserts it. Note: no production caller of classify_chat_intent was found outside tests.",
   "cases": [
     {
       "id": "chat_intent-001",
@@ -25,7 +25,7 @@
       "state": "hallo",
       "expected": "smalltalk",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_smalltalk_greeting"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_smalltalk_greeting"
     },
     {
       "id": "chat_intent-002",
@@ -33,7 +33,7 @@
       "state": "hello",
       "expected": "smalltalk",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_english_hello"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_english_hello"
     },
     {
       "id": "chat_intent-003",
@@ -41,7 +41,7 @@
       "state": "danke",
       "expected": "smalltalk",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_thanks"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_thanks"
     },
     {
       "id": "chat_intent-004",
@@ -49,7 +49,7 @@
       "state": "What does this Python function do?",
       "expected": "code_question",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_code_question"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_code_question"
     },
     {
       "id": "chat_intent-005",
@@ -57,7 +57,7 @@
       "state": "Please run the tests and fetch the results",
       "expected": "tool_request",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_tool_request"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_tool_request"
     },
     {
       "id": "chat_intent-006",
@@ -65,7 +65,7 @@
       "state": "Please analyze the architecture and explain the design",
       "expected": "analysis",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_analysis"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_analysis"
     },
     {
       "id": "chat_intent-007",
@@ -73,7 +73,7 @@
       "state": "",
       "expected": "unknown",
       "acceptable": [],
-      "source": "tests/test_tui_snake_chat_policy.py::test_classify_empty"
+      "source": "tests/tui/test_tui_snake_chat_policy.py::test_classify_empty"
     }
   ]
 }

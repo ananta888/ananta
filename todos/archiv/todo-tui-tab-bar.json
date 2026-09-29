@@ -343,7 +343,7 @@
       "priority": "high",
       "status": "done",
       "files": [
-        "tests/test_tui_tab_manager.py"
+        "tests/tui/test_tui_tab_manager.py"
       ],
       "complexity": "medium",
       "depends_on": [
@@ -403,7 +403,7 @@
       "priority": "medium",
       "status": "done",
       "files": [
-        "tests/test_tui_tab_manager.py"
+        "tests/tui/test_tui_tab_manager.py"
       ],
       "complexity": "small",
       "depends_on": [
@@ -478,8 +478,8 @@
   "verification": {
     "updated": "2026-05-31",
     "evidence": [
-      ".venv/bin/python -m pytest tests/test_tui_tab_manager.py tests/test_operator_tui_shell.py -q -k 'tab_bar or region_index_tab or nav_click or tab_cycle or tab_close_keyboard or tab_initial or visual_viewport_enabled' -> 15 passed, 230 deselected",
-      ".venv/bin/python -m ruff check client_surfaces/operator_tui/tab_manager.py tests/test_tui_tab_manager.py -> All checks passed",
+      ".venv/bin/python -m pytest tests/tui/test_tui_tab_manager.py tests/test_operator_tui_shell.py -q -k 'tab_bar or region_index_tab or nav_click or tab_cycle or tab_close_keyboard or tab_initial or visual_viewport_enabled' -> 15 passed, 230 deselected",
+      ".venv/bin/python -m ruff check client_surfaces/operator_tui/tab_manager.py tests/tui/test_tui_tab_manager.py -> All checks passed",
       "SOLID check: tab state mutations remain centralized in tab_manager.py; renderer and region index share tab_positions_for_render instead of duplicating geometry."
     ],
     "notes": [

@@ -285,9 +285,9 @@ tests/test_trigger_security.py
 tests/test_triggers_e2e.py
 tests/test_tui_interaction_contract.py
 tests/test_tui_runtime_app.py
-tests/test_tui_runtime_state.py
-tests/test_tui_runtime_view_models.py
-tests/test_tui_web_launch_commands.py
+tests/tui/test_tui_runtime_state.py
+tests/tui/test_tui_runtime_view_models.py
+tests/tui/test_tui_web_launch_commands.py
 tests/test_unified_cli_commands.py
 tests/test_unified_cli_entrypoint.py
 tests/test_utils_coverage.py

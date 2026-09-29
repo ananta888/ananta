@@ -63,8 +63,8 @@
         "schemas/tui/ai_snake_prediction_profile.v1.json"
       ],
       "tests": [
-        "tests/test_tui_snake_chat_state.py (32 Tests)",
-        "tests/test_tui_snake_chat_policy.py (20 Tests)",
+        "tests/tui/test_tui_snake_chat_state.py (32 Tests)",
+        "tests/tui/test_tui_snake_chat_policy.py (20 Tests)",
         "tests/test_snakes_chat_api.py (14 Tests)",
         "tests/test_ai_snake_prediction.py",
         "tests/test_ai_snake_policy.py",
@@ -685,7 +685,7 @@
         "Guardrail prueft: Ohne Treffer (no_good_match) wird kein result_text mit konkreten Datei/Symbol-Referenzen geliefert.",
         "Antwort unterscheidet klar: belegte Aussagen (mit Ref) und Vermutungen (uncertainty_note gesetzt).",
         "Bestehende _is_sensitive()/_redact() Logik aus chat_policy.py bleibt erhalten und wird zusaetzlich auf ChatAnswerBlock angewendet.",
-        "Tests in tests/test_tui_snake_chat_policy.py erweitert um: Guardrail-Check mit validen Refs, Guardrail-Check mit erfundenen Refs (blocked), no_good_match ohne Refs (allowed)."
+        "Tests in tests/tui/test_tui_snake_chat_policy.py erweitert um: Guardrail-Check mit validen Refs, Guardrail-Check mit erfundenen Refs (blocked), no_good_match ohne Refs (allowed)."
       ]
     },
     {
@@ -935,10 +935,10 @@
         "T06.01",
         "T07.01"
       ],
-      "code_notes": "Bestehend: tests/test_tui_snake_chat_state.py (32 Tests), tests/test_tui_snake_chat_policy.py (20 Tests), tests/test_snakes_chat_api.py (14 Tests), tests/test_ai_snake_prediction.py, tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests).",
+      "code_notes": "Bestehend: tests/tui/test_tui_snake_chat_state.py (32 Tests), tests/tui/test_tui_snake_chat_policy.py (20 Tests), tests/test_snakes_chat_api.py (14 Tests), tests/test_ai_snake_prediction.py, tests/client_surfaces/operator_tui/test_ai_snake_worker_codecompass.py (100+ Tests).",
       "acceptance_criteria": [
         "Neue Testdateien erstellt (alle laufen ohne echtes LLM): tests/test_heuristic_registry.py, tests/test_heuristic_decision_lease.py, tests/test_snake_decision_manager.py, tests/test_chat_decision_manager.py, tests/test_chat_query_classifier.py, tests/test_heuristic_proposal_validator.py, tests/test_activation_gate.py, tests/test_ttl_reevaluation.py.",
-        "Bestehende Tests werden erweitert: tests/test_ai_snake_follow.py um Lurk-State und TTL-Fallback, tests/test_tui_snake_chat_policy.py um HallucinationGuardrail.",
+        "Bestehende Tests werden erweitert: tests/test_ai_snake_follow.py um Lurk-State und TTL-Fallback, tests/tui/test_tui_snake_chat_policy.py um HallucinationGuardrail.",
         "Test-Coverage-Bereiche: Registry (load/filter/version/rollback), Strategy (Strategieauswahl), Chain (Reihenfolge/abstain), State (Transitions), Observer (Event-Normalisierung), Command (MockAdapter), TTL (Ablauf/Reevaluation), Selector (Ranking/Budget), Activation-Gate (ohne Approval gesperrt), Routing (OpenCode-Sperre).",
         "Alle Tests laufen in < 30 Sekunden ohne echten Worker oder LLM.",
         "pytest tests/test_heuristic_*.py -v muss 100% green sein."

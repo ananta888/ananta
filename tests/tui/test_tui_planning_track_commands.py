@@ -161,7 +161,7 @@ def test_plan_track_repairs_inconsistent_summary(monkeypatch, tmp_path: Path) ->
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     inconsistent = json.loads(fixture.read_text(encoding="utf-8"))
     inconsistent["tasks_status_summary"] = {"total": 999, "by_status": {"todo": 0, "done": 0}}
     state0 = _state().with_updates(header_logo_game={"active_goal_id": "goal-plan-repair-summary"})
@@ -203,7 +203,7 @@ def test_plan_summary_doctor_and_fix_file(monkeypatch, tmp_path: Path) -> None:
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     target = tmp_path / "todo.track.json"
     target.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
     payload = json.loads(target.read_text(encoding="utf-8"))
@@ -239,7 +239,7 @@ def test_plan_track_e2e_repair_then_adopt(monkeypatch, tmp_path: Path) -> None:
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     inconsistent = json.loads(fixture.read_text(encoding="utf-8"))
     inconsistent.pop("tasks_status_summary", None)
     inconsistent.pop("tasks_type_summary", None)

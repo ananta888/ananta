@@ -1147,7 +1147,7 @@
     {
       "id": "VG-01",
       "name": "Finale warnings-strikte Mail/JMAP/IMAP-Gesamtabnahme",
-      "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
+      "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/tui/test_tui_imap_mail_integration_commands.py tests/tui/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
       "required_for": "local_code_acceptance",
       "last_local_status": "passed_local_hub_verified",
       "last_local_count": "148 passed, 0 failed, 0 skipped, 0 warnings",
@@ -1252,7 +1252,7 @@
       },
       {
         "id": "LV-22",
-        "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
+        "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/tui/test_tui_imap_mail_integration_commands.py tests/tui/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
         "result": "passed_local_hub_verified",
         "passed": 148,
         "failed": 0,

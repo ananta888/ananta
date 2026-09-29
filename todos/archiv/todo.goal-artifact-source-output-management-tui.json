@@ -541,8 +541,8 @@
           "description": "TUI-Ansicht und Kommandos werden ohne echte UI manuell steuerbar getestet.",
           "repo": "tui",
           "files": [
-            "tests/test_tui_goal_artifacts_commands.py",
-            "tests/test_tui_goal_artifacts_renderer.py"
+            "tests/tui/test_tui_goal_artifacts_commands.py",
+            "tests/tui/test_tui_goal_artifacts_renderer.py"
           ],
           "priority": "P1",
           "effort": "L",

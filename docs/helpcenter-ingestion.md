@@ -99,5 +99,5 @@ sequenceDiagram
 | Log-Redaction + Pattern | `tests/test_helpcenter_log_extractor_service.py` |
 | Analyzer (pytest/npm/import/timeout, no auto fix) | `tests/test_helpcenter_analyzer_service.py` |
 | Ingest dry-run/write + helpcenter-only writes | `tests/test_helpcenter_ingest_service.py` |
-| TUI command flow + detail/follow-up | `tests/test_tui_helpcenter_commands.py` |
+| TUI command flow + detail/follow-up | `tests/tui/test_tui_helpcenter_commands.py` |
 | E2E ingest -> reports/index -> TUI view | `tests/test_helpcenter_ingest_e2e.py` |

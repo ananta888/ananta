@@ -327,12 +327,12 @@
       "files": [
         "agent/config.py",
         "agent/services/tui_tool_registry.py",
-        "tests/test_tui_tool_registry.py"
+        "tests/tui/test_tui_tool_registry.py"
       ],
       "implemented": {
         "agent/config.py": "Added tui_default_editor and tui_allow_environment_editor fields (env-var overrides only; complex config lives in JSON files).",
         "agent/services/tui_tool_registry.py": "TuiToolRegistry with 3-layer merge (global → user ~/.config/ananta/tui-tools.json → project .ananta/tui-tools.json), TuiConfigValidationError, EditorProfile, ToolProfile, FiletypeRule, _parse_config. Env overrides apply only when the env var is explicitly set (not on Pydantic default).",
-        "tests/test_tui_tool_registry.py": "20 tests — parse validation, scope override order, reload, allowlist checks."
+        "tests/tui/test_tui_tool_registry.py": "20 tests — parse validation, scope override order, reload, allowlist checks."
       },
       "deviations": [
         "docs/configuration/tui-tools.md not yet created — deferred to E008."
@@ -455,12 +455,12 @@
       "files": [
         "agent/tui_shell_runtime.py",
         "agent/tui_contract.py",
-        "tests/test_tui_shell_runtime.py"
+        "tests/tui/test_tui_shell_runtime.py"
       ],
       "implemented": {
         "agent/tui_contract.py": "Added ShellMode(str, Enum) with dashboard/terminal_session/embedded_editor/embedded_tool, TuiPaneState frozen dataclass with is_embedded() and to_dict(). Existing TuiKey/TuiOption/TuiPromptState unchanged.",
         "agent/tui_shell_runtime.py": "TuiShellRuntime: switch_to() with validated transitions (_VALID_TRANSITIONS dict), suspend() without session kill, dispatch_key() with chord buffer for 2-char suspend key (default Ctrl+b d), on_state_change callback, ShellModeTransitionError, KeyDispatchResult. Thread-safe via single lock. No blocking event loop — wired into TUI app by E005.",
-        "tests/test_tui_shell_runtime.py": "28 tests covering transitions, invalid transitions, callbacks, suspend from all modes, key forwarding/consuming, chord sequence, custom suspend key, thread safety."
+        "tests/tui/test_tui_shell_runtime.py": "28 tests covering transitions, invalid transitions, callbacks, suspend from all modes, key forwarding/consuming, chord sequence, custom suspend key, thread safety."
       },
       "notes": [
         "Use rich (already imported in repair_tui.py) for layout/rendering.",
@@ -498,11 +498,11 @@
       "files": [
         "agent/tui_main_pane.py",
         "agent/tui_contract.py",
-        "tests/test_tui_main_pane_modes.py"
+        "tests/tui/test_tui_main_pane_modes.py"
       ],
       "implemented": {
         "agent/tui_main_pane.py": "TuiMainPaneController: open_file() → launch_editor + switch_to(EMBEDDED_EDITOR), launch_tool() → launch_tool + switch_to(EMBEDDED_TOOL), return_to_dashboard() → suspend(), status()/current_mode(). Auto-generates session IDs (tui-<12hex>). Not a blocking loop — wired into TUI app by client_surfaces.",
-        "tests/test_tui_main_pane_modes.py": "19 tests: mode transitions, session_id/file_path/tool_id in state, readonly propagation, failure stays in dashboard, full open→return→reopen flow."
+        "tests/tui/test_tui_main_pane_modes.py": "19 tests: mode transitions, session_id/file_path/tool_id in state, readonly propagation, failure stays in dashboard, full open→return→reopen flow."
       },
       "deviations": [
         "agent/cli_goals.py not modified — CLI commands went into agent/cli/commands/tui_editor.py and agent/cli/main.py (see E006).",
