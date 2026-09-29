@@ -104,6 +104,14 @@ _ANCHORS = (
 )
 
 
+_JS_RELATIVE = re.compile(r"""((?:\bfrom|\bimport|require\()\s*\(?\s*['"])\.\./""")
+
+
+def deepen_js_relative_imports(source: str) -> str:
+    """Relative ``../`` module specifiers of a moved ``.mjs``/``.js`` file, one level deeper."""
+    return _JS_RELATIVE.sub(lambda m: f"{m.group(1)}../../", source)
+
+
 def deepen_file_anchors(source: str) -> str:
     """``__file__``-relative directories as seen from one level deeper."""
     for pattern, replacement in _ANCHORS:
@@ -159,6 +167,8 @@ def migrate(prefix: str, directory: str, *, apply: bool) -> int:
         moved = target / path.name
         if moved.suffix == ".py":
             moved.write_text(deepen_file_anchors(moved.read_text(encoding="utf-8")), encoding="utf-8")
+        elif moved.suffix in {".mjs", ".js"}:
+            moved.write_text(deepen_js_relative_imports(moved.read_text(encoding="utf-8")), encoding="utf-8")
     pinned_now = {str(path) for path in pinned}
     rewritten = 0
     for path in _text_files([ROOT]):

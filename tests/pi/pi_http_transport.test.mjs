@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { createPiFetch } from "../agent/cli_backends/pi_http_transport.mjs";
+import { createPiFetch } from "../../agent/cli_backends/pi_http_transport.mjs";
 
 const endpoint = "https://model.invalid/v1/chat/completions";
 const payload = { model: "selected", stream: true, max_tokens: 1024, messages: [] };

@@ -55,3 +55,12 @@ def test_from_tests_imports_follow_the_moved_modules() -> None:
         "    from tests.meet import test_meet_integration as mi\n"
         "    from tests import test_other\n"
     )
+
+
+def test_relative_js_imports_are_deepened() -> None:
+    from scripts.migrate_test_domain import deepen_js_relative_imports
+
+    source = "import { a } from '../agent/x.mjs';\nconst b = require('../lib/b.js');\nimport './sibling.mjs';\n"
+    assert deepen_js_relative_imports(source) == (
+        "import { a } from '../../agent/x.mjs';\nconst b = require('../../lib/b.js');\nimport './sibling.mjs';\n"
+    )
