@@ -22,10 +22,10 @@ jobs:
       - name: Run Visual Guide test matrix
         run: |
           pytest \
-            tests/test_visual_guide_snapshot_state.py \
-            tests/test_visual_guide_state_isolation.py \
-            tests/test_visual_guide_rate_limit.py \
-            tests/test_visual_guide_privacy.py \
+            tests/visual/test_visual_guide_snapshot_state.py \
+            tests/visual/test_visual_guide_state_isolation.py \
+            tests/visual/test_visual_guide_rate_limit.py \
+            tests/visual/test_visual_guide_privacy.py \
             tests/test_snapshot_diff_api_integration.py \
             tests/test_region_explain_validation.py \
             -v

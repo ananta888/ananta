@@ -56,7 +56,7 @@
       "agent/services/workflow_providers/generic_webhook.py"
     ],
     "test_anchors": [
-      "tests/test_visual_process.py",
+      "tests/visual/test_visual_process.py",
       "tests/workflow/test_workflow_definition_service.py",
       "tests/test_blueprint_planning_adapter.py",
       "tests/test_workflow_event_service.py",
@@ -149,7 +149,7 @@
           "acceptance_criteria": [
             "Bestehender graph_to_blueprint_steps Pfad bleibt kompatibel.",
             "Mapping erhaelt IO, gates, checks, failure_policy, required_capabilities, produces, consumes und pattern_hints.",
-            "Tests in tests/test_visual_process.py werden erweitert oder neue Mapper-Tests ergaenzt.",
+            "Tests in tests/visual/test_visual_process.py werden erweitert oder neue Mapper-Tests ergaenzt.",
             "Keine Mapping-Logik wandert in Angular-Komponenten."
           ]
         },
@@ -421,7 +421,7 @@
       "docs/blueprints/bpmn-blueprint-editor.md"
     ],
     "validation": [
-      "pytest -q tests/test_visual_process.py tests/test_visual_process_bpmn_workflow.py",
+      "pytest -q tests/visual/test_visual_process.py tests/test_visual_process_bpmn_workflow.py",
       "npm run build",
       "npm run test:unit -- src/app/features/visual-process/visual-process.routes.spec.ts"
     ],

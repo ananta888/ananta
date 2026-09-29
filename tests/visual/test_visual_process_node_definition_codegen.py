@@ -6,7 +6,7 @@ from pathlib import Path
 
 from agent.visual_process.node_definitions import NODE_REGISTRY_VERSION, list_node_definitions
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_checked_in_angular_node_definitions_match_hub_contract() -> None:

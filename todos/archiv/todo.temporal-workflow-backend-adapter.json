@@ -361,7 +361,7 @@
     ],
     "validation": [
       "pytest -q tests/test_visual_process_bpmn_workflow.py",
-      "pytest -q tests/test_visual_process.py tests/test_visual_process_bpmn_workflow.py"
+      "pytest -q tests/visual/test_visual_process.py tests/test_visual_process_bpmn_workflow.py"
     ],
     "notes": [
       "LocalWorkflowBackend bleibt Default und funktioniert ohne Temporal.",

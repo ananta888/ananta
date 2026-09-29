@@ -200,7 +200,7 @@
       "files": [
         "agent/routes/snakes_execution_routes.py",
         "agent/services/visual_guide/state_store.py",
-        "tests/test_visual_guide_state_isolation.py"
+        "tests/visual/test_visual_guide_state_isolation.py"
       ],
       "depends_on": [],
       "details": "Mehrere Browser/Snakes dürfen nicht gegeneinander Deltas oder Reply-Throttle beeinflussen.",
@@ -328,7 +328,7 @@
       "progress_percent": 0,
       "files": [
         "agent/services/visual_guide/models.py",
-        "tests/test_visual_guide_models.py"
+        "tests/visual/test_visual_guide_models.py"
       ],
       "depends_on": [],
       "details": "Erst ein Datenmodell macht das System erklärbar und im Viewer sauber darstellbar.",
@@ -667,7 +667,7 @@
       "type": "testing",
       "progress_percent": 0,
       "files": [
-        "tests/test_visual_guide_state_isolation.py",
+        "tests/visual/test_visual_guide_state_isolation.py",
         "tests/test_region_explain_service.py",
         "tests/test_visual_guide_decision_service.py",
         "frontend-angular/src/app/**/*.spec.ts"

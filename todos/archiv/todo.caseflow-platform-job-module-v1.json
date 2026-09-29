@@ -95,7 +95,7 @@
       {
         "area": "Testing",
         "files": [
-          "tests/test_visual_process.py"
+          "tests/visual/test_visual_process.py"
         ],
         "notes": [
           "Bestehende Tests für Schema, Validator, ContextAssembly und BlueprintMapper dienen als Stilvorlage.",
@@ -1126,7 +1126,7 @@
         "pytest tests/test_caseflow_discovery.py läuft grün.",
         "pytest tests/test_job_application_flow.py läuft grün.",
         "pytest tests/test_job_human_gates.py läuft grün.",
-        "Bestehende tests/test_visual_process.py laufen weiterhin grün.",
+        "Bestehende tests/visual/test_visual_process.py laufen weiterhin grün.",
         "Mindestens ein Integrationstest deckt DiscoveryResult -> Approval -> Case -> JobFlow -> Artifact -> Trace ab."
       ],
       "done": true

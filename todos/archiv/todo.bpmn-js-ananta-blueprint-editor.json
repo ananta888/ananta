@@ -39,7 +39,7 @@
       "Keine Tool-/Worker-Rechte aus BPMN XML ableiten, ohne Hub-/Policy-Validierung."
     ],
     "existing_test_anchors": [
-      "tests/test_visual_process.py",
+      "tests/visual/test_visual_process.py",
       "tests/workflow/test_workflow_definition_service.py",
       "tests/test_blueprint_planning_adapter.py",
       "tests/test_workflow_status_service.py",
@@ -91,7 +91,7 @@
         "Mapping-Tabelle VisualProcessStep -> BlueprintWorkflowStepDB existiert.",
         "Bestehende Felder wie step_id, title, description, role_name, task_kind, depends_on, gate, checks, failure_policy, required_capabilities, produces, consumes und pattern_hints sind abgedeckt.",
         "Nicht abgedeckte BPMN-/Blueprint-Felder sind explizit als future/unsupported markiert.",
-        "tests/test_visual_process.py und tests/workflow/test_workflow_definition_service.py bleiben gruen."
+        "tests/visual/test_visual_process.py und tests/workflow/test_workflow_definition_service.py bleiben gruen."
       ]
     },
     {
@@ -174,7 +174,7 @@
         "Agent/Service Task ohne ausfuehrbare Semantik wird abgelehnt oder als unsupported markiert.",
         "PolicyScope ist explizit; fehlende Rechte bleiben default-deny.",
         "Fehler sind als strukturierte ValidationIssue und im Diagramm sichtbar.",
-        "tests/test_visual_process.py enthaelt BPMN-nahe Validator-Faelle oder neue BPMN-Adapter-Tests decken sie ab."
+        "tests/visual/test_visual_process.py enthaelt BPMN-nahe Validator-Faelle oder neue BPMN-Adapter-Tests decken sie ab."
       ]
     },
     {
