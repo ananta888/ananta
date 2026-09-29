@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 from client_surfaces.blender.addon.context import capture_bounded_scene_context
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _validator() -> Draft202012Validator:
