@@ -43,7 +43,7 @@
       "scripts/ananta-restore.py",
       "scripts/ananta_backup/",
       "tests/backup/",
-      "tests/test_recovery_status_cas_policy.py"
+      "tests/recovery/test_recovery_status_cas_policy.py"
     ],
     "runtime_evidence": {
       "frontend_http": "Angular auf Port 4200 und der Hub auf Port 5000 antworteten nach den Compose-Recreates; alle Hauptdienste liefen getrennt und der Hub war healthy.",

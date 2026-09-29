@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 POLICY_MODULES = (
     ROOT / "agent/common/recovery_dispatch_contract.py",
     ROOT / "agent/common/recovery_task_merge_policy.py",
