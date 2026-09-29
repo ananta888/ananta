@@ -102,7 +102,7 @@
           "files": [
             "agent/routes/share_sessions.py",
             "agent/bootstrap/routes.py",
-            "tests/test_share_sessions_api.py"
+            "tests/share/test_share_sessions_api.py"
           ],
           "acceptance_criteria": [
             "POST /share-sessions erstellt eine Session nur fuer authentifizierte User.",
@@ -356,7 +356,7 @@
           "files": [
             "agent/routes/share_sessions.py",
             "client_surfaces/operator_tui/webrtc_transport.py",
-            "tests/test_share_view_transport_api.py",
+            "tests/share/test_share_view_transport_api.py",
             "tests/e2e/test_shared_tui_view.py"
           ],
           "acceptance_criteria": [
@@ -448,7 +448,7 @@
             "agent/services/share_audit_service.py",
             "client_surfaces/operator_tui/share_menu.py",
             "client_surfaces/operator_tui/renderer.py",
-            "tests/test_share_audit.py"
+            "tests/share/test_share_audit.py"
           ],
           "acceptance_criteria": [
             "Events existieren fuer session_created, participant_joined, participant_revoked, permission_changed, chat_sent, view_started, view_delta_sent, view_stopped.",

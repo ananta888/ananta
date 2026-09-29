@@ -839,7 +839,7 @@
         "agent/routes/share_sessions.py",
         "agent/services/share_session_permissions.py",
         "frontend-angular/src/app/services/pair-view-sync.service.ts",
-        "tests/test_share_session_permissions.py"
+        "tests/share/test_share_session_permissions.py"
       ],
       "acceptance_criteria": [
         "Ein versionierter Vertrag definiert chat, view_tui, remote_cursor, artifact_share und remote_control mit identischer Semantik in Python und TypeScript.",

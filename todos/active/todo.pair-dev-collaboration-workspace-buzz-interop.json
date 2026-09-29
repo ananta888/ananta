@@ -67,7 +67,7 @@
       "frontend-angular/src/app/services/pair-view-sync.types.ts",
       "frontend-angular/src/app/services/webrtc-transport.service.ts",
       "tests/security/test_webrtc_group_rekey.py",
-      "tests/test_share_sessions_api.py"
+      "tests/share/test_share_sessions_api.py"
     ],
     "buzz_references": [
       "https://github.com/block/buzz/blob/main/README.md",
