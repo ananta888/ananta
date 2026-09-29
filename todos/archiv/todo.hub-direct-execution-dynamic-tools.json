@@ -349,7 +349,7 @@
       "target_files": [
         "docs/contracts/tool-proposal-artifact.md",
         "agent/services/custom_tool_proposal_service.py",
-        "tests/test_custom_tool_proposal_schema.py"
+        "tests/custom_tool/test_custom_tool_proposal_schema.py"
       ],
       "acceptance_criteria": [
         "Schema fuer tool_proposal.v1 ist dokumentiert und implementiert.",
@@ -369,7 +369,7 @@
       "target_files": [
         "agent/services/custom_tool_proposal_service.py",
         "agent/services/task_execution_service.py",
-        "tests/test_custom_tool_proposal_service.py"
+        "tests/custom_tool/test_custom_tool_proposal_service.py"
       ],
       "acceptance_criteria": [
         "Service kann aus explizitem User-/LLM-Vorschlag ein pending ToolProposal erzeugen, aber niemals direkt aktivieren.",
@@ -431,7 +431,7 @@
         "agent/services/dynamic_tool_registry_service.py",
         "agent/services/hub_direct_execution_router.py",
         "docs/contracts/tool-proposal-artifact.md",
-        "tests/test_custom_tool_intent_aliases.py"
+        "tests/custom_tool/test_custom_tool_intent_aliases.py"
       ],
       "acceptance_criteria": [
         "Dynamic Tool Spec enthaelt intent_aliases, example_prompts, negative_examples und confidence_hint.",
@@ -452,7 +452,7 @@
         "agent/services/custom_tool_promotion_service.py",
         "agent/services/custom_tool_proposal_service.py",
         "agent/services/approval_request_service.py",
-        "tests/test_custom_tool_promotion_service.py"
+        "tests/custom_tool/test_custom_tool_promotion_service.py"
       ],
       "acceptance_criteria": [
         "Promotion-Service kennt Status pending, validation_failed, validated, approval_required, approved, active, disabled, rejected.",
@@ -473,7 +473,7 @@
         "agent/services/custom_tool_executor.py",
         "agent/services/shell_command_policy.py",
         "agent/services/hub_tool_execution_adapter.py",
-        "tests/test_custom_tool_executor.py"
+        "tests/custom_tool/test_custom_tool_executor.py"
       ],
       "acceptance_criteria": [
         "CustomToolExecutor akzeptiert nur command_template mit getrennten typisierten Argumenten oder script_body_ref aus genehmigtem Speicherort.",
@@ -494,7 +494,7 @@
       "target_files": [
         "agent/services/custom_tool_validation_service.py",
         "agent/services/custom_tool_executor.py",
-        "tests/test_custom_tool_validation_service.py"
+        "tests/custom_tool/test_custom_tool_validation_service.py"
       ],
       "acceptance_criteria": [
         "Proposal muss mindestens einen positiven Testfall und einen negativen/Fehler-Testfall enthalten.",
@@ -515,7 +515,7 @@
         "agent/services/custom_tool_executor.py",
         "agent/services/mutation_gate_service.py",
         "agent/services/workspace_mutation_tools.py",
-        "tests/test_custom_tool_mutation_gate.py"
+        "tests/custom_tool/test_custom_tool_mutation_gate.py"
       ],
       "acceptance_criteria": [
         "Vor und nach Custom Tool Execution wird Workspace-Mutation gegen Baseline geprueft, wenn Tool nicht read_only ist.",
@@ -535,7 +535,7 @@
       "target_files": [
         "agent/services/dynamic_tool_registry_service.py",
         "agent/services/custom_tool_promotion_service.py",
-        "tests/test_custom_tool_disable_rollback.py"
+        "tests/custom_tool/test_custom_tool_disable_rollback.py"
       ],
       "acceptance_criteria": [
         "Ein aktives Custom Tool kann auf disabled gesetzt werden, ohne Datei/DB-Eintrag zu loeschen.",
@@ -682,7 +682,7 @@
       "target_files": [
         "agent/services/custom_tool_executor.py",
         "agent/common/audit.py",
-        "tests/test_custom_tool_mutation_gate.py"
+        "tests/custom_tool/test_custom_tool_mutation_gate.py"
       ],
       "acceptance_criteria": [
         "Wenn die Workspace-Baseline wegen File-Limit, Lesefehlern oder Traversal-Abbruch unvollstaendig ist, wird read_only/controlled_execution nicht still erlaubt.",
@@ -703,7 +703,7 @@
         "agent/services/dynamic_tool_registry_service.py",
         "agent/services/custom_tool_proposal_service.py",
         "tests/test_dynamic_tool_registry_service.py",
-        "tests/test_custom_tool_promotion_service.py"
+        "tests/custom_tool/test_custom_tool_promotion_service.py"
       ],
       "acceptance_criteria": [
         "Writes fuer Proposals, Registry Records, Statuswechsel, Rollback und Usage-Updates erfolgen atomar via temp-file plus rename oder ueber eine dedizierte Repository-Abstraktion.",
@@ -748,7 +748,7 @@
     "completed_at": "2026-06-11",
     "summary": "Track finalisiert: Status an die Implementierung angepasst, offene Hardening-/E2E-/Doku-Punkte umgesetzt und verifiziert.",
     "verification": [
-      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/hub/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
+      "pytest tests/custom_tool/test_custom_tool_executor.py tests/custom_tool/test_custom_tool_promotion_service.py tests/custom_tool/test_custom_tool_validation_service.py tests/custom_tool/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/custom_tool/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/hub/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
       "pytest tests/hub/test_hub_direct_diagnostics_api.py -q"
     ]
   }

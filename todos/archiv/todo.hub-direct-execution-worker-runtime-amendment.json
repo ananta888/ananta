@@ -240,7 +240,7 @@
     "completed_at": "2026-06-11",
     "summary": "Track finalisiert: Status an die Implementierung angepasst, offene Hardening-/E2E-/Doku-Punkte umgesetzt und verifiziert.",
     "verification": [
-      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/hub/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
+      "pytest tests/custom_tool/test_custom_tool_executor.py tests/custom_tool/test_custom_tool_promotion_service.py tests/custom_tool/test_custom_tool_validation_service.py tests/custom_tool/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/custom_tool/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/hub/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
       "pytest tests/hub/test_hub_direct_diagnostics_api.py -q"
     ]
   }
