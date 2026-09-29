@@ -1954,7 +1954,7 @@ tests/test_cwfh_handoff_services.py
 tests/test_cwfh_security.py
 tests/test_dashboard_feature_flags.py
 tests/test_db_schema_compat.py
-tests/test_decision_trace.py
+tests/decision/test_decision_trace.py
 tests/test_deerflow_integration.py
 tests/test_delegation_trace_service.py
 tests/test_demo_mode.py

@@ -286,7 +286,7 @@ def test_the_production_question_is_the_benchmarked_one():
 
     from agent.services.retrieval_intent_decision import INSTRUCTIONS, INTENT_OPTIONS
 
-    question = json.loads((Path(__file__).resolve().parents[1] / "benchmarks/decision_providers/"
+    question = json.loads((Path(__file__).resolve().parents[2] / "benchmarks/decision_providers/"
                            "retrieval_intent.v1.json").read_text(encoding="utf-8"))["question"]
     assert question["options"] == INTENT_OPTIONS and question["instructions"] == INSTRUCTIONS
 
@@ -377,7 +377,7 @@ def test_the_screening_question_is_the_benchmarked_one():
 
     from agent.services.prompt_injection_screening import INSTRUCTIONS, INTENT_OPTIONS
 
-    question = json.loads((Path(__file__).resolve().parents[1] / "benchmarks/decision_providers/"
+    question = json.loads((Path(__file__).resolve().parents[2] / "benchmarks/decision_providers/"
                            "prompt_injection.v1.json").read_text(encoding="utf-8"))["question"]
     assert question["options"] == INTENT_OPTIONS and question["instructions"] == INSTRUCTIONS
 

@@ -107,7 +107,7 @@ Secret mounten und `TYPESAFE_API_KEY_FILE` setzen (oder `api_key_env` auf eine v
 ```bash
 # headless, ohne Netz/Key/Modell
 cd docker/compose-next && docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm \
-  --user 1000:1000 t-infra sh -c "python -m pytest -q tests/test_decision_providers.py tests/test_decision_provider_config.py"
+  --user 1000:1000 t-infra sh -c "python -m pytest -q tests/decision/test_decision_providers.py tests/decision/test_decision_provider_config.py"
 
 # Benchmark (lokaler Server auf :18150; Jev nur mit Key)
 TYPESAFE_API_KEY_FILE=~/.config/secrets/api-keys.env \

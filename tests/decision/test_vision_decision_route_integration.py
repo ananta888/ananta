@@ -1,7 +1,7 @@
 """``POST /v1/vision/decision`` end to end against a real llama.cpp-vision-decision ``llama-server``.
 
 Reported as SKIPPED (never as passed) unless ``RUN_INTEGRATION_TESTS=1`` and a real server with a vision model
-is reachable at ``VISION_DECISION_IT_URL`` (see tests/test_vision_decision_integration.py and
+is reachable at ``VISION_DECISION_IT_URL`` (see tests/decision/test_vision_decision_integration.py and
 docs/vision-decision-llamacpp.md). Optional: ``VISION_DECISION_IT_API_KEY``, ``VISION_DECISION_IT_MODEL``
 (allowlist entry; with ``Qwen3-VL-2B-Instruct-Q8_0.gguf`` the shapes task is calibrated) and
 ``VISION_DECISION_IT_CHAT=1`` (also exercise the chat-completion escalation on the same server).
@@ -27,7 +27,7 @@ from agent.services.vision_decision_escalation_executor import ChatTargetConfig,
 from agent.services.vision_decision_hub_service import VisionHubRuntime, default_vision_action_handlers
 from agent.services.vision_decision_provider import VisionDecisionConfig, VisionDecisionProvider
 from agent.services.vision_decision_task_policy import DEFAULT_VISION_TASK_CATALOG
-from tests.test_vision_decision_integration import _draw
+from tests.decision.test_vision_decision_integration import _draw
 
 pytestmark = pytest.mark.integration
 

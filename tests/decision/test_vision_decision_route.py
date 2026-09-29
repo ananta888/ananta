@@ -16,7 +16,7 @@ from agent.services.audio_decision_command_executor import VoiceCommandConfirmat
 from agent.services.vision_decision_escalation_executor import ChatTargetConfig, VisionEscalationConfig, build_escalation_executor
 from agent.services.vision_decision_hub_service import VisionHubRuntime, default_vision_action_handlers
 from agent.services.vision_decision_provider import VisionDecisionProvider
-from tests.test_vision_decision_provider import KEY, _config, _field, _png
+from tests.decision.test_vision_decision_provider import KEY, _config, _field, _png
 
 ROUTE = "/v1/vision/decision"
 CONFIRM = "/v1/vision/decision/confirm"

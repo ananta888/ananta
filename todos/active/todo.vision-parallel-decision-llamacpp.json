@@ -791,7 +791,7 @@
       "evidence": [
         "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
         "bench/shapes.py",
-        "tests/test_vision_decision_integration.py::test_real_ambiguous_image_escalates"
+        "tests/decision/test_vision_decision_integration.py::test_real_ambiguous_image_escalates"
       ],
       "verification": [
         "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
@@ -861,7 +861,7 @@
       "evidence": [
         "vendor/llama.cpp-vision-decision @ a0ae4ad5e (origin/vision-decision)",
         "unit/test_decision.py::test_decision_vision_errors",
-        "tests/test_vision_decision_provider.py"
+        "tests/decision/test_vision_decision_provider.py"
       ],
       "verification": [
         "Fork: tools/server/tests/unit/test_decision.py 16 Tests + test_vision_api/test_basic: 42 passed (todos/todo.vision-decision.json VD-021/VD-041)"
@@ -1002,10 +1002,10 @@
       "implemented_solution": "VisionDecisionConfig.from_env: ENABLED, URL (nur scheme://host[:port], http nur lokal/privat/Compose), API_KEY(_FILE aus /run/secrets, optional), TIMEOUT_MS 100..300000, MAX_MEDIA 1..16, MAX_IMAGE_BYTES, MAX_IMAGE_SIDE, MODELS- und SCHEMAS-Allowlist, MIN_PROBABILITY/MIN_MARGIN in (0,1]. get_vision_decision_provider mit Cache pro Env-Stand. Stdlib-HTTP ohne Redirects/Proxy, Antwort auf 4 MiB begrenzt.",
       "affected_files": [
         "agent/services/vision_decision_provider.py",
-        "tests/test_vision_decision_provider.py"
+        "tests/decision/test_vision_decision_provider.py"
       ],
       "verification": [
-        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed (test_disabled_reads_nothing_else_and_contacts_nothing, test_invalid_config_is_rejected)"
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/decision/test_vision_decision_provider.py -> 82 passed (test_disabled_reads_nothing_else_and_contacts_nothing, test_invalid_config_is_rejected)"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -1031,10 +1031,10 @@
       "implemented_solution": "prepare_image: Pillow-Dekodierung, nur PNG/JPEG/WebP ohne Animation, <= 40 MP, Rohbytes <= MAX_IMAGE_BYTES, Verkleinerung auf MAX_IMAGE_SIDE, Neukodierung als PNG (ohne EXIF). Ohne Pillow fail-closed (image_decoder_unavailable).",
       "affected_files": [
         "agent/services/vision_decision_provider.py",
-        "tests/test_vision_decision_provider.py"
+        "tests/decision/test_vision_decision_provider.py"
       ],
       "verification": [
-        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed (test_invalid_images_rejected_before_upload, test_image_byte_and_pixel_limits, test_image_is_downscaled_and_reencoded_without_metadata)"
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/decision/test_vision_decision_provider.py -> 82 passed (test_invalid_images_rejected_before_upload, test_image_byte_and_pixel_limits, test_image_is_downscaled_and_reencoded_without_metadata)"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -1061,10 +1061,10 @@
       "affected_files": [
         "agent/services/vision_decision_provider.py",
         "agent/services/vision_decision_hub_gate.py",
-        "tests/test_vision_decision_provider.py"
+        "tests/decision/test_vision_decision_provider.py"
       ],
       "verification": [
-        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed (test_abstained_field_escalates_and_carries_no_value, test_http_errors_are_no_decision, test_broken_responses_are_no_decision, test_gate_ok_needs_policy_to_act)"
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/decision/test_vision_decision_provider.py -> 82 passed (test_abstained_field_escalates_and_carries_no_value, test_http_errors_are_no_decision, test_broken_responses_are_no_decision, test_gate_ok_needs_policy_to_act)"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -1090,10 +1090,10 @@
       ],
       "implemented_solution": "82 Tests: Fake-Transport fuer Statuscodes und Antworten, echter lokaler HTTP-Server fuer Timeout, freier Port fuer connection refused, Logger-Handler fuer Log-Inhalte.",
       "affected_files": [
-        "tests/test_vision_decision_provider.py"
+        "tests/decision/test_vision_decision_provider.py"
       ],
       "verification": [
-        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_provider.py -> 82 passed"
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/decision/test_vision_decision_provider.py -> 82 passed"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -1118,11 +1118,11 @@
       ],
       "implemented_solution": "Qwen3-VL-2B Q8_0 auf 172.17.0.1:8096 aus dem Hub-Container: 8 Shape-Bilder 32/32 akzeptierte Felder korrekt (0 abstained, media_tokens 64, 1.2-2.5 s); 2 Bildkontexte kalt 2.41 s / warm 1.43 s mit media_cached=2; leeres graues Bild: shape/color/count abstained und eskaliert, dark_background=true mit p=1.0 (uebersicher); 11_truck.png->vehicle, 91_cat.png->animal. Server danach beendet.",
       "affected_files": [
-        "tests/test_vision_decision_integration.py",
+        "tests/decision/test_vision_decision_integration.py",
         "docs/vision-decision-llamacpp.md"
       ],
       "verification": [
-        "RUN_INTEGRATION_TESTS=1 VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf ... tests/test_vision_decision_integration.py -> 5 passed (Qwen3-VL-2B Q8_0, CPU); ohne Server/URL: 5 skipped"
+        "RUN_INTEGRATION_TESTS=1 VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf ... tests/decision/test_vision_decision_integration.py -> 5 passed (Qwen3-VL-2B Q8_0, CPU); ohne Server/URL: 5 skipped"
       ],
       "completed_at": "2026-09-23",
       "evidence": [
@@ -1179,14 +1179,14 @@
         "agent/services/vision_decision_task_policy.py",
         "agent/services/vision_decision_escalation_executor.py",
         "agent/bootstrap/routes.py",
-        "tests/test_vision_decision_route.py",
-        "tests/test_vision_decision_task_policy.py",
-        "tests/test_vision_decision_route_integration.py",
+        "tests/decision/test_vision_decision_route.py",
+        "tests/decision/test_vision_decision_task_policy.py",
+        "tests/decision/test_vision_decision_route_integration.py",
         "docs/vision-decision-llamacpp.md"
       ],
       "verification": [
-        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/test_vision_decision_task_policy.py tests/test_vision_decision_route.py -> 90 passed (42 + 48: ok, Eskalation Mensch/Chat/Chat-Fehler, ungueltiges Bild, zu viele Bilder, 400/401/403/429/503/500, Timeout, kaputte Antwort, Feature aus ohne Config/Kontakt, Policy-Fehler, Bestaetigung/Ticket Replay/fremd/abgelaufen)",
-        "RUN_INTEGRATION_TESTS=1 VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf [VISION_DECISION_IT_CHAT=1] ... tests/test_vision_decision_route_integration.py -> 2 passed (mit und ohne Chat-Eskalation, Qwen3-VL-2B Q8_0, CPU); ohne Opt-in/Server: 2 skipped",
+        "docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider tests/decision/test_vision_decision_task_policy.py tests/decision/test_vision_decision_route.py -> 90 passed (42 + 48: ok, Eskalation Mensch/Chat/Chat-Fehler, ungueltiges Bild, zu viele Bilder, 400/401/403/429/503/500, Timeout, kaputte Antwort, Feature aus ohne Config/Kontakt, Policy-Fehler, Bestaetigung/Ticket Replay/fremd/abgelaufen)",
+        "RUN_INTEGRATION_TESTS=1 VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf [VISION_DECISION_IT_CHAT=1] ... tests/decision/test_vision_decision_route_integration.py -> 2 passed (mit und ohne Chat-Eskalation, Qwen3-VL-2B Q8_0, CPU); ohne Opt-in/Server: 2 skipped",
         "Regression: alle tests/test_voice*.py und tests/test_vision*.py (62 Dateien) -> 845 passed, 16 skipped (Integrationstests ohne Opt-in)"
       ],
       "completed_at": "2026-09-24",

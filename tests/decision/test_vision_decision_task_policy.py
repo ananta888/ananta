@@ -25,7 +25,7 @@ from agent.services.vision_decision_task_policy import (
     VisionTaskPolicy,
 )
 from agent.services.voice_governance_domain import VoicePrincipal
-from tests.test_vision_decision_provider import KEY, _config, _png
+from tests.decision.test_vision_decision_provider import KEY, _config, _png
 
 MODEL = "Qwen3-VL-2B-Instruct-Q8_0.gguf"
 ALICE = VoicePrincipal(tenant_id="tenant-a", subject="alice")

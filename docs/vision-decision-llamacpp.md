@@ -12,9 +12,9 @@ als Zwischentext. API, Modellmatrix und Benchmarks: `vendor/llama.cpp-vision-dec
 - Hub-Konsument (VDEC-027): Route `agent/routes/vision_decision.py`, Task-Policy
   `agent/services/vision_decision_task_policy.py`, Eskalation `agent/services/vision_decision_escalation_executor.py`,
   Dispatch/Exposure `agent/services/vision_decision_hub_service.py`
-- Tests: `tests/test_vision_decision_provider.py` (gemocktes HTTP), `tests/test_vision_decision_integration.py`
-  (echter `llama-server`, sonst SKIPPED), `tests/test_vision_decision_task_policy.py`, `tests/test_vision_decision_route.py`
-  (gemocktes HTTP), `tests/test_vision_decision_route_integration.py` (Route gegen echten `llama-server`, sonst SKIPPED)
+- Tests: `tests/decision/test_vision_decision_provider.py` (gemocktes HTTP), `tests/decision/test_vision_decision_integration.py`
+  (echter `llama-server`, sonst SKIPPED), `tests/decision/test_vision_decision_task_policy.py`, `tests/decision/test_vision_decision_route.py`
+  (gemocktes HTTP), `tests/decision/test_vision_decision_route_integration.py` (Route gegen echten `llama-server`, sonst SKIPPED)
 - Todo-Track: `todos/active/todo.vision-parallel-decision-llamacpp.json` (VDEC-021 ff.)
 
 ## Betrieb
@@ -177,14 +177,14 @@ Modellmatrix des Forks (CPU, 256x256-Shape-Testset aus `bench/shapes.py`, 4 Feld
 
 ```
 docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE python -m pytest -q -p no:cacheprovider \
-  tests/test_vision_decision_provider.py
+  tests/decision/test_vision_decision_provider.py
 docker exec -w /app compose-next-ai-agent-hub-1 env -u AGENT_TOKEN_FILE RUN_INTEGRATION_TESTS=1 \
   VISION_DECISION_IT_URL=http://172.17.0.1:8096 VISION_DECISION_IT_MODEL=Qwen3-VL-2B-Instruct-Q8_0.gguf \
-  python -m pytest -q -s -rs -p no:cacheprovider tests/test_vision_decision_integration.py
+  python -m pytest -q -s -rs -p no:cacheprovider tests/decision/test_vision_decision_integration.py
 ```
 
 Ohne `RUN_INTEGRATION_TESTS=1`, ohne `VISION_DECISION_IT_URL` oder ohne erreichbaren Server ist der
-Integrationstest SKIPPED, nie bestanden. Gleiches gilt fuer `tests/test_vision_decision_route_integration.py`
+Integrationstest SKIPPED, nie bestanden. Gleiches gilt fuer `tests/decision/test_vision_decision_route_integration.py`
 (Route end-to-end; `VISION_DECISION_IT_CHAT=1` prueft zusaetzlich die Chat-Eskalation am selben Server).
 
 Ergebnis 2026-09-23 (Qwen3-VL-2B Q8_0, CPU, Server auf `172.17.0.1:8096`, aus dem Hub-Container):
