@@ -3,6 +3,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+# Profiles for "the local LM Studio" point at the configured address (settings.lmstudio_url / LMSTUDIO_URL),
+# resolved when a profile is read -- never at a hard-coded host of one developer's LAN.
+LMSTUDIO_URL_PLACEHOLDER = "${LMSTUDIO_URL}"
+
+
+def _resolve_placeholders(value: Any) -> Any:
+    """A deep copy of ``value`` with the configured runtime addresses filled in (the profile constants are
+    shared; callers get their own structures)."""
+    if isinstance(value, dict):
+        return {key: _resolve_placeholders(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_resolve_placeholders(item) for item in value]
+    if value == LMSTUDIO_URL_PLACEHOLDER:
+        from agent.config import settings
+
+        return str(settings.lmstudio_url or "").strip()
+    return value
+
 
 @dataclass(frozen=True)
 class ConfigProfile:
@@ -138,7 +156,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "lmstudio",
             "default_model": "auto",
-            "llm_config": {"base_url": "http://192.168.178.100:1234/v1", "planner_output_format": "json"},
+            "llm_config": {"base_url": LMSTUDIO_URL_PLACEHOLDER, "planner_output_format": "json"},
             "sgpt_routing": {"task_kind_backend": {"*": "ananta-worker"}},
             "action_packs": {"shell": {"enabled": True}},
         },
@@ -149,7 +167,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
         overrides={
             "default_provider": "lmstudio",
             "default_model": "auto",
-            "llm_config": {"base_url": "http://192.168.178.100:1234/v1", "planner_output_format": "json"},
+            "llm_config": {"base_url": LMSTUDIO_URL_PLACEHOLDER, "planner_output_format": "json"},
             "opencode_runtime": {"target_provider": "lmstudio"},
             "sgpt_routing": {"task_kind_backend": {"*": "opencode"}},
             # Conservative local-laptop profile: avoid contention and keep strict serial planning.
@@ -187,7 +205,7 @@ _DEFAULT_PROFILES: dict[str, ConfigProfile] = {
             "hermes_worker_adapter": {
                 "enabled": True,
                 "feature_flag_enabled": True,
-                "base_url": "http://192.168.178.100:1234/v1",
+                "base_url": LMSTUDIO_URL_PLACEHOLDER,
                 "cloud_allowed": True,
                 "strict_json_required": True,
                 "timeout_seconds": 120,
@@ -300,7 +318,7 @@ class ConfigProfileService:
             {
                 "id": profile.id,
                 "description": profile.description,
-                "overrides": dict(profile.overrides),
+                "overrides": _resolve_placeholders(profile.overrides),
             }
             for profile in _DEFAULT_PROFILES.values()
         ]
@@ -315,7 +333,7 @@ class ConfigProfileService:
         return {
             "id": profile.id,
             "description": profile.description,
-            "overrides": dict(profile.overrides),
+            "overrides": _resolve_placeholders(profile.overrides),
         }
 
     def list_workflow_runtime_profiles(self) -> list[dict[str, Any]]:

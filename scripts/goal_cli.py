@@ -20,6 +20,8 @@ Beispiele:
 """
 from __future__ import annotations
 
+import os
+
 import argparse
 import json
 import sys
@@ -33,6 +35,11 @@ DEFAULT_USER = "admin"
 DEFAULT_PASSWORD = "test123"
 
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "aborted", "timeout"}
+
+
+def _lmstudio_url() -> str:
+    """The LM Studio this machine talks to: LMSTUDIO_URL, else LM Studio's local default port."""
+    return str(os.environ.get("LMSTUDIO_URL") or "http://localhost:1234/v1").strip()
 
 
 def _login(base_url: str, user: str, password: str) -> str:
@@ -149,11 +156,11 @@ def cmd_setup_planning(args: argparse.Namespace) -> int:
     policy: dict[str, Any] = {
         "default_provider": "lmstudio",
         "default_model": "google/gemma-4-e4b",
-        "lmstudio_url": "http://192.168.178.100:1234/v1",
+        "lmstudio_url": _lmstudio_url(),
         "llm_config": {
             "provider": "lmstudio",
             "model": "google/gemma-4-e4b",
-            "base_url": "http://192.168.178.100:1234/v1",
+            "base_url": _lmstudio_url(),
             "lmstudio_api_mode": "chat",
         },
         "planning_policy": {

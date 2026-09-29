@@ -15,6 +15,11 @@ _DEFAULT_USER = "admin"
 _DEFAULT_PASSWORD = "test123"
 
 
+def _lmstudio_url() -> str:
+    """The LM Studio this machine talks to: LMSTUDIO_URL, else LM Studio's local default port."""
+    return str(os.environ.get("LMSTUDIO_URL") or "http://localhost:1234/v1").strip()
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="ananta config",
@@ -228,11 +233,11 @@ def _build_planning_policy_payload(parsed) -> dict:
     policy: dict[str, Any] = {
         "default_provider": "lmstudio",
         "default_model": "google/gemma-4-e4b",
-        "lmstudio_url": "http://192.168.178.100:1234/v1",
+        "lmstudio_url": _lmstudio_url(),
         "llm_config": {
             "provider": "lmstudio",
             "model": "google/gemma-4-e4b",
-            "base_url": "http://192.168.178.100:1234/v1",
+            "base_url": _lmstudio_url(),
             "lmstudio_api_mode": "chat",
         },
         "planning_policy": {

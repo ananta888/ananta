@@ -9,7 +9,7 @@ services:
       ANANTA_QUICKSTART_ROLE: hub
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: lmstudio
-      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     volumes:
@@ -32,7 +32,7 @@ services:
       ANANTA_QUICKSTART_ROLE: worker
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: lmstudio
-      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       AGENT_URL: http://ai-agent-alpha:5000
@@ -61,7 +61,7 @@ services:
       ANANTA_QUICKSTART_ROLE: worker
       FLASK_DEBUG: 1
       DEFAULT_PROVIDER: lmstudio
-      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.178.100:1234/v1}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       AGENT_URL: http://ai-agent-beta:5000
