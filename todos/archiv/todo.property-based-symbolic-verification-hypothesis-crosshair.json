@@ -617,7 +617,7 @@
       "implementation_refs": [
         "worker/verification/adapters.py",
         "worker/verification/pilot_targets.py",
-        "tests/verification/test_real_toolchain.py"
+        "tests/slow/verification/test_real_toolchain.py"
       ],
       "validation": "Five bounded contract targets, concrete seeded counterexample and cover candidate passed with CrossHair 0.0.110; timeout/inconclusive/unsupported semantics stay separate.",
       "details": [
@@ -650,7 +650,7 @@
       "implementation_refs": [
         "worker/verification/adapters.py",
         "scripts/run_python_verification_backend_benchmark.py",
-        "tests/verification/test_real_toolchain.py"
+        "tests/slow/verification/test_real_toolchain.py"
       ],
       "validation": "Five shared properties passed both backends; 3.406s normal versus 20.853s solver-backed led to explicit nightly/hold decision.",
       "details": [
@@ -683,7 +683,7 @@
       "implementation_refs": [
         "worker/verification/revision_diff.py",
         "worker/verification/adapters.py",
-        "tests/verification/test_real_toolchain.py",
+        "tests/slow/verification/test_real_toolchain.py",
         "tests/verification/test_materializer_and_adapters.py"
       ],
       "validation": "Semantic delta yields concrete differing behavior; equivalent pair remains inconclusive; distinct worktree and exact baseline/patch revision guards are enforced without cleanup side effects.",

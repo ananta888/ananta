@@ -139,7 +139,7 @@
       "worker/verification/job_runner.py",
       "worker/verification/pilot_targets.py",
       "tests/verification/test_materializer_and_adapters.py",
-      "tests/verification/test_real_toolchain.py",
+      "tests/slow/verification/test_real_toolchain.py",
       "tests/verification/test_property_pilot.py",
       "tests/verification/test_stateful_pilot.py",
       "tests/verification/test_schemas_and_architecture.py",
@@ -394,7 +394,7 @@
       "risk": "high",
       "progress_percent": 100,
       "repo_evidence": [
-        "tests/verification/test_real_toolchain.py prüft CrossHair check, cover und diffbehavior überwiegend gegen worker/verification/pilot_targets.py.",
+        "tests/slow/verification/test_real_toolchain.py prüft CrossHair check, cover und diffbehavior überwiegend gegen worker/verification/pilot_targets.py.",
         "config/verification/property-catalog.v1.json enthält bereits produktive Kandidaten aus Policies, Verträgen und Normalisierung.",
         "Der absichtlich fehlerhafte abs-Test beweist die Werkzeugkette, aber keinen zusätzlichen Produktionsnutzen.",
         "Der reale Toolchain-Test prüft nun fünf autoritative Produktionssymbole aus Task-Dependency-, Verification-Contract- und Quality-Gate-Policy; 7 von 7 realen Toolchain-Tests liefen lokal in 51.86 Sekunden grün."

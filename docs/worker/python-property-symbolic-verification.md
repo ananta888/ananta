@@ -53,7 +53,7 @@ uv run python scripts/run_python_verification_fast_gate.py --repeat 20
 Run the bounded real-tool pilot:
 
 ```bash
-uv run pytest -q -p no:cacheprovider tests/verification/test_real_toolchain.py
+uv run pytest -q -p no:cacheprovider tests/slow/verification/test_real_toolchain.py
 ```
 
 The container profile is `docker/compose-next/compose.verification-worker.yml`.

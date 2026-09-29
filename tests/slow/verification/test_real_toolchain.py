@@ -19,7 +19,7 @@ from worker.verification.adapters import (
 )
 from worker.verification.reproducer import CounterexampleReproducer
 
-ROOT = Path(__file__).parents[2]
+ROOT = Path(__file__).parents[3]
 pytestmark = [
     pytest.mark.verification_real,
     pytest.mark.skipif(

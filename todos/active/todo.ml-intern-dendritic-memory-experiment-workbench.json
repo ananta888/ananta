@@ -482,7 +482,7 @@
         "Repository-Tests pruefen Isolation, Idempotenz, Fremdschluessel und konkurrierende Updates."
       ],
       "test_gates": [
-        "pytest tests/ml/test_ml_intern_training_migration.py tests/test_ml_intern_training_repository.py"
+        "pytest tests/slow/ml/test_ml_intern_training_migration.py tests/test_ml_intern_training_repository.py"
       ]
     },
     {
@@ -601,7 +601,7 @@
       ],
       "description": "Deterministische Mock-Ausfuehrung fuer UI, API, Events, Registry und Rollback erstellen.",
       "evidence_paths": [
-        "tests/e2e/test_lora_training_control_center_mock.py"
+        "tests/slow/e2e/test_lora_training_control_center_mock.py"
       ],
       "acceptance_criteria": [
         "Mock erzeugt reproduzierbare Progress-, Checkpoint-, Metric- und Artifact-Events.",
@@ -1053,7 +1053,7 @@
       "description": "Dataset bis Revoke ueber Mock-Backend testen.",
       "evidence_paths": [
         "frontend-angular/tests/model-training.spec.ts",
-        "tests/e2e/test_lora_training_control_center_mock.py"
+        "tests/slow/e2e/test_lora_training_control_center_mock.py"
       ],
       "acceptance_criteria": [
         "E2E deckt Capability aus, Capability an, Dry-run, vollautomatischen Live-Start, Cancel und Fehler ohne menschliche Interaktion ab.",
@@ -1079,7 +1079,7 @@
       ],
       "description": "Releasefaehigkeit und Rueckkehr zum alten Stand pruefen.",
       "evidence_paths": [
-        "tests/ml/test_ml_intern_training_migration.py",
+        "tests/slow/ml/test_ml_intern_training_migration.py",
         "tests/test_ml_intern_training_routes_v2.py"
       ],
       "acceptance_criteria": [
@@ -1172,9 +1172,9 @@
     "pytest tests/test_ml_intern_training_worker_port.py",
     "pytest tests/test_ml_intern_training_control_service.py",
     "pytest tests/test_ml_intern_training_repository.py",
-    "pytest tests/ml/test_ml_intern_training_migration.py",
+    "pytest tests/slow/ml/test_ml_intern_training_migration.py",
     "pytest tests/ml/test_ml_intern_lora_eval_integration.py",
-    "pytest tests/e2e/test_lora_training_control_center_mock.py",
+    "pytest tests/slow/e2e/test_lora_training_control_center_mock.py",
     "cd frontend-angular && npm run test:unit",
     "cd frontend-angular && npm run build",
     "cd frontend-angular && npm run lint",

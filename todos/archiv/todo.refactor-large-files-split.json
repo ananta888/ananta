@@ -706,7 +706,7 @@
         }
       ],
       "acceptance_criteria": [
-        "tests/team/test_team_blueprints.py bleibt grün",
+        "tests/slow/team/test_team_blueprints.py bleibt grün",
         "Alle Blueprint-API-Endpunkte erreichbar",
         "teams.py unter 600 Zeilen"
       ]
@@ -1539,8 +1539,8 @@
       "id": "SPLIT-042",
       "milestone": "M5",
       "priority": "P3",
-      "title": "tests/team/test_team_blueprints.py nach Domain aufteilen (1186 Zeilen)",
-      "file": "tests/team/test_team_blueprints.py",
+      "title": "tests/slow/team/test_team_blueprints.py nach Domain aufteilen (1186 Zeilen)",
+      "file": "tests/slow/team/test_team_blueprints.py",
       "current_lines": 1186,
       "proposed_split": [
         {

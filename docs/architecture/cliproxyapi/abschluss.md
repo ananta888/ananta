@@ -88,7 +88,7 @@ brechen würde.
 | Codex-pfad-analyse | `docs/architecture/cliproxyapi/codex-pfad.md` |
 | Tests: `local_openai_backends` | `tests/test_local_llm_backends.py` (28 tests) |
 | Tests: OpenCode/Codex runtime-config | `tests/cli_backends/test_cliproxyapi_opencode_runtime.py` (18 tests) |
-| Tests: Preflight-label | `tests/cli_backends/test_cliproxyapi_preflight.py` (7 tests) |
+| Tests: Preflight-label | `tests/slow/cli_backends/test_cliproxyapi_preflight.py` (7 tests) |
 | Source-code: preflight `display_name` | `agent/cli_backends/routing.py` (additives feld) |
 
 **Insgesamt 53 neue tests**, alle grün. 9 commits, einer pro wave.

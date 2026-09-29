@@ -15,8 +15,8 @@ from tests.test_meet_media import result
 from tests.persona.test_persona_inspection_tasks import runtime as runtime
 from tests.persona.test_persona_profile_service import save
 from tests.persona.test_persona_profile_service import system as system
-from tests.persona.test_persona_profile_videos import selected
-from tests.persona.test_persona_profile_videos import selected_video as selected_video
+from tests.slow.persona.test_persona_profile_videos import selected
+from tests.slow.persona.test_persona_profile_videos import selected_video as selected_video
 from tests.persona.test_persona_video_asset_service import video_assets as video_assets
 from tests.persona.test_persona_video_tasks import video_task as video_task
 from worker.meet_media.contract import validate_turn

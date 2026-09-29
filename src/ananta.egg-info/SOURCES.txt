@@ -58,7 +58,7 @@ tests/test_backup_cleanup.py
 tests/test_banned_ip.py
 tests/test_benchmark_job_service.py
 tests/test_benchmark_quality.py
-tests/team/test_blueprint_bundle_api.py
+tests/slow/team/test_blueprint_bundle_api.py
 tests/test_blueprint_planning_adapter.py
 tests/team/test_blueprint_role_defaults_planning.py
 tests/test_bootstrap_docs.py
@@ -224,7 +224,7 @@ tests/test_scheduler_goals.py
 tests/test_scheduler_module.py
 tests/test_scheduler_runtime_service.py
 tests/test_schema_baselines.py
-tests/team/test_scrum_setup.py
+tests/slow/team/test_scrum_setup.py
 tests/test_security_boundary_attacks.py
 tests/test_security_headers.py
 tests/test_security_policy_regression.py
@@ -263,9 +263,9 @@ tests/task/test_tasks_cache.py
 tests/test_tasks_opencode_e2e.py
 tests/task/test_tasks_utils_module.py
 tests/test_tdd_artifact_schemas.py
-tests/test_tdd_policy_mapping.py
+tests/slow/test_tdd_policy_mapping.py
 tests/team/test_team_blueprint_seed_reconcile.py
-tests/team/test_team_blueprints.py
+tests/slow/team/test_team_blueprints.py
 tests/team/test_team_validation.py
 tests/test_teams_visibility.py
 tests/test_templates_api.py

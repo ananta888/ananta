@@ -5,7 +5,7 @@ from pathlib import Path
 from agent.services.patch_sandbox_service import PatchSandboxService
 from agent.services.regression_gate_service import RegressionGateService
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "performance_demo"
+FIXTURE = Path(__file__).parents[2] / "fixtures" / "performance_demo"
 
 
 def _expose_current_python(monkeypatch) -> None:

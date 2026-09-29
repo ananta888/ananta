@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tests.e2e.test_lora_training_control_center_mock import (
+from tests.slow.e2e.test_lora_training_control_center_mock import (
     test_mock_training_and_existing_adapter_evaluation_cross_the_real_http_contract as _run_mock_contract,
 )
 

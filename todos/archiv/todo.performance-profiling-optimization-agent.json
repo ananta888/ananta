@@ -821,7 +821,7 @@
       "risk": "medium",
       "target_files": [
         "tests/fixtures/performance_demo/",
-        "tests/performance/test_performance_demo_flow.py"
+        "tests/slow/performance/test_performance_demo_flow.py"
       ],
       "depends_on": [],
       "acceptance_criteria": [

@@ -489,7 +489,7 @@
       "implementation_evidence": [
         "agent/services/dspy_optimization_ports.py",
         "scripts/check_dspy_import_boundaries.py",
-        "tests/dspy_optimization/test_import_boundaries.py"
+        "tests/slow/dspy_optimization/test_import_boundaries.py"
       ]
     },
     {
@@ -1536,7 +1536,7 @@
         "scripts/check_dspy_import_boundaries.py",
         "docker/compose-next/compose.dspy-optimization.yml",
         "worker/optimization/dspy/artifact_serializer.py",
-        "tests/dspy_optimization/test_import_boundaries.py"
+        "tests/slow/dspy_optimization/test_import_boundaries.py"
       ],
       "implementation_gap": "Least-privilege, JSON-only, Pfad- und Importkontrollen bestehen; Dependency-/SBOM-/Secrets-Scans und vollstaendige Attack-Matrix fehlen."
     },

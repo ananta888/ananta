@@ -83,7 +83,7 @@ jobs:
       - run: uv venv --python 3.12
       - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.verification-worker.lock
       - run: uv pip install -e . --no-deps
-      - run: .venv/bin/pytest -q -p no:cacheprovider --confcutdir=tests/verification tests/verification/test_real_toolchain.py
+      - run: .venv/bin/pytest -q -p no:cacheprovider --confcutdir=tests/verification tests/slow/verification/test_real_toolchain.py
       - run: .venv/bin/python scripts/run_python_verification_backend_benchmark.py
 
   worker-image:

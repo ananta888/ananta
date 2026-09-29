@@ -1721,7 +1721,7 @@ tests/blender/test_blender_policy_approval.py
 tests/blender/test_blender_redaction.py
 tests/blender/test_blender_scene_context_contract.py
 tests/blender/test_blender_scene_context_schema.py
-tests/team/test_blueprint_bundle_api.py
+tests/slow/team/test_blueprint_bundle_api.py
 tests/test_blueprint_migration_service.py
 tests/test_blueprint_planning_adapter.py
 tests/team/test_blueprint_planning_pattern_binding.py
@@ -1806,7 +1806,7 @@ tests/test_client_surface_security_contracts.py
 tests/client_surface/test_client_surface_test_gate_runner.py
 tests/test_client_thinness.py
 tests/cli_backends/test_cliproxyapi_opencode_runtime.py
-tests/cli_backends/test_cliproxyapi_preflight.py
+tests/slow/cli_backends/test_cliproxyapi_preflight.py
 tests/codecompass/test_codecompass_architecture_query.py
 tests/codecompass/test_codecompass_blast_radius.py
 tests/codecompass/test_codecompass_cache_state.py
@@ -2207,7 +2207,7 @@ tests/test_media_topology_policy.py
 tests/test_memory_repository_resilience.py
 tests/test_memory_tree_context_policy.py
 tests/test_memory_tree_store_service.py
-tests/test_memory_tree_summary_retrieval_service.py
+tests/slow/test_memory_tree_summary_retrieval_service.py
 tests/test_metrics.py
 tests/test_migration_contracts.py
 tests/test_migrations_runtime_targets.py
@@ -2236,7 +2236,7 @@ tests/ml/test_ml_intern_training_config_service.py
 tests/test_ml_intern_training_contract_v2.py
 tests/test_ml_intern_training_control_service.py
 tests/ml/test_ml_intern_training_job_service.py
-tests/ml/test_ml_intern_training_migration.py
+tests/slow/ml/test_ml_intern_training_migration.py
 tests/test_ml_intern_training_reconciliation_service.py
 tests/test_ml_intern_training_repository.py
 tests/test_ml_intern_training_routes_v2.py
@@ -2473,7 +2473,7 @@ tests/test_render_terminal_logo.py
 tests/test_rendezvous_api.py
 tests/repair/test_repair_cli_unit.py
 tests/repair/test_repair_execution_plan_service.py
-tests/repair/test_repair_outcome_repository.py
+tests/slow/repair/test_repair_outcome_repository.py
 tests/repair/test_repair_procedure_catalog.py
 tests/repair/test_repair_procedure_contracts.py
 tests/repair/test_repair_procedure_runner.py
@@ -2531,7 +2531,7 @@ tests/test_scheduler_goals.py
 tests/test_scheduler_module.py
 tests/test_scheduler_runtime_service.py
 tests/test_schema_baselines.py
-tests/team/test_scrum_setup.py
+tests/slow/team/test_scrum_setup.py
 tests/test_secret_redactor.py
 tests/test_security_boundary_attacks.py
 tests/test_security_headers.py
@@ -2831,10 +2831,10 @@ tests/task/test_tasks_cache.py
 tests/test_tasks_opencode_e2e.py
 tests/task/test_tasks_utils_module.py
 tests/test_tdd_artifact_schemas.py
-tests/test_tdd_policy_mapping.py
+tests/slow/test_tdd_policy_mapping.py
 tests/test_teacher_action_card_service.py
 tests/team/test_team_blueprint_seed_reconcile.py
-tests/team/test_team_blueprints.py
+tests/slow/team/test_team_blueprints.py
 tests/team/test_team_blueprints_reconcile.py
 tests/team/test_team_validation.py
 tests/test_teams_visibility.py
@@ -3003,7 +3003,7 @@ tests/voice/test_voice_feature_extractors.py
 tests/voice/test_voice_fusion_golden.py
 tests/voice/test_voice_generative_corrector_routes.py
 tests/voice/test_voice_governance_api.py
-tests/voice/test_voice_governance_migrations.py
+tests/slow/voice/test_voice_governance_migrations.py
 tests/voice/test_voice_hub_admission.py
 tests/voice/test_voice_hub_streaming_and_results.py
 tests/voice/test_voice_live_runs.py
