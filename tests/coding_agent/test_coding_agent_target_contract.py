@@ -57,7 +57,7 @@ def test_public_metadata_and_explicit_environment_keep_the_existing_contract():
 
 
 def test_worker_contract_import_does_not_load_agent_configuration():
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     script = """
 import sys
 sys.path.insert(0, sys.argv[1])
