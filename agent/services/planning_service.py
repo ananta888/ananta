@@ -5,7 +5,7 @@ import threading
 import time
 
 logger = logging.getLogger(__name__)
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from flask import current_app
 
@@ -17,8 +17,7 @@ from agent.db_models import PlanDB, PlanNodeDB
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
 from agent.services.goal_planning_intent_service import get_goal_planning_intent_service
 
-# Patch seam: the extracted materialization module resolves it through this facade.
-from agent.services.lifecycle_service import get_task_lifecycle_service  # noqa: F401
+from agent.services.lifecycle_service import get_task_lifecycle_service
 from agent.services.llm_first_planning_orchestrator_service import get_llm_first_planning_orchestrator_service
 
 # get_plan_generation_limits is re-exported for goal_service / auto_planner_runtime_service.
@@ -38,9 +37,11 @@ from agent.services.planning_service_pipeline import (
     _validate_and_finalize_plan,
     resolve_subtasks_with_timeout,
 )
+from agent.services.planning_plan_materialization import PlanMaterializationPorts, PlanMaterializer
 from agent.services.planning_strategies import (
     HubCopilotPlanningStrategy,
     LLMPlanningStrategy,
+    PlanningStrategyCollaborators,
     PlanningStrategyResult,
     TemplatePlanningStrategy,
 )
@@ -51,8 +52,45 @@ from agent.services.repository_registry import get_repository_registry
 
 
 class PlanningService:
+    """Composition root of goal planning.
+
+    Collaborators are explicit keyword-only constructor parameters with
+    production defaults (DIP): ``repository_provider`` returns the repository
+    registry, ``task_lifecycle_provider`` the lifecycle service that creates
+    Hub tasks from plan nodes, and ``strategy_collaborators`` the LLM/parser
+    ports handed to the LLM-backed planning strategies (``None`` lets each
+    strategy bind the production defaults). The extracted planning modules
+    receive only the narrow ports built here, never the service itself.
+    """
+
     _materialization_locks_guard = threading.Lock()
     _materialization_locks: dict[str, threading.RLock] = {}
+
+    def __init__(
+        self,
+        *,
+        repository_provider: Callable[[], Any] | None = None,
+        task_lifecycle_provider: Callable[[], Any] | None = None,
+        strategy_collaborators: PlanningStrategyCollaborators | None = None,
+    ) -> None:
+        self._repository_provider = repository_provider or get_repository_registry
+        self._task_lifecycle_provider = task_lifecycle_provider or get_task_lifecycle_service
+        self._strategy_collaborators = strategy_collaborators
+
+    def _repositories(self) -> Any:
+        return self._repository_provider()
+
+    def _plan_materializer(self) -> PlanMaterializer:
+        """Build the materializer from bound hooks so instance overrides apply."""
+        return PlanMaterializer(
+            PlanMaterializationPorts(
+                repositories=self._repository_provider,
+                task_lifecycle=self._task_lifecycle_provider,
+                plan_mutation_lock=self.plan_mutation_lock,
+                validate_existing_plan=self._validate_existing_plan_for_materialization,
+                pipeline_shell_modes=frozenset(self._PIPELINE_SHELL_MODES),
+            )
+        )
 
     @classmethod
     def _materialization_lock(cls, plan_id: str) -> threading.RLock:
@@ -152,8 +190,7 @@ class PlanningService:
         except Exception as exc:
             logger.warning("_maybe_evolve_prompt failed: %s", exc)
 
-    @staticmethod
-    def _update_profile_learning_state(*, telemetry_run) -> None:
+    def _update_profile_learning_state(self, *, telemetry_run) -> None:
         try:
             from agent.services.planning_telemetry_service import get_planning_telemetry_service
             record = get_planning_telemetry_service().build_learning_record(telemetry_run)
@@ -171,7 +208,7 @@ class PlanningService:
             if not profile_id:
                 return
             db_profile = None
-            for _p in get_repository_registry().planning_model_profile_repo.get_enabled():
+            for _p in self._repositories().planning_model_profile_repo.get_enabled():
                 if str(getattr(_p, 'id', '') or '') == str(profile_id or ''):
                     db_profile = _p
                     break
@@ -209,12 +246,12 @@ class PlanningService:
         return _planning_plan_repair_helpers.build_minimal_non_llm_fallback_subtask(goal=goal, mode=mode)
 
     def _compute_plan_depth(self, probe_nodes: list[PlanNodeDB]) -> int:
-        return _planning_plan_persistence.compute_plan_depth(self, probe_nodes)
+        return _planning_plan_persistence.compute_plan_depth(probe_nodes)
 
     def _apply_plan_generation_limits(
         self, subtasks: list[dict[str, Any]]
     ) -> tuple[list[dict[str, Any]], dict[str, int], str | None]:
-        return _planning_plan_persistence.apply_plan_generation_limits(self, subtasks)
+        return _planning_plan_persistence.apply_plan_generation_limits(subtasks)
 
     def _resolve_subtasks(
         self,
@@ -293,12 +330,23 @@ class PlanningService:
         )
         strategy_map = {
             "template": TemplatePlanningStrategy(enabled=use_template),
-            "hub_copilot": HubCopilotPlanningStrategy(use_repo_context=use_repo_context),
-            "llm": LLMPlanningStrategy(use_repo_context=use_repo_context),
+            "hub_copilot": HubCopilotPlanningStrategy(
+                use_repo_context=use_repo_context,
+                collaborators=self._strategy_collaborators,
+            ),
+            "llm": LLMPlanningStrategy(
+                use_repo_context=use_repo_context,
+                collaborators=self._strategy_collaborators,
+            ),
         }
         strategies = [strategy_map[name] for name in decision.strategy_order if name in strategy_map]
         if not strategies:
-            strategies = [LLMPlanningStrategy(use_repo_context=use_repo_context)]
+            strategies = [
+                LLMPlanningStrategy(
+                    use_repo_context=use_repo_context,
+                    collaborators=self._strategy_collaborators,
+                )
+            ]
         for strategy in strategies:
             result = strategy.execute(planner, goal, context, mode=mode, mode_data=mode_data)
             if result is not None:
@@ -307,7 +355,7 @@ class PlanningService:
         raise RuntimeError("planning_strategy_resolution_failed")
 
     def _build_nodes(self, plan_id: str, subtasks: list[dict], planning_mode: str) -> list[PlanNodeDB]:
-        return _planning_plan_persistence.build_nodes(self, plan_id, subtasks, planning_mode)
+        return _planning_plan_persistence.build_nodes(plan_id, subtasks, planning_mode)
 
     def _persist_plan(
         self,
@@ -325,7 +373,7 @@ class PlanningService:
         initial_rationale: dict[str, Any] | None = None,
     ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         return _planning_plan_persistence.persist_plan(
-            self, goal_id, trace_id, subtasks, planning_mode, raw_response, context, planning_origin,
+            self._repositories(), goal_id, trace_id, subtasks, planning_mode, raw_response, context, planning_origin,
             repair_strategy_used, repair_attempt_count, parse_mode, planning_run_id, initial_rationale,
         )
 
@@ -345,8 +393,8 @@ class PlanningService:
         source_task_id: Optional[str] = None,
         initial_task_status: str = "todo",
     ) -> tuple[list[str], str | None]:
-        return _planning_plan_materialization.materialize_plan(
-            self, planner, plan, nodes, team_id, parent_task_id, goal_id, goal_trace_id, mode,
+        return self._plan_materializer().materialize_plan(
+            planner, plan, nodes, team_id, parent_task_id, goal_id, goal_trace_id, mode,
             deterministic_task_ids, source_task_id, initial_task_status,
         )
 
@@ -363,8 +411,8 @@ class PlanningService:
         initial_task_status: str = "todo",
     ) -> dict[str, Any]:
         """Materialize one persisted draft after a Hub approval was granted."""
-        return _planning_plan_materialization.materialize_existing_plan(
-            self, planner=planner, plan_id=plan_id, approval_request_id=approval_request_id, team_id=team_id,
+        return self._plan_materializer().materialize_existing_plan(
+            planner=planner, plan_id=plan_id, approval_request_id=approval_request_id, team_id=team_id,
             parent_task_id=parent_task_id, source_task_id=source_task_id,
             expected_plan_digest=expected_plan_digest, initial_task_status=initial_task_status,
         )
@@ -397,8 +445,8 @@ class PlanningService:
         source_task_id: str | None,
         initial_task_status: str,
     ) -> tuple[list[str], list[dict[str, Any]], str | None]:
-        return _planning_plan_materialization.classify_deterministic_materialization(
-            self, plan=plan, staged=staged, team_id=team_id, parent_task_id=parent_task_id,
+        return self._plan_materializer().classify_deterministic_materialization(
+            plan=plan, staged=staged, team_id=team_id, parent_task_id=parent_task_id,
             source_task_id=source_task_id, initial_task_status=initial_task_status,
         )
 
@@ -412,8 +460,8 @@ class PlanningService:
         source_task_id: str | None,
         initial_task_status: str,
     ) -> bool:
-        return _planning_plan_materialization.restore_retryable_materialization_state(
-            self, plan_id=plan_id, error=error, team_id=team_id, parent_task_id=parent_task_id,
+        return self._plan_materializer().restore_retryable_materialization_state(
+            plan_id=plan_id, error=error, team_id=team_id, parent_task_id=parent_task_id,
             source_task_id=source_task_id, initial_task_status=initial_task_status,
         )
 
@@ -425,7 +473,11 @@ class PlanningService:
         team_id: str | None,
     ) -> dict[str, Any]:
         return _planning_materialization_validation.validate_existing_plan_for_materialization(
-            self, plan=plan, nodes=nodes, team_id=team_id,
+            plan=plan,
+            nodes=nodes,
+            team_id=team_id,
+            planning_policy_resolver=self._resolve_planning_policy,
+            stage_materialization=lambda staged_nodes: self._prepare_materialization(nodes=staged_nodes),
         )
 
     @staticmethod
@@ -441,11 +493,11 @@ class PlanningService:
         deterministic_seed: str | None = None,
     ) -> list[dict[str, Any]] | None:
         return _planning_plan_materialization.prepare_materialization(
-            self, nodes, deterministic_seed=deterministic_seed,
+            nodes, deterministic_seed=deterministic_seed,
         )
 
     def _rollback_materialization(self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str) -> None:
-        return _planning_plan_materialization.rollback_materialization(self, plan, nodes, created_ids, error)
+        return self._plan_materializer().rollback_materialization(plan, nodes, created_ids, error)
 
     @staticmethod
     def _repair_invalid_plan_payload(payload: dict[str, Any], validation_errors: list[str]) -> dict[str, Any]:
@@ -714,7 +766,7 @@ class PlanningService:
             "selection_reason": "hub_local_planning",
         }
         if planning_policy.get("delegated_planning_enabled"):
-            agents = [agent.model_dump() for agent in get_repository_registry().agent_repo.get_all()]
+            agents = [agent.model_dump() for agent in self._repositories().agent_repo.get_all()]
             candidate = select_planning_agent_candidate(agents=agents, planning_policy=planning_policy)
             if candidate:
                 planner_selection["selected_agent"] = candidate
@@ -821,7 +873,7 @@ class PlanningService:
         )
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
-        repos = get_repository_registry()
+        repos = self._repositories()
         plans = repos.plan_repo.get_by_goal_id(goal_id)
         if not plans:
             return None, []
@@ -830,7 +882,7 @@ class PlanningService:
 
     def get_plan_for_goal(self, goal_id: str, plan_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
         """Return one explicitly addressed plan only when it belongs to the goal."""
-        repos = get_repository_registry()
+        repos = self._repositories()
         plan = repos.plan_repo.get_by_id(plan_id)
         if not plan or str(plan.goal_id) != str(goal_id):
             return None, []
@@ -856,7 +908,7 @@ class PlanningService:
         ) as distributed_lock_acquired:
             if not distributed_lock_acquired:
                 return None, "plan_mutation_in_progress"
-            repos = get_repository_registry()
+            repos = self._repositories()
             plan, _ = self.get_plan_for_goal(goal_id, normalized_plan_id)
             if not plan:
                 return None, "plan_not_found"

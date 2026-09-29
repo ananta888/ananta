@@ -590,11 +590,9 @@ def test_planning_service_rechecks_digest_inside_materialization_lock(
     approved_digest = plan.rationale["plan_digest"]
     nodes[0].title = "edited after approval"
 
-    monkeypatch.setattr(
-        "agent.services.planning_service.get_repository_registry",
-        lambda: repos,
-    )
-    result = PlanningService().materialize_existing_plan(
+    result = PlanningService(
+        repository_provider=lambda: repos,
+    ).materialize_existing_plan(
         planner=planner,
         plan_id=plan.id,
         approval_request_id="approval-1",
@@ -1014,7 +1012,13 @@ def _partial_materialization_fixture(monkeypatch):
             )
         ),
     )
-    service = PlanningService()
+    # Seam: the lifecycle slot lets a test swap the task lifecycle double
+    # without patching module-level names of planning_service.
+    lifecycle_slot = {}
+    service = PlanningService(
+        repository_provider=lambda: repos,
+        task_lifecycle_provider=lambda: lifecycle_slot["lifecycle"],
+    )
     staged = service._prepare_materialization(
         nodes,
         deterministic_seed=plan.id,
@@ -1058,14 +1062,7 @@ def _partial_materialization_fixture(monkeypatch):
             entry = next(item for item in staged if item["task_id"] == values["task_id"])
             task_repo.save(task_from_entry(entry))
 
-    monkeypatch.setattr(
-        "agent.services.planning_service.get_repository_registry",
-        lambda: repos,
-    )
-    monkeypatch.setattr(
-        "agent.services.planning_service.get_task_lifecycle_service",
-        lambda: Lifecycle(),
-    )
+    lifecycle_slot["lifecycle"] = Lifecycle()
     monkeypatch.setattr(
         service,
         "_validate_existing_plan_for_materialization",
@@ -1074,6 +1071,7 @@ def _partial_materialization_fixture(monkeypatch):
             "reason_code": "validated",
         },
     )
+    task_repo.lifecycle_slot = lifecycle_slot
     return service, plan, nodes, staged, task_repo, lifecycle_calls
 
 
@@ -4343,10 +4341,7 @@ def test_partial_materialization_transient_error_is_retryable(
             )
             task_repo.save(task_repo.task_from_entry(entry))
 
-    monkeypatch.setattr(
-        "agent.services.planning_service.get_task_lifecycle_service",
-        lambda: FlakyLifecycle(),
-    )
+    task_repo.lifecycle_slot["lifecycle"] = FlakyLifecycle()
     planner = Record(_stats={"tasks_created": 0})
 
     first = service.materialize_existing_plan(

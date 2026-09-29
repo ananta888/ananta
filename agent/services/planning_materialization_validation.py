@@ -2,13 +2,14 @@
 
 Split out of ``planning_service`` (SRP): the dependency contract of plan
 nodes, the re-run of proposal/DAG/quality gates after review and the exact
-ownership check of deterministic plan tasks. ``PlanningService`` keeps the
-method names and delegates here.
+ownership check of deterministic plan tasks. Functions take their
+collaborators explicitly; ``PlanningService`` keeps the method names and
+delegates here.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 from agent.db_models import PlanDB, PlanNodeDB
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
@@ -120,15 +121,28 @@ def task_matches_materialization_binding(
     )
 
 
+class PlanningPolicyResolver(Protocol):
+    def __call__(self, scoped_cfg: dict[str, Any] | None = None) -> dict[str, Any]: ...
+
+
+class MaterializationStager(Protocol):
+    def __call__(self, nodes: list[PlanNodeDB]) -> list[dict[str, Any]] | None: ...
+
+
 def validate_existing_plan_for_materialization(
-    service,
     *,
     plan: PlanDB,
     nodes: list[PlanNodeDB],
     team_id: str | None,
+    planning_policy_resolver: PlanningPolicyResolver,
+    stage_materialization: MaterializationStager,
 ) -> dict[str, Any]:
-    """Re-run deterministic proposal, DAG, and quality gates after review."""
-    dependency_error = service._dependency_contract_error(nodes)
+    """Re-run deterministic proposal, DAG, and quality gates after review.
+
+    The planning-policy resolver and the DAG stager are explicit collaborators
+    (DIP) so this gate does not reach back into ``PlanningService``.
+    """
+    dependency_error = dependency_contract_error(nodes)
     if dependency_error is not None:
         return {
             "ok": False,
@@ -169,7 +183,7 @@ def validate_existing_plan_for_materialization(
         goal_id=plan.goal_id,
         task_id=None,
     )
-    planning_policy = service._resolve_planning_policy(dict(scoped.config or {}))
+    planning_policy = planning_policy_resolver(dict(scoped.config or {}))
     quality = get_planning_quality_service().evaluate(
         subtasks=subtasks,
         mode=str(plan.planning_mode or "generic"),
@@ -225,7 +239,7 @@ def validate_existing_plan_for_materialization(
             "reason_code": "invalid_plan_proposal",
             "proposal_validation_errors": list(proposal_validation.errors or []),
         }
-    if service._prepare_materialization(nodes=nodes) is None:
+    if stage_materialization(nodes) is None:
         return {
             "ok": False,
             "reason_code": "invalid_dependencies",

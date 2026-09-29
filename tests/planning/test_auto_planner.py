@@ -421,9 +421,22 @@ class TestAutoPlanner:
             "agent.routes.tasks.auto_planner.generate_text",
             lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
         )
+        from dataclasses import replace
+
+        from agent.services.planning_service import PlanningService
+        from agent.services.planning_strategies import PlanningStrategyCollaborators
+
+        # Seam: a PlanningService composed with a fake Hub LLM instead of
+        # patching planning_strategies.get_hub_llm_service.
+        planning_with_fake_hub = PlanningService(
+            strategy_collaborators=replace(
+                PlanningStrategyCollaborators.default(),
+                hub_llm_service_provider=lambda: _FakeHubLLM(),
+            )
+        )
         monkeypatch.setattr(
-            "agent.services.planning_strategies.get_hub_llm_service",
-            lambda: _FakeHubLLM(),
+            "agent.routes.tasks.auto_planner.get_planning_service",
+            lambda: planning_with_fake_hub,
         )
         monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
 

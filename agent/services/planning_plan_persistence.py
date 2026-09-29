@@ -3,7 +3,9 @@
 Split out of ``planning_service`` (SRP): turning planner subtasks into
 ``PlanNodeDB`` rows (dependencies, capabilities, verification defaults),
 bounding plan size/depth and persisting a draft plan with its nodes.
-``PlanningService`` keeps the method names and delegates here.
+Node building and limits are pure functions; persistence receives the
+repository registry explicitly (DIP). ``PlanningService`` keeps the method
+names and delegates here.
 """
 
 from __future__ import annotations
@@ -28,14 +30,7 @@ from agent.services.worker_routing_policy_utils import (
 )
 
 
-def _facade():
-    """Resolve patchable collaborators through the public ``planning_service`` entry point."""
-    import agent.services.planning_service as facade_module
-
-    return facade_module
-
-
-def compute_plan_depth(service, probe_nodes: list[PlanNodeDB]) -> int:
+def compute_plan_depth(probe_nodes: list[PlanNodeDB]) -> int:
     depth_by_key: dict[str, int] = {}
     max_depth = 0
     for node in probe_nodes:
@@ -50,7 +45,7 @@ def compute_plan_depth(service, probe_nodes: list[PlanNodeDB]) -> int:
 
 
 def apply_plan_generation_limits(
-    service, subtasks: list[dict[str, Any]]
+    subtasks: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], dict[str, int], str | None]:
     limits = get_plan_generation_limits()
     bounded = [dict(subtask or {}) for subtask in (subtasks or [])]
@@ -87,14 +82,14 @@ def apply_plan_generation_limits(
     if node_count > limits["max_plan_nodes"]:
         return bounded[: limits["max_plan_nodes"]], {**limits, "truncated": True}, "max_plan_nodes"
 
-    observed_depth = service._compute_plan_depth(service._build_nodes("plan-limit-probe", bounded, "limit_probe"))
+    observed_depth = compute_plan_depth(build_nodes("plan-limit-probe", bounded, "limit_probe"))
     limits = {**limits, "observed_plan_depth": observed_depth}
     if observed_depth > limits["max_plan_depth"]:
         return bounded, limits, "max_plan_depth"
     return bounded, limits, None
 
 
-def build_nodes(service, plan_id: str, subtasks: list[dict], planning_mode: str) -> list[PlanNodeDB]:
+def build_nodes(plan_id: str, subtasks: list[dict], planning_mode: str) -> list[PlanNodeDB]:
     nodes: list[PlanNodeDB] = []
     node_keys: list[str] = []
 
@@ -182,7 +177,7 @@ def build_nodes(service, plan_id: str, subtasks: list[dict], planning_mode: str)
 
 
 def persist_plan(
-    service,
+    repositories: Any,
     goal_id: str,
     trace_id: str,
     subtasks: list[dict],
@@ -196,7 +191,7 @@ def persist_plan(
     planning_run_id: str | None = None,
     initial_rationale: dict[str, Any] | None = None,
 ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
-    repos = _facade().get_repository_registry()
+    repos = repositories
     flags = get_goal_feature_flags()
     if not flags.get("persisted_plans_enabled", True):
         return None, []
@@ -221,7 +216,7 @@ def persist_plan(
     )
     plan = repos.plan_repo.save(plan)
     repos.plan_node_repo.delete_by_plan_id(plan.id)
-    nodes = service._build_nodes(plan.id, subtasks, planning_mode)
+    nodes = build_nodes(plan.id, subtasks, planning_mode)
     try:
         for node in nodes:
             repos.plan_node_repo.save(node)
