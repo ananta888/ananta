@@ -10,7 +10,7 @@ from agent.services.organization_topology_apply_service import (
     OrganizationTopologyApplyService,
     OrganizationTopologyPatchError,
 )
-from tests.test_organization_topology_apply_service import _preview, _state
+from tests.organization.test_organization_topology_apply_service import _preview, _state
 
 
 class _Rows:

@@ -28,7 +28,7 @@ from agent.services.planning_category_contract_service import (
     stable_planning_digest,
 )
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 _RESULT_SCHEMA = _ROOT / "schemas" / "worker" / "organization_track_planning_result.v1.json"
 
 

@@ -1007,7 +1007,7 @@
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-JSON-005", "ESORG-API-002", "ESORG-API-006", "ESORG-SEC-005"],
-          "paths": ["agent/services/organization_bundle_apply_service.py", "agent/repositories/organizations/", "tests/test_organization_bundle_atomic_apply.py"],
+          "paths": ["agent/services/organization_bundle_apply_service.py", "agent/repositories/organizations/", "tests/organization/test_organization_bundle_atomic_apply.py"],
           "acceptance_criteria": [
             "Apply akzeptiert nur einen unveränderten, zum Principal, Tenant, Bundle-Digest, zur erwarteten Zielrevision sowie zur effektiven Limitprofil-Revision und deren Hash passenden Dry-run-Plan.",
             "Limitpolicy und sämtliche konkrete Limits werden unmittelbar vor Writes erneut aufgelöst; Policy-Drift invalidiert den Importplan.",
@@ -1300,7 +1300,7 @@
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-JSON-002", "ESORG-ARCH-005"],
-          "paths": ["agent/services/organization_blueprint_compiler.py", "agent/ports/organization_definitions.py", "tests/test_organization_blueprint_compiler.py"],
+          "paths": ["agent/services/organization_blueprint_compiler.py", "agent/ports/organization_definitions.py", "tests/organization/test_organization_blueprint_compiler.py"],
           "acceptance_criteria": [
             "Compiler löst über schmale Definition-, Policy- und Limit-Ports Singleton-Teams, Team-Gruppen, Role Slots, Relationen, Workflows und Policies deterministisch zu einem vollständigen Plan auf.",
             "Standardkompositionen fünf bis zehn verwenden denselben datengetriebenen Algorithmus aus Baseline, Activation Order und Scale-out-Gruppe; benutzerdefinierte N nutzen denselben Expansionspfad.",
@@ -1337,7 +1337,7 @@
           "risk": "high",
           "type": "implementation",
           "depends_on": ["ESORG-ORG-001", "ESORG-JSON-004"],
-          "paths": ["agent/services/organization_topology_change_planner.py", "tests/test_organization_blueprint_cardinality.py", "tests/test_organization_topology_resize.py"],
+          "paths": ["agent/services/organization_topology_change_planner.py", "tests/organization/test_organization_blueprint_cardinality.py", "tests/organization/test_organization_topology_resize.py"],
           "acceptance_criteria": [
             "Gesamtteamzahl akzeptiert ausschließlich Ganzzahlen N>=2 bis zum wirksamen Limit; jede Team-Group-Cardinality akzeptiert Ganzzahlen ab ihrem min_count bis zur aus Restkapazität nach aktiven Singletons berechneten Obergrenze. Standardwarnungen unter fünf oder über zehn sind von technischen Deployment-Limits getrennt.",
             "Teaminstanzen erhalten explizite stabile Keys oder beim ersten Expand deterministisch aus Group Key und ursprünglichem Ordinal abgeleitete, danach persistierte Keys; Reorder oder Cardinality-Änderung mintet unveränderte Teams nicht neu.",
@@ -1356,7 +1356,7 @@
           "risk": "medium",
           "type": "contract",
           "depends_on": ["ESORG-ARCH-003", "ESORG-JSON-001"],
-          "paths": ["schemas/blueprints/organization_topology_projection.v1.json", "agent/services/organization_projection_service.py", "tests/test_organization_topology_projection.py"],
+          "paths": ["schemas/blueprints/organization_topology_projection.v1.json", "agent/services/organization_projection_service.py", "tests/organization/test_organization_topology_projection.py"],
           "acceptance_criteria": [
             "Ein Hub-Read-Model liefert organization_id, definition_revision, snapshot_hash, typisierte nodes, typisierte edges, Runtime-Overlay, Diagnostics und wirksame Limits.",
             "Hierarchie nutzt ausschließlich parent_unit_id beziehungsweise parent_id; contains wird abgeleitet und nicht als zweite schreibbare Wahrheit persistiert.",
@@ -1375,7 +1375,7 @@
           "risk": "critical",
           "type": "implementation",
           "depends_on": ["ESORG-ORG-001", "ESORG-ORG-003", "ESORG-API-002", "ESORG-API-009", "ESORG-SEC-002"],
-          "paths": ["agent/services/organization_blueprint_instantiation_service.py", "agent/repositories/organizations/", "tests/test_organization_instantiation_atomicity.py"],
+          "paths": ["agent/services/organization_blueprint_instantiation_service.py", "agent/repositories/organizations/", "tests/organization/test_organization_instantiation_atomicity.py"],
           "acceptance_criteria": [
             "Service akzeptiert nur einen unveränderten kompilierten Plan mit erwarteter Definition-Revision, Plan-Digest, Idempotency-Key sowie exakt gebundener effektiver Limitprofil-Revision und deren kanonischem Hash.",
             "Organization Instance, Units, Team Links, Role Slots, Assignments, Relationen, Snapshots und Audit-Outbox werden in genau einer Unit-of-Work-Transaktion geschrieben.",
@@ -2515,7 +2515,7 @@
           "risk": "medium",
           "type": "test",
           "depends_on": ["ESORG-SME-003", "ESORG-SME-004", "ESORG-ACT-002", "ESORG-VIS-003", "ESORG-DOC-002"],
-          "paths": ["tests/test_organization_blueprint_catalog_schema.py", "tests/test_organization_role_activation_read_service.py", "frontend-angular/src/app/features/organizations/"],
+          "paths": ["tests/test_organization_blueprint_catalog_schema.py", "tests/organization/test_organization_role_activation_read_service.py", "frontend-angular/src/app/features/organizations/"],
           "acceptance_criteria": [
             "Realer Produktionskatalog kompiliert Lean exakt als (2,5), (3,8), (4,12), (5,16), (6,20) und Enterprise acht weiterhin als 82 Rollenplätze mit 73 Standardbesetzungen.",
             "Aktivierungs-Tests prüfen Scope, Revision, Workflow-Schritt- und Vorgängerkanten, router_owner=hub, unknown statt erfundener Runtime und das Fehlen sensitiver Worker-Daten.",
