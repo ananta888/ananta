@@ -8,7 +8,7 @@ import pytest
 
 from agent.db_models import TaskDB
 from tests.native.test_native_context_policy import build_policy_setup
-from tests.native.test_native_context_policy_composition import configured_app
+from tests.native.test_native_context_policy_composition import LateBoundContextReader, configured_app
 from tests.native.test_native_context_preparation import preparation_setup
 from tests.pi.test_pi_native_node import native_setup
 from worker.runtime.native_graph.contracts import NativeNodeCommand
@@ -27,8 +27,10 @@ def test_automatically_prepared_task_reaches_pi_only_through_active_hub_policy(t
             "context_destination_id": destination_id,
         }))
 
+    context_reader = LateBoundContextReader()
     worker, initial_task, runner, client, credentials = native_setup(
         tmp_path, mutate=with_context, hub_task_id=hub_task_id, context_reader_factory=HubPiTaskContextReader,
+        context_bundles=context_reader,
     )
     command = NativeNodeCommand.from_mapping(initial_task["worker_execution_context"]["native_node_command"])
     preparation = preparation_setup()
@@ -47,7 +49,7 @@ def test_automatically_prepared_task_reaches_pi_only_through_active_hub_policy(t
     app, reader, lifecycle, actor, active = configured_app(
         tmp_path, policy_setup, task=task_payload, bundle=bundle_payload,
     )
-    client.service._context_bundles = reader
+    context_reader.target = reader
     content = json.dumps([
         {"source_ref": "docs/public/example.py", "content": "def example(): return 1"},
     ], ensure_ascii=True, separators=(",", ":"))

@@ -40,7 +40,7 @@ class ServiceClient:
             raise WorkflowHubDecisionError(exc.reason_code) from exc
 
 
-def composition(*, hub_task_id="hub-task-1", allowed_artifacts=()):
+def composition(*, hub_task_id="hub-task-1", allowed_artifacts=(), context_bundles=None):
     selected = ProviderProfileExecutionBinding(
         profile_id="pi-primary",
         binding=ProviderExecutionBinding(
@@ -58,6 +58,7 @@ def composition(*, hub_task_id="hub-task-1", allowed_artifacts=()):
         budget_overrides={"tokens": 8192},
         hub_task_id=hub_task_id,
         allowed_artifacts=tuple(allowed_artifacts),
+        context_bundles=context_bundles,
     )
     spec = HubProviderContextSpec(
         **base["binding"],

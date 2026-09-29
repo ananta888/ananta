@@ -14,8 +14,18 @@ from tests.pi.test_pi_native_node import task_command
 from worker.runtime.workflow_hub_gateway import WorkflowHubDecisionError
 
 
-def setup_context():
-    client, context, events = composition()
+def setup_context(*, tasks=None, context_bundles=None, context_service_available=True):
+    """Compose the Hub gateway with a context reader injected through its constructor.
+
+    ``context_bundles`` replaces the default Mock-backed reader; ``tasks`` lets a
+    test keep a handle on the task repository double it wants to re-program.
+    """
+    tasks = tasks if tasks is not None else Mock()
+    bundles, policy = Mock(), Mock()
+    reader = context_bundles or NativeContextBundleService(
+        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), policy=policy,
+    )
+    client, context, events = composition(context_bundles=reader if context_service_available else None)
     command = task_command(context)
     task = {
         "id": "hub-task-1", "tenant_id": context.tenant_id, "project_id": "project-1",
@@ -27,13 +37,9 @@ def setup_context():
         },
     }
     bundle = {"id": "bundle-1", "task_id": task["id"], "context_text": "private original"}
-    tasks, bundles, policy = Mock(), Mock(), Mock()
     tasks.get_by_id.side_effect = lambda task_id: task if task_id == task["id"] else None
     bundles.get_by_id.side_effect = lambda bundle_id: bundle if bundle_id == bundle["id"] else None
     policy.project.return_value = NativeApprovedContext("approved context only", "b" * 64)
-    client.service._context_bundles = NativeContextBundleService(
-        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), policy=policy,
-    )
     request = {
         "binding": {
             "tenant_id": context.tenant_id, "workflow_id": context.workflow_id, "run_id": context.run_id,
@@ -58,14 +64,15 @@ def test_hub_returns_only_task_bound_policy_projection_and_content_free_audit():
 
 
 def test_actual_task_model_uses_persisted_native_markers_not_an_invented_source_column():
-    client, request, task, _, policy, _ = setup_context()
+    tasks = Mock()
+    client, request, task, _, policy, _ = setup_context(tasks=tasks)
     task.update(task_kind="pi_coding_agent", derivation_reason="native_graph_hub_delegation")
     task["worker_execution_context"].update(
         schema="ananta.native_graph_worker_context.v1", runtime_path="native_graph_node",
     )
     stored = TaskDB(**task)
     assert "source" not in stored.model_dump()
-    client.service._context_bundles._tasks.get_by_id.side_effect = lambda value: stored if value == stored.id else None
+    tasks.get_by_id.side_effect = lambda value: stored if value == stored.id else None
     response = client.command("native_context_read", **request)
     assert response["content"] == "approved context only"
     policy.project.assert_called_once()
@@ -131,8 +138,7 @@ def test_hub_rejects_persisted_task_or_bundle_mismatch(mutation):
 
 
 def test_unavailable_context_service_fails_closed():
-    client, request, _, _, _, _ = setup_context()
-    client.service._context_bundles = None
+    client, request, _, _, _, _ = setup_context(context_service_available=False)
     with pytest.raises(WorkflowHubDecisionError, match="native_context_service_unavailable"):
         client.command("native_context_read", **request)
 

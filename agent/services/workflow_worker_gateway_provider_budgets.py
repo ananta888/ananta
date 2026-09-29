@@ -1,4 +1,9 @@
-"""Provider budget reserve/reconcile commands of the workflow worker gateway."""
+"""Provider budget reserve/reconcile commands of the workflow worker gateway.
+
+``WorkflowWorkerProviderBudgetCommands`` is a collaborator composed by
+``WorkflowWorkerGatewayService``; it owns the provider budget store and
+depends on the authority and event recorder ports only.
+"""
 
 from __future__ import annotations
 
@@ -16,20 +21,36 @@ from agent.services.workflow_runtime import (
     ProviderScopedBudgetReservation,
     RuntimeAuthorizationEnvelope,
 )
-from agent.services.workflow_worker_gateway_ports import WorkflowWorkerGatewayError
+from agent.services.workflow_worker_gateway_ports import (
+    WorkflowWorkerAuthorityPort,
+    WorkflowWorkerEventRecorderPort,
+    WorkflowWorkerGatewayError,
+)
+from agent.services.workflow_worker_gateway_support import bounded_identifier, optional_bounded_text
 from ananta_contracts.workflow_worker_gateway import WorkflowWorkerBinding
 
 
-class WorkflowWorkerProviderBudgetCommandsMixin:
-    """Hub-owned provider budget reservation and reconciliation; mixed into ``WorkflowWorkerGatewayService``."""
+class WorkflowWorkerProviderBudgetCommands:
+    """Hub-owned provider budget reservation and reconciliation."""
 
-    def _reserve_provider_budget(
+    def __init__(
+        self,
+        *,
+        store: ProviderBudgetStore | None,
+        authority: WorkflowWorkerAuthorityPort,
+        events: WorkflowWorkerEventRecorderPort,
+    ) -> None:
+        self._store = store
+        self._authority = authority
+        self._events = events
+
+    def reserve(
         self,
         binding: WorkflowWorkerBinding,
         raw: Mapping[str, Any],
     ) -> dict[str, Any]:
-        store = self._require_provider_budget_store()
-        reservation_id = self._bounded_identifier(
+        store = self._require_store()
+        reservation_id = bounded_identifier(
             raw.get("reservation_id"),
             "provider_budget_reservation_id_invalid",
         )
@@ -51,8 +72,8 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
                 "provider_budget_reservation_invalid",
                 status_code=422,
             ) from exc
-        attempt_id, fencing_token = self._ownership_binding(binding, raw)
-        envelope = self._verify_authority(
+        attempt_id, fencing_token = self._authority.ownership_binding(binding, raw)
+        envelope = self._authority.verify(
             binding,
             raw,
             requested_budget={
@@ -152,7 +173,7 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
             )
         except ProviderBudgetError as exc:
             raise WorkflowWorkerGatewayError(exc.reason_code, status_code=409) from exc
-        self._append_event(
+        self._events.append(
             binding,
             event_type="workflow.budget.provider_reserved",
             dedupe_key=f"provider-budget-reserve:{reservation_id}",
@@ -175,13 +196,13 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
             reservation_id=reservation_id,
         )
 
-    def _reconcile_provider_budget(
+    def reconcile(
         self,
         binding: WorkflowWorkerBinding,
         raw: Mapping[str, Any],
     ) -> dict[str, Any]:
-        store = self._require_provider_budget_store()
-        reservation_id = self._bounded_identifier(
+        store = self._require_store()
+        reservation_id = bounded_identifier(
             raw.get("reservation_id"),
             "provider_budget_reservation_id_invalid",
         )
@@ -192,8 +213,8 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
                 "provider_budget_actual_tokens_invalid",
                 status_code=422,
             ) from exc
-        attempt_id, fencing_token = self._ownership_binding(binding, raw)
-        envelope = self._verify_authority(binding, raw)
+        attempt_id, fencing_token = self._authority.ownership_binding(binding, raw)
+        envelope = self._authority.verify(binding, raw)
         plan_entry = self._authorized_provider_plan_entry(
             envelope,
             raw,
@@ -234,7 +255,7 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
             )
         except ProviderBudgetError as exc:
             raise WorkflowWorkerGatewayError(exc.reason_code, status_code=409) from exc
-        self._append_event(
+        self._events.append(
             binding,
             event_type="workflow.budget.provider_reconciled",
             dedupe_key=f"provider-budget-reconcile:{reservation_id}",
@@ -269,19 +290,19 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
 
         plan_entry = None
         if envelope.allowed_provider_bindings:
-            binding_id = self._bounded_identifier(
+            binding_id = bounded_identifier(
                 raw.get("provider_binding_id"),
                 "provider_authorization_binding_required",
             )
-            provider_id = self._bounded_identifier(
+            provider_id = bounded_identifier(
                 raw.get("provider_id"),
                 "provider_authorization_binding_required",
             )
-            model_id = self._bounded_identifier(
+            model_id = bounded_identifier(
                 raw.get("model_id"),
                 "provider_authorization_binding_required",
             )
-            endpoint_identity = self._optional_bounded_text(
+            endpoint_identity = optional_bounded_text(
                 raw.get("provider_endpoint_identity"),
                 "provider_authorization_endpoint_invalid",
                 maximum=1024,
@@ -303,7 +324,7 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
                     status_code=403,
                 )
             if envelope.provider_attempt_plan:
-                profile_id = self._bounded_identifier(
+                profile_id = bounded_identifier(
                     raw.get("provider_profile_id"),
                     "provider_authorization_profile_required",
                 )
@@ -532,10 +553,10 @@ class WorkflowWorkerProviderBudgetCommandsMixin:
             )
         return payload
 
-    def _require_provider_budget_store(self) -> ProviderBudgetStore:
-        if self._provider_budgets is None:
+    def _require_store(self) -> ProviderBudgetStore:
+        if self._store is None:
             raise WorkflowWorkerGatewayError(
                 "provider_budget_store_unavailable",
                 status_code=503,
             )
-        return self._provider_budgets
+        return self._store

@@ -59,8 +59,13 @@ def native_setup(
     tmp_path, *, mutate=lambda command: command, mutate_task=lambda task: task, runner=None,
     context_reader_factory=lambda client: None,
     hub_task_id="hub-task-1",
+    context_bundles=None,
 ):
-    client, context, _ = composition(hub_task_id=hub_task_id, allowed_artifacts=("not-materialized", "unhydrated"))
+    client, context, _ = composition(
+        hub_task_id=hub_task_id,
+        allowed_artifacts=("not-materialized", "unhydrated"),
+        context_bundles=context_bundles,
+    )
     command = mutate(task_command(context))
     task = mutate_task(
         {

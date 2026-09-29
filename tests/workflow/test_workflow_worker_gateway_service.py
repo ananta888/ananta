@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from agent.services.native_context_bundle_service import NativeContextBundleReadPort
 from agent.services.workflow_authorization_grant_service import (
     InMemoryWorkflowAuthorizationGrantService,
 )
@@ -98,6 +99,7 @@ def fixture(
     budget_overrides: dict[str, int] | None = None,
     hub_task_id: str = "hub-task-1",
     allowed_artifacts: tuple[str, ...] = (),
+    context_bundles: NativeContextBundleReadPort | None = None,
 ) -> tuple[
     WorkflowWorkerGatewayService,
     dict,
@@ -176,6 +178,7 @@ def fixture(
         tool_approvals=approvals,
         tool_descriptors=_HubToolDescriptors(),
         assignments=assignments,
+        context_bundles=context_bundles,
         clock=lambda: now + 1,
     )
     binding = {

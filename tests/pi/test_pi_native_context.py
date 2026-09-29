@@ -13,12 +13,16 @@ from tests.pi.test_pi_native_node import native_setup
 from worker.runtime.native_graph.pi_context import HubPiTaskContextReader, pi_context_bundle_reference
 
 
-def context_setup(tmp_path):
+def context_setup(tmp_path, *, context_bundles=None):
     prompt = json.dumps({
         "task": "Explain this code.",
         "context_bundle": {"id": "bundle-1", "content": "approved code context"},
     }, ensure_ascii=True)
     runner = Runner(prompt=prompt)
+    tasks, bundles, policy = Mock(), Mock(), Mock()
+    reader = context_bundles or NativeContextBundleService(
+        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), policy=policy,
+    )
     adapter, task, runner, client, credentials = native_setup(
         tmp_path, runner=runner, context_reader_factory=HubPiTaskContextReader,
         mutate_task=lambda task: task | {
@@ -26,14 +30,11 @@ def context_setup(tmp_path):
             "task_kind": "pi_coding_agent", "derivation_reason": "native_graph_hub_delegation",
             "status": "running", "context_bundle_id": "bundle-1",
         },
+        context_bundles=reader,
     )
     bundle = {"id": "bundle-1", "task_id": "hub-task-1", "context_text": "unapproved original"}
-    tasks, bundles, policy = Mock(), Mock(), Mock()
     tasks.get_by_id.return_value, bundles.get_by_id.return_value = task, bundle
     policy.project.return_value = NativeApprovedContext("approved code context", "b" * 64)
-    client.service._context_bundles = NativeContextBundleService(
-        tasks=tasks, bundles=TaskContextBundleAccessService(bundles), policy=policy,
-    )
     return adapter, task, runner, client, credentials, policy
 
 

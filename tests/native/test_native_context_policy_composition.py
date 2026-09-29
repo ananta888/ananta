@@ -16,6 +16,20 @@ from tests.pi.test_pi_native_context import context_setup
 from worker.runtime.workflow_hub_gateway import WorkflowHubDecisionError
 
 
+class LateBoundContextReader:
+    """Context reader double injected through the gateway constructor.
+
+    The SQL policy reader needs the task and bundle that the composition
+    produces, so the test binds it after setup instead of mutating the service.
+    """
+
+    def __init__(self):
+        self.target = None
+
+    def read(self, **kwargs):
+        return self.target.read(**kwargs)
+
+
 @pytest.fixture
 def policy_setup(monkeypatch):
     return build_policy_setup(monkeypatch)
@@ -43,10 +57,11 @@ def configured_app(tmp_path, policy_setup, *, task, bundle):
 
 
 def test_real_persistent_policy_grants_then_revokes_context_without_human_input(tmp_path, policy_setup):
-    client, request, task, bundle, _, _ = setup_context()
+    context_reader = LateBoundContextReader()
+    client, request, task, bundle, _, _ = setup_context(context_bundles=context_reader)
     bundle.update(policy_setup[2])
     app, reader, lifecycle, actor, active = configured_app(tmp_path, policy_setup, task=task, bundle=bundle)
-    client.service._context_bundles = reader
+    context_reader.target = reader
     with app.app_context():
         response = client.command("native_context_read", **request)
         assert "def example(): return 1" in response["content"]
@@ -60,10 +75,11 @@ def test_real_persistent_policy_grants_then_revokes_context_without_human_input(
 
 
 def test_current_app_missing_catalog_does_not_reuse_another_apps_grants(tmp_path, policy_setup):
-    client, request, task, bundle, _, _ = setup_context()
+    context_reader = LateBoundContextReader()
+    client, request, task, bundle, _, _ = setup_context(context_bundles=context_reader)
     bundle.update(policy_setup[2])
     app, reader, *_ = configured_app(tmp_path, policy_setup, task=task, bundle=bundle)
-    client.service._context_bundles = reader
+    context_reader.target = reader
     with app.app_context():
         assert client.command("native_context_read", **request)["content"]
     with Flask("other-synthetic-app").app_context():
@@ -72,10 +88,11 @@ def test_current_app_missing_catalog_does_not_reuse_another_apps_grants(tmp_path
 
 
 def test_actual_native_worker_consumes_persisted_hub_policy_projection(tmp_path, policy_setup):
-    adapter, task, runner, client, _, _ = context_setup(tmp_path)
+    context_reader = LateBoundContextReader()
+    adapter, task, runner, client, _, _ = context_setup(tmp_path, context_bundles=context_reader)
     bundle = policy_setup[2] | {"id": "bundle-1", "task_id": task["id"]}
     app, reader, *_ = configured_app(tmp_path, policy_setup, task=task, bundle=bundle)
-    client.service._context_bundles = reader
+    context_reader.target = reader
     content = json.dumps([
         {"source_ref": "docs/public/example.py", "content": "def example(): return 1"},
     ], ensure_ascii=True, separators=(",", ":"))
