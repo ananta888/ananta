@@ -1,14 +1,16 @@
 """Task-scoped propose step: admission, routing and response assembly.
 
 Split out of ``_task_scoped_step_orchestrator`` (SRP). ``run_propose_step``
-stays importable from ``_task_scoped_step_orchestrator``; the patchable
-admission port is resolved through that facade at call time.
+stays importable from ``_task_scoped_step_orchestrator``. Dispatch admission is
+an explicit ``step_ports`` argument (:class:`StepOrchestrationPorts`); when
+omitted it comes from the documented ``_task_scoped_forwarding_dependencies``
+seam.
 """
 
 from __future__ import annotations
 
 import contextlib
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from flask import current_app, has_app_context
 
@@ -38,12 +40,20 @@ from agent.services.task_scoped_execution_service import (
 from agent.services.worker_execution_profile_service import resolve_worker_execution_profile
 from agent.services.worker_routing_policy_utils import derive_required_capabilities
 
+if TYPE_CHECKING:
+    from agent.services._task_scoped_forwarding_dependencies import StepOrchestrationPorts
 
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_step_orchestrator`` entry point."""
-    import agent.services._task_scoped_step_orchestrator as facade_module
 
-    return facade_module
+def _resolve_step_ports(
+    step_ports: "StepOrchestrationPorts | None",
+) -> "StepOrchestrationPorts":
+    if step_ports is not None:
+        return step_ports
+    from agent.services._task_scoped_forwarding_dependencies import (
+        current_task_scoped_forwarding_dependencies,
+    )
+
+    return current_task_scoped_forwarding_dependencies().steps
 
 
 def run_propose_step(
@@ -54,8 +64,10 @@ def run_propose_step(
     cli_runner: Callable,
     forwarder: Callable,
     tool_definitions_resolver: Callable,
+    step_ports: "StepOrchestrationPorts | None" = None,
 ):
     """Route a propose request to the appropriate strategy."""
+    ports = _resolve_step_ports(step_ports)
     from worker.retrieval.knowledge_index_task_snapshot import (
         hydrate_knowledge_index_task_snapshot,
     )
@@ -76,7 +88,7 @@ def run_propose_step(
         vector_binding_error := _vector_index_domain_binding_error(task)
     ) is not None:
         return vector_binding_error
-    admission = _facade()._admit_task_scoped_dispatch(
+    admission = ports.admit_dispatch(
         tid=tid,
         task=task,
         request_data=request_data,

@@ -3,20 +3,15 @@
 Split out of ``_task_scoped_forwarding`` (SRP): the visual-process-assistant
 result contracts and acceptor, and the acceptors for local runtime capability
 and CodeCompass layer results. ``_task_scoped_forwarding`` re-exports every
-name; patchable collaborators are resolved through that facade at call time.
+name. The Visual Process service is an explicit provider argument; when
+omitted it comes from the documented ``_task_scoped_forwarding_dependencies``
+seam.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
-
-
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_forwarding`` entry point."""
-    import agent.services._task_scoped_forwarding as facade_module
-
-    return facade_module
+from typing import Any, Callable
 
 
 _VISUAL_PROCESS_ASSISTANT_RESULT_CONTRACTS: dict[str, tuple[str, frozenset[str]]] = {
@@ -80,6 +75,7 @@ def _accept_visual_process_assistant_result(
     tid: str,
     response: Mapping[str, Any],
     task: Mapping[str, Any],
+    visual_process_assistant_service: Callable[[], Any] | None = None,
 ) -> dict[str, Any] | None:
     """Dispatch a bound Visual Process worker result to its Hub owner.
 
@@ -111,7 +107,16 @@ def _accept_visual_process_assistant_result(
     if unknown_fields:
         raise ValueError("visual_process_assistant_result_forwarding_fields_unknown")
     candidate = {field: response.get(field) for field in result_fields}
-    accepted = _facade()._get_visual_process_assistant_service().accept_worker_result(
+    if visual_process_assistant_service is None:
+        from agent.services._task_scoped_forwarding_dependencies import (
+            current_task_scoped_forwarding_dependencies,
+        )
+
+        visual_process_assistant_service = (
+            current_task_scoped_forwarding_dependencies()
+            .results.visual_process_assistant_service
+        )
+    accepted = visual_process_assistant_service().accept_worker_result(
         task_id=tid,
         result=candidate,
     )

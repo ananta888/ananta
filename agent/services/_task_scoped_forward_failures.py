@@ -3,8 +3,9 @@
 Split out of ``_task_scoped_forwarding`` (SRP): recording forward
 success/failure outcomes, translating worker HTTP errors, the explicit 404
 Hub-fallback switch and the completion-projection-pending response.
-``_task_scoped_forwarding`` re-exports every name; patchable collaborators are
-resolved through that facade at call time.
+``_task_scoped_forwarding`` re-exports every name. The outcome recorder is an
+explicit ``outcome_recorder`` provider argument; when omitted it comes from the
+documented ``_task_scoped_forwarding_dependencies`` seam.
 """
 
 from __future__ import annotations
@@ -21,11 +22,16 @@ if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
 
 
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_forwarding`` entry point."""
-    import agent.services._task_scoped_forwarding as facade_module
+def _resolve_outcome_recorder(
+    outcome_recorder: Callable[[], Any] | None,
+) -> Callable[[], Any]:
+    if outcome_recorder is not None:
+        return outcome_recorder
+    from agent.services._task_scoped_forwarding_dependencies import (
+        current_task_scoped_forwarding_dependencies,
+    )
 
-    return facade_module
+    return current_task_scoped_forwarding_dependencies().outcomes.outcome_recorder
 
 
 def _raise_forwarded_worker_http_error(
@@ -94,9 +100,13 @@ def _worker_404_hub_fallback_enabled() -> bool:
     return bool(policy.get("worker_404_hub_fallback_enabled", True))
 
 
-def _record_forwarded_worker_success(worker_url: str) -> None:
+def _record_forwarded_worker_success(
+    worker_url: str,
+    *,
+    outcome_recorder: Callable[[], Any] | None = None,
+) -> None:
     try:
-        recorder = _facade().get_worker_forward_outcome_recorder()
+        recorder = _resolve_outcome_recorder(outcome_recorder)()
         if recorder is not None:
             recorder.record_worker_forward_success(worker_url)
     except Exception:
@@ -111,9 +121,10 @@ def _record_forwarded_worker_failure(
     *,
     task_id: str,
     endpoint: str,
+    outcome_recorder: Callable[[], Any] | None = None,
 ) -> None:
     try:
-        recorder = _facade().get_worker_forward_outcome_recorder()
+        recorder = _resolve_outcome_recorder(outcome_recorder)()
         if recorder is not None:
             recorder.record_worker_forward_failure(
                 worker_url,
@@ -145,6 +156,7 @@ def _completion_projection_pending_response(
     task_id: str,
     worker_url: str,
     release_mail_lease: Callable[[], None],
+    outcome_recorder: Callable[[], Any] | None = None,
 ) -> "TaskScopedRouteResponse | None":
     """Return the Hub-local continuation without blaming the Worker."""
 
@@ -157,7 +169,10 @@ def _completion_projection_pending_response(
     # The Worker's bound result and completion outbox are already durable.
     # A second execute dispatch is forbidden; only the idempotent Hub
     # Source-Control projection remains.
-    _record_forwarded_worker_success(worker_url)
+    _record_forwarded_worker_success(
+        worker_url,
+        outcome_recorder=outcome_recorder,
+    )
     release_mail_lease()
     current_app.logger.warning(
         "Knowledge-index result accepted for task %s; "
@@ -189,23 +204,27 @@ def _handle_forwarding_failure(
     endpoint: str,
     preserve_mail_lease_on_error: bool,
     release_mail_lease: Callable[[], None],
+    outcome_recorder: Callable[[], Any] | None = None,
 ) -> "TaskScopedRouteResponse":
     """Keep Worker health, local saga state and transport errors separate."""
 
+    outcome_recorder = _resolve_outcome_recorder(outcome_recorder)
     pending_response = _completion_projection_pending_response(
         enabled=governed_codecompass_v2,
         exc=exc,
         task_id=task_id,
         worker_url=worker_url,
         release_mail_lease=release_mail_lease,
+        outcome_recorder=outcome_recorder,
     )
     if pending_response is not None:
         return pending_response
     if not worker_result_accepted:
-        _facade()._record_forwarded_worker_failure(
+        _record_forwarded_worker_failure(
             worker_url,
             task_id=task_id,
             endpoint=endpoint,
+            outcome_recorder=outcome_recorder,
         )
     if preserve_mail_lease_on_error:
         current_app.logger.warning(

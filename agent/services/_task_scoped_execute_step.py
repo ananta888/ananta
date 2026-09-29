@@ -1,15 +1,16 @@
 """Task-scoped execute step: admission, routing, recovery receipts and response assembly.
 
 Split out of ``_task_scoped_step_orchestrator`` (SRP). ``run_execute_step``
-stays importable from ``_task_scoped_step_orchestrator``; the patchable
-admission and admitted-execution ports are resolved through that facade at
-call time.
+stays importable from ``_task_scoped_step_orchestrator``. Dispatch admission and
+the admitted execute runner are explicit ``step_ports``
+(:class:`StepOrchestrationPorts`); when omitted they come from the documented
+``_task_scoped_forwarding_dependencies`` seam.
 """
 
 from __future__ import annotations
 
 import contextlib
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from agent.runtime_policy import normalize_task_kind
 from agent.services._task_scoped_adapters import try_handler_execute
@@ -32,12 +33,20 @@ from agent.services._task_scoped_step_policies import (
 from agent.services.task_scoped_execution_service import get_core_services, get_goal_config_runtime_service
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
+if TYPE_CHECKING:
+    from agent.services._task_scoped_forwarding_dependencies import StepOrchestrationPorts
 
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_step_orchestrator`` entry point."""
-    import agent.services._task_scoped_step_orchestrator as facade_module
 
-    return facade_module
+def _resolve_step_ports(
+    step_ports: "StepOrchestrationPorts | None",
+) -> "StepOrchestrationPorts":
+    if step_ports is not None:
+        return step_ports
+    from agent.services._task_scoped_forwarding_dependencies import (
+        current_task_scoped_forwarding_dependencies,
+    )
+
+    return current_task_scoped_forwarding_dependencies().steps
 
 
 def _publish_recovery_artifact_receipts(
@@ -114,8 +123,10 @@ def run_execute_step(
     forwarder: Callable,
     cli_runner: Callable | None = None,
     tool_definitions_resolver: Callable | None = None,
+    step_ports: "StepOrchestrationPorts | None" = None,
 ):
     """Route an execute request to the appropriate strategy."""
+    ports = _resolve_step_ports(step_ports)
     from worker.retrieval.knowledge_index_task_snapshot import (
         hydrate_knowledge_index_task_snapshot,
     )
@@ -158,7 +169,7 @@ def run_execute_step(
             get_recovery_worker_result_service()
             .proposal_context_for_task(tid)
         )
-    admission = _facade()._admit_task_scoped_dispatch(
+    admission = ports.admit_dispatch(
         tid=tid,
         task=task,
         request_data=request_data,
@@ -234,7 +245,7 @@ def run_execute_step(
             phase="execute",
         )
     with boundary as deferred_boundary:
-        outcome = _facade()._run_execute_step_admitted(
+        outcome = ports.run_execute_admitted(
             service,
             tid,
             request_data,

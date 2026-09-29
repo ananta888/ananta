@@ -30,6 +30,7 @@ from agent.services.workflow_worker_assignment_service import (
 )
 from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
 from tests.pi.test_pi_native_result_envelope import actual_route
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 @pytest.fixture
@@ -221,11 +222,13 @@ def test_production_composition_keeps_pi_policy_after_organization_policy(admiss
     assert complete(admission).verification_status[PI_RESULT_RECEIPT]["authority"]["worker_id"] == "worker-1"
 
 
-def test_forwarded_worker_route_reaches_real_task_status_persistence(admission, monkeypatch):
+def test_forwarded_worker_route_reaches_real_task_status_persistence(admission, monkeypatch, forwarding_dependencies):
     from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import task_runtime_service
 
-    monkeypatch.setattr(forwarding, "get_repository_registry", lambda: SimpleNamespace(task_repo=admission.repository))
+    forwarding_dependencies(
+        repositories=lambda: SimpleNamespace(task_repo=admission.repository),
+    )
     monkeypatch.setattr(task_runtime_service, "task_repo", admission.repository)
     task = admission.repository.get_by_id(admission.task_id).model_dump()
     forwarding.persist_forwarded_execution(
@@ -237,10 +240,12 @@ def test_forwarded_worker_route_reaches_real_task_status_persistence(admission, 
 
 
 @pytest.mark.parametrize("change", ["missing_result", "extra_field", "wrong_worker", "hidden_kind"])
-def test_original_forwarding_response_cannot_bypass_pi_policy(admission, monkeypatch, change):
+def test_original_forwarding_response_cannot_bypass_pi_policy(admission, monkeypatch, forwarding_dependencies, change):
     from agent.services import _task_scoped_forwarding as forwarding
 
-    monkeypatch.setattr(forwarding, "get_repository_registry", lambda: SimpleNamespace(task_repo=admission.repository))
+    forwarding_dependencies(
+        repositories=lambda: SimpleNamespace(task_repo=admission.repository),
+    )
     task = admission.repository.get_by_id(admission.task_id).model_dump()
     if change == "missing_result":
         admission.response = {"status": "failed", "output": "unbound"}

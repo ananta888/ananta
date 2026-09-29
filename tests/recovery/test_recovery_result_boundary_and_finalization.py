@@ -44,6 +44,7 @@ from agent.services.recovery_worker_result_service import (
     RecoveryWorkerResultService,
 )
 from agent.services.verification_service import VerificationService
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 class Record(SimpleNamespace):
@@ -508,6 +509,7 @@ def test_proposal_projection_is_execution_context_not_hub_authority() -> None:
 
 def test_invalid_proposal_envelope_has_no_hub_mutation(
     monkeypatch: pytest.MonkeyPatch,
+    forwarding_dependencies,
 ) -> None:
     envelope = RecoveryWorkerResultService().build(
         SimpleNamespace(
@@ -518,9 +520,8 @@ def test_invalid_proposal_envelope_has_no_hub_mutation(
     )
     envelope["digest"] = "0" * 64
     persistence_calls: list[str] = []
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.get_core_services",
-        lambda: persistence_calls.append("persist") or None,
+    forwarding_dependencies(
+        core_services=lambda: persistence_calls.append("persist") or None,
     )
 
     with pytest.raises(
@@ -552,6 +553,7 @@ def test_invalid_proposal_envelope_has_no_hub_mutation(
 
 def test_execute_result_stays_nonterminal_until_result_guard(
     monkeypatch: pytest.MonkeyPatch,
+    forwarding_dependencies,
 ) -> None:
     worker_result_service = RecoveryWorkerResultService()
     proposal_envelope = worker_result_service.build(
@@ -627,13 +629,11 @@ def test_execute_result_stays_nonterminal_until_result_guard(
                 "status": "passed",
             }
 
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.get_repository_registry",
-        lambda *_args, **_kwargs: repos,
+    forwarding_dependencies(
+        repositories=lambda *_args, **_kwargs: repos,
     )
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.update_local_task_status",
-        update_status,
+    forwarding_dependencies(
+        update_task_status=update_status,
     )
     monkeypatch.setattr(
         "agent.services.recovery_result_verification_service.get_recovery_result_verification_service",
@@ -790,6 +790,7 @@ def _forwarded_recovery_receipt(
 )
 def test_forwarded_recovery_artifacts_are_bounded_before_persistence(
     monkeypatch: pytest.MonkeyPatch,
+    forwarding_dependencies,
     artifacts_factory: Any,
     reason: str,
 ) -> None:
@@ -811,13 +812,11 @@ def test_forwarded_recovery_artifacts_are_bounded_before_persistence(
     repository = MemoryRepository([authoritative])
     repos = Record(task_repo=repository)
     status_calls: list[tuple[Any, ...]] = []
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.get_repository_registry",
-        lambda *_args, **_kwargs: repos,
+    forwarding_dependencies(
+        repositories=lambda *_args, **_kwargs: repos,
     )
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.update_local_task_status",
-        lambda *args, **kwargs: status_calls.append(
+    forwarding_dependencies(
+        update_task_status=lambda *args, **kwargs: status_calls.append(
             (*args, kwargs)
         ),
     )

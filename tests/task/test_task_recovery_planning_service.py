@@ -25,6 +25,7 @@ from agent.services.task_recovery_planning_service import (
     RECOVERY_MATERIALIZE_TOOL,
     TaskRecoveryPlanningService,
 )
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 class Record(SimpleNamespace):
@@ -2057,9 +2058,7 @@ def test_source_terminal_transition_and_recovery_admission_are_linearizable():
         )
 
 
-def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution(
-    monkeypatch,
-):
+def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution():
     from agent.services import _task_scoped_step_orchestrator as orchestration
 
     orchestration._RECOVERY_OUTCOME_CACHE.clear()
@@ -2082,15 +2081,9 @@ def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution(
         executions["count"] += 1
         return expected
 
-    monkeypatch.setattr(
-        orchestration,
-        "_admit_task_scoped_dispatch",
-        admit,
-    )
-    monkeypatch.setattr(
-        orchestration,
-        "_run_execute_step_admitted",
-        execute,
+    step_ports = orchestration.StepOrchestrationPorts(
+        admit_dispatch=admit,
+        run_execute_admitted=execute,
     )
     request = Record(
         dispatch_lease_token=token,
@@ -2107,12 +2100,14 @@ def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution(
         "cached-child",
         request,
         forwarder=lambda *_args, **_kwargs: None,
+        step_ports=step_ports,
     )
     second = orchestration.run_execute_step(
         service,
         "cached-child",
         request,
         forwarder=lambda *_args, **_kwargs: None,
+        step_ports=step_ports,
     )
     assert first is expected
     assert second is expected
@@ -2122,6 +2117,7 @@ def test_recovery_worker_readmission_returns_cached_outcome_without_reexecution(
 def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
     app,
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.config import settings
     from agent.services import _task_scoped_forwarding as forwarding
@@ -2170,10 +2166,8 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
         "get_recovery_dispatch_gate_service",
         lambda: gate,
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
                     token="current-worker-token"
@@ -2313,6 +2307,7 @@ def test_task_scoped_recovery_forward_without_lease_fails_before_transport(
 def test_recovery_mail_forward_closes_guard_before_lease_resolution(
     app,
     monkeypatch,
+    forwarding_dependencies,
     guard_allowed,
     callback_fails,
     guard_commit_fails,
@@ -2372,10 +2367,8 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
         "get_mail_task_service",
         lambda: mail_service,
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token="worker-token")
             )
@@ -2470,6 +2463,7 @@ def test_recovery_mail_forward_closes_guard_before_lease_resolution(
 
 def test_recovery_mail_persistence_defers_release_until_guard_commit(
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import (
@@ -2486,10 +2480,8 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
         verification_status={},
         status_reason_details={},
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             task_repo=Record(
                 get_by_id=lambda _task_id: authoritative,
             ),
@@ -2523,10 +2515,8 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
     def fail_persistence(*_args, **_kwargs):
         raise RuntimeError("result persistence failed")
 
-    monkeypatch.setattr(
-        forwarding,
-        "update_local_task_status",
-        fail_persistence,
+    forwarding_dependencies(
+        update_task_status=fail_persistence,
     )
     response = {
         "schema": "ananta.mail_task_result.v1",
@@ -2562,6 +2552,7 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
 def test_task_scoped_recovery_forward_never_retries_without_worker_token(
     app,
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
@@ -2580,10 +2571,8 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token="worker-token")
             )
@@ -2633,6 +2622,7 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
 def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
     app,
     monkeypatch,
+    forwarding_dependencies,
     failure_mode,
 ):
     from agent.common.errors import WorkerForwardingError
@@ -2655,10 +2645,8 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
                     token="current-vector-worker-token"
@@ -2767,6 +2755,7 @@ def _governed_codecompass_forward_task(
 def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_locally(
     app,
     monkeypatch,
+    forwarding_dependencies,
     failure_mode,
 ):
     from agent.common.errors import WorkerForwardingError
@@ -2789,10 +2778,8 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
                     name="worker-index-01",
@@ -2819,18 +2806,14 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
             }
         }
 
-    monkeypatch.setattr(
-        forwarding,
-        "_governed_source_control_index_job_service",
-        lambda: Record(
+    forwarding_dependencies(
+        governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=authorize_dispatch
         ),
     )
     deadline = WorkerTransportDeadline.after_seconds(90)
-    monkeypatch.setattr(
-        forwarding,
-        "_codecompass_execute_deadline",
-        lambda **_kwargs: deadline,
+    forwarding_dependencies(
+        execute_deadline=lambda **_kwargs: deadline,
     )
     calls: list[str | None] = []
 
@@ -3080,6 +3063,7 @@ def test_codecompass_worker_executes_its_bound_assignment_locally(
 def test_codecompass_forward_rejects_spoofed_dispatch_phase(
     app,
     monkeypatch,
+    forwarding_dependencies,
     endpoint_phase,
     payload_phase,
 ):
@@ -3092,10 +3076,8 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
     task = _governed_codecompass_forward_task()
     authorizer_calls = []
     forwarder_calls = []
-    monkeypatch.setattr(
-        forwarding,
-        "_governed_source_control_index_job_service",
-        lambda: authorizer_calls.append(True),
+    forwarding_dependencies(
+        governed_index_job_service=lambda: authorizer_calls.append(True),
     )
 
     with app.app_context(), pytest.raises(
@@ -3145,6 +3127,7 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
 def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
     app,
     monkeypatch,
+    forwarding_dependencies,
     worker_response,
     acceptance_error,
     expected_successes,
@@ -3188,10 +3171,8 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_worker_forward_outcome_recorder",
-        lambda: recorder,
+    forwarding_dependencies(
+        outcome_recorder=lambda: recorder,
     )
 
     def accept(_response, _task):
@@ -3236,6 +3217,7 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
 def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
     app,
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
@@ -3290,10 +3272,8 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
                     name="worker-index-01",
@@ -3307,22 +3287,16 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
         ),
     )
 
-    monkeypatch.setattr(
-        forwarding,
-        "_governed_source_control_index_job_service",
-        lambda: Record(
+    forwarding_dependencies(
+        governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=authorize_dispatch
         ),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_worker_forward_outcome_recorder",
-        lambda: recorder,
+    forwarding_dependencies(
+        outcome_recorder=lambda: recorder,
     )
-    monkeypatch.setattr(
-        forwarding,
-        "_codecompass_execute_deadline",
-        lambda **_kwargs: WorkerTransportDeadline.after_seconds(90),
+    forwarding_dependencies(
+        execute_deadline=lambda **_kwargs: WorkerTransportDeadline.after_seconds(90),
     )
 
     def forwarder(*_args, **_kwargs):
@@ -3382,6 +3356,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
 def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
     app,
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
@@ -3403,10 +3378,8 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
                     name="worker-index-01",
@@ -3442,18 +3415,14 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
             }
         }
 
-    monkeypatch.setattr(
-        forwarding,
-        "_governed_source_control_index_job_service",
-        lambda: Record(
+    forwarding_dependencies(
+        governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=authorize_dispatch
         ),
     )
     deadline = WorkerTransportDeadline.after_seconds(90)
-    monkeypatch.setattr(
-        forwarding,
-        "_codecompass_execute_deadline",
-        lambda **_kwargs: deadline,
+    forwarding_dependencies(
+        execute_deadline=lambda **_kwargs: deadline,
     )
     forward_calls = []
     accepted_deadlines = []
@@ -3551,6 +3520,7 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
 def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
     app,
     monkeypatch,
+    forwarding_dependencies,
     registered_agent,
 ):
     from agent.common.errors import WorkerForwardingError
@@ -3570,20 +3540,16 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: registered_agent
             )
         ),
     )
     authorization_calls = []
-    monkeypatch.setattr(
-        forwarding,
-        "_governed_source_control_index_job_service",
-        lambda: Record(
+    forwarding_dependencies(
+        governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=lambda **values: (
                 authorization_calls.append(values)
             )
@@ -3609,6 +3575,7 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
 def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
     app,
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
@@ -3627,10 +3594,8 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token=None)
             )
@@ -3676,6 +3641,7 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
 def test_generic_remote_forward_without_worker_token_fails_before_transport(
     app,
     monkeypatch,
+    forwarding_dependencies,
 ):
     from agent.common.errors import WorkerForwardingError
     from agent.config import settings
@@ -3694,10 +3660,8 @@ def test_generic_remote_forward_without_worker_token_fails_before_transport(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: Record(
+    forwarding_dependencies(
+        repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token=None)
             )

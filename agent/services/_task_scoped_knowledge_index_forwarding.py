@@ -3,8 +3,10 @@
 Split out of ``_task_scoped_forwarding`` (SRP): polling a governed
 knowledge-index worker while its typed result is pending (inside the job's
 retry window) and materializing/publishing the forwarded index result on the
-Hub. The retry limits stay defined (and patchable) on ``_task_scoped_forwarding``
-and are read through that facade at call time.
+Hub. The retry bounds (:class:`KnowledgeIndexRetryPolicy`) and the Hub ports
+(:class:`HubStatePorts`, :class:`GovernedIndexJobPorts`) are explicit keyword
+arguments; when omitted they come from the documented
+``_task_scoped_forwarding_dependencies`` seam.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from __future__ import annotations
 import copy
 import time
 from collections.abc import Mapping
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from agent.services._task_scoped_codecompass_dispatch import _permanent_codecompass_forwarding_error
 from agent.services.worker_forward_transport import (
@@ -27,12 +29,20 @@ from ananta_contracts.knowledge_index_dispatch import (
     SOURCE_ACCESS_MANIFEST_FIELD,
 )
 
+if TYPE_CHECKING:
+    from agent.services._task_scoped_forwarding_dependencies import (
+        GovernedIndexJobPorts,
+        HubStatePorts,
+        KnowledgeIndexRetryPolicy,
+    )
 
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_forwarding`` entry point."""
-    import agent.services._task_scoped_forwarding as facade_module
 
-    return facade_module
+def _current_dependencies():
+    from agent.services._task_scoped_forwarding_dependencies import (
+        current_task_scoped_forwarding_dependencies,
+    )
+
+    return current_task_scoped_forwarding_dependencies()
 
 
 def _is_typed_knowledge_index_result_pending(
@@ -145,6 +155,7 @@ def _invoke_governed_knowledge_index_forwarder(
     prepared_payload: Mapping[str, Any],
     token: str,
     transport_deadline: WorkerTransportDeadline | None,
+    retry_policy: "KnowledgeIndexRetryPolicy | None" = None,
 ) -> Any:
     """Retry only an exact governed-v2 execute request under one authority."""
 
@@ -162,9 +173,11 @@ def _invoke_governed_knowledge_index_forwarder(
         raise _permanent_codecompass_forwarding_error(
             "worker_forward_transport_deadline_missing"
         )
+    if retry_policy is None:
+        retry_policy = _current_dependencies().knowledge_index_retry
     for attempt in range(
         1,
-        _facade()._GOVERNED_KNOWLEDGE_INDEX_MAX_FORWARD_ATTEMPTS + 1,
+        retry_policy.max_forward_attempts + 1,
     ):
         response_lost = False
         try:
@@ -188,7 +201,7 @@ def _invoke_governed_knowledge_index_forwarder(
         )
         if not response_lost and not result_pending:
             return response
-        if attempt >= _facade()._GOVERNED_KNOWLEDGE_INDEX_MAX_FORWARD_ATTEMPTS:
+        if attempt >= retry_policy.max_forward_attempts:
             reason_code = (
                 "knowledge_index_worker_dispatch_result_pending_retry_exhausted"
                 if result_pending
@@ -204,9 +217,9 @@ def _invoke_governed_knowledge_index_forwarder(
             transport_deadline=transport_deadline,
         )
         if result_pending:
-            time.sleep(
+            retry_policy.sleep(
                 min(
-                    _facade()._GOVERNED_KNOWLEDGE_INDEX_PENDING_POLL_SECONDS,
+                    retry_policy.pending_poll_seconds,
                     remaining,
                 )
             )
@@ -224,6 +237,8 @@ def _materialize_forwarded_knowledge_index_result(
     response: Mapping[str, Any],
     task: Mapping[str, Any],
     transport_deadline: WorkerTransportDeadline | None,
+    hub_state: "HubStatePorts | None" = None,
+    index_jobs: "GovernedIndexJobPorts | None" = None,
 ) -> dict[str, Any] | None:
     """Admit one knowledge-index result through its versioned Hub port."""
 
@@ -261,6 +276,10 @@ def _materialize_forwarded_knowledge_index_result(
         candidate = {
             field: response.get(field) for field in result_fields
         }
+    if hub_state is None or index_jobs is None:
+        dependencies = _current_dependencies()
+        hub_state = hub_state or dependencies.hub_state
+        index_jobs = index_jobs or dependencies.index_jobs
     execution_context = dict(
         task.get("worker_execution_context") or {}
     )
@@ -271,12 +290,12 @@ def _materialize_forwarded_knowledge_index_result(
         execution_job.get("schema")
         == "ananta.knowledge_index_execution_job.v2"
     ):
-        job_service = _facade()._governed_source_control_index_job_service()
+        job_service = index_jobs.governed_index_job_service()
         assigned_worker_url = str(
             task.get("assigned_agent_url") or ""
         ).strip()
         assigned_worker = (
-            _facade().get_repository_registry().agent_repo.get_by_url(
+            hub_state.repositories().agent_repo.get_by_url(
                 assigned_worker_url
             )
             if assigned_worker_url
@@ -290,7 +309,7 @@ def _materialize_forwarded_knowledge_index_result(
                 "knowledge_index_result_worker_identity_missing"
             )
     else:
-        job_service = _facade().get_core_services().knowledge_index_job_service
+        job_service = hub_state.core_services().knowledge_index_job_service
         authenticated_worker_id = None
     return job_service.materialize_worker_result(
         job_id=tid,
@@ -306,10 +325,13 @@ def _publish_forwarded_bound_knowledge_index_result(
     job_id: str,
     result: Mapping[str, Any],
     status_values: Mapping[str, Any],
+    index_jobs: "GovernedIndexJobPorts | None" = None,
 ) -> None:
     """Commit the accepted v2 result through its Hub-owned Task CAS."""
 
-    _facade()._governed_source_control_index_job_service().publish_bound_task_result(
+    if index_jobs is None:
+        index_jobs = _current_dependencies().index_jobs
+    index_jobs.governed_index_job_service().publish_bound_task_result(
         job_id=str(job_id),
         result=dict(result),
         status_values=dict(status_values),

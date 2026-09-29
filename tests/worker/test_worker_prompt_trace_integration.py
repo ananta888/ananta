@@ -2,20 +2,19 @@ from types import SimpleNamespace
 
 from agent.services.autopilot_decision_service import AutopilotDecisionService
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
-def test_forwarded_proposal_marks_uninspectable_without_prompt_trace(monkeypatch):
+def test_forwarded_proposal_marks_uninspectable_without_prompt_trace(monkeypatch, forwarding_dependencies):
     captured = {}
 
     def _persist(**kwargs):
         captured.update(kwargs)
 
-    # persist_forwarded_proposal lives in agent.services._task_scoped_forwarding,
-    # so the get_core_services lookup must be patched there. Patching the facade
-    # module does not affect the implementation that delegates to it.
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.get_core_services",
-        lambda: SimpleNamespace(
+    # persist_forwarded_proposal receives core services through the
+    # task-scoped forwarding dependency seam.
+    forwarding_dependencies(
+        core_services=lambda: SimpleNamespace(
             task_execution_service=SimpleNamespace(
                 persist_task_proposal_result=_persist,
                 build_task_history_event=lambda **k: {},
@@ -34,12 +33,11 @@ def test_forwarded_proposal_marks_uninspectable_without_prompt_trace(monkeypatch
     assert trace.get("external_worker_uninspectable") is True
 
 
-def test_forwarded_proposal_keeps_the_executable_tool_calls(monkeypatch):
+def test_forwarded_proposal_keeps_the_executable_tool_calls(monkeypatch, forwarding_dependencies):
     """A worker may complete the task itself; the forwarded proposal record must hold the step it executed."""
     captured = {}
-    monkeypatch.setattr(
-        "agent.services._task_scoped_forwarding.get_core_services",
-        lambda: SimpleNamespace(
+    forwarding_dependencies(
+        core_services=lambda: SimpleNamespace(
             task_execution_service=SimpleNamespace(
                 persist_task_proposal_result=lambda **kwargs: captured.update(kwargs),
                 build_task_history_event=lambda **k: {},

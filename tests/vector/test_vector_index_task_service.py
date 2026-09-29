@@ -26,6 +26,7 @@ from tests.vector.vector_index_attestation_test_support import (
 from worker.retrieval.vector_index_artifact_locator import (
     VectorIndexArtifactLocator,
 )
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 class _Repository:
@@ -2023,6 +2024,7 @@ def test_cancel_and_result_acceptance_are_atomically_serialized(
 
 def test_forwarding_uses_atomic_vector_result_acceptance(
     monkeypatch,
+    forwarding_dependencies,
 ) -> None:
     from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import recovery_result_verification_service, unsloth_worker_result_service
@@ -2040,10 +2042,8 @@ def test_forwarding_uses_atomic_vector_result_acceptance(
         "get_vector_index_task_service",
         lambda: Service(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "update_local_task_status",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+    forwarding_dependencies(
+        update_task_status=lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("generic non-atomic status update used")
         ),
     )
@@ -2096,21 +2096,18 @@ def test_forwarding_uses_atomic_vector_result_acceptance(
 )
 def test_authoritative_vector_task_rejects_non_vector_worker_results_without_side_effects(
     monkeypatch,
+    forwarding_dependencies,
     response,
 ) -> None:
     from agent.services import _task_scoped_forwarding as forwarding
     from agent.services import unsloth_worker_result_service
 
     side_effects: list[str] = []
-    monkeypatch.setattr(
-        forwarding,
-        "update_local_task_status",
-        lambda *_args, **_kwargs: side_effects.append("status"),
+    forwarding_dependencies(
+        update_task_status=lambda *_args, **_kwargs: side_effects.append("status"),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "normalize_forwarded_artifacts",
-        lambda **_kwargs: side_effects.append("artifacts"),
+    forwarding_dependencies(
+        normalize_artifacts=lambda **_kwargs: side_effects.append("artifacts"),
     )
     monkeypatch.setattr(
         unsloth_worker_result_service,
@@ -2146,14 +2143,13 @@ def test_authoritative_vector_task_rejects_non_vector_worker_results_without_sid
 
 def test_non_vector_task_rejects_vector_result_schema(
     monkeypatch,
+    forwarding_dependencies,
 ) -> None:
     from agent.services import _task_scoped_forwarding as forwarding
 
     updates: list[object] = []
-    monkeypatch.setattr(
-        forwarding,
-        "update_local_task_status",
-        lambda *_args, **_kwargs: updates.append(True),
+    forwarding_dependencies(
+        update_task_status=lambda *_args, **_kwargs: updates.append(True),
     )
     result = _completed_result("vector-index-" + "c" * 32)
 

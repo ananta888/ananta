@@ -8,6 +8,7 @@ import pytest
 from agent.common.errors import WorkerForwardingError
 from agent.config import settings
 from agent.services import _task_scoped_forwarding as forwarding
+from agent.services._task_scoped_forwarding_dependencies import KnowledgeIndexRetryPolicy
 from agent.services.worker_forward_transport import (
     WorkerForwardAmbiguousTransportError,
     WorkerForwardDeadlineExceeded,
@@ -22,6 +23,7 @@ from ananta_contracts.knowledge_index_dispatch import (
     KNOWLEDGE_INDEX_WORKER_DISPATCH_RESULT_PENDING_REASON,
     SOURCE_ACCESS_MANIFEST_FIELD,
 )
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 
 def _pending_response() -> dict:
@@ -84,6 +86,7 @@ def _governed_task(*, lease_expires_epoch_ms: int) -> dict:
 
 def _configure_forwarding_boundary(
     monkeypatch: pytest.MonkeyPatch,
+    forwarding_dependencies,
     *,
     deadline: WorkerTransportDeadline,
     lease_expires_epoch_ms: int,
@@ -96,10 +99,8 @@ def _configure_forwarding_boundary(
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "agent_url", "http://hub:5000")
-    monkeypatch.setattr(
-        forwarding,
-        "get_repository_registry",
-        lambda: SimpleNamespace(
+    forwarding_dependencies(
+        repositories=lambda: SimpleNamespace(
             agent_repo=SimpleNamespace(
                 get_by_url=lambda _url: SimpleNamespace(
                     name="worker-index-01",
@@ -117,15 +118,10 @@ def _configure_forwarding_boundary(
         "get_recovery_dispatch_gate_service",
         lambda: RecoveryGate(),
     )
-    monkeypatch.setattr(
-        forwarding,
-        "_codecompass_execute_deadline",
-        lambda **_kwargs: deadline,
-    )
-    monkeypatch.setattr(
-        forwarding,
-        "_record_forwarded_worker_failure",
-        lambda *_args, **_kwargs: None,
+    forwarding_dependencies(
+        execute_deadline=lambda **_kwargs: deadline,
+        # No worker-health observation in this transport-level test.
+        outcome_recorder=lambda: None,
     )
     prepare_calls: list[dict] = []
 
@@ -142,10 +138,8 @@ def _configure_forwarding_boundary(
             )
         )
 
-    monkeypatch.setattr(
-        forwarding,
-        "_prepare_codecompass_worker_dispatch",
-        prepare,
+    forwarding_dependencies(
+        prepare_worker_dispatch=prepare,
     )
     return (
         _governed_task(
@@ -158,10 +152,12 @@ def _configure_forwarding_boundary(
 def test_lost_first_response_exact_replay_reuses_prepared_request(
     app,
     monkeypatch: pytest.MonkeyPatch,
+    forwarding_dependencies,
 ) -> None:
     deadline = WorkerTransportDeadline.after_seconds(90)
     task, prepare_calls = _configure_forwarding_boundary(
         monkeypatch,
+        forwarding_dependencies,
         deadline=deadline,
         lease_expires_epoch_ms=9_999_999_999_999,
         grant_expires_epoch_ms=9_999_999_999_999,
@@ -221,9 +217,7 @@ def test_lost_first_response_exact_replay_reuses_prepared_request(
     assert accepted == [(durable_result["data"], deadline)]
 
 
-def test_typed_pending_poll_is_bounded_and_reuses_exact_request(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_typed_pending_poll_is_bounded_and_reuses_exact_request() -> None:
     deadline = WorkerTransportDeadline.after_seconds(90)
     task = _governed_task(
         lease_expires_epoch_ms=9_999_999_999_999
@@ -233,15 +227,9 @@ def test_typed_pending_poll_is_bounded_and_reuses_exact_request(
     )
     calls = []
     sleeps = []
-    monkeypatch.setattr(
-        forwarding,
-        "_GOVERNED_KNOWLEDGE_INDEX_MAX_FORWARD_ATTEMPTS",
-        3,
-    )
-    monkeypatch.setattr(
-        forwarding.time,
-        "sleep",
-        lambda seconds: sleeps.append(seconds),
+    retry_policy = KnowledgeIndexRetryPolicy(
+        max_forward_attempts=3,
+        sleep=lambda seconds: sleeps.append(seconds),
     )
 
     def forwarder(*_args, **kwargs):
@@ -264,6 +252,7 @@ def test_typed_pending_poll_is_bounded_and_reuses_exact_request(
             prepared_payload=payload,
             token="current-worker-token",
             transport_deadline=deadline,
+            retry_policy=retry_policy,
         )
 
     assert raised.value.reason_code == (

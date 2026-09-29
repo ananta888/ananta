@@ -9,11 +9,19 @@ forwarded artifacts.
 Backwards compatibility is preserved at the service boundary via thin
 delegating wrappers in :class:`TaskScopedExecutionService` (12-month
 deprecation window, see todos/todo.refactor-large-files-split.json SPLIT-001).
+
+Collaborators (repositories, core services, status updater, governed dispatch
+ports, outcome recorder, retry policy, result acceptors) are explicit: the
+entry points take a keyword-only ``dependencies`` bundle
+(:class:`TaskScopedForwardingDependencies`) and hand each helper only the
+per-concern ports it uses. Without an explicit bundle the documented seam
+``current_task_scoped_forwarding_dependencies()`` supplies production ports.
 """
 
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import time
 from collections.abc import Mapping
@@ -25,9 +33,8 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import WorkerForwardingError
 from agent.config import settings
 
-# The names below are re-exported: callers, the extracted sibling modules
-# (which resolve patchable collaborators through this facade at call time)
-# and tests import or monkeypatch them on this module.
+# The names below are re-exported for callers and tests that import them
+# from this module; collaborators are injected, not looked up here.
 from agent.services._task_scoped_codecompass_dispatch import (  # noqa: F401
     _attach_codecompass_capability,
     _authorize_codecompass_worker_dispatch,
@@ -60,6 +67,11 @@ from agent.services._task_scoped_forwarded_result_acceptance import (  # noqa: F
     _accept_visual_process_assistant_result,
     _get_visual_process_assistant_service,
 )
+from agent.services._task_scoped_forwarding_dependencies import (  # noqa: F401 - public seam
+    TaskScopedForwardingDependencies,
+    current_task_scoped_forwarding_dependencies,
+    override_task_scoped_forwarding_dependencies,
+)
 from agent.services._task_scoped_knowledge_index_forwarding import (  # noqa: F401
     _governed_knowledge_index_retry_expiries,
     _invoke_governed_knowledge_index_forwarder,
@@ -77,17 +89,11 @@ from agent.services._vector_index_result_forwarding import (
 from agent.services._vector_index_result_forwarding import (
     persist_forwarded_execution_status as _persist_forwarded_execution_status,
 )
-from agent.services.forwarded_artifact_normalization import (
+from agent.services.forwarded_artifact_normalization import (  # noqa: F401 - re-exported for the service wrapper
     normalize_forwarded_artifacts as normalize_forwarded_artifacts,
 )
-from agent.services.forwarded_artifact_normalization import (
+from agent.services.forwarded_artifact_normalization import (  # noqa: F401 - re-exported
     normalize_recovery_forwarded_artifacts as normalize_recovery_forwarded_artifacts,
-)
-from agent.services.repository_registry import get_repository_registry
-from agent.services.service_registry import get_core_services  # noqa: F401 - patch seam for extracted modules
-from agent.services.task_runtime_service import update_local_task_status
-from agent.services.worker_forward_outcome import (  # noqa: F401 - patch seam for _task_scoped_forward_failures
-    get_worker_forward_outcome_recorder,
 )
 from agent.services.worker_forward_transport import (
     DeadlineAwareWorkerForwarder,
@@ -96,10 +102,6 @@ from agent.services.worker_forward_transport import (
 
 if TYPE_CHECKING:
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
-
-
-_GOVERNED_KNOWLEDGE_INDEX_MAX_FORWARD_ATTEMPTS = 16
-_GOVERNED_KNOWLEDGE_INDEX_PENDING_POLL_SECONDS = 0.25
 
 
 class DeadlineAwareForwardResultAcceptor(Protocol):
@@ -173,8 +175,12 @@ def forward_task_request_if_remote(
         Callable[[dict, dict], None]
         | DeadlineAwareForwardResultAcceptor
     ),
+    dependencies: TaskScopedForwardingDependencies | None = None,
 ) -> "TaskScopedRouteResponse | None":
     from agent.services.task_scoped_execution_service import TaskScopedRouteResponse
+
+    deps = dependencies or current_task_scoped_forwarding_dependencies()
+    outcome_recorder = deps.outcomes.outcome_recorder
 
     payload = _with_hub_context_window(endpoint, payload)
     mail_lease: dict[str, Any] | None = None
@@ -327,7 +333,7 @@ def forward_task_request_if_remote(
     registered_agent = None
     registered_worker_token = ""
     try:
-        registered_agent = get_repository_registry().agent_repo.get_by_url(
+        registered_agent = deps.hub_state.repositories().agent_repo.get_by_url(
             worker_url
         )
         registered_worker_token = str(
@@ -341,11 +347,11 @@ def forward_task_request_if_remote(
     # prevents grant/lease checks performed during preparation from being
     # followed by a fresh full runtime window. Preparation, every POST retry,
     # result download, and Hub materialization all consume the same clock.
-    transport_deadline = _codecompass_execute_deadline(
+    transport_deadline = deps.codecompass.execute_deadline(
         task=task,
         dispatch_phase=dispatch_phase,
     )
-    _prepare_codecompass_worker_dispatch(
+    deps.codecompass.prepare_worker_dispatch(
         enabled=governed_codecompass_v2,
         tid=tid,
         task=task,
@@ -353,6 +359,10 @@ def forward_task_request_if_remote(
         registered_agent=registered_agent,
         registered_worker_token=registered_worker_token,
         dispatch_phase=dispatch_phase,
+        authorize=functools.partial(
+            deps.codecompass.authorize_worker_dispatch,
+            index_job_service=deps.index_jobs.governed_index_job_service,
+        ),
     )
     if not resolved_token:
         raise WorkerForwardingError(
@@ -397,6 +407,7 @@ def forward_task_request_if_remote(
             prepared_payload=payload,
             token=str(resolved_token),
             transport_deadline=transport_deadline,
+            retry_policy=deps.knowledge_index_retry,
         )
         # Worker returned 404: task not in worker DB (split-DB dev setup).
         # Configurable via execution_fallback_policy.worker_404_hub_fallback_enabled.
@@ -411,6 +422,7 @@ def forward_task_request_if_remote(
                 str(worker_url),
                 task_id=tid,
                 endpoint=endpoint,
+                outcome_recorder=outcome_recorder,
             )
             release_mail_lease()
             current_app.logger.warning(
@@ -478,7 +490,10 @@ def forward_task_request_if_remote(
                     transport_deadline=transport_deadline,
                 )
             worker_result_accepted = True
-            _record_forwarded_worker_success(str(worker_url))
+            _record_forwarded_worker_success(
+                str(worker_url),
+                outcome_recorder=outcome_recorder,
+            )
             release_mail_lease()
         return TaskScopedRouteResponse(data=response)
     except Exception as exc:
@@ -491,6 +506,7 @@ def forward_task_request_if_remote(
             endpoint=endpoint,
             preserve_mail_lease_on_error=preserve_mail_lease_on_error,
             release_mail_lease=release_mail_lease,
+            outcome_recorder=outcome_recorder,
         )
 
 
@@ -502,18 +518,23 @@ def persist_forwarded_execution(
     request_data,
     last_proposal: dict | None = None,
     transport_deadline: WorkerTransportDeadline | None = None,
+    dependencies: TaskScopedForwardingDependencies | None = None,
 ) -> None:
     from agent.services.pi_result_forwarding import validate_forwarded_pi_result
 
+    deps = dependencies or current_task_scoped_forwarding_dependencies()
+    repositories = deps.hub_state.repositories
+    results = deps.results
+
     validate_forwarded_pi_result(
         task_id=tid, dispatched_task=task, response=response,
-        load_task=get_repository_registry().task_repo.get_by_id,
+        load_task=repositories().task_repo.get_by_id,
     )
     if accept_bound_forwarded_vector_index_result(
         job_id=tid,
         response=response,
         task=task,
-        load_task=get_repository_registry().task_repo.get_by_id,
+        load_task=repositories().task_repo.get_by_id,
         classify_task=is_authoritative_vector_index_task,
         extract_result=vector_index_result_candidate,
         accept_result=accept_forwarded_vector_index_result,
@@ -530,7 +551,7 @@ def persist_forwarded_execution(
     authoritative_recovery_task = None
     if recovery_child:
         authoritative_recovery_task = (
-            get_repository_registry().task_repo.get_by_id(tid)
+            repositories().task_repo.get_by_id(tid)
         )
         if authoritative_recovery_task is None:
             raise RuntimeError("recovery_result_task_missing")
@@ -568,12 +589,12 @@ def persist_forwarded_execution(
     )
     raw_artifacts = response.get("artifacts")
     artifacts = (
-        normalize_recovery_forwarded_artifacts(
+        results.normalize_recovery_artifacts(
             task_id=tid,
             artifacts=raw_artifacts,
         )
         if recovery_child
-        else normalize_forwarded_artifacts(
+        else results.normalize_artifacts(
             task_id=tid,
             artifacts=(
                 list(raw_artifacts)
@@ -606,6 +627,7 @@ def persist_forwarded_execution(
         tid=tid,
         response=response,
         task=task,
+        visual_process_assistant_service=results.visual_process_assistant_service,
     )
     if assistant_request is not None:
         verification_status["visual_process_assistant_request"] = assistant_request
@@ -651,6 +673,8 @@ def persist_forwarded_execution(
         response=response,
         task=task,
         transport_deadline=transport_deadline,
+        hub_state=deps.hub_state,
+        index_jobs=deps.index_jobs,
     )
     if knowledge_index_result is not None:
         verification_status["knowledge_index_job_result"] = (
@@ -751,15 +775,16 @@ def persist_forwarded_execution(
         authoritative_recovery_task=authoritative_recovery_task,
         vector_index_result=vector_index_result,
         accept_vector_result=accept_forwarded_vector_index_result,
-        update_task_status=update_local_task_status,
+        update_task_status=deps.hub_state.update_task_status,
         bound_knowledge_index_result=(
             knowledge_index_result
             if knowledge_index_result is not None
             and _has_governed_codecompass_binding(task)
             else None
         ),
-        publish_bound_knowledge_index_result=(
-            _publish_forwarded_bound_knowledge_index_result
+        publish_bound_knowledge_index_result=functools.partial(
+            _publish_forwarded_bound_knowledge_index_result,
+            index_jobs=deps.index_jobs,
         ),
     )
     if unsloth_completion_outbox_task_id is not None:
@@ -783,7 +808,7 @@ def persist_forwarded_execution(
             task_id=tid,
             response=response,
             request_data=request_data,
-            repositories=get_repository_registry(),
+            repositories=repositories(),
         )
     from agent.services.recovery_result_verification_service import (
         get_recovery_result_verification_service,
@@ -802,7 +827,7 @@ def persist_forwarded_execution(
     if not isinstance(verification_result, dict):
         raise RuntimeError("recovery_result_verification_missing")
 
-    latest = get_repository_registry().task_repo.get_by_id(tid)
+    latest = repositories().task_repo.get_by_id(tid)
     if latest is None:
         raise RuntimeError("recovery_result_task_missing")
     final_status = (
@@ -845,4 +870,4 @@ def persist_forwarded_execution(
     detached.status_reason_details = details
     if hasattr(detached, "updated_at"):
         detached.updated_at = time.time()
-    get_repository_registry().task_repo.save(detached)
+    repositories().task_repo.save(detached)

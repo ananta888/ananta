@@ -2,24 +2,21 @@
 
 Split out of ``_task_scoped_forwarding`` (SRP): recording the proposal a
 remote worker returned for a task-scoped propose step. ``_task_scoped_forwarding``
-re-exports ``persist_forwarded_proposal``; patchable collaborators are resolved
-through that facade at call time.
+re-exports ``persist_forwarded_proposal``. Core services come from the explicit
+``hub_state`` ports; when omitted they come from the documented
+``_task_scoped_forwarding_dependencies`` seam.
 """
 
 from __future__ import annotations
 
 import hashlib
 import time
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from agent.llm_integration import normalize_llm_call_profile_entry
 
-
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_forwarding`` entry point."""
-    import agent.services._task_scoped_forwarding as facade_module
-
-    return facade_module
+if TYPE_CHECKING:
+    from agent.services._task_scoped_forwarding_dependencies import HubStatePorts
 
 
 def persist_forwarded_proposal(
@@ -28,9 +25,17 @@ def persist_forwarded_proposal(
     request_payload: dict | None = None,
     *,
     allow_synthetic_llm_profile_fallback: Callable[[], bool],
+    hub_state: "HubStatePorts | None" = None,
 ) -> None:
     if not isinstance(response, dict):
         return
+    if hub_state is None:
+        from agent.services._task_scoped_forwarding_dependencies import (
+            current_task_scoped_forwarding_dependencies,
+        )
+
+        hub_state = current_task_scoped_forwarding_dependencies().hub_state
+    core_services = hub_state.core_services
     from agent.services.recovery_task_mutation_policy import (
         recovery_task_role,
     )
@@ -124,7 +129,7 @@ def persist_forwarded_proposal(
                 "llm_call_profile": meta_profile,
             }
     if cli_result is None:
-        snapshot = _facade().get_core_services().autopilot_decision_service.build_proposal_snapshot(response)
+        snapshot = core_services().autopilot_decision_service.build_proposal_snapshot(response)
         snapshot_cli = snapshot.get("cli_result") if isinstance(snapshot.get("cli_result"), dict) else None
         if isinstance(snapshot_cli, dict):
             cli_result = dict(snapshot_cli)
@@ -168,9 +173,9 @@ def persist_forwarded_proposal(
         }
     # the executable step as the autopilot decides it (wrapped `proposal`, structured raw output): the worker may
     # complete the task itself, then this record is the one that stays
-    executable = _facade().get_core_services().autopilot_decision_service.normalize_proposal_data(response)
+    executable = core_services().autopilot_decision_service.normalize_proposal_data(response)
     proposal_tool_calls = executable.get("tool_calls") if isinstance(executable.get("tool_calls"), list) else None
-    _facade().get_core_services().task_execution_service.persist_task_proposal_result(
+    core_services().task_execution_service.persist_task_proposal_result(
         tid=task["id"],
         task=task,
         reason=str(response.get("reason") or ""),

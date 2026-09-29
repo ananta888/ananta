@@ -4,27 +4,22 @@ Split out of ``_task_scoped_forwarding`` (SRP): classifying the public-v1 /
 governed-v2 knowledge-index job bindings of a forwarded task, detecting
 self-forwarding to the local runtime, authorizing the governed worker dispatch
 and deriving its execute deadline. ``_task_scoped_forwarding`` re-exports every
-name; patchable collaborators are resolved through that facade at call time.
+name. Collaborators are explicit keyword arguments (``authorize``,
+``index_job_service``); when omitted they come from the documented
+``_task_scoped_forwarding_dependencies`` seam.
 """
 
 from __future__ import annotations
 
 import ipaddress
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from flask import current_app
 
 from agent.common.errors import WorkerForwardingError
 from agent.services.worker_forward_transport import WorkerTransportDeadline
-
-
-def _facade():
-    """Resolve patchable collaborators through the public ``_task_scoped_forwarding`` entry point."""
-    import agent.services._task_scoped_forwarding as facade_module
-
-    return facade_module
 
 
 def _is_codecompass_index_task(task: Mapping[str, Any]) -> bool:
@@ -154,10 +149,18 @@ def _prepare_codecompass_worker_dispatch(
     registered_agent: Any,
     registered_worker_token: str,
     dispatch_phase: str,
+    authorize: Callable[..., None] | None = None,
 ) -> None:
     if not enabled:
         return
-    _facade()._authorize_codecompass_worker_dispatch(
+    if authorize is None:
+        from agent.services._task_scoped_forwarding_dependencies import (
+            current_task_scoped_forwarding_dependencies,
+        )
+
+        dependencies = current_task_scoped_forwarding_dependencies()
+        authorize = dependencies.codecompass.authorize_worker_dispatch
+    authorize(
         tid=tid,
         task=task,
         registered_agent=registered_agent,
@@ -245,7 +248,17 @@ def _authorize_codecompass_worker_dispatch(
     registered_agent: Any,
     registered_worker_token: str,
     dispatch_phase: str,
+    index_job_service: Callable[[], Any] | None = None,
 ) -> None:
+    if index_job_service is None:
+        from agent.services._task_scoped_forwarding_dependencies import (
+            current_task_scoped_forwarding_dependencies,
+        )
+
+        index_job_service = (
+            current_task_scoped_forwarding_dependencies()
+            .index_jobs.governed_index_job_service
+        )
     if registered_agent is None:
         raise _permanent_codecompass_forwarding_error(
             "assigned_worker_not_registered"
@@ -291,7 +304,7 @@ def _authorize_codecompass_worker_dispatch(
         )
     try:
         authorized_context = (
-            _facade()._governed_source_control_index_job_service()
+            index_job_service()
             .authorize_bound_worker_dispatch(
                 job_id=tid,
                 authenticated_worker_id=str(

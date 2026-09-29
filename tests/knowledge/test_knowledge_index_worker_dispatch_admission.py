@@ -51,6 +51,7 @@ from worker.retrieval.knowledge_index_execution_guard import (
 from worker.retrieval.knowledge_index_job_handler import (
     KnowledgeIndexWorkerTaskHandler,
 )
+from tests.task_scoped_forwarding_seam import forwarding_dependencies  # noqa: F401 - pytest fixture
 
 _SIGNING_KEY = SourceAccessSigningKey(
     "worker-dispatch-test",
@@ -353,6 +354,7 @@ def test_propose_marker_has_no_capability_and_does_not_claim() -> None:
 @pytest.mark.parametrize("phase", ["propose", "execute"])
 def test_hub_builds_bounded_marker_without_forwarding_full_job(
     monkeypatch,
+    forwarding_dependencies,
     phase,
 ) -> None:
     from agent.services import _task_scoped_forwarding as forwarding
@@ -367,10 +369,8 @@ def test_hub_builds_bounded_marker_without_forwarding_full_job(
             **({SOURCE_ACCESS_MANIFEST_FIELD: manifest} if phase == "execute" else {}),
         }
 
-    monkeypatch.setattr(
-        forwarding,
-        "_authorize_codecompass_worker_dispatch",
-        authorize,
+    forwarding_dependencies(
+        authorize_worker_dispatch=authorize,
     )
     payload = {"task_id": job["job_id"]}
 

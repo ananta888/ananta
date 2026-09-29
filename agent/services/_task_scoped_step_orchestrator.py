@@ -10,9 +10,10 @@ implementation is split by responsibility (SRP) into sibling modules:
 - ``_task_scoped_propose_step``: the propose step
 - ``_task_scoped_execute_step``: the execute step and recovery receipts
 
-Every name stays importable from here. ``_admit_task_scoped_dispatch`` and
-``_run_execute_step_admitted`` are patch seams: the step modules resolve them
-through this module at call time.
+Every name stays importable from here. Dispatch admission and the admitted
+execute runner are injected into the step functions as
+:class:`StepOrchestrationPorts` (keyword-only ``step_ports``), defaulting to
+the documented ``_task_scoped_forwarding_dependencies`` seam.
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ from agent.services._task_scoped_execute_step import (  # noqa: F401
     _publish_recovery_artifact_receipts,
     _run_execute_step_admitted,
     run_execute_step,
+)
+from agent.services._task_scoped_forwarding_dependencies import (  # noqa: F401 - public seam
+    StepOrchestrationPorts,
 )
 from agent.services._task_scoped_propose_step import (  # noqa: F401
     _run_propose_step_admitted,
