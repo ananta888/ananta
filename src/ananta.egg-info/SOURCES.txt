@@ -71,7 +71,7 @@ tests/cli/test_cli_goals.py
 tests/cli/test_cli_goals_shortcuts.py
 tests/cli/test_cli_terminal_output_security.py
 tests/test_client_surface_api_contracts.py
-tests/test_client_surface_common_runtime.py
+tests/client_surface/test_client_surface_common_runtime.py
 tests/test_client_surface_core_regressions.py
 tests/test_client_surface_documented_commands.py
 tests/test_client_surface_golden_path_smoke.py
@@ -79,7 +79,7 @@ tests/test_client_surface_merge_readiness_report.py
 tests/test_client_surface_post_test_cleanup_todo.py
 tests/test_client_surface_runtime_inventory_evidence.py
 tests/test_client_surface_security_contracts.py
-tests/test_client_surface_test_gate_runner.py
+tests/client_surface/test_client_surface_test_gate_runner.py
 tests/test_client_thinness.py
 tests/cli_backends/test_codex_cli_backend.py
 tests/test_common_errors.py
