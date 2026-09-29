@@ -178,7 +178,8 @@ Tasks sperrt). Der Hub nimmt Eingaben der Folgeschritte und das Endergebnis aus 
 ## Live-Messung (LCTX-010)
 
 `scripts/long_context_e2e.py` (im Hub-Container; setzt `context_strategy.mode = active` für den Lauf und
-danach zurück). Lauf `a72db680` vom 2026-09-28, eGPU-Standardmodell (Bonsai 2 27B, llama.cpp, 32k pro Anfrage),
+danach zurück). Für häufige Läufe gibt es `--smoke`: nur `ordered` mit ~1,5× des verfügbaren Budgets
+(2026-09-29: 25,8k Token, 3 + 1 Schritte, 4 Modellaufrufe, 0 Kürzungen, 7,5 min statt ~70 min für alle Fälle). Lauf `a72db680` vom 2026-09-28, eGPU-Standardmodell (Bonsai 2 27B, llama.cpp, 32k pro Anfrage),
 Autopilot-Stufe `safe`, reale Ananta-Doku und -Quellen:
 
 | Fall | Material | Entschieden | Ausgeführt | Schritte | Ergebnis | Dauer |

@@ -268,13 +268,25 @@ def run(hub: Hub, selected: list[str], scale: float, timeout_s: float, tick_s: f
     return report
 
 
+FULL_DEFAULTS = {"cases": "ordered,parts,compact,corpus", "scale": 1.0, "timeout": 3600.0}
+# 'ordered' is 2.5 x WINDOW_TOKENS x scale; the split works against the available budget (about half the
+# 32k window). 0.3 gives ~24k tokens, ~1.5x that budget: the smallest material that still has to be split.
+SMOKE_DEFAULTS = {"cases": "ordered", "scale": 0.3, "timeout": 1200.0}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--hub", default="http://localhost:5000")
     parser.add_argument("--token-file", type=Path, required=True)
-    parser.add_argument("--cases", default="ordered,parts,compact,corpus")
-    parser.add_argument("--scale", type=float, default=1.0, help="material size factor")
-    parser.add_argument("--timeout", type=float, default=3600)
+    parser.add_argument("--cases", default=None, help="default: ordered,parts,compact,corpus")
+    parser.add_argument("--scale", type=float, default=None, help="material size factor (default 1.0)")
+    parser.add_argument("--timeout", type=float, default=None, help="seconds (default 3600)")
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="quick end-to-end check of the split chain: only 'ordered' at ~1.5x the available budget (~2 steps "
+        "instead of ~10), 20 min timeout; explicit --cases/--scale/--timeout still win",
+    )
     parser.add_argument("--tick", type=float, default=20)
     parser.add_argument("--out", type=Path, default=ROOT / "data/decision-benchmarks/long-context-e2e.json")
     parser.add_argument("--context-profile", default=None,
@@ -283,6 +295,10 @@ def main(argv: list[str] | None = None) -> int:
                                                   "http://ai-agent-beta:5000",
                         help="Hub/worker base URLs whose context_truncation_total is summed")
     args = parser.parse_args(argv)
+    defaults = SMOKE_DEFAULTS if args.smoke else FULL_DEFAULTS
+    args.cases = args.cases if args.cases is not None else defaults["cases"]
+    args.scale = args.scale if args.scale is not None else defaults["scale"]
+    args.timeout = args.timeout if args.timeout is not None else defaults["timeout"]
     token = args.token_file.read_text(encoding="utf-8").strip()
     hub = Hub(args.hub, token)
     report = run(hub, [c.strip() for c in args.cases.split(",") if c.strip()], args.scale, args.timeout, args.tick,
