@@ -43,10 +43,10 @@ tests/audit/test_audit_sanitization.py
 tests/auth/test_auth_extra_coverage.py
 tests/test_auth_scenarios.py
 tests/auth/test_auth_test_endpoints.py
-tests/test_auto_planner.py
-tests/test_auto_planner_tdd_blueprint.py
-tests/test_auto_planner_template_compatibility.py
-tests/test_auto_planner_templates.py
+tests/planning/test_auto_planner.py
+tests/planning/test_auto_planner_tdd_blueprint.py
+tests/planning/test_auto_planner_template_compatibility.py
+tests/planning/test_auto_planner_templates.py
 tests/test_autonomous_flow_e2e.py
 tests/test_autonomous_scrum_e2e.py
 tests/test_autopilot_integration.py

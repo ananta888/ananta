@@ -71,7 +71,7 @@
     "tests/test_model_response_behavior_aggregation_service.py",
     "tests/planning/test_planning_prompt_registry.py",
     "tests/planning/test_planning_strategies.py",
-    "tests/test_auto_planner.py",
+    "tests/planning/test_auto_planner.py",
     "tests/test_goal_planning_contract_integration.py",
     "tests/planning/test_planning_review_queue_service.py"
   ],
