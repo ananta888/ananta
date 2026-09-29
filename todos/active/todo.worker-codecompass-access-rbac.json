@@ -128,7 +128,7 @@
         "test.run fuehrt einen allowlisteten Befehl im Tool-Loop aus; nicht allowlistete bleiben policy_blocked."
       ],
       "evidence": [
-        "cc01ca4c5: get_tool_loop_config reicht allowlisted_test_commands/test_timeout_seconds/test_output_max_chars aus ananta_worker_workspace_mutation durch; tests/test_tool_loop_test_run_allowlist.py"
+        "cc01ca4c5: get_tool_loop_config reicht allowlisted_test_commands/test_timeout_seconds/test_output_max_chars aus ananta_worker_workspace_mutation durch; tests/tool/test_tool_loop_test_run_allowlist.py"
       ]
     },
     {

@@ -30,7 +30,7 @@ jobs:
           pytest -q
           tests/test_security_boundary_attacks.py
           tests/test_no_policy_bypass.py
-          tests/test_tool_guardrails.py
+          tests/tool/test_tool_guardrails.py
           tests/shell/test_shell_security.py
 
   authz-matrix-tests:

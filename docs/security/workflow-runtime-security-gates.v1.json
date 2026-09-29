@@ -107,7 +107,7 @@
       "tests": [
         "tests/workflow/test_workflow_retrieval_contract.py::test_unknown_source_id_is_rejected_not_rewritten",
         "tests/workflow/test_workflow_retrieval_contract.py::test_missing_source_id_is_rejected_not_synthesized_from_path",
-        "tests/test_tool_calling_pipeline.py::test_unregistered_tool_is_never_reported_as_invoked"
+        "tests/tool/test_tool_calling_pipeline.py::test_unregistered_tool_is_never_reported_as_invoked"
       ]
     },
     {
@@ -135,8 +135,8 @@
         "Record completion only after the ledger and artifact evidence agree."
       ],
       "tests": [
-        "tests/test_tool_calling_pipeline.py::test_policy_denial_stops_before_ledger_and_invoker",
-        "tests/test_tool_calling_pipeline.py::test_side_effect_is_claimed_with_fencing_and_completed",
+        "tests/tool/test_tool_calling_pipeline.py::test_policy_denial_stops_before_ledger_and_invoker",
+        "tests/tool/test_tool_calling_pipeline.py::test_side_effect_is_claimed_with_fencing_and_completed",
         "tests/test_workflow_runtime_side_effect_ledger.py::test_stale_owner_cannot_finish_and_uncertain_operation_is_not_retried"
       ]
     },

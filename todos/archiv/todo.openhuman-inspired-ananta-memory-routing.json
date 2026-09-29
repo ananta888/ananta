@@ -144,7 +144,7 @@
     "config/tool_output_compaction_rules/builtin.json",
     "docs/openhuman-inspired-memory-routing.md",
     "tests/test_memory_tree_store_service.py",
-    "tests/test_tool_output_compaction_service.py",
+    "tests/tool/test_tool_output_compaction_service.py",
     "tests/test_hint_routing_service.py",
     "tests/test_memory_tree_context_policy.py"
   ],
@@ -737,7 +737,7 @@
       "type": "test",
       "files": [
         "tests/test_memory_tree_store_service.py",
-        "tests/test_tool_output_compaction_service.py",
+        "tests/tool/test_tool_output_compaction_service.py",
         "tests/test_hint_routing_service.py",
         "tests/test_memory_tree_context_policy.py"
       ],

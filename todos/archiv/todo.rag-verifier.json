@@ -257,7 +257,7 @@
       "priority": "high",
       "files_to_create": [
         "agent/services/tool_run_catalog_service.py",
-        "tests/test_tool_run_catalog_service.py"
+        "tests/tool/test_tool_run_catalog_service.py"
       ],
       "files_to_update": [
         "agent/services/task_scoped_execution_service.py"

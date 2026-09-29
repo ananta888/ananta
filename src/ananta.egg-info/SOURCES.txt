@@ -277,9 +277,9 @@ tests/test_todo_security.py
 tests/test_todo_tasks.py
 tests/test_token_persistence.py
 tests/test_token_rotation_logic.py
-tests/test_tool_capabilities_contract.py
-tests/test_tool_guardrails.py
-tests/test_tool_routing_service.py
+tests/tool/test_tool_capabilities_contract.py
+tests/tool/test_tool_guardrails.py
+tests/tool/test_tool_routing_service.py
 tests/test_transition_trace_consistency.py
 tests/test_trigger_security.py
 tests/test_triggers_e2e.py

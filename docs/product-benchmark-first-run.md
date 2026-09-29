@@ -20,7 +20,7 @@ This run is intentionally scoped as contract and catalog validation. It does not
 
 ```bash
 python3 -m py_compile agent/backend_provider_contracts.py agent/integration_guidelines.py agent/product_benchmark_suite.py
-timeout 240s .venv/bin/pytest tests/test_backend_provider_contracts.py tests/test_integration_guidelines.py tests/test_product_benchmark_suite.py tests/test_tool_capabilities_contract.py tests/worker/test_worker_capability_profiles.py -vv
+timeout 240s .venv/bin/pytest tests/test_backend_provider_contracts.py tests/test_integration_guidelines.py tests/test_product_benchmark_suite.py tests/tool/test_tool_capabilities_contract.py tests/worker/test_worker_capability_profiles.py -vv
 ```
 
 ## Result

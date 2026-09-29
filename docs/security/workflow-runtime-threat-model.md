@@ -285,7 +285,7 @@ The mandatory suite is rooted in:
 - [`tests/workflow/test_workflow_runtime_commands_components.py`](../../tests/test_workflow_runtime_commands_components.py)
 - [`tests/test_workflow_runtime_side_effect_ledger.py`](../../tests/test_workflow_runtime_side_effect_ledger.py)
 - [`tests/workflow/test_workflow_runtime_event_and_checkpoint_stores.py`](../../tests/test_workflow_runtime_event_and_checkpoint_stores.py)
-- [`tests/test_tool_calling_pipeline.py`](../../tests/test_tool_calling_pipeline.py)
+- [`tests/tool/test_tool_calling_pipeline.py`](../../tests/test_tool_calling_pipeline.py)
 - [`tests/test_temporal_history_projection.py`](../../tests/test_temporal_history_projection.py)
 - [`tests/test_temporal_runtime_contracts.py`](../../tests/test_temporal_runtime_contracts.py)
 

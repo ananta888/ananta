@@ -369,7 +369,7 @@
       "target_files": [
         "agent/services/model_invocation_service.py",
         "agent/services/local_runtime_capability_normalizer.py",
-        "tests/test_tool_calling_pipeline.py",
+        "tests/tool/test_tool_calling_pipeline.py",
         "tests/services/test_ornith_reasoning_parser.py"
       ],
       "implementation": [
