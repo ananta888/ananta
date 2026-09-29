@@ -407,7 +407,7 @@
         "agent/services/user_token_scope.py",
         "agent/ws_terminal.py",
         "tests/test_agent_token_file_auth.py",
-        "tests/test_chat_process_binding.py",
+        "tests/chat/test_chat_process_binding.py",
         "tests/test_oidc_identity_link_routes.py",
         "tests/test_oidc_identity_link_service.py",
         "tests/test_oidc_identity_provisioning_repository.py",

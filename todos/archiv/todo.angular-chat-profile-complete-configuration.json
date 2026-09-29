@@ -31,7 +31,7 @@
       "frontend-angular/src/app/services/ai-snake-config.service.ts",
       "frontend-angular/src/app/components/chat-sessions-panel.component.ts",
       "frontend-angular/src/app/components/ai-snake-config-panel.component.ts",
-      "tests/test_chat_profiles_api.py",
+      "tests/chat/test_chat_profiles_api.py",
       "todos/todo.track.schema.json",
       "todos/archiv/todo.chat-organization-profiles-types-reorganization-history.json"
     ]

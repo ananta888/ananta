@@ -478,7 +478,7 @@ def test_reference_probes_are_bound_to_release_verification_commands() -> None:
         "tests/test_user_session_tokens.py",
         "tests/test_user_token_scope.py",
         "tests/test_auth_scenarios.py",
-        "tests/test_chat_process_binding.py",
+        "tests/chat/test_chat_process_binding.py",
         "tests/test_oidc_identity_link_routes.py",
         "tests/test_oidc_identity_link_service.py",
         "tests/test_oidc_identity_provisioning_repository.py",
