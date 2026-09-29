@@ -12,9 +12,9 @@ from tests.meet.meet_private_browser_container import run_private_browser_probe
 def test_actual_script_disabled_chromium_snapshot_bounds_and_secret_exclusion():
     result = run_private_browser_probe(
         os.environ.get("MEET_TEST_BROWSER_IMAGE", ""),
-        "tests.browser_public_snapshot_scenario",
+        "tests.browser.browser_public_snapshot_scenario",
         (
-            "tests/browser_public_snapshot_scenario.py",
+            "tests/browser/browser_public_snapshot_scenario.py",
             "ananta_contracts/browser_public_view.py",
             "worker/meet_media/browser_public_snapshot.py",
         ),
@@ -34,9 +34,9 @@ def test_actual_script_disabled_chromium_snapshot_bounds_and_secret_exclusion():
 def test_actual_continuous_sanitized_renderer_omits_source_pixels_and_fences_pending_frames(record_property):
     result = run_private_browser_probe(
         os.environ.get("MEET_TEST_BROWSER_IMAGE", ""),
-        "tests.browser_public_renderer_scenario",
+        "tests.browser.browser_public_renderer_scenario",
         (
-            "tests/browser_public_renderer_scenario.py",
+            "tests/browser/browser_public_renderer_scenario.py",
             "ananta_contracts/browser_public_view.py",
             "ananta_contracts/browser_view_generation.py",
             "worker/meet_media/browser_public_snapshot.py",
@@ -56,9 +56,9 @@ def test_actual_continuous_sanitized_renderer_omits_source_pixels_and_fences_pen
 def test_actual_script_disabled_workspace_never_exposes_raw_page_and_fences_every_source_change(record_property):
     result = run_private_browser_probe(
         os.environ.get("MEET_TEST_BROWSER_IMAGE", ""),
-        "tests.browser_public_workspace_scenario",
+        "tests.browser.browser_public_workspace_scenario",
         (
-            "tests/browser_public_workspace_scenario.py",
+            "tests/browser/browser_public_workspace_scenario.py",
             "ananta_contracts/browser_public_view.py",
             "ananta_contracts/browser_view_generation.py",
             "ananta_contracts/browser_public_fetch.py",

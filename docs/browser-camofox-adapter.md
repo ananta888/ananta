@@ -106,19 +106,19 @@ docker compose up camofox
 ### Unit-Tests (kein Server nötig)
 
 ```bash
-pytest tests/test_browser_camofox_adapter.py -v
+pytest tests/browser/test_browser_camofox_adapter.py -v
 ```
 
 ### Policy-Tests
 
 ```bash
-pytest tests/test_browser_policy_service.py tests/test_browser_task_contract.py -v
+pytest tests/browser/test_browser_policy_service.py tests/browser/test_browser_task_contract.py -v
 ```
 
 ### Integrationstests (Server nötig)
 
 ```bash
-CAMOFOX_TEST_URL=http://localhost:9377 pytest tests/test_browser_camofox_integration.py -v
+CAMOFOX_TEST_URL=http://localhost:9377 pytest tests/browser/test_browser_camofox_integration.py -v
 ```
 
 ## Adapter-API

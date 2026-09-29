@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.test_browser_execution_lease import binding_fixture
+from tests.browser.test_browser_execution_lease import binding_fixture
 from worker.meet_media.dialog_browser_screen import DialogBrowserScreen
 
 

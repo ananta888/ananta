@@ -1,7 +1,7 @@
 """Optionale Integrationstests fuer BrowserCamofoxAdapter (task.008).
 
 Werden nur ausgefuehrt wenn CAMOFOX_TEST_URL gesetzt ist, z.B.:
-    CAMOFOX_TEST_URL=http://localhost:9377 pytest tests/test_browser_camofox_integration.py -v
+    CAMOFOX_TEST_URL=http://localhost:9377 pytest tests/browser/test_browser_camofox_integration.py -v
 """
 from __future__ import annotations
 

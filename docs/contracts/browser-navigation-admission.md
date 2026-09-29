@@ -44,7 +44,7 @@ target parsing rather than introducing another parser into that method. A real
 continuous browser adapter needs an injected request/egress enforcement port;
 the synthetic action runner is not a security boundary or live capability.
 
-Headless negatives in `tests/test_browser_navigation_target.py` prove rejection
+Headless negatives in `tests/browser/test_browser_navigation_target.py` prove rejection
 before HTTP/action execution and content-free navigation audit events. They
 use only deterministic in-memory targets; no private service is contacted.
 

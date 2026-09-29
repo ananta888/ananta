@@ -8,7 +8,7 @@ import pytest
 
 from ananta_contracts.browser_public_view import blocked_view
 from ananta_contracts.browser_view_generation import BrowserViewGeneration
-from tests.test_browser_public_view import ready
+from tests.browser.test_browser_public_view import ready
 from worker.meet_media.browser_public_renderer import SanitizedDocumentView
 
 

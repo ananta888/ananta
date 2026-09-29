@@ -11,14 +11,14 @@
       "agent/services/browser_policy_service.py",
       "agent/services/browser_intent_mapper.py",
       "agent/research_backend.py",
-      "tests/test_browser_use_adapter.py",
-      "tests/test_browser_backend_adapter_selection.py",
-      "tests/test_browser_task_contract.py",
-      "tests/test_browser_policy_service.py"
+      "tests/browser/test_browser_use_adapter.py",
+      "tests/browser/test_browser_backend_adapter_selection.py",
+      "tests/browser/test_browser_task_contract.py",
+      "tests/browser/test_browser_policy_service.py"
     ],
     "target_new_files": [
       "agent/services/browser_camofox_adapter.py",
-      "tests/test_browser_camofox_adapter.py",
+      "tests/browser/test_browser_camofox_adapter.py",
       "docs/browser-camofox-adapter.md"
     ]
   },
@@ -156,7 +156,7 @@
       "priority": "high",
       "files": [
         "agent/research_backend.py",
-        "tests/test_browser_backend_adapter_selection.py"
+        "tests/browser/test_browser_backend_adapter_selection.py"
       ],
       "acceptance_criteria": [
         "backend=camofox erzeugt BrowserCamofoxAdapter.",
@@ -193,7 +193,7 @@
       "type": "test",
       "priority": "high",
       "files": [
-        "tests/test_browser_camofox_adapter.py"
+        "tests/browser/test_browser_camofox_adapter.py"
       ],
       "test_cases": [
         "health_check_success",
@@ -218,7 +218,7 @@
       "type": "test",
       "priority": "medium",
       "files": [
-        "tests/test_browser_camofox_integration.py"
+        "tests/browser/test_browser_camofox_integration.py"
       ],
       "description": "Diese Tests laufen nur, wenn CAMOFOX_TEST_URL gesetzt ist.",
       "environment": {

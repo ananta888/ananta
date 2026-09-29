@@ -113,7 +113,7 @@ def test_actual_child_rejects_private_target_without_network():
         input_payload=json.dumps({**REQUEST, "url": "http://127.0.0.1"}).encode(),
         max_stdout_bytes=4096,
         timeout_seconds=3,
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[2],
     )
     assert result.returncode == 1
     assert json.loads(result.stdout) == {"error": "browser_public_fetch_failed"}
