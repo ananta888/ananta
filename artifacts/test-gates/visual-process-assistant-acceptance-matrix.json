@@ -6,7 +6,7 @@
   "reason_codes": [],
   "release_allowed": true,
   "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
-  "source_revision": "worktree-sha256:b6224af2a81a434e8d23bbdc9886e6ce4195dd4cfd37400c0caa42b52903e8a0",
+  "source_revision": "worktree-sha256:31143f912009e85ac05010674a89c12d84dc3ae52dd63fbf1b74801997a5254e",
   "status": "passed",
   "tasks": [
     {
