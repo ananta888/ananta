@@ -174,7 +174,7 @@
       "priority": "high",
       "type": "test",
       "files": [
-        "tests/test_cli_banner.py",
+        "tests/cli/test_cli_banner.py",
         "agent/cli/banner.py"
       ],
       "summary": "Tests should verify behavior, not visual beauty.",

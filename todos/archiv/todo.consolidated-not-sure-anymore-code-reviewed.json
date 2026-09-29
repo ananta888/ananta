@@ -21,7 +21,7 @@
     },
     {
       "finding": "PromptTrace API/CLI Tests existieren bereits; API/CLI wird als partial/verifizieren statt neu bauen markiert.",
-      "evidence": "tests/test_prompt_trace_api.py, tests/test_cli_prompt_inspect.py"
+      "evidence": "tests/test_prompt_trace_api.py, tests/cli/test_cli_prompt_inspect.py"
     },
     {
       "finding": "PlanningContract/PlanValidationResult wurden im Code nicht gefunden; diese Tasks bleiben offen und kritisch.",
@@ -730,7 +730,7 @@
       "summary": "API- und CLI-Tests existieren bereits. Die konsolidierte TODO soll nur noch Lücken prüfen, nicht alles neu bauen.",
       "files": [
         "tests/test_prompt_trace_api.py",
-        "tests/test_cli_prompt_inspect.py",
+        "tests/cli/test_cli_prompt_inspect.py",
         "agent/routes/debug/prompt_traces.py",
         "agent/cli/main.py"
       ],

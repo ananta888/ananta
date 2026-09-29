@@ -204,7 +204,7 @@
       "root_cause": "Funktionen wurden aus prompt_inspect.py entfernt oder umbenannt. Tests in test_cli_prompt_inspect.py importieren diese direkt.",
       "target_files": [
         "agent/cli/prompt_inspect.py",
-        "tests/test_cli_prompt_inspect.py"
+        "tests/cli/test_cli_prompt_inspect.py"
       ],
       "acceptance_criteria": [
         "Entweder: Funktionen sind wieder in prompt_inspect.py vorhanden.",

@@ -313,7 +313,7 @@
             "agent/routes/config/read_models.py",
             "agent/routes/config/shared.py",
             "agent/cli/prompt_inspect.py",
-            "tests/test_cli_prompt_inspect.py"
+            "tests/cli/test_cli_prompt_inspect.py"
           ],
           "description": "Erweitere die Readmodel- und CLI-Ansichten so, dass Status, bevorzugte Output-Form, Lernzustand, Canary-Fenster und letzte Modellbeobachtungen auf einen Blick sichtbar sind.",
           "implementation_notes": [

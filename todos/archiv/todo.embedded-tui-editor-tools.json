@@ -539,13 +539,13 @@
         "agent/cli/commands/tui_editor.py",
         "agent/cli/commands/tmux.py",
         "agent/cli/main.py",
-        "tests/test_cli_tui_tool_commands.py"
+        "tests/cli/test_cli_tui_tool_commands.py"
       ],
       "implemented": {
         "agent/cli/commands/tui_editor.py": "dispatch() with mutually-exclusive --open/--tool argparse group. _open_file() validates workspace, resolves editor, builds argv via EditorResolver. _launch_tool() looks up registry profile, substitutes {workspace}. _default_exec() uses os.execvp(). _exec_fn injectable for testing.",
         "agent/cli/commands/tmux.py": "ananta tmux with edit/tool subcommands. Reuses _open_file() and _launch_tool() from tui_editor. _default_exec() identical pattern. Separate dispatch() entry point.",
         "agent/cli/main.py": "Added 'tmux' to CORE_COMMANDS, _run_tmux() function, dispatch to tmux.dispatch. Modified _run_tui() to intercept --open/--tool before routing to operator TUI.",
-        "tests/test_cli_tui_tool_commands.py": "22 tests: tui --open default/nvim/readonly, workspace rejection, path traversal, relative path, --tool known/unknown, mutual exclusion, tmux edit/tool, main.py integration tests for both commands."
+        "tests/cli/test_cli_tui_tool_commands.py": "22 tests: tui --open default/nvim/readonly, workspace rejection, path traversal, relative path, --tool known/unknown, mutual exclusion, tmux edit/tool, main.py integration tests for both commands."
       },
       "deviations": [
         "agent/cli_goals.py not modified — CLI commands placed in agent/cli/commands/tui_editor.py and agent/cli/commands/tmux.py following existing domain-command pattern.",

@@ -42,7 +42,7 @@
       "title": "Welle 1: Vertrag & Skelett (SGDEC-T01 + T02)",
       "status": "done",
       "evidence": [
-        "agent/cli_backends package and CliBackendContext exist; final public API verified by tests/test_cli_backend_namespace_skeleton.py and tests/test_cli_backend_public_api.py.",
+        "agent/cli_backends package and CliBackendContext exist; final public API verified by tests/cli/test_cli_backend_namespace_skeleton.py and tests/test_cli_backend_public_api.py.",
         "Legacy shim phase is superseded by final state: agent/common/sgpt_*.py no longer exists."
       ],
       "depends_on": []
@@ -84,13 +84,13 @@
         "agent/cli_backends/__init__.py existiert mit __all__ Liste",
         "agent/cli_backends/context.py existiert mit CliBackendContext Klasse",
         "agent/common/sgpt_*.py sind im finalen Zustand gelöscht; agent.cli_backends.* ist Source-of-Truth",
-        "tests/test_cli_backend_namespace_skeleton.py existiert und ist grün",
-        "tests/test_cli_backend_public_api.py verifiziert die finale Public API"
+        "tests/cli/test_cli_backend_namespace_skeleton.py existiert und ist grün",
+        "tests/cli/test_cli_backend_public_api.py verifiziert die finale Public API"
       ],
       "evidence": [
         "agent/cli_backends/__init__.py exposes the backend package surface.",
         "agent/cli_backends/context.py provides CliBackendContext with lazy, overrideable service handles.",
-        "tests/test_cli_backend_namespace_skeleton.py passed in the SGDEC verification run."
+        "tests/cli/test_cli_backend_namespace_skeleton.py passed in the SGDEC verification run."
       ],
       "result": "Done. Namespace skeleton exists; shim-based intermediate state was superseded by final source-of-truth migration."
     },
@@ -103,14 +103,14 @@
       "scope": "cli_backends",
       "acceptance_criteria": [
         "Keine Re-Export-Shims in agent/common/sgpt_*.py verbleiben",
-        "tests/test_cli_backend_public_api.py existiert und ist grün",
+        "tests/cli/test_cli_backend_public_api.py existiert und ist grün",
         "pyproject.toml hat keine filterwarnings-Suppression für agent.common.sgpt",
         "Modul-Docstring-Eintrag in agent/common/audit.py + error_handler.py + signals.py dokumentiert die Cross-Cutting-Entscheidung"
       ],
       "evidence": [
         "Final state has no agent/common/sgpt_*.py shims, so no DeprecationWarning suppression is required.",
         "pyproject.toml filterwarnings contains no agent.common.sgpt suppression.",
-        "tests/test_cli_backend_public_api.py replaces the old shim-deprecation test with final public API coverage."
+        "tests/cli/test_cli_backend_public_api.py replaces the old shim-deprecation test with final public API coverage."
       ],
       "result": "Done. Deprecation shim phase is superseded; final namespace-removal contract is tested instead."
     },
@@ -125,13 +125,13 @@
         "agent/cli_backends/tool_loop.py (486 LOC), opencode.py (648 LOC), architecture_scan.py (803 LOC) sind Source-of-Truth",
         "Service-Importer durch context.get_*_service ersetzt (kein direkter agent.services.* Import in cli_backends/*.py)",
         "agent/common/sgpt_tool_loop.py + sgpt_opencode.py + sgpt_architecture_scan.py sind gelöscht",
-        "tests/test_cli_backend_solid_layout.py ist grün (statische Analyse: keine agent.services.* Imports in cli_backends/*.py)",
+        "tests/cli/test_cli_backend_solid_layout.py ist grün (statische Analyse: keine agent.services.* Imports in cli_backends/*.py)",
         "SGDEC-Verifikationssuite grün"
       ],
       "evidence": [
         "agent/cli_backends/tool_loop.py, opencode.py and architecture_scan.py are source-of-truth modules.",
         "rg -n \"from agent\\.services|import agent\\.services\" agent/cli_backends returned no matches outside context.py dynamic service boundary.",
-        "tests/test_cli_backend_solid_layout.py passed and now rejects direct agent.services imports without helper whitelists."
+        "tests/cli/test_cli_backend_solid_layout.py passed and now rejects direct agent.services imports without helper whitelists."
       ],
       "result": "Done. Direct service coupling is behind CliBackendContext; DIP is enforced by test coverage."
     },
@@ -149,14 +149,14 @@
         "agent/cli_backends/workspace_mutation/tools.py existiert (~190 LOC, Tool-Execution-Hooks + Evidence-Append)",
         "agent/cli_backends/workspace_mutation.py ist ~30 LOC Re-Export-Public-API",
         "Jedes Sub-Modul hat SRP-konforme Verantwortung (kein Modul >300 LOC)",
-        "tests/test_cli_backends_workspace_mutation_split.py ist grün"
+        "tests/cli/test_cli_backends_workspace_mutation_split.py ist grün"
       ],
       "evidence": [
         "agent/cli_backends/workspace_mutation/signatures.py exists for signature helpers.",
         "agent/cli_backends/workspace_mutation/prompts.py exists for parsing and prompt construction.",
         "agent/cli_backends/workspace_mutation/loop.py exists for public config/run entry points.",
         "agent/cli_backends/workspace_mutation/tools.py exists for tool/evidence/source-line-policy adapters.",
-        "tests/test_cli_backends_workspace_mutation_split.py passed."
+        "tests/cli/test_cli_backends_workspace_mutation_split.py passed."
       ],
       "result": "Done. Workspace-mutation package has the requested split while keeping the hub-owned orchestration loop bounded and isolated."
     },
@@ -170,11 +170,11 @@
       "acceptance_criteria": [
         "agent/common/sgpt_workspace_mutation.py ist gelöscht",
         "agent.cli_backends.workspace_mutation bleibt stabile Public API",
-        "tests/test_cli_backend_public_api.py verifiziert workspace_mutation-Symbole ohne Shim"
+        "tests/cli/test_cli_backend_public_api.py verifiziert workspace_mutation-Symbole ohne Shim"
       ],
       "evidence": [
         "Legacy agent/common/sgpt_workspace_mutation.py is removed; final import surface is agent.cli_backends.workspace_mutation.",
-        "tests/test_cli_backend_public_api.py validates workspace_mutation public symbols.",
+        "tests/cli/test_cli_backend_public_api.py validates workspace_mutation public symbols.",
         "No legacy agent.common.sgpt_* imports are reported by the detector."
       ],
       "result": "Done. Shim compatibility phase is superseded by final namespace migration."
@@ -196,7 +196,7 @@
       "evidence": [
         "scripts/check_cli_backend_shim_imports.py exists and runs successfully.",
         "Detector supports human output and --json mode.",
-        "tests/test_cli_backend_detector_script.py passed."
+        "tests/cli/test_cli_backend_detector_script.py passed."
       ],
       "result": "Done. Detector is active and returns exit 0 for the current tree."
     },
@@ -217,7 +217,7 @@
       "evidence": [
         "python scripts/check_cli_backend_shim_imports.py reports no legacy agent.common.sgpt_* imports.",
         "Production and dedicated SGDEC tests import from agent.cli_backends final namespace.",
-        "tests/test_cli_backend_public_api.py verifies the removed legacy modules cannot be imported."
+        "tests/cli/test_cli_backend_public_api.py verifies the removed legacy modules cannot be imported."
       ],
       "result": "Done. Importer migration is complete for the detector-enforced legacy namespace."
     },
@@ -243,7 +243,7 @@
         "python scripts/check_cli_backend_shim_imports.py: OK: no legacy 'agent.common.sgpt_' imports found.",
         "agent/common/sgpt_*.py files are deleted; rg --files agent/common | rg \"/sgpt_|sgpt_\" returned no matches.",
         "pyproject.toml has no agent.common.sgpt DeprecationWarning filter.",
-        "tests/test_cli_backend_shim_deprecation.py is deleted; tests/test_cli_backend_public_api.py covers the final public API and removed legacy namespace.",
+        "tests/test_cli_backend_shim_deprecation.py is deleted; tests/cli/test_cli_backend_public_api.py covers the final public API and removed legacy namespace.",
         "docs/cli-backends-architecture.md, AGENTS.md, CONTRIBUTING.md and agent/cli_backends/__init__.py describe agent.cli_backends as source-of-truth.",
         "SGDEC verification suite passed: 34 passed."
       ],

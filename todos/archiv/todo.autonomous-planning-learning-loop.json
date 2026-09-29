@@ -402,7 +402,7 @@
             "agent/routes/debug/diagnostics.py",
             "agent/cli/main.py",
             "agent/cli/prompt_inspect.py",
-            "tests/test_cli_prompt_inspect.py",
+            "tests/cli/test_cli_prompt_inspect.py",
             "tests/test_diagnostics_api.py"
           ],
           "description": "Erweitere Diagnostics und CLI um Metriken, aktuelle Prompt-Versionen, Kandidatenstatus, Freeze, Rollback-Zustand und Modellfamilien-Profile.",

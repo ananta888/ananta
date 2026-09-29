@@ -186,7 +186,7 @@
       "status": "done",
       "title": "Add CLI flow for OIDC-backed SSH login",
       "summary": "Add commands that perform OIDC login, store short-lived SSH certificate material safely, and print or execute the ssh command.",
-      "files": ["agent/cli/commands/ssh.py", "docs/cli/commands.md", "tests/test_cli_ssh_terminal_commands.py"],
+      "files": ["agent/cli/commands/ssh.py", "docs/cli/commands.md", "tests/cli/test_cli_ssh_terminal_commands.py"],
       "acceptance_criteria": [
         "ananta ssh login starts OIDC Authorization Code Flow with PKCE or calls the configured backend helper.",
         "ananta ssh targets lists only targets allowed by TerminalPolicyService.",

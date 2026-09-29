@@ -186,7 +186,7 @@ agent/cli_backends/
 - **D5:** `audit.py` / `error_handler.py` / `signals.py` bleiben in `agent.common` (separate Architektur-Diskussion im eigenen Track)
 
 ### Welle 1: Vertrag & Skelett (parallelisierbar)
-- **SGDEC-T01:** `agent/cli_backends/__init__.py` + `context.py` + Shim-Skelett (`agent/common/sgpt_*.py` → Re-Export). RED: `tests/test_cli_backend_namespace_skeleton.py` (Import-Test). GREEN: Skelett-Dateien anlegen, Re-Exports funktionieren, alle bestehenden Tests grün.
+- **SGDEC-T01:** `agent/cli_backends/__init__.py` + `context.py` + Shim-Skelett (`agent/common/sgpt_*.py` → Re-Export). RED: `tests/cli/test_cli_backend_namespace_skeleton.py` (Import-Test). GREEN: Skelett-Dateien anlegen, Re-Exports funktionieren, alle bestehenden Tests grün.
 - **SGDEC-T02:** `agent/common/sgpt_*.py` werden zu Re-Export-Shims mit `DeprecationWarning` beim ersten Import. RED: `tests/test_cli_backend_shim_deprecation.py` (Warning wird emittiert). GREEN: `warnings.warn(..., DeprecationWarning, stacklevel=2)` in jeden Top-Level-Import. **Wichtig:** Tests dürfen NICHT brechen — die Warning-Suppression in bestehenden Tests erfolgt über `pytest.ini` Filter (`filterwarnings = ignore::DeprecationWarning:agent.common.sgpt`).
 
 **Verifikations-Gate:** `pytest tests/test_sgpt_*.py tests/test_no_sgpt_in_propose_path.py` — alle grün, keine Verhaltens-Änderung.
@@ -255,11 +255,11 @@ agent/cli_backends/
 - [ ] `tests/test_sgpt_route.py:11-15` Mutable-Structures (z.B. `user_requests.clear()`) funktionieren weiterhin.
 
 **Neue Tests:**
-- [ ] `tests/test_cli_backend_namespace_skeleton.py` — Import-Test des neuen Namespace.
+- [ ] `tests/cli/test_cli_backend_namespace_skeleton.py` — Import-Test des neuen Namespace.
 - [ ] `tests/test_cli_backend_shim_deprecation.py` — `DeprecationWarning` wird emittiert.
-- [ ] `tests/test_cli_backend_context_injection.py` — `CliBackendContext` Override funktioniert (DI-Test).
-- [ ] `tests/test_cli_backend_solid_layout.py` — Erzwingt dass keine `agent.services.*` Imports in `agent/cli_backends/*.py` auftauchen (statische Analyse).
-- [ ] `tests/test_cli_backends_workspace_mutation_split.py` — 4-Split-Tests für die Sub-Module.
+- [ ] `tests/cli/test_cli_backend_context_injection.py` — `CliBackendContext` Override funktioniert (DI-Test).
+- [ ] `tests/cli/test_cli_backend_solid_layout.py` — Erzwingt dass keine `agent.services.*` Imports in `agent/cli_backends/*.py` auftauchen (statische Analyse).
+- [ ] `tests/cli/test_cli_backends_workspace_mutation_split.py` — 4-Split-Tests für die Sub-Module.
 - [ ] `tests/test_check_cli_backend_shim_imports.py` — Detektor-Skript selbst ist getestet (False-Positive-Free).
 
 **Dokumentation:**

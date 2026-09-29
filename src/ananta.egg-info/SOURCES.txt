@@ -65,11 +65,11 @@ tests/test_bootstrap_docs.py
 tests/test_bridge_adapter_registry.py
 tests/test_capability_registry.py
 tests/test_check_pipeline.py
-tests/test_cli_backward_compatibility.py
+tests/cli/test_cli_backward_compatibility.py
 tests/test_cli_docs_contract.py
-tests/test_cli_goals.py
-tests/test_cli_goals_shortcuts.py
-tests/test_cli_terminal_output_security.py
+tests/cli/test_cli_goals.py
+tests/cli/test_cli_goals_shortcuts.py
+tests/cli/test_cli_terminal_output_security.py
 tests/test_client_surface_api_contracts.py
 tests/test_client_surface_common_runtime.py
 tests/test_client_surface_core_regressions.py

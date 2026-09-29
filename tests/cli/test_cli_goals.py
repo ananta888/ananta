@@ -367,7 +367,7 @@ def test_sources_query_command_prints_source_refs(monkeypatch, capsys, tmp_path)
 
 
 def test_plan_summary_doctor_and_fix_commands(capsys, tmp_path):
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     target = tmp_path / "todo.plan.json"
     target.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
     payload = json.loads(target.read_text(encoding="utf-8"))
@@ -394,7 +394,7 @@ def test_plan_summary_migrate_ignores_archive_and_kritis(capsys, tmp_path):
     todos = tmp_path / "todos"
     (todos / "archive").mkdir(parents=True)
     (todos / "kritis").mkdir(parents=True)
-    fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "planning_tracks" / "small_track.json"
     (todos / "todo.track.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
     (todos / "archive" / "todo.archived.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
     (todos / "kritis" / "todo.kritis.json").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")

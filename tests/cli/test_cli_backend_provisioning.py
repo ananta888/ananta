@@ -6,7 +6,7 @@ import pytest
 
 from agent.cli_backends.provisioning import CliBackendProvisioner
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_provisioner_installs_only_pinned_catalog_package(tmp_path, monkeypatch):

@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 DETECTOR_PATH = _REPO_ROOT / "scripts" / "check_cli_backend_shim_imports.py"
 
 
