@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILE = ROOT / "docker" / "compose-next" / "compose.voice-restricted.yml"
 VOICE_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.voice-runtime"
 RESTRICTED_DOCKERFILE = ROOT / "docker" / "compose-next" / "Dockerfile.restricted-inference"

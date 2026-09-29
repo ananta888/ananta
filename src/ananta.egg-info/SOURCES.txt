@@ -83,7 +83,7 @@ tests/test_client_surface_test_gate_runner.py
 tests/test_client_thinness.py
 tests/cli_backends/test_codex_cli_backend.py
 tests/test_common_errors.py
-tests/test_compose_smoke_matrix.py
+tests/deploy/test_compose_smoke_matrix.py
 tests/test_config_api.py
 tests/test_config_repo.py
 tests/context/test_context_schema_registry.py
@@ -97,7 +97,7 @@ tests/test_csp_monitoring.py
 tests/test_db_schema_compat.py
 tests/test_deerflow_integration.py
 tests/test_demo_mode.py
-tests/test_deployment_profile_writer.py
+tests/deploy/test_deployment_profile_writer.py
 tests/test_deterministic_repair_path_service.py
 tests/test_distributed_compose.py
 tests/test_docs_presence.py
@@ -191,8 +191,8 @@ tests/test_powershell.py
 tests/test_powershell_validation.py
 tests/test_pr_review_publisher.py
 tests/test_product_benchmark_suite.py
-tests/test_quickstart_no_ollama_image_contract.py
-tests/test_quickstart_single_image_fullstack_compose.py
+tests/deploy/test_quickstart_no_ollama_image_contract.py
+tests/deploy/test_quickstart_single_image_fullstack_compose.py
 tests/rag/test_rag_helper_index_service.py
 tests/rag/test_rag_service.py
 tests/rag/test_rag_source_profile_loader.py

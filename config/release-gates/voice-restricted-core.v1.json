@@ -98,7 +98,7 @@
     "compose-contract": {
       "hardware": false,
       "pytest_nodes": [
-        "tests/test_compose_next_voice_restricted.py",
+        "tests/deploy/test_compose_next_voice_restricted.py",
         "tests/voice/test_voice_restricted_compose_contract.py"
       ]
     },

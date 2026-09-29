@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OVERLAY = ROOT / "docker" / "compose-next" / "compose.ops-control.yml"
 
 

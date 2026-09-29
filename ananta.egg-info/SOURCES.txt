@@ -1903,8 +1903,8 @@ tests/commit/test_commit_planner_integration.py
 tests/commit/test_commit_scope_resolver.py
 tests/commit/test_commit_worker_service.py
 tests/test_common_errors.py
-tests/test_compose_next_voice_restricted.py
-tests/test_compose_smoke_matrix.py
+tests/deploy/test_compose_next_voice_restricted.py
+tests/deploy/test_compose_smoke_matrix.py
 tests/test_config_api.py
 tests/test_config_api_policy_validation.py
 tests/test_config_repo.py
@@ -1958,7 +1958,7 @@ tests/test_decision_trace.py
 tests/test_deerflow_integration.py
 tests/test_delegation_trace_service.py
 tests/test_demo_mode.py
-tests/test_deployment_profile_writer.py
+tests/deploy/test_deployment_profile_writer.py
 tests/test_deterministic_repair_e2e.py
 tests/test_deterministic_repair_governance.py
 tests/test_deterministic_repair_path_service.py
@@ -1968,9 +1968,9 @@ tests/test_diagnostics_audit.py
 tests/test_diff3_api.py
 tests/test_diff_proposal_service.py
 tests/test_distributed_compose.py
-tests/test_docker_ops_api.py
-tests/test_docker_ops_boundary_overlay.py
-tests/test_docker_ops_services.py
+tests/deploy/test_docker_ops_api.py
+tests/deploy/test_docker_ops_boundary_overlay.py
+tests/deploy/test_docker_ops_services.py
 tests/test_docs_presence.py
 tests/domain/test_domain_action_execution_integration.py
 tests/domain/test_domain_action_router.py
@@ -2442,8 +2442,8 @@ tests/qdrant/test_qdrant_vector_store_migration.py
 tests/qdrant/test_qdrant_vector_store_security.py
 tests/qdrant/test_qdrant_vector_store_unit.py
 tests/test_quality_guard.py
-tests/test_quickstart_no_ollama_image_contract.py
-tests/test_quickstart_single_image_fullstack_compose.py
+tests/deploy/test_quickstart_no_ollama_image_contract.py
+tests/deploy/test_quickstart_single_image_fullstack_compose.py
 tests/rag/test_rag_context_packer.py
 tests/rag/test_rag_helper_file_type_migration.py
 tests/rag/test_rag_helper_file_type_policy.py

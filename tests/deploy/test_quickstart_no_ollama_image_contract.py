@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEV_AUTH_COMPOSE = (
     ROOT / "docker" / "compose-next" / "compose.workflow-runtime.dev-auth.yml"
 )
