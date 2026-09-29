@@ -302,7 +302,7 @@
       "error": "AssertionError: assert 'Kontext:\\nselected context' in '...' (tatsaechlich enthalten: Quell-annotierter Kontext mit Metadata)",
       "root_cause": "Das Prompt-Format des RAG-Service hat sich geaendert (Kontext-Chunks enthalten jetzt Quellen-Annotationen), der Test prueft noch das alte Format.",
       "target_files": [
-        "tests/test_rag_service.py"
+        "tests/rag/test_rag_service.py"
       ],
       "acceptance_criteria": [
         "Test prueft das tatsaechliche aktuelle Prompt-Format.",

@@ -13,7 +13,7 @@ from agent.services.rag_helper_file_type_policy import (
 from agent.services.rag_helper_index_service import RagHelperIndexService
 from ananta_contracts import FileTypeRolloutPolicy, load_file_type_support_registry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_KEYS = {
     "adoc",
     "bash",

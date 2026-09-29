@@ -540,7 +540,7 @@
           "description": "RagService erklärt OpenNotebook-Herkunft sichtbar in explainability und provenance_policy.",
           "files": [
             "agent/services/rag_service.py",
-            "tests/test_rag_service_open_notebook_explainability.py"
+            "tests/rag/test_rag_service_open_notebook_explainability.py"
           ],
           "priority": "P1",
           "effort": "M",

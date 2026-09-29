@@ -711,13 +711,13 @@ def test_tests_follow_the_module_for_explanations_but_not_for_test_tasks(tmp_pat
         tmp_path,
         [
             {"id": path, "content": content, "metadata": {"file_type": "python", "relative_path": path}}
-            for path in ("tests/test_rag_helper_index_service.py", "agent/services/rag_helper_index_service.py")
+            for path in ("tests/rag/test_rag_helper_index_service.py", "agent/services/rag_helper_index_service.py")
         ],
     )
     explained = service.search_records("rag_helper", limit=2)
     assert [record["metadata"]["display_path"] for record in explained] == [
         "agent/services/rag_helper_index_service.py",
-        "tests/test_rag_helper_index_service.py",
+        "tests/rag/test_rag_helper_index_service.py",
     ]
     assert explained[1]["metadata"]["retrieval_score_breakdown"]["test_penalty"] == 0.2
     tested = service.search_records("rag_helper", limit=2, task_kind="test")

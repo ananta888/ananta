@@ -125,7 +125,7 @@ def _live_shaped_index(tmp_path):
                "class RagHelperIndexService: runs the rag_helper pipeline for a repository path"),
         record("agent/services/rag_helper_file_type_policy.py",
                "class RagHelperFileTypePolicy: which files the rag_helper pipeline reads"),
-        record("tests/test_rag_helper_index_service.py",
+        record("tests/rag/test_rag_helper_index_service.py",
                "def test_rag_helper_index_service(): RagHelperIndexService rag_helper pipeline"),
         record("docs/rag-helper.md", "# RAG Helper\n\nWhat the rag-helper is good for.", "text"),
         record(".hermes/plans/e2e-pipeline.md", "# E2E pipeline plan: pipeline stages of the pipeline", "text"),
@@ -159,6 +159,6 @@ def test_rag_helper_variants_return_citable_modules_and_docs_before_tests_and_re
         "agent/services/rag_helper_file_type_policy.py",
     }, paths
     assert "docs/rag-helper.md" in paths
-    assert paths.index("tests/test_rag_helper_index_service.py") > 1
+    assert paths.index("tests/rag/test_rag_helper_index_service.py") > 1
     blob = "config/codecompass/file_type_support.v1.json"
     assert blob not in paths or paths.index(blob) > paths.index("docs/rag-helper.md")

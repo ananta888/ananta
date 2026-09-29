@@ -367,7 +367,7 @@
       ],
       "target_files": [
         "tests/test_rag_config_layer.py",
-        "tests/test_rag_query_normalizer.py",
+        "tests/rag/test_rag_query_normalizer.py",
         "tests/test_repository_scan_config.py",
         "tests/test_hybrid_orchestrator_rag_quotas.py"
       ],
@@ -381,7 +381,7 @@
         "Alle Tests laufen ohne echten LLM-Provider und ohne Netzwerkzugriff."
       ],
       "test_expectations": [
-        "pytest tests/test_rag_config_layer.py tests/test_rag_query_normalizer.py tests/test_repository_scan_config.py tests/test_hybrid_orchestrator_rag_quotas.py läuft lokal grün.",
+        "pytest tests/test_rag_config_layer.py tests/rag/test_rag_query_normalizer.py tests/test_repository_scan_config.py tests/test_hybrid_orchestrator_rag_quotas.py läuft lokal grün.",
         "Bestehende RAG-/RepositoryMap-Tests bleiben rückwärtskompatibel grün."
       ]
     }

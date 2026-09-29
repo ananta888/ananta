@@ -486,7 +486,7 @@ def test_index_repo_path_indexes_a_directory(tmp_path):
         "def add(a, b):\n    return a + b\n\ndef subtract(a, b):\n    return a - b\n",
         encoding="utf-8",
     )
-    rag_helper_root = Path(__file__).resolve().parents[1] / "rag-helper"
+    rag_helper_root = Path(__file__).resolve().parents[2] / "rag-helper"
 
     service = RagHelperIndexService()
     service._repo_root = lambda: tmp_path
@@ -510,7 +510,7 @@ def test_index_repo_path_skips_if_already_completed(tmp_path):
     src = tmp_path / "skip_lib"
     src.mkdir()
     (src / "utils.py").write_text("def noop(): pass\n", encoding="utf-8")
-    rag_helper_root = Path(__file__).resolve().parents[1] / "rag-helper"
+    rag_helper_root = Path(__file__).resolve().parents[2] / "rag-helper"
 
     service = RagHelperIndexService()
     service._repo_root = lambda: tmp_path

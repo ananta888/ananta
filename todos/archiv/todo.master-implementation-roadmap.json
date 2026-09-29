@@ -408,7 +408,7 @@
         "RCFG-009: Alle RAG-Config-Layer-Tests laufen grün."
       ],
       "test_expectations": [
-        "pytest tests/test_rag_config_layer.py tests/test_rag_query_normalizer.py tests/test_repository_scan_config.py tests/test_hybrid_orchestrator_rag_quotas.py grün.",
+        "pytest tests/test_rag_config_layer.py tests/rag/test_rag_query_normalizer.py tests/test_repository_scan_config.py tests/test_hybrid_orchestrator_rag_quotas.py grün.",
         "Bestehende RAG-Tests rückwärtskompatibel grün."
       ]
     },

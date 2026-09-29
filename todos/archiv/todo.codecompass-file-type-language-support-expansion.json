@@ -218,7 +218,7 @@
       ],
       "evidence": {
         "implementation": ["agent/hybrid_repository_scan.py", "agent/services/rag_helper_file_type_policy.py", "agent/services/knowledge_index_retrieval_service.py"],
-        "tests": ["tests/test_hybrid_registry_scan.py", "tests/test_rag_helper_file_type_policy.py", "rag-helper/tests/test_file_type_rollout_predicate.py", "tests/knowledge/test_knowledge_index_retrieval_service.py"],
+        "tests": ["tests/test_hybrid_registry_scan.py", "tests/rag/test_rag_helper_file_type_policy.py", "rag-helper/tests/test_file_type_rollout_predicate.py", "tests/knowledge/test_knowledge_index_retrieval_service.py"],
         "result": "met"
       }
     },
@@ -607,7 +607,7 @@
       ],
       "evidence": {
         "implementation": ["agent/services/rag_helper_file_type_migration.py", "rag-helper/rag_helper/application/incremental_cache.py", "agent/services/file_type_metrics_service.py", "agent/codecompass/file_type_telemetry.py", "docs/architecture/codecompass-file-type-support.md"],
-        "tests": ["tests/test_file_type_rollout.py", "tests/test_file_type_migration.py", "tests/test_rag_helper_file_type_migration.py", "rag-helper/tests/test_incremental_cache_invalidation.py", "tests/test_file_type_metrics_service.py", "tests/test_file_type_coverage_contract.py", "tests/test_setup_codecompass_file_type_index.py"],
+        "tests": ["tests/test_file_type_rollout.py", "tests/test_file_type_migration.py", "tests/rag/test_rag_helper_file_type_migration.py", "rag-helper/tests/test_incremental_cache_invalidation.py", "tests/test_file_type_metrics_service.py", "tests/test_file_type_coverage_contract.py", "tests/test_setup_codecompass_file_type_index.py"],
         "result": "met"
       }
     }

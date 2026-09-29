@@ -193,9 +193,9 @@ tests/test_pr_review_publisher.py
 tests/test_product_benchmark_suite.py
 tests/test_quickstart_no_ollama_image_contract.py
 tests/test_quickstart_single_image_fullstack_compose.py
-tests/test_rag_helper_index_service.py
-tests/test_rag_service.py
-tests/test_rag_source_profile_loader.py
+tests/rag/test_rag_helper_index_service.py
+tests/rag/test_rag_service.py
+tests/rag/test_rag_source_profile_loader.py
 tests/test_rate_limit_service.py
 tests/test_read_model_baseline_presence.py
 tests/test_redaction_levels.py

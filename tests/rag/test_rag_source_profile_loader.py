@@ -7,7 +7,7 @@ import pytest
 
 from agent.services.rag_source_profile_loader import RagSourceProfileLoader
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas" / "domain" / "rag_source_profile.v1.json"
 
 

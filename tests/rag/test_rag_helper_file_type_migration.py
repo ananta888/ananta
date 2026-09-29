@@ -8,7 +8,7 @@ from agent.services.rag_helper_file_type_migration import (
 from agent.services.rag_helper_file_type_policy import RagHelperFileTypePolicy
 from ananta_contracts import FileTypeRolloutPolicy, load_file_type_support_registry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _effective_extension(path: Path) -> str:
