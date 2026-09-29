@@ -4,7 +4,7 @@ from pathlib import Path
 
 from agent.providers.interfaces import ProviderDescriptor, ProviderHealthReport
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 INTERFACES_PATH = ROOT / "agent" / "providers" / "interfaces.py"
 
 

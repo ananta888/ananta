@@ -323,8 +323,8 @@
         "Record provider/model identifiers, policy decision, latency and usage, not prompt or credential content."
       ],
       "tests": [
-        "tests/test_provider_invocation_middleware.py::test_model_invocation_does_not_call_network_after_egress_denial",
-        "tests/test_provider_invocation_middleware.py::test_model_invocation_sends_only_middleware_redacted_payload"
+        "tests/provider/test_provider_invocation_middleware.py::test_model_invocation_does_not_call_network_after_egress_denial",
+        "tests/provider/test_provider_invocation_middleware.py::test_model_invocation_sends_only_middleware_redacted_payload"
       ]
     },
     {
