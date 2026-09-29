@@ -2292,10 +2292,10 @@ tests/test_oidc_identity_link_service.py
 tests/test_oidc_identity_provisioning_repository.py
 tests/auth/test_oidc_settings.py
 tests/auth/test_oidc_validator.py
-tests/test_ollama_autoimport.py
-tests/test_ollama_benchmark.py
-tests/test_ollama_parallel_runtime_service.py
-tests/test_ollama_strategy.py
+tests/llm/test_ollama_autoimport.py
+tests/llm/test_ollama_benchmark.py
+tests/llm/test_ollama_parallel_runtime_service.py
+tests/llm/test_ollama_strategy.py
 tests/open_notebook/test_open_notebook_backward_compatibility.py
 tests/open_notebook/test_open_notebook_e2e_import_retrieval.py
 tests/open_notebook/test_open_notebook_e2e_source_chat.py

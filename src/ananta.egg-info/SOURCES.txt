@@ -169,8 +169,8 @@ tests/test_no_implicit_context.py
 tests/test_no_policy_bypass.py
 tests/test_nvim_runtime_bridge_contract.py
 tests/test_nvim_runtime_surface.py
-tests/test_ollama_autoimport.py
-tests/test_ollama_benchmark.py
+tests/llm/test_ollama_autoimport.py
+tests/llm/test_ollama_benchmark.py
 tests/cli_backends/test_openai_compat.py
 tests/test_openai_live_smoke.py
 tests/test_orchestration_policy.py

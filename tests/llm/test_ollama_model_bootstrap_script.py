@@ -4,7 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BOOTSTRAP_SCRIPT = ROOT / "scripts/ollama-create-ananta-model-aliases.sh"
 GEMMA_MODELFILE = (
     ROOT / "config/models/modelfiles/ananta-gemma4-reasoning-8k.Modelfile"

@@ -62,7 +62,7 @@
     "tests/test_model_profile_inventory_adapter.py",
     "tests/test_model_profile_resolver.py",
     "tests/test_model_profile_resolver_new.py",
-    "tests/test_ollama_strategy.py",
+    "tests/llm/test_ollama_strategy.py",
     "tests/tool/test_tool_calling_pipeline.py"
   ],
   "environment": {"RUN_INTEGRATION_TESTS": "1"},

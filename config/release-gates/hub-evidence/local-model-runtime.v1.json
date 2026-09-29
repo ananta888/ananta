@@ -17,7 +17,7 @@
     "tests/local_model/test_local_model_runtime_contract.py",
     "tests/local_model/test_local_model_runtime_control_script.py",
     "tests/local_model/test_local_model_runtime_soak_script.py",
-    "tests/test_ollama_autoimport.py"
+    "tests/llm/test_ollama_autoimport.py"
   ],
   "pytest_args": [
     "-q",
@@ -35,11 +35,11 @@
     "tests/local_model/test_local_model_runtime_soak_script.py",
     "tests/local_model/test_local_model_runtime_systemd.py",
     "tests/test_local_ollama_development_contract.py",
-    "tests/test_ollama_autoimport.py",
-    "tests/test_ollama_benchmark.py",
-    "tests/test_ollama_model_bootstrap_script.py",
-    "tests/test_ollama_parallel_runtime_service.py",
-    "tests/test_ollama_strategy.py",
+    "tests/llm/test_ollama_autoimport.py",
+    "tests/llm/test_ollama_benchmark.py",
+    "tests/llm/test_ollama_model_bootstrap_script.py",
+    "tests/llm/test_ollama_parallel_runtime_service.py",
+    "tests/llm/test_ollama_strategy.py",
     "tests/services/test_local_model_runtime_invocation_observer.py",
     "tests/services/test_local_model_runtime_lifecycle_service.py",
     "tests/services/test_local_model_runtime_status_service.py",
