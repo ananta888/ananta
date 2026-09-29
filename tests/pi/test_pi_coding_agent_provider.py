@@ -13,7 +13,7 @@ from agent.cli_backends.coding_agent_targets import CodingAgentInferenceTarget
 from agent.cli_backends.pi_policy import PiInvocationPolicy
 from agent.cli_backends.pi_provider import PiCodingAgentProvider
 from ananta_contracts.provider_invocation import ProviderBudgetDecision, ProviderInvocationContext
-from tests.pi_protocol_examples import pi_events
+from tests.pi.pi_protocol_examples import pi_events
 
 
 def target(**overrides):

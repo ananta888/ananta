@@ -7,8 +7,8 @@ import pytest
 
 from agent.services.native_graph_task_queue_adapter import AnantaHubTaskQueueAdapter
 from tests.test_native_graph_task_adapters import FakeQueue, FakeRepository, FakeTaskRuntime, result
-from tests.test_pi_hub_budget_composition import composition
-from tests.test_pi_native_node import task_command
+from tests.pi.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_native_node import task_command
 
 
 def pending_pi_result():
@@ -147,8 +147,8 @@ def test_direct_validator_closes_malformed_status_without_a_raw_type_error(value
 def test_real_native_pi_output_does_not_bypass_hub_admission(tmp_path, malformed):
     from agent.services.pi_native_result_validation import validate_pi_native_result
     from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
-    from tests.test_pi_coding_agent_provider import Runner
-    from tests.test_pi_native_node import native_setup
+    from tests.pi.test_pi_coding_agent_provider import Runner
+    from tests.pi.test_pi_native_node import native_setup
 
     worker, task, _, _, _ = native_setup(tmp_path, runner=Runner(malformed=malformed))
     actual = worker.execute_task(task)

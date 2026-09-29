@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from agent.cli_backends.pi_events import PiProtocolError, parse_pi_one_shot
-from tests.pi_protocol_examples import pi_events as events
+from tests.pi.pi_protocol_examples import pi_events as events
 
 
 def parse(records):

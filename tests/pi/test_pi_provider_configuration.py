@@ -5,7 +5,7 @@ import json
 import pytest
 
 from agent.cli_backends.pi_configuration import isolated_pi_configuration, pi_context_window
-from tests.test_pi_coding_agent_provider import target
+from tests.pi.test_pi_coding_agent_provider import target
 
 
 @pytest.mark.parametrize("provider_id,base_url,model", [

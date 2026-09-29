@@ -8,8 +8,8 @@ import pytest
 from agent.services.native_context_bundle_service import NativeContextBundleService
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessService
 from ananta_contracts.native_context_bundle import NativeApprovedContext
-from tests.test_pi_coding_agent_provider import Runner
-from tests.test_pi_native_node import native_setup
+from tests.pi.test_pi_coding_agent_provider import Runner
+from tests.pi.test_pi_native_node import native_setup
 from worker.runtime.native_graph.pi_context import HubPiTaskContextReader, pi_context_bundle_reference
 
 

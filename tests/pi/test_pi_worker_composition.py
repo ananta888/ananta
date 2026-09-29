@@ -4,9 +4,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from tests.test_pi_coding_agent_provider import Runner, provider
-from tests.test_pi_hub_budget_composition import composition
-from tests.test_pi_native_node import task_command
+from tests.pi.test_pi_coding_agent_provider import Runner, provider
+from tests.pi.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_native_node import task_command
 from worker.runtime.native_graph import pi_composition
 from worker.runtime.native_graph.authorization import HubBackedNativeAuthorizationVerifier
 from worker.runtime.native_graph.composition import build_native_graph_worker_task_adapter

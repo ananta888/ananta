@@ -8,8 +8,8 @@ import pytest
 from agent.services.workflow_runtime.execution_plan import ExecutionNode
 from agent.services.workflow_runtime.security import RuntimeAuthorizationEnvelope
 from ananta_contracts.provider_execution import ProviderExecutionBinding, ProviderProfileExecutionBinding
-from tests.test_pi_coding_agent_provider import Runner, provider
-from tests.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_coding_agent_provider import Runner, provider
+from tests.pi.test_pi_hub_budget_composition import composition
 from worker.runtime.native_graph.authorization import HubBackedNativeAuthorizationVerifier
 from worker.runtime.native_graph.composition import ConfiguredNativeNodePolicy, NativeHubExecutionScope
 from worker.runtime.native_graph.contracts import NativeNodeCommand

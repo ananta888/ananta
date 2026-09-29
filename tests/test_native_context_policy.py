@@ -14,8 +14,8 @@ from agent.services.native_context_policy_service import NativeContextPolicyServ
 from agent.services.source_classification_service import SourceClassificationService
 from ananta_contracts.context_access_policy import ContextBlockAccessDecision, Decision
 from ananta_contracts.source_control import DestinationDescriptor, ProviderLocation
-from tests.test_pi_hub_budget_composition import composition
-from tests.test_pi_native_node import task_command
+from tests.pi.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_native_node import task_command
 
 
 def build_policy_setup(monkeypatch):

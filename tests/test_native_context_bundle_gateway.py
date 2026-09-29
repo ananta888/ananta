@@ -9,8 +9,8 @@ from agent.db_models import TaskDB
 from agent.services.native_context_bundle_service import NativeContextBundleService
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessService
 from ananta_contracts.native_context_bundle import NativeApprovedContext, NativeContextBundleProjection
-from tests.test_pi_hub_budget_composition import composition
-from tests.test_pi_native_node import task_command
+from tests.pi.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_native_node import task_command
 from worker.runtime.workflow_hub_gateway import WorkflowHubDecisionError
 
 

@@ -101,7 +101,7 @@ def test_snake_rag_budgets(tokens):
 @pytest.mark.parametrize("tokens", WINDOWS)
 def test_pi_context_window_is_local_only(window, tokens):
     from agent.cli_backends.pi_configuration import PI_REMOTE_CONTEXT_WINDOW, pi_context_window
-    from tests.test_pi_coding_agent_provider import target
+    from tests.pi.test_pi_coding_agent_provider import target
 
     window(tokens)
     local = target(provider_id="ollama", base_url="http://ollama:11434/v1", model="m", cli_model="m")

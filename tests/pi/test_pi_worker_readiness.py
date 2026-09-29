@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from agent.cli_backends.pi_readiness import pi_readiness_projection
-from tests.test_pi_coding_agent_provider import runtime as installed_runtime
+from tests.pi.test_pi_coding_agent_provider import runtime as installed_runtime
 
 
 def registered_runtime():
@@ -90,8 +90,8 @@ def test_worker_status_reuses_installed_runtime_metadata_without_new_execution(c
 def test_actual_worker_composition_projects_only_explicitly_enabled_pi(tmp_path, enabled):
     from flask import Flask
 
-    from tests.test_pi_hub_budget_composition import composition
-    from tests.test_pi_worker_composition import configuration
+    from tests.pi.test_pi_hub_budget_composition import composition
+    from tests.pi.test_pi_worker_composition import configuration
     from worker.runtime.native_graph.authorization import HubBackedNativeAuthorizationVerifier
     from worker.runtime.workflow_adapter_runtime_composition import (
         initialize_workflow_adapter_worker_runtime,

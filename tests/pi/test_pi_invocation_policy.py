@@ -8,7 +8,7 @@ import pytest
 
 from agent.cli_backends.pi_policy import PiInvocationPolicy
 from ananta_contracts.provider_invocation import ProviderBudgetDecision, ProviderInvocationBlocked
-from tests.test_pi_coding_agent_provider import Runner, budget_port, hub_context, policy, provider, request, target
+from tests.pi.test_pi_coding_agent_provider import Runner, budget_port, hub_context, policy, provider, request, target
 
 
 @pytest.mark.parametrize("context", [None, {}, "legacy"])

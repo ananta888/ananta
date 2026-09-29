@@ -21,8 +21,8 @@ from agent.services.native_graph_task_queue_adapter import AnantaHubTaskQueueAda
 from agent.services.task_context_bundle_access_service import TaskContextBundleAccessService
 from agent.services.task_queue_service import TaskQueueService
 from tests.test_native_graph_task_adapters import FakeQueue, FakeRepository, FakeTaskRuntime
-from tests.test_pi_hub_budget_composition import composition
-from tests.test_pi_native_node import task_command
+from tests.pi.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_native_node import task_command
 
 
 def preparation_setup():

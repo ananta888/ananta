@@ -11,8 +11,8 @@ from agent.db_models.projects import ProjectDB
 from agent.repositories.tasks import TaskRepository
 from agent.services.native_graph_task_queue_adapter import build_native_graph_task_queue_adapter
 from tests.test_native_graph_task_adapters import FakeQueue, FakeRepository
-from tests.test_pi_hub_budget_composition import composition
-from tests.test_pi_native_node import task_command
+from tests.pi.test_pi_hub_budget_composition import composition
+from tests.pi.test_pi_native_node import task_command
 
 
 @pytest.fixture

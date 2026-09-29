@@ -7,8 +7,8 @@ from flask import Flask
 
 from agent.services.pi_native_result_envelope import pi_native_result_candidate
 from agent.services.workflow_runtime.native_graph_contracts import NativeNodeCommand
-from tests.test_pi_coding_agent_provider import Runner
-from tests.test_pi_native_node import native_setup
+from tests.pi.test_pi_coding_agent_provider import Runner
+from tests.pi.test_pi_native_node import native_setup
 from worker.runtime.workflow_adapter_task_consumer import WorkflowAdapterTaskConsumer
 from worker.runtime.workflow_adapter_task_execution import consume_delegated_workflow_task
 from worker.runtime.workflow_hub_gateway import HubExecutionAuthorizationAdapter

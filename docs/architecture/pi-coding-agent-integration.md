@@ -407,7 +407,7 @@ bestehen ebenfalls mit genau einer Anfrage; der Tool-Versuch bleibt abgelehnt.
 Alle drei nutzen Pi 0.85.1 mit synthetischem containerlokalem Modell, nicht
 externe Inferenz oder produktive Release-Evidenz. Die 33 Node-Vertragsfälle
 einschließlich eines echten lokalen HTTP-Redirects sind zusätzlich über
-`tests/test_pi_http_transport.py` im regulären Pytest-Gate erfasst.
+`tests/pi/test_pi_http_transport.py` im regulären Pytest-Gate erfasst.
 
 SRP/DIP: Der kleine Transportadapter vollstreckt die bereits ausgewählte
 Endpoint-/Budgetprojektion. Er entscheidet weder über Modellwahl noch über

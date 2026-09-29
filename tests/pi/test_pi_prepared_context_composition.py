@@ -10,7 +10,7 @@ from agent.db_models import TaskDB
 from tests.test_native_context_policy import build_policy_setup
 from tests.test_native_context_policy_composition import configured_app
 from tests.test_native_context_preparation import preparation_setup
-from tests.test_pi_native_node import native_setup
+from tests.pi.test_pi_native_node import native_setup
 from worker.runtime.native_graph.contracts import NativeNodeCommand
 from worker.runtime.native_graph.pi_context import HubPiTaskContextReader
 

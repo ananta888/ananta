@@ -6,7 +6,7 @@ import pytest
 
 from ananta_contracts.provider_invocation import ProviderInvocationBlocked
 from ananta_contracts.workflow_worker_gateway import PROVIDER_BUDGET_RECEIPT_SCHEMA
-from tests.test_pi_coding_agent_provider import hub_context
+from tests.pi.test_pi_coding_agent_provider import hub_context
 from worker.runtime.workflow_hub_gateway import HubProviderBudgetAdapter
 
 

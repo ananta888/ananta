@@ -29,7 +29,7 @@ from agent.services.workflow_worker_assignment_service import (
     WorkflowWorkerAssignment,
 )
 from agent.services.workflow_worker_service_auth import STRICT_WORKER_REGISTRATION_PROVENANCE
-from tests.test_pi_native_result_envelope import actual_route
+from tests.pi.test_pi_native_result_envelope import actual_route
 
 
 @pytest.fixture

@@ -34,7 +34,7 @@ def test_pi_worker_is_disabled_by_default():
 
 
 def test_shipped_pi_profile_is_explicit_separate_opt_in(tmp_path):
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
 
     def deployed(name):
         path = tmp_path / name
