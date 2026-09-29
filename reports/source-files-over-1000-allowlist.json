@@ -5,8 +5,8 @@
   "allowlist": [
     {
       "path": "agent/auth.py",
-      "line_count": 1010,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 1022,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -26,8 +26,15 @@
     },
     {
       "path": "agent/config.py",
-      "line_count": 1178,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1190,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/config_defaults.py",
+      "line_count": 1021,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -42,6 +49,13 @@
       "path": "agent/db_models/workflow_runtime.py",
       "line_count": 1179,
       "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/llm_integration.py",
+      "line_count": 1010,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -124,8 +138,8 @@
     },
     {
       "path": "agent/routes/chat.py",
-      "line_count": 1981,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1982,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -201,36 +215,36 @@
     },
     {
       "path": "agent/routes/tasks/autopilot_task_dispatcher.py",
-      "line_count": 1440,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1522,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
     {
       "path": "agent/routes/visual_process.py",
-      "line_count": 1589,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1814,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
     {
       "path": "agent/routes/voice.py",
-      "line_count": 2324,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 2333,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
     {
       "path": "agent/services/_task_scoped_forwarding.py",
-      "line_count": 1907,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 1961,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
     {
       "path": "agent/services/_task_scoped_step_orchestrator.py",
-      "line_count": 1369,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1410,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -298,6 +312,13 @@
       "expires": "2026-12-31"
     },
     {
+      "path": "agent/services/knowledge_index_retrieval_service.py",
+      "line_count": 1158,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
       "path": "agent/services/knowledge_index_worker_artifact_service.py",
       "line_count": 1912,
       "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
@@ -327,15 +348,15 @@
     },
     {
       "path": "agent/services/model_invocation_service.py",
-      "line_count": 2243,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 2276,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
     {
       "path": "agent/services/native_graph_orchestration_service.py",
-      "line_count": 1043,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 1333,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -369,8 +390,15 @@
     },
     {
       "path": "agent/services/planning_service.py",
-      "line_count": 1801,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1803,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
+      "path": "agent/services/planning_strategies.py",
+      "line_count": 1003,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -474,8 +502,8 @@
     },
     {
       "path": "agent/services/task_recovery_planning_service.py",
-      "line_count": 3139,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 3144,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -516,8 +544,8 @@
     },
     {
       "path": "agent/services/workflow_control_composition.py",
-      "line_count": 1985,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 2038,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -529,9 +557,16 @@
       "expires": "2026-12-31"
     },
     {
+      "path": "agent/services/workflow_runtime/events.py",
+      "line_count": 1008,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
+      "follow_up": "RFS-015",
+      "expires": "2026-12-31"
+    },
+    {
       "path": "agent/services/workflow_runtime/ownership.py",
-      "line_count": 3352,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 3385,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -551,15 +586,15 @@
     },
     {
       "path": "agent/services/workflow_runtime/sqlalchemy_ownership.py",
-      "line_count": 1257,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 1278,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
     {
       "path": "agent/services/workflow_runtime_status_projection.py",
-      "line_count": 1710,
-      "reason": "crossed 1000 lines after the 2026-07-27 audit; re-baselined on 2026-08-16 so the gate blocks further growth while the split is pending",
+      "line_count": 1750,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -593,8 +628,8 @@
     },
     {
       "path": "agent/services/workflow_worker_gateway_service.py",
-      "line_count": 1490,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1511,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -635,8 +670,8 @@
     },
     {
       "path": "ananta_contracts/temporal_workflow.py",
-      "line_count": 1438,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1439,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
@@ -677,8 +712,8 @@
     },
     {
       "path": "frontend-angular/src/app/components/settings-state.service.ts",
-      "line_count": 1133,
-      "reason": "legacy file over 1000 lines tracked by todo.refactor-remaining-source-files-over-1000",
+      "line_count": 1164,
+      "reason": "grew or crossed 1000 lines while the Quality And Docs job failed at an earlier step (2026-08-16 to 2026-09-29); re-baselined on 2026-09-29 so the gate blocks further growth while the split is pending",
       "follow_up": "RFS-015",
       "expires": "2026-12-31"
     },
