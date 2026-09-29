@@ -79,11 +79,6 @@ PYTEST_SPECS: tuple[str, ...] = (
 SOURCE_MANIFEST_PRODUCTION_PATHS: tuple[str, ...] = (
     "agent/routes/visual_process.py",
     "agent/routes/visual_process_blueprint.py",
-    "agent/routes/visual_process_catalog_routes.py",
-    "agent/routes/visual_process_design_routes.py",
-    "agent/routes/visual_process_graph_routes.py",
-    "agent/routes/visual_process_graph_support.py",
-    "agent/routes/visual_process_model_plan.py",
     "agent/routes/visual_process_workflow_command_routes.py",
     "agent/routes/visual_process_workflow_event_routes.py",
     "agent/routes/visual_process_workflow_routes.py",
