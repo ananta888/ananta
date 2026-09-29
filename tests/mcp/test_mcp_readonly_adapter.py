@@ -7,7 +7,7 @@ import pytest
 from agent.services.mcp_readonly_adapter import MCPReadonlyAdapter
 from agent.services.mcp_tool_registry import MCPToolRegistry
 
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "mcp" / "mcp_tool_descriptor.v1.json"
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "mcp" / "mcp_tool_descriptor.v1.json"
 
 
 def _registry_with_read_tool() -> MCPToolRegistry:

@@ -157,7 +157,7 @@ tests/llm/test_llm_benchmarks_api.py
 tests/llm/test_llm_history.py
 tests/llm/test_llm_intent_fallback.py
 tests/llm/test_llm_usage.py
-tests/test_mcp_readonly_adapter.py
+tests/mcp/test_mcp_readonly_adapter.py
 tests/test_mcp_route.py
 tests/test_mcp_tool_registry.py
 tests/test_memory_repository_resilience.py

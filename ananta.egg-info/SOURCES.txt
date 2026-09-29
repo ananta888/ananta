@@ -2200,7 +2200,7 @@ tests/llm/test_llm_response_normalizer.py
 tests/llm/test_llm_usage.py
 tests/llm/test_llm_usage_normalization.py
 tests/test_local_llm_backends.py
-tests/test_mcp_readonly_adapter.py
+tests/mcp/test_mcp_readonly_adapter.py
 tests/test_mcp_route.py
 tests/test_mcp_tool_registry.py
 tests/test_media_topology_policy.py
