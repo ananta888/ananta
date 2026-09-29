@@ -463,7 +463,7 @@
           "step": "Run backend coverage",
           "severity": "medium",
           "risk_assessment": "Mittel: Coverage-Nachweis fehlt; zusaetzlich melden Shards fehlende Testdateien.",
-          "observed_error": "Run 31939081442: FAILED tests/test_snake_oidc_binding.py::test_register_snake_accepts_strict_service_bearer sowie tests/tui/test_tui_planning_track_commands.py::test_plan_track_adopt_and_reject_flow und ::test_plan_track_execute_next_starts_internal_task. Zusaetzlich Meldungen 'Shard <n> has no test files.' und 'Coverage file <data_file> was not written'.",
+          "observed_error": "Run 31939081442: FAILED tests/snake/test_snake_oidc_binding.py::test_register_snake_accepts_strict_service_bearer sowie tests/tui/test_tui_planning_track_commands.py::test_plan_track_adopt_and_reject_flow und ::test_plan_track_execute_next_starts_internal_task. Zusaetzlich Meldungen 'Shard <n> has no test files.' und 'Coverage file <data_file> was not written'.",
           "root_cause": "Der historische Lauf enthielt mehrere unabhaengige Drifts. Die zuletzt reproduzierbaren Ursachen waren eine nicht nachgezogene Visual-Process-Akzeptanzmatrix, ein shallow Checkout ohne den von OpenMAIC revisiongebunden benoetigten Git-Commit, ein fuer den realen 66-Minuten-Shard zu kurzes 60-Minuten-Limit sowie zwei SQLite-Races: Voice-Korrektur und ML-Intern-Training starteten asynchrone Worker, bevor alle request-eigenen Audit-Writes beendet waren.",
           "affected_files_or_subsystems": [
             ".github/workflows/coverage.yml",
@@ -477,7 +477,7 @@
           "expected_result": "Coverage-Lauf gruen, keine leeren Shards.",
           "relevant_validations": [
             "Planning-Track-Suiten: 65 passed (vorher 4 failed).",
-            "tests/test_snake_oidc_binding.py: 15 passed; Snake-Suiten insgesamt 196 passed, 8 skipped.",
+            "tests/snake/test_snake_oidc_binding.py: 15 passed; Snake-Suiten insgesamt 196 passed, 8 skipped.",
             "Coverage-Lauf 31950774097 weiterhin rot, aber mit anderem Bild: 1 failed, 345 passed und 1558 errors aus 'sqlite_foreign_key_orphan_preflight_failed' plus test_blueprint_bundle_api (assert 500 == 201). Das ist eine eigene, breitere Ursache im Coverage-Shard-Setup und nicht die zwei behobenen Testfehler.",
             "Blueprint- und Team-Suiten: 207 passed (vorher 176 errors + 1 failed).",
             "tests/test_blueprint_bundle_api.py: 6 passed (vorher 1 failed / 5 errors).",

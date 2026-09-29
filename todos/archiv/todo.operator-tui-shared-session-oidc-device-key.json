@@ -121,7 +121,7 @@
           "files": [
             "agent/routes/snakes.py",
             "agent/routes/auth_oidc.py",
-            "tests/test_snake_oidc_binding.py"
+            "tests/snake/test_snake_oidc_binding.py"
           ],
           "acceptance_criteria": [
             "Snake-Registrierung kann OIDC User-Sub aus dem Auth-Kontext uebernehmen.",

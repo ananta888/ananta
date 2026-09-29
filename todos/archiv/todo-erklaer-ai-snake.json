@@ -962,9 +962,9 @@
           "description": "Die neu erstellten Python-Module werden mit Unit-Tests abgesichert: snake_persistence.py, snake_tutorial.py und die neuen Commands (:speed, :tutor, :ask, :tutorial, :tutorials, :snakes, :msg).",
           "repo": "tui",
           "files": [
-            "tests/test_snake_persistence.py",
-            "tests/test_snake_tutorial.py",
-            "tests/test_snake_commands_extended.py"
+            "tests/snake/test_snake_persistence.py",
+            "tests/snake/test_snake_tutorial.py",
+            "tests/snake/test_snake_commands_extended.py"
           ],
           "priority": "P1",
           "effort": "M",

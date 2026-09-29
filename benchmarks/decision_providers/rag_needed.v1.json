@@ -34,7 +34,7 @@
       "state": "wie ist der mechanismus damit ananta dies an die worker weitergibt",
       "expected": true,
       "acceptable": [],
-      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_worker_handoff_mechanism; tests/test_snake_ask_retrieval_profile.py::TestCRPS014WorkerHandoffRegressionTest::test_worker_handoff_query_gets_code_explanation_intent"
+      "source": "tests/test_retrieval_profile_service.py::TestClassifyRetrievalIntent::test_worker_handoff_mechanism; tests/snake/test_snake_ask_retrieval_profile.py::TestCRPS014WorkerHandoffRegressionTest::test_worker_handoff_query_gets_code_explanation_intent"
     },
     {
       "id": "rag_needed-004",

@@ -220,7 +220,7 @@ Neue Felder in `user.json` / `ai_snake_config.py`:
 | `agent/routes/ai_snake_config.py` | chat_retrieval_profile, chat_retrieval_domain_hint |
 | `agent/services/retrieval_source_contract.py` | SourceSelectionPolicy — Sicherheitsgrenze |
 | `tests/test_retrieval_profile_service.py` | Unit-Tests für Resolver + Classifier |
-| `tests/test_snake_ask_retrieval_profile.py` | Regressionstests AI-Snake |
+| `tests/snake/test_snake_ask_retrieval_profile.py` | Regressionstests AI-Snake |
 | `tests/test_retrieval_service_profiles.py` | Ranking-Tests mit Profil-Gewichten |
 
 ---
@@ -235,7 +235,7 @@ Neue Felder in `user.json` / `ai_snake_config.py`:
 Validierte Tests:
 
 ```bash
-pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/test_snake_ask_retrieval_profile.py
+pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/snake/test_snake_ask_retrieval_profile.py
 ```
 
 ---

@@ -428,7 +428,7 @@
       "target_files": [
         "agent/routes/snakes.py",
         "agent/services/retrieval_profile_service.py",
-        "tests/test_snake_ask_retrieval_profile.py"
+        "tests/snake/test_snake_ask_retrieval_profile.py"
       ],
       "problem": "_build_grounded_snake_prompt setzt source_types direkt aus UI-Flags und verwendet ein fixes retrieval_intent. Das fuehrt zu falschen Quellen bei implementierten Code-Fragen.",
       "implementation_notes": [
@@ -446,7 +446,7 @@
         "Tests mocken RagService und pruefen die uebergebenen Profil-/Intent-/SourcePolicy-Daten."
       ],
       "test_expectations": [
-        "pytest -q tests/test_snake_ask_retrieval_profile.py"
+        "pytest -q tests/snake/test_snake_ask_retrieval_profile.py"
       ]
     },
     {
@@ -669,7 +669,7 @@
         "CRPS-005"
       ],
       "target_files": [
-        "tests/test_snake_ask_retrieval_profile.py",
+        "tests/snake/test_snake_ask_retrieval_profile.py",
         "agent/routes/snakes.py"
       ],
       "problem": "Das konkrete Log zeigt, dass AI-Snake bei 'implementierter CodeCompass' falsche Doku/TUI/Game-Kontexte verwendet.",
@@ -686,7 +686,7 @@
         "Test prueft context_summary mit SourceType-Zaehlern."
       ],
       "test_expectations": [
-        "pytest -q tests/test_snake_ask_retrieval_profile.py"
+        "pytest -q tests/snake/test_snake_ask_retrieval_profile.py"
       ]
     },
     {
@@ -736,7 +736,7 @@
         "CRPS-012"
       ],
       "target_files": [
-        "tests/test_snake_ask_retrieval_profile.py",
+        "tests/snake/test_snake_ask_retrieval_profile.py",
         "tests/test_rag_service_retrieval_profile.py"
       ],
       "problem": "Bei 'Mechanismus an Worker weitergeben' darf die Antwort nicht nur WorkerRuntimeSelectionService erklaeren, sondern muss RAG/Bundle/Prompt-Handoff referenzieren.",
@@ -752,7 +752,7 @@
         "Test bildet den AI-Snake-Log-Fehlfall nach."
       ],
       "test_expectations": [
-        "pytest -q tests/test_snake_ask_retrieval_profile.py tests/test_rag_service_retrieval_profile.py"
+        "pytest -q tests/snake/test_snake_ask_retrieval_profile.py tests/test_rag_service_retrieval_profile.py"
       ]
     },
     {
@@ -770,7 +770,7 @@
       ],
       "target_files": [
         "tests/e2e/test_tui_snake_chat_propose_flow_e2e.py",
-        "tests/test_snake_ask_retrieval_profile.py"
+        "tests/snake/test_snake_ask_retrieval_profile.py"
       ],
       "problem": "Unit-Tests reichen nicht, wenn Route, Resolver, RagService und Prompt-Building zusammen verdrahtet sind.",
       "implementation_notes": [
@@ -786,7 +786,7 @@
         "Test bleibt deterministisch und ohne Hintergrundthreads."
       ],
       "test_expectations": [
-        "pytest -q tests/test_snake_ask_retrieval_profile.py tests/e2e/test_tui_snake_chat_propose_flow_e2e.py"
+        "pytest -q tests/snake/test_snake_ask_retrieval_profile.py tests/e2e/test_tui_snake_chat_propose_flow_e2e.py"
       ]
     },
     {
@@ -889,7 +889,7 @@
         "Todo wird nach Implementierung mit echten Commit-Hashes/Tests aktualisiert."
       ],
       "test_expectations": [
-        "pytest -q tests/test_retrieval_profile_service.py tests/test_snake_ask_retrieval_profile.py"
+        "pytest -q tests/test_retrieval_profile_service.py tests/snake/test_snake_ask_retrieval_profile.py"
       ]
     }
   ],
@@ -901,7 +901,7 @@
     ],
     "finalization": "working-tree update before next commit",
     "tests": [
-      "pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/test_snake_ask_retrieval_profile.py",
+      "pytest -q tests/test_retrieval_profile_service.py tests/test_retrieval_service_profiles.py tests/snake/test_snake_ask_retrieval_profile.py",
       "python -m json.tool todos/archiv/todo.codecompass-retrieval-profile-source-policy.json"
     ]
   },

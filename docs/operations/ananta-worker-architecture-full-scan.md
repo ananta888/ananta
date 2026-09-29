@@ -98,5 +98,5 @@ The final synthesis prompt requires source evidence for concrete components and 
 Run:
 
 ```bash
-pytest -q tests/test_ananta_worker_architecture_full_scan.py tests/test_snake_ask_full_scan.py
+pytest -q tests/test_ananta_worker_architecture_full_scan.py tests/snake/test_snake_ask_full_scan.py
 ```
