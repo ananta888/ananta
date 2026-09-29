@@ -7,7 +7,7 @@ from agent.config_defaults import build_default_agent_config, apply_env_config_o
 from agent.services.worker_pool_scheduler_service import WorkerPoolSchedulerService
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_schema_and_config():

@@ -632,7 +632,7 @@
           "files": [
             "agent/services/rag_service.py",
             "worker/core/context_bundle_adapter.py",
-            "tests/test_worker_context_open_notebook_refs.py"
+            "tests/worker/test_worker_context_open_notebook_refs.py"
           ],
           "priority": "P1",
           "effort": "L",

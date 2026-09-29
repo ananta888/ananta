@@ -26,7 +26,7 @@ python -m pytest tests/test_awf_worker_fixup_t001_t010.py \
                  tests/test_awf_worker_fixup_t031_t045.py -q
 
 # Security regression only
-python -m pytest tests/test_worker_security_regression.py -q
+python -m pytest tests/worker/test_worker_security_regression.py -q
 
 # Core worker modules
 python -m pytest tests/ -k "worker" -q

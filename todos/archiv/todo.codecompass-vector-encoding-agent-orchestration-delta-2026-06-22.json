@@ -228,7 +228,7 @@
           ],
           "target_files": [
             "agent/services/codecompass_vector_retrieval_service.py",
-            "tests/test_worker_codecompass_vector_channel.py",
+            "tests/worker/test_worker_codecompass_vector_channel.py",
             "tests/test_epc_integration.py"
           ],
           "acceptance_criteria": [
@@ -255,7 +255,7 @@
           "target_files": [
             "agent/hybrid_orchestrator.py",
             "agent/hybrid_context_orchestration.py",
-            "tests/test_worker_codecompass_vector_channel.py"
+            "tests/worker/test_worker_codecompass_vector_channel.py"
           ],
           "acceptance_criteria": [
             "Hybrid-Orchestrierung zeigt im retrieval_diagnostics.codecompass_vector den Encoding-Modus.",

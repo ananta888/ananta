@@ -741,7 +741,7 @@
         "agent/routes/agents.py",
         "agent/routes/config/shared.py",
         "config/runs/three-worker-local-planning.yaml",
-        "tests/test_worker_model_profile_routing.py"
+        "tests/worker/test_worker_model_profile_routing.py"
       ],
       "acceptance_criteria": [
         "opencode_runtime kann target_profile oder target_provider/target_model aus ModelProfileResolver erhalten.",
@@ -1268,7 +1268,7 @@
         "Abschlussreview lokal unter test-reports/model-routing-final-review.md erstellt; relevante Backend- und Frontend-Tests dokumentiert und ausgefuehrt."
       ],
       "tests": [
-        "pytest -q tests/test_model_profile_benchmark_routing.py tests/test_worker_model_profile_routing.py tests/test_system_integration_planning_pipeline.py tests/test_model_profile_resolver.py tests/test_routing_decision_service.py tests/test_cwfh_handoff_services.py",
+        "pytest -q tests/test_model_profile_benchmark_routing.py tests/worker/test_worker_model_profile_routing.py tests/test_system_integration_planning_pipeline.py tests/test_model_profile_resolver.py tests/test_routing_decision_service.py tests/test_cwfh_handoff_services.py",
         "pytest -q tests/test_config_api.py::test_set_config_validates_opencode_execution_mode",
         "npm run test:unit -- dashboard.component.spec.ts"
       ]

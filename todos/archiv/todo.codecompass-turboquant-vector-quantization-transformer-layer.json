@@ -916,7 +916,7 @@
             "TQ-023"
           ],
           "target_files": [
-            "tests/test_worker_codecompass_vector_channel.py",
+            "tests/worker/test_worker_codecompass_vector_channel.py",
             "tests/benchmarks/codecompass_worker/**"
           ],
           "acceptance_criteria": [

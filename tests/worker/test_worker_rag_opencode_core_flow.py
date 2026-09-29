@@ -9,8 +9,8 @@ from agent.services.task_scoped_execution_service import TaskScopedExecutionServ
 from worker.adapters.opencode_adapter import OpenCodeAdapter
 
 
-PROJECT_ROOT = Path(__file__).parent / "fixtures" / "mini_coding_project"
-REFERENCE_ROOT = Path(__file__).parent / "fixtures" / "java_security_mini"
+PROJECT_ROOT = Path(__file__).parent.parent / "fixtures" / "mini_coding_project"
+REFERENCE_ROOT = Path(__file__).parent.parent / "fixtures" / "java_security_mini"
 
 
 @dataclass(frozen=True)

@@ -1530,7 +1530,7 @@
           "risk": "critical",
           "type": "contract",
           "depends_on": ["ESORG-ARCH-002", "ESORG-PLAN-001", "ESORG-API-007", "ESORG-SEC-008"],
-          "paths": ["schemas/worker/task_followup_proposal.v1.json", "schemas/worker/worker_todo_result.v1.json", "schemas/worker/worker_execution_result.v1.json", "agent/services/worker_contract_service.py", "tests/test_worker_task_proposal_contract.py", "docs/architecture/worker-task-proposals.md"],
+          "paths": ["schemas/worker/task_followup_proposal.v1.json", "schemas/worker/worker_todo_result.v1.json", "schemas/worker/worker_execution_result.v1.json", "agent/services/worker_contract_service.py", "tests/worker/test_worker_task_proposal_contract.py", "docs/architecture/worker-task-proposals.md"],
           "acceptance_criteria": [
             "Geschlossene Proposal-Hülle bindet Proposal- und Idempotency-ID, Source Goal/Task, Organization, Unit, Team, Role Slot, Assignment, Dispatch Lease, Role-Template-Version, Payload-Digest und wirksamen Proposal-Policy-Hash.",
             "Payload beschreibt Aufgabe, rationale, acceptance_criteria, erwartete Outputs, Dependencies, Capabilities, Kontext/Evidenz, Risiko, Budget sowie ausschließlich unverbindliche Zielrollen-, Team- und Agent-Hinweise.",

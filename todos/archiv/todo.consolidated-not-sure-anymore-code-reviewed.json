@@ -290,7 +290,7 @@
         "agent/llm_integration.py",
         "agent/services/task_scoped_execution_service.py",
         "agent/config_defaults.py",
-        "tests/test_worker_preflight_runtime_scope.py"
+        "tests/worker/test_worker_preflight_runtime_scope.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: Worker-Preflight Scope ist auf worker verdrahtet (tool routing + integration registry + config default), LMStudio/Ollama Probes werden im Worker-Scope uebersprungen (probe_skipped=true).",
       "source_origin": [
@@ -405,7 +405,7 @@
         "agent/services/worker_policy_service.py",
         "agent/services/autopilot_support_service.py",
         "agent/config_defaults.py",
-        "tests/test_worker_policy_service.py"
+        "tests/worker/test_worker_policy_service.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: WorkerPolicyService implementiert (missing_capability, llm_scope_denied) und in Worker-Zuweisung verdrahtet; Testabdeckung vorhanden.",
       "source_origin": [
@@ -435,7 +435,7 @@
         "agent/services/autopilot_support_service.py",
         "agent/routes/tasks/autopilot_tick_engine.py",
         "agent/config_defaults.py",
-        "tests/test_worker_restart_grace_period.py"
+        "tests/worker/test_worker_restart_grace_period.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: Restart-Grace ist konfigurierbar und in available_workers aktiv; Worker werden mit _restart_grace markiert. Unit-Test vorhanden.",
       "source_origin": [
@@ -465,7 +465,7 @@
       "files": [
         "agent/services/autopilot_support_service.py",
         "agent/services/task_scoped_execution_service.py",
-        "tests/test_worker_selection_decision_event.py"
+        "tests/worker/test_worker_selection_decision_event.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: worker_selection_decision wird pro Auswahl geschrieben und enthält selected_worker, candidate_count, rejected_candidates, reason_code; Contract-Test ergänzt.",
       "source_origin": [
@@ -613,7 +613,7 @@
         "worker/core/hermes_proposal_strategy.py",
         "agent/services/task_scoped_execution_service.py",
         "agent/services/tool_routing_service.py",
-        "tests/test_worker_prompt_trace_integration.py"
+        "tests/worker/test_worker_prompt_trace_integration.py"
       ],
       "code_state_after_review": "DONE_IN_CODE: Forwarded/external Worker-Proposals ohne inspectable PromptTrace werden explizit als external_worker_uninspectable markiert; Integrationstest ergaenzt.",
       "source_origin": [

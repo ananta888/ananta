@@ -46,9 +46,9 @@
         "area": "tests",
         "files": [
           "tests/test_context_delivery_service.py",
-          "tests/test_worker_codecompass_fts_channel.py",
-          "tests/test_worker_codecompass_vector_channel.py",
-          "tests/test_worker_codecompass_hybrid_merge.py",
+          "tests/worker/test_worker_codecompass_fts_channel.py",
+          "tests/worker/test_worker_codecompass_vector_channel.py",
+          "tests/worker/test_worker_codecompass_hybrid_merge.py",
           "tests/worker/test_retrieval_ranking.py"
         ],
         "finding": "There are already focused tests around delivery and retrieval. New tests should extend this style."
@@ -173,7 +173,7 @@
       "files_to_update": [
         "worker/retrieval/retrieval_service.py",
         "worker/retrieval/retrieval_trace.py",
-        "tests/test_worker_codecompass_hybrid_merge.py",
+        "tests/worker/test_worker_codecompass_hybrid_merge.py",
         "tests/worker/test_retrieval_ranking.py"
       ],
       "description": "Ensure retrieval output has all fields needed for source catalogs.",

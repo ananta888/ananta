@@ -11,7 +11,7 @@ from agent.services.task_scoped_execution_service import TaskScopedExecutionServ
 from worker.adapters.opencode_adapter import OpenCodeAdapter
 
 
-PROJECT_ROOT = Path(__file__).parent / "fixtures" / "mini_coding_project"
+PROJECT_ROOT = Path(__file__).parent.parent / "fixtures" / "mini_coding_project"
 
 
 def _upload_and_index_java_artifact(filename: str, *, created_by: str = "tester") -> tuple[dict, dict, list[dict]]:

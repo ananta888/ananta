@@ -47,7 +47,7 @@
       "worker/retrieval/embedding_text_builder.py",
       "tests/codecompass/test_codecompass_embedding_loader.py",
       "tests/codecompass/test_codecompass_vector_store.py",
-      "tests/test_worker_codecompass_vector_channel.py",
+      "tests/worker/test_worker_codecompass_vector_channel.py",
       "tests/test_embedding_provider_config_service.py",
       "config/examples/embedding.ollama-openai-compatible.json",
       "config/examples/embedding.lmstudio-openai-compatible.json",
@@ -914,7 +914,7 @@
     "Vector Search darf deterministische Signale nicht überstimmen, sondern ergänzt sie bei unscharfen Suchanfragen.",
     "Alle Tests müssen ohne echte lokale Modellserver laufen; Live-Tests können später optional ergänzt werden.",
     "Implemented provider-policy forwarding, provider-config/profile index invalidation, explicit degraded diagnostics instead of silent hash fallback, CodeCompassVectorRetrievalService, HybridOrchestrator codecompass_vector routing, domain-scope filtering, reranking/deduplication, config defaults, docs, and focused tests.",
-    "Validation passed: python -m pytest tests/test_hybrid_orchestrator.py tests/test_hybrid_orchestrator_load.py tests/codecompass/test_codecompass_worker_retrieval_flags.py tests/test_worker_codecompass_vector_channel.py tests/test_worker_codecompass_hybrid_merge.py tests/codecompass/test_codecompass_worker_budgeting.py tests/test_embedding_provider_config_service.py tests/codecompass/test_codecompass_embedding_loader.py tests/codecompass/test_codecompass_vector_store.py tests/codecompass/test_codecompass_vector_provider_policy.py tests/codecompass/test_codecompass_vector_retrieval_service.py tests/test_hybrid_orchestrator_codecompass_vector.py tests/codecompass/test_codecompass_vector_domain_scope.py tests/codecompass/test_codecompass_vector_reranking.py tests/test_epc_integration.py -q"
+    "Validation passed: python -m pytest tests/test_hybrid_orchestrator.py tests/test_hybrid_orchestrator_load.py tests/codecompass/test_codecompass_worker_retrieval_flags.py tests/worker/test_worker_codecompass_vector_channel.py tests/worker/test_worker_codecompass_hybrid_merge.py tests/codecompass/test_codecompass_worker_budgeting.py tests/test_embedding_provider_config_service.py tests/codecompass/test_codecompass_embedding_loader.py tests/codecompass/test_codecompass_vector_store.py tests/codecompass/test_codecompass_vector_provider_policy.py tests/codecompass/test_codecompass_vector_retrieval_service.py tests/test_hybrid_orchestrator_codecompass_vector.py tests/codecompass/test_codecompass_vector_domain_scope.py tests/codecompass/test_codecompass_vector_reranking.py tests/test_epc_integration.py -q"
   ],
   "end_summaries": [
     {

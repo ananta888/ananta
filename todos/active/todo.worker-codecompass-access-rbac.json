@@ -297,7 +297,7 @@
       ],
       "evidence": [
         "e4d42fb06: gemeinsamer hub_tool_gateway (Timeout+Audit), Companion unveraendert (tests/meet/test_meet_companion_tools_route.py gruen)",
-        "94197a2ac: POST /api/worker/v1/tasks/<tid>/tools/<name>, WorkerToolGateway (Zuweisung, Allowlist, read-only, Rollen), Worker-Client; tests/test_worker_tool_gateway.py",
+        "94197a2ac: POST /api/worker/v1/tasks/<tid>/tools/<name>, WorkerToolGateway (Zuweisung, Allowlist, read-only, Rollen), Worker-Client; tests/worker/test_worker_tool_gateway.py",
         "Live-Smoke 2026-09-27 (synthetische Tasks, danach geloescht): search/architecture_overview ok; fremder Worker, Rolle ohne Grant, repo.grep, unbekannter Task abgelehnt"
       ]
     },

@@ -53,7 +53,7 @@
       "docs/contracts/codecompass-output-manifest.md",
       "tests/codecompass/test_codecompass_embedding_provider.py",
       "tests/codecompass/test_codecompass_vector_store.py",
-      "tests/test_worker_codecompass_vector_channel.py",
+      "tests/worker/test_worker_codecompass_vector_channel.py",
       "tests/worker/test_retrieval_indexing.py"
     ],
     "main_architecture_gap": "EmbeddingProvider existiert, aber die Konfiguration ist nicht als kanonischer, auditierbarer und wiederverwendbarer Runtime-Contract für Worker Retrieval, CodeCompass Vector Store, RAG Helper und semantic_output_correction modelliert.",
@@ -571,7 +571,7 @@
       "files": [
         "tests/test_codecompass_embedding_config_integration.py",
         "tests/codecompass/test_codecompass_vector_store.py",
-        "tests/test_worker_codecompass_vector_channel.py"
+        "tests/worker/test_worker_codecompass_vector_channel.py"
       ],
       "description": "Nachweisen, dass CodeCompass denselben Config-Pfad nutzt und Index-State/Rebuild korrekt auf Provider-Änderungen reagieren.",
       "acceptance_criteria": [

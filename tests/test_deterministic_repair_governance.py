@@ -271,7 +271,7 @@ class TestBeforeAfterEvidence:
 
 class TestRollbackHints:
     def test_rollback_hint_propagated_in_step_result(self) -> None:
-        from tests.test_worker_deterministic_repair import _make_repair_envelope
+        from tests.worker.test_worker_deterministic_repair import _make_repair_envelope
         from worker.repair.repair_procedure_runner import RepairProcedureRunner
 
         envelope = _make_repair_envelope(with_procedure=False)

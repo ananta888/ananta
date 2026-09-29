@@ -22,7 +22,7 @@ pytest tests/ -x -q
 pytest tests/test_security_regression.py -v
 
 # Run smoke tests
-pytest tests/test_worker_smoke.py -v
+pytest tests/worker/test_worker_smoke.py -v
 ```
 
 ## Configuration

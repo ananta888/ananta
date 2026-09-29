@@ -7,7 +7,7 @@ from jsonschema import Draft202012Validator
 
 
 def test_worker_context_bundle_schema_accepts_codecompass_provenance_payload():
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     schema = json.loads((root / "schemas" / "worker" / "worker_context_bundle.v1.json").read_text(encoding="utf-8"))
     payload = {
         "schema": "worker_context_bundle.v1",

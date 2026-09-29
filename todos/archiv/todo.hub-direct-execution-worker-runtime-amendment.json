@@ -108,7 +108,7 @@
         "agent/services/worker_runtime_execution_adapter.py",
         "agent/services/hub_tool_execution_adapter.py",
         "agent/services/task_execution_service.py",
-        "tests/test_worker_runtime_execution_adapter.py"
+        "tests/worker/test_worker_runtime_execution_adapter.py"
       ],
       "acceptance_criteria": [
         "Neuer WorkerRuntimeExecutionAdapter kapselt die tatsaechliche ToolExecution ausserhalb der Hub-Control-Plane.",
@@ -151,7 +151,7 @@
         "agent/services/worker_runtime_execution_adapter.py",
         "agent/services/custom_tool_executor.py",
         "agent/services/workspace_mutation_tools.py",
-        "tests/test_worker_runtime_workspace_scope.py"
+        "tests/worker/test_worker_runtime_workspace_scope.py"
       ],
       "acceptance_criteria": [
         "WorkerRuntimeExecutionAdapter erhaelt nur einen expliziten workspace_ref oder workspace_dir aus Task/Goal-Scope, nie implizit den Hub-Arbeitsordner.",
@@ -194,7 +194,7 @@
         "agent/services/worker_runtime_selection_service.py",
         "agent/services/worker_runtime_target_service.py",
         "agent/services/native_worker_runtime_service.py",
-        "tests/test_worker_runtime_execution_adapter.py",
+        "tests/worker/test_worker_runtime_execution_adapter.py",
         "tests/test_hub_direct_worker_runtime_e2e.py"
       ],
       "acceptance_criteria": [
@@ -240,7 +240,7 @@
     "completed_at": "2026-06-11",
     "summary": "Track finalisiert: Status an die Implementierung angepasst, offene Hardening-/E2E-/Doku-Punkte umgesetzt und verifiziert.",
     "verification": [
-      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/test_worker_runtime_execution_adapter.py tests/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
+      "pytest tests/test_custom_tool_executor.py tests/test_custom_tool_promotion_service.py tests/test_custom_tool_validation_service.py tests/test_custom_tool_mutation_gate.py tests/test_dynamic_tool_registry_service.py tests/test_custom_tool_proposal_service.py tests/worker/test_worker_runtime_execution_adapter.py tests/test_hub_direct_worker_runtime_e2e.py tests/test_dynamic_tool_promotion_e2e.py",
       "pytest tests/test_hub_direct_diagnostics_api.py -q"
     ]
   }

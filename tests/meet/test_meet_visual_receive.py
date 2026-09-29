@@ -16,7 +16,7 @@ from ananta_contracts.meet_visual_receive import (
     validate_visual_job,
     validate_visual_result,
 )
-from tests.test_worker_image_features import encoded_image
+from tests.worker.test_worker_image_features import encoded_image
 from worker.meet_media.visual_child import analyze
 from worker.meet_media.visual_frames import project_visual_frame
 from worker.meet_media.visual_pipeline import MeetVisualPipeline

@@ -297,11 +297,11 @@ tests/test_validate_todo_consistency.py
 tests/test_validate_todo_schema.py
 tests/test_verification_governance.py
 tests/test_vscode_extension_bootstrap.py
-tests/test_worker_capability_profiles.py
-tests/test_worker_job_flow.py
-tests/test_worker_rag_opencode_core_flow.py
-tests/test_worker_real_rag_helper_opencode_core_flow.py
-tests/test_worker_routing.py
+tests/worker/test_worker_capability_profiles.py
+tests/worker/test_worker_job_flow.py
+tests/worker/test_worker_rag_opencode_core_flow.py
+tests/worker/test_worker_real_rag_helper_opencode_core_flow.py
+tests/worker/test_worker_routing.py
 tests/test_ws_terminal.pyagent/services/source_catalog_service.py
 agent/services/tool_run_catalog_service.py
 agent/services/citation_verification_service.py

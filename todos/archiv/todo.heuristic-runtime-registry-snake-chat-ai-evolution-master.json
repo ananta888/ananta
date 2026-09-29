@@ -237,7 +237,7 @@
         "Validator blockiert explizit: runtime_mode=ai_only, OpenCode als control_worker oder evolution_worker.",
         "Validator nutzt bestehende EXTERNAL_WORKER_KINDS aus worker_selection_policy_service.py fuer Kompatibilitaetspruefung.",
         "Domain-Overrides erlauben separate TTL-Defaults fuer snake (5-10s) und chat (10-20s).",
-        "Tests in tests/test_worker_role_config_service.py pruefen: Default-Werte korrekt, OpenCode-als-Control-Validator blockiert, Domain-Overrides werden korrekt aufgeloest.",
+        "Tests in tests/worker/test_worker_role_config_service.py pruefen: Default-Werte korrekt, OpenCode-als-Control-Validator blockiert, Domain-Overrides werden korrekt aufgeloest.",
         "WorkerRoleConfig wird in agent/config.py oder settings eingebunden und beim Hub-Start validiert."
       ]
     },
