@@ -131,7 +131,7 @@ def test_knowledge_index_job_envelope_validates_against_worker_schema() -> None:
     )
     envelope = queue.calls[0]["extra_fields"]["worker_execution_context"]["knowledge_index_job"]
     schema = json.loads(
-        (Path(__file__).resolve().parents[1] / "schemas" / "worker" / "knowledge_index_job.v1.json").read_text(
+        (Path(__file__).resolve().parents[2] / "schemas" / "worker" / "knowledge_index_job.v1.json").read_text(
             encoding="utf-8"
         )
     )
@@ -162,7 +162,7 @@ def test_worker_handler_returns_bound_result_without_orchestrating() -> None:
 
     result = KnowledgeIndexWorkerTaskHandler(Execution()).execute(envelope)
     schema = json.loads(
-        (Path(__file__).resolve().parents[1] / "schemas" / "worker" / "knowledge_index_job_result.v1.json").read_text(
+        (Path(__file__).resolve().parents[2] / "schemas" / "worker" / "knowledge_index_job_result.v1.json").read_text(
             encoding="utf-8"
         )
     )
@@ -379,7 +379,7 @@ def test_worker_result_validation_rejects_unbound_or_extended_payloads() -> None
 
     result_schema = json.loads(
         (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[2]
             / "schemas"
             / "worker"
             / "knowledge_index_job_result.v1.json"

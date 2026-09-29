@@ -8,7 +8,7 @@ from agent.services.parametric_knowledge_eligibility_policy import ParametricKno
 from worker.training.knowledge_expert_dataset_quality import KnowledgeExpertDatasetBuilder
 from worker.training.knowledge_unit_compiler import CodeCompassKnowledgeUnitCompiler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class Augmenter:

@@ -429,7 +429,7 @@
         "files": [
           "schemas/knowledge_hygiene/",
           "ananta_contracts/knowledge_hygiene.py",
-          "tests/test_knowledge_hygiene_schemas.py"
+          "tests/knowledge/test_knowledge_hygiene_schemas.py"
         ],
         "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
         "verification": "source-aligned implementation and deterministic acceptance coverage"
@@ -963,7 +963,7 @@
       "completion_evidence": {
         "files": [
           "agent/services/knowledge_hygiene/analysis.py",
-          "tests/test_knowledge_hygiene_contracts.py"
+          "tests/knowledge/test_knowledge_hygiene_contracts.py"
         ],
         "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
         "verification": "source-aligned implementation and deterministic acceptance coverage"
@@ -1256,7 +1256,7 @@
       "completion_evidence": {
         "files": [
           "agent/services/knowledge_hygiene/writeback.py",
-          "tests/test_knowledge_hygiene_writeback.py"
+          "tests/knowledge/test_knowledge_hygiene_writeback.py"
         ],
         "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
         "verification": "source-aligned implementation and deterministic acceptance coverage"
@@ -1292,7 +1292,7 @@
       "completion_evidence": {
         "files": [
           "agent/services/knowledge_hygiene/service.py",
-          "tests/test_knowledge_hygiene_service.py"
+          "tests/knowledge/test_knowledge_hygiene_service.py"
         ],
         "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
         "verification": "source-aligned implementation and deterministic acceptance coverage"
@@ -1705,9 +1705,9 @@
       "completed_at": "2026-08-20",
       "completion_evidence": {
         "files": [
-          "tests/test_knowledge_hygiene_service.py",
-          "tests/test_knowledge_hygiene_worker.py",
-          "tests/test_knowledge_hygiene_writeback.py"
+          "tests/knowledge/test_knowledge_hygiene_service.py",
+          "tests/knowledge/test_knowledge_hygiene_worker.py",
+          "tests/knowledge/test_knowledge_hygiene_writeback.py"
         ],
         "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
         "verification": "source-aligned implementation and deterministic acceptance coverage"

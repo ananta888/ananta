@@ -600,7 +600,7 @@ def test_knowledge_index_retrieval_wiki_metadata_preserves_revision_and_import_f
 
 
 def test_file_kind_buckets_follow_canonical_registry_families_and_selectors():
-    registry = load_file_type_support_registry(Path(__file__).resolve().parents[1])
+    registry = load_file_type_support_registry(Path(__file__).resolve().parents[2])
     service = KnowledgeIndexRetrievalService(file_type_registry=registry)
 
     assert {descriptor.family for descriptor in registry.descriptors} <= set(

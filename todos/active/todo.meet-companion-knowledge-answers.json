@@ -137,12 +137,12 @@
           "affected_files": [
             "agent/services/knowledge_index_retrieval_service.py",
             "agent/routes/meet.py",
-            "tests/test_knowledge_index_retrieval_service.py",
+            "tests/knowledge/test_knowledge_index_retrieval_service.py",
             "tests/meet/test_meet_assist_retrieve_route.py"
           ],
           "verification": [
-            "tests/test_knowledge_index_retrieval_service.py::test_records_ingestion_path_is_citable_and_a_repetitive_blob_no_longer_wins",
-            "tests/test_knowledge_index_retrieval_service.py::test_repeated_token_hits_saturate",
+            "tests/knowledge/test_knowledge_index_retrieval_service.py::test_records_ingestion_path_is_citable_and_a_repetitive_blob_no_longer_wins",
+            "tests/knowledge/test_knowledge_index_retrieval_service.py::test_repeated_token_hits_saturate",
             "tests/meet/test_meet_assist_retrieve_route.py::test_citable_hits_come_first_and_the_display_path_is_used",
             "Live-Index im Hub-Container (search_records): 'rag-helper' vorher Top-1 path='' config/codecompass/file_type_support.v1.json score 242.4; nachher Top-6 alle mit Pfad (agent/services/rag_helper_index_service.py, rag_helper_file_type_policy.py, rag_helper_file_type_migration.py, tests/test_rag_helper_*), Registry-Blob auf Rang ~120.",
             "Regression: 18 Retrieval-/CodeCompass-Testdateien gruen bis auf 3 vorbestehende Fehler in tests/test_deerflow_integration.py (identisch ohne diese Aenderung)."
@@ -180,13 +180,13 @@
           "implemented_solution": "KnowledgeIndexRetrievalService: Query-Tokens werden fuer den Dateistamm-Bonus an '_' zerlegt (rag-helper = rag_helper = rag helper), die Phrase ist trennzeichen-unabhaengig, '-' im Heuhaufen zaehlt fuer '_'-Tokens; Testdateien (tests/, test_*, *_test, .spec./.test.) erhalten im Standard-/Erklaerprofil test_penalty 0.2 im quality_multiplier, bei task_kind bugfix/implement/coding/refactor/test/testing 0. Kein Re-Index noetig. Index-Abdeckung: docs/rag-helper.md ist im aktiven repo_path-Index (e8e7bf28..., 9703 Records) enthalten, im Repo aber nur ein 56-Byte-Platzhalter ('Placeholder for RAG helper documentation.'); deshalb traegt die Doku inhaltlich wenig.",
           "affected_files": [
             "agent/services/knowledge_index_retrieval_service.py",
-            "tests/test_knowledge_index_retrieval_service.py",
+            "tests/knowledge/test_knowledge_index_retrieval_service.py",
             "tests/meet/test_meet_assist_retrieve_route.py"
           ],
           "verification": [
             "Echter Index, aktueller Code, Route-Projektion (limit 5): 'rag-helper' und 'rag helper' -> rag_helper_file_type_migration.py, rag_helper_file_type_policy.py, rag_helper_index_service.py, rag-helper/codecompass_rag.py, docs/rag-helper.md; 'rag_helper' -> rag_helper_file_type_policy.py, rag_helper_index_service.py, rag_helper_file_type_migration.py, tests/test_rag_helper_index_service.py, rag-helper/tests/...; 'rag_helper pipeline' -> rag_helper_file_type_policy.py, rag_helper_index_service.py, rag_helper_file_type_migration.py, tests/..., .hermes/plans/...; alle mit Pfad, Registry-Blob in keinem Top-5 (vorher bei 'rag_helper pipeline' Plaene/pipeline_trace vorne)",
             "tests/meet/test_meet_assist_retrieve_route.py::test_rag_helper_variants_return_citable_modules_and_docs_before_tests_and_registry (5 Varianten, echte Service-Instanz ueber die Route)",
-            "tests/test_knowledge_index_retrieval_service.py::test_underscore_hyphen_and_space_variants_name_the_same_file_stem, ::test_tests_follow_the_module_for_explanations_but_not_for_test_tasks",
+            "tests/knowledge/test_knowledge_index_retrieval_service.py::test_underscore_hyphen_and_space_variants_name_the_same_file_stem, ::test_tests_follow_the_module_for_explanations_but_not_for_test_tasks",
             "Ohne Fix 7 der neuen Faelle rot; mit Fix 27/27 in beiden Dateien; 258 weitere Tests mit Retrieval-Bezug gruen; 3 tests/test_deerflow_integration.py-Faelle auch ohne diese Aenderung rot (vorbestehend)",
             "Live erst nach Neustart des Hub-Prozesses wirksam (nicht Teil dieses Auftrags: kein Deploy)"
           ]

@@ -346,7 +346,7 @@
       ],
       "evidence": [
         "worker/retrieval/codecompass_document_normalizer.py, chunk_metadata.py and governed knowledge-index execution provide typed, revision-bound compiler inputs.",
-        "worker/training/knowledge_unit_compiler.py deterministically preserves CodeCompass parent/relations, source revision and digests while separating training text from manifests; tests/test_knowledge_unit_compiler.py proves stable ordering and lineage."
+        "worker/training/knowledge_unit_compiler.py deterministically preserves CodeCompass parent/relations, source revision and digests while separating training text from manifests; tests/knowledge/test_knowledge_unit_compiler.py proves stable ordering and lineage."
       ]
     },
     {
@@ -419,7 +419,7 @@
       ],
       "evidence": [
         "worker/training/backends and FrozenTrainingBackendRegistry already provide replaceable LoRA/QLoRA backends, capability projection, evaluation and adapter export.",
-        "worker/training/knowledge_expert_training.py provides a replaceable one-job backend port, restricts LoRA targets to final-FFN gate/up/down modules, validates safetensors output and invokes abort cleanup on failure. tests/test_knowledge_expert_training.py passes; real DMoE output parity remains unmeasured.",
+        "worker/training/knowledge_expert_training.py provides a replaceable one-job backend port, restricts LoRA targets to final-FFN gate/up/down modules, validates safetensors output and invokes abort cleanup on failure. tests/knowledge/test_knowledge_expert_training.py passes; real DMoE output parity remains unmeasured.",
         "Source audit at main@94a047f7e found that no production backend implements KnowledgeExpertTrainingBackendPort; all train_expert calls are test doubles, so deterministic real PEFT training/export is not yet repository-complete.",
         "worker/training/knowledge_expert_peft_backend.py now implements the production lifecycle bridge to the admitted PEFT/TRL backend, binds task/attempt/model/tokenizer/dataset/configuration, selects only actual final-layer FFN modules and admits exactly one confined safetensors artifact. Focused lifecycle and target-selection tests pass; a real DMoE training run remains unmeasured."
       ],

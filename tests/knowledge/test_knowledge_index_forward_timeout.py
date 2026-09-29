@@ -8,7 +8,7 @@ from agent.services.knowledge_index_forward_timeout import (
     resolve_knowledge_index_forward_budget_seconds,
     resolve_knowledge_index_forward_deadline,
 )
-from tests.knowledge_index_execution_test_support import (
+from tests.knowledge.knowledge_index_execution_test_support import (
     build_execution_task,
 )
 

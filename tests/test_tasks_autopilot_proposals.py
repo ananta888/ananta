@@ -14,7 +14,7 @@ from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.autopilot_tick_engine import (
     _should_terminalize_no_executable_strategy,
 )
-from tests.knowledge_index_execution_test_support import (
+from tests.knowledge.knowledge_index_execution_test_support import (
     build_execution_task,
 )
 

@@ -146,8 +146,8 @@ tests/test_ingestion_service.py
 tests/test_init_wizard.py
 tests/test_instruction_layers.py
 tests/test_integration_guidelines.py
-tests/test_knowledge_index_retrieval_service.py
-tests/test_knowledge_routes.py
+tests/knowledge/test_knowledge_index_retrieval_service.py
+tests/knowledge/test_knowledge_routes.py
 tests/test_live_agent_chain_e2e.py
 tests/test_live_agent_chain_runtime_helpers.py
 tests/test_live_terminal_session_service.py

@@ -21,7 +21,7 @@ from ananta_contracts.knowledge_hygiene import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _schema(name: str) -> dict:

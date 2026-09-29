@@ -15,7 +15,7 @@ from ananta_contracts.codecompass_domain_supplement import (
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
 )
-from tests.knowledge_index_execution_test_support import build_execution_job
+from tests.knowledge.knowledge_index_execution_test_support import build_execution_job
 
 
 class _Repository:

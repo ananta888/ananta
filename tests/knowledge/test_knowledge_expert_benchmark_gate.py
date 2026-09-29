@@ -7,7 +7,7 @@ import pytest
 
 from agent.services.knowledge_expert_benchmark_gate import KnowledgeExpertBenchmarkGate
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _runs():

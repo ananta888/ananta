@@ -5,7 +5,7 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
 )
-from tests.knowledge_index_execution_test_support import (
+from tests.knowledge.knowledge_index_execution_test_support import (
     build_execution_task,
 )
 

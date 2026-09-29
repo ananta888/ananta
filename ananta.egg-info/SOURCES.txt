@@ -2172,10 +2172,10 @@ tests/test_kanban_outbox_migration.py
 tests/test_kanban_projection_service.py
 tests/test_keycloak_fetcher.py
 tests/test_keycloak_ingest.py
-tests/test_knowledge_index_job_service.py
-tests/test_knowledge_index_retrieval_service.py
-tests/test_knowledge_index_worker_artifact_service.py
-tests/test_knowledge_routes.py
+tests/knowledge/test_knowledge_index_job_service.py
+tests/knowledge/test_knowledge_index_retrieval_service.py
+tests/knowledge/test_knowledge_index_worker_artifact_service.py
+tests/knowledge/test_knowledge_routes.py
 tests/test_langchain_stream_provider_middleware.py
 tests/test_langgraph_checkpoint_gateway_service.py
 tests/test_langgraph_checkpoint_internal_api.py

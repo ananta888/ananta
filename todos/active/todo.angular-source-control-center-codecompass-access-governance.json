@@ -981,8 +981,8 @@
         "schemas/worker/knowledge_index_execution_result.v2.json",
         "agent/services/knowledge_index_execution_binding_service.py",
         "agent/db_models/knowledge_index_execution.py",
-        "tests/test_knowledge_index_execution_binding.py",
-        "tests/test_knowledge_index_destination_dispatch.py"
+        "tests/knowledge/test_knowledge_index_execution_binding.py",
+        "tests/knowledge/test_knowledge_index_destination_dispatch.py"
       ],
       "acceptance_criteria": [
         "Auftrag bindet Tenant, Projekt, SourceRevision, Admission-Digest, Policy-Snapshot, Dateimanifest, Ressourcenbudgets, Idempotency-Key und Lease.",
@@ -1215,7 +1215,7 @@
         "agent/services/source_destination_resolution.py",
         "agent/services/effective_source_access_service.py",
         "tests/source/test_source_destination_resolution.py",
-        "tests/test_knowledge_index_destination_dispatch.py"
+        "tests/knowledge/test_knowledge_index_destination_dispatch.py"
       ],
       "acceptance_criteria": [
         "Worker-Auswahl bewertet die tatsächliche Worker-, Runtime-, Provider- und Modellidentität statt synthetischer Platzhalter.",
