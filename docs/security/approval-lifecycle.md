@@ -184,5 +184,5 @@ sequenceDiagram
   • `tests/test_alwa_redispatch.py` — Re-Dispatch
   • `tests/test_mutation_gate_service.py` — Gate-Tests inkl. digest
   • `tests/test_approval_binding.py` — Lifecycle-Grundlagen
-  • `tests/test_approval_policy_service.py` — Policy-Integration
+  • `tests/approval/test_approval_policy_service.py` — Policy-Integration
   • `tests/test_ananta_worker_tool_policy.py` — Tool-Loop-Policy

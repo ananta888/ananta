@@ -31,7 +31,7 @@ tests/test_api_contract_tasks.py
 tests/test_api_envelope.py
 tests/test_app_bootstrap_order.py
 tests/test_approval_binding.py
-tests/test_approval_policy_service.py
+tests/approval/test_approval_policy_service.py
 tests/test_architecture_agents_compliance.py
 tests/test_artifact_provenance_hashes.py
 tests/artifact/test_artifact_type_registry.py

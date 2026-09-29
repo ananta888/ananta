@@ -1646,7 +1646,7 @@ tests/test_api_repair_endpoints.py
 tests/test_api_task_artifact_status.py
 tests/test_app_bootstrap_order.py
 tests/test_approval_binding.py
-tests/test_approval_policy_service.py
+tests/approval/test_approval_policy_service.py
 tests/test_architecture_agents_compliance.py
 tests/artifact/test_artifact_access_policy.py
 tests/artifact/test_artifact_candidate_service.py
@@ -2104,7 +2104,7 @@ tests/test_heuristic_registry.py
 tests/test_heuristic_strategy.py
 tests/test_hint_routing_service.py
 tests/test_history_provider.py
-tests/test_hitl_gate_service.py
+tests/approval/test_hitl_gate_service.py
 tests/test_hotspot_guardrails.py
 tests/test_http_client_network_fallback.py
 tests/hub/test_hub_benchmark.py

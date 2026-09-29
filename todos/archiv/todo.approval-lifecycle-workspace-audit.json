@@ -317,7 +317,7 @@
       "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "target_files": ["agent/services/approval_policy_service.py", "agent/services/ananta_tool_policy_service.py", "agent/services/approval_request_service.py", "tests/test_approval_policy_service.py", "tests/test_ananta_worker_tool_policy.py"],
+      "target_files": ["agent/services/approval_policy_service.py", "agent/services/ananta_tool_policy_service.py", "agent/services/approval_request_service.py", "tests/approval/test_approval_policy_service.py", "tests/test_ananta_worker_tool_policy.py"],
       "evidence": [
         "agent/services/ananta_tool_policy_service.py (digest-gebundene Grant-Aufloesung via resolve_grant_for_call; approvals=list[str] durch digest ersetzt)",
         "agent/services/approval_policy_service.py (evaluate() nimmt approval_context mit tool_name/canonical_arguments/arguments_digest)"
@@ -606,7 +606,7 @@
         "tests/test_alwa_e2e_pipeline.py (NEU, 3 E2E-Tests: grant→re-dispatch→consume, deny→blocked, digest-mismatch→no-resolve)",
         "tests/test_alwa_redispatch.py (3 Tests, Re-Dispatch-Bausteine)",
         "tests/test_approval_binding.py (Approval-Lifecycle Grundlagen)",
-        "tests/test_approval_policy_service.py (Policy-Integration)",
+        "tests/approval/test_approval_policy_service.py (Policy-Integration)",
         "tests/test_ananta_worker_tool_policy.py (Tool-Loop-Policy)",
         "tests/test_alwa_workspace_audit_helper.py (Helper-Konstanten)",
         "tests/test_alwa_workspace_audit_hooks.py (Hooks in Baseline + Hub-Check + MutationGate)"
