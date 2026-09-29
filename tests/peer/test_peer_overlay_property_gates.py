@@ -123,7 +123,7 @@ def test_route_lease_kid_and_signed_scope_mutations_are_rejected() -> None:
 
 def test_python_and_typescript_traffic_class_contracts_have_exact_parity() -> None:
     source = (
-        Path(__file__).parents[1] / "frontend-angular/src/app/services/peer-overlay/peer-overlay-traffic-policy.ts"
+        Path(__file__).parents[2] / "frontend-angular/src/app/services/peer-overlay/peer-overlay-traffic-policy.ts"
     ).read_text(encoding="utf-8")
     match = re.search(r"PEER_OVERLAY_DATA_CLASSES.*?Object\.freeze\(\[(.*?)\]\)", source, re.DOTALL)
     assert match is not None

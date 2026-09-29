@@ -17,7 +17,7 @@ from scripts.benchmark.peer_speech_evidence_sync import (
     measurement_run_id,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_peer_enrichment_benchmark_blocks_leakage_quality_and_p95_regressions() -> None:

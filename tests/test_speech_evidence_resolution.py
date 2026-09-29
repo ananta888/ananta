@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tests.test_peer_transcript_consensus import _candidate
+from tests.peer.test_peer_transcript_consensus import _candidate
 from voice_runtime.peer_transcript_consensus import PeerTranscriptConflictGraphBuilder
 from voice_runtime.peer_transcript_resolution import (
     LocalTranscriptDisplayOverrideStore,

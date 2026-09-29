@@ -9,7 +9,7 @@ from scripts.run_peer_overlay_churn_gate import (
     _measurements_complete,
 )
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 
 
 def test_churn_validator_requires_real_engines_identities_and_bounded_recovery() -> None:

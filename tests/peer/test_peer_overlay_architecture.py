@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_peer_overlay_components_do_not_depend_on_direct_or_livekit_facades() -> None:

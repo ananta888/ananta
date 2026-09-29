@@ -6,7 +6,7 @@ from pathlib import Path
 from scripts.hub_browser_test_evidence import HubBrowserTestRun, canonical_digest, source_digest
 from scripts.run_peer_media_alternative_gate import EXPECTED_ENGINES, _evaluation_complete
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 
 
 def test_hub_browser_test_run_issues_test_only_identity_before_result(tmp_path: Path) -> None:

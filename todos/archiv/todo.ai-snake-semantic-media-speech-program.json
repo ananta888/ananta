@@ -3273,7 +3273,7 @@
         "voice_runtime/peer_transcript_consensus.py",
         "voice_runtime/fusion/alignment.py",
         "voice_runtime/fusion/consensus.py",
-        "tests/test_peer_transcript_consensus.py"
+        "tests/peer/test_peer_transcript_consensus.py"
       ],
       "acceptance_criteria": [
         "Graph unterscheidet exact, punctuation, lexical, timing, insert, delete, uncertain, speaker-overlap und incompatible-source.",
@@ -3380,7 +3380,7 @@
       "affected_files": [
         "voice_runtime/peer_evidence_admission.py",
         "agent/services/speech_evidence_admission_service.py",
-        "tests/test_peer_evidence_admission.py"
+        "tests/peer/test_peer_evidence_admission.py"
       ],
       "acceptance_criteria": [
         "Recipient prueft Schema, Signatur, Consent, Digest, Speaker-Scope, Retention, Resolution und Qualitaet erneut vor Accept.",
@@ -3495,7 +3495,7 @@
         "frontend-angular/tests/semantic-media-pair.spec.ts",
         "scripts/benchmark/peer_speech_evidence_sync.py",
         "config/peer-speech-evidence-sync-benchmark.v1.json",
-        "tests/test_peer_speech_sync_benchmark.py",
+        "tests/peer/test_peer_speech_sync_benchmark.py",
         "artifacts/test-gates/peer-speech-evidence-sync.json"
       ],
       "acceptance_criteria": [

@@ -121,19 +121,19 @@
       "tests/security/test_webrtc_replay_protection.py",
       "tests/security/test_webrtc_security_downgrade.py",
       "tests/test_media_topology_policy.py",
-      "tests/test_peer_overlay_api.py",
-      "tests/test_peer_overlay_contracts.py",
-      "tests/test_peer_overlay_control_service.py",
-      "tests/test_peer_overlay_relay_health_policy.py",
-      "tests/test_peer_overlay_release_gate.py",
-      "tests/test_peer_overlay_rollout_policy.py",
-      "tests/test_peer_overlay_property_gates.py",
-      "tests/test_peer_overlay_topology_service.py",
-      "tests/test_peer_media_alternative_gate.py",
-      "tests/test_peer_nat_matrix_gate.py",
-      "tests/test_peer_overlay_churn_gate.py",
-      "tests/test_peer_overlay_cost_admission_policy.py",
-      "tests/test_peer_overlay_observability_service.py"
+      "tests/peer/test_peer_overlay_api.py",
+      "tests/peer/test_peer_overlay_contracts.py",
+      "tests/peer/test_peer_overlay_control_service.py",
+      "tests/peer/test_peer_overlay_relay_health_policy.py",
+      "tests/peer/test_peer_overlay_release_gate.py",
+      "tests/peer/test_peer_overlay_rollout_policy.py",
+      "tests/peer/test_peer_overlay_property_gates.py",
+      "tests/peer/test_peer_overlay_topology_service.py",
+      "tests/peer/test_peer_media_alternative_gate.py",
+      "tests/peer/test_peer_nat_matrix_gate.py",
+      "tests/peer/test_peer_overlay_churn_gate.py",
+      "tests/peer/test_peer_overlay_cost_admission_policy.py",
+      "tests/peer/test_peer_overlay_observability_service.py"
     ],
     "standards": [
       "https://www.w3.org/TR/webrtc-encoded-transform/",
@@ -506,7 +506,7 @@
       "progress_percent": 100.0,
       "implementation_evidence": [
         "docs/architecture/peer-overlay-boundaries.md",
-        "tests/test_peer_overlay_architecture.py",
+        "tests/peer/test_peer_overlay_architecture.py",
         "frontend-angular/src/app/services/media-fanout-contract.ts",
         "frontend-angular/src/app/services/media-fanout-contract.spec.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
@@ -591,8 +591,8 @@
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_contracts.py",
-        "tests/test_peer_overlay_control_service.py"
+        "tests/peer/test_peer_overlay_contracts.py",
+        "tests/peer/test_peer_overlay_control_service.py"
       ],
       "implementation_gap": ""
     },
@@ -618,7 +618,7 @@
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
         "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
-        "tests/test_peer_overlay_contracts.py"
+        "tests/peer/test_peer_overlay_contracts.py"
       ]
     },
     {
@@ -861,7 +861,7 @@
       "implementation_evidence": [
         "ananta_contracts/peer_overlay.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_contracts.py"
+        "tests/peer/test_peer_overlay_contracts.py"
       ],
       "implementation_gap": ""
     },
@@ -913,7 +913,7 @@
       "implementation_evidence": [
         "agent/services/peer_overlay_control_service.py",
         "agent/services/peer_overlay_offline_authority_policy.py",
-        "tests/test_peer_overlay_offline_authority_policy.py",
+        "tests/peer/test_peer_overlay_offline_authority_policy.py",
         "docs/decisions/ADR-decentralized-peer-overlay.md",
         "docs/operations/peer-overlay.md"
       ],
@@ -967,7 +967,7 @@
       "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/peer_overlay_topology_service.py",
-        "tests/test_peer_overlay_topology_service.py"
+        "tests/peer/test_peer_overlay_topology_service.py"
       ]
     },
     {
@@ -992,7 +992,7 @@
       "implementation_evidence": [
         "agent/services/peer_overlay_topology_service.py",
         "agent/services/peer_overlay_relay_health_policy.py",
-        "tests/test_peer_overlay_topology_service.py",
+        "tests/peer/test_peer_overlay_topology_service.py",
         "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts"
       ]
     },
@@ -1018,7 +1018,7 @@
       "implementation_evidence": [
         "agent/services/peer_overlay_relay_health_policy.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_relay_health_policy.py",
+        "tests/peer/test_peer_overlay_relay_health_policy.py",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-parent-failover.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-parent-failover.spec.ts"
       ]
@@ -1046,7 +1046,7 @@
         "ananta_contracts/peer_overlay.py",
         "agent/services/peer_overlay_control_service.py",
         "agent/services/peer_overlay_state_store.py",
-        "tests/test_peer_overlay_control_service.py",
+        "tests/peer/test_peer_overlay_control_service.py",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-link-signaling.ts",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-link-signaling.spec.ts"
       ]
@@ -1129,7 +1129,7 @@
         "frontend-angular/playwright.peer-media-alternative.config.ts",
         "scripts/run_peer_media_alternative_gate.py",
         "artifacts/test-gates/peer-media-alternative.json",
-        "tests/test_peer_media_alternative_gate.py"
+        "tests/peer/test_peer_media_alternative_gate.py"
       ],
       "implementation_gap": "Die vollautomatische Hub-reservierte Testmessung endet bewusst als bounded_experiment; produktive Congestion-Control- und Renderer-Paritaet werden nicht behauptet."
     },
@@ -1265,7 +1265,7 @@
         "agent/services/peer_overlay_quality_policy.py",
         "agent/services/peer_overlay_control_service.py",
         "agent/routes/peer_overlay.py",
-        "tests/test_peer_overlay_quality_policy.py"
+        "tests/peer/test_peer_overlay_quality_policy.py"
       ]
     },
     {
@@ -1341,8 +1341,8 @@
       "implementation_evidence": [
         "agent/services/peer_overlay_relay_health_policy.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_relay_health_policy.py",
-        "tests/test_peer_overlay_control_service.py",
+        "tests/peer/test_peer_overlay_relay_health_policy.py",
+        "tests/peer/test_peer_overlay_control_service.py",
         "docs/security/peer-overlay-threat-model.md"
       ]
     },
@@ -1367,7 +1367,7 @@
       "progress_percent": 100.0,
       "implementation_evidence": [
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
-        "tests/test_peer_overlay_architecture.py",
+        "tests/peer/test_peer_overlay_architecture.py",
         "docker/nginx/conf.d/default.conf",
         ".github/workflows/quality-and-docs.yml",
         "frontend-angular/package.json",
@@ -1453,7 +1453,7 @@
         "frontend-angular/playwright.peer-nat-matrix.config.ts",
         "scripts/run_peer_nat_matrix_gate.py",
         "artifacts/test-gates/peer-nat-matrix.json",
-        "tests/test_peer_nat_matrix_gate.py"
+        "tests/peer/test_peer_nat_matrix_gate.py"
       ],
       "implementation_gap": "Die reale Browser-/coturn-Matrix ist als synthetische Test-Evidenz abgeschlossen. Sie ist keine Produktions-NAT- oder Kapazitaetsfreigabe."
     },
@@ -1480,8 +1480,8 @@
         "agent/services/peer_overlay_cost_admission_policy.py",
         "agent/services/peer_overlay_control_service.py",
         "config/peer_overlay_cost_budgets.default.json",
-        "tests/test_peer_overlay_cost_admission_policy.py",
-        "tests/test_peer_overlay_control_service.py"
+        "tests/peer/test_peer_overlay_cost_admission_policy.py",
+        "tests/peer/test_peer_overlay_control_service.py"
       ],
       "implementation_gap": ""
     },
@@ -1509,8 +1509,8 @@
         "agent/bootstrap/peer_overlay.py",
         "agent/services/peer_overlay_rollout_policy.py",
         "agent/services/peer_overlay_control_service.py",
-        "tests/test_peer_overlay_rollout_policy.py",
-        "tests/test_peer_overlay_bootstrap.py",
+        "tests/peer/test_peer_overlay_rollout_policy.py",
+        "tests/peer/test_peer_overlay_bootstrap.py",
         "docs/operations/peer-overlay.md"
       ],
       "implementation_gap": ""
@@ -1538,7 +1538,7 @@
         "agent/services/peer_overlay_observability_service.py",
         "agent/services/peer_overlay_control_service.py",
         "agent/routes/peer_overlay.py",
-        "tests/test_peer_overlay_observability_service.py"
+        "tests/peer/test_peer_overlay_observability_service.py"
       ],
       "implementation_gap": ""
     },
@@ -1592,7 +1592,7 @@
         "config/peer_overlay_cost_budgets.default.json",
         "agent/services/peer_overlay_cost_admission_policy.py",
         "agent/bootstrap/peer_overlay.py",
-        "tests/test_peer_overlay_cost_admission_policy.py"
+        "tests/peer/test_peer_overlay_cost_admission_policy.py"
       ],
       "implementation_gap": ""
     },
@@ -1617,9 +1617,9 @@
       ],
       "progress_percent": 100.0,
       "implementation_evidence": [
-        "tests/test_peer_overlay_contracts.py",
-        "tests/test_peer_overlay_property_gates.py",
-        "tests/test_peer_overlay_topology_service.py",
+        "tests/peer/test_peer_overlay_contracts.py",
+        "tests/peer/test_peer_overlay_property_gates.py",
+        "tests/peer/test_peer_overlay_topology_service.py",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
         "frontend-angular/src/app/services/e2e-nonce-policy.spec.ts",
         "frontend-angular/src/app/services/sfu-media-frame-crypto.service.spec.ts"
@@ -1653,7 +1653,7 @@
         "artifacts/test-gates/peer-overlay-churn.json",
         "artifacts/test-gates/peer-mesh-browser-capacity.json",
         "artifacts/test-gates/peer-nat-matrix.json",
-        "tests/test_peer_overlay_churn_gate.py"
+        "tests/peer/test_peer_overlay_churn_gate.py"
       ],
       "implementation_gap": "Test-Gate abgeschlossen; nicht-synthetische Produktionsfreigabe bleibt gemaess Evidence-Policy no_go."
     },
@@ -1678,9 +1678,9 @@
       ],
       "progress_percent": 100.0,
       "implementation_evidence": [
-        "tests/test_peer_overlay_contracts.py",
-        "tests/test_peer_overlay_property_gates.py",
-        "tests/test_peer_overlay_relay_health_policy.py",
+        "tests/peer/test_peer_overlay_contracts.py",
+        "tests/peer/test_peer_overlay_property_gates.py",
+        "tests/peer/test_peer_overlay_relay_health_policy.py",
         "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
         "frontend-angular/src/app/services/peer-overlay/authenticated-layer-selection.spec.ts"
       ],
@@ -1710,7 +1710,7 @@
       "progress_percent": 100.0,
       "implementation_evidence": [
         "agent/services/peer_overlay_release_gate.py",
-        "tests/test_peer_overlay_release_gate.py"
+        "tests/peer/test_peer_overlay_release_gate.py"
       ]
     }
   ],

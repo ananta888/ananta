@@ -2349,10 +2349,10 @@ tests/test_pattern_selection_policy.py
 tests/test_pattern_service.py
 tests/test_pattern_strategy_render.py
 tests/test_pattern_template_renderer.py
-tests/test_peer_evidence_admission.py
-tests/test_peer_speech_sync_benchmark.py
+tests/peer/test_peer_evidence_admission.py
+tests/peer/test_peer_speech_sync_benchmark.py
 tests/test_peer_speech_sync_lifecycle.py
-tests/test_peer_transcript_consensus.py
+tests/peer/test_peer_transcript_consensus.py
 tests/test_performance_budgets.py
 tests/test_persisted_last_proposal_contract.py
 tests/planning/test_planning_blueprint_provenance.py

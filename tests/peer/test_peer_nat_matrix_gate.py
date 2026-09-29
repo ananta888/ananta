@@ -6,7 +6,7 @@ from pathlib import Path
 
 from scripts.run_peer_nat_matrix_gate import EXPECTED_ENGINES, _matrix_complete, _route_epoch_proof
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 
 
 def test_route_switch_preserves_membership_and_key_epochs_and_rejects_stale_lease() -> None:
