@@ -424,48 +424,75 @@ E2E_EXPECT_TIMEOUT_MS=20000 E2E_NAV_TIMEOUT_MS=45000 docker compose -f docker/ol
 1. `execute manual command on worker` in `frontend-angular/tests/agents.spec.ts`
    - Ursache: Hot-Reload Caching Problem (siehe oben).
 
-## Backend-Suite: Laufzeit und gezielte Auswahl
+## Backend-Suite: Stufen, Phasen und CI
 
-Die Backend-Suite (~34 000 Tests) laeuft im Compose-Runner (`t-infra`, als `--user 1000:1000`) parallel:
+Die Backend-Suite (~34 000 Tests) hat zwei Stufen (`tests/tiering.py`):
+
+| Stufe | Inhalt | Laufzeit (`-n 8`, 43 GB Host) | Wann |
+|-------|--------|-------------------------------|------|
+| `core` (Standard) | alles ausser der Slow-Stufe, ~32 900 Tests | ~6 min | jede Aenderung, jeder Push (CI) |
+| `slow` | `tests/slow/`, Eintraege in `tests/slow_tests.txt`, `@pytest.mark.slow`, ~830 Tests | ~4 min | nachts (CI), vor Releases |
+
+`--tier core|slow|all` (oder `ANANTA_TEST_TIER`) waehlt die Stufe. Explizit genannte Dateien laufen immer
+vollstaendig, damit Gate-Skripte ihre festen Testmengen behalten; `--strict-tier` hebt das auf.
+
+In die Slow-Stufe gehoeren Tests, die regelmaessig >= 2 s brauchen (Migrationen, echte Toolchains,
+Prozess-Starts, End-to-End-Fluesse, Drills), ausser Sicherheits-, Auth-, Approval- und Policy-Tests: die
+bleiben immer in `core`. Ganze Dateien zieht `scripts/move_tests_to_slow.py` nach `tests/slow/<gleicher Pfad>`
+um; Dateien, die ein Gate hasht (Pfad oder Inhalt in `artifacts/`, `scripts/`, `config/*-gates/` oder einer
+von dort genannten Doku/Todo), bleiben liegen und stehen im Manifest `tests/slow_tests.txt` (Datei oder
+einzelne Testfunktion).
+
+Lokal laufen die Tests in Phasen, von eng und schnell nach breit (`scripts/test-phase.sh`, im Compose-Runner):
 
 ```bash
-cd docker/compose-next
-docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user 1000:1000 t-infra \
-  python -m pytest -q -p no:cacheprovider -o addopts='' -n 8 --timeout=300 tests
+scripts/test-phase.sh affected   # Tests, die die geaenderten Dateien importieren oder nennen (Sekunden)
+scripts/test-phase.sh domains    # die ganzen Fachordner (tests/<domaene>) dieser Tests
+scripts/test-phase.sh core       # die Standardstufe (~6 min)
+scripts/test-phase.sh slow       # nur die Slow-Stufe
+scripts/test-phase.sh ladder     # affected -> domains -> core, Abbruch beim ersten Fehler
+scripts/test-phase.sh affected --base origin/main -- -x   # Selektor-Argumente, nach `--` pytest-Optionen
 ```
 
-Richtwert: ~11 Minuten mit `-n 8` (43 GB Host). Mehr Worker helfen kaum und kosten Speicher.
-Ohne Langlaeufer: `-m "not slow"`.
+`affected` und `domains` laufen nur mit der Core-Stufe (`--strict-tier`). `scripts/test-affected.sh` bleibt als
+Kurzform fuer `affected` (`INCLUDE_SLOW=1` nimmt die Slow-Stufe mit).
+
+`scripts/select_affected_tests.py` verfolgt einen statischen Importgraphen (AST, nichts wird importiert) von
+den geaenderten Modulen rueckwaerts bis zu den Testdateien (`--explain` zeigt die Begruendung, `--depth N`
+begrenzt die Import-Schritte, `--domains` erweitert auf Fachordner). Geaenderte Nicht-Python-Dateien (Doku,
+JSON-Gates, Compose) waehlen die Tests, die ihren Pfad nennen. Aenderungen an der Test-Infrastruktur
+(`conftest.py`, Isolation, Caches, Stufen/Sharding, Abhaengigkeits-Pins, Test-Image) waehlen die ganze Suite.
+
+In GitHub Actions laeuft die Core-Stufe bei jedem Push und Pull Request in `backend-core-tests.yml`: vier
+parallele Shards, jeder mit 10 Minuten Timeout. `tests/sharding.py` verteilt ganze Dateien nach den gemessenen
+Laufzeiten in `tests/test_durations.json` (`--shard-count N --shard-index I`). Die Slow-Stufe laeuft nachts in
+`backend-slow-tests.yml`. Nach groesseren Umbauten die Laufzeiten neu messen:
+
+```bash
+docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user 1000:1000 t-infra \
+  python -m pytest -q -p no:cacheprovider -o addopts='' -n 8 --tier all --junitxml=.tmp/durations.xml tests
+python scripts/update_test_durations.py .tmp/durations.xml
+```
+
 Integrationstests (Marker `integration` und alles unter `tests/integration/`) laufen standardmaessig mit;
 `RUN_INTEGRATION_TESTS=0` schaltet sie ab. Tests, die eine Live-Runtime brauchen (z. B. vite-node, Live-Dienste),
 ueberspringen sich mit Begruendung. Provider-Tests nutzen die Fixture `public_provider_dns` statt echtem DNS.
 
-Fuer die Arbeit an einer Aenderung reicht meist die **betroffene Auswahl**:
-
-```bash
-scripts/test-affected.sh                      # Aenderungen im Working Tree gegen HEAD
-scripts/test-affected.sh --base origin/main   # alles auf dem Branch
-scripts/test-affected.sh --depth 2            # engeres, schnelles Signal
-python scripts/select_affected_tests.py --explain   # nur anzeigen, mit Begruendung
-```
-
-Tests mit `@pytest.mark.slow` (je >= 10 s: Migrationen hoch/runter, echte Toolchains, Temporal-/Operations-Drills,
-Import-Grenzen-Scans) ueberspringt `test-affected.sh` standardmaessig; `INCLUDE_SLOW=1` nimmt sie mit. Die volle
-Suite fuehrt sie immer aus. Neue Tests, die regelmaessig >= 10 s brauchen, bekommen den Marker.
-
-`scripts/select_affected_tests.py` verfolgt einen statischen Importgraphen (AST, nichts wird importiert) von
-den geaenderten Modulen rueckwaerts bis zu den Testdateien. Geaenderte Nicht-Python-Dateien (Doku, JSON-Gates,
-Compose) waehlen die Tests, die ihren Pfad nennen. Aenderungen an der Test-Infrastruktur (`conftest.py`,
-Isolation, Abhaengigkeits-Pins, Test-Image) waehlen die ganze Suite. Die Auswahl ist das schnelle Signal
-vor dem Merge; die volle Suite bleibt das Release-Gate.
+Laufzeiten schwanken auf demselben Host um bis zu Faktor 2, wenn dort gleichzeitig andere Last laeuft (GPU-LLM,
+Meet-Worker); Vergleiche immer mit mehreren Laeufen.
 
 Hermetik (in `tests/conftest.py` gesetzt, damit Laeufe weder den Live-Stack noch das Netz beruehren):
 
 - `REDIS_URL` ist leer: Rate-Limits/Caches pro Prozess im Speicher, nie die Redis des laufenden Stacks.
 - `RAG_REPO_ROOT`, `DATA_DIR` und die TUI-CodeCompass-Ausgabe zeigen auf leere Verzeichnisse pro Prozess.
 - Die Operator-TUI baut keinen CodeCompass-Index automatisch und ruft kein LAN-LLM auf.
+- Die LM-Studio-Adresse des Hubs zeigt auf einen lokalen Port, der sofort ablehnt (Runtime-Probes gingen sonst
+  ins LAN und warteten Connect-Timeouts mal drei Retries ab).
 - Frische SQLite-Datei-Datenbanken bekommen ihr Schema aus einer Vorlage pro Prozess
   (`tests/sqlite_schema_template.py`, abschaltbar mit `ANANTA_TEST_SQLITE_TEMPLATE=0`).
+- Wiederholte scrypt-Ableitungen (Default-Admin, Login) und die ~1 450 kompilierten URL-Builder werden pro
+  Prozess wiederverwendet (`tests/password_hash_cache.py`, `tests/werkzeug_rule_cache.py`; abschaltbar mit
+  `ANANTA_TEST_PASSWORD_HASH_CACHE=0` bzw. `ANANTA_TEST_WERKZEUG_RULE_CACHE=0`).
 
 Diagnose: `ANANTA_TEST_MEMORY_TRACE=/pfad/datei.tsv` protokolliert jeden Test, der den Prozess um
 >= 64 MiB wachsen laesst; `--durations=50` zeigt die langsamsten Tests.
