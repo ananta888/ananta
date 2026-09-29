@@ -5,8 +5,7 @@ inject the actual Hub-OIDC values (issuer/client_id/audience) and set
 bridge_active=true. When OIDC is disabled, the JSON file values pass
 through unchanged and bridge_active=false.
 
-We bypass auth by monkeypatching the @check_auth decorator on the
-endpoint module for the duration of these tests.
+Auth is bypassed by calling the undecorated view (``__wrapped__``).
 """
 
 from __future__ import annotations
@@ -65,6 +64,11 @@ def _build_test_profile():
     }
 
 
+# @check_auth wraps the view at import time; the undecorated view is what these tests exercise, and it
+# must not depend on whether an earlier test in the same process configured an agent token.
+_get_network_profile_without_auth = network_profiles.get_network_profile.__wrapped__
+
+
 def _install_test_profile(profile):
     network_profiles._CACHE = {"public-ananta": profile}
     network_profiles._CACHE_TS = 999999999.0  # far future → cache hit
@@ -75,9 +79,8 @@ def _clear_test_profile():
     network_profiles._CACHE_TS = 0.0
 
 
-def test_disabled_oidc_passes_through_json_values(monkeypatch):
+def test_disabled_oidc_passes_through_json_values():
     saved = _set_oidc(oidc_enabled=False)
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         _install_test_profile(profile)
@@ -85,7 +88,7 @@ def test_disabled_oidc_passes_through_json_values(monkeypatch):
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200, f"unexpected status {resp.status_code}"
             body = resp.get_json()
             oidc = body["profile"]["oidc"]
@@ -98,7 +101,7 @@ def test_disabled_oidc_passes_through_json_values(monkeypatch):
         _clear_test_profile()
 
 
-def test_enabled_oidc_exposes_link_capability_without_overwriting_pair_provider(monkeypatch):
+def test_enabled_oidc_exposes_link_capability_without_overwriting_pair_provider():
     saved = _set_oidc(
         oidc_enabled=True,
         oidc_issuer_url="https://keycloak.ananta.de/realms/ananta",
@@ -106,7 +109,6 @@ def test_enabled_oidc_exposes_link_capability_without_overwriting_pair_provider(
         oidc_audience="ananta-hub",
         oidc_client_id="ananta-frontend",
     )
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         _install_test_profile(profile)
@@ -114,7 +116,7 @@ def test_enabled_oidc_exposes_link_capability_without_overwriting_pair_provider(
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200
             body = resp.get_json()
             oidc = body["profile"]["oidc"]
@@ -130,7 +132,7 @@ def test_enabled_oidc_exposes_link_capability_without_overwriting_pair_provider(
         _clear_test_profile()
 
 
-def test_enabled_partial_oidc_does_not_activate_bridge(monkeypatch):
+def test_enabled_partial_oidc_does_not_activate_bridge():
     """Default-deny: OIDC enabled but partial config → bridge_active=false,
     JSON values pass through unchanged."""
     saved = _set_oidc(
@@ -140,7 +142,6 @@ def test_enabled_partial_oidc_does_not_activate_bridge(monkeypatch):
         oidc_audience="ananta-hub",
         oidc_client_id="ananta-frontend",
     )
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         _install_test_profile(profile)
@@ -148,7 +149,7 @@ def test_enabled_partial_oidc_does_not_activate_bridge(monkeypatch):
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200
             body = resp.get_json()
             oidc = body["profile"]["oidc"]
@@ -169,11 +170,10 @@ def test_enabled_partial_oidc_does_not_activate_bridge(monkeypatch):
 # konsistent mit bridge_active).
 
 
-def test_registration_allowed_defaults_to_false_when_oidc_unconfigured(monkeypatch):
+def test_registration_allowed_defaults_to_false_when_oidc_unconfigured():
     """Default-deny: ohne OIDC config (oidc_enabled=false) bleibt
     registration_allowed=false, auch wenn man es per env-Var setzt."""
     saved = _set_oidc(oidc_enabled=False, oidc_registration_allowed=True)
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         _install_test_profile(profile)
@@ -181,7 +181,7 @@ def test_registration_allowed_defaults_to_false_when_oidc_unconfigured(monkeypat
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200
             body = resp.get_json()
             assert body["profile"]["oidc"]["registration_allowed"] is False
@@ -190,7 +190,7 @@ def test_registration_allowed_defaults_to_false_when_oidc_unconfigured(monkeypat
         _clear_test_profile()
 
 
-def test_registration_allowed_false_when_env_var_false_but_oidc_configured(monkeypatch):
+def test_registration_allowed_false_when_env_var_false_but_oidc_configured():
     """Auch bei vollständig konfiguriertem OIDC: registration_allowed=false
     wenn env-Var nicht gesetzt (default-deny)."""
     saved = _set_oidc(
@@ -201,7 +201,6 @@ def test_registration_allowed_false_when_env_var_false_but_oidc_configured(monke
         oidc_client_id="ananta-frontend",
         oidc_registration_allowed=False,
     )
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         _install_test_profile(profile)
@@ -209,7 +208,7 @@ def test_registration_allowed_false_when_env_var_false_but_oidc_configured(monke
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200
             body = resp.get_json()
             assert body["profile"]["oidc"]["bridge_active"] is True
@@ -219,7 +218,7 @@ def test_registration_allowed_false_when_env_var_false_but_oidc_configured(monke
         _clear_test_profile()
 
 
-def test_registration_allowed_true_when_env_var_true_and_oidc_configured(monkeypatch):
+def test_registration_allowed_true_when_env_var_true_and_oidc_configured():
     """Opt-in via env-Var OIDC_REGISTRATION_ALLOWED=true und vollständig
     konfiguriertem OIDC → registration_allowed=true."""
     saved = _set_oidc(
@@ -230,7 +229,6 @@ def test_registration_allowed_true_when_env_var_true_and_oidc_configured(monkeyp
         oidc_client_id="ananta-frontend",
         oidc_registration_allowed=True,
     )
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         _install_test_profile(profile)
@@ -238,7 +236,7 @@ def test_registration_allowed_true_when_env_var_true_and_oidc_configured(monkeyp
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200
             body = resp.get_json()
             assert body["profile"]["oidc"]["bridge_active"] is True
@@ -248,7 +246,7 @@ def test_registration_allowed_true_when_env_var_true_and_oidc_configured(monkeyp
         _clear_test_profile()
 
 
-def test_registration_allowed_does_not_leak_into_local_profile(monkeypatch):
+def test_registration_allowed_does_not_leak_into_local_profile():
     """registration_allowed kommt NUR aus settings.oidc_registration_allowed,
     nicht aus dem Profil-JSON. Auch wenn Profil-JSON das Feld enthält,
     wird es nicht propagiert — single-source-of-truth ist die env-Var."""
@@ -260,7 +258,6 @@ def test_registration_allowed_does_not_leak_into_local_profile(monkeypatch):
         oidc_client_id="ananta-frontend",
         oidc_registration_allowed=True,
     )
-    monkeypatch.setattr(network_profiles, "check_auth", lambda f: f)
     try:
         profile = _build_test_profile()
         profile["oidc"]["registration_allowed"] = False  # würde default überschreiben wenn falsch
@@ -269,7 +266,7 @@ def test_registration_allowed_does_not_leak_into_local_profile(monkeypatch):
 
         app = create_app(testing=True)
         with app.test_request_context("/api/network-profiles/public-ananta"):
-            resp = network_profiles.get_network_profile("public-ananta")
+            resp = _get_network_profile_without_auth("public-ananta")
             assert resp.status_code == 200
             body = resp.get_json()
             # env-Var (True) gewinnt — Profil-JSON-Wert wird ignoriert
