@@ -2164,9 +2164,9 @@ tests/test_kanban_contracts.py
 tests/test_kanban_durable_outbox.py
 tests/test_kanban_event_api.py
 tests/test_kanban_event_stream_service.py
-tests/test_kanban_model_dashboard_evidence_preflight.py
-tests/test_kanban_model_dashboard_evidence_producer.py
-tests/test_kanban_model_dashboard_release_gate.py
+tests/kanban/test_kanban_model_dashboard_evidence_preflight.py
+tests/kanban/test_kanban_model_dashboard_evidence_producer.py
+tests/kanban/test_kanban_model_dashboard_release_gate.py
 tests/test_kanban_model_dashboard_shared_contract.py
 tests/test_kanban_outbox_migration.py
 tests/test_kanban_projection_service.py
