@@ -70,3 +70,14 @@ def test_unrelated_changes_do_not_pull_in_other_tests() -> None:
 
 def test_non_python_files_select_tests_of_modules_that_name_them() -> None:
     assert "tests/test_gate.py" in select([".env.example"], _graph()).tests
+
+
+def test_domain_widening_keeps_flat_files_and_maps_slow_files_to_their_domain() -> None:
+    from scripts.select_affected_tests import widen_to_domains
+
+    assert widen_to_domains(["tests/meet/test_a.py", "tests/meet/test_b.py", "tests/test_flat.py"]) == [
+        "tests/meet",
+        "tests/test_flat.py",
+    ]
+    assert widen_to_domains(["tests/slow/meet/test_a.py", "tests/slow/test_flat.py"]) == ["tests/meet"]
+    assert widen_to_domains(["tests"]) == ["tests"]

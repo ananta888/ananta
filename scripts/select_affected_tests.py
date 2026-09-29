@@ -62,6 +62,8 @@ _FULL_SUITE_TRIGGERS = (
     "tests/sqlite_schema_template.py",
     "tests/password_hash_cache.py",
     "tests/werkzeug_rule_cache.py",
+    "tests/tiering.py",
+    "tests/sharding.py",
     "tests_support.py",
     "pyproject.toml",
     "requirements.lock",
@@ -222,6 +224,26 @@ def select(changed_paths: Sequence[str], graph: ImportGraph, *, depth: int | Non
     return selection
 
 
+def widen_to_domains(tests: Sequence[str]) -> list[str]:
+    """Each selected test file -> its domain directory (``tests/meet/test_x.py`` -> ``tests/meet``); flat
+    files under ``tests/`` stay files. ``tests/slow/<domain>/...`` maps to ``tests/<domain>``: the slow tier
+    is its own phase."""
+    widened: set[str] = set()
+    for test in tests:
+        parts = Path(test).parts
+        if test == FULL_SUITE:
+            return [FULL_SUITE]
+        if len(parts) >= 3 and parts[0] == TESTS_DIR:
+            domain = parts[2] if parts[1] == "slow" and len(parts) >= 4 else parts[1]
+            if parts[1] == "slow" and len(parts) < 4:
+                continue
+            if (ROOT / TESTS_DIR / domain).is_dir():
+                widened.add(f"{TESTS_DIR}/{domain}")
+                continue
+        widened.add(test)
+    return sorted(widened)
+
+
 def changed_files(base: str | None, root: Path = ROOT) -> list[str]:
     """Changed, staged and untracked files vs. ``base`` (default: HEAD, i.e. the working tree's changes)."""
     commands = [
@@ -246,6 +268,11 @@ def _parser() -> argparse.ArgumentParser:
     source.add_argument("--files", nargs="+", help="explicit changed paths instead of git")
     parser.add_argument("--explain", action="store_true", help="print why each test file was selected")
     parser.add_argument(
+        "--domains",
+        action="store_true",
+        help="widen every selected test file to its whole domain directory (tests/<domain>)",
+    )
+    parser.add_argument(
         "--depth",
         type=int,
         default=None,
@@ -259,6 +286,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     changed = arguments.files if arguments.files else changed_files(arguments.base)
     selection = select(changed, ImportGraph.from_repository(), depth=arguments.depth)
     shown = {FULL_SUITE: selection.tests.get(FULL_SUITE, [])} if selection.full_suite else selection.tests
+    if arguments.domains:
+        for path in widen_to_domains(sorted(shown)):
+            print(path)
+        if not shown:
+            print("no affected tests", file=sys.stderr)
+        return 0
     for test in sorted(shown):
         reasons = sorted(set(shown[test]))
         print(f"{test}  # {reasons[0]}" if arguments.explain and reasons else test)

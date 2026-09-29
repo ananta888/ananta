@@ -29,7 +29,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = ROOT / "tests"
-PINNING_DIRS = ("artifacts", "scripts")
+# gate profiles in config/*-gates are digested into gate evidence as well
+PINNING_DIRS = ("artifacts", "scripts", "config/test-gates", "config/release-gates")
 # never rewritten: hashed gate evidence, dependencies, generated output
 _EXCLUDED_DIRS = frozenset(
     {".git", "node_modules", "artifacts", "project-workspaces", "data", "data_test", "rag-helper", "ci-artifacts",
@@ -78,7 +79,7 @@ def hashed_sources(pinning_text: str) -> set[Path]:
     docs and todos in a gate's source projection: their bytes are hashed, so they must not be rewritten."""
     found = set()
     for relative in set(_REPO_PATH.findall(pinning_text)):
-        if relative.split("/", 1)[0] in {"tests", *PINNING_DIRS}:
+        if relative.startswith(("tests/", *(f"{directory}/" for directory in PINNING_DIRS))):
             continue
         path = ROOT / relative
         if path.suffix in _TEXT_SUFFIXES and path.is_file():

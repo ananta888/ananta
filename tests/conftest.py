@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests import sharding, tiering
 from tests.isolation_database import isolated_database_url
 from tests.isolation_guard import (
     require_data_directory,
@@ -86,8 +87,19 @@ from tests_support import admin_login_token, reset_auth_state
 _TEST_DB_READY = False
 
 
+def pytest_addoption(parser):
+    tiering.add_option(parser)
+    sharding.add_options(parser)
+
+
+def pytest_ignore_collect(collection_path, config):
+    return tiering.ignore_collect(collection_path, config)
+
+
 def pytest_collection_modifyitems(config, items):
-    del config
+    # tier first (core / slow / all), then the CI shard of what remains; see tests/tiering.py, tests/sharding.py
+    tiering.select(config, items)
+    sharding.select(config, items)
     if str(os.environ.get("RUN_MANUAL_FULL_SCAN_TESTS") or "").strip().lower() in {"1", "true", "yes", "on"}:
         return
     skip_manual_full_scan = pytest.mark.skip(

@@ -4,7 +4,8 @@
 #   scripts/test-affected.sh --base origin/main   # everything on this branch
 #   scripts/test-affected.sh --depth 2            # narrower, faster feedback
 # Selector arguments are passed on; PYTEST_WORKERS (default 8) sets the xdist workers.
-# Tests marked `slow` (>= 10 s each) are skipped unless INCLUDE_SLOW=1; the full suite always runs them.
+# The slow tier (tests/slow/, tests/slow_tests.txt, @slow) is skipped unless INCLUDE_SLOW=1.
+# Phases (affected -> domains -> core -> slow): scripts/test-phase.sh.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 mapfile -t tests < <(python3 "$root/scripts/select_affected_tests.py" "$@")
@@ -12,11 +13,11 @@ if [ "${#tests[@]}" -eq 0 ]; then
   echo "no affected tests"
   exit 0
 fi
-marker=(-m "not slow")
+marker=(--tier core --strict-tier)
 if [ "${INCLUDE_SLOW:-0}" = "1" ]; then
-  marker=()
+  marker=(--tier all)
 fi
-echo "running ${#tests[@]} test path(s)${marker:+ (without slow tests; INCLUDE_SLOW=1 adds them)}" >&2
+echo "running ${#tests[@]} test path(s) (${marker[*]})" >&2
 cd "$root/docker/compose-next"
 status=0
 docker compose -p compose-next -f compose.tests.lmstudio.yml run --rm --user "$(id -u):$(id -g)" t-infra \
