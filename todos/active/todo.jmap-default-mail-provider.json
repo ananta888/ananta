@@ -128,10 +128,10 @@
       "tests/imap/test_imap_artifact_worker_security.py",
       "tests/imap/test_imap_connector_service.py",
       "tests/imap/test_imap_mock_integration_flow.py",
-      "tests/test_jmap_failure_matrix.py",
-      "tests/test_jmap_result_reference.py",
-      "tests/test_jmap_scheduler_and_limits.py",
-      "tests/test_jmap_transport_binding_and_oauth.py",
+      "tests/jmap/test_jmap_failure_matrix.py",
+      "tests/jmap/test_jmap_result_reference.py",
+      "tests/jmap/test_jmap_scheduler_and_limits.py",
+      "tests/jmap/test_jmap_transport_binding_and_oauth.py",
       "tests/mail/test_mail_foundation_acceptance_round2.py",
       "tests/mail/test_mail_operational_negative_gates.py",
       "tests/mail/test_mail_polling_scheduler.py",
@@ -497,7 +497,7 @@
         "agent/services/jmap_http_transport.py",
         "agent/services/jmap_auth_service.py",
         "agent/services/mail_secret_resolver.py",
-        "tests/test_jmap_transport_binding_and_oauth.py"
+        "tests/jmap/test_jmap_transport_binding_and_oauth.py"
       ],
       "acceptance_criteria": [
         "HTTP-Client, Clock, Sleeper und SecretResolver sind injizierte Ports; Tests benoetigen kein Netzwerk und keine realen Secrets.",
@@ -530,7 +530,7 @@
       "affected_files": [
         "agent/services/jmap_discovery_service.py",
         "agent/services/jmap_contract_service.py",
-        "tests/test_jmap_transport_binding_and_oauth.py"
+        "tests/jmap/test_jmap_transport_binding_and_oauth.py"
       ],
       "acceptance_criteria": [
         "Discovery unterstuetzt eine explizite session_url und HTTPS .well-known/jmap fuer eine validierte Discovery-Domain; optionale SRV-Aufloesung ist separat policy-gesteuert.",
@@ -564,8 +564,8 @@
         "agent/services/jmap_contract_service.py",
         "agent/services/jmap_client_service.py",
         "agent/services/jmap_request_scheduler.py",
-        "tests/test_jmap_result_reference.py",
-        "tests/test_jmap_scheduler_and_limits.py"
+        "tests/jmap/test_jmap_result_reference.py",
+        "tests/jmap/test_jmap_scheduler_and_limits.py"
       ],
       "acceptance_criteria": [
         "Client sendet eindeutige callIds und korreliert methodResponses ueber callId und Methodenname statt Arrayposition.",
@@ -955,10 +955,10 @@
         "tests/e2e/test_jmap_ananta_composition_contract.py",
         "tests/e2e/test_jmap_fixture_contract.py",
         "tests/e2e/test_mail_sync_state_failure_matrix.py",
-        "tests/test_jmap_failure_matrix.py",
-        "tests/test_jmap_result_reference.py",
-        "tests/test_jmap_scheduler_and_limits.py",
-        "tests/test_jmap_transport_binding_and_oauth.py",
+        "tests/jmap/test_jmap_failure_matrix.py",
+        "tests/jmap/test_jmap_result_reference.py",
+        "tests/jmap/test_jmap_scheduler_and_limits.py",
+        "tests/jmap/test_jmap_transport_binding_and_oauth.py",
         "tests/mail/test_mail_operational_negative_gates.py",
         "tests/mail/test_mail_polling_scheduler.py",
         "tests/mail/test_mail_sync_transaction_and_reconciliation.py",
