@@ -581,7 +581,7 @@
       "target_files": [
         "agent/services/ml_intern_backend_selection_service.py",
         "agent/services/ml_intern_training_control_policy.py",
-        "tests/test_ml_intern_backend_selection_service.py"
+        "tests/ml/test_ml_intern_backend_selection_service.py"
       ],
       "implementation": [
         "Manuelle Auswahl, policy-basierte Empfehlung und kontrollierten Benchmark-Vergleich getrennt anbieten.",

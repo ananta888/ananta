@@ -759,7 +759,7 @@
         "agent/services/ml_intern_training_job_service.py",
         "agent/services/ml_intern_lora_eval_service.py",
         "worker/training/evaluation.py",
-        "tests/test_ml_intern_lora_eval_integration.py"
+        "tests/ml/test_ml_intern_lora_eval_integration.py"
       ],
       "acceptance_criteria": [
         "evaluate_lora ruft real den Eval-Service auf und erzeugt eval_report.json statt einer Summary-Notiz.",

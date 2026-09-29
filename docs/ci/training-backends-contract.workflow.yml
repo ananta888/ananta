@@ -38,7 +38,7 @@ jobs:
           tests/worker/test_training_backend_registry.py
           tests/worker/test_training_backend_installation.py
           tests/worker/test_backend_artifact_normalizer.py
-          tests/test_ml_intern_backend_selection_service.py
+          tests/ml/test_ml_intern_backend_selection_service.py
           tests/test_training_backend_benchmark_contract.py
           tests/test_training_backend_acceptance_contract.py
           tests/test_training_backend_image_gate.py

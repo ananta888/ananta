@@ -482,7 +482,7 @@
         "Repository-Tests pruefen Isolation, Idempotenz, Fremdschluessel und konkurrierende Updates."
       ],
       "test_gates": [
-        "pytest tests/test_ml_intern_training_migration.py tests/test_ml_intern_training_repository.py"
+        "pytest tests/ml/test_ml_intern_training_migration.py tests/test_ml_intern_training_repository.py"
       ]
     },
     {
@@ -653,7 +653,7 @@
       "description": "Die Video-Claims als falsifizierbare Hypothesen gegen etablierte Baselines testen.",
       "evidence_paths": [
         "agent/services/ml_intern_evaluation_store_service.py",
-        "tests/test_ml_intern_lora_eval_integration.py"
+        "tests/ml/test_ml_intern_lora_eval_integration.py"
       ],
       "acceptance_criteria": [
         "Jeder Lauf vergleicht mindestens Basismodell, parameterbudget-gematchtes LoRA und dendritisches Modul.",
@@ -1024,7 +1024,7 @@
       ],
       "description": "Ein reproduzierbarer CPU-/GPU-Integrationstest prueft echte Injektion, Training, Export, Import und Evaluation.",
       "evidence_paths": [
-        "tests/test_ml_intern_lora_eval_integration.py"
+        "tests/ml/test_ml_intern_lora_eval_integration.py"
       ],
       "acceptance_criteria": [
         "Testmodell wird nur aus dem zugelassenen lokalen Modellkatalog verwendet und nicht automatisch heruntergeladen.",
@@ -1079,7 +1079,7 @@
       ],
       "description": "Releasefaehigkeit und Rueckkehr zum alten Stand pruefen.",
       "evidence_paths": [
-        "tests/test_ml_intern_training_migration.py",
+        "tests/ml/test_ml_intern_training_migration.py",
         "tests/test_ml_intern_training_routes_v2.py"
       ],
       "acceptance_criteria": [
@@ -1172,8 +1172,8 @@
     "pytest tests/test_ml_intern_training_worker_port.py",
     "pytest tests/test_ml_intern_training_control_service.py",
     "pytest tests/test_ml_intern_training_repository.py",
-    "pytest tests/test_ml_intern_training_migration.py",
-    "pytest tests/test_ml_intern_lora_eval_integration.py",
+    "pytest tests/ml/test_ml_intern_training_migration.py",
+    "pytest tests/ml/test_ml_intern_lora_eval_integration.py",
     "pytest tests/e2e/test_lora_training_control_center_mock.py",
     "cd frontend-angular && npm run test:unit",
     "cd frontend-angular && npm run build",

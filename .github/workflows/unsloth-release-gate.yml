@@ -35,7 +35,7 @@ on:
       - "tests/test_studio_*training*.py"
       - "tests/test_mcp_*training*.py"
       - "tests/test_ml_intern_artifact_security_service.py"
-      - "tests/test_ml_intern_training_config_service.py"
+      - "tests/ml/test_ml_intern_training_config_service.py"
       - "tests/test_ml_intern_training_contract_v2.py"
       - "tests/worker/test_lora_training_*.py"
       - "tests/worker/test_unsloth_*.py"

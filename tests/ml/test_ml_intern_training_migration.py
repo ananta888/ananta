@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS_REVISION = "y3z4a5b6c7d8"
 
 DATASET_INDEXES = {

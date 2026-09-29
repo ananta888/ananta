@@ -178,7 +178,7 @@ def test_singleton():
 
 
 def test_fixture_train_valid(svc):
-    fixture = Path(__file__).parents[1] / "tests/fixtures/mlintern_lora/ananta_todo_json_train.jsonl"
+    fixture = Path(__file__).parents[2] / "tests/fixtures/mlintern_lora/ananta_todo_json_train.jsonl"
     if not fixture.exists():
         pytest.skip("fixture not found")
     report = svc.validate(fixture, require_secret_scan=True)
@@ -186,7 +186,7 @@ def test_fixture_train_valid(svc):
 
 
 def test_fixture_eval_valid(svc):
-    fixture_dir = Path(__file__).parents[1] / "tests/fixtures/mlintern_lora"
+    fixture_dir = Path(__file__).parents[2] / "tests/fixtures/mlintern_lora"
     train = fixture_dir / "ananta_todo_json_train.jsonl"
     eval_ = fixture_dir / "ananta_todo_json_eval.jsonl"
     if not train.exists() or not eval_.exists():

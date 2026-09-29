@@ -163,7 +163,7 @@ tests/test_mcp_tool_registry.py
 tests/test_memory_repository_resilience.py
 tests/test_metrics.py
 tests/test_migration_contracts.py
-tests/test_ml_intern_adapter_service.py
+tests/ml/test_ml_intern_adapter_service.py
 tests/test_new_features.py
 tests/test_no_implicit_context.py
 tests/test_no_policy_bypass.py

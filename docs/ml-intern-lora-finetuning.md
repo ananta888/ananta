@@ -810,7 +810,7 @@ Vor Aktivierung eines realen Profils mindestens ausführen:
 
 ```bash
 python -m alembic upgrade head
-pytest -q tests/test_ml_intern_training_migration.py
+pytest -q tests/ml/test_ml_intern_training_migration.py
 pytest -q tests/test_ml_intern_training_contract_v2.py \
   tests/test_ml_intern_training_repository.py \
   tests/test_ml_intern_training_control_service.py

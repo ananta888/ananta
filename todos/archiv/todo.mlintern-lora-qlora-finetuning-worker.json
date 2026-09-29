@@ -29,7 +29,7 @@
     "Die aktuelle Implementierung ist bewusst begrenzt: command_template, prompt_file, timeout_seconds, max_prompt_chars, max_output_chars, working_dir und env_allowlist.",
     "Die aktuelle Konfiguration wird in agent/services/ml_intern_spike_config_service.py normalisiert und ist default disabled.",
     "Der SGPT-Pfad erlaubt backend=ml_intern nur, wenn ml_intern_spike.enabled=true, und lehnt CLI-Flags fuer ml_intern ab.",
-    "Es gibt bereits Tests in tests/test_ml_intern_adapter_service.py fuer disabled und bounded command invocation.",
+    "Es gibt bereits Tests in tests/ml/test_ml_intern_adapter_service.py fuer disabled und bounded command invocation.",
     "Es gibt aktuell keine konkrete LoRA-, QLoRA-, Adapter-Registry-, Dataset-Validation- oder Fine-Tuning-Pipeline im Repo.",
     "Die Todo-Struktur im Repo nutzt bereits Track-Dateien mit $schema, milestones, tasks, target_files, acceptance_criteria und test_expectations. Diese Datei folgt diesem Stil."
   ],
@@ -107,11 +107,11 @@
     "agent/services/ml_intern_dataset_validation_service.py",
     "agent/services/ml_intern_adapter_registry_service.py",
     "agent/services/ml_intern_lora_eval_service.py",
-    "tests/test_ml_intern_training_config_service.py",
-    "tests/test_ml_intern_training_job_service.py",
-    "tests/test_ml_intern_dataset_validation_service.py",
+    "tests/ml/test_ml_intern_training_config_service.py",
+    "tests/ml/test_ml_intern_training_job_service.py",
+    "tests/ml/test_ml_intern_dataset_validation_service.py",
     "tests/test_ml_intern_adapter_registry_service.py",
-    "tests/test_ml_intern_lora_eval_service.py"
+    "tests/ml/test_ml_intern_lora_eval_service.py"
   ],
   "expected_modified_files": [
     "agent/services/ml_intern_adapter_service.py",
@@ -120,7 +120,7 @@
     "agent/routes/config/settings.py",
     "agent/routes/config/shared.py",
     "docs/ml-intern-backend-spike.md",
-    "tests/test_ml_intern_adapter_service.py",
+    "tests/ml/test_ml_intern_adapter_service.py",
     "tests/cli_backends/test_sgpt_route.py",
     "tests/test_config_api.py"
   ],
@@ -216,7 +216,7 @@
         "agent/services/ml_intern_adapter_service.py",
         "agent/services/ml_intern_spike_config_service.py",
         "agent/routes/sgpt.py",
-        "tests/test_ml_intern_adapter_service.py"
+        "tests/ml/test_ml_intern_adapter_service.py"
       ],
       "acceptance_criteria": [
         "Dokumentiert ist der aktuelle Vertrag invoke_spike(prompt, agent_cfg, model=None, timeout_seconds=None).",
@@ -227,7 +227,7 @@
       ],
       "test_expectations": [
         "Keine Logik-Aenderung in diesem Task.",
-        "Bestehende tests/test_ml_intern_adapter_service.py bleiben unveraendert gruen."
+        "Bestehende tests/ml/test_ml_intern_adapter_service.py bleiben unveraendert gruen."
       ],
       "notes": [
         "Dieser Task verhindert, dass spaeter versehentlich Trainingslogik in den Chat-Execute-Pfad gekippt wird."
@@ -306,7 +306,7 @@
         "agent/services/ml_intern_spike_config_service.py",
         "agent/routes/config/settings.py",
         "agent/routes/config/shared.py",
-        "tests/test_ml_intern_training_config_service.py",
+        "tests/ml/test_ml_intern_training_config_service.py",
         "tests/test_config_api.py"
       ],
       "acceptance_criteria": [
@@ -337,7 +337,7 @@
       "target_files": [
         "docs/contracts/mlintern-training-job.schema.json",
         "agent/services/ml_intern_training_job_service.py",
-        "tests/test_ml_intern_training_job_service.py"
+        "tests/ml/test_ml_intern_training_job_service.py"
       ],
       "acceptance_criteria": [
         "Schema unterstuetzt job_type Werte dataset_validate, train_lora, evaluate_lora, register_adapter, export_adapter und merge_adapter_optional.",
@@ -400,7 +400,7 @@
       "target_files": [
         "docs/contracts/mlintern-dataset-record.schema.json",
         "docs/ml-intern-lora-finetuning.md",
-        "tests/test_ml_intern_dataset_validation_service.py"
+        "tests/ml/test_ml_intern_dataset_validation_service.py"
       ],
       "acceptance_criteria": [
         "Schema unterstuetzt instruction/input/output und messages Chat-Format.",
@@ -430,7 +430,7 @@
       ],
       "target_files": [
         "agent/services/ml_intern_dataset_validation_service.py",
-        "tests/test_ml_intern_dataset_validation_service.py"
+        "tests/ml/test_ml_intern_dataset_validation_service.py"
       ],
       "acceptance_criteria": [
         "Validator liest JSONL deterministisch und streamend, ohne komplette riesige Dateien unkontrolliert in RAM zu laden.",
@@ -459,7 +459,7 @@
       ],
       "target_files": [
         "agent/services/ml_intern_dataset_validation_service.py",
-        "tests/test_ml_intern_dataset_validation_service.py",
+        "tests/ml/test_ml_intern_dataset_validation_service.py",
         "docs/ml-intern-lora-finetuning.md"
       ],
       "acceptance_criteria": [
@@ -522,7 +522,7 @@
       ],
       "target_files": [
         "agent/services/ml_intern_training_job_service.py",
-        "tests/test_ml_intern_training_job_service.py"
+        "tests/ml/test_ml_intern_training_job_service.py"
       ],
       "acceptance_criteria": [
         "Dry-Run nimmt denselben Job-Vertrag an wie echtes Training.",
@@ -552,7 +552,7 @@
       "target_files": [
         "agent/services/ml_intern_training_job_service.py",
         "docs/ml-intern-lora-finetuning.md",
-        "tests/test_ml_intern_training_job_service.py"
+        "tests/ml/test_ml_intern_training_job_service.py"
       ],
       "acceptance_criteria": [
         "Backend ist konfigurierbar, z. B. unsloth oder peft_trl, aber nicht hart im Hub verdrahtet.",
@@ -585,8 +585,8 @@
       "target_files": [
         "agent/services/ml_intern_training_config_service.py",
         "agent/services/ml_intern_training_job_service.py",
-        "tests/test_ml_intern_training_config_service.py",
-        "tests/test_ml_intern_training_job_service.py",
+        "tests/ml/test_ml_intern_training_config_service.py",
+        "tests/ml/test_ml_intern_training_job_service.py",
         "docs/ml-intern-lora-finetuning.md"
       ],
       "acceptance_criteria": [
@@ -618,7 +618,7 @@
       "target_files": [
         "agent/services/ml_intern_training_job_service.py",
         "agent/services/ml_intern_adapter_registry_service.py",
-        "tests/test_ml_intern_training_job_service.py"
+        "tests/ml/test_ml_intern_training_job_service.py"
       ],
       "acceptance_criteria": [
         "Jeder Job bekommt eine eindeutige job_id und ein eigenes Output-Verzeichnis.",
@@ -650,7 +650,7 @@
       "target_files": [
         "agent/services/ml_intern_lora_eval_service.py",
         "agent/services/ml_intern_adapter_registry_service.py",
-        "tests/test_ml_intern_lora_eval_service.py"
+        "tests/ml/test_ml_intern_lora_eval_service.py"
       ],
       "acceptance_criteria": [
         "Eval Runner kann ein Eval-Dataset gegen Basismodell und Basismodell+Adapter laufen lassen oder im Dry-Run mocken.",
@@ -776,7 +776,7 @@
       "target_files": [
         "agent/services/ml_intern_training_job_service.py",
         "docs/ml-intern-lora-finetuning.md",
-        "tests/test_ml_intern_training_job_service.py"
+        "tests/ml/test_ml_intern_training_job_service.py"
       ],
       "acceptance_criteria": [
         "Merge ist ein eigener Job-Typ merge_adapter_optional und niemals Default.",
@@ -891,9 +891,9 @@
         "MLLORA-011"
       ],
       "target_files": [
-        "tests/test_ml_intern_adapter_service.py",
-        "tests/test_ml_intern_training_config_service.py",
-        "tests/test_ml_intern_training_job_service.py",
+        "tests/ml/test_ml_intern_adapter_service.py",
+        "tests/ml/test_ml_intern_training_config_service.py",
+        "tests/ml/test_ml_intern_training_job_service.py",
         "tests/cli_backends/test_sgpt_route.py"
       ],
       "acceptance_criteria": [
@@ -904,7 +904,7 @@
         "Alle Tests laufen ohne GPU."
       ],
       "test_expectations": [
-        "pytest tests/test_ml_intern_adapter_service.py tests/test_ml_intern_training_config_service.py tests/test_ml_intern_training_job_service.py tests/cli_backends/test_sgpt_route.py laeuft lokal ohne GPU durch."
+        "pytest tests/ml/test_ml_intern_adapter_service.py tests/ml/test_ml_intern_training_config_service.py tests/ml/test_ml_intern_training_job_service.py tests/cli_backends/test_sgpt_route.py laeuft lokal ohne GPU durch."
       ],
       "notes": []
     },
