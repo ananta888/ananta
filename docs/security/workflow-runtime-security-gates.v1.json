@@ -263,9 +263,9 @@
       ],
       "tests": [
         "tests/workflow/test_workflow_runtime_event_and_checkpoint_stores.py::test_checkpoint_store_is_atomic_revisioned_tenant_bound_and_fenced",
-        "tests/test_temporal_history_projection.py::test_projection_gap_is_fail_closed_and_never_current",
-        "tests/test_temporal_history_projection.py::test_projection_page_token_loop_is_inconsistent",
-        "tests/test_temporal_history_projection.py::test_projection_rebuild_is_deterministic"
+        "tests/workflow/test_temporal_history_projection.py::test_projection_gap_is_fail_closed_and_never_current",
+        "tests/workflow/test_temporal_history_projection.py::test_projection_page_token_loop_is_inconsistent",
+        "tests/workflow/test_temporal_history_projection.py::test_projection_rebuild_is_deterministic"
       ]
     },
     {
@@ -298,7 +298,7 @@
       "tests": [
         "tests/workflow/test_workflow_retrieval_contract.py::test_cross_tenant_source_is_rejected",
         "tests/workflow/test_workflow_runtime_telemetry.py::test_telemetry_fails_closed_on_cross_tenant_context",
-        "tests/test_temporal_history_projection.py::test_projection_rejects_cross_tenant_read",
+        "tests/workflow/test_temporal_history_projection.py::test_projection_rejects_cross_tenant_read",
         "tests/security/workflow_runtime/test_combined_production_compose.py::test_combined_production_runtime_stack_preserves_one_least_privilege_hub_union"
       ]
     },
@@ -430,7 +430,7 @@
         "tests/workflow/test_workflow_hub_task_gateway_runtime.py::test_production_hub_rejects_oversized_signing_keyring",
         "tests/native/test_native_graph_verify_only_authorization.py::test_worker_public_key_loader_rejects_private_key_fields",
         "tests/workflow/test_workflow_runtime_internal_api.py::test_internal_gateway_rejects_even_admin_user_jwt",
-        "tests/test_langgraph_checkpoint_internal_api.py::test_checkpoint_api_rejects_user_jwt",
+        "tests/workflow/test_langgraph_checkpoint_internal_api.py::test_checkpoint_api_rejects_user_jwt",
         "tests/security/workflow_runtime/test_native_production_compose.py::test_native_hub_and_workers_have_disjoint_least_privilege_secret_matrix",
         "tests/security/workflow_runtime/test_combined_production_compose.py::test_combined_production_runtime_stack_preserves_one_least_privilege_hub_union",
         "tests/security/workflow_runtime/test_workflow_runtime_production_compose.py::test_production_overlay_uses_external_file_secrets_only",

@@ -312,7 +312,7 @@
       "runtime": "langgraph",
       "capability": "checkpointing",
       "mode": "live-release-gated",
-      "evidence": "tests/test_langgraph_checkpoint_live_extra.py::test_real_langgraph_0_2_saver_persists_and_recovers_through_hub",
+      "evidence": "tests/workflow/test_langgraph_checkpoint_live_extra.py::test_real_langgraph_0_2_saver_persists_and_recovers_through_hub",
       "gap": "Local MemorySaver remains an explicit development-only restriction; productive runs require the Hub-owned SQL checkpoint gateway.",
       "followup_task": "AIR-031"
     },
@@ -368,7 +368,7 @@
       "runtime": "temporal",
       "capability": "history_projection",
       "mode": "live-optional",
-      "evidence": "tests/test_temporal_history_projection.py::test_projection_paginates_deduplicates_and_maps_activity_steps",
+      "evidence": "tests/workflow/test_temporal_history_projection.py::test_projection_paginates_deduplicates_and_maps_activity_steps",
       "gap": "Unknown versions and stale/inconsistent projections block promotion.",
       "followup_task": "AIR-046"
     },

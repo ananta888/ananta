@@ -316,7 +316,7 @@
       "depends_on": ["CTA-004"],
       "paths": [
         "agent/services/classroom/n8n_partial_workflow_selector.py",
-        "tests/test_n8n_partial_workflow_selector.py"
+        "tests/workflow/test_n8n_partial_workflow_selector.py"
       ],
       "description": "Bei n8n-Fragen zuerst vorhandene funktionierende Beispiele (kind n8n_workflow/n8n_node aus dem fertigen n8n-Track) selektieren; LLM-Generierung ist letzter Ausweg und läuft immer durch CTA-008.",
       "implementation_notes": [
@@ -344,7 +344,7 @@
       "paths": [
         "agent/services/classroom/n8n_teaching_workflow_verifier_service.py",
         "rag-helper/rag_helper/extractors/n8n_workflow_extractor.py",
-        "tests/test_n8n_teaching_workflow_verifier.py"
+        "tests/workflow/test_n8n_teaching_workflow_verifier.py"
       ],
       "description": "Jedes n8n-Teil (selektiert oder generiert) vor Anzeige prüfen. Wiederverwendet die gelieferten Primitives des n8n-Tracks statt Parallel-Implementierung: is_n8n_workflow für Strukturprüfung, _SECRET_KEY_PATTERN/_SECRET_VALUE_PATTERNS für Secret-Scan.",
       "implementation_notes": [

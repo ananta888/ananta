@@ -286,7 +286,7 @@ The mandatory suite is rooted in:
 - [`tests/test_workflow_runtime_side_effect_ledger.py`](../../tests/test_workflow_runtime_side_effect_ledger.py)
 - [`tests/workflow/test_workflow_runtime_event_and_checkpoint_stores.py`](../../tests/test_workflow_runtime_event_and_checkpoint_stores.py)
 - [`tests/tool/test_tool_calling_pipeline.py`](../../tests/test_tool_calling_pipeline.py)
-- [`tests/test_temporal_history_projection.py`](../../tests/test_temporal_history_projection.py)
+- [`tests/workflow/test_temporal_history_projection.py`](../../tests/test_temporal_history_projection.py)
 - [`tests/test_temporal_runtime_contracts.py`](../../tests/test_temporal_runtime_contracts.py)
 
 Temporal replay and race drills are described in the

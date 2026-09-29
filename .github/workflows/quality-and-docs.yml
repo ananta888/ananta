@@ -388,7 +388,7 @@ jobs:
           tests/tool/test_tool_calling_pipeline.py
           tests/test_temporal_runtime_contracts.py
           tests/workflow/test_workflow_runtime_cli_tui_projection.py
-          tests/test_temporal_history_projection.py
+          tests/workflow/test_temporal_history_projection.py
           tests/workflow_runtime/examples/test_workflow_runtime_example.py
       - name: Run AIR-055 migration, restore, rollout and incident drills
         run: |

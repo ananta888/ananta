@@ -135,8 +135,8 @@ Run the static Compose/security contract and the dependency-safe unit suite:
 ```bash
 python -m pytest -q \
   tests/security/workflow_runtime/test_langgraph_checkpoint_production_compose.py \
-  tests/test_langgraph_checkpoint_gateway_service.py \
-  tests/test_langgraph_checkpoint_internal_api.py \
+  tests/workflow/test_langgraph_checkpoint_gateway_service.py \
+  tests/workflow/test_langgraph_checkpoint_internal_api.py \
   tests/test_langgraph_checkpoint_worker_adapter.py
 ```
 
@@ -145,7 +145,7 @@ Inside the LangGraph Worker image, the live-extra test compiles a real
 a new saver and resumes from the signed checkpoint:
 
 ```bash
-python -m pytest -q tests/test_langgraph_checkpoint_live_extra.py
+python -m pytest -q tests/workflow/test_langgraph_checkpoint_live_extra.py
 ```
 
 Promotion requires successful tamper, concurrent-write, stale-version,

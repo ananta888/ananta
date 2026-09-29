@@ -120,7 +120,7 @@ python -m pytest -q \
   tests/test_native_graph_runtime.py \
   tests/workflow/test_workflow_lc_lg_live_langgraph.py \
   tests/test_temporal_runtime_contracts.py \
-  tests/test_temporal_history_projection.py \
+  tests/workflow/test_temporal_history_projection.py \
   tests/security/workflow_runtime/test_workflow_runtime_security_docs.py \
   tests/security/workflow_runtime/test_workflow_runtime_production_compose.py \
   tests/test_agent_token_file_auth.py
