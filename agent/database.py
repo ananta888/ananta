@@ -339,11 +339,24 @@ def _sync_schema_postgresql() -> None:
                     )
 
 
-def _sync_schema_sqlite() -> None:
-    from sqlalchemy import inspect as sa_inspect
+def _sqlite_columns_by_table(connection) -> dict[str, set[str]]:
+    """Column names of every user table, in one query instead of one PRAGMA per table."""
+    rows = connection.execute(
+        text(
+            "SELECT m.name, p.name FROM sqlite_master AS m JOIN pragma_table_info(m.name) AS p "
+            "WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite~_%' ESCAPE '~'"
+        )
+    )
+    columns: dict[str, set[str]] = {}
+    for table_name, column_name in rows:
+        columns.setdefault(str(table_name), set()).add(str(column_name))
+    return columns
 
-    inspector = sa_inspect(engine)
-    existing_tables = set(inspector.get_table_names())
+
+def _sync_schema_sqlite() -> None:
+    with engine.connect() as connection:
+        columns_by_table = _sqlite_columns_by_table(connection)
+    existing_tables = set(columns_by_table)
     if "agents" not in existing_tables:
         return
 
@@ -376,7 +389,7 @@ def _sync_schema_sqlite() -> None:
         for table_name, compat_columns in compatibility_by_table.items():
             if table_name not in existing_tables:
                 continue
-            existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
+            existing_columns = columns_by_table.get(table_name, set())
             for col_name, sql_type in compat_columns.items():
                 if col_name in existing_columns:
                     continue
@@ -388,7 +401,7 @@ def _sync_schema_sqlite() -> None:
                 continue
             if table_name in compatibility_by_table:
                 continue
-            existing_columns = {c["name"] for c in inspector.get_columns(table_name)}
+            existing_columns = columns_by_table.get(table_name, set())
             new_columns = [
                 c for c in table.columns if c.name not in existing_columns and not c.primary_key
             ]
