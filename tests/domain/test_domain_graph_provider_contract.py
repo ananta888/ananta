@@ -8,7 +8,7 @@ from jsonschema import Draft202012Validator
 from agent.providers.domain_graph import DomainGraphIngestRequest, DomainGraphIngestResult
 from agent.providers.interfaces import ProviderDescriptor, ProviderHealthReport
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas" / "artifacts" / "domain_graph_artifact.v1.json"
 MODULE_PATH = ROOT / "agent" / "providers" / "domain_graph.py"
 

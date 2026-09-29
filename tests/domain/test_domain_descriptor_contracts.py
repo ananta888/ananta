@@ -5,7 +5,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTOR_SCHEMA_PATH = ROOT / "schemas" / "domain" / "domain_descriptor.v1.json"
 STATUS_SCHEMA_PATH = ROOT / "schemas" / "domain" / "domain_status.v1.json"
 EXAMPLE_DESCRIPTOR_PATH = ROOT / "domains" / "example" / "domain.json"

@@ -6,7 +6,7 @@ from pathlib import Path
 from agent.services.capability_registry import CapabilityRegistry
 from agent.services.domain_policy_service import DomainPolicyService
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CAPABILITY_SCHEMA = ROOT / "schemas" / "domain" / "capability_pack.v1.json"
 
 

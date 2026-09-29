@@ -8,7 +8,7 @@ import pytest
 from agent.services.capability_registry import CapabilityRegistry
 from agent.services.domain_policy_loader import DomainPolicyLoader
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CAPABILITY_SCHEMA = ROOT / "schemas" / "domain" / "capability_pack.v1.json"
 POLICY_SCHEMA = ROOT / "schemas" / "domain" / "policy_pack.v1.json"
 

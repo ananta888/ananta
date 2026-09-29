@@ -7,7 +7,7 @@ import pytest
 
 from agent.services.domain_registry import DomainRegistry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "schemas" / "domain" / "domain_descriptor.v1.json"
 
 

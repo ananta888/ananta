@@ -6,7 +6,7 @@ from pathlib import Path
 
 from agent.services.domain_registry import DomainRegistry
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 INVENTORY_PATH = ROOT / "data" / "domain_runtime_inventory.json"
 
 

@@ -6,7 +6,7 @@ from typing import Any
 
 from agent.services.domain_retrieval_service import DomainRetrievalService
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "domain_retrieval_contract" / "cases.json"
 
 
