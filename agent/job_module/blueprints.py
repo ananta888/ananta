@@ -176,17 +176,21 @@ def preset_followup_flow() -> VisualProcessGraph:
 JOB_APPLICATION_BLUEPRINTS: dict[str, VisualProcessGraph] = {}
 
 
-def register_job_blueprints() -> None:
-    """Register all job blueprints into the VisualProcess preset registry."""
-    from agent.visual_process import presets as preset_module
-
-    graphs = [
+def job_blueprint_graphs() -> list:
+    """The job-module preset graphs, without registering them anywhere."""
+    return [
         preset_job_application_intake_flow(),
         preset_job_discovery_to_case_flow(),
         preset_cover_letter_generation_flow(),
         preset_interview_preparation_flow(),
         preset_followup_flow(),
     ]
-    for graph in graphs:
+
+
+def register_job_blueprints() -> None:
+    """Register all job blueprints into the VisualProcess preset registry."""
+    from agent.visual_process import presets as preset_module
+
+    for graph in job_blueprint_graphs():
         JOB_APPLICATION_BLUEPRINTS[graph.id] = graph
         preset_module._PRESETS[graph.id] = graph

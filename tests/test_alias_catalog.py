@@ -24,23 +24,26 @@ from agent.services.alias_registry import (
     AliasRegistry,
 )
 from agent.services.workflow_transition_outbox import TRANSITION_RUNTIMES
+from agent.job_module.blueprints import job_blueprint_graphs
 from agent.visual_process.presets import list_presets
 
 _PRESET = ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET
 
 
+def _shippable_preset_ids() -> set[str]:
+    """Built-in presets plus the job-module presets, which join the registry only when that module
+    registers them; checked independently of whether an earlier test already did."""
+    return {str(preset["id"]) for preset in list_presets()} | {graph.id for graph in job_blueprint_graphs()}
+
+
 def test_every_shipped_preset_has_a_human_name() -> None:
     """Otherwise the gallery shows a raw id to someone assembling a team."""
 
-    shipped = {str(preset["id"]) for preset in list_presets()}
-
-    assert shipped - set(VISUAL_PROCESS_PRESET_ALIASES) == set()
+    assert _shippable_preset_ids() - set(VISUAL_PROCESS_PRESET_ALIASES) == set()
 
 
 def test_no_alias_names_a_preset_that_no_longer_exists() -> None:
-    shipped = {str(preset["id"]) for preset in list_presets()}
-
-    assert set(VISUAL_PROCESS_PRESET_ALIASES) - shipped == set()
+    assert set(VISUAL_PROCESS_PRESET_ALIASES) - _shippable_preset_ids() == set()
 
 
 def test_every_transition_runtime_has_a_human_name() -> None:

@@ -28,6 +28,32 @@ from agent.services.alias_registry import (
 )
 
 VISUAL_PROCESS_PRESET_ALIASES: dict[str, dict[str, object]] = {
+    # Job-module presets, registered into the preset registry when the module starts.
+    "preset-job-application-intake": {
+        "display_name": "Stellenanzeige aufnehmen",
+        "aliases": ["Job Application Intake", "Bewerbung anlegen", "Stellenanzeige erfassen"],
+        "description": "Eine Stellenanzeige einlesen, normalisieren, bewerten und als Fall anlegen.",
+    },
+    "preset-job-discovery-to-case": {
+        "display_name": "Stellen finden und übernehmen",
+        "aliases": ["Job Discovery", "Stellensuche", "Job Discovery to Case"],
+        "description": "Passende Stellen suchen, Dubletten entfernen und die freigegebene als Fall anlegen.",
+    },
+    "preset-cover-letter-generation": {
+        "display_name": "Anschreiben entwerfen",
+        "aliases": ["Cover Letter", "Anschreiben", "Motivationsschreiben"],
+        "description": "Aus Lebenslauf und Stellenanzeige ein Anschreiben entwerfen und freigeben lassen.",
+    },
+    "preset-interview-preparation": {
+        "display_name": "Auf das Gespräch vorbereiten",
+        "aliases": ["Interview Preparation", "Interviewvorbereitung", "Gesprächsvorbereitung"],
+        "description": "Aus Stellenanzeige und Lebenslauf Material für das Vorstellungsgespräch erstellen.",
+    },
+    "preset-followup": {
+        "display_name": "Nachfassen",
+        "aliases": ["Follow-up", "Nachfass-Nachricht", "Nachhaken"],
+        "description": "Zu einer laufenden Bewerbung eine Nachfass-Nachricht entwerfen und freigeben lassen.",
+    },
     "preset-code-review": {
         "display_name": "Code prüfen lassen",
         "aliases": ["Code Review", "Review-Team", "Code Review Pipeline"],
