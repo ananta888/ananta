@@ -56,8 +56,6 @@ PROBES = (
         "hub_relay_durability",
         "implemented",
         "agent/repositories/semantic_relay_shared_store.py",
-        "agent/models/semantic_media_audit.py",
-        "agent/models/semantic_relay_limits.py",
         "SharedSemanticRelayRepository",
         "The bounded encrypted relay uses a relational multi-Hub store with atomic cursors.",
     ),

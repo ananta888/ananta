@@ -139,6 +139,7 @@ def test_release_document_binds_complete_declared_source_and_configuration(tmp_p
     todo["tasks"][0]["affected_files"].append("config/program.json")
     core = (
         "agent/services/semantic_media_program_evidence.py",
+        "agent/models/semantic_media_content_policy.py",
         "agent/services/semantic_media_rollout_policy.py",
         "docs/operations/semantic-media-rollout.md",
         "schemas/release/semantic_media_program_evidence.v1.json",
