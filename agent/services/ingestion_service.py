@@ -27,11 +27,11 @@ from agent.services.artifact_store import get_artifact_store
 from agent.services.extraction_service import get_extraction_service
 from agent.services.wiki_corpus_downloader import ResumableCorpusDownloader
 from agent.services.wiki_import_checkpoint_service import WikiImportCheckpointService
-from agent.services.wiki_import_reporter import build_wiki_import_stats
 from agent.services.wiki_jsonl_importer import WikiJsonlImporter
 from agent.services.wiki_mediawiki_xml_parser import MediaWikiXmlDumpParser
 from agent.services.wiki_normalizer import WikiRecordNormalizer
 from agent.services.wiki_record_writer import sort_wiki_records, write_wiki_jsonl_cache
+from agent.services.wiki_xml_import_run import WikiXmlImportPaths, WikiXmlImportRun, prepare_resume, resolve_wiki_xml_sources
 
 logger = logging.getLogger(__name__)
 
@@ -324,265 +324,41 @@ class IngestionService:
         max_chunks_per_article: int = 3,
         min_content_chars: int = 1,
     ) -> dict[str, object]:
-        path = Path(str(corpus_path or "").strip()).expanduser().resolve()
-        if not path.exists():
-            raise ValueError("wiki_corpus_not_found")
-        if not path.is_file():
-            raise ValueError("wiki_corpus_not_file")
-        resolved_index_path = Path(str(index_path or "").strip()).expanduser().resolve() if index_path else None
-        if resolved_index_path is not None and not resolved_index_path.exists():
-            raise ValueError("wiki_multistream_index_not_found")
+        path, resolved_index_path = resolve_wiki_xml_sources(corpus_path, index_path)
         normalized_source_id = str(source_id or "").strip() or Path(path.stem).stem
-
-        # Output file paths (all co-located with corpus)
-        partial_cache_path  = path.parent / (path.name + ".partial.jsonl")
-        partial_links_path  = path.parent / (path.name + ".partial.links.jsonl")
-        chunks_cache_path   = path.parent / (path.name + ".partial.chunks_cache.json")
-        final_cache_path    = path.parent / (path.name + ".normalized.jsonl")
-        final_links_path    = path.parent / (path.name + ".links.jsonl")
-
+        paths = WikiXmlImportPaths.for_corpus(path)
         # Load checkpoint for resume
-        checkpoint = self._wiki_checkpoint_service.load(
-            source_id=normalized_source_id,
-            corpus_path=str(path),
-            index_path=str(resolved_index_path) if resolved_index_path else None,
-        ) or {}
-        resume_from_item = 0
-        chunks_per_article: dict[str, int] = {}
-        if write_jsonl_cache and partial_cache_path.exists():
-            prior_items = int(checkpoint.get("processed_items") or 0)
-            if prior_items > 0:
-                resume_from_item = prior_items
-                # Fast path: load chunks_per_article from sidecar if it matches checkpoint
-                if chunks_cache_path.exists():
-                    try:
-                        _cache = json.loads(chunks_cache_path.read_text(encoding="utf-8"))
-                        if int(_cache.get("at_item") or 0) >= prior_items:
-                            chunks_per_article = dict(_cache.get("chunks") or {})
-                            logger.info("import_wiki_xml: loaded chunks_per_article from sidecar (%d articles, at_item=%d)", len(chunks_per_article), prior_items)
-                    except Exception as _e:
-                        logger.warning("import_wiki_xml: chunks sidecar load failed (%s), falling back to scan", _e)
-                        chunks_per_article = {}
-                # Slow path: scan partial.jsonl only if sidecar missing/stale
-                if not chunks_per_article:
-                    logger.info("import_wiki_xml: resuming from item %d — scanning partial cache for chunk counts", resume_from_item)
-                    with partial_cache_path.open("r", encoding="utf-8") as _fh:
-                        for _line in _fh:
-                            _line = _line.strip()
-                            if _line:
-                                try:
-                                    _r = json.loads(_line)
-                                    _t = str(_r.get("article_title") or "")
-                                    chunks_per_article[_t] = chunks_per_article.get(_t, 0) + 1
-                                except json.JSONDecodeError:
-                                    pass
-                    logger.info("import_wiki_xml: resume scan done — %d articles, saving sidecar", len(chunks_per_article))
-                    try:
-                        chunks_cache_path.write_text(
-                            json.dumps({"at_item": prior_items, "chunks": chunks_per_article}, ensure_ascii=False),
-                            encoding="utf-8",
-                        )
-                    except Exception as _e:
-                        logger.warning("import_wiki_xml: could not write chunks sidecar: %s", _e)
-            else:
-                partial_cache_path.unlink(missing_ok=True)
-                partial_links_path.unlink(missing_ok=True)
-                chunks_cache_path.unlink(missing_ok=True)
-
-        issues: list[dict] = []
-        page_count   = int(checkpoint.get("page_count")  or 0) if resume_from_item else 0
-        doc_count    = int(checkpoint.get("doc_count")   or 0) if resume_from_item else 0
-        item_ordinal = 0
-        record_count = int(checkpoint.get("normalized_records") or 0) if resume_from_item else 0
-        link_count   = int(checkpoint.get("link_count")  or 0) if resume_from_item else 0
-        current_block_index = 0
-        prev_block_index    = -1
-        # resume_block_index+1 = first unprocessed block (blocks 0..resume_block_index are done)
-        resume_block_index  = int(checkpoint.get("block_index") or 0) if resume_from_item else 0
-        # When using block seek, start FROM the next block (resume_block_index was fully written)
-        start_block = (resume_block_index + 1) if (_use_blocks := resolved_index_path is not None) and resume_block_index > 0 else 0
-
-        cache_fh = links_fh = None
-        if write_jsonl_cache:
-            partial_cache_path.parent.mkdir(parents=True, exist_ok=True)
-            open_mode = "a" if resume_from_item > 0 else "w"
-            cache_fh = partial_cache_path.open(open_mode, encoding="utf-8")
-            links_fh = partial_links_path.open(open_mode, encoding="utf-8")
-
-        in_memory_records: list[dict] = []
-        max_report_records = 1000
-
-        # Block-aware multistream: fast-seek to start_block, no item-level skip needed after
-        _item_stream = (
-            self._wiki_parser.iter_pages_with_block(
-                corpus_path=path, index_path=resolved_index_path, resume_block_index=start_block
-            )
-            if _use_blocks
-            else ((0, item) for item in self._wiki_parser.iter_items(corpus_path=path))
-        )
-
-        def _save_checkpoint() -> None:
-            self._wiki_checkpoint_service.save(
+        checkpoint = (
+            self._wiki_checkpoint_service.load(
                 source_id=normalized_source_id,
                 corpus_path=str(path),
                 index_path=str(resolved_index_path) if resolved_index_path else None,
-                checkpoint={
-                    "phase": "normalizing",
-                    "processed_items": item_ordinal,
-                    "block_index": prev_block_index if prev_block_index >= 0 else 0,
-                    "normalized_records": record_count,
-                    "link_count": link_count,
-                    "page_count": page_count,
-                    "doc_count": doc_count,
-                    "issues": len(issues),
-                },
             )
-
-        try:
-            for current_block_index, item in _item_stream:
-                # Checkpoint at block boundary (prev block is now fully written)
-                if current_block_index != prev_block_index and prev_block_index >= 0:
-                    if cache_fh:
-                        cache_fh.flush()
-                    if links_fh:
-                        links_fh.flush()
-                    if cancel_check and cancel_check():
-                        raise ValueError("wiki_download_cancelled")
-                    _save_checkpoint()
-                    if write_jsonl_cache and item_ordinal > resume_from_item and item_ordinal % 50_000 == 0:
-                        try:
-                            chunks_cache_path.write_text(
-                                json.dumps({"at_item": item_ordinal, "chunks": chunks_per_article}, ensure_ascii=False),
-                                encoding="utf-8",
-                            )
-                        except Exception as _e:
-                            logger.warning("import_wiki_xml: chunks sidecar write failed: %s", _e)
-                prev_block_index = current_block_index
-                item_ordinal += 1
-                # Apply item-level skip when we could not fast-seek (no block_index in old checkpoint)
-                if start_block == 0 and item_ordinal <= resume_from_item:
-                    continue
-                item_kind = str(item.get("kind") or "").strip().lower()
-                if item_kind == "page":
-                    page_count += 1
-                elif item_kind == "doc":
-                    doc_count += 1
-
-                # With block-level seek, items within the resume block may be partially processed;
-                # the item skip ensures we don't double-count items within the first resumed block.
-                if resume_from_item and not _use_blocks and item_ordinal <= resume_from_item:
-                    continue
-
-                normalized_batch, issue = self._wiki_normalizer.normalize_item(
-                    item=item,
-                    source_path=path,
-                    source_id=normalized_source_id,
-                    ordinal=item_ordinal,
-                    default_language=default_language,
-                    source_format="xml",
-                )
-                if issue:
-                    issues.append(issue)
-                    if strict:
-                        raise ValueError("wiki_corpus_invalid_record")
-
-                for rec in (normalized_batch or []):
-                    title   = str(rec.get("article_title") or "")
-                    content = str(rec.get("content") or "")
-
-                    # Inline compact filter: skip short content and over-quota chunks
-                    if len(content) < min_content_chars:
-                        continue
-                    if chunks_per_article.get(title, 0) >= max_chunks_per_article:
-                        continue
-                    chunks_per_article[title] = chunks_per_article.get(title, 0) + 1
-
-                    # Write inter-article links compact (one line per article, max 60 targets)
-                    if links_fh and chunks_per_article[title] == 1:
-                        raw_links = rec.get("links") or []
-                        targets = []
-                        for lt in raw_links:
-                            lt = str(lt or "").strip()
-                            if lt and lt != title:
-                                targets.append(lt)
-                                if len(targets) >= 60:
-                                    break
-                        if targets:
-                            links_fh.write(json.dumps({"from": title, "to": targets}, ensure_ascii=False) + "\n")
-                            link_count += len(targets)
-
-                    # Strip bulky fields from stored record
-                    slim = {k: v for k, v in rec.items() if k not in self._RECORD_STRIP_FIELDS}
-
-                    if cache_fh:
-                        cache_fh.write(json.dumps(slim, ensure_ascii=False) + "\n")
-                        record_count += 1
-                        if len(in_memory_records) < max_report_records:
-                            in_memory_records.append(dict(rec))
-                    else:
-                        in_memory_records.append(slim)
-                        record_count = len(in_memory_records)
-
-                # Progress callback (non-blocking, every 500 items)
-                if item_ordinal % 500 == 0 and progress_callback:
-                    progress_callback(item_ordinal, record_count)
-
-        except Exception:
-            if cache_fh:
-                cache_fh.close()
-            if links_fh:
-                links_fh.close()
-            raise
-
-        if cache_fh:
-            cache_fh.close()
-            links_fh.close()
-            partial_cache_path.rename(final_cache_path)
-            partial_links_path.rename(final_links_path)
-            chunks_cache_path.unlink(missing_ok=True)
-
-        if not record_count:
-            raise ValueError("wiki_corpus_no_valid_records")
-
-        stats = build_wiki_import_stats(
-            input_pages=page_count,
-            input_docs=doc_count,
-            processed_items=item_ordinal,
-            issues=issues,
-            normalized_records=record_count,
+            or {}
         )
-        self._wiki_checkpoint_service.save(
+        resume_from_item, chunks_per_article = prepare_resume(
+            paths, checkpoint, write_jsonl_cache=write_jsonl_cache
+        )
+        run = WikiXmlImportRun(
+            path=path,
+            index_path=resolved_index_path,
             source_id=normalized_source_id,
-            corpus_path=str(path),
-            index_path=str(resolved_index_path) if resolved_index_path else None,
-            checkpoint={
-                "phase": "completed",
-                "processed_items": item_ordinal,
-                "normalized_records": record_count,
-                "link_count": link_count,
-                "page_count": page_count,
-                "doc_count": doc_count,
-                "issues": len(issues),
-                "index_path": str(resolved_index_path) if resolved_index_path else None,
-            },
+            paths=paths,
+            checkpoint_service=self._wiki_checkpoint_service,
+            normalizer=self._wiki_normalizer,
+            record_strip_fields=self._RECORD_STRIP_FIELDS,
+            default_language=default_language,
+            strict=strict,
+            write_jsonl_cache=write_jsonl_cache,
+            max_chunks_per_article=max_chunks_per_article,
+            min_content_chars=min_content_chars,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
         )
-        return {
-            "source_scope": "wiki",
-            "source_id": normalized_source_id,
-            "corpus_path": str(path),
-            "index_path": str(resolved_index_path) if resolved_index_path else None,
-            "jsonl_cache_path": str(final_cache_path) if write_jsonl_cache else None,
-            "links_cache_path": str(final_links_path) if write_jsonl_cache else None,
-            "records": in_memory_records,
-            "issues": issues,
-            "stats": stats,
-            "deterministic_order": "parse_order_compact_filtered",
-            "format": "xml",
-            "multistream_index": {
-                "enabled": resolved_index_path is not None,
-                "path": str(resolved_index_path) if resolved_index_path else None,
-            },
-        }
+        run.restore_from_checkpoint(checkpoint, resume_from_item=resume_from_item, chunks=chunks_per_article)
+        run.open_cache_files()
+        run.consume(run.item_stream(self._wiki_parser))
+        return run.finish()
 
     def _load_jsonl_for_indexing(self, path: Path) -> list[dict]:
         """Stream-reads a JSONL file line by line to avoid one big string allocation."""
