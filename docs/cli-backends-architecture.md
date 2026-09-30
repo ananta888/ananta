@@ -36,7 +36,8 @@ Production code imports from this namespace. The detector
 | `provisioning.py` | pinned, Worker-local Codex/Claude provisioning | Source-of-truth |
 | `sgpt.py` | sgpt command integration | Source-of-truth |
 | `tool_loop.py` | hub-controlled worker tool loop | Source-of-truth |
-| `opencode.py` | opencode/codex/aider/mistral runners | Source-of-truth |
+| `opencode.py` | opencode/codex/claude/aider/mistral runners (public entry point) | Source-of-truth |
+| `claude_write_armed.py` | isolated write-armed Claude workspace and reviewed-diff apply; collaborators injected by `opencode.py` | Source-of-truth |
 | `architecture_scan.py` | architecture scan helpers | Source-of-truth |
 | `workspace_mutation/` | workspace mutation loop package | Source-of-truth |
 
