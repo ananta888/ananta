@@ -9,6 +9,7 @@ from agent.db_models import AgentInfoDB
 from agent.repository import agent_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
+from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
@@ -290,7 +291,7 @@ class TestGoalLiveLMStudio:
             )
 
     @staticmethod
-    def _patch_live_worker(monkeypatch):
+    def _install_live_worker_transport(app):
         def _fake_forward(worker_url, endpoint, data, token=None):
             if endpoint.endswith("/step/propose"):
                 return {"status": "success", "data": {"reason": "execute goal task", "command": "echo ok"}}
@@ -301,7 +302,7 @@ class TestGoalLiveLMStudio:
                 }
             raise AssertionError(endpoint)
 
-        monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+        AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
 
     @staticmethod
     def _assert_goal_execution_completed(client, admin_auth_header, app, goal_id: str, created_ids: list[str]) -> None:
@@ -421,7 +422,7 @@ class TestGoalLiveLMStudio:
             return
 
         self._register_live_worker(app)
-        self._patch_live_worker(monkeypatch)
+        self._install_live_worker_transport(app)
         self._assert_goal_execution_completed(client, admin_auth_header, app, goal_id, created_ids)
         for task_id in created_ids:
             task = _get_local_task_status(task_id)
@@ -482,7 +483,7 @@ class TestGoalLiveLMStudio:
         }
 
         self._register_live_worker(app)
-        self._patch_live_worker(monkeypatch)
+        self._install_live_worker_transport(app)
         self._assert_goal_execution_completed(client, admin_auth_header, app, goal_id, created_ids)
 
         detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)

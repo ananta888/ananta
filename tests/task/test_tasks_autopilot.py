@@ -15,6 +15,7 @@ from agent.routes.tasks.autopilot_tick_engine import (
 )
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _update_local_task_status
+from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 def _auth_headers(app):
@@ -157,7 +158,7 @@ def test_parallel_autopilot_ticks_do_not_duplicate_dispatch(app, monkeypatch):
         time.sleep(0.05)
         return responses.pop(0)
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
 
     with app.app_context():
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -215,7 +216,7 @@ def test_autopilot_tick_respects_goal_scope(app, monkeypatch):
     def _fake_forward(*_args, **_kwargs):
         return responses.pop(0)
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
 
@@ -280,7 +281,7 @@ def test_autopilot_applies_quality_gate_on_completed_step(app, monkeypatch):
     def _fake_forward(*args, **kwargs):
         return responses.pop(0)
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     res = autonomous_loop.tick_once()
     updated = task_repo.get_by_id("qg-auto-1")
     assert res["dispatched"] == 1
@@ -371,7 +372,7 @@ def test_autopilot_retries_transient_worker_failure(app, monkeypatch):
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
     updated = task_repo.get_by_id("retry-1")
@@ -409,21 +410,21 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     )
     circuit_open_trace_calls = {"count": 0}
 
-    from agent.routes.tasks import autopilot as autopilot_mod
-
-    original_append_trace_event = autopilot_mod._append_trace_event
+    original_append_trace_event = AUTOPILOT_LOOP_DEPENDENCIES.resolve_for(app).append_trace_event
 
     def _counting_append_trace_event(task_id, event_type, **data):
         if event_type == "autopilot_worker_circuit_open":
             circuit_open_trace_calls["count"] += 1
         return original_append_trace_event(task_id, event_type, **data)
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._append_trace_event", _counting_append_trace_event)
-
     def _always_fail(*args, **kwargs):
         raise RuntimeError("down")
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _always_fail)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        forward_to_worker=_always_fail,
+        append_trace_event=_counting_append_trace_event,
+    )
     try:
         with app.app_context():
             first = autonomous_loop.tick_once()
@@ -450,7 +451,7 @@ def test_autopilot_records_hub_fallback_and_workspace_lifecycle(app, monkeypatch
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
 
@@ -500,7 +501,7 @@ def test_autopilot_blocks_hub_fallback_when_policy_disallows_it(app, monkeypatch
     def _should_not_forward(*args, **kwargs):
         raise AssertionError("forward_to_worker should not be called when fallback is blocked")
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _should_not_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_should_not_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
 
@@ -610,7 +611,7 @@ def test_autopilot_team_scope_only_dispatches_matching_team(app, monkeypatch):
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok success"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     try:
         with app.app_context():
             res = autonomous_loop.tick_once()
@@ -639,7 +640,7 @@ def test_autopilot_unwraps_nested_data_response(app, monkeypatch):
             return {"status": "success", "data": {"data": {"reason": "ok", "command": "echo ok"}}}
         return {"status": "success", "data": {"data": {"status": "completed", "exit_code": 0, "output": "ok"}}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("wrap-1")
@@ -664,7 +665,7 @@ def test_autopilot_persists_raw_preview_in_last_proposal(app, monkeypatch):
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": raw_text}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("raw-preview-1")
@@ -702,7 +703,7 @@ def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app
             }
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("meta-preserve-1")
@@ -785,7 +786,7 @@ def test_autopilot_security_level_safe_blocks_write_tool_calls(app, monkeypatch)
             }
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     try:
         with app.app_context():
             res = autonomous_loop.tick_once()

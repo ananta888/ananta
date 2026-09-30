@@ -13,6 +13,7 @@ from agent.services.task_recovery_planning_service import (
     RECOVERY_MATERIALIZE_TOOL,
     TaskRecoveryPlanningService,
 )
+from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 class _PersistedRecoveryPlanner:
@@ -409,10 +410,7 @@ def test_worker_exhaustion_flows_through_hub_tick_and_hub_approval_policy(
                 },
             }
 
-        monkeypatch.setattr(
-            "agent.routes.tasks.autopilot._forward_to_worker",
-            worker_response,
-        )
+        AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=worker_response)
         autonomous_loop.bind_app(app)
         autonomous_loop.goal = goal.id
         autonomous_loop.max_concurrency = 1

@@ -22,9 +22,12 @@ from agent.routes.tasks.autopilot_worker_forwarding import (
     AutopilotWorkerForwarder,
     _ForwardTarget,
 )
-from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
+from agent.routes.tasks.autopilot_loop_dependencies import (
+    AUTOPILOT_LOOP_DEPENDENCIES,
+    AutopilotLoopDependencies,
+)
+from agent.routes.tasks.utils import _update_local_task_status
 from agent.services.provider_observer_service import get_provider_observer_service
-from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.worker_forward_outcome import (
     WORKER_FORWARD_OUTCOME_RECORDER_EXTENSION,
@@ -107,21 +110,33 @@ class AutonomousLoopManager:
         self.budget_label: str = ""
         self.security_level: str = "safe"
         self._app = None
-        # The default callables defer to this module's names and to bound loop
-        # methods at call time, so loop state stays owned here.
+        # Loop state stays owned here: the forwarder reaches it through bound
+        # loop methods. The worker transport and trace sink come from the
+        # per-application AUTOPILOT_LOOP_DEPENDENCIES seam of the bound app.
         self._worker_forwarder = worker_forwarder or AutopilotWorkerForwarder(
             app_config_provider=lambda: self._app_config(),
-            repository_registry_provider=lambda: get_repository_registry(self._app),
+            repository_registry_provider=lambda: self._loop_dependencies().repository_registry(self._app),
             resilience_config_provider=lambda: self._resilience_config(),
-            forward_to_worker=lambda *args, **kwargs: _forward_to_worker(*args, **kwargs),
+            forward_to_worker=self._forward_through_loop_transport,
             record_worker_success=lambda worker_url: self._record_worker_success(worker_url),
             record_worker_failure=lambda *args, **kwargs: self._record_worker_failure(*args, **kwargs),
             record_provider_backpressure=lambda provider, reason: self._record_provider_backpressure(
                 provider, reason
             ),
             record_forward_http_error=lambda *args, **kwargs: self._record_forward_http_error(*args, **kwargs),
-            append_trace_event=lambda *args, **kwargs: _append_trace_event(*args, **kwargs),
+            append_trace_event=self._append_loop_trace_event,
         )
+
+    def _loop_dependencies(self) -> AutopilotLoopDependencies:
+        if has_app_context():
+            return AUTOPILOT_LOOP_DEPENDENCIES.resolve()
+        return AUTOPILOT_LOOP_DEPENDENCIES.resolve_for(self._app)
+
+    def _forward_through_loop_transport(self, *args: Any, **kwargs: Any) -> Any:
+        return self._loop_dependencies().forward_to_worker(*args, **kwargs)
+
+    def _append_loop_trace_event(self, task_id: str, event_type: str, **data: Any) -> None:
+        self._loop_dependencies().append_trace_event(task_id, event_type, **data)
 
     def bind_app(self, app):
         self._app = app
@@ -646,7 +661,7 @@ class AutonomousLoopManager:
             return execute_autopilot_tick(
                 loop=self,
                 services=_services(),
-                append_trace_event=_append_trace_event,
+                append_trace_event=self._append_loop_trace_event,
                 task_dependencies=_task_dependencies,
                 update_local_task_status=_update_local_task_status,
             )

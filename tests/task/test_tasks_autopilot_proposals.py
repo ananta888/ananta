@@ -17,6 +17,7 @@ from agent.routes.tasks.autopilot_tick_engine import (
 from tests.knowledge.knowledge_index_execution_test_support import (
     build_execution_task,
 )
+from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 def _auth_headers(app):
@@ -66,7 +67,6 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
     app,
     monkeypatch,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
     from agent.routes.tasks.autopilot_dispatch_dependencies import AUTOPILOT_DISPATCH_DEPENDENCIES
     from agent.services import recovery_dispatch_gate_service
     from agent.services.recovery_dispatch_gate_service import (
@@ -193,7 +193,7 @@ def test_autopilot_propose_and_execute_propagate_exact_recovery_leases(
             },
         }
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
 
     with app.app_context():
         response = autonomous_loop.tick_once()
@@ -292,12 +292,11 @@ def test_autopilot_recovery_retry_reuses_exact_payload_and_worker_token(
             "data": {"status": "completed"},
         }
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
     monkeypatch.setattr(autopilot_module.time, "sleep", lambda _delay: None)
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             agent_repo=SimpleNamespace(
                 get_by_url=lambda _url: SimpleNamespace(
                     token="worker-auth-token"
@@ -355,7 +354,6 @@ def test_autopilot_recovery_auth_failure_is_not_retried(
     monkeypatch,
     failure_mode,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
@@ -393,11 +391,10 @@ def test_autopilot_recovery_auth_failure_is_not_retried(
             }
         raise RuntimeError("401 unauthorized")
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             agent_repo=SimpleNamespace(
                 get_by_url=lambda _url: SimpleNamespace(
                     token="current-worker-token"
@@ -447,7 +444,6 @@ def test_autopilot_hub_owned_step_uses_file_managed_hub_service_token(
     monkeypatch,
     tmp_path,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     hub_token = "hub-service-token-0123456789abcdef"
     token_file = tmp_path / "hub-service-token"
@@ -465,7 +461,7 @@ def test_autopilot_hub_owned_step_uses_file_managed_hub_service_token(
         calls.append((url, path, dict(data), token))
         return {"status": "success", "data": {"status": "completed"}}
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
     monkeypatch.setattr(
         autonomous_loop,
         "_record_worker_success",
@@ -494,7 +490,6 @@ def test_autopilot_hub_self_failure_never_crosses_target_or_drops_auth(
     tmp_path,
     failure_mode,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     hub_token = "hub-service-token-0123456789abcdef"
     token_file = tmp_path / "hub-service-token"
@@ -526,7 +521,7 @@ def test_autopilot_hub_self_failure_never_crosses_target_or_drops_auth(
             return {"status": "error", "http_status": 404, "message": "not found"}
         raise RuntimeError("401 unauthorized")
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
     worker_failures = []
     worker_successes = []
     monkeypatch.setattr(
@@ -569,7 +564,6 @@ def test_autopilot_hub_self_preserves_structured_non_retryable_failure(
     reason_code,
     reported_retryable,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     hub_token = "hub-service-token-0123456789abcdef"
     token_file = tmp_path / "hub-service-token"
@@ -606,7 +600,7 @@ def test_autopilot_hub_self_preserves_structured_non_retryable_failure(
             },
         }
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
     monkeypatch.setattr(
         autonomous_loop,
         "_record_worker_failure",
@@ -679,7 +673,7 @@ def test_autopilot_retries_only_retryable_hub_self_failures(
             }
         return {"status": "success", "data": {"status": "completed"}}
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
     endpoint = "/tasks/codecompass-retry/step/execute"
     payload = {"task_id": "codecompass-retry"}
 
@@ -704,7 +698,6 @@ def test_autopilot_hub_self_uses_bound_knowledge_index_runtime_timeout(
     monkeypatch,
     tmp_path,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     hub_token = "hub-service-token-0123456789abcdef"
     token_file = tmp_path / "hub-service-token"
@@ -716,10 +709,9 @@ def test_autopilot_hub_self_uses_bound_knowledge_index_runtime_timeout(
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
     task = build_execution_task(max_runtime_seconds=749)
     task_id = task["id"]
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             task_repo=SimpleNamespace(
                 get_by_id=lambda requested_id: (
                     task if requested_id == task_id else None
@@ -733,7 +725,7 @@ def test_autopilot_hub_self_uses_bound_knowledge_index_runtime_timeout(
         calls.append((url, path, dict(data), token, dict(options)))
         return {"status": "success", "data": {"status": "completed"}}
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
     endpoint = f"/tasks/{task_id}/step/execute"
     payload = {"task_id": task_id}
 
@@ -764,7 +756,6 @@ def test_governed_retries_share_one_absolute_deadline(
     monkeypatch,
     tmp_path,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     hub_token = "hub-service-token-0123456789abcdef"
     token_file = tmp_path / "hub-service-token"
@@ -784,10 +775,9 @@ def test_governed_retries_share_one_absolute_deadline(
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
     task = build_execution_task(max_runtime_seconds=60)
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)
         ),
     )
@@ -800,7 +790,7 @@ def test_governed_retries_share_one_absolute_deadline(
             raise TimeoutError("transient transport timeout")
         return {"status": "success", "data": {"status": "completed"}}
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
 
     with app.app_context():
         result = autonomous_loop._forward_with_retry(
@@ -820,7 +810,6 @@ def test_governed_permanent_response_error_is_not_retried(
     monkeypatch,
     tmp_path,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
     from agent.services.worker_forward_transport import (
         WorkerForwardPermanentTransportError,
     )
@@ -843,10 +832,9 @@ def test_governed_permanent_response_error_is_not_retried(
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
     task = build_execution_task(max_runtime_seconds=60)
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)
         ),
     )
@@ -858,7 +846,7 @@ def test_governed_permanent_response_error_is_not_retried(
             "knowledge_index_worker_response_too_large"
         )
 
-    monkeypatch.setattr(autopilot_module, "_forward_to_worker", forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=forward)
 
     with app.app_context(), pytest.raises(
         RuntimeError,
@@ -890,7 +878,6 @@ def test_autopilot_codecompass_execute_never_downgrades_unknown_binding(
     monkeypatch,
     worker_context,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     task_id = "codecompass-invalid-binding"
     task = {
@@ -899,19 +886,14 @@ def test_autopilot_codecompass_execute_never_downgrades_unknown_binding(
         "worker_execution_context": worker_context,
     }
     monkeypatch.setattr(settings, "role", "worker")
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             task_repo=SimpleNamespace(get_by_id=lambda _task_id: task)
         ),
     )
     calls = []
-    monkeypatch.setattr(
-        autopilot_module,
-        "_forward_to_worker",
-        lambda *_args, **_kwargs: calls.append(True),
-    )
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=lambda *_args, **_kwargs: calls.append(True))
 
     with app.app_context(), pytest.raises(
         RuntimeError,
@@ -945,7 +927,6 @@ def test_autopilot_worker_circuit_success_requires_normalized_envelope(
     expected_successes,
     expected_failures,
 ):
-    from agent.routes.tasks import autopilot as autopilot_module
 
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),
@@ -959,10 +940,9 @@ def test_autopilot_worker_circuit_success_requires_normalized_envelope(
     }
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
-    monkeypatch.setattr(
-        autopilot_module,
-        "get_repository_registry",
-        lambda _app=None: SimpleNamespace(
+    AUTOPILOT_LOOP_DEPENDENCIES.install(
+        app,
+        repository_registry=lambda _app=None: SimpleNamespace(
             agent_repo=SimpleNamespace(
                 get_by_url=lambda _url: SimpleNamespace(
                     token="current-worker-token"
@@ -970,11 +950,7 @@ def test_autopilot_worker_circuit_success_requires_normalized_envelope(
             )
         ),
     )
-    monkeypatch.setattr(
-        autopilot_module,
-        "_forward_to_worker",
-        lambda *_args, **_kwargs: response,
-    )
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=lambda *_args, **_kwargs: response)
     successes = []
     failures = []
     monkeypatch.setattr(
@@ -1023,7 +999,6 @@ def test_autopilot_unsafe_hub_token_file_prevents_transport(
     tmp_path,
 ):
     from agent.auth import AgentTokenConfigurationError
-    from agent.routes.tasks import autopilot as autopilot_module
 
     token_file = tmp_path / "unsafe-hub-service-token"
     token_file.write_text(
@@ -1036,11 +1011,7 @@ def test_autopilot_unsafe_hub_token_file_prevents_transport(
     monkeypatch.setattr(settings, "role", "hub")
     monkeypatch.setattr(settings, "hub_url", "http://hub:5000")
     calls = []
-    monkeypatch.setattr(
-        autopilot_module,
-        "_forward_to_worker",
-        lambda *args, **kwargs: calls.append((args, kwargs)),
-    )
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=lambda *args, **kwargs: calls.append((args, kwargs)))
 
     with app.app_context(), pytest.raises(
         AgentTokenConfigurationError,
@@ -1080,7 +1051,7 @@ def test_autopilot_retries_proposal_with_next_strategy_model(app, monkeypatch):
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": "{\"command\":\"echo ok\"}"}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-retry-1")
@@ -1122,7 +1093,7 @@ def test_autopilot_recovers_embedded_json_from_raw_proposal(app, monkeypatch):
             return {"status": "success", "data": {"reason": raw_output, "raw": raw_output}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-embedded-1")
@@ -1158,7 +1129,7 @@ def test_autopilot_recovers_fenced_cmd_payload_with_trailing_commas(app, monkeyp
             return {"status": "success", "data": {"reason": raw_output, "raw": raw_output}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-fenced-cmd-1")
@@ -1197,7 +1168,7 @@ def test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal(app, m
             return {"status": "success", "data": {"reason": raw_output, "raw": raw_output}}
         raise AssertionError("execute must not be called for invalid scalar tool list proposals")
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     started = time.time()
     with app.app_context():
         res = autonomous_loop.tick_once()
@@ -1249,10 +1220,7 @@ def test_autopilot_does_not_resurrect_stopped_model_recovery_source(
             "a stopped Hub Recovery source must not be forwarded"
         )
 
-    monkeypatch.setattr(
-        "agent.routes.tasks.autopilot._forward_to_worker",
-        _unexpected_forward,
-    )
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_unexpected_forward)
     with app.app_context():
         first = autonomous_loop.tick_once()
         second = autonomous_loop.tick_once()
@@ -1305,7 +1273,7 @@ def test_autopilot_retries_proposal_with_temperature_profile(app, monkeypatch):
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": "{\"command\":\"echo ok\"}"}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-temp-1")
@@ -1361,7 +1329,7 @@ def test_autopilot_skips_model_with_insufficient_context_window(app, monkeypatch
             return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
     with app.app_context():
         res = autonomous_loop.tick_once()
         updated = task_repo.get_by_id("strategy-ctx-1")

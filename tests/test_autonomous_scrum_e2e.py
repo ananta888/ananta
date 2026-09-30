@@ -8,6 +8,7 @@ from agent.db_models.teams import TeamDB
 from agent.repository import agent_repo, config_repo, team_repo
 from agent.routes.tasks.autopilot import AUTOPILOT_STATE_KEY, AutonomousLoopManager, autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 @pytest.mark.integration
@@ -45,7 +46,7 @@ def test_e2e_autonomous_scrum_progress_with_followup_chain(app, monkeypatch):
                 }
             raise AssertionError(f"unexpected endpoint: {endpoint}")
 
-        monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+        AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
         monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kwargs: "[]")
 
         # Tick 1: Parent wird erledigt, Child bleibt noch blocked.
@@ -159,7 +160,7 @@ def test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks(client,
             return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
         raise AssertionError(endpoint)
 
-    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
 
     with app.app_context():
         for _ in range(4):

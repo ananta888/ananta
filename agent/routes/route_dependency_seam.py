@@ -58,8 +58,19 @@ class RouteDependencySeam(Generic[DependencyBundle]):
                 return installed
         return self.production()
 
+    def resolve_for(self, app: Any | None) -> DependencyBundle:
+        """The bundle installed on ``app`` (production when ``app`` is ``None``).
+
+        For collaborators that run outside a request but own an explicit
+        application reference, such as the autopilot loop's worker threads.
+        """
+
+        if app is None:
+            return self.production()
+        return self._current(app)
+
     def _current(self, app: Any) -> DependencyBundle:
-        installed = app.extensions.get(self._extension_key)
+        installed = getattr(app, "extensions", {}).get(self._extension_key)
         return installed if installed is not None else self.production()
 
     def install(self, app: Any, **replacements: Any) -> DependencyBundle:

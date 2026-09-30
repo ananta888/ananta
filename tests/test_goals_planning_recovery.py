@@ -10,6 +10,7 @@ from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, Tea
 from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo, team_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
+from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
 
 
 def _mock_goal_planning_llm(monkeypatch):
@@ -678,7 +679,7 @@ class TestGoalsAPIPlanningRecovery:
                 }
             raise AssertionError(endpoint)
 
-        monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+        AUTOPILOT_LOOP_DEPENDENCIES.install(app, forward_to_worker=_fake_forward)
 
         with app.app_context():
             for _ in range(len(created_ids) + 1):
