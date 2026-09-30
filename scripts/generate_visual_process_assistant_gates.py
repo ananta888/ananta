@@ -151,6 +151,7 @@ FUNCTIONAL_SOURCE_PROJECTION = (
     "schemas/worker/codecompass_snapshot_manifest.v1.json",
     "scripts/generate_visual_process_assistant_baseline.py",
     "scripts/generate_codecompass_e2e_gate.py",
+    "scripts/codecompass_e2e_gate_transport.py",
     "scripts/generate_visual_process_assistant_gates.py",
     "scripts/run_visual_process_assistant_functional_gate.py",
     "scripts/visual_process_test_authority.py",
@@ -264,6 +265,7 @@ FUNCTIONAL_SUITES: tuple[dict[str, Any], ...] = (
         ],
         "implementation_paths": [
             "scripts/generate_codecompass_e2e_gate.py",
+            "scripts/codecompass_e2e_gate_transport.py",
             "scripts/visual_process_test_authority.py",
             "tests/test_codecompass_e2e_acceptance_gate.py",
         ],
