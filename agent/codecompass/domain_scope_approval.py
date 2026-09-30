@@ -48,8 +48,12 @@ def request_cross_domain_write_approval(
     goal_id: str | None = None,
     governance_mode: str = "balanced",
     agent_cfg: dict[str, Any] | None = None,
+    approval_service: Any | None = None,
 ) -> tuple[DomainScopeDecision, dict[str, Any]]:
     """Resolve a cross-domain write violation against the approval lifecycle.
+
+    ``approval_service`` is the approval lifecycle to use; ``None`` selects the
+    hub's default :class:`ApprovalRequestService` instance.
 
     Returns ``(decision, details)``. ``details`` contains the approval
     request id / digest prefix when a request was found or created, and is
@@ -66,7 +70,7 @@ def request_cross_domain_write_approval(
             get_approval_request_service,
         )
 
-        svc = get_approval_request_service()
+        svc = approval_service if approval_service is not None else get_approval_request_service()
         grant = svc.resolve_grant_for_call(
             tool_name=tool_name,
             arguments=call_args,

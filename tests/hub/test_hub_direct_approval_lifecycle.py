@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 from sqlmodel import SQLModel, create_engine
 
+from agent.services.ananta_tool_policy_service import AnantaToolPolicyService
 from agent.services.hub_tool_execution_adapter import HubToolExecutionAdapter
 from agent.services.worker_runtime_execution_adapter import WorkerRuntimeExecutionAdapter
 
@@ -35,16 +36,15 @@ class CountingRuntime:
 def approval_world(monkeypatch, tmp_path):
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
-    monkeypatch.setattr("agent.services.approval_request_service._engine", lambda: test_engine)
-    monkeypatch.setattr(
-        "agent.services.approval_request_service.ApprovalRequestService._payload_dir",
-        staticmethod(lambda: tmp_path / "payloads"),
-    )
     audit_events: list[tuple[str, dict]] = []
     monkeypatch.setattr("agent.common.audit.log_audit", lambda action, details=None: audit_events.append((action, details or {})))
-    from agent.services.approval_request_service import get_approval_request_service
+    from agent.services.approval_request_service import ApprovalRequestService
 
-    return {"svc": get_approval_request_service(), "audit": audit_events}
+    svc = ApprovalRequestService(
+        engine_factory=lambda: test_engine,
+        payload_dir=lambda: tmp_path / "payloads",
+    )
+    return {"svc": svc, "audit": audit_events}
 
 
 def _cfg():
@@ -58,8 +58,12 @@ def _cfg():
     }
 
 
-def _adapter(runtime):
-    return HubToolExecutionAdapter(runtime_adapter=WorkerRuntimeExecutionAdapter(runtime))
+def _adapter(runtime, approvals):
+    return HubToolExecutionAdapter(
+        runtime_adapter=WorkerRuntimeExecutionAdapter(runtime),
+        policy_service=AnantaToolPolicyService(approval_service=approvals),
+        approval_service=approvals,
+    )
 
 
 _CALL_ARGS = {"paths": ["a.txt"]}
@@ -78,7 +82,7 @@ def _request_direct(adapter, tmp_path, arguments=_CALL_ARGS):
 
 def test_pending_approval_request_is_created_with_hub_direct_scope(approval_world, tmp_path):
     runtime = CountingRuntime()
-    result = _request_direct(_adapter(runtime), tmp_path)
+    result = _request_direct(_adapter(runtime, approval_world["svc"]), tmp_path)
     assert result["kind"] == "direct_approval_required"
     assert runtime.calls == []
     request = approval_world["svc"].get_request(result["approval_request_id"])
@@ -91,7 +95,7 @@ def test_pending_approval_request_is_created_with_hub_direct_scope(approval_worl
 
 def test_granted_request_allows_same_digest_call(approval_world, tmp_path):
     runtime = CountingRuntime()
-    adapter = _adapter(runtime)
+    adapter = _adapter(runtime, approval_world["svc"])
     pending = _request_direct(adapter, tmp_path)
     approval_world["svc"].decide_request(pending["approval_request_id"], decision="granted", decided_by="operator")
 
@@ -105,7 +109,7 @@ def test_granted_request_allows_same_digest_call(approval_world, tmp_path):
 
 def test_digest_mismatch_does_not_use_grant(approval_world, tmp_path):
     runtime = CountingRuntime()
-    adapter = _adapter(runtime)
+    adapter = _adapter(runtime, approval_world["svc"])
     pending = _request_direct(adapter, tmp_path)
     approval_world["svc"].decide_request(pending["approval_request_id"], decision="granted", decided_by="operator")
 
@@ -116,7 +120,7 @@ def test_digest_mismatch_does_not_use_grant(approval_world, tmp_path):
 
 def test_denied_request_keeps_tool_blocked(approval_world, tmp_path):
     runtime = CountingRuntime()
-    adapter = _adapter(runtime)
+    adapter = _adapter(runtime, approval_world["svc"])
     pending = _request_direct(adapter, tmp_path)
     approval_world["svc"].decide_request(pending["approval_request_id"], decision="denied", decided_by="operator")
 
@@ -126,7 +130,7 @@ def test_denied_request_keeps_tool_blocked(approval_world, tmp_path):
 
 
 def test_no_raw_prompts_or_arguments_in_audit(approval_world, tmp_path):
-    adapter = _adapter(CountingRuntime())
+    adapter = _adapter(CountingRuntime(), approval_world["svc"])
     _request_direct(adapter, tmp_path)
     for action, details in approval_world["audit"]:
         assert "prompt" not in {k.lower() for k in details}

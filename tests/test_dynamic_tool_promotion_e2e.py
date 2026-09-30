@@ -37,10 +37,11 @@ def _script_payload():
 def test_dynamic_script_tool_promotes_and_executes_with_digest(tmp_path, monkeypatch):
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
-    monkeypatch.setattr("agent.services.approval_request_service._engine", lambda: test_engine)
-    monkeypatch.setattr(
-        "agent.services.approval_request_service.ApprovalRequestService._payload_dir",
-        staticmethod(lambda: tmp_path / "payloads"),
+    from agent.services.approval_request_service import ApprovalRequestService
+
+    approvals = ApprovalRequestService(
+        engine_factory=lambda: test_engine,
+        payload_dir=lambda: tmp_path / "payloads",
     )
     monkeypatch.setattr("agent.common.audit.log_audit", lambda action, details=None: None)
 
@@ -51,13 +52,17 @@ def test_dynamic_script_tool_promotes_and_executes_with_digest(tmp_path, monkeyp
 
     proposals = CustomToolProposalService(tmp_path)
     registry = DynamicToolRegistryService(tmp_path)
-    promo = CustomToolPromotionService(data_root=tmp_path, proposal_service=proposals, registry=registry)
-    from agent.services.approval_request_service import get_approval_request_service
+    promo = CustomToolPromotionService(
+        data_root=tmp_path,
+        proposal_service=proposals,
+        registry=registry,
+        approval_service=approvals,
+    )
 
     digest = proposals.create_proposal(_script_payload())["proposal_digest"]
     assert promo.validate(digest)["status"] == "validated"
     proposal = promo.request_approval(digest)
-    get_approval_request_service().decide_request(proposal["approval_request_id"], decision="granted", decided_by="operator")
+    approvals.decide_request(proposal["approval_request_id"], decision="granted", decided_by="operator")
     assert promo.refresh_approval(digest)["status"] == "approved"
     record = promo.activate(digest)
 

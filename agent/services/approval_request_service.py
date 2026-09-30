@@ -81,39 +81,51 @@ AUDIT_APPROVAL_REQUEST_REDISPATCH = "approval_request_redispatch"
 AUDIT_APPROVAL_DOMAIN_ACTION_FAILED = "approval_domain_action_failed"
 
 
-def _engine():
+def hub_database_engine():
+    """Production engine factory: the hub database engine of this process."""
     from agent.database import engine
 
     return engine
 
 
+def hub_approval_payload_dir() -> Path:
+    """Production payload directory below the configured hub data directory."""
+    return Path(settings.data_dir) / "approval-payloads"
+
+
 class ApprovalRequestService:
-    """Lifecycle of digest-bound ApprovalRequests (hub side)."""
+    """Lifecycle of digest-bound ApprovalRequests (hub side).
+
+    Persistence is injected: ``engine_factory`` yields the SQL engine and
+    ``payload_dir`` the content-payload directory. Both default to the hub
+    database and data directory; tests pass isolated doubles explicitly.
+    """
 
     def __init__(
         self,
         *,
         auto_grant_policy: ApprovalAutoGrantPolicy | None = None,
-        engine_factory: Callable[[], Any] | None = None,
+        engine_factory: Callable[[], Any] = hub_database_engine,
+        payload_dir: Callable[[], Path] = hub_approval_payload_dir,
         passive_grant_store: ApprovalPassiveGrantStore | None = None,
         domain_outcome_reconciler: ApprovalDomainOutcomeReconciler | None = None,
     ) -> None:
         self._auto_grant_policy = auto_grant_policy or ApprovalAutoGrantPolicy()
-        self._engine_factory = engine_factory  # None: the hub database, resolved at call time
+        self._engine_factory = engine_factory
+        self._payload_dir_provider = payload_dir
         self._passive_grants = passive_grant_store or ApprovalPassiveGrantStore()
         self._domain_outcomes = domain_outcome_reconciler or ApprovalDomainOutcomeReconciler(
-            engine_provider=lambda: self._db(),
-            request_lister=lambda **filters: self.list_requests(**filters),
+            engine_provider=engine_factory,
+            request_lister=self.list_requests,
         )
 
     def _db(self):
-        return self._engine_factory() if self._engine_factory is not None else _engine()
+        return self._engine_factory()
 
     # --- payload store (ALWA-DD-007) -----------------------------------------
 
-    @staticmethod
-    def _payload_dir() -> Path:
-        return Path(settings.data_dir) / "approval-payloads"
+    def _payload_dir(self) -> Path:
+        return self._payload_dir_provider()
 
     def _store_content_payload(self, payload: dict[str, Any], content_hash: str) -> str:
         path = self._payload_dir() / f"{content_hash}.json"

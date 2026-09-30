@@ -52,10 +52,20 @@ class CustomToolPromotionService:
         proposal_service: CustomToolProposalService | None = None,
         validation_service: CustomToolValidationService | None = None,
         registry: DynamicToolRegistryService | None = None,
+        approval_service: Any | None = None,
     ) -> None:
         self._proposals = proposal_service or CustomToolProposalService(data_root)
         self._validation = validation_service or CustomToolValidationService(data_root)
         self._registry = registry or DynamicToolRegistryService(data_root)
+        # None selects the hub's default ApprovalRequestService when needed.
+        self._approval_service = approval_service
+
+    def _approvals(self) -> Any:
+        if self._approval_service is not None:
+            return self._approval_service
+        from agent.services.approval_request_service import get_approval_request_service
+
+        return get_approval_request_service()
 
     # -- transitions ----------------------------------------------------------
 
@@ -79,9 +89,7 @@ class CustomToolPromotionService:
         proposal = self._require_proposal(digest)
         if str(proposal.get("status")) != STATUS_VALIDATED:
             raise CustomToolPromotionError(f"approval_requires_validated_proposal:{proposal.get('status')}")
-        from agent.services.approval_request_service import get_approval_request_service
-
-        request = get_approval_request_service().create_pending_request(
+        request = self._approvals().create_pending_request(
             task_id=str(proposal.get("source_task_id") or "") or None,
             tool_name=_PROMOTION_APPROVAL_TOOL,
             arguments={"name": proposal.get("name"), "proposal_digest": digest},
@@ -106,9 +114,7 @@ class CustomToolPromotionService:
         request_id = str(proposal.get("approval_request_id") or "")
         if not request_id:
             raise CustomToolPromotionError("no_approval_request_for_proposal")
-        from agent.services.approval_request_service import get_approval_request_service
-
-        request = get_approval_request_service().get_request(request_id)
+        request = self._approvals().get_request(request_id)
         if request is None:
             raise CustomToolPromotionError("approval_request_not_found")
         if str(request.target_fingerprint or "") != digest:

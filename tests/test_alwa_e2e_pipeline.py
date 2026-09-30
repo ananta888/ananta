@@ -21,8 +21,8 @@ Three end-to-end scenarios are covered:
   * digest mismatch → grant does not transfer to a different call
 
 The tests build an in-memory SQLite engine, create the full
-``SQLModel.metadata`` schema, and patch the module-level ``engine``
-reference used by ``approval_request_service`` and the
+``SQLModel.metadata`` schema, inject it into ``ApprovalRequestService``
+through its ``engine_factory`` and patch the hub ``engine`` and
 ``get_repository_registry`` so the production code never touches a
 real database.
 """
@@ -89,7 +89,6 @@ def pipeline_world(monkeypatch: pytest.MonkeyPatch):
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
     monkeypatch.setattr(database, "engine", test_engine)
-    monkeypatch.setattr("agent.services.approval_request_service._engine", lambda: test_engine)
 
     # 2) fake task repo (task re-dispatch reads via get_repository_registry)
     task_repo = _FakeTaskRepo()
@@ -120,7 +119,7 @@ def pipeline_world(monkeypatch: pytest.MonkeyPatch):
 
     from agent.services.approval_request_service import ApprovalRequestService
 
-    svc = ApprovalRequestService()
+    svc = ApprovalRequestService(engine_factory=lambda: test_engine)
     return svc, task_repo, audit_log
 
 

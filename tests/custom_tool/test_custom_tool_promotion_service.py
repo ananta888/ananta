@@ -17,18 +17,22 @@ from agent.services.dynamic_tool_registry_service import DynamicToolRegistryServ
 def world(monkeypatch, tmp_path):
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(test_engine)
-    monkeypatch.setattr("agent.services.approval_request_service._engine", lambda: test_engine)
-    monkeypatch.setattr(
-        "agent.services.approval_request_service.ApprovalRequestService._payload_dir",
-        staticmethod(lambda: tmp_path / "payloads"),
-    )
     monkeypatch.setattr("agent.common.audit.log_audit", lambda action, details=None: None)
-    from agent.services.approval_request_service import get_approval_request_service
+    from agent.services.approval_request_service import ApprovalRequestService
 
+    approvals = ApprovalRequestService(
+        engine_factory=lambda: test_engine,
+        payload_dir=lambda: tmp_path / "payloads",
+    )
     proposals = CustomToolProposalService(tmp_path)
     registry = DynamicToolRegistryService(tmp_path)
-    promo = CustomToolPromotionService(data_root=tmp_path, proposal_service=proposals, registry=registry)
-    return {"promo": promo, "proposals": proposals, "registry": registry, "approvals": get_approval_request_service()}
+    promo = CustomToolPromotionService(
+        data_root=tmp_path,
+        proposal_service=proposals,
+        registry=registry,
+        approval_service=approvals,
+    )
+    return {"promo": promo, "proposals": proposals, "registry": registry, "approvals": approvals}
 
 
 def _proposal(tests=None, **overrides):

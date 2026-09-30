@@ -66,7 +66,22 @@ class ToolPolicyDecision:
 
 
 class AnantaToolPolicyService:
-    """Evaluates tool requests against registry, scope, role grants and mutation mode."""
+    """Evaluates tool requests against registry, scope, role grants and mutation mode.
+
+    ``approval_service`` resolves digest-bound grants; ``None`` selects the
+    hub's default :class:`ApprovalRequestService` instance when a grant is
+    checked.
+    """
+
+    def __init__(self, *, approval_service: Any | None = None) -> None:
+        self._approval_service = approval_service
+
+    def _approvals(self) -> Any:
+        if self._approval_service is not None:
+            return self._approval_service
+        from agent.services.approval_request_service import get_approval_request_service
+
+        return get_approval_request_service()
 
     @staticmethod
     def _role_denial(name: str, spec: Any, grants: Any) -> ToolPolicyDecision | None:
@@ -270,8 +285,8 @@ class AnantaToolPolicyService:
             execution_plane=plane,
         )
 
-    @staticmethod
     def _has_request_grant(
+        self,
         *,
         tool_name: str,
         arguments: dict[str, Any] | None,
@@ -287,9 +302,7 @@ class AnantaToolPolicyService:
         this resolves to False — never to a silent allow.
         """
         try:
-            from agent.services.approval_request_service import get_approval_request_service
-
-            svc = get_approval_request_service()
+            svc = self._approvals()
             grant = svc.resolve_grant_for_call(
                 tool_name=tool_name, arguments=arguments, task_id=task_id, goal_id=goal_id
             )

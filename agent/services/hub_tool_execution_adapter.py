@@ -73,9 +73,19 @@ class HubToolExecutionAdapter:
         *,
         runtime_adapter: WorkerRuntimeExecutionAdapter | None = None,
         policy_service=None,
+        approval_service=None,
     ) -> None:
         self._runtime_adapter = runtime_adapter or get_worker_runtime_execution_adapter()
         self._policy_service = policy_service or get_ananta_tool_policy_service()
+        # None selects the hub's default ApprovalRequestService when needed.
+        self._approval_service = approval_service
+
+    def _approvals(self):
+        if self._approval_service is not None:
+            return self._approval_service
+        from agent.services.approval_request_service import get_approval_request_service
+
+        return get_approval_request_service()
 
     def execute_direct(
         self,
@@ -206,15 +216,13 @@ class HubToolExecutionAdapter:
         request_id = None
         request_status = None
         try:
-            from agent.services.approval_request_service import get_approval_request_service
-
             spec = get_ananta_tool_registry_service().get_tool(tool_name)
             approval_class = None
             if spec is not None and spec.category == CATEGORY_READ_ONLY:
                 approval_class = "read_only"
             elif spec is not None and spec.category == CATEGORY_CONTROLLED_WRITE:
                 approval_class = "controlled_workspace_writes"
-            request = get_approval_request_service().create_pending_request(
+            request = self._approvals().create_pending_request(
                 task_id=task_id,
                 goal_id=goal_id,
                 tool_name=tool_name,
@@ -253,9 +261,8 @@ class HubToolExecutionAdapter:
             "goal_id": goal_id,
         }
 
-    @staticmethod
     def _consume_grant_if_any(
-        *, tool_name: str, arguments: dict[str, Any], task_id: str | None, goal_id: str | None
+        self, *, tool_name: str, arguments: dict[str, Any], task_id: str | None, goal_id: str | None
     ) -> None:
         """One-shot grants are consumed after successful execution.
 
@@ -264,9 +271,7 @@ class HubToolExecutionAdapter:
         arguments never matches (HDE-008).
         """
         try:
-            from agent.services.approval_request_service import get_approval_request_service
-
-            svc = get_approval_request_service()
+            svc = self._approvals()
             grant = svc.resolve_grant_for_call(
                 tool_name=tool_name, arguments=arguments, task_id=task_id, goal_id=goal_id
             )
