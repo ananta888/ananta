@@ -41,17 +41,17 @@ import {
 import { VoiceLongRunDurableCursor } from './voice-long-run-durable-cursor';
 import { VoiceLongRunGapProjection } from './voice-long-run-gap-projection';
 import { VoiceLongRunRecoveryInspection } from './voice-long-run-recovery-inspection';
+import { VoiceLongRunRecoveryResolver } from './voice-long-run-recovery-resolver';
+import { VoiceLongRunRemoteStop } from './voice-long-run-remote-stop';
+import { VoiceLongRunHeartbeat } from './voice-long-run-heartbeat';
 import { VoiceLongRunRevisionFeed } from './voice-long-run-revision-feed';
 import { VoiceLongRunSegmentUploader } from './voice-long-run-segment-uploader';
 import {
-  HEARTBEAT_MILLISECONDS,
   MAX_PENDING_PLAINTEXT_BYTES,
   MAX_PENDING_PLAINTEXT_SEGMENTS,
-  MAX_STOP_CORRECTION_ATTEMPTS,
   MAX_STOP_UPLOAD_ATTEMPTS,
   RETRY_DELAYS_MILLISECONDS,
   SPOOL_WRITE_TIMEOUT_MILLISECONDS,
-  STOP_CORRECTION_POLL_MILLISECONDS,
   VoiceLongRunCursor,
   VoiceLongRunObserver,
   captureDeadlineAt,
@@ -59,7 +59,6 @@ import {
   delay,
   ensureOperation,
   isNotFound,
-  isSegmentsInFlight,
   reconciledCursor,
   requestFromRun,
   runExpired,
@@ -77,10 +76,11 @@ export type { VoiceLongRunObserver } from './voice-long-run.policy';
 
 /**
  * Owns one long-run capture session end to end: start/resume/drain/stop
- * lifecycle, capture segmentation into the encrypted spool, heartbeats and
- * the local recovery descriptor. Uploading, revision polling, gap
- * projection, recovery inspection and profile-deletion notifications are
- * delegated to the collaborators imported above (SRP).
+ * lifecycle, capture segmentation into the encrypted spool and the local
+ * recovery descriptor. Uploading, revision polling, gap projection,
+ * heartbeats, the remote stop, recovery inspection/discard and
+ * profile-deletion notifications are delegated to the collaborators
+ * imported above (SRP).
  */
 @Injectable()
 export class VoiceLongRunController {
@@ -97,7 +97,6 @@ export class VoiceLongRunController {
   private observer: VoiceLongRunObserver = {};
   private persistenceQueue: Promise<void> = Promise.resolve();
   private stoppingOperation: Promise<VoiceLongRunResponse> | null = null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private captureDeadlineTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLocalSequence = -1;
   private operationGeneration = 0;
@@ -135,6 +134,39 @@ export class VoiceLongRunController {
     observer: () => this.observer,
     acceptRunProjection: (response) => this.updateHubGapProjection(response),
   });
+
+  private readonly heartbeat = new VoiceLongRunHeartbeat(this.api, {
+    hubUrl: () => this.hubUrl,
+    run: () => this.run,
+    generation: () => this.operationGeneration,
+    lastLocalSequence: () => this.lastLocalSequence,
+    localGaps: () => this.gaps.localSequences,
+    timelineMilliseconds: () => (
+      this.segmenter?.capturedDurationMs || this.recovery.load()?.timelineMilliseconds || 0
+    ),
+    saveRecovery: (nextSequence, timeline) => this.saveRecovery(nextSequence, timeline),
+    acceptRunProjection: (response) => this.updateHubGapProjection(response),
+    runUpdated: (response) => this.observer.runUpdated?.(response),
+    kickUploader: () => this.uploader.kick(),
+    connectionRetrying: () => this.observer.connection?.('retrying'),
+  });
+  private readonly remoteStop = new VoiceLongRunRemoteStop(this.api, {
+    hubUrl: () => this.hubUrl,
+    runId: () => this.run?.id ?? null,
+    lastLocalSequence: () => this.lastLocalSequence,
+    ensureOperation: (generation) => this.ensureOperation(generation),
+    publishResponse: (response) => this.publishResponse(response),
+    refreshWhileStopping: (generation) => this.revisions.refreshWhileStopping(generation),
+  });
+  private readonly recoveryResolver = new VoiceLongRunRecoveryResolver(
+    this.api, this.spool, this.recovery, this.inspection, {
+      generation: () => this.operationGeneration,
+      ensureOperation: (generation) => this.ensureOperation(generation),
+      initializeSecureStorage: () => this.initializeSecureStorage(),
+      setPendingProfileId: (profileId) => { this.pendingProfileId = profileId; },
+      reportError: (error) => this.observer.error?.(error),
+    },
+  );
 
   private readonly profileDeletions = new VoiceProfileDeletionWatcher((profileId) => {
     if (this.profileDeletionRelevant(profileId)) this.abortForProfileDeletion();
@@ -193,38 +225,8 @@ export class VoiceLongRunController {
     this.secureStorageReady = true;
   }
 
-  async inspectRecovery(): Promise<VoiceLongRunResponse | null> {
-    const generation = this.operationGeneration;
-    const descriptor = this.recovery.load();
-    if (!descriptor?.runId) return null;
-    await this.initializeSecureStorage();
-    this.ensureOperation(generation);
-    let response: VoiceLongRunResponse;
-    try {
-      response = await firstValueFrom(this.api.getLongRun(
-        descriptor.hubUrl,
-        descriptor.runId,
-        { includeText: false },
-      ));
-      this.ensureOperation(generation);
-    } catch (error) {
-      this.ensureOperation(generation);
-      if (!isNotFound(error)) throw error;
-      await this.spool.clearRun(descriptor.runId);
-      this.ensureOperation(generation);
-      this.recovery.clear(descriptor.runId);
-      this.inspection.forget();
-      return null;
-    }
-    if (terminalRun(response.run) || runExpired(response.run)) {
-      await this.spool.clearRun(descriptor.runId);
-      this.ensureOperation(generation);
-      this.recovery.clear(descriptor.runId);
-      this.inspection.forget();
-      return response;
-    }
-    this.inspection.record(response);
-    return response;
+  inspectRecovery(): Promise<VoiceLongRunResponse | null> {
+    return this.recoveryResolver.inspect();
   }
 
   async prepareCapture(source: VoiceCaptureSource, profileId = ''): Promise<void> {
@@ -341,7 +343,7 @@ export class VoiceLongRunController {
       if (!cancelled && this.run) {
         const runId = this.run.id;
         if (this.run.status === 'active') {
-          await this.stopRemote('capture_start_failed').catch(() => undefined);
+          await this.remoteStop.stop('capture_start_failed').catch(() => undefined);
         }
         await this.spool.clearRun(runId).catch(() => undefined);
         this.recovery.clear();
@@ -491,47 +493,8 @@ export class VoiceLongRunController {
     }
   }
 
-  async discardRecovery(): Promise<boolean> {
-    const generation = this.operationGeneration;
-    const descriptor = this.recovery.load();
-    if (!descriptor) return true;
-    this.pendingProfileId = descriptor.request.profile_id;
-    let remoteFailure: unknown = null;
-    let hubConfirmedEnded = !descriptor.runId;
-    if (descriptor.runId) {
-      try {
-        const snapshot = await firstValueFrom(this.api.getLongRun(
-          descriptor.hubUrl,
-          descriptor.runId,
-          { includeText: false },
-        ));
-        this.ensureOperation(generation);
-        if (snapshot.run.status === 'active') {
-          await firstValueFrom(this.api.stopLongRun(
-            descriptor.hubUrl,
-            descriptor.runId,
-            { last_sequence: descriptor.nextSequence - 1, reason: 'user_discard' },
-            `voice-ui:long-run-stop:${descriptor.runId}`,
-          ));
-          this.ensureOperation(generation);
-          hubConfirmedEnded = true;
-        } else if (terminalRun(snapshot.run) || runExpired(snapshot.run)) {
-          hubConfirmedEnded = true;
-        }
-      } catch (error) {
-        this.ensureOperation(generation);
-        if (isNotFound(error)) hubConfirmedEnded = true;
-        else remoteFailure = error;
-      }
-      await this.spool.clearRun(descriptor.runId);
-      this.ensureOperation(generation);
-    }
-    // Local discard is authoritative even when the Hub is offline or already
-    // returned 404 (for example after a privacy deletion).
-    this.recovery.clear();
-    this.pendingProfileId = '';
-    if (remoteFailure) this.observer.error?.(remoteFailure);
-    return hubConfirmedEnded;
+  discardRecovery(): Promise<boolean> {
+    return this.recoveryResolver.discard();
   }
 
   /**
@@ -752,7 +715,7 @@ export class VoiceLongRunController {
       }
       await this.sendHeartbeat();
       this.ensureOperation(generation);
-      const response = await this.stopRemoteAfterCorrections(reason, generation);
+      const response = await this.remoteStop.stopAfterCorrections(reason, generation);
       this.ensureOperation(generation);
       await this.spool.clearRun(runId);
       this.ensureOperation(generation);
@@ -768,35 +731,12 @@ export class VoiceLongRunController {
     }
   }
 
-  private async sendHeartbeat(): Promise<void> {
-    const runId = this.run?.id;
-    if (!runId || this.run?.status !== 'active') return;
-    const generation = this.operationGeneration;
-    try {
-      const response = await firstValueFrom(this.api.heartbeatLongRun(this.hubUrl, runId, {
-        client_time_ms: Date.now(),
-        last_local_sequence: this.lastLocalSequence,
-        gaps: this.gaps.localSequences,
-      }));
-      if (generation !== this.operationGeneration) return;
-      this.saveRecovery(
-        this.lastLocalSequence + 1,
-        this.segmenter?.capturedDurationMs || this.recovery.load()?.timelineMilliseconds || 0,
-      );
-      // Heartbeats intentionally omit transcript text. They may observe a
-      // newer Hub revision, but must never advance the content cursor or
-      // replace visible text before the text-bearing revision delta arrives.
-      if (this.updateHubGapProjection(response)) this.observer.runUpdated?.(response);
-      this.uploader.kick();
-    } catch {
-      if (generation !== this.operationGeneration) return;
-      this.observer.connection?.('retrying');
-    }
+  private sendHeartbeat(): Promise<void> {
+    return this.heartbeat.send();
   }
 
   private startHeartbeat(): void {
-    this.clearHeartbeat();
-    this.heartbeatTimer = setInterval(() => void this.sendHeartbeat(), HEARTBEAT_MILLISECONDS);
+    this.heartbeat.start(() => void this.sendHeartbeat());
   }
 
   private requestAutomaticStop(reason: string, error?: unknown): void {
@@ -805,42 +745,6 @@ export class VoiceLongRunController {
     this.pendingAutomaticStopReason = reason;
     if (this.starting) return;
     queueMicrotask(() => void this.stop(reason).catch(() => undefined));
-  }
-
-  private async stopRemote(reason: string): Promise<VoiceLongRunResponse> {
-    const runId = this.run?.id;
-    if (!runId) throw new Error('voice.long_run.not_active');
-    return firstValueFrom(this.api.stopLongRun(
-      this.hubUrl,
-      runId,
-      { last_sequence: this.lastLocalSequence, reason },
-      `voice-ui:long-run-stop:${runId}`,
-    ));
-  }
-
-  private async stopRemoteAfterCorrections(
-    reason: string,
-    generation: number,
-  ): Promise<VoiceLongRunResponse> {
-    let lastInFlightError: unknown = null;
-    for (let attempt = 0; attempt < MAX_STOP_CORRECTION_ATTEMPTS; attempt += 1) {
-      try {
-        const response = await this.stopRemote(reason);
-        this.ensureOperation(generation);
-        if (terminalRun(response.run)) return response;
-        this.publishResponse(response);
-      } catch (error) {
-        this.ensureOperation(generation);
-        if (!isSegmentsInFlight(error)) throw error;
-        lastInFlightError = error;
-      }
-      await this.revisions.refreshWhileStopping(generation);
-      if (attempt < MAX_STOP_CORRECTION_ATTEMPTS - 1) {
-        await delay(STOP_CORRECTION_POLL_MILLISECONDS);
-        this.ensureOperation(generation);
-      }
-    }
-    throw lastInFlightError || new Error('voice.long_run.correction_drain_timeout');
   }
 
   private saveRecovery(nextSequence: number, timelineMilliseconds: number): void {
@@ -905,16 +809,11 @@ export class VoiceLongRunController {
   }
 
   private clearTimers(): void {
-    this.clearHeartbeat();
+    this.heartbeat.clear();
     this.revisions.clearTimer();
     this.uploader.clearRetryTimer();
     if (this.captureDeadlineTimer) clearTimeout(this.captureDeadlineTimer);
     this.captureDeadlineTimer = null;
-  }
-
-  private clearHeartbeat(): void {
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    this.heartbeatTimer = null;
   }
 
   private resetGapProjection(notify = true): void {
