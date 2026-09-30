@@ -76,12 +76,23 @@ def _grant(preview, **overrides) -> OrganizationTopologyPatchGrantDB:
     return OrganizationTopologyPatchGrantDB(**values)
 
 
-def _service(uow: _Uow, *, clock=100.0) -> OrganizationTopologyApplyService:
+class _RecordingStager:
+    """Stager double: stages nothing and returns a fixed snapshot result."""
+
+    def stage_operations(self, *_args, **_kwargs):
+        return None
+
+    def stage_snapshot(self, *_args, **_kwargs):
+        return "snapshot-result"
+
+
+def _service(uow: _Uow, *, clock=100.0, stager=None) -> OrganizationTopologyApplyService:
     return OrganizationTopologyApplyService(
         reader=SimpleNamespace(),
         limit_profiles=SimpleNamespace(),
         uow_factory=lambda: uow,
         clock=lambda: clock,
+        stager=stager,
     )
 
 
@@ -287,10 +298,8 @@ def test_fresh_apply_consumes_and_revokes_grant_in_aggregate_uow() -> None:
             expires_at=None,
         )
     ]
-    service = _service(uow)
+    service = _service(uow, stager=_RecordingStager())
     service._authoritative_preview = lambda *_args, **_kwargs: (preview, state)  # type: ignore[method-assign]
-    service._stage_operations = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
-    service._stage_snapshot = lambda *_args, **_kwargs: "snapshot-result"  # type: ignore[method-assign]
 
     service.apply(
         preview=preview,

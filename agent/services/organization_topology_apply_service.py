@@ -110,7 +110,7 @@ class OrganizationTopologyApplyService:
         if state is None:
             raise OrganizationTopologyPatchError("organization_not_found", public_status=404)
         limits = self._resolve_limits(state)
-        return self._evaluate(
+        return self._evaluator.evaluate(
             state=state,
             tenant_id=tenant_id,
             project_id=project_id,
@@ -373,7 +373,7 @@ class OrganizationTopologyApplyService:
                 )
                 uow.operations.add(operation)
                 self._fault_injector("operation")
-                self._stage_operations(
+                self._stager.stage_operations(
                     uow,
                     state,
                     preview.operations,
@@ -382,7 +382,7 @@ class OrganizationTopologyApplyService:
                 )
                 uow.flush()
                 self._fault_injector("entities")
-                snapshot_hash = self._stage_snapshot(uow, state, preview)
+                snapshot_hash = self._stager.stage_snapshot(uow, state, preview)
                 state.organization.lock_version += 1
                 state.organization.updated_at = self._clock()
                 uow.instances.add(state.organization)
@@ -562,7 +562,7 @@ class OrganizationTopologyApplyService:
             state,
             port=SqlOrganizationLimitProfileAdapter(transaction_definitions),
         )
-        current = self._evaluate(
+        current = self._evaluator.evaluate(
             state=state,
             tenant_id=tenant_id,
             project_id=project_id,
@@ -607,32 +607,6 @@ class OrganizationTopologyApplyService:
             project_id=state.organization.project_id,
             policy_ref=reference,
         )
-
-    def _evaluate(
-        self, *, state, tenant_id, project_id, organization_id, principal_id, document, limits, expires_at_epoch
-    ) -> TopologyPatchEvaluation:
-        return self._evaluator.evaluate(
-            state=state,
-            tenant_id=tenant_id,
-            project_id=project_id,
-            organization_id=organization_id,
-            principal_id=principal_id,
-            document=document,
-            limits=limits,
-            expires_at_epoch=expires_at_epoch,
-        )
-
-    def _stage_operations(self, uow, state, operations, *, operation_key: str, principal_id: str):
-        return self._stager.stage_operations(
-            uow,
-            state,
-            operations,
-            operation_key=operation_key,
-            principal_id=principal_id,
-        )
-
-    def _stage_snapshot(self, uow, state, preview):
-        return self._stager.stage_snapshot(uow, state, preview)
 
 
 __all__ = [
