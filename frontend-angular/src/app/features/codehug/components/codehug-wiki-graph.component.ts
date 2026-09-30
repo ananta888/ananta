@@ -3,127 +3,34 @@ import { EMPTY, Subject, Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, expand, map, switchMap } from 'rxjs/operators';
 
 import { GraphViewerComponent } from '../../codecompass-graph/components/graph-viewer/graph-viewer.component';
-import {
-  CodeCompassFullGraphLoadError,
-  CodeCompassFullGraphLoaderService,
-} from '../services/codecompass-full-graph-loader.service';
+import { CodeCompassFullGraphLoaderService } from '../services/codecompass-full-graph-loader.service';
 import { InternalsService } from '../services/internals.service';
+import {
+  FullGraphLoadState,
+  GRAPH_LOAD_STRATEGIES,
+  GraphDomainCursorInvalidReason,
+  GraphDomainInventoryCursorGuard,
+  GraphLoadStrategy,
+  GraphLoadStrategyId,
+  MAX_GRAPH_PREVIEW_EDGES,
+  MAX_GRAPH_PREVIEW_NODES,
+  WikiOperationSlot,
+} from './codehug-wiki-graph.support';
+import {
+  codeGraphContentRevision,
+  fullGraphLoadErrorMessage,
+  fullGraphProgressText,
+  graphDomainInventoryProgressText,
+  graphDomainOptionText,
+  metadataCountFrom,
+  semanticScopeNoticeText,
+  semanticScopeToolbarText,
+  stableGraphEvidenceRevision,
+} from './codehug-wiki-graph.mappers';
 import type {
   CodeCompassGraphDomainFacet,
-  CodeCompassGraphInventoryPage,
   CodeCompassSemanticScopeEvidence,
 } from '../services/internals.service';
-
-type GraphLoadStrategyId = 'fast' | 'balanced' | 'detail';
-
-interface GraphLoadStrategy {
-  readonly id: GraphLoadStrategyId;
-  readonly label: string;
-  readonly initialNodes: number;
-  readonly stepNodes: number;
-}
-
-const GRAPH_LOAD_STRATEGIES: readonly GraphLoadStrategy[] = Object.freeze([
-  { id: 'fast', label: 'Schnellstart · 100', initialNodes: 100, stepNodes: 100 },
-  { id: 'balanced', label: 'Ausgewogen · 250', initialNodes: 250, stepNodes: 125 },
-  { id: 'detail', label: 'Detailfenster · 500', initialNodes: 500, stepNodes: 0 },
-]);
-
-// These bound only the optional topology preview. Complete staged loads page
-// through the entire selected scope and do not use either value as a total cap.
-const MAX_GRAPH_PREVIEW_NODES = 500;
-const MAX_GRAPH_PREVIEW_EDGES = 2_000;
-
-type FullGraphLoadState = 'idle' | 'nodes' | 'edges' | 'complete' | 'cancelled' | 'error';
-
-type GraphDomainCursorInvalidReason =
-  | 'cursor_repeated'
-  | 'cursor_without_progress'
-  | 'cursor_after_total'
-  | 'terminal_before_total'
-  | 'loaded_exceeds_total';
-
-type GraphDomainCursorDecision =
-  | { readonly kind: 'complete' }
-  | { readonly kind: 'next'; readonly cursor: string }
-  | {
-      readonly kind: 'invalid';
-      readonly reason: GraphDomainCursorInvalidReason;
-    };
-
-/** Validates cursor progress independently from component and transport state. */
-class GraphDomainInventoryCursorGuard {
-  private readonly requestedCursors = new Set<string>();
-  private previousLoadedCount = 0;
-
-  decide(
-    page: CodeCompassGraphInventoryPage,
-    loadedCount: number,
-  ): GraphDomainCursorDecision {
-    if (loadedCount > page.totalDomains) {
-      return { kind: 'invalid', reason: 'loaded_exceeds_total' };
-    }
-    if (page.nextCursor === null) {
-      return loadedCount === page.totalDomains
-        ? { kind: 'complete' }
-        : { kind: 'invalid', reason: 'terminal_before_total' };
-    }
-    if (this.requestedCursors.has(page.nextCursor)) {
-      return { kind: 'invalid', reason: 'cursor_repeated' };
-    }
-    if (loadedCount <= this.previousLoadedCount) {
-      return { kind: 'invalid', reason: 'cursor_without_progress' };
-    }
-    if (loadedCount >= page.totalDomains) {
-      return { kind: 'invalid', reason: 'cursor_after_total' };
-    }
-    this.previousLoadedCount = loadedCount;
-    this.requestedCursors.add(page.nextCursor);
-    return { kind: 'next', cursor: page.nextCursor };
-  }
-}
-
-/** One replaceable async operation with an explicit stale-response boundary. */
-class WikiOperationSlot {
-  private generation = 0;
-  private request: Subscription | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
-
-  restart(): number {
-    this.cancel();
-    return this.generation;
-  }
-
-  isCurrent(generation: number): boolean {
-    return generation === this.generation;
-  }
-
-  replaceRequest(generation: number, request: Subscription): void {
-    if (!this.isCurrent(generation)) {
-      request.unsubscribe();
-      return;
-    }
-    this.request?.unsubscribe();
-    this.request = request;
-  }
-
-  schedule(generation: number, callback: () => void, delayMs: number): void {
-    if (!this.isCurrent(generation)) return;
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      if (this.isCurrent(generation)) callback();
-    }, delayMs);
-  }
-
-  cancel(): void {
-    this.generation += 1;
-    this.request?.unsubscribe();
-    this.request = null;
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = null;
-  }
-}
 
 @Component({
   selector: 'ch-codehug-wiki-graph',
@@ -188,43 +95,27 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   readonly fullGraphSemanticScopeStatus = computed(() => (
     this.fullGraphSemanticScope()?.status ?? 'unverified'
   ));
-  readonly semanticScopeToolbarLabel = computed(() => {
-    if (this.fullGraphSemanticScopeComplete()) return 'Domain vollständig geladen';
-    switch (this.fullGraphSemanticScopeStatus()) {
-      case 'unavailable': return 'Transport vollständig · Semantik nicht verfügbar';
-      case 'partial': return 'Transport vollständig · Semantik unvollständig';
-      default: return 'Transport vollständig · Semantik nicht verifiziert';
-    }
-  });
+  readonly semanticScopeToolbarLabel = computed(() => semanticScopeToolbarText(
+    this.fullGraphSemanticScopeComplete(),
+    this.fullGraphSemanticScopeStatus(),
+  ));
   readonly fullGraphLoading = computed(() => (
     this.fullGraphLoadState() === 'nodes' || this.fullGraphLoadState() === 'edges'
   ));
-  readonly fullGraphProgress = computed(() => {
-    const state = this.fullGraphLoadState();
-    if (state === 'nodes') {
-      return `Scope-Transport: Knoten ${this.fullGraphLoadedNodes()} / ${this.fullGraphTotalNodes() || '…'}`;
-    }
-    if (state === 'edges') {
-      return `Scope-Transport: Knoten ${this.fullGraphLoadedNodes()} / ${this.fullGraphTotalNodes()} · Kanten ${this.fullGraphLoadedEdges()} / ${this.fullGraphTotalEdges() || '…'}`;
-    }
-    if (state === 'complete') {
-      const label = this.selectedGraphDomain() ? 'Domain-Scope' : 'Basisindex';
-      return `${label} vollständig übertragen: ${this.fullGraphLoadedNodes()} Knoten · ${this.fullGraphLoadedEdges()} Kanten`;
-    }
-    if (state === 'cancelled') return 'Scope-Transport abgebrochen';
-    return '';
-  });
-  readonly graphDomainInventoryProgress = computed(() => {
-    const loaded = this.graphDomains().length;
-    const total = this.graphDomainTotal();
-    const totalLabel = total > 0 || this.graphInventoryRevision()
-      ? String(total)
-      : 'unbekannt';
-    const loadingLabel = this.graphDomainLoading()
-      ? ' · weitere Seiten werden automatisch geladen…'
-      : '';
-    return `Domain-Inventar: ${loaded} / ${totalLabel} Bereiche geladen${loadingLabel}`;
-  });
+  readonly fullGraphProgress = computed(() => fullGraphProgressText({
+    state: this.fullGraphLoadState(),
+    loadedNodes: this.fullGraphLoadedNodes(),
+    totalNodes: this.fullGraphTotalNodes(),
+    loadedEdges: this.fullGraphLoadedEdges(),
+    totalEdges: this.fullGraphTotalEdges(),
+    domainSelected: Boolean(this.selectedGraphDomain()),
+  }));
+  readonly graphDomainInventoryProgress = computed(() => graphDomainInventoryProgressText(
+    this.graphDomains().length,
+    this.graphDomainTotal(),
+    Boolean(this.graphInventoryRevision()),
+    this.graphDomainLoading(),
+  ));
   readonly loadStrategies = GRAPH_LOAD_STRATEGIES;
   readonly selectedIndex = computed(
     () => this.indexes().find(index => index.id === this.selectedConnectionId()) ?? null,
@@ -265,23 +156,11 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
       ? null
       : { windowCount, scopeCount };
   });
-  readonly semanticScopeNotice = computed(() => {
-    if (this.fullGraphLoadState() !== 'complete') return '';
-    if (!this.selectedGraphDomain()) {
-      return 'Basisindex vollständig übertragen; semantische Vollständigkeit wird nur für ausgewählte Domains verifiziert.';
-    }
-    const evidence = this.fullGraphSemanticScope();
-    if (!evidence) {
-      return 'Transport vollständig, Semantik nicht verifiziert.';
-    }
-    if (evidence.complete === true) {
-      return `Adapter-Evidenz vollständig: ${evidence.supplementNodeCount.toLocaleString('de-DE')} Symbole · ${evidence.supplementEdgeCount.toLocaleString('de-DE')} semantische Relationen.`;
-    }
-    if (evidence.status === 'unavailable') {
-      return 'Transport vollständig, semantisches Supplement nicht verfügbar.';
-    }
-    return 'Transport vollständig, semantisches Supplement unvollständig.';
-  });
+  readonly semanticScopeNotice = computed(() => semanticScopeNoticeText(
+    this.fullGraphLoadState(),
+    Boolean(this.selectedGraphDomain()),
+    this.fullGraphSemanticScope(),
+  ));
   readonly activeGraphLoadStep = computed(() => Math.max(
     1,
     this.activeLoadStrategy().stepNodes || 100,
@@ -375,14 +254,14 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
         this.graphMode.set('code');
         this.rawGraph.set(graph);
         this.metadata.set(graph?.metadata ?? null);
-        const confirmedLimit = this.metadataCountFrom(
+        const confirmedLimit = metadataCountFrom(
           graph?.metadata,
           'window_node_limit',
         ) ?? limit;
         this.confirmedNodeLimit.set(Math.min(MAX_GRAPH_PREVIEW_NODES, confirmedLimit));
         this.requestedNodeLimit.set(this.confirmedNodeLimit());
-        const revision = this.codeGraphContentRevision(graph);
-        const evidenceRevision = this.stableGraphEvidenceRevision(graph);
+        const revision = codeGraphContentRevision(graph);
+        const evidenceRevision = stableGraphEvidenceRevision(graph);
         const previousRevision = this.codeGraphRevision();
         const previousEvidenceRevision = this.codeGraphEvidenceRevision();
         this.codeGraphRevision.set(revision);
@@ -533,7 +412,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
       error: error => {
         if (!this.fullGraphOperation.isCurrent(generation)) return;
         this.fullGraphLoadState.set('error');
-        this.error.set(this.fullGraphLoadErrorMessage(error));
+        this.error.set(fullGraphLoadErrorMessage(error));
       },
     });
     this.fullGraphOperation.replaceRequest(generation, request);
@@ -577,21 +456,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   }
 
   graphDomainOptionLabel(domain: CodeCompassGraphDomainFacet): string {
-    const indentation = '— '.repeat(Math.min(Math.max(domain.depth, 0), 7));
-    const count = this.includeGraphSubdomains()
-      ? domain.subtreeNodeCount
-      : domain.directNodeCount;
-    const fullPath = domain.source === 'unassigned'
-      ? domain.label
-      : domain.path;
-    const semanticCount = this.includeGraphSubdomains()
-      && domain.semanticScopeStatus === 'available'
-      ? domain.semanticNodeCount
-      : undefined;
-    const countLabel = semanticCount === undefined
-      ? count.toLocaleString('de-DE')
-      : `${(domain.baseNodeCount ?? count).toLocaleString('de-DE')} Struktur + ${semanticCount.toLocaleString('de-DE')} Symbole`;
-    return `${indentation}${fullPath} · ${this.graphDomainSourceLabel(domain.source)} (${countLabel})`;
+    return graphDomainOptionText(domain, this.includeGraphSubdomains());
   }
 
   search(query: string): void {
@@ -1083,29 +948,6 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     return domain.directNodeCount;
   }
 
-  private fullGraphLoadErrorMessage(error: unknown): string {
-    if (!(error instanceof CodeCompassFullGraphLoadError)) {
-      return 'Der vollständige Graph konnte nicht vertragskonform geladen werden.';
-    }
-    if (
-      error.reason === 'revision_changed'
-      || error.reason === 'evidence_revision_changed'
-    ) {
-      return 'Der Index wurde während des vollständigen Ladens aktualisiert. Der alte Datenstrom wurde verworfen; bitte den aktuellen Indexstand laden und die Domain erneut auswählen.';
-    }
-    if (
-      error.reason === 'scope_changed'
-      || error.reason === 'semantic_scope_changed'
-      || error.reason === 'source_changed'
-    ) {
-      return 'Der vollständige Datenstrom wurde wegen eines Source-/Scope-Wechsels verworfen.';
-    }
-    if (error.reason === 'duplicate_record') {
-      return 'Der vollständige Datenstrom enthielt überlappende Knoten- oder Kanten-IDs und wurde ohne Teilübernahme verworfen.';
-    }
-    return 'Der vollständige Datenstrom wurde wegen inkonsistenter Seitencursor abgebrochen; es wurden keine Teildaten übernommen.';
-  }
-
   private resetFullGraphProgress(): void {
     this.fullGraphLoadState.set('idle');
     this.fullGraphLoadedNodes.set(0);
@@ -1113,45 +955,6 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.fullGraphLoadedEdges.set(0);
     this.fullGraphTotalEdges.set(0);
     this.fullGraphSemanticScope.set(null);
-  }
-
-  private codeGraphContentRevision(graph: unknown): string {
-    if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return '';
-    const metadata = (graph as { metadata?: unknown }).metadata;
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
-    const values = metadata as Record<string, unknown>;
-    for (const field of [
-      'content_graph_revision',
-      'evidence_graph_revision',
-      'parent_graph_revision',
-      'graph_revision',
-    ]) {
-      const value = values[field];
-      if (typeof value === 'string' && value.trim()) return value.trim();
-    }
-    return '';
-  }
-
-  private stableGraphEvidenceRevision(graph: unknown): string {
-    if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return '';
-    const metadata = (graph as { metadata?: unknown }).metadata;
-    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
-    const values = metadata as Record<string, unknown>;
-    for (const field of ['evidence_graph_revision', 'parent_graph_revision']) {
-      const value = values[field];
-      if (typeof value === 'string' && value.trim()) return value.trim();
-    }
-    return '';
-  }
-
-  private graphDomainSourceLabel(source: string): string {
-    switch (source) {
-      case 'domain_id': return 'deklarierte Domain';
-      case 'domain_path': return 'Domainpfad';
-      case 'path': return 'Repositorypfad';
-      case 'unassigned': return 'nicht zugeordnet';
-      default: return source;
-    }
   }
 
   private activeLoadStrategy(): GraphLoadStrategy {
@@ -1177,22 +980,9 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private metadataCountOrNull(...fields: string[]): number | null {
     const metadata = this.metadata();
     for (const field of fields) {
-      const value = this.metadataCountFrom(metadata, field);
+      const value = metadataCountFrom(metadata, field);
       if (value !== null) return value;
     }
     return null;
-  }
-
-  private metadataCountFrom(
-    metadata: Record<string, unknown> | null | undefined,
-    field: string,
-  ): number | null {
-    const value = metadata?.[field];
-    return typeof value === 'number'
-      && Number.isFinite(value)
-      && Number.isInteger(value)
-      && value >= 0
-      ? value
-      : null;
   }
 }
