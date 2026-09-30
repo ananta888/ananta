@@ -93,6 +93,115 @@ def _hex64(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
 
 
+_PARENT_EVIDENCE_FIELDS = (
+    "schema",
+    "decision",
+    "rollout_stage",
+    "source_sha256",
+    "config_sha256",
+    "tasks",
+    "gates",
+    "milestones",
+    "reason_codes",
+)
+_PARENT_READINESS_SOURCES = (
+    "todos/active/todo.webrtc-sfu-broadcast-fanout.json",
+    "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
+    "artifacts/test-gates/semantic-media-program-evidence.json",
+    "scripts/run_sfu_broadcast_parent_readiness_gate.py",
+    "agent/services/semantic_media_program_evidence.py",
+    "agent/models/semantic_media_content_policy.py",
+)
+
+
+def _gate_configuration_reasons(evidence_profile: str, max_staleness_days: int, reasons: list[str]) -> None:
+    if not evidence_profile:
+        reasons.append("parent_evidence_profile_missing")
+    if max_staleness_days < 1 or max_staleness_days > 365:
+        reasons.append("parent_readiness_staleness_window_invalid")
+
+
+def _child_prerequisites(child_todo: Mapping[str, Any], reasons: list[str]) -> tuple[list[Any], list[str]]:
+    """Return (activation prerequisite categories, required parent task ids) of the child track."""
+
+    prerequisite_categories = child_todo.get("activation_prerequisite_categories", [])
+    if not isinstance(prerequisite_categories, list):
+        reasons.append("activation_prerequisite_categories_invalid")
+        prerequisite_categories = []
+    required_parent_tasks = _extract_parent_prerequisites(child_todo)
+    if not required_parent_tasks:
+        reasons.append("parent_prerequisite_task_reference_missing")
+    if sorted(prerequisite_categories) != sorted(set(prerequisite_categories)):
+        reasons.append("activation_prerequisite_categories_not_unique")
+    return prerequisite_categories, required_parent_tasks
+
+
+def _parent_attestation_reasons(parent_evidence: Mapping[str, Any], reasons: list[str]) -> None:
+    signature = parent_evidence.get("signature")
+    key_id = parent_evidence.get("signature_key_id")
+    if not isinstance(signature, str) or not signature:
+        reasons.append("parent_evidence_signature_missing")
+    if not isinstance(key_id, str) or not key_id:
+        reasons.append("parent_evidence_signature_key_id_missing")
+
+
+def _parent_evidence_reasons(
+    parent_evidence: Mapping[str, Any],
+    evidence_profile: str,
+    reasons: list[str],
+) -> dict[str, dict[str, Any]]:
+    """Check the parent release evidence document; return its task projection by id."""
+
+    if any(field not in parent_evidence for field in _PARENT_EVIDENCE_FIELDS):
+        reasons.append("parent_evidence_field_missing")
+    if parent_evidence.get("schema") != "ananta.semantic-media-program-release-evidence.v1":
+        reasons.append("parent_evidence_schema_invalid")
+    if parent_evidence.get("decision") != "go":
+        reasons.append("parent_no_go")
+    if parent_evidence.get("rollout_stage") == "observe_only":
+        reasons.append("parent_rollout_observe_only")
+    if parent_evidence.get("rollout_stage") not in ACTIVE_STAGES | {"observe_only"}:
+        reasons.append("parent_rollout_stage_invalid")
+    if not _hex64(parent_evidence.get("source_sha256")):
+        reasons.append("parent_evidence_source_digest_invalid")
+    if not _hex64(parent_evidence.get("config_sha256")):
+        reasons.append("parent_evidence_config_digest_invalid")
+    if evidence_profile and evidence_profile.lower() == "attested":
+        _parent_attestation_reasons(parent_evidence, reasons)
+    return _required_parent_task_map(parent_evidence)
+
+
+def _prerequisite_task_reasons(
+    required_parent_tasks: list[str],
+    parent_tasks_by_id: dict[str, dict[str, Any]],
+    reasons: list[str],
+) -> None:
+    observed_count = len([task_id for task_id in required_parent_tasks if task_id in parent_tasks_by_id])
+    if observed_count != len(required_parent_tasks):
+        reasons.append("parent_prerequisite_task_id_mismatch")
+    for task_id in required_parent_tasks:
+        task = parent_tasks_by_id.get(task_id)
+        if task is None:
+            reasons.append(f"parent_prerequisite_task_missing:{task_id}")
+            continue
+        if task.get("status") != "passed":
+            reasons.append(f"parent_prerequisite_task_not_passed:{task_id}")
+        if not _hex64(task.get("evidence_sha256")):
+            reasons.append(f"parent_prerequisite_task_evidence_digest_invalid:{task_id}")
+
+
+def _artifact_age_reasons(parent_artifact_timestamp: float, max_staleness_days: int, reasons: list[str]) -> None:
+    try:
+        age = datetime.fromtimestamp(parent_artifact_timestamp, tz=UTC) - datetime.now(tz=UTC)
+    except (OSError, OverflowError, ValueError):
+        reasons.append("parent_artifact_timestamp_invalid")
+        return
+    if age > timedelta(days=max_staleness_days):
+        reasons.append("parent_evidence_stale")
+    if age.total_seconds() < -600:
+        reasons.append("parent_evidence_time_skew")
+
+
 def evaluate_parent_readiness(
     *,
     parent_todo: Mapping[str, Any],
@@ -104,23 +213,8 @@ def evaluate_parent_readiness(
     parent_artifact_timestamp: float,
 ) -> GateEvidence:
     reasons: list[str] = []
-
-    if not evidence_profile:
-        reasons.append("parent_evidence_profile_missing")
-    if max_staleness_days < 1 or max_staleness_days > 365:
-        reasons.append("parent_readiness_staleness_window_invalid")
-
-    prerequisite_categories = child_todo.get("activation_prerequisite_categories", [])
-    if not isinstance(prerequisite_categories, list):
-        reasons.append("activation_prerequisite_categories_invalid")
-        prerequisite_categories = []
-    required_parent_tasks = _extract_parent_prerequisites(child_todo)
-    if not required_parent_tasks:
-        reasons.append("parent_prerequisite_task_reference_missing")
-
-    if sorted(prerequisite_categories) != sorted(set(prerequisite_categories)):
-        reasons.append("activation_prerequisite_categories_not_unique")
-
+    _gate_configuration_reasons(evidence_profile, max_staleness_days, reasons)
+    prerequisite_categories, required_parent_tasks = _child_prerequisites(child_todo, reasons)
     if not isinstance(parent_todo.get("tasks"), list):
         reasons.append("parent_todo_task_projection_invalid")
 
@@ -128,78 +222,16 @@ def evaluate_parent_readiness(
         reasons.append("parent_evidence_projection_invalid")
         parent_tasks_by_id: dict[str, dict[str, Any]] = {}
     else:
-        for field in ("schema", "decision", "rollout_stage", "source_sha256", "config_sha256", "tasks", "gates", "milestones", "reason_codes"):
-            if field not in parent_evidence:
-                reasons.append("parent_evidence_field_missing")
-                break
-
-        if parent_evidence.get("schema") != "ananta.semantic-media-program-release-evidence.v1":
-            reasons.append("parent_evidence_schema_invalid")
-
-        if parent_evidence.get("decision") != "go":
-            reasons.append("parent_no_go")
-        if parent_evidence.get("rollout_stage") == "observe_only":
-            reasons.append("parent_rollout_observe_only")
-        if parent_evidence.get("rollout_stage") not in ACTIVE_STAGES | {"observe_only"}:
-            reasons.append("parent_rollout_stage_invalid")
-        if not _hex64(parent_evidence.get("source_sha256")):
-            reasons.append("parent_evidence_source_digest_invalid")
-        if not _hex64(parent_evidence.get("config_sha256")):
-            reasons.append("parent_evidence_config_digest_invalid")
-
-        if evidence_profile and evidence_profile.lower() == "attested":
-            signature = parent_evidence.get("signature")
-            key_id = parent_evidence.get("signature_key_id")
-            if not isinstance(signature, str) or not signature:
-                reasons.append("parent_evidence_signature_missing")
-            if not isinstance(key_id, str) or not key_id:
-                reasons.append("parent_evidence_signature_key_id_missing")
-
-        parent_tasks_by_id = _required_parent_task_map(parent_evidence)
-
+        parent_tasks_by_id = _parent_evidence_reasons(parent_evidence, evidence_profile, reasons)
     if required_parent_tasks and isinstance(parent_tasks_by_id, dict):
-        expected_count = len(required_parent_tasks)
-        observed_count = len([task_id for task_id in required_parent_tasks if task_id in parent_tasks_by_id])
-        if observed_count != expected_count:
-            reasons.append("parent_prerequisite_task_id_mismatch")
-
-        for task_id in required_parent_tasks:
-            task = parent_tasks_by_id.get(task_id)
-            if task is None:
-                reasons.append(f"parent_prerequisite_task_missing:{task_id}")
-                continue
-            if task.get("status") != "passed":
-                reasons.append(f"parent_prerequisite_task_not_passed:{task_id}")
-            evidence_sha = task.get("evidence_sha256")
-            if not _hex64(evidence_sha):
-                reasons.append(f"parent_prerequisite_task_evidence_digest_invalid:{task_id}")
-
-    try:
-        age = datetime.fromtimestamp(parent_artifact_timestamp, tz=UTC) - datetime.now(tz=UTC)
-    except (OSError, OverflowError, ValueError):
-        reasons.append("parent_artifact_timestamp_invalid")
-    else:
-        if age > timedelta(days=max_staleness_days):
-            reasons.append("parent_evidence_stale")
-        if age.total_seconds() < -600:
-            reasons.append("parent_evidence_time_skew")
+        _prerequisite_task_reasons(required_parent_tasks, parent_tasks_by_id, reasons)
+    _artifact_age_reasons(parent_artifact_timestamp, max_staleness_days, reasons)
 
     reasons = sorted(set(reasons))
     if evidence_profile != "default" and parent_evidence.get("evidence_profile") != evidence_profile:
         reasons.append("parent_evidence_profile_mismatch")
 
-    source_digest = source_hash(
-        ROOT,
-        (
-            "todos/active/todo.webrtc-sfu-broadcast-fanout.json",
-            "todos/archiv/todo.ai-snake-semantic-media-speech-program.json",
-            "artifacts/test-gates/semantic-media-program-evidence.json",
-            "scripts/run_sfu_broadcast_parent_readiness_gate.py",
-            "agent/services/semantic_media_program_evidence.py",
-            "agent/models/semantic_media_content_policy.py",
-        ),
-    )
-
+    source_digest = source_hash(ROOT, _PARENT_READINESS_SOURCES)
     config_digest = canonical_sha256(
         {
             "evidence_profile": evidence_profile,
@@ -210,31 +242,18 @@ def evaluate_parent_readiness(
             "prerequisite_categories": prerequisite_categories,
         }
     )
-
-    if reasons:
-        return GateEvidence(
-            gate_id=PARENT_GATE_ID,
-            status="failed",
-            reason_codes=tuple(reasons),
-            source_sha256=source_digest,
-            config_sha256=config_digest,
-            measurements={
-                "parent_decision": str(parent_evidence.get("decision") or "missing"),
-                "parent_rollout_stage": str(parent_evidence.get("rollout_stage") or "missing"),
-                "parent_task_count": len(parent_todo.get("tasks") or []),
-                "parent_task_prerequisite_count": len(required_parent_tasks),
-            },
-        )
-
+    passed = not reasons
     return GateEvidence(
         gate_id=PARENT_GATE_ID,
-        status="passed",
+        status="passed" if passed else "failed",
         reason_codes=tuple(reasons),
         source_sha256=source_digest,
         config_sha256=config_digest,
         measurements={
-            "parent_decision": "go",
-            "parent_rollout_stage": str(parent_evidence.get("rollout_stage") or ""),
+            "parent_decision": "go" if passed else str(parent_evidence.get("decision") or "missing"),
+            "parent_rollout_stage": str(
+                parent_evidence.get("rollout_stage") or ("" if passed else "missing")
+            ),
             "parent_task_count": len(parent_todo.get("tasks") or []),
             "parent_task_prerequisite_count": len(required_parent_tasks),
         },
