@@ -10,6 +10,9 @@ from agent.services.codecompass_graph_read_service import (
     CodeCompassGraphReadError,
     CodeCompassGraphReadService,
 )
+from agent.services.codecompass_graph_revision_tracker import (
+    CodeCompassGraphRevisionTracker,
+)
 from agent.services.codecompass_graph_window_service import (
     CodeCompassGraphWindowService,
 )
@@ -45,14 +48,14 @@ class _CountingDomains(CodeCompassGraphDomainCatalogService):
         return super().prepare(nodes=nodes)
 
 
-class _CountingRevisionReadService(CodeCompassGraphReadService):
+class _CountingRevisionTracker(CodeCompassGraphRevisionTracker):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.content_revision_calls = 0
 
-    def _compute_content_graph_revision(self, *, nodes, edges):
+    def compute_content_revision(self, *, nodes, edges):
         self.content_revision_calls += 1
-        return super()._compute_content_graph_revision(nodes=nodes, edges=edges)
+        return super().compute_content_revision(nodes=nodes, edges=edges)
 
 
 class _CountingProjection(CodeCompassGraphProjectionService):
@@ -142,10 +145,12 @@ def test_legacy_content_revision_rejects_cursor_before_unknown_scope() -> None:
 
 
 def test_content_revision_invalidates_same_manifest_without_rehashing_pages() -> None:
-    service = _CountingRevisionReadService(
+    revisions = _CountingRevisionTracker(maximum_cached_revisions=2)
+    service = CodeCompassGraphReadService(
         projection=CodeCompassGraphProjectionService(),
         window=CodeCompassGraphWindowService(),
         domains=CodeCompassGraphDomainCatalogService(),
+        revision_tracker=revisions,
     )
     first_store = _Store(
         {
@@ -164,7 +169,7 @@ def test_content_revision_invalidates_same_manifest_without_rehashing_pages() ->
     assert first["metadata"]["evidence_graph_revision"] == "manifest-static"
 
     _read(service, first_store, view="inventory", limit=1)
-    assert service.content_revision_calls == 1
+    assert revisions.content_revision_calls == 1
 
     changed_store = _Store(
         {
@@ -193,7 +198,7 @@ def test_content_revision_invalidates_same_manifest_without_rehashing_pages() ->
     changed_inventory = _read(service, changed_store, view="inventory", limit=1)
     assert changed_inventory["graph_revision"] != first_content_revision
     assert changed_inventory["metadata"]["content_graph_revision"] == changed_inventory["graph_revision"]
-    assert service.content_revision_calls == 2
+    assert revisions.content_revision_calls == 2
 
 
 def test_prepared_inventory_is_reused_for_pages_and_scope_reads() -> None:

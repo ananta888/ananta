@@ -1,24 +1,60 @@
-"""Bounded, project-scoped read orchestration for CodeCompass graph artifacts."""
+"""Bounded, project-scoped read orchestration for CodeCompass graph artifacts.
+
+This module stays the public entry point. Collaborators:
+
+* ``codecompass_graph_read_models`` -- error and immutable read models
+* ``codecompass_graph_record_accessors`` -- tolerant payload field access
+* ``codecompass_graph_revision_tracker`` -- content revision identities
+* ``codecompass_graph_cursor_codec`` -- opaque pagination cursors
+"""
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import json
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
 from threading import RLock
 from typing import Any, Protocol
 
+from agent.services.codecompass_graph_cursor_codec import (
+    decode_graph_cursor,
+    decode_graph_offset,
+    decode_inventory_graph_cursor,
+    encode_graph_cursor,
+    encode_graph_offset,
+    inventory_next_graph_cursor,
+    staged_graph_scope_digest,
+)
 from agent.services.codecompass_graph_domain_catalog_service import (
     CodeCompassGraphDomainCatalogPort,
-    CodeCompassGraphDomainIndex,
+    CodeCompassGraphDomainIndex,  # noqa: F401 - historic export of this module
     get_codecompass_graph_domain_catalog_service,
 )
 from agent.services.codecompass_graph_projection_service import (
     CodeCompassPreparedEdgePopulation,
     get_codecompass_graph_projection_service,
+)
+from agent.services.codecompass_graph_read_models import (
+    UNPREPARED_EDGE_POPULATION,
+    CodeCompassGraphReadError,
+    GraphDerivedSnapshot,
+    GraphInventoryCursor,
+    GraphPayloadRevision,
+    GraphRelationFacet,
+    GraphRevisionIdentity,
+)
+from agent.services.codecompass_graph_record_accessors import (
+    graph_diagnostics,
+    graph_edge_endpoints,
+    graph_edge_relation,
+    graph_mappings,
+    graph_node_id,
+    graph_semantic_budget,
+    graph_semantic_translation,
+    graph_semantic_warnings,
+    unresolved_graph_warning,
+)
+from agent.services.codecompass_graph_revision_tracker import (
+    CodeCompassGraphRevisionTracker,
 )
 from agent.services.codecompass_graph_window_service import (
     CodeCompassGraphWindowSelector,
@@ -27,14 +63,12 @@ from agent.services.codecompass_graph_window_service import (
 
 _MAX_NODE_PAGE_SIZE = 500
 _MAX_EDGE_PAGE_SIZE = 2_000
-_UNPREPARED_EDGE_POPULATION = object()
-
-
-class CodeCompassGraphReadError(ValueError):
-    def __init__(self, reason_code: str, *, status_code: int = 400) -> None:
-        self.reason_code = reason_code
-        self.status_code = status_code
-        super().__init__(reason_code)
+_UNPREPARED_EDGE_POPULATION = UNPREPARED_EDGE_POPULATION
+_RelationFacet = GraphRelationFacet
+_GraphDerivedSnapshot = GraphDerivedSnapshot
+_InventoryCursor = GraphInventoryCursor
+_GraphPayloadRevision = GraphPayloadRevision  # compatibility alias
+_GraphRevisionIdentity = GraphRevisionIdentity  # compatibility alias
 
 
 class CodeCompassGraphReadStorePort(Protocol):
@@ -58,60 +92,6 @@ class CodeCompassGraphReadPort(Protocol):
     ) -> Mapping[str, object]: ...
 
 
-@dataclass(frozen=True)
-class _RelationFacet:
-    raw_type: str
-    edge_count: int
-    bound_edge_count: int
-    unresolved_edge_count: int
-
-    def to_wire(self) -> dict[str, object]:
-        return {
-            "raw_type": self.raw_type,
-            "edge_count": self.edge_count,
-            "bound_edge_count": self.bound_edge_count,
-            "unresolved_edge_count": self.unresolved_edge_count,
-        }
-
-
-@dataclass
-class _GraphDerivedSnapshot:
-    domain_index: CodeCompassGraphDomainIndex
-    nodes: tuple[Mapping[str, object], ...]
-    edges: tuple[Mapping[str, object], ...]
-    node_ids: frozenset[str]
-    bound_edges: tuple[Mapping[str, object], ...]
-    unresolved_edges: tuple[Mapping[str, object], ...]
-    edge_indices_by_endpoint: Mapping[str, tuple[int, ...]]
-    relation_facets: tuple[_RelationFacet, ...]
-    prepared_edge_population: object = field(
-        default=_UNPREPARED_EDGE_POPULATION,
-        repr=False,
-    )
-    prepared_edge_population_lock: RLock = field(
-        default_factory=RLock,
-        repr=False,
-    )
-
-
-@dataclass(frozen=True)
-class _GraphRevisionIdentity:
-    content_revision: str
-    evidence_revision: str
-
-
-@dataclass(frozen=True)
-class _GraphPayloadRevision:
-    payload: Mapping[str, object]
-    identity: _GraphRevisionIdentity
-
-
-@dataclass(frozen=True)
-class _InventoryCursor:
-    facet: str | None
-    offset: int
-
-
 class CodeCompassGraphReadService:
     """Create bounded graph read models without owning index authorization."""
 
@@ -122,6 +102,7 @@ class CodeCompassGraphReadService:
         window: CodeCompassGraphWindowSelector,
         domains: CodeCompassGraphDomainCatalogPort,
         maximum_cached_revisions: int = 2,
+        revision_tracker: CodeCompassGraphRevisionTracker | None = None,
     ) -> None:
         if maximum_cached_revisions < 1:
             raise ValueError("graph_read_cache_size_invalid")
@@ -134,8 +115,9 @@ class CodeCompassGraphReadService:
             _GraphDerivedSnapshot,
         ] = OrderedDict()
         self._snapshot_lock = RLock()
-        self._revision_cache: OrderedDict[int, _GraphPayloadRevision] = OrderedDict()
-        self._revision_lock = RLock()
+        self._revision_tracker = revision_tracker or CodeCompassGraphRevisionTracker(
+            maximum_cached_revisions=self._maximum_cached_revisions,
+        )
 
     def read(
         self,
@@ -157,22 +139,22 @@ class CodeCompassGraphReadService:
             raise CodeCompassGraphReadError("graph_topology_cursor_unsupported")
 
         raw = store.load()
-        diagnostics = self._diagnostics(raw)
-        semantic_translation = self._semantic_translation(diagnostics)
-        semantic_budget = self._semantic_budget(semantic_translation)
-        base_nodes = tuple(self._mappings(raw.get("nodes")))
-        base_edges = tuple(self._mappings(raw.get("edges")))
-        semantic_nodes = tuple(self._mappings(raw.get("semantic_nodes")))
-        semantic_edges = tuple(self._mappings(raw.get("semantic_edges")))
+        diagnostics = graph_diagnostics(raw)
+        semantic_translation = graph_semantic_translation(diagnostics)
+        semantic_budget = graph_semantic_budget(semantic_translation)
+        base_nodes = tuple(graph_mappings(raw.get("nodes")))
+        base_edges = tuple(graph_mappings(raw.get("edges")))
+        semantic_nodes = tuple(graph_mappings(raw.get("semantic_nodes")))
+        semantic_edges = tuple(graph_mappings(raw.get("semantic_edges")))
         all_nodes = base_nodes + semantic_nodes
         all_edges = base_edges + semantic_edges
-        revision_identity = self._graph_revision_identity(
+        revision_identity = self._revision_tracker.identity(
             raw=raw,
             nodes=all_nodes,
             edges=all_edges,
         )
         graph_revision = revision_identity.content_revision
-        warnings = self._graph_warnings(
+        warnings = graph_semantic_warnings(
             semantic_budget=semantic_budget,
             semantic_translation=semantic_translation,
         )
@@ -181,7 +163,7 @@ class CodeCompassGraphReadService:
         staged_offset: int | None = None
         stage = str(values.get("stage") or "nodes").strip().lower()
         if view == "inventory":
-            inventory_cursor = self._decode_inventory_cursor(
+            inventory_cursor = decode_inventory_graph_cursor(
                 values.get("cursor"),
                 graph_revision=graph_revision,
                 index_id=index_id,
@@ -189,10 +171,10 @@ class CodeCompassGraphReadService:
         elif view == "staged":
             if stage not in {"nodes", "edges"}:
                 raise CodeCompassGraphReadError("graph_stage_invalid")
-            staged_offset = self._decode_graph_cursor(
+            staged_offset = decode_graph_cursor(
                 values.get("cursor"),
                 graph_revision=graph_revision,
-                scope_digest=self._staged_scope_digest(
+                scope_digest=staged_graph_scope_digest(
                     index_id=index_id,
                     stage=stage,
                     domain_scope=str(values.get("domain_scope") or "").strip() or None,
@@ -244,7 +226,7 @@ class CodeCompassGraphReadService:
         if scope["global_unresolved_edge_count"]:
             warnings.insert(
                 0,
-                self._unresolved_graph_warning(int(scope["global_unresolved_edge_count"])),
+                unresolved_graph_warning(int(scope["global_unresolved_edge_count"])),
             )
         if scope["boundary_edge_count"]:
             boundary_count = int(scope["boundary_edge_count"])
@@ -289,8 +271,7 @@ class CodeCompassGraphReadService:
     def clear_cache(self) -> None:
         with self._snapshot_lock:
             self._snapshot_cache.clear()
-        with self._revision_lock:
-            self._revision_cache.clear()
+        self._revision_tracker.clear()
 
     def _snapshot(
         self,
@@ -323,14 +304,14 @@ class CodeCompassGraphReadService:
             scope_key=None,
             include_descendants=True,
         ).nodes
-        node_ids = frozenset(identifier for node in canonical_nodes if (identifier := self._node_id(node)))
-        canonical_edges = tuple(self._mappings(edges))
+        node_ids = frozenset(identifier for node in canonical_nodes if (identifier := graph_node_id(node)))
+        canonical_edges = tuple(graph_mappings(edges))
         bound_edges: list[Mapping[str, object]] = []
         unresolved_edges: list[Mapping[str, object]] = []
         endpoint_indices: dict[str, list[int]] = {}
         relation_counts: dict[str, list[int]] = {}
         for edge_index, edge in enumerate(canonical_edges):
-            source, target = self._edge_endpoints(edge)
+            source, target = graph_edge_endpoints(edge)
             for endpoint in {source, target} - {""}:
                 endpoint_indices.setdefault(endpoint, []).append(edge_index)
             bound = source in node_ids and target in node_ids
@@ -338,7 +319,7 @@ class CodeCompassGraphReadService:
                 bound_edges.append(edge)
             else:
                 unresolved_edges.append(edge)
-            relation = self._edge_relation(edge)
+            relation = graph_edge_relation(edge)
             counts = relation_counts.setdefault(relation, [0, 0, 0])
             counts[0] += 1
             counts[1 if bound else 2] += 1
@@ -391,15 +372,15 @@ class CodeCompassGraphReadService:
         warnings: list[str],
         artifact_status: Mapping[str, object],
     ) -> Mapping[str, object]:
-        offset = self._decode_offset(values.get("cursor"))
+        offset = decode_graph_offset(values.get("cursor"))
         visible = list(nodes[offset : offset + limit])
-        node_ids = {self._node_id(item) for item in visible}
+        node_ids = {graph_node_id(item) for item in visible}
         node_ids.discard("")
         internal_edges = [
-            edge for edge in edges if all(endpoint in node_ids for endpoint in self._edge_endpoints(edge))
+            edge for edge in edges if all(endpoint in node_ids for endpoint in graph_edge_endpoints(edge))
         ]
         visible_edges = internal_edges[:edge_limit]
-        next_cursor = self._encode_offset(offset + limit) if offset + limit < len(nodes) else None
+        next_cursor = encode_graph_offset(offset + limit) if offset + limit < len(nodes) else None
         projected = self._projection.project(
             nodes=visible,
             edges=visible_edges,
@@ -446,14 +427,14 @@ class CodeCompassGraphReadService:
         relation_offset = cursor.offset if cursor.facet == "relations" else 0
         domain_page = catalog.facets[domain_offset : domain_offset + limit]
         relation_page = snapshot.relation_facets[relation_offset : relation_offset + limit]
-        domain_next = self._inventory_next_cursor(
+        domain_next = inventory_next_graph_cursor(
             offset=domain_offset + len(domain_page),
             total=len(catalog.facets),
             graph_revision=graph_revision,
             index_id=index_id,
             facet="domains",
         )
-        relation_next = self._inventory_next_cursor(
+        relation_next = inventory_next_graph_cursor(
             offset=relation_offset + len(relation_page),
             total=len(snapshot.relation_facets),
             graph_revision=graph_revision,
@@ -463,7 +444,7 @@ class CodeCompassGraphReadService:
         if snapshot.unresolved_edges:
             warnings.insert(
                 0,
-                self._unresolved_graph_warning(len(snapshot.unresolved_edges)),
+                unresolved_graph_warning(len(snapshot.unresolved_edges)),
             )
         return {
             "schema": "codecompass_graph_inventory.v1",
@@ -570,7 +551,7 @@ class CodeCompassGraphReadService:
                 ),
             }
 
-        selected_ids = frozenset(identifier for node in selection.nodes if (identifier := self._node_id(node)))
+        selected_ids = frozenset(identifier for node in selection.nodes if (identifier := graph_node_id(node)))
         candidate_indices: set[int] = set()
         for node_id in selected_ids:
             candidate_indices.update(snapshot.edge_indices_by_endpoint.get(node_id, ()))
@@ -580,7 +561,7 @@ class CodeCompassGraphReadService:
         selected_unresolved = 0
         for edge_index in sorted(candidate_indices):
             edge = snapshot.edges[edge_index]
-            source, target = self._edge_endpoints(edge)
+            source, target = graph_edge_endpoints(edge)
             source_known = source in snapshot.node_ids
             target_known = target in snapshot.node_ids
             source_selected = source in selected_ids
@@ -739,10 +720,10 @@ class CodeCompassGraphReadService:
             total_items = total_edges
         returned = len(page_nodes) if stage == "nodes" else len(page_edges)
         next_cursor = (
-            self._encode_graph_cursor(
+            encode_graph_cursor(
                 offset + returned,
                 graph_revision=graph_revision,
-                scope_digest=self._staged_scope_digest(
+                scope_digest=staged_graph_scope_digest(
                     index_id=index_id,
                     stage=stage,
                     domain_scope=scope.get("scope_key"),
@@ -802,304 +783,6 @@ class CodeCompassGraphReadService:
         )
         projected["artifact_status"] = dict(artifact_status)
         return projected
-
-    @staticmethod
-    def _diagnostics(raw: Mapping[str, object]) -> dict[str, object]:
-        value = raw.get("diagnostics")
-        return dict(value) if isinstance(value, Mapping) else {}
-
-    @staticmethod
-    def _semantic_translation(
-        diagnostics: Mapping[str, object],
-    ) -> Mapping[str, object]:
-        value = diagnostics.get("semantic_translation")
-        return value if isinstance(value, Mapping) else {}
-
-    @staticmethod
-    def _semantic_budget(
-        semantic_translation: Mapping[str, object],
-    ) -> dict[str, object]:
-        value = semantic_translation.get("semantic_budget")
-        return dict(value) if isinstance(value, Mapping) else {}
-
-    @staticmethod
-    def _mappings(values: object) -> tuple[Mapping[str, object], ...]:
-        if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
-            return ()
-        return tuple(value for value in values if isinstance(value, Mapping))
-
-    @staticmethod
-    def _node_id(node: Mapping[str, object]) -> str:
-        return str(node.get("id") or node.get("node_id") or "").strip()
-
-    @staticmethod
-    def _edge_endpoints(edge: Mapping[str, object]) -> tuple[str, str]:
-        return (
-            str(edge.get("source_id") or edge.get("source") or edge.get("from") or "").strip(),
-            str(edge.get("target_id") or edge.get("target") or edge.get("to") or "").strip(),
-        )
-
-    @staticmethod
-    def _edge_relation(edge: Mapping[str, object]) -> str:
-        attributes = edge.get("attributes")
-        nested = attributes if isinstance(attributes, Mapping) else {}
-        return str(
-            edge.get("raw_edge_type")
-            or nested.get("raw_edge_type")
-            or edge.get("edge_type")
-            or edge.get("relation")
-            or edge.get("type")
-            or "related"
-        )
-
-    def _graph_revision_identity(
-        self,
-        *,
-        raw: Mapping[str, object],
-        nodes: Sequence[Mapping[str, object]],
-        edges: Sequence[Mapping[str, object]],
-    ) -> _GraphRevisionIdentity:
-        cache_key = id(raw)
-        with self._revision_lock:
-            cached = self._revision_cache.pop(cache_key, None)
-            if cached is not None and cached.payload is raw:
-                self._revision_cache[cache_key] = cached
-                return cached.identity
-            content_revision = self._compute_content_graph_revision(
-                nodes=nodes,
-                edges=edges,
-            )
-            state = raw.get("state")
-            explicit = str(state.get("manifest_hash") or "").strip() if isinstance(state, Mapping) else ""
-            identity = _GraphRevisionIdentity(
-                content_revision=content_revision,
-                evidence_revision=explicit or content_revision,
-            )
-            self._revision_cache[cache_key] = _GraphPayloadRevision(
-                payload=raw,
-                identity=identity,
-            )
-            while len(self._revision_cache) > self._maximum_cached_revisions:
-                self._revision_cache.popitem(last=False)
-            return identity
-
-    def _compute_content_graph_revision(
-        self,
-        *,
-        nodes: Sequence[Mapping[str, object]],
-        edges: Sequence[Mapping[str, object]],
-    ) -> str:
-        digest = hashlib.sha256()
-        encoder = json.JSONEncoder(
-            ensure_ascii=True,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        )
-        payload = {
-            "schema": "codecompass_graph_content_revision.v1",
-            "nodes": nodes,
-            "edges": edges,
-        }
-        for chunk in encoder.iterencode(payload):
-            digest.update(chunk.encode("utf-8"))
-        return f"sha256:{digest.hexdigest()}"
-
-    @staticmethod
-    def _graph_warnings(
-        *,
-        semantic_budget: Mapping[str, object],
-        semantic_translation: Mapping[str, object],
-    ) -> list[str]:
-        warnings: list[str] = []
-        if bool(semantic_budget.get("truncated")):
-            warnings.append(
-                "The semantic graph reached its configured record budget; the topology is a documented partial view."
-            )
-        semantic_unresolved = int(semantic_budget.get("unresolved_edge_count") or 0)
-        if semantic_unresolved:
-            warnings.append(
-                f"{semantic_unresolved} semantic graph relation"
-                f"{'s were' if semantic_unresolved != 1 else ' was'} not materialized "
-                "because no source-grounded endpoint was available."
-            )
-        if str(semantic_translation.get("status") or "").lower() == "degraded" and not warnings:
-            warnings.append("The semantic graph reports degraded materialization.")
-        return warnings
-
-    @staticmethod
-    def _unresolved_graph_warning(count: int) -> str:
-        return (
-            f"{count} graph relation"
-            f"{'s have' if count != 1 else ' has'} an unavailable source or target "
-            "node. The staged edge stream retains these relations; reindex the "
-            "source to materialize current endpoints."
-        )
-
-    @staticmethod
-    def _staged_scope_digest(
-        *,
-        index_id: str,
-        stage: str,
-        domain_scope: object,
-        include_subdomains: bool,
-    ) -> str:
-        return CodeCompassGraphReadService._cursor_scope_digest(
-            {
-                "view": "staged",
-                "stage": stage,
-                "domain_scope": domain_scope,
-                "include_subdomains": include_subdomains,
-                "index_id": index_id,
-            }
-        )
-
-    @staticmethod
-    def _inventory_scope_digest(*, index_id: str, facet: str) -> str:
-        return CodeCompassGraphReadService._cursor_scope_digest(
-            {"view": "inventory", "facet": facet, "index_id": index_id}
-        )
-
-    @staticmethod
-    def _cursor_scope_digest(scope: Mapping[str, object]) -> str:
-        payload = json.dumps(
-            dict(scope),
-            ensure_ascii=True,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _encode_graph_cursor(
-        offset: int,
-        *,
-        graph_revision: str,
-        scope_digest: str,
-    ) -> str:
-        payload = json.dumps(
-            {
-                "version": 1,
-                "graph_revision": graph_revision,
-                "scope_digest": scope_digest,
-                "offset": int(offset),
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii").rstrip("=")
-
-    @classmethod
-    def _decode_graph_cursor(
-        cls,
-        value: object,
-        *,
-        graph_revision: str,
-        scope_digest: str,
-    ) -> int:
-        if value in (None, ""):
-            return 0
-        payload = cls._decode_cursor_payload(
-            value,
-            graph_revision=graph_revision,
-        )
-        if payload.get("scope_digest") != scope_digest:
-            raise CodeCompassGraphReadError("graph_cursor_scope_mismatch")
-        return int(payload["offset"])
-
-    @classmethod
-    def _decode_inventory_cursor(
-        cls,
-        value: object,
-        *,
-        graph_revision: str,
-        index_id: str,
-    ) -> _InventoryCursor:
-        if value in (None, ""):
-            return _InventoryCursor(None, 0)
-        payload = cls._decode_cursor_payload(
-            value,
-            graph_revision=graph_revision,
-        )
-        scope_digest = payload.get("scope_digest")
-        for facet in ("domains", "relations"):
-            if scope_digest == cls._inventory_scope_digest(
-                index_id=index_id,
-                facet=facet,
-            ):
-                return _InventoryCursor(facet, int(payload["offset"]))
-        raise CodeCompassGraphReadError("graph_cursor_scope_mismatch")
-
-    @staticmethod
-    def _decode_cursor_payload(
-        value: object,
-        *,
-        graph_revision: str,
-    ) -> Mapping[str, object]:
-        try:
-            encoded = str(value)
-            encoded += "=" * (-len(encoded) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(encoded).decode("utf-8"))
-            if not isinstance(payload, Mapping) or payload.get("version") != 1:
-                raise ValueError
-            if payload.get("graph_revision") != graph_revision:
-                raise CodeCompassGraphReadError(
-                    "graph_cursor_stale",
-                    status_code=409,
-                )
-            offset = int(payload["offset"])
-            if offset < 0:
-                raise ValueError
-            return payload
-        except CodeCompassGraphReadError:
-            raise
-        except (
-            KeyError,
-            TypeError,
-            ValueError,
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ) as exc:
-            raise CodeCompassGraphReadError("graph_cursor_invalid") from exc
-
-    @classmethod
-    def _inventory_next_cursor(
-        cls,
-        *,
-        offset: int,
-        total: int,
-        graph_revision: str,
-        index_id: str,
-        facet: str,
-    ) -> str | None:
-        if offset >= total:
-            return None
-        return cls._encode_graph_cursor(
-            offset,
-            graph_revision=graph_revision,
-            scope_digest=cls._inventory_scope_digest(
-                index_id=index_id,
-                facet=facet,
-            ),
-        )
-
-    @staticmethod
-    def _encode_offset(value: int) -> str:
-        return base64.urlsafe_b64encode(str(value).encode("ascii")).decode("ascii").rstrip("=")
-
-    @staticmethod
-    def _decode_offset(value: object) -> int:
-        if value in (None, ""):
-            return 0
-        try:
-            encoded = str(value)
-            encoded += "=" * (-len(encoded) % 4)
-            parsed = int(base64.urlsafe_b64decode(encoded).decode("ascii"))
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise CodeCompassGraphReadError("graph_cursor_invalid") from exc
-        if parsed < 0:
-            raise CodeCompassGraphReadError("graph_cursor_invalid")
-        return parsed
 
 
 codecompass_graph_read_service = CodeCompassGraphReadService(
