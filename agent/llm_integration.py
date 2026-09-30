@@ -362,7 +362,7 @@ def _call_generate(p, m, prompt, urls, key, actual_timeout, history, temperature
     )
 
 
-def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incrementally
+def _call_llm(
     provider: str,
     model: str,
     prompt: str,
@@ -397,15 +397,7 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
         logging.warning("Abbruch: Rate-Limit für provider=%s überschritten.", provider)
         return ""
 
-    if max_retries is None:
-        max_retries = int(getattr(settings, "retry_count", 3))
-    else:
-        max_retries = int(max_retries)
-    if backoff_factor is None:
-        backoff_factor = float(getattr(settings, "retry_backoff", 1.5))
-    else:
-        backoff_factor = float(backoff_factor)
-
+    max_retries, backoff_factor = _resolve_retry_policy(max_retries, backoff_factor)
     if not idempotency_key:
         idempotency_key = str(uuid.uuid4())
 
@@ -422,15 +414,7 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
     prompt = str(safe_observability_payload.get("prompt") or "")
     history = list(safe_observability_payload.get("history") or [])
 
-    request_id = None
-    request_path = None
-    request_method = None
-    if has_request_context():
-        request_id = getattr(g, "llm_request_id", None)
-        request_path = request.path
-        request_method = request.method
-        g.llm_last_usage = {}
-
+    request_id, request_path, request_method = _llm_request_log_context()
     log_llm_entry(
         event="llm_call_start",
         request_id=request_id,
@@ -442,58 +426,22 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
         request_path=request_path,
         request_method=request_method,
     )
-
-    _prompt_trace = None
-    try:
-        from agent.services.context_file_selector import provider_to_llm_scope
-        from agent.services.prompt_trace_service import get_prompt_trace_service
-        _trace_svc = get_prompt_trace_service()
-        _goal_id = str(trace_goal_id or "").strip() or (getattr(g, "llm_goal_id", None) if has_app_context() else None)
-        _task_id = str(trace_task_id or "").strip() or (getattr(g, "llm_task_id", None) if has_app_context() else None)
-        _llm_scope = provider_to_llm_scope(provider, urls.get(provider))
-        _context_sources = []
-        if history:
-            _context_sources.append(
-                {
-                    "kind": "history",
-                    "included": True,
-                    "count": len(list(history or [])),
-                    "hash": _sha256_text(str(history)),
-                }
-            )
-        if prompt:
-            _context_sources.append(
-                {
-                    "kind": "prompt",
-                    "included": True,
-                    "chars": len(str(prompt)),
-                    "hash": _sha256_text(str(prompt)),
-                }
-            )
-        _prompt_trace = _trace_svc.create_trace(
-            request_id=request_id,
-            idempotency_key=idempotency_key,
-            goal_id=_goal_id,
-            task_id=_task_id,
-            source_component="llm_integration",
-            provider=provider,
-            model=model,
-            request_kind="generate",
-            prompt=prompt,
-            messages=history,
-            tools=tools,
-            context_sources=_context_sources,
-            llm_scope=_llm_scope,
-            sensitivity_level="internal",
-        )
-        if has_app_context():
-            existing = list(getattr(g, "llm_prompt_trace_ids", []) or [])
-            existing.append(_prompt_trace.trace_id)
-            g.llm_prompt_trace_ids = existing
-    except Exception as _pti_exc:
-        logging.debug("PTI trace creation skipped: %s", _pti_exc)
+    _prompt_trace = _create_llm_prompt_trace(
+        provider=provider,
+        model=model,
+        prompt=prompt,
+        history=history,
+        tools=tools,
+        provider_url=urls.get(provider),
+        request_id=request_id,
+        idempotency_key=idempotency_key,
+        trace_goal_id=trace_goal_id,
+        trace_task_id=trace_task_id,
+    )
 
     provider_middleware = get_provider_invocation_middleware()
+    # Kept across attempts (as before the extraction): a failure before the call reuses the last start time.
+    started_at: float | None = None
     for attempt in range(max_retries + 1):
         if attempt > 0:
             logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Key: {idempotency_key})")
@@ -521,11 +469,10 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
                     "seed": seed,
                 },
             )
-            if prepared.cached_response is not None:
-                cached_text = str(prepared.cached_response.get("content") or "")
-                if cached_text:
-                    _report_llm_success(provider)
-                    return cached_text
+            cached_text = _cached_provider_text(prepared)
+            if cached_text:
+                _report_llm_success(provider)
+                return cached_text
             safe_payload = prepared.payload
             started_at = time.time()
             res = _execute_llm_call(
@@ -544,140 +491,32 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
                 seed=safe_payload.get("seed"),
                 idempotency_key=idempotency_key,
             )
-            ended_at = time.time()
-
-            text_out, usage = extract_llm_text_and_usage(res)
-            normalized_usage = _normalize_llm_usage(usage)
-            success_entry = _build_llm_call_profile_entry(
-                name="generate_text",
-                backend="llm_integration",
+            text_out = _complete_llm_attempt(
+                res,
                 provider=provider,
                 model=model,
-                success=bool(text_out and text_out.strip()),
                 started_at=started_at,
-                ended_at=ended_at,
-                usage=normalized_usage if normalized_usage else None,
-                source="llm_integration",
-                estimated=False,
+                prepared=prepared,
+                provider_middleware=provider_middleware,
+                request_id=request_id,
+                attempt=attempt,
+                prompt_trace=_prompt_trace,
             )
-            call_metadata = extract_llm_call_metadata(res)
-            if not (text_out and text_out.strip()) and call_metadata:
-                success_entry["error_type"] = str(
-                    call_metadata.get("empty_reason") or "empty_response"
-                )
-                ctx_limit = call_metadata.get("context_limit")
-                model_id_meta = call_metadata.get("model_id")
-                msg_parts = [f"empty_reason={call_metadata.get('empty_reason')}"]
-                if ctx_limit:
-                    msg_parts.append(f"context_limit={ctx_limit}")
-                if model_id_meta:
-                    msg_parts.append(f"model={model_id_meta}")
-                success_entry["error_message"] = ", ".join(msg_parts)
-            if has_request_context():
-                g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [success_entry]
-            res = _attach_llm_call_profile(res, success_entry)
-            if text_out and text_out.strip():
-                provider_middleware.complete(
-                    prepared,
-                    provider=provider,
-                    model=model,
-                    response={"content": text_out, "usage": normalized_usage},
-                )
-                _report_llm_success(provider)
-                if has_request_context():
-                    g.llm_last_usage = usage
-                log_llm_entry(
-                    event="llm_call_end",
-                    request_id=request_id,
-                    provider=provider,
-                    model=model,
-                    success=True,
-                    attempts=attempt + 1,
-                    response=text_out,
-                )
-                if _prompt_trace is not None:
-                    try:
-                        _trace_svc = get_prompt_trace_service()
-                        _finalized = _trace_svc.finalize_trace(
-                            _prompt_trace, success=True, response_text=text_out,
-                            usage=normalized_usage or {},
-                        )
-                        _trace_svc.store(_finalized)
-                    except Exception as _pti_exc:
-                        logging.debug("PTI finalize trace skipped: %s", _pti_exc)
+            if text_out is not None:
                 return text_out
-            provider_middleware.fail(
-                prepared,
-                provider=provider,
-                model=model,
-                reason_code="provider_empty_response",
-            )
         except ProviderInvocationBlocked as e:
             logging.error("Provider-Middleware blockiert LLM-Aufruf: %s", e.reason_code)
             break
         except PermanentError as e:
-            if prepared is not None:
-                provider_middleware.fail(
-                    prepared,
-                    provider=provider,
-                    model=model,
-                    reason_code=type(e).__name__,
-                )
-            ended_at = time.time()
-            error_entry = _build_llm_call_profile_entry(
-                name="generate_text",
-                backend="llm_integration",
-                provider=provider,
-                model=model,
-                success=False,
-                started_at=started_at if "started_at" in locals() else None,
-                ended_at=ended_at,
-                usage=None,
-                source="llm_integration",
-                estimated=False,
-                error_type=type(e).__name__,
-                error_message=str(e),
-            )
-            if has_request_context():
-                g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [error_entry]
+            _record_failed_llm_attempt(e, prepared, provider_middleware, provider, model, started_at)
             logging.error(f"Permanenter Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
-            if _prompt_trace is not None:
-                try:
-                    _trace_svc = get_prompt_trace_service()
-                    _finalized = _trace_svc.finalize_trace(
-                        _prompt_trace, success=False,
-                        error_type=type(e).__name__, error_message=str(e),
-                    )
-                    _trace_svc.store(_finalized)
-                    _prompt_trace = None
-                except Exception:
-                    pass
+            if _prompt_trace is not None and _finalize_llm_prompt_trace(
+                _prompt_trace, success=False, error_type=type(e).__name__, error_message=str(e)
+            ):
+                _prompt_trace = None
             break
         except Exception as e:
-            if prepared is not None:
-                provider_middleware.fail(
-                    prepared,
-                    provider=provider,
-                    model=model,
-                    reason_code=type(e).__name__,
-                )
-            ended_at = time.time()
-            error_entry = _build_llm_call_profile_entry(
-                name="generate_text",
-                backend="llm_integration",
-                provider=provider,
-                model=model,
-                success=False,
-                started_at=started_at if "started_at" in locals() else None,
-                ended_at=ended_at,
-                usage=None,
-                source="llm_integration",
-                estimated=False,
-                error_type=type(e).__name__,
-                error_message=str(e),
-            )
-            if has_request_context():
-                g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [error_entry]
+            _record_failed_llm_attempt(e, prepared, provider_middleware, provider, model, started_at)
             logging.warning(f"Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
 
         logging.warning(f"LLM Aufruf lieferte kein Ergebnis oder schlug fehl (Versuch {attempt + 1}/{max_retries + 1})")
@@ -694,15 +533,211 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
         response="",
     )
     if _prompt_trace is not None:
-        try:
-            _trace_svc = get_prompt_trace_service()
-            _finalized = _trace_svc.finalize_trace(
-                _prompt_trace, success=False, error_type="max_retries_exceeded",
-            )
-            _trace_svc.store(_finalized)
-        except Exception:
-            pass
+        _finalize_llm_prompt_trace(_prompt_trace, success=False, error_type="max_retries_exceeded")
     return ""
+
+
+def _resolve_retry_policy(max_retries: int | None, backoff_factor: float | None) -> tuple[int, float]:
+    """Explicit retry arguments win over the ``retry_count`` / ``retry_backoff`` settings."""
+    resolved_retries = int(getattr(settings, "retry_count", 3)) if max_retries is None else int(max_retries)
+    resolved_backoff = (
+        float(getattr(settings, "retry_backoff", 1.5)) if backoff_factor is None else float(backoff_factor)
+    )
+    return resolved_retries, resolved_backoff
+
+
+def _llm_request_log_context() -> tuple[Any, Any, Any]:
+    """(request_id, path, method) of the current HTTP request; resets the request's last usage."""
+    if not has_request_context():
+        return None, None, None
+    request_id = getattr(g, "llm_request_id", None)
+    request_path, request_method = request.path, request.method
+    g.llm_last_usage = {}
+    return request_id, request_path, request_method
+
+
+def _prompt_context_sources(prompt: str, history: list) -> list[dict[str, Any]]:
+    sources: list[dict[str, Any]] = []
+    if history:
+        sources.append(
+            {"kind": "history", "included": True, "count": len(list(history or [])), "hash": _sha256_text(str(history))}
+        )
+    if prompt:
+        sources.append(
+            {"kind": "prompt", "included": True, "chars": len(str(prompt)), "hash": _sha256_text(str(prompt))}
+        )
+    return sources
+
+
+def _create_llm_prompt_trace(
+    *,
+    provider: str,
+    model: str,
+    prompt: str,
+    history: list,
+    tools: list | None,
+    provider_url: Any,
+    request_id: Any,
+    idempotency_key: str,
+    trace_goal_id: Optional[str],
+    trace_task_id: Optional[str],
+) -> Any:
+    """PTI: open a prompt trace for this call; best effort (None when tracing is unavailable)."""
+    try:
+        from agent.services.context_file_selector import provider_to_llm_scope
+        from agent.services.prompt_trace_service import get_prompt_trace_service
+
+        _trace_svc = get_prompt_trace_service()
+        _goal_id = str(trace_goal_id or "").strip() or (getattr(g, "llm_goal_id", None) if has_app_context() else None)
+        _task_id = str(trace_task_id or "").strip() or (getattr(g, "llm_task_id", None) if has_app_context() else None)
+        _llm_scope = provider_to_llm_scope(provider, provider_url)
+        trace = _trace_svc.create_trace(
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+            goal_id=_goal_id,
+            task_id=_task_id,
+            source_component="llm_integration",
+            provider=provider,
+            model=model,
+            request_kind="generate",
+            prompt=prompt,
+            messages=history,
+            tools=tools,
+            context_sources=_prompt_context_sources(prompt, history),
+            llm_scope=_llm_scope,
+            sensitivity_level="internal",
+        )
+        if has_app_context():
+            existing = list(getattr(g, "llm_prompt_trace_ids", []) or [])
+            existing.append(trace.trace_id)
+            g.llm_prompt_trace_ids = existing
+        return trace
+    except Exception as _pti_exc:
+        logging.debug("PTI trace creation skipped: %s", _pti_exc)
+        return None
+
+
+def _finalize_llm_prompt_trace(prompt_trace: Any, **outcome: Any) -> bool:
+    """PTI: finalize and store a prompt trace; best effort, True when stored."""
+    try:
+        from agent.services.prompt_trace_service import get_prompt_trace_service
+
+        _trace_svc = get_prompt_trace_service()
+        _trace_svc.store(_trace_svc.finalize_trace(prompt_trace, **outcome))
+        return True
+    except Exception as _pti_exc:
+        logging.debug("PTI finalize trace skipped: %s", _pti_exc)
+        return False
+
+
+def _cached_provider_text(prepared: Any) -> str:
+    if prepared.cached_response is None:
+        return ""
+    return str(prepared.cached_response.get("content") or "")
+
+
+def _append_llm_call_profile(entry: dict) -> None:
+    if has_request_context():
+        g.llm_last_call_profile = list(getattr(g, "llm_last_call_profile", []) or []) + [entry]
+
+
+def _describe_empty_response(entry: dict, call_metadata: dict) -> None:
+    """Explain an empty provider answer on the call profile entry."""
+    entry["error_type"] = str(call_metadata.get("empty_reason") or "empty_response")
+    msg_parts = [f"empty_reason={call_metadata.get('empty_reason')}"]
+    if call_metadata.get("context_limit"):
+        msg_parts.append(f"context_limit={call_metadata.get('context_limit')}")
+    if call_metadata.get("model_id"):
+        msg_parts.append(f"model={call_metadata.get('model_id')}")
+    entry["error_message"] = ", ".join(msg_parts)
+
+
+def _complete_llm_attempt(
+    res: Any,
+    *,
+    provider: str,
+    model: str,
+    started_at: float,
+    prepared: Any,
+    provider_middleware: Any,
+    request_id: Any,
+    attempt: int,
+    prompt_trace: Any,
+) -> str | None:
+    """Record one provider answer; returns the text on success, None for an empty answer (retry)."""
+    ended_at = time.time()
+    text_out, usage = extract_llm_text_and_usage(res)
+    has_text = bool(text_out and text_out.strip())
+    normalized_usage = _normalize_llm_usage(usage)
+    success_entry = _build_llm_call_profile_entry(
+        name="generate_text",
+        backend="llm_integration",
+        provider=provider,
+        model=model,
+        success=has_text,
+        started_at=started_at,
+        ended_at=ended_at,
+        usage=normalized_usage if normalized_usage else None,
+        source="llm_integration",
+        estimated=False,
+    )
+    call_metadata = extract_llm_call_metadata(res)
+    if not has_text and call_metadata:
+        _describe_empty_response(success_entry, call_metadata)
+    _append_llm_call_profile(success_entry)
+    _attach_llm_call_profile(res, success_entry)
+    if not has_text:
+        provider_middleware.fail(prepared, provider=provider, model=model, reason_code="provider_empty_response")
+        return None
+    provider_middleware.complete(
+        prepared,
+        provider=provider,
+        model=model,
+        response={"content": text_out, "usage": normalized_usage},
+    )
+    _report_llm_success(provider)
+    if has_request_context():
+        g.llm_last_usage = usage
+    log_llm_entry(
+        event="llm_call_end",
+        request_id=request_id,
+        provider=provider,
+        model=model,
+        success=True,
+        attempts=attempt + 1,
+        response=text_out,
+    )
+    if prompt_trace is not None:
+        _finalize_llm_prompt_trace(prompt_trace, success=True, response_text=text_out, usage=normalized_usage or {})
+    return text_out
+
+
+def _record_failed_llm_attempt(
+    exc: Exception,
+    prepared: Any,
+    provider_middleware: Any,
+    provider: str,
+    model: str,
+    started_at: float | None,
+) -> None:
+    if prepared is not None:
+        provider_middleware.fail(prepared, provider=provider, model=model, reason_code=type(exc).__name__)
+    _append_llm_call_profile(
+        _build_llm_call_profile_entry(
+            name="generate_text",
+            backend="llm_integration",
+            provider=provider,
+            model=model,
+            success=False,
+            started_at=started_at,
+            ended_at=time.time(),
+            usage=None,
+            source="llm_integration",
+            estimated=False,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+    )
 
 
 def _execute_llm_call(
