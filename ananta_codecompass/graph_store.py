@@ -1,116 +1,138 @@
 from __future__ import annotations
 
-import hashlib
+import hashlib  # noqa: F401 - re-exported through the worker star-import facade
 import json
-import math
-import os
-import tempfile
-from collections import Counter
+import math  # noqa: F401 - re-exported through the worker star-import facade
+import os  # noqa: F401 - re-exported through the worker star-import facade
+import tempfile  # noqa: F401 - re-exported through the worker star-import facade
+from collections import Counter  # noqa: F401 - re-exported through the worker star-import facade
 from collections.abc import Mapping
 from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from ananta_codecompass.graph_artifact_io import BoundedUtf8Writer, atomic_write_json
+from ananta_codecompass.graph_compact_storage import (
+    COMPACT_STORAGE_ENCODING,
+    compact_storage_payload,
+    hydrate_stored_edges,
+)
+from ananta_codecompass.graph_edge_identity import (
+    derived_edge_id,
+    finite_non_negative,
+    stable_edge_id,
+)
+from ananta_codecompass.graph_indexes import (
+    GraphIndexBuilders,
+    build_edge_id_indexes,
+    build_node_index,
+    build_semantic_index,
+    edges_from_index,
+    hydrate_edge_index,
+)
+from ananta_codecompass.graph_output_record_assembler import (
+    GraphOutputRecordAssembler,
+    normalize_semantic_edge,
+    normalize_semantic_node,
+)
+from ananta_codecompass.graph_traversal import (
+    neighbor_steps,
+    traverse_breadth_first,
+    traverse_evidence_paths,
+)
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
 )
 
-_COMPACT_STORAGE_ENCODING = "compact_v2"
+# Compatibility aliases for the historic private helpers of this module.
+_COMPACT_STORAGE_ENCODING = COMPACT_STORAGE_ENCODING
+_BoundedUtf8Writer = BoundedUtf8Writer
+_finite_non_negative = finite_non_negative
+_stable_edge_id = stable_edge_id
 
 
-class _BoundedUtf8Writer:
-    """Count serialized UTF-8 bytes before forwarding each JSON write."""
-
-    def __init__(self, handle: Any, *, maximum_bytes: int | None) -> None:
-        self._handle = handle
-        self._maximum_bytes = maximum_bytes
-        self.byte_count = 0
-
-    def write(self, value: str) -> int:
-        encoded_size = len(value.encode("utf-8"))
-        if (
-            self._maximum_bytes is not None
-            and self.byte_count + encoded_size > self._maximum_bytes
-        ):
-            raise RuntimeError("codecompass_graph_artifact_too_large")
-        written = self._handle.write(value)
-        self.byte_count += encoded_size
-        return written
-
-
-def _finite_non_negative(
-    value: Any,
-    *,
-    field: str,
-    maximum: float | None = None,
-) -> float | int:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"invalid_graph_edge_value:{field}")
-    numeric = float(value)
-    if not math.isfinite(numeric) or numeric < 0 or (maximum is not None and numeric > maximum):
-        raise ValueError(f"invalid_graph_edge_value:{field}")
-    return value
-
-
-def _stable_edge_id(
-    record: dict[str, Any],
-    *,
-    source_id: str,
-    target_id: str,
-    raw_edge_type: str,
-    occurrences: dict[str, int],
-) -> str:
-    explicit_edge_id = str(record.get("edge_id") or "").strip()
-    identity_payload = {
-        "source_id": source_id,
-        "target_id": target_id,
-        "raw_edge_type": raw_edge_type,
-        "confidence": record.get("confidence"),
-        "multiplicity": record.get("multiplicity"),
-        "dependency_weight": record.get("dependency_weight"),
-        "directed": record.get("directed"),
-        "metrics": record.get("metrics"),
-        "attributes": record.get("attributes"),
-        "field": record.get("field"),
-        "operation": record.get("operation"),
-        "heuristic": record.get("heuristic"),
-        "rule_id": record.get("rule_id"),
+def _empty_x86_index() -> dict[str, Any]:
+    return {
+        "schema": "codecompass_x86_graph.v1",
+        "nodes": [], "edges": [], "nodes_by_id": {},
+        "node_count": 0, "edge_count": 0,
     }
-    identity_seed = explicit_edge_id or (
-        "edge:sha256:"
-        + hashlib.sha256(
-            json.dumps(
-                identity_payload,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            ).encode("utf-8")
-        ).hexdigest()
-    )
-    occurrence = occurrences.get(identity_seed, 0)
-    if explicit_edge_id and occurrence:
-        raise ValueError("duplicate_graph_edge_id")
-    occurrences[identity_seed] = occurrence + 1
-    if occurrence == 0:
-        return identity_seed
-    return "edge:sha256:" + hashlib.sha256(
-        f"{identity_seed}\0{occurrence}".encode("utf-8")
-    ).hexdigest()
+
+
+def _empty_rig_index() -> dict[str, Any]:
+    return {
+        "schema": "codecompass_repository_intelligence.v1",
+        "nodes": [], "edges": [], "nodes_by_id": {},
+        "node_count": 0, "edge_count": 0,
+    }
+
+
+def _missing_index_payload() -> dict[str, Any]:
+    return {
+        "state": {},
+        "nodes": [],
+        "edges": [],
+        "semantic_nodes": [],
+        "semantic_edges": [],
+        "equivalence_rules": [],
+        "translation_contracts": [],
+        "transform_artifacts": [],
+        # X86CC-020: x86_extension slot is always present so consumers can
+        # safely access it even when the index is missing.
+        "x86_nodes": [],
+        "x86_edges": [],
+        "x86_index": _empty_x86_index(),
+        # RIG-002: repository_intelligence slot is always present so consumers
+        # can safely access rig_nodes / rig_edges even when the index is missing.
+        "rig_nodes": [],
+        "rig_edges": [],
+        "rig_index": _empty_rig_index(),
+        "node_index": {},
+        "semantic_index": {},
+        "outgoing_index": {},
+        "incoming_index": {},
+        "diagnostics": {
+            "status": "degraded",
+            "reason": "graph_index_missing",
+            # RIG-002: rig slot is always present with a stable shape
+            # so consumers can safely access it on a missing index.
+            "repository_intelligence": {
+                "schema": "codecompass_repository_intelligence.v1",
+                "status": "degraded",
+                "reason": "no_rig_records",
+                "node_count": 0,
+                "edge_count": 0,
+            },
+        },
+    }
+
+
+def _dict_items(payload: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
+    return [item for item in list(payload.get(key) or []) if isinstance(item, dict)]
 
 
 class CodeCompassGraphStore:
+    """JSON-backed CodeCompass graph store.
+
+    The store owns loading, caching, persistence and the query surface. Record
+    normalization, compact encoding, index construction and traversal are
+    delegated to focused collaborators; the protected ``_build_*`` hooks stay
+    overridable because the SQLite store customizes the edge index contract.
+    """
+
     def __init__(
         self,
         *,
         index_path: str | Path,
         max_artifact_bytes: int | None = MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
         visual_metrics_path: str | Path | None = None,
+        record_assembler: GraphOutputRecordAssembler | None = None,
     ):
         self._index_path = Path(index_path)
         self._visual_metrics_path = (
             Path(visual_metrics_path) if visual_metrics_path is not None else None
         )
+        self._record_assembler = record_assembler or GraphOutputRecordAssembler()
         self._cached_payload: dict[str, Any] | None = None
         self._visual_metrics_loaded = False
         self._cached_visual_metrics: dict[str, Any] | None = None
@@ -133,51 +155,7 @@ class CodeCompassGraphStore:
 
     def _load_uncached(self) -> dict[str, Any]:
         if not self._index_path.exists():
-            self._cached_payload = {
-                "state": {},
-                "nodes": [],
-                "edges": [],
-                "semantic_nodes": [],
-                "semantic_edges": [],
-                "equivalence_rules": [],
-                "translation_contracts": [],
-                "transform_artifacts": [],
-                # X86CC-020: x86_extension slot is always present so consumers can
-                # safely access it even when the index is missing.
-                "x86_nodes": [],
-                "x86_edges": [],
-                "x86_index": {
-                    "schema": "codecompass_x86_graph.v1",
-                    "nodes": [], "edges": [], "nodes_by_id": {},
-                    "node_count": 0, "edge_count": 0,
-                },
-                # RIG-002: repository_intelligence slot is always present so consumers
-                # can safely access rig_nodes / rig_edges even when the index is missing.
-                "rig_nodes": [],
-                "rig_edges": [],
-                "rig_index": {
-                    "schema": "codecompass_repository_intelligence.v1",
-                    "nodes": [], "edges": [], "nodes_by_id": {},
-                    "node_count": 0, "edge_count": 0,
-                },
-                "node_index": {},
-                "semantic_index": {},
-                "outgoing_index": {},
-                "incoming_index": {},
-                "diagnostics": {
-                    "status": "degraded",
-                    "reason": "graph_index_missing",
-                    # RIG-002: rig slot is always present with a stable shape
-                    # so consumers can safely access it on a missing index.
-                    "repository_intelligence": {
-                        "schema": "codecompass_repository_intelligence.v1",
-                        "status": "degraded",
-                        "reason": "no_rig_records",
-                        "node_count": 0,
-                        "edge_count": 0,
-                    },
-                },
-            }
+            self._cached_payload = _missing_index_payload()
             return self._cached_payload
         if self._index_path.is_symlink() or not self._index_path.is_file():
             raise RuntimeError("codecompass_graph_artifact_invalid")
@@ -189,12 +167,9 @@ class CodeCompassGraphStore:
         payload = json.loads(self._index_path.read_text(encoding="utf-8"))
         state = dict(payload.get("state") or {})
         storage_encoding = str(state.get("storage_encoding") or "")
-        nodes = [item for item in list(payload.get("nodes") or []) if isinstance(item, dict)]
-        semantic_nodes = [
-            item for item in list(payload.get("semantic_nodes") or [])
-            if isinstance(item, dict)
-        ]
-        if storage_encoding == _COMPACT_STORAGE_ENCODING:
+        nodes = _dict_items(payload, "nodes")
+        semantic_nodes = _dict_items(payload, "semantic_nodes")
+        if storage_encoding == COMPACT_STORAGE_ENCODING:
             edges = self._hydrate_stored_edges(
                 payload.get("edges"),
                 state=state,
@@ -206,18 +181,9 @@ class CodeCompassGraphStore:
                 role="semantic_edges",
             )
         else:
-            edges = [
-                item for item in list(payload.get("edges") or [])
-                if isinstance(item, dict)
-            ]
-            semantic_edges = [
-                item for item in list(payload.get("semantic_edges") or [])
-                if isinstance(item, dict)
-            ]
-        equivalence_rules = [
-            item for item in list(payload.get("equivalence_rules") or [])
-            if isinstance(item, dict)
-        ]
+            edges = _dict_items(payload, "edges")
+            semantic_edges = _dict_items(payload, "semantic_edges")
+        equivalence_rules = _dict_items(payload, "equivalence_rules")
         edge_lookup = {
             str(item.get("edge_id") or ""): item
             for item in [*edges, *semantic_edges]
@@ -236,28 +202,16 @@ class CodeCompassGraphStore:
             "semantic_nodes": semantic_nodes,
             "semantic_edges": semantic_edges,
             "equivalence_rules": equivalence_rules,
-            "translation_contracts": [
-                item for item in list(payload.get("translation_contracts") or []) if isinstance(item, dict)
-            ],
-            "transform_artifacts": [
-                item for item in list(payload.get("transform_artifacts") or []) if isinstance(item, dict)
-            ],
+            "translation_contracts": _dict_items(payload, "translation_contracts"),
+            "transform_artifacts": _dict_items(payload, "transform_artifacts"),
             # X86CC-020: x86 fields are optional in the on-disk payload; default to empty.
-            "x86_nodes": [item for item in list(payload.get("x86_nodes") or []) if isinstance(item, dict)],
-            "x86_edges": [item for item in list(payload.get("x86_edges") or []) if isinstance(item, dict)],
-            "x86_index": dict(payload.get("x86_index") or {
-                "schema": "codecompass_x86_graph.v1",
-                "nodes": [], "edges": [], "nodes_by_id": {},
-                "node_count": 0, "edge_count": 0,
-            }),
+            "x86_nodes": _dict_items(payload, "x86_nodes"),
+            "x86_edges": _dict_items(payload, "x86_edges"),
+            "x86_index": dict(payload.get("x86_index") or _empty_x86_index()),
             # RIG-002: rig fields are optional in the on-disk payload; default to empty.
-            "rig_nodes": [item for item in list(payload.get("rig_nodes") or []) if isinstance(item, dict)],
-            "rig_edges": [item for item in list(payload.get("rig_edges") or []) if isinstance(item, dict)],
-            "rig_index": dict(payload.get("rig_index") or {
-                "schema": "codecompass_repository_intelligence.v1",
-                "nodes": [], "edges": [], "nodes_by_id": {},
-                "node_count": 0, "edge_count": 0,
-            }),
+            "rig_nodes": _dict_items(payload, "rig_nodes"),
+            "rig_edges": _dict_items(payload, "rig_edges"),
+            "rig_index": dict(payload.get("rig_index") or _empty_rig_index()),
             "node_index": (
                 dict(payload.get("node_index") or {})
                 if isinstance(payload.get("node_index"), dict)
@@ -294,36 +248,7 @@ class CodeCompassGraphStore:
         return path.with_name(f"{path.stem}.visual_metrics.json")
 
     def _atomic_write_json(self, path: Path, payload: dict[str, Any]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w",
-                encoding="utf-8",
-                dir=path.parent,
-                prefix=f".{path.name}.",
-                suffix=".tmp",
-                delete=False,
-            ) as handle:
-                temp_path = Path(handle.name)
-                bounded = _BoundedUtf8Writer(
-                    handle,
-                    maximum_bytes=self._max_artifact_bytes,
-                )
-                json.dump(
-                    payload,
-                    bounded,
-                    ensure_ascii=False,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                )
-                bounded.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temp_path, path)
-        finally:
-            if temp_path is not None and temp_path.exists():
-                temp_path.unlink()
+        atomic_write_json(path, payload, max_artifact_bytes=self._max_artifact_bytes)
 
     def save(self, payload: dict[str, Any]) -> None:
         with self._read_lock:
@@ -335,102 +260,7 @@ class CodeCompassGraphStore:
 
     @classmethod
     def _compact_storage_payload(cls, payload: dict[str, Any]) -> dict[str, Any]:
-        stored = dict(payload)
-        state = dict(stored.get("state") or {})
-        manifest_hash = str(state.get("manifest_hash") or "")
-        role_edges = {
-            "graph_edges": [
-                dict(item) for item in list(stored.get("edges") or [])
-                if isinstance(item, dict)
-            ],
-            "semantic_edges": [
-                dict(item) for item in list(stored.get("semantic_edges") or [])
-                if isinstance(item, dict)
-            ],
-        }
-        edge_storage: dict[str, dict[str, Any]] = {}
-        for role, edges in role_edges.items():
-            raw_edge_type_derived = bool(edges) and all(
-                "raw_edge_type" in edge for edge in edges
-            )
-            provenance_defaulted = bool(edges) and all(
-                isinstance(edge.get("provenance"), dict)
-                and str((edge.get("provenance") or {}).get("manifest_hash") or "")
-                == manifest_hash
-                and str((edge.get("provenance") or {}).get("output_kind") or "")
-                == role
-                for edge in edges
-            )
-            edge_ids_derived = bool(edges) and all(
-                str(edge.get("edge_id") or "").strip() for edge in edges
-            )
-            derived_by_strategy = {
-                strategy: [
-                    cls._derived_edge_id(edge, strategy=strategy)
-                    for edge in edges
-                ]
-                for strategy in (
-                    "normalized",
-                    "legacy_confidence_default_omitted",
-                )
-            }
-            strategy_scores: dict[str, int] = {}
-            for strategy, candidates in derived_by_strategy.items():
-                candidate_counts = Counter(candidates)
-                strategy_scores[strategy] = sum(
-                    1
-                    for edge, candidate in zip(edges, candidates)
-                    if candidate
-                    and candidate_counts[candidate] == 1
-                    and str(edge.get("edge_id") or "") == candidate
-                )
-            edge_id_strategy = max(
-                strategy_scores,
-                key=lambda strategy: (strategy_scores[strategy], strategy == "normalized"),
-            )
-            derived_ids = derived_by_strategy[edge_id_strategy]
-            identity_counts = Counter(derived_ids)
-            compact_edges: list[dict[str, Any]] = []
-            for edge, derived_id in zip(edges, derived_ids):
-                compact = dict(edge)
-                if (
-                    edge_ids_derived
-                    and derived_id
-                    and identity_counts[derived_id] == 1
-                    and str(compact.get("edge_id") or "") == derived_id
-                ):
-                    compact.pop("edge_id", None)
-                if (
-                    raw_edge_type_derived
-                    and compact.get("raw_edge_type") == compact.get("edge_type")
-                ):
-                    compact.pop("raw_edge_type", None)
-                if provenance_defaulted:
-                    provenance = dict(compact.get("provenance") or {})
-                    provenance.pop("manifest_hash", None)
-                    provenance.pop("output_kind", None)
-                    if provenance:
-                        compact["provenance"] = provenance
-                    else:
-                        compact.pop("provenance", None)
-                compact_edges.append(compact)
-            edge_storage[role] = {
-                "edge_ids_derived": edge_ids_derived,
-                "edge_id_strategy": edge_id_strategy,
-                "raw_edge_type_derived": raw_edge_type_derived,
-                "provenance_defaulted": provenance_defaulted,
-            }
-            stored["edges" if role == "graph_edges" else "semantic_edges"] = compact_edges
-
-        for key in ("node_index", "semantic_index", "outgoing_index", "incoming_index"):
-            stored.pop(key, None)
-        state.update({
-            "edge_index_encoding": "derived",
-            "edge_storage": edge_storage,
-            "storage_encoding": _COMPACT_STORAGE_ENCODING,
-        })
-        stored["state"] = state
-        return stored
+        return compact_storage_payload(payload)
 
     @staticmethod
     def _derived_edge_id(
@@ -438,27 +268,7 @@ class CodeCompassGraphStore:
         *,
         strategy: str = "normalized",
     ) -> str:
-        source_id = str(edge.get("source_id") or "").strip()
-        target_id = str(edge.get("target_id") or "").strip()
-        raw_edge_type = str(
-            edge.get("raw_edge_type") or edge.get("edge_type") or "related"
-        ) or "related"
-        if not source_id or not target_id:
-            return ""
-        candidate = dict(edge)
-        candidate.pop("edge_id", None)
-        if (
-            strategy == "legacy_confidence_default_omitted"
-            and candidate.get("confidence") == 1.0
-        ):
-            candidate.pop("confidence", None)
-        return _stable_edge_id(
-            candidate,
-            source_id=source_id,
-            target_id=target_id,
-            raw_edge_type=raw_edge_type,
-            occurrences={},
-        )
+        return derived_edge_id(edge, strategy=strategy)
 
     @classmethod
     def _hydrate_stored_edges(
@@ -468,27 +278,7 @@ class CodeCompassGraphStore:
         state: dict[str, Any],
         role: str,
     ) -> list[dict[str, Any]]:
-        settings = dict((state.get("edge_storage") or {}).get(role) or {})
-        manifest_hash = str(state.get("manifest_hash") or "")
-        edges: list[dict[str, Any]] = []
-        for raw in list(raw_edges or []):
-            if not isinstance(raw, dict):
-                continue
-            edge = dict(raw)
-            if settings.get("raw_edge_type_derived"):
-                edge.setdefault("raw_edge_type", edge.get("edge_type") or "related")
-            if settings.get("provenance_defaulted"):
-                provenance = dict(edge.get("provenance") or {})
-                provenance.setdefault("manifest_hash", manifest_hash)
-                provenance.setdefault("output_kind", role)
-                edge["provenance"] = provenance
-            if settings.get("edge_ids_derived") and not str(edge.get("edge_id") or "").strip():
-                edge["edge_id"] = cls._derived_edge_id(
-                    edge,
-                    strategy=str(settings.get("edge_id_strategy") or "normalized"),
-                )
-            edges.append(edge)
-        return edges
+        return hydrate_stored_edges(raw_edges, state=state, role=role)
 
     def load_visual_metrics(self) -> dict[str, Any] | None:
         """Read a worker-produced sidecar without deriving missing metrics."""
@@ -528,257 +318,26 @@ class CodeCompassGraphStore:
             self._cached_visual_metrics = dict(artifact)
             self._visual_metrics_loaded = True
 
-    def rebuild_from_output_records(  # noqa: C901 - compatibility dispatcher for existing output kinds
+    def _index_builders(self) -> GraphIndexBuilders:
+        return GraphIndexBuilders(
+            node_index=self._build_node_index,
+            semantic_index=self._build_semantic_index,
+            edge_indexes=self._build_edge_indexes,
+        )
+
+    def rebuild_from_output_records(
         self,
         *,
         records: list[dict[str, Any]],
         manifest_hash: str,
         semantic_budget: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        nodes: list[dict[str, Any]] = []
-        edges: list[dict[str, Any]] = []
-        semantic_nodes: list[dict[str, Any]] = []
-        semantic_edges: list[dict[str, Any]] = []
-        equivalence_rules: list[dict[str, Any]] = []
-        translation_contracts: list[dict[str, Any]] = []
-        transform_artifacts: list[dict[str, Any]] = []
-        # X86CC-020: separate storage so existing graph_nodes / graph_edges indexes
-        # are not polluted. x86 records keep their full record shape for round-trip
-        # queries via X86QueryEngine.
-        x86_nodes_list: list[dict[str, Any]] = []
-        x86_edges_list: list[dict[str, Any]] = []
-        # RIG-002: rig_nodes / rig_edges slots; never pollutes the symbolgraph.
-        rig_nodes_list: list[dict[str, Any]] = []
-        rig_edges_list: list[dict[str, Any]] = []
-        has_nodes = False
-        has_edges = False
-        edge_identity_occurrences: dict[str, int] = {}
-        for index, record in enumerate(list(records or []), start=1):
-            if not isinstance(record, dict):
-                continue
-            provenance = dict(record.get("_provenance") or {})
-            output_kind = str(provenance.get("output_kind") or "").strip().lower()
-            if output_kind == "graph_nodes":
-                has_nodes = True
-                node_id = str(record.get("id") or record.get("node_id") or f"node:{index}").strip()
-                raw_node_type = str(record.get("kind") or record.get("type") or "unknown") or "unknown"
-                nodes.append(
-                    {
-                        "id": node_id,
-                        "file": str(record.get("file") or record.get("path") or "").strip(),
-                        "kind": raw_node_type.strip().lower(),
-                        "raw_node_type": raw_node_type,
-                        "name": str(record.get("name") or record.get("symbol") or "").strip(),
-                        "record_id": str(record.get("record_id") or node_id).strip(),
-                        "content": str(record.get("content") or record.get("summary") or "").strip(),
-                        "source_record": record,
-                    }
-                )
-            elif output_kind == "graph_edges":
-                has_edges = True
-                source_id = str(record.get("source") or record.get("source_id") or "").strip()
-                target_id = str(record.get("target") or record.get("target_id") or "").strip()
-                if not source_id or not target_id:
-                    continue
-                raw_edge_type = str(record.get("type") or record.get("edge_type") or "related") or "related"
-                edge_type = raw_edge_type.strip().lower()
-                confidence_value = record.get("confidence")
-                if confidence_value is None:
-                    confidence_value = 1.0
-                confidence_value = _finite_non_negative(
-                    confidence_value,
-                    field="confidence",
-                    maximum=1,
-                )
-                for metric_name in ("multiplicity", "dependency_weight"):
-                    if record.get(metric_name) is not None:
-                        _finite_non_negative(record[metric_name], field=metric_name)
-                if record.get("directed") is not None and not isinstance(record["directed"], bool):
-                    raise ValueError("invalid_graph_edge_value:directed")
-                if isinstance(record.get("metrics"), dict):
-                    for metric_name, metric_value in record["metrics"].items():
-                        _finite_non_negative(metric_value, field=f"metrics.{metric_name}")
-                edge_id = _stable_edge_id(
-                    record,
-                    source_id=source_id,
-                    target_id=target_id,
-                    raw_edge_type=raw_edge_type,
-                    occurrences=edge_identity_occurrences,
-                )
-                edge: dict[str, Any] = {
-                    "edge_id": edge_id,
-                    "source_id": source_id,
-                    "target_id": target_id,
-                    "edge_type": edge_type,
-                    "raw_edge_type": raw_edge_type,
-                    "confidence": float(confidence_value),
-                    "provenance": {
-                        "manifest_hash": str(manifest_hash or ""),
-                        "output_kind": output_kind,
-                    },
-                }
-                if record.get("multiplicity") is not None:
-                    edge["multiplicity"] = record["multiplicity"]
-                if record.get("dependency_weight") is not None:
-                    edge["dependency_weight"] = record["dependency_weight"]
-                if record.get("directed") is not None:
-                    edge["directed"] = bool(record["directed"])
-                if isinstance(record.get("metrics"), dict):
-                    edge["metrics"] = dict(record["metrics"])
-                for attribute_key in ("field", "operation", "heuristic"):
-                    if record.get(attribute_key) is not None:
-                        edge[attribute_key] = record[attribute_key]
-                edges.append(edge)
-            elif output_kind == "semantic_nodes":
-                semantic_nodes.append(self._normalize_semantic_node(record, manifest_hash, index))
-            elif output_kind == "semantic_edges":
-                edge = self._normalize_semantic_edge(
-                    record,
-                    manifest_hash,
-                    edge_identity_occurrences,
-                )
-                if edge:
-                    semantic_edges.append(edge)
-            elif output_kind == "equivalence_rules":
-                equivalence_rules.append(dict(record))
-            elif output_kind == "translation_contracts":
-                translation_contracts.append(dict(record))
-            elif output_kind == "transform_artifacts":
-                transform_artifacts.append(dict(record))
-            elif output_kind == "x86_nodes":
-                # X86CC-020: x86 nodes are stored as a separate list under x86_nodes
-                # so the existing graph_nodes index is not polluted. They participate
-                # in their own (nodes_by_id-like) lookup but the general graph_nodes
-                # index stays unchanged for backward compatibility.
-                x86_nodes_list.append(dict(record))
-            elif output_kind == "x86_edges":
-                x86_edges_list.append(dict(record))
-            elif output_kind == "rig_nodes":
-                # RIG-002: rig_nodes lives under its own slot; never enters the
-                # symbolgraph nodes/edges index. Records keep their full shape.
-                rig_nodes_list.append(dict(record))
-            elif output_kind == "rig_edges":
-                rig_edges_list.append(dict(record))
-
-        node_index = self._build_node_index(nodes)
-        semantic_index = self._build_semantic_index(semantic_nodes, semantic_edges, equivalence_rules)
-        outgoing_index, incoming_index = self._build_edge_indexes([*edges, *semantic_edges])
-        diagnostics = {"status": "ready", "reason": "graph_loaded", "node_count": len(nodes), "edge_count": len(edges)}
-        if not has_nodes or not has_edges:
-            diagnostics = {
-                "status": "degraded",
-                "reason": "missing_graph_outputs",
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-            }
-        normalized_semantic_budget = dict(semantic_budget or {})
-        if semantic_nodes or semantic_edges or equivalence_rules or transform_artifacts:
-            diagnostics["semantic_translation"] = {
-                "schema": "codecompass_semantic_translation_graph.v1",
-                "semantic_node_count": len(semantic_nodes),
-                "semantic_edge_count": len(semantic_edges),
-                "equivalence_rule_count": len(equivalence_rules),
-                "translation_contract_count": len(translation_contracts),
-                "transform_artifact_count": len(transform_artifacts),
-                "status": "ready",
-            }
-        else:
-            diagnostics["semantic_translation"] = {
-                "status": "degraded",
-                "reason": "semantic_translation_index_unavailable",
-            }
-        if normalized_semantic_budget:
-            diagnostics["semantic_translation"]["semantic_budget"] = (
-                normalized_semantic_budget
-            )
-            if (
-                bool(normalized_semantic_budget.get("truncated"))
-                or int(normalized_semantic_budget.get("unresolved_edge_count") or 0)
-            ):
-                diagnostics["semantic_translation"]["status"] = "degraded"
-                diagnostics["semantic_translation"]["reason"] = (
-                    "semantic_graph_partial"
-                )
-
-        if x86_nodes_list or x86_edges_list:
-            # X86CC-020: expose x86 records as their own structure with a deterministic
-            # id-keyed lookup so X86QueryEngine can run against the same payload
-            # without rebuilding the index.
-            x86_index = {
-                "schema": "codecompass_x86_graph.v1",
-                "nodes": x86_nodes_list,
-                "edges": x86_edges_list,
-                "nodes_by_id": {n["id"]: n for n in x86_nodes_list if isinstance(n, dict) and n.get("id")},
-                "node_count": len(x86_nodes_list),
-                "edge_count": len(x86_edges_list),
-            }
-            diagnostics["x86_extension"] = {
-                "schema": "codecompass_x86_graph.v1",
-                "node_count": len(x86_nodes_list),
-                "edge_count": len(x86_edges_list),
-                "status": "ready",
-            }
-        else:
-            x86_index = {
-                "schema": "codecompass_x86_graph.v1",
-                "nodes": [],
-                "edges": [],
-                "nodes_by_id": {},
-                "node_count": 0,
-                "edge_count": 0,
-            }
-            diagnostics["x86_extension"] = {"status": "degraded", "reason": "no_x86_records"}
-
-        # RIG-002: build rig_index analogously to x86_index. The snapshot metadata
-        # (coverage_status, extractor, etc.) lives in the JSON-payload slot and is
-        # sourced from the importer (RIG-012). Per DD-011 the JSON payload remains
-        # the source-of-truth for replay.
-        rig_index = {
-            "schema": "codecompass_repository_intelligence.v1",
-            "nodes": rig_nodes_list,
-            "edges": rig_edges_list,
-            "nodes_by_id": {
-                n["id"]: n
-                for n in rig_nodes_list
-                if isinstance(n, dict) and n.get("id")
-            },
-            "node_count": len(rig_nodes_list),
-            "edge_count": len(rig_edges_list),
-        }
-        diagnostics["repository_intelligence"] = {
-            "schema": "codecompass_repository_intelligence.v1",
-            "node_count": len(rig_nodes_list),
-            "edge_count": len(rig_edges_list),
-            "status": "ready" if (rig_nodes_list or rig_edges_list) else "degraded",
-        }
-        if not (rig_nodes_list or rig_edges_list):
-            diagnostics["repository_intelligence"]["reason"] = "no_rig_records"
-
-        payload = {
-            "state": {
-                "schema": "codecompass_graph_index.v1",
-                "manifest_hash": str(manifest_hash or ""),
-                "edge_index_encoding": "edge_id",
-            },
-            "nodes": nodes,
-            "edges": edges,
-            "semantic_nodes": semantic_nodes,
-            "semantic_edges": semantic_edges,
-            "equivalence_rules": equivalence_rules,
-            "translation_contracts": translation_contracts,
-            "transform_artifacts": transform_artifacts,
-            "x86_nodes": x86_nodes_list,
-            "x86_edges": x86_edges_list,
-            "x86_index": x86_index,
-            "rig_nodes": rig_nodes_list,
-            "rig_edges": rig_edges_list,
-            "rig_index": rig_index,
-            "node_index": node_index,
-            "semantic_index": semantic_index,
-            "outgoing_index": outgoing_index,
-            "incoming_index": incoming_index,
-            "diagnostics": diagnostics,
-        }
+        payload, diagnostics = self._record_assembler.assemble(
+            records=records,
+            manifest_hash=manifest_hash,
+            semantic_budget=semantic_budget,
+            index_builders=self._index_builders(),
+        )
         self.save(payload)
         # Metrics are worker-owned and published as a revision-bound sidecar.
         # Advanced algorithms remain opt-in so ordinary indexing stays bounded.
@@ -789,23 +348,7 @@ class CodeCompassGraphStore:
 
     @staticmethod
     def _normalize_semantic_node(record: dict[str, Any], manifest_hash: str, index: int) -> dict[str, Any]:
-        provenance = dict(record.get("provenance") or {})
-        node_id = str(record.get("id") or record.get("node_id") or f"semantic-node:{index}").strip()
-        raw_node_type = str(record.get("kind") or "semantic_node") or "semantic_node"
-        return {
-            "id": node_id,
-            "file": str(provenance.get("file") or record.get("file") or record.get("path") or "").strip(),
-            "kind": raw_node_type.strip().lower(),
-            "raw_node_type": raw_node_type,
-            "semantic_kind": str(record.get("semantic_kind") or "").strip().lower(),
-            "language": str(record.get("language") or provenance.get("language") or "").strip().lower(),
-            "symbol": str(record.get("symbol") or provenance.get("symbol") or record.get("name") or "").strip(),
-            "rule_id": str(record.get("rule_id") or "").strip(),
-            "record_id": str(record.get("record_id") or node_id).strip(),
-            "attributes": dict(record.get("attributes") or {}),
-            "provenance": {**provenance, "manifest_hash": str(manifest_hash or "")},
-            "source_record": dict(record),
-        }
+        return normalize_semantic_node(record, manifest_hash, index)
 
     @staticmethod
     def _normalize_semantic_edge(
@@ -813,89 +356,11 @@ class CodeCompassGraphStore:
         manifest_hash: str,
         edge_identity_occurrences: dict[str, int],
     ) -> dict[str, Any] | None:
-        source_id = str(record.get("source") or record.get("source_id") or "").strip()
-        target_id = str(record.get("target") or record.get("target_id") or "").strip()
-        if not source_id or not target_id:
-            return None
-        raw_edge_type = str(record.get("edge_type") or record.get("type") or "related") or "related"
-        edge_type = raw_edge_type.strip().lower()
-        confidence_value = record.get("confidence")
-        if confidence_value is None:
-            confidence_value = (record.get("provenance") or {}).get("confidence")
-        if confidence_value is None:
-            confidence_value = 1.0
-        confidence_value = _finite_non_negative(
-            confidence_value,
-            field="confidence",
-            maximum=1,
-        )
-        for metric_name in ("multiplicity", "dependency_weight"):
-            if record.get(metric_name) is not None:
-                _finite_non_negative(record[metric_name], field=metric_name)
-        if record.get("directed") is not None and not isinstance(record["directed"], bool):
-            raise ValueError("invalid_graph_edge_value:directed")
-        if isinstance(record.get("metrics"), dict):
-            for metric_name, metric_value in record["metrics"].items():
-                _finite_non_negative(metric_value, field=f"metrics.{metric_name}")
-        edge: dict[str, Any] = {
-            "edge_id": _stable_edge_id(
-                record,
-                source_id=source_id,
-                target_id=target_id,
-                raw_edge_type=raw_edge_type,
-                occurrences=edge_identity_occurrences,
-            ),
-            "source_id": source_id,
-            "target_id": target_id,
-            "edge_type": edge_type,
-            "raw_edge_type": raw_edge_type,
-            "rule_id": str(record.get("rule_id") or "").strip(),
-            "confidence": float(confidence_value),
-            "attributes": dict(record.get("attributes") or {}),
-            "provenance": {
-                **dict(record.get("provenance") or {}),
-                "manifest_hash": str(manifest_hash or ""),
-                "output_kind": "semantic_edges",
-            },
-            "source_record": dict(record),
-        }
-        for field in ("multiplicity", "dependency_weight", "directed", "metrics"):
-            value = record.get(field)
-            if value is not None:
-                edge[field] = dict(value) if field == "metrics" and isinstance(value, dict) else value
-        return edge
+        return normalize_semantic_edge(record, manifest_hash, edge_identity_occurrences)
 
     @staticmethod
     def _build_node_index(nodes: list[dict[str, Any]]) -> dict[str, Any]:
-        by_id = {}
-        by_file: dict[str, list[str]] = {}
-        by_kind: dict[str, list[str]] = {}
-        by_name: dict[str, list[str]] = {}
-        by_record_id: dict[str, list[str]] = {}
-        for node in nodes:
-            node_id = str(node.get("id") or "").strip()
-            if not node_id:
-                continue
-            by_id[node_id] = dict(node)
-            file = str(node.get("file") or "").strip()
-            kind = str(node.get("kind") or "").strip().lower()
-            name = str(node.get("name") or "").strip()
-            record_id = str(node.get("record_id") or "").strip()
-            if file:
-                by_file.setdefault(file, []).append(node_id)
-            if kind:
-                by_kind.setdefault(kind, []).append(node_id)
-            if name:
-                by_name.setdefault(name, []).append(node_id)
-            if record_id:
-                by_record_id.setdefault(record_id, []).append(node_id)
-        return {
-            "by_id": by_id,
-            "by_file": {key: sorted(value) for key, value in by_file.items()},
-            "by_kind": {key: sorted(value) for key, value in by_kind.items()},
-            "by_name": {key: sorted(value) for key, value in by_name.items()},
-            "by_record_id": {key: sorted(value) for key, value in by_record_id.items()},
-        }
+        return build_node_index(nodes)
 
     @staticmethod
     def _build_semantic_index(
@@ -903,90 +368,18 @@ class CodeCompassGraphStore:
         edges: list[dict[str, Any]],
         rules: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        by_id: dict[str, dict[str, Any]] = {}
-        by_file: dict[str, list[str]] = {}
-        by_kind: dict[str, list[str]] = {}
-        by_language: dict[str, list[str]] = {}
-        by_symbol: dict[str, list[str]] = {}
-        by_semantic_kind: dict[str, list[str]] = {}
-        by_rule_id: dict[str, list[str]] = {}
-        for node in nodes:
-            node_id = str(node.get("id") or "").strip()
-            if not node_id:
-                continue
-            by_id[node_id] = dict(node)
-            for key, bucket, transform in [
-                ("file", by_file, str),
-                ("kind", by_kind, lambda value: str(value).lower()),
-                ("language", by_language, lambda value: str(value).lower()),
-                ("symbol", by_symbol, str),
-                ("semantic_kind", by_semantic_kind, lambda value: str(value).lower()),
-                ("rule_id", by_rule_id, str),
-            ]:
-                value = transform(node.get(key) or "").strip()
-                if value:
-                    bucket.setdefault(value, []).append(node_id)
-        for edge in edges:
-            rule_id = str(edge.get("rule_id") or "").strip()
-            if rule_id:
-                by_rule_id.setdefault(rule_id, []).append(f"{edge.get('source_id')}->{edge.get('target_id')}")
-        for rule in rules:
-            rule_id = str(rule.get("rule_id") or "").strip()
-            if rule_id:
-                by_rule_id.setdefault(rule_id, []).append(rule_id)
-        return {
-            "by_id": by_id,
-            "by_file": {key: sorted(set(value)) for key, value in by_file.items()},
-            "by_kind": {key: sorted(set(value)) for key, value in by_kind.items()},
-            "by_language": {key: sorted(set(value)) for key, value in by_language.items()},
-            "by_symbol": {key: sorted(set(value)) for key, value in by_symbol.items()},
-            "by_semantic_kind": {key: sorted(set(value)) for key, value in by_semantic_kind.items()},
-            "by_rule_id": {key: sorted(set(value)) for key, value in by_rule_id.items()},
-        }
+        return build_semantic_index(nodes, edges, rules)
 
     @staticmethod
     def _build_edge_indexes(edges: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any]]:
-        outgoing: dict[str, dict[str, list[str]]] = {}
-        incoming: dict[str, dict[str, list[str]]] = {}
-        for edge in edges:
-            edge_id = str(edge.get("edge_id") or "").strip()
-            source_id = str(edge.get("source_id") or "").strip()
-            target_id = str(edge.get("target_id") or "").strip()
-            edge_type = str(edge.get("edge_type") or "related").strip().lower() or "related"
-            if not edge_id or not source_id or not target_id:
-                continue
-            outgoing.setdefault(source_id, {}).setdefault(edge_type, []).append(edge_id)
-            incoming.setdefault(target_id, {}).setdefault(edge_type, []).append(edge_id)
-        return outgoing, incoming
+        return build_edge_id_indexes(edges)
 
     @staticmethod
     def _hydrate_edge_index(
         raw_index: Any,
         edge_lookup: dict[str, dict[str, Any]],
     ) -> dict[str, dict[str, list[dict[str, Any]]]]:
-        if not isinstance(raw_index, dict):
-            return {}
-        hydrated: dict[str, dict[str, list[dict[str, Any]]]] = {}
-        for node_id, raw_bucket in raw_index.items():
-            if not isinstance(raw_bucket, dict):
-                continue
-            bucket: dict[str, list[dict[str, Any]]] = {}
-            for edge_type, raw_entries in raw_bucket.items():
-                if not isinstance(raw_entries, list):
-                    continue
-                entries: list[dict[str, Any]] = []
-                for raw_entry in raw_entries:
-                    if isinstance(raw_entry, dict):
-                        entries.append(dict(raw_entry))
-                    elif isinstance(raw_entry, str):
-                        edge = edge_lookup.get(raw_entry)
-                        if edge is not None:
-                            entries.append(dict(edge))
-                if entries:
-                    bucket[str(edge_type)] = entries
-            if bucket:
-                hydrated[str(node_id)] = bucket
-        return hydrated
+        return hydrate_edge_index(raw_index, edge_lookup)
 
     def get_node(self, *, node_id: str) -> dict[str, Any] | None:
         payload = self.load()
@@ -1068,14 +461,7 @@ class CodeCompassGraphStore:
         node_id: str,
         allowed_edge_types: set[str] | None,
     ) -> list[dict[str, Any]]:
-        bucket = dict(index or {}).get(str(node_id), {})
-        rows: list[dict[str, Any]] = []
-        allow = {str(item).strip().lower() for item in set(allowed_edge_types or set()) if str(item).strip()}
-        for edge_type in sorted(bucket):
-            if allow and edge_type not in allow:
-                continue
-            rows.extend(dict(item) for item in list(bucket.get(edge_type) or []) if isinstance(item, dict))
-        return rows
+        return edges_from_index(index, node_id, allowed_edge_types)
 
     def outgoing_edges(self, *, node_id: str, allowed_edge_types: set[str] | None = None) -> list[dict[str, Any]]:
         payload = self.load()
@@ -1093,42 +479,17 @@ class CodeCompassGraphStore:
         max_nodes: int,
         allowed_edge_types: set[str] | None = None,
     ) -> dict[str, Any]:
-        payload = self.load()
-        by_id: dict[str, Any] = {
-            **dict((payload.get("semantic_index") or {}).get("by_id") or {}),
-            **dict((payload.get("node_index") or {}).get("by_id") or {}),
-        }
-        visited: set[str] = set()
-        queue: list[tuple[str, int, list[dict[str, Any]]]] = []
-        for seed in sorted({str(item).strip() for item in list(seed_ids or []) if str(item).strip()}):
-            if seed in by_id:
-                queue.append((seed, 0, []))
-        selected_nodes: list[dict[str, Any]] = []
-        selected_paths: list[dict[str, Any]] = []
-        while queue and len(selected_nodes) < max(1, int(max_nodes)):
-            node_id, depth, path = queue.pop(0)
-            if node_id in visited:
-                continue
-            visited.add(node_id)
-            node = dict(by_id.get(node_id) or {})
-            if not node:
-                continue
-            selected_nodes.append(node)
-            if path:
-                selected_paths.append({"node_id": node_id, "path": path})
-            if depth >= max(0, int(max_depth)):
-                continue
-            for edge in self.outgoing_edges(node_id=node_id, allowed_edge_types=allowed_edge_types):
-                target = str(edge.get("target_id") or "").strip()
-                if not target or target in visited:
-                    continue
-                queue.append((target, depth + 1, [*path, dict(edge)]))
-        return {
-            "nodes": selected_nodes,
-            "paths": selected_paths,
-            "cycle_guarded": True,
-            "bounded": True,
-        }
+        return traverse_breadth_first(
+            self.load(),
+            seed_ids=seed_ids,
+            max_depth=max_depth,
+            max_nodes=max_nodes,
+            allowed_edge_types=allowed_edge_types,
+            outgoing_edges=lambda node_id, edge_types: self.outgoing_edges(
+                node_id=node_id,
+                allowed_edge_types=edge_types,
+            ),
+        )
 
     def _neighbor_steps(
         self,
@@ -1137,23 +498,7 @@ class CodeCompassGraphStore:
         direction: str,
         allowed_edge_types: set[str] | None,
     ) -> list[dict[str, Any]]:
-        steps: list[dict[str, Any]] = []
-        if direction in {"outgoing", "both"}:
-            for edge in self._edges_from_index(payload.get("outgoing_index") or {}, node_id, allowed_edge_types):
-                other = str(edge.get("target_id") or "").strip()
-                if other:
-                    steps.append({**edge, "direction_used": "outgoing", "_other_id": other})
-        if direction in {"incoming", "both"}:
-            for edge in self._edges_from_index(payload.get("incoming_index") or {}, node_id, allowed_edge_types):
-                other = str(edge.get("source_id") or "").strip()
-                if other:
-                    steps.append({**edge, "direction_used": "incoming", "_other_id": other})
-        steps.sort(key=lambda item: (
-            str(item.get("edge_type") or ""),
-            str(item.get("_other_id") or ""),
-            str(item.get("direction_used") or ""),
-        ))
-        return steps
+        return neighbor_steps(payload, node_id, direction, allowed_edge_types)
 
     def traverse_paths(
         self,
@@ -1165,75 +510,12 @@ class CodeCompassGraphStore:
         direction: str = "outgoing",
         max_paths_per_node: int = 3,
     ) -> dict[str, Any]:
-        direction_name = str(direction or "outgoing").strip().lower()
-        if direction_name not in {"outgoing", "incoming", "both"}:
-            direction_name = "outgoing"
-        payload = self.load()
-        by_id = dict((payload.get("node_index") or {}).get("by_id") or {})
-        seeds = sorted({
-            str(item).strip()
-            for item in list(seed_ids or [])
-            if str(item).strip() and str(item).strip() in by_id
-        })
-        depth_cap = max(0, int(max_depth))
-        node_cap = max(1, int(max_nodes))
-        path_cap = max(1, int(max_paths_per_node))
-        expansion_cap = node_cap * max(4, path_cap * 2)
-
-        paths_by_node: dict[str, list[dict[str, Any]]] = {}
-        discovery_order: list[str] = []
-        cycle_count = 0
-        expansions = 0
-        truncated = False
-        queue: list[tuple[str, int, tuple[dict[str, Any], ...], frozenset[str]]] = [
-            (seed, 0, (), frozenset({seed})) for seed in seeds
-        ]
-        while queue:
-            node_id, depth, path, on_path = queue.pop(0)
-            if depth >= depth_cap:
-                continue
-            for step in self._neighbor_steps(payload, node_id, direction_name, allowed_edge_types):
-                other_id = str(step.pop("_other_id"))
-                if other_id in on_path:
-                    cycle_count += 1
-                    continue
-                if other_id not in by_id:
-                    continue
-                if expansions >= expansion_cap:
-                    truncated = True
-                    queue.clear()
-                    break
-                new_path = (*path, dict(step))
-                if other_id not in seeds:
-                    if other_id not in paths_by_node:
-                        if len(discovery_order) >= node_cap:
-                            truncated = True
-                            continue
-                        paths_by_node[other_id] = []
-                        discovery_order.append(other_id)
-                    bucket = paths_by_node[other_id]
-                    if len(bucket) < path_cap:
-                        bucket.append({"depth": depth + 1, "edges": [dict(edge) for edge in new_path]})
-                expansions += 1
-                queue.append((other_id, depth + 1, new_path, on_path | {other_id}))
-
-        result_paths = [
-            {
-                "node_id": node_id,
-                "depth": min(entry["depth"] for entry in paths_by_node[node_id]),
-                "evidence_paths": list(paths_by_node[node_id]),
-            }
-            for node_id in discovery_order
-            if paths_by_node.get(node_id)
-        ]
-        return {
-            "seed_ids": seeds,
-            "direction": direction_name,
-            "nodes": [dict(by_id[node_id]) for node_id in [*seeds, *discovery_order] if node_id in by_id],
-            "paths": result_paths,
-            "cycle_guarded": True,
-            "cycle_count": cycle_count,
-            "bounded": True,
-            "truncated": truncated,
-            "expansions": expansions,
-        }
+        return traverse_evidence_paths(
+            self.load(),
+            seed_ids=seed_ids,
+            max_depth=max_depth,
+            max_nodes=max_nodes,
+            allowed_edge_types=allowed_edge_types,
+            direction=direction,
+            max_paths_per_node=max_paths_per_node,
+        )
