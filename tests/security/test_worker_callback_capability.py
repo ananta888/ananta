@@ -10,6 +10,7 @@ from flask import Flask, jsonify
 
 from agent.auth import check_auth
 from agent.routes import organization_planning as planning_routes
+from agent.routes.organization_planning_dependencies import ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES
 from agent.services import repository_registry
 from agent.services.worker_result_callback_service import (
     WorkerResultCallbackError,
@@ -275,11 +276,10 @@ def test_proposal_ingress_has_no_generic_auth_fallback_and_requires_closed_carri
                 "scopes": ["worker.result.submit", "worker.task_proposal.submit"],
             }
 
-    monkeypatch.setattr(planning_routes, "WorkerResultCapabilityService", BoundCapabilityService)
-    monkeypatch.setattr(
-        planning_routes,
-        "ingest_callback_task_proposals",
-        lambda **_kwargs: [
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, worker_result_capabilities=BoundCapabilityService)
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(
+        app,
+        ingest_task_proposals=lambda **_kwargs: [
             {
                 "proposal_id": "proposal-callback",
                 "proposal_revision": 1,

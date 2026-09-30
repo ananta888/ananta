@@ -6,6 +6,7 @@ import pytest
 from flask import Flask
 
 from agent.routes import organization_planning as routes
+from agent.routes.organization_planning_dependencies import ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES
 from agent.routes import organization_planning_request_parsing as request_parsing
 from agent.services.organization_membership_service import OrganizationAccessPrincipal
 from agent.services.organization_planning_composition import (
@@ -126,12 +127,8 @@ def test_scoped_read_forwards_cursor_and_hides_foreign_ids(
             }
 
     composition = FakeComposition()
-    monkeypatch.setattr(routes, "get_organization_planning_composition", lambda: composition)
-    monkeypatch.setattr(
-        routes,
-        "_operator_principal",
-        lambda *_args, **_kwargs: _principal(),
-    )
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, composition=lambda: composition)
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, operator_principal=lambda *_args, **_kwargs: _principal())
 
     with app.test_request_context("/api/organizations/org-1/planning?cursor=opaque&page_size=7"):
         response = routes.get_organization_planning.__wrapped__("org-1")
@@ -162,12 +159,8 @@ def test_mutations_require_revision_header_and_exact_digest(
         def transition_artifact(self, **_kwargs: Any) -> tuple[dict[str, Any], int]:
             raise AssertionError("composition must not run without the precondition")
 
-    monkeypatch.setattr(routes, "get_organization_planning_composition", lambda: FakeComposition())
-    monkeypatch.setattr(
-        routes,
-        "_operator_principal",
-        lambda *_args, **_kwargs: _principal(),
-    )
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, composition=lambda: FakeComposition())
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, operator_principal=lambda *_args, **_kwargs: _principal())
 
     with app.test_request_context(
         "/api/organizations/org-1/planning/category-r1/promote",
@@ -212,11 +205,10 @@ def test_worker_ingress_rejects_normal_bearers_and_accepts_only_closed_carrier(
         "payload_digest": "sha256:" + "1" * 64,
         "proposals": [{"proposal_id": "proposal-1"}],
     }
-    monkeypatch.setattr(routes, "WorkerResultCapabilityService", FakeCapabilityService)
-    monkeypatch.setattr(
-        routes,
-        "ingest_callback_task_proposals",
-        lambda **kwargs: [
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, worker_result_capabilities=FakeCapabilityService)
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(
+        app,
+        ingest_task_proposals=lambda **kwargs: [
             {
                 "proposal_id": kwargs["callback_payload"]["task_proposals"]["proposals"][0]["proposal_id"],
                 "proposal_revision": 1,
@@ -290,8 +282,8 @@ def test_category_research_readiness_forwards_only_closed_server_selector(
             }
 
     composition = FakeComposition()
-    monkeypatch.setattr(routes, "get_organization_planning_composition", lambda: composition)
-    monkeypatch.setattr(routes, "_operator_principal", lambda *_args, **_kwargs: _principal())
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, composition=lambda: composition)
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, operator_principal=lambda *_args, **_kwargs: _principal())
     endpoint = (
         "/api/organizations/org-1/goals/goal-1/planning/category-research/readiness"
         "?unit_id=unit-1&team_id=team-1&role_slot_id=slot-1&catalog_task_id=catalog-task-1"
@@ -340,16 +332,8 @@ def test_dispatch_pump_forwards_only_scoped_limit(
                 "dispatches": [],
             }
 
-    monkeypatch.setattr(
-        routes,
-        "get_organization_planning_composition",
-        lambda: FakeComposition(),
-    )
-    monkeypatch.setattr(
-        routes,
-        "_operator_principal",
-        lambda *_args, **_kwargs: _principal(),
-    )
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, composition=lambda: FakeComposition())
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, operator_principal=lambda *_args, **_kwargs: _principal())
 
     with app.test_request_context(
         "/api/organizations/org-1/planning/dispatches/pump",
@@ -388,16 +372,8 @@ def test_track_planning_task_creation_forwards_exact_promoted_revision_scope(
                 "materialized_task_ids": [],
             }
 
-    monkeypatch.setattr(
-        routes,
-        "get_organization_planning_composition",
-        lambda: FakeComposition(),
-    )
-    monkeypatch.setattr(
-        routes,
-        "_operator_principal",
-        lambda *_args, **_kwargs: _principal(),
-    )
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, composition=lambda: FakeComposition())
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, operator_principal=lambda *_args, **_kwargs: _principal())
     with app.test_request_context(
         "/api/organizations/org-1/planning/category-r1/track-planning",
         method="POST",
@@ -473,12 +449,8 @@ def test_track_planning_result_requires_closed_digest_bound_carrier(
         "exclusions": {},
     }
     carrier["payload_digest"] = track_planning_result_digest(carrier)
-    monkeypatch.setattr(routes, "WorkerResultCapabilityService", FakeCapabilityService)
-    monkeypatch.setattr(
-        routes,
-        "get_organization_planning_composition",
-        lambda: FakeComposition(),
-    )
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, worker_result_capabilities=FakeCapabilityService)
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.install(app, composition=lambda: FakeComposition())
     client = app.test_client()
     endpoint = "/api/worker-results/tasks/task-1/assignments/assignment-1/planning/tracks"
     response = client.post(

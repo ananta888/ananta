@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, jsonify, request
 
 from agent.auth import check_auth
 from agent.routes.organization_planning_request_parsing import (
@@ -33,15 +33,13 @@ from agent.routes.organization_planning_responses import (
     worker_error,
     worker_ingress_status,
 )
-from agent.routes.organization_route_support import (
-    organization_boundary,
-    request_principal,
-    require_organization_scope,
+from agent.routes.organization_planning_dependencies import (
+    ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES,
+    OrganizationPlanningRouteDependencies,
 )
-from agent.services.organization_membership_service import OrganizationAccessPrincipal
+from agent.routes.organization_route_support import organization_boundary
 from agent.services.organization_planning_composition import (
     OrganizationPlanningCompositionError,
-    get_organization_planning_composition,
 )
 from agent.services.organization_track_planning_contract_service import (
     validate_track_planning_result_carrier,
@@ -49,13 +47,9 @@ from agent.services.organization_track_planning_contract_service import (
 from agent.services.project_access_authority import ProjectCapability
 from agent.services.worker_result_capability_service import (
     WorkerResultCapabilityError,
-    WorkerResultCapabilityService,
 )
 from agent.services.worker_task_proposal_ingress_service import (
     WorkerTaskProposalIngressError,
-)
-from agent.services.worker_task_proposal_result_adapter import (
-    ingest_callback_task_proposals,
 )
 
 organization_planning_bp = Blueprint("organization_planning", __name__)
@@ -76,8 +70,8 @@ def get_organization_planning(organization_id: str):
                 "organization_planning_page_size_invalid",
                 status_code=400,
             )
-        payload = get_organization_planning_composition().get_planning(
-            principal=_operator_principal(
+        payload = _dependencies().composition().get_planning(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.READ,
             ),
@@ -104,8 +98,8 @@ def create_organization_category_research(organization_id: str, goal_id: str):
             }
         )
         catalog_binding = source_catalog_binding(body.get("source_catalog_binding"))
-        payload = get_organization_planning_composition().create_category_research(
-            principal=_operator_principal(
+        payload = _dependencies().composition().create_category_research(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -132,8 +126,8 @@ def get_organization_category_research_readiness(organization_id: str, goal_id: 
 
     try:
         selector = closed_query_identifiers({"unit_id", "team_id", "role_slot_id", "catalog_task_id"})
-        payload = get_organization_planning_composition().get_category_research_readiness(
-            principal=_operator_principal(
+        payload = _dependencies().composition().get_category_research_readiness(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.READ,
             ),
@@ -181,8 +175,8 @@ def derive_organization_planning_tracks(
                 "planning_track_derivation_request_invalid",
                 status_code=400,
             )
-        payload = get_organization_planning_composition().derive_tracks(
-            principal=_operator_principal(
+        payload = _dependencies().composition().derive_tracks(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -222,8 +216,8 @@ def create_organization_track_planning_task(
             }
         )
         expected_revision, expected_digest = expected_precondition(body)
-        payload = get_organization_planning_composition().create_track_planning_task(
-            principal=_operator_principal(
+        payload = _dependencies().composition().create_track_planning_task(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -263,8 +257,8 @@ def preview_organization_reference_workflow(
     try:
         body = reference_workflow_body(include_exclusions=False)
         expected_revision, expected_digest = expected_precondition(body)
-        payload = get_organization_planning_composition().preview_reference_workflow(
-            principal=_operator_principal(
+        payload = _dependencies().composition().preview_reference_workflow(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.READ,
             ),
@@ -301,8 +295,8 @@ def derive_organization_reference_workflow(
     try:
         body = reference_workflow_body(include_exclusions=True)
         expected_revision, expected_digest = expected_precondition(body)
-        payload = get_organization_planning_composition().derive_reference_workflow(
-            principal=_operator_principal(
+        payload = _dependencies().composition().derive_reference_workflow(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -345,8 +339,8 @@ def materialize_organization_planning_track(
             }
         )
         expected_revision, expected_digest = expected_precondition(body)
-        payload, status_code = get_organization_planning_composition().materialize_track(
-            principal=_operator_principal(
+        payload, status_code = _dependencies().composition().materialize_track(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -375,8 +369,8 @@ def dispatch_next_organization_planning_task(
 ):
     try:
         body = closed_json_body({"requested_worker_id", "pump"})
-        payload, status_code = get_organization_planning_composition().dispatch_next(
-            principal=_operator_principal(
+        payload, status_code = _dependencies().composition().dispatch_next(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -401,8 +395,8 @@ def retry_organization_planning_dispatch(
 ):
     try:
         body = closed_json_body({"pump"})
-        payload, status_code = get_organization_planning_composition().retry_dispatch(
-            principal=_operator_principal(
+        payload, status_code = _dependencies().composition().retry_dispatch(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -429,8 +423,8 @@ def pump_organization_planning_dispatches(organization_id: str):
                 "organization_planning_dispatch_limit_invalid",
                 status_code=400,
             )
-        payload = get_organization_planning_composition().pump_dispatches(
-            principal=_operator_principal(
+        payload = _dependencies().composition().pump_dispatches(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -519,12 +513,12 @@ def ingest_assignment_bound_worker_proposals(source_task_id: str, assignment_id:
     ):
         return worker_error("worker_task_proposals_carrier_invalid", 422)
     try:
-        claims = WorkerResultCapabilityService().verify(
+        claims = _dependencies().worker_result_capabilities().verify(
             token,
             source_task_id=source_task_id,
             assignment_id=assignment_id,
         )
-        results = ingest_callback_task_proposals(
+        results = _dependencies().ingest_task_proposals(
             source_task_id=source_task_id,
             callback_payload={"task_proposals": carrier},
             capability_claims=claims,
@@ -594,12 +588,12 @@ def ingest_assignment_bound_category_research(
     if "sha256:" + hashlib.sha256(raw_output.encode("utf-8")).hexdigest() != digest:
         return worker_error("category_research_result_digest_mismatch", 422)
     try:
-        claims = WorkerResultCapabilityService().verify(
+        claims = _dependencies().worker_result_capabilities().verify(
             token,
             source_task_id=source_task_id,
             assignment_id=assignment_id,
         )
-        payload = get_organization_planning_composition().accept_category_research_result(
+        payload = _dependencies().composition().accept_category_research_result(
             source_task_id=source_task_id,
             assignment_id=assignment_id,
             capability_claims=claims,
@@ -640,12 +634,12 @@ def ingest_assignment_bound_track_planning(
         return worker_error("track_planning_result_carrier_invalid", 400)
     try:
         carrier = validate_track_planning_result_carrier(raw_carrier)
-        claims = WorkerResultCapabilityService().verify(
+        claims = _dependencies().worker_result_capabilities().verify(
             token,
             source_task_id=source_task_id,
             assignment_id=assignment_id,
         )
-        payload = get_organization_planning_composition().accept_track_planning_result(
+        payload = _dependencies().composition().accept_track_planning_result(
             source_task_id=source_task_id,
             assignment_id=assignment_id,
             capability_claims=claims,
@@ -681,7 +675,7 @@ def _transition_artifact(
             }
         )
         expected_revision, expected_digest = expected_precondition(body)
-        principal = _operator_principal(
+        principal = _dependencies().operator_principal(
             organization_id,
             ProjectCapability.MANAGE,
         )
@@ -694,7 +688,7 @@ def _transition_artifact(
             expected_revision=expected_revision,
             expected_digest=expected_digest,
         )
-        payload, status_code = get_organization_planning_composition().transition_artifact(
+        payload, status_code = _dependencies().composition().transition_artifact(
             principal=principal,
             organization_id=organization_id,
             artifact_revision_id=artifact_revision_id,
@@ -713,8 +707,8 @@ def _decide_proposal(*, organization_id: str, proposal_id: str, operation: str):
     try:
         body = closed_json_body({"expected_revision", "expected_digest"})
         expected_revision, expected_digest = expected_precondition(body)
-        payload = get_organization_planning_composition().decide_proposal(
-            principal=_operator_principal(
+        payload = _dependencies().composition().decide_proposal(
+            principal=_dependencies().operator_principal(
                 organization_id,
                 ProjectCapability.MANAGE,
             ),
@@ -729,20 +723,8 @@ def _decide_proposal(*, organization_id: str, proposal_id: str, operation: str):
     return jsonify(payload)
 
 
-def _operator_principal(
-    organization_id: str,
-    capability: ProjectCapability,
-) -> OrganizationAccessPrincipal:
-    route_principal = request_principal()
-    scope = require_organization_scope(organization_id, capability)
-    identity = (getattr(g, "user", {}) or {}) or (getattr(g, "auth_payload", {}) or {})
-    credential_type = str(identity.get("credential_type") or "user")
-    return OrganizationAccessPrincipal(
-        principal_id=route_principal.subject_id,
-        tenant_id=scope.tenant_id,
-        credential_type=credential_type,
-        project_id=scope.project_id,
-    )
+def _dependencies() -> OrganizationPlanningRouteDependencies:
+    return ORGANIZATION_PLANNING_ROUTE_DEPENDENCIES.resolve()
 
 
 __all__ = ["organization_planning_bp"]
