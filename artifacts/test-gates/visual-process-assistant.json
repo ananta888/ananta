@@ -10,7 +10,7 @@
   "reason_codes": [],
   "release_allowed": true,
   "schema": "ananta.visual-process-assistant-functional-gate.v1",
-  "source_revision": "worktree-sha256:5bcf8b4a30989f421b7b2348633afead395eb49475e01c4a3aff07ec722e2522",
+  "source_revision": "worktree-sha256:f8c0e82bf8107b74dd5c25e1fddab5c3fa729730537bc4cabd6fe95676a33cd8",
   "status": "passed",
   "suites": [
     {
@@ -118,12 +118,14 @@
       "authority_scope": "isolated_hub_preauthorized_test_policy",
       "evidence_mode": "positive_source_authority",
       "evidence_paths": [
+        "scripts/codecompass_e2e_gate_transport.py",
         "scripts/generate_codecompass_e2e_gate.py",
         "scripts/visual_process_test_authority.py",
         "tests/test_codecompass_e2e_acceptance_gate.py"
       ],
       "implementation_paths": [
         "scripts/generate_codecompass_e2e_gate.py",
+        "scripts/codecompass_e2e_gate_transport.py",
         "scripts/visual_process_test_authority.py",
         "tests/test_codecompass_e2e_acceptance_gate.py"
       ],

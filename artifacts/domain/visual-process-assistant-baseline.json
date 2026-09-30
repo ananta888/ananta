@@ -1950,8 +1950,8 @@
     {
       "evidence": [
         {
-          "line_end": 1049,
-          "line_start": 1049,
+          "line_end": 93,
+          "line_start": 93,
           "path": "agent/visual_process/step_adapters.py",
           "symbol": "RerankAdapter.execute",
           "verification_status": "verified"
@@ -1984,8 +1984,8 @@
     {
       "evidence": [
         {
-          "line_end": 1068,
-          "line_start": 1068,
+          "line_end": 112,
+          "line_start": 112,
           "path": "agent/visual_process/step_adapters.py",
           "symbol": "EmbedApiAdapter",
           "verification_status": "verified"

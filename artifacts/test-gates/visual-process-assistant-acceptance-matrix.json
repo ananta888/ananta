@@ -1,12 +1,12 @@
 {
   "gate_source_revisions": {
-    "functional": "worktree-sha256:5bcf8b4a30989f421b7b2348633afead395eb49475e01c4a3aff07ec722e2522",
-    "performance": "worktree-sha256:575830317a4b22bc5f3940443d46fdc9b0a1aadc17be6d0b87115671fdcb0dc3"
+    "functional": "worktree-sha256:f8c0e82bf8107b74dd5c25e1fddab5c3fa729730537bc4cabd6fe95676a33cd8",
+    "performance": "worktree-sha256:ddfb5f56e1a769f7bed52f1392dd888aaf02c69a20f8655eeb43dcdc5ed2a1a9"
   },
   "reason_codes": [],
   "release_allowed": true,
   "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
-  "source_revision": "worktree-sha256:e47e20b0ae0b8bbb174fa316558a327e2775db5fb96107754c046394ee951392",
+  "source_revision": "worktree-sha256:6bdb666a431896ab31d6fb41014e244a30179d2e2ca7aa161bcbcf331c5be002",
   "status": "passed",
   "tasks": [
     {
@@ -27,6 +27,7 @@
         {
           "criterion_id": "VPA-QA-001-AC2",
           "evidence_paths": [
+            "scripts/codecompass_e2e_gate_transport.py",
             "scripts/generate_codecompass_e2e_gate.py",
             "scripts/visual_process_test_authority.py",
             "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",

@@ -41,7 +41,11 @@
     },
     {
       "path": "agent/services/caseflow_agent_collaboration_trace_projection_service.py",
-      "sha256": "96d9536729d1531351ca83d164e5ee7a0b4066cb18f7badf51f3e9b068047dd2"
+      "sha256": "950bdf12263ef451403de5ecb58a23700bf03e85402d8be4a896572bd5a467ea"
+    },
+    {
+      "path": "agent/services/caseflow_agent_collaboration_trace_values.py",
+      "sha256": "d08445aa8d3f674d62ff2735148fbb59f2fd4ae6e1f593a02e29a0cc4e1e2e4c"
     },
     {
       "path": "agent/services/local_workflow_backend.py",
@@ -137,7 +141,15 @@
     },
     {
       "path": "agent/services/workflow_control_dispatch_persistence.py",
-      "sha256": "6b7cba6167350f405a3c3dc2732d24403d69a45ae74e98b65afac2c5aa9a5fac"
+      "sha256": "bba21bcacfd18afe3ef2b77b6168477bb3ce951bfe10a4498845fee634e4841d"
+    },
+    {
+      "path": "agent/services/workflow_control_dispatch_persistence_memory.py",
+      "sha256": "e8f600357c237b04953ee2ec46466c345c59c2b5b5628993e64528f9f2963d77"
+    },
+    {
+      "path": "agent/services/workflow_control_dispatch_persistence_rules.py",
+      "sha256": "137b7e5e2ee553b4d6f6d0c8041fc8dce8a5593947943881612b968920edda6c"
     },
     {
       "path": "agent/services/workflow_control_dispatch_service.py",
@@ -205,7 +217,23 @@
     },
     {
       "path": "agent/db_models/workflow_runtime.py",
-      "sha256": "ea7b56cf2023b5664ee1429ce33bbdc66fd81b56135ba0f7017c7c4abe4074ff"
+      "sha256": "ea9265fe4f850376635cc2c1008bbd159ddf7a7c6ff4d475efa1913ad4e560c9"
+    },
+    {
+      "path": "agent/db_models/workflow_runtime_control.py",
+      "sha256": "983dc39b2cf451602ad2810b2fc476adcc91ec0c75f94c1e53d97ab581a54128"
+    },
+    {
+      "path": "agent/db_models/workflow_runtime_execution.py",
+      "sha256": "c9b6a6f8c42e1222b3a8b42e821a973874b17fa0ce522da62364932465a518d2"
+    },
+    {
+      "path": "agent/db_models/workflow_runtime_state.py",
+      "sha256": "06573da5691b0435c958b875ae19af3556dd89254a482752c1a27ea9e079ea1a"
+    },
+    {
+      "path": "agent/db_models/workflow_runtime_transition_reservations.py",
+      "sha256": "08f52e9a818d9e3b174f142ea451507cc517fd7e36b99330948b2398f4f19d37"
     },
     {
       "path": "agent/db_models/__init__.py",
@@ -357,7 +385,7 @@
     },
     {
       "path": "scripts/run_caseflow_agent_collaboration_gate.py",
-      "sha256": "d583554d37d3246ce8f0ed3f39d8b833271e1677d66f55e6dacdeb8b91e8b8a4"
+      "sha256": "b592da4b5bc220d7214adf0eb600eaf02aabb88d069cec4531fb6fd6b3f73a67"
     },
     {
       "path": "tests/services/test_caseflow_agent_collaboration_trace_projection_service.py",
@@ -524,7 +552,7 @@
       "sha256": "52eeac1e9d382f31784056e63f85f08401e7d380c372490f3608940f18dc6baf"
     }
   ],
-  "source_manifest_sha256": "4fd8cb8b7c7629ba2fc8b73ef5188c671be704dd0dfe8206ee3fe723a3c40c56",
+  "source_manifest_sha256": "434e00a759483dceeb4862f6037232b1c981bb0654fbd7d351f139d535e8db57",
   "status": "passed",
   "test_outputs": [
     {
