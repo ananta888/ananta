@@ -16,26 +16,18 @@ from agent.routes.tasks.orchestration_policy import (
     evaluate_worker_routing_policy,
     persist_policy_decision,
 )
-from agent.services.approval_policy_service import get_approval_policy_service
 from agent.services.commit_followup_service import maybe_create_git_commit_followup
 from agent.services.context_bundle_ingress_policy import (
     find_reserved_context_bundle_marker,
     preserve_hub_context_bundle_fields,
     reserved_context_bundle_ingress_error,
 )
-from agent.services.execution_audit_service import get_execution_audit_service
-from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.instruction_layer_service import get_instruction_layer_service
 from agent.services.knowledge_index_task_ingress_policy import (
     bound_knowledge_index_mutation_error,
     find_reserved_knowledge_index_marker,
     has_bound_knowledge_index_job,
     reserved_knowledge_index_ingress_error,
-)
-from agent.services.mutation_gate_service import get_mutation_gate_service
-from agent.services.recovery_task_mutation_policy import (
-    RecoveryTaskMutationConflict,
-    ensure_external_recovery_mutation_allowed,
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.services.retrieval_vector_scope_ingress_policy import (
@@ -47,6 +39,13 @@ from agent.services.sira_index_task_ingress_policy import (
     bound_sira_index_mutation_error,
     find_reserved_sira_index_marker,
     reserved_sira_index_ingress_error,
+)
+from agent.services.task_management_mutation_guards import (
+    apply_instruction_selection_to_payload,
+    critical_state_mutation,
+    enforce_task_state_mutation_gate,
+    recovery_mutation_conflict,
+    vector_admin_error,
 )
 from agent.services.task_dependency_policy import (
     followup_exists,
@@ -62,11 +61,7 @@ from agent.services.vector_index_task_ingress_policy import (
 )
 from agent.services.vector_store_authorization_policy import (
     VectorAdminAuthorizationContext,
-    get_vector_store_authorization_policy,
     has_reserved_vector_index_marker,
-)
-from agent.services.vector_task_admin_guard_service import (
-    require_authoritative_vector_task,
 )
 
 
@@ -77,60 +72,9 @@ class TaskManagementService:
         user = getattr(g, "user", {}) or {}
         return str(user.get("sub") or user.get("username") or "system")
 
-    @staticmethod
-    def _vector_admin_error(
-        task: Any,
-        *,
-        authorization: (VectorAdminAuthorizationContext | None),
-    ) -> dict[str, Any] | None:
-        if not has_reserved_vector_index_marker(task):
-            return None
-        try:
-            get_vector_store_authorization_policy().require_task_admin(
-                authorization,
-                task,
-            )
-        except PermissionError as exc:
-            reason = str(exc)
-            return {
-                "error": reason,
-                "code": 403,
-                "data": {"reason_code": reason},
-            }
-
-        try:
-            require_authoritative_vector_task(task)
-        except ValueError as exc:
-            reason = str(exc)
-            return {
-                "error": reason,
-                "code": 409,
-                "data": {"reason_code": reason},
-            }
-        return None
-
-    @staticmethod
-    def _recovery_mutation_conflict(
-        task: Any,
-        *,
-        action: str,
-    ) -> dict[str, Any] | None:
-        try:
-            ensure_external_recovery_mutation_allowed(
-                task,
-                action=action,
-            )
-        except RecoveryTaskMutationConflict as exc:
-            return {
-                "error": exc.reason_code,
-                "code": 409,
-                "data": exc.as_data(),
-            }
-        return None
-
-    @staticmethod
-    def _critical_state_mutation(status: str | None) -> bool:
-        return str(status or "").strip().lower() in {"completed", "failed", "blocked", "cancelled"}
+    _vector_admin_error = staticmethod(vector_admin_error)
+    _recovery_mutation_conflict = staticmethod(recovery_mutation_conflict)
+    _critical_state_mutation = staticmethod(critical_state_mutation)
 
     def _enforce_task_state_mutation_gate(
         self,
@@ -139,60 +83,12 @@ class TaskManagementService:
         requested_status: str | None,
         task: dict | None,
     ) -> tuple[bool, str | None]:
-        if not self._critical_state_mutation(requested_status):
-            return True, None
-        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-        tool_calls = [
-            {
-                "name": "task_state_update",
-                "args": {"task_id": task_id, "to_status": str(requested_status or "").strip().lower()},
-            }
-        ]
-        approval = get_approval_policy_service().evaluate(
-            command=None,
-            tool_calls=tool_calls,
-            task=dict(task or {}),
-            agent_cfg=cfg,
-        )
-        risk = evaluate_execution_risk(
-            command=None,
-            tool_calls=tool_calls,
-            task=dict(task or {}),
-            agent_cfg=cfg,
-        )
-        decision = (
-            get_mutation_gate_service()
-            .evaluate(
-                command=None,
-                tool_calls=tool_calls,
-                task=dict(task or {}),
-                agent_cfg=cfg,
-                approval_decision=approval,
-                risk_decision=risk,
-                trace_id=str((task or {}).get("goal_trace_id") or "").strip() or None,
-                actor=self.actor_username(),
-            )
-            .as_dict()
-        )
-        get_execution_audit_service().emit(
-            operation_type="mutation_gate_decision",
-            outcome=str(decision.get("classification") or "unknown"),
-            trace_id=str((task or {}).get("goal_trace_id") or "").strip() or None,
-            goal_id=(task or {}).get("goal_id"),
+        return enforce_task_state_mutation_gate(
             task_id=task_id,
-            actor_role="hub",
-            details={
-                "reason_code": decision.get("reason_code"),
-                "mutation_class": decision.get("mutation_class"),
-                "normalized_target": decision.get("normalized_target"),
-                "approval_scope": decision.get("approval_scope"),
-                "source": "task_management_service",
-                "requested_status": str(requested_status or "").strip().lower(),
-            },
+            requested_status=requested_status,
+            task=task,
+            actor=self.actor_username,
         )
-        if decision.get("classification") in {"blocked", "confirm_required"}:
-            return False, str(decision.get("reason_code") or "mutation_gate_blocked")
-        return True, None
 
     def _apply_instruction_selection_to_payload(
         self,
@@ -200,29 +96,7 @@ class TaskManagementService:
         *,
         default_owner: str | None = None,
     ) -> None:
-        owner_username = (
-            str(
-                payload.pop(
-                    "instruction_owner_username",
-                    "",
-                )
-                or ""
-            ).strip()
-            or default_owner
-        )
-        profile_id = str(payload.pop("instruction_profile_id", "") or "").strip() or None
-        overlay_id = str(payload.pop("instruction_overlay_id", "") or "").strip() or None
-        if not owner_username and not profile_id and not overlay_id:
-            return
-        worker_execution_context = dict(payload.get("worker_execution_context") or {})
-        instruction_context = dict(worker_execution_context.get("instruction_context") or {})
-        if owner_username:
-            instruction_context["owner_username"] = owner_username
-        instruction_context["profile_id"] = profile_id
-        instruction_context["overlay_id"] = overlay_id
-        instruction_context["updated_at"] = time.time()
-        worker_execution_context["instruction_context"] = instruction_context
-        payload["worker_execution_context"] = worker_execution_context
+        apply_instruction_selection_to_payload(payload, default_owner=default_owner)
 
     def _validate_instruction_selection(self, payload: dict[str, Any]) -> tuple[str | None, int]:
         worker_execution_context = dict(payload.get("worker_execution_context") or {})
