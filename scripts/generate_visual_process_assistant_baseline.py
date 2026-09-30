@@ -39,6 +39,9 @@ ADAPTER_PATH = "agent/visual_process/step_adapters.py"
 ADAPTER_SOURCE_PATHS = (
     ADAPTER_PATH,
     "agent/visual_process/query_rewrite_step_adapter.py",
+    "agent/visual_process/step_adapters_ml_intern_dataset.py",
+    "agent/visual_process/step_adapters_ml_intern_support.py",
+    "agent/visual_process/step_adapters_ml_intern_training.py",
 )
 EXECUTOR_PATH = "agent/visual_process/step_executor.py"
 NODE_DEFINITION_PATH = "agent/visual_process/node_definitions.py"
