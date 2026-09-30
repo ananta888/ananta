@@ -132,9 +132,8 @@ def _utc_timestamp(value: Any) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
-    document = read_bounded_json(path)
-    expected = {
+_PROFILE_FIELDS = frozenset(
+    {
         "schema",
         "gate_id",
         "profile_id",
@@ -151,7 +150,25 @@ def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
         "thresholds",
         "environment",
     }
-    if set(document) != expected or document.get("schema") != PROFILE_SCHEMA:
+)
+_EXECUTION_FIELDS = frozenset(
+    {
+        "warmup_seconds",
+        "measurement_seconds",
+        "repetitions",
+        "timeout_seconds",
+        "cleanup_timeout_seconds",
+        "artifact_bytes_max",
+    }
+)
+_ENVIRONMENT_FIELDS = frozenset(
+    {"source_paths", "infrastructure_paths", "browser_lock_path", "images", "required_digest_names"}
+)
+_REQUIREMENT_LISTS = ("required_capabilities", "required_scenarios", "required_metrics", "required_assertions")
+
+
+def _validate_profile_header(document: Mapping[str, Any]) -> None:
+    if set(document) != _PROFILE_FIELDS or document.get("schema") != PROFILE_SCHEMA:
         raise SfuBroadcastGateError("advanced_gate_profile_shape_invalid")
     if document.get("gate_id") not in SUPPORTED_GATES:
         raise SfuBroadcastGateError("advanced_gate_profile_gate_invalid")
@@ -166,18 +183,12 @@ def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
     if type(seed) is not int or not 1 <= seed <= 2_147_483_647:
         raise SfuBroadcastGateError("advanced_gate_profile_seed_invalid")
 
+
+def _validate_execution(document: Mapping[str, Any]) -> Mapping[str, Any]:
     execution = document.get("execution")
-    execution_fields = {
-        "warmup_seconds",
-        "measurement_seconds",
-        "repetitions",
-        "timeout_seconds",
-        "cleanup_timeout_seconds",
-        "artifact_bytes_max",
-    }
-    if not isinstance(execution, Mapping) or set(execution) != execution_fields:
+    if not isinstance(execution, Mapping) or set(execution) != _EXECUTION_FIELDS:
         raise SfuBroadcastGateError("advanced_gate_execution_invalid")
-    if any(type(execution.get(field)) is not int or int(execution[field]) < 1 for field in execution_fields):
+    if any(type(execution.get(field)) is not int or int(execution[field]) < 1 for field in _EXECUTION_FIELDS):
         raise SfuBroadcastGateError("advanced_gate_execution_invalid")
     minimum_timeout = (
         int(execution["warmup_seconds"])
@@ -190,10 +201,13 @@ def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
         or int(execution["artifact_bytes_max"]) > 64 * 1024 * 1024
     ):
         raise SfuBroadcastGateError("advanced_gate_execution_bounds_invalid")
+    return execution
 
+
+def _validate_requirements(document: Mapping[str, Any]) -> None:
     if not isinstance(document.get("topology"), Mapping) or not document["topology"]:
         raise SfuBroadcastGateError("advanced_gate_topology_invalid")
-    for field in ("required_capabilities", "required_scenarios", "required_metrics", "required_assertions"):
+    for field in _REQUIREMENT_LISTS:
         if not _unique_strings(document.get(field)):
             raise SfuBroadcastGateError("advanced_gate_requirements_invalid")
     cleanup = document.get("cleanup_requirements")
@@ -203,6 +217,8 @@ def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
     ):
         raise SfuBroadcastGateError("advanced_gate_cleanup_invalid")
 
+
+def _validate_thresholds(document: Mapping[str, Any]) -> None:
     thresholds = document.get("thresholds")
     if not isinstance(thresholds, list) or not thresholds:
         raise SfuBroadcastGateError("advanced_gate_thresholds_invalid")
@@ -221,14 +237,10 @@ def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
             raise SfuBroadcastGateError("advanced_gate_thresholds_invalid")
         threshold_metrics.add(metric)
 
+
+def _validate_environment(document: Mapping[str, Any]) -> None:
     environment = document.get("environment")
-    if not isinstance(environment, Mapping) or set(environment) != {
-        "source_paths",
-        "infrastructure_paths",
-        "browser_lock_path",
-        "images",
-        "required_digest_names",
-    }:
+    if not isinstance(environment, Mapping) or set(environment) != _ENVIRONMENT_FIELDS:
         raise SfuBroadcastGateError("advanced_gate_environment_invalid")
     if not _relative_paths(environment.get("source_paths")) or not _relative_paths(
         environment.get("infrastructure_paths")
@@ -245,31 +257,60 @@ def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
     if set(environment.get("required_digest_names") or []) != SHA256_NAMES:
         raise SfuBroadcastGateError("advanced_gate_digest_requirements_invalid")
 
-    topology = document["topology"]
-    if document["gate_id"] == "SFB-GATE-005":
-        if (
-            int(execution["measurement_seconds"]) < 7200
-            or int(topology.get("rooms_min", 0)) < 3
-            or int(topology.get("receivers_per_room_min", 0)) < 10
-        ):
-            raise SfuBroadcastGateError("soak_profile_minimums_invalid")
-    elif document["gate_id"] == "SFB-GATE-006":
-        if any(int(topology.get(field, 0)) < 2 for field in ("hub_count", "sfu_runtime_count", "room_count")):
-            raise SfuBroadcastGateError("fleet_profile_minimums_invalid")
-    elif document["gate_id"] == "SFB-GATE-007":
-        if int(topology.get("turn_instance_count", 0)) < 2 or topology.get("relay_policy") != "turn_only":
-            raise SfuBroadcastGateError("turn_profile_minimums_invalid")
-    elif document["gate_id"] == "SFB-GATE-008":
-        if topology.get("receiver_tiers") != [10, 25, 50, 100, 250]:
-            raise SfuBroadcastGateError("scale_profile_tiers_invalid")
-        if int(topology.get("real_browser_sentinels_min", 0)) < 3:
-            raise SfuBroadcastGateError("scale_profile_browser_sentinels_invalid")
-        if not _unique_strings(topology.get("required_modes")):
-            raise SfuBroadcastGateError("scale_profile_modes_invalid")
-    elif document["gate_id"] == "SFB-GATE-010":
-        if topology.get("rollout_stages") != ["flag_off", "internal", "cohort", "percent", "released"]:
-            raise SfuBroadcastGateError("rollout_profile_stages_invalid")
 
+def _validate_soak_topology(topology: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
+    if (
+        int(execution["measurement_seconds"]) < 7200
+        or int(topology.get("rooms_min", 0)) < 3
+        or int(topology.get("receivers_per_room_min", 0)) < 10
+    ):
+        raise SfuBroadcastGateError("soak_profile_minimums_invalid")
+
+
+def _validate_fleet_topology(topology: Mapping[str, Any], _execution: Mapping[str, Any]) -> None:
+    if any(int(topology.get(field, 0)) < 2 for field in ("hub_count", "sfu_runtime_count", "room_count")):
+        raise SfuBroadcastGateError("fleet_profile_minimums_invalid")
+
+
+def _validate_turn_topology(topology: Mapping[str, Any], _execution: Mapping[str, Any]) -> None:
+    if int(topology.get("turn_instance_count", 0)) < 2 or topology.get("relay_policy") != "turn_only":
+        raise SfuBroadcastGateError("turn_profile_minimums_invalid")
+
+
+def _validate_scale_topology(topology: Mapping[str, Any], _execution: Mapping[str, Any]) -> None:
+    if topology.get("receiver_tiers") != [10, 25, 50, 100, 250]:
+        raise SfuBroadcastGateError("scale_profile_tiers_invalid")
+    if int(topology.get("real_browser_sentinels_min", 0)) < 3:
+        raise SfuBroadcastGateError("scale_profile_browser_sentinels_invalid")
+    if not _unique_strings(topology.get("required_modes")):
+        raise SfuBroadcastGateError("scale_profile_modes_invalid")
+
+
+def _validate_rollout_topology(topology: Mapping[str, Any], _execution: Mapping[str, Any]) -> None:
+    if topology.get("rollout_stages") != ["flag_off", "internal", "cohort", "percent", "released"]:
+        raise SfuBroadcastGateError("rollout_profile_stages_invalid")
+
+
+# Gate-specific topology minimums (OCP: a new gate adds one entry).
+_GATE_TOPOLOGY_VALIDATORS = {
+    "SFB-GATE-005": _validate_soak_topology,
+    "SFB-GATE-006": _validate_fleet_topology,
+    "SFB-GATE-007": _validate_turn_topology,
+    "SFB-GATE-008": _validate_scale_topology,
+    "SFB-GATE-010": _validate_rollout_topology,
+}
+
+
+def load_advanced_gate_profile(path: Path) -> AdvancedGateProfile:
+    document = read_bounded_json(path)
+    _validate_profile_header(document)
+    execution = _validate_execution(document)
+    _validate_requirements(document)
+    _validate_thresholds(document)
+    _validate_environment(document)
+    topology_validator = _GATE_TOPOLOGY_VALIDATORS.get(document["gate_id"])
+    if topology_validator is not None:
+        topology_validator(document["topology"], execution)
     if scan_content_free_document(document):
         raise SfuBroadcastGateError("advanced_gate_profile_content_boundary_invalid")
     return AdvancedGateProfile(document=document)
