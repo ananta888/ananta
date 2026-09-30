@@ -128,6 +128,43 @@ def test_provision_goal():
     return api_response(data=_goal_service().serialize_goal(goal))
 
 
+def _instruction_layer_error(record: Any, *, kind: str, owner_username: str, metadata_attribute: str):
+    """Reject a missing, foreign or policy-conflicting instruction profile/overlay; ``None`` when valid."""
+    if record is None:
+        return api_response(status="error", message=f"instruction_{kind}_not_found", code=404)
+    if str(record.owner_username or "").strip() != owner_username:
+        return api_response(status="error", message=f"instruction_{kind}_owner_mismatch", code=409)
+    validation = get_instruction_layer_service().validate_user_layer_payload(
+        prompt_content=str(record.prompt_content or ""),
+        metadata=dict(getattr(record, metadata_attribute) or {}),
+    )
+    if validation.get("ok"):
+        return None
+    return api_response(
+        status="error",
+        message="instruction_policy_conflict",
+        data={"source": kind, **validation},
+        code=409,
+    )
+
+
+def _goal_config_error(config_overrides: Any, config_profile: str | None):
+    """Reject non-dict or unknown goal config overrides and unknown config profiles."""
+    if not isinstance(config_overrides, dict):
+        return api_response(status="error", message="invalid_config_overrides", code=400)
+    unknown_override_keys = sorted(k for k in config_overrides if k not in ALLOWED_GOAL_CONFIG_KEYS)
+    if unknown_override_keys:
+        return api_response(
+            status="error",
+            message="invalid_goal_config_key",
+            data={"unknown_keys": unknown_override_keys},
+            code=400,
+        )
+    if config_profile and get_config_profile_service().get_profile(config_profile) is None:
+        return api_response(status="error", message="unknown_config_profile", code=400)
+    return None
+
+
 @goals_bp.route("/goals", methods=["POST"])
 @check_auth
 @validate_request(GoalCreateRequest)
@@ -190,57 +227,32 @@ def create_goal():
     if not _is_admin_request() and owner_username != _current_username():
         return api_response(status="error", message="forbidden_instruction_owner_scope", code=403)
     if profile_id:
-        profile = _repos().user_instruction_profile_repo.get_by_id(profile_id)
-        if profile is None:
-            return api_response(status="error", message="instruction_profile_not_found", code=404)
-        if str(profile.owner_username or "").strip() != owner_username:
-            return api_response(status="error", message="instruction_profile_owner_mismatch", code=409)
-        profile_validation = get_instruction_layer_service().validate_user_layer_payload(
-            prompt_content=str(profile.prompt_content or ""),
-            metadata=dict(profile.profile_metadata or {}),
+        layer_error = _instruction_layer_error(
+            _repos().user_instruction_profile_repo.get_by_id(profile_id),
+            kind="profile",
+            owner_username=owner_username,
+            metadata_attribute="profile_metadata",
         )
-        if not profile_validation.get("ok"):
-            return api_response(
-                status="error",
-                message="instruction_policy_conflict",
-                data={"source": "profile", **profile_validation},
-                code=409,
-            )
+        if layer_error is not None:
+            return layer_error
     if overlay_id:
-        overlay = _repos().instruction_overlay_repo.get_by_id(overlay_id)
-        if overlay is None:
-            return api_response(status="error", message="instruction_overlay_not_found", code=404)
-        if str(overlay.owner_username or "").strip() != owner_username:
-            return api_response(status="error", message="instruction_overlay_owner_mismatch", code=409)
-        overlay_validation = get_instruction_layer_service().validate_user_layer_payload(
-            prompt_content=str(overlay.prompt_content or ""),
-            metadata=dict(overlay.overlay_metadata or {}),
+        layer_error = _instruction_layer_error(
+            _repos().instruction_overlay_repo.get_by_id(overlay_id),
+            kind="overlay",
+            owner_username=owner_username,
+            metadata_attribute="overlay_metadata",
         )
-        if not overlay_validation.get("ok"):
-            return api_response(
-                status="error",
-                message="instruction_policy_conflict",
-                data={"source": "overlay", **overlay_validation},
-                code=409,
-            )
+        if layer_error is not None:
+            return layer_error
 
     execution_preferences = dict(payload.execution_preferences or {})
     config_profile = str(execution_preferences.get("config_profile") or "").strip() or None
     config_overrides = execution_preferences.get("config_overrides")
     if config_overrides is None:
         config_overrides = {}
-    if not isinstance(config_overrides, dict):
-        return api_response(status="error", message="invalid_config_overrides", code=400)
-    unknown_override_keys = sorted(k for k in config_overrides if k not in ALLOWED_GOAL_CONFIG_KEYS)
-    if unknown_override_keys:
-        return api_response(
-            status="error",
-            message="invalid_goal_config_key",
-            data={"unknown_keys": unknown_override_keys},
-            code=400,
-        )
-    if config_profile and get_config_profile_service().get_profile(config_profile) is None:
-        return api_response(status="error", message="unknown_config_profile", code=400)
+    config_error = _goal_config_error(config_overrides, config_profile)
+    if config_error is not None:
+        return config_error
 
     agent_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
     goal_scoped_config_enabled = bool(agent_cfg.get("goal_scoped_config_enabled", True))
