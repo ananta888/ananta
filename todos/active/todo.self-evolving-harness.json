@@ -2,14 +2,14 @@
   "$schema": "../todo.track.schema.json",
   "id": "todo.self-evolving-harness",
   "title": "Self-Evolving Harness: automatische Optimierung der Agent-Steuerungsschicht",
-  "version": "1.0",
+  "version": "1.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "self-evolving-harness",
   "status": "todo",
   "created_at": "2026-09-26",
-  "updated_at": "2026-09-26",
-  "purpose": "Ananta soll nicht nur Prompts und Modellparameter optimieren, sondern die komplette Agent-Steuerungsschicht (Harness) reproduzierbar, messbar und sicher weiterentwickeln. Referenzen sind insbesondere NVIDIA SoL-Pi sowie Meta-Harness/automatische Harness-Optimierung. Bestehende Prompt-Evolver-, Benchmark-, Gate-, Worker-, MCP- und Observability-Komponenten sollen wiederverwendet statt dupliziert werden.",
-  "goal": "Ein produktionsreifer Self-Evolving-Harness-Stack, der Harness-Varianten als versionierte Genome erzeugt, isoliert ausführt, gegen Benchmarks und harte Gates prüft, mehrdimensional auf einer Pareto-Front selektiert, modell-/task-spezifische Varianten verwaltet, sichere Rollbacks erlaubt und SoL-Pi-artige Effizienzmechanismen wie Action Fusion, ObservationPack, evidence-preserving reduction und Online Context Compaction integriert.",
+  "updated_at": "2026-09-30",
+  "purpose": "Ananta soll nicht nur Prompts und Modellparameter optimieren, sondern die komplette Agent-Steuerungsschicht (Harness) inklusive Prompt-Programme, Context-Strategie, Retrieval, Tool-Routing, Agent-Topologie, Delegation, Scaffold-/Code-Struktur und Runtime-Policies reproduzierbar, messbar und sicher weiterentwickeln. Vorhandene Ananta-Fähigkeiten werden explizit wiederverwendet: PlanningPromptOptimizerService, PlanningPromptEvolverService, DSPy Optimization Engine mit LabeledFewShot/BootstrapFewShot und bereits gepinnten GEPA-Abhängigkeiten, EvoMap-Evolver-Adapter/Bridge, Benchmarks, Gates, Worker, MCP, CodeCompass, Tracing und Promotion/Rollback. Referenzen wie NVIDIA SoL-Pi dienen ergänzend für Harness-Effizienzmechanismen; es wird keine parallele zweite Evolutionsarchitektur aufgebaut.",
+  "goal": "Ein produktionsreifer Self-Evolving-Harness-Stack, der bestehende native Ananta-Prompt-Evolution, DSPy/GEPA und EvoMap über eine gemeinsame provider-neutrale Evolution-Orchestrierung nutzt; Harness-Varianten als versionierte Genome erzeugt; Prompt-, Context-, Retrieval-, Tool-, Agent-, Scaffold- und kontrollierte Code-Mutationen isoliert evaluiert; 32k/64k/128k und weitere Context-Budgets als konfigurierbaren Suchraum unterstützt; gegen Benchmarks und harte Gates prüft; mehrdimensional auf einer Pareto-Front selektiert; modell-/task-/budget-spezifische Varianten verwaltet; sichere Rollbacks erlaubt; und SoL-Pi-artige Effizienzmechanismen wie Action Fusion, ObservationPack, evidence-preserving reduction und Online Context Compaction integriert.",
   "status_scale": [
     "todo",
     "in_progress",
@@ -37,7 +37,12 @@
     "Mehrdimensionale Pareto-Selektion statt eines einzigen gewichteten Scores.",
     "Modell-, Task-, Tool- und Runtime-Abhängigkeiten werden explizit erfasst; kein globaler 'bester Harness' wird angenommen.",
     "Bestehende Ananta-Komponenten für Prompt-Evolver, Worker, Planner, Gates, Benchmarks, Tracing, MCP und TODO-Verträge werden integriert, nicht parallel neu gebaut.",
-    "Externe Referenzimplementierungen werden nur lizenzkonform und mit klarer Herkunft übernommen."
+    "Externe Referenzimplementierungen werden nur lizenzkonform und mit klarer Herkunft übernommen.",
+    "DSPy, GEPA und EvoMap sind Engines hinter Ananta-Verträgen; sie werden nicht zu konkurrierenden Control Planes.",
+    "32k/64k/128k sind konfigurierbare Context-Profile und Teil des Evolutionsraums; die Runtime muss ohne Codeänderung zwischen unterstützten Profilen wechseln können.",
+    "Prompt-, Harness- und Scaffold-Evolution teilen Benchmarks, Provenance, Gate- und Promotion-Infrastruktur.",
+    "Scaffold-Evolution darf produktionsreifen wiederverwendbaren Quellcode erzeugen; Wegwerf-Skripte oder einmalige Benchmark-Hacks sind kein akzeptierter Endzustand.",
+    "Benchmark-Holdouts, Evaluatoren, Security-Enforcement, Budget-Caps und Promotion-Autorität liegen außerhalb jeder mutierbaren Oberfläche."
   ],
   "reference_projects": [
     {
@@ -66,7 +71,15 @@
       "Context Reducer/Compactor",
       "Action Fusion Planner",
       "Rollback/Promotion Controller",
-      "Operator UI/API"
+      "Operator UI/API",
+      "Unified Evolution Orchestrator",
+      "Evolution Engine Capability Registry",
+      "DSPy/GEPA Engine Adapter",
+      "EvoMap Engine Adapter",
+      "Context Budget/Profile Registry",
+      "Scaffold Evolution Registry",
+      "Tool Routing Policy Evolver",
+      "Agent Topology Evolver"
     ],
     "fitness_dimensions": [
       "task_correctness",
@@ -83,7 +96,14 @@
       "evidence_verification_score",
       "security_gate_score",
       "reproducibility_score",
-      "runtime_failure_rate"
+      "runtime_failure_rate",
+      "retrieval_recall_at_budget",
+      "truncation_event_rate",
+      "lost_constraint_rate",
+      "delegation_overhead",
+      "parallelism_efficiency",
+      "scaffold_reuse_score",
+      "holdout_generalization_score"
     ]
   },
   "milestones": [
@@ -152,6 +172,32 @@
         "SEH-024"
       ],
       "status": "todo"
+    },
+    {
+      "id": "SEH-M7",
+      "title": "DSPy/GEPA/EvoMap vereinheitlichen und Context-Evolution aktivieren",
+      "task_ids": [
+        "SEH-025",
+        "SEH-026",
+        "SEH-027",
+        "SEH-028",
+        "SEH-029",
+        "SEH-030"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SEH-M8",
+      "title": "Tool-, Agent-, Scaffold- und Code-Harness-Evolution produktionsreif machen",
+      "task_ids": [
+        "SEH-031",
+        "SEH-032",
+        "SEH-033",
+        "SEH-034",
+        "SEH-035",
+        "SEH-036"
+      ],
+      "status": "todo"
     }
   ],
   "critical_path_tasks": [
@@ -164,7 +210,15 @@
     "SEH-014",
     "SEH-015",
     "SEH-018",
-    "SEH-021"
+    "SEH-021",
+    "SEH-025",
+    "SEH-026",
+    "SEH-027",
+    "SEH-028",
+    "SEH-029",
+    "SEH-030",
+    "SEH-035",
+    "SEH-036"
   ],
   "tasks": [
     {
@@ -516,12 +570,204 @@
         "Operator-Runbook enthält Kill-Switch, Rollback, Budgetvorfall und beschädigte Experimentdaten",
         "Abgrenzung zwischen Prompt-Evolver und Harness-Evolver klar dokumentiert"
       ]
+    },
+    {
+      "id": "SEH-025",
+      "title": "Gemeinsame EvolutionEngine-/Capability-Registry für Native, DSPy/GEPA und EvoMap definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Die bereits vorhandenen Evolutionspfade werden unter einem provider-neutralen Capability- und Candidate-Vertrag zusammengeführt. Native Prompt-Evolution, DSPy-Optimierung, GEPA als DSPy-Optimizer und EvoMap-Proposals dürfen unterschiedliche interne Mechanismen behalten, liefern aber normalisierte Candidate-, Metric-, Provenance- und Cost-Daten an denselben Orchestrator. Bestehende EvolutionEngine/EvolutionProposal-Verträge bevorzugt erweitern statt neue Parallelmodelle einzuführen.",
+      "acceptance_criteria": [
+        "Registry kann Engines dynamisch nach Capability, Modell, Mutationstyp, Kostenlimit und Verfügbarkeit auswählen",
+        "Keine Engine besitzt eigene Promotion-Autorität",
+        "Alle Engine-Ergebnisse werden in denselben versionierten Candidate-/Lineage-Vertrag normalisiert",
+        "Bestehende EvoMap-EvolutionProposal- und DSPy-Artefaktverträge werden wiederverwendet oder migrationsfähig erweitert",
+        "Capability-Endpoint zeigt enabled/degraded/disabled inklusive Version und begründeter Einschränkungen"
+      ]
+    },
+    {
+      "id": "SEH-026",
+      "title": "DSPy Advanced Optimizer einschließlich GEPA kontrolliert in den Harness-Suchraum aufnehmen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Auf Basis des vorhandenen DSPy-Workers die bereits vorgesehenen Optimizer BootstrapFewShotWithRandomSearch, MIPROv2, GEPA und SIMBA als einzeln freischaltbare Capabilities implementieren. Kein pauschales Aktivieren: jeder Optimizer erhält Parameterschema, Model-Call-Schätzung, harte Budgets, Kompatibilitätsprüfung, Telemetrie und Benchmarkvergleich gegen LabeledFewShot/BootstrapFewShot.",
+      "acceptance_criteria": [
+        "GEPA verwendet zunächst die bereits gepinnte DSPy/GEPA-Abhängigkeit statt eines zweiten Runtimes",
+        "Jeder Advanced Optimizer besitzt ein validiertes Parameterschema und harte max_model_calls/max_cost/max_wall_time-Grenzen",
+        "Dry-run liefert vor Start eine konservative Ressourcenabschätzung",
+        "Optimizer können pro Provider/Modell/Taskklasse separat aktiviert oder deaktiviert werden",
+        "Benchmarks zeigen Qualität, Varianz, Kosten und Latenz gegenüber Phase-1-Optimierern"
+      ]
+    },
+    {
+      "id": "SEH-027",
+      "title": "EvoMap Evolver als vollwertige Proposal-Engine in die gemeinsame Orchestrierung einbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Den vorhandenen plugins/evolver_adapter- und evolver_bridge-Pfad aus dem Pilotstatus in den Unified Evolution Orchestrator integrieren. Gene/Capsule/GEP-spezifische Semantik bleibt Provider-Metadaten; Ananta entscheidet über Zulässigkeit, Evaluation und Promotion. Analyze/proposal-only bleibt Default. Apply wird erst nach eigener MutationGate-, Sandbox-, Review- und Rollback-Zulassung ermöglicht.",
+      "acceptance_criteria": [
+        "EvoMap kann Harness-/Prompt-/Repair-Proposals erzeugen ohne direkten Workspace-Schreibzugriff",
+        "Proposal wird vor jeder Materialisierung gegen mutierbare Surface, Scope und MutationGate validiert",
+        "force_analyze_only=true bleibt sicherer Default",
+        "Provider-Ausfall degradiert nur diese Engine und blockiert keinen nativen/DSPy-Evolutionslauf",
+        "EvoMap-Proposals können reproduzierbar gegen dieselbe Benchmark-Suite wie DSPy-Kandidaten verglichen werden"
+      ]
+    },
+    {
+      "id": "SEH-028",
+      "title": "Unified Evolution Orchestrator mit Multi-Engine-Budgetierung und Meta-Selektion implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Orchestrator nimmt Evolutionsziel, zugelassene Mutation Surfaces, Modell/Provider, Dataset/Benchmark, Ressourcenbudget und Betriebsprofil entgegen. Er kann Kandidaten von Native Prompt Evolution, DSPy/GEPA, EvoMap und Native Harness Mutation erzeugen lassen, Ergebnisse normalisieren und anhand Pareto-/Gate-Logik Folgegenerationen planen. Keine Engine darf eigenmächtig andere Engines starten.",
+      "acceptance_criteria": [
+        "Ein Run kann eine oder mehrere Engines mit getrennten Teilbudgets nutzen",
+        "Meta-Selektion berücksichtigt Qualität, Generalisierung, Token/API-Kosten, Latenz und Varianz",
+        "Engine starvation und runaway search werden durch harte Budgets verhindert",
+        "Run ist vollständig aus Manifest/Seed/Engine-Versionen reproduzierbar",
+        "A/B-Vergleich kann identische Baseline und Holdouts über verschiedene Engines erzwingen"
+      ]
+    },
+    {
+      "id": "SEH-029",
+      "title": "Context-Budget-Evolution für 32k/64k/128k und modellabhängige Profile implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Context-Limit nicht als globale Konstante behandeln. Ein ContextProfile definiert max_context_tokens, reservierte Ausgabe-/Tool-Tokens, Retrieval-Budget, Observation-Policy, Compaction-Trigger, Summary-Budget und Recall-Regeln. Die Standardkandidaten 32768/65536/131072 müssen rein per Konfiguration wechselbar sein; zusätzlich werden nur tatsächlich vom Modell/Provider unterstützte Werte zugelassen.",
+      "acceptance_criteria": [
+        "32k, 64k und 128k können ohne Codeänderung als Runtime-/Benchmarkprofil gewählt werden",
+        "Capability-Prüfung verhindert Konfiguration oberhalb des tatsächlichen Modelllimits",
+        "Reserved output/tool budget verhindert Nutzung des kompletten Fensters durch Eingabekontext",
+        "Evolver kann ContextProfile gemeinsam mit Retrieval/Compaction mutieren",
+        "Baseline 32k kann das Ananta-Repo mit CodeCompass/ObservationHandles bearbeiten ohne implizit vollständiges Repo in den Prompt zu laden"
+      ]
+    },
+    {
+      "id": "SEH-030",
+      "title": "Long-Context- und Repo-Development-Benchmark für Context-Profile aufbauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Benchmark speziell für reale Ananta-Weiterentwicklung bei begrenztem Kontext: Multi-Datei-Änderungen, Architekturfragen, Regression-Fix, Cross-Module-Refactor, TODO-Implementierung, Testfehler und lange Tool-Traces. Verglichen werden mindestens 32k/64k/128k mit identischer Modellfamilie, soweit unterstützt. Gemessen werden Erfolg, verlorene Constraints, Retrieval Recall, Compaction, Kosten und Laufzeit.",
+      "acceptance_criteria": [
+        "Benchmark enthält kleine, mittlere und repo-weite Aufgaben mit bekannten relevanten Dateien/Belegen",
+        "32k wird als vollwertiges Betriebsziel statt nur als Degradationsmodus getestet",
+        "Holdout-Aufgaben sind für Mutation Engines unsichtbar",
+        "Auswertung trennt Modellqualität von Context-/Retrieval-/Harness-Effekt",
+        "Regression-Gate verhindert Promotion einer billigeren Variante mit signifikant schlechterer Korrektheit"
+      ]
+    },
+    {
+      "id": "SEH-031",
+      "title": "Tool- und MCP-Routing als evolvierbare Policy mit unveränderlichen Berechtigungsgrenzen implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Evolvierbar sind Auswahl, Reihenfolge, Parallelisierung, Action Fusion, Retry und Parameter innerhalb bereits autorisierter Tool-Capabilities. Nicht evolvierbar sind Identität, Berechtigungsumfang, Secret-Zugriff, Tenant/Repo-Scope und Side-Effect-Approval.",
+      "acceptance_criteria": [
+        "Mutation kann niemals ein nicht autorisiertes Tool oder größeren Scope freischalten",
+        "Read-only und side-effecting Tools besitzen getrennte Evolutionsregeln",
+        "Tool-Routing wird gegen Task-Success, Calls, Tokens, Latenz und Fehlerquote bewertet",
+        "Parallelisierung ist nur bei nachweislich unabhängigen/side-effect-safe Aktionen zulässig",
+        "Tool-Policy-Diffs sind maschinenlesbar und auditierbar"
+      ]
+    },
+    {
+      "id": "SEH-032",
+      "title": "Agent-Topologie, Rollen und Delegation in einen begrenzten Evolutionsraum überführen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "HarnessGenome darf aus zugelassenen Rollen/Worker-Profilen unterschiedliche Topologien erzeugen: Single Agent, Planner+Executor, Planner+Executor+Verifier, parallele Spezialisten, Review-Schleifen. Harte Grenzen für Tiefe, Fan-out, Laufzeit und Kosten bleiben außerhalb der Mutation.",
+      "acceptance_criteria": [
+        "Topologie wird deklarativ und versioniert statt durch ad-hoc Prompttext beschrieben",
+        "Delegationstiefe, Fan-out und Gesamtworkerzahl haben unveränderliche Caps",
+        "Jeder Subagent erhält minimalen Task-/Daten-Scope",
+        "Benchmarks messen Delegationsoverhead gegen Single-Agent-Baseline",
+        "Evolver darf nur katalogisierte oder gesondert zugelassene Rollen/Capabilities kombinieren"
+      ]
+    },
+    {
+      "id": "SEH-033",
+      "title": "Scaffold-Evolution für wiederverwendbare Agent-, Workflow- und Projektstrukturen implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Nicht nur Prompttext, sondern Struktur von Plan-, Test-, Review-, Workflow- und Zwischenartefakten optimieren. ScaffoldCandidate beschreibt Templates, Stufen, Artefakte, Übergabeverträge und Validierungsregeln. Erfolgreiche Scaffolds werden versioniert katalogisiert und können task-/modellabhängig geroutet werden.",
+      "acceptance_criteria": [
+        "Scaffolds besitzen Schema, Version, Digest, Herkunft und Kompatibilitätsmetadaten",
+        "Kein Benchmark-spezifischer Hardcode darf als generisches Scaffold promoted werden",
+        "Scaffold-Reuse über mehrere unabhängige Holdout-Aufgaben wird gemessen",
+        "Generierte Strukturen integrieren vorhandene TODO-/Worker-/Blueprint-Verträge statt proprietäre Parallelformate",
+        "Operator kann Scaffold-Diff und Auswirkungen auf Kosten/Qualität nachvollziehen"
+      ]
+    },
+    {
+      "id": "SEH-034",
+      "title": "Guarded Harness-Code-Evolution mit registrierten Patch-Zonen und vollständigem Test-Gate implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Für Verbesserungen, die nicht rein deklarativ ausdrückbar sind, darf der Evolver Code-Patches ausschließlich in explizit registrierten Harness-Erweiterungsmodulen erzeugen. Jeder Patch läuft in separatem Worktree/Sandbox, durch Static Checks, Unit/Property/Integration/Security Tests sowie relevante Benchmarks. Core Security, Auth, Sandbox, Gate, Audit, Budget und Holdout Loader sind immutable.",
+      "acceptance_criteria": [
+        "Patch-Allowlist ist fail-closed und kann nicht aus dem Kandidaten selbst verändert werden",
+        "Kein Kandidat schreibt direkt in main oder produktive Runtime",
+        "Jeder Patch besitzt diff, Parent SHA, Generator/Engine, Hypothese und Test-/Benchmark-Evidenz",
+        "Compile/Lint/Test/Security-Failure verwirft Kandidat vor Performancebewertung",
+        "Promotion erzeugt normalen reviewbaren Source-Control-Änderungspfad statt versteckter Runtime-Selbstmodifikation"
+      ]
+    },
+    {
+      "id": "SEH-035",
+      "title": "Engine-übergreifendes Provenance-, Candidate- und Evidence-Schema vereinheitlichen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": "Native Prompt Evolution, DSPy/GEPA, EvoMap und Harness-/Scaffold-Mutationen müssen dieselben Mindestinformationen liefern: parent, engine/version, mutation family, model/provider, dataset/holdout refs, code/config digests, budget, metrics, gates, artifacts, hypothesis und reproducibility manifest.",
+      "acceptance_criteria": [
+        "Candidate kann unabhängig von Ursprungsengine durch Benchmark/Gate/Promotion verarbeitet werden",
+        "Rohformate der Engines bleiben optional als bounded provider_metadata erhalten",
+        "Alle Scores besitzen eindeutige Dataset-/Metric-Version und sind nicht frei interpretierbare Felder",
+        "Vergleich zweier Kandidaten zeigt Unterschiede in Prompt, Context, Routing, Scaffold und Code getrennt",
+        "Migration bestehender DSPy- und EvoMap-Artefakte ist dokumentiert und getestet"
+      ]
+    },
+    {
+      "id": "SEH-036",
+      "title": "Produktionsnahen End-to-End-Evolutionslauf und stufenweisen Rollout nachweisen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "details": "Ein Golden-Path-E2E muss von einer zertifizierten Baseline über Telemetrie/Hypothese zu Kandidaten mehrerer Engines führen, 32k/64k/128k ContextProfile vergleichen, mindestens eine Prompt-/Programmmutation und eine strukturelle Harness-/Scaffold-Mutation evaluieren, Holdouts/Gates bestehen, Pareto-Selektion durchführen und einen Kandidaten über validated->canary->production beziehungsweise kontrollierten Rollback führen.",
+      "acceptance_criteria": [
+        "E2E nutzt reale gemeinsame Verträge statt Test-only Shortcut-Control-Planes",
+        "Mindestens Native/DSPy-or-GEPA und EvoMap-or-native-harness werden in einem vergleichbaren Run nachgewiesen",
+        "Kein Kandidat erhält Holdout- oder Promotion-Zugriff",
+        "Rollback stellt exakt vorherigen zertifizierten Digest wieder her",
+        "Runbook dokumentiert Aktivierung, Budgetierung, Kill-Switch, Recovery und schrittweise Freischaltung der mutierbaren Surfaces"
+      ]
     }
   ],
   "tasks_status_summary": {
-    "total": 24,
+    "total": 36,
     "by_status": {
-      "todo": 24,
+      "todo": 36,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
@@ -529,25 +775,25 @@
     },
     "progress_percent_done": 0,
     "by_priority": {
-      "P0": 14,
-      "P1": 7,
-      "P2": 3,
+      "P0": 25,
+      "P1": 9,
+      "P2": 2,
       "P3": 0
     },
     "by_risk": {
       "low": 1,
       "medium": 5,
-      "high": 9,
-      "critical": 9
+      "high": 13,
+      "critical": 17
     },
     "critical_path": {
-      "total": 10,
+      "total": 18,
       "done": 0,
-      "remaining": 10
+      "remaining": 18
     },
     "milestones": {
-      "total": 6,
-      "todo": 6,
+      "total": 8,
+      "todo": 8,
       "in_progress": 0,
       "blocked": 0,
       "done": 0
@@ -555,16 +801,162 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 24,
+    "todo_remaining": 36,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
     "done": 0
   },
   "summary_notes": [
-    "Dieser Track erweitert die bestehende Prompt-Evolution auf die vollständige Agent-Steuerungsschicht.",
-    "SoL-Pi dient als technische Referenz, nicht als 1:1-Kopie. Die Mechanismen sollen an Anantas bestehende Architektur und Gates angepasst werden.",
-    "Die Evolutionslogik darf Security-Gates, Sandbox Enforcement, Kostenlimits oder Audit-Mechanismen niemals selbst modifizieren.",
-    "Bevor Implementierung beginnt, muss SEH-001 konkrete vorhandene Module und Wiederverwendungspfade dokumentieren."
-  ]
+    "Dieser Track erweitert die bestehende Prompt-Evolution auf die vollständige Agent-Steuerungsschicht, ohne die vorhandenen Evolutionspfade zu duplizieren.",
+    "DSPy/GEPA und EvoMap werden als austauschbare/ergänzende Engines hinter einer gemeinsamen Ananta-Orchestrierung behandelt.",
+    "32k/64k/128k werden als konfigurierbare Context-Profile und Benchmark-Suchraum behandelt; konkrete Werte werden immer mit realen Modell-Capabilities geschnitten.",
+    "SoL-Pi dient als technische Referenz, nicht als 1:1-Kopie. Die Mechanismen werden an Anantas bestehende Architektur und Gates angepasst.",
+    "Die Evolutionslogik darf Security-Gates, Sandbox Enforcement, Auth, Secrets, Kostenlimits, Benchmark-Holdouts, Audit-Mechanismen oder Promotion-Autorität niemals selbst modifizieren.",
+    "Scaffold- und Code-Evolution muss produktionsreifen, reviewbaren, wiederverwendbaren Quellcode hervorbringen; keine Benchmark-Hacks oder versteckte Runtime-Selbstmodifikation."
+  ],
+  "existing_foundation": {
+    "native_prompt_optimization": [
+      "agent/services/planning_prompt_optimizer_service.py",
+      "agent/services/planning_prompt_evolver_service.py"
+    ],
+    "dspy_optimization": [
+      "docs/integrations/dspy-optimization-engine.md",
+      "agent/routes/dspy_optimization.py",
+      "worker/optimization/dspy/engine_adapter.py",
+      "docker/compose-next/requirements.dspy-optimization.lock"
+    ],
+    "dspy_current_capabilities": {
+      "enabled_phase_1": [
+        "LabeledFewShot",
+        "BootstrapFewShot"
+      ],
+      "available_or_planned_but_default_off": [
+        "BootstrapFewShotWithRandomSearch",
+        "MIPROv2",
+        "GEPA",
+        "SIMBA"
+      ],
+      "noted_dependency": "gepa==0.0.27 is already hash-locked through the DSPy worker dependency set"
+    },
+    "evomap_evolver": [
+      "plugins/evolver_adapter/",
+      "services/evolver_bridge/",
+      "docs/evolver-adapter.md",
+      "docker/old_way/Dockerfile.evolver-bridge"
+    ],
+    "important_boundary": "PlanningPromptEvolverService currently evolves planning prompt versions only and must not silently expand its mutation scope. Harness evolution gets a separate typed mutation surface and keeps security/governance/tool-contract invariants outside the mutable boundary."
+  },
+  "engine_strategy": {
+    "principle": "One orchestration plane, multiple interchangeable optimization/evolution engines.",
+    "engines": [
+      {
+        "id": "native_prompt",
+        "role": "Fast deterministic/rule-driven adaptation for planning prompts and model-output style.",
+        "reuse": "Existing PlanningPromptOptimizerService and PlanningPromptEvolverService."
+      },
+      {
+        "id": "dspy",
+        "role": "Program/prompt optimization with bounded datasets, metrics and optimizer capabilities.",
+        "reuse": "Existing isolated DSPy optimization worker and promotion/gate path."
+      },
+      {
+        "id": "gepa",
+        "role": "Reflection/evolutionary prompt-program search exposed through the DSPy capability registry first; no second independent runtime unless justified by benchmarks.",
+        "reuse": "Existing pinned GEPA dependency and DSPy worker isolation."
+      },
+      {
+        "id": "evomap",
+        "role": "External proposal/evolution engine for Genes/Capsules/repair/prompt-style proposals mapped into Ananta-generic EvolutionProposal objects.",
+        "reuse": "Existing Evolver adapter/bridge; analyze/proposal-only remains default until apply is separately admitted."
+      },
+      {
+        "id": "native_harness",
+        "role": "Structural mutations that DSPy/EvoMap do not own: context policy, routing, tool policy, agent topology, scaffold composition and guarded harness-code patches.",
+        "reuse": "Ananta mutation gates, sandbox, benchmark, lineage and promotion control."
+      }
+    ],
+    "selection_policy": [
+      "Engine selection is capability-driven, not hard-coded by task name.",
+      "Multiple engines may propose candidates, but all candidates are normalized into one HarnessGenome/EvolutionCandidate contract.",
+      "No engine may bypass Ananta benchmark, security, budget, provenance or promotion gates.",
+      "Search budget is allocated per engine and per mutation family; a meta-selector may reallocate budget from consistently weak engines to productive ones.",
+      "Engine comparison must preserve identical benchmark datasets, provider/model bindings and budget accounting."
+    ]
+  },
+  "mutable_surfaces": {
+    "prompt_programs": [
+      "system/user/repair planning prompt variants within admitted scopes",
+      "few-shot demonstrations and ordering",
+      "DSPy program/module configuration",
+      "output format/profile hints"
+    ],
+    "context": [
+      "context budget selection such as 32768, 65536, 131072 and future model-supported limits",
+      "reserved completion/tool budget",
+      "observation retention and selective recall",
+      "summarization/compaction thresholds",
+      "chunking and retrieval window sizes",
+      "evidence-preserving reduction strategy"
+    ],
+    "retrieval": [
+      "top-k and candidate budget within bounded policy",
+      "dense/BM25/graph composition weights where supported",
+      "reranking strategy",
+      "query rewrite/decomposition policy",
+      "CodeCompass retrieval profile selection"
+    ],
+    "tools": [
+      "tool allowlist subset inside caller-authorized capabilities",
+      "tool choice/routing heuristics",
+      "safe action fusion",
+      "retry/backoff/timeout parameters within hard caps",
+      "parallel versus sequential execution for side-effect-safe tools"
+    ],
+    "agent_topology": [
+      "single-agent versus delegated worker patterns",
+      "role composition from admitted role templates",
+      "planner/reviewer/verifier placement",
+      "delegation depth and fan-out within hard limits",
+      "termination and replan strategy"
+    ],
+    "scaffold": [
+      "project/task scaffold templates",
+      "generated intermediate artifact structure",
+      "plan/checklist/test scaffold composition",
+      "workflow graph structure",
+      "reusable harness strategy modules"
+    ],
+    "guarded_code": [
+      "only explicitly registered harness extension modules",
+      "typed strategy implementations behind stable interfaces",
+      "never gate enforcement, sandbox enforcement, auth, secrets, audit, immutable benchmark holdouts or promotion authority"
+    ]
+  },
+  "context_budget_policy": {
+    "default_supported_search_space": [
+      32768,
+      65536,
+      131072
+    ],
+    "configuration_rule": "Do not assume these three values are universal. Intersect configured candidates with actual provider/model capability metadata at runtime.",
+    "objectives": [
+      "maximize task success and evidence integrity",
+      "minimize token cost and latency",
+      "avoid truncation/overflow and unnecessary compaction",
+      "preserve open obligations, user constraints and source handles"
+    ],
+    "required_measurements": [
+      "effective_input_tokens",
+      "reserved_output_tokens",
+      "reserved_tool_tokens",
+      "context_peak_tokens",
+      "compaction_count",
+      "compaction_ratio",
+      "retrieval_recall_at_budget",
+      "lost_constraint_failures",
+      "truncation_events",
+      "task_success"
+    ]
+  }
 }
