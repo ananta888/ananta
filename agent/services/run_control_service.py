@@ -12,178 +12,53 @@ Design:
   - RunCommand is the audit trail; all mutations create one
   - Idempotency keys prevent duplicate execution
   - No raw prompts/secrets in audit events or control-state
+
+Collaborators (composed by ``RunControlService``):
+  - ``run_control_models``: value types, vocabularies, domain errors
+  - ``run_control_idempotency``: pure key scoping / replay comparison
+  - ``run_control_resource_ownership``: principal ownership index
+  - ``run_control_read_model``: control-state projections
 """
 from __future__ import annotations
 
-import json
 import time
 import uuid
 from copy import deepcopy
-from dataclasses import dataclass, field
-from hashlib import sha256
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any
 
 from agent.common.audit import log_audit
-from agent.config import settings
-from agent.services.identity_validation import require_canonical_identity
+from agent.config import settings  # noqa: F401  (compat re-export)
+from agent.services.run_control_idempotency import (
+    idempotency_key_ref,
+    idempotency_mismatches,
+    idempotency_scope_key,
+    values_are_exact,
+)
+from agent.services.run_control_models import (  # noqa: F401  (compat re-exports)
+    BRANCH_TYPES,
+    COMMAND_TYPES,
+    INSTRUCTION_CLASSES,
+    INSTRUCTION_MODES,
+    BranchCandidate,
+    OperatorInstruction,
+    RunCommand,
+    RunCommandIdempotencyConflictError,
+    RunControlAuthorizationError,
+    RunControlPrincipal,
+)
+from agent.services.run_control_read_model import (
+    RunControlReadModel,
+    compute_run_status,
+)
+from agent.services.run_control_resource_ownership import (
+    RunControlResourceOwnership,
+    resolve_legacy_resource_principal,
+    run_control_resource_keys,
+)
 from agent.services.run_control_task_intervention_mixin import (
     RunControlTaskInterventionMixin,
 )
-
-
-@dataclass(frozen=True)
-class RunControlPrincipal:
-    tenant_id: str
-    subject_id: str
-
-    @classmethod
-    def from_values(cls, tenant_id: Any, subject_id: Any) -> "RunControlPrincipal":
-        return cls(
-            tenant_id=require_canonical_identity(tenant_id, field_name="tenant_id"),
-            subject_id=require_canonical_identity(subject_id, field_name="subject_id"),
-        )
-
-COMMAND_TYPES = frozenset({
-    "pause_run", "resume_run", "cancel_run", "retry_run_or_task",
-    "inject_instruction", "select_branch", "approve_gate", "deny_gate",
-})
-
-INSTRUCTION_MODES = frozenset({
-    "next_iteration_instruction", "pause_then_apply", "context_note_only",
-})
-
-INSTRUCTION_CLASSES = frozenset({
-    "correction", "constraint", "preference", "branch_hint", "stop_condition",
-})
-
-BRANCH_TYPES = frozenset({
-    "llm_comparison_variant", "planner_variant", "implementation_strategy",
-    "repair_strategy", "security_hardened_variant",
-})
-
-
-@dataclass
-class RunCommand:
-    command_id: str
-    type: str
-    requested_by: str
-    requested_at: float
-    status: str  # accepted|rejected_by_policy|pending_safe_point|applied|superseded|failed
-    task_id: str | None = None
-    goal_id: str | None = None
-    run_id: str | None = None
-    payload: dict = field(default_factory=dict)
-    result: dict = field(default_factory=dict)
-    effective_at: float | None = None
-    idempotency_key: str | None = None
-    tenant_id: str = ""
-    subject_id: str = ""
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "command_id": self.command_id,
-            "type": self.type,
-            "task_id": self.task_id,
-            "goal_id": self.goal_id,
-            "run_id": self.run_id,
-            "requested_by": self.requested_by,
-            "requested_at": self.requested_at,
-            "effective_at": self.effective_at,
-            "status": self.status,
-            "result": self.result,
-            "idempotency_key": self.idempotency_key,
-            "tenant_id": self.tenant_id,
-            "subject_id": self.subject_id,
-        }
-
-
-@dataclass
-class OperatorInstruction:
-    instruction_id: str
-    text: str
-    actor: str
-    created_at: float
-    mode: str = "next_iteration_instruction"
-    instruction_class: str = "constraint"
-    status: str = "active"  # active|superseded|applied|resolved
-    task_id: str | None = None
-    goal_id: str | None = None
-    run_id: str | None = None
-    applied_at: float | None = None
-    tenant_id: str = ""
-    subject_id: str = ""
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "instruction_id": self.instruction_id,
-            "task_id": self.task_id,
-            "goal_id": self.goal_id,
-            "run_id": self.run_id,
-            "mode": self.mode,
-            "text": self.text,
-            "instruction_class": self.instruction_class,
-            "actor": self.actor,
-            "created_at": self.created_at,
-            "status": self.status,
-            "applied_at": self.applied_at,
-            "tenant_id": self.tenant_id,
-            "subject_id": self.subject_id,
-        }
-
-
-@dataclass
-class BranchCandidate:
-    branch_id: str
-    label: str
-    branch_type: str = "llm_comparison_variant"
-    status: str = "proposed"  # proposed|active|selected|paused|rejected|superseded|completed
-    task_id: str | None = None
-    goal_id: str | None = None
-    description: str = ""
-    metadata: dict = field(default_factory=dict)
-    created_at: float = field(default_factory=time.time)
-    selected_at: float | None = None
-    tenant_id: str = ""
-    subject_id: str = ""
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "branch_id": self.branch_id,
-            "task_id": self.task_id,
-            "goal_id": self.goal_id,
-            "branch_type": self.branch_type,
-            "label": self.label,
-            "description": self.description,
-            "status": self.status,
-            "created_at": self.created_at,
-            "selected_at": self.selected_at,
-            "metadata": self.metadata,
-            "tenant_id": self.tenant_id,
-            "subject_id": self.subject_id,
-        }
-
-
-class RunCommandIdempotencyConflictError(RuntimeError):
-    """Raised when an idempotency key is reused for a different request."""
-
-    reason_code = "run_command_idempotency_conflict"
-
-    def __init__(
-        self,
-        *,
-        idempotency_key_ref: str,
-        existing_command_id: str,
-        mismatched_fields: tuple[str, ...],
-    ) -> None:
-        super().__init__(self.reason_code)
-        self.idempotency_key_ref = idempotency_key_ref
-        self.existing_command_id = existing_command_id
-        self.mismatched_fields = mismatched_fields
-
-
-class RunControlAuthorizationError(RuntimeError):
-    reason_code = "run_control_resource_not_found"
 
 
 class RunControlService(RunControlTaskInterventionMixin):
@@ -197,13 +72,27 @@ class RunControlService(RunControlTaskInterventionMixin):
     BranchCandidate management, and the aggregated control-state read model.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        resource_ownership: RunControlResourceOwnership | None = None,
+    ) -> None:
         self._commands: dict[str, RunCommand] = {}
         self._instructions: dict[str, OperatorInstruction] = {}
         self._branches: dict[str, BranchCandidate] = {}
         self._idempotency_index: dict[str, str] = {}  # scoped key hash -> command_id
-        self._resource_owners: dict[tuple[str, str], RunControlPrincipal] = {}
         self._command_lock = RLock()
+        # Ownership shares the command lock through a provider so that a
+        # replaced ``_command_lock`` keeps guarding both critical sections.
+        self._resource_ownership = resource_ownership or RunControlResourceOwnership(
+            lock_provider=lambda: self._command_lock,
+        )
+        self._resource_owners = self._resource_ownership.owners
+        self._read_model = RunControlReadModel(
+            source=self,
+            commands=self._commands,
+            instructions=self._instructions,
+        )
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -216,33 +105,12 @@ class RunControlService(RunControlTaskInterventionMixin):
         except Exception:
             return "system"
 
-    @staticmethod
-    def _idempotency_scope_key(
-        key: str | None,
-        *,
-        principal: RunControlPrincipal,
-        task_id: str | None,
-        goal_id: str | None,
-        run_id: str | None,
-    ) -> str:
-        if not key:
-            return ""
-        canonical = json.dumps(
-            {
-                "client_key": key,
-                "subject_id": principal.subject_id,
-                "tenant_id": principal.tenant_id,
-            },
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
-        # Operation, resources and payload remain in the command fingerprint
-        # comparison. Reusing one client key for a different request inside the
-        # same principal scope is an explicit conflict, while another tenant or
-        # subject has an independent key space.
-        del task_id, goal_id, run_id
-        return sha256(canonical).hexdigest()
+    _idempotency_scope_key = staticmethod(idempotency_scope_key)
+    _idempotency_key_ref = staticmethod(idempotency_key_ref)
+    _values_are_exact = staticmethod(values_are_exact)
+    _idempotency_mismatches = staticmethod(idempotency_mismatches)
+    _resource_keys = staticmethod(run_control_resource_keys)
+    _legacy_resource_principal = staticmethod(resolve_legacy_resource_principal)
 
     def _check_idempotency(self, scoped_key: str) -> RunCommand | None:
         if not scoped_key:
@@ -254,66 +122,7 @@ class RunControlService(RunControlTaskInterventionMixin):
         if scoped_key:
             self._idempotency_index[scoped_key] = command_id
 
-    @staticmethod
-    def _resource_keys(
-        *,
-        task_id: str | None,
-        goal_id: str | None,
-        run_id: str | None,
-    ) -> tuple[tuple[str, str], ...]:
-        return tuple(
-            (kind, str(value))
-            for kind, value in (("task", task_id), ("goal", goal_id), ("run", run_id))
-            if value
-        )
-
-    @staticmethod
-    def _legacy_resource_principal(
-        resource_key: tuple[str, str],
-    ) -> RunControlPrincipal | None:
-        """Resolve pre-tenancy rows without a caller-wins ownership claim.
-
-        Historic Hub tasks/goals contain a subject but no organization.  The
-        only deterministic compatible principal is therefore ``(subject,
-        subject)``, matching local Hub accounts.  Externally tenanted callers
-        must arrive through a trusted adapter which verifies and explicitly
-        binds the resource first.
-        """
-
-        kind, resource_id = resource_key
-        try:
-            from agent.services.repository_registry import get_repository_registry
-
-            repositories = get_repository_registry()
-            record = (
-                repositories.task_repo.get_by_id(resource_id)
-                if kind == "task"
-                else repositories.goal_repo.get_by_id(resource_id)
-            )
-        except Exception:
-            return None
-        if record is None:
-            return None
-        if kind == "task":
-            ingest = next(
-                (
-                    event
-                    for event in list(getattr(record, "history", None) or [])
-                    if isinstance(event, dict) and event.get("event_type") == "task_ingested"
-                ),
-                None,
-            )
-            actor = str((ingest or {}).get("actor") or "").strip()
-        else:
-            actor = str(getattr(record, "requested_by", "") or "").strip()
-        if actor and actor not in {"system", "hub", "unknown", "operator"}:
-            subject = actor
-        else:
-            subject = str(settings.initial_admin_user or "").strip()
-        try:
-            return RunControlPrincipal.from_values(subject, subject)
-        except ValueError:
-            return None
+    # ── Resource ownership (delegated) ─────────────────────────────────────────
 
     def authorize_resources(
         self,
@@ -326,28 +135,13 @@ class RunControlService(RunControlTaskInterventionMixin):
     ) -> bool:
         """Atomically authorize all exact resources and migrate legacy tasks."""
 
-        keys = self._resource_keys(task_id=task_id, goal_id=goal_id, run_id=run_id)
-        if not keys:
-            return False
-        with self._command_lock:
-            resolved: dict[tuple[str, str], RunControlPrincipal] = {}
-            task_key = ("task", str(task_id)) if task_id else None
-            for resource_key in keys:
-                owner = self._resource_owners.get(resource_key)
-                if owner is None and resource_key[0] == "run" and task_key is not None:
-                    owner = self._resource_owners.get(task_key) or resolved.get(task_key)
-                if owner is None and allow_legacy_binding:
-                    if resource_key[0] in {"task", "goal"}:
-                        owner = self._legacy_resource_principal(resource_key)
-                    # A standalone historic run has no durable owner source.
-                    # It may inherit an already verified task binding above,
-                    # otherwise only a trusted adapter may bind it explicitly.
-                if owner != principal:
-                    return False
-                resolved[resource_key] = owner
-            for resource_key in keys:
-                self._resource_owners.setdefault(resource_key, principal)
-            return True
+        return self._resource_ownership.authorize_resources(
+            principal=principal,
+            task_id=task_id,
+            goal_id=goal_id,
+            run_id=run_id,
+            allow_legacy_binding=allow_legacy_binding,
+        )
 
     def bind_resource_owner(
         self,
@@ -371,75 +165,9 @@ class RunControlService(RunControlTaskInterventionMixin):
     ) -> bool:
         """Atomically bind resources verified by a trusted Hub adapter."""
 
-        keys = tuple((str(kind), str(resource_id)) for kind, resource_id in resources)
-        if not keys or any(kind not in {"task", "goal", "run"} or not resource_id for kind, resource_id in keys):
-            return False
-        with self._command_lock:
-            if any(
-                existing is not None and existing != principal
-                for existing in (self._resource_owners.get(key) for key in keys)
-            ):
-                return False
-            for key in keys:
-                self._resource_owners[key] = principal
-            return True
-
-    @staticmethod
-    def _idempotency_key_ref(key: str | None) -> str:
-        """Return a stable opaque audit reference, never the caller's raw key."""
-
-        if not key:
-            return ""
-        digest = sha256(str(key).encode("utf-8")).hexdigest()
-        return f"idempotency-sha256:{digest}"
-
-    @staticmethod
-    def _values_are_exact(left: Any, right: Any) -> bool:
-        """Compare request payloads without Python's cross-type equality aliases."""
-
-        if type(left) is not type(right):
-            return False
-        if isinstance(left, Mapping):
-            if left.keys() != right.keys():
-                return False
-            return all(
-                RunControlService._values_are_exact(left[key], right[key])
-                for key in left
-            )
-        if isinstance(left, (list, tuple)):
-            return len(left) == len(right) and all(
-                RunControlService._values_are_exact(left_item, right_item)
-                for left_item, right_item in zip(left, right)
-            )
-        return bool(left == right)
-
-    @classmethod
-    def _idempotency_mismatches(
-        cls,
-        existing: RunCommand,
-        *,
-        command_type: str,
-        task_id: str | None,
-        goal_id: str | None,
-        run_id: str | None,
-        payload: dict[str, Any],
-        requested_by: str,
-        principal: RunControlPrincipal,
-    ) -> tuple[str, ...]:
-        values = {
-            "command_type": (existing.type, command_type),
-            "task_id": (existing.task_id, task_id),
-            "goal_id": (existing.goal_id, goal_id),
-            "run_id": (existing.run_id, run_id),
-            "payload": (existing.payload, payload),
-            "requested_by": (existing.requested_by, requested_by),
-            "tenant_id": (existing.tenant_id, principal.tenant_id),
-            "subject_id": (existing.subject_id, principal.subject_id),
-        }
-        return tuple(
-            name
-            for name, (left, right) in values.items()
-            if not cls._values_are_exact(left, right)
+        return self._resource_ownership.bind_resource_owners(
+            principal=principal,
+            resources=resources,
         )
 
     @staticmethod
@@ -919,7 +647,9 @@ class RunControlService(RunControlTaskInterventionMixin):
     def _do_deny_gate(self, cmd: RunCommand) -> None:
         self._approval_decide(cmd, "denied")
 
-    # ── Control-state read model ───────────────────────────────────────────────
+    # ── Control-state read model (delegated) ──────────────────────────────────
+
+    _compute_run_status = staticmethod(compute_run_status)
 
     def get_control_state(
         self,
@@ -930,133 +660,9 @@ class RunControlService(RunControlTaskInterventionMixin):
         principal: RunControlPrincipal | None = None,
     ) -> dict[str, Any]:
         """Aggregate read model: task status + pending approvals + instruction + branches + command history."""
-        from agent.services.approval_request_service import get_approval_request_service
-
-        if principal is not None and not self.authorize_resources(
-            principal=principal,
-            task_id=task_id,
-            goal_id=goal_id,
-            run_id=run_id,
-        ):
-            raise RunControlAuthorizationError(RunControlAuthorizationError.reason_code)
-
-        task_status: str | None = None
-        if task_id:
-            try:
-                from agent.services.repository_registry import get_repository_registry
-                task = get_repository_registry().task_repo.get_by_id(str(task_id))
-                if task:
-                    task_status = str(getattr(task, "status", "") or "") or None
-            except Exception:
-                pass
-
-        svc = get_approval_request_service()
-        svc.expire_old_requests()
-        approvals = svc.list_requests(status="pending", task_id=task_id, goal_id=goal_id)
-        pending_approvals = [
-            {
-                "request_id": a.id,
-                "tool_name": a.tool_name,
-                "risk_class": a.risk_class,
-                "k_class": a.k_class,
-                "digest_prefix": str(a.arguments_digest or "")[:12],
-                "target_fingerprint_prefix": str(a.target_fingerprint or "")[:12],
-                "scope_summary": {
-                    k: v for k, v in dict(a.scope or {}).items()
-                    if k in {"approval_class", "pre_approval", "goal_id", "source", "reason_code"}
-                },
-                "expires_at": a.expires_at,
-                "created_at": a.created_at,
-                "has_content_payload": bool(a.content_artifact_ref),
-            }
-            for a in approvals
-        ]
-
-        active_instr = self.get_active_instruction(task_id=task_id, goal_id=goal_id, principal=principal)
-        active_instruction = active_instr.as_dict() if active_instr else None
-
-        branches = [
-            b.as_dict()
-            for b in self.list_branches(task_id=task_id, goal_id=goal_id, principal=principal)
-        ]
-
-        recent_commands = sorted(
-            [cmd.as_dict() for cmd in self._commands.values()
-             if (
-                 (task_id and cmd.task_id == task_id)
-                 or (goal_id and cmd.goal_id == goal_id)
-                 or (run_id and cmd.run_id == run_id)
-             )
-             and (
-                 principal is None
-                 or (cmd.tenant_id, cmd.subject_id) == (principal.tenant_id, principal.subject_id)
-             )],
-            key=lambda c: c["requested_at"],
-            reverse=True,
-        )[:20]
-
-        run_status = self._compute_run_status(
-            task_status=task_status,
-            pending_approvals=pending_approvals,
-            branches=branches,
-            active_instruction=active_instruction,
+        return self._read_model.get_control_state(
+            task_id=task_id, goal_id=goal_id, run_id=run_id, principal=principal
         )
-
-        return {
-            "task_id": task_id,
-            "goal_id": goal_id,
-            "run_id": run_id,
-            "task_status": task_status,
-            "run_status": run_status,
-            "pending_commands": [
-                cmd.as_dict() for cmd in self._commands.values()
-                if cmd.status == "pending_safe_point"
-                and (
-                    (task_id and cmd.task_id == task_id)
-                    or (goal_id and cmd.goal_id == goal_id)
-                    or (run_id and cmd.run_id == run_id)
-                )
-                and (
-                    principal is None
-                    or (cmd.tenant_id, cmd.subject_id) == (principal.tenant_id, principal.subject_id)
-                )
-            ],
-            "active_instruction": active_instruction,
-            "pending_approvals": pending_approvals,
-            "branches": branches,
-            "last_events": recent_commands,
-            "computed_at": time.time(),
-        }
-
-    @staticmethod
-    def _compute_run_status(
-        task_status: str | None,
-        pending_approvals: list[dict],
-        branches: list[dict],
-        active_instruction: dict | None,
-    ) -> str | None:
-        if not task_status:
-            return None
-        mapping = {
-            "paused": "paused",
-            "cancelled": "cancelled",
-            "completed": "completed",
-            "failed": "failed",
-            "verification_failed": "failed",
-        }
-        if task_status in mapping:
-            return mapping[task_status]
-        if pending_approvals:
-            return "waiting_for_approval"
-        if any(b["status"] == "proposed" for b in branches):
-            return "waiting_for_branch_selection"
-        if active_instruction:
-            return "applying_intervention"
-        if task_status in ("in_progress", "assigned", "delegated", "proposing"):
-            return "running"
-        if task_status in ("todo", "created"):
-            return "planning"
-        return task_status
 
     def get_all_active_control_states(
         self,
@@ -1065,50 +671,7 @@ class RunControlService(RunControlTaskInterventionMixin):
         principal: RunControlPrincipal | None = None,
     ) -> list[dict[str, Any]]:
         """Snapshot for Dashboard/Control-Center: all tasks needing human attention."""
-        from agent.services.approval_request_service import get_approval_request_service
-        from agent.services.repository_registry import get_repository_registry
-
-        svc = get_approval_request_service()
-        svc.expire_old_requests()
-
-        pending = svc.list_requests(status="pending")
-        task_ids: set[str] = {str(a.task_id or "") for a in pending if a.task_id}
-        task_ids |= {
-            str(cmd.task_id or "")
-            for cmd in self._commands.values()
-            if cmd.task_id
-            and (
-                principal is None
-                or (cmd.tenant_id, cmd.subject_id) == (principal.tenant_id, principal.subject_id)
-            )
-        }
-        task_ids |= {
-            str(i.task_id or "") for i in self._instructions.values()
-            if i.status == "active" and i.task_id
-            and (
-                principal is None
-                or (i.tenant_id, i.subject_id) == (principal.tenant_id, principal.subject_id)
-            )
-        }
-        try:
-            active_statuses = {
-                "in_progress", "assigned", "delegated", "proposing",
-                "paused", "blocked_by_dependency",
-            }
-            for t in get_repository_registry().task_repo.get_all():
-                if str(getattr(t, "status", "") or "") in active_statuses:
-                    task_ids.add(str(t.id))
-        except Exception:
-            pass
-
-        task_ids.discard("")
-        result = []
-        for tid in list(task_ids)[:max(1, min(int(limit), 200))]:
-            try:
-                result.append(self.get_control_state(task_id=tid, principal=principal))
-            except RunControlAuthorizationError:
-                continue
-        return result
+        return self._read_model.get_all_active_control_states(limit, principal=principal)
 
     def list_commands(
         self,
@@ -1117,24 +680,9 @@ class RunControlService(RunControlTaskInterventionMixin):
         limit: int = 50,
         principal: RunControlPrincipal | None = None,
     ) -> list[dict[str, Any]]:
-        if principal is not None and (task_id or goal_id) and not self.authorize_resources(
-            principal=principal,
-            task_id=task_id,
-            goal_id=goal_id,
-        ):
-            raise RunControlAuthorizationError(RunControlAuthorizationError.reason_code)
-        cmds = sorted(
-            [cmd.as_dict() for cmd in self._commands.values()
-             if (not task_id or cmd.task_id == task_id)
-             and (not goal_id or cmd.goal_id == goal_id)
-             and (
-                 principal is None
-                 or (cmd.tenant_id, cmd.subject_id) == (principal.tenant_id, principal.subject_id)
-             )],
-            key=lambda c: c["requested_at"],
-            reverse=True,
+        return self._read_model.list_commands(
+            task_id=task_id, goal_id=goal_id, limit=limit, principal=principal
         )
-        return cmds[:max(1, min(int(limit), 500))]
 
     # ── Audit ──────────────────────────────────────────────────────────────────
 
@@ -1154,9 +702,7 @@ class RunControlService(RunControlTaskInterventionMixin):
                 "subject_id": cmd.subject_id,
                 "requested_by": cmd.requested_by,
                 "status": cmd.status,
-                "idempotency_key_ref": RunControlService._idempotency_key_ref(
-                    cmd.idempotency_key
-                ),
+                "idempotency_key_ref": idempotency_key_ref(cmd.idempotency_key),
             })
         except Exception:
             pass
