@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import secrets
 from pathlib import Path
@@ -295,7 +296,7 @@ def _inference_runtime_from_environment() -> LoraInferenceRuntimePort:
         )
 
 
-def create_app(  # noqa: C901 - additive Flask route composition remains explicit
+def create_app(
     *,
     runtime: RuntimePort | None = None,
     inference_runtime: LoraInferenceRuntimePort | None = None,
@@ -317,12 +318,49 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
     token_ready = len(configured_token) >= MIN_BEARER_TOKEN_LENGTH
     app.extensions["lora_training_runtime"] = worker_runtime
     app.extensions["lora_inference_runtime"] = lora_inference_runtime
+    authorized = _bearer_guard(configured_token, token_ready)
 
+    _register_health_routes(app, authorized, worker_runtime, lora_inference_runtime, token_ready)
+    _register_submission_routes(app, authorized, worker_runtime)
+    _register_inference_routes(app, authorized, lora_inference_runtime)
+    _register_job_routes(app, authorized, worker_runtime)
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def request_too_large(exc: RequestEntityTooLarge) -> tuple[Any, int]:
+        return _error("request_too_large", "request exceeds the configured byte limit", 413)
+
+    return app
+
+
+RouteView = Callable[..., Any]
+
+
+def _bearer_guard(configured_token: str, token_ready: bool) -> Callable[[RouteView], RouteView]:
+    """Decorator rejecting every request without the configured bearer token (fail closed without one)."""
+
+    def guard(view: RouteView) -> RouteView:
+        @functools.wraps(view)
+        def guarded(*args: Any, **kwargs: Any) -> Any:
+            rejection = _authorization(configured_token, token_ready)
+            if rejection:
+                return rejection
+            return view(*args, **kwargs)
+
+        return guarded
+
+    return guard
+
+
+def _register_health_routes(
+    app: Flask,
+    authorized: Callable[[RouteView], RouteView],
+    worker_runtime: RuntimePort,
+    lora_inference_runtime: LoraInferenceRuntimePort,
+    token_ready: bool,
+) -> None:
     @app.get("/health")
+    @authorized
     def health() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         payload = worker_runtime.health()
         payload["inference"] = lora_inference_runtime.capabilities()
         payload["auth_configured"] = token_ready
@@ -331,10 +369,8 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
         return jsonify(payload), 200
 
     @app.get(CAPABILITIES_ENDPOINT)
+    @authorized
     def capabilities() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         probe = getattr(worker_runtime, "capability_probe", None)
         if not callable(probe):
             return jsonify(
@@ -345,11 +381,13 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             ), 200
         return jsonify(probe()), 200
 
+
+def _register_submission_routes(
+    app: Flask, authorized: Callable[[RouteView], RouteView], worker_runtime: RuntimePort
+) -> None:
     @app.post(JOBS_ENDPOINT)
+    @authorized
     def submit_job() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         payload, invalid = _request_mapping()
         if invalid:
             return invalid
@@ -360,10 +398,8 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             return _domain_error(exc)
 
     @app.post(CLEANUP_ENDPOINT)
+    @authorized
     def cleanup_storage() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         payload, invalid = _request_mapping()
         if invalid:
             return invalid
@@ -372,67 +408,14 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             return jsonify(worker_runtime.cleanup(payload)), 200
         except WorkerStorageCleanupError as exc:
             return _error(
-                str(
-                    getattr(
-                        exc,
-                        "reason_code",
-                        "storage_cleanup_rejected",
-                    )
-                ),
+                str(getattr(exc, "reason_code", "storage_cleanup_rejected")),
                 str(exc),
                 int(getattr(exc, "http_status", 422)),
             )
 
-    @app.get(INFERENCE_CAPABILITIES_ENDPOINT)
-    def inference_capabilities() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
-        return jsonify(lora_inference_runtime.capabilities()), 200
-
-    @app.post(INFERENCE_GENERATE_ENDPOINT)
-    def inference_generate() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
-        payload, invalid = _request_mapping()
-        if invalid:
-            return invalid
-        assert payload is not None
-        try:
-            return jsonify(lora_inference_runtime.generate(payload)), 200
-        except LoraInferenceWorkerError as exc:
-            return _inference_error(exc)
-
-    @app.post(INFERENCE_UNLOAD_ENDPOINT)
-    def inference_unload(adapter_id: str, adapter_version: str) -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
-        payload, invalid = _request_mapping()
-        if invalid:
-            return invalid
-        assert payload is not None
-        if set(payload) != {"confirmed", "reason"} or payload.get("confirmed") is not True:
-            return _error("inference_unload_confirmation_required", "confirmed unload is required", 422)
-        reason = str(payload.get("reason") or "").strip()
-        if len(reason) < 10 or len(reason) > 512:
-            return _error("inference_unload_reason_invalid", "a bounded unload reason is required", 422)
-        try:
-            return jsonify(
-                lora_inference_runtime.unload(
-                    adapter_id=adapter_id,
-                    adapter_version=adapter_version,
-                )
-            ), 200
-        except LoraInferenceWorkerError as exc:
-            return _inference_error(exc)
-
     @app.post(EVALUATIONS_ENDPOINT)
+    @authorized
     def submit_evaluation() -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         payload, invalid = _request_mapping()
         if invalid:
             return invalid
@@ -448,31 +431,77 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
         except (TrainingRuntimeError, TrainingContractError) as exc:
             return _domain_error(exc)
 
+
+def _unload_confirmation_error(payload: Mapping[str, Any]) -> tuple[Any, int] | None:
+    if set(payload) != {"confirmed", "reason"} or payload.get("confirmed") is not True:
+        return _error("inference_unload_confirmation_required", "confirmed unload is required", 422)
+    reason = str(payload.get("reason") or "").strip()
+    if len(reason) < 10 or len(reason) > 512:
+        return _error("inference_unload_reason_invalid", "a bounded unload reason is required", 422)
+    return None
+
+
+def _register_inference_routes(
+    app: Flask, authorized: Callable[[RouteView], RouteView], lora_inference_runtime: LoraInferenceRuntimePort
+) -> None:
+    @app.get(INFERENCE_CAPABILITIES_ENDPOINT)
+    @authorized
+    def inference_capabilities() -> tuple[Any, int]:
+        return jsonify(lora_inference_runtime.capabilities()), 200
+
+    @app.post(INFERENCE_GENERATE_ENDPOINT)
+    @authorized
+    def inference_generate() -> tuple[Any, int]:
+        payload, invalid = _request_mapping()
+        if invalid:
+            return invalid
+        assert payload is not None
+        try:
+            return jsonify(lora_inference_runtime.generate(payload)), 200
+        except LoraInferenceWorkerError as exc:
+            return _inference_error(exc)
+
+    @app.post(INFERENCE_UNLOAD_ENDPOINT)
+    @authorized
+    def inference_unload(adapter_id: str, adapter_version: str) -> tuple[Any, int]:
+        payload, invalid = _request_mapping()
+        if invalid:
+            return invalid
+        assert payload is not None
+        confirmation_error = _unload_confirmation_error(payload)
+        if confirmation_error is not None:
+            return confirmation_error
+        try:
+            return jsonify(
+                lora_inference_runtime.unload(
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                )
+            ), 200
+        except LoraInferenceWorkerError as exc:
+            return _inference_error(exc)
+
+
+def _register_job_routes(app: Flask, authorized: Callable[[RouteView], RouteView], worker_runtime: RuntimePort) -> None:
     @app.get(f"{JOBS_ENDPOINT}/<job_id>")
+    @authorized
     def job_status(job_id: str) -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         try:
             return jsonify(worker_runtime.status(job_id)), 200
         except TrainingRuntimeError as exc:
             return _domain_error(exc)
 
     @app.post(f"{JOBS_ENDPOINT}/<job_id>/heartbeat")
+    @authorized
     def job_heartbeat(job_id: str) -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         try:
             return jsonify(worker_runtime.heartbeat(job_id)), 200
         except TrainingRuntimeError as exc:
             return _domain_error(exc)
 
     @app.get(f"{JOBS_ENDPOINT}/<job_id>/events")
+    @authorized
     def job_events(job_id: str) -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         try:
             after_sequence = int(request.args.get("after_sequence", "0"))
             limit = int(request.args.get("limit", "100"))
@@ -483,10 +512,8 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             return _domain_error(exc)
 
     @app.post(f"{JOBS_ENDPOINT}/<job_id>/cancel")
+    @authorized
     def cancel_job(job_id: str) -> tuple[Any, int]:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         try:
             payload = worker_runtime.cancel(job_id)
             return jsonify(payload), 200 if payload["status"] in {"succeeded", "failed", "cancelled"} else 202
@@ -494,10 +521,8 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             return _domain_error(exc)
 
     @app.get(f"{JOBS_ENDPOINT}/<job_id>/artifacts/<path:artifact_name>")
+    @authorized
     def download_artifact(job_id: str, artifact_name: str) -> Any:
-        rejection = _authorization(configured_token, token_ready)
-        if rejection:
-            return rejection
         try:
             path, metadata = worker_runtime.artifact(job_id, artifact_name)
             response = send_file(
@@ -512,12 +537,6 @@ def create_app(  # noqa: C901 - additive Flask route composition remains explici
             return response
         except TrainingRuntimeError as exc:
             return _domain_error(exc)
-
-    @app.errorhandler(RequestEntityTooLarge)
-    def request_too_large(exc: RequestEntityTooLarge) -> tuple[Any, int]:
-        return _error("request_too_large", "request exceeds the configured byte limit", 413)
-
-    return app
 
 
 def _domain_error(exc: TrainingRuntimeError | TrainingContractError) -> tuple[Any, int]:
