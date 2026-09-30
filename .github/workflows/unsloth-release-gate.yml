@@ -16,6 +16,7 @@ on:
       # code its own tests exercise — the admission bug it should have caught
       # sat red for days without a push ever triggering it.
       - "agent/repositories/ml_intern_*"
+      - "agent/ports/ml_intern_*"
       - "agent/db_models/ml_intern_*"
       - "agent/routes/ml_intern_training*.py"
       - "agent/mcp/**"
@@ -62,6 +63,7 @@ on:
       - "agent/services/ml_intern_*"
       - "agent/services/unsloth_*"
       - "agent/repositories/ml_intern_*"
+      - "agent/ports/ml_intern_*"
       - "agent/db_models/ml_intern_*"
       - "agent/routes/ml_intern_training*.py"
       - "agent/mcp/**"

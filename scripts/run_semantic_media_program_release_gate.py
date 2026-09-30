@@ -121,6 +121,7 @@ OUTPUT = ROOT / "artifacts/test-gates/semantic-media-program-evidence.json"
 
 _RELEASE_CORE_SOURCE_PATHS = (
     "agent/services/semantic_media_program_evidence.py",
+    "agent/models/semantic_media_content_policy.py",
     "agent/services/semantic_media_rollout_policy.py",
     "docs/operations/semantic-media-rollout.md",
     "schemas/release/semantic_media_program_evidence.v1.json",

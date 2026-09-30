@@ -196,6 +196,7 @@ def evaluate_parent_readiness(
             "artifacts/test-gates/semantic-media-program-evidence.json",
             "scripts/run_sfu_broadcast_parent_readiness_gate.py",
             "agent/services/semantic_media_program_evidence.py",
+            "agent/models/semantic_media_content_policy.py",
         ),
     )
 

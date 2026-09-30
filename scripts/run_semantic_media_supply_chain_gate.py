@@ -200,6 +200,7 @@ def evaluate(  # noqa: C901 - one contract evaluation keeps evidence accounting 
         ROOT,
         (
             "agent/services/semantic_media_program_evidence.py",
+            "agent/models/semantic_media_content_policy.py",
             "scripts/run_semantic_media_supply_chain_gate.py",
             "docs/legal/semantic-media-dependency-review.md",
         ),

@@ -231,6 +231,7 @@ def _evaluate_v1(report: Mapping[str, Any]) -> tuple[GateEvidence, dict[str, int
         ROOT,
         (
             "agent/services/semantic_media_program_evidence.py",
+            "agent/models/semantic_media_content_policy.py",
             "scripts/benchmark/semantic_media_program.py",
             "docs/benchmarks/semantic-media-program-methodology.md",
         ),

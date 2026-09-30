@@ -128,6 +128,7 @@ def evaluate_matrix(
         root,
         (
             "agent/services/semantic_media_program_evidence.py",
+            "agent/models/semantic_media_content_policy.py",
             "docs/security/semantic-media-speech-test-matrix.v1.json",
             "scripts/run_semantic_media_security_gate.py",
             *referenced_sources,

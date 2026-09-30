@@ -23,7 +23,7 @@
     {"metric": "unresolved_incidents", "operator": "eq", "value": 0}
   ],
   "environment": {
-    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/e2e/run_sfu_broadcast_rollout_game_day.py", "agent/services/sfu_fanout_route_lifecycle.py", "agent/services/sfu_broadcast_route_port.py"],
+    "source_paths": ["scripts/sfu_broadcast_advanced_gate.py", "scripts/e2e/run_sfu_broadcast_rollout_game_day.py", "agent/services/sfu_fanout_route_lifecycle.py", "agent/services/sfu_broadcast_route_port.py", "agent/models/sfu_broadcast_route.py", "agent/ports/sfu_broadcast_route.py"],
     "infrastructure_paths": ["docker-compose.semantic-media.yml", "config/livekit.semantic-media.yaml"],
     "browser_lock_path": "frontend-angular/package-lock.json",
     "images": {"sfu": "livekit/livekit-server:1.13.1@sha256:2c6869d2d5ff6c9c0166f47be1c92dad6928bfecfa5e4060a6ece48db8accfa3", "turn": "coturn/coturn:4.6.3-r3@sha256:71c3c990283385567f11794ee692e3a47b66fd9b0bb39e42afbe776e331dd888"},

@@ -57,6 +57,7 @@ RUNTIME_COMMANDS: Mapping[str, Sequence[str]] = {
 PRODUCTION_SOURCE_FILES = frozenset(
     {
         "agent/services/semantic_media_program_evidence.py",
+        "agent/models/semantic_media_content_policy.py",
         "scripts/run_semantic_media_contract_gate.py",
         "tests/contracts/test_semantic_media_cross_runtime.py",
         "tests/worker/test_semantic_media_contract_catalog.py",

@@ -27,9 +27,15 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LIVE_FAILOVER = ROOT / "artifacts/domain/semantic-sfu-live-failover.json"
 SOURCES = (
     "agent/repositories/semantic_relay_shared_store.py",
+    "agent/models/semantic_media_audit.py",
+    "agent/models/semantic_relay_limits.py",
     "agent/repositories/semantic_sfu_admission_repository.py",
     "agent/repositories/speech_reconciliation.py",
+    "agent/models/speech_reconciliation_state_machine.py",
+    "agent/ports/semantic_media_audit.py",
+    "agent/ports/speech_reconciliation_recovery.py",
     "agent/repositories/speech_adaptation.py",
+    "agent/models/speech_adaptation_admission.py",
     "agent/services/media_topology_policy.py",
     "agent/services/background/speech_adaptation_dispatcher.py",
     "agent/services/background/speech_reconciliation_reconciler.py",

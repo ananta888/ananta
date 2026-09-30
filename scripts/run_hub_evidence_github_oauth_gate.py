@@ -78,6 +78,8 @@ TASK_ID = "SRCCTRL-GITHUB-OAUTH-LIVE-GATE"
 HANDLE = "github-oauth:live-gate"
 SOURCE_PATHS = (
     "agent/repositories/hub_git_authorization_repository.py",
+    "agent/models/hub_git_authorization.py",
+    "agent/ports/hub_git_authorization_registry.py",
     "agent/services/git_remote_policy_service.py",
     "agent/services/hub_evidence_gate_service.py",
     "agent/services/hub_evidence_registry_service.py",

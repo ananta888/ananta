@@ -40,6 +40,7 @@ SFU_SOURCE_PATHS = (
     "agent/models/sfu_group_keys.py",
     "agent/ports/sfu_group_keys.py",
     "agent/repositories/semantic_sfu_admission_repository.py",
+    "agent/models/semantic_media_audit.py",
     "agent/routes/semantic_sfu_admission.py",
     "agent/services/media_topology_policy.py",
     "agent/services/semantic_fanout_coordination_service.py",

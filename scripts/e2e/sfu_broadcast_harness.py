@@ -43,6 +43,8 @@ SOURCE_PATHS = (
     "agent/services/sfu_broadcast_contract_validator.py",
     "agent/services/sfu_broadcast_privacy_sentinel.py",
     "agent/services/sfu_broadcast_route_port.py",
+    "agent/models/sfu_broadcast_route.py",
+    "agent/ports/sfu_broadcast_route.py",
     "agent/services/sfu_fanout_route_lifecycle.py",
     "agent/services/sfu_broadcast_data_queue_policy.py",
     "scripts/e2e/semantic_sfu_group_e2e.py",

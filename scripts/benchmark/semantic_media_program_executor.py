@@ -67,6 +67,7 @@ POLICY_PATH = ROOT / "config/semantic-media-program-benchmark.v1.json"
 PRODUCT_SOURCE_PATHS = (
     "agent/services/semantic_media_feature_flags.py",
     "agent/services/semantic_media_program_evidence.py",
+    "agent/models/semantic_media_content_policy.py",
     "agent/services/speech_reconciliation_resource_policy.py",
     "ananta_contracts/speech_reconciliation.py",
     "ananta_contracts/speech_evidence_sync.py",

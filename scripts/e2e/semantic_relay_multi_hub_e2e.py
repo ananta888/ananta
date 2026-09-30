@@ -35,6 +35,9 @@ DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/semantic-relay-multi-hub.json"
 SOURCE_FILES = (
     "agent/db_models/semantic_relay.py",
     "agent/repositories/semantic_relay_repository.py",
+    "agent/models/semantic_media_audit.py",
+    "agent/models/semantic_relay_errors.py",
+    "agent/models/semantic_relay_limits.py",
     "agent/repositories/semantic_relay_shared_store.py",
     "agent/services/semantic_relay_limits.py",
     "migrations/versions/d8e9f0a1b2c3_add_semantic_relay_store.py",

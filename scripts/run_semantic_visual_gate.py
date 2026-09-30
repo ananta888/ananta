@@ -38,6 +38,7 @@ DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/semantic-visual.json"
 VISUAL_LIFECYCLE_SPEC = "semantic-visual-lifecycle.spec.ts"
 VISUAL_LIFECYCLE_SOURCE_PATHS = (
     "agent/services/semantic_media_program_evidence.py",
+    "agent/models/semantic_media_content_policy.py",
     "scripts/e2e/semantic_media_e2e_report.py",
     "frontend-angular/tests/semantic-visual-lifecycle.spec.ts",
     "frontend-angular/src/main.ts",
