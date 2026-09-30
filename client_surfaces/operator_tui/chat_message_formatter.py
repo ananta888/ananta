@@ -14,6 +14,22 @@ import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from client_surfaces.operator_tui.chat_ask_support import (
+    DIRECT_LLM_BACKENDS,
+    HUB_WORKER_BACKENDS,
+    PROPOSE_WORKER_BACKENDS,
+    SNAKE_ASK_RETRIEVAL_CONFIG_KEYS,
+    AskDiagnostics,
+    apply_effective_chat_settings,
+    build_snake_ask_v2_payload,
+    elapsed_ms,
+    ensure_memory_context,
+    merge_rag_snippets,
+    resolve_chat_backend,
+    resolve_chat_rag_top_k,
+    resolve_chat_system_prompt,
+    resolve_context_budget,
+)
 from client_surfaces.operator_tui.chat_long_message import configure_middle_view_for_message
 from client_surfaces.operator_tui.keybindings_config import display_for_action
 
@@ -33,18 +49,19 @@ _TUTORIAL_AI_KNOWLEDGE: tuple[str, ...] = (
     "Artifacts: Dateien/Outputs erscheinen im Artifact-Panel.",
 )
 
-_SNAKE_ASK_RETRIEVAL_CONFIG_KEYS: tuple[str, ...] = (
-    "chat_retrieval_profile",
-    "chat_retrieval_domain_hint",
-    "chat_codecompass_trigger_mode",
-    "chat_code_questions_repo_first",
-    "chat_architecture_analysis_mode",
-    "chat_use_codecompass",
-    "chat_include_local_project",
-    "chat_include_wikipedia",
-    "chat_include_task_memory",
-    "chat_source_pack_id",
-)
+_SNAKE_ASK_RETRIEVAL_CONFIG_KEYS = SNAKE_ASK_RETRIEVAL_CONFIG_KEYS
+
+
+def _post_snake_ask(endpoint_norm: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> Any:
+    """POST ``payload`` to the Hub ``/snake/ask`` endpoint and decode the JSON reply."""
+    request = urllib.request.Request(
+        f"{endpoint_norm}/snake/ask",
+        data=_json_mod.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", **headers},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as resp:
+        return _json_mod.loads(resp.read().decode())
 
 
 def hub_user_auth_headers(endpoint: str) -> dict[str, str]:
@@ -242,114 +259,39 @@ class ChatMessageFormatterMixin:
         prior_messages: list[dict] | None = None,
         memory: "object | None" = None,
     ) -> str:
-        import time as _time_mod
         from client_surfaces.operator_tui.chat_memory import resolve_memory_settings
         from client_surfaces.operator_tui.chat_prompt_builder import ChatPromptBuilder
+        from client_surfaces.operator_tui.chat_state import get_chat_state, get_effective_chat_settings
 
-        t_start = _time_mod.perf_counter()
+        t_start = time.perf_counter()
         game = dict(self.state.header_logo_game or {})
-        from client_surfaces.operator_tui.chat_state import (
-            get_chat_state, get_effective_chat_settings, active_session_id,
-        )
-        chat = get_chat_state(game)
-        eff_settings = get_effective_chat_settings(chat, game)
-        game = dict(game)
-        for k, v in eff_settings.items():
-            if k.startswith("chat_") and v is not None and v != "":
-                game[k] = v
+        eff_settings = get_effective_chat_settings(get_chat_state(game), game)
+        game = apply_effective_chat_settings(game, eff_settings)
         mem_settings = resolve_memory_settings(game)
-
-        chat_top_k_raw = game.get("chat_rag_top_k")
-        try:
-            chat_top_k = int(chat_top_k_raw) if chat_top_k_raw is not None else int(os.environ.get("ANANTA_TUI_CHAT_RAG_TOP_K", "24"))
-        except (TypeError, ValueError):
-            chat_top_k = 24
-        chat_top_k = max(8, min(120, chat_top_k))
+        chat_top_k = resolve_chat_rag_top_k(game)
 
         question_rag = self._rag_context_for_question(question, question_tokens=question_tokens, top_k=chat_top_k)
         codecompass_refs = self._chat_codecompass_context_for_question(question=question)
-
-        seen: set[str] = set()
-        merged: list[str] = []
-        for item in question_rag + rag_context:
-            key = item[:60]
-            if key not in seen:
-                seen.add(key)
-                merged.append(item)
-
-        active_excerpt = self._build_active_target_excerpt()
-
-        if memory is not None:
-            from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
-            mem_ctx = memory
-        else:
-            from client_surfaces.operator_tui.chat_memory import ChatMemoryContext
-            mem_ctx = ChatMemoryContext(
-                recent_turns=[],
-                rolling_summary="",
-                active_target_excerpt=active_excerpt,
-                codecompass_refs=codecompass_refs[:8],
-                rag_snippets=(merged + hints)[:chat_top_k],
-            )
-
-        if hasattr(mem_ctx, "codecompass_refs") and not mem_ctx.codecompass_refs:
-            object.__setattr__(mem_ctx, "codecompass_refs", codecompass_refs[:8]) if hasattr(mem_ctx, "__dataclass_fields__") else None
-        if not mem_ctx.active_target_excerpt and active_excerpt:
-            pass
-
-        context_chars_raw = game.get("chat_context_chars")
-        try:
-            context_budget = int(context_chars_raw) if context_chars_raw is not None else 3000
-        except (TypeError, ValueError):
-            context_budget = 3000
-        context_budget = max(500, min(20000, context_budget))
-
-        sess_prompt = str(eff_settings.get("chat_system_prompt") or "").strip()
-        env_prompt = str(os.environ.get("ANANTA_TUI_CHAT_SYSTEM_PROMPT") or "").strip()
-        system_prompt = sess_prompt or env_prompt
-
-        builder = ChatPromptBuilder(
+        merged = merge_rag_snippets(question_rag, rag_context)
+        mem_ctx = ensure_memory_context(
+            memory,
+            active_excerpt=self._build_active_target_excerpt(),
+            codecompass_refs=codecompass_refs,
+            rag_snippets=(merged + hints)[:chat_top_k],
+        )
+        build_result = ChatPromptBuilder(
             question=question,
             depth=depth,
             memory=mem_ctx,
-            context_budget=context_budget,
+            context_budget=resolve_context_budget(game),
             max_turns_chars=mem_settings["history_chars"],
-            system_template=system_prompt,
-        )
-        build_result = builder.build()
+            system_template=resolve_chat_system_prompt(eff_settings),
+        ).build()
 
-        backend = str(
-            game.get("chat_backend")
-            or os.environ.get("ANANTA_TUI_CHAT_BACKEND")
-            or "lmstudio"
-        ).strip().lower()
-        endpoint = str(getattr(self.state, "endpoint", "") or "").strip().lower()
-        env_backend = str(os.environ.get("ANANTA_TUI_CHAT_BACKEND") or "").strip().lower()
-        if not env_backend and (":1234" in endpoint or "lmstudio" in endpoint):
-            backend = "lmstudio"
-        fallback_policy = mem_settings["backend_fallback"]
-        used_path = backend
-        fallback_reason = ""
+        backend = resolve_chat_backend(game, str(getattr(self.state, "endpoint", "") or ""))
+        diagnostics = AskDiagnostics(backend, mem_ctx, codecompass_refs, merged, build_result)
 
-        def _record_diagnostics(path: str, latency_ms: float, fallback: str = "") -> None:
-            try:
-                g = dict(self.state.header_logo_game or {})
-                g["last_chat_backend_used"] = backend
-                g["last_chat_backend_path"] = path
-                g["last_chat_latency_ms"] = round(latency_ms, 1)
-                g["last_chat_fallback_reason"] = fallback
-                g["last_chat_memory_status"] = {
-                    "history_used": bool(mem_ctx.recent_turns),
-                    "summary_used": bool(mem_ctx.rolling_summary),
-                    "codecompass_used": bool(codecompass_refs),
-                    "rag_count": len(merged),
-                    "sections": build_result.included_sections,
-                }
-                self._set_state(self.state.with_updates(header_logo_game=g))
-            except Exception:
-                pass
-
-        if backend in {"lmstudio", "local", "openai"}:
+        if backend in DIRECT_LLM_BACKENDS:
             answer = self._tutorial_ai_llm_ask(
                 question=question,
                 context_text="",
@@ -357,11 +299,11 @@ class ChatMessageFormatterMixin:
                 prior_messages=build_result.messages[1:-1],
                 _messages_override=build_result.messages,
             )
-            elapsed = (_time_mod.perf_counter() - t_start) * 1000
-            _record_diagnostics("llm_direct", elapsed)
+            diagnostics.record(self, "llm_direct", elapsed_ms(t_start))
             return answer
 
-        if backend in {"opencode", "hermes"}:
+        used_path, fallback_reason = backend, ""
+        if backend in PROPOSE_WORKER_BACKENDS:
             worker_answer = self._tutorial_ai_worker_chat_ask(
                 question=question,
                 context_text=build_result.prompt_text,
@@ -370,116 +312,105 @@ class ChatMessageFormatterMixin:
                 prior_messages=build_result.messages[1:-1],
             )
             if worker_answer:
-                elapsed = (_time_mod.perf_counter() - t_start) * 1000
-                _record_diagnostics(f"propose/{backend}", elapsed)
+                diagnostics.record(self, f"propose/{backend}", elapsed_ms(t_start))
                 return worker_answer
             used_path = f"propose/{backend}"
             fallback_reason = f"{backend} empty response"
 
-        if backend in {"ananta-worker", "worker", "hub", "default", "auto"} or (backend in {"opencode", "hermes"} and not fallback_reason):
-            endpoint_norm = str(self.state.endpoint or "http://localhost:5000").rstrip("/")
-            if not (endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm):
-                hub_headers = hub_user_auth_headers(endpoint_norm)
-                answered = False
-                ask_timeout = self._chat_ask_timeout_seconds()
-                if mem_settings["pass_memory_to_worker"]:
-                    try:
-                        _configured_model = str(game.get("chat_backend_model") or "").strip()
-                        _v2_dict = dict(build_result.worker_v2_payload)
-                        # Keep repository grounding in the Hub. Sending the
-                        # TUI-built context would make /snake/ask skip Hub RAG
-                        # and hide real workspace files from the answer path.
-                        _v2_dict["context"] = ""
-                        if _configured_model:
-                            _v2_dict["model"] = _configured_model
-                        retrieval_config: dict[str, object] = {}
-                        for _cfg_key in _SNAKE_ASK_RETRIEVAL_CONFIG_KEYS:
-                            if _cfg_key in game:
-                                _cfg_value = game.get(_cfg_key)
-                                if isinstance(_cfg_value, (str, bool)):
-                                    retrieval_config[_cfg_key] = _cfg_value
-                        if retrieval_config:
-                            _v2_dict["retrieval_config"] = retrieval_config
-                        try:
-                            _rk = int(game.get("chat_rag_top_k") or 0)
-                            if _rk > 0:
-                                _v2_dict["rag_top_k"] = max(8, min(120, _rk))
-                        except (TypeError, ValueError):
-                            pass
-                        try:
-                            _ac = int(game.get("chat_answer_chars") or 0)
-                            if _ac > 0:
-                                _v2_dict["answer_chars"] = _ac
-                        except (TypeError, ValueError):
-                            pass
-                        _overflow_policy = str(game.get("chat_answer_overflow_policy") or "").strip().lower()
-                        if _overflow_policy in {"allow", "summarize", "truncate"}:
-                            _v2_dict["answer_overflow_policy"] = _overflow_policy
-                        if "chat_never_truncate_answers" in game:
-                            _v2_dict["never_truncate_answers"] = bool(game.get("chat_never_truncate_answers"))
-                        try:
-                            _mt = int(game.get("chat_max_tokens") or 0)
-                            if _mt > 0:
-                                _v2_dict["max_tokens"] = _mt
-                        except (TypeError, ValueError):
-                            pass
-                        try:
-                            _cc = int(game.get("chat_context_chars") or 0)
-                            if _cc > 0:
-                                _v2_dict["context_chars"] = _cc
-                        except (TypeError, ValueError):
-                            pass
-                        v2_payload = _json_mod.dumps(_v2_dict).encode()
-                        req = urllib.request.Request(
-                            f"{endpoint_norm}/snake/ask",
-                            data=v2_payload,
-                            headers={"Content-Type": "application/json", **hub_headers},
-                            method="POST",
-                        )
-                        with urllib.request.urlopen(req, timeout=ask_timeout) as resp:
-                            data = _json_mod.loads(resp.read().decode())
-                            answer = str(data.get("answer") or data.get("text") or "")
-                            # CRPS-007: capture the retrieval profile trace
-                            from client_surfaces.operator_tui.chat_mixin import _capture_snake_ask_trace
-                            _capture_snake_ask_trace(game, data)
-                            if answer:
-                                elapsed = (_time_mod.perf_counter() - t_start) * 1000
-                                _record_diagnostics("worker_v2", elapsed)
-                                return answer[: self._chat_answer_char_limit()]
-                            answered = True
-                    except urllib.error.HTTPError as exc:
-                        if exc.code == 400:
-                            fallback_reason = "worker rejected v2 payload"
-                        else:
-                            fallback_reason = f"worker HTTP {exc.code}"
-                    except Exception as exc:
-                        fallback_reason = str(exc)[:60]
+        if backend in HUB_WORKER_BACKENDS or (backend in PROPOSE_WORKER_BACKENDS and not fallback_reason):
+            answer, fallback_reason = self._ask_hub_snake_worker(
+                question=question,
+                depth=depth,
+                game=game,
+                pass_memory=bool(mem_settings["pass_memory_to_worker"]),
+                build_result=build_result,
+                diagnostics=diagnostics,
+                t_start=t_start,
+                fallback_reason=fallback_reason,
+            )
+            if answer is not None:
+                return answer
 
-                if not answered:
-                    try:
-                        v1_payload = _json_mod.dumps({"question": question, "context": build_result.prompt_text[:3000], "depth": depth}).encode()
-                        req = urllib.request.Request(
-                            f"{endpoint_norm}/snake/ask",
-                            data=v1_payload,
-                            headers={"Content-Type": "application/json", **hub_headers},
-                            method="POST",
-                        )
-                        with urllib.request.urlopen(req, timeout=ask_timeout) as resp:
-                            data = _json_mod.loads(resp.read().decode())
-                            answer = str(data.get("answer") or data.get("text") or "")
-                            if answer:
-                                elapsed = (_time_mod.perf_counter() - t_start) * 1000
-                                _record_diagnostics("worker_v1", elapsed, fallback_reason)
-                                return answer[: self._chat_answer_char_limit()]
-                    except Exception as exc2:
-                        fallback_reason = f"{fallback_reason}; v1: {str(exc2)[:40]}"
+        return self._ask_fallback_answer(
+            question=question,
+            depth=depth,
+            policy=mem_settings["backend_fallback"],
+            build_result=build_result,
+            diagnostics=diagnostics,
+            used_path=used_path,
+            fallback_reason=fallback_reason,
+            latency_ms=elapsed_ms(t_start),
+        )
 
-        elapsed = (_time_mod.perf_counter() - t_start) * 1000
-        if fallback_policy == "none":
-            _record_diagnostics(used_path, elapsed, fallback_reason)
-            return f"[Chat nicht verf\u00fcgbar: {fallback_reason or 'kein Backend'}]"
-        if fallback_policy == "local_knowledge":
-            _record_diagnostics("local_knowledge", elapsed, fallback_reason)
+    def _ask_hub_snake_worker(
+        self,
+        *,
+        question: str,
+        depth: str,
+        game: dict[str, Any],
+        pass_memory: bool,
+        build_result: Any,
+        diagnostics: AskDiagnostics,
+        t_start: float,
+        fallback_reason: str,
+    ) -> tuple[str | None, str]:
+        """Ask the Hub ``/snake/ask`` endpoint (v2 with memory, then v1); returns (answer, fallback)."""
+        endpoint_norm = str(self.state.endpoint or "http://localhost:5000").rstrip("/")
+        if endpoint_norm.endswith("/v1") or ":1234" in endpoint_norm:
+            return None, fallback_reason
+        hub_headers = hub_user_auth_headers(endpoint_norm)
+        ask_timeout = self._chat_ask_timeout_seconds()
+        answered = False
+        if pass_memory:
+            try:
+                data = _post_snake_ask(
+                    endpoint_norm, build_snake_ask_v2_payload(build_result.worker_v2_payload, game), hub_headers,
+                    ask_timeout,
+                )
+                answer = str(data.get("answer") or data.get("text") or "")
+                # CRPS-007: capture the retrieval profile trace
+                from client_surfaces.operator_tui.chat_mixin import _capture_snake_ask_trace
+
+                _capture_snake_ask_trace(game, data)
+                if answer:
+                    diagnostics.record(self, "worker_v2", elapsed_ms(t_start))
+                    return answer[: self._chat_answer_char_limit()], fallback_reason
+                answered = True
+            except urllib.error.HTTPError as exc:
+                fallback_reason = "worker rejected v2 payload" if exc.code == 400 else f"worker HTTP {exc.code}"
+            except Exception as exc:
+                fallback_reason = str(exc)[:60]
+        if answered:
+            return None, fallback_reason
+        try:
+            v1_payload = {"question": question, "context": build_result.prompt_text[:3000], "depth": depth}
+            data = _post_snake_ask(endpoint_norm, v1_payload, hub_headers, ask_timeout)
+            answer = str(data.get("answer") or data.get("text") or "")
+            if answer:
+                diagnostics.record(self, "worker_v1", elapsed_ms(t_start), fallback_reason)
+                return answer[: self._chat_answer_char_limit()], fallback_reason
+        except Exception as exc2:
+            fallback_reason = f"{fallback_reason}; v1: {str(exc2)[:40]}"
+        return None, fallback_reason
+
+    def _ask_fallback_answer(
+        self,
+        *,
+        question: str,
+        depth: str,
+        policy: str,
+        build_result: Any,
+        diagnostics: AskDiagnostics,
+        used_path: str,
+        fallback_reason: str,
+        latency_ms: float,
+    ) -> str:
+        """Answer after every configured backend failed, following the fallback policy."""
+        if policy == "none":
+            diagnostics.record(self, used_path, latency_ms, fallback_reason)
+            return f"[Chat nicht verfügbar: {fallback_reason or 'kein Backend'}]"
+        if policy == "local_knowledge":
+            diagnostics.record(self, "local_knowledge", latency_ms, fallback_reason)
             return self._local_knowledge_answer(question)
         answer = self._tutorial_ai_llm_ask(
             question=question,
@@ -488,7 +419,7 @@ class ChatMessageFormatterMixin:
             prior_messages=[],
             _messages_override=build_result.messages,
         )
-        _record_diagnostics("llm_fallback", elapsed, fallback_reason)
+        diagnostics.record(self, "llm_fallback", latency_ms, fallback_reason)
         return answer
 
     def _tutorial_ai_worker_chat_ask(
