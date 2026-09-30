@@ -541,9 +541,85 @@ def get_self_graph_domains():
     return api_response(data={"domains": domains})
 
 
+def _int_arg(raw: str, default: int) -> int:
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _resolve_symbol_import_edges(
+    all_nodes_by_id: dict[str, dict],
+    name_index: dict[str, str],
+    *,
+    details_path: Path,
+    scoped_file_ids: set[str],
+) -> tuple[list[dict], set[str]]:
+    """Resolve ``from module import name`` details of scoped files to symbol edges."""
+    symbol_by_module_name: dict[tuple[str, str], str] = {}
+    for node_id, node in all_nodes_by_id.items():
+        kind = str(node.get("kind") or "")
+        if kind not in {"python_function", "python_method", "python_class"}:
+            continue
+        module = _python_module_from_file(str(node.get("file") or ""))
+        name = name_index.get(node_id) or str(node.get("name") or "")
+        if module and name:
+            symbol_by_module_name[(module, name)] = node_id
+
+    edges: list[dict] = []
+    node_ids: set[str] = set()
+    for detail in _read_jsonl(details_path) or []:
+        if str(detail.get("kind") or "") != "python_import":
+            continue
+        source_id = str(detail.get("parent_id") or "")
+        module = str(detail.get("module") or "")
+        if source_id not in scoped_file_ids or not module:
+            continue
+        for imported_name in detail.get("names") or []:
+            target_id = symbol_by_module_name.get((module, str(imported_name)))
+            if not target_id:
+                continue
+            node_ids.add(target_id)
+            edges.append({
+                "source_id": source_id,
+                "target_id": target_id,
+                "relation": "imports_symbol",
+                "attributes": {"confidence": 1.0, "module": module, "name": str(imported_name)},
+            })
+    return edges, node_ids
+
+
+def _load_internal_edges(edges_path: Path, scoped_ids: set[str], node_degree: dict[str, int]) -> list[dict]:
+    """Read graph edges between scoped nodes and count their degree into ``node_degree``."""
+    edges: list[dict] = []
+    if not edges_path.exists():
+        return edges
+    with edges_path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                edge = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            src = str(edge.get("source") or "")
+            tgt = str(edge.get("target") or "")
+            if src in scoped_ids and tgt in scoped_ids:
+                node_degree[src] = node_degree.get(src, 0) + 1
+                node_degree[tgt] = node_degree.get(tgt, 0) + 1
+                edges.append({
+                    "source_id": src,
+                    "target_id": tgt,
+                    "relation": str(edge.get("type") or edge.get("kind") or "related"),
+                    "attributes": {"confidence": 1.0},
+                })
+    return edges
+
+
 @codecompass_graph_bp.route("/api/codecompass/self-graph", methods=["GET"])
 @check_auth
-def get_self_graph():  # noqa: C901 - legacy route is reduced incrementally
+def get_self_graph():
     """Serve Ananta's own rag-helper/out JSONL graph with kind detail levels + optional caps.
 
     ?domain=agent.routes  — module area key (default: agent.routes). 'all' for everything.
@@ -566,22 +642,10 @@ def get_self_graph():  # noqa: C901 - legacy route is reduced incrementally
     kind_filter = str(request.args.get("kind") or "").strip().lower() or None
     raw_max_nodes = str(request.args.get("max_nodes") or str(_DEFAULT_MAX_NODES)).strip()
     raw_max_edges = str(request.args.get("max_edges") or str(_DEFAULT_MAX_EDGES)).strip()
-    try:
-        detail_level = max(0, min(int(raw_detail_level), 3))
-    except ValueError:
-        detail_level = 1
-    try:
-        graph_depth = max(0, int(raw_graph_depth))
-    except ValueError:
-        graph_depth = 0
-    try:
-        max_nodes = int(raw_max_nodes)
-    except ValueError:
-        max_nodes = _DEFAULT_MAX_NODES
-    try:
-        max_edges = int(raw_max_edges)
-    except ValueError:
-        max_edges = _DEFAULT_MAX_EDGES
+    detail_level = max(0, min(_int_arg(raw_detail_level, 1), 3))
+    graph_depth = max(0, _int_arg(raw_graph_depth, 0))
+    max_nodes = _int_arg(raw_max_nodes, _DEFAULT_MAX_NODES)
+    max_edges = _int_arg(raw_max_edges, _DEFAULT_MAX_EDGES)
 
     nodes_path, edges_path = _rag_out_paths(settings)
     name_index = _get_name_index(nodes_path.parent)
@@ -622,38 +686,12 @@ def get_self_graph():  # noqa: C901 - legacy route is reduced incrementally
         str(n["id"]) for n in scoped
         if str(n.get("kind") or "") == "python_file"
     }
-    symbol_by_module_name: dict[tuple[str, str], str] = {}
-    for node_id, node in all_nodes_by_id.items():
-        kind = str(node.get("kind") or "")
-        if kind not in {"python_function", "python_method", "python_class"}:
-            continue
-        module = _python_module_from_file(str(node.get("file") or ""))
-        name = name_index.get(node_id) or str(node.get("name") or "")
-        if module and name:
-            symbol_by_module_name[(module, name)] = node_id
-
-    resolved_import_edges: list[dict] = []
-    resolved_import_node_ids: set[str] = set()
-    for detail in _read_jsonl(nodes_path.parent / "details.jsonl") or []:
-        if str(detail.get("kind") or "") != "python_import":
-            continue
-        source_id = str(detail.get("parent_id") or "")
-        if source_id not in scoped_file_ids:
-            continue
-        module = str(detail.get("module") or "")
-        if not module:
-            continue
-        for imported_name in detail.get("names") or []:
-            target_id = symbol_by_module_name.get((module, str(imported_name)))
-            if not target_id:
-                continue
-            resolved_import_node_ids.add(target_id)
-            resolved_import_edges.append({
-                "source_id": source_id,
-                "target_id": target_id,
-                "relation": "imports_symbol",
-                "attributes": {"confidence": 1.0, "module": module, "name": str(imported_name)},
-            })
+    resolved_import_edges, resolved_import_node_ids = _resolve_symbol_import_edges(
+        all_nodes_by_id,
+        name_index,
+        details_path=nodes_path.parent / "details.jsonl",
+        scoped_file_ids=scoped_file_ids,
+    )
     for node_id in resolved_import_node_ids:
         node = all_nodes_by_id.get(node_id)
         if node and node not in scoped:
@@ -664,28 +702,7 @@ def get_self_graph():  # noqa: C901 - legacy route is reduced incrementally
     # ── 4. Load edges between scoped nodes; compute degree for cap ordering ────
     scoped_ids_full: set[str] = {str(n["id"]) for n in scoped}
     node_degree: dict[str, int] = {nid: 0 for nid in scoped_ids_full}
-    all_internal_edges: list[dict] = []
-    if edges_path.exists():
-        with edges_path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    edge = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                src = str(edge.get("source") or "")
-                tgt = str(edge.get("target") or "")
-                if src in scoped_ids_full and tgt in scoped_ids_full:
-                    node_degree[src] = node_degree.get(src, 0) + 1
-                    node_degree[tgt] = node_degree.get(tgt, 0) + 1
-                    all_internal_edges.append({
-                        "source_id": src,
-                        "target_id": tgt,
-                        "relation": str(edge.get("type") or edge.get("kind") or "related"),
-                        "attributes": {"confidence": 1.0},
-                    })
+    all_internal_edges = _load_internal_edges(edges_path, scoped_ids_full, node_degree)
     all_internal_edges.extend(resolved_import_edges)
     for edge in resolved_import_edges:
         src = edge["source_id"]
