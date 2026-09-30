@@ -1,22 +1,17 @@
 from types import SimpleNamespace
 
-from agent.services import task_delegation_services
 from agent.services.task_delegation_services import WorkerExecutionContextFactory
 
 
-def _build_payload(monkeypatch, *, task_kind: str):
+def _build_payload(*, task_kind: str):
     issued = {}
-    monkeypatch.setattr(
-        task_delegation_services,
-        "settings",
-        SimpleNamespace(agent_url="http://hub:5000", port=5000, agent_name="hub"),
-    )
-    monkeypatch.setattr(
-        task_delegation_services,
-        "WorkerResultCapabilityService",
-        lambda: SimpleNamespace(
+    factory = WorkerExecutionContextFactory(
+        SimpleNamespace(),
+        research_delegation_policy=SimpleNamespace(),
+        callback_capability_service_factory=lambda: SimpleNamespace(
             issue=lambda **kwargs: issued.update(kwargs) or "callback-token"
         ),
+        hub_settings=SimpleNamespace(agent_url="http://hub:5000", port=5000, agent_name="hub"),
     )
     request = SimpleNamespace(
         task_id="parent-1",
@@ -32,7 +27,7 @@ def _build_payload(monkeypatch, *, task_kind: str):
         effective_task_kind=task_kind,
         effective_required_capabilities=["planning"],
     )
-    payload = WorkerExecutionContextFactory._delegation_payload(
+    payload = factory._delegation_payload(
         request=request,
         plan=plan,
         subtask_id="sub-1",
@@ -50,17 +45,15 @@ def _build_payload(monkeypatch, *, task_kind: str):
     return issued, payload
 
 
-def test_planning_research_callback_capability_covers_long_running_execution(
-    monkeypatch,
-):
-    issued, payload = _build_payload(monkeypatch, task_kind="planning_research")
+def test_planning_research_callback_capability_covers_long_running_execution():
+    issued, payload = _build_payload(task_kind="planning_research")
 
     assert issued["ttl_seconds"] == 3600
     assert issued["assignment_id"] == "sub-1"
     assert payload["callback_token"] == "callback-token"
 
 
-def test_regular_delegation_keeps_least_privilege_default_ttl(monkeypatch):
-    issued, _payload = _build_payload(monkeypatch, task_kind="planning")
+def test_regular_delegation_keeps_least_privilege_default_ttl():
+    issued, _payload = _build_payload(task_kind="planning")
 
     assert "ttl_seconds" not in issued
