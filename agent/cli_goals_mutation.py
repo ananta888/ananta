@@ -1,10 +1,18 @@
 """Goal submission and mutating CLI commands (SPLIT-013).
 
-All hub I/O goes through the agent.cli_goals facade (`_cli.*`) so that
-tests can keep monkeypatching agent.cli_goals attributes.
+Hub I/O is injected through ``deps`` (:class:`CliGoalsDependencies`).
 """
 
-from agent import cli_goals as _cli
+from agent.cli_goals_support import (
+    DEFAULT_DEPENDENCIES,
+    SHORTCUT_GOALS,
+    CliGoalsDependencies,
+    parse_rag_sources,
+    planning_mode_to_use_template,
+    print_error,
+    print_terminal,
+    resolve_output_dir,
+)
 
 
 def submit_goal(
@@ -17,6 +25,8 @@ def submit_goal(
     output_dir: str | None = None,
     planning_mode: str | None = None,
     rag_sources: str | None = None,
+    *,
+    deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES,
 ):
     payload = {"goal": goal, "create_tasks": create_tasks}
     if context:
@@ -28,47 +38,47 @@ def submit_goal(
     if mode_data:
         payload["mode_data"] = mode_data
     if output_dir:
-        container_path, host_path = _cli._resolve_output_dir(output_dir)
+        container_path, host_path = resolve_output_dir(output_dir)
         payload.setdefault("execution_preferences", {})["output_dir"] = container_path
         if host_path:
-            _cli._print_terminal("Output directory (host): {}", host_path)
+            print_terminal("Output directory (host): {}", host_path)
         output_dir = container_path
     if rag_sources:
-        parsed = _cli._parse_rag_sources(rag_sources)
+        parsed = parse_rag_sources(rag_sources)
         if parsed:
             payload.setdefault("execution_preferences", {})["rag_sources"] = parsed
-    use_template = _cli._planning_mode_to_use_template(planning_mode)
+    use_template = planning_mode_to_use_template(planning_mode)
     if use_template is not None:
         payload["use_template"] = use_template
 
-    response = _cli._request("POST", "/goals", body=payload, timeout=60)
+    response = deps.request("POST", "/goals", body=payload, timeout=60)
     if response.status_code in {201, 202}:
-        data = _cli._api_data(response)
+        data = deps.api_data(response)
         goal_payload = data.get("goal", {})
         created_task_ids = data.get("created_task_ids", [])
         accepted_async = response.status_code == 202
-        _cli._print_terminal("Goal submitted: {}", goal_payload.get("goal", goal))
-        _cli._print_terminal("Goal ID: {}", goal_payload.get("id", "N/A"))
-        _cli._print_terminal("Status: {}", goal_payload.get("status", "N/A"))
+        print_terminal("Goal submitted: {}", goal_payload.get("goal", goal))
+        print_terminal("Goal ID: {}", goal_payload.get("id", "N/A"))
+        print_terminal("Status: {}", goal_payload.get("status", "N/A"))
         if accepted_async:
-            _cli._print_terminal("Dispatch: accepted (async planning)")
+            print_terminal("Dispatch: accepted (async planning)")
         print(f"Tasks created: {len(created_task_ids)}")
         for task_id in created_task_ids:
-            _cli._print_terminal("  - {}", task_id)
+            print_terminal("  - {}", task_id)
         reference_profile = dict(goal_payload.get("reference_profile") or {})
         if reference_profile:
-            _cli._print_terminal("Reference profile: {}", reference_profile.get("profile_id") or "-")
-            _cli._print_terminal("Reference fit: {}", reference_profile.get("fit_level") or "n/a")
+            print_terminal("Reference profile: {}", reference_profile.get("profile_id") or "-")
+            print_terminal("Reference fit: {}", reference_profile.get("fit_level") or "n/a")
             if reference_profile.get("reason_summary"):
-                _cli._print_terminal("Reference reason: {}", reference_profile.get("reason_summary"))
+                print_terminal("Reference reason: {}", reference_profile.get("reason_summary"))
         goal_id = goal_payload.get("id")
         if goal_id:
-            _cli._print_terminal("Next step: ananta goal --goal-detail {}", goal_id)
+            print_terminal("Next step: ananta goal --goal-detail {}", goal_id)
             if accepted_async:
-                _cli._print_terminal("Next step: ananta goal --goal-tasks {}", goal_id)
+                print_terminal("Next step: ananta goal --goal-tasks {}", goal_id)
         print("Success signal: Goal ID, status and task count are visible.")
         return created_task_ids
-    _cli._print_error(response)
+    print_error(response)
     return []
 
 
@@ -81,10 +91,11 @@ def submit_shortcut(
     output_dir: str | None = None,
     planning_mode: str | None = None,
     rag_sources: str | None = None,
+    deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES,
 ):
-    shortcut = _cli.SHORTCUT_GOALS.get(kind)
+    shortcut = SHORTCUT_GOALS.get(kind)
     if not shortcut:
-        _cli._print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(_cli.SHORTCUT_GOALS)))
+        print_terminal("Error: Unknown shortcut '{}'. Available: {}", kind, ", ".join(sorted(SHORTCUT_GOALS)))
         return []
     shortcut_text = text.strip()
     goal_kwargs = {
@@ -101,7 +112,7 @@ def submit_shortcut(
         goal_kwargs["planning_mode"] = planning_mode
     if rag_sources is not None:
         goal_kwargs["rag_sources"] = rag_sources
-    return _cli.submit_goal(**goal_kwargs)
+    return submit_goal(**goal_kwargs, deps=deps)
 
 
 def _shortcut_mode_data(kind: str, text: str) -> dict:
@@ -127,23 +138,25 @@ def _shortcut_mode_data(kind: str, text: str) -> dict:
     return data
 
 
-def purge_goal(goal_id: str, *, include_prompt_traces: bool = True) -> int:
+def purge_goal(
+    goal_id: str, *, include_prompt_traces: bool = True, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES
+) -> int:
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         print("Error: --goal-purge requires a goal ID")
         return 2
-    response = _cli._request(
+    response = deps.request(
         "DELETE",
         f"/goals/{goal_id_norm}/purge",
         params={"include_prompt_traces": "1" if include_prompt_traces else "0"},
         timeout=60,
     )
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return 1
-    data = _cli._api_data(response) or {}
+    data = deps.api_data(response) or {}
     deleted = data.get("deleted") or {}
-    _cli._print_terminal("Goal purged: {}", data.get("goal_id") or goal_id_norm)
+    print_terminal("Goal purged: {}", data.get("goal_id") or goal_id_norm)
     print(f"  Deleted total: {int(data.get('deleted_total') or 0)}")
     print(f"  Prompt traces deleted: {int(data.get('prompt_traces_deleted') or 0)}")
     if isinstance(deleted, dict):
@@ -152,18 +165,18 @@ def purge_goal(goal_id: str, *, include_prompt_traces: bool = True) -> int:
     return 0
 
 
-def recover_stale(*, dry_run: bool = True) -> int:
+def recover_stale(*, dry_run: bool = True, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> int:
     """PRI-013: Cancel stale planning goals with expired lease."""
     # Re-uses the preflight logic exposed via the health endpoint + a dedicated recover route.
     # For now: call the health endpoint to report, then DELETE stale goals directly.
-    response = _cli._request("GET", "/goals/planning/health", timeout=15)
+    response = deps.request("GET", "/goals/planning/health", timeout=15)
     if response.status_code == 403:
         print("Error: --recover-stale requires admin credentials")
         return 2
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return 1
-    data = _cli._api_data(response) or {}
+    data = deps.api_data(response) or {}
     stale = int((data.get("goals") or {}).get("stale_expired_lease") or 0)
     if stale == 0:
         print("No stale planning goals found.")
@@ -172,35 +185,35 @@ def recover_stale(*, dry_run: bool = True) -> int:
         print(f"[DRY RUN] Would cancel {stale} stale planning goal(s). Use --recover-stale --yes to execute.")
         return 0
     # POST to trigger server-side recovery.
-    rec_response = _cli._request("POST", "/goals/planning/recover-stale", timeout=30)
+    rec_response = deps.request("POST", "/goals/planning/recover-stale", timeout=30)
     if rec_response.status_code == 404:
         # Endpoint not yet available — inform operator.
         print(f"Server-side recover endpoint not available. Use --goal-purge or direct DB cleanup for {stale} stale goal(s).")
         return 1
     if rec_response.status_code != 200:
-        _cli._print_error(rec_response)
+        print_error(rec_response)
         return 1
-    rec_data = _cli._api_data(rec_response) or {}
+    rec_data = deps.api_data(rec_response) or {}
     print(f"Cancelled {rec_data.get('cancelled', stale)} stale planning goal(s).")
     return 0
 
 
-def cancel_tree(goal_id: str) -> int:
+def cancel_tree(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> int:
     """PRI-013: Cancel all tasks for a goal and mark it failed via purge or lifecycle transition."""
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         print("Error: --cancel-tree requires a goal ID")
         return 2
     # Use the lifecycle cancel endpoint if available, else fall back to purge.
-    cancel_response = _cli._request("POST", f"/goals/{goal_id_norm}/cancel", timeout=30)
+    cancel_response = deps.request("POST", f"/goals/{goal_id_norm}/cancel", timeout=30)
     if cancel_response.status_code == 404:
         print(f"No dedicated cancel endpoint — using purge for goal {goal_id_norm}")
-        return _cli.purge_goal(goal_id_norm)
+        return purge_goal(goal_id_norm, deps=deps)
     if cancel_response.status_code != 200:
-        _cli._print_error(cancel_response)
+        print_error(cancel_response)
         return 1
-    data = _cli._api_data(cancel_response) or {}
-    _cli._print_terminal("Goal cancelled: {}", goal_id_norm)
+    data = deps.api_data(cancel_response) or {}
+    print_terminal("Goal cancelled: {}", goal_id_norm)
     print(f"  Tasks cancelled: {data.get('tasks_cancelled', '?')}")
     worker_failures = data.get("worker_cancel_failures") or []
     if worker_failures:
@@ -210,48 +223,50 @@ def cancel_tree(goal_id: str) -> int:
     return 0
 
 
-def kill_requests(goal_id: str) -> int:
+def kill_requests(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> int:
     """Abort all in-flight LM Studio requests for a goal (without cancelling the goal)."""
     goal_id_norm = str(goal_id or "").strip()
     if not goal_id_norm:
         print("Error: --kill-requests requires a goal ID")
         return 2
-    response = _cli._request("POST", f"/goals/{goal_id_norm}/kill-requests", timeout=15)
+    response = deps.request("POST", f"/goals/{goal_id_norm}/kill-requests", timeout=15)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return 1
-    data = _cli._api_data(response) or {}
+    data = deps.api_data(response) or {}
     killed = data.get("sessions_killed", 0)
-    _cli._print_terminal("Killed {} in-flight LM Studio request(s) for goal {}", killed, goal_id_norm)
+    print_terminal("Killed {} in-flight LM Studio request(s) for goal {}", killed, goal_id_norm)
     remaining = data.get("active_counts") or {}
     if remaining:
         print(f"  Active requests remaining: {remaining}")
     return 0
 
 
-def kill_all_requests() -> int:
+def kill_all_requests(*, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> int:
     """Abort all in-flight LM Studio requests across all goals."""
-    response = _cli._request("POST", "/goals/kill-all-requests", timeout=15)
+    response = deps.request("POST", "/goals/kill-all-requests", timeout=15)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return 1
-    data = _cli._api_data(response) or {}
+    data = deps.api_data(response) or {}
     killed = data.get("sessions_killed", 0)
-    _cli._print_terminal("Killed {} in-flight LM Studio request(s) across all goals", killed)
+    print_terminal("Killed {} in-flight LM Studio request(s) across all goals", killed)
     return 0
 
 
-def analyze_task_followups(task_id: str, output: str | None = None):
+def analyze_task_followups(
+    task_id: str, output: str | None = None, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES
+):
     payload = {}
     if output:
         payload["output"] = output
-    response = _cli._request("POST", f"/tasks/auto-planner/analyze/{task_id}", body=payload, timeout=45)
+    response = deps.request("POST", f"/tasks/auto-planner/analyze/{task_id}", body=payload, timeout=45)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return
-    data = _cli._api_data(response)
+    data = deps.api_data(response)
     followups = data.get("followups_created") or []
-    _cli._print_terminal("Follow-up analysis completed for task {}", task_id)
+    print_terminal("Follow-up analysis completed for task {}", task_id)
     print(f"  Follow-ups created: {len(followups)}")
     for followup in followups:
-        _cli._print_terminal("  - {}: {}", followup.get("id", "N/A"), str(followup.get("title", ""))[:80])
+        print_terminal("  - {}: {}", followup.get("id", "N/A"), str(followup.get("title", ""))[:80])

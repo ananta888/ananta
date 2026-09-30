@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+from agent.cli_goals_support import CliGoalsDependencies
+
 
 # ── _extract_script_blocks ────────────────────────────────────────────────────
 
@@ -75,8 +77,7 @@ def test_host_scan_includes_nginx_cmds_for_nginx_topic(monkeypatch):
     def _fake_run(cmd: str) -> str:
         return f"output_of: {cmd}"
 
-    monkeypatch.setattr("agent.cli_goals._run_scan_cmd", _fake_run)
-    result = _host_scan("nginx crashes on startup")
+    result = _host_scan("nginx crashes on startup", deps=CliGoalsDependencies(run_host_command=_fake_run))
     assert "nginx" in result.lower()
 
 
@@ -86,8 +87,7 @@ def test_host_scan_includes_docker_cmds_for_docker_topic(monkeypatch):
     def _fake_run(cmd: str) -> str:
         return f"mock: {cmd}"
 
-    monkeypatch.setattr("agent.cli_goals._run_scan_cmd", _fake_run)
-    result = _host_scan("docker container keeps restarting")
+    result = _host_scan("docker container keeps restarting", deps=CliGoalsDependencies(run_host_command=_fake_run))
     assert "docker" in result.lower()
 
 
@@ -97,8 +97,7 @@ def test_host_scan_respects_max_chars(monkeypatch):
     def _fat_run(_cmd: str) -> str:
         return "x" * 2000
 
-    monkeypatch.setattr("agent.cli_goals._run_scan_cmd", _fat_run)
-    result = _host_scan("nginx issue", max_chars=500)
+    result = _host_scan("nginx issue", max_chars=500, deps=CliGoalsDependencies(run_host_command=_fat_run))
     # max_chars limits accumulated section content; headers/labels add a small fixed overhead
     assert len(result) <= 500 + 300  # 500 content limit + fixed header/label overhead
 
@@ -106,8 +105,7 @@ def test_host_scan_respects_max_chars(monkeypatch):
 def test_host_scan_gracefully_handles_empty_cmd_output(monkeypatch):
     from agent.cli_goals import _host_scan
 
-    monkeypatch.setattr("agent.cli_goals._run_scan_cmd", lambda _: "")
-    result = _host_scan("some problem")
+    result = _host_scan("some problem", deps=CliGoalsDependencies(run_host_command=lambda _: ""))
     assert "HOST-DIAGNOSE" in result
 
 
@@ -123,22 +121,16 @@ def _mock_response(status_code: int, data: dict) -> MagicMock:
 def test_poll_goal_status_returns_completed_immediately(monkeypatch):
     from agent.cli_goals import _poll_goal_status
 
-    monkeypatch.setattr(
-        "agent.cli_goals._request",
-        lambda *a, **kw: _mock_response(200, {"status": "completed"}),
-    )
-    status = _poll_goal_status("goal-123", timeout=10, interval=0)
+    deps = CliGoalsDependencies(request=lambda *a, **kw: _mock_response(200, {"status": "completed"}))
+    status = _poll_goal_status("goal-123", timeout=10, interval=0, deps=deps)
     assert status == "completed"
 
 
 def test_poll_goal_status_returns_failed(monkeypatch):
     from agent.cli_goals import _poll_goal_status
 
-    monkeypatch.setattr(
-        "agent.cli_goals._request",
-        lambda *a, **kw: _mock_response(200, {"status": "failed"}),
-    )
-    status = _poll_goal_status("goal-fail", timeout=5, interval=0)
+    deps = CliGoalsDependencies(request=lambda *a, **kw: _mock_response(200, {"status": "failed"}))
+    status = _poll_goal_status("goal-fail", timeout=5, interval=0, deps=deps)
     assert status == "failed"
 
 
@@ -167,9 +159,8 @@ def test_poll_goal_status_detail_fallback_all_tasks_done(monkeypatch):
         # always return "planned" for the main poll
         return _mock_response(200, {"status": "planned"})
 
-    monkeypatch.setattr("agent.cli_goals._request", _fake_request)
     # interval=0 so it loops quickly; detail checked every 4th poll
-    status = _poll_goal_status("goal-detail", timeout=30, interval=0)
+    status = _poll_goal_status("goal-detail", timeout=30, interval=0, deps=CliGoalsDependencies(request=_fake_request))
     assert status == "completed"
 
 
@@ -177,11 +168,8 @@ def test_poll_goal_status_timeout(monkeypatch):
     """If goal never reaches terminal state and timeout expires, return 'timeout'."""
     from agent.cli_goals import _poll_goal_status
 
-    monkeypatch.setattr(
-        "agent.cli_goals._request",
-        lambda *a, **kw: _mock_response(200, {"status": "running"}),
-    )
-    status = _poll_goal_status("goal-stuck", timeout=1, interval=0)
+    deps = CliGoalsDependencies(request=lambda *a, **kw: _mock_response(200, {"status": "running"}))
+    status = _poll_goal_status("goal-stuck", timeout=1, interval=0, deps=deps)
     assert status == "timeout"
 
 
@@ -197,8 +185,7 @@ def test_submit_repair_goal_returns_none_on_goal_creation_failure(monkeypatch):
         r.text = "internal error"
         return r
 
-    monkeypatch.setattr("agent.cli_goals._request", _fail_request)
-    result = _submit_repair_goal("nginx broken")
+    result = _submit_repair_goal("nginx broken", deps=CliGoalsDependencies(request=_fail_request))
     assert result is None
 
 
@@ -214,8 +201,7 @@ def test_submit_repair_goal_returns_none_when_goal_fails(monkeypatch):
             return _mock_response(200, {"artifacts": {"artifacts": []}})
         return _mock_response(200, {"status": "failed"})
 
-    monkeypatch.setattr("agent.cli_goals._request", _fake_request)
-    result = _submit_repair_goal("broken service", allow_partial=False)
+    result = _submit_repair_goal("broken service", allow_partial=False, deps=CliGoalsDependencies(request=_fake_request))
     assert result is None
 
 
@@ -241,8 +227,7 @@ def test_submit_repair_goal_returns_output_on_success(monkeypatch):
         # status poll
         return _mock_response(200, {"status": "completed"})
 
-    monkeypatch.setattr("agent.cli_goals._request", _fake_request)
-    result = _submit_repair_goal("nginx broken")
+    result = _submit_repair_goal("nginx broken", deps=CliGoalsDependencies(request=_fake_request))
     assert result is not None
     assert len(result) == 1
     assert "nginx -t" in result[0][1]
@@ -250,38 +235,50 @@ def test_submit_repair_goal_returns_output_on_success(monkeypatch):
 
 # ── repair_script_cmd stdout (non-TUI) mode ──────────────────────────────────
 
-def test_repair_script_cmd_prints_script_to_stdout(monkeypatch, capsys):
+def _repair_hub_deps(task_output: str | None) -> CliGoalsDependencies:
+    """Fake hub: the repair goal completes at once and yields ``task_output`` (None = creation fails)."""
+
+    def _fake_request(method, path, **kw):
+        if task_output is None:
+            return _mock_response(500, {})
+        if method == "POST" and path == "/goals":
+            return _mock_response(201, {"goal": {"id": "g-repair"}, "created_task_ids": ["t-repair"]})
+        if method == "POST":
+            return _mock_response(200, {})
+        if path == "/goals/g-repair/detail":
+            return _mock_response(200, {"artifacts": {"artifacts": [{"task_id": "t-repair", "title": "task"}]}})
+        if path == "/tasks/t-repair":
+            return _mock_response(200, {"last_output": task_output})
+        return _mock_response(200, {"status": "completed"})
+
+    return CliGoalsDependencies(request=_fake_request)
+
+
+def test_repair_script_cmd_prints_script_to_stdout(capsys):
     from agent.cli_goals import repair_script_cmd
 
-    monkeypatch.setattr(
-        "agent.cli_goals._submit_repair_goal",
-        lambda *a, **kw: [("Fix nginx", "```bash\nnginx -t\nsystemctl reload nginx\n```")],
+    repair_script_cmd(
+        "nginx broken",
+        deps=_repair_hub_deps("```bash\nnginx -t\nsystemctl reload nginx\n```"),
     )
-    repair_script_cmd("nginx broken")
     captured = capsys.readouterr()
     assert "nginx -t" in captured.out
     assert "systemctl reload nginx" in captured.out
 
 
-def test_repair_script_cmd_saves_to_file(monkeypatch, tmp_path):
+def test_repair_script_cmd_saves_to_file(tmp_path):
     from agent.cli_goals import repair_script_cmd
 
-    monkeypatch.setattr(
-        "agent.cli_goals._submit_repair_goal",
-        lambda *a, **kw: [("task", "```bash\napt update\n```")],
-    )
     out_file = str(tmp_path / "fix.sh")
-    repair_script_cmd("apt issue", script_out=out_file)
+    repair_script_cmd("apt issue", script_out=out_file, deps=_repair_hub_deps("```bash\napt update\n```"))
     content = open(out_file).read()
     assert "#!/bin/bash" in content
     assert "apt update" in content
 
 
-def test_repair_script_cmd_exits_1_on_no_output(monkeypatch):
-    import sys
+def test_repair_script_cmd_exits_1_on_no_output():
     from agent.cli_goals import repair_script_cmd
 
-    monkeypatch.setattr("agent.cli_goals._submit_repair_goal", lambda *a, **kw: None)
     with __import__("pytest").raises(SystemExit) as exc:
-        repair_script_cmd("bad thing")
+        repair_script_cmd("bad thing", deps=_repair_hub_deps(None))
     assert exc.value.code == 1

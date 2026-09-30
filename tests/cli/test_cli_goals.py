@@ -14,11 +14,19 @@ class _FakeResponse:
         return self._payload
 
 
+def _hub_deps(transport) -> cli_goals.CliGoalsDependencies:
+    return cli_goals.CliGoalsDependencies(
+        request=cli_goals.HubHttpClient(
+            base_url_provider=lambda: "http://localhost:5000",
+            token_provider=lambda base_url: "token",
+            transport=transport,
+        )
+    )
+
+
 def test_list_modes_calls_goal_modes_endpoint(monkeypatch, capsys):
     calls: list[tuple[str, str]] = []
 
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append((method, url))
@@ -32,8 +40,8 @@ def test_list_modes_calls_goal_modes_endpoint(monkeypatch, capsys):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
-    cli_goals.list_modes()
+    deps = _hub_deps(_fake_request)
+    cli_goals.list_modes(deps=deps)
 
     out = capsys.readouterr().out
     assert ("GET", "http://localhost:5000/goals/modes") in calls
@@ -44,8 +52,6 @@ def test_list_modes_calls_goal_modes_endpoint(monkeypatch, capsys):
 def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
     calls: list[dict] = []
 
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
@@ -59,7 +65,7 @@ def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    deps = _hub_deps(_fake_request)
     created = cli_goals.submit_goal(
         goal="repair",
         context="ctx",
@@ -67,6 +73,7 @@ def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
         create_tasks=True,
         mode="docker_compose_repair",
         mode_data={"service": "hub"},
+        deps=deps,
     )
 
     assert created == ["task-1", "task-2"]
@@ -79,8 +86,6 @@ def test_submit_goal_posts_to_goal_endpoint_with_mode(monkeypatch):
 
 
 def test_submit_goal_prints_first_run_success_signal(monkeypatch, capsys):
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         return _FakeResponse(
@@ -93,9 +98,9 @@ def test_submit_goal_prints_first_run_success_signal(monkeypatch, capsys):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    deps = _hub_deps(_fake_request)
 
-    cli_goals.submit_goal(goal="first run")
+    cli_goals.submit_goal(goal="first run", deps=deps)
 
     out = capsys.readouterr().out
     assert "Goal ID: goal-1" in out
@@ -106,8 +111,6 @@ def test_submit_goal_prints_first_run_success_signal(monkeypatch, capsys):
 
 
 def test_submit_goal_prints_reference_profile_visibility(monkeypatch, capsys):
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         return _FakeResponse(
@@ -129,9 +132,9 @@ def test_submit_goal_prints_reference_profile_visibility(monkeypatch, capsys):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
+    deps = _hub_deps(_fake_request)
 
-    cli_goals.submit_goal(goal="reference visible")
+    cli_goals.submit_goal(goal="reference visible", deps=deps)
 
     out = capsys.readouterr().out
     assert "Reference profile: ref.python.ananta_backend" in out
@@ -142,8 +145,6 @@ def test_submit_goal_prints_reference_profile_visibility(monkeypatch, capsys):
 def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
     calls: list[dict] = []
 
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
@@ -157,8 +158,8 @@ def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
-    created = cli_goals.submit_shortcut("review", "Pruefe die Login-Aenderungen")
+    deps = _hub_deps(_fake_request)
+    created = cli_goals.submit_shortcut("review", "Pruefe die Login-Aenderungen", deps=deps)
 
     assert created == ["task-review"]
     payload = calls[0]["json"]
@@ -171,8 +172,6 @@ def test_shortcut_review_submits_goal_with_review_mode(monkeypatch):
 def test_shortcut_repair_admin_submits_goal_with_admin_repair_mode(monkeypatch):
     calls: list[dict] = []
 
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
@@ -186,8 +185,8 @@ def test_shortcut_repair_admin_submits_goal_with_admin_repair_mode(monkeypatch):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
-    created = cli_goals.submit_shortcut("repair-admin", "Service restart loop")
+    deps = _hub_deps(_fake_request)
+    created = cli_goals.submit_shortcut("repair-admin", "Service restart loop", deps=deps)
 
     assert created == ["task-repair-admin"]
     payload = calls[0]["json"]
@@ -246,8 +245,6 @@ def test_parse_rag_sources_empty_returns_empty():
 def test_purge_goal_calls_delete_endpoint(monkeypatch, capsys):
     calls: list[dict] = []
 
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "params": params})
@@ -263,8 +260,8 @@ def test_purge_goal_calls_delete_endpoint(monkeypatch, capsys):
             },
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
-    rc = cli_goals.purge_goal("goal-1")
+    deps = _hub_deps(_fake_request)
+    rc = cli_goals.purge_goal("goal-1", deps=deps)
     out = capsys.readouterr().out
     assert rc == 0
     assert calls[0]["method"] == "DELETE"
@@ -274,8 +271,6 @@ def test_purge_goal_calls_delete_endpoint(monkeypatch, capsys):
 
 
 def test_main_goal_purge_requires_yes(monkeypatch, capsys):
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
     try:
         cli_goals.main(["--goal-purge", "goal-1"])
     except SystemExit as exc:
@@ -288,8 +283,6 @@ def test_main_goal_purge_requires_yes(monkeypatch, capsys):
 def test_submit_goal_passes_rag_sources_in_execution_preferences(monkeypatch):
     calls: list[dict] = []
 
-    monkeypatch.setattr(cli_goals, "get_auth_token", lambda base_url: "token")
-    monkeypatch.setattr(cli_goals, "get_base_url", lambda: "http://localhost:5000")
 
     def _fake_request(method, url, headers=None, json=None, params=None, timeout=30):
         calls.append({"method": method, "url": url, "json": json})
@@ -298,8 +291,8 @@ def test_submit_goal_passes_rag_sources_in_execution_preferences(monkeypatch):
             {"data": {"goal": {"id": "goal-rag", "goal": json["goal"], "status": "planned"}, "created_task_ids": []}},
         )
 
-    monkeypatch.setattr(cli_goals.requests, "request", _fake_request)
-    cli_goals.submit_goal(goal="add feature", rag_sources="col:my-collection,art:my-artifact")
+    deps = _hub_deps(_fake_request)
+    cli_goals.submit_goal(goal="add feature", rag_sources="col:my-collection,art:my-artifact", deps=deps)
 
     payload = calls[0]["json"]
     rag = payload["execution_preferences"]["rag_sources"]

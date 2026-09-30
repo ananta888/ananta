@@ -9,10 +9,11 @@ Usage:
     ananta goal --goals
     ananta status
 
-Module layout (SPLIT-013): this module is the facade and CLI entry point.
-It keeps the hub HTTP/auth/output helpers (so tests can monkeypatch
-agent.cli_goals attributes) and dispatches to:
+Module layout (SPLIT-013): this module is the CLI entry point and a
+backward-compatible re-export facade. Collaborators are injected explicitly
+through :class:`agent.cli_goals_support.CliGoalsDependencies` (``deps``):
 
+  - agent/cli_goals_support.py   hub HTTP/auth, terminal output, parsing, deps
   - agent/cli_goals_query.py     read-only commands (status, lists, detail)
   - agent/cli_goals_mutation.py  goal submission and destructive commands
   - agent/cli_goals_repair.py    repair-script flow (scan, poll, extract)
@@ -20,293 +21,15 @@ agent.cli_goals attributes) and dispatches to:
 """
 
 import argparse
-import json
 import os
-from pathlib import Path
-import re
 import sys
+from dataclasses import dataclass
+from typing import Callable
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import requests
+import requests  # noqa: E402,F401  (re-exported for backward compatibility)
 
-from agent.config import settings
-from agent.tui_contract import sanitize_terminal_text
-
-SHORTCUT_GOALS = {
-    "ask": {
-        "mode": None,
-        "prefix": "Beantworte diese Frage und nenne bei Unsicherheit die naechsten pruefbaren Schritte:",
-        "context": "Kurzkommando: Frage. Fokus auf klare Antwort, Annahmen und naechste pruefbare Schritte.",
-    },
-    "plan": {
-        "mode": None,
-        "prefix": "Plane konkrete naechste Schritte fuer:",
-        "context": "Kurzkommando: Planen. Fokus auf Ziel, Aufgaben, Reihenfolge und Pruefung.",
-    },
-    "analyze": {
-        "mode": "repo_analysis",
-        "prefix": "Analysiere und fasse die wichtigsten Befunde zusammen:",
-        "context": "Kurzkommando: Analyse. Fokus auf Verstaendnis, Risiken und naechste Schritte.",
-    },
-    "review": {
-        "mode": "code_review",
-        "prefix": "Fuehre ein Review durch und priorisiere konkrete Risiken:",
-        "context": "Kurzkommando: Review. Fokus auf Bugs, Regressionen, Tests und klare Findings.",
-    },
-    "diagnose": {
-        "mode": "docker_compose_repair",
-        "prefix": "Diagnostiziere das Problem und schlage eine robuste Start- oder Reparatursequenz vor:",
-        "context": "Kurzkommando: Diagnose. Fokus auf Logs, Compose, Ports, Health-Checks und naechste Pruefung.",
-    },
-    "patch": {
-        "mode": "code_fix",
-        "prefix": "Plane einen kleinen, testbaren Patch fuer:",
-        "context": "Kurzkommando: Patch. Fokus auf kleine Aenderung, Regressionstest und minimale Nebenwirkungen.",
-    },
-    "new-project": {
-        "mode": "new_software_project",
-        "prefix": "Lege ein neues Softwareprojekt kontrolliert an aus dieser Idee:",
-        "context": "Kurzkommando: Neues Projekt. Fokus auf Scope, Architekturvorschlag, initiales Backlog, Tests und sichere Defaults.",
-    },
-    "evolve-project": {
-        "mode": "project_evolution",
-        "prefix": "Plane eine kontrollierte Weiterentwicklung fuer ein bestehendes Projekt:",
-        "context": "Kurzkommando: Projekt weiterentwickeln. Fokus auf betroffene Bereiche, Risiken, Tests und kleine reviewbare Schritte.",
-    },
-    "repair-admin": {
-        "mode": "admin_repair",
-        "prefix": "Plane eine bounded Admin-Reparatur als Shared Foundation fuer:",
-        "context": "Kurzkommando: Admin Repair. Fokus auf bounded evidence, dry-run-first, advisory Klassifikation und verifizierbare Repair-Schritte.",
-    },
-}
-
-
-def get_base_url():
-    configured = os.environ.get("ANANTA_BASE_URL")
-    if configured:
-        return configured.rstrip("/")
-    return f"http://localhost:{settings.port}"
-
-
-_CONTAINER_WORKSPACE_ROOT = "/project-workspaces"
-_HOST_WORKSPACE_ROOT = "./project-workspaces"
-
-
-def _resolve_output_dir(output_dir: str) -> tuple[str, str | None]:
-    """Translate a user-supplied output_dir to (container_path, host_display_path).
-
-    Rules:
-    - Bare name or relative path  → /project-workspaces/<name>
-    - Absolute /project-workspaces/…  → kept as-is
-    - Other absolute path  → kept as-is, host_display_path is None
-    """
-    raw = output_dir.strip()
-    if not raw:
-        return raw, None
-    if raw.startswith(_CONTAINER_WORKSPACE_ROOT + "/") or raw == _CONTAINER_WORKSPACE_ROOT:
-        rel = raw[len(_CONTAINER_WORKSPACE_ROOT):].lstrip("/")
-        host = f"{_HOST_WORKSPACE_ROOT}/{rel}" if rel else _HOST_WORKSPACE_ROOT
-        return raw, host
-    if not os.path.isabs(raw):
-        name = raw.removeprefix("./").replace("\\", "/").strip("/") or raw
-        container = f"{_CONTAINER_WORKSPACE_ROOT}/{name}"
-        host = f"{_HOST_WORKSPACE_ROOT}/{name}"
-        return container, host
-    # Arbitrary absolute host path: map to shared /project-workspaces and mirror via symlink.
-    host_requested = Path(raw)
-    host_ws_root = Path(_HOST_WORKSPACE_ROOT).resolve()
-    slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", raw.strip("/")).strip("-.") or "workspace"
-    container = f"{_CONTAINER_WORKSPACE_ROOT}/external/{slug}"
-    host_backing = host_ws_root / "external" / slug
-    try:
-        host_backing.mkdir(parents=True, exist_ok=True)
-        host_requested.parent.mkdir(parents=True, exist_ok=True)
-        if host_requested.exists() or host_requested.is_symlink():
-            if host_requested.is_symlink():
-                current_target = host_requested.resolve(strict=False)
-                if current_target != host_backing.resolve():
-                    return container, str(host_backing)
-            elif host_requested.is_dir():
-                # Keep existing real directories untouched to avoid destructive behavior.
-                return container, str(host_requested)
-            else:
-                return container, str(host_backing)
-        else:
-            host_requested.symlink_to(host_backing, target_is_directory=True)
-    except Exception:
-        return container, str(host_backing)
-    return container, str(host_requested)
-
-
-def _parse_rag_sources(raw: str) -> dict:
-    """Parse comma-separated RAG source tokens into a rag_sources dict.
-
-    Token formats:
-      col:<id>  or bare <id>  → knowledge_collection_ids
-      art:<id>                → artifact_ids
-      path:<rel-path>         → repo_scope_refs
-    """
-    if not raw:
-        return {}
-    collection_ids: list[str] = []
-    artifact_ids: list[str] = []
-    repo_scope_refs: list[dict] = []
-    for token in raw.split(","):
-        token = token.strip()
-        if not token:
-            continue
-        if token.startswith("art:"):
-            artifact_ids.append(token[4:].strip())
-        elif token.startswith("path:"):
-            repo_scope_refs.append({"path": token[5:].strip()})
-        else:
-            collection_ids.append(token.removeprefix("col:").strip())
-    result: dict = {}
-    if collection_ids:
-        result["knowledge_collection_ids"] = collection_ids
-    if artifact_ids:
-        result["artifact_ids"] = artifact_ids
-    if repo_scope_refs:
-        result["repo_scope_refs"] = repo_scope_refs
-    return result
-
-
-def get_auth_token(base_url: str) -> str:
-    username = (
-        os.environ.get("ANANTA_USER")
-        or os.environ.get("INITIAL_ADMIN_USER")
-        or "admin"
-    )
-    password = (
-        os.environ.get("ANANTA_PASSWORD")
-        or os.environ.get("INITIAL_ADMIN_PASSWORD")
-        or "admin"
-    )
-
-    try:
-        response = requests.post(f"{base_url}/login", json={"username": username, "password": password}, timeout=10)
-    except requests.RequestException as exc:
-        _print_terminal("Error: Hub not reachable at {}", base_url)
-        _print_terminal("Next step: start the hub or set ANANTA_BASE_URL. Details: {}", str(exc))
-        sys.exit(1)
-
-    if response.status_code != 200:
-        _print_terminal("Error: Login failed - {}", response.status_code)
-        print("Next step: check ANANTA_USER/ANANTA_PASSWORD or reset the local admin password.")
-        sys.exit(1)
-
-    data = response.json().get("data", {})
-    return data.get("access_token", "")
-
-
-def _request(
-    method: str,
-    path: str,
-    *,
-    body: dict | None = None,
-    params: dict | None = None,
-    timeout: int = 30,
-):
-    base_url = get_base_url()
-    token = get_auth_token(base_url)
-    headers = {"Authorization": f"Bearer {token}"}
-    try:
-        return requests.request(
-            method=method,
-            url=f"{base_url}{path}",
-            headers=headers,
-            json=body,
-            params=params,
-            timeout=timeout,
-        )
-    except requests.RequestException as exc:
-        _print_terminal("Error: Hub request failed for {}", path)
-        _print_terminal("Next step: run `ananta first-run` and verify ANANTA_BASE_URL. Details: {}", str(exc))
-        sys.exit(1)
-
-
-def _read_json(response: requests.Response) -> dict:
-    try:
-        return response.json()
-    except ValueError:
-        return {}
-
-
-def _api_data(response: requests.Response):
-    payload = _read_json(response)
-    if isinstance(payload, dict):
-        return payload.get("data", payload)
-    return {}
-
-
-def _terminal(value, *, max_chars: int = 240) -> str:
-    return sanitize_terminal_text(value, max_chars=max_chars)
-
-
-def _print_terminal(template: str, *values) -> None:
-    print(template.format(*(_terminal(value) for value in values)))
-
-
-def _print_error(response: requests.Response):
-    payload = _read_json(response)
-    message = payload.get("message") if isinstance(payload, dict) else None
-    if message:
-        _print_terminal("Error: {} - {}", response.status_code, message)
-    else:
-        _print_terminal("Error: {} - {}", response.status_code, response.text)
-    _print_terminal("Next step: {}", _next_step_for_status(response.status_code, message or response.text))
-
-
-def _next_step_for_status(status_code: int, message: str | None = None) -> str:
-    text = str(message or "").lower()
-    if status_code in {401, 403}:
-        return "check ANANTA_USER/ANANTA_PASSWORD and governance permissions."
-    if status_code == 404:
-        return "check that the hub version exposes this endpoint and that ANANTA_BASE_URL points to the hub."
-    if status_code == 409 or "policy" in text or "governance" in text or "blocked" in text:
-        return "review the governance mode or narrow the goal before retrying."
-    if status_code >= 500:
-        return "check hub logs, then run `ananta status` after the hub is healthy."
-    return "retry with a narrower goal or run `ananta status` for readiness."
-
-
-def _planning_mode_to_use_template(planning_mode: str | None) -> bool | None:
-    """Map --planning-mode flag to use_template API field."""
-    if not planning_mode:
-        return None
-    m = planning_mode.strip().lower()
-    if m == "llm":
-        return False
-    if m in {"template", "auto"}:
-        return True
-    return None
-
-
-def _parse_mode_data(raw: str | None) -> dict:
-    if not raw:
-        return {}
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        print(f"Error: Invalid JSON for --mode-data ({exc})")
-        sys.exit(2)
-    if not isinstance(parsed, dict):
-        print("Error: --mode-data must be a JSON object")
-        sys.exit(2)
-    return parsed
-
-
-# Command implementations live in the sub-modules; they are re-exported here
-# so existing imports and monkeypatch targets on agent.cli_goals keep working.
-# These imports must stay below the helper definitions above (the sub-modules
-# import this module as a facade).
-#
-# When executed via `python -m agent.cli_goals`, this file runs as __main__;
-# register it as agent.cli_goals first so the sub-modules bind to this same
-# instance instead of re-importing the file (which would deadlock the cycle).
-if __name__ == "__main__":
-    sys.modules.setdefault("agent.cli_goals", sys.modules[__name__])
 from agent.cli_goals_mutation import (  # noqa: E402
     _shortcut_mode_data,
     analyze_task_followups,
@@ -346,9 +69,84 @@ from agent.cli_goals_repair import (  # noqa: E402
     _switch_autopilot_to_goal,
     repair_script_cmd,
 )
+from agent.cli_goals_support import (  # noqa: E402
+    DEFAULT_DEPENDENCIES,
+    SHORTCUT_GOALS,
+    CliGoalsDependencies,
+    HubHttpClient,
+    get_auth_token,
+    get_base_url,
+    hub_request,
+)
+from agent.cli_goals_support import api_data as _api_data  # noqa: E402
+from agent.cli_goals_support import next_step_for_status as _next_step_for_status  # noqa: E402
+from agent.cli_goals_support import parse_mode_data as _parse_mode_data  # noqa: E402
+from agent.cli_goals_support import parse_rag_sources as _parse_rag_sources  # noqa: E402
+from agent.cli_goals_support import planning_mode_to_use_template as _planning_mode_to_use_template  # noqa: E402
+from agent.cli_goals_support import print_error as _print_error  # noqa: E402
+from agent.cli_goals_support import print_terminal as _print_terminal  # noqa: E402
+from agent.cli_goals_support import read_json as _read_json  # noqa: E402
+from agent.cli_goals_support import resolve_output_dir as _resolve_output_dir  # noqa: E402
+from agent.cli_goals_support import terminal_text as _terminal  # noqa: E402
+
+# Backward-compatible name of the default authenticated hub request adapter.
+_request = hub_request
+
+__all__ = [
+    "DEFAULT_DEPENDENCIES",
+    "SHORTCUT_GOALS",
+    "CliGoalsDependencies",
+    "HubHttpClient",
+    "_REPAIR_SCRIPT_CFG",
+    "_TERMINAL_GOAL_STATUSES",
+    "_api_data",
+    "_extract_script_blocks",
+    "_fetch_goal_outputs",
+    "_fetch_task_full_output",
+    "_handle_plan_command",
+    "_handle_sources_command",
+    "_host_scan",
+    "_next_step_for_status",
+    "_parse_mode_data",
+    "_parse_rag_sources",
+    "_planning_mode_to_use_template",
+    "_poll_goal_status",
+    "_print_error",
+    "_print_terminal",
+    "_read_json",
+    "_request",
+    "_resolve_output_dir",
+    "_run_scan_cmd",
+    "_shortcut_mode_data",
+    "_submit_repair_goal",
+    "_switch_autopilot_to_goal",
+    "_terminal",
+    "analyze_task_followups",
+    "build_parser",
+    "cancel_tree",
+    "get_auth_token",
+    "get_base_url",
+    "kill_all_requests",
+    "kill_requests",
+    "list_artifacts",
+    "list_goal_tasks",
+    "list_goals",
+    "list_modes",
+    "list_tasks",
+    "main",
+    "planning_stuck",
+    "purge_goal",
+    "recover_stale",
+    "repair_script_cmd",
+    "show_first_run",
+    "show_goal_detail",
+    "show_status",
+    "submit_goal",
+    "submit_shortcut",
+]
 
 
-def main(argv: list[str] | None = None):
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="CLI for Ananta Goals, Tasks, Artifacts and Diagnostics",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -477,131 +275,171 @@ Examples:
     parser.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON output (sources doctor)")
     parser.add_argument("--write", action="store_true", help="Write changes for plan summary fix/migrate")
     parser.add_argument("--convert-epics", action="store_true", help="Convert legacy epics.tasks in plan summary migrate")
+    return parser
 
-    args = parser.parse_args(argv)
 
-    if args.first_run:
-        show_first_run()
-        return
+# ── command dispatch ─────────────────────────────────────────────────────────
 
-    if args.config_show or args.set_runtime_profile or args.set_governance_mode:
-        patch = {}
-        if args.set_runtime_profile:
-            patch["runtime_profile"] = str(args.set_runtime_profile).strip()
-        if args.set_governance_mode:
-            patch["governance_mode"] = str(args.set_governance_mode).strip()
-        if patch:
-            res = _request("POST", "/config", body=patch, timeout=10)
-            if res.status_code != 200:
-                _print_error(res)
-                sys.exit(1)
-        res = _request("GET", "/config", timeout=10)
+
+def _require_yes(args, flag: str) -> None:
+    if not args.yes:
+        print(f"Error: {flag} is destructive and requires --yes")
+        sys.exit(2)
+
+
+def _run_config_command(args, deps: CliGoalsDependencies) -> None:
+    patch = {}
+    if args.set_runtime_profile:
+        patch["runtime_profile"] = str(args.set_runtime_profile).strip()
+    if args.set_governance_mode:
+        patch["governance_mode"] = str(args.set_governance_mode).strip()
+    if patch:
+        res = deps.request("POST", "/config", body=patch, timeout=10)
         if res.status_code != 200:
             _print_error(res)
             sys.exit(1)
-        cfg = _api_data(res) or {}
-        runtime = (cfg.get("runtime_profile_effective") or {}).get("effective") or cfg.get("runtime_profile") or "-"
-        governance = (cfg.get("governance_mode_effective") or {}).get("effective") or cfg.get("governance_mode") or "-"
-        _print_terminal("runtime_profile: {}", runtime)
-        _print_terminal("governance_mode: {}", governance)
-        return
+    res = deps.request("GET", "/config", timeout=10)
+    if res.status_code != 200:
+        _print_error(res)
+        sys.exit(1)
+    cfg = deps.api_data(res) or {}
+    runtime = (cfg.get("runtime_profile_effective") or {}).get("effective") or cfg.get("runtime_profile") or "-"
+    governance = (cfg.get("governance_mode_effective") or {}).get("effective") or cfg.get("governance_mode") or "-"
+    _print_terminal("runtime_profile: {}", runtime)
+    _print_terminal("governance_mode: {}", governance)
 
-    if args.planning_stuck:
-        sys.exit(planning_stuck())
-    elif args.recover_stale:
-        sys.exit(recover_stale(dry_run=not args.yes))
-    elif args.cancel_tree:
-        if not args.yes:
-            print("Error: --cancel-tree is destructive and requires --yes")
-            sys.exit(2)
-        sys.exit(cancel_tree(args.cancel_tree))
-    elif args.kill_requests:
-        sys.exit(kill_requests(args.kill_requests))
-    elif args.kill_all_requests:
-        sys.exit(kill_all_requests())
-    elif args.status:
-        show_status()
-    elif args.goals:
-        list_goals(limit=args.limit)
-    elif args.goal_purge:
-        if not args.yes:
-            print("Error: --goal-purge is destructive and requires --yes")
-            sys.exit(2)
-        rc = purge_goal(args.goal_purge)
-        if rc != 0:
-            sys.exit(rc)
-    elif args.goal_detail:
-        show_goal_detail(args.goal_detail)
-    elif args.goal_tasks:
-        list_goal_tasks(args.goal_tasks)
-    elif args.modes:
-        list_modes()
-    elif args.tasks:
-        list_tasks(status=args.task_status, limit=args.limit)
-    elif args.artifacts:
-        list_artifacts(limit=args.limit)
-    elif args.analyze_task:
-        analyze_task_followups(args.analyze_task, output=args.output)
-    elif args.goal == "sources":
-        subcommand = str(args.extra[0]).strip() if args.extra else ""
-        if not subcommand:
-            print("Error: 'sources' requires a subcommand (list-packs|bootstrap|doctor|query)", file=sys.stderr)
-            sys.exit(2)
-        sys.exit(_handle_sources_command(subcommand, args.extra[1:], args))
-    elif args.goal == "plan" and args.extra and str(args.extra[0]).strip().lower() == "summary":
-        sys.exit(_handle_plan_command("summary", args.extra[1:], args))
-    elif args.goal == "repair-script":
-        shortcut_text = " ".join(args.extra).strip()
-        if not shortcut_text:
-            print("Error: 'repair-script' needs a short description", file=sys.stderr)
-            sys.exit(2)
-        repair_script_cmd(
-            shortcut_text,
-            team_id=args.team,
-            script_out=args.script_out,
-            exec_flag=args.exec_script,
-            tui_flag=args.tui_flag,
-            loop_flag=args.loop_flag,
-            scan=args.scan_flag,
-            max_iterations=args.max_iterations,
-            timeout=args.wait_timeout,
-            planning_mode=args.planning_mode,
-        )
-    elif args.goal in SHORTCUT_GOALS:
-        shortcut_text = " ".join(args.extra).strip()
-        if not shortcut_text:
-            print(f"Error: '{args.goal}' needs a short description")
-            sys.exit(2)
-        output_dir = args.output_dir.strip() if args.output_dir else None
-        rag_sources = getattr(args, "rag_sources", None)
-        shortcut_kwargs = {"team_id": args.team, "create_tasks": not args.no_create}
-        if output_dir is not None:
-            shortcut_kwargs["output_dir"] = output_dir
-        if args.planning_mode is not None:
-            shortcut_kwargs["planning_mode"] = args.planning_mode
-        if rag_sources is not None:
-            shortcut_kwargs["rag_sources"] = rag_sources
-        submit_shortcut(args.goal, shortcut_text, **shortcut_kwargs)
-    elif args.goal or args.goal_flag:
-        goal_text = args.goal or args.goal_flag
-        if args.extra:
-            goal_text = " ".join([goal_text, *args.extra])
-        create_tasks = not args.no_create
-        output_dir = args.output_dir.strip() if args.output_dir else None
-        rag_sources = getattr(args, "rag_sources", None)
-        submit_goal(
-            goal=goal_text,
-            context=args.context,
-            team_id=args.team,
-            create_tasks=create_tasks,
-            mode=args.mode,
-            mode_data=_parse_mode_data(args.mode_data),
-            output_dir=output_dir,
-            planning_mode=args.planning_mode,
-            rag_sources=rag_sources,
-        )
-    else:
-        parser.print_help()
+
+def _run_cancel_tree(args, deps: CliGoalsDependencies) -> None:
+    _require_yes(args, "--cancel-tree")
+    sys.exit(cancel_tree(args.cancel_tree, deps=deps))
+
+
+def _run_goal_purge(args, deps: CliGoalsDependencies) -> None:
+    _require_yes(args, "--goal-purge")
+    rc = purge_goal(args.goal_purge, deps=deps)
+    if rc != 0:
+        sys.exit(rc)
+
+
+def _run_sources(args, deps: CliGoalsDependencies) -> None:
+    subcommand = str(args.extra[0]).strip() if args.extra else ""
+    if not subcommand:
+        print("Error: 'sources' requires a subcommand (list-packs|bootstrap|doctor|query)", file=sys.stderr)
+        sys.exit(2)
+    sys.exit(_handle_sources_command(subcommand, args.extra[1:], args))
+
+
+def _is_plan_summary(args) -> bool:
+    return args.goal == "plan" and bool(args.extra) and str(args.extra[0]).strip().lower() == "summary"
+
+
+def _run_repair_script(args, deps: CliGoalsDependencies) -> None:
+    shortcut_text = " ".join(args.extra).strip()
+    if not shortcut_text:
+        print("Error: 'repair-script' needs a short description", file=sys.stderr)
+        sys.exit(2)
+    repair_script_cmd(
+        shortcut_text,
+        team_id=args.team,
+        script_out=args.script_out,
+        exec_flag=args.exec_script,
+        tui_flag=args.tui_flag,
+        loop_flag=args.loop_flag,
+        scan=args.scan_flag,
+        max_iterations=args.max_iterations,
+        timeout=args.wait_timeout,
+        planning_mode=args.planning_mode,
+        deps=deps,
+    )
+
+
+def _optional_output_dir(args) -> str | None:
+    return args.output_dir.strip() if args.output_dir else None
+
+
+def _run_shortcut(args, deps: CliGoalsDependencies) -> None:
+    shortcut_text = " ".join(args.extra).strip()
+    if not shortcut_text:
+        print(f"Error: '{args.goal}' needs a short description")
+        sys.exit(2)
+    output_dir = _optional_output_dir(args)
+    rag_sources = getattr(args, "rag_sources", None)
+    shortcut_kwargs = {"team_id": args.team, "create_tasks": not args.no_create}
+    if output_dir is not None:
+        shortcut_kwargs["output_dir"] = output_dir
+    if args.planning_mode is not None:
+        shortcut_kwargs["planning_mode"] = args.planning_mode
+    if rag_sources is not None:
+        shortcut_kwargs["rag_sources"] = rag_sources
+    submit_shortcut(args.goal, shortcut_text, **shortcut_kwargs, deps=deps)
+
+
+def _run_submit_goal(args, deps: CliGoalsDependencies) -> None:
+    goal_text = args.goal or args.goal_flag
+    if args.extra:
+        goal_text = " ".join([goal_text, *args.extra])
+    submit_goal(
+        goal=goal_text,
+        context=args.context,
+        team_id=args.team,
+        create_tasks=not args.no_create,
+        mode=args.mode,
+        mode_data=_parse_mode_data(args.mode_data),
+        output_dir=_optional_output_dir(args),
+        planning_mode=args.planning_mode,
+        rag_sources=getattr(args, "rag_sources", None),
+        deps=deps,
+    )
+
+
+@dataclass(frozen=True)
+class _CliCommand:
+    """One entry of the ordered dispatch table: the first matching command wins."""
+
+    matches: Callable[[argparse.Namespace], bool]
+    run: Callable[[argparse.Namespace, CliGoalsDependencies], None]
+
+
+_COMMANDS: tuple[_CliCommand, ...] = (
+    _CliCommand(lambda a: a.first_run, lambda a, d: show_first_run(deps=d)),
+    _CliCommand(
+        lambda a: bool(a.config_show or a.set_runtime_profile or a.set_governance_mode),
+        _run_config_command,
+    ),
+    _CliCommand(lambda a: a.planning_stuck, lambda a, d: sys.exit(planning_stuck(deps=d))),
+    _CliCommand(lambda a: a.recover_stale, lambda a, d: sys.exit(recover_stale(dry_run=not a.yes, deps=d))),
+    _CliCommand(lambda a: a.cancel_tree, _run_cancel_tree),
+    _CliCommand(lambda a: a.kill_requests, lambda a, d: sys.exit(kill_requests(a.kill_requests, deps=d))),
+    _CliCommand(lambda a: a.kill_all_requests, lambda a, d: sys.exit(kill_all_requests(deps=d))),
+    _CliCommand(lambda a: a.status, lambda a, d: show_status(deps=d)),
+    _CliCommand(lambda a: a.goals, lambda a, d: list_goals(limit=a.limit, deps=d)),
+    _CliCommand(lambda a: a.goal_purge, _run_goal_purge),
+    _CliCommand(lambda a: a.goal_detail, lambda a, d: show_goal_detail(a.goal_detail, deps=d)),
+    _CliCommand(lambda a: a.goal_tasks, lambda a, d: list_goal_tasks(a.goal_tasks, deps=d)),
+    _CliCommand(lambda a: a.modes, lambda a, d: list_modes(deps=d)),
+    _CliCommand(lambda a: a.tasks, lambda a, d: list_tasks(status=a.task_status, limit=a.limit, deps=d)),
+    _CliCommand(lambda a: a.artifacts, lambda a, d: list_artifacts(limit=a.limit, deps=d)),
+    _CliCommand(
+        lambda a: a.analyze_task,
+        lambda a, d: analyze_task_followups(a.analyze_task, output=a.output, deps=d),
+    ),
+    _CliCommand(lambda a: a.goal == "sources", _run_sources),
+    _CliCommand(_is_plan_summary, lambda a, d: sys.exit(_handle_plan_command("summary", a.extra[1:], a))),
+    _CliCommand(lambda a: a.goal == "repair-script", _run_repair_script),
+    _CliCommand(lambda a: a.goal in SHORTCUT_GOALS, _run_shortcut),
+    _CliCommand(lambda a: bool(a.goal or a.goal_flag), _run_submit_goal),
+)
+
+
+def main(argv: list[str] | None = None, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    for command in _COMMANDS:
+        if command.matches(args):
+            command.run(args, deps)
+            return None
+    parser.print_help()
+    return None
 
 
 if __name__ == "__main__":

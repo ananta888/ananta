@@ -1,17 +1,25 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from agent import cli_goals
 from agent.cli import main as unified_cli
 
 
-def test_module_cli_goals_status_path_still_works(monkeypatch) -> None:
-    calls: list[str] = []
-    monkeypatch.setattr(cli_goals, "show_status", lambda: calls.append("status"))
+def test_module_cli_goals_status_path_still_works(capsys) -> None:
+    paths: list[str] = []
 
-    result = cli_goals.main(["--status"])
+    def fake_request(method, path, **_kwargs):
+        paths.append(path)
+        return SimpleNamespace(status_code=200, json=lambda: {"data": {}}, text="")
+
+    result = cli_goals.main(["--status"], deps=cli_goals.CliGoalsDependencies(request=fake_request))
 
     assert result is None
-    assert calls == ["status"]
+    assert paths == ["/goals/readiness", "/tasks/auto-planner/status"]
+    out = capsys.readouterr().out
+    assert "Goal Readiness:" in out
+    assert "Auto-Planner Status:" in out
 
 
 def test_unified_cli_status_path_still_routes_to_goals(monkeypatch) -> None:

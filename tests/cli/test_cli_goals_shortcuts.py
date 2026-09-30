@@ -19,6 +19,24 @@ def test_cli_shortcuts_cover_product_entry_commands():
     assert cli.SHORTCUT_GOALS["plan"]["mode"] is None
 
 
+def _capturing_deps(captured: list[dict]) -> cli.CliGoalsDependencies:
+    def fake_transport(**kwargs):
+        captured.append(kwargs)
+        return SimpleNamespace(
+            status_code=201,
+            json=lambda: {"data": {"goal": {"id": "goal-1", "status": "planned"}, "created_task_ids": ["task-1"]}},
+            text="",
+        )
+
+    return cli.CliGoalsDependencies(
+        request=cli.HubHttpClient(
+            base_url_provider=lambda: "http://hub:5000",
+            token_provider=lambda base_url: "token",
+            transport=fake_transport,
+        )
+    )
+
+
 @pytest.mark.parametrize(
     ("shortcut", "mode"),
     [
@@ -33,19 +51,17 @@ def test_cli_shortcuts_cover_product_entry_commands():
         ("repair-admin", "admin_repair"),
     ],
 )
-def test_submit_shortcut_maps_to_goal_model(monkeypatch, shortcut, mode):
-    captured = {}
+def test_submit_shortcut_maps_to_goal_model(shortcut, mode):
+    calls: list[dict] = []
 
-    def fake_submit_goal(**kwargs):
-        captured.update(kwargs)
-        return ["task-1"]
+    result = cli.submit_shortcut(
+        shortcut, "check login flow", team_id="team-a", create_tasks=True, deps=_capturing_deps(calls)
+    )
 
-    monkeypatch.setattr(cli, "submit_goal", fake_submit_goal)
-
-    result = cli.submit_shortcut(shortcut, "check login flow", team_id="team-a", create_tasks=True)
-
+    captured = calls[0]["json"]
     assert result == ["task-1"]
-    assert captured["mode"] == mode
+    assert calls[0]["url"] == "http://hub:5000/goals"
+    assert captured.get("mode") == mode
     assert captured["team_id"] == "team-a"
     assert captured["create_tasks"] is True
     assert captured["mode_data"]["shortcut"] == shortcut
@@ -54,47 +70,46 @@ def test_submit_shortcut_maps_to_goal_model(monkeypatch, shortcut, mode):
     assert "Kurzkommando" in captured["context"]
 
 
-def test_product_shortcuts_pass_structured_mode_data(monkeypatch):
-    captured = {}
+def test_product_shortcuts_pass_structured_mode_data():
+    calls: list[dict] = []
+    deps = _capturing_deps(calls)
 
-    def fake_submit_goal(**kwargs):
-        captured.update(kwargs)
-        return ["task-1"]
+    cli.submit_shortcut("new-project", "Release-Check-Tool bauen", deps=deps)
+    assert calls[-1]["json"]["mode"] == "new_software_project"
+    assert calls[-1]["json"]["mode_data"]["project_idea"] == "Release-Check-Tool bauen"
 
-    monkeypatch.setattr(cli, "submit_goal", fake_submit_goal)
+    cli.submit_shortcut("evolve-project", "Dashboard erweitern", deps=deps)
+    assert calls[-1]["json"]["mode"] == "project_evolution"
+    assert calls[-1]["json"]["mode_data"]["change_goal"] == "Dashboard erweitern"
 
-    cli.submit_shortcut("new-project", "Release-Check-Tool bauen")
-    assert captured["mode"] == "new_software_project"
-    assert captured["mode_data"]["project_idea"] == "Release-Check-Tool bauen"
-
-    cli.submit_shortcut("evolve-project", "Dashboard erweitern")
-    assert captured["mode"] == "project_evolution"
-    assert captured["mode_data"]["change_goal"] == "Dashboard erweitern"
-
-    cli.submit_shortcut("repair-admin", "Service restart loop")
-    assert captured["mode"] == "admin_repair"
-    assert captured["mode_data"]["issue_symptom"] == "Service restart loop"
-    assert captured["mode_data"]["dry_run"] is True
+    cli.submit_shortcut("repair-admin", "Service restart loop", deps=deps)
+    assert calls[-1]["json"]["mode"] == "admin_repair"
+    assert calls[-1]["json"]["mode_data"]["issue_symptom"] == "Service restart loop"
+    assert calls[-1]["json"]["mode_data"]["dry_run"] is True
 
 
 def test_main_routes_shortcut_words_to_submit_shortcut(monkeypatch):
-    calls = []
+    calls: list[dict] = []
     monkeypatch.setattr(sys, "argv", ["cli_goals", "review", "auth", "changes", "--team", "team-a"])
-    monkeypatch.setattr(cli, "submit_shortcut", lambda *args, **kwargs: calls.append((args, kwargs)) or [])
 
-    cli.main()
+    cli.main(deps=_capturing_deps(calls))
 
-    assert calls == [(("review", "auth changes"), {"team_id": "team-a", "create_tasks": True})]
+    assert len(calls) == 1
+    payload = calls[0]["json"]
+    assert payload["mode"] == "code_review"
+    assert payload["mode_data"]["shortcut_text"] == "auth changes"
+    assert payload["team_id"] == "team-a"
+    assert payload["create_tasks"] is True
 
 
 def test_main_routes_first_run_to_guidance(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["cli_goals", "--first-run"])
-    monkeypatch.setattr(cli, "get_base_url", lambda: "http://hub:5000")
 
-    cli.main()
+    cli.main(deps=cli.CliGoalsDependencies(base_url=lambda: "http://hub:5000"))
 
     out = capsys.readouterr().out
     assert "Ananta CLI First Run" in out
+    assert "http://hub:5000" in out
     assert "ananta status" in out
     assert "Success signal:" in out
     assert "ANANTA_BASE_URL" in out
@@ -131,15 +146,14 @@ def test_get_auth_token_exits_with_clear_error_when_login_fails(monkeypatch, cap
 def test_request_uses_base_url_env_and_bearer_token(monkeypatch):
     captured = {}
     monkeypatch.setenv("ANANTA_BASE_URL", "http://hub.example/")
-    monkeypatch.setattr(cli, "get_auth_token", lambda base_url: f"token-for-{base_url}")
 
     def fake_request(**kwargs):
         captured.update(kwargs)
         return SimpleNamespace(status_code=200, json=lambda: {"data": {"ok": True}}, text="")
 
-    monkeypatch.setattr(cli.requests, "request", fake_request)
+    request = cli.HubHttpClient(token_provider=lambda base_url: f"token-for-{base_url}", transport=fake_request)
 
-    response = cli._request("GET", "/goals", params={"limit": 2}, timeout=7)
+    response = request("GET", "/goals", params={"limit": 2}, timeout=7)
 
     assert response.status_code == 200
     assert captured["url"] == "http://hub.example/goals"

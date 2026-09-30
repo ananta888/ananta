@@ -1,7 +1,7 @@
 """repair-script command: host scan, synchronous repair goals, script extraction (SPLIT-013).
 
-All hub I/O goes through the agent.cli_goals facade (`_cli.*`) so that
-tests can keep monkeypatching agent.cli_goals attributes.
+Hub I/O and host command execution are injected through ``deps``
+(:class:`CliGoalsDependencies`).
 """
 
 import re
@@ -9,7 +9,14 @@ import subprocess
 import sys
 import time
 
-from agent import cli_goals as _cli
+from agent.cli_goals_mutation import _shortcut_mode_data
+from agent.cli_goals_support import (
+    DEFAULT_DEPENDENCIES,
+    CliGoalsDependencies,
+    planning_mode_to_use_template,
+    print_error,
+    run_host_command,
+)
 
 # repair-script: like repair-admin but synchronous + outputs clean script to stdout
 _REPAIR_SCRIPT_CFG = {
@@ -31,14 +38,16 @@ _REPAIR_SCRIPT_CFG = {
 _TERMINAL_GOAL_STATUSES = {"completed", "failed", "cancelled", "archived", "aborted"}
 
 
-def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) -> str:
+def _poll_goal_status(
+    goal_id: str, *, timeout: int = 300, interval: int = 5, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES
+) -> str:
     deadline = time.monotonic() + timeout
     dots = 0
     detail_tick = 0
     while time.monotonic() < deadline:
-        res = _cli._request("GET", f"/goals/{goal_id}", timeout=10)
+        res = deps.request("GET", f"/goals/{goal_id}", timeout=10)
         if res.status_code == 200:
-            data = _cli._api_data(res)
+            data = deps.api_data(res)
             status = str(data.get("status") or "").lower()
             if status in _TERMINAL_GOAL_STATUSES:
                 print(file=sys.stderr)
@@ -50,9 +59,9 @@ def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) ->
             # Every 4 polls, check via detail if all tasks are in terminal states.
             detail_tick += 1
             if detail_tick % 4 == 0:
-                detail_res = _cli._request("GET", f"/goals/{goal_id}/detail", timeout=15)
+                detail_res = deps.request("GET", f"/goals/{goal_id}/detail", timeout=15)
                 if detail_res.status_code == 200:
-                    detail_data = _cli._api_data(detail_res)
+                    detail_data = deps.api_data(detail_res)
                     # result_summary lives under data.artifacts.result_summary
                     summary = (
                         (detail_data.get("artifacts") or {}).get("result_summary")
@@ -79,18 +88,18 @@ def _poll_goal_status(goal_id: str, *, timeout: int = 300, interval: int = 5) ->
     return "timeout"
 
 
-def _fetch_task_full_output(task_id: str) -> str:
-    res = _cli._request("GET", f"/tasks/{task_id}", timeout=15)
+def _fetch_task_full_output(task_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> str:
+    res = deps.request("GET", f"/tasks/{task_id}", timeout=15)
     if res.status_code == 200:
-        return str(_cli._api_data(res).get("last_output") or "").strip()
+        return str(deps.api_data(res).get("last_output") or "").strip()
     return ""
 
 
-def _fetch_goal_outputs(goal_id: str) -> list[tuple[str, str]]:
-    res = _cli._request("GET", f"/goals/{goal_id}/detail", timeout=20)
+def _fetch_goal_outputs(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> list[tuple[str, str]]:
+    res = deps.request("GET", f"/goals/{goal_id}/detail", timeout=20)
     if res.status_code != 200:
         return []
-    data = _cli._api_data(res)
+    data = deps.api_data(res)
     results = []
     # "artifacts" in detail is the build_artifact_summary() dict; the actual list is nested.
     artifact_summary = data.get("artifacts") or {}
@@ -103,7 +112,7 @@ def _fetch_goal_outputs(goal_id: str) -> list[tuple[str, str]]:
             continue
         task_id = artifact.get("task_id")
         if task_id:
-            output = _fetch_task_full_output(task_id)
+            output = _fetch_task_full_output(task_id, deps=deps)
             if output:
                 results.append((str(artifact.get("title") or "task"), output))
     return results
@@ -122,8 +131,6 @@ def _extract_script_blocks(text: str) -> str:
 
 
 # ── Host-Diagnose (läuft lokal, vor LLM-Submission) ─────────────────────────
-
-_SCAN_CMD_TIMEOUT = 5  # Sekunden pro Befehl
 
 _SCAN_BASE: list[tuple[str, str]] = [
     ("Uptime / Load",          "uptime"),
@@ -193,17 +200,11 @@ _SCAN_SKIP_WORDS = {
 }
 
 
-def _run_scan_cmd(cmd: str) -> str:
-    try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=_SCAN_CMD_TIMEOUT)
-        out = (r.stdout or "").strip()
-        err = (r.stderr or "").strip()
-        return (out + ("\n" + err if err and not out else "")).strip()
-    except Exception:
-        return ""
+# Backward-compatible name for the default host command runner.
+_run_scan_cmd = run_host_command
 
 
-def _host_scan(topic: str, *, max_chars: int = 6000) -> str:
+def _host_scan(topic: str, *, max_chars: int = 6000, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> str:
     """Führe read-only Diagnose-Befehle lokal auf dem Host aus.
 
     Liefert einen formatierten String, der als LLM-Kontext verwendet wird.
@@ -233,7 +234,7 @@ def _host_scan(topic: str, *, max_chars: int = 6000) -> str:
         if total >= max_chars:
             sections.append(f"[... weitere Ausgaben abgeschnitten (Limit {max_chars} Zeichen)]")
             break
-        out = _cli._run_scan_cmd(cmd)
+        out = deps.run_host_command(cmd)
         if not out:
             continue
         remaining = max_chars - total
@@ -247,14 +248,14 @@ def _host_scan(topic: str, *, max_chars: int = 6000) -> str:
     return "\n\n".join(sections)
 
 
-def _switch_autopilot_to_goal(goal_id: str) -> None:
+def _switch_autopilot_to_goal(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> None:
     """Point the running autopilot at this goal and force an immediate tick."""
     try:
-        resp = _cli._request("POST", "/tasks/autopilot/start", body={"goal": goal_id}, timeout=30)
+        resp = deps.request("POST", "/tasks/autopilot/start", body={"goal": goal_id}, timeout=30)
         if resp.status_code != 200:
             print(f"Warning: autopilot start returned {resp.status_code}", file=sys.stderr)
             return
-        _cli._request("POST", "/tasks/autopilot/tick", body={}, timeout=30)
+        deps.request("POST", "/tasks/autopilot/tick", body={}, timeout=30)
     except SystemExit:
         print("Warning: autopilot switch failed (hub unreachable?)", file=sys.stderr)
 
@@ -267,11 +268,12 @@ def _submit_repair_goal(
     timeout: int = 300,
     planning_mode: str | None = None,
     allow_partial: bool = False,
+    deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES,
 ) -> list[tuple[str, str]] | None:
     """Submit a repair goal and return (task_title, output) pairs, or None on hard failure."""
     prefix = _REPAIR_SCRIPT_CFG["prefix"]
     goal_text = f"{prefix} {text.strip()}"
-    mode_data = _cli._shortcut_mode_data("repair-admin", text.strip())
+    mode_data = _shortcut_mode_data("repair-admin", text.strip())
 
     base_context = _REPAIR_SCRIPT_CFG["context"]
     context = f"{base_context}\n\n{extra_context}".strip() if extra_context else base_context
@@ -285,16 +287,16 @@ def _submit_repair_goal(
     }
     if team_id:
         payload["team_id"] = team_id
-    use_template = _cli._planning_mode_to_use_template(planning_mode)
+    use_template = planning_mode_to_use_template(planning_mode)
     if use_template is not None:
         payload["use_template"] = use_template
 
-    response = _cli._request("POST", "/goals", body=payload, timeout=60)
+    response = deps.request("POST", "/goals", body=payload, timeout=60)
     if response.status_code != 201:
-        _cli._print_error(response)
+        print_error(response)
         return None
 
-    rdata = _cli._api_data(response)
+    rdata = deps.api_data(response)
     goal_id = (rdata.get("goal") or {}).get("id")
     task_ids = rdata.get("created_task_ids") or []
     if not goal_id:
@@ -307,11 +309,11 @@ def _submit_repair_goal(
     # The server-side create_goal handler also calls _ensure_autopilot_running,
     # but we do it here explicitly for robustness (in case auto_planner is
     # disabled or the server-side path fails).
-    _switch_autopilot_to_goal(goal_id)
+    _switch_autopilot_to_goal(goal_id, deps=deps)
 
     print(f"Waiting (max {timeout}s)...", file=sys.stderr)
 
-    final_status = _poll_goal_status(goal_id, timeout=timeout)
+    final_status = _poll_goal_status(goal_id, timeout=timeout, deps=deps)
     print(f"Final status: {final_status}", file=sys.stderr)
 
     terminal_fail = final_status in {"failed", "cancelled", "aborted", "timeout"}
@@ -325,7 +327,7 @@ def _submit_repair_goal(
     if final_status == "partially_failed" or (terminal_fail and allow_partial):
         print("Warning: some tasks failed — extracting output from completed tasks.", file=sys.stderr)
 
-    outputs = _fetch_goal_outputs(goal_id)
+    outputs = _fetch_goal_outputs(goal_id, deps=deps)
     if not outputs:
         print("No output found.", file=sys.stderr)
         return None
@@ -344,12 +346,13 @@ def repair_script_cmd(
     timeout: int = 300,
     planning_mode: str | None = None,
     scan: bool = False,
+    deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES,
 ) -> None:
     # ── Phase 0: Host-Diagnose (einmalig, vor dem ersten LLM-Aufruf) ─
     scan_context = ""
     if scan:
         print("Sammle Systemdiagnose vom Host...", file=sys.stderr)
-        scan_context = _host_scan(text)
+        scan_context = _host_scan(text, deps=deps)
         print(f"Diagnose abgeschlossen ({len(scan_context)} Zeichen).", file=sys.stderr)
 
     # ── TUI loop mode ────────────────────────────────────────────────
@@ -366,13 +369,14 @@ def repair_script_cmd(
             )
             retry_ctx = build_retry_context(history)
             extra_ctx = "\n\n".join(filter(None, [scan_context, retry_ctx]))
-            outputs = _cli._submit_repair_goal(
+            outputs = _submit_repair_goal(
                 text,
                 extra_context=extra_ctx,
                 team_id=team_id,
                 timeout=timeout,
                 planning_mode=planning_mode,
                 allow_partial=True,
+                deps=deps,
             )
             if outputs is None:
                 print("Kein Output — Schleife abgebrochen.", file=sys.stderr)
@@ -400,13 +404,14 @@ def repair_script_cmd(
         sys.exit(0)
 
     # ── Non-TUI mode (pipe-friendly) ─────────────────────────────────
-    outputs = _cli._submit_repair_goal(
+    outputs = _submit_repair_goal(
         text,
         extra_context=scan_context,
         team_id=team_id,
         timeout=timeout,
         planning_mode=planning_mode,
         allow_partial=False,
+        deps=deps,
     )
     if outputs is None:
         sys.exit(1)

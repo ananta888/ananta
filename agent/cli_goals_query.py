@@ -1,19 +1,25 @@
 """Read-only goal/task/artifact CLI commands (SPLIT-013).
 
-All hub I/O goes through the agent.cli_goals facade (`_cli.*`) so that
-tests can keep monkeypatching agent.cli_goals attributes.
+Hub I/O is injected through ``deps`` (:class:`CliGoalsDependencies`).
 """
 
-from agent import cli_goals as _cli
+from agent.cli_goals_support import (
+    DEFAULT_DEPENDENCIES,
+    CliGoalsDependencies,
+    print_error,
+    print_terminal,
+    read_json,
+    terminal_text,
+)
 
 
-def show_first_run():
-    base_url = _cli.get_base_url()
+def show_first_run(*, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    base_url = deps.base_url()
     print("Ananta CLI First Run")
     print("=====================")
-    _cli._print_terminal("Hub URL: {}", base_url)
+    print_terminal("Hub URL: {}", base_url)
     print("\n1. Optional environment:")
-    _cli._print_terminal("   export ANANTA_BASE_URL={}", base_url)
+    print_terminal("   export ANANTA_BASE_URL={}", base_url)
     print("   export ANANTA_USER=admin")
     print("   export ANANTA_PASSWORD=<password>")
     print("\n2. Readiness check:")
@@ -33,21 +39,21 @@ def show_first_run():
     print("   - governance/policy block: narrow the goal or inspect the governance mode")
 
 
-def show_status():
-    readiness_res = _cli._request("GET", "/goals/readiness", timeout=10)
+def show_status(*, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    readiness_res = deps.request("GET", "/goals/readiness", timeout=10)
     if readiness_res.status_code == 200:
-        readiness = _cli._api_data(readiness_res)
+        readiness = deps.api_data(readiness_res)
         print("Goal Readiness:")
         print(f"  Happy path ready: {readiness.get('happy_path_ready', False)}")
         print(f"  Planning available: {readiness.get('planning_available', False)}")
         print(f"  Worker available: {readiness.get('worker_available', False)}")
-        _cli._print_terminal("  Active team: {}", readiness.get("active_team_id") or "-")
+        print_terminal("  Active team: {}", readiness.get("active_team_id") or "-")
     else:
-        _cli._print_error(readiness_res)
+        print_error(readiness_res)
 
-    planner_res = _cli._request("GET", "/tasks/auto-planner/status", timeout=10)
+    planner_res = deps.request("GET", "/tasks/auto-planner/status", timeout=10)
     if planner_res.status_code == 200:
-        data = _cli._api_data(planner_res)
+        data = deps.api_data(planner_res)
         stats = data.get("stats", {})
         print("\nAuto-Planner Status:")
         print(f"  Enabled: {data.get('enabled', False)}")
@@ -56,18 +62,18 @@ def show_status():
         print(f"  Follow-ups created: {stats.get('followups_created', 0)}")
         print(f"  Errors: {stats.get('errors', 0)}")
     else:
-        _cli._print_error(planner_res)
+        print_error(planner_res)
 
 
-def list_tasks(status: str = None, limit: int = 20):
+def list_tasks(status: str = None, limit: int = 20, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
     params = {"limit": limit}
     if status:
         params["status"] = status
 
-    response = _cli._request("GET", "/tasks", params=params, timeout=10)
+    response = deps.request("GET", "/tasks", params=params, timeout=10)
 
     if response.status_code == 200:
-        tasks = _cli._read_json(response)
+        tasks = read_json(response)
         if isinstance(tasks, dict):
             tasks = tasks.get("data", [])
 
@@ -78,17 +84,17 @@ def list_tasks(status: str = None, limit: int = 20):
             raw_title = task.get("title")
             title = str(raw_title)[:50] if raw_title is not None else "N/A"
             task_status = task.get("status", "N/A")
-            _cli._print_terminal("  [{:12}] {}: {}", task_status, task_id, title)
+            print_terminal("  [{:12}] {}: {}", task_status, task_id, title)
     else:
-        _cli._print_error(response)
+        print_error(response)
 
 
-def list_goals(limit: int = 20):
-    response = _cli._request("GET", "/goals", timeout=15)
+def list_goals(limit: int = 20, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    response = deps.request("GET", "/goals", timeout=15)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return
-    goals = _cli._api_data(response)
+    goals = deps.api_data(response)
     if not isinstance(goals, list):
         goals = []
     print(f"Goals ({min(limit, len(goals))}/{len(goals)}):")
@@ -98,20 +104,20 @@ def list_goals(limit: int = 20):
         task_count = int(goal.get("task_count") or 0)
         print(
             "  [{:10}] {:>3}   {}  {}".format(
-                _cli._terminal(goal.get("status", "N/A")),
+                terminal_text(goal.get("status", "N/A")),
                 task_count,
-                _cli._terminal(goal.get("id", "N/A")),
-                _cli._terminal(str(goal.get("goal", ""))[:90]),
+                terminal_text(goal.get("id", "N/A")),
+                terminal_text(str(goal.get("goal", ""))[:90]),
             )
         )
 
 
-def list_goal_tasks(goal_id: str):
-    response = _cli._request("GET", f"/goals/{goal_id}/detail", timeout=30)
+def list_goal_tasks(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    response = deps.request("GET", f"/goals/{goal_id}/detail", timeout=30)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return
-    data = _cli._api_data(response) or {}
+    data = deps.api_data(response) or {}
     tasks = list(data.get("tasks") or [])
     goal = data.get("goal") or {}
     print(f"=== Tasks for Goal {goal_id} ===")
@@ -127,43 +133,43 @@ def list_goal_tasks(goal_id: str):
         print(
             "  {:44s} [{:10}] {:7s}  {}".format(
                 str(task.get("id", ""))[:44],
-                _cli._terminal(task.get("status", "N/A")),
+                terminal_text(task.get("status", "N/A")),
                 str(task.get("priority", "") or "-"),
                 str(task.get("title", ""))[:60],
             )
         )
 
 
-def show_goal_detail(goal_id: str):
-    response = _cli._request("GET", f"/goals/{goal_id}/detail", timeout=20)
+def show_goal_detail(goal_id: str, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    response = deps.request("GET", f"/goals/{goal_id}/detail", timeout=20)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return
-    data = _cli._api_data(response)
+    data = deps.api_data(response)
     goal = data.get("goal", {})
     trace = data.get("trace", {})
     artifacts = data.get("artifacts", {})
     summary = artifacts.get("result_summary", {})
-    _cli._print_terminal("Goal: {}", goal.get("id", goal_id))
-    _cli._print_terminal("  Status: {}", goal.get("status", "N/A"))
-    _cli._print_terminal("  Team: {}", goal.get("team_id") or "-")
-    _cli._print_terminal("  Trace: {}", trace.get("trace_id") or "-")
+    print_terminal("Goal: {}", goal.get("id", goal_id))
+    print_terminal("  Status: {}", goal.get("status", "N/A"))
+    print_terminal("  Team: {}", goal.get("team_id") or "-")
+    print_terminal("  Trace: {}", trace.get("trace_id") or "-")
     print(f"  Tasks: total={summary.get('task_count', 0)} completed={summary.get('completed_tasks', 0)} failed={summary.get('failed_tasks', 0)}")
     headline = artifacts.get("headline_artifact") or {}
     if headline.get("preview"):
-        _cli._print_terminal("  Headline artifact: {}", str(headline.get("preview"))[:120])
+        print_terminal("  Headline artifact: {}", str(headline.get("preview"))[:120])
 
 
-def planning_stuck() -> int:
+def planning_stuck(*, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES) -> int:
     """PRI-013: List goals with expired planning lease (stuck in planning_running/queued)."""
-    response = _cli._request("GET", "/goals/planning/health", timeout=15)
+    response = deps.request("GET", "/goals/planning/health", timeout=15)
     if response.status_code == 403:
         print("Error: --planning-stuck requires admin credentials")
         return 2
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return 1
-    data = _cli._api_data(response) or {}
+    data = deps.api_data(response) or {}
     goals = data.get("goals") or {}
     slots = data.get("planning_slots") or {}
     cb = data.get("circuit_breaker") or {}
@@ -177,30 +183,30 @@ def planning_stuck() -> int:
     return 0
 
 
-def list_modes():
-    response = _cli._request("GET", "/goals/modes", timeout=10)
+def list_modes(*, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    response = deps.request("GET", "/goals/modes", timeout=10)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return
-    modes = _cli._api_data(response)
+    modes = deps.api_data(response)
     if not isinstance(modes, list):
         modes = []
     print(f"Goal modes ({len(modes)}):")
     for mode in modes:
-        _cli._print_terminal("  - {}: {}", mode.get("id"), mode.get("title"))
+        print_terminal("  - {}: {}", mode.get("id"), mode.get("title"))
 
 
-def list_artifacts(limit: int = 20):
-    response = _cli._request("GET", "/artifacts", timeout=10)
+def list_artifacts(limit: int = 20, *, deps: CliGoalsDependencies = DEFAULT_DEPENDENCIES):
+    response = deps.request("GET", "/artifacts", timeout=10)
     if response.status_code != 200:
-        _cli._print_error(response)
+        print_error(response)
         return
-    artifacts = _cli._api_data(response)
+    artifacts = deps.api_data(response)
     if not isinstance(artifacts, list):
         artifacts = []
     print(f"Artifacts ({min(limit, len(artifacts))}/{len(artifacts)}):")
     for artifact in artifacts[:limit]:
-        _cli._print_terminal(
+        print_terminal(
             "  - {} [{}] {}",
             artifact.get("id", "N/A"),
             artifact.get("status", "N/A"),

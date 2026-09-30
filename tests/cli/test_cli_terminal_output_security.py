@@ -28,11 +28,9 @@ def test_cli_error_output_adds_human_next_step(capsys):
     assert "governance mode" in output
 
 
-def test_cli_task_listing_sanitizes_hostile_ids_status_and_titles(monkeypatch, capsys):
-    monkeypatch.setattr(
-        cli_goals,
-        "_request",
-        lambda *_args, **_kwargs: _response(
+def test_cli_task_listing_sanitizes_hostile_ids_status_and_titles(capsys):
+    deps = cli_goals.CliGoalsDependencies(
+        request=lambda *_args, **_kwargs: _response(
             200,
             [
                 {
@@ -44,7 +42,7 @@ def test_cli_task_listing_sanitizes_hostile_ids_status_and_titles(monkeypatch, c
         ),
     )
 
-    cli_goals.list_tasks(limit=5)
+    cli_goals.list_tasks(limit=5, deps=deps)
 
     output = capsys.readouterr().out
     assert "\x1b" not in output
@@ -53,11 +51,9 @@ def test_cli_task_listing_sanitizes_hostile_ids_status_and_titles(monkeypatch, c
     assert "Deploy\nFAILED" in output
 
 
-def test_cli_goal_detail_sanitizes_artifact_preview(monkeypatch, capsys):
-    monkeypatch.setattr(
-        cli_goals,
-        "_request",
-        lambda *_args, **_kwargs: _response(
+def test_cli_goal_detail_sanitizes_artifact_preview(capsys):
+    deps = cli_goals.CliGoalsDependencies(
+        request=lambda *_args, **_kwargs: _response(
             200,
             {
                 "goal": {"id": "goal-1", "status": "completed", "team_id": "team-a"},
@@ -70,7 +66,7 @@ def test_cli_goal_detail_sanitizes_artifact_preview(monkeypatch, capsys):
         ),
     )
 
-    cli_goals.show_goal_detail("goal-1")
+    cli_goals.show_goal_detail("goal-1", deps=deps)
 
     output = capsys.readouterr().out
     assert "\x1b" not in output
