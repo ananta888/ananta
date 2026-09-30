@@ -1828,9 +1828,7 @@ def test_execute_step_uses_trusted_local_adapter_once(
 
 def test_recovery_workspace_sync_returns_claims_without_legacy_rows(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from agent.services import worker_workspace_service
     from agent.services.worker_workspace_service import (
         WorkerWorkspaceService,
     )
@@ -1845,12 +1843,7 @@ def test_recovery_workspace_sync_returns_claims_without_legacy_rows(
         ingestion_calls += 1
         raise AssertionError("legacy artifact persistence is forbidden")
 
-    monkeypatch.setattr(
-        worker_workspace_service,
-        "get_ingestion_service",
-        legacy_ingestion,
-    )
-    service = WorkerWorkspaceService()
+    service = WorkerWorkspaceService(ingestion_provider=legacy_ingestion)
     task = {
         "id": TASK_ID,
         "derivation_reason": "goal_task_recovery",
