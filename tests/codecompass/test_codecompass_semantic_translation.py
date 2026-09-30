@@ -396,9 +396,7 @@ def test_setup_index_semantic_build_function_produces_summary(tmp_path, monkeypa
 
     sys.path.insert(0, str(Path("scripts").resolve()))
     import scripts.setup_codecompass_index as idx_module
-    monkeypatch.setattr(idx_module, "ROOT", tmp_path)
-
-    records, summary = idx_module._build_semantic_translation_records([java_file])
+    records, summary = idx_module._build_semantic_translation_records([java_file], root=tmp_path)
 
     assert summary["enabled"] is True
     assert summary["analyzed_files"] >= 1

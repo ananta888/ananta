@@ -23,7 +23,7 @@ def _configure_scan(monkeypatch, tmp_path: Path, registry, paths: list[str]) -> 
     monkeypatch.setattr(setup_index, "_runtime_availability", lambda value: {})
 
 
-def test_post_index_declares_repository_scope_for_graph_materialization(monkeypatch):
+def test_post_index_declares_repository_scope_for_graph_materialization():
     captured: dict[str, object] = {}
 
     class Response:
@@ -41,13 +41,12 @@ def test_post_index_declares_repository_scope_for_graph_materialization(monkeypa
         captured["timeout"] = timeout
         return Response()
 
-    monkeypatch.setattr(setup_index.urllib.request, "urlopen", urlopen)
-
     setup_index._post_index(
         "http://hub",
         "token",
         [{"file": "agent/app.py", "content": "pass"}],
         "ananta-revision",
+        urlopen=urlopen,
     )
 
     assert captured["payload"]["source_scope"] == "repo_path"
@@ -193,12 +192,11 @@ def test_semantic_builder_uses_registry_for_typescript_and_honours_record_limit(
         "export class Card {}\nexport const Screen = () => <Card />;\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(setup_index, "ROOT", tmp_path)
     monkeypatch.setenv("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED", "true")
     monkeypatch.setenv("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_LANGUAGES", "all")
     monkeypatch.setenv("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_MAX_GRAPH_RECORDS", "2")
 
-    records, summary = setup_index._build_semantic_translation_records([source])
+    records, summary = setup_index._build_semantic_translation_records([source], root=tmp_path)
 
     assert len(records) == 2
     assert summary["recognized_languages"] == ["typescript"]
@@ -225,7 +223,6 @@ def test_semantic_builder_contains_registry_parser_failures(monkeypatch, tmp_pat
 
     source = tmp_path / "Unsafe.java"
     source.write_text("public record Unsafe(String value) {}", encoding="utf-8")
-    monkeypatch.setattr(setup_index, "ROOT", tmp_path)
     monkeypatch.setenv("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_ENABLED", "true")
     monkeypatch.setenv("ANANTA_CODECOMPASS_SEMANTIC_TRANSLATION_LANGUAGES", "java")
     monkeypatch.setattr(
@@ -234,7 +231,7 @@ def test_semantic_builder_contains_registry_parser_failures(monkeypatch, tmp_pat
         SemanticAdapterRegistry([FailingJavaAdapter()], telemetry=lambda **_values: None),
     )
 
-    records, summary = setup_index._build_semantic_translation_records([source])
+    records, summary = setup_index._build_semantic_translation_records([source], root=tmp_path)
 
     assert not any((record.get("provenance") or {}).get("file") == "Unsafe.java" for record in records)
     assert summary["node_count"] == 0

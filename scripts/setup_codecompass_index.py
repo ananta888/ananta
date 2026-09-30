@@ -23,9 +23,6 @@ import shutil
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,6 +43,14 @@ from ananta_contracts.file_type_support import (
 from scripts.codecompass_content_redaction import (
     redact_sensitive_values as _redact_sensitive_values,
 )
+from scripts.codecompass_index_hub_client import (  # noqa: F401 - compatibility re-exports
+    SOURCE_SCOPE,
+    get_index_job as _get_index_job,
+    login as _login,
+    post_index as _post_index,
+    wait_for_index_job as _wait_for_index_job,
+)
+from scripts.codecompass_semantic_index_records import build_semantic_translation_records
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,7 +64,6 @@ MAX_FILE_BYTES = 48_000  # skip files larger than this
 MAX_RECORDS = 2000       # hard cap to avoid overwhelming the indexer
 MAX_SNAPSHOT_HASH_BYTES = 8_000_000
 SNAPSHOT_POLICY_PATH = ROOT / "config" / "codecompass" / "snapshot_policy.v1.json"
-SOURCE_SCOPE = "repo_path"
 
 
 @dataclass(frozen=True, slots=True)
@@ -624,178 +628,14 @@ def _build_records(files: list[Path]) -> list[dict]:
     return records
 
 
-def _build_semantic_translation_records(files: list[Path]) -> tuple[list[dict], dict]:
-    from agent.codecompass.semantic_translation.config import load_semantic_translation_config
-    from agent.codecompass.semantic_translation.equivalence_registry import EquivalenceRuleRegistry
-    from agent.codecompass.semantic_translation.registry import get_semantic_adapter_registry
-
-    config = load_semantic_translation_config()
-    if not config.enabled:
-        return [], {"enabled": False, "warnings": list(config.diagnostics)}
-    registry = get_semantic_adapter_registry()
-    allowed_languages = set(config.source_languages)
-    analyze_all = "all" in allowed_languages or "*" in allowed_languages
-    records: list[dict] = []
-    diagnostics: list[dict] = []
-    analyzed_files = 0
-    analyzed_by_language: dict[str, int] = defaultdict(int)
-    parser_strategies: dict[str, str] = {}
-    limit_reached = False
-    for path in files:
-        rel = str(path.relative_to(ROOT))
-        try:
-            content = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:
-            diagnostics.append({"code": "semantic_file_read_failed", "path": rel, "message": str(exc)})
-            continue
-        adapter = registry.find(rel, content)
-        if adapter is None:
-            continue
-        language_aliases = {adapter.language}
-        if adapter.language == "typescript" and path.suffix.lower() in {".js", ".jsx"}:
-            language_aliases.add("javascript")
-        if not analyze_all and not language_aliases.intersection(allowed_languages):
-            continue
-        analyzed_files += 1
-        analyzed_by_language[adapter.language] += 1
-        parser_strategies[adapter.language] = adapter.parser_strategy
-        emitted = registry.emit_graph_records(rel, content)
-        batch = [*emitted["nodes"], *emitted["edges"]]
-        remaining = max(0, config.max_graph_records - len(records))
-        records.extend(batch[:remaining])
-        diagnostics.extend(emitted["diagnostics"])
-        if len(batch) > remaining or len(records) >= config.max_graph_records:
-            diagnostics.append({"code": "semantic_graph_record_limit_reached", "path": rel})
-            limit_reached = True
-            break
-    if not limit_reached:
-        rules = EquivalenceRuleRegistry().records()
-        remaining = max(0, config.max_graph_records - len(records))
-        records.extend(rules[:remaining])
-        if len(rules) > remaining:
-            diagnostics.append({"code": "semantic_graph_record_limit_reached", "path": ""})
-    summary = {
-        "enabled": True,
-        "analyzed_files": analyzed_files,
-        "analyzed_by_language": dict(sorted(analyzed_by_language.items())),
-        "recognized_languages": sorted(analyzed_by_language),
-        "parser_strategies": dict(sorted(parser_strategies.items())),
-        "record_count": len(records),
-        "node_count": sum(
-            1
-            for row in records
-            if (row.get("_provenance") or {}).get("output_kind") == "semantic_nodes"
-        ),
-        "edge_count": sum(
-            1
-            for row in records
-            if (row.get("_provenance") or {}).get("output_kind") == "semantic_edges"
-        ),
-        "rule_count": sum(
-            1
-            for row in records
-            if (row.get("_provenance") or {}).get("output_kind") == "equivalence_rules"
-        ),
-        "warnings": [str(row.get("code") or row) for row in diagnostics],
-        "diagnostics": diagnostics,
-    }
-    return records, summary
-
-
-def _login(hub: str, username: str, password: str) -> str:
-    body = json.dumps({"username": username, "password": password}).encode()
-    req = urllib.request.Request(
-        f"{hub.rstrip('/')}/login",
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=10) as r:
-        data = json.loads(r.read())
-    token = str((data.get("data") or {}).get("access_token") or "")
-    if not token:
-        raise RuntimeError("Login failed — no access_token in response")
-    return token
-
-
-def _post_index(
-    hub: str,
-    token: str,
-    records: list[dict],
-    source_id: str,
+def _build_semantic_translation_records(
+    files: list[Path],
     *,
-    source_metadata: dict | None = None,
-) -> dict:
-    payload = json.dumps({
-        "source_scope": SOURCE_SCOPE,
-        "source_id": source_id,
-        "records": records,
-        # Index builds are delegated to the persistent Hub task queue.  The
-        # field remains explicit for compatibility with older Hub versions.
-        "async": True,
-        "profile_name": "deep_code",
-        "source_metadata": {
-            "project": "ananta",
-            "indexed_by": "setup_codecompass_index.py",
-            **dict(source_metadata or {}),
-        },
-    }).encode()
-    req = urllib.request.Request(
-        f"{hub.rstrip('/')}/knowledge/sources/index-records",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {body[:400]}") from exc
+    root: Path | None = None,
+) -> tuple[list[dict], dict]:
+    """Semantic-translation records for ``files`` relative to ``root`` (default: ``ROOT``)."""
 
-
-def _get_index_job(hub: str, token: str, job_id: str) -> dict:
-    encoded_job_id = urllib.parse.quote(str(job_id), safe="")
-    req = urllib.request.Request(
-        f"{hub.rstrip('/')}/knowledge/index-jobs/{encoded_job_id}",
-        headers={"Authorization": f"Bearer {token}"},
-        method="GET",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as response:
-            return json.loads(response.read())
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {body[:400]}") from exc
-
-
-def _wait_for_index_job(
-    hub: str,
-    token: str,
-    job_id: str,
-    *,
-    timeout_seconds: float,
-) -> dict:
-    deadline = time.monotonic() + max(0.0, float(timeout_seconds))
-    while True:
-        response = _get_index_job(hub, token, job_id)
-        job = dict((response.get("data") or {}).get("job") or {})
-        if str(job.get("status") or "").strip().lower() in {
-            "completed",
-            "failed",
-            "cancelled",
-        }:
-            return job
-        if time.monotonic() >= deadline:
-            return {
-                **job,
-                "job_id": str(job.get("job_id") or job_id),
-                "status": "wait_timeout",
-            }
-        time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
+    return build_semantic_translation_records(files, root=ROOT if root is None else root)
 
 
 def _csv_environment(name: str) -> list[str]:
