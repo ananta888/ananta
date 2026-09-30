@@ -16,8 +16,6 @@ from scripts.e2e.semantic_media_e2e_report import (
 _PAIR_COMMON_SOURCE_PATHS = (
     "agent/services/semantic_media_program_evidence.py",
     "scripts/e2e/semantic_media_e2e_report.py",
-    "scripts/e2e/semantic_media_e2e_sources.py",
-    "scripts/e2e/semantic_media_e2e_summary.py",
     "frontend-angular/tests/semantic-media-pair.spec.ts",
 )
 
