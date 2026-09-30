@@ -34,6 +34,11 @@ ARTIFACT = ROOT / "artifacts/test-gates/semantic-speech-runtime.json"
 SOURCE_FILES = (
     "ananta_contracts/semantic_speech.py",
     "voice_runtime/streaming.py",
+    "voice_runtime/streaming_protocol.py",
+    "voice_runtime/streaming_recognizer_factories.py",
+    "voice_runtime/streaming_recognizers.py",
+    "voice_runtime/streaming_session.py",
+    "voice_runtime/streaming_transcript.py",
     "voice_runtime/source_correction.py",
     "agent/services/semantic_speech_source_correction_service.py",
     "agent/routes/voice.py",

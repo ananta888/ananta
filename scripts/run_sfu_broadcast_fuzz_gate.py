@@ -47,6 +47,8 @@ FUZZ_SOURCES = (
     "agent/services/sfu_fanout_route_lifecycle.py",
     "agent/services/sfu_broadcast_data_port.py",
     "agent/services/sfu_broadcast_data_queue_policy.py",
+    "agent/services/sfu_broadcast_data_queue_models.py",
+    "agent/services/sfu_broadcast_data_queue_profile_parser.py",
     "tests/fuzz/test_sfu_broadcast_contract_fuzz.py",
     "tests/fuzz/test_sfu_broadcast_state_machine_fuzz.py",
 )

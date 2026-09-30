@@ -16,6 +16,8 @@ from scripts.e2e.semantic_media_e2e_report import (
 _PAIR_COMMON_SOURCE_PATHS = (
     "agent/services/semantic_media_program_evidence.py",
     "scripts/e2e/semantic_media_e2e_report.py",
+    "scripts/e2e/semantic_media_e2e_sources.py",
+    "scripts/e2e/semantic_media_e2e_summary.py",
     "frontend-angular/tests/semantic-media-pair.spec.ts",
 )
 
@@ -430,11 +432,28 @@ def test_pair_source_binding_covers_executed_offer_v2_and_curation_boundaries() 
         "agent/routes/voice_live_runs.py",
         "agent/services/speech_evidence_offer_service.py",
         "agent/services/speech_evidence_peer_curation_composition.py",
+        "agent/services/speech_peer_curation_adapters.py",
+        "agent/services/speech_peer_curation_dataset.py",
+        "agent/services/speech_peer_curation_group_decoder.py",
+        "agent/services/speech_peer_curation_revocation.py",
+        "agent/services/speech_peer_curation_values.py",
         "agent/repositories/speech_evidence_sync.py",
+        "agent/repositories/speech_evidence_offer_rows.py",
+        "agent/repositories/speech_evidence_peer_keys.py",
+        "agent/repositories/speech_evidence_replay_window.py",
+        "agent/repositories/speech_evidence_sync_records.py",
+        "agent/repositories/speech_evidence_transfers.py",
         "agent/db_models/speech_evidence_sync.py",
         "ananta_contracts/speech_evidence_sync.py",
+        "ananta_contracts/speech_evidence_sync_payloads.py",
+        "ananta_contracts/speech_evidence_sync_primitives.py",
         "voice_runtime/app.py",
         "voice_runtime/streaming.py",
+        "voice_runtime/streaming_protocol.py",
+        "voice_runtime/streaming_recognizer_factories.py",
+        "voice_runtime/streaming_recognizers.py",
+        "voice_runtime/streaming_session.py",
+        "voice_runtime/streaming_transcript.py",
         "migrations/versions/a9b0c1d2e3f4_add_signed_speech_evidence_offer_previews.py",
     } <= paths
     assert all((semantic_media_e2e_report.ROOT / path).is_file() for path in paths)

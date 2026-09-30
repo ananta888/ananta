@@ -68,6 +68,8 @@ PRODUCT_SOURCE_PATHS = (
     "agent/services/speech_reconciliation_resource_policy.py",
     "ananta_contracts/speech_reconciliation.py",
     "ananta_contracts/speech_evidence_sync.py",
+    "ananta_contracts/speech_evidence_sync_payloads.py",
+    "ananta_contracts/speech_evidence_sync_primitives.py",
     "ananta_contracts/semantic_speech.py",
     "ananta_contracts/semantic_visual.py",
     "ananta_contracts/webrtc_datachannel.py",

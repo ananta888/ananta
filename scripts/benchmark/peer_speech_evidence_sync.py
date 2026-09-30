@@ -44,6 +44,8 @@ CONFIG_PATH = "config/peer-speech-evidence-sync-benchmark.v1.json"
 SOURCE_PATHS = (
     "ananta_contracts/speech_evidence_resolution.py",
     "ananta_contracts/speech_evidence_sync.py",
+    "ananta_contracts/speech_evidence_sync_payloads.py",
+    "ananta_contracts/speech_evidence_sync_primitives.py",
     "frontend-angular/src/app/features/voice/peer-evidence-sync.facade.ts",
     "frontend-angular/src/app/services/speech-evidence-datachannel-transport.service.ts",
     "scripts/benchmark/peer_speech_evidence_sync.py",

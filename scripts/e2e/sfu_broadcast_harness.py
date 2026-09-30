@@ -47,6 +47,8 @@ SOURCE_PATHS = (
     "agent/ports/sfu_broadcast_route.py",
     "agent/services/sfu_fanout_route_lifecycle.py",
     "agent/services/sfu_broadcast_data_queue_policy.py",
+    "agent/services/sfu_broadcast_data_queue_models.py",
+    "agent/services/sfu_broadcast_data_queue_profile_parser.py",
     "scripts/e2e/semantic_sfu_group_e2e.py",
     "scripts/e2e/semantic_sfu_failover_e2e.py",
     "scripts/e2e/sfu_broadcast_harness.py",
