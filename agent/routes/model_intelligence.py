@@ -12,6 +12,19 @@ from pydantic import ValidationError
 
 from agent.auth import check_user_auth, get_request_auth_context
 from agent.config import settings
+from agent.routes.model_intelligence_events import (
+    ModelIntelligenceRequestView,
+    emit_sanitized_model_intelligence_events,
+)
+from agent.routes.model_intelligence_frontend_dtos import (
+    frontend_capabilities_dto as _frontend_capabilities_dto,
+)
+from agent.routes.model_intelligence_frontend_dtos import (
+    frontend_graph_dto as _frontend_graph_dto,
+)
+from agent.routes.model_intelligence_frontend_dtos import (
+    frontend_job_dto as _frontend_job_dto,
+)
 from agent.services.model_analysis_job_service import (
     ModelAnalysisJobRecord,
     ModelAnalysisJobService,
@@ -874,129 +887,26 @@ def _error_response(exc: Exception):
 __all__ = ["model_intelligence_bp"]
 
 
-def _model_intelligence_event_context(response: Response) -> tuple[str, str, str | None, str | None]:
-    """Return only bounded, non-content event dimensions for the current request."""
-    path = request.path.rstrip("/")
-    endpoint = str(request.endpoint or "")
-    if request.method == "POST" and path.endswith("/cancel"):
-        action, resource_kind = "cancel_analysis", "job"
-    elif request.method == "POST" and path.endswith("/jobs"):
-        action, resource_kind = "submit_analysis", "job"
-    elif endpoint.endswith("get_report") or path.endswith("/report"):
-        action, resource_kind = "read_report", "report"
-    elif "artifact" in endpoint or "/artifacts/" in path or path.endswith("/graph"):
-        action, resource_kind = "read_artifact", "artifact"
-    else:
-        action, resource_kind = "read_job", "job"
-
-    payload = response.get_json(silent=True) if response.is_json else None
-    job_payload = payload.get("job", payload) if isinstance(payload, dict) else {}
-    job_id = job_payload.get("job_id") if isinstance(job_payload, dict) else None
-    state = job_payload.get("state") if isinstance(job_payload, dict) else None
-    if not isinstance(job_id, str):
-        candidate = (request.view_args or {}).get("job_id")
-        job_id = candidate if isinstance(candidate, str) else None
-    if not isinstance(state, str):
-        state = None
-    return action, resource_kind, job_id, state
+def _model_intelligence_request_view() -> ModelIntelligenceRequestView:
+    return ModelIntelligenceRequestView(
+        method=request.method,
+        path=request.path,
+        endpoint=str(request.endpoint or ""),
+        view_args=request.view_args or {},
+    )
 
 
 @model_intelligence_bp.after_request
 def _emit_sanitized_model_intelligence_events(response: Response) -> Response:
     """Best-effort emission through injected ports; observability never changes API results."""
-    from hashlib import sha256
-
-    from agent.services.model_analysis_task_port import HubModelAnalysisTaskSubmissionPort
-    from agent.services.model_intelligence_observability import (
-        HmacModelIntelligenceCorrelationService,
-        ModelIntelligenceOperationalEvent,
+    return emit_sanitized_model_intelligence_events(
+        response,
+        request_view=_model_intelligence_request_view(),
+        extensions=current_app.extensions,
+        config=current_app.config,
+        secret_key=current_app.secret_key,
+        logger=current_app.logger,
     )
-    from agent.services.model_intelligence_security_policy import (
-        sanitize_model_intelligence_audit_event,
-    )
-
-    try:
-        action, resource_kind, job_id, state = _model_intelligence_event_context(response)
-        outcome = "success" if response.status_code < 400 else "error"
-        audit_fields: dict[str, object] = {
-            "action": action,
-            "resource_kind": resource_kind,
-            "outcome": outcome,
-        }
-        if state:
-            audit_fields["state"] = state
-        if response.status_code == 403:
-            audit_fields["reason_code"] = "policy_denied"
-        audit_event = sanitize_model_intelligence_audit_event(
-            "model_intelligence_api_request",
-            audit_fields,
-        )
-        audit_port = current_app.extensions.get("model_intelligence_audit_event_port")
-        audit_emit = getattr(audit_port, "emit", None)
-        if callable(audit_emit):
-            audit_emit(audit_event)
-
-        is_submission = request.method == "POST" and request.path.rstrip("/").endswith("/jobs")
-        is_cancellation = request.method == "POST" and request.path.rstrip("/").endswith("/cancel")
-        operational_port = current_app.extensions.get(
-            "model_intelligence_operational_event_port"
-        )
-        operational_emit = getattr(operational_port, "emit", None)
-        if (
-            callable(operational_emit)
-            and response.status_code < 400
-            and job_id
-            and (is_submission or is_cancellation)
-        ):
-            correlation_service = current_app.extensions.get(
-                "model_intelligence_correlation_service"
-            )
-            if correlation_service is None:
-                configured_secret = current_app.config.get(
-                    "MODEL_INTELLIGENCE_CORRELATION_SECRET"
-                ) or current_app.secret_key
-                if configured_secret:
-                    secret_bytes = (
-                        configured_secret
-                        if isinstance(configured_secret, bytes)
-                        else str(configured_secret).encode("utf-8")
-                    )
-                    correlation_service = HmacModelIntelligenceCorrelationService(
-                        sha256(secret_bytes).digest()
-                    )
-                    current_app.extensions[
-                        "model_intelligence_correlation_service"
-                    ] = correlation_service
-            if correlation_service is not None:
-                correlation = correlation_service.correlate(
-                    hub_job_id=job_id,
-                    worker_task_id=HubModelAnalysisTaskSubmissionPort.execution_task_id(
-                        job_id
-                    ),
-                )
-                normalized_state = {
-                    "submission_pending": "queued",
-                    "queued": "queued",
-                    "running": "running",
-                    "cancel_requested": "running",
-                    "succeeded": "succeeded",
-                    "failed": "failed",
-                    "cancelled": "cancelled",
-                }.get(state or "", "queued" if is_submission else "running")
-                operational_emit(
-                    ModelIntelligenceOperationalEvent(
-                        state=normalized_state,
-                        reason_code="accepted" if is_submission else "cancelled",
-                        correlation=correlation,
-                        duration_seconds=0,
-                    )
-                )
-    except Exception:
-        current_app.logger.debug(
-            "model-intelligence event emission failed",
-            exc_info=True,
-        )
-    return response
 
 
 
@@ -1022,173 +932,6 @@ def _model_intelligence_request_aliases() -> None:
 model_intelligence_bp.before_request(_model_intelligence_request_aliases)
 
 
-def _bounded_integer(value: object, *, default: int, maximum: int) -> int:
-    if isinstance(value, bool):
-        return default
-    try:
-        parsed = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return default
-    return max(0, min(parsed, maximum))
-
-
-def _frontend_job_dto(source: object) -> dict[str, object]:
-    value = source if isinstance(source, dict) else {}
-    extensions = value.get("extensions") if isinstance(value.get("extensions"), dict) else {}
-    identity = (
-        value.get("model_identity")
-        if isinstance(value.get("model_identity"), dict)
-        else {}
-    )
-    state = str(value.get("status") or value.get("state") or "unknown")
-    status = {
-        "submission_pending": "queued",
-        "queued": "queued",
-        "claimed": "claimed",
-        "running": "running",
-        "cancel_requested": "cancel_requested",
-        "succeeded": "completed",
-        "completed": "completed",
-        "failed": "failed",
-        "cancelled": "cancelled",
-    }.get(state, "unknown")
-    default_progress = {
-        "queued": 0,
-        "claimed": 5,
-        "running": 50,
-        "cancel_requested": 50,
-        "completed": 100,
-        "failed": 100,
-        "cancelled": 100,
-        "unknown": 0,
-    }[status]
-    requested = (
-        value.get("requested_artifact_kinds")
-        or value.get("requested_artifacts")
-        or value.get("artifact_kinds")
-        or []
-    )
-    if not isinstance(requested, (list, tuple)):
-        requested = []
-    job_id = str(value.get("job_id") or "unknown")
-    model_id = (
-        value.get("model_id")
-        or identity.get("model_id")
-        or identity.get("identity_id")
-        or extensions.get("import_ref")
-        or job_id
-    )
-    error = value.get("error") if isinstance(value.get("error"), dict) else {}
-    reason_code = value.get("reason_code") or error.get("reason_code")
-    result: dict[str, object] = {
-        "job_id": job_id,
-        "model_id": str(model_id),
-        "analysis_kind": str(value.get("analysis_kind") or "full"),
-        "profile_id": str(value.get("profile_id") or extensions.get("profile_id") or "bounded-ui"),
-        "requested_artifact_kinds": [str(item) for item in requested],
-        "status": status,
-        "progress_percent": _bounded_integer(
-            value.get("progress_percent"),
-            default=default_progress,
-            maximum=100,
-        ),
-    }
-    optional_values = {
-        "schema": value.get("schema"),
-        "hub_task_id": value.get("hub_task_id"),
-        "import_ref": value.get("import_ref") or extensions.get("import_ref"),
-        "request_sha256": value.get("request_sha256") or value.get("request_digest"),
-        "max_runtime_seconds": value.get("max_runtime_seconds"),
-        "max_output_bytes": value.get("max_output_bytes"),
-        "reason_code": reason_code,
-        "created_at": value.get("created_at"),
-        "updated_at": value.get("updated_at"),
-    }
-    result.update({key: item for key, item in optional_values.items() if item is not None})
-    return result
-
-
-def _frontend_report_dto(source: object) -> dict[str, object]:
-    from hashlib import sha256
-    import json
-
-    value = source if isinstance(source, dict) else {}
-    nested = value.get("report") if isinstance(value.get("report"), dict) else value
-    raw_sections = nested.get("sections") if isinstance(nested, dict) else []
-    if not isinstance(raw_sections, list):
-        raw_sections = []
-    sections: list[dict[str, object]] = []
-    for index, item in enumerate(raw_sections):
-        section = item if isinstance(item, dict) else {"data": item}
-        raw_status = str(section.get("status") or "available")
-        status = raw_status if raw_status in {"available", "unsupported", "not_run", "failed"} else "failed"
-        normalized: dict[str, object] = {
-            "name": str(section.get("name") or section.get("section") or f"section-{index + 1}"),
-            "status": status,
-            "data": section.get("data"),
-        }
-        if section.get("reason_code") is not None:
-            normalized["reason_code"] = str(section["reason_code"])
-        sections.append(normalized)
-    schema = str(nested.get("schema") or "ananta.model-intelligence.report.v1")
-    digest = nested.get("content_digest") or nested.get("sha256")
-    if not isinstance(digest, str) or not digest:
-        canonical = json.dumps(
-            {"schema": schema, "sections": sections},
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=True,
-        ).encode("utf-8")
-        digest = f"sha256:{sha256(canonical).hexdigest()}"
-    return {"schema": schema, "content_digest": digest, "sections": sections}
-
-
-def _frontend_graph_dto(source: object) -> dict[str, object]:
-    value = source if isinstance(source, dict) else {}
-    nested = value.get("graph") if isinstance(value.get("graph"), dict) else value
-    raw_nodes = nested.get("nodes") if isinstance(nested, dict) else []
-    raw_edges = nested.get("edges") if isinstance(nested, dict) else []
-    nodes: list[dict[str, str]] = []
-    edges: list[dict[str, str]] = []
-    if isinstance(raw_nodes, list):
-        for item in raw_nodes:
-            node = item if isinstance(item, dict) else {}
-            node_id = str(node.get("node_id") or node.get("id") or "")
-            if node_id:
-                nodes.append(
-                    {
-                        "node_id": node_id,
-                        "label": str(node.get("label") or node.get("name") or node_id),
-                        "kind": str(node.get("kind") or node.get("type") or "unknown"),
-                    }
-                )
-    if isinstance(raw_edges, list):
-        for item in raw_edges:
-            edge = item if isinstance(item, dict) else {}
-            source_id = str(edge.get("source_node_id") or edge.get("source") or "")
-            target_id = str(edge.get("target_node_id") or edge.get("target") or "")
-            if source_id and target_id:
-                edge_id = str(
-                    edge.get("edge_id")
-                    or edge.get("id")
-                    or f"{source_id}:{target_id}:{len(edges)}"
-                )
-                edges.append(
-                    {
-                        "edge_id": edge_id,
-                        "source_node_id": source_id,
-                        "target_node_id": target_id,
-                        "kind": str(edge.get("kind") or edge.get("type") or "unknown"),
-                    }
-                )
-    return {
-        "schema": str(nested.get("schema") or "ananta.model-intelligence.graph.v1"),
-        "nodes": nodes,
-        "edges": edges,
-        "truncated": bool(nested.get("truncated", False)),
-    }
-
-
 def _replace_json_response(response: Response, payload: object) -> Response:
     response.set_data(current_app.json.dumps(payload))
     response.content_type = "application/json"
@@ -1210,24 +953,14 @@ def _normalize_model_intelligence_frontend_dtos(response: Response) -> Response:
     path = request.path.rstrip("/")
     base = "/api/model-intelligence"
     if path == f"{base}/capabilities" and isinstance(payload, dict):
-        nested = payload.get("capabilities") if isinstance(payload.get("capabilities"), dict) else payload
-        limits = nested.get("limits") if isinstance(nested.get("limits"), dict) else {}
-        normalized: dict[str, object] = {
-            "supported": bool(nested.get("supported", True)),
-            "max_graph_nodes": _bounded_integer(
-                nested.get("max_graph_nodes") or limits.get("max_graph_nodes"),
-                default=int(current_app.config.get("MODEL_INTELLIGENCE_MAX_GRAPH_NODES", 500)),
-                maximum=10_000,
+        return _replace_json_response(
+            response,
+            _frontend_capabilities_dto(
+                payload,
+                default_max_graph_nodes=int(current_app.config.get("MODEL_INTELLIGENCE_MAX_GRAPH_NODES", 500)),
+                default_max_graph_edges=int(current_app.config.get("MODEL_INTELLIGENCE_MAX_GRAPH_EDGES", 1_000)),
             ),
-            "max_graph_edges": _bounded_integer(
-                nested.get("max_graph_edges") or limits.get("max_graph_edges"),
-                default=int(current_app.config.get("MODEL_INTELLIGENCE_MAX_GRAPH_EDGES", 1_000)),
-                maximum=20_000,
-            ),
-        }
-        if nested.get("reason_code") is not None:
-            normalized["reason_code"] = str(nested["reason_code"])
-        return _replace_json_response(response, normalized)
+        )
     if path == f"{base}/jobs" and request.method == "GET" and isinstance(payload, dict):
         raw_items = payload.get("items") or payload.get("jobs") or []
         items = [_frontend_job_dto(item) for item in raw_items] if isinstance(raw_items, list) else []
