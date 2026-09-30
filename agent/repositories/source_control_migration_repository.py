@@ -22,7 +22,7 @@ from agent.db_models.source_control_migration import (
     SourceControlMigrationRunDB,
     SourceRefMappingDB,
 )
-from agent.services.source_control_legacy_migration import (
+from agent.models.source_control_legacy_migration import (
     LegacyMappingRecord,
     LegacyMigrationEntry,
     LegacyMigrationPlan,
@@ -615,7 +615,7 @@ class SQLSourceControlMigrationRepository:
     def _index_values(
         row: KnowledgeIndexSourceBindingDB,
     ):
-        from agent.services.source_control_persistence import (
+        from agent.models.source_control_persistence import (
             KnowledgeIndexBindingRecord,
         )
 
@@ -641,7 +641,7 @@ class SQLSourceControlMigrationRepository:
     def _run_values(
         row: KnowledgeIndexRunSourceBindingDB,
     ):
-        from agent.services.source_control_persistence import (
+        from agent.models.source_control_persistence import (
             KnowledgeIndexRunBindingRecord,
         )
 

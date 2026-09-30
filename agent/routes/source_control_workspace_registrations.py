@@ -10,7 +10,7 @@ from typing import Callable, Mapping
 from flask import Blueprint, Response, g, jsonify, make_response, request
 
 from agent.auth import check_auth, get_authenticated_source_control_principal
-from agent.repositories.source_control_workspace_registration_repository import (
+from agent.models.source_control_workspace_contracts import (
     SourceControlWorkspacePersistenceError,
 )
 from agent.routes.source_control_access import (

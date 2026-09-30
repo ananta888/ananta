@@ -25,7 +25,10 @@ from agent.db_models.source_control import (
     SourceControlJobEventOutboxDB,
     SourceRevisionDB,
 )
-from agent.services.source_control_persistence import (
+from agent.models.source_control_connection_binding import (
+    SourceConnectionSelectorBinding,
+)
+from agent.models.source_control_persistence import (
     ActivationReconciliationResult,
     ActiveKnowledgeIndexEventRecord,
     ActiveKnowledgeIndexRecord,
@@ -41,9 +44,6 @@ from agent.services.source_control_persistence import (
     derive_active_index_id,
     derive_grant_family_id,
     derive_index_lifecycle,
-)
-from agent.services.source_control_connection_binding import (
-    SourceConnectionSelectorBinding,
 )
 from ananta_contracts.source_control import (
     ConnectionState,

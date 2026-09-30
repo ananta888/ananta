@@ -15,23 +15,17 @@ from agent.db_models.source_control_public_remote import (
     SourceControlPublicRemoteDB,
     SourceControlPublicRemoteValidationDB,
 )
-from agent.services.source_control_public_remote_contracts import (
+from agent.models.source_control_public_remote_contracts import (
     PublicRemoteRecord,
     PublicRemoteSelection,
     PublicRemoteValidationBinding,
+    SourceControlPublicRemotePersistenceError,
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _REASON = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 _EVENT = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,63}$")
-
-
-class SourceControlPublicRemotePersistenceError(RuntimeError):
-    def __init__(self, reason_code: str, *, status_code: int = 400) -> None:
-        self.reason_code = str(reason_code)
-        self.status_code = int(status_code)
-        super().__init__(self.reason_code)
 
 
 class SQLSourceControlPublicRemoteRepository:

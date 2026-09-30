@@ -18,9 +18,12 @@ from agent.db_models.hub_git_authorization import (
     HubGitRemoteRegistrationDB,
     HubGitRemoteRegistrationRevisionDB,
 )
-from agent.services.hub_git_authorization_registry import (
-    HubGitAuthorizationRegistryPort,
+from agent.models.hub_git_authorization import (
+    HubGitAuthorizationPersistenceError,
     RegisteredGitAuthorization,
+)
+from agent.ports.hub_git_authorization_registry import (
+    HubGitAuthorizationRegistryPort,
 )
 from agent.sources.git_source_connector_common import GitSourceScope
 
@@ -30,14 +33,6 @@ _OPAQUE_IDENTIFIER = re.compile(
 _MAX_OPAQUE_IDENTIFIER_LENGTH = 512
 _SAFE_AUDIT_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _AUTHORIZATION_STATES = frozenset({"active", "revoked", "scope_loss"})
-
-
-class HubGitAuthorizationPersistenceError(RuntimeError):
-    """Stable, content-free persistence failure."""
-
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = str(reason_code)
-        super().__init__(self.reason_code)
 
 
 class SQLHubGitAuthorizationRepository(HubGitAuthorizationRegistryPort):

@@ -17,7 +17,8 @@ from agent.db_models.source_control_workspace_registration import (
     SourceControlWorkspaceRegistrationDB,
     SourceControlWorkspaceValidationDB,
 )
-from agent.services.source_control_workspace_contracts import (
+from agent.models.source_control_workspace_contracts import (
+    SourceControlWorkspacePersistenceError,
     WorkspaceFolderSnapshot,
     WorkspaceRegistrationRecord,
     WorkspaceValidationBinding,
@@ -26,13 +27,6 @@ from agent.sources.git_source_connector_common import GitSourceScope
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _REASON = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
-
-
-class SourceControlWorkspacePersistenceError(RuntimeError):
-    def __init__(self, reason_code: str, *, status_code: int = 400) -> None:
-        self.reason_code = str(reason_code)
-        self.status_code = int(status_code)
-        super().__init__(self.reason_code)
 
 
 class SQLSourceControlWorkspaceRegistrationRepository:
