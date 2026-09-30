@@ -9,6 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY config.py oidc_auth.py pair_security.py peer_identity.py service.py app.py ./
+COPY rendezvous_runtime.py rendezvous_records.py rendezvous_membership.py rendezvous_schema.py rendezvous_session_admission.py rendezvous_session_catalog.py rendezvous_membership_operations.py rendezvous_key_exchange.py rendezvous_signal_relay.py rendezvous_turn_credentials.py ./
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
