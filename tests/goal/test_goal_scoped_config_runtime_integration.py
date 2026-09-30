@@ -1,17 +1,18 @@
 from agent.repository import goal_repo
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from tests.planning_collaborator_seam import install_repo_context_loader
 
 
-def _mock_goal_planning_llm(monkeypatch):
+def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
         "agent.routes.tasks.auto_planner.generate_text",
         lambda **kwargs: '[{"title":"Plan","description":"Do work","priority":"Medium"}]',
     )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    install_repo_context_loader(app, lambda goal: None)
 
 
 def test_planner_path_records_snapshot_source(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -25,7 +26,7 @@ def test_planner_path_records_snapshot_source(client, admin_auth_header, monkeyp
 
 
 def test_global_config_change_does_not_mutate_goal_snapshot(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     create = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -44,7 +45,7 @@ def test_global_config_change_does_not_mutate_goal_snapshot(client, admin_auth_h
 
 
 def test_runtime_service_uses_snapshot_for_goal_tasks(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     create = client.post(
         "/goals",
         headers=admin_auth_header,

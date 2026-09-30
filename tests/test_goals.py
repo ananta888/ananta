@@ -10,14 +10,15 @@ from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
 from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
+from tests.planning_collaborator_seam import install_repo_context_loader
 
 
-def _mock_goal_planning_llm(monkeypatch):
+def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
         "agent.routes.tasks.auto_planner.generate_text",
         lambda **kwargs: '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]',
     )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    install_repo_context_loader(app, lambda goal: None)
     # Bypass prompt registry DB operations to avoid nested-app-context session invalidation
     from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
     monkeypatch.setattr(
@@ -371,7 +372,7 @@ class TestGoalsAPI:
         assert {"new_software_project", "project_evolution"}.issubset(mode_ids)
 
     def test_create_goal_from_docker_compose_mode(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -392,7 +393,7 @@ class TestGoalsAPI:
         assert "Fokus-Service: hub" in goal_payload["goal"]
 
     def test_create_goal_from_admin_repair_mode(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
             _mock_plan_goal("admin_repair"),
@@ -484,7 +485,7 @@ class TestGoalsAPI:
         assert calls[0].get("goal")
 
     def test_create_goal_from_new_software_project_mode(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
             _mock_plan_goal("new_software_project"),
@@ -551,7 +552,7 @@ class TestGoalsAPI:
         assert detail["artifacts"]["reusable_artifacts"] == planned_artifacts
 
     def test_create_goal_new_project_uses_payload_goal_as_project_idea_fallback(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         raw_goal = "Create a real Fibonacci backend in Python with API and tests"
         res = client.post(
             "/goals",
@@ -570,7 +571,7 @@ class TestGoalsAPI:
         assert "Fibonacci backend" in goal_payload["goal"]
 
     def test_create_goal_from_project_evolution_mode(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         monkeypatch.setattr(
             "agent.routes.tasks.auto_planner.auto_planner.plan_goal",
             _mock_plan_goal("project_evolution"),
@@ -639,7 +640,7 @@ class TestGoalsAPI:
         assert "reference_profile_id" in field_names
 
     def test_project_evolution_reference_mismatch_diagnostics_visible(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -659,7 +660,7 @@ class TestGoalsAPI:
         assert "frontend_profile_for_backend_change" in goal_payload["reference_profile"]["mismatch_signals"]
 
     def test_project_evolution_high_risk_uses_strict_review_defaults(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -676,7 +677,7 @@ class TestGoalsAPI:
         assert workflow["policy"]["security_level"] == "strict_review"
 
     def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Implement login feature"})
         assert res.status_code in (201, 202)

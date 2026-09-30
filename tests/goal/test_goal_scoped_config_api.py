@@ -1,18 +1,19 @@
 from agent.repository import goal_repo
 from agent.services.config_profile_service import get_config_profile_service
 from agent.services.goal_config_resolver_service import ALLOWED_GOAL_CONFIG_KEYS
+from tests.planning_collaborator_seam import install_repo_context_loader
 
 
-def _mock_goal_planning_llm(monkeypatch):
+def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
         "agent.routes.tasks.auto_planner.generate_text",
         lambda **kwargs: '[{"title":"Plan","description":"Do work","priority":"Medium"}]',
     )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    install_repo_context_loader(app, lambda goal: None)
 
 
 def test_goal_create_with_profile_persists_snapshot(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -33,7 +34,7 @@ def test_goal_create_with_profile_persists_snapshot(client, admin_auth_header, m
 
 
 def test_goal_effective_config_endpoint_returns_redacted_snapshot(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     create = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -55,14 +56,14 @@ def test_goal_effective_config_endpoint_returns_redacted_snapshot(client, admin_
 
 
 def test_legacy_goal_payload_without_config_profile_still_works(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post("/goals", headers=admin_auth_header, json={"goal": "Legacy payload"})
     assert res.status_code == 201
 
 
 # GSC-002: unknown config_overrides keys rejected at the API boundary
 def test_create_goal_rejects_unknown_config_override_key(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -81,7 +82,7 @@ def test_create_goal_rejects_unknown_config_override_key(client, admin_auth_head
 
 
 def test_create_goal_accepts_all_known_config_override_keys(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -99,7 +100,7 @@ def test_create_goal_accepts_all_known_config_override_keys(client, admin_auth_h
 # Goals without a team_id are accessible to any authenticated user (by design).
 # Unauthenticated requests must be rejected.
 def test_effective_config_requires_authentication(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     create = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -114,7 +115,7 @@ def test_effective_config_requires_authentication(client, admin_auth_header, mon
 
 
 def test_effective_config_accessible_to_authenticated_non_owner(client, admin_auth_header, user_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     create = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -188,7 +189,7 @@ import pytest
     "hermes_free_models_preconfigured",
 ])
 def test_goal_creation_succeeds_for_all_profiles(profile_id, client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -209,7 +210,7 @@ def test_goal_creation_succeeds_for_all_profiles(profile_id, client, admin_auth_
 def test_goal_create_with_explicit_overrides_snapshot_and_effective_config_agree(
     client, admin_auth_header, monkeypatch
 ):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     res = client.post(
         "/goals",
         headers=admin_auth_header,
@@ -245,7 +246,7 @@ def test_invalid_config_blocks_creation_not_just_planning(client, admin_auth_hea
         planner_calls.append(kwargs)
         return original(**kwargs)
 
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kw: planner_calls.append(kw) or "[]")
 
     res = client.post(

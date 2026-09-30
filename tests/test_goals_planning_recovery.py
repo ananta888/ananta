@@ -11,14 +11,15 @@ from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, 
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 from agent.routes.tasks.autopilot_loop_dependencies import AUTOPILOT_LOOP_DEPENDENCIES
+from tests.planning_collaborator_seam import install_repo_context_loader
 
 
-def _mock_goal_planning_llm(monkeypatch):
+def _mock_goal_planning_llm(monkeypatch, app):
     monkeypatch.setattr(
         "agent.routes.tasks.auto_planner.generate_text",
         lambda **kwargs: '[{"title":"Implement feature","description":"Create and implement the api.py endpoint file","priority":"High"}]',
     )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    install_repo_context_loader(app, lambda goal: None)
     # Bypass prompt registry DB operations to avoid nested-app-context session invalidation
     from agent.services.planning_prompt_registry import ResolvedPlanningPrompt
     monkeypatch.setattr(
@@ -278,7 +279,7 @@ class TestGoalsAPIPlanningRecovery:
         assert persisted_goal.visibility["show_plan"] is True
 
     def test_get_goal_returns_task_count(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Create feature backlog"})
         goal_id = create_res.get_json()["data"]["goal"]["id"]
@@ -291,7 +292,7 @@ class TestGoalsAPIPlanningRecovery:
         assert payload["task_count"] >= 1
 
     def test_goal_create_accepts_instruction_selection_fields(self, client, user_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         profile_res = client.post(
             "/instruction-profiles",
             headers=user_auth_header,
@@ -331,7 +332,7 @@ class TestGoalsAPIPlanningRecovery:
         assert layers["overlay_id"] == overlay_id
 
     def test_goal_plan_inspection_and_patch(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
         create_res = client.post(
             "/goals",
@@ -509,8 +510,8 @@ class TestGoalsAPIPlanningRecovery:
 
     def test_non_admin_goal_access_is_team_scoped(self, client, admin_auth_header, monkeypatch):
         team_repo.save(TeamDB(id="team-a", name="Scoped team", is_active=True))
-        _mock_goal_planning_llm(monkeypatch)
-        monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+        _mock_goal_planning_llm(monkeypatch, client.application)
+        install_repo_context_loader(client.application, lambda goal: None)
         open_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Public goal"})
         scoped_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Scoped goal", "team_id": "team-a"})
 
@@ -549,7 +550,7 @@ class TestGoalsAPIPlanningRecovery:
         assert forbidden_res.status_code == 404
 
     def test_goal_detail_exposes_artifact_first_summary(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Deliver release"})
         assert create_res.status_code in (201, 202)
@@ -635,7 +636,7 @@ class TestGoalsAPIPlanningRecovery:
     def test_goal_python_e2e_runs_planning_and_execution_without_frontend(
         self, client, app, admin_auth_header, monkeypatch
     ):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
 
         create_res = client.post(
@@ -701,10 +702,10 @@ class TestGoalsAPIPlanningRecovery:
         assert detail["artifacts"]["headline_artifact"]["preview"] == "execution success ok"
 
     def test_goal_first_run_happy_path_uses_default_configuration(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
+        _mock_goal_planning_llm(monkeypatch, client.application)
         _bypass_quality(monkeypatch)
         monkeypatch.setattr(settings, "hub_can_be_worker", True)
-        monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+        install_repo_context_loader(client.application, lambda goal: None)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Bootstrap first run"})
         assert res.status_code in (201, 202)
         payload = res.get_json()["data"]
@@ -745,8 +746,8 @@ class TestGoalsAPIPlanningRecovery:
         assert res.get_json()["message"] == "planning_backend_unavailable"
 
     def test_non_admin_cannot_override_policy_security(self, client, admin_auth_header, monkeypatch):
-        _mock_goal_planning_llm(monkeypatch)
-        monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+        _mock_goal_planning_llm(monkeypatch, client.application)
+        install_repo_context_loader(client.application, lambda goal: None)
         base_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Base"})
         assert base_res.status_code in (201, 202)
 
@@ -772,7 +773,7 @@ class TestGoalsAPIPlanningRecovery:
 
 def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_header, monkeypatch, app):
     from agent.repository import goal_repo
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     _bypass_quality(monkeypatch)
     res = client.post(
         "/goals",
@@ -804,7 +805,7 @@ def test_goal_detail_shows_planning_recovery_when_present(client, admin_auth_hea
 
 
 def test_goal_detail_planning_recovery_none_when_no_recovery_occurred(client, admin_auth_header, monkeypatch):
-    _mock_goal_planning_llm(monkeypatch)
+    _mock_goal_planning_llm(monkeypatch, client.application)
     _bypass_quality(monkeypatch)
     res = client.post(
         "/goals",

@@ -2,6 +2,7 @@ from agent.repository import goal_repo
 from agent.services.config_profile_service import get_config_profile_service
 from agent.services.goal_config_resolver_service import get_goal_config_resolver_service
 from agent.services.goal_config_runtime_service import get_goal_config_runtime_service
+from tests.planning_collaborator_seam import install_repo_context_loader
 
 
 def test_config_profile_catalog_contains_required_profiles():
@@ -27,7 +28,7 @@ def test_create_goal_persists_goal_scoped_snapshot(client, admin_auth_header, mo
         "agent.routes.tasks.auto_planner.generate_text",
         lambda **kwargs: '[{"title":"Plan","description":"Do work","priority":"Medium"}]',
     )
-    monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
+    install_repo_context_loader(client.application, lambda goal: None)
     res = client.post(
         "/goals",
         headers=admin_auth_header,

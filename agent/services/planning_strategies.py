@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, Protocol
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from agent.services.blueprint_planning_adapter import get_blueprint_planning_adapter
 from agent.services.execution_focused_planning import match_execution_focused_goal_template
@@ -119,6 +119,35 @@ class PlanningStrategyCollaborators:
             parse_subtasks=parse_subtasks_from_llm_response,
             parse_subtasks_with_diagnostics=parse_subtasks_with_diagnostics,
         )
+
+
+PLANNING_STRATEGY_COLLABORATORS_EXTENSION = "ananta.planning_strategy_collaborators"
+
+
+def install_planning_strategy_collaborators(
+    app: Any,
+    collaborators: PlanningStrategyCollaborators | None,
+) -> None:
+    """Install collaborators for one Flask application (``None`` removes them)."""
+
+    if collaborators is None:
+        app.extensions.pop(PLANNING_STRATEGY_COLLABORATORS_EXTENSION, None)
+    else:
+        app.extensions[PLANNING_STRATEGY_COLLABORATORS_EXTENSION] = collaborators
+
+
+def current_planning_strategy_collaborators() -> PlanningStrategyCollaborators:
+    """The current application's installed collaborators, else the production ones.
+
+    Strategies constructed without an explicit bundle use this per-application
+    composition seam; there is no process-global override.
+    """
+
+    if has_app_context():
+        installed = current_app.extensions.get(PLANNING_STRATEGY_COLLABORATORS_EXTENSION)
+        if installed is not None:
+            return installed
+    return PlanningStrategyCollaborators.default()
 
 
 class TemplatePlanningStrategy:
@@ -356,7 +385,7 @@ class LLMPlanningStrategy:
         collaborators: PlanningStrategyCollaborators | None = None,
     ) -> None:
         self._use_repo_context = bool(use_repo_context)
-        self._collaborators = collaborators or PlanningStrategyCollaborators.default()
+        self._collaborators = collaborators or current_planning_strategy_collaborators()
 
     _build_planning_repair_prompt = staticmethod(build_planning_repair_prompt)
     _build_new_project_execution_repair_prompt = staticmethod(build_new_project_execution_repair_prompt)
@@ -779,7 +808,7 @@ class HubCopilotPlanningStrategy:
         collaborators: PlanningStrategyCollaborators | None = None,
     ) -> None:
         self._use_repo_context = bool(use_repo_context)
-        self._collaborators = collaborators or PlanningStrategyCollaborators.default()
+        self._collaborators = collaborators or current_planning_strategy_collaborators()
 
     def execute(
         self,
