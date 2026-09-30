@@ -60,6 +60,7 @@ _FULL_SUITE_TRIGGERS = (
     "tests/isolation_database.py",
     "tests/isolation_guard.py",
     "tests/sqlite_schema_template.py",
+    "tests/sqlite_shared_cache_retry.py",
     "tests/password_hash_cache.py",
     "tests/werkzeug_rule_cache.py",
     "tests/tiering.py",

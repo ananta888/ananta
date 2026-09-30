@@ -18,11 +18,15 @@ from tests.isolation_guard import (
 )
 from tests.password_hash_cache import install as install_password_hash_cache
 from tests.sqlite_schema_template import install as install_sqlite_schema_template
+from tests.sqlite_shared_cache_retry import install as install_sqlite_shared_cache_retry
 from tests.werkzeug_rule_cache import install as install_werkzeug_rule_cache
 
 # Per-test file databases get their schema from a per-process template instead of ~330 durable DDL
 # statements (10-14 s each time); see tests/sqlite_schema_template.py.
 install_sqlite_schema_template()
+# The shared-cache test database rejects lock conflicts instead of waiting; such statements are retried, see
+# tests/sqlite_shared_cache_retry.py.
+install_sqlite_shared_cache_retry()
 # Repeated scrypt derivations (default admin + login in every app test) come from a cache; see
 # tests/password_hash_cache.py.
 install_password_hash_cache()
