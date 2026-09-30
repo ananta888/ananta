@@ -10,57 +10,54 @@ the production speech reconciliation resolver.  The evaluator in
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import math
 import os
-import platform
-import resource
 import selectors
-import shutil
 import socket
-import struct
-import subprocess
 import tempfile
 import threading
 import time
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-from agent.services.semantic_media_program_evidence import canonical_sha256, source_hash
-from agent.services.speech_reconciliation_resource_policy import (
-    SpeechReconciliationResourcePolicy,
-    SpeechReconciliationResourceRequest,
-)
-from ananta_contracts.semantic_speech import validate_semantic_frame
-from ananta_contracts.semantic_visual import canonical_json as canonical_visual_json
-from ananta_contracts.semantic_visual import validate_semantic_scene
-from ananta_contracts.speech_evidence_sync import (
-    canonical_json as canonical_evidence_json,
-)
-from ananta_contracts.speech_evidence_sync import validate_payload as validate_evidence_payload
-from ananta_contracts.speech_reconciliation import SpeechReconciliationContractError, SpeechResourceVector
-from ananta_contracts.webrtc_security import (
-    AuthenticatedMetadata,
-    EnvelopeRecipient,
-    EnvelopeScope,
-    SecureEnvelopeV1,
-    canonical_security_json,
-    open_secure_envelope,
-    seal_secure_envelope,
-    validate_secure_envelope,
-)
-from voice_runtime.backends.base import TranscriptionCandidate
-from voice_runtime.peer_transcript_consensus import PeerTranscriptCandidate
-from voice_runtime.speech_reconciliation_policy import (
-    SpeechReconciliationPolicy,
-    SpeechReconciliationQualitySample,
+from agent.services.semantic_media_program_evidence import (
+    canonical_sha256,
+    source_hash,
 )
 from worker.speech_reconciliation.resolver import SpeechReconciliationResolver
+from scripts.benchmark.semantic_media_program_measurements import (
+    _delivery_score,
+    _measured,
+    METRIC_FIELDS,
+    MetricState,
+    ModeMeasurement,
+    _not_applicable,
+    _percentile_ms,
+    ProgramBenchmarkExecutionError,
+    _unavailable,
+    _worst_burst,
+)
+from scripts.benchmark.semantic_media_program_resources import (
+    _hardware_descriptor,
+    ResourceMonitor,
+)
+from scripts.benchmark.semantic_media_program_payloads import (
+    _fixture_unit,
+    _HEADER,
+    _offline_candidates,
+    _ordinary_evidence_value,
+    _ordinary_value,
+    _receive_loop,
+    SecurePacketCodec,
+    _semantic_speech_value,
+    _semantic_visual_value,
+)
+from scripts.benchmark.semantic_media_program_live_probe import (
+    _concurrent_live_slo_probe,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "config/semantic-media-program-benchmark.v1.json"
@@ -78,6 +75,10 @@ PRODUCT_SOURCE_PATHS = (
     "config/semantic-media-program-benchmark.v1.json",
     "scripts/benchmark/semantic_media_program.py",
     "scripts/benchmark/semantic_media_program_executor.py",
+    "scripts/benchmark/semantic_media_program_measurements.py",
+    "scripts/benchmark/semantic_media_program_resources.py",
+    "scripts/benchmark/semantic_media_program_payloads.py",
+    "scripts/benchmark/semantic_media_program_live_probe.py",
     "scripts/benchmark/semantic_media_live_slo_probe.ts",
     "frontend-angular/src/app/services/semantic-speech-quality-controller.service.ts",
     "frontend-angular/src/app/services/speech-delay-buffer.service.ts",
@@ -91,211 +92,6 @@ QUALITY_EVIDENCE_PATHS = {
     "evidence": ROOT / "artifacts/test-gates/speech-privacy.json",
     "offline": ROOT / "artifacts/test-gates/speech-reconciliation-factor.json",
 }
-METRIC_FIELDS = (
-    "ingress_bytes",
-    "egress_bytes",
-    "turn_bytes",
-    "cpu_micros",
-    "gpu_micros",
-    "ram_bytes",
-    "vram_bytes",
-    "disk_bytes",
-    "energy_microwh",
-    "latency_p50_ms",
-    "latency_p95_ms",
-    "latency_p99_ms",
-    "worst_burst_bytes",
-    "recovery_ms",
-    "open_resources",
-)
-_HEADER = struct.Struct("!QQ")
-_FIXED_EXPIRY_MS = 4_102_444_800_000
-_NVIDIA_SMI = shutil.which("nvidia-smi")
-
-
-class ProgramBenchmarkExecutionError(RuntimeError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class MetricState:
-    status: str
-    method: str
-    reason_code: str
-
-    def as_dict(self) -> dict[str, str]:
-        return {
-            "status": self.status,
-            "method": self.method,
-            "reason_code": self.reason_code,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class ModeMeasurement:
-    values: Mapping[str, int | None]
-    availability: Mapping[str, MetricState]
-    latency_samples: tuple[float, ...]
-    expected_deliveries: int
-    completed_deliveries: int
-    valid_deliveries: int
-    saturation: Mapping[str, int | bool] | None = None
-
-    def as_dict(self, *, binding_sha256: str) -> dict[str, Any]:
-        return {
-            "binding_sha256": binding_sha256,
-            "values": dict(self.values),
-            "availability": {
-                name: self.availability[name].as_dict() for name in METRIC_FIELDS
-            },
-            "latency_sample_count": len(self.latency_samples),
-            "expected_deliveries": self.expected_deliveries,
-            "completed_deliveries": self.completed_deliveries,
-            "valid_deliveries": self.valid_deliveries,
-            "offline_saturation": dict(self.saturation) if self.saturation is not None else None,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class _ResourceStart:
-    wall_ns: int
-    cpu_ns: int
-    io_bytes: int | None
-    energy_uj: int | None
-    gpu: tuple[int, int] | None
-
-
-class ResourceMonitor:
-    """Measure process resources behind one small sampling interface (SRP)."""
-
-    def __init__(self) -> None:
-        self._stop = threading.Event()
-        self._maximum_rss = _rss_bytes()
-        self._maximum_fds = _open_file_descriptors()
-        self._maximum_vram = 0
-        self._gpu_utilization_sum = 0
-        self._gpu_samples = 0
-        self._thread: threading.Thread | None = None
-        self._start: _ResourceStart | None = None
-
-    def start(self) -> None:
-        if self._start is not None:
-            raise ProgramBenchmarkExecutionError("program_benchmark_monitor_reused")
-        self._start = _ResourceStart(
-            wall_ns=time.perf_counter_ns(),
-            cpu_ns=time.process_time_ns(),
-            io_bytes=_process_io_bytes(),
-            energy_uj=_energy_uj(),
-            gpu=_gpu_snapshot(),
-        )
-        if self._start.gpu is not None:
-            self._maximum_vram = self._start.gpu[1]
-        self._thread = threading.Thread(target=self._sample, name="semantic-media-program-monitor", daemon=True)
-        self._thread.start()
-
-    def stop(self) -> tuple[dict[str, int | None], dict[str, MetricState]]:
-        if self._start is None:
-            raise ProgramBenchmarkExecutionError("program_benchmark_monitor_not_started")
-        self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout=2)
-            if self._thread.is_alive():
-                raise ProgramBenchmarkExecutionError("program_benchmark_monitor_unbounded")
-        cpu_micros = max(1, (time.process_time_ns() - self._start.cpu_ns) // 1000)
-        end_io = _process_io_bytes()
-        end_energy = _energy_uj()
-        end_gpu = _gpu_snapshot()
-        values: dict[str, int | None] = {
-            "cpu_micros": cpu_micros,
-            "ram_bytes": self._maximum_rss,
-            "open_resources": self._maximum_fds,
-            "disk_bytes": None,
-            "energy_microwh": None,
-            "gpu_micros": None,
-            "vram_bytes": None,
-        }
-        availability = {
-            "cpu_micros": _measured("process_time_ns"),
-            "ram_bytes": _measured("proc_rss_sampler"),
-            "open_resources": _measured("proc_fd_sampler"),
-            "disk_bytes": _unavailable("proc_io_unavailable"),
-            "energy_microwh": _unavailable("rapl_energy_counter_unavailable"),
-            "gpu_micros": _unavailable("gpu_sampler_unavailable"),
-            "vram_bytes": _unavailable("gpu_sampler_unavailable"),
-        }
-        if self._start.io_bytes is not None and end_io is not None:
-            values["disk_bytes"] = max(0, end_io - self._start.io_bytes)
-            availability["disk_bytes"] = _measured("proc_process_io")
-        if self._start.energy_uj is not None and end_energy is not None and end_energy >= self._start.energy_uj:
-            values["energy_microwh"] = (end_energy - self._start.energy_uj) * 1000 // 3600
-            availability["energy_microwh"] = _measured("linux_rapl_energy_counter")
-        if self._start.gpu is not None and end_gpu is not None:
-            wall_micros = max(1, (time.perf_counter_ns() - self._start.wall_ns) // 1000)
-            average_utilization = (
-                self._gpu_utilization_sum // self._gpu_samples
-                if self._gpu_samples
-                else (self._start.gpu[0] + end_gpu[0]) // 2
-            )
-            values["gpu_micros"] = wall_micros * average_utilization // 100
-            values["vram_bytes"] = max(self._maximum_vram, self._start.gpu[1], end_gpu[1])
-            availability["gpu_micros"] = _measured("nvidia_smi_device_sampler")
-            availability["vram_bytes"] = _measured("nvidia_smi_device_sampler")
-        return values, availability
-
-    def _sample(self) -> None:
-        while not self._stop.wait(0.01):
-            self._maximum_rss = max(self._maximum_rss, _rss_bytes())
-            self._maximum_fds = max(self._maximum_fds, _open_file_descriptors())
-            gpu = _gpu_snapshot()
-            if gpu is not None:
-                self._gpu_utilization_sum += gpu[0]
-                self._gpu_samples += 1
-                self._maximum_vram = max(self._maximum_vram, gpu[1])
-
-
-class SecurePacketCodec:
-    """Uses the production AES-GCM envelope for both comparison arms."""
-
-    def __init__(self, *, binding_sha256: str, mode: str, topology: str) -> None:
-        self._binding = binding_sha256
-        self._mode = mode
-        self._topology = topology
-        self._key = hashlib.sha256(f"{binding_sha256}:{mode}:key".encode()).digest()
-
-    def seal(self, sequence: int, value: bytes) -> bytes:
-        nonce = hashlib.sha256(f"{self._binding}:{self._mode}:{sequence}".encode()).digest()[:12]
-        envelope = SecureEnvelopeV1(
-            version=1,
-            scope=EnvelopeScope("room" if self._topology == "group" else "session", "benchmark-session"),
-            sender_id="benchmark-sender",
-            recipient=EnvelopeRecipient("group" if self._topology == "group" else "peer", "benchmark-audience"),
-            epoch=1,
-            sequence=sequence,
-            key_id="benchmark-key",
-            payload_type=f"{self._topology}.{self._mode}.v1",
-            expires_at_ms=_FIXED_EXPIRY_MS,
-            nonce_b64=base64.b64encode(nonce).decode("ascii"),
-            aad=AuthenticatedMetadata(
-                "bulk" if self._topology == "evidence" else ("media" if self._mode == "ordinary" else "semantic"),
-                "binary",
-                self._binding,
-            ),
-            ciphertext_b64="",
-        )
-        sealed = seal_secure_envelope(key=self._key, plaintext=value, envelope=envelope)
-        return canonical_security_json(sealed.to_dict())
-
-    def open(self, value: bytes) -> bytes:
-        try:
-            raw = json.loads(value)
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ProgramBenchmarkExecutionError("program_benchmark_secure_packet_invalid") from exc
-        envelope = validate_secure_envelope(raw, check_time=False)
-        if envelope.aad.contract_digest != self._binding:
-            raise ProgramBenchmarkExecutionError("program_benchmark_secure_packet_binding_mismatch")
-        return open_secure_envelope(key=self._key, envelope=envelope)
 
 
 class LoopbackScenarioExecutor:
@@ -806,337 +602,6 @@ def recompute_comparison_binding(config: Mapping[str, Any], row: Mapping[str, An
     )
 
 
-def _receive_loop(
-    *,
-    selector: selectors.BaseSelector,
-    codec: SecurePacketCodec,
-    expected_values: Mapping[int, bytes],
-    state: dict[str, Any],
-    expected_deliveries: int,
-    recovery_sequence: int,
-    stop: threading.Event,
-    deadline: float,
-) -> None:
-    while not stop.is_set() and state["completed"] < expected_deliveries and time.monotonic() < deadline:
-        for key, _ in selector.select(timeout=0.01):
-            receiver = key.fileobj
-            if not isinstance(receiver, socket.socket):
-                continue
-            while True:
-                try:
-                    packet, _address = receiver.recvfrom(65_535)
-                except BlockingIOError:
-                    break
-                received_ns = time.perf_counter_ns()
-                if len(packet) < _HEADER.size:
-                    continue
-                sequence, sent_ns = _HEADER.unpack_from(packet)
-                state["completed"] += 1
-                state["ingress"] += len(packet)
-                state["latencies"].append(max(0.0, (received_ns - sent_ns) / 1_000_000))
-                try:
-                    opened = codec.open(packet[_HEADER.size :])
-                except (ProgramBenchmarkExecutionError, ValueError):
-                    opened = b""
-                state["valid"] += int(opened == expected_values.get(sequence))
-                if sequence == recovery_sequence:
-                    state["recovery_received_ns"] = received_ns
-
-
-def _ordinary_value(raw: bytes, _sequence: int, _binding: str) -> bytes:
-    return raw
-
-
-def _ordinary_evidence_value(raw: bytes, sequence: int, binding: str) -> bytes:
-    return _evidence_chunk(raw, sequence, binding, arm="ordinary")
-
-
-def _semantic_visual_value(raw: bytes, sequence: int, binding: str) -> bytes:
-    digest = hashlib.sha256(raw).hexdigest()
-    scene = {
-        "schema": "ananta.semantic-scene.v1",
-        "scene_id": f"scene-{sequence}",
-        "session_id": "benchmark-session",
-        "contract_id": "benchmark-contract",
-        "contract_digest": binding,
-        "epoch": 1,
-        "sequence": sequence,
-        "source_frame_digest": digest,
-        "coordinate_space": {"unit": "normalized", "origin": "top_left", "width": 1, "height": 1},
-        "timebase": {"unit": "milliseconds", "captured_at_ms": sequence * 250, "duration_ms": 250},
-        "provenance": {
-            "source": "heuristic",
-            "algorithm": "benchmark-contract-probe",
-            "version": "1.0.0",
-            "authoritative": False,
-        },
-        "nodes": [],
-        "security": {"classification": "derived_semantic_metadata", "raw_media_included": False},
-    }
-    validated = validate_semantic_scene(scene)
-    return canonical_visual_json(validated, max_bytes=256 * 1024)
-
-
-def _semantic_speech_value(raw: bytes, sequence: int, binding: str) -> bytes:
-    digest = hashlib.sha256(raw).hexdigest()
-    buckets = tuple(round(sum(raw[index::8]) / max(1, len(raw[index::8])) / 255, 6) for index in range(8))
-    frame = validate_semantic_frame(
-        {
-            "context": {
-                "session_id": "benchmark-session",
-                "epoch": 1,
-                "turn_id": f"turn-{sequence}",
-                "revision": 1,
-                "sender_id": "benchmark-sender",
-                "audience_id": "benchmark-audience",
-                "consent_version": 1,
-                "expires_at_ms": _FIXED_EXPIRY_MS,
-                "contract_digest": binding,
-                "source_digest": digest,
-            },
-            "frame_id": f"speech-frame-{sequence}",
-            "algorithm_version": "benchmark-contract-probe.v1",
-            "start_ms": (sequence - 1) * 250,
-            "end_ms": sequence * 250,
-            "confidence": 1.0,
-            "prosody": buckets,
-            "residual": (),
-        }
-    )
-    semantic_bytes = json.dumps(
-        frame.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False
-    ).encode()
-    return _evidence_chunk(semantic_bytes, sequence, binding, arm="semantic")
-
-
-def _evidence_chunk(value: bytes, sequence: int, binding: str, *, arm: str) -> bytes:
-    nonce = hashlib.sha256(f"{binding}:evidence:{arm}:{sequence}".encode()).digest()[:12]
-    key = hashlib.sha256(f"{binding}:evidence-key:{arm}".encode()).digest()
-    encrypted = AESGCM(key).encrypt(nonce, value, binding.encode())
-    chunk = {
-        "traffic_class": "evidence_bulk",
-        "offer_id": "benchmark-offer",
-        "group_id": "benchmark-group",
-        "chunk_index": sequence - 1,
-        "chunk_count": sequence,
-        "plaintext_bytes": len(value),
-        "plaintext_digest": hashlib.sha256(value).hexdigest(),
-        "ciphertext_digest": hashlib.sha256(encrypted).hexdigest(),
-        "nonce_b64": base64.b64encode(nonce).decode("ascii"),
-        "ciphertext_b64": base64.b64encode(encrypted).decode("ascii"),
-    }
-    validated = validate_evidence_payload("chunk", chunk)
-    return canonical_evidence_json(validated)
-
-
-def _fixture_unit(seed: int, index: int, size: int) -> bytes:
-    """Return a deterministic, non-media byte fixture without retaining it."""
-
-    seed_bytes = hashlib.sha256(f"{seed}:{index}".encode()).digest()
-    block = bytearray(size)
-    for offset in range(size):
-        # Bounded repeating gradients model change without embedding user data.
-        block[offset] = (seed_bytes[offset % len(seed_bytes)] + index + offset // 64) % 256
-    return bytes(block)
-
-
-def _offline_candidates(factor: int, binding_sha256: str) -> tuple[PeerTranscriptCandidate, ...]:
-    rows: list[PeerTranscriptCandidate] = []
-    for index in range(factor):
-        candidate_id = f"candidate-{index + 1}"
-        transcript = TranscriptionCandidate(
-            candidate_id=candidate_id,
-            backend="benchmark-local",
-            model="deterministic-contract-probe",
-            model_revision="1.0.0",
-            manifest_digest=hashlib.sha256(b"benchmark-model-manifest").hexdigest(),
-            text="alpha beta gamma delta",
-            confidence=1.0,
-            status="succeeded",
-            source_audio_digest=binding_sha256,
-            lineage_id=candidate_id,
-        )
-        rows.append(
-            PeerTranscriptCandidate(
-                transcript=transcript,
-                source_id=f"benchmark-source-{index + 1}",
-                source_family=binding_sha256,
-                contributor_digest=hashlib.sha256(f"contributor:{index}".encode()).hexdigest(),
-                revision=1,
-                lineage_digest=hashlib.sha256(f"lineage:{index}".encode()).hexdigest(),
-                signature_digest=hashlib.sha256(f"signature:{index}".encode()).hexdigest(),
-                authority_micros=1_000_000,
-                quality_micros=1_000_000,
-            )
-        )
-    return tuple(rows)
-
-
-def _concurrent_live_slo_probe(
-    *,
-    factor: int,
-    candidates: tuple[PeerTranscriptCandidate, ...],
-    saturate: bool,
-    iterations: int,
-    deadline: float,
-) -> dict[str, int | bool]:
-    """Run real browser speech paths while the worker resolver is saturated.
-
-    Admission and overload probes use the Hub-owned resource policy.  The
-    background loop calls the worker's canonical reconciliation resolver; the
-    foreground subprocess measures actual DelayBuffer, transcript projection
-    and quality/UI state operations.  No sleep-derived latency is recorded.
-    """
-
-    resource_policy = SpeechReconciliationResourcePolicy()
-    admitted = resource_policy.evaluate(
-        SpeechReconciliationResourceRequest(
-            mode="immediate",
-            requested_factor=factor,
-            user_max_factor=factor,
-            live_call_active=False,
-            foreground_load_micros=0,
-            charging=True,
-            minute_of_day=720,
-        )
-    )
-    live_pressure = resource_policy.evaluate(
-        SpeechReconciliationResourceRequest(
-            mode="immediate",
-            requested_factor=factor,
-            user_max_factor=factor,
-            live_call_active=True,
-            foreground_load_micros=0,
-            charging=True,
-            minute_of_day=720,
-        )
-    )
-    foreground_pressure = resource_policy.evaluate(
-        SpeechReconciliationResourceRequest(
-            mode="immediate",
-            requested_factor=factor,
-            user_max_factor=factor,
-            live_call_active=False,
-            foreground_load_micros=SpeechReconciliationResourcePolicy.MAX_FOREGROUND_LOAD_MICROS + 1,
-            charging=True,
-            minute_of_day=720,
-        )
-    )
-    try:
-        SpeechResourceVector(cpu_time_ms=1).subtract(SpeechResourceVector(cpu_time_ms=2))
-        budget_overrun_blocked = False
-    except SpeechReconciliationContractError:
-        budget_overrun_blocked = True
-    resource_limit = SpeechReconciliationPolicy().decide(
-        SpeechReconciliationQualitySample(
-            current_factor=factor,
-            authorized_factor=factor,
-            unresolved_high_quality_conflicts=1,
-            quality_score=0.9,
-            previous_quality_score=0.8,
-            evidence_count=1,
-            resource_remaining=False,
-            evaluation_budget_reserved=True,
-        )
-    )
-    if not admitted.allowed or admitted.effective_factor != factor:
-        raise ProgramBenchmarkExecutionError("program_benchmark_offline_resource_admission_failed")
-
-    stop = threading.Event()
-    started = threading.Event()
-    resolver_cycles = 0
-    resolver = SpeechReconciliationResolver()
-
-    def worker_load() -> None:
-        nonlocal resolver_cycles
-        started.set()
-        while not stop.is_set() and time.monotonic() < deadline:
-            resolved = resolver.resolve(candidates)
-            if not resolved.publishable or resolved.transcript is None:
-                return
-            resolver_cycles += 1
-
-    thread: threading.Thread | None = None
-    if saturate:
-        thread = threading.Thread(
-            target=worker_load,
-            name=f"semantic-media-offline-factor-{factor}",
-            daemon=True,
-        )
-        thread.start()
-        if not started.wait(timeout=1):
-            raise ProgramBenchmarkExecutionError("program_benchmark_offline_saturation_not_started")
-    executable = ROOT / "frontend-angular/node_modules/.bin/vite-node"
-    if not executable.is_file():
-        stop.set()
-        if thread is not None:
-            thread.join(timeout=1)
-        raise ProgramBenchmarkExecutionError("program_benchmark_live_slo_runtime_missing")
-    remaining = min(30.0, max(0.1, deadline - time.monotonic()))
-    try:
-        completed = subprocess.run(
-            [
-                str(executable),
-                "scripts/benchmark/semantic_media_live_slo_probe.ts",
-                "--iterations",
-                str(iterations),
-            ],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=remaining,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise ProgramBenchmarkExecutionError("program_benchmark_live_slo_probe_timeout") from exc
-    finally:
-        stop.set()
-        if thread is not None:
-            thread.join(timeout=2)
-            if thread.is_alive():
-                raise ProgramBenchmarkExecutionError("program_benchmark_offline_saturation_unbounded")
-    if completed.returncode != 0:
-        raise ProgramBenchmarkExecutionError("program_benchmark_live_slo_probe_failed")
-    try:
-        report = json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        raise ProgramBenchmarkExecutionError("program_benchmark_live_slo_report_invalid") from exc
-    expected_fields = {
-        "schema",
-        "iterations",
-        "sound_p50_ms",
-        "sound_p95_ms",
-        "sound_p99_ms",
-        "text_p50_ms",
-        "text_p95_ms",
-        "text_p99_ms",
-        "ui_p50_ms",
-        "ui_p95_ms",
-        "ui_p99_ms",
-        "projection_count",
-        "probe_cpu_micros",
-        "probe_ram_bytes",
-    }
-    if (
-        not isinstance(report, Mapping)
-        or set(report) != expected_fields
-        or report.get("schema") != "ananta.semantic-media-live-slo-probe.v1"
-        or any(type(value) is not int or value < 0 for name, value in report.items() if name != "schema")
-    ):
-        raise ProgramBenchmarkExecutionError("program_benchmark_live_slo_report_invalid")
-    return {
-        "saturation_active": saturate,
-        "resolver_cycles": resolver_cycles,
-        "resource_policy_admitted": admitted.allowed and admitted.effective_factor == factor,
-        "live_pressure_blocked": not live_pressure.allowed and live_pressure.action == "pause",
-        "foreground_pressure_blocked": not foreground_pressure.allowed and foreground_pressure.action == "pause",
-        "budget_overrun_blocked": budget_overrun_blocked,
-        "resource_limit_stopped": resource_limit.action == "stop"
-        and resource_limit.reason_code == "speech_reconciliation_resource_limit",
-        **{name: int(value) for name, value in report.items() if name != "schema"},
-    }
-
-
 def _quality_binding(path: Path) -> dict[str, Any]:
     try:
         encoded = path.read_bytes()
@@ -1151,12 +616,6 @@ def _quality_binding(path: Path) -> dict[str, Any]:
     }
 
 
-def _delivery_score(value: ModeMeasurement) -> int:
-    if value.expected_deliveries <= 0:
-        return 0
-    return value.valid_deliveries * 1_000_000 // value.expected_deliveries
-
-
 def _load_policy() -> dict[str, Any]:
     try:
         policy = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
@@ -1165,113 +624,6 @@ def _load_policy() -> dict[str, Any]:
     if policy.get("schema") != "ananta.semantic-media-program-benchmark-policy.v1":
         raise ProgramBenchmarkExecutionError("program_benchmark_policy_invalid")
     return policy
-
-
-def _hardware_descriptor() -> dict[str, Any]:
-    return {
-        "system": platform.system(),
-        "machine": platform.machine(),
-        "kernel": platform.release(),
-        "logical_cpus": os.cpu_count() or 1,
-        "page_size": int(os.sysconf("SC_PAGE_SIZE")),
-        "physical_memory_bytes": int(os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")),
-        "gpu_sampler": _gpu_snapshot() is not None,
-        "energy_sampler": _energy_uj() is not None,
-    }
-
-
-def _rss_bytes() -> int:
-    try:
-        fields = (Path("/proc/self/statm")).read_text(encoding="ascii").split()
-        return int(fields[1]) * int(os.sysconf("SC_PAGE_SIZE"))
-    except (OSError, ValueError, IndexError):
-        value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        return int(value if platform.system() == "Darwin" else value * 1024)
-
-
-def _open_file_descriptors() -> int:
-    try:
-        return len(tuple(Path("/proc/self/fd").iterdir()))
-    except OSError:
-        return 0
-
-
-def _process_io_bytes() -> int | None:
-    try:
-        values = {
-            key.rstrip(":"): int(value)
-            for key, value in (line.split() for line in Path("/proc/self/io").read_text(encoding="ascii").splitlines())
-        }
-        return values["read_bytes"] + values["write_bytes"]
-    except (OSError, ValueError, KeyError):
-        return None
-
-
-def _energy_uj() -> int | None:
-    paths = sorted(Path("/sys/class/powercap").glob("**/energy_uj"))
-    if not paths:
-        return None
-    try:
-        return sum(int(path.read_text(encoding="ascii").strip()) for path in paths)
-    except (OSError, ValueError):
-        return None
-
-
-def _gpu_snapshot() -> tuple[int, int] | None:
-    if _NVIDIA_SMI is None:
-        return None
-    try:
-        completed = subprocess.run(
-            [
-                _NVIDIA_SMI,
-                "--query-gpu=utilization.gpu,memory.used",
-                "--format=csv,noheader,nounits",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=1,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if completed.returncode != 0:
-        return None
-    try:
-        rows = [tuple(int(part.strip()) for part in line.split(",")) for line in completed.stdout.splitlines() if line]
-    except ValueError:
-        return None
-    if not rows or any(len(row) != 2 for row in rows):
-        return None
-    utilization = sum(row[0] for row in rows) // len(rows)
-    vram_bytes = sum(row[1] for row in rows) * 1024 * 1024
-    return utilization, vram_bytes
-
-
-def _percentile_ms(values: Sequence[float], fraction: float) -> int | None:
-    if not values:
-        return None
-    ordered = sorted(values)
-    return max(1, math.ceil(ordered[min(len(ordered) - 1, math.ceil(len(ordered) * fraction) - 1)]))
-
-
-def _worst_burst(events: Sequence[tuple[int, int]]) -> int:
-    buckets: dict[int, int] = {}
-    for sent_ns, size in events:
-        bucket = sent_ns // 10_000_000
-        buckets[bucket] = buckets.get(bucket, 0) + size
-    return max(buckets.values(), default=0)
-
-
-def _measured(method: str) -> MetricState:
-    return MetricState("measured", method, "")
-
-
-def _unavailable(reason_code: str) -> MetricState:
-    return MetricState("unavailable", "unavailable", reason_code)
-
-
-def _not_applicable(reason_code: str) -> MetricState:
-    return MetricState("not_applicable", "not_applicable", reason_code)
 
 
 __all__ = [
