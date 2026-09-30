@@ -18,8 +18,9 @@ from agent.services.organization_template_security_service import (
     RoleInstructionProvenance,
 )
 from agent.services.planning_artifact_transition_service import PlanningTransitionError
-from agent.services.planning_task_materialization_service import (
-    PlanningTaskMaterializationService,
+from agent.services.planning_task_topology_bindings import (
+    authorized_topology_refs,
+    restricted_task_evidence_refs,
 )
 from agent.services.separation_of_duties_service import (
     DutyAssignment,
@@ -203,13 +204,13 @@ def test_materialized_proposal_refs_are_hub_derived_and_scope_bounded() -> None:
         ],
     }
 
-    same_team = PlanningTaskMaterializationService._authorized_topology_refs(
+    same_team = authorized_topology_refs(
         topology_index=topology,
         unit_id="unit-a",
         team_id="team-a",
         proposal_policy={"target_scope": ["same_team"]},
     )
-    organization = PlanningTaskMaterializationService._authorized_topology_refs(
+    organization = authorized_topology_refs(
         topology_index=topology,
         unit_id="unit-a",
         team_id="team-a",
@@ -225,14 +226,14 @@ def test_materialized_proposal_refs_are_hub_derived_and_scope_bounded() -> None:
 
 
 def test_task_evidence_allowlist_can_only_narrow_track_scope() -> None:
-    assert PlanningTaskMaterializationService._task_evidence_refs(
+    assert restricted_task_evidence_refs(
         task={"allowed_source_refs": ["SRC_0001"]},
         field="allowed_source_refs",
         track_refs=["SRC_0001", "SRC_0002"],
     ) == ["SRC_0001"]
 
     with pytest.raises(PlanningTransitionError, match="planning_task_evidence_scope_expansion"):
-        PlanningTaskMaterializationService._task_evidence_refs(
+        restricted_task_evidence_refs(
             task={"allowed_source_refs": ["SRC_9999"]},
             field="allowed_source_refs",
             track_refs=["SRC_0001"],

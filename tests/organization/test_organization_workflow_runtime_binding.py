@@ -20,8 +20,8 @@ from agent.services.organization_workflow_task_binding_service import (
     OrganizationWorkflowTaskBindingService,
 )
 from agent.services.planning_artifact_transition_service import PlanningTransitionError
-from agent.services.planning_task_materialization_service import (
-    PlanningTaskMaterializationService,
+from agent.services.planning_task_materialization_verification import (
+    verify_existing_task,
 )
 
 
@@ -372,7 +372,7 @@ def test_materialization_contract_copies_verification_and_rejects_replay_drift()
         verification_spec=verification_spec,
     )
 
-    PlanningTaskMaterializationService._verify_existing_task(
+    verify_existing_task(
         runtime_task,
         mapping,
         runtime_contract=runtime_contract,
@@ -383,7 +383,7 @@ def test_materialization_contract_copies_verification_and_rejects_replay_drift()
         PlanningTransitionError,
         match="planning_materialized_task_runtime_contract_conflict",
     ):
-        PlanningTaskMaterializationService._verify_existing_task(
+        verify_existing_task(
             runtime_task,
             mapping,
             runtime_contract=runtime_contract,
