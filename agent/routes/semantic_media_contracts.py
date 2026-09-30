@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import base64
-import time
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, jsonify, request
 
 from agent.auth import check_service_auth, check_user_auth
 from agent.models.semantic_principal import SemanticPrincipal
@@ -31,20 +29,56 @@ from agent.services.semantic_contract_service import (
 )
 from agent.services.semantic_media_permission_service import (
     SemanticMediaPermissionError,
-    SemanticMediaPermissionService,
 )
 from agent.services.semantic_server_compute_service import (
     SemanticServerComputeError,
     get_semantic_server_compute_service,
 )
-from agent.services.share_session_permissions import get_share_session_permission_service
-from agent.services.share_session_service import get_share_session_service
-from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
-from agent.services.workflow_worker_service_auth import SEMANTIC_COMPUTE_WORKER_SCOPE
+from agent.services.workflow_worker_service_auth import (
+    SEMANTIC_COMPUTE_WORKER_SCOPE,
+)
+from agent.routes.semantic_media_contract_route_parsing import (
+    _advertisements,
+    _body,
+    _boolean,
+    _bounded_int,
+    _bounded_string,
+    _error,
+    _idempotency_key,
+    _identifier,
+    _mapping,
+    _optional_identifier,
+    _principal,
+    _query_scope,
+    _resource_budget,
+    _revision_precondition,
+    _worker_body,
+    _worker_url,
+)
+from agent.routes.semantic_media_contract_route_authority import (
+    SemanticContractRouteAuthority,
+    _capability_record,
+    _hub_fallback_healthy,
+    _hub_security_confirmed,
+    _require_hub_compute_enabled,
+    _require_semantic_capability,
+    _semantic_permission_service,
+    _training_capability_authorised,
+)
+
 
 semantic_media_contracts_bp = Blueprint("semantic_media_contracts", __name__)
 
-_MAX_REQUEST_BYTES = 128 * 1024
+# Composition seam: the module-level authority resolves share membership and
+# capability issuance with the production services; tests replace it with an
+# instance built from explicit test doubles.
+_route_authority = SemanticContractRouteAuthority()
+
+
+def _establish_membership(principal: SemanticPrincipal, body: dict[str, Any]) -> None:
+    _route_authority.establish_membership(principal, body)
+
+
 _CREATE_FIELDS = {
     "session_id",
     "room_id",
@@ -128,9 +162,6 @@ _CAPABILITY_GRANT_FIELDS = {
     "purpose",
     "expires_at_ms",
 }
-_SEMANTIC_CONTROL_DATA_TYPE = "application/vnd.ananta.semantic-media-control+json"
-_SEMANTIC_CONTROL_PURPOSE = "semantic_media_control"
-_CAPABILITY_GRANT_HEADER = "X-Semantic-Capability-Grant"
 
 
 @semantic_media_contracts_bp.post("/v1/semantic-media/capability-grants")
@@ -144,7 +175,7 @@ def issue_semantic_media_capability_grant():
         principal = _principal()
         session_id = _identifier(body["session_id"], "session_id")
         epoch = _bounded_int(body["epoch"], "epoch", 1, 2_147_483_647)
-        share, target_permissions = _capability_issuance_authority(
+        share, target_permissions = _route_authority.capability_issuance_authority(
             principal,
             session_id=session_id,
             epoch=epoch,
@@ -161,7 +192,7 @@ def issue_semantic_media_capability_grant():
                 raise SemanticMediaPermissionError("scope_invalid", status_code=400)
         else:
             raise SemanticMediaPermissionError("scope_invalid", status_code=400)
-        authorised = _attenuated_semantic_capabilities(
+        authorised = _route_authority.attenuated_capabilities(
             session_id,
             target_permissions,
             allow_training=_training_capability_authorised(principal, body),
@@ -200,7 +231,7 @@ def list_semantic_media_capability_grants():
         epoch = _bounded_int(request.args.get("epoch"), "epoch", 1, 2_147_483_647)
         scope_kind = _bounded_string(request.args.get("scope_kind", "session"), "scope_kind", 4, 16)
         scope_id = _identifier(request.args.get("scope_id", session_id), "scope_id")
-        share, membership_permissions = _share_membership_authority(
+        share, membership_permissions = _route_authority.share_membership_authority(
             principal,
             session_id=session_id,
             epoch=epoch,
@@ -785,344 +816,6 @@ def semantic_compute_suggestion(contract_id: str):
         return _error(SemanticComputeExecutionError(exc.reason_code, status_code=400))
     except (SemanticContractServiceError, SemanticComputeExecutionError) as exc:
         return _error(exc)
-
-
-def _body(allowed: set[str], *, required: set[str]) -> dict[str, Any]:
-    if request.content_length is not None and request.content_length > _MAX_REQUEST_BYTES:
-        raise SemanticContractServiceError("request_too_large", status_code=413)
-    value = request.get_json(silent=True)
-    if not isinstance(value, dict):
-        raise SemanticContractServiceError("json_object_required", status_code=400)
-    unknown = set(value) - allowed
-    missing = required - set(value)
-    if unknown:
-        raise SemanticContractServiceError("unknown_field", status_code=400)
-    if missing:
-        raise SemanticContractServiceError("required_field_missing", status_code=400)
-    return value
-
-
-def _worker_body(allowed: set[str], *, required: set[str], maximum_bytes: int) -> dict[str, Any]:
-    if request.content_length is not None and request.content_length > maximum_bytes:
-        raise SemanticContractServiceError("request_too_large", status_code=413)
-    value = request.get_json(silent=True)
-    if not isinstance(value, dict):
-        raise SemanticContractServiceError("json_object_required", status_code=400)
-    if set(value) - allowed:
-        raise SemanticContractServiceError("unknown_field", status_code=400)
-    if required - set(value):
-        raise SemanticContractServiceError("required_field_missing", status_code=400)
-    return value
-
-
-def _worker_url() -> str:
-    identity = dict(getattr(g, "service_identity", {}) or {})
-    value = str(identity.get("worker_url") or "").strip().rstrip("/")
-    if not value:
-        raise SemanticContractServiceError("worker_identity_required", status_code=403)
-    return value
-
-
-def _principal() -> SemanticPrincipal:
-    identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
-    subject = str(identity.get("sub") or identity.get("username") or "").strip()
-    tenant = str(identity.get("tenant_id") or identity.get("tenant") or subject).strip()
-    if not subject or not tenant:
-        raise SemanticContractServiceError("not_authenticated", status_code=401)
-    return SemanticPrincipal(tenant, subject)
-
-
-def _establish_membership(principal: SemanticPrincipal, body: dict[str, Any]) -> None:
-    session_id = _identifier(body.get("session_id"), "session_id")
-    epoch = _bounded_int(body.get("epoch"), "epoch", 1, 2_147_483_647)
-    share, _permissions = _share_membership_authority(
-        principal,
-        session_id=session_id,
-        epoch=epoch,
-    )
-    is_owner = str(share.get("owner_user_id") or "") == principal.subject
-    role = "owner" if is_owner else "participant"
-    expires_at = share.get("expires_at")
-    # This record represents membership only.  Every user action is separately
-    # admitted through a current, purpose-bound capability grant below.
-    get_semantic_contract_service().establish_membership(
-        principal,
-        session_id=session_id,
-        epoch=epoch,
-        role=role,
-        permitted=True,
-        room_id=_optional_identifier(body.get("room_id"), "room_id"),
-        expires_at=float(expires_at) if isinstance(expires_at, (int, float)) else None,
-    )
-
-
-def _share_membership_authority(
-    principal: SemanticPrincipal,
-    *,
-    session_id: str,
-    epoch: int,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    share = get_share_session_service().get_session(session_id)
-    if not isinstance(share, dict) or share.get("revoked_at") is not None:
-        raise SemanticContractServiceError("session_not_found", status_code=404)
-    expires_at = share.get("expires_at")
-    if isinstance(expires_at, (int, float)) and float(expires_at) <= time.time():
-        raise SemanticContractServiceError("session_not_found", status_code=404)
-    current_epoch = get_webrtc_epoch_service().current_epoch("session", session_id)
-    if current_epoch is not None and current_epoch != epoch:
-        raise SemanticContractServiceError("session_not_found", status_code=404)
-    if str(share.get("owner_user_id") or "") == principal.subject:
-        return share, dict(share.get("permissions") or {})
-    participant = next(
-        (
-            item
-            for item in get_share_session_service().get_participants(session_id)
-            if str(item.get("user_id") or "") == principal.subject
-            and item.get("revoked_at") is None
-        ),
-        None,
-    )
-    if participant is None:
-        raise SemanticContractServiceError("session_not_found", status_code=404)
-    return share, dict(participant.get("permissions") or {})
-
-
-def _capability_issuance_authority(
-    principal: SemanticPrincipal,
-    *,
-    session_id: str,
-    epoch: int,
-    subject_id: str,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    share, owner_permissions = _share_membership_authority(
-        principal,
-        session_id=session_id,
-        epoch=epoch,
-    )
-    owner_id = str(share.get("owner_user_id") or "")
-    if owner_id != principal.subject:
-        raise SemanticMediaPermissionError("capability_issue_denied")
-    if subject_id == owner_id:
-        return share, owner_permissions
-    participant = next(
-        (
-            item
-            for item in get_share_session_service().get_participants(session_id)
-            if str(item.get("user_id") or "") == subject_id
-            and item.get("revoked_at") is None
-        ),
-        None,
-    )
-    if participant is None:
-        raise SemanticMediaPermissionError("capability_subject_not_found", status_code=404)
-    return share, dict(participant.get("permissions") or {})
-
-
-def _attenuated_semantic_capabilities(
-    session_id: str,
-    raw_permissions: dict[str, Any],
-    *,
-    allow_training: bool,
-) -> set[str]:
-    permissions = get_share_session_permission_service().effective(session_id, raw_permissions)
-    capabilities: set[str] = set()
-    if permissions.get("chat") is True:
-        capabilities.update({"publish", "subscribe"})
-    if permissions.get("view_tui") is True:
-        capabilities.update({"capture", "publish", "subscribe"})
-    if permissions.get("remote_cursor") is True:
-        capabilities.add("publish")
-    if permissions.get("remote_control") is True:
-        capabilities.update({"compute", "validate"})
-    if permissions.get("artifact_share") is True:
-        capabilities.add("evidence_transfer")
-    if allow_training:
-        capabilities.add("training_admission")
-    return capabilities
-
-
-def _training_capability_authorised(
-    principal: SemanticPrincipal,
-    body: dict[str, Any],
-) -> bool:
-    """Use only a server-installed consent resolver; browser input is not authority."""
-
-    resolver = current_app.extensions.get("semantic_media_training_capability_resolver")
-    if not callable(resolver):
-        return False
-    return resolver(
-        tenant_id=principal.tenant_id,
-        owner_id=principal.subject,
-        subject_id=str(body.get("subject_id") or ""),
-        session_id=str(body.get("session_id") or ""),
-        epoch=body.get("epoch"),
-        purpose=str(body.get("purpose") or ""),
-        data_type=str(body.get("data_type") or ""),
-    ) is True
-
-
-def _semantic_permission_service(*, required: bool) -> SemanticMediaPermissionService | None:
-    service = current_app.extensions.get("semantic_media_permission_service")
-    if isinstance(service, SemanticMediaPermissionService):
-        return service
-    if required:
-        raise SemanticMediaPermissionError("capability_service_unavailable", status_code=503)
-    return None
-
-
-def _require_semantic_capability(
-    principal: SemanticPrincipal,
-    body: dict[str, Any],
-    capability: str,
-    *,
-    direction: str,
-) -> None:
-    try:
-        service = _semantic_permission_service(required=True)
-    except SemanticMediaPermissionError as exc:
-        raise SemanticContractServiceError(exc.reason_code, status_code=exc.status_code) from exc
-    if service is None:  # pragma: no cover - required=True always raises instead.
-        raise SemanticContractServiceError("capability_service_unavailable", status_code=503)
-    grant_id = str(request.headers.get(_CAPABILITY_GRANT_HEADER) or "").strip()
-    if not grant_id:
-        raise SemanticContractServiceError("capability_grant_required", status_code=403)
-    session_id = _identifier(body.get("session_id"), "session_id")
-    room_id = _optional_identifier(body.get("room_id"), "room_id")
-    try:
-        service.require_grant_id(
-            _identifier(grant_id, "grant_id"),
-            capability=capability,
-            tenant_id=principal.tenant_id,
-            subject_id=principal.subject,
-            scope_kind="room" if room_id is not None else "session",
-            scope_id=room_id or session_id,
-            direction=direction,
-            data_type=_SEMANTIC_CONTROL_DATA_TYPE,
-            purpose=_SEMANTIC_CONTROL_PURPOSE,
-            epoch=_bounded_int(body.get("epoch"), "epoch", 1, 2_147_483_647),
-        )
-    except SemanticMediaPermissionError as exc:
-        raise SemanticContractServiceError(exc.reason_code, status_code=exc.status_code) from exc
-
-
-def _capability_record(
-    grant: Any,
-    *,
-    revoked_at: float | None,
-    revoked_by: str | None,
-    revocation_version: int,
-) -> dict[str, Any]:
-    payload = asdict(grant)
-    payload.update(
-        {
-            "revoked_at": revoked_at,
-            "revoked_by": revoked_by,
-            "revocation_version": revocation_version,
-        }
-    )
-    return payload
-
-
-def _query_scope() -> dict[str, Any]:
-    session_id = _identifier(request.args.get("session_id"), "session_id")
-    epoch = _bounded_int(request.args.get("epoch"), "epoch", 1, 2_147_483_647)
-    return {"session_id": session_id, "epoch": epoch, "consent_version": 1}
-
-
-def _idempotency_key() -> str:
-    key = str(request.headers.get("Idempotency-Key") or "").strip()
-    if not 8 <= len(key) <= 256 or any(character.isspace() for character in key):
-        raise SemanticContractServiceError("idempotency_key_invalid", status_code=400)
-    return key
-
-
-def _revision_precondition(body: dict[str, Any]) -> int:
-    header = str(request.headers.get("If-Match") or "").strip().strip('"')
-    raw = header or body.get("expected_revision")
-    if raw is None:
-        raise SemanticContractServiceError("revision_precondition_required", status_code=428)
-    return _bounded_int(raw, "expected_revision", 1, 2_147_483_647)
-
-
-def _hub_security_confirmed() -> bool:
-    return current_app.config.get("SEMANTIC_COMPUTE_SECURITY_CONFIRMED") is True
-
-
-def _require_hub_compute_enabled() -> None:
-    flags = dict(current_app.extensions.get("semantic_media_feature_flags") or {})
-    if not bool(flags.get("semantic_visual_capture") or flags.get("semantic_speech_runtime")):
-        raise SemanticContractServiceError("feature_disabled", status_code=409)
-    if not _hub_security_confirmed():
-        raise SemanticContractServiceError("security_unconfirmed", status_code=409)
-
-
-def _hub_fallback_healthy() -> bool:
-    return current_app.config.get("SEMANTIC_COMPUTE_FALLBACK_HEALTHY", True) is True
-
-
-def _advertisements(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, list) or len(value) > 16 or any(not isinstance(item, dict) for item in value):
-        raise SemanticContractServiceError("advertisements_invalid", status_code=400)
-    return list(value)
-
-
-def _mapping(value: Any, field: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400)
-    return value
-
-
-def _resource_budget(value: Any) -> dict[str, int]:
-    row = _mapping(value, "resource_budget")
-    if set(row) != {"cpu_ms", "memory_bytes", "artifact_bytes"}:
-        raise SemanticContractServiceError("resource_budget_invalid", status_code=400)
-    return {
-        "cpu_ms": _bounded_int(row["cpu_ms"], "cpu_ms", 1, 60_000),
-        "memory_bytes": _bounded_int(row["memory_bytes"], "memory_bytes", 1, 4_294_967_296),
-        "artifact_bytes": _bounded_int(row["artifact_bytes"], "artifact_bytes", 1, 4_194_304),
-    }
-
-
-def _bounded_string(value: Any, field: str, minimum: int, maximum: int) -> str:
-    if not isinstance(value, str):
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400)
-    encoded = value.encode("utf-8")
-    if not minimum <= len(encoded) <= maximum or "\x00" in value:
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400)
-    return value
-
-
-def _boolean(value: Any, field: str) -> bool:
-    if not isinstance(value, bool):
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400)
-    return value
-
-
-def _identifier(value: Any, field: str) -> str:
-    rendered = str(value or "").strip()
-    if not 1 <= len(rendered) <= 192 or not all(char.isalnum() or char in "-_.:@" for char in rendered):
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400)
-    return rendered
-
-
-def _optional_identifier(value: Any, field: str) -> str | None:
-    return None if value in {None, ""} else _identifier(value, field)
-
-
-def _bounded_int(value: Any, field: str, minimum: int, maximum: int) -> int:
-    try:
-        result = int(value)
-    except (TypeError, ValueError) as exc:
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400) from exc
-    if isinstance(value, bool) or not minimum <= result <= maximum:
-        raise SemanticContractServiceError(f"{field}_invalid", status_code=400)
-    return result
-
-
-def _error(exc: SemanticContractServiceError):
-    return jsonify(
-        {"ok": False, "error": {"code": exc.reason_code, "message": exc.reason_code, "retriable": False}}
-    ), exc.status_code
 
 
 __all__ = ["semantic_media_contracts_bp"]

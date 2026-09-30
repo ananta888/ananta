@@ -11,6 +11,9 @@ from agent.repositories.semantic_media_capability_grant_repository import (
     InMemorySemanticMediaCapabilityGrantRepository,
 )
 from agent.routes import semantic_media_contracts as routes
+from agent.routes.semantic_media_contract_route_authority import (
+    SemanticContractRouteAuthority,
+)
 from agent.services.semantic_media_permission_service import SemanticMediaPermissionService
 from agent.services.user_session_tokens import issue_user_access_token
 
@@ -90,8 +93,15 @@ def _setup(monkeypatch):
         repository=InMemorySemanticMediaCapabilityGrantRepository(),
     )
     app.extensions["semantic_media_permission_service"] = permissions
-    monkeypatch.setattr(routes, "get_share_session_service", lambda: share)
-    monkeypatch.setattr(routes, "get_webrtc_epoch_service", lambda: _EpochAuthority())
+    monkeypatch.setattr(
+        routes,
+        "_route_authority",
+        SemanticContractRouteAuthority(
+            share_sessions=lambda: share,
+            webrtc_epochs=lambda: _EpochAuthority(),
+            contracts=lambda: contracts,
+        ),
+    )
     monkeypatch.setattr(routes, "get_semantic_contract_service", lambda: contracts)
     client = app.test_client()
     client.environ_base["HTTP_AUTHORIZATION"] = (
