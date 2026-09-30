@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from collections.abc import Iterable
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -27,11 +26,8 @@ from agent.services.kanban_board_projection import (
     decode_kanban_cursor_offset,
     encode_kanban_cursor,
     kanban_board_revision,
-    kanban_card_assignee,
     kanban_column,
     kanban_history_event_type,
-    kanban_sort_key,
-    ordered_kanban_tasks,
     project_kanban_board,
     project_kanban_cards,
     require_kanban_page_limit,
@@ -174,19 +170,6 @@ class KanbanProjectionService:
             capabilities=tuple(sorted(capabilities, key=lambda item: item.value)),
         )
 
-    _column = staticmethod(kanban_column)
-    _sort_key = staticmethod(kanban_sort_key)
-
-    def _ordered(self, tasks: Iterable[TaskDB]) -> list[TaskDB]:
-        return ordered_kanban_tasks(tasks)
-
-    _revision = staticmethod(kanban_board_revision)
-    _event_type = staticmethod(kanban_history_event_type)
-    _assignee = staticmethod(kanban_card_assignee)
-
-    def _cards(self, scope: KanbanScope, tasks: list[TaskDB]) -> list[KanbanCard]:
-        return project_kanban_cards(scope, tasks)
-
     def _board(
         self,
         scope: KanbanScope,
@@ -203,14 +186,10 @@ class KanbanProjectionService:
             team=team,
         )
 
-    _cursor = staticmethod(encode_kanban_cursor)
-    _offset = staticmethod(decode_kanban_cursor_offset)
-    _limit = staticmethod(require_kanban_page_limit)
-
     def list_boards(
         self, principal: KanbanPrincipal, *, limit: int = 50, cursor: str | None = None
     ) -> KanbanBoardPage:
-        self._limit(limit)
+        require_kanban_page_limit(limit)
         candidates: list[tuple[KanbanScope, Any, Any]] = []
         if principal.is_admin or principal.role.lower() == "admin":
             candidates.append((KanbanScope("hub"), None, None))
@@ -236,9 +215,9 @@ class KanbanProjectionService:
         revision = hashlib.sha256(
             "|".join(f"{item.id}:{item.revision}" for item in boards).encode()
         ).hexdigest()[:24]
-        offset = self._offset(cursor, revision)
+        offset = decode_kanban_cursor_offset(cursor, revision)
         page = boards[offset : offset + limit]
-        next_cursor = self._cursor(offset + len(page), revision) if offset + len(page) < len(boards) else None
+        next_cursor = encode_kanban_cursor(offset + len(page), revision) if offset + len(page) < len(boards) else None
         return KanbanBoardPage(items=tuple(page), next_cursor=next_cursor)
 
     def get_board(self, board_id: str, principal: KanbanPrincipal) -> KanbanBoard:
@@ -265,7 +244,7 @@ class KanbanProjectionService:
         )
         return KanbanSnapshot(
             board=board,
-            cards=tuple(self._cards(scope, list(snapshot.tasks))),
+            cards=tuple(project_kanban_cards(scope, list(snapshot.tasks))),
             event_sequence=snapshot.event_sequence,
         )
 
@@ -290,11 +269,11 @@ class KanbanProjectionService:
         blocked: bool | None = None,
         query: str | None = None,
     ) -> KanbanCardPage:
-        self._limit(limit)
+        require_kanban_page_limit(limit)
         scope, _, _ = self._scope(board_id, principal, KanbanCapability.READ)
         tasks = self._store.list_tasks(scope)
-        revision = self._revision(scope, tasks)
-        cards = self._cards(scope, tasks)
+        revision = kanban_board_revision(scope, tasks)
+        cards = project_kanban_cards(scope, tasks)
         if column_id:
             cards = [item for item in cards if item.column_id == column_id]
         if assignee_id:
@@ -308,9 +287,9 @@ class KanbanProjectionService:
                 for item in cards
                 if query in item.title.casefold() or query in (item.description or "").casefold()
             ]
-        offset = self._offset(cursor, revision)
+        offset = decode_kanban_cursor_offset(cursor, revision)
         page = cards[offset : offset + limit]
-        next_cursor = self._cursor(offset + len(page), revision) if offset + len(page) < len(cards) else None
+        next_cursor = encode_kanban_cursor(offset + len(page), revision) if offset + len(page) < len(cards) else None
         return KanbanCardPage(
             board_id=board_id,
             board_revision=revision,
@@ -321,17 +300,10 @@ class KanbanProjectionService:
     def get_card(self, board_id: str, card_id: str, principal: KanbanPrincipal) -> KanbanCard:
         scope, _, _ = self._scope(board_id, principal, KanbanCapability.READ)
         tasks = self._store.list_tasks(scope)
-        card = next((item for item in self._cards(scope, tasks) if item.id == card_id), None)
+        card = next((item for item in project_kanban_cards(scope, tasks) if item.id == card_id), None)
         if card is None:
             raise KanbanServiceError("kanban_card_not_found", "card was not found", status_code=404)
         return card
-
-    _mutation = staticmethod(kanban_mutation_fingerprint)
-    _record = staticmethod(record_kanban_history_event)
-    _rank = staticmethod(rank_kanban_tasks)
-    _transition = staticmethod(require_kanban_transition)
-    _dependencies = staticmethod(require_acyclic_kanban_dependencies)
-    _store_error = staticmethod(kanban_store_error)
 
     def _publish_committed(
         self,
@@ -366,7 +338,7 @@ class KanbanProjectionService:
         self, board_id: str, command: CreateCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
         scope, goal, _ = self._scope(board_id, principal, KanbanCapability.WRITE)
-        mutation = self._mutation(
+        mutation = kanban_mutation_fingerprint(
             principal, command.idempotency_key, "create", command.model_dump(mode="json")
         )
         task = TaskDB(
@@ -386,14 +358,14 @@ class KanbanProjectionService:
 
         def prepare(created: TaskDB, tasks: list[TaskDB]) -> None:
             all_tasks = [*tasks, created]
-            self._dependencies(created, command.dependencies, all_tasks)
-            self._rank(
+            require_acyclic_kanban_dependencies(created, command.dependencies, all_tasks)
+            rank_kanban_tasks(
                 all_tasks,
                 created,
                 KanbanColumnId.TODO,
                 command.position if command.position is not None else len(tasks),
             )
-            self._record(
+            record_kanban_history_event(
                 created,
                 event_type="kanban_card_created",
                 message="Card created through Kanban projection",
@@ -417,7 +389,7 @@ class KanbanProjectionService:
                 ),
             )
         except (KanbanTaskNotFound, KanbanRevisionConflict, KanbanIdempotencyConflict) as exc:
-            raise self._store_error(exc) from exc
+            raise kanban_store_error(exc) from exc
         if not result.replayed:
             self._publish_committed(
                 action="kanban.card.created",
@@ -440,7 +412,7 @@ class KanbanProjectionService:
         audit: dict[str, Any],
     ) -> KanbanCard:
         scope, _, _ = self._scope(command.board_id, principal, capability)
-        mutation = self._mutation(
+        mutation = kanban_mutation_fingerprint(
             principal, command.idempotency_key, name, command.model_dump(mode="json")
         )
         from agent.services.task_mutation_lock_service import (
@@ -528,7 +500,7 @@ class KanbanProjectionService:
                 KanbanRevisionConflict,
                 KanbanIdempotencyConflict,
             ) as exc:
-                raise self._store_error(exc) from exc
+                raise kanban_store_error(exc) from exc
         if not result.replayed:
             # The task status itself is already committed and therefore fences
             # new recovery dispatches.  Run cascades only after releasing this
@@ -554,14 +526,14 @@ class KanbanProjectionService:
         self, card_id: str, command: MoveCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
-            source = self._column(task.status)
+            source = kanban_column(task.status)
             old_status = str(task.status)
             target_status = COLUMN_TARGET[command.column_id]
             if source != command.column_id:
-                self._transition(task, target_status)
+                require_kanban_transition(task, target_status)
                 task.status = target_status
-            self._rank(tasks, task, command.column_id, command.position, source)
-            self._record(
+            rank_kanban_tasks(tasks, task, command.column_id, command.position, source)
+            record_kanban_history_event(
                 task,
                 event_type="kanban_card_moved",
                 message="Card moved through Kanban projection",
@@ -618,7 +590,7 @@ class KanbanProjectionService:
                     or command.assignee_id
                 )
             task.worker_execution_context = context
-            self._record(
+            record_kanban_history_event(
                 task,
                 event_type="kanban_card_assigned",
                 message="Card assignment changed through Kanban projection",
@@ -641,7 +613,7 @@ class KanbanProjectionService:
         self, card_id: str, command: CommentCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
         def change(task: TaskDB, _tasks: list[TaskDB], mutation: KanbanMutation) -> None:
-            self._record(
+            record_kanban_history_event(
                 task,
                 event_type="kanban_comment_added",
                 message="Comment added through Kanban projection",
@@ -668,9 +640,9 @@ class KanbanProjectionService:
         self, card_id: str, command: SetDependenciesCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
-            self._dependencies(task, command.dependencies, tasks)
+            require_acyclic_kanban_dependencies(task, command.dependencies, tasks)
             task.depends_on = list(dict.fromkeys(command.dependencies))
-            self._record(
+            record_kanban_history_event(
                 task,
                 event_type="kanban_dependencies_changed",
                 message="Card dependencies changed through Kanban projection",
@@ -693,13 +665,13 @@ class KanbanProjectionService:
         self, card_id: str, command: BlockCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
-            source = self._column(task.status)
-            self._dependencies(task, command.dependencies, tasks)
-            self._transition(task, "blocked_by_dependency")
+            source = kanban_column(task.status)
+            require_acyclic_kanban_dependencies(task, command.dependencies, tasks)
+            require_kanban_transition(task, "blocked_by_dependency")
             task.status = "blocked_by_dependency"
             task.depends_on = list(dict.fromkeys(command.dependencies))
-            self._rank(tasks, task, KanbanColumnId.BLOCKED, len(tasks), source)
-            self._record(
+            rank_kanban_tasks(tasks, task, KanbanColumnId.BLOCKED, len(tasks), source)
+            record_kanban_history_event(
                 task,
                 event_type="kanban_card_blocked",
                 message="Card blocked through Kanban projection",
@@ -726,11 +698,11 @@ class KanbanProjectionService:
         self, card_id: str, command: CompleteCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
         def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
-            source = self._column(task.status)
-            self._transition(task, "completed")
+            source = kanban_column(task.status)
+            require_kanban_transition(task, "completed")
             task.status = "completed"
-            self._rank(tasks, task, KanbanColumnId.COMPLETED, len(tasks), source)
-            self._record(
+            rank_kanban_tasks(tasks, task, KanbanColumnId.COMPLETED, len(tasks), source)
+            record_kanban_history_event(
                 task,
                 event_type="kanban_card_completed",
                 message="Card completed through Kanban projection",
@@ -767,7 +739,7 @@ class KanbanProjectionService:
         task = next((item for item in tasks if item.id == card_id), None)
         if task is None:
             raise KanbanServiceError("kanban_card_not_found", "card was not found", status_code=404)
-        return task, self._revision(scope, tasks)
+        return task, kanban_board_revision(scope, tasks)
 
     def list_comments(
         self,
@@ -778,11 +750,11 @@ class KanbanProjectionService:
         limit: int = 50,
         cursor: str | None = None,
     ) -> KanbanCommentPage:
-        self._limit(limit)
+        require_kanban_page_limit(limit)
         task, revision = self._task(board_id, card_id, principal)
         comments = []
         for event in list(task.history or []):
-            if not isinstance(event, dict) or self._event_type(event) != "kanban_comment_added":
+            if not isinstance(event, dict) or kanban_history_event_type(event) != "kanban_comment_added":
                 continue
             details = event.get("details") if isinstance(event.get("details"), dict) else {}
             comments.append(
@@ -795,9 +767,9 @@ class KanbanProjectionService:
                 )
             )
         comments.sort(key=lambda item: (item.created_at, item.id), reverse=True)
-        offset = self._offset(cursor, revision)
+        offset = decode_kanban_cursor_offset(cursor, revision)
         page = comments[offset : offset + limit]
-        next_cursor = self._cursor(offset + len(page), revision) if offset + len(page) < len(comments) else None
+        next_cursor = encode_kanban_cursor(offset + len(page), revision) if offset + len(page) < len(comments) else None
         return KanbanCommentPage(
             board_id=board_id,
             card_id=card_id,
@@ -815,11 +787,11 @@ class KanbanProjectionService:
         limit: int = 50,
         cursor: str | None = None,
     ) -> KanbanActivityPage:
-        self._limit(limit)
+        require_kanban_page_limit(limit)
         task, revision = self._task(board_id, card_id, principal)
         activity = []
         for index, event in enumerate(list(task.history or [])):
-            if not isinstance(event, dict) or not self._event_type(event).startswith("kanban_"):
+            if not isinstance(event, dict) or not kanban_history_event_type(event).startswith("kanban_"):
                 continue
             details = event.get("details") if isinstance(event.get("details"), dict) else {}
             public = {
@@ -832,25 +804,25 @@ class KanbanProjectionService:
                     id=str(
                         details.get("comment_id")
                         or uuid.uuid5(
-                            uuid.NAMESPACE_URL, f"{task.id}:{index}:{self._event_type(event)}"
+                            uuid.NAMESPACE_URL, f"{task.id}:{index}:{kanban_history_event_type(event)}"
                         )
                     ),
                     card_id=card_id,
-                    event_type=self._event_type(event),
+                    event_type=kanban_history_event_type(event),
                     actor_id=details.get("actor_id"),
                     message=str(
                         event.get("message")
                         or details.get("summary")
-                        or self._event_type(event)
+                        or kanban_history_event_type(event)
                     ),
                     details=public,
                     created_at=self._when(event, task.updated_at),
                 )
             )
         activity.sort(key=lambda item: (item.created_at, item.id), reverse=True)
-        offset = self._offset(cursor, revision)
+        offset = decode_kanban_cursor_offset(cursor, revision)
         page = activity[offset : offset + limit]
-        next_cursor = self._cursor(offset + len(page), revision) if offset + len(page) < len(activity) else None
+        next_cursor = encode_kanban_cursor(offset + len(page), revision) if offset + len(page) < len(activity) else None
         return KanbanActivityPage(
             board_id=board_id,
             card_id=card_id,
