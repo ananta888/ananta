@@ -67,6 +67,7 @@ import {
   validCorrectorModelId,
   VoiceChoice,
 } from './voice-corrector-catalog';
+import { VoiceConsoleBatchCapture } from './voice-console-batch-capture';
 import { VoiceRuntimeStatusComponent } from './voice-runtime-status.component';
 import { SemanticMediaProgramHostComponent } from './semantic-media-program-host.component';
 import { VoiceTranscriptionResultComponent } from './voice-transcription-result.component';
@@ -104,9 +105,14 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   });
   private destroyed = false;
   private liveOperationGeneration = 0;
-  private batchOperationGeneration = 0;
   private longRunOperationGeneration = 0;
-  private batchOperation: { generation: number; ending: boolean } | null = null;
+  private readonly batchCapture = new VoiceConsoleBatchCapture(this.batchRecorder, {
+    view: this,
+    destroyed: () => this.destroyed,
+    markForCheck: () => this.cdr.markForCheck(),
+    clearMessages: () => this.clearMessages(),
+    fail: (error, cleanup) => this.fail(error, cleanup),
+  });
   private readonly longRunLedger = new VoiceLongRunUploadLedger();
 
   hubUrl = '';
@@ -197,7 +203,7 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.liveOperationGeneration += 1;
-    this.batchOperationGeneration += 1;
+    this.batchCapture.invalidate();
     this.longRunOperationGeneration += 1;
     void this.liveSession.cancel().catch(() => undefined);
     void this.longRun.dispose().catch(() => undefined);
@@ -522,42 +528,11 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   async startBatchRecording(): Promise<void> {
     if (this.configurationInteractionLocked()) return;
     if (!this.captureSourceSupported('batch')) return;
-    const generation = ++this.batchOperationGeneration;
-    const operation = { generation, ending: false };
-    const captureSource = this.selectedCaptureSource;
-    this.batchOperation = operation;
-    this.batchBusy = true;
-    this.batchResult = null;
-    this.batchAudio = null;
-    this.batchFileName = '';
-    this.clearMessages();
-    try {
-      await this.batchRecorder.start(captureSource, {
-        ended: (reason) => this.onBatchCaptureEnded(generation, reason),
-        error: (error) => this.onBatchCaptureError(generation, error),
-      });
-      this.ensureBatchOperation(generation);
-      if (operation.ending) return;
-      this.batchRecording = true;
-      this.batchBusy = false;
-      this.successMessage = captureSource === 'system_audio'
-        ? 'Systemaudio-Aufnahme läuft lokal. Erst mit „Über Hub transkribieren“ wird Audio an den Hub gesendet.'
-        : 'Mikrofon-Aufnahme läuft lokal. Erst mit „Über Hub transkribieren“ wird Audio an den Hub gesendet.';
-      this.cdr.markForCheck();
-    } catch (error) {
-      if (this.isBatchOperationCurrent(generation) && !operation.ending) {
-        this.batchOperation = null;
-        this.fail(error, () => { this.batchBusy = false; });
-      }
-    }
+    await this.batchCapture.start(this.selectedCaptureSource);
   }
 
-  async stopBatchRecording(): Promise<void> {
-    if (!this.batchRecording) return;
-    const operation = this.batchOperation;
-    if (!operation || operation.ending) return;
-    operation.ending = true;
-    await this.finishBatchRecording(operation.generation, false);
+  stopBatchRecording(): Promise<void> {
+    return this.batchCapture.stop();
   }
 
   selectAudioFile(event: Event): void {
@@ -762,13 +737,6 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     return voiceFieldChoices(this.schema, key, fallback);
   }
 
-  private onBatchCaptureEnded(generation: number, reason?: string): void {
-    const operation = this.batchOperation;
-    if (!this.isBatchOperationCurrent(generation) || !operation || operation.ending) return;
-    operation.ending = true;
-    void this.finishBatchRecording(generation, true, reason);
-  }
-
   private onLiveCaptureFinalized(response: VoiceStreamFinalizeResponse, reason?: string): void {
     if (this.destroyed) return;
     const message = reason === 'safety_limit'
@@ -795,69 +763,12 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private onBatchCaptureError(generation: number, _error: unknown): void {
-    const operation = this.batchOperation;
-    if (!this.isBatchOperationCurrent(generation) || !operation || operation.ending) return;
-    operation.ending = true;
-    void this.finishBatchRecording(generation, true, 'capture_error');
-  }
-
-  private async finishBatchRecording(
-    generation: number,
-    endedAutomatically: boolean,
-    stopReason?: string,
-  ): Promise<void> {
-    if (!this.isBatchOperationCurrent(generation)) return;
-    this.batchBusy = true;
-    this.batchRecording = false;
-    this.cdr.markForCheck();
-    try {
-      const audio = await this.batchRecorder.stop();
-      if (!this.isBatchOperationCurrent(generation)) return;
-      this.batchAudio = audio;
-      this.batchFileName = audio.type === 'audio/wav' ? 'voice-recording.wav'
-        : audio.type.includes('mp4') ? 'voice-recording.m4a'
-        : 'voice-recording.webm';
-      this.batchBusy = false;
-      this.batchOperation = null;
-      this.successMessage = endedAutomatically
-        ? this.batchAutomaticStopMessage(stopReason)
-        : 'Aufnahme beendet. Sie kann jetzt über den Hub transkribiert werden.';
-      this.cdr.markForCheck();
-    } catch (error) {
-      if (!this.isBatchOperationCurrent(generation)) return;
-      this.batchOperation = null;
-      this.fail(error, () => { this.batchBusy = false; });
-    }
-  }
-
-  private batchAutomaticStopMessage(reason?: string): string {
-    if (reason === 'safety_limit') {
-      return 'Die maximale Aufnahmedauer wurde erreicht. Die lokale Aufnahme kann jetzt über den Hub transkribiert werden.';
-    }
-    if (reason === 'notification_stop') {
-      return 'Die Aufnahme wurde über Android beendet. Sie kann jetzt über den Hub transkribiert werden.';
-    }
-    if (reason === 'source_ended' || reason === 'projection_revoked') {
-      return 'Die Audiofreigabe wurde beendet. Die lokale Aufnahme kann jetzt über den Hub transkribiert werden.';
-    }
-    return 'Die Aufnahme wurde automatisch beendet. Sie kann jetzt über den Hub transkribiert werden.';
-  }
-
   private ensureLiveOperation(generation: number): void {
     if (!this.isLiveOperationCurrent(generation)) throw new Error('voice.capture.cancelled');
   }
 
   private isLiveOperationCurrent(generation: number): boolean {
     return !this.destroyed && generation === this.liveOperationGeneration;
-  }
-
-  private ensureBatchOperation(generation: number): void {
-    if (!this.isBatchOperationCurrent(generation)) throw new Error('voice.capture.cancelled');
-  }
-
-  private isBatchOperationCurrent(generation: number): boolean {
-    return !this.destroyed && generation === this.batchOperationGeneration;
   }
 
   private async refreshCaptureCapabilities(): Promise<void> {
