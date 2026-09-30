@@ -6,6 +6,7 @@ import pytest
 from flask import Flask
 
 from agent.routes import organization_planning as routes
+from agent.routes import organization_planning_request_parsing as request_parsing
 from agent.services.organization_membership_service import OrganizationAccessPrincipal
 from agent.services.organization_planning_composition import (
     OrganizationPlanningCompositionError,
@@ -262,9 +263,9 @@ def test_category_research_catalog_selector_is_closed() -> None:
         "source_scope": "organization:org-1",
     }
 
-    assert routes._source_catalog_binding(binding) == binding
+    assert request_parsing.source_catalog_binding(binding) == binding
     with pytest.raises(OrganizationPlanningCompositionError):
-        routes._source_catalog_binding({**binding, "source_ids": ["SRC_0001"]})
+        request_parsing.source_catalog_binding({**binding, "source_ids": ["SRC_0001"]})
 
 
 def test_category_research_readiness_forwards_only_closed_server_selector(
