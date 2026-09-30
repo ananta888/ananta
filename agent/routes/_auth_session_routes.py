@@ -2,9 +2,10 @@
 
 Each route is registered onto the shared ``auth_bp`` blueprint via
 the :func:`register_routes` entry point, which the auth shim calls
-once during blueprint setup. The original Flask-Yaml docstrings
-and bodies are preserved verbatim so behavior and the OpenAPI spec
-stay unchanged.
+once during blueprint setup. The original Flask-Yaml docstrings are
+preserved verbatim so the OpenAPI spec stays unchanged; failed-credential
+bookkeeping, backup-code consumption and MFA warning throttling live in
+small module-level helpers.
 """
 
 from __future__ import annotations
@@ -67,6 +68,38 @@ def _reject_noncanonical_session_identity(exc: UserSessionIdentityError):
         data={"reason_code": exc.reason_code},
         code=409,
     )
+
+
+def _register_failed_credentials(user, *, username: str, ip: str | None) -> None:
+    """Record a failed password/MFA attempt and lock the account at the threshold."""
+    record_attempt(ip)
+    user.failed_login_attempts += 1
+    if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
+        user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
+        notify_lockout(username)
+    _repos().user_repo.save(user)
+
+
+def _consume_mfa_backup_code(user, mfa_token: str, *, username: str) -> bool:
+    """Consume the matching one-time backup code; ``True`` when one matched."""
+    for idx, hashed_code in enumerate(user.mfa_backup_codes):
+        if check_password_hash(hashed_code, mfa_token):
+            user.mfa_backup_codes.pop(idx)
+            log_audit("mfa_backup_code_used", {"username": username})
+            return True
+    return False
+
+
+def _log_invalid_mfa_token(*, username: str, ip: str | None) -> None:
+    """Warn about an invalid MFA token at most once per minute per (user, ip)."""
+    now = time.time()
+    key = (username or "unknown", ip or "unknown")
+    last_ts = MFA_WARN_LAST.get(key, 0)
+    if now - last_ts > 60:
+        _log().warning("Invalid MFA token for user: %s", username)
+        MFA_WARN_LAST[key] = now
+    else:
+        _log().debug("Invalid MFA token (suppressed, rate-limited) for user: %s", username)
 
 
 def register_routes(auth_bp) -> None:
@@ -154,12 +187,7 @@ def register_routes(auth_bp) -> None:
             )
 
         if not check_password_hash(user.password_hash, password):
-            record_attempt(ip)
-            user.failed_login_attempts += 1
-            if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
-                user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
-                notify_lockout(username)
-            _repos().user_repo.save(user)
+            _register_failed_credentials(user, username=username, ip=ip)
 
             _log().warning("Failed login attempt for user: %s from %s", username, ip)
             log_audit("login_failed", {"username": username})
@@ -179,29 +207,11 @@ def register_routes(auth_bp) -> None:
             is_valid_totp = verify_totp(decrypt_secret(user.mfa_secret), mfa_token)
             is_valid_backup = False
             if not is_valid_totp and user.mfa_backup_codes:
-                for idx, hashed_code in enumerate(user.mfa_backup_codes):
-                    if check_password_hash(hashed_code, mfa_token):
-                        is_valid_backup = True
-                        user.mfa_backup_codes.pop(idx)
-                        log_audit("mfa_backup_code_used", {"username": username})
-                        break
+                is_valid_backup = _consume_mfa_backup_code(user, mfa_token, username=username)
 
             if not is_valid_totp and not is_valid_backup:
-                record_attempt(ip)
-                user.failed_login_attempts += 1
-                if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
-                    user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
-                    notify_lockout(username)
-                _repos().user_repo.save(user)
-
-                now = time.time()
-                key = (username or "unknown", ip or "unknown")
-                last_ts = MFA_WARN_LAST.get(key, 0)
-                if now - last_ts > 60:
-                    _log().warning("Invalid MFA token for user: %s", username)
-                    MFA_WARN_LAST[key] = now
-                else:
-                    _log().debug("Invalid MFA token (suppressed, rate-limited) for user: %s", username)
+                _register_failed_credentials(user, username=username, ip=ip)
+                _log_invalid_mfa_token(username=username, ip=ip)
                 return api_response(status="error", message="Invalid MFA token", code=401)
 
         _repos().login_attempt_repo.delete_by_ip(ip)
