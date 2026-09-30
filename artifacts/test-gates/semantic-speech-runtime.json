@@ -95,6 +95,11 @@
     "schemas/webrtc/speech_transport_contract.v1.json": "65e5effd9a4b5e70fe13a559e30711815d6a78282b43beda9858dae970665a8d",
     "voice_runtime/source_correction.py": "e956643c3ab428d2964747e68bb2acfc80c2897f45529435231dcf92e096dd7b",
     "voice_runtime/speech_quality_policy.py": "3439340feed99bf8a228ada9a8b1c58e9f72dbb0c236a10aad28333cdcc027b2",
-    "voice_runtime/streaming.py": "124631df769c95116368cf9db1847577dd71ae29f2efe6d8996762d190e3dac4"
+    "voice_runtime/streaming.py": "9de285a6ef006d09f29cd068ed9d723d4bb3c7c08edaee97ca70a0832e125476",
+    "voice_runtime/streaming_protocol.py": "82fa8accf2b124356fe0e0b163ba343f86c6eb230eab37d2b7d2b538576b9394",
+    "voice_runtime/streaming_recognizer_factories.py": "53daf93b214755e4f8f5f0c5d46087ea31fe73a5aaa641d9b6a84daba4ec678c",
+    "voice_runtime/streaming_recognizers.py": "83c220cdd0a94a107efbc421fd6dfdc778772247117ec76addb677a22cf9c03a",
+    "voice_runtime/streaming_session.py": "eaadf029086f65c32f099a1e34953def5a846eb2631aae2e815bf637360a6c09",
+    "voice_runtime/streaming_transcript.py": "8cde29d4adfbaffbd85b32ab37c77d3cbc2c29717c4b1f81b9dc47103710458e"
   }
 }
