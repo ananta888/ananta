@@ -97,6 +97,7 @@ SOURCE_MANIFEST_PRODUCTION_PATHS: tuple[str, ...] = (
     "agent/services/native_graph_run_persistence.py",
     "agent/services/native_graph_scheduling.py",
     "agent/services/langgraph_workflow_control_bridge.py",
+    "agent/services/langgraph_workflow_run_status.py",
     "agent/services/temporal_workflow_backend.py",
     "agent/services/workflow_backend_durable_run_adapter.py",
     "agent/services/workflow_configured_bridge_reconciler.py",
