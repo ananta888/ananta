@@ -1,3 +1,13 @@
+"""Provider listing, model catalog and default-model selection routes.
+
+Module layout: the blueprint lives here. Shared guards and model-routing
+service factories are in :mod:`.providers_route_support`; the model-routing
+configuration API is in :mod:`.providers_model_routing` and registered on the
+same blueprint with explicitly injected routing services. Names patched by
+tests (catalog/routing service factories, ``get_voice_provider_service``,
+``ModelDefaultSelectionCommand``, ``build_persisted_default_selection_service``)
+stay defined here.
+"""
 from __future__ import annotations
 
 import os
@@ -9,12 +19,9 @@ from pydantic import ValidationError
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.config import settings as runtime_settings
+from agent.config import settings as runtime_settings  # noqa: F401  (compatibility: tests patch its attributes)
 from agent.config_defaults import sync_runtime_state
 from agent.local_llm_backends import get_local_openai_backends
-from agent.services.dashboard_feature_flag_service import (
-    resolve_dashboard_feature_flags,
-)
 from agent.services.local_model_runtime_inventory_adapter import (
     LocalRuntimeModelInventoryAdapter,
 )
@@ -25,7 +32,6 @@ from agent.services.model_catalog_service import (
     MODEL_CATALOG_REFRESH_CAPABILITY,
     MODEL_DEFAULT_SELECT_CAPABILITY,
     CatalogQuery,
-    ModelCatalogCapabilityPolicy,
     ModelCatalogService,
     ModelDefaultSelectionError,
     ProviderDiscovery,
@@ -46,19 +52,13 @@ from agent.services.model_routing_composition import (
     load_persisted_model_routing,
 )
 from agent.services.model_routing_legacy_migration_service import (
-    ModelRoutingLegacyMigrationError,
     ModelRoutingLegacyMigrationService,
     build_model_routing_legacy_migration_service,
-)
-from agent.services.model_routing_observability_service import (
-    ModelRoutingDiagnosticsService,
-    get_model_routing_usage_projection,
 )
 from agent.services.model_routing_template_service import (
     ModelRoutingTemplateService,
 )
 from agent.services.model_routing_transfer_service import (
-    ModelRoutingConfirmationError,
     ModelRoutingTransferService,
 )
 from agent.services.model_routing_validation_policy import (
@@ -68,7 +68,6 @@ from agent.services.model_selection_service import (
     EffectiveModelRoutingService,
     ModelConsumerRegistry,
     ModelRoutingAssignmentService,
-    ModelRoutingConflict,
 )
 from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
 from agent.services.openrouter_model_inventory_adapter import (
@@ -82,30 +81,34 @@ from agent.services.service_registry import get_core_services
 from agent.services.surface_rate_limit_policy import (
     MODEL_CATALOG_REFRESH,
     MODEL_DEFAULT_SELECTION,
-    surface_rate_limit_policy,
 )
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
 from ananta_contracts.model_catalog import ModelDefaultSelectionCommand
-from ananta_contracts.model_selection import (
-    EffectiveModelRoutingProjection,
-    ModelRoutingDryRunCommand,
-    ModelRoutingImportCommand,
-    ModelRoutingLegacyMigrationApplyCommand,
-    ModelRoutingMutationCommand,
-)
 
 from . import shared
+from .providers_model_routing import register_model_routing_routes
+from .providers_route_support import (  # noqa: F401  (re-exported for compatibility)
+    MODEL_ROUTING_EXPORT_CAPABILITY,
+    MODEL_ROUTING_MUTATE_CAPABILITY,
+    MODEL_ROUTING_READ_CAPABILITY,
+    MODEL_ROUTING_VALIDATE_CAPABILITY,
+    _capability_allowed,
+    _capability_denied_response,
+    _feature_disabled_response,
+    _model_catalog_feature_enabled,
+    _model_catalog_input_error,
+    _model_catalog_v2_enabled,
+    _model_routing_editor_enabled,
+    _query_args_are_valid,
+    _refresh_body_is_valid,
+    _routing_editor_disabled_response,
+    _surface_rate_limit_response,
+)
 
 providers_bp = Blueprint("config_providers", __name__)
 
 _MODEL_INVENTORY_SERVICE: ModelInventoryService | None = None
 _MODEL_INVENTORY_LOCK = threading.Lock()
-
-MODEL_ROUTING_READ_CAPABILITY = "model_routing.read"
-MODEL_ROUTING_VALIDATE_CAPABILITY = "model_routing.validate"
-MODEL_ROUTING_EXPORT_CAPABILITY = "model_routing.export"
-MODEL_ROUTING_MUTATE_CAPABILITY = "model_routing.mutate"
-
 
 def _model_consumer_registry() -> ModelConsumerRegistry:
     role = str(current_app.config.get("ROLE") or runtime_settings.role or "worker").strip().lower()
@@ -125,6 +128,75 @@ def _known_model_profiles() -> tuple[ModelProfile, ...]:
 
 def _configured_model_profiles_path() -> str:
     return str(current_app.config.get("MODEL_PROFILES_PATH") or os.environ.get("MODEL_PROFILES_PATH") or "").strip()
+
+
+def _model_routing_service() -> ModelRoutingAssignmentService:
+    profiles = _known_model_profiles()
+    consumers = _model_consumer_registry()
+    return build_persisted_model_routing_assignment_service(
+        consumers=consumers,
+        profiles=profiles,
+        validation_policy=ModelRoutingValidationPolicy(consumers=consumers, profiles=profiles),
+    )
+
+
+def _effective_model_routing_service() -> EffectiveModelRoutingService:
+    resolver = ModelInvocationService.default_instance().get_profile_resolver()
+    if resolver is None:
+        raise ModelRoutingConfigurationError("model_profiles_not_configured")
+    return build_persisted_effective_model_routing_service(
+        consumers=_model_consumer_registry(),
+        resolver=resolver,
+    )
+
+
+def _model_routing_transfer_service() -> ModelRoutingTransferService:
+    return ModelRoutingTransferService(_model_routing_service())
+
+
+def _model_routing_template_service() -> ModelRoutingTemplateService:
+    return ModelRoutingTemplateService(
+        consumers=_model_consumer_registry(),
+        profiles=_known_model_profiles(),
+    )
+
+
+def _model_routing_legacy_migration_service() -> ModelRoutingLegacyMigrationService:
+    return build_model_routing_legacy_migration_service(
+        legacy_config=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
+        model_profiles_path=_configured_model_profiles_path(),
+    )
+
+class _ProviderModuleRoutingServices:
+    """Model-routing collaborators for :mod:`.providers_model_routing`.
+
+    Each method resolves the factory on this module at call time, so the
+    factories stay replaceable here (existing test seams).
+    """
+
+    def consumers(self):
+        return _model_consumer_registry()
+
+    def profiles(self):
+        return _known_model_profiles()
+
+    def routing(self):
+        return _model_routing_service()
+
+    def effective_routing(self):
+        return _effective_model_routing_service()
+
+    def transfer(self):
+        return _model_routing_transfer_service()
+
+    def templates(self):
+        return _model_routing_template_service()
+
+    def legacy_migration(self):
+        return _model_routing_legacy_migration_service()
+
+    def inventory(self):
+        return _model_inventory_service()
 
 
 def _model_inventory_service() -> ModelInventoryService:
@@ -207,44 +279,6 @@ def _remote_model_inventory_metadata() -> dict[str, dict[str, object]]:
             "max_hops": backend.get("max_hops"),
         }
     return result
-
-
-def _model_routing_service() -> ModelRoutingAssignmentService:
-    profiles = _known_model_profiles()
-    consumers = _model_consumer_registry()
-    return build_persisted_model_routing_assignment_service(
-        consumers=consumers,
-        profiles=profiles,
-        validation_policy=ModelRoutingValidationPolicy(consumers=consumers, profiles=profiles),
-    )
-
-
-def _effective_model_routing_service() -> EffectiveModelRoutingService:
-    resolver = ModelInvocationService.default_instance().get_profile_resolver()
-    if resolver is None:
-        raise ModelRoutingConfigurationError("model_profiles_not_configured")
-    return build_persisted_effective_model_routing_service(
-        consumers=_model_consumer_registry(),
-        resolver=resolver,
-    )
-
-
-def _model_routing_transfer_service() -> ModelRoutingTransferService:
-    return ModelRoutingTransferService(_model_routing_service())
-
-
-def _model_routing_template_service() -> ModelRoutingTemplateService:
-    return ModelRoutingTemplateService(
-        consumers=_model_consumer_registry(),
-        profiles=_known_model_profiles(),
-    )
-
-
-def _model_routing_legacy_migration_service() -> ModelRoutingLegacyMigrationService:
-    return build_model_routing_legacy_migration_service(
-        legacy_config=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
-        model_profiles_path=_configured_model_profiles_path(),
-    )
 
 
 def _force_refresh_forbidden() -> bool:
@@ -429,113 +463,6 @@ def _catalog_query(*, force_refresh: bool | None = None) -> CatalogQuery:
         cache_ttl_seconds=cache_ttl_seconds,
         force_refresh=(requested_refresh if force_refresh is None else force_refresh),
     )
-
-
-def _model_catalog_feature_enabled() -> bool:
-    """The released catalog is canonical; retained flags no longer hide reads."""
-
-    return True
-
-
-def _model_catalog_v2_enabled() -> bool:
-    """Catalog v2 passed its release gate and remains additive to v1."""
-
-    return True
-
-
-def _model_routing_editor_enabled() -> bool:
-    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    return resolve_dashboard_feature_flags(
-        app_cfg,
-        defaults={
-            "feature_angular_model_dashboard_enabled": getattr(
-                runtime_settings, "feature_angular_model_dashboard_enabled", False
-            ),
-            "feature_model_routing_editor_enabled": getattr(
-                runtime_settings, "feature_model_routing_editor_enabled", False
-            ),
-        },
-    ).model_routing_editor
-
-
-def _routing_editor_disabled_response():
-    return api_response(status="error", message="model_routing_editor_feature_disabled", code=404)
-
-
-def _feature_disabled_response():
-    return api_response(
-        status="error",
-        message="model_catalog_feature_disabled",
-        code=404,
-    )
-
-
-def _capability_allowed(capability: str) -> bool:
-    claims = {
-        **dict(getattr(g, "auth_payload", {}) or {}),
-        **dict(getattr(g, "user", {}) or {}),
-    }
-    return ModelCatalogCapabilityPolicy().allows(
-        capability,
-        is_admin=bool(getattr(g, "is_admin", False)),
-        claims=claims,
-    )
-
-
-def _capability_denied_response(capability: str):
-    log_audit(
-        "model_catalog_capability_denied",
-        {"capability": capability, "path": request.path},
-    )
-    return api_response(
-        status="error",
-        message="forbidden",
-        data={"reason_code": "model_catalog_capability_required"},
-        code=403,
-    )
-
-
-def _model_catalog_input_error(message: str):
-    return api_response(
-        status="error",
-        message=message,
-        code=400,
-    )
-
-
-def _query_args_are_valid(*allowed: str) -> bool:
-    return not (set(request.args.keys()) - set(allowed))
-
-
-def _refresh_body_is_valid() -> bool:
-    body = request.get_json(silent=True)
-    if body == {}:
-        return True
-    return body is None and not request.get_data(cache=True).strip()
-
-
-def _surface_rate_limit_response(namespace: str):
-    decision = surface_rate_limit_policy.consume(
-        config=current_app.config,
-        namespace=namespace,
-        auth_payload=getattr(g, "auth_payload", None),
-        user=getattr(g, "user", None),
-        remote_addr=request.remote_addr,
-    )
-    if decision.allowed:
-        return None
-    result = api_response(
-        status="error",
-        message="rate_limit_exceeded",
-        data={
-            "reason_code": "rate_limit_exceeded",
-            "retry_after_seconds": decision.retry_after_seconds,
-        },
-        code=429,
-    )
-    response = result[0] if isinstance(result, tuple) else result
-    response.headers["Retry-After"] = str(decision.retry_after_seconds)
-    return result
 
 
 @providers_bp.route("/providers", methods=["GET"])
@@ -757,398 +684,5 @@ def select_versioned_model_default():
     return api_response(data=selected.model_dump(mode="json", by_alias=True))
 
 
-@providers_bp.route("/models/consumers/v1", methods=["GET"])
-@check_auth
-def get_model_consumers():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    consumers = _model_consumer_registry().all()
-    return api_response(
-        data={
-            "schema": "ananta.model-consumer-registry.v1",
-            "consumers": [item.model_dump(mode="json", by_alias=True) for item in consumers],
-        }
-    )
-
-
-@providers_bp.route("/models/routing/v1", methods=["GET"])
-@check_auth
-def get_model_routing_configuration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    value = _model_routing_service().read()
-    return api_response(data=value.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/effective", methods=["GET"])
-@check_auth
-def get_effective_model_routing_projection():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    if not _query_args_are_valid():
-        return _model_catalog_input_error("model_routing_effective_query_invalid")
-    try:
-        routing = _model_routing_service().read()
-        effective = _effective_model_routing_service()
-        routes = tuple(
-            effective.dry_run(
-                ModelRoutingDryRunCommand(
-                    consumer_id=consumer.consumer_id,
-                )
-            )
-            for consumer in _model_consumer_registry().all()
-            if consumer.routable
-        )
-    except ModelRoutingConfigurationError as exc:
-        return api_response(status="error", message=str(exc)[:160], code=503)
-    projection = EffectiveModelRoutingProjection(
-        configuration_revision=routing.revision,
-        routes=routes,
-    )
-    return api_response(data=projection.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/templates", methods=["GET"])
-@check_auth
-def get_model_routing_templates():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    if not _query_args_are_valid():
-        return _model_catalog_input_error("model_routing_template_query_invalid")
-    revision = _model_routing_service().read().revision
-    catalog = _model_routing_template_service().catalog(configuration_revision=revision)
-    return api_response(data=catalog.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/migration/preview", methods=["GET"])
-@check_auth
-def preview_legacy_model_routing_migration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    preview = _model_routing_legacy_migration_service().preview()
-    return api_response(data=preview.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/migration/apply", methods=["POST"])
-@check_auth
-def apply_legacy_model_routing_migration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
-    try:
-        command = ModelRoutingLegacyMigrationApplyCommand.model_validate(request.get_json(silent=True))
-        updated = _model_routing_legacy_migration_service().apply(command)
-    except ValidationError:
-        return _model_catalog_input_error("model_routing_legacy_migration_command_invalid")
-    except ModelRoutingLegacyMigrationError as exc:
-        code = 409 if str(exc) == "model_routing_revision_conflict" else 400
-        return api_response(status="error", message=str(exc), code=code)
-    log_audit(
-        "model_routing_legacy_migration_applied",
-        {
-            "previous_revision": command.expected_revision,
-            "revision": updated.revision,
-            "assignment_count": len(updated.assignments),
-        },
-    )
-    return api_response(data=updated.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/shadow", methods=["GET"])
-@check_auth
-def get_model_routing_shadow_report():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    report = _model_routing_legacy_migration_service().shadow_report()
-    return api_response(data=report.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/release-gate", methods=["GET"])
-@check_auth
-def get_model_routing_release_gate():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    report = _model_routing_legacy_migration_service().release_gate()
-    return api_response(data=report.model_dump(mode="json", by_alias=True))
-
-
-def _model_routing_diagnostics_read_model():
-    configuration = _model_routing_service().read()
-    catalog = _model_inventory_service().catalog(force_refresh=False)
-    consumers = _model_consumer_registry().all()
-    effective = _effective_model_routing_service()
-    routes = tuple(
-        effective.dry_run(ModelRoutingDryRunCommand(consumer_id=item.consumer_id))
-        for item in consumers
-        if item.routable
-    )
-    return ModelRoutingDiagnosticsService().build(
-        configuration=configuration,
-        catalog=catalog,
-        consumers=consumers,
-        effective_routes=routes,
-        known_profile_ids=(item.profile_id for item in _known_model_profiles()),
-        usage=get_model_routing_usage_projection().read(),
-    )
-
-
-@providers_bp.route("/models/routing/v1/diagnostics", methods=["GET"])
-@check_auth
-def get_model_routing_diagnostics():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    if not _query_args_are_valid():
-        return _model_catalog_input_error("model_routing_diagnostics_query_invalid")
-    try:
-        diagnostics = _model_routing_diagnostics_read_model()
-    except ModelRoutingConfigurationError as exc:
-        return api_response(status="error", message=str(exc)[:160], code=503)
-    return api_response(data=diagnostics.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/diagnostics/export", methods=["GET"])
-@check_auth
-def export_model_routing_diagnostics():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_EXPORT_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_EXPORT_CAPABILITY)
-    if not _query_args_are_valid():
-        return _model_catalog_input_error("model_routing_diagnostics_query_invalid")
-    try:
-        diagnostics = _model_routing_diagnostics_read_model()
-    except ModelRoutingConfigurationError as exc:
-        return api_response(status="error", message=str(exc)[:160], code=503)
-    log_audit(
-        "model_routing_diagnostics_exported",
-        {
-            "configuration_revision": diagnostics.configuration_revision,
-            "catalog_revision": diagnostics.catalog_revision,
-            "issue_count": len(diagnostics.issues),
-            "contains_secrets": False,
-        },
-    )
-    result = api_response(data=diagnostics.model_dump(mode="json", by_alias=True))
-    response = result[0] if isinstance(result, tuple) else result
-    response.headers["Content-Disposition"] = 'attachment; filename="ananta-model-routing-diagnostics.json"'
-    return result
-
-
-@providers_bp.route("/models/routing/v1/dry-run", methods=["POST"])
-@check_auth
-def dry_run_model_routing_configuration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    try:
-        command = ModelRoutingDryRunCommand.model_validate(request.get_json(silent=True))
-        if command.configuration is not None:
-            assignment_service = _model_routing_service()
-            assignment_service.validate(
-                ModelRoutingMutationCommand(
-                    schema="ananta.model-routing-mutation-command.v1",
-                    expected_revision=assignment_service.read().revision,
-                    assignments=command.configuration.assignments,
-                    fallback_groups=command.configuration.fallback_groups,
-                )
-            )
-        route = _effective_model_routing_service().dry_run(command)
-    except ValidationError:
-        return _model_catalog_input_error("model_routing_dry_run_command_invalid")
-    except ValueError as exc:
-        return api_response(
-            status="error",
-            message=str(exc)[:160],
-            code=400,
-        )
-    except ModelRoutingConfigurationError as exc:
-        return api_response(
-            status="error",
-            message=str(exc)[:160],
-            code=503,
-        )
-    return api_response(data=route.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/validate", methods=["POST"])
-@check_auth
-def validate_model_routing_configuration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _model_routing_editor_enabled():
-        return _routing_editor_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_VALIDATE_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_VALIDATE_CAPABILITY)
-    try:
-        command = ModelRoutingMutationCommand.model_validate(request.get_json(silent=True))
-        report = _model_routing_transfer_service().validate(command)
-    except ValidationError as exc:
-        return api_response(
-            status="error",
-            message="model_routing_configuration_invalid",
-            data={"reason_code": str(exc).splitlines()[0][:160]},
-            code=400,
-        )
-    log_audit(
-        "model_routing_configuration_validated",
-        {
-            "expected_revision": command.expected_revision,
-            "current_revision": report.current_revision,
-            "valid": report.valid,
-            "issue_count": len(report.issues),
-        },
-    )
-    from agent import metrics
-
-    for issue in report.issues:
-        metrics.MODEL_ROUTING_VALIDATION_ERRORS_TOTAL.labels(severity=issue.severity).inc()
-    return api_response(data=report.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/export", methods=["GET"])
-@check_auth
-def export_model_routing_configuration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_EXPORT_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_EXPORT_CAPABILITY)
-    bundle = _model_routing_transfer_service().export()
-    log_audit(
-        "model_routing_configuration_exported",
-        {
-            "revision": bundle.configuration.revision,
-            "assignment_count": len(bundle.configuration.assignments),
-            "fallback_group_count": len(bundle.configuration.fallback_groups),
-        },
-    )
-    return api_response(data=bundle.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/import/preview", methods=["POST"])
-@check_auth
-def preview_model_routing_import():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _model_routing_editor_enabled():
-        return _routing_editor_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_VALIDATE_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_VALIDATE_CAPABILITY)
-    try:
-        command = ModelRoutingImportCommand.model_validate(request.get_json(silent=True))
-        preview = _model_routing_transfer_service().preview(command)
-    except ValidationError:
-        return _model_catalog_input_error("model_routing_import_command_invalid")
-    log_audit(
-        "model_routing_import_previewed",
-        {
-            "expected_revision": command.expected_revision,
-            "source_revision": command.configuration.revision,
-            "applicable": preview.applicable,
-            "issue_count": len(preview.issues),
-        },
-    )
-    return api_response(data=preview.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1/import/apply", methods=["POST"])
-@check_auth
-def apply_model_routing_import():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _model_routing_editor_enabled():
-        return _routing_editor_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
-    try:
-        command = ModelRoutingImportCommand.model_validate(request.get_json(silent=True))
-        updated = _model_routing_transfer_service().apply(command)
-    except ValidationError:
-        return _model_catalog_input_error("model_routing_import_command_invalid")
-    except ModelRoutingConfirmationError as exc:
-        return api_response(status="error", message=str(exc), code=400)
-    except ModelRoutingConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data={"current_revision": exc.current_revision},
-            code=409,
-        )
-    except ValueError as exc:
-        return api_response(
-            status="error",
-            message="model_routing_configuration_invalid",
-            data={"reason_code": str(exc)[:160]},
-            code=400,
-        )
-    log_audit(
-        "model_routing_import_applied",
-        {
-            "previous_revision": command.expected_revision,
-            "source_revision": command.configuration.revision,
-            "revision": updated.revision,
-            "assignment_count": len(updated.assignments),
-            "fallback_group_count": len(updated.fallback_groups),
-        },
-    )
-    return api_response(data=updated.model_dump(mode="json", by_alias=True))
-
-
-@providers_bp.route("/models/routing/v1", methods=["PUT"])
-@check_auth
-def put_model_routing_configuration():
-    if not _model_catalog_feature_enabled():
-        return _feature_disabled_response()
-    if not _model_routing_editor_enabled():
-        return _routing_editor_disabled_response()
-    if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
-        return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
-    current = _model_routing_service().read()
-    try:
-        command = ModelRoutingMutationCommand.model_validate(request.get_json(silent=True))
-        updated = _model_routing_service().apply(command)
-    except ValidationError:
-        return _model_catalog_input_error("model_routing_mutation_command_invalid")
-    except ModelRoutingConflict as exc:
-        return api_response(
-            status="error",
-            message=exc.reason_code,
-            data={"current_revision": exc.current_revision},
-            code=409,
-        )
-    except ValueError as exc:
-        return api_response(
-            status="error",
-            message="model_routing_configuration_invalid",
-            data={"reason_code": str(exc)[:160]},
-            code=400,
-        )
-    diff = ModelRoutingTransferService.diff(current, updated)
-    log_audit(
-        "model_routing_configuration_updated",
-        {
-            "previous_revision": command.expected_revision,
-            "revision": updated.revision,
-            "assignment_count": len(updated.assignments),
-            "fallback_group_count": len(updated.fallback_groups),
-            "diff": diff.model_dump(mode="json"),
-        },
-    )
-    return api_response(data=updated.model_dump(mode="json", by_alias=True))
+# Model-routing configuration API: same blueprint, rules and endpoint names.
+register_model_routing_routes(providers_bp, services=_ProviderModuleRoutingServices())
