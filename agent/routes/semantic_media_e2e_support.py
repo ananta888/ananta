@@ -21,13 +21,13 @@ from flask import Blueprint, jsonify, request
 
 from agent.auth import admin_required
 from agent.config import settings
-from agent.repositories.webrtc_peer_key_repository import WebrtcPeerKeyRepository
 from agent.services.share_session_service import get_share_session_service
 from agent.services.speech_evidence_consent_service import (
     get_speech_evidence_consent_service,
 )
 from agent.services.voice_governance_domain import VoicePrincipal
 from agent.services.webrtc_peer_identity_service import spki_fingerprint
+from agent.services.webrtc_peer_key_confirmation_service import get_webrtc_peer_key_confirmation_service
 
 semantic_media_e2e_support_bp = Blueprint("semantic_media_e2e_support", __name__)
 _GROUP_ROLES = (
@@ -193,7 +193,7 @@ def seed_semantic_media_peer_sync():
     epoch = int((current or {}).get("security_epoch") or 0)
     if epoch < 1:
         return jsonify({"ok": False, "error": "semantic_media_e2e_seed_epoch_unavailable"}), 503
-    confirmations = WebrtcPeerKeyRepository()
+    confirmations = get_webrtc_peer_key_confirmation_service()
     for sender, recipient in ((sender_id, recipient_id), (recipient_id, sender_id)):
         confirmations.put_confirmation(
             scope_id=str(session["id"]),

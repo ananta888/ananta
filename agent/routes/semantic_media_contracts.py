@@ -11,7 +11,7 @@ from typing import Any
 from flask import Blueprint, current_app, g, jsonify, request
 
 from agent.auth import check_service_auth, check_user_auth
-from agent.repositories.semantic_contract_repository import SemanticPrincipal
+from agent.models.semantic_principal import SemanticPrincipal
 from agent.services.repository_registry import get_repository_registry
 from agent.services.semantic_compute_execution_service import (
     SemanticComputeExecutionError,

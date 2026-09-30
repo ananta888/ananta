@@ -11,11 +11,8 @@ from flask import Blueprint, current_app, jsonify, request
 
 from agent.auth import check_user_auth, get_request_auth_context
 from agent.config import settings
-from agent.repositories.semantic_relay_repository import SemanticRelayRepositoryError
-from agent.repositories.webrtc_peer_key_repository import (
-    WebrtcPeerKeyRepository,
-    WebrtcPeerKeyRepositoryError,
-)
+from agent.models.semantic_relay_errors import SemanticRelayRepositoryError
+from agent.models.webrtc_peer_key_confirmation import WebrtcPeerKeyRepositoryError
 from agent.services.rate_limit_service import RateLimitService
 from agent.services.semantic_media_audit_service import SemanticMediaAuditError
 from agent.services.semantic_relay_authorization import SemanticRelayAuthorizationError
@@ -55,6 +52,7 @@ from agent.services.webrtc_peer_identity_service import (
     derive_hub_identity_key,
     derive_peer_key_package_id,
 )
+from agent.services.webrtc_peer_key_confirmation_service import get_webrtc_peer_key_confirmation_service
 from ananta_contracts.webrtc_datachannel import DataChannelContractError
 from ananta_contracts.webrtc_security import SecureEnvelopeV1
 
@@ -72,7 +70,7 @@ _CHAT_POLL_RATE = {"namespace": "share_chat_poll", "limit": 120, "window_seconds
 
 _view_started_audited: set[str] = set()
 _participant_last_seen: dict[str, float] = {}  # participant_id -> timestamp
-_peer_key_repository = WebrtcPeerKeyRepository()
+_peer_key_repository = get_webrtc_peer_key_confirmation_service()
 _share_envelope_security = ShareSecureEnvelopeService(get_webrtc_epoch_service())
 
 _STRICT_VIEW_TRAFFIC = {
