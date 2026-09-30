@@ -16,7 +16,14 @@ from agent.codecompass.file_type_telemetry import (
 from agent.codecompass.parser_limits import ParserGuardViolation, ParserLimits
 from agent.config import settings
 from agent.hybrid_repository_scan import tracked_code_files, tracked_registry_files
-from agent.repository_map_path_focus import path_is_in_focus, resolve_path_focus
+from agent.repository_map_legacy_ranking import (
+    LegacyRankingVocabulary,
+    add_path_focus_anchors,
+    query_tokens,
+    score_legacy_candidate,
+    select_with_path_focus,
+)
+from agent.repository_map_path_focus import resolve_path_focus
 from agent.repository_map_tree_sitter import resolve_tree_sitter_parser
 
 _LEGACY_CODE_EXTENSIONS = {
@@ -691,12 +698,22 @@ class RepositoryMapEngine:
             for item in result.ranked
         ]
 
+    def _legacy_ranking_vocabulary(self) -> LegacyRankingVocabulary:
+        return LegacyRankingVocabulary(
+            test_path_markers=self._REPO_TEST_PATH_MARKERS,
+            test_file_patterns=self._REPO_TEST_FILE_PATTERNS,
+            core_dirs=self._ANANTA_CORE_DIRS,
+            client_surface_dirs=self._ANANTA_CLIENT_SURFACE_DIRS,
+        )
+
     def _search_legacy(
         self,
         query: str,
         top_k: int = 5,
         allowed_paths: list[str] | None = None,
     ) -> list[ContextChunk]:
+        """Legacy heuristics (see ``repository_map_legacy_ranking``): token density, source-first stem boost,
+        third-party demote and path focus."""
         self.build()
         if not self._symbol_graph:
             return []
@@ -711,10 +728,7 @@ class RepositoryMapEngine:
             ]
             if not symbol_items:
                 return []
-        tokens = {
-            t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
-            if len(t) >= 3 and t.lower() not in self._REPO_STOP_TOKENS
-        }
+        tokens = query_tokens(query, self._REPO_STOP_TOKENS)
         try:
             path_focus_aliases = dict(getattr(settings, "rag_path_focus_aliases", None) or {})
         except Exception:
@@ -724,239 +738,42 @@ class RepositoryMapEngine:
             [str(path) for path, _symbols in symbol_items],
             aliases=path_focus_aliases,
         )
-        # Source-First Selector: when a query contains a domain-like token
-        # (a non-stopword token of length ≥ 4), source files whose filename
-        # stem contains that token outrank test files that merely mention
-        # the token in their test_<token>_* symbol names. The bug being
-        # fixed: a single token "codecompass" produced a top-1 result of
-        # `tests/codecompass/test_codecompass_trigger_mode.py` (8.4) above
-        # `worker/retrieval/codecompass_budgeting.py` (3.4) because test
-        # files accumulate more `test_codecompass_*` symbols than source
-        # files have `*codecompass*` symbols — so test files beat source
-        # files. See test_repository_map_source_first_selector.py.
-        domain_stems: set[str] = {
-            t for t in tokens if len(t) >= 4
-        }
+        # Source-First Selector: a domain-like token (length >= 4) in a source file stem outranks test files that
+        # merely mention it in their test_<token>_* symbol names (see test_repository_map_source_first_selector.py).
+        domain_stems: set[str] = {t for t in tokens if len(t) >= 4}
+        vocabulary = self._legacy_ranking_vocabulary()
         candidates: list[ContextChunk] = []
         for rel_path, symbols in symbol_items:
-            score = 0.0
-            path_lower = rel_path.lower()
-            sym_lower = [s.lower() for s in symbols]
-            path_token_hits = 0
-            for token in tokens:
-                if token in path_lower:
-                    score += 1.4
-                    path_token_hits += 1
-                # Repeated generated/helper symbols must not overwhelm a
-                # direct path/stem match. Eight hits retain useful density
-                # evidence without turning symbol count into relevance.
-                score += min(8.0, sum(1.0 for sym in sym_lower if token in sym))
+            score = score_legacy_candidate(
+                rel_path,
+                symbols,
+                tokens=tokens,
+                domain_stems=domain_stems,
+                path_focus=path_focus,
+                vocabulary=vocabulary,
+            )
             if score <= 0:
                 continue
-            # Boost files whose filename stem matches ≥2 distinct query tokens:
-            # incentivises source files over tangentially-matching test/util files.
-            if path_token_hits >= 2:
-                from pathlib import Path as _Path
-                stem_tokens = set(re.findall(r"[a-z0-9]+", _Path(rel_path).stem.lower()))
-                stem_hits = len(tokens.intersection(stem_tokens))
-                if stem_hits >= 2:
-                    score *= 1.0 + 0.5 * stem_hits
-            # Source-First Selector: a 3x boost when the filename stem
-            # contains a domain token from the query. This compensates for
-            # the symbol-frequency bias that test files exploit: a test
-            # file with 6 `test_codecompass_*` symbols accumulates
-            # +6 points, but a source file with 2 `*codecompass*` symbols
-            # accumulates +2. The stem boost flips the ranking back to
-            # source-first. The boost is gated on at least one domain
-            # token so generic queries are unaffected.
-            #
-            # Test files (under tests/ or starting with test_) are
-            # excluded from the stem boost entirely — they are evidence
-            # of behaviour, not the implementation. They still receive
-            # their natural score so they appear later in the ranking
-            # rather than being filtered out (callers may want to see
-            # which tests cover the area).
-            from pathlib import Path as _Path2
-            stem_text = _Path2(rel_path).stem.lower()
-            # Test files are detected by three signals, any of which is
-            # sufficient:
-            #   1. Path under a test directory (tests/, test/, …)
-            #   2. Python-style test prefix (test_*.py)
-            #   3. Frontend test file pattern (*.spec.ts, *.spec.js, …)
-            # The third signal catches Angular/Karma convention which
-            # does not use a path-marker; without it, *.spec.ts files
-            # in frontend-angular/ would outrank real Angular components
-            # for queries like "zeig mir die api routes".
-            is_test_path = (
-                any(
-                    marker in path_lower
-                    for marker in self._REPO_TEST_PATH_MARKERS
-                )
-                or stem_text.startswith("test_")
-                or any(pat in rel_path.lower() for pat in self._REPO_TEST_FILE_PATTERNS)
-            )
-            stem_hit_domains = {d for d in domain_stems if d in stem_text}
-            if stem_hit_domains and not is_test_path:
-                score *= 1.0 + 2.0 * len(stem_hit_domains)
-            elif is_test_path and not stem_hit_domains:
-                # No domain match in the stem → file is collateral. Demote
-                # test files so they cannot outrank source files that
-                # actually implement the domain. Test files that DO match
-                # the domain in their stem (e.g. test_codecompass_*.py)
-                # keep their natural score: they document behaviour and
-                # are useful as supporting context after source files.
-                score *= 0.15
-            else:
-                # Test file with domain in its stem (e.g. test_codecompass_*.py
-                # or app.routes.spec.ts) — natural score, no extra boost.
-                # Fall through.
-                pass
-
-            # Third-party integration demote: files under top-level
-            # directories that are NOT in _ANANTA_CORE_DIRS and not
-            # under an Ananta client surface are third-party
-            # integrations (e.g. client_surfaces/blender/, client_surfaces/
-            # freecad/, client_surfaces/eclipse_runtime/, voice_runtime/,
-            # scripts/, plugins/<external>/, …). When such a file
-            # matches a query token that ALSO matches an Ananta-core
-            # file, the third-party file is ranked lower because
-            # blender/addon/tasks.py has nothing to do with Ananta's
-            # task system even though the filename matches.
-            #
-            # The detection is: take the first path segment; if it is
-            # not in _ANANTA_CORE_DIRS and not the literal "client_surfaces"
-            # whose second segment is in _ANANTA_CLIENT_SURFACE_DIRS,
-            # this is a third-party file. The demote is multiplicative
-            # (×0.2) so it does not erase a strong symbol-hit on
-            # the third-party file — it just stops the third-party
-            # file from beating an Ananta-core file that has fewer
-            # symbol hits.
-            top_segment = rel_path.split("/", 1)[0] if "/" in rel_path else rel_path
-            is_third_party = False
-            if top_segment not in self._ANANTA_CORE_DIRS:
-                if top_segment == "client_surfaces":
-                    # client_surfaces/<subdir>/… — only Ananta if subdir
-                    # is in _ANANTA_CLIENT_SURFACE_DIRS.
-                    sub = rel_path.split("/", 2)
-                    is_third_party = len(sub) >= 2 and sub[1] not in self._ANANTA_CLIENT_SURFACE_DIRS
-                elif top_segment in {"docs", "artifacts", "data", "ci-artifacts",
-                                      "autoimport-state", "project-workspaces",
-                                      "todos", "test-reports", "logs",
-                                      "reference_sources", "data_test",
-                                      "ananta.egg-info", "secrets",
-                                      "git-hooks", "node_modules",
-                                      "__pycache__", "venv"}:
-                    # Documentation, runtime data, build outputs, deps
-                    # — not source code at all. These never answer
-                    # architectural questions.
-                    is_third_party = True
-                elif top_segment not in {"scripts", "public-rendezvous",
-                                          "website", "web", "examples",
-                                          "experiments", "prompts"}:
-                    # Everything else at the top level we don't know:
-                    # treat as third-party to be safe. (We deliberately
-                    # ALLOW the explicit allow-list above — scripts/ is
-                    # tooling, public-rendezvous/ is an Ananta runtime
-                    # asset, examples/ and experiments/ are first-party
-                    # reference material.)
-                    is_third_party = True
-                # else: top_segment in {scripts, public-rendezvous, …} → Ananta
-            if is_third_party:
-                score *= 0.2
-            if path_is_in_focus(rel_path, path_focus):
-                score *= 2.4
-                if path_is_in_focus(rel_path, path_focus, preferred_only=True):
-                    score *= 1.35
-            preview = ", ".join(symbols[:20])
             candidates.append(
                 ContextChunk(
                     engine="repository_map",
                     source=rel_path,
-                    content=f"{rel_path}\nSymbols: {preview}",
+                    content=f"{rel_path}\nSymbols: {', '.join(symbols[:20])}",
                     score=score,
                     metadata={"symbol_count": str(len(symbols))},
                 )
             )
         if path_focus:
-            candidates_by_source = {chunk.source: chunk for chunk in candidates}
-            anchor_paths = [
-                str(path)
-                for path in list(path_focus.get("anchor_paths") or [])
-                if str(path).strip()
-            ]
-            symbol_by_path = dict(symbol_items)
-            max_score = max([chunk.score for chunk in candidates], default=1.0)
-            anchor_score = max_score * 0.72
-            alias_anchor_set = set(path_focus.get("alias_anchor_paths") or [])
             try:
                 alias_boost = float(getattr(settings, "rag_path_focus_alias_anchor_boost", None) or 0.85)
             except Exception:
                 alias_boost = 0.85
-            alias_anchor_score = max_score * alias_boost
-            for anchor_path in anchor_paths:
-                effective_score = alias_anchor_score if anchor_path in alias_anchor_set else anchor_score
-                existing_anchor = candidates_by_source.get(anchor_path)
-                if existing_anchor is not None:
-                    existing_anchor.score = max(float(existing_anchor.score or 0.0), effective_score)
-                    existing_anchor.metadata = {
-                        **dict(existing_anchor.metadata or {}),
-                        "path_focus_anchor": str(path_focus.get("id") or ""),
-                    }
-                    continue
-                symbols = list(symbol_by_path.get(anchor_path) or [])
-                symbol_summary = ", ".join(symbols[:20])
-                file_content: str | None = None
-                try:
-                    anchor_file = self.repo_root / anchor_path
-                    if anchor_file.exists() and anchor_file.is_file():
-                        file_content = anchor_file.read_text(encoding="utf-8", errors="ignore")[:2000]
-                except Exception:
-                    pass
-                if not file_content and not symbol_summary:
-                    continue
-                if file_content:
-                    content_parts = [anchor_path]
-                    if symbol_summary:
-                        content_parts.append(f"Symbols: {symbol_summary}")
-                    content_parts.append(file_content)
-                    chunk_content = "\n".join(content_parts)
-                else:
-                    chunk_content = f"{anchor_path}\nSymbols: {symbol_summary}"
-                is_alias = anchor_path in alias_anchor_set
-                candidates.append(
-                    ContextChunk(
-                        engine="repository_map",
-                        source=anchor_path,
-                        content=chunk_content,
-                        score=effective_score,
-                        metadata={
-                            "symbol_count": str(len(symbols)),
-                            "path_focus_anchor": str(path_focus.get("id") or ""),
-                            "alias_anchor": "true" if is_alias else "false",
-                        },
-                    )
-                )
-                candidates_by_source[anchor_path] = candidates[-1]
-
-        ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
-        if not path_focus:
-            return ranked[:top_k]
-
-        limit = max(1, int(top_k or 1))
-        selected = ranked[:limit]
-        selected_sources = {chunk.source for chunk in selected}
-        focused = [
-            chunk for chunk in ranked
-            if chunk.source not in selected_sources and path_is_in_focus(chunk.source, path_focus)
-        ]
-        min_results = max(1, int(path_focus.get("min_results") or 1))
-        current_focus_count = sum(1 for chunk in selected if path_is_in_focus(chunk.source, path_focus))
-        for chunk in focused:
-            if current_focus_count >= min_results:
-                break
-            if len(selected) >= limit:
-                selected.pop()
-            selected.append(chunk)
-            selected_sources.add(chunk.source)
-            current_focus_count += 1
-        return sorted(selected, key=lambda c: c.score, reverse=True)[:limit]
+            add_path_focus_anchors(
+                candidates,
+                path_focus=path_focus,
+                symbol_by_path=dict(symbol_items),
+                repo_root=self.repo_root,
+                alias_boost=alias_boost,
+                make_chunk=ContextChunk,
+            )
+        return select_with_path_focus(candidates, path_focus=path_focus, top_k=top_k)
