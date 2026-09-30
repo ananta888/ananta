@@ -8,21 +8,16 @@ the Angular/TUI read model.
 
 from __future__ import annotations
 
-import base64
 import hashlib
-import hmac
-import json
 from collections.abc import Callable, Mapping
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import and_, or_
 from sqlmodel import Session, select
 
 from agent.config import settings
 from agent.db_models import (
-    GoalDB,
     OrganizationInstanceDB,
     PlanningArtifactRevisionDB,
     WorkerTaskProposalDB,
@@ -47,8 +42,14 @@ from agent.services.organization_membership_service import (
     OrganizationAccessPrincipal,
     OrganizationMembershipService,
 )
+from agent.services.organization_planning_cursor_codec import PlanningCursorCodec
 from agent.services.organization_planning_dispatch_service import (
     PlanningDispatchOutboxService,
+)
+from agent.services.organization_planning_errors import OrganizationPlanningCompositionError
+from agent.services.organization_planning_read_model import (
+    OrganizationPlanningReadModel,
+    hub_admin_operation_context,
 )
 from agent.services.organization_reference_workflow_service import (
     OrganizationReferenceWorkflowService,
@@ -58,7 +59,6 @@ from agent.services.organization_track_planning_service import (
 )
 from agent.services.planning_artifact_transition_service import (
     PlanningArtifactTransitionService,
-    PlanningOperationContext,
     PlanningTransitionError,
 )
 from agent.services.planning_hierarchy_projection_service import (
@@ -81,87 +81,6 @@ _ROOT = Path(__file__).resolve().parents[2]
 _TRACK_PROMPT_HASH = hashlib.sha256((_ROOT / "prompts" / "planning" / "track_planning.j2").read_bytes()).hexdigest()
 
 
-class OrganizationPlanningCompositionError(ValueError):
-    def __init__(self, reason_code: str, *, status_code: int) -> None:
-        super().__init__(reason_code)
-        self.reason_code = reason_code
-        self.status_code = status_code
-
-
-class _PlanningCursorCodec:
-    _PREFIX = "opc1"
-
-    def __init__(self, secret: str) -> None:
-        self._secret = hashlib.sha256(str(secret or "").encode("utf-8")).digest()
-
-    def encode(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        organization_id: str,
-        created_at: float,
-        goal_id: str,
-    ) -> str:
-        claims = {
-            "tenant_id": tenant_id,
-            "project_id": project_id,
-            "organization_id": organization_id,
-            "created_at": float(created_at),
-            "goal_id": goal_id,
-        }
-        payload = self._encode(json.dumps(claims, sort_keys=True, separators=(",", ":")).encode("utf-8"))
-        return f"{self._PREFIX}.{payload}.{self._signature(payload)}"
-
-    def decode(
-        self,
-        cursor: str,
-        *,
-        tenant_id: str,
-        project_id: str,
-        organization_id: str,
-    ) -> tuple[float, str]:
-        parts = str(cursor or "").split(".")
-        if len(parts) != 3 or parts[0] != self._PREFIX:
-            self._invalid()
-        payload, signature = parts[1], parts[2]
-        if not hmac.compare_digest(signature, self._signature(payload)):
-            self._invalid()
-        try:
-            claims = json.loads(self._decode(payload).decode("utf-8"))
-            created_at = float(claims["created_at"])
-            goal_id = str(claims["goal_id"])
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
-            self._invalid()
-        if (
-            str(claims.get("tenant_id") or "") != tenant_id
-            or str(claims.get("project_id") or "") != project_id
-            or str(claims.get("organization_id") or "") != organization_id
-            or not goal_id
-        ):
-            self._invalid()
-        return created_at, goal_id
-
-    def _signature(self, payload: str) -> str:
-        digest = hmac.new(self._secret, payload.encode("ascii"), hashlib.sha256).digest()
-        return self._encode(digest)
-
-    @staticmethod
-    def _encode(value: bytes) -> str:
-        return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
-
-    @staticmethod
-    def _decode(value: str) -> bytes:
-        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
-
-    @staticmethod
-    def _invalid() -> None:
-        raise OrganizationPlanningCompositionError(
-            "organization_planning_cursor_invalid",
-            status_code=400,
-        )
-
-
 class OrganizationPlanningComposition:
     """Compose scoped reads and Hub-owned planning/proposal transitions."""
 
@@ -181,7 +100,8 @@ class OrganizationPlanningComposition:
         materialization_service: PlanningTaskMaterializationService | None = None,
         dispatch_service: PlanningDispatchOutboxService | None = None,
         reference_workflow_service: OrganizationReferenceWorkflowService | None = None,
-        cursor_codec: _PlanningCursorCodec | None = None,
+        cursor_codec: PlanningCursorCodec | None = None,
+        read_model: OrganizationPlanningReadModel | None = None,
     ) -> None:
         self._session_factory = session_factory or self._default_session
         self._membership = membership_service or OrganizationMembershipService()
@@ -207,7 +127,12 @@ class OrganizationPlanningComposition:
         self._reference_workflows = reference_workflow_service or (
             OrganizationReferenceWorkflowService(catalog=get_organization_definition_catalog())
         )
-        self._cursors = cursor_codec or _PlanningCursorCodec(settings.secret_key)
+        self._cursors = cursor_codec or PlanningCursorCodec(settings.secret_key)
+        self._planning_read_model = read_model or OrganizationPlanningReadModel(
+            session_factory=self._session_factory,
+            projection_service=self._projection,
+            cursor_codec=self._cursors,
+        )
 
     @staticmethod
     def _default_session() -> Session:
@@ -228,7 +153,7 @@ class OrganizationPlanningComposition:
             organization_id=organization_id,
             mutation_grant=None,
         )
-        return self._read_model(
+        return self._planning_read_model.read(
             principal=principal,
             organization=organization,
             cursor=cursor,
@@ -281,7 +206,7 @@ class OrganizationPlanningComposition:
             expected_revision=expected_revision,
             expected_digest=expected_digest,
         )
-        context = self._operation_context(principal=principal, organization=organization)
+        context = hub_admin_operation_context(principal=principal, organization=organization)
         approval_id = str(approval_request_id or "").strip()
         if not approval_id:
             approval = self._transitions.request_operation_approval(
@@ -294,7 +219,7 @@ class OrganizationPlanningComposition:
             approval_id = str(approval.id)
             approval_status = str(approval.status or "")
             if approval_status == "pending":
-                response = self._read_model(
+                response = self._planning_read_model.read(
                     principal=principal,
                     organization=organization,
                     cursor=None,
@@ -324,7 +249,7 @@ class OrganizationPlanningComposition:
             approval_required=True,
             idempotency_key=idempotency_key,
         )
-        response = self._read_model(
+        response = self._planning_read_model.read(
             principal=principal,
             organization=organization,
             cursor=None,
@@ -355,7 +280,7 @@ class OrganizationPlanningComposition:
             mutation_grant="planning:category_research",
         )
         return self._category_research.create_task(
-            context=self._operation_context(
+            context=hub_admin_operation_context(
                 principal=principal,
                 organization=organization,
             ),
@@ -384,7 +309,7 @@ class OrganizationPlanningComposition:
             mutation_grant=None,
         )
         return self._category_research_readiness.evaluate(
-            context=self._operation_context(
+            context=hub_admin_operation_context(
                 principal=principal,
                 organization=organization,
             ),
@@ -495,7 +420,7 @@ class OrganizationPlanningComposition:
         if category.policy_hash != str(expected_policy_hash or ""):
             raise PlanningTransitionError("category_policy_hash_stale")
         return self._track_planning.create_task(
-            context=self._operation_context(
+            context=hub_admin_operation_context(
                 principal=principal,
                 organization=organization,
             ),
@@ -699,7 +624,7 @@ class OrganizationPlanningComposition:
         )
         if track.policy_hash != str(expected_policy_hash or ""):
             raise PlanningTransitionError("planning_policy_hash_stale")
-        context = self._operation_context(
+        context = hub_admin_operation_context(
             principal=principal,
             organization=organization,
         )
@@ -753,7 +678,7 @@ class OrganizationPlanningComposition:
             organization_id=organization_id,
             mutation_grant="planning:track_dispatch",
         )
-        context = self._operation_context(
+        context = hub_admin_operation_context(
             principal=principal,
             organization=organization,
         )
@@ -786,7 +711,7 @@ class OrganizationPlanningComposition:
             organization_id=organization_id,
             mutation_grant="planning:track_dispatch",
         )
-        context = self._operation_context(
+        context = hub_admin_operation_context(
             principal=principal,
             organization=organization,
         )
@@ -817,7 +742,7 @@ class OrganizationPlanningComposition:
             mutation_grant="planning:track_dispatch",
         )
         receipts = self._dispatch.pump_due(
-            context=self._operation_context(
+            context=hub_admin_operation_context(
                 principal=principal,
                 organization=organization,
             ),
@@ -865,7 +790,7 @@ class OrganizationPlanningComposition:
                 "proposal_self_approval_forbidden",
                 status_code=403,
             )
-        context = self._operation_context(principal=principal, organization=organization)
+        context = hub_admin_operation_context(principal=principal, organization=organization)
         if operation == "reject":
             decision = self._proposal_decisions.reject(
                 proposal_id=proposal.proposal_id,
@@ -896,7 +821,7 @@ class OrganizationPlanningComposition:
                     expected_revision=expected_revision,
                     expected_digest=expected_digest,
                 )
-        response = self._read_model(
+        response = self._planning_read_model.read(
             principal=principal,
             organization=organization,
             cursor=None,
@@ -982,248 +907,6 @@ class OrganizationPlanningComposition:
             self._not_found()
         return row
 
-    def _read_model(
-        self,
-        *,
-        principal: OrganizationAccessPrincipal,
-        organization: OrganizationInstanceDB,
-        cursor: str | None,
-        page_size: int,
-    ) -> dict[str, Any]:
-        limit = max(1, min(int(page_size), 50))
-        with self._session_factory() as session:
-            statement = select(GoalDB).where(
-                GoalDB.tenant_id == organization.tenant_id,
-                GoalDB.project_id == organization.project_id,
-                GoalDB.organization_id == organization.organization_id,
-                or_(GoalDB.parent_goal_id.is_(None), GoalDB.goal_kind == "organization"),
-            )
-            if cursor:
-                created_at, goal_id = self._cursors.decode(
-                    cursor,
-                    tenant_id=organization.tenant_id,
-                    project_id=organization.project_id,
-                    organization_id=organization.organization_id,
-                )
-                statement = statement.where(
-                    or_(
-                        GoalDB.created_at < created_at,
-                        and_(GoalDB.created_at == created_at, GoalDB.id < goal_id),
-                    )
-                )
-            goals = list(
-                session.exec(
-                    statement.order_by(GoalDB.created_at.desc(), GoalDB.id.desc()).limit(limit + 1)  # type: ignore[attr-defined]
-                ).all()
-            )
-            has_more = len(goals) > limit
-            goals = goals[:limit]
-            goal_ids = [row.id for row in goals]
-            revisions = (
-                list(
-                    session.exec(
-                        select(PlanningArtifactRevisionDB)
-                        .where(
-                            PlanningArtifactRevisionDB.tenant_id == organization.tenant_id,
-                            PlanningArtifactRevisionDB.project_id == organization.project_id,
-                            PlanningArtifactRevisionDB.organization_id == organization.organization_id,
-                            PlanningArtifactRevisionDB.goal_id.in_(goal_ids),
-                        )
-                        .order_by(PlanningArtifactRevisionDB.created_at.asc())  # type: ignore[attr-defined]
-                    ).all()
-                )
-                if goal_ids
-                else []
-            )
-            proposals = (
-                list(
-                    session.exec(
-                        select(WorkerTaskProposalDB)
-                        .where(
-                            WorkerTaskProposalDB.tenant_id == organization.tenant_id,
-                            WorkerTaskProposalDB.project_id == organization.project_id,
-                            WorkerTaskProposalDB.organization_id == organization.organization_id,
-                            WorkerTaskProposalDB.source_goal_id.in_(goal_ids),
-                        )
-                        .order_by(WorkerTaskProposalDB.created_at.desc())  # type: ignore[attr-defined]
-                    ).all()
-                )
-                if goal_ids
-                else []
-            )
-
-        context = self._operation_context(principal=principal, organization=organization)
-        projections = {goal.id: self._projection.project_goal(context=context, goal_id=goal.id) for goal in goals}
-        next_cursor = None
-        if has_more and goals:
-            tail = goals[-1]
-            next_cursor = self._cursors.encode(
-                tenant_id=organization.tenant_id,
-                project_id=organization.project_id,
-                organization_id=organization.organization_id,
-                created_at=tail.created_at,
-                goal_id=tail.id,
-            )
-        return {
-            "organization_id": organization.organization_id,
-            "definition_revision": organization.definition_revision,
-            "nodes": self._planning_nodes(
-                goals=goals,
-                revisions=revisions,
-                projections=projections,
-            ),
-            "proposals": [self._proposal_view(row) for row in proposals],
-            "next_cursor": next_cursor,
-        }
-
-    @staticmethod
-    def _planning_nodes(
-        *,
-        goals: list[GoalDB],
-        revisions: list[PlanningArtifactRevisionDB],
-        projections: Mapping[str, Mapping[str, Any]],
-    ) -> list[dict[str, Any]]:
-        nodes: list[dict[str, Any]] = []
-        for goal in goals:
-            projection = dict(projections.get(goal.id) or {})
-            nodes.append(
-                {
-                    "id": goal.id,
-                    "kind": "goal",
-                    "label": str(goal.goal or goal.summary or goal.id),
-                    "status": str(projection.get("organization_goal_status") or goal.status or "planning"),
-                    "parent_id": None,
-                }
-            )
-
-        runtime_tracks: dict[str, dict[str, Any]] = {}
-        for projection in projections.values():
-            for track in list(dict(projection).get("tracks") or []):
-                if isinstance(track, Mapping):
-                    runtime_tracks[str(track.get("track_artifact_revision_id") or "")] = dict(
-                        track.get("payload") or {}
-                    )
-
-        for revision in revisions:
-            payload = dict(revision.payload or {})
-            if revision.artifact_type == "planning_category_todo":
-                nodes.append(
-                    {
-                        "id": revision.id,
-                        "kind": "category_todo",
-                        "label": str(payload.get("project") or f"Category-Todo r{revision.revision}"),
-                        "status": {
-                            "valid": "validated",
-                            "failed": "invalid",
-                        }.get(revision.status, revision.status),
-                        "revision": str(revision.revision),
-                        "digest": revision.content_digest,
-                        "parent_id": revision.goal_id,
-                        "artifact_id": revision.artifact_id,
-                    }
-                )
-                continue
-            if revision.artifact_type != "planning_track":
-                continue
-            payload = runtime_tracks.get(revision.id, payload)
-            nodes.append(
-                {
-                    "id": revision.id,
-                    "kind": "planning_track",
-                    "label": str(payload.get("track") or f"Planning Track r{revision.revision}"),
-                    "status": revision.status,
-                    "revision": str(revision.revision),
-                    "digest": revision.content_digest,
-                    "parent_id": revision.parent_revision_id or revision.goal_id,
-                    "artifact_id": revision.artifact_id,
-                    "source_category_item_ids": list(revision.source_category_item_ids or []),
-                }
-            )
-            task_parent: dict[str, str] = {}
-            for milestone in list(payload.get("milestones") or []):
-                if not isinstance(milestone, Mapping):
-                    continue
-                source_id = str(milestone.get("id") or "")
-                if not source_id:
-                    continue
-                node_id = f"{revision.id}:milestone:{source_id}"
-                nodes.append(
-                    {
-                        "id": node_id,
-                        "kind": "milestone",
-                        "label": str(milestone.get("title") or source_id),
-                        "status": str(milestone.get("status") or "todo"),
-                        "parent_id": revision.id,
-                        "source_category_item_ids": list(milestone.get("source_category_item_ids") or []),
-                    }
-                )
-                for task_id in list(milestone.get("task_ids") or []):
-                    task_parent.setdefault(str(task_id), node_id)
-            for task in list(payload.get("tasks") or []):
-                if not isinstance(task, Mapping):
-                    continue
-                source_id = str(task.get("id") or "")
-                if not source_id:
-                    continue
-                nodes.append(
-                    {
-                        "id": f"{revision.id}:task:{source_id}",
-                        "kind": "task",
-                        "label": str(task.get("title") or source_id),
-                        "status": str(task.get("status") or "todo"),
-                        "parent_id": task_parent.get(source_id, revision.id),
-                        "source_category_item_ids": list(task.get("source_category_item_ids") or []),
-                    }
-                )
-        return nodes
-
-    @staticmethod
-    def _proposal_view(proposal: WorkerTaskProposalDB) -> dict[str, Any]:
-        payload = dict(dict(proposal.envelope or {}).get("payload") or {})
-        decision = dict(proposal.decision or {})
-
-        def hints(name: str) -> str | None:
-            values = [str(value) for value in list(payload.get(name) or []) if str(value)]
-            return ", ".join(values) or None
-
-        status = {
-            "submitted": "pending",
-            "materialized": "accepted_as_plan_amendment",
-        }.get(proposal.state, proposal.state)
-        return {
-            "proposal_id": proposal.proposal_id,
-            "revision": str(proposal.proposal_revision),
-            "digest": proposal.envelope_digest,
-            "proposal_revision": proposal.proposal_revision,
-            "proposal_digest": proposal.envelope_digest,
-            "payload_digest": proposal.payload_digest,
-            "source_task_id": proposal.source_task_id,
-            "proposer_role_slot_id": proposal.role_slot_id,
-            "proposing_role_template_ref": proposal.proposing_role_template_ref,
-            "status": status,
-            "state": proposal.state,
-            "policy_hash": proposal.policy_hash,
-            "reason_code": proposal.reason_code,
-            "target_role_hint": hints("suggested_role_refs"),
-            "target_team_hint": hints("suggested_team_refs"),
-            "target_agent_hint": hints("suggested_agent_refs"),
-            "selected_role_slot_id": decision.get("selected_role_slot_id"),
-            "selected_team_id": decision.get("selected_team_id"),
-            "selected_agent_id": decision.get("selected_agent_id"),
-            "approval_id": proposal.approval_request_id,
-            "approval_request_id": proposal.approval_request_id,
-            "source_category_item_ids": list(proposal.source_category_item_ids or []),
-            "category_artifact_revision_id": decision.get("category_artifact_revision_id"),
-            "category_revision": decision.get("category_revision"),
-            "category_digest": decision.get("category_digest"),
-            "source_track_artifact_revision_id": decision.get("source_track_artifact_revision_id"),
-            "source_track_revision": decision.get("source_track_revision"),
-            "source_track_digest": decision.get("source_track_digest"),
-            "amendment_track_artifact_revision_id": proposal.amendment_track_revision_id,
-            "amendment_track_revision": decision.get("amendment_track_revision"),
-            "amendment_track_digest": decision.get("amendment_track_digest"),
-        }
-
     def _grant_proposal_approval(self, *, request_id: str, actor: str) -> None:
         request = self._approvals.get_request(request_id)
         if request is None:
@@ -1261,19 +944,6 @@ class OrganizationPlanningComposition:
                 "organization_planning_precondition_failed",
                 status_code=412,
             )
-
-    @staticmethod
-    def _operation_context(
-        *,
-        principal: OrganizationAccessPrincipal,
-        organization: OrganizationInstanceDB,
-    ) -> PlanningOperationContext:
-        return PlanningOperationContext.hub_admin(
-            subject_id=principal.principal_id,
-            tenant_id=organization.tenant_id,
-            project_id=organization.project_id,
-            organization_id=organization.organization_id,
-        )
 
     @staticmethod
     def _not_found() -> None:
