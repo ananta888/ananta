@@ -14,14 +14,27 @@ from agent.services.tiny_router.types import AdapterRequest, AdapterResult, Tiny
 
 
 class ModelInvocationTransport:
-    """Reuses ModelInvocationService; deliberately owns no network client."""
+    """Reuses ModelInvocationService; deliberately owns no network client.
+
+    ``invocation_service`` is the injected model invocation port; ``None``
+    selects the process default ``ModelInvocationService`` instance.
+    """
+
+    def __init__(self, invocation_service: Any | None = None) -> None:
+        self._invocation_service = invocation_service
+
+    def _invocation(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        from agent.services.model_invocation_service import ModelInvocationService
+
+        return ModelInvocationService.default_instance()
 
     def invoke_with_tools(
         self, prompt: str, tools: list[dict[str, Any]], *, model: str,
         timeout_seconds: float,
     ) -> Mapping[str, Any]:
-        from agent.services.model_invocation_service import ModelInvocationService
-        return ModelInvocationService.invoke_with_tools(
+        return self._invocation().invoke_with_tools(
             prompt, tools, model=model, timeout=timeout_seconds,
             retry_on_contract_error=True,
         )
@@ -29,8 +42,7 @@ class ModelInvocationTransport:
     def invoke_text(
         self, prompt: str, *, model: str, timeout_seconds: float,
     ) -> str:
-        from agent.services.model_invocation_service import ModelInvocationService
-        return ModelInvocationService.invoke(prompt, model=model, timeout=timeout_seconds)
+        return self._invocation().invoke(prompt, model=model, timeout=timeout_seconds)
 
 
 class OpenAICompatibleActionAdapter:

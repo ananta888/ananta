@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from agent.models import TaskStepProposeRequest
 from agent.routes.snakes_chat_helpers import SnakeAskLimits
 from agent.routes.snakes_worker_routing import (
@@ -5,6 +7,7 @@ from agent.routes.snakes_worker_routing import (
     _worker_propose,
     resolve_snake_routing_task_kind,
 )
+from agent.services.profile_routed_step_proposal_service import ProfileRoutedStepProposalService
 from agent.services.task_execution_service import TaskExecutionService
 from agent.services.tiny_router.snake_shadow import observe_snake_candidate
 
@@ -86,6 +89,16 @@ def test_worker_propose_routes_from_explicit_original_question(monkeypatch) -> N
     assert captured["timeout"] == 90
 
 
+def _task_execution_with_invocation(**invocation_methods) -> TaskExecutionService:
+    """A TaskExecutionService whose profile-routed port uses a double invocation service."""
+
+    return TaskExecutionService(
+        profile_routed_proposals=ProfileRoutedStepProposalService(
+            invocation_service=SimpleNamespace(**invocation_methods),
+        ),
+    )
+
+
 def test_worker_executes_profile_routed_request_via_model_invocation(monkeypatch) -> None:
     calls = {}
 
@@ -95,14 +108,11 @@ def test_worker_executes_profile_routed_request_via_model_invocation(monkeypatch
         return {"content": "profil routed answer", "tool_calls": [], "metadata": {}}
 
     monkeypatch.setattr(
-        "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools", invoke,
-    )
-    monkeypatch.setattr(
         "agent.services.tiny_router.snake_shadow.observe_snake_candidate",
         lambda prompt, *, agent_config: "shadow_candidate_validated",
     )
 
-    result = TaskExecutionService().propose_direct_step(
+    result = _task_execution_with_invocation(invoke_with_tools=invoke).propose_direct_step(
         TaskStepProposeRequest(
             prompt="repository question",
             provider="ananta_profile",
@@ -130,15 +140,11 @@ def test_worker_executes_profile_routed_tool_selection(monkeypatch) -> None:
         }
 
     monkeypatch.setattr(
-        "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
-        invoke_with_tools,
-    )
-    monkeypatch.setattr(
         "agent.services.tiny_router.snake_shadow.observe_snake_candidate",
         lambda prompt, *, agent_config: "shadow_candidate_validated",
     )
     tools = [{"type": "function", "function": {"name": "read_file", "parameters": {}}}]
-    result = TaskExecutionService().propose_direct_step(
+    result = _task_execution_with_invocation(invoke_with_tools=invoke_with_tools).propose_direct_step(
         TaskStepProposeRequest(
             prompt="choose a repository tool",
             provider="ananta_profile",

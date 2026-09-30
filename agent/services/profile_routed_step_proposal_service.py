@@ -5,7 +5,22 @@ from typing import Any, Mapping
 
 
 class ProfileRoutedStepProposalService:
-    """Executes inference only; task-kind selection remains Hub-owned."""
+    """Executes inference only; task-kind selection remains Hub-owned.
+
+    ``invocation_service`` is the model invocation port (an object with
+    ``invoke_with_tools``); ``None`` selects the process default
+    ``ModelInvocationService`` instance.
+    """
+
+    def __init__(self, *, invocation_service: Any | None = None) -> None:
+        self._invocation_service = invocation_service
+
+    def _invocation(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        from agent.services.model_invocation_service import ModelInvocationService
+
+        return ModelInvocationService.default_instance()
 
     def propose(
         self,
@@ -39,13 +54,12 @@ class ProfileRoutedStepProposalService:
         agent_config: Mapping[str, Any],
     ) -> dict[str, Any]:
         """Execute a Hub-authorized tool-selection inference on this worker."""
-        from agent.services.model_invocation_service import ModelInvocationService
         from agent.services.model_profile_resolver import RoutingContext
         from agent.services.tiny_router.snake_shadow import observe_snake_candidate
 
         normalized_kind = str(task_kind or "classification").strip().lower()
         observe_snake_candidate(prompt, agent_config=agent_config)
-        return ModelInvocationService.invoke_with_tools(
+        return self._invocation().invoke_with_tools(
             prompt,
             tools,
             routing_ctx=RoutingContext(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import logging
+from typing import Any
 
 from flask import current_app, has_app_context
 
@@ -62,8 +63,10 @@ from agent.services.task_execution_step_executor import (
 class TaskExecutionService:
     """Encapsulates direct proposal/execution route behavior away from Flask handlers."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, profile_routed_proposals: Any | None = None) -> None:
         self._compaction_svc: ToolOutputCompactionService | None = None
+        # None selects the process-wide ProfileRoutedStepProposalService.
+        self._profile_routed_proposals = profile_routed_proposals
 
     def _get_compaction_svc(self, guard_cfg: dict) -> ToolOutputCompactionService:
         if self._compaction_svc is None:
@@ -170,7 +173,7 @@ class TaskExecutionService:
             )
 
             task_kind = str(request_data.routing_task_kind or "classification").strip().lower()
-            profile_service = get_profile_routed_step_proposal_service()
+            profile_service = self._profile_routed_proposals or get_profile_routed_step_proposal_service()
             if request_data.routing_tools:
                 routed = profile_service.propose_with_tools(
                     prompt,

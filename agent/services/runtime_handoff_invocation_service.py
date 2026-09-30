@@ -21,7 +21,21 @@ class BoundProviderInvocationPort(Protocol):
 
 
 class ModelInvocationBoundProviderAdapter:
-    """Narrow compatibility adapter around the existing invocation facade."""
+    """Narrow compatibility adapter around the existing invocation facade.
+
+    ``invocation_service`` is the injected ``ModelInvocationService``;
+    ``None`` selects the process default instance.
+    """
+
+    def __init__(self, invocation_service: Any | None = None) -> None:
+        self._invocation_service = invocation_service
+
+    def _invocation(self) -> Any:
+        if self._invocation_service is not None:
+            return self._invocation_service
+        from agent.services.model_invocation_service import ModelInvocationService
+
+        return ModelInvocationService.default_instance()
 
     def invoke(
         self,
@@ -32,10 +46,9 @@ class ModelInvocationBoundProviderAdapter:
         timeout_seconds: int,
         resolution_info: Mapping[str, Any],
     ) -> dict[str, Any]:
-        from agent.services.model_invocation_service import ModelInvocationService
-
-        provider, url, api_key = ModelInvocationService._provider_info_from_profile(profile)
-        return ModelInvocationService._make_single_chat_call(
+        invocation = self._invocation()
+        provider, url, api_key = invocation._provider_info_from_profile(profile)
+        return invocation._make_single_chat_call(
             [{"role": "user", "content": prompt}],
             tools=None,
             response_format=None,

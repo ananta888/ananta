@@ -13,10 +13,11 @@ keyword-only constructor parameter:
 - ``ChatCallPipeline``: candidate resolution, retry and fallback chain
 - ``ModelInvocationAttemptObserver``: content-free attempt observation
 
-Callers historically use the class itself (``ModelInvocationService.invoke``).
-Those class-level calls are served by one shared default instance
-(``default_instance()``); an explicitly constructed instance serves its own
-calls with its injected collaborators.
+New callers receive a ``ModelInvocationService`` instance through their
+constructor (production default: ``default_instance()``, the documented
+process-wide composition-root instance). Class-level calls
+(``ModelInvocationService.invoke``) remain a deprecated compatibility adapter
+for not yet migrated callers and are served by that same default instance.
 """
 
 from __future__ import annotations
