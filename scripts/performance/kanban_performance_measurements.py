@@ -228,18 +228,20 @@ def _validate_local_flags(
     _require_false(report.get(formal_field), f"{source}_{formal_field}")
 
 
-def normalise_measurements(
-    *,
-    profile: dict[str, Any],
-    backend: dict[str, Any],
-    angular: dict[str, Any],
-    tui: dict[str, Any],
-    pty: dict[str, Any],
-) -> tuple[dict[str, float | int], dict[str, Any]]:
-    validate_profile(profile)
-    schemas = _mapping(profile["required_source_schemas"], "source_schemas")
-    workload = _mapping(profile["workload"], "workload")
+_ANGULAR_SERIES = (
+    "render_p50",
+    "render_p95",
+    "filter_p50",
+    "filter_p95",
+    "long_count_p50",
+    "long_count_p95",
+    "long_total_p95",
+    "longest_p95",
+    "retained_heap_mb",
+)
 
+
+def _validate_backend(profile: dict[str, Any], backend: dict[str, Any], schemas: dict[str, Any]) -> dict[str, Any]:
     if backend.get("schema") != schemas["backend"]:
         raise SuiteValidationError("backend_schema_invalid")
     _validate_local_flags(backend, source="backend")
@@ -256,6 +258,11 @@ def normalise_measurements(
         raise SuiteValidationError("backend_status_groups_invalid")
     if _integer(backend_metrics.get("view_group_count"), "backend_view_groups") < 10:
         raise SuiteValidationError("backend_view_groups_invalid")
+    return backend_metrics
+
+
+def _validate_angular_header(profile: dict[str, Any], angular: dict[str, Any], schemas: dict[str, Any]) -> int:
+    """Validate the Angular report envelope and return the minimum run count."""
 
     if angular.get("schema") != schemas["angular"]:
         raise SuiteValidationError("angular_schema_invalid")
@@ -285,65 +292,51 @@ def normalise_measurements(
         "angular_measured_runs",
     ) < min_runs:
         raise SuiteValidationError("angular_sample_count_invalid")
-    expected_viewports = set(_list(workload["angular_viewports"], "angular_viewports"))
-    actual_viewports: set[str] = set()
-    angular_render_p50: list[float] = []
-    angular_render_p95: list[float] = []
-    angular_filter_p50: list[float] = []
-    angular_filter_p95: list[float] = []
-    long_count_p50: list[float] = []
-    long_count_p95: list[float] = []
-    long_total_p95: list[float] = []
-    longest_p95: list[float] = []
-    retained_heap_mb: list[float] = []
-    for index, raw_viewport in enumerate(
-        _list(angular.get("viewports"), "angular_viewports")
-    ):
-        viewport_result = _mapping(raw_viewport, f"angular_viewport:{index}")
-        viewport = _mapping(viewport_result.get("viewport"), "angular_viewport")
-        name = _text(viewport.get("name"), "angular_viewport_name")
-        actual_viewports.add(name)
-        summary = _mapping(viewport_result.get("summary"), f"angular_summary:{name}")
-        if summary.get("longTaskApiAvailable") is not True:
-            raise SuiteValidationError(f"angular_long_task_api_unavailable:{name}")
-        if summary.get("jsHeapAvailable") is not True:
-            raise SuiteValidationError(f"angular_heap_api_unavailable:{name}")
-        samples = _list(viewport_result.get("samples"), f"angular_samples:{name}")
-        if len(samples) < min_runs:
-            raise SuiteValidationError(f"angular_samples_insufficient:{name}")
-        counts = [
-            _number(
-                _mapping(sample, f"angular_sample:{name}").get("longTaskCount"),
-                f"angular_long_task_count:{name}",
-            )
-            for sample in samples
-        ]
-        angular_render_p50.append(
-            _number(summary.get("initialRenderP50Ms"), f"angular_render_p50:{name}")
+    return min_runs
+
+
+def _collect_angular_viewport(
+    index: int,
+    raw_viewport: Any,
+    *,
+    min_runs: int,
+    series: dict[str, list[float]],
+) -> str:
+    """Validate one viewport result, append its values to ``series`` and return its name."""
+
+    viewport_result = _mapping(raw_viewport, f"angular_viewport:{index}")
+    viewport = _mapping(viewport_result.get("viewport"), "angular_viewport")
+    name = _text(viewport.get("name"), "angular_viewport_name")
+    summary = _mapping(viewport_result.get("summary"), f"angular_summary:{name}")
+    if summary.get("longTaskApiAvailable") is not True:
+        raise SuiteValidationError(f"angular_long_task_api_unavailable:{name}")
+    if summary.get("jsHeapAvailable") is not True:
+        raise SuiteValidationError(f"angular_heap_api_unavailable:{name}")
+    samples = _list(viewport_result.get("samples"), f"angular_samples:{name}")
+    if len(samples) < min_runs:
+        raise SuiteValidationError(f"angular_samples_insufficient:{name}")
+    counts = [
+        _number(
+            _mapping(sample, f"angular_sample:{name}").get("longTaskCount"),
+            f"angular_long_task_count:{name}",
         )
-        angular_render_p95.append(
-            _number(summary.get("initialRenderP95Ms"), f"angular_render_p95:{name}")
-        )
-        angular_filter_p50.append(
-            _number(summary.get("filterP50Ms"), f"angular_filter_p50:{name}")
-        )
-        angular_filter_p95.append(
-            _number(summary.get("filterP95Ms"), f"angular_filter_p95:{name}")
-        )
-        long_count_p50.append(_percentile(counts, 0.50))
-        long_count_p95.append(_percentile(counts, 0.95))
-        long_total_p95.append(
-            _number(summary.get("longTaskTotalP95Ms"), f"long_task_total:{name}")
-        )
-        longest_p95.append(
-            _number(summary.get("longestTaskP95Ms"), f"longest_task:{name}")
-        )
-        retained_heap_mb.append(
-            _number(summary.get("retainedHeapP95Bytes"), f"retained_heap:{name}")
-            / 1048576.0
-        )
-    if actual_viewports != expected_viewports:
-        raise SuiteValidationError("angular_viewport_set_invalid")
+        for sample in samples
+    ]
+    series["render_p50"].append(_number(summary.get("initialRenderP50Ms"), f"angular_render_p50:{name}"))
+    series["render_p95"].append(_number(summary.get("initialRenderP95Ms"), f"angular_render_p95:{name}"))
+    series["filter_p50"].append(_number(summary.get("filterP50Ms"), f"angular_filter_p50:{name}"))
+    series["filter_p95"].append(_number(summary.get("filterP95Ms"), f"angular_filter_p95:{name}"))
+    series["long_count_p50"].append(_percentile(counts, 0.50))
+    series["long_count_p95"].append(_percentile(counts, 0.95))
+    series["long_total_p95"].append(_number(summary.get("longTaskTotalP95Ms"), f"long_task_total:{name}"))
+    series["longest_p95"].append(_number(summary.get("longestTaskP95Ms"), f"longest_task:{name}"))
+    series["retained_heap_mb"].append(
+        _number(summary.get("retainedHeapP95Bytes"), f"retained_heap:{name}") / 1048576.0
+    )
+    return name
+
+
+def _validate_angular_runtime(angular: dict[str, Any]) -> dict[str, Any]:
     angular_runtime = _mapping(
         angular.get("producer_runtime"),
         "angular_producer_runtime",
@@ -353,7 +346,28 @@ def normalise_measurements(
         _text(runtime_item.get("version"), f"angular_runtime_version:{key}")
     if _mapping(angular_runtime["browser"], "angular_browser").get("name") != "chromium":
         raise SuiteValidationError("angular_browser_name_invalid")
+    return angular_runtime
 
+
+def _normalise_angular(
+    profile: dict[str, Any],
+    angular: dict[str, Any],
+    schemas: dict[str, Any],
+    workload: dict[str, Any],
+) -> tuple[dict[str, list[float]], dict[str, Any]]:
+    min_runs = _validate_angular_header(profile, angular, schemas)
+    expected_viewports = set(_list(workload["angular_viewports"], "angular_viewports"))
+    series: dict[str, list[float]] = {key: [] for key in _ANGULAR_SERIES}
+    actual_viewports = {
+        _collect_angular_viewport(index, raw_viewport, min_runs=min_runs, series=series)
+        for index, raw_viewport in enumerate(_list(angular.get("viewports"), "angular_viewports"))
+    }
+    if actual_viewports != expected_viewports:
+        raise SuiteValidationError("angular_viewport_set_invalid")
+    return series, _validate_angular_runtime(angular)
+
+
+def _validate_tui_header(profile: dict[str, Any], tui: dict[str, Any], schemas: dict[str, Any]) -> dict[str, Any]:
     if tui.get("schema") != schemas["tui"]:
         raise SuiteValidationError("tui_schema_invalid")
     _validate_local_flags(tui, source="tui")
@@ -370,6 +384,31 @@ def normalise_measurements(
         raise SuiteValidationError("tui_status_groups_invalid")
     if _integer(tui_metrics.get("view_group_count"), "tui_view_groups") < 10:
         raise SuiteValidationError("tui_view_groups_invalid")
+    return tui_metrics
+
+
+def _validate_tui_event_loop(tui_metrics: dict[str, Any], workload: dict[str, Any]) -> dict[str, Any]:
+    event_loop = _mapping(tui_metrics.get("event_loop"), "tui_event_loop")
+    target_rate = _number(
+        _mapping(workload["events"], "events").get("target_rate_per_second"),
+        "target_rate",
+    )
+    if _number(event_loop.get("target_rate_per_second"), "tui_target_rate") != target_rate:
+        raise SuiteValidationError("tui_event_target_rate_invalid")
+    if _number(event_loop.get("progress_ratio"), "tui_progress_ratio") != 1.0:
+        raise SuiteValidationError("tui_event_progress_incomplete")
+    return event_loop
+
+
+def _normalise_tui(
+    profile: dict[str, Any],
+    tui: dict[str, Any],
+    schemas: dict[str, Any],
+    workload: dict[str, Any],
+) -> tuple[dict[str, Any], list[float], list[float], dict[str, Any], set[str]]:
+    """Return (metrics, render p50s, render p95s, event loop, expected terminal size keys)."""
+
+    tui_metrics = _validate_tui_header(profile, tui, schemas)
     terminal_metrics = _mapping(
         tui_metrics.get("terminal_sizes"),
         "tui_terminal_sizes",
@@ -388,15 +427,17 @@ def normalise_measurements(
         _number(_mapping(value, key).get("render_tick_p95_ms"), f"{key}:render_p95")
         for key, value in terminal_metrics.items()
     ]
-    event_loop = _mapping(tui_metrics.get("event_loop"), "tui_event_loop")
-    target_rate = _number(
-        _mapping(workload["events"], "events").get("target_rate_per_second"),
-        "target_rate",
-    )
-    if _number(event_loop.get("target_rate_per_second"), "tui_target_rate") != target_rate:
-        raise SuiteValidationError("tui_event_target_rate_invalid")
-    if _number(event_loop.get("progress_ratio"), "tui_progress_ratio") != 1.0:
-        raise SuiteValidationError("tui_event_progress_incomplete")
+    event_loop = _validate_tui_event_loop(tui_metrics, workload)
+    return tui_metrics, tui_render_p50, tui_render_p95, event_loop, expected_size_keys
+
+
+def _validate_pty_header(
+    profile: dict[str, Any],
+    pty: dict[str, Any],
+    schemas: dict[str, Any],
+    workload: dict[str, Any],
+) -> int:
+    """Validate the PTY report envelope and return the minimum samples per size."""
 
     if pty.get("schema") != schemas["pty"]:
         raise SuiteValidationError("pty_schema_invalid")
@@ -407,13 +448,61 @@ def normalise_measurements(
         raise SuiteValidationError("pty_card_count_invalid")
     if pty.get("terminal_sizes") != workload["terminal_sizes"]:
         raise SuiteValidationError("pty_terminal_sizes_invalid")
-    min_pty_samples = _integer(
+    return _integer(
         _mapping(profile["sampling"], "sampling").get(
             "pty_resize_samples_per_size_min"
         ),
         "pty_min_samples",
         minimum=1,
     )
+
+
+def _pty_resize_result(index: int, raw_result: Any, min_pty_samples: int) -> tuple[str, float, float]:
+    """Validate one resize measurement and return (size key, p50, p95)."""
+
+    result = _mapping(raw_result, f"pty_resize:{index}")
+    size_key = (
+        f"{_integer(result.get('columns'), 'pty_columns')}"
+        f"x{_integer(result.get('rows'), 'pty_rows')}"
+    )
+    if result.get("marker_present") is not True or result.get("process_alive") is not True:
+        raise SuiteValidationError(f"pty_resize_process_assertion_failed:{size_key}")
+    samples = [
+        _number(value, f"pty_resize_sample:{size_key}")
+        for value in _list(
+            result.get("redraw_latency_samples_ms"),
+            f"pty_resize_samples:{size_key}",
+        )
+    ]
+    if (
+        _integer(result.get("sample_count"), f"pty_sample_count:{size_key}")
+        != len(samples)
+        or len(samples) < min_pty_samples
+    ):
+        raise SuiteValidationError(f"pty_resize_samples_insufficient:{size_key}")
+    declared_p50 = _number(
+        result.get("redraw_latency_p50_ms"),
+        f"pty_resize_p50:{size_key}",
+    )
+    declared_p95 = _number(
+        result.get("redraw_latency_p95_ms"),
+        f"pty_resize_p95:{size_key}",
+    )
+    if abs(declared_p50 - _percentile(samples, 0.50)) > 0.001:
+        raise SuiteValidationError(f"pty_resize_p50_mismatch:{size_key}")
+    if abs(declared_p95 - _percentile(samples, 0.95)) > 0.001:
+        raise SuiteValidationError(f"pty_resize_p95_mismatch:{size_key}")
+    return size_key, declared_p50, declared_p95
+
+
+def _normalise_pty(
+    profile: dict[str, Any],
+    pty: dict[str, Any],
+    schemas: dict[str, Any],
+    workload: dict[str, Any],
+    expected_size_keys: set[str],
+) -> tuple[list[float], list[float]]:
+    min_pty_samples = _validate_pty_header(profile, pty, schemas, workload)
     resize_results = _list(pty.get("resize_measurements"), "pty_resize_measurements")
     if len(resize_results) != len(expected_size_keys):
         raise SuiteValidationError("pty_resize_size_count_invalid")
@@ -421,43 +510,33 @@ def normalise_measurements(
     pty_p50: list[float] = []
     pty_p95: list[float] = []
     for index, raw_result in enumerate(resize_results):
-        result = _mapping(raw_result, f"pty_resize:{index}")
-        size_key = (
-            f"{_integer(result.get('columns'), 'pty_columns')}"
-            f"x{_integer(result.get('rows'), 'pty_rows')}"
-        )
+        size_key, declared_p50, declared_p95 = _pty_resize_result(index, raw_result, min_pty_samples)
         pty_size_keys.add(size_key)
-        if result.get("marker_present") is not True or result.get("process_alive") is not True:
-            raise SuiteValidationError(f"pty_resize_process_assertion_failed:{size_key}")
-        samples = [
-            _number(value, f"pty_resize_sample:{size_key}")
-            for value in _list(
-                result.get("redraw_latency_samples_ms"),
-                f"pty_resize_samples:{size_key}",
-            )
-        ]
-        if (
-            _integer(result.get("sample_count"), f"pty_sample_count:{size_key}")
-            != len(samples)
-            or len(samples) < min_pty_samples
-        ):
-            raise SuiteValidationError(f"pty_resize_samples_insufficient:{size_key}")
-        declared_p50 = _number(
-            result.get("redraw_latency_p50_ms"),
-            f"pty_resize_p50:{size_key}",
-        )
-        declared_p95 = _number(
-            result.get("redraw_latency_p95_ms"),
-            f"pty_resize_p95:{size_key}",
-        )
-        if abs(declared_p50 - _percentile(samples, 0.50)) > 0.001:
-            raise SuiteValidationError(f"pty_resize_p50_mismatch:{size_key}")
-        if abs(declared_p95 - _percentile(samples, 0.95)) > 0.001:
-            raise SuiteValidationError(f"pty_resize_p95_mismatch:{size_key}")
         pty_p50.append(declared_p50)
         pty_p95.append(declared_p95)
     if pty_size_keys != expected_size_keys:
         raise SuiteValidationError("pty_resize_terminal_size_set_invalid")
+    return pty_p50, pty_p95
+
+
+def normalise_measurements(
+    *,
+    profile: dict[str, Any],
+    backend: dict[str, Any],
+    angular: dict[str, Any],
+    tui: dict[str, Any],
+    pty: dict[str, Any],
+) -> tuple[dict[str, float | int], dict[str, Any]]:
+    validate_profile(profile)
+    schemas = _mapping(profile["required_source_schemas"], "source_schemas")
+    workload = _mapping(profile["workload"], "workload")
+
+    backend_metrics = _validate_backend(profile, backend, schemas)
+    angular_series, angular_runtime = _normalise_angular(profile, angular, schemas, workload)
+    tui_metrics, tui_render_p50, tui_render_p95, event_loop, expected_size_keys = _normalise_tui(
+        profile, tui, schemas, workload
+    )
+    pty_p50, pty_p95 = _normalise_pty(profile, pty, schemas, workload, expected_size_keys)
 
     backend_event_rate = _number(
         backend_metrics.get("event_rate_per_second"),
@@ -498,10 +577,10 @@ def normalise_measurements(
             backend_metrics.get("move_p95_ms"),
             "backend_move_p95",
         ),
-        "angular.render_p50_ms": max(angular_render_p50),
-        "angular.render_p95_ms": max(angular_render_p95),
-        "angular.filter_p50_ms": max(angular_filter_p50),
-        "angular.filter_p95_ms": max(angular_filter_p95),
+        "angular.render_p50_ms": max(angular_series["render_p50"]),
+        "angular.render_p95_ms": max(angular_series["render_p95"]),
+        "angular.filter_p50_ms": max(angular_series["filter_p50"]),
+        "angular.filter_p95_ms": max(angular_series["filter_p95"]),
         "tui.render_p50_ms": max(tui_render_p50),
         "tui.render_p95_ms": max(tui_render_p95),
         "tui.pty_resize_p50_ms": max(pty_p50),
@@ -511,10 +590,10 @@ def normalise_measurements(
             _number(tui_metrics.get("peak_rss_mb"), "tui_peak_rss"),
             _number(pty.get("peak_rss_kib"), "pty_peak_rss_kib") / 1024.0,
         ),
-        "browser.long_task_count_p50": max(long_count_p50),
-        "browser.long_task_count_p95": max(long_count_p95),
-        "browser.long_task_total_p95_ms": max(long_total_p95),
-        "browser.longest_task_p95_ms": max(longest_p95),
+        "browser.long_task_count_p50": max(angular_series["long_count_p50"]),
+        "browser.long_task_count_p95": max(angular_series["long_count_p95"]),
+        "browser.long_task_total_p95_ms": max(angular_series["long_total_p95"]),
+        "browser.longest_task_p95_ms": max(angular_series["longest_p95"]),
         "events.observed_rate_per_second": min(
             backend_event_rate,
             tui_event_rate,
@@ -523,7 +602,7 @@ def normalise_measurements(
         "events.deduplicated": deduplicated,
     }
     details = {
-        "angular_retained_heap_p95_mb": max(retained_heap_mb),
+        "angular_retained_heap_p95_mb": max(angular_series["retained_heap_mb"]),
         "event_rates_per_source": {
             "backend": backend_event_rate,
             "tui": tui_event_rate,
