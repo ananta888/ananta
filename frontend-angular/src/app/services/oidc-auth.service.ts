@@ -1,6 +1,5 @@
 /** T12 / T13 / T14 / T15 / T16: OIDC PKCE + Device Flow + Refresh + Logout + Nonce. */
 import { Injectable, OnDestroy, inject } from '@angular/core';
-import { sha256Bytes } from '../shared/crypto/sha256';
 import { Router } from '@angular/router';
 import { distinctUntilChanged, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -17,13 +16,11 @@ import {
   PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
   PUBLIC_OIDC_CLIENT_ID,
   PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT,
-  PUBLIC_OIDC_END_SESSION_ENDPOINT,
   PUBLIC_OIDC_ISSUER,
   PUBLIC_OIDC_TOKEN_ENDPOINT,
 } from './public-ananta-endpoints';
 import {
   OidcPopupCoordinator,
-  OidcPopupCoordinatorError,
   type OidcPopupParentSession,
 } from './oidc-popup-coordinator.service';
 import {
@@ -33,6 +30,26 @@ import {
 import { IDENTITY_STORAGE_LAYOUT } from './identity/identity-storage-layout';
 import { OidcRefreshLock } from './oidc-refresh-lock.service';
 import { decodeOidcJwt } from './oidc-jwt';
+import {
+  type DeviceAuthResponse,
+  type DeviceFlowAuthorityBinding,
+  type OidcMeta,
+  type RedirectPkceTransaction,
+  assertPinnedPublicMetadata,
+  normalizeOidcHttpUrl,
+  parseRedirectPkceTransaction,
+  randomB64Url,
+  sha256B64Url,
+  validateDeviceAuthResponse,
+} from './oidc-auth.contracts';
+import {
+  OidcPopupLoginError,
+  isAbortError,
+  normalizeOidcPopupError,
+  oidcAuthorizationError,
+} from './oidc-popup-login-error';
+
+export { OidcPopupLoginError, type OidcPopupLoginFailure } from './oidc-popup-login-error';
 
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
@@ -42,68 +59,6 @@ const LOGIN_POPUP_FEATURES = 'width=560,height=680,left=200,top=80';
 const POPUP_DISCOVERY_TIMEOUT_MS = 10_000;
 const POPUP_TOKEN_EXCHANGE_TIMEOUT_MS = 45_000;
 const REFRESH_TOKEN_EXCHANGE_TIMEOUT_MS = 15_000;
-
-export type OidcPopupLoginFailure =
-  | 'popup_blocked'
-  | 'configuration_missing'
-  | 'popup_closed'
-  | 'popup_timeout'
-  | 'popup_communication_failed'
-  | 'authorization_denied'
-  | 'callback_invalid'
-  | 'token_exchange_failed'
-  | 'token_exchange_timeout'
-  | 'token_endpoint_unreachable'
-  | 'nonce_mismatch'
-  | 'issuer_unreachable'
-  | 'popup_start_failed';
-
-/** Stable, user-facing failure contract for callers that render login feedback. */
-export class OidcPopupLoginError extends Error {
-  override readonly name = 'OidcPopupLoginError';
-
-  constructor(
-    readonly code: OidcPopupLoginFailure,
-    message: string,
-    options?: ErrorOptions,
-  ) {
-    super(message, options);
-  }
-}
-
-interface OidcMeta {
-  issuer: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
-  end_session_endpoint: string;
-  device_authorization_endpoint?: string;
-}
-
-interface DeviceAuthResponse {
-  device_code: string;
-  user_code: string;
-  verification_uri: string;
-  verification_uri_complete?: string;
-  expires_in: number;
-  interval: number;
-}
-
-interface DeviceFlowAuthorityBinding {
-  readonly tokenEndpoint: string;
-  readonly clientId: string;
-  readonly expiresAtMs: number;
-}
-
-interface RedirectPkceTransaction {
-  readonly verifier: string;
-  readonly state: string;
-  readonly nonce: string;
-  readonly redirectPath: string;
-  readonly linkHub: boolean;
-  readonly issuer: string;
-  readonly clientId: string;
-  readonly tokenEndpoint: string;
-}
 
 @Injectable({ providedIn: 'root' })
 export class OidcAuthService implements OnDestroy {
@@ -180,7 +135,7 @@ export class OidcAuthService implements OnDestroy {
   // ── Discovery ────────────────────────────────────────────────────────
 
   private async loadMeta(issuer = this.issuer, timeoutMs = 0): Promise<OidcMeta> {
-    const normalizedIssuer = this.normalizeHttpUrl(issuer, 'OIDC issuer', true);
+    const normalizedIssuer = normalizeOidcHttpUrl(issuer, 'OIDC issuer', true);
     if (this._meta && this._metaIssuer === normalizedIssuer) return this._meta;
     const controller = timeoutMs > 0 ? new AbortController() : null;
     const timeout = controller
@@ -196,15 +151,15 @@ export class OidcAuthService implements OnDestroy {
       if (!meta.authorization_endpoint || !meta.token_endpoint) {
         throw new Error('OIDC discovery failed: required endpoint missing');
       }
-      const discoveredIssuer = this.normalizeHttpUrl(meta.issuer, 'OIDC discovery issuer', true);
+      const discoveredIssuer = normalizeOidcHttpUrl(meta.issuer, 'OIDC discovery issuer', true);
       if (discoveredIssuer !== normalizedIssuer) {
         throw new Error('OIDC discovery failed: issuer mismatch');
       }
-      const authorizationEndpoint = this.normalizeHttpUrl(
+      const authorizationEndpoint = normalizeOidcHttpUrl(
         meta.authorization_endpoint,
         'OIDC authorization endpoint',
       );
-      const tokenEndpoint = this.normalizeHttpUrl(meta.token_endpoint, 'OIDC token endpoint');
+      const tokenEndpoint = normalizeOidcHttpUrl(meta.token_endpoint, 'OIDC token endpoint');
       this._meta = {
         ...meta,
         issuer: discoveredIssuer,
@@ -216,20 +171,6 @@ export class OidcAuthService implements OnDestroy {
     } finally {
       if (timeout !== undefined) window.clearTimeout(timeout);
     }
-  }
-
-  // ── PKCE helpers ─────────────────────────────────────────────────────
-
-  private randomB64Url(bytes: number): string {
-    const arr = new Uint8Array(bytes);
-    crypto.getRandomValues(arr);
-    return btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  }
-
-  private async sha256B64Url(plain: string): Promise<string> {
-    const encoded = new TextEncoder().encode(plain);
-    const hash = await sha256Bytes(encoded);
-    return btoa(String.fromCharCode(...hash)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
 
   // ── T12: PKCE Authorization redirect ────────────────────────────────
@@ -283,10 +224,10 @@ export class OidcAuthService implements OnDestroy {
     await this.profiles.enablePublicPair();
     const authority = this.requirePublicOidcAuthority();
     const authEndpoint = PUBLIC_OIDC_AUTHORIZATION_ENDPOINT;
-    const verifier = this.randomB64Url(48);
-    const state = this.randomB64Url(16);
-    const nonce = this.randomB64Url(16);
-    const challenge = await this.sha256B64Url(verifier);
+    const verifier = randomB64Url(48);
+    const state = randomB64Url(16);
+    const nonce = randomB64Url(16);
+    const challenge = await sha256B64Url(verifier);
     const redirectUri = `${location.origin}/oidc-callback`;
 
     sessionStorage.setItem(SS_PKCE_KEY, JSON.stringify({
@@ -398,9 +339,9 @@ export class OidcAuthService implements OnDestroy {
     const publicPairReady = this.profiles.enablePublicPair();
     // Clear sensitive PKCE material left by the pre-coordinator implementation.
     this.removeLocalStorageItem('oidc.pkce.popup');
-    const verifier = this.randomB64Url(48);
-    const state = this.popupCoordinator.createState(this.randomB64Url(24));
-    const nonce = this.randomB64Url(24);
+    const verifier = randomB64Url(48);
+    const state = this.popupCoordinator.createState(randomB64Url(24));
+    const nonce = randomB64Url(24);
 
     // This must happen before the first await. Otherwise browsers can discard
     // the click's user activation while discovery and PKCE are being prepared.
@@ -433,7 +374,7 @@ export class OidcAuthService implements OnDestroy {
           { cause: error },
         );
       }
-      const challenge = await this.sha256B64Url(verifier);
+      const challenge = await sha256B64Url(verifier);
       const redirectUri = `${location.origin}/oidc-callback`;
 
       if (popup.closed) {
@@ -466,7 +407,7 @@ export class OidcAuthService implements OnDestroy {
       const authorization = await parentSession.result;
       callbackReceived = true;
       if (authorization.kind === 'error') {
-        throw this.authorizationError(authorization.errorCode);
+        throw oidcAuthorizationError(authorization.errorCode);
       }
 
       await this.exchangePopupAuthorizationCode({
@@ -479,7 +420,7 @@ export class OidcAuthService implements OnDestroy {
       });
       parentSession.acknowledge({ ok: true });
     } catch (error) {
-      const loginError = this.normalizePopupError(error, callbackReceived);
+      const loginError = normalizeOidcPopupError(error, callbackReceived);
       if (callbackReceived && parentSession) {
         parentSession.acknowledge({
           ok: false,
@@ -537,7 +478,7 @@ export class OidcAuthService implements OnDestroy {
         signal: controller.signal,
       });
     } catch (error) {
-      if (controller.signal.aborted || this.isAbortError(error)) {
+      if (controller.signal.aborted || isAbortError(error)) {
         throw new OidcPopupLoginError(
           'token_exchange_timeout',
           'Keycloak hat den Anmeldecode nicht rechtzeitig eingelöst. Bitte eine neue Anmeldung starten.',
@@ -609,51 +550,6 @@ export class OidcAuthService implements OnDestroy {
     // Pair/OIDC login is complete here. Optional Hub linking must not delay
     // the popup acknowledgement or turn a healthy Pair login into a timeout.
     void this.tryRestoreLinkedHubSession(accessToken, true);
-  }
-
-  private isAbortError(error: unknown): boolean {
-    return error instanceof DOMException
-      ? error.name === 'AbortError'
-      : error instanceof Error && error.name === 'AbortError';
-  }
-
-  private authorizationError(errorCode: string): OidcPopupLoginError {
-    if (errorCode === 'access_denied') {
-      return new OidcPopupLoginError(
-        'authorization_denied',
-        'Die Keycloak-Anmeldung wurde abgebrochen oder abgelehnt.',
-      );
-    }
-    if (errorCode === 'communication_unavailable') {
-      return new OidcPopupLoginError(
-        'popup_communication_failed',
-        'Das Callback-Fenster konnte das Hauptfenster nicht sicher erreichen.',
-      );
-    }
-    return new OidcPopupLoginError(
-      'callback_invalid',
-      'Keycloak konnte die Popup-Anmeldung nicht abschließen. Bitte erneut anmelden.',
-    );
-  }
-
-  private normalizePopupError(error: unknown, callbackReceived: boolean): OidcPopupLoginError {
-    if (error instanceof OidcPopupLoginError) return error;
-    if (error instanceof OidcPopupCoordinatorError) {
-      if (error.code === 'popup_timeout') {
-        return new OidcPopupLoginError('popup_timeout', error.message, { cause: error });
-      }
-      if (error.code === 'communication_unavailable') {
-        return new OidcPopupLoginError('popup_communication_failed', error.message, { cause: error });
-      }
-      return new OidcPopupLoginError('callback_invalid', error.message, { cause: error });
-    }
-    return new OidcPopupLoginError(
-      callbackReceived ? 'token_exchange_failed' : 'popup_start_failed',
-      callbackReceived
-        ? 'Die Keycloak-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden.'
-        : 'Das Keycloak-Anmeldefenster konnte nicht initialisiert werden. Bitte die Anmeldung erneut starten.',
-      error instanceof Error ? { cause: error } : undefined,
-    );
   }
 
   private closePopup(popup: Window): void {
@@ -914,7 +810,7 @@ export class OidcAuthService implements OnDestroy {
     const tokens = await r.json();
     this.deviceFlowAuthorities.delete(deviceCode);
     if (!this.isCurrentPublicAccessToken(tokens.access_token)) return false;
-    const nonce = sessionStorage.getItem(SS_NONCE_KEY) ?? this.randomB64Url(16);
+    const nonce = sessionStorage.getItem(SS_NONCE_KEY) ?? randomB64Url(16);
     this._sessionNonce = nonce;
     const commit = await this.commitAuthenticatedSession(
       tokens.access_token,
@@ -981,82 +877,4 @@ export class OidcAuthService implements OnDestroy {
     this.refreshAuthorityBoundForWindow = false;
     try { localStorage.removeItem(REFRESH_AUTHORITY_KEY); } catch { /* already unavailable */ }
   }
-
-  private normalizeHttpUrl(value: string, label: string, isIssuer = false): string {
-    const candidate = String(value || '').trim().replace(/\/+$/, '');
-    if (!candidate) throw new Error(`${label} is missing`);
-    const parsed = new URL(candidate);
-    const hostname = parsed.hostname.toLowerCase();
-    const localhost = hostname === 'localhost'
-      || hostname === '127.0.0.1'
-      || hostname === '[::1]'
-      || hostname.endsWith('.localhost');
-    if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && localhost)) {
-      throw new Error(`${label} must use HTTPS or localhost HTTP`);
-    }
-    if (parsed.username || parsed.password || (isIssuer && (parsed.search || parsed.hash))) {
-      throw new Error(`${label} contains unsupported URL components`);
-    }
-    return parsed.href.replace(/\/$/, '');
-  }
-
-}
-
-function validateDeviceAuthResponse(value: unknown): DeviceAuthResponse {
-  if (!value || typeof value !== 'object') throw new Error('oidc_device_response_invalid');
-  const response = value as Partial<DeviceAuthResponse>;
-  const bounded = (candidate: unknown, maxLength: number): candidate is string => (
-    typeof candidate === 'string' && candidate.length > 0 && candidate.length <= maxLength
-  );
-  if (
-    !bounded(response.device_code, 2048)
-    || !bounded(response.user_code, 256)
-    || !bounded(response.verification_uri, 2048)
-    || !Number.isSafeInteger(response.expires_in)
-    || Number(response.expires_in) <= 0
-    || Number(response.expires_in) > 86_400
-    || !Number.isSafeInteger(response.interval)
-    || Number(response.interval) <= 0
-    || Number(response.interval) > 300
-  ) throw new Error('oidc_device_response_invalid');
-  return Object.freeze({ ...response }) as DeviceAuthResponse;
-}
-
-function assertPinnedPublicMetadata(meta: OidcMeta): OidcMeta {
-  if (
-    meta.issuer !== PUBLIC_OIDC_ISSUER
-    || meta.authorization_endpoint !== PUBLIC_OIDC_AUTHORIZATION_ENDPOINT
-    || meta.token_endpoint !== PUBLIC_OIDC_TOKEN_ENDPOINT
-    || meta.end_session_endpoint !== PUBLIC_OIDC_END_SESSION_ENDPOINT
-    || (
-      meta.device_authorization_endpoint !== undefined
-      && meta.device_authorization_endpoint !== PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT
-    )
-  ) throw new Error('public_oidc_metadata_untrusted');
-  return meta;
-}
-
-function parseRedirectPkceTransaction(raw: string): RedirectPkceTransaction | null {
-  try {
-    const value = JSON.parse(raw) as Partial<RedirectPkceTransaction>;
-    const opaque = (candidate: unknown, maxLength: number): candidate is string => (
-      typeof candidate === 'string'
-      && /^[A-Za-z0-9_-]+$/.test(candidate)
-      && candidate.length <= maxLength
-    );
-    if (
-      !opaque(value.verifier, 256)
-      || !opaque(value.state, 256)
-      || !opaque(value.nonce, 256)
-      || typeof value.redirectPath !== 'string'
-      || !value.redirectPath.startsWith('/')
-      || value.redirectPath.startsWith('//')
-      || value.redirectPath.length > 2048
-      || typeof value.linkHub !== 'boolean'
-      || value.issuer !== PUBLIC_OIDC_ISSUER
-      || value.clientId !== PUBLIC_OIDC_CLIENT_ID
-      || value.tokenEndpoint !== PUBLIC_OIDC_TOKEN_ENDPOINT
-    ) return null;
-    return value as RedirectPkceTransaction;
-  } catch { return null; }
 }
