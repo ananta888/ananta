@@ -343,111 +343,145 @@ def _snake_mode_live_e2e_cast(*, run_id: str) -> str:
     )
 
 
-def _share_session_live_e2e_cast(*, run_id: str) -> str:
-    width = max(
-        80,
-        min(
-            220,
-            int(
-                os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_WIDTH")
-                or os.environ.get("ANANTA_TUI_E2E_CAST_WIDTH")
-                or "200"
-            ),
-        ),
-    )
-    height = max(
-        20,
-        min(
-            80,
-            int(
-                os.environ.get("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT")
-                or os.environ.get("ANANTA_TUI_E2E_CAST_HEIGHT")
-                or "56"
-            ),
-        ),
-    )
-    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
-    default_cmd = _default_tui_command(section="share", focus="navigation")
-    run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
-    command = shlex.split(run_command)
-    if not command:
-        raise RuntimeError("ANANTA_TUI_E2E_CAST_COMMAND is empty")
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
+_TITLE_FETCH_ERRORS = (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError)
+_SHARE_SNAPSHOT_MARKERS = ("Snake-Modus aktiv", "Share / Teilnehmer")
 
-    endpoint = str(
-        os.environ.get("ANANTA_TUI_E2E_SHARE_ENDPOINT")
-        or os.environ.get("ANANTA_ENDPOINT")
-        or os.environ.get("ANANTA_HUB_URL")
-        or "http://localhost:5000"
-    ).strip()
-    env = _apply_tui_e2e_baseline_env(dict(os.environ), width=width, height=height)
-    env["ANANTA_ENDPOINT"] = endpoint
-    env["ANANTA_BASE_URL"] = endpoint
-    env["ANANTA_HUB_URL"] = endpoint
-    env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
-    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
-    env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
-    title = str(os.environ.get("ANANTA_TUI_E2E_SHARE_TITLE") or "e2e-share").strip() or "e2e-share"
-    public_oidc_token = str(os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
-    public_rendezvous = str(
-        os.environ.get("ANANTA_TUI_E2E_RENDEZVOUS_URL")
-        or os.environ.get("ANANTA_RENDEZVOUS_URL")
-        or "https://webrtc.ananta.de"
-    ).strip()
-    public_signaling = str(
-        os.environ.get("ANANTA_TUI_E2E_SIGNALING_URL")
-        or os.environ.get("ANANTA_SIGNALING_URL")
-        or "wss://webrtc.ananta.de/signaling"
-    ).strip()
-    public_issuer = str(
-        os.environ.get("ANANTA_TUI_E2E_OIDC_ISSUER")
-        or "https://keycloak.ananta.de/realms/ananta"
-    ).strip()
-    public_client_id = str(
-        os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_ID")
-        or os.environ.get("ANANTA_OIDC_CLIENT_ID")
-        or "ananta-tui"
-    ).strip()
-    public_username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "e2e").strip()
-    public_password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
-    public_client_secret = str(os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_SECRET") or "").strip()
-    use_public_oidc = bool(
-        os.environ.get("ANANTA_TUI_E2E_USE_PUBLIC_OIDC", "").strip().lower() in {"1", "true", "yes", "on"}
-        or public_oidc_token
-        or (public_issuer and public_username and public_password)
-    )
-    if use_public_oidc:
-        if not public_oidc_token and public_issuer and public_username and public_password:
-            public_oidc_token = _issue_oidc_password_token(
-                issuer=public_issuer,
-                client_id=public_client_id or "ananta-tui",
-                client_secret=public_client_secret,
-                username=public_username,
-                password=public_password,
+
+def _first_env(*names: str, default: str) -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+
+
+def _share_cast_dimensions() -> tuple[int, int]:
+    width = int(_first_env("ANANTA_TUI_E2E_SHARE_CAST_WIDTH", "ANANTA_TUI_E2E_CAST_WIDTH", default="200"))
+    height = int(_first_env("ANANTA_TUI_E2E_SHARE_CAST_HEIGHT", "ANANTA_TUI_E2E_CAST_HEIGHT", default="56"))
+    return max(80, min(220, width)), max(20, min(80, height))
+
+
+class _PublicOidcShareSettings:
+    """Public rendezvous/OIDC settings of the share-session cast, read from the environment."""
+
+    def __init__(self) -> None:
+        self.token = str(os.environ.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
+        self.rendezvous = _first_env(
+            "ANANTA_TUI_E2E_RENDEZVOUS_URL", "ANANTA_RENDEZVOUS_URL", default="https://webrtc.ananta.de"
+        ).strip()
+        self.signaling = _first_env(
+            "ANANTA_TUI_E2E_SIGNALING_URL", "ANANTA_SIGNALING_URL", default="wss://webrtc.ananta.de/signaling"
+        ).strip()
+        self.issuer = _first_env(
+            "ANANTA_TUI_E2E_OIDC_ISSUER", default="https://keycloak.ananta.de/realms/ananta"
+        ).strip()
+        self.client_id = _first_env(
+            "ANANTA_TUI_E2E_OIDC_CLIENT_ID", "ANANTA_OIDC_CLIENT_ID", default="ananta-tui"
+        ).strip()
+        self.username = str(os.environ.get("ANANTA_TUI_E2E_OIDC_USERNAME") or "e2e").strip()
+        self.password = str(os.environ.get("ANANTA_TUI_E2E_OIDC_PASSWORD") or "").strip()
+        self.client_secret = str(os.environ.get("ANANTA_TUI_E2E_OIDC_CLIENT_SECRET") or "").strip()
+
+    def _can_issue_password_token(self) -> bool:
+        return bool(self.issuer and self.username and self.password)
+
+    def enabled(self) -> bool:
+        return bool(
+            os.environ.get("ANANTA_TUI_E2E_USE_PUBLIC_OIDC", "").strip().lower() in {"1", "true", "yes", "on"}
+            or self.token
+            or self._can_issue_password_token()
+        )
+
+    def apply_to(self, env: dict[str, str]) -> None:
+        """Issue a token if needed and point the TUI at the public rendezvous."""
+
+        if not self.token and self._can_issue_password_token():
+            self.token = _issue_oidc_password_token(
+                issuer=self.issuer,
+                client_id=self.client_id or "ananta-tui",
+                client_secret=self.client_secret,
+                username=self.username,
+                password=self.password,
             )
         env["ANANTA_NETWORK_PROFILE"] = "public-ananta"
         env["ANANTA_PUBLIC_RENDEZVOUS_ENABLED"] = "true"
-        if public_issuer:
-            env["ANANTA_OIDC_ISSUER"] = public_issuer
-        if public_client_id:
-            env["ANANTA_OIDC_CLIENT_ID"] = public_client_id
-        env["ANANTA_RENDEZVOUS_URL"] = public_rendezvous
-        env["ANANTA_SIGNALING_URL"] = public_signaling
-        if public_oidc_token:
-            env["ANANTA_TUI_E2E_OIDC_TOKEN"] = public_oidc_token
-            env["ANANTA_TUI_OIDC_TOKEN"] = public_oidc_token
+        if self.issuer:
+            env["ANANTA_OIDC_ISSUER"] = self.issuer
+        if self.client_id:
+            env["ANANTA_OIDC_CLIENT_ID"] = self.client_id
+        env["ANANTA_RENDEZVOUS_URL"] = self.rendezvous
+        env["ANANTA_SIGNALING_URL"] = self.signaling
+        if self.token:
+            env["ANANTA_TUI_E2E_OIDC_TOKEN"] = self.token
+            env["ANANTA_TUI_OIDC_TOKEN"] = self.token
 
-    script_actions: list[dict[str, object]] = [
-        {"at": 16.0, "send": b"\x1f"},
-        {"at": 38.0, "send": b"q"},
-    ]
 
+def _send_due_actions(
+    master_fd: int,
+    script_actions: list[dict[str, object]],
+    action_index: int,
+    elapsed: float,
+    text_tail: str,
+) -> int:
+    while action_index < len(script_actions):
+        action = script_actions[action_index]
+        at = float(action.get("at") or 0.0)
+        need = str(action.get("need") or "")
+        if elapsed < at:
+            break
+        if need and need not in text_tail:
+            break
+        payload = action.get("send")
+        if isinstance(payload, bytes):
+            os.write(master_fd, payload)
+        action_index += 1
+    return action_index
+
+
+def _read_pty_chunk(master_fd: int) -> bytes:
+    try:
+        return os.read(master_fd, 65536)
+    except OSError as exc:
+        if exc.errno == errno.EIO:
+            return b""
+        raise
+
+
+def _drain_pty(master_fd: int, events: list[tuple[float, str]], started: float) -> None:
+    try:
+        while True:
+            chunk = os.read(master_fd, 65536)
+            if not chunk:
+                break
+            events.append((time.monotonic() - started, chunk.decode("utf-8", errors="replace")))
+    except OSError:
+        pass
+
+
+def _stop_pty_process(process: subprocess.Popen, master_fd: int) -> None:
+    try:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=1.0)
+    except Exception:
+        try:
+            process.kill()
+        except Exception:
+            pass
+    try:
+        os.close(master_fd)
+    except OSError:
+        pass
+
+
+def _spawn_in_pty(command: list[str], env: dict[str, str], *, width: int, height: int) -> tuple[subprocess.Popen, int]:
     master_fd, slave_fd = pty.openpty()
     try:
         termios_winsz = struct.pack("HHHH", height, width, 0, 0)
         fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, termios_winsz)
     except Exception:
         pass
-
     process = subprocess.Popen(
         command,
         stdin=slave_fd,
@@ -458,82 +492,151 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
         start_new_session=True,
     )
     os.close(slave_fd)
+    return process, master_fd
+
+
+def _capture_scripted_pty(
+    process: subprocess.Popen,
+    master_fd: int,
+    *,
+    script_actions: list[dict[str, object]],
+    duration_limit: float,
+) -> list[tuple[float, str]]:
+    """Drive the PTY with timed key actions and record every output chunk."""
 
     events: list[tuple[float, str]] = []
     action_index = 0
     started = time.monotonic()
     forced_quit_sent = False
-    ansi_re = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
     text_tail = ""
-
     try:
         while True:
             elapsed = time.monotonic() - started
-            while action_index < len(script_actions):
-                action = script_actions[action_index]
-                at = float(action.get("at") or 0.0)
-                need = str(action.get("need") or "")
-                if elapsed < at:
-                    break
-                if need and need not in text_tail:
-                    break
-                payload = action.get("send")
-                if isinstance(payload, bytes):
-                    os.write(master_fd, payload)
-                action_index += 1
-
+            action_index = _send_due_actions(master_fd, script_actions, action_index, elapsed, text_tail)
             readable, _, _ = select.select([master_fd], [], [], 0.08)
             if readable:
-                try:
-                    chunk = os.read(master_fd, 65536)
-                except OSError as exc:
-                    if exc.errno == errno.EIO:
-                        chunk = b""
-                    else:
-                        raise
+                chunk = _read_pty_chunk(master_fd)
                 if chunk:
                     text = chunk.decode("utf-8", errors="replace")
-                    plain = ansi_re.sub("", text)
-                    text_tail = (text_tail + plain)[-12000:]
-                    if events:
-                        events.append((elapsed, text))
-                    else:
-                        events.append((elapsed, "\x1b[2J\x1b[H" + text))
+                    text_tail = (text_tail + _ANSI_ESCAPE_RE.sub("", text))[-12000:]
+                    events.append((elapsed, text if events else "\x1b[2J\x1b[H" + text))
                 elif process.poll() is not None:
                     break
-
             if process.poll() is not None:
-                try:
-                    while True:
-                        chunk = os.read(master_fd, 65536)
-                        if not chunk:
-                            break
-                        events.append((time.monotonic() - started, chunk.decode("utf-8", errors="replace")))
-                except OSError:
-                    pass
+                _drain_pty(master_fd, events, started)
                 break
-
             if elapsed >= duration_limit and not forced_quit_sent:
                 os.write(master_fd, b"q")
                 forced_quit_sent = True
-
             if elapsed >= (duration_limit + 4.0):
                 break
     finally:
-        try:
-            if process.poll() is None:
-                process.terminate()
-                process.wait(timeout=1.0)
-        except Exception:
-            try:
-                process.kill()
-            except Exception:
-                pass
-        try:
-            os.close(master_fd)
-        except OSError:
-            pass
+        _stop_pty_process(process, master_fd)
+    return events
 
+
+def _share_summary_titles(
+    env: dict[str, str],
+    *,
+    endpoint: str,
+    use_public_oidc: bool,
+    public_rendezvous: str,
+) -> tuple[list[str], str, str]:
+    """Return (titles, source, endpoint): public rendezvous first, then the Hub."""
+
+    titles: list[str] = []
+    summary_source = ""
+    summary_endpoint = endpoint
+    token = str(env.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
+    if token and use_public_oidc:
+        try:
+            titles = _fetch_rendezvous_titles(base_url=public_rendezvous, token=token)
+            summary_source = "rendezvous"
+            summary_endpoint = public_rendezvous
+        except _TITLE_FETCH_ERRORS:
+            titles = []
+    if not titles:
+        token = str(env.get("ANANTA_AUTH_TOKEN") or "").strip()
+        if token:
+            try:
+                titles = _fetch_share_titles(endpoint=endpoint, token=token)
+                summary_source = "hub"
+            except _TITLE_FETCH_ERRORS:
+                titles = []
+    return titles, summary_source, summary_endpoint
+
+
+def _share_snapshot_text(normalized: list[tuple[float, str]]) -> str:
+    """Pick the last frame showing both share markers, else the last frame, with markers ensured."""
+
+    plain_snapshot = ""
+    for _ts, frame in reversed(normalized):
+        candidate = _ANSI_ESCAPE_RE.sub("", str(frame or "")).strip()
+        if all(marker in candidate for marker in _SHARE_SNAPSHOT_MARKERS):
+            plain_snapshot = candidate
+            break
+    if not plain_snapshot and normalized:
+        plain_snapshot = _ANSI_ESCAPE_RE.sub("", str(normalized[-1][1] or "")).strip()
+    if not plain_snapshot:
+        return ""
+    for marker in _SHARE_SNAPSHOT_MARKERS:
+        if marker not in plain_snapshot:
+            plain_snapshot = f"{plain_snapshot}\n{marker}"
+    return plain_snapshot
+
+
+def _write_share_snapshot(snapshot_root_raw: str, normalized: list[tuple[float, str]]) -> None:
+    snapshot_root = Path(snapshot_root_raw)
+    snapshot_root.mkdir(parents=True, exist_ok=True)
+    if sorted(snapshot_root.glob("tui-snapshot-*.txt")):
+        return
+    plain_snapshot = _share_snapshot_text(normalized)
+    if not plain_snapshot:
+        return
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
+    target = snapshot_root / f"tui-snapshot-{stamp}.txt"
+    index = 2
+    while target.exists():
+        target = snapshot_root / f"tui-snapshot-{stamp}-{index}.txt"
+        index += 1
+    target.write_text(f"{plain_snapshot}\n", encoding="utf-8")
+
+
+def _share_session_env(width: int, height: int, endpoint: str) -> dict[str, str]:
+    env = _apply_tui_e2e_baseline_env(dict(os.environ), width=width, height=height)
+    env["ANANTA_ENDPOINT"] = endpoint
+    env["ANANTA_BASE_URL"] = endpoint
+    env["ANANTA_HUB_URL"] = endpoint
+    env["ANANTA_TUI_SNAKE_TUTORIAL_AI"] = "0"
+    env["ANANTA_TUI_E2E_SHARE_AUTORUN"] = "1"
+    env["ANANTA_TUI_E2E_SHARE_ONLY_NAV"] = "1"
+    return env
+
+
+def _share_session_live_e2e_cast(*, run_id: str) -> str:
+    width, height = _share_cast_dimensions()
+    duration_limit = max(10.0, min(120.0, float(os.environ.get("ANANTA_TUI_E2E_CAST_SECONDS", "34"))))
+    default_cmd = _default_tui_command(section="share", focus="navigation")
+    run_command = str(os.environ.get("ANANTA_TUI_E2E_CAST_COMMAND") or default_cmd).strip()
+    command = shlex.split(run_command)
+    if not command:
+        raise RuntimeError("ANANTA_TUI_E2E_CAST_COMMAND is empty")
+
+    endpoint = _first_env(
+        "ANANTA_TUI_E2E_SHARE_ENDPOINT", "ANANTA_ENDPOINT", "ANANTA_HUB_URL", default="http://localhost:5000"
+    ).strip()
+    env = _share_session_env(width, height, endpoint)
+    public_oidc = _PublicOidcShareSettings()
+    use_public_oidc = public_oidc.enabled()
+    if use_public_oidc:
+        public_oidc.apply_to(env)
+
+    script_actions: list[dict[str, object]] = [
+        {"at": 16.0, "send": b"\x1f"},
+        {"at": 38.0, "send": b"q"},
+    ]
+    process, master_fd = _spawn_in_pty(command, env, width=width, height=height)
+    events = _capture_scripted_pty(process, master_fd, script_actions=script_actions, duration_limit=duration_limit)
     if not events:
         raise RuntimeError(
             "No PTY output captured for share-session-live-e2e cast. "
@@ -542,26 +645,12 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
 
     first_ts = events[0][0]
     normalized = [(max(0.0, ts - first_ts), frame) for ts, frame in events]
-
-    summary_source = ""
-    summary_endpoint = endpoint
-    titles: list[str] = []
-    token = str(env.get("ANANTA_TUI_E2E_OIDC_TOKEN") or "").strip()
-    if token and use_public_oidc:
-        try:
-            titles = _fetch_rendezvous_titles(base_url=public_rendezvous, token=token)
-            summary_source = "rendezvous"
-            summary_endpoint = public_rendezvous
-        except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
-            titles = []
-    if not titles:
-        token = str(env.get("ANANTA_AUTH_TOKEN") or "").strip()
-        if token:
-            try:
-                titles = _fetch_share_titles(endpoint=endpoint, token=token)
-                summary_source = "hub"
-            except (urllib.error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
-                titles = []
+    titles, summary_source, summary_endpoint = _share_summary_titles(
+        env,
+        endpoint=endpoint,
+        use_public_oidc=use_public_oidc,
+        public_rendezvous=public_oidc.rendezvous,
+    )
     if titles:
         summary = (
             "\x1b[2J\x1b[H"
@@ -575,31 +664,7 @@ def _share_session_live_e2e_cast(*, run_id: str) -> str:
 
     snapshot_root_raw = str(env.get("ANANTA_TUI_SNAPSHOT_DIR") or "").strip()
     if snapshot_root_raw:
-        snapshot_root = Path(snapshot_root_raw)
-        snapshot_root.mkdir(parents=True, exist_ok=True)
-        existing = sorted(snapshot_root.glob("tui-snapshot-*.txt"))
-        if not existing:
-            plain_snapshot = ""
-            if normalized:
-                for _ts, frame in reversed(normalized):
-                    candidate = ansi_re.sub("", str(frame or "")).strip()
-                    if "Snake-Modus aktiv" in candidate and "Share / Teilnehmer" in candidate:
-                        plain_snapshot = candidate
-                        break
-                if not plain_snapshot:
-                    plain_snapshot = ansi_re.sub("", str(normalized[-1][1] or "")).strip()
-            if plain_snapshot:
-                if "Snake-Modus aktiv" not in plain_snapshot:
-                    plain_snapshot = f"{plain_snapshot}\nSnake-Modus aktiv"
-                if "Share / Teilnehmer" not in plain_snapshot:
-                    plain_snapshot = f"{plain_snapshot}\nShare / Teilnehmer"
-                stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-                target = snapshot_root / f"tui-snapshot-{stamp}.txt"
-                index = 2
-                while target.exists():
-                    target = snapshot_root / f"tui-snapshot-{stamp}-{index}.txt"
-                    index += 1
-                target.write_text(f"{plain_snapshot}\n", encoding="utf-8")
+        _write_share_snapshot(snapshot_root_raw, normalized)
 
     return _asciinema_v2_lines(
         title=f"Ananta Operator TUI – Share Session Live E2E ({run_id})",
