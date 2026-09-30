@@ -314,9 +314,22 @@ def _render_bpmn_collaboration(params: dict[str, Any]) -> tuple[str, str]:
     message_flows_raw = _as_list(params.get("message_flows"), field="message_flows")
     message_flows = _as_dict_entries(message_flows_raw, field="message_flows")
 
+    seen_part_ids = _validate_collaboration_participants(participants)
+    _validate_message_flows(message_flows, seen_part_ids)
+
+    lines: list[str] = [_definitions_open(definitions_id)]
+    for p in participants:
+        _emit_participant_process(lines, p)
+    _emit_collaboration_section(lines, participants, message_flows)
+    _emit_collaboration_diagram(lines, participants, message_flows)
+    lines.append("</bpmn:definitions>")
+    return "\n".join(lines) + "\n", "collaboration.bpmn"
+
+
+def _validate_collaboration_participants(participants: list[dict]) -> set[str]:
+    """Validate unique participant and process ids; return the participant ids."""
     seen_part_ids: set[str] = set()
     seen_proc_ids: set[str] = set()
-    participant_data: list[dict] = []
     for p in participants:
         pid = _as_str(p.get("id"), field="participants[].id")
         _check_identifier(pid, field="participants[].id")
@@ -326,12 +339,12 @@ def _render_bpmn_collaboration(params: dict[str, Any]) -> tuple[str, str]:
         proc_id = _as_str(p.get("process_id"), field="participants[].process_id")
         _check_identifier(proc_id, field="participants[].process_id")
         if proc_id in seen_proc_ids:
-            raise NotationRenderError(
-                f"duplicate process_id {proc_id!r} across participants"
-            )
+            raise NotationRenderError(f"duplicate process_id {proc_id!r} across participants")
         seen_proc_ids.add(proc_id)
-        participant_data.append(p)
+    return seen_part_ids
 
+
+def _validate_message_flows(message_flows: list[dict], participant_ids: set[str]) -> None:
     seen_mf_ids: set[str] = set()
     for mf in message_flows:
         mid = _as_str(mf.get("id"), field="message_flows[].id")
@@ -341,124 +354,99 @@ def _render_bpmn_collaboration(params: dict[str, Any]) -> tuple[str, str]:
         seen_mf_ids.add(mid)
         src = _as_str(mf.get("source_ref"), field="message_flows[].source_ref")
         tgt = _as_str(mf.get("target_ref"), field="message_flows[].target_ref")
-        if src not in seen_part_ids:
-            raise NotationRenderError(
-                f"messageFlow {mid!r} source_ref {src!r} references "
-                f"unknown participant"
-            )
-        if tgt not in seen_part_ids:
-            raise NotationRenderError(
-                f"messageFlow {mid!r} target_ref {tgt!r} references "
-                f"unknown participant"
-            )
+        if src not in participant_ids:
+            raise NotationRenderError(f"messageFlow {mid!r} source_ref {src!r} references unknown participant")
+        if tgt not in participant_ids:
+            raise NotationRenderError(f"messageFlow {mid!r} target_ref {tgt!r} references unknown participant")
 
-    lines: list[str] = [_definitions_open(definitions_id)]
 
-    for p in participant_data:
+def _emit_participant_process(lines: list[str], p: dict) -> None:
+    pid = _as_str(p.get("id"), field="participants[].id")
+    _as_str(p.get("name", pid), field="participants[].name")
+    proc_id = _as_str(p.get("process_id"), field="participants[].process_id")
+    proc_name = p.get("process_name") or ""
+    elements_raw = _as_list(p.get("elements", []), field="participants[].elements")
+    if not elements_raw:
+        raise NotationRenderError(f"participant {pid!r} must carry at least one element")
+    elements = _as_dict_entries(elements_raw, field="participants[].elements")
+    flows_raw = _as_list(p.get("flows", []), field="participants[].flows")
+    flows = _as_dict_entries(flows_raw, field="participants[].flows")
+    element_ids = _validate_flow_elements(elements)
+    _validate_flows(flows, set(element_ids))
+
+    proc_open = f'  <bpmn:process id="{_xml_escape(proc_id)}" isExecutable="true"'
+    if isinstance(proc_name, str) and proc_name:
+        proc_open += f' name="{_xml_escape(proc_name)}"'
+    proc_open += ">"
+    lines.append(proc_open)
+
+    lanes_raw = _as_list(p.get("lanes", []), field="participants[].lanes")
+    if lanes_raw:
+        lanes = _as_dict_entries(lanes_raw, field="participants[].lanes")
+        _validate_participant_lanes(lanes, set(element_ids), pid=pid)
+        _emit_participant_lane_set(lines, lanes, proc_id=proc_id)
+
+    for elem in elements:
+        lines.append(_render_bpmn_element(elem))
+    for flow in flows:
+        lines.append(_render_bpmn_flow(flow))
+    lines.append("  </bpmn:process>")
+
+
+def _collect_participant_lane_refs(lanes: list[dict], *, pid: str) -> list[set[str]]:
+    seen_lane_ids: set[str] = set()
+    lane_refs: list[set[str]] = []
+    for lane in lanes:
+        lid = _as_str(lane.get("id"), field="participants[].lanes[].id")
+        _check_identifier(lid, field="participants[].lanes[].id")
+        if lid in seen_lane_ids:
+            raise NotationRenderError(f"duplicate lane id {lid!r} in participant {pid!r}")
+        seen_lane_ids.add(lid)
+        refs = _as_list(lane.get("flow_node_refs", []), field="participants[].lanes[].flow_node_refs")
+        ref_set: set[str] = set()
+        for ref in refs:
+            if not isinstance(ref, str):
+                raise NotationRenderError(f"lane {lid!r} flow_node_refs entries must be strings")
+            ref_set.add(ref)
+        lane_refs.append(ref_set)
+    return lane_refs
+
+
+def _validate_participant_lanes(lanes: list[dict], element_set: set[str], *, pid: str) -> None:
+    """Every element must belong to exactly one lane of its participant."""
+    union: set[str] = set()
+    for ref_set in _collect_participant_lane_refs(lanes, pid=pid):
+        for ref in ref_set:
+            if ref not in element_set:
+                raise NotationRenderError(
+                    f"lane flow_node_ref {ref!r} references unknown element in participant {pid!r}"
+                )
+            if ref in union:
+                raise NotationRenderError(f"element {ref!r} assigned to multiple lanes in participant {pid!r}")
+            union.add(ref)
+    if union != element_set:
+        missing = element_set - union
+        raise NotationRenderError(f"elements not assigned to any lane in participant {pid!r}: {sorted(missing)}")
+
+
+def _emit_participant_lane_set(lines: list[str], lanes: list[dict], *, proc_id: str) -> None:
+    lines.append('    <bpmn:laneSet id="LaneSet_' + _xml_escape(proc_id) + '">')
+    for lane in lanes:
+        lid = _as_str(lane.get("id"), field="participants[].lanes[].id")
+        lname = _as_str(lane.get("name", lid), field="participants[].lanes[].name")
+        lines.append(f'      <bpmn:lane id="{_xml_escape(lid)}" name="{_xml_escape(lname)}">')
+        for ref in _as_list(lane.get("flow_node_refs", []), field="participants[].lanes[].flow_node_refs"):
+            lines.append(f"        <bpmn:flowNodeRef>{_xml_escape(ref)}</bpmn:flowNodeRef>")
+        lines.append("      </bpmn:lane>")
+    lines.append("    </bpmn:laneSet>")
+
+
+def _emit_collaboration_section(lines: list[str], participants: list[dict], message_flows: list[dict]) -> None:
+    lines.append('  <bpmn:collaboration id="Collaboration_1">')
+    for p in participants:
         pid = _as_str(p.get("id"), field="participants[].id")
         pname = _as_str(p.get("name", pid), field="participants[].name")
         proc_id = _as_str(p.get("process_id"), field="participants[].process_id")
-        proc_name = p.get("process_name") or ""
-        elements_raw = _as_list(p.get("elements", []),
-                                field="participants[].elements")
-        if not elements_raw:
-            raise NotationRenderError(
-                f"participant {pid!r} must carry at least one element"
-            )
-        elements = _as_dict_entries(elements_raw,
-                                    field="participants[].elements")
-        flows_raw = _as_list(p.get("flows", []),
-                             field="participants[].flows")
-        flows = _as_dict_entries(flows_raw, field="participants[].flows")
-        element_ids = _validate_flow_elements(elements)
-        _validate_flows(flows, set(element_ids))
-
-        proc_open = (
-            f'  <bpmn:process id="{_xml_escape(proc_id)}" isExecutable="true"'
-        )
-        if isinstance(proc_name, str) and proc_name:
-            proc_open += f' name="{_xml_escape(proc_name)}"'
-        proc_open += ">"
-        lines.append(proc_open)
-
-        lanes_raw = _as_list(p.get("lanes", []),
-                             field="participants[].lanes")
-        if lanes_raw:
-            lanes = _as_dict_entries(lanes_raw,
-                                     field="participants[].lanes")
-            seen_lane_ids: set[str] = set()
-            lane_refs: list[set[str]] = []
-            element_set = set(element_ids)
-            for lane in lanes:
-                lid = _as_str(lane.get("id"), field="participants[].lanes[].id")
-                _check_identifier(lid,
-                                  field="participants[].lanes[].id")
-                if lid in seen_lane_ids:
-                    raise NotationRenderError(
-                        f"duplicate lane id {lid!r} in participant {pid!r}"
-                    )
-                seen_lane_ids.add(lid)
-                refs = _as_list(lane.get("flow_node_refs", []),
-                                field="participants[].lanes[].flow_node_refs")
-                ref_set: set[str] = set()
-                for ref in refs:
-                    if not isinstance(ref, str):
-                        raise NotationRenderError(
-                            f"lane {lid!r} flow_node_refs entries must be strings"
-                        )
-                    ref_set.add(ref)
-                lane_refs.append(ref_set)
-            union: set[str] = set()
-            for ref_set in lane_refs:
-                for ref in ref_set:
-                    if ref not in element_set:
-                        raise NotationRenderError(
-                            f"lane flow_node_ref {ref!r} references unknown "
-                            f"element in participant {pid!r}"
-                        )
-                    if ref in union:
-                        raise NotationRenderError(
-                            f"element {ref!r} assigned to multiple lanes in "
-                            f"participant {pid!r}"
-                        )
-                    union.add(ref)
-            if union != element_set:
-                missing = element_set - union
-                raise NotationRenderError(
-                    f"elements not assigned to any lane in participant "
-                    f"{pid!r}: {sorted(missing)}"
-                )
-            lines.append('    <bpmn:laneSet id="LaneSet_' + _xml_escape(proc_id) + '">')
-            for lane in lanes:
-                lid = _as_str(lane.get("id"),
-                              field="participants[].lanes[].id")
-                lname = _as_str(lane.get("name", lid),
-                                field="participants[].lanes[].name")
-                lines.append(
-                    f'      <bpmn:lane id="{_xml_escape(lid)}" '
-                    f'name="{_xml_escape(lname)}">'
-                )
-                for ref in _as_list(lane.get("flow_node_refs", []),
-                                    field="participants[].lanes[].flow_node_refs"):
-                    lines.append(
-                        f'        <bpmn:flowNodeRef>{_xml_escape(ref)}'
-                        f'</bpmn:flowNodeRef>'
-                    )
-                lines.append("      </bpmn:lane>")
-            lines.append("    </bpmn:laneSet>")
-
-        for elem in elements:
-            lines.append(_render_bpmn_element(elem))
-        for flow in flows:
-            lines.append(_render_bpmn_flow(flow))
-        lines.append("  </bpmn:process>")
-
-    lines.append('  <bpmn:collaboration id="Collaboration_1">')
-    for p in participant_data:
-        pid = _as_str(p.get("id"), field="participants[].id")
-        pname = _as_str(p.get("name", pid), field="participants[].name")
-        proc_id = _as_str(p.get("process_id"),
-                          field="participants[].process_id")
         lines.append(
             f'    <bpmn:participant id="{_xml_escape(pid)}" '
             f'name="{_xml_escape(pname)}" processRef="{_xml_escape(proc_id)}" />'
@@ -468,56 +456,18 @@ def _render_bpmn_collaboration(params: dict[str, Any]) -> tuple[str, str]:
         src = _as_str(mf.get("source_ref"), field="message_flows[].source_ref")
         tgt = _as_str(mf.get("target_ref"), field="message_flows[].target_ref")
         name = mf.get("name")
-        attrs = (
-            f' id="{_xml_escape(mid)}" '
-            f'sourceRef="{_xml_escape(src)}" '
-            f'targetRef="{_xml_escape(tgt)}"'
-        )
+        attrs = f' id="{_xml_escape(mid)}" sourceRef="{_xml_escape(src)}" targetRef="{_xml_escape(tgt)}"'
         if isinstance(name, str) and name:
             attrs += f' name="{_xml_escape(name)}"'
         lines.append(f"    <bpmn:messageFlow{attrs} />")
     lines.append("  </bpmn:collaboration>")
 
+
+def _emit_collaboration_diagram(lines: list[str], participants: list[dict], message_flows: list[dict]) -> None:
     lines.append('  <bpmndi:BPMNDiagram id="BPMNDiagram_1">')
     lines.append('    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">')
-    y_pool = 120
-    for pi, p in enumerate(participant_data):
-        pid = _as_str(p.get("id"), field="participants[].id")
-        pname = _as_str(p.get("name", pid), field="participants[].name")
-        proc_id = _as_str(p.get("process_id"),
-                          field="participants[].process_id")
-        lines.append(
-            f'      <bpmndi:BPMNShape id="{_xml_escape(pid)}_di" '
-            f'bpmnElement="{_xml_escape(pid)}" isHorizontal="true">\n'
-            f'        <dc:Bounds x="120" y="{y_pool + pi * 220}" '
-            f'width="900" height="200" />\n'
-            f'      </bpmndi:BPMNShape>'
-        )
-        lines.append(
-            f'      <bpmndi:BPMNShape id="{_xml_escape(proc_id)}_plane" '
-            f'bpmnElement="{_xml_escape(proc_id)}" isHorizontal="true">\n'
-            f'        <dc:Bounds x="160" y="{y_pool + pi * 220 + 20}" '
-            f'width="840" height="160" />\n'
-            f'      </bpmndi:BPMNShape>'
-        )
-        elements_raw = _as_list(p.get("elements", []),
-                                field="participants[].elements")
-        for idx, raw_elem in enumerate(elements_raw):
-            elem = _as_dict_entries([raw_elem],
-                                    field="participants[].elements")[0]
-            eid = _as_str(elem.get("id"), field="participants[].elements[].id")
-            lines.append(_render_diagram_shape(
-                eid,
-                x=200 + idx * 140,
-                y=y_pool + pi * 220 + 60,
-            ))
-        flows_raw = _as_list(p.get("flows", []),
-                             field="participants[].flows")
-        for raw_flow in flows_raw:
-            flow = _as_dict_entries([raw_flow],
-                                    field="participants[].flows")[0]
-            fid = _as_str(flow.get("id"), field="participants[].flows[].id")
-            lines.append(_render_diagram_edge(fid))
+    for pi, p in enumerate(participants):
+        _emit_participant_diagram(lines, p, pool_y=120 + pi * 220)
     for mf in message_flows:
         mid = _as_str(mf.get("id"), field="message_flows[].id")
         lines.append(
@@ -525,12 +475,40 @@ def _render_bpmn_collaboration(params: dict[str, Any]) -> tuple[str, str]:
             f'bpmnElement="{_xml_escape(mid)}">\n'
             f'        <di:waypoint x="1020" y="220" />\n'
             f'        <di:waypoint x="1020" y="440" />\n'
-            f'      </bpmndi:BPMNEdge>'
+            f"      </bpmndi:BPMNEdge>"
         )
     lines.append("    </bpmndi:BPMNPlane>")
     lines.append("  </bpmndi:BPMNDiagram>")
-    lines.append("</bpmn:definitions>")
-    return "\n".join(lines) + "\n", "collaboration.bpmn"
+
+
+def _emit_participant_diagram(lines: list[str], p: dict, *, pool_y: int) -> None:
+    pid = _as_str(p.get("id"), field="participants[].id")
+    _as_str(p.get("name", pid), field="participants[].name")
+    proc_id = _as_str(p.get("process_id"), field="participants[].process_id")
+    lines.append(
+        f'      <bpmndi:BPMNShape id="{_xml_escape(pid)}_di" '
+        f'bpmnElement="{_xml_escape(pid)}" isHorizontal="true">\n'
+        f'        <dc:Bounds x="120" y="{pool_y}" '
+        f'width="900" height="200" />\n'
+        f"      </bpmndi:BPMNShape>"
+    )
+    lines.append(
+        f'      <bpmndi:BPMNShape id="{_xml_escape(proc_id)}_plane" '
+        f'bpmnElement="{_xml_escape(proc_id)}" isHorizontal="true">\n'
+        f'        <dc:Bounds x="160" y="{pool_y + 20}" '
+        f'width="840" height="160" />\n'
+        f"      </bpmndi:BPMNShape>"
+    )
+    elements_raw = _as_list(p.get("elements", []), field="participants[].elements")
+    for idx, raw_elem in enumerate(elements_raw):
+        elem = _as_dict_entries([raw_elem], field="participants[].elements")[0]
+        eid = _as_str(elem.get("id"), field="participants[].elements[].id")
+        lines.append(_render_diagram_shape(eid, x=200 + idx * 140, y=pool_y + 60))
+    flows_raw = _as_list(p.get("flows", []), field="participants[].flows")
+    for raw_flow in flows_raw:
+        flow = _as_dict_entries([raw_flow], field="participants[].flows")[0]
+        fid = _as_str(flow.get("id"), field="participants[].flows[].id")
+        lines.append(_render_diagram_edge(fid))
 
 
 render_bpmn_process = _render_bpmn_process
