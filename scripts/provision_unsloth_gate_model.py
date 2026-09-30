@@ -142,7 +142,11 @@ def provision(
     try:
         for pinned in snapshot.files:
             _download(pinned, snapshot.url(pinned.name), staging / pinned.name, fetcher)
-            (staging / pinned.name).chmod(0o444)
+            # Unsloth's merged export copies the base shards with shutil.copy2
+            # (preserving the mode) into the writable export staging directory
+            # and then rewrites them; a read-only snapshot makes that rewrite
+            # fail with EACCES. Keep the files owner-writable.
+            (staging / pinned.name).chmod(0o644)
         staging.chmod(0o755)
         verify_snapshot(staging, snapshot)
         os.rename(staging, target)
