@@ -100,110 +100,8 @@ def _validate_sudoku(profile: dict[str, Any]) -> None:
                 raise ValueError("sudoku_given_changed")
 
 
-def validate_pack() -> dict[str, Any]:
-    todo = _load(TODO_PATH)
-    pack = _load(PACK_PATH)
-    source = _load(SOURCE_PATH)
-    threat = _load(THREAT_PATH)
-    profile = _load(PROFILE_PATH)
-    contract = _load(CONTRACT_PATH)
-
-    todo_items = [item for category in todo["categories"] for item in category["items"]]
-    expected_ids = todo["meta"]["recommended_order"]
-    actual_ids = [item["id"] for item in pack["items"]]
-    decisions_by_id = {item["id"]: item for item in pack["items"]}
-    if len(todo_items) != 32 or len(set(expected_ids)) != 32:
-        raise ValueError("todo_item_set_invalid")
-    if actual_ids != expected_ids:
-        raise ValueError("decision_pack_order_or_scope_mismatch")
-    for item in pack["items"]:
-        decisions = set(item["classification"])
-        if not decisions or not decisions <= ALLOWED_DECISIONS:
-            raise ValueError(f"decision_classification_invalid:{item['id']}")
-        if not item["owner"] or not item["required_gates"]:
-            raise ValueError(f"decision_owner_or_gate_missing:{item['id']}")
-    promotion = pack["promotion"]
-    if promotion["status"] != "completed_hub_grounded_and_promoted":
-        raise ValueError("promotion_status_invalid")
-    if promotion["completed_item_decisions"] != 32 or promotion["pending_item_decisions"] != 0:
-        raise ValueError("completed_decision_count_invalid")
-    if any(item["research_status"] != "decided" for item in pack["items"]):
-        raise ValueError("promotion_boundary_invalid")
-
-    if todo["status"] != "completed" or todo["implementation_progress"]["completed_items"] != 32:
-        raise ValueError("archived_todo_completion_invalid")
-    if todo["meta"]["by_status"] != {"completed": 32, "partial": 0, "open": 0}:
-        raise ValueError("archived_todo_summary_invalid")
-    for item in todo_items:
-        if item["status"] != "completed":
-            raise ValueError(f"archived_todo_item_open:{item['id']}")
-        evidence = item.get("acceptance_evidence")
-        decision = decisions_by_id[item["id"]]
-        if not isinstance(evidence, dict) or evidence.get("status") != "accepted_research_disposition":
-            raise ValueError(f"acceptance_evidence_missing:{item['id']}")
-        if evidence.get("decision_pack_item_id") != item["id"]:
-            raise ValueError(f"acceptance_decision_binding_invalid:{item['id']}")
-        if evidence.get("classification") != decision["classification"] or evidence.get("research_disposition") != decision["decision"]:
-            raise ValueError(f"acceptance_disposition_mismatch:{item['id']}")
-        if evidence.get("reviewed_acceptance_criteria") != len(item["acceptance_criteria"]):
-            raise ValueError(f"acceptance_criteria_count_mismatch:{item['id']}")
-        if tuple(evidence.get("source_refs", ())) != EXPECTED_CITED_SOURCE_REFS:
-            raise ValueError(f"acceptance_source_binding_invalid:{item['id']}")
-        if tuple(evidence.get("governance_run_refs", ())) != EXPECTED_RUN_REFS:
-            raise ValueError(f"acceptance_run_binding_invalid:{item['id']}")
-        if evidence.get("hub_category_revision_id") != EXPECTED_REVISION_ID:
-            raise ValueError(f"acceptance_revision_binding_invalid:{item['id']}")
-
-    repository = source["upstream_repository"]
-    paper = source["paper"]
-    for digest in (repository["archive_sha256"], *(entry["sha256"] for entry in repository["selected_files"]), *(entry["sha256"] for entry in paper["revision_digests"])):
-        if not SHA256.fullmatch(digest):
-            raise ValueError("source_digest_invalid")
-    if len(repository["commit_sha"]) != 40 or len(repository["tree_sha"]) != 40:
-        raise ValueError("source_revision_invalid")
-    if [entry["revision"] for entry in paper["revision_digests"]] != ["v1", "v2", "v3"]:
-        raise ValueError("paper_revision_set_invalid")
-    dependency = source["upstream_dependency_observation"]
-    if dependency["all_versions_pinned"] or dependency["live_admission"] != "denied":
-        raise ValueError("unpinned_dependency_policy_not_fail_closed")
-    binding = source["hub_source_binding"]
-    if binding["status"] != "verified_promoted":
-        raise ValueError("hub_source_binding_status_invalid")
-    if binding["source_catalog_id"] != EXPECTED_CATALOG_ID or binding["source_catalog_hash"] != EXPECTED_CATALOG_HASH:
-        raise ValueError("hub_catalog_binding_invalid")
-    if binding["repository_revision"] != EXPECTED_REPOSITORY_REVISION:
-        raise ValueError("hub_repository_revision_invalid")
-    if tuple(binding["allowed_source_refs"]) != EXPECTED_SOURCE_REFS:
-        raise ValueError("hub_source_allowlist_invalid")
-    if tuple(binding["cited_source_refs"]) != EXPECTED_CITED_SOURCE_REFS:
-        raise ValueError("hub_cited_source_refs_invalid")
-    if tuple(binding["allowed_run_refs"]) != EXPECTED_RUN_REFS:
-        raise ValueError("hub_run_allowlist_invalid")
-    source_record = binding["source_records"][0]
-    if source_record["source_id"] != "SRC_0003" or source_record["record_id"] != "docs/research/hrm/decision-pack.v1.json":
-        raise ValueError("hub_source_record_invalid")
-    if source_record["content_hash"] != EXPECTED_SOURCE_CONTENT_HASH or source_record["provenance_digest"] != EXPECTED_SOURCE_PROVENANCE_DIGEST:
-        raise ValueError("hub_source_record_digest_invalid")
-    run_evidence = binding["run_evidence"]
-    if run_evidence["source_id"] != "RUN_0001" or run_evidence["run_id"] != EXPECTED_RUN_ID or run_evidence["exit_code"] != 0:
-        raise ValueError("hub_run_evidence_invalid")
-    if run_evidence["binding_digest"] != EXPECTED_RUN_BINDING_DIGEST or run_evidence["evidence_digest"] != EXPECTED_RUN_EVIDENCE_DIGEST:
-        raise ValueError("hub_run_evidence_digest_invalid")
-    planning_revision = binding["planning_revision"]
-    if planning_revision["id"] != EXPECTED_REVISION_ID or planning_revision["content_digest"] != EXPECTED_REVISION_DIGEST or planning_revision["status"] != "promoted":
-        raise ValueError("hub_planning_revision_invalid")
-    governance = binding["governance"]
-    if governance["approval_request_id"] != EXPECTED_APPROVAL_ID or governance["promotion_receipt_id"] != EXPECTED_PROMOTION_RECEIPT_ID:
-        raise ValueError("hub_promotion_governance_invalid")
-    if promotion["source_catalog_id"] != binding["source_catalog_id"] or promotion["source_catalog_hash"] != binding["source_catalog_hash"]:
-        raise ValueError("pack_catalog_binding_mismatch")
-    if tuple(promotion["allowed_source_refs"]) != EXPECTED_SOURCE_REFS or tuple(promotion["allowed_run_refs"]) != EXPECTED_RUN_REFS:
-        raise ValueError("pack_allowlist_binding_mismatch")
-    if promotion["artifact_revision_id"] != EXPECTED_REVISION_ID or promotion["content_digest"] != EXPECTED_REVISION_DIGEST:
-        raise ValueError("pack_revision_binding_mismatch")
-
-    risks = threat["risks"]
-    required_scenarios = {
+_REQUIRED_THREAT_SCENARIOS = frozenset(
+    {
         "checkpoint_rce_or_unsafe_deserialization",
         "dataset_or_plugin_code_execution",
         "ssrf_redirect_or_dns_rebinding",
@@ -217,19 +115,9 @@ def validate_pack() -> dict[str, Any]:
         "resource_exhaustion",
         "unenforced_gpu_isolation",
     }
-    if {risk["scenario"] for risk in risks} != required_scenarios:
-        raise ValueError("threat_scope_invalid")
-    for risk in risks:
-        if risk["severity"] in {"critical", "high"} and risk["disposition"] not in {"deny", "mitigate", "conditional"}:
-            raise ValueError(f"risk_disposition_invalid:{risk['id']}")
-        if not risk["control_owner"] or not risk["verification_gate"]:
-            raise ValueError(f"risk_owner_or_gate_missing:{risk['id']}")
-
-    Draft202012Validator.check_schema(contract)
-    open_contracts = _closed_object_schemas(contract)
-    if open_contracts:
-        raise ValueError(f"contract_object_not_closed:{open_contracts[0]}")
-    required_contracts = {
+)
+_REQUIRED_CONTRACTS = frozenset(
+    {
         "capability_probe",
         "preflight_result",
         "puzzle_dataset_manifest",
@@ -241,23 +129,245 @@ def validate_pack() -> dict[str, Any]:
         "run_result",
         "evaluation_report",
     }
-    if not required_contracts <= set(contract["$defs"]):
+)
+_DEFERRED_PROFILES = ("maze-plugin", "arc-plugin", "multi-gpu-or-large-training", "remote-llm-baseline")
+_REQUIRED_ENDPOINTS = (
+    "/api/hrm-experiments/capabilities",
+    "/api/hrm-experiments/preflight",
+    "/api/hrm-experiments/datasets",
+    "/api/hrm-experiments/runs",
+    "/api/hrm-experiments/checkpoints",
+    "/api/hrm-experiments/evaluations",
+    "/api/hrm-experiments/reports/{report_id}",
+)
+
+
+def _check_decision_items(todo: dict[str, Any], pack: dict[str, Any]) -> list[str]:
+    todo_items = [item for category in todo["categories"] for item in category["items"]]
+    expected_ids = todo["meta"]["recommended_order"]
+    actual_ids = [item["id"] for item in pack["items"]]
+    if len(todo_items) != 32 or len(set(expected_ids)) != 32:
+        raise ValueError("todo_item_set_invalid")
+    if actual_ids != expected_ids:
+        raise ValueError("decision_pack_order_or_scope_mismatch")
+    for item in pack["items"]:
+        decisions = set(item["classification"])
+        if not decisions or not decisions <= ALLOWED_DECISIONS:
+            raise ValueError(f"decision_classification_invalid:{item['id']}")
+        if not item["owner"] or not item["required_gates"]:
+            raise ValueError(f"decision_owner_or_gate_missing:{item['id']}")
+    return actual_ids
+
+
+def _check_pack_promotion_status(pack: dict[str, Any]) -> None:
+    promotion = pack["promotion"]
+    if promotion["status"] != "completed_hub_grounded_and_promoted":
+        raise ValueError("promotion_status_invalid")
+    if promotion["completed_item_decisions"] != 32 or promotion["pending_item_decisions"] != 0:
+        raise ValueError("completed_decision_count_invalid")
+    if any(item["research_status"] != "decided" for item in pack["items"]):
+        raise ValueError("promotion_boundary_invalid")
+
+
+def _check_acceptance_evidence(item: dict[str, Any], decision: dict[str, Any]) -> None:
+    evidence = item.get("acceptance_evidence")
+    if not isinstance(evidence, dict) or evidence.get("status") != "accepted_research_disposition":
+        raise ValueError(f"acceptance_evidence_missing:{item['id']}")
+    if evidence.get("decision_pack_item_id") != item["id"]:
+        raise ValueError(f"acceptance_decision_binding_invalid:{item['id']}")
+    if (
+        evidence.get("classification") != decision["classification"]
+        or evidence.get("research_disposition") != decision["decision"]
+    ):
+        raise ValueError(f"acceptance_disposition_mismatch:{item['id']}")
+    if evidence.get("reviewed_acceptance_criteria") != len(item["acceptance_criteria"]):
+        raise ValueError(f"acceptance_criteria_count_mismatch:{item['id']}")
+    if tuple(evidence.get("source_refs", ())) != EXPECTED_CITED_SOURCE_REFS:
+        raise ValueError(f"acceptance_source_binding_invalid:{item['id']}")
+    if tuple(evidence.get("governance_run_refs", ())) != EXPECTED_RUN_REFS:
+        raise ValueError(f"acceptance_run_binding_invalid:{item['id']}")
+    if evidence.get("hub_category_revision_id") != EXPECTED_REVISION_ID:
+        raise ValueError(f"acceptance_revision_binding_invalid:{item['id']}")
+
+
+def _check_archived_todo(todo: dict[str, Any], pack: dict[str, Any]) -> None:
+    todo_items = [item for category in todo["categories"] for item in category["items"]]
+    decisions_by_id = {item["id"]: item for item in pack["items"]}
+    if todo["status"] != "completed" or todo["implementation_progress"]["completed_items"] != 32:
+        raise ValueError("archived_todo_completion_invalid")
+    if todo["meta"]["by_status"] != {"completed": 32, "partial": 0, "open": 0}:
+        raise ValueError("archived_todo_summary_invalid")
+    for item in todo_items:
+        if item["status"] != "completed":
+            raise ValueError(f"archived_todo_item_open:{item['id']}")
+        decision = decisions_by_id[item["id"]]
+        _check_acceptance_evidence(item, decision)
+
+
+def _check_source_manifest(source: dict[str, Any]) -> None:
+    repository = source["upstream_repository"]
+    paper = source["paper"]
+    digests = (
+        repository["archive_sha256"],
+        *(entry["sha256"] for entry in repository["selected_files"]),
+        *(entry["sha256"] for entry in paper["revision_digests"]),
+    )
+    for digest in digests:
+        if not SHA256.fullmatch(digest):
+            raise ValueError("source_digest_invalid")
+    if len(repository["commit_sha"]) != 40 or len(repository["tree_sha"]) != 40:
+        raise ValueError("source_revision_invalid")
+    if [entry["revision"] for entry in paper["revision_digests"]] != ["v1", "v2", "v3"]:
+        raise ValueError("paper_revision_set_invalid")
+    dependency = source["upstream_dependency_observation"]
+    if dependency["all_versions_pinned"] or dependency["live_admission"] != "denied":
+        raise ValueError("unpinned_dependency_policy_not_fail_closed")
+
+
+def _check_hub_catalog_binding(binding: dict[str, Any]) -> None:
+    if binding["status"] != "verified_promoted":
+        raise ValueError("hub_source_binding_status_invalid")
+    if binding["source_catalog_id"] != EXPECTED_CATALOG_ID or binding["source_catalog_hash"] != EXPECTED_CATALOG_HASH:
+        raise ValueError("hub_catalog_binding_invalid")
+    if binding["repository_revision"] != EXPECTED_REPOSITORY_REVISION:
+        raise ValueError("hub_repository_revision_invalid")
+    if tuple(binding["allowed_source_refs"]) != EXPECTED_SOURCE_REFS:
+        raise ValueError("hub_source_allowlist_invalid")
+    if tuple(binding["cited_source_refs"]) != EXPECTED_CITED_SOURCE_REFS:
+        raise ValueError("hub_cited_source_refs_invalid")
+    if tuple(binding["allowed_run_refs"]) != EXPECTED_RUN_REFS:
+        raise ValueError("hub_run_allowlist_invalid")
+
+
+def _check_hub_source_record(binding: dict[str, Any]) -> None:
+    source_record = binding["source_records"][0]
+    if (
+        source_record["source_id"] != "SRC_0003"
+        or source_record["record_id"] != "docs/research/hrm/decision-pack.v1.json"
+    ):
+        raise ValueError("hub_source_record_invalid")
+    if (
+        source_record["content_hash"] != EXPECTED_SOURCE_CONTENT_HASH
+        or source_record["provenance_digest"] != EXPECTED_SOURCE_PROVENANCE_DIGEST
+    ):
+        raise ValueError("hub_source_record_digest_invalid")
+
+
+def _check_hub_run_evidence(binding: dict[str, Any]) -> None:
+    run_evidence = binding["run_evidence"]
+    if (
+        run_evidence["source_id"] != "RUN_0001"
+        or run_evidence["run_id"] != EXPECTED_RUN_ID
+        or run_evidence["exit_code"] != 0
+    ):
+        raise ValueError("hub_run_evidence_invalid")
+    if (
+        run_evidence["binding_digest"] != EXPECTED_RUN_BINDING_DIGEST
+        or run_evidence["evidence_digest"] != EXPECTED_RUN_EVIDENCE_DIGEST
+    ):
+        raise ValueError("hub_run_evidence_digest_invalid")
+
+
+def _check_hub_revision_governance(binding: dict[str, Any]) -> None:
+    planning_revision = binding["planning_revision"]
+    if (
+        planning_revision["id"] != EXPECTED_REVISION_ID
+        or planning_revision["content_digest"] != EXPECTED_REVISION_DIGEST
+        or planning_revision["status"] != "promoted"
+    ):
+        raise ValueError("hub_planning_revision_invalid")
+    governance = binding["governance"]
+    if (
+        governance["approval_request_id"] != EXPECTED_APPROVAL_ID
+        or governance["promotion_receipt_id"] != EXPECTED_PROMOTION_RECEIPT_ID
+    ):
+        raise ValueError("hub_promotion_governance_invalid")
+
+
+def _check_pack_hub_binding(promotion: dict[str, Any], binding: dict[str, Any]) -> None:
+    if (
+        promotion["source_catalog_id"] != binding["source_catalog_id"]
+        or promotion["source_catalog_hash"] != binding["source_catalog_hash"]
+    ):
+        raise ValueError("pack_catalog_binding_mismatch")
+    if (
+        tuple(promotion["allowed_source_refs"]) != EXPECTED_SOURCE_REFS
+        or tuple(promotion["allowed_run_refs"]) != EXPECTED_RUN_REFS
+    ):
+        raise ValueError("pack_allowlist_binding_mismatch")
+    if (
+        promotion["artifact_revision_id"] != EXPECTED_REVISION_ID
+        or promotion["content_digest"] != EXPECTED_REVISION_DIGEST
+    ):
+        raise ValueError("pack_revision_binding_mismatch")
+
+
+def _check_hub_grounding(source: dict[str, Any], pack: dict[str, Any]) -> None:
+    binding = source["hub_source_binding"]
+    _check_hub_catalog_binding(binding)
+    _check_hub_source_record(binding)
+    _check_hub_run_evidence(binding)
+    _check_hub_revision_governance(binding)
+    _check_pack_hub_binding(pack["promotion"], binding)
+
+
+def _check_threat_model(threat: dict[str, Any]) -> list[dict[str, Any]]:
+    risks = threat["risks"]
+    if {risk["scenario"] for risk in risks} != _REQUIRED_THREAT_SCENARIOS:
+        raise ValueError("threat_scope_invalid")
+    for risk in risks:
+        if risk["severity"] in {"critical", "high"} and risk["disposition"] not in {"deny", "mitigate", "conditional"}:
+            raise ValueError(f"risk_disposition_invalid:{risk['id']}")
+        if not risk["control_owner"] or not risk["verification_gate"]:
+            raise ValueError(f"risk_owner_or_gate_missing:{risk['id']}")
+    return risks
+
+
+def _check_contracts(contract: dict[str, Any]) -> None:
+    Draft202012Validator.check_schema(contract)
+    open_contracts = _closed_object_schemas(contract)
+    if open_contracts:
+        raise ValueError(f"contract_object_not_closed:{open_contracts[0]}")
+    if not _REQUIRED_CONTRACTS <= set(contract["$defs"]):
         raise ValueError("required_contract_missing")
 
+
+def _check_feasibility_profiles(profile: dict[str, Any]) -> None:
     _validate_sudoku(profile)
     profile_states = {entry["id"]: entry["status"] for entry in profile["profiles"]}
     if profile_states["sudoku-bounded-smoke"] != "pending_explicit_approval_and_run_evidence":
         raise ValueError("sudoku_live_claim_invalid")
-    if any(profile_states[item] != "deferred" for item in ("maze-plugin", "arc-plugin", "multi-gpu-or-large-training", "remote-llm-baseline")):
+    if any(profile_states[item] != "deferred" for item in _DEFERRED_PROFILES):
         raise ValueError("complex_profile_not_deferred")
 
+
+def _check_openapi() -> None:
     openapi = OPENAPI_PATH.read_text(encoding="utf-8")
-    for endpoint in ("/api/hrm-experiments/capabilities", "/api/hrm-experiments/preflight", "/api/hrm-experiments/datasets", "/api/hrm-experiments/runs", "/api/hrm-experiments/checkpoints", "/api/hrm-experiments/evaluations", "/api/hrm-experiments/reports/{report_id}"):
+    for endpoint in _REQUIRED_ENDPOINTS:
         if endpoint not in openapi:
             raise ValueError(f"api_endpoint_missing:{endpoint}")
     lowered = openapi.lower()
     if "worker_url" in lowered or "server_path" in lowered:
         raise ValueError("api_leaks_internal_location")
+
+
+def validate_pack() -> dict[str, Any]:
+    todo = _load(TODO_PATH)
+    pack = _load(PACK_PATH)
+    source = _load(SOURCE_PATH)
+    threat = _load(THREAT_PATH)
+    profile = _load(PROFILE_PATH)
+    contract = _load(CONTRACT_PATH)
+
+    actual_ids = _check_decision_items(todo, pack)
+    _check_pack_promotion_status(pack)
+    _check_archived_todo(todo, pack)
+    _check_source_manifest(source)
+    _check_hub_grounding(source, pack)
+    risks = _check_threat_model(threat)
+    _check_contracts(contract)
+    _check_feasibility_profiles(profile)
+    _check_openapi()
 
     return {
         "schema": "ananta.hrm-research-gate.v1",
@@ -268,7 +378,7 @@ def validate_pack() -> dict[str, Any]:
         "pending_promotion_decisions": 0,
         "hub_grounding": "verified_promoted",
         "threat_count": len(risks),
-        "closed_contract_count": len(required_contracts),
+        "closed_contract_count": len(_REQUIRED_CONTRACTS),
         "sudoku_fixture": "valid",
         "live_runtime": "not_claimed",
     }
