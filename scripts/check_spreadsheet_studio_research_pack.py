@@ -172,16 +172,27 @@ def _assert_track_progress(track: dict[str, Any]) -> None:
         raise ValueError("phase2_milestone_summary_invalid")
 
 
-def validate_pack() -> dict[str, Any]:  # noqa: C901
-    todo = _load(TODO_PATH)
-    pack = _load(PACK_PATH)
-    source_manifest = _load(SOURCE_PATH)
-    threat = _load(THREAT_PATH)
-    test_matrix = _load(TEST_MATRIX_PATH)
-    track = _load(TRACK_PATH)
-    _schema_validate(todo, TODO_SCHEMA_PATH, "category")
-    _schema_validate(track, TRACK_SCHEMA_PATH, "track")
+_ALLOWED_CLASSIFICATIONS = frozenset({"REUSE", "EXTEND", "NEW", "REJECT"})
+_REQUIRED_RISKS = frozenset(
+    {
+        "document_parser_or_archive_bomb",
+        "macro_extension_or_embedded_execution",
+        "external_formula_or_data_egress",
+        "csv_formula_injection",
+        "tenant_or_artifact_idor",
+        "stale_lease_or_result_replay",
+        "candidate_digest_swap",
+        "consent_projection_mismatch",
+        "revoked_data_in_training_or_adapter",
+        "training_memorization_or_secret_leak",
+        "worker_resource_exhaustion",
+        "supply_chain_or_unpinned_runtime",
+    }
+)
+_STRIPPED_REVIEW_BASIS_FIELDS = ("planning_revision_id", "planning_content_digest", "promotion_receipt_id")
 
+
+def _check_research_items(todo: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
     items = [item for category in todo["categories"] for item in category["items"]]
     item_ids = [item["id"] for item in items]
     if len(items) != 33 or len(set(item_ids)) != 33:
@@ -190,36 +201,42 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
         raise ValueError("archived_research_not_completed")
     if todo["meta"]["by_status"] != {"completed": 33, "open": 0, "partial": 0}:
         raise ValueError("archived_research_summary_invalid")
-    if todo["meta"]["recommended_order"] != item_ids:
-        # The canonical DAG order is authoritative even when category grouping differs.
-        if set(todo["meta"]["recommended_order"]) != set(item_ids):
-            raise ValueError("research_recommended_order_scope_invalid")
+    # The canonical DAG order is authoritative even when category grouping differs.
+    if todo["meta"]["recommended_order"] != item_ids and set(todo["meta"]["recommended_order"]) != set(item_ids):
+        raise ValueError("research_recommended_order_scope_invalid")
+    return items, item_ids
 
-    decisions = pack["items"]
+
+def _check_item_decision(item: dict[str, Any], decision: dict[str, Any]) -> None:
+    evidence = item.get("acceptance_evidence")
+    if not isinstance(evidence, dict):
+        raise ValueError(f"research_evidence_missing:{item['id']}")
+    if decision["research_status"] != "decided":
+        raise ValueError(f"research_decision_open:{item['id']}")
+    if not set(decision["classification"]) <= _ALLOWED_CLASSIFICATIONS:
+        raise ValueError(f"research_classification_invalid:{item['id']}")
+    if evidence["classification"] != decision["classification"]:
+        raise ValueError(f"research_classification_mismatch:{item['id']}")
+    if evidence["research_disposition"] != decision["decision"]:
+        raise ValueError(f"research_disposition_mismatch:{item['id']}")
+    if evidence["reviewed_acceptance_criteria"] != len(item["acceptance_criteria"]):
+        raise ValueError(f"acceptance_criteria_not_reviewed:{item['id']}")
+    if item["evidence_claim_refs"] != decision["evidence_claim_refs"]:
+        raise ValueError(f"claim_binding_mismatch:{item['id']}")
+
+
+def _check_decisions(items: list[dict[str, Any]], item_ids: list[str], decisions: list[dict[str, Any]]) -> None:
     decisions_by_id = {decision["id"]: decision for decision in decisions}
     if set(decisions_by_id) != set(item_ids) or len(decisions) != 33:
         raise ValueError("decision_pack_scope_invalid")
-    allowed_classifications = {"REUSE", "EXTEND", "NEW", "REJECT"}
     for item in items:
-        decision = decisions_by_id[item["id"]]
-        evidence = item.get("acceptance_evidence")
-        if not isinstance(evidence, dict):
-            raise ValueError(f"research_evidence_missing:{item['id']}")
-        if decision["research_status"] != "decided":
-            raise ValueError(f"research_decision_open:{item['id']}")
-        if not set(decision["classification"]) <= allowed_classifications:
-            raise ValueError(f"research_classification_invalid:{item['id']}")
-        if evidence["classification"] != decision["classification"]:
-            raise ValueError(f"research_classification_mismatch:{item['id']}")
-        if evidence["research_disposition"] != decision["decision"]:
-            raise ValueError(f"research_disposition_mismatch:{item['id']}")
-        if evidence["reviewed_acceptance_criteria"] != len(item["acceptance_criteria"]):
-            raise ValueError(f"acceptance_criteria_not_reviewed:{item['id']}")
-        if item["evidence_claim_refs"] != decision["evidence_claim_refs"]:
-            raise ValueError(f"claim_binding_mismatch:{item['id']}")
+        _check_item_decision(item, decisions_by_id[item["id"]])
 
-    expected_manifest = source_manifest_core()
-    for key, value in expected_manifest.items():
+
+def _check_source_binding(source_manifest: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Verify the manifest core and the persisted Hub catalog; return (catalog, binding)."""
+
+    for key, value in source_manifest_core().items():
         if source_manifest.get(key) != value:
             raise ValueError(f"source_manifest_core_mismatch:{key}")
     catalog, publication = build_authoritative_catalog()
@@ -230,7 +247,10 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
         raise ValueError("catalog_publication_mismatch")
     if binding["resolved_catalog"] != resolve_persisted_catalog(catalog):
         raise ValueError("catalog_authority_resolution_mismatch")
+    return catalog, binding
 
+
+def _expected_run_catalog(item_ids: list[str], decisions: list[dict[str, Any]]) -> Any:
     raw_run_output = canonical_json(
         {
             "schema": "spreadsheet_studio_research_run.v1",
@@ -248,7 +268,7 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
             "status": "completed",
         }
     )
-    expected_run = OrganizationCategoryRunEvidenceService().build_catalog(
+    return OrganizationCategoryRunEvidenceService().build_catalog(
         task_id=CATEGORY_TASK_ID,
         assignment_id=ASSIGNMENT_ID,
         dispatch_lease_id=DISPATCH_LEASE_ID,
@@ -258,10 +278,10 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
         allowed_run_refs={"RUN_0001"},
         runtime_artifact_hashes={"source_manifest": stable_digest(source_manifest_core())},
     )
-    if binding["run_evidence"] != expected_run[0]:
-        raise ValueError("run_evidence_mismatch")
 
-    context = AssignmentEvidenceContext(
+
+def _assignment_context(catalog: dict[str, Any]) -> AssignmentEvidenceContext:
+    return AssignmentEvidenceContext(
         task_id=CATEGORY_TASK_ID,
         assignment_id=ASSIGNMENT_ID,
         dispatch_lease_id=DISPATCH_LEASE_ID,
@@ -273,8 +293,16 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
         allowed_run_refs=frozenset({"RUN_0001"}),
         artifact_hashes={},
     )
+
+
+def _recompute_category_contract(
+    todo: dict[str, Any],
+    catalog: dict[str, Any],
+    expected_run: Any,
+    context: AssignmentEvidenceContext,
+) -> dict[str, Any]:
     candidate = copy.deepcopy(todo)
-    for field in ("planning_revision_id", "planning_content_digest", "promotion_receipt_id"):
+    for field in _STRIPPED_REVIEW_BASIS_FIELDS:
         candidate["review_basis"].pop(field, None)
     result = PlanningCategoryContractService().validate_and_recompute(
         candidate,
@@ -284,6 +312,15 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
     )
     if not result["promotable"] or result["grounding"].get("status") != "verified":
         raise ValueError(f"category_not_promotable:{result['issues']}")
+    return result
+
+
+def _check_promotion(
+    todo: dict[str, Any],
+    pack: dict[str, Any],
+    binding: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
     promotion = pack["promotion"]
     if promotion["status"] != "automatic_policy_promoted" or promotion["policy"] != "automatic_no_human_v1":
         raise ValueError("automatic_promotion_policy_invalid")
@@ -294,21 +331,9 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
     if binding["promotion"] != promotion:
         raise ValueError("source_binding_promotion_mismatch")
 
-    required_risks = {
-        "document_parser_or_archive_bomb",
-        "macro_extension_or_embedded_execution",
-        "external_formula_or_data_egress",
-        "csv_formula_injection",
-        "tenant_or_artifact_idor",
-        "stale_lease_or_result_replay",
-        "candidate_digest_swap",
-        "consent_projection_mismatch",
-        "revoked_data_in_training_or_adapter",
-        "training_memorization_or_secret_leak",
-        "worker_resource_exhaustion",
-        "supply_chain_or_unpinned_runtime",
-    }
-    if {risk["scenario"] for risk in threat["risks"]} != required_risks:
+
+def _check_threats_and_test_matrix(threat: dict[str, Any], test_matrix: dict[str, Any]) -> None:
+    if {risk["scenario"] for risk in threat["risks"]} != _REQUIRED_RISKS:
         raise ValueError("threat_model_scope_invalid")
     if any(not risk["control_owner"] or not risk["verification_gate"] for risk in threat["risks"]):
         raise ValueError("threat_control_or_gate_missing")
@@ -319,6 +344,8 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
     if min(test_matrix["limits"].values()) <= 0:
         raise ValueError("quantitative_limit_invalid")
 
+
+def _check_phase2_track(track: dict[str, Any], item_ids: list[str]) -> None:
     _assert_track_dag(track)
     if len(track["tasks"]) != 12:
         raise ValueError("phase2_track_status_invalid")
@@ -333,6 +360,30 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
         raise ValueError("phase2_source_category_coverage_incomplete")
     if track["tasks_status_summary"]["by_status"]["blocked"] != 0:
         raise ValueError("phase2_track_unexpected_blocked_task")
+
+
+def validate_pack() -> dict[str, Any]:
+    todo = _load(TODO_PATH)
+    pack = _load(PACK_PATH)
+    source_manifest = _load(SOURCE_PATH)
+    threat = _load(THREAT_PATH)
+    test_matrix = _load(TEST_MATRIX_PATH)
+    track = _load(TRACK_PATH)
+    _schema_validate(todo, TODO_SCHEMA_PATH, "category")
+    _schema_validate(track, TRACK_SCHEMA_PATH, "track")
+
+    items, item_ids = _check_research_items(todo)
+    decisions = pack["items"]
+    _check_decisions(items, item_ids, decisions)
+    catalog, binding = _check_source_binding(source_manifest)
+    expected_run = _expected_run_catalog(item_ids, decisions)
+    if binding["run_evidence"] != expected_run[0]:
+        raise ValueError("run_evidence_mismatch")
+    context = _assignment_context(catalog)
+    result = _recompute_category_contract(todo, catalog, expected_run, context)
+    _check_promotion(todo, pack, binding, result)
+    _check_threats_and_test_matrix(threat, test_matrix)
+    _check_phase2_track(track, item_ids)
 
     return {
         "schema": "ananta.spreadsheet-studio-research-gate.v1",
