@@ -13,36 +13,28 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any, cast
 
+from client_surfaces.operator_tui import _snake_tick_share
 from client_surfaces.operator_tui.ai_snake_context import (
     artifact_ref_from_game,
-    build_context_envelope_ref,
     compact_observation_summary,
-    default_ai_context,
     load_codecompass_artifact,
-    relevance_refs_for_intent,
-    set_ai_context,
-    training_profile_envelope,
 )
-from client_surfaces.operator_tui.ai_snake_follow import (
-    apply_worker_follow_update,
-    make_follow_state,
-    step_follow_state,
-)
-from client_surfaces.operator_tui.ai_snake_learning import (
-    apply_prediction_feedback,
-    merge_patterns,
-    mine_patterns_from_events,
-)
-from client_surfaces.operator_tui.ai_snake_policy import apply_policy_to_payload
 from client_surfaces.operator_tui.ai_snake_prediction import build_prediction_trace, quick_predict
-from client_surfaces.operator_tui.ai_snake_training_store import (
-    append_behavior_event,
-    read_active_profile,
-    read_events,
-    read_patterns,
-    save_patterns,
+from client_surfaces.operator_tui.ai_snake_tick_steps import (
+    ai_policy_payloads,
+    ai_runtime_status,
+    append_worker_timeout_notice,
+    apply_worker_prediction,
+    find_matched_pattern_id,
+    may_request_worker,
+    movement_direction,
+    notes_context_released,
+    prediction_context_envelope,
+    record_implicit_target_feedback,
+    resolve_prediction_source,
+    stepped_follow_state,
 )
-from client_surfaces.operator_tui import _snake_tick_share
+from client_surfaces.operator_tui.ai_snake_training_store import read_active_profile
 from client_surfaces.operator_tui.models import FocusPane
 
 
@@ -60,6 +52,7 @@ def _run_learning_cycle_bg(min_cases: int) -> None:
     if mined:
         merged = merge_patterns(existing=read_patterns(), mined=mined)
         save_patterns(merged, backup=False)
+
 
 
 class SnakeTickMixin:
@@ -280,121 +273,23 @@ class SnakeTickMixin:
     # ── T04: AI snake prediction and worker dispatch ──────────────────────────
 
     def _tick_ai_snake_prediction(self, game: dict[str, object], *, now: float) -> None:
+        """One AI-snake prediction step: observe, predict, maybe ask the worker, follow, learn."""
         section = str(self.state.section_id or "dashboard")
-        if (now - float(self._ai_learning_settings_loaded_at or 0.0)) >= 10.0:
-            profile_payload = read_active_profile()
-            self._ai_learning_settings = (
-                dict(profile_payload.get("learning_settings") or {}) if isinstance(profile_payload, dict) else {}
-            )
-            self._ai_learning_settings_loaded_at = now
-        profile_learning = self._ai_learning_settings
-        self._ai_training_recorder.set_enabled(bool(profile_learning.get("enabled", True)))
-        self._ai_training_recorder.set_paused(bool(profile_learning.get("paused", False)))
+        profile_learning = self._refresh_ai_learning_settings(now)
         learning_enabled = bool(profile_learning.get("enabled", True))
         learning_paused = bool(profile_learning.get("paused", False)) or bool(game.get("ai_learning_session_paused"))
 
-        # Throttle: section_visit only when section actually changes
-        _last_rec_section: str = getattr(self, "_recorder_last_section", "")
-        if section != _last_rec_section:
-            self._recorder_last_section = section
-            self._ai_training_recorder.record_event(
-                event_type="section_visit",
-                value_norm=section,
-                refs=[f"section:{section}"],
-                privacy_class="public_ui",
-            )
-        self._ai_observation.add_event(kind="section", value=section, timestamp=now)
-        if bool(game.get("tutorial_mode")):
-            self._ai_observation.add_event(kind="chat_channel", value="ai:tutor", timestamp=now)
-        artifact_ref = artifact_ref_from_game(game)
-        if isinstance(artifact_ref, dict):
-            ref_value = str(artifact_ref.get("path") or artifact_ref.get("label") or "artifact")
-            ref_id = str(artifact_ref.get("path") or "")
-            # Throttle: artifact_focus only when the referenced artifact changes
-            _last_rec_artifact: str = getattr(self, "_recorder_last_artifact", "")
-            if ref_id != _last_rec_artifact:
-                self._recorder_last_artifact = ref_id
-                self._ai_training_recorder.record_event(
-                    event_type="artifact_focus",
-                    value_norm=ref_value,
-                    refs=[ref_id] if ref_id else [],
-                    privacy_class="workspace",
-                )
-            self._ai_observation.add_event(
-                kind="artifact",
-                value=ref_value,
-                ref_id=ref_id,
-                timestamp=now,
-            )
-        vx = float(game.get("vel_x") or 0.0)
-        vy = float(game.get("vel_y") or 0.0)
-        if abs(vx) >= abs(vy):
-            movement = "right" if vx > 0.25 else ("left" if vx < -0.25 else "idle")
-        else:
-            movement = "down" if vy > 0.25 else ("up" if vy < -0.25 else "idle")
-        self._ai_observation.add_event(kind="movement", value=movement, timestamp=now)
-        # Throttle: movement_vector at most every 400 ms (not 18-24×/s)
-        _last_rec_move: float = getattr(self, "_recorder_last_move_at", 0.0)
-        if (now - _last_rec_move) >= 0.4:
-            self._recorder_last_move_at = now
-            self._ai_training_recorder.record_event(
-                event_type="movement_vector",
-                value_norm=movement,
-                refs=[f"section:{section}"],
-                privacy_class="public_ui",
-            )
-        self._ai_observation.add_event(
-            kind="notes_active",
-            value=bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False,
-            timestamp=now,
-        )
+        artifact_ref = self._observe_ai_snake_tick(game, section=section, now=now)
         summary = compact_observation_summary(self._ai_observation.compact_summary(max_facts=20), max_facts=20)
         quick = quick_predict(self._ai_observation.events(), now=now)
         prediction = quick.as_dict()
-        # Codecompass artifact: fully async — disk read in background thread, stale cache on main loop
-        _cc_loaded_at, _cc_cached = getattr(self, "_codecompass_artifact_cache", (0.0, None))
-        _cc_future: Future | None = getattr(self, "_codecompass_artifact_future", None)
-        if _cc_future is not None and _cc_future.done():
-            try:
-                _cc_cached = _cc_future.result()
-                _cc_loaded_at = now
-                self._codecompass_artifact_cache = (now, _cc_cached)
-            except Exception:
-                pass
-            self._codecompass_artifact_future = None
-            _cc_future = None
-        if _cc_future is None and (now - _cc_loaded_at) >= 10.0:
-            _bg = self._get_snake_bg_executor()
-            self._codecompass_artifact_future = _bg.submit(load_codecompass_artifact)
-        codecompass = _cc_cached
-        ai_ctx = default_ai_context()
-        set_ai_context(game, ai_ctx)
-        envelope = build_context_envelope_ref(ai_ctx, codecompass_artifact=codecompass, selected_artifact_ref=artifact_ref)
-        envelope["retrieval_refs"] = relevance_refs_for_intent(
-            intent=str(prediction.get("predicted_intent") or "unknown"),
-            codecompass_artifact=codecompass,
-            max_refs=12,
-        )
-        training_ctx = training_profile_envelope(
-            intent=str(prediction.get("predicted_intent") or "unknown"),
-            max_patterns=int(game.get("ai_snake_training_max_patterns") or 8),
-        )
-        envelope["training_profile_ref"] = training_ctx.get("training_profile_ref")
-        envelope["active_pattern_refs"] = training_ctx.get("active_pattern_refs")
+        codecompass = self._codecompass_artifact_snapshot(now)
+        envelope = prediction_context_envelope(game, prediction, codecompass=codecompass, artifact_ref=artifact_ref)
         signature = f"{prediction.get('predicted_intent')}|{prediction.get('target_ref')}|{section}"
         if signature != self._ai_last_signature:
             self._ai_worker_client.cancel_pending_predict(reason="local_signature_changed")
             self._ai_last_signature = signature
-        cache_key = self._ai_prediction_cache.make_key(
-            section=section,
-            target_ref=str(prediction.get("target_ref") or ""),
-            intent_kind=str(prediction.get("predicted_intent") or "unknown"),
-            context_hash=str(envelope.get("context_hash") or "missing"),
-        )
-        cached = self._ai_prediction_cache.get(cache_key, now=now)
-        cache_hit = cached is not None
-        if not cache_hit:
-            self._ai_prediction_cache.set(cache_key, prediction, now=now)
+        cache_hit = self._remember_quick_prediction(section, prediction, envelope, now=now)
         gate_decision = self._ai_prediction_gate.evaluate(
             prediction=quick,
             signature=signature,
@@ -410,151 +305,26 @@ class SnakeTickMixin:
             cache_hit=cache_hit,
             skipped_reason=gate_decision.reason if not gate_decision.allow_worker_request else "",
         )
-        selected_allowed = isinstance(artifact_ref, dict) or str(prediction.get("target_ref") or "").startswith("section:")
-        notes_released = bool((game.get("chat_state") or {}).get("notes_context_released")) if isinstance(game.get("chat_state"), dict) else False
-        worker_payload, worker_policy = apply_policy_to_payload(
-            {
-                "mode": str(game.get("ai_snake_mode") or "lurking_follow"),
-                "quick_prediction": prediction,
-                "context_envelope_ref": envelope,
-                "observation_summary": summary,
-                "notes_context": (game.get("chat_state") or {}).get("notes_context"),
-            },
-            boundary="worker_request",
-            notes_released=notes_released,
-            selected_artifact_allowed=selected_allowed,
-            external_provider=False,
-            training_context_allowed=bool(game.get("ai_training_context_released")),
-        )
-        prompt_payload, prompt_policy = apply_policy_to_payload(
-            {
-                "quick_prediction": prediction,
-                "observation_summary": summary,
-                "notes_context": (game.get("chat_state") or {}).get("notes_context"),
-            },
-            boundary="lmstudio_prompt",
-            notes_released=notes_released,
-            selected_artifact_allowed=selected_allowed,
-            external_provider=False,
-            training_context_allowed=bool(game.get("ai_training_context_released")),
-        )
-        if (
-            gate_decision.allow_worker_request
-            and not cache_hit
-            and worker_policy.allowed
-            and str(game.get("ai_snake_mode") or "lurking_follow") != "off"
-            and isinstance(worker_payload, dict)
-            and not bool(worker_payload.get("blocked"))
-        ):
-            game["ai_snake_budget_deny_reason"] = ""
-            prompt = self._ai_worker_client.render_prompt(
-                mode="predict_intent",
-                observation_summary=dict(worker_payload.get("observation_summary") or {}),
-                context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
-                max_chars=int(self._ai_lm_budget.max_prompt_chars),
-            )
-            budget_allowed, budget_reason = self._ai_lm_budget.allow_predict(prompt=prompt, now=now)
-            request = self._ai_worker_client.build_request(
-                mode="predict_intent",
-                observation_summary=dict(worker_payload.get("observation_summary") or {}),
-                quick_prediction=dict(worker_payload.get("quick_prediction") or {}),
-                context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
-                provider_selection={
-                    "provider_preference": str(game.get("ai_snake_provider_preference") or "lmstudio"),
-                    "model": str(game.get("ai_snake_provider_model") or "ananta-smoke"),
-                    "cloud_allowed": bool(game.get("ai_snake_provider_cloud_allowed")),
-                },
-                max_latency_ms=max(250, int(game.get("ai_snake_provider_max_latency_ms") or 2000)),
-            )
-            if budget_allowed:
-                submitted = self._ai_worker_client.submit(request, signature=signature)
-                if submitted is not None:
-                    self._ai_worker_task = submitted
-            else:
-                game["ai_snake_budget_deny_reason"] = budget_reason
-
-        worker_result: dict[str, Any] | None = None
-        if self._ai_worker_task is not None:
-            worker_result = self._ai_worker_client.poll(self._ai_worker_task, now=now, current_signature=signature)
-            if worker_result is not None:
-                self._ai_worker_task = None
-                game["ai_snake_worker_response"] = worker_result
-                if worker_result.get("status") == "ok":
-                    prediction_trace["provider_ref"] = str(worker_result.get("provenance_ref") or "worker:default")
-                if (
-                    worker_result.get("status") == "degraded"
-                    and str(worker_result.get("error") or "") == "timeout"
-                    and isinstance(game.get("chat_state"), dict)
-                ):
-                    from client_surfaces.operator_tui.chat_state import (
-                        ChannelType,
-                        DeliveryState,
-                        SenderKind,
-                        append_message,
-                        make_message,
-                    )
-                    msg = make_message(
-                        channel_id="ai:tutor",
-                        channel_type=ChannelType.AI,
-                        sender_id="system",
-                        sender_kind=SenderKind.SYSTEM,
-                        text="* [system] AI worker timeout – nutze lokale Prediction.",
-                        delivery_state=DeliveryState.RECEIVED,
-                    )
-                    append_message(cast(dict[str, Any], game["chat_state"]), msg)
+        policies = ai_policy_payloads(game, prediction, envelope, summary, artifact_ref=artifact_ref)
+        worker_payload, worker_policy, prompt_payload, prompt_policy = policies
+        if may_request_worker(game, gate_decision, cache_hit, worker_policy, worker_payload):
+            self._submit_ai_worker_prediction(game, worker_payload, signature=signature, now=now)
+        self._poll_ai_worker_prediction(game, prediction_trace, signature=signature, now=now)
 
         ai_mode = str(game.get("ai_snake_mode") or "lurking_follow")
-        follow_state_raw = game.get("ai_snake_follow_state")
-        follow_state = dict(follow_state_raw) if isinstance(follow_state_raw, dict) else make_follow_state(mode=ai_mode)
-        local_snake = game.get("snake")
-        if isinstance(local_snake, list) and local_snake:
-            head = local_snake[0]
-            if isinstance(head, (list, tuple)) and len(head) == 2:
-                follow_state["mode"] = ai_mode
-                follow_state = step_follow_state(
-                    follow_state,
-                    user_position=(int(head[0]), int(head[1])),
-                    board_w=max(1, int(game.get("board_w") or 18)),
-                    board_h=max(1, int(game.get("board_h") or 6)),
-                )
-        response = game.get("ai_snake_worker_response")
-        if isinstance(response, dict) and str(response.get("status") or "ok") == "ok":
-            if float(response.get("expires_at") or 0.0) < now:
-                response = {"status": "degraded", "error": "stale_result"}
-                game["ai_snake_worker_response"] = response
-            elif float(response.get("confidence") or 0.0) >= 0.65:
-                prediction = {
-                    **prediction,
-                    "predicted_intent": str(response.get("predicted_intent") or prediction.get("predicted_intent") or "unknown"),
-                    "target_ref": str(response.get("target_ref") or prediction.get("target_ref") or ""),
-                    "confidence": float(response.get("confidence") or prediction.get("confidence") or 0.0),
-                    "expires_at": float(response.get("expires_at") or prediction.get("expires_at") or now + 20.0),
-                }
-                follow_state = apply_worker_follow_update(
-                    follow_state,
-                    follow_mode_update=str(response.get("follow_mode_update") or ""),
-                    prediction_target=str(response.get("target_ref") or ""),
-                    confidence=float(response.get("confidence") or 0.0),
-                )
-
-        runtime_status = "idle"
-        worker_response = game.get("ai_snake_worker_response") if isinstance(game.get("ai_snake_worker_response"), dict) else {}
-        if ai_mode == "off":
-            runtime_status = "off"
-        elif str(worker_response.get("status") or "") == "degraded":
-            runtime_status = "degraded"
-        elif self._ai_worker_task is not None:
-            runtime_status = "thinking"
-        elif cache_hit:
-            runtime_status = "context-ready"
-        elif gate_decision.reason in {"prediction_not_stable", "rate_limited"}:
-            runtime_status = "predicting"
-        elif ai_mode == "quiet":
-            runtime_status = "quiet"
-        elif str(follow_state.get("mode") or "") == "follow":
-            runtime_status = "following"
-        elif str(follow_state.get("mode") or "") == "lurking":
-            runtime_status = "lurking"
+        follow_state = stepped_follow_state(game, ai_mode)
+        prediction, follow_state = apply_worker_prediction(game, prediction, follow_state, now=now)
+        worker_response = (
+            game.get("ai_snake_worker_response") if isinstance(game.get("ai_snake_worker_response"), dict) else {}
+        )
+        runtime_status = ai_runtime_status(
+            ai_mode,
+            worker_response=worker_response,
+            worker_pending=self._ai_worker_task is not None,
+            cache_hit=cache_hit,
+            gate_reason=gate_decision.reason,
+            follow_state=follow_state,
+        )
         allow_proactive_comment = (
             gate_decision.allow_worker_request
             and float(prediction.get("confidence") or 0.0) >= 0.65
@@ -562,20 +332,8 @@ class SnakeTickMixin:
             and prompt_policy.allowed
         )
         active_pattern_refs = list(envelope.get("active_pattern_refs") or [])
-        matched_pattern_id = ""
-        for item in active_pattern_refs:
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("predicted_intent") or "").strip().lower() == str(prediction.get("predicted_intent") or "").strip().lower():
-                matched_pattern_id = str(item.get("pattern_id") or "")
-                break
-        if not matched_pattern_id and active_pattern_refs and isinstance(active_pattern_refs[0], dict):
-            matched_pattern_id = str(active_pattern_refs[0].get("pattern_id") or "")
-        prediction_source = "local_quick"
-        if matched_pattern_id:
-            prediction_source = "learned_profile"
-        if isinstance(worker_response, dict) and str(worker_response.get("status") or "") == "ok":
-            prediction_source = "worker_context"
+        matched_pattern_id = find_matched_pattern_id(active_pattern_refs, prediction)
+        prediction_source = resolve_prediction_source(matched_pattern_id, worker_response)
         if isinstance(game.get("chat_state"), dict):
             forced = bool(game.pop("ai_force_question", False))
             if allow_proactive_comment or forced:
@@ -588,58 +346,11 @@ class SnakeTickMixin:
                     cooldown_seconds=20,
                 )
 
-        target_ref = str(prediction.get("target_ref") or "")
-        reached_target = False
-        if target_ref.startswith("section:"):
-            reached_target = target_ref.removeprefix("section:") == section
-        elif target_ref and isinstance(artifact_ref, dict):
-            artifact_path = str(artifact_ref.get("path") or artifact_ref.get("label") or "")
-            reached_target = bool(artifact_path) and artifact_path in target_ref
-        auto_feedback_key = f"{target_ref}|{section}"
-        if (
-            learning_enabled
-            and not learning_paused
-            and reached_target
-            and target_ref
-            and str(game.get("ai_last_auto_feedback_key") or "") != auto_feedback_key
-        ):
-            patterns = read_patterns()
-            updated, changed = apply_prediction_feedback(patterns=patterns, target_ref=target_ref, positive=True)
-            if changed:
-                save_patterns(updated, backup=False)
-            append_behavior_event(
-                event_type="prediction_feedback",
-                value_norm="implicit_good",
-                refs=[target_ref],
-                privacy_class="workspace",
-                retention_hint="rolling_30d",
-                reason="target_reached",
-            )
-            game["ai_last_auto_feedback_key"] = auto_feedback_key
-
-        min_cases = max(1, int(profile_learning.get("evidence_min_cases") or 3))
-        # Poll completed mining future
-        _mining_future: Future | None = getattr(self, "_ai_mining_future", None)
-        if _mining_future is not None and _mining_future.done():
-            self._ai_mining_future = None
-        # Mining loop: runs in background executor, never on main thread
-        if (
-            _mining_future is None
-            and learning_enabled
-            and not learning_paused
-            and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 30.0
-        ):
-            self._ai_learning_last_mined_at = now   # prevent double-submit
-            _bg = self._get_snake_bg_executor()
-            self._ai_mining_future = _bg.submit(
-                _run_learning_cycle_bg, min_cases
-            )
-
-        # Flush recorder queue to disk in background at most once per second
-        _flush_at: float = getattr(self, "_recorder_flush_at", 0.0)
-        if (now - _flush_at) >= 1.0:
-            self._recorder_flush_at = now
-            self._get_snake_bg_executor().submit(self._ai_training_recorder.flush_queued)
+        if learning_enabled and not learning_paused:
+            record_implicit_target_feedback(game, prediction, section=section, artifact_ref=artifact_ref)
+        self._schedule_ai_learning_and_flush(
+            profile_learning, learning_active=learning_enabled and not learning_paused, now=now
+        )
 
         game["ai_snake_prediction"] = prediction
         game["ai_snake_context_envelope"] = envelope
@@ -671,6 +382,173 @@ class SnakeTickMixin:
             "matched_pattern_id": matched_pattern_id,
             "prediction_source": prediction_source,
         }
+
+    def _refresh_ai_learning_settings(self, now: float) -> dict:
+        """Reload the learning settings at most every 10 s and apply them to the recorder."""
+        if (now - float(self._ai_learning_settings_loaded_at or 0.0)) >= 10.0:
+            profile_payload = read_active_profile()
+            self._ai_learning_settings = (
+                dict(profile_payload.get("learning_settings") or {}) if isinstance(profile_payload, dict) else {}
+            )
+            self._ai_learning_settings_loaded_at = now
+        profile_learning = self._ai_learning_settings
+        self._ai_training_recorder.set_enabled(bool(profile_learning.get("enabled", True)))
+        self._ai_training_recorder.set_paused(bool(profile_learning.get("paused", False)))
+        return profile_learning
+
+    def _observe_ai_snake_tick(self, game: dict[str, object], *, section: str, now: float):
+        """Feed section, artifact, movement and notes observations; return the selected artifact ref."""
+        # Throttle: section_visit only when section actually changes
+        if section != getattr(self, "_recorder_last_section", ""):
+            self._recorder_last_section = section
+            self._ai_training_recorder.record_event(
+                event_type="section_visit",
+                value_norm=section,
+                refs=[f"section:{section}"],
+                privacy_class="public_ui",
+            )
+        self._ai_observation.add_event(kind="section", value=section, timestamp=now)
+        if bool(game.get("tutorial_mode")):
+            self._ai_observation.add_event(kind="chat_channel", value="ai:tutor", timestamp=now)
+        artifact_ref = artifact_ref_from_game(game)
+        if isinstance(artifact_ref, dict):
+            self._observe_artifact_focus(artifact_ref, now=now)
+        self._observe_movement(game, section=section, now=now)
+        self._ai_observation.add_event(
+            kind="notes_active",
+            value=notes_context_released(game),
+            timestamp=now,
+        )
+        return artifact_ref
+
+    def _observe_artifact_focus(self, artifact_ref: dict, *, now: float) -> None:
+        ref_value = str(artifact_ref.get("path") or artifact_ref.get("label") or "artifact")
+        ref_id = str(artifact_ref.get("path") or "")
+        # Throttle: artifact_focus only when the referenced artifact changes
+        if ref_id != getattr(self, "_recorder_last_artifact", ""):
+            self._recorder_last_artifact = ref_id
+            self._ai_training_recorder.record_event(
+                event_type="artifact_focus",
+                value_norm=ref_value,
+                refs=[ref_id] if ref_id else [],
+                privacy_class="workspace",
+            )
+        self._ai_observation.add_event(kind="artifact", value=ref_value, ref_id=ref_id, timestamp=now)
+
+    def _observe_movement(self, game: dict[str, object], *, section: str, now: float) -> None:
+        movement = movement_direction(float(game.get("vel_x") or 0.0), float(game.get("vel_y") or 0.0))
+        self._ai_observation.add_event(kind="movement", value=movement, timestamp=now)
+        # Throttle: movement_vector at most every 400 ms (not 18-24×/s)
+        if (now - getattr(self, "_recorder_last_move_at", 0.0)) >= 0.4:
+            self._recorder_last_move_at = now
+            self._ai_training_recorder.record_event(
+                event_type="movement_vector",
+                value_norm=movement,
+                refs=[f"section:{section}"],
+                privacy_class="public_ui",
+            )
+
+    def _codecompass_artifact_snapshot(self, now: float):
+        """Codecompass artifact: fully async — disk read in background thread, stale cache on main loop."""
+        _cc_loaded_at, _cc_cached = getattr(self, "_codecompass_artifact_cache", (0.0, None))
+        _cc_future: Future | None = getattr(self, "_codecompass_artifact_future", None)
+        if _cc_future is not None and _cc_future.done():
+            try:
+                _cc_cached = _cc_future.result()
+                _cc_loaded_at = now
+                self._codecompass_artifact_cache = (now, _cc_cached)
+            except Exception:
+                pass
+            self._codecompass_artifact_future = None
+            _cc_future = None
+        if _cc_future is None and (now - _cc_loaded_at) >= 10.0:
+            _bg = self._get_snake_bg_executor()
+            self._codecompass_artifact_future = _bg.submit(load_codecompass_artifact)
+        return _cc_cached
+
+    def _remember_quick_prediction(self, section: str, prediction: dict, envelope: dict, *, now: float) -> bool:
+        """Look the prediction up in the cache (storing it on a miss); report a cache hit."""
+        cache_key = self._ai_prediction_cache.make_key(
+            section=section,
+            target_ref=str(prediction.get("target_ref") or ""),
+            intent_kind=str(prediction.get("predicted_intent") or "unknown"),
+            context_hash=str(envelope.get("context_hash") or "missing"),
+        )
+        cache_hit = self._ai_prediction_cache.get(cache_key, now=now) is not None
+        if not cache_hit:
+            self._ai_prediction_cache.set(cache_key, prediction, now=now)
+        return cache_hit
+
+    def _submit_ai_worker_prediction(
+        self, game: dict[str, object], worker_payload: dict, *, signature: str, now: float
+    ) -> None:
+        game["ai_snake_budget_deny_reason"] = ""
+        prompt = self._ai_worker_client.render_prompt(
+            mode="predict_intent",
+            observation_summary=dict(worker_payload.get("observation_summary") or {}),
+            context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
+            max_chars=int(self._ai_lm_budget.max_prompt_chars),
+        )
+        budget_allowed, budget_reason = self._ai_lm_budget.allow_predict(prompt=prompt, now=now)
+        request = self._ai_worker_client.build_request(
+            mode="predict_intent",
+            observation_summary=dict(worker_payload.get("observation_summary") or {}),
+            quick_prediction=dict(worker_payload.get("quick_prediction") or {}),
+            context_envelope_ref=dict(worker_payload.get("context_envelope_ref") or {}),
+            provider_selection={
+                "provider_preference": str(game.get("ai_snake_provider_preference") or "lmstudio"),
+                "model": str(game.get("ai_snake_provider_model") or "ananta-smoke"),
+                "cloud_allowed": bool(game.get("ai_snake_provider_cloud_allowed")),
+            },
+            max_latency_ms=max(250, int(game.get("ai_snake_provider_max_latency_ms") or 2000)),
+        )
+        if not budget_allowed:
+            game["ai_snake_budget_deny_reason"] = budget_reason
+            return
+        submitted = self._ai_worker_client.submit(request, signature=signature)
+        if submitted is not None:
+            self._ai_worker_task = submitted
+
+    def _poll_ai_worker_prediction(
+        self, game: dict[str, object], prediction_trace: dict, *, signature: str, now: float
+    ) -> None:
+        if self._ai_worker_task is None:
+            return
+        worker_result = self._ai_worker_client.poll(self._ai_worker_task, now=now, current_signature=signature)
+        if worker_result is None:
+            return
+        self._ai_worker_task = None
+        game["ai_snake_worker_response"] = worker_result
+        if worker_result.get("status") == "ok":
+            prediction_trace["provider_ref"] = str(worker_result.get("provenance_ref") or "worker:default")
+        if (
+            worker_result.get("status") == "degraded"
+            and str(worker_result.get("error") or "") == "timeout"
+            and isinstance(game.get("chat_state"), dict)
+        ):
+            append_worker_timeout_notice(game)
+
+    def _schedule_ai_learning_and_flush(self, profile_learning: dict, *, learning_active: bool, now: float) -> None:
+        min_cases = max(1, int(profile_learning.get("evidence_min_cases") or 3))
+        # Poll completed mining future
+        _mining_future: Future | None = getattr(self, "_ai_mining_future", None)
+        if _mining_future is not None and _mining_future.done():
+            self._ai_mining_future = None
+        # Mining loop: runs in background executor, never on main thread
+        if (
+            _mining_future is None
+            and learning_active
+            and (now - float(self._ai_learning_last_mined_at or 0.0)) >= 30.0
+        ):
+            self._ai_learning_last_mined_at = now   # prevent double-submit
+            _bg = self._get_snake_bg_executor()
+            self._ai_mining_future = _bg.submit(_run_learning_cycle_bg, min_cases)
+
+        # Flush recorder queue to disk in background at most once per second
+        _flush_at: float = getattr(self, "_recorder_flush_at", 0.0)
+        if (now - _flush_at) >= 1.0:
+            self._recorder_flush_at = now
+            self._get_snake_bg_executor().submit(self._ai_training_recorder.flush_queued)
 
     def _route_prediction_comment_to_monitor(
         self,
