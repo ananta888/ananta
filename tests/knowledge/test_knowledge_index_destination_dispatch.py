@@ -481,8 +481,15 @@ def test_rotated_previous_manifest_key_remains_verifiable() -> None:
         key_id="source-access-test",
         secret=b"s" * 32,
     )
-    service._source_access_enforcement_service = (
-        SourceAccessEnforcementService(
+    # A Hub restart with a rotated signing key: the same durable task,
+    # binding gate and destinations, composed through the constructor seam.
+    rotated_service = KnowledgeIndexJobService(
+        task_repository=service._repository(),
+        execution_binding_service=service._execution_binding_service,
+        destination_resolution_service=(
+            service._destination_resolution_service
+        ),
+        source_access_enforcement_service=SourceAccessEnforcementService(
             grants=previous._grants,
             consumptions=consumptions,
             signer=HubSourceAccessManifestSigner(current_key),
@@ -493,10 +500,11 @@ def test_rotated_previous_manifest_key_remains_verifiable() -> None:
                 }
             ),
             consumption_receipts=consumptions,
-        )
+        ),
+        clock=lambda: NOW.timestamp(),
     )
 
-    replay = service.authorize_bound_worker_dispatch(
+    replay = rotated_service.authorize_bound_worker_dispatch(
         job_id="knowledge-index-bound-destination",
         authenticated_worker_id="worker-index-01",
         destination_selection=selection,
