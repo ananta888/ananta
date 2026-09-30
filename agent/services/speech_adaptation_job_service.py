@@ -1,292 +1,57 @@
-"""Hub admission and delegation for immutable speech adaptation datasets."""
+"""Hub admission and delegation for immutable speech adaptation datasets.
+
+This module remains the public entry point.  Admission value types and ports
+live in ``speech_adaptation_admission_ports``, deterministic in-memory adapters
+in ``speech_adaptation_in_memory_adapters`` and the pure worker-contract
+assembly/validation in ``speech_adaptation_job_contract``; all previously
+importable names are re-exported here for compatibility.
+"""
 
 from __future__ import annotations
 
 import hashlib
-import threading
 import time
-from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping
 
 from agent.models.speech_adaptation_admission import (
     SpeechAdaptationDecisionConflict,
     SpeechAdmissionDecision,
-    SpeechCapacityLease,
+    SpeechCapacityLease,  # noqa: F401 - compatibility re-export
     SpeechPrincipal,
     restore_speech_adaptation_job,  # noqa: F401 - compatibility re-export
 )
 from agent.services.semantic_media_audit_service import SemanticMediaAuditPort
+from agent.services.speech_adaptation_admission_ports import (
+    ActiveSpeechConsent,  # noqa: F401 - compatibility re-export
+    AdmittedSpeechDataset,  # noqa: F401 - compatibility re-export
+    SpeechAdaptationAdmissionError,
+    SpeechAdaptationCurrentAuthorityPort,
+    SpeechAdaptationDecisionStorePort,
+    SpeechAdaptationLineagePort,
+    SpeechAdaptationResultArtifactPort,
+    SpeechCapacityLeasePort,
+    SpeechConsentAdmissionPort,
+    SpeechDatasetAdmissionPort,
+)
+from agent.services.speech_adaptation_in_memory_adapters import (
+    InMemorySpeechAdaptationDecisionStore,
+    InMemorySpeechCapacityLeasePort,  # noqa: F401 - compatibility re-export
+)
+from agent.services.speech_adaptation_job_contract import (
+    build_speech_adaptation_job_payload,
+    validate_prelease_bindings as _validate_prelease_bindings,
+)
 from agent.services.speech_adaptation_task_port import SpeechAdaptationTaskPort
 from agent.services.voice_governance_domain import VoicePrincipal
 from ananta_contracts.speech_adaptation import (
-    CONTRACT_VERSION,
-    MAX_DEADLINE_AHEAD_MS,
-    TRAIN_JOB_TYPE,
     SpeechAdaptationContractError,
     SpeechAdaptationJob,
     SpeechAdaptationResult,
-    SpeechBaseModelBinding,
-    SpeechConsentBinding,
-    SpeechDatasetBinding,
-    SpeechResourceBudget,
-    SpeechScopeBinding,
-    SpeechTrainingConfiguration,
     canonical_sha256,
-    speech_attempt_digest,
     speech_budget_digest,
     speech_configuration_digest,
-    speech_fencing_digest,
-    speech_job_binding_digest,
     speech_scope_digest,
 )
-
-
-class SpeechAdaptationAdmissionError(ValueError):
-    def __init__(self, reason_code: str, message: str, *, status_code: int = 422) -> None:
-        super().__init__(message)
-        self.reason_code = reason_code
-        self.status_code = status_code
-
-
-@dataclass(frozen=True)
-class AdmittedSpeechDataset:
-    dataset_id: str
-    dataset_version: str
-    tenant_id: str
-    owner_subject: str
-    storage_ref: str
-    dataset_digest: str
-    split_digest: str
-    lineage_digest: str
-    train_sample_count: int
-    validation_sample_count: int
-    immutable: bool
-    status: str = "admitted"
-    consent_bindings: tuple[tuple[str, int, int, str], ...] = ()
-    contributor_digests: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class ActiveSpeechConsent:
-    consent_id: str
-    version: int
-    digest: str
-    scope_digest: str
-    purpose: str
-    expires_at_ms: int
-    export_allowed: bool
-    granted: bool = True
-
-
-class SpeechDatasetAdmissionPort(Protocol):
-    def resolve(
-        self,
-        principal: SpeechPrincipal,
-        *,
-        dataset_id: str,
-        dataset_version: str,
-    ) -> AdmittedSpeechDataset | None: ...
-
-
-class SpeechConsentAdmissionPort(Protocol):
-    def current(self, principal: SpeechPrincipal, *, scope_digest: str) -> ActiveSpeechConsent | None: ...
-
-
-class SpeechCapacityLeasePort(Protocol):
-    def try_acquire(self, *, job_id: str, deadline_at_ms: int, now_ms: int) -> SpeechCapacityLease | None: ...
-
-    def release(self, lease_id: str) -> None: ...
-
-
-class SpeechAdaptationLineagePort(Protocol):
-    def publish_training_job(self, principal: VoicePrincipal, job: SpeechAdaptationJob) -> str: ...
-
-    def publish_training_result(
-        self,
-        principal: VoicePrincipal,
-        job: SpeechAdaptationJob,
-        result: SpeechAdaptationResult,
-        *,
-        authority: str = "hub",
-    ) -> str: ...
-
-
-class SpeechAdaptationDecisionStorePort(Protocol):
-    def by_idempotency(
-        self,
-        principal: SpeechPrincipal,
-        idempotency_digest: str,
-    ) -> "SpeechAdmissionDecision | None": ...
-
-    def create(
-        self,
-        principal: SpeechPrincipal,
-        *,
-        idempotency_digest: str,
-        decision: "SpeechAdmissionDecision",
-    ) -> tuple["SpeechAdmissionDecision", bool]: ...
-
-    def get(
-        self,
-        principal: SpeechPrincipal,
-        job_id: str,
-    ) -> "SpeechAdmissionDecision | None": ...
-
-    def waiting_admission(
-        self,
-        principal: SpeechPrincipal,
-        job_id: str,
-    ) -> tuple[str, Mapping[str, Any]] | None: ...
-
-    def replace(
-        self,
-        principal: SpeechPrincipal,
-        decision: "SpeechAdmissionDecision",
-        *,
-        expected_statuses: frozenset[str],
-        result: SpeechAdaptationResult | None = None,
-    ) -> "SpeechAdmissionDecision": ...
-
-
-class SpeechAdaptationCurrentAuthorityPort(Protocol):
-    def verify_current(
-        self,
-        principal: SpeechPrincipal,
-        job: SpeechAdaptationJob,
-        *,
-        phase: str,
-    ) -> tuple[bool, str | None]: ...
-
-
-class SpeechAdaptationResultArtifactPort(Protocol):
-    def verify_and_commit(
-        self,
-        principal: SpeechPrincipal,
-        job: SpeechAdaptationJob,
-        result: SpeechAdaptationResult,
-    ) -> None: ...
-
-    def read_evaluation(
-        self,
-        principal: SpeechPrincipal,
-        job: SpeechAdaptationJob,
-        evaluation_digest: str,
-    ) -> Mapping[str, Any]: ...
-
-
-class InMemorySpeechAdaptationDecisionStore:
-    """Compatibility/test adapter; production composition injects SQL."""
-
-    def __init__(self) -> None:
-        self._by_key: dict[tuple[SpeechPrincipal, str], SpeechAdmissionDecision] = {}
-        self._by_job: dict[tuple[SpeechPrincipal, str], SpeechAdmissionDecision] = {}
-        self._lock = threading.RLock()
-
-    def by_idempotency(
-        self,
-        principal: SpeechPrincipal,
-        idempotency_digest: str,
-    ) -> SpeechAdmissionDecision | None:
-        with self._lock:
-            return self._by_key.get((principal, idempotency_digest))
-
-    def create(
-        self,
-        principal: SpeechPrincipal,
-        *,
-        idempotency_digest: str,
-        decision: SpeechAdmissionDecision,
-    ) -> tuple[SpeechAdmissionDecision, bool]:
-        with self._lock:
-            existing = self._by_key.get((principal, idempotency_digest))
-            if existing is not None:
-                if existing.request_digest != decision.request_digest:
-                    raise SpeechAdaptationDecisionConflict("speech_idempotency_conflict")
-                return existing, True
-            self._by_key[(principal, idempotency_digest)] = decision
-            self._by_job[(principal, decision.job_id)] = decision
-            return decision, False
-
-    def get(self, principal: SpeechPrincipal, job_id: str) -> SpeechAdmissionDecision | None:
-        with self._lock:
-            return self._by_job.get((principal, job_id))
-
-    def waiting_admission(
-        self,
-        principal: SpeechPrincipal,
-        job_id: str,
-    ) -> tuple[str, Mapping[str, Any]] | None:
-        with self._lock:
-            decision = self._by_job.get((principal, job_id))
-            if (
-                decision is None
-                or decision.status != "queued"
-                or decision.job is not None
-                or decision.admission_request is None
-            ):
-                return None
-            for (owner, digest), candidate in self._by_key.items():
-                if owner == principal and candidate.job_id == job_id:
-                    return digest, dict(decision.admission_request)
-            return None
-
-    def replace(
-        self,
-        principal: SpeechPrincipal,
-        decision: SpeechAdmissionDecision,
-        *,
-        expected_statuses: frozenset[str],
-        result: SpeechAdaptationResult | None = None,
-    ) -> SpeechAdmissionDecision:
-        del result
-        with self._lock:
-            current = self._by_job.get((principal, decision.job_id))
-            if current is None:
-                raise SpeechAdaptationDecisionConflict("speech_job_not_found")
-            if current.status == decision.status and current.reason_code == decision.reason_code:
-                return current
-            if current.status not in expected_statuses:
-                raise SpeechAdaptationDecisionConflict("speech_job_state_conflict")
-            self._by_job[(principal, decision.job_id)] = decision
-            for key, value in tuple(self._by_key.items()):
-                if key[0] == principal and value.job_id == decision.job_id:
-                    self._by_key[key] = decision
-            return decision
-
-
-class InMemorySpeechCapacityLeasePort:
-    """Deterministic bounded lease port for native/single-Hub deployments and tests."""
-
-    def __init__(self, capacity: int = 1, lease_seconds: int = 300) -> None:
-        if not 1 <= capacity <= 128 or not 10 <= lease_seconds <= 3600:
-            raise ValueError("speech capacity configuration is invalid")
-        self._capacity = capacity
-        self._lease_ms = lease_seconds * 1000
-        self._lock = threading.RLock()
-        self._leases: dict[str, SpeechCapacityLease] = {}
-        self._epoch = 0
-
-    def try_acquire(self, *, job_id: str, deadline_at_ms: int, now_ms: int) -> SpeechCapacityLease | None:
-        with self._lock:
-            self._leases = {key: value for key, value in self._leases.items() if value.expires_at_ms > now_ms}
-            existing = self._leases.get(job_id)
-            if existing is not None:
-                return existing
-            if len(self._leases) >= self._capacity:
-                return None
-            self._epoch += 1
-            expires = min(deadline_at_ms, now_ms + self._lease_ms)
-            lease = SpeechCapacityLease(
-                lease_id=f"speech-lease-{hashlib.sha256(f'{job_id}:{self._epoch}'.encode()).hexdigest()[:32]}",
-                epoch=self._epoch,
-                expires_at_ms=expires,
-            )
-            self._leases[job_id] = lease
-            return lease
-
-    def release(self, lease_id: str) -> None:
-        with self._lock:
-            self._leases = {key: value for key, value in self._leases.items() if value.lease_id != lease_id}
 
 
 class SpeechAdaptationJobService:
@@ -538,85 +303,22 @@ class SpeechAdaptationJobService:
                 principal,
                 replace_waiting=_replace_waiting,
             )
-        attempt_id = f"speech-attempt-{hashlib.sha256(f'{job_id}:{lease.epoch}'.encode()).hexdigest()[:32]}"
-        attempt_digest = speech_attempt_digest(job_id=job_id, attempt_id=attempt_id, attempt_number=1)
-        fencing_digest = speech_fencing_digest(
-            attempt_id=attempt_id,
-            epoch=lease.epoch,
-            lease_id=lease.lease_id,
-            lease_expires_at_ms=lease.expires_at_ms,
+        payload = build_speech_adaptation_job_payload(
+            principal=principal,
+            job_id=job_id,
+            lease=lease,
+            dataset=dataset,
+            model_id=model_id,
+            model=model,
+            pair_id=pair_id,
+            direction=direction,
+            speaker_digest=speaker_digest,
+            scope_digest=scope_digest,
+            consent=consent,
+            configuration=configuration,
+            budget=budget,
+            deadline=deadline,
         )
-        target_id = f"speech-adapter-{hashlib.sha256(job_id.encode()).hexdigest()[:32]}"
-        tenant_ref = hashlib.sha256(principal.tenant_id.encode()).hexdigest()[:32]
-        target_ref = f"artifact://speech-adapters/{tenant_ref}/{target_id}"
-        target_digest = canonical_sha256({"artifact_ref": target_ref, "target_id": target_id})
-        binding_fields = {
-            "artifact_target_digest": target_digest,
-            "attempt_digest": attempt_digest,
-            "budget_digest": budget["budget_digest"],
-            "config_digest": configuration["config_digest"],
-            "consent_digest": consent.digest,
-            "dataset_digest": dataset.dataset_digest,
-            "fencing_digest": fencing_digest,
-            "lineage_digest": dataset.lineage_digest,
-            "model_digest": model["model_digest"],
-            "scope_digest": scope_digest,
-            "split_digest": dataset.split_digest,
-        }
-        payload = {
-            "contract_version": CONTRACT_VERSION,
-            "job_type": TRAIN_JOB_TYPE,
-            "job_id": job_id,
-            "dataset": {
-                "dataset_id": dataset.dataset_id,
-                "dataset_version": dataset.dataset_version,
-                "storage_ref": dataset.storage_ref,
-                "dataset_digest": dataset.dataset_digest,
-                "split_digest": dataset.split_digest,
-                "lineage_digest": dataset.lineage_digest,
-                "train_sample_count": dataset.train_sample_count,
-                "validation_sample_count": dataset.validation_sample_count,
-                "immutable": True,
-            },
-            "base_model": {
-                "model_id": model_id,
-                "artifact_ref": model["artifact_ref"],
-                "model_digest": model["model_digest"],
-            },
-            "scope": {
-                "pair_id": pair_id,
-                "direction": direction,
-                "speaker_digest": speaker_digest,
-                "scope_digest": scope_digest,
-            },
-            "consent": {
-                "consent_id": consent.consent_id,
-                "consent_version": consent.version,
-                "consent_digest": consent.digest,
-                "scope_digest": consent.scope_digest,
-                "purpose": consent.purpose,
-                "granted": consent.granted,
-                "expires_at_ms": consent.expires_at_ms,
-                "export_allowed": consent.export_allowed,
-            },
-            "configuration": configuration,
-            "budget": budget,
-            "attempt": {"attempt_id": attempt_id, "attempt_number": 1, "attempt_digest": attempt_digest},
-            "fencing": {
-                "lease_id": lease.lease_id,
-                "epoch": lease.epoch,
-                "lease_expires_at_ms": lease.expires_at_ms,
-                "fencing_digest": fencing_digest,
-            },
-            "artifact_target": {
-                "target_id": target_id,
-                "artifact_ref": target_ref,
-                "target_digest": target_digest,
-            },
-            "deadline_at_ms": deadline,
-            "binding_digest": speech_job_binding_digest(binding_fields),
-            "resume": None,
-        }
         try:
             job = SpeechAdaptationJob.from_mapping(payload, now_ms=now)
             self._lineage.publish_training_job(VoicePrincipal(principal.tenant_id, principal.subject), job)
@@ -959,80 +661,3 @@ class SpeechAdaptationJobService:
                 "speech training audit is unavailable",
                 status_code=503,
             ) from exc
-
-
-def _validate_prelease_bindings(
-    *,
-    now_ms: int,
-    deadline_at_ms: int,
-    dataset: AdmittedSpeechDataset,
-    model_id: str,
-    model: Mapping[str, str],
-    scope: Mapping[str, Any],
-    consent: ActiveSpeechConsent,
-    configuration: Mapping[str, Any],
-    budget: Mapping[str, Any],
-) -> None:
-    """Validate every lease-independent contract field before capacity policy."""
-
-    SpeechDatasetBinding.from_mapping(
-        {
-            "dataset_id": dataset.dataset_id,
-            "dataset_version": dataset.dataset_version,
-            "storage_ref": dataset.storage_ref,
-            "dataset_digest": dataset.dataset_digest,
-            "split_digest": dataset.split_digest,
-            "lineage_digest": dataset.lineage_digest,
-            "train_sample_count": dataset.train_sample_count,
-            "validation_sample_count": dataset.validation_sample_count,
-            "immutable": dataset.immutable,
-        }
-    )
-    SpeechBaseModelBinding.from_mapping(
-        {
-            "model_id": model_id,
-            "artifact_ref": model.get("artifact_ref"),
-            "model_digest": model.get("model_digest"),
-        }
-    )
-    parsed_scope = SpeechScopeBinding.from_mapping(scope)
-    parsed_consent = SpeechConsentBinding.from_mapping(
-        {
-            "consent_id": consent.consent_id,
-            "consent_version": consent.version,
-            "consent_digest": consent.digest,
-            "scope_digest": consent.scope_digest,
-            "purpose": consent.purpose,
-            "granted": consent.granted,
-            "expires_at_ms": consent.expires_at_ms,
-            "export_allowed": consent.export_allowed,
-        }
-    )
-    parsed_configuration = SpeechTrainingConfiguration.from_mapping(configuration)
-    parsed_budget = SpeechResourceBudget.from_mapping(budget)
-    del parsed_configuration
-    if parsed_consent.scope_digest != parsed_scope.scope_digest:
-        raise SpeechAdaptationContractError(
-            "speech_consent_scope_mismatch",
-            "consent is not bound to the requested pair direction and speaker",
-        )
-    if isinstance(deadline_at_ms, bool) or deadline_at_ms <= now_ms:
-        raise SpeechAdaptationContractError(
-            "speech_deadline_stale",
-            "speech training deadline has expired",
-        )
-    if deadline_at_ms - now_ms > MAX_DEADLINE_AHEAD_MS:
-        raise SpeechAdaptationContractError(
-            "speech_deadline_out_of_bounds",
-            "speech training deadline exceeds the maximum admission horizon",
-        )
-    if parsed_consent.expires_at_ms < deadline_at_ms:
-        raise SpeechAdaptationContractError(
-            "speech_consent_expires_before_deadline",
-            "consent must remain valid through the job deadline",
-        )
-    if parsed_budget.max_wall_seconds * 1000 > deadline_at_ms - now_ms:
-        raise SpeechAdaptationContractError(
-            "speech_budget_deadline_mismatch",
-            "wall-time budget exceeds the admitted deadline",
-        )
