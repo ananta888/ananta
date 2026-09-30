@@ -20,6 +20,11 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
     resolve_effective_concurrency,
     resolve_target_worker_for_task,
 )
+from agent.routes.tasks.autopilot_stale_task_recovery import (
+    StaleTaskRecovery,
+    is_hub_managed_model_recovery_task,
+    refresh_approval_lifecycle,
+)
 from agent.routes.tasks.autopilot_model_selector import (
     _normalize_model_candidate,
     _normalize_model_list,
@@ -55,367 +60,53 @@ from agent.routes.tasks.autopilot_task_dispatcher_helpers import (
 )
 
 
-def _is_hub_managed_model_recovery_task(task: Any) -> bool:
-    """Keep generic Autopilot repair loops out of the Hub Recovery saga."""
+_is_hub_managed_model_recovery_task = is_hub_managed_model_recovery_task
 
-    if (
-        str(getattr(task, "derivation_reason", "") or "").strip()
-        == "goal_task_recovery"
-    ):
-        return True
-    for attribute in ("status_reason_details", "verification_status"):
-        payload = getattr(task, attribute, None)
-        details = dict(payload) if isinstance(payload, dict) else {}
-        if any(
-            isinstance(details.get(key), dict) and details.get(key)
-            for key in (
-                "model_recovery",
-                "model_recovery_strategy",
-                "model_recovery_release",
-                "recovery_dispatch_lease",
-            )
-        ):
-            return True
-    return False
+_TERMINAL_GOAL_STATUSES = {"completed", "failed", "cancelled", "aborted", "timeout", "archived"}
+_RETRYABLE_NO_WORKER_REASONS = {
+    "assigned_worker_offline",
+    "assigned_worker_is_hub_forbidden",
+    "hub_self_worker_filtered",
+    "no_workers_available",
+}
+_RECOVERY_ACCEPTED_TERMINAL_STATUSES = {
+    "completed",
+    "verification_failed",
+    "cancelled",
+    "aborted",
+    "timeout",
+    "archived",
+    "skipped",
+}
+_DISPATCH_POLL_SECONDS = 1.0
 
 
-def execute_autopilot_tick(
-    *,
-    loop: Any,
-    services: Any,
-    append_trace_event: Callable[..., None],
-    task_dependencies: Callable[[Any], list[str]],
-    update_local_task_status: Callable[..., None],
-) -> dict[str, Any]:  # noqa: C901
-    if settings.role != "hub":
-        return {"dispatched": 0, "reason": "hub_only"}
-    if loop.running:
-        guardrail_reason = loop._check_guardrails()
-        if guardrail_reason:
-            loop.last_error = guardrail_reason
-            loop.stop(persist=True)
-            return {"dispatched": 0, "reason": guardrail_reason}
+def _record_tick(loop: Any) -> None:
+    loop.last_tick_at = time.time()
+    loop.tick_count += 1
 
-    goal_scope = str(getattr(loop, "goal", "") or "").strip() or None
-    if goal_scope:
-        repos = get_repository_registry(loop._app)
-        goal = repos.goal_repo.get_by_id(goal_scope)
-        goal_status = str(getattr(goal, "status", "") or "").strip().lower() if goal else ""
-        if goal_status in {
-            "completed",
-            "failed",
-            "cancelled",
-            "aborted",
-            "timeout",
-            "archived",
-        }:
-            loop.last_tick_at = time.time()
-            loop.tick_count += 1
-            # Stop goal-scoped loops once the goal is terminal to avoid
-            # indefinite idle polling and persisted stale loop sessions.
-            try:
-                loop.stop(persist=True)
-            except Exception:
-                if not os.environ.get("PYTEST_CURRENT_TEST"):
-                    loop._persist_state(enabled=loop.running)
-            return {"dispatched": 0, "reason": f"goal_terminal_{goal_status}"}
 
-    total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))
-    all_tasks = services.autopilot_support_service.scoped_tasks(team_id=loop.team_id or None, app=loop._app)
-    if goal_scope:
-        all_tasks = [task for task in all_tasks if str(getattr(task, "goal_id", "") or "").strip() == goal_scope]
-    scoped_tasks = len(all_tasks)
-    approval_lifecycle = None
+def _stop_for_terminal_goal(loop: Any, goal_scope: str | None) -> dict[str, Any] | None:
+    """Stop goal-scoped loops once the goal is terminal.
+
+    Avoids indefinite idle polling and persisted stale loop sessions.
+    """
+    if not goal_scope:
+        return None
+    goal = get_repository_registry(loop._app).goal_repo.get_by_id(goal_scope)
+    goal_status = str(getattr(goal, "status", "") or "").strip().lower() if goal else ""
+    if goal_status not in _TERMINAL_GOAL_STATUSES:
+        return None
+    _record_tick(loop)
     try:
-        from agent.services.approval_request_service import (
-            get_approval_request_service,
-        )
-
-        approval_lifecycle = get_approval_request_service()
-        approval_lifecycle.expire_old_requests()
-        approval_lifecycle.reconcile_granted_domain_actions()
+        loop.stop(persist=True)
     except Exception:
-        logging.getLogger(__name__).warning(
-            "approval lifecycle refresh failed during autopilot tick",
-            exc_info=True,
-        )
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            loop._persist_state(enabled=loop.running)
+    return {"dispatched": 0, "reason": f"goal_terminal_{goal_status}"}
 
-    # Reset tasks stuck in `proposing` with no output for > 90 s back to `todo`
-    # so the autopilot can retry them (workers can crash mid-dispatch).
-    _PROPOSING_STALE_SECONDS = 30
-    _ASSIGNED_STALE_SECONDS = 60
-    _IN_PROGRESS_STALE_SECONDS = 120
-    _RECOVER_WAITING_REVIEW_SECONDS = 30
-    now_ts = time.time()
-    for _t in all_tasks:
-        if _is_hub_managed_model_recovery_task(_t):
-            continue
-        if str(getattr(_t, "status", "") or "").lower() != "proposing":
-            continue
-        _updated = float(getattr(_t, "updated_at", None) or 0)
-        if _updated and (now_ts - _updated) < _PROPOSING_STALE_SECONDS:
-            continue
-        if getattr(_t, "last_output", None):
-            continue
-        update_local_task_status(
-            _t.id,
-            "todo",
-            event_type="stale_proposing_reset",
-            event_actor="autopilot_tick",
-            force=True,
-        )
-        append_trace_event(_t.id, "stale_proposing_reset", reason="no_output_after_90s")
 
-    # Recover stale active tasks that stopped progressing without terminal output.
-    # This keeps autonomous runs moving when worker transport/runtime hangs.
-    for _t in all_tasks:
-        if _is_hub_managed_model_recovery_task(_t):
-            continue
-        _status = str(getattr(_t, "status", "") or "").lower()
-        if _status not in {"assigned", "in_progress"}:
-            continue
-        _updated = float(getattr(_t, "updated_at", None) or 0)
-        stale_after = _ASSIGNED_STALE_SECONDS if _status == "assigned" else _IN_PROGRESS_STALE_SECONDS
-        if _updated and (now_ts - _updated) < stale_after:
-            continue
-        _verification = dict(getattr(_t, "verification_status", None) or {})
-        _recovery = dict(_verification.get("autopilot_recovery") or {})
-        retries = int(_recovery.get("stale_active_retries") or 0)
-        max_retries = 3
-        if retries < max_retries:
-            _recovery.update(
-                {
-                    "stale_active_retries": retries + 1,
-                    "last_stale_active_status": _status,
-                    "last_stale_active_retry_at": now_ts,
-                }
-            )
-            _verification["autopilot_recovery"] = _recovery
-            update_local_task_status(
-                _t.id,
-                "todo",
-                verification_status=_verification,
-                event_type="stale_active_task_retry",
-                event_actor="autopilot_tick",
-                force=True,
-            )
-            append_trace_event(
-                _t.id,
-                "stale_active_task_retry",
-                stale_status=_status,
-                retry_attempt=retries + 1,
-                stale_after_seconds=stale_after,
-            )
-            continue
-        update_local_task_status(
-            _t.id,
-            "failed",
-            error=f"stale_active_task_exhausted:{_status}",
-            event_type="stale_active_task_auto_failed",
-            event_actor="autopilot_tick",
-            force=True,
-        )
-        append_trace_event(
-            _t.id,
-            "stale_active_task_auto_failed",
-            stale_status=_status,
-            retry_attempt=retries,
-            stale_after_seconds=stale_after,
-        )
-
-    # Auto-recover waiting_for_review tasks caused by recoverable runtime/tooling issues.
-    # These are machine-retryable artifacts and should not deadlock the chain.
-    # In fully autonomous runs (allow_human_review=False) allow up to autonomous_repair_attempts
-    # retries before failing, to allow round-robin assignment to reach a capable worker.
-    _TOOLING_RECOVERY_MAX = 2
-    for _t in all_tasks:
-        if _is_hub_managed_model_recovery_task(_t):
-            continue
-        if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
-            continue
-        _updated = float(getattr(_t, "updated_at", None) or 0)
-        if _updated and (now_ts - _updated) < _RECOVER_WAITING_REVIEW_SECONDS:
-            continue
-        last_output = str(getattr(_t, "last_output", None) or "")
-        lowered = last_output.lower()
-        recoverable_waiting_review = (
-            "[tool_intent] unresolved:" in last_output
-            or "command not found" in lowered
-            or "not recognized as an internal or external command" in lowered
-            or "no such file or directory" in lowered
-        )
-        if not recoverable_waiting_review:
-            continue
-        _task_agent_cfg = _effective_agent_cfg_for_task(loop=loop, task=_t)
-        _task_allow_human_review = bool((_task_agent_cfg.get("propose_policy") or {}).get("allow_human_review", True))
-        _t_verification = dict(getattr(_t, "verification_status", None) or {})
-        _t_recovery = dict(_t_verification.get("autopilot_recovery") or {})
-        try:
-            _tooling_retries = max(0, int(_t_recovery.get("tooling_retries") or 0))
-        except (TypeError, ValueError):
-            _tooling_retries = 0
-        _attempts_raw = (_task_agent_cfg.get("propose_policy") or {}).get(
-            "autonomous_repair_attempts", _TOOLING_RECOVERY_MAX
-        )
-        try:
-            _max_tooling_retries = max(0, int(_attempts_raw))
-        except (TypeError, ValueError):
-            _max_tooling_retries = _TOOLING_RECOVERY_MAX
-        _can_retry = _task_allow_human_review or _tooling_retries < _max_tooling_retries
-        if _can_retry and not _task_allow_human_review:
-            _t_recovery["tooling_retries"] = _tooling_retries + 1
-            _t_recovery["last_tooling_retry_at"] = now_ts
-            _t_verification["autopilot_recovery"] = _t_recovery
-        _recovery_status = "todo" if _can_retry else "failed"
-        _recovery_event = "recover_waiting_review_retryable_failure" if _can_retry else "waiting_for_review_auto_failed_no_human_review"
-        update_local_task_status(
-            _t.id,
-            _recovery_status,
-            verification_status=_t_verification if not _task_allow_human_review else None,
-            error=None if _can_retry else "autonomous_run_tooling_retries_exhausted",
-            event_type=_recovery_event,
-            event_actor="autopilot_tick",
-            force=True,
-        )
-        append_trace_event(
-            _t.id,
-            _recovery_event,
-            reason="auto_retry_recoverable_waiting_review_failure" if _can_retry else "autonomous_run_waiting_for_review_terminated",
-            allow_human_review=_task_allow_human_review,
-            tooling_retries=_tooling_retries,
-            max_tooling_retries=_max_tooling_retries,
-        )
-
-    # Guardrail: in fully autonomous runs, stale waiting_for_review tasks must
-    # not block goal terminalization indefinitely.
-    #
-    # For strategy/budget guardrails, prefer controlled retry (todo) before
-    # hard-failing the task, otherwise autonomous opencode runs can dead-end
-    # without ever producing executable steps/artifacts.
-    _FORCE_FAIL_WAITING_REVIEW_SECONDS = 90
-    _WAITING_REVIEW_RETRY_MAX = 2
-    for _t in all_tasks:
-        if str(getattr(_t, "status", "") or "").lower() != "waiting_for_review":
-            continue
-        _updated = float(getattr(_t, "updated_at", None) or 0)
-        if _updated and (now_ts - _updated) < _FORCE_FAIL_WAITING_REVIEW_SECONDS:
-            continue
-        _verification = dict(getattr(_t, "verification_status", None) or {})
-        _model_recovery = dict(_verification.get("model_recovery") or {})
-        if str(_model_recovery.get("status") or "").strip().lower() == "pending_approval":
-            # Approval requests have their own persisted TTL/lifecycle.  A
-            # generic 90-second autonomous timeout must not override a human
-            # review gate and terminalize the source task underneath it.
-            approval_id = str(
-                _model_recovery.get("approval_request_id") or ""
-            ).strip()
-            approval = (
-                approval_lifecycle.get_request(approval_id)
-                if approval_lifecycle is not None and approval_id
-                else None
-            )
-            approval_status = str(
-                getattr(approval, "status", "") or ""
-            ).strip().lower()
-            expires_at = getattr(approval, "expires_at", None)
-            active_approval = (
-                approval_status in {"pending", "granted"}
-                and (
-                    expires_at is None
-                    or float(expires_at) >= now_ts
-                )
-            )
-            if active_approval:
-                continue
-            if (
-                _current_task_status(_t.id, app=loop._app)
-                != "waiting_for_review"
-            ):
-                continue
-            terminal_recovery_status = (
-                approval_status
-                if approval_status
-                in {"expired", "denied", "superseded", "consumed"}
-                else "approval_missing"
-            )
-            _model_recovery["status"] = terminal_recovery_status
-            _verification["model_recovery"] = _model_recovery
-            update_local_task_status(
-                _t.id,
-                "needs_review",
-                verification_status=_verification,
-                status_reason_code=f"recovery_approval_{terminal_recovery_status}",
-                event_type="task_recovery_approval_inactive",
-                event_actor="autopilot_tick",
-                event_details={
-                    "approval_request_id": approval_id,
-                    "approval_status": terminal_recovery_status,
-                },
-                force=True,
-            )
-            append_trace_event(
-                _t.id,
-                "task_recovery_approval_inactive",
-                approval_request_id=approval_id,
-                approval_status=terminal_recovery_status,
-            )
-            continue
-        if _is_hub_managed_model_recovery_task(_t):
-            # Stopped/denied/materialized Recovery sources and Recovery
-            # children are governed by the Hub saga, never by the generic
-            # stale-review retry/fail policy.
-            continue
-        _strategy = dict(_verification.get("autopilot_strategy") or {})
-        _reason_code = str(_strategy.get("reason_code") or "").strip().lower()
-        _recover = dict(_verification.get("autopilot_recovery") or {})
-        _review_retries = int(_recover.get("waiting_review_retries") or 0)
-        _retryable_waiting_review = _reason_code in {
-            "proposal_budget_exhausted",
-            "autopilot_strategy_exhausted",
-            "task_propose_hard_guard",
-        }
-        if _retryable_waiting_review and _review_retries < _WAITING_REVIEW_RETRY_MAX:
-            _recover.update(
-                {
-                    "waiting_review_retries": _review_retries + 1,
-                    "last_waiting_review_retry_at": now_ts,
-                    "last_waiting_review_reason_code": _reason_code,
-                }
-            )
-            _verification["autopilot_recovery"] = _recover
-            update_local_task_status(
-                _t.id,
-                "todo",
-                verification_status=_verification,
-                manual_override_until=now_ts + 20,
-                event_type="waiting_for_review_retry_scheduled",
-                event_actor="autopilot_tick",
-                force=True,
-            )
-            append_trace_event(
-                _t.id,
-                "waiting_for_review_retry_scheduled",
-                reason_code=_reason_code,
-                retry_attempt=_review_retries + 1,
-                retry_max=_WAITING_REVIEW_RETRY_MAX,
-            )
-            continue
-        update_local_task_status(
-            _t.id,
-            "failed",
-            error="waiting_for_review_timeout_auto_failed",
-            event_type="waiting_for_review_timeout_auto_failed",
-            event_actor="autopilot_tick",
-            force=True,
-        )
-        append_trace_event(
-            _t.id,
-            "waiting_for_review_timeout_auto_failed",
-            reason="auto_fail_stale_waiting_for_review",
-            timeout_seconds=_FORCE_FAIL_WAITING_REVIEW_SECONDS,
-        )
-
-    transitions = services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies)
+def _append_dependency_transitions(transitions, append_trace_event: Callable[..., None]) -> None:
     for transition in transitions:
         task_id = str(transition.get("task_id") or "")
         if not task_id:
@@ -428,117 +119,104 @@ def execute_autopilot_tick(
             failed_dependency_ids=transition.get("failed_dependency_ids") or [],
         )
 
-    dispatch_queue = services.task_queue_service.get_scoped_dispatch_queue(team_id=loop.team_id or None, now=time.time())
-    if goal_scope:
-        dispatch_queue = [
-            item
-            for item in dispatch_queue
-            if str(getattr(item.get("task"), "goal_id", "") or "").strip() == goal_scope
-        ]
-    candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
-    if not candidates:
-        # APR-002: autonomous planning recovery — trigger without requiring UI polling
-        if goal_scope and not all_tasks:
-            repos = get_repository_registry(loop._app)
-            _stalled_goal = repos.goal_repo.get_by_id(goal_scope)
-            if _stalled_goal and str(getattr(_stalled_goal, "status", "") or "").strip().lower() == "planning":
-                from agent.services.lifecycle_service import get_goal_lifecycle_service
-                get_goal_lifecycle_service().recover_stalled_planning_goal(_stalled_goal)
-        recovered = _maybe_recover_planned_goal_without_candidates(
-            loop=loop,
-            services=services,
-            all_tasks=all_tasks,
-            goal_scope=goal_scope,
-        )
-        _workers_online = services.autopilot_support_service.available_workers(
-            team_id=loop.team_id or None,
-            is_worker_circuit_open=lambda _url: False,
-            app_config=loop._app_config(),
-            app=loop._app,
-        )[1]
-        _no_cand_reason = classify_no_candidate_reason(
-            all_tasks=all_tasks,
-            workers_available_count=_workers_online,
-        )
-        loop.last_tick_at = time.time()
-        loop.tick_count += 1
-        loop._persist_state(enabled=loop.running)
-        return {
-            "dispatched": 0,
-            "reason": "goal_recovery_triggered" if recovered else "no_candidates",
-            "no_candidate_reason": _no_cand_reason,
-            "debug": build_tick_debug_payload(
-                team_id_scope=loop.team_id or None,
-                total_tasks_unfiltered=total_tasks_unfiltered,
-                total_tasks_scoped=scoped_tasks,
-                candidate_count=0,
-                workers_online_count=_workers_online,
-                workers_available_count=0,
-                no_candidate_reason=_no_cand_reason,
-            ),
-        }
 
-    workers, workers_online_count = services.autopilot_support_service.available_workers(
+def _no_candidates_result(
+    loop: Any, services: Any, *, all_tasks: list[Any], goal_scope: str | None, task_counts: tuple[int, int]
+) -> dict[str, Any]:
+    # APR-002: autonomous planning recovery — trigger without requiring UI polling
+    if goal_scope and not all_tasks:
+        stalled_goal = get_repository_registry(loop._app).goal_repo.get_by_id(goal_scope)
+        if stalled_goal and str(getattr(stalled_goal, "status", "") or "").strip().lower() == "planning":
+            from agent.services.lifecycle_service import get_goal_lifecycle_service
+            get_goal_lifecycle_service().recover_stalled_planning_goal(stalled_goal)
+    recovered = _maybe_recover_planned_goal_without_candidates(
+        loop=loop,
+        services=services,
+        all_tasks=all_tasks,
+        goal_scope=goal_scope,
+    )
+    workers_online = services.autopilot_support_service.available_workers(
         team_id=loop.team_id or None,
-        is_worker_circuit_open=loop._is_worker_circuit_open,
+        is_worker_circuit_open=lambda _url: False,
         app_config=loop._app_config(),
         app=loop._app,
-    )
-    if not workers:
-        loop.last_error = "no_available_workers"
-        loop.last_tick_at = time.time()
-        loop.tick_count += 1
-        loop._persist_state(enabled=loop.running)
-        return {
-            "dispatched": 0,
-            "reason": "no_available_workers",
-            "debug": build_tick_debug_payload(
-                team_id_scope=loop.team_id or None,
-                total_tasks_unfiltered=total_tasks_unfiltered,
-                total_tasks_scoped=scoped_tasks,
-                candidate_count=len(candidates),
-                workers_online_count=workers_online_count,
-                workers_available_count=0,
-            ),
-        }
+    )[1]
+    no_candidate_reason = classify_no_candidate_reason(all_tasks=all_tasks, workers_available_count=workers_online)
+    _record_tick(loop)
+    loop._persist_state(enabled=loop.running)
+    return {
+        "dispatched": 0,
+        "reason": "goal_recovery_triggered" if recovered else "no_candidates",
+        "no_candidate_reason": no_candidate_reason,
+        "debug": build_tick_debug_payload(
+            team_id_scope=loop.team_id or None,
+            total_tasks_unfiltered=task_counts[0],
+            total_tasks_scoped=task_counts[1],
+            candidate_count=0,
+            workers_online_count=workers_online,
+            workers_available_count=0,
+            no_candidate_reason=no_candidate_reason,
+        ),
+    }
 
-    dispatched = 0
-    completed = 0
-    failed = 0
-    dispatched_task_ids: list[str] = []
-    policy = loop._security_policy()
-    fallback_policy = _fallback_policy(loop)
-    runtime_caps = _runtime_model_capabilities(loop)
-    worker_parallel_cfg = ((loop._agent_config() or {}).get("worker_parallelism") or {}).get("ollama") or {}
-    worker_parallelism = max(1, int((worker_parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 1))
-    online_worker_capacity = max(1, len(workers)) * worker_parallelism
-    runtime_capacity = max(1, int((loop._agent_config() or {}).get("runtime_capacity_cap") or online_worker_capacity))
-    ollama_capacity = None
+
+def _no_workers_result(
+    loop: Any, *, candidate_count: int, workers_online_count: int, task_counts: tuple[int, int]
+) -> dict[str, Any]:
+    loop.last_error = "no_available_workers"
+    _record_tick(loop)
+    loop._persist_state(enabled=loop.running)
+    return {
+        "dispatched": 0,
+        "reason": "no_available_workers",
+        "debug": build_tick_debug_payload(
+            team_id_scope=loop.team_id or None,
+            total_tasks_unfiltered=task_counts[0],
+            total_tasks_scoped=task_counts[1],
+            candidate_count=candidate_count,
+            workers_online_count=workers_online_count,
+            workers_available_count=0,
+        ),
+    }
+
+
+def _ollama_capacity(loop: Any, runtime_caps: dict) -> int | None:
     try:
         parallel_cfg = ((loop._agent_config() or {}).get("worker_parallelism") or {}).get("ollama") or {}
         max_parallel = int((parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 0)
         if max_parallel > 0:
-            ollama_capacity = max_parallel
-        else:
-            ollama_rt = dict((runtime_caps.get("runtime") or {}).get("ollama") or {})
-            if ollama_rt.get("ok"):
-                ollama_capacity = max(1, int(ollama_rt.get("candidate_count") or 1))
+            return max_parallel
+        ollama_rt = dict((runtime_caps.get("runtime") or {}).get("ollama") or {})
+        if ollama_rt.get("ok"):
+            return max(1, int(ollama_rt.get("candidate_count") or 1))
     except Exception:
-        ollama_capacity = None
-    effective_concurrency = resolve_effective_concurrency(
-        requested_max_concurrency=loop.max_concurrency,
-        security_policy=policy,
-        online_worker_capacity=online_worker_capacity,
-        runtime_capacity=runtime_capacity,
-        ollama_capacity=ollama_capacity,
-    )
-    local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
-    queue_positions = dispatch_queue_positions(dispatch_queue)
+        return None
+    return None
 
-    # thr-010: pre-assign workers sequentially under _routing_lock BEFORE spawning
-    # threads so two threads can never receive the same worker slot.
+
+def _capacity_factors(loop: Any, workers: list[Any], runtime_caps: dict) -> tuple[int, int, int | None]:
+    """Return ``(online_worker_capacity, runtime_capacity, ollama_capacity)``."""
+    worker_parallel_cfg = ((loop._agent_config() or {}).get("worker_parallelism") or {}).get("ollama") or {}
+    worker_parallelism = max(1, int((worker_parallel_cfg.get("model_defaults") or {}).get("max_parallel_requests") or 1))
+    online_worker_capacity = max(1, len(workers)) * worker_parallelism
+    runtime_capacity = max(1, int((loop._agent_config() or {}).get("runtime_capacity_cap") or online_worker_capacity))
+    return online_worker_capacity, runtime_capacity, _ollama_capacity(loop, runtime_caps)
+
+
+def _assign_workers(
+    loop: Any,
+    candidates: list[Any],
+    workers: list[Any],
+    *,
+    append_trace_event: Callable[..., None],
+    update_local_task_status: Callable[..., None],
+) -> list[tuple[Any, Any, bool]]:
+    """thr-010: pre-assign workers sequentially under _routing_lock BEFORE spawning threads.
+
+    Two threads can never receive the same worker slot.
+    """
     task_assignments: list[tuple[Any, Any, bool]] = []
-    for task in candidates[:effective_concurrency]:
+    for task in candidates:
         assign_result = loop._assign_worker(task, workers)
         if isinstance(assign_result, tuple) and len(assign_result) >= 3:
             target_worker, was_assigned, assign_reason = assign_result[0], assign_result[1], assign_result[2]
@@ -554,22 +232,264 @@ def execute_autopilot_tick(
             reason_code=assign_reason or ("assigned_worker" if not was_assigned else "round_robin"),
             was_assigned=bool(was_assigned),
         )
-        if target_worker is None:
-            no_worker_reason = str(assign_reason or "no_worker_available")
-            retryable = no_worker_reason in {"assigned_worker_offline", "assigned_worker_is_hub_forbidden", "hub_self_worker_filtered", "no_workers_available"}
-            if not retryable:
-                loop._increment_failed()
-            append_trace_event(task.id, "autopilot_no_worker", reason=no_worker_reason)
-            update_local_task_status(
-                task.id,
-                "todo" if retryable else "failed",
-                error=no_worker_reason,
-                event_type="autopilot_no_worker",
-                event_actor="autopilot_tick",
-                force=True,
-            )
+        if target_worker is not None:
+            task_assignments.append((task, target_worker, was_assigned))
             continue
-        task_assignments.append((task, target_worker, was_assigned))
+        no_worker_reason = str(assign_reason or "no_worker_available")
+        retryable = no_worker_reason in _RETRYABLE_NO_WORKER_REASONS
+        if not retryable:
+            loop._increment_failed()
+        append_trace_event(task.id, "autopilot_no_worker", reason=no_worker_reason)
+        update_local_task_status(
+            task.id,
+            "todo" if retryable else "failed",
+            error=no_worker_reason,
+            event_type="autopilot_no_worker",
+            event_actor="autopilot_tick",
+            force=True,
+        )
+    return task_assignments
+
+
+def _observe_queue_wait(task_assignments: list[tuple[Any, Any, bool]]) -> None:
+    for task, _target_worker, _was_assigned in task_assignments:
+        try:
+            created_at = float(getattr(task, "created_at", 0) or 0)
+            if created_at > 0:
+                TASK_QUEUE_WAIT_SECONDS.observe(max(0.0, time.time() - created_at))
+        except Exception:
+            pass
+
+
+def _cancel_task_requests(tid: str) -> Any:
+    from agent.services.request_cancellation_service import (
+        get_request_cancellation_service,
+    )
+
+    return get_request_cancellation_service().cancel_task_requests(task_id=tid, include_workers=True)
+
+
+def _abort_recovery_dispatch(
+    tid: str, *, reason: str, recoverable: bool, app: Any, append_trace_event: Callable[..., None]
+) -> TaskDispatchResult:
+    try:
+        _cancel_task_requests(tid)
+    except Exception:
+        logging.exception("Recovery dispatch cancellation failed for %s", tid)
+    recovery_reason_code = "recovery_dispatch_stopped" if recoverable else "recovery_dispatch_hard_timeout"
+    desired_status = "paused" if recoverable else "failed"
+    recovery_status = (
+        get_recovery_dispatch_gate_service().abort_dispatch_lease(
+            tid,
+            target_status=desired_status,
+            reason_code=recovery_reason_code,
+            error=f"dispatch_{reason}",
+            app=app,
+        )
+        or desired_status
+    )
+    append_trace_event(
+        tid,
+        (
+            "recovery_dispatch_abort_lost_race"
+            if recovery_status in _RECOVERY_ACCEPTED_TERMINAL_STATUSES
+            else "recovery_dispatch_aborted"
+        ),
+        reason=reason,
+        status=recovery_status,
+    )
+    return TaskDispatchResult(
+        task_id=tid,
+        completed=recovery_status == "completed",
+        failed=recovery_status not in {"completed", "paused"},
+        failure_type=None if recovery_status == "completed" else recovery_reason_code,
+    )
+
+
+def _abort_pending_dispatch(
+    tid: str,
+    *,
+    reason: str,
+    app: Any,
+    append_trace_event: Callable[..., None],
+    update_local_task_status: Callable[..., None],
+) -> TaskDispatchResult:
+    recoverable = reason == "stop_event"
+    authoritative_task = get_repository_registry(app).task_repo.get_by_id(tid)
+    if _is_hub_managed_model_recovery_task(authoritative_task):
+        return _abort_recovery_dispatch(
+            tid, reason=reason, recoverable=recoverable, app=app, append_trace_event=append_trace_event
+        )
+    logging.warning(
+        "[tick][task_id=%s] dispatch aborted (%s), marking %s",
+        tid, reason, "todo" if recoverable else "failed",
+    )
+    # the abandoned thread keeps waiting on its model call; stop that call on the Hub and the
+    # workers, otherwise the model server keeps generating for nobody and blocks a slot
+    try:
+        cancelled = _cancel_task_requests(tid)
+        append_trace_event(tid, "dispatch_requests_cancelled", reason=reason,
+                           result=cancelled if isinstance(cancelled, dict) else None)
+    except Exception:
+        logging.exception("Dispatch cancellation failed for %s", tid)
+    update_local_task_status(tid, "todo" if recoverable else "failed", error=f"dispatch_{reason}", force=True)
+    append_trace_event(tid, "dispatch_aborted", reason=reason)
+    return TaskDispatchResult(
+        task_id=tid,
+        failed=not recoverable,
+        failure_type=("dispatch_aborted" if not recoverable else "recoverable_dispatch_aborted"),
+    )
+
+
+def _await_dispatches(
+    loop: Any,
+    future_to_task_id: dict[concurrent.futures.Future, str],
+    *,
+    per_task_hard_timeout: int,
+    app: Any,
+    append_trace_event: Callable[..., None],
+    update_local_task_status: Callable[..., None],
+) -> list[TaskDispatchResult]:
+    """Collect finished dispatches until the hard timeout or stop event, then abort the rest."""
+    task_results: list[TaskDispatchResult] = []
+    pending = set(future_to_task_id.keys())
+    timeout_at = time.time() + per_task_hard_timeout
+    while pending and time.time() < timeout_at:
+        if loop._stop_event.is_set():
+            break
+        done, pending = concurrent.futures.wait(
+            pending, timeout=_DISPATCH_POLL_SECONDS,
+            return_when=concurrent.futures.FIRST_COMPLETED,
+        )
+        for future in done:
+            tid = future_to_task_id[future]
+            try:
+                task_results.append(future.result())
+            except Exception as exc:
+                logging.error("[tick][task_id=%s] _dispatch_one_task raised: %s", tid, exc)
+                update_local_task_status(tid, "failed", error=str(exc), force=True)
+                task_results.append(TaskDispatchResult(task_id=tid, failed=True, failure_type="thread_exception"))
+    # Cancel any remaining pending futures (timeout or stop_event).
+    for future in pending:
+        tid = future_to_task_id[future]
+        future.cancel()
+        reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
+        task_results.append(
+            _abort_pending_dispatch(
+                tid,
+                reason=reason,
+                app=app,
+                append_trace_event=append_trace_event,
+                update_local_task_status=update_local_task_status,
+            )
+        )
+    return task_results
+
+
+def _aggregate_results(loop: Any, task_results: list[TaskDispatchResult]) -> tuple[int, int, int, list[str]]:
+    """thr-012: aggregate into local counters + loop counters (thr-002: via _increment_*)."""
+    dispatched = completed = failed = 0
+    dispatched_task_ids: list[str] = []
+    for r in task_results:
+        if r.dispatched:
+            loop._increment_dispatched()
+            dispatched += 1
+            dispatched_task_ids.append(r.task_id)
+            if r.completed:
+                loop._increment_completed()
+                completed += 1
+            else:
+                loop._increment_failed()
+                failed += 1
+        elif r.failed:
+            loop._increment_failed()
+            failed += 1
+    return dispatched, completed, failed, dispatched_task_ids
+
+
+def execute_autopilot_tick(
+    *,
+    loop: Any,
+    services: Any,
+    append_trace_event: Callable[..., None],
+    task_dependencies: Callable[[Any], list[str]],
+    update_local_task_status: Callable[..., None],
+) -> dict[str, Any]:
+    if settings.role != "hub":
+        return {"dispatched": 0, "reason": "hub_only"}
+    if loop.running:
+        guardrail_reason = loop._check_guardrails()
+        if guardrail_reason:
+            loop.last_error = guardrail_reason
+            loop.stop(persist=True)
+            return {"dispatched": 0, "reason": guardrail_reason}
+
+    goal_scope = str(getattr(loop, "goal", "") or "").strip() or None
+    terminal_goal_result = _stop_for_terminal_goal(loop, goal_scope)
+    if terminal_goal_result is not None:
+        return terminal_goal_result
+
+    total_tasks_unfiltered = len(services.autopilot_support_service.scoped_tasks(team_id=None, app=loop._app))
+    all_tasks = services.autopilot_support_service.scoped_tasks(team_id=loop.team_id or None, app=loop._app)
+    if goal_scope:
+        all_tasks = [task for task in all_tasks if str(getattr(task, "goal_id", "") or "").strip() == goal_scope]
+    task_counts = (total_tasks_unfiltered, len(all_tasks))
+    StaleTaskRecovery(
+        loop=loop,
+        append_trace_event=append_trace_event,
+        update_local_task_status=update_local_task_status,
+        approval_lifecycle=refresh_approval_lifecycle(),
+        now_ts=time.time(),
+    ).run(all_tasks)
+
+    _append_dependency_transitions(
+        services.task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=task_dependencies),
+        append_trace_event,
+    )
+    dispatch_queue = services.task_queue_service.get_scoped_dispatch_queue(team_id=loop.team_id or None, now=time.time())
+    if goal_scope:
+        dispatch_queue = [
+            item
+            for item in dispatch_queue
+            if str(getattr(item.get("task"), "goal_id", "") or "").strip() == goal_scope
+        ]
+    candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
+    if not candidates:
+        return _no_candidates_result(
+            loop, services, all_tasks=all_tasks, goal_scope=goal_scope, task_counts=task_counts
+        )
+
+    workers, workers_online_count = services.autopilot_support_service.available_workers(
+        team_id=loop.team_id or None,
+        is_worker_circuit_open=loop._is_worker_circuit_open,
+        app_config=loop._app_config(),
+        app=loop._app,
+    )
+    if not workers:
+        return _no_workers_result(
+            loop, candidate_count=len(candidates), workers_online_count=workers_online_count, task_counts=task_counts
+        )
+
+    policy = loop._security_policy()
+    fallback_policy = _fallback_policy(loop)
+    runtime_caps = _runtime_model_capabilities(loop)
+    online_worker_capacity, runtime_capacity, ollama_capacity = _capacity_factors(loop, workers, runtime_caps)
+    effective_concurrency = resolve_effective_concurrency(
+        requested_max_concurrency=loop.max_concurrency,
+        security_policy=policy,
+        online_worker_capacity=online_worker_capacity,
+        runtime_capacity=runtime_capacity,
+        ollama_capacity=ollama_capacity,
+    )
+    local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
+    queue_positions = dispatch_queue_positions(dispatch_queue)
+    task_assignments = _assign_workers(
+        loop,
+        candidates[:effective_concurrency],
+        workers,
+        append_trace_event=append_trace_event,
+        update_local_task_status=update_local_task_status,
+    )
 
     # thr-011: propose_timeout + execute_timeout + 30s buffer = hard deadline per task thread.
     per_task_hard_timeout = resolve_dispatch_hard_timeout(
@@ -584,19 +504,12 @@ def execute_autopilot_tick(
     #          continue in the background and update task status on completion.
     # thr-016: per-goal tick tracking (autopilot.py) replaces _tick_lock. Different
     #          goals can tick in parallel; the same goal is guarded by _active_goal_ticks.
-    task_results: list[TaskDispatchResult] = []
+    # Dispatch stays synchronous (deterministic and state-safe) until async mode
+    # is hardened end-to-end.
     dispatch_window_started = time.time()
-    # Keep dispatch deterministic and state-safe until async mode is hardened end-to-end.
-    async_dispatch_enabled = False
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=max(1, effective_concurrency))
     try:
-        for task, _target_worker, _was_assigned in task_assignments:
-            try:
-                created_at = float(getattr(task, "created_at", 0) or 0)
-                if created_at > 0:
-                    TASK_QUEUE_WAIT_SECONDS.observe(max(0.0, time.time() - created_at))
-            except Exception:
-                pass
+        _observe_queue_wait(task_assignments)
         future_to_task_id: dict[concurrent.futures.Future, str] = {
             executor.submit(
                 _dispatch_one_task,
@@ -616,182 +529,19 @@ def execute_autopilot_tick(
             ): task.id
             for task, target_worker, was_assigned in task_assignments
         }
-
-        if async_dispatch_enabled:
-            for future, tid in future_to_task_id.items():
-                def _done_cb(done_future, task_id=tid):
-                    try:
-                        done_future.result()
-                    except Exception as exc:
-                        logging.error("[tick][task_id=%s][async] _dispatch_one_task raised: %s", task_id, exc)
-                        update_local_task_status(task_id, "failed", error=str(exc), force=True)
-                future.add_done_callback(_done_cb)
-            for task, _target_worker, _was_assigned in task_assignments:
-                task_results.append(TaskDispatchResult(task_id=task.id, dispatched=True, completed=False, failed=False))
-            pending = set()
-        else:
-            _POLL = 1.0
-            pending = set(future_to_task_id.keys())
-            timeout_at = time.time() + per_task_hard_timeout
-            while pending and time.time() < timeout_at:
-                if loop._stop_event.is_set():
-                    break
-                done, pending = concurrent.futures.wait(
-                    pending, timeout=_POLL,
-                    return_when=concurrent.futures.FIRST_COMPLETED,
-                )
-                for future in done:
-                    tid = future_to_task_id[future]
-                    try:
-                        task_results.append(future.result())
-                    except Exception as exc:
-                        logging.error("[tick][task_id=%s] _dispatch_one_task raised: %s", tid, exc)
-                        update_local_task_status(tid, "failed", error=str(exc), force=True)
-                        task_results.append(TaskDispatchResult(
-                            task_id=tid, failed=True, failure_type="thread_exception"
-                        ))
-
-            # Cancel any remaining pending futures (timeout or stop_event).
-            for future in pending:
-                tid = future_to_task_id[future]
-                future.cancel()
-                reason = "stop_event" if loop._stop_event.is_set() else f"hard_timeout_{per_task_hard_timeout}s"
-                recoverable = reason == "stop_event"
-                authoritative_task = (
-                    get_repository_registry(app)
-                    .task_repo.get_by_id(tid)
-                )
-                recovery_managed = (
-                    _is_hub_managed_model_recovery_task(
-                        authoritative_task
-                    )
-                )
-                if recovery_managed:
-                    try:
-                        from agent.services.request_cancellation_service import (
-                            get_request_cancellation_service,
-                        )
-
-                        get_request_cancellation_service().cancel_task_requests(
-                            task_id=tid,
-                            include_workers=True,
-                        )
-                    except Exception:
-                        logging.exception(
-                            "Recovery dispatch cancellation failed for %s",
-                            tid,
-                        )
-                    recovery_reason_code = (
-                        "recovery_dispatch_stopped"
-                        if recoverable
-                        else "recovery_dispatch_hard_timeout"
-                    )
-                    desired_status = (
-                        "paused" if recoverable else "failed"
-                    )
-                    recovery_status = (
-                        get_recovery_dispatch_gate_service()
-                        .abort_dispatch_lease(
-                            tid,
-                            target_status=desired_status,
-                            reason_code=recovery_reason_code,
-                            error=f"dispatch_{reason}",
-                            app=app,
-                        )
-                        or desired_status
-                    )
-                    accepted_terminal_won = recovery_status in {
-                        "completed",
-                        "verification_failed",
-                        "cancelled",
-                        "aborted",
-                        "timeout",
-                        "archived",
-                        "skipped",
-                    }
-                    append_trace_event(
-                        tid,
-                        (
-                            "recovery_dispatch_abort_lost_race"
-                            if accepted_terminal_won
-                            else "recovery_dispatch_aborted"
-                        ),
-                        reason=reason,
-                        status=recovery_status,
-                    )
-                    task_results.append(
-                        TaskDispatchResult(
-                            task_id=tid,
-                            completed=(
-                                recovery_status == "completed"
-                            ),
-                            failed=(
-                                recovery_status
-                                not in {"completed", "paused"}
-                            ),
-                            failure_type=(
-                                None
-                                if recovery_status == "completed"
-                                else recovery_reason_code
-                            ),
-                        )
-                    )
-                    continue
-                logging.warning(
-                    "[tick][task_id=%s] dispatch aborted (%s), marking %s",
-                    tid, reason, "todo" if recoverable else "failed",
-                )
-                # the abandoned thread keeps waiting on its model call; stop that call on the Hub and the
-                # workers, otherwise the model server keeps generating for nobody and blocks a slot
-                try:
-                    from agent.services.request_cancellation_service import (
-                        get_request_cancellation_service,
-                    )
-
-                    cancelled = get_request_cancellation_service().cancel_task_requests(
-                        task_id=tid, include_workers=True,
-                    )
-                    append_trace_event(tid, "dispatch_requests_cancelled", reason=reason,
-                                       result=cancelled if isinstance(cancelled, dict) else None)
-                except Exception:
-                    logging.exception("Dispatch cancellation failed for %s", tid)
-                update_local_task_status(
-                    tid,
-                    "todo" if recoverable else "failed",
-                    error=f"dispatch_{reason}",
-                    force=True,
-                )
-                append_trace_event(
-                    tid, "dispatch_aborted",
-                    reason=reason,
-                )
-                task_results.append(
-                    TaskDispatchResult(
-                        task_id=tid,
-                        failed=not recoverable,
-                        failure_type=("dispatch_aborted" if not recoverable else "recoverable_dispatch_aborted"),
-                    )
-                )
+        task_results = _await_dispatches(
+            loop,
+            future_to_task_id,
+            per_task_hard_timeout=per_task_hard_timeout,
+            app=app,
+            append_trace_event=append_trace_event,
+            update_local_task_status=update_local_task_status,
+        )
     finally:
         executor.shutdown(wait=False)
         DISPATCH_WAIT_SECONDS.observe(max(0.0, time.time() - dispatch_window_started))
 
-    # thr-012: Aggregate results into local counters + loop counters (thr-002: via _increment_*).
-    for r in task_results:
-        if r.dispatched:
-            loop._increment_dispatched()
-            dispatched += 1
-            dispatched_task_ids.append(r.task_id)
-            if r.completed:
-                loop._increment_completed()
-                completed += 1
-            else:
-                loop._increment_failed()
-                failed += 1
-        elif r.failed:
-            loop._increment_failed()
-            failed += 1
-
+    dispatched, completed, failed, dispatched_task_ids = _aggregate_results(loop, task_results)
     loop.last_tick_at = time.time()
     loop._set_last_error(None)
     loop._increment_tick_count()
@@ -811,7 +561,7 @@ def execute_autopilot_tick(
         "debug": build_tick_debug_payload(
             team_id_scope=loop.team_id or None,
             total_tasks_unfiltered=total_tasks_unfiltered,
-            total_tasks_scoped=scoped_tasks,
+            total_tasks_scoped=task_counts[1],
             candidate_count=len(candidates),
             workers_online_count=workers_online_count,
             workers_available_count=len(workers),

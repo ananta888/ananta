@@ -198,7 +198,46 @@ def _skip_inflight_propose(ctx: DispatchContext) -> TaskDispatchResult | None:
     return None
 
 
-def run_proposal_strategies(  # noqa: C901
+def _proposal_budget_failure(
+    attempt_index: int,
+    *,
+    elapsed: float,
+    max_total_seconds: int,
+    max_llm_calls: int,
+    max_strategy_attempts: int,
+) -> dict[str, Any] | None:
+    """The strategy-failure record when the proposal budget is exhausted, else ``None``."""
+    if elapsed > max_total_seconds:
+        return {
+            "attempt": attempt_index,
+            "reason": "proposal_budget_exhausted_total_seconds",
+            "elapsed_seconds": round(elapsed, 3),
+            "max_total_seconds": max_total_seconds,
+            "failure_type": "proposal_budget_exhausted",
+        }
+    if (attempt_index - 1) >= max_llm_calls or (attempt_index - 1) >= max_strategy_attempts:
+        return {
+            "attempt": attempt_index,
+            "reason": "proposal_budget_exhausted_llm_calls",
+            "max_llm_calls": max_llm_calls,
+            "max_strategy_attempts": max_strategy_attempts,
+            "failure_type": "proposal_budget_exhausted",
+        }
+    return None
+
+
+def _base_propose_payload(task_id: str, loop: Any, context_window: Any) -> dict[str, Any]:
+    propose_payload: dict[str, Any] = {"task_id": task_id, "context_window": context_window(loop)}
+    autopilot_cfg = ((loop._agent_config() or {}).get("autopilot", {}) or {})
+    strategy_mode_override = str(
+        autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"
+    ).strip().lower()
+    if strategy_mode_override:
+        propose_payload["strategy_mode"] = strategy_mode_override
+    return propose_payload
+
+
+def run_proposal_strategies(
     ctx: DispatchContext,
     *,
     strategy_candidates: list[dict[str, Any]],
@@ -260,36 +299,17 @@ def run_proposal_strategies(  # noqa: C901
             result.failed = latest_status != "completed"
             result.failure_type = None if result.completed else latest_status
             return ProposalStrategyOutcome.stopped(result)
-        elapsed = time.time() - budget_started_at
-        if elapsed > max_total_seconds:
-            strategy_failures.append(
-                {
-                    "attempt": attempt_index,
-                    "reason": "proposal_budget_exhausted_total_seconds",
-                    "elapsed_seconds": round(elapsed, 3),
-                    "max_total_seconds": max_total_seconds,
-                    "failure_type": "proposal_budget_exhausted",
-                }
-            )
+        budget_failure = _proposal_budget_failure(
+            attempt_index,
+            elapsed=time.time() - budget_started_at,
+            max_total_seconds=max_total_seconds,
+            max_llm_calls=max_llm_calls,
+            max_strategy_attempts=max_strategy_attempts,
+        )
+        if budget_failure is not None:
+            strategy_failures.append(budget_failure)
             break
-        if (attempt_index - 1) >= max_llm_calls or (attempt_index - 1) >= max_strategy_attempts:
-            strategy_failures.append(
-                {
-                    "attempt": attempt_index,
-                    "reason": "proposal_budget_exhausted_llm_calls",
-                    "max_llm_calls": max_llm_calls,
-                    "max_strategy_attempts": max_strategy_attempts,
-                    "failure_type": "proposal_budget_exhausted",
-                }
-            )
-            break
-        propose_payload: dict[str, Any] = {"task_id": task.id, "context_window": context_window(loop)}
-        autopilot_cfg = ((loop._agent_config() or {}).get("autopilot", {}) or {})
-        strategy_mode_override = str(
-            autopilot_cfg.get("strategy_mode_override") or "autopilot_no_human_review"
-        ).strip().lower()
-        if strategy_mode_override:
-            propose_payload["strategy_mode"] = strategy_mode_override
+        propose_payload = _base_propose_payload(task.id, loop, context_window)
         candidate_model = candidate.get("model")
         candidate_source = str(candidate.get("source") or "strategy")
         candidate_temperature = _normalize_temperature_value(candidate.get("temperature"))
