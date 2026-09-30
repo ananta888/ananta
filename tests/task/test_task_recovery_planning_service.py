@@ -2172,7 +2172,7 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
         "get_recovery_dispatch_gate_service",
         lambda: gate,
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
@@ -2201,6 +2201,7 @@ def test_task_scoped_recovery_forward_preserves_lease_and_fences_result(
 
     with app.app_context():
         response = forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="child-forward",
             task={
                 "id": "child-forward",
@@ -2486,7 +2487,7 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
         verification_status={},
         status_reason_details={},
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             task_repo=Record(
                 get_by_id=lambda _task_id: authoritative,
@@ -2521,7 +2522,7 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
     def fail_persistence(*_args, **_kwargs):
         raise RuntimeError("result persistence failed")
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=fail_persistence,
     )
     response = {
@@ -2541,6 +2542,7 @@ def test_recovery_mail_persistence_defers_release_until_guard_commit(
 
     with pytest.raises(RuntimeError, match="result persistence failed"):
         forwarding.persist_forwarded_execution(
+            dependencies=dependencies,
             tid=task_id,
             response=response,
             task={
@@ -2577,7 +2579,7 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token="worker-token")
@@ -2592,6 +2594,7 @@ def test_task_scoped_recovery_forward_never_retries_without_worker_token(
 
     with app.app_context(), pytest.raises(WorkerForwardingError):
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="child-auth-fenced",
             task={
                 "id": "child-auth-fenced",
@@ -2651,7 +2654,7 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
@@ -2692,6 +2695,7 @@ def test_vector_index_forward_never_retries_anonymously_or_falls_back_locally(
 
     with app.app_context(), pytest.raises(WorkerForwardingError):
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="vector-forward-fenced",
             task={
                 "id": "vector-forward-fenced",
@@ -2784,7 +2788,7 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
@@ -2812,13 +2816,13 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
             }
         }
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=authorize_dispatch
         ),
     )
     deadline = WorkerTransportDeadline.after_seconds(90)
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         execute_deadline=lambda **_kwargs: deadline,
     )
     calls: list[str | None] = []
@@ -2856,6 +2860,7 @@ def test_codecompass_index_forward_never_retries_anonymously_or_falls_back_local
 
     with app.app_context(), pytest.raises(WorkerForwardingError) as error:
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="codecompass-forward-fenced",
             task={
                 "id": "codecompass-forward-fenced",
@@ -3082,7 +3087,7 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
     task = _governed_codecompass_forward_task()
     authorizer_calls = []
     forwarder_calls = []
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         governed_index_job_service=lambda: authorizer_calls.append(True),
     )
 
@@ -3091,6 +3096,7 @@ def test_codecompass_forward_rejects_spoofed_dispatch_phase(
         match="knowledge_index_dispatch_phase_mismatch",
     ) as error:
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid=task["id"],
             task=task,
             endpoint=(
@@ -3177,7 +3183,7 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         outcome_recorder=lambda: recorder,
     )
 
@@ -3192,6 +3198,7 @@ def test_forwarded_worker_outcome_recorded_only_after_result_acceptance(
     )
     with app.app_context(), context:
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="outcome-recorder-task",
             task={
                 "id": "outcome-recorder-task",
@@ -3278,7 +3285,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
@@ -3293,15 +3300,15 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
         ),
     )
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=authorize_dispatch
         ),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         outcome_recorder=lambda: recorder,
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         execute_deadline=lambda **_kwargs: WorkerTransportDeadline.after_seconds(90),
     )
 
@@ -3320,6 +3327,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
 
     with app.app_context():
         result = forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid=task["id"],
             task=task,
             endpoint=f"/tasks/{task['id']}/step/execute",
@@ -3333,6 +3341,7 @@ def test_codecompass_projection_pending_is_hub_local_and_never_redispatched(
             match="knowledge_index_execution_not_dispatchable",
         ) as retry_error:
             forwarding.forward_task_request_if_remote(
+                dependencies=dependencies,
                 tid=task["id"],
                 task=task,
                 endpoint=f"/tasks/{task['id']}/step/execute",
@@ -3384,7 +3393,7 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(
@@ -3421,13 +3430,13 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
             }
         }
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=authorize_dispatch
         ),
     )
     deadline = WorkerTransportDeadline.after_seconds(90)
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         execute_deadline=lambda **_kwargs: deadline,
     )
     forward_calls = []
@@ -3461,6 +3470,7 @@ def test_parallel_codecompass_execute_dispatch_claim_forwards_once(
             start.wait(timeout=2)
             try:
                 result = forwarding.forward_task_request_if_remote(
+                    dependencies=dependencies,
                     tid="codecompass-forward-fenced",
                     task=_governed_codecompass_forward_task(),
                     endpoint=(
@@ -3546,7 +3556,7 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: registered_agent
@@ -3554,7 +3564,7 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
         ),
     )
     authorization_calls = []
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         governed_index_job_service=lambda: Record(
             authorize_bound_worker_dispatch=lambda **values: (
                 authorization_calls.append(values)
@@ -3566,6 +3576,7 @@ def test_codecompass_persisted_manifest_still_requires_live_registered_worker(
 
     with app.app_context(), pytest.raises(WorkerForwardingError):
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid=task["id"],
             task=task,
             endpoint=f"/tasks/{task['id']}/step/execute",
@@ -3600,7 +3611,7 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token=None)
@@ -3622,6 +3633,7 @@ def test_recovery_mail_missing_worker_token_does_not_claim_mail_lease(
         match="assigned_worker_token_missing",
     ):
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="mail-recovery-no-token",
             task={
                 "id": "mail-recovery-no-token",
@@ -3666,7 +3678,7 @@ def test_generic_remote_forward_without_worker_token_fails_before_transport(
         "get_recovery_dispatch_gate_service",
         lambda: Gate(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda: Record(
             agent_repo=Record(
                 get_by_url=lambda _url: Record(token=None)
@@ -3680,6 +3692,7 @@ def test_generic_remote_forward_without_worker_token_fails_before_transport(
         match="assigned_worker_token_missing",
     ):
         forwarding.forward_task_request_if_remote(
+            dependencies=dependencies,
             tid="generic-no-worker-token",
             task={
                 "id": "generic-no-worker-token",

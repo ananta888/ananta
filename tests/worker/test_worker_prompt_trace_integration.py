@@ -13,7 +13,7 @@ def test_forwarded_proposal_marks_uninspectable_without_prompt_trace(monkeypatch
 
     # persist_forwarded_proposal receives core services through the
     # task-scoped forwarding dependency seam.
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         core_services=lambda: SimpleNamespace(
             task_execution_service=SimpleNamespace(
                 persist_task_proposal_result=_persist,
@@ -25,7 +25,7 @@ def test_forwarded_proposal_marks_uninspectable_without_prompt_trace(monkeypatch
             ),
         ),
     )
-    svc = TaskScopedExecutionService()
+    svc = TaskScopedExecutionService(forwarding_dependencies=dependencies)
     response = {"backend": "external-worker", "command": "echo hi", "reason": "ok"}
     task = {"id": "t1", "goal_id": "g1"}
     svc._persist_forwarded_proposal(response, task, request_payload={"prompt": "hello"})
@@ -36,7 +36,7 @@ def test_forwarded_proposal_marks_uninspectable_without_prompt_trace(monkeypatch
 def test_forwarded_proposal_keeps_the_executable_tool_calls(monkeypatch, forwarding_dependencies):
     """A worker may complete the task itself; the forwarded proposal record must hold the step it executed."""
     captured = {}
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         core_services=lambda: SimpleNamespace(
             task_execution_service=SimpleNamespace(
                 persist_task_proposal_result=lambda **kwargs: captured.update(kwargs),
@@ -47,6 +47,6 @@ def test_forwarded_proposal_keeps_the_executable_tool_calls(monkeypatch, forward
     )
     call = {"name": "final_answer", "args": {"answer": "## Ergebnis"}}
     response = {"backend": "orchestrator", "reason": "ok", "proposal": {"tool_calls": [call]}}
-    TaskScopedExecutionService()._persist_forwarded_proposal(response, {"id": "t2", "goal_id": "g"},
+    TaskScopedExecutionService(forwarding_dependencies=dependencies)._persist_forwarded_proposal(response, {"id": "t2", "goal_id": "g"},
                                                               request_payload={"prompt": "p"})
     assert captured["tool_calls"] == [call]

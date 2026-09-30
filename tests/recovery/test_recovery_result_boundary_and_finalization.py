@@ -520,7 +520,7 @@ def test_invalid_proposal_envelope_has_no_hub_mutation(
     )
     envelope["digest"] = "0" * 64
     persistence_calls: list[str] = []
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         core_services=lambda: persistence_calls.append("persist") or None,
     )
 
@@ -546,6 +546,7 @@ def test_invalid_proposal_envelope_has_no_hub_mutation(
                 },
             },
             allow_synthetic_llm_profile_fallback=lambda: False,
+            hub_state=dependencies.hub_state,
         )
 
     assert persistence_calls == []
@@ -629,10 +630,10 @@ def test_execute_result_stays_nonterminal_until_result_guard(
                 "status": "passed",
             }
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda *_args, **_kwargs: repos,
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=update_status,
     )
     monkeypatch.setattr(
@@ -641,6 +642,7 @@ def test_execute_result_stays_nonterminal_until_result_guard(
     )
 
     persist_forwarded_execution(
+        dependencies=dependencies,
         tid=task.id,
         response={
             "status": "completed",
@@ -812,10 +814,10 @@ def test_forwarded_recovery_artifacts_are_bounded_before_persistence(
     repository = MemoryRepository([authoritative])
     repos = Record(task_repo=repository)
     status_calls: list[tuple[Any, ...]] = []
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         repositories=lambda *_args, **_kwargs: repos,
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: status_calls.append(
             (*args, kwargs)
         ),
@@ -836,6 +838,7 @@ def test_forwarded_recovery_artifacts_are_bounded_before_persistence(
 
     with pytest.raises(ValueError, match=reason):
         persist_forwarded_execution(
+            dependencies=dependencies,
             tid=task_id,
             response={
                 "status": "completed",

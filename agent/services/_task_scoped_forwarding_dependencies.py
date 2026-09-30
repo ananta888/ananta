@@ -11,15 +11,17 @@ the functions explicitly (DIP):
 - :class:`CodecompassDispatchPorts`: governed dispatch preparation/authorization
   and the execute deadline
 - :class:`ForwardOutcomePorts`: the worker-forward outcome recorder
-- :class:`KnowledgeIndexRetryPolicy`: exact-replay bounds and the sleep clock
+- :class:`KnowledgeIndexRetryPolicy`: exact-replay bounds, sleep and clock
 - :class:`ForwardedResultPorts`: Hub-owned result acceptors/normalizers
 - :class:`StepOrchestrationPorts`: dispatch admission and admitted execution
 
-:class:`TaskScopedForwardingDependencies` composes them. Entry points take a
-keyword-only ``dependencies`` argument; when it is omitted they use
-:func:`current_task_scoped_forwarding_dependencies`, which returns the
-production bundle unless the documented override seam
-:func:`override_task_scoped_forwarding_dependencies` is active (tests).
+:class:`TaskScopedForwardingDependencies` composes them. The bundle is an
+explicit dependency of :class:`TaskScopedExecutionService`
+(``forwarding_dependencies=``), which passes it to every entry point. Without
+an injected bundle, :func:`current_task_scoped_forwarding_dependencies`
+returns the bundle installed on the current Flask application with
+:func:`install_task_scoped_forwarding_dependencies` (a per-application
+composition seam, never process-global), else the production bundle.
 
 Production defaults are resolved lazily in :meth:`production` so this module
 imports none of the modules that consume it (no import cycle).
@@ -27,12 +29,12 @@ imports none of the modules that consume it (no import cycle).
 
 from __future__ import annotations
 
-import contextlib
 import dataclasses
-import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator
+from typing import Any, Callable
+
+from flask import current_app, has_app_context
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,7 @@ class KnowledgeIndexRetryPolicy:
     max_forward_attempts: int = 16
     pending_poll_seconds: float = 0.25
     sleep: Callable[[float], None] = time.sleep
+    clock: Callable[[], float] = time.time
 
 
 @dataclass(frozen=True)
@@ -196,39 +199,29 @@ class TaskScopedForwardingDependencies:
         return dataclasses.replace(self, **bundle_changes)
 
 
-_override_lock = threading.Lock()
-_override: TaskScopedForwardingDependencies | None = None
+TASK_SCOPED_FORWARDING_DEPENDENCIES_EXTENSION = "ananta.task_scoped_forwarding_dependencies"
+
+
+def install_task_scoped_forwarding_dependencies(
+    app: Any,
+    dependencies: TaskScopedForwardingDependencies | None,
+) -> None:
+    """Install ``dependencies`` for one Flask application (``None`` removes them)."""
+
+    if dependencies is None:
+        app.extensions.pop(TASK_SCOPED_FORWARDING_DEPENDENCIES_EXTENSION, None)
+    else:
+        app.extensions[TASK_SCOPED_FORWARDING_DEPENDENCIES_EXTENSION] = dependencies
 
 
 def current_task_scoped_forwarding_dependencies() -> TaskScopedForwardingDependencies:
-    """Return the active bundle: the override when set, else production."""
+    """The current application's installed bundle, else the production bundle."""
 
-    active = _override
-    if active is not None:
-        return active
+    if has_app_context():
+        installed = current_app.extensions.get(TASK_SCOPED_FORWARDING_DEPENDENCIES_EXTENSION)
+        if installed is not None:
+            return installed
     return TaskScopedForwardingDependencies.production()
-
-
-@contextlib.contextmanager
-def override_task_scoped_forwarding_dependencies(
-    **changes: Any,
-) -> Iterator[TaskScopedForwardingDependencies]:
-    """Documented override seam: replace ports for the enclosed scope.
-
-    Overrides stack; leaving the scope restores the previous bundle. Intended
-    for tests and composition roots, never for per-request behaviour.
-    """
-
-    global _override
-    with _override_lock:
-        previous = _override
-        _override = current_task_scoped_forwarding_dependencies().with_changes(**changes)
-        installed = _override
-    try:
-        yield installed
-    finally:
-        with _override_lock:
-            _override = previous
 
 
 __all__ = [
@@ -240,6 +233,7 @@ __all__ = [
     "KnowledgeIndexRetryPolicy",
     "StepOrchestrationPorts",
     "TaskScopedForwardingDependencies",
+    "TASK_SCOPED_FORWARDING_DEPENDENCIES_EXTENSION",
     "current_task_scoped_forwarding_dependencies",
-    "override_task_scoped_forwarding_dependencies",
+    "install_task_scoped_forwarding_dependencies",
 ]

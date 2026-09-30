@@ -284,7 +284,6 @@ def test_exhausted_deadline_or_lease_prevents_exact_retry(
     )
     payload = _prepared_payload(grant_expires_epoch_ms=20_000)
     calls = []
-    monkeypatch.setattr(forwarding.time, "time", lambda: 10.0)
 
     def forwarder(*_args, **_kwargs):
         calls.append(True)
@@ -307,6 +306,7 @@ def test_exhausted_deadline_or_lease_prevents_exact_retry(
             prepared_payload=payload,
             token="current-worker-token",
             transport_deadline=deadline,
+            retry_policy=KnowledgeIndexRetryPolicy(clock=lambda: 10.0),
         )
 
     assert calls == [True]

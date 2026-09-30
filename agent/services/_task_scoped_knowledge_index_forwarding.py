@@ -120,6 +120,7 @@ def _require_governed_knowledge_index_retry_window(
     task: Mapping[str, Any],
     prepared_payload: Mapping[str, Any],
     transport_deadline: WorkerTransportDeadline,
+    clock: Callable[[], float] = time.time,
 ) -> float:
     """Keep exact replay inside the original deadline and capabilities."""
 
@@ -130,7 +131,7 @@ def _require_governed_knowledge_index_retry_window(
             prepared_payload=prepared_payload,
         )
     )
-    now_epoch_ms = int(time.time() * 1000)
+    now_epoch_ms = int(clock() * 1000)
     if now_epoch_ms >= lease_expires:
         raise _permanent_codecompass_forwarding_error(
             "knowledge_index_execution_lease_stale"
@@ -215,6 +216,7 @@ def _invoke_governed_knowledge_index_forwarder(
             task=task,
             prepared_payload=frozen_payload,
             transport_deadline=transport_deadline,
+            clock=retry_policy.clock,
         )
         if result_pending:
             retry_policy.sleep(
@@ -227,6 +229,7 @@ def _invoke_governed_knowledge_index_forwarder(
                 task=task,
                 prepared_payload=frozen_payload,
                 transport_deadline=transport_deadline,
+                clock=retry_policy.clock,
             )
     raise AssertionError("unreachable")
 

@@ -14,8 +14,9 @@ Collaborators (repositories, core services, status updater, governed dispatch
 ports, outcome recorder, retry policy, result acceptors) are explicit: the
 entry points take a keyword-only ``dependencies`` bundle
 (:class:`TaskScopedForwardingDependencies`) and hand each helper only the
-per-concern ports it uses. Without an explicit bundle the documented seam
-``current_task_scoped_forwarding_dependencies()`` supplies production ports.
+per-concern ports it uses. :class:`TaskScopedExecutionService` passes its
+injected bundle; without one, ``current_task_scoped_forwarding_dependencies()``
+supplies the current application's (or the production) ports.
 """
 
 from __future__ import annotations
@@ -70,7 +71,6 @@ from agent.services._task_scoped_forwarded_result_acceptance import (  # noqa: F
 from agent.services._task_scoped_forwarding_dependencies import (  # noqa: F401 - public seam
     TaskScopedForwardingDependencies,
     current_task_scoped_forwarding_dependencies,
-    override_task_scoped_forwarding_dependencies,
 )
 from agent.services._task_scoped_knowledge_index_forwarding import (  # noqa: F401
     _governed_knowledge_index_retry_expiries,

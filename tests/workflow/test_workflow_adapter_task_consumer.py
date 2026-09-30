@@ -366,7 +366,7 @@ def test_forwarded_result_merges_native_verification_for_hub_polling(monkeypatch
     from agent.services._task_scoped_forwarding import persist_forwarded_execution
 
     updates = []
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: updates.append((args, kwargs)),
     )
     native_result = {
@@ -392,6 +392,7 @@ def test_forwarded_result_merges_native_verification_for_hub_polling(monkeypatch
     }
 
     persist_forwarded_execution(
+        dependencies=dependencies,
         tid="hub-native-a",
         response=response,
         task={"history": [], "last_proposal": {}, "verification_status": {}},
@@ -438,10 +439,10 @@ def test_forwarded_knowledge_index_result_is_validated_and_persisted(monkeypatch
             validated.append(result)
             return dict(result)
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         core_services=lambda: SimpleNamespace(knowledge_index_job_service=JobService()),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: updates.append((args, kwargs)),
     )
     job_id = "knowledge-index-" + "a" * 32
@@ -460,6 +461,7 @@ def test_forwarded_knowledge_index_result_is_validated_and_persisted(monkeypatch
     }
 
     persist_forwarded_execution(
+        dependencies=dependencies,
         tid=job_id,
         response=response,
         task={"history": [], "last_proposal": {}, "verification_status": {}},
@@ -488,10 +490,10 @@ def test_forwarded_visual_process_result_dispatches_to_hub_acceptance(monkeypatc
                 "prompt_context_id": "ctx-prompt",
             }
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         visual_process_assistant_service=lambda: AssistantService(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: updates.append((args, kwargs)),
     )
     response = {
@@ -508,6 +510,7 @@ def test_forwarded_visual_process_result_dispatches_to_hub_acceptance(monkeypatc
     }
 
     persist_forwarded_execution(
+        dependencies=dependencies,
         tid="vpa-retrieval-task",
         response=response,
         task={
@@ -539,10 +542,10 @@ def test_forwarded_visual_process_inference_result_dispatches_by_contract(monkey
             assert result["schema"] == "ananta.visual_process_assistant.inference_result.v1"
             return {"request_id": result["request_id"], "status": "completed"}
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         visual_process_assistant_service=lambda: AssistantService(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: updates.append((args, kwargs)),
     )
     response = {
@@ -559,6 +562,7 @@ def test_forwarded_visual_process_inference_result_dispatches_by_contract(monkey
     }
 
     persist_forwarded_execution(
+        dependencies=dependencies,
         tid="vpa-inference-task",
         response=response,
         task={
@@ -583,17 +587,18 @@ def test_forwarded_visual_process_result_rejects_schema_kind_mismatch(monkeypatc
 
     updates = []
     acceptance_calls = []
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         visual_process_assistant_service=lambda: SimpleNamespace(
             accept_worker_result=lambda **kwargs: acceptance_calls.append(kwargs)
         ),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: updates.append((args, kwargs)),
     )
 
     with pytest.raises(ValueError, match="schema_kind_mismatch"):
         persist_forwarded_execution(
+            dependencies=dependencies,
             tid="vpa-retrieval-task",
             response={
                 "schema": "ananta.visual_process_assistant.inference_result.v1",
@@ -623,15 +628,16 @@ def test_rejected_visual_process_acceptance_never_persists_readmodel(monkeypatch
         def accept_worker_result(self, **_kwargs):
             raise ValueError("assistant_worker_context_binding_mismatch")
 
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         visual_process_assistant_service=lambda: AssistantService(),
     )
-    forwarding_dependencies(
+    dependencies = forwarding_dependencies(
         update_task_status=lambda *args, **kwargs: updates.append((args, kwargs)),
     )
 
     with pytest.raises(ValueError, match="context_binding_mismatch"):
         persist_forwarded_execution(
+            dependencies=dependencies,
             tid="vpa-retrieval-task",
             response={
                 "schema": "ananta.visual_process_assistant.retrieval_result.v1",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from agent.common.utils.structured_action_utils import (
     extract_structured_action_fields,
@@ -38,7 +38,25 @@ class TaskScopedRouteResponse:
 
 
 class TaskScopedExecutionService:
-    """Thin orchestrator delegating to ``_task_scoped_*`` helper modules."""
+    """Thin orchestrator delegating to ``_task_scoped_*`` helper modules.
+
+    ``forwarding_dependencies`` is the explicit port bundle of the forwarding
+    and step modules; ``None`` uses the current application's installed bundle
+    (see ``install_task_scoped_forwarding_dependencies``) or production.
+    """
+
+    def __init__(self, *, forwarding_dependencies: Any | None = None) -> None:
+        self._forwarding_dependencies = forwarding_dependencies
+
+    @property
+    def forwarding_dependencies(self) -> Any:
+        if self._forwarding_dependencies is not None:
+            return self._forwarding_dependencies
+        from agent.services._task_scoped_forwarding_dependencies import (
+            current_task_scoped_forwarding_dependencies,
+        )
+
+        return current_task_scoped_forwarding_dependencies()
 
     # --- cluster: config_policy (resolvers, bounded_*, normalize) ---
     @staticmethod
@@ -278,7 +296,11 @@ class TaskScopedExecutionService:
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse:
         from agent.services._task_scoped_step_orchestrator import run_propose_step
-        return run_propose_step(self, tid, request_data, cli_runner=cli_runner, forwarder=forwarder, tool_definitions_resolver=tool_definitions_resolver)
+        return run_propose_step(
+            self, tid, request_data, cli_runner=cli_runner, forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+            step_ports=self.forwarding_dependencies.steps,
+        )
 
 
     def execute_task_step(
@@ -291,7 +313,11 @@ class TaskScopedExecutionService:
         tool_definitions_resolver: Callable | None = None,
     ) -> TaskScopedRouteResponse:
         from agent.services._task_scoped_step_orchestrator import run_execute_step
-        return run_execute_step(self, tid, request_data, forwarder=forwarder, cli_runner=cli_runner, tool_definitions_resolver=tool_definitions_resolver)
+        return run_execute_step(
+            self, tid, request_data, forwarder=forwarder, cli_runner=cli_runner,
+            tool_definitions_resolver=tool_definitions_resolver,
+            step_ports=self.forwarding_dependencies.steps,
+        )
 
 
     @staticmethod
@@ -446,6 +472,7 @@ class TaskScopedExecutionService:
         return forward_task_request_if_remote(
             tid=tid, task=task, endpoint=endpoint, payload=payload,
             forwarder=forwarder, on_success=on_success,
+            dependencies=self.forwarding_dependencies,
         )
 
     def _persist_forwarded_proposal(self, response: dict, task: dict, request_payload: dict | None = None) -> None:
@@ -453,6 +480,7 @@ class TaskScopedExecutionService:
         return persist_forwarded_proposal(
             response, task, request_payload,
             allow_synthetic_llm_profile_fallback=self._allow_synthetic_llm_profile_fallback,
+            hub_state=self.forwarding_dependencies.hub_state,
         )
 
     def _persist_forwarded_execution(
@@ -471,6 +499,7 @@ class TaskScopedExecutionService:
             task=task,
             request_data=request_data,
             transport_deadline=transport_deadline,
+            dependencies=self.forwarding_dependencies,
         )
 
     @staticmethod
