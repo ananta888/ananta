@@ -46,6 +46,14 @@ The dispatch supplies only:
 - the selected entry from
   `docs/contracts/unsloth-gpu-compatibility-matrix.v1.json`.
 
+The NVIDIA worker image is built for the matrix entry
+`unsloth-2026.7.5-cu128-torch280-tiny-causal-lm` (CUDA 12.8, Torch
+`2.8.0+cu128`, driver floor `570.26`). CUDA 12.8 covers Blackwell
+(`sm_120`, e.g. RTX 50-series) as well as Ampere/Ada GPUs. The older
+`unsloth-2026.7.5-cu124-torch260-tiny-causal-lm` entry stays in the matrix as
+a separate, immutable candidate; an image built from the current requirements
+fails its package attestation by design.
+
 The workflow builds the NVIDIA worker from the checked-out commit and writes
 that commit to `org.opencontainers.image.revision`. The Hub Evidence Registry
 then admits the repository bundle, model snapshot, and executed image, issues

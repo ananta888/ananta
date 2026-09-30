@@ -19,6 +19,18 @@ external deployment responsibility.
 | Matrix entry | Python | CUDA | Minimum NVIDIA driver | Torch | Unsloth | Approved model basename | Required runs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `unsloth-2026.7.5-cu124-torch260-tiny-causal-lm` | `3.11.15` | `12.4` | `550.54.14` | `2.6.0+cu124` + `torchao 0.13.0` | `2026.7.5` | `tiny-causal-lm` | `3` |
+| `unsloth-2026.7.5-cu128-torch280-tiny-causal-lm` | `3.11.15` | `12.8` | `570.26` | `2.8.0+cu128` + `torchao 0.13.0` | `2026.7.5` | `tiny-causal-lm` | `3` |
+
+The `cu128-torch280` entry is the current worker-image default. CUDA 12.8 is
+the first runtime that ships Blackwell (`sm_120`, for example RTX 50-series)
+kernels; the `cu124-torch260` wheels cannot execute on those GPUs. The newer
+entry keeps Ampere/Ada coverage, so it replaces the older one as the image
+build target without mutating the older, separately attestable entry. Its
+package set follows the Unsloth `cu128-torch280` extra: `bitsandbytes 0.47.0`
+and `xformers 0.0.32.post2` (plus `torchvision 0.23.0+cu128` and
+`torchaudio 2.8.0+cu128` in the image lock). To attest the older entry again,
+build the image from a revision whose NVIDIA requirements still pin
+`2.6.0+cu124`.
 
 The JSON matrix is authoritative for every pinned package and export format.
 Changing a dependency, CUDA runtime, model basename, minimum driver, image

@@ -29,6 +29,35 @@
       "required_deterministic_runs": 3,
       "runtime_image_digest_source": "workflow_input",
       "support_state": "unverified_until_three_attested_runs"
+    },
+    {
+      "id": "unsloth-2026.7.5-cu128-torch280-tiny-causal-lm",
+      "status": "candidate_requires_attestation",
+      "python": "3.11.15",
+      "cuda_runtime": "12.8",
+      "minimum_nvidia_driver": "570.26",
+      "approved_model_basenames": [
+        "tiny-causal-lm"
+      ],
+      "packages": {
+        "bitsandbytes": "0.47.0",
+        "peft": "0.18.0",
+        "safetensors": "0.6.2",
+        "torch": "2.8.0+cu128",
+        "torchao": "0.13.0",
+        "transformers": "4.57.3",
+        "trl": "0.24.0",
+        "unsloth": "2026.7.5",
+        "unsloth-zoo": "2026.7.6"
+      },
+      "formats": [
+        "adapter",
+        "merged_16bit",
+        "gguf:q4_k_m"
+      ],
+      "required_deterministic_runs": 3,
+      "runtime_image_digest_source": "workflow_input",
+      "support_state": "unverified_until_three_attested_runs"
     }
   ]
 }
