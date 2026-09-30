@@ -27,7 +27,6 @@ import { PairSecureSequenceService } from './pair-secure-sequence.service';
 import {
   ControlMessage,
   CursorPos,
-  PAIR_VIEW_SYNC_VERSION,
   PermissionKey,
   RelayEnvelope,
   RemoteViewProjection,
@@ -42,27 +41,20 @@ import {
   MAX_ENCRYPTED_PAYLOAD_BYTES,
   SNAPSHOT_WARN_BYTES,
 } from './pair-view-sync.validators';
+import { PairSyncStats, PairSyncStatsRecorder } from './pair-view-sync-stats';
+import { PairControlGrantState, isSnapshotRequestFor } from './pair-view-sync-control';
+import { CursorMessage, PairPeerCursorPresence, PeerCursor, parseCursorMessage } from './pair-view-sync-peer-cursors';
+import {
+  cloneViewState,
+  deltaSetsArtifactReference,
+  emptyRemoteViewBase,
+  newPairMessageId,
+  projectOutgoingViewState,
+  redactRemoteArtifacts,
+} from './pair-view-sync-projection';
 
-/** Out-of-band cursor message: NOT applied to local state. */
-export interface CursorMessage {
-  sessionId: string;
-  senderUserId: string;
-  userLabel: string;
-  cursor: CursorPos;
-  /** Local clock at the sender, used by the receiver to time out. */
-  sentAt: number;
-}
-
-/** Public peer-cursor entry: a cursor with a freshness timestamp. */
-export interface PeerCursor {
-  userId: string;
-  userLabel: string;
-  cursor: CursorPos;
-  /** Local clock at the receiver (refreshed on every update). */
-  lastSeenAt: number;
-}
-
-const PEER_CURSOR_TIMEOUT_MS = 5000;
+export type { PairSyncStats } from './pair-view-sync-stats';
+export type { CursorMessage, PeerCursor } from './pair-view-sync-peer-cursors';
 
 const VIEW_DELTA_DEBOUNCE_MS = 80;
 const MAX_DELTAS_PER_SECOND = 5;
@@ -70,27 +62,6 @@ const CURSOR_INTERVAL_MS = 50;
 const SNAPSHOT_RESPONSE_INTERVAL_MS = 500;
 const SNAPSHOT_REQUEST_COOLDOWN_MS = 500;
 const SNAPSHOT_REQUEST_TIMEOUT_MS = 5000;
-
-export interface PairSyncStats {
-  snapshotsSent: number;
-  deltasSent: number;
-  cursorsSent: number;
-  cursorsReceived: number;
-  appliesAccepted: number;
-  appliesRejected: number;
-  snapshotRequestsSent: number;
-  snapshotRequestsReceived: number;
-  controlGranted: number;
-  controlDenied: number;
-  controlRevoked: number;
-}
-
-function newId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 @Injectable({ providedIn: 'root' })
 export class PairViewSyncService implements OnDestroy {
@@ -104,16 +75,12 @@ export class PairViewSyncService implements OnDestroy {
   private readonly _followMode$ = new Subject<'active' | 'paused'>();
   readonly followMode$ = this._followMode$.asObservable();
 
-  private readonly _stats$ = new Subject<PairSyncStats>();
-  readonly stats$ = this._stats$.asObservable();
+  private readonly statsRecorder = new PairSyncStatsRecorder();
+  readonly stats$ = this.statsRecorder.stats$;
 
-  // ── Peer cursor presence ──────────────────────────────────────────
-  // Map<userId, PeerCursor>. Mutated by handleIncomingCursor and
-  // reaped periodically by the reap timer. Exposed as an Observable
-  // for the remote-cursor overlay component (T10).
-  private readonly _peerCursors = new Map<string, PeerCursor>();
-  private readonly _peerCursors$ = new BehaviorSubject<ReadonlyMap<string, PeerCursor>>(new Map());
-  readonly peerCursors$ = this._peerCursors$.asObservable();
+  // ── Peer cursor presence (T10 overlay read model) ─────────────────
+  private readonly peerCursorPresence = new PairPeerCursorPresence();
+  readonly peerCursors$ = this.peerCursorPresence.peerCursors$;
   private readonly _remoteViews$ = new BehaviorSubject<ReadonlyMap<string, RemoteViewProjection>>(new Map());
   readonly remoteViews$ = this._remoteViews$.asObservable();
   private readonly _localCompactSharing$ = new BehaviorSubject<Readonly<{
@@ -125,30 +92,20 @@ export class PairViewSyncService implements OnDestroy {
   );
   readonly localCompactSharing$ = this._localCompactSharing$.asObservable();
   /** Cursor-overlay rendering is on by default. Toggle via setCursorOverlayEnabled. */
-  private _cursorOverlayEnabled = true;
-  get cursorOverlayEnabled(): boolean { return this._cursorOverlayEnabled; }
+  get cursorOverlayEnabled(): boolean { return this.peerCursorPresence.cursorOverlayEnabled; }
   setCursorOverlayEnabled(enabled: boolean): void {
-    if (this._cursorOverlayEnabled === enabled) return;
-    this._cursorOverlayEnabled = enabled;
-    // Re-emit current state so the overlay can show/hide in one tick
-    this._peerCursors$.next(new Map(this._peerCursors));
+    this.peerCursorPresence.setCursorOverlayEnabled(enabled);
   }
-  private cursorReapHandle: ReturnType<typeof setInterval> | null = null;
 
-  private stats: PairSyncStats = {
-    snapshotsSent: 0, deltasSent: 0, cursorsSent: 0, cursorsReceived: 0,
-    appliesAccepted: 0, appliesRejected: 0,
-    snapshotRequestsSent: 0, snapshotRequestsReceived: 0,
-    controlGranted: 0, controlDenied: 0, controlRevoked: 0,
-  };
+  /** Live counters; kept as a property seam for diagnostics and specs. */
+  private get stats(): PairSyncStats { return this.statsRecorder.counters; }
 
   /** Active session; set via bindSession() / cleared in unbind(). */
   private sessionId = '';
   private ownerUserId = '';
   private active: boolean = false;
   private followMode: 'active' | 'paused' = 'paused';
-  private controlGrantToken: string | null = null;
-  private controlRequestPending = false;
+  private readonly controlGrant = new PairControlGrantState();
   private securityEpoch = 0;
 
   // ── Throttle state ────────────────────────────────────────────────
@@ -189,24 +146,10 @@ export class PairViewSyncService implements OnDestroy {
     this.ownerUserId = ownerUserId;
     this.active = true;
     this.followMode = 'paused';
-    this.controlGrantToken = null;
-    this.controlRequestPending = false;
-    this.deltaTimestamps = [];
-    this.rateLimitedState = null;
-    this.lastSeqSent = 0;
-    this.lastSentState = null;
-    this.snapshotHashInFlight = '';
-    this.lastSnapshotHashSent = '';
-    this.viewSendInFlight = false;
-    this.pendingViewState = null;
-    this.pendingViewForceSnapshot = false;
-    this.viewSendGeneration += 1;
-    this.pendingSnapshotRequests.clear();
+    this.controlGrant.reset();
+    this.clearLocalViewSendState();
     this.permissionsSignature = '';
-    this.pendingCursorMessage = null;
-    this.cursorSendGeneration += 1;
-    this.cursorSendInFlight = false;
-    this.lastCursorDispatchAt = 0;
+    this.cancelCursorSend();
     this.lastSnapshotResponseAt = 0;
     this.localCursorSharingEnabled = false;
     this.localViewSharingEnabled = false;
@@ -215,9 +158,9 @@ export class PairViewSyncService implements OnDestroy {
     this.lastReadyTransportContext = '';
     this.publishLocalCompactSharing();
     this.securityEpoch = Number.isSafeInteger(securityEpoch) && securityEpoch > 0 ? securityEpoch : 0;
-    this._peerCursors.clear();
+    this.peerCursorPresence.clearSilently();
     this._remoteViews$.next(new Map());
-    this.startCursorReap();
+    this.peerCursorPresence.startReaping();
     this.view.bindToSession(sessionId, ownerUserId);
     this.subscribeToView();
     this.subscribeToTransport();
@@ -234,34 +177,21 @@ export class PairViewSyncService implements OnDestroy {
       this.cryptoPort.clear(previousSessionId);
     }
     this.view.unbindFromSession();
-    if (this.debounceHandle !== null) { clearTimeout(this.debounceHandle); this.debounceHandle = null; }
-    if (this.rateLimitRetryHandle !== null) { clearTimeout(this.rateLimitRetryHandle); this.rateLimitRetryHandle = null; }
-    this.rateLimitedState = null;
-    this.stopCursorReap();
-    this._peerCursors.clear();
-    this._peerCursors$.next(new Map(this._peerCursors));
+    this.peerCursorPresence.stopReaping();
+    this.peerCursorPresence.clearAndPublish();
     this._remoteViews$.next(new Map());
-    this.lastSentState = null;
-    this.snapshotHashInFlight = '';
-    this.lastSnapshotHashSent = '';
-    this.viewSendInFlight = false;
-    this.pendingViewState = null;
-    this.pendingViewForceSnapshot = false;
-    this.viewSendGeneration += 1;
-    this.pendingSnapshotRequests.clear();
+    // Session-bound send state: debounce/rate-limit timers, in-flight
+    // snapshot/delta fences, snapshot requests and the cursor pipeline.
+    this.clearLocalViewSendState();
     this.permissionsSignature = '';
-    this.pendingCursorMessage = null;
-    this.cursorSendGeneration += 1;
-    this.cursorSendInFlight = false;
-    if (this.cursorDispatchHandle !== null) { clearTimeout(this.cursorDispatchHandle); this.cursorDispatchHandle = null; }
-    this.lastCursorDispatchAt = 0;
+    this.cancelCursorSend();
     this.lastSnapshotResponseAt = 0;
     this.localCursorSharingEnabled = false;
     this.localViewSharingEnabled = false;
     this.pendingFirstReadyCompactSessionId = '';
     this.pendingFirstReadyCompactOwnerUserId = '';
     this.publishLocalCompactSharing();
-    this.controlRequestPending = false;
+    this.controlGrant.cancelRequest();
     this.viewSub?.unsubscribe();
     this.viewSub = null;
     this.msgSub?.unsubscribe();
@@ -282,7 +212,7 @@ export class PairViewSyncService implements OnDestroy {
 
   /** Returns true when a control grant is currently active. */
   hasControlGrant(): boolean {
-    return this.controlGrantToken !== null;
+    return this.controlGrant.hasGrant;
   }
 
   get isLocalViewSharingEnabled(): boolean { return this.localViewSharingEnabled; }
@@ -379,7 +309,7 @@ export class PairViewSyncService implements OnDestroy {
    */
   requestControl(): void {
     if (!this.active || !this.sessionId) return;
-    this.controlRequestPending = true;
+    this.controlGrant.markRequested();
     const request: ControlMessage = {
       sessionId: this.sessionId,
       senderUserId: this.ownerUserId,
@@ -390,7 +320,7 @@ export class PairViewSyncService implements OnDestroy {
     void this.sendSecurePayload(
       'control', request, 'pair.control', 'control', 'remote_control',
     ).then(sent => {
-      if (!sent) this.controlRequestPending = false;
+      if (!sent) this.controlGrant.cancelRequest();
     });
   }
 
@@ -497,19 +427,13 @@ export class PairViewSyncService implements OnDestroy {
       if (delta.kind === 'snapshot') {
         this.snapshotHashInFlight = '';
         this.lastSnapshotHashSent = delta.newHash;
-        this.stats.snapshotsSent += 1;
-        this._stats$.next({ ...this.stats });
+        this.statsRecorder.increment('snapshotsSent');
       }
       if (!this.lastSentState || sentState.seq >= this.lastSentState.seq) {
         this.lastSentState = cloneViewState(sentState);
       }
       if (delta.kind === 'snapshot') return;
-      if (delta.kind === 'cursor') {
-        this.stats.cursorsSent += 1;
-      } else {
-        this.stats.deltasSent += 1;
-      }
-      this._stats$.next({ ...this.stats });
+      this.statsRecorder.increment(delta.kind === 'cursor' ? 'cursorsSent' : 'deltasSent');
     }).catch(() => {
       this.clearSnapshotInFlight(delta);
       this.rejectApply();
@@ -559,7 +483,7 @@ export class PairViewSyncService implements OnDestroy {
       // Soft warning: snapshots over 32 KB are flagged but still sent.
     }
     return {
-      message_id: newId(),
+      message_id: newPairMessageId(),
       kind: delta.kind,
       base_hash: delta.baseHash,
       new_hash: delta.newHash,
@@ -650,15 +574,8 @@ export class PairViewSyncService implements OnDestroy {
     if (opened.payloadType === 'pair.snapshot_request') {
       if (!hasPermission(this.share.currentPermissions(), 'view_tui')) { this.rejectApply(); return; }
       if (!this.localViewSharingEnabled) { this.rejectApply(); return; }
-      let request: unknown;
-      try { request = JSON.parse(opened.plaintext); } catch { this.rejectApply(); return; }
-      if (
-        !request || typeof request !== 'object' || Array.isArray(request)
-        || Object.keys(request).length !== 1
-        || (request as Record<string, unknown>)['sessionId'] !== this.sessionId
-      ) { this.rejectApply(); return; }
-      this.stats.snapshotRequestsReceived += 1;
-      this._stats$.next({ ...this.stats });
+      if (!isSnapshotRequestFor(opened.plaintext, this.sessionId)) { this.rejectApply(); return; }
+      this.statsRecorder.increment('snapshotRequestsReceived');
       const now = Date.now();
       if (now - this.lastSnapshotResponseAt >= SNAPSHOT_RESPONSE_INTERVAL_MS) {
         this.lastSnapshotResponseAt = now;
@@ -676,32 +593,26 @@ export class PairViewSyncService implements OnDestroy {
   private applyIncomingView(plain: string, authenticatedSenderId: string): void {
     let parsed: unknown;
     try { parsed = JSON.parse(plain); } catch {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
     if (!isViewStateDelta(parsed)) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
     const delta = parsed;
     if (delta.sessionId !== this.sessionId || delta.senderUserId !== authenticatedSenderId) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
     const perms = this.share.currentPermissions();
     if (!hasPermission(perms, 'view_tui')) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
     if (
       !hasPermission(perms, 'artifact_share')
-      && delta.ops.some(op => [
-        'activeArtifactId', 'activeArtifactHash', 'activeFilePath', 'activeSymbolId',
-      ].includes(op.path) && op.op === 'set' && op.value !== null)
+      && deltaSetsArtifactReference(delta)
     ) {
       this.rejectApply();
       return;
@@ -719,11 +630,10 @@ export class PairViewSyncService implements OnDestroy {
       && (!currentProjection || this.delta.requiresSnapshotRequest(delta, currentProjection))
     ) {
       this.requestSnapshot(authenticatedSenderId);
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
-    const base = currentProjection ?? this.emptyRemoteBase(delta, authenticatedSenderId);
+    const base = currentProjection ?? emptyRemoteViewBase(delta, this.sessionId, authenticatedSenderId);
     const next = this.delta.applyDelta(base, delta);
     if (this.hashOf(next) !== delta.newHash) {
       this.rejectApply();
@@ -737,8 +647,7 @@ export class PairViewSyncService implements OnDestroy {
     }));
     this._remoteViews$.next(projections);
     if (delta.kind === 'snapshot') this.clearSnapshotRequests(authenticatedSenderId);
-    this.stats.appliesAccepted += 1;
-    this._stats$.next({ ...this.stats });
+    this.statsRecorder.increment('appliesAccepted');
   }
 
   private applyIncomingCursor(plain: string, authenticatedSenderId: string): void {
@@ -746,74 +655,21 @@ export class PairViewSyncService implements OnDestroy {
     // rendered as a presence overlay, never written back to
     // local SharedViewState — that would cause a feedback loop
     // (own cursor → view.cursor → send delta → own cursor).
-    let parsed: unknown;
-    try { parsed = JSON.parse(plain); } catch {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+    const message = parseCursorMessage(plain);
+    if (!message) {
+      this.rejectApply();
       return;
     }
-    if (!parsed || typeof parsed !== 'object') {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    const obj = parsed as { sessionId?: unknown; senderUserId?: unknown; userLabel?: unknown; cursor?: unknown; sentAt?: unknown };
-    if (
-      Object.keys(obj).length !== 5 ||
-      !['sessionId', 'senderUserId', 'userLabel', 'cursor', 'sentAt'].every(key => key in obj) ||
-      typeof obj.sessionId !== 'string' ||
-      typeof obj.senderUserId !== 'string' ||
-      typeof obj.userLabel !== 'string' || obj.userLabel.length < 1 || obj.userLabel.length > 32 ||
-      typeof obj.sentAt !== 'number' || !Number.isSafeInteger(obj.sentAt) || obj.sentAt < 0 ||
-      !isCursorPos(obj.cursor)
-    ) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    if (obj.sessionId !== this.sessionId || obj.senderUserId !== authenticatedSenderId) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+    if (message.sessionId !== this.sessionId || message.senderUserId !== authenticatedSenderId) {
+      this.rejectApply();
       return;
     }
     if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'remote_cursor')) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
+      this.rejectApply();
       return;
     }
-    this._peerCursors.set(obj.senderUserId, {
-      userId: obj.senderUserId,
-      userLabel: obj.userLabel,
-      cursor: obj.cursor,
-      lastSeenAt: Date.now(),
-    });
-    this._peerCursors$.next(new Map(this._peerCursors));
-    this.stats.cursorsReceived = (this.stats.cursorsReceived ?? 0) + 1;
-    this._stats$.next({ ...this.stats });
-  }
-
-  private startCursorReap(): void {
-    if (this.cursorReapHandle !== null) return;
-    this.cursorReapHandle = setInterval(() => this.reapPeerCursors(), 1000);
-  }
-
-  private stopCursorReap(): void {
-    if (this.cursorReapHandle === null) return;
-    clearInterval(this.cursorReapHandle);
-    this.cursorReapHandle = null;
-  }
-
-  private reapPeerCursors(): void {
-    if (this._peerCursors.size === 0) return;
-    const cutoff = Date.now() - PEER_CURSOR_TIMEOUT_MS;
-    let changed = false;
-    for (const [uid, p] of this._peerCursors) {
-      if (p.lastSeenAt < cutoff) {
-        this._peerCursors.delete(uid);
-        changed = true;
-      }
-    }
-    if (changed) this._peerCursors$.next(new Map(this._peerCursors));
+    this.peerCursorPresence.upsert(message);
+    this.statsRecorder.increment('cursorsReceived');
   }
 
   /**
@@ -855,58 +711,13 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   private handleIncomingControl(raw: unknown): void {
-    if (!isControlMessage(raw)) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    const msg = raw as ControlMessage;
-    if (msg.sessionId !== this.sessionId) {
-      this.stats.appliesRejected += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    // T12: control default-deny. The permission must be granted AND
-    // the grant token must match a token previously issued. The
-    // grant is session-scoped, never persisted.
-    const perms = this.share.currentPermissions();
-    if (!hasPermission(perms, 'remote_control')) {
-      this.stats.controlDenied += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    if (msg.kind === 'request') {
-      // No approval UI exists in compact sharing. Fail closed instead of
-      // silently turning a remote request into a control grant.
-      this.stats.controlDenied += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    if (msg.kind === 'grant') {
-      // Partner side: only accept a grant after an explicit local request.
-      if (!this.controlRequestPending || !msg.grantToken) {
-        this.stats.controlDenied += 1;
-        this._stats$.next({ ...this.stats });
-        return;
-      }
-      this.controlRequestPending = false;
-      this.controlGrantToken = msg.grantToken;
-      this.stats.controlGranted += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    if (msg.kind === 'revoke') {
-      this.controlRequestPending = false;
-      this.controlGrantToken = null;
-      this.stats.controlRevoked += 1;
-      this._stats$.next({ ...this.stats });
-      return;
-    }
-    if (msg.kind === 'request_follow' || msg.kind === 'request_unfollow') {
-      // Advisory only: a peer cannot change local follow consent. Compact
-      // sharing deliberately performs no automatic navigation.
-      return;
-    }
+    const outcome = this.controlGrant.accept(
+      raw, this.sessionId, hasPermission(this.share.currentPermissions(), 'remote_control'),
+    );
+    if (outcome === 'rejected') this.rejectApply();
+    else if (outcome === 'denied') this.statsRecorder.increment('controlDenied');
+    else if (outcome === 'granted') this.statsRecorder.increment('controlGranted');
+    else if (outcome === 'revoked') this.statsRecorder.increment('controlRevoked');
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
@@ -932,8 +743,7 @@ export class PairViewSyncService implements OnDestroy {
         this.pendingSnapshotRequests.delete(key);
         return;
       }
-      this.stats.snapshotRequestsSent += 1;
-      this._stats$.next({ ...this.stats });
+      this.statsRecorder.increment('snapshotRequestsSent');
     });
   }
 
@@ -975,7 +785,7 @@ export class PairViewSyncService implements OnDestroy {
         || encrypted.length > Math.min(MAX_ENCRYPTED_PAYLOAD_BYTES, MAX_DATACHANNEL_BYTES)
       ) return false;
       return this.transport.sendView({
-        message_id: newId(), kind, base_hash: '', new_hash: '', width: 0, height: 0,
+        message_id: newPairMessageId(), kind, base_hash: '', new_hash: '', width: 0, height: 0,
         encrypted_payload: encrypted,
       });
     } catch {
@@ -1010,8 +820,7 @@ export class PairViewSyncService implements OnDestroy {
       () => generation === this.cursorSendGeneration && this.localCursorSharingEnabled,
     ).then(sent => {
       if (sent) {
-        this.stats.cursorsSent += 1;
-        this._stats$.next({ ...this.stats });
+        this.statsRecorder.increment('cursorsSent');
       }
     }).finally(() => {
       if (generation !== this.cursorSendGeneration) return;
@@ -1061,8 +870,7 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   private resetForSecurityEpochChange(): void {
-    this.controlGrantToken = null;
-    this.controlRequestPending = false;
+    this.controlGrant.reset();
     this.followMode = 'paused';
     this._followMode$.next('paused');
     this.localViewSharingEnabled = false;
@@ -1071,8 +879,7 @@ export class PairViewSyncService implements OnDestroy {
     this.clearLocalViewSendState();
     this.cancelCursorSend();
     this.lastSnapshotResponseAt = 0;
-    this._peerCursors.clear();
-    this._peerCursors$.next(new Map());
+    this.peerCursorPresence.clearAndPublish();
     this._remoteViews$.next(new Map());
   }
 
@@ -1134,8 +941,7 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   private rejectApply(): void {
-    this.stats.appliesRejected += 1;
-    this._stats$.next({ ...this.stats });
+    this.statsRecorder.increment('appliesRejected');
   }
 
   private outgoingProjection(state: SharedViewState): SharedViewState {
@@ -1147,39 +953,15 @@ export class PairViewSyncService implements OnDestroy {
       this.lastSnapshotHashSent = '';
       this.clearForbiddenRemoteArtifacts(permissions);
     }
-    const shareArtifacts = hasPermission(permissions, 'artifact_share');
-    const projected: SharedViewState = {
-      ...state,
-      sessionId: this.sessionId,
-      ownerUserId: this.ownerUserId,
-      queryParams: {},
-      activeArtifactId: shareArtifacts ? state.activeArtifactId : null,
-      activeArtifactHash: shareArtifacts ? state.activeArtifactHash : null,
-      activeFilePath: shareArtifacts ? state.activeFilePath : null,
-      activeSymbolId: shareArtifacts ? state.activeSymbolId : null,
-      scroll: { ...state.scroll },
-      // Pointer/text-cursor presence has its own `remote_cursor` permission,
-      // payload type and local consent. Never smuggle it through view_tui.
-      cursor: { line: null, column: null },
-      selection: { ...state.selection },
-      collapsedSections: [...state.collapsedSections],
-    };
+    const projected = projectOutgoingViewState(
+      state, this.sessionId, this.ownerUserId, hasPermission(permissions, 'artifact_share'),
+    );
     return { ...projected, viewHash: this.hashOf(projected) };
   }
 
   private clearForbiddenRemoteArtifacts(permissions: ReturnType<ShareSessionService['currentPermissions']>): void {
     if (hasPermission(permissions, 'artifact_share') || this._remoteViews$.value.size === 0) return;
-    const redacted = new Map<string, RemoteViewProjection>();
-    for (const [senderId, projection] of this._remoteViews$.value) {
-      const state = {
-        ...projection.state,
-        activeArtifactId: null,
-        activeArtifactHash: null,
-        activeFilePath: null,
-        activeSymbolId: null,
-      };
-      redacted.set(senderId, Object.freeze({ ...projection, state: Object.freeze(state) }));
-    }
+    const redacted = redactRemoteArtifacts(this._remoteViews$.value);
     this._remoteViews$.next(redacted);
   }
 
@@ -1203,32 +985,7 @@ export class PairViewSyncService implements OnDestroy {
     return this.view.hashOf(hashable);
   }
 
-  private emptyRemoteBase(delta: ViewStateDelta, senderUserId: string): SharedViewState {
-    return {
-      version: PAIR_VIEW_SYNC_VERSION,
-      sessionId: this.sessionId,
-      ownerUserId: senderUserId,
-      seq: 0,
-      route: '/', queryParams: {}, activeSurface: 'unknown', activeTab: '', activePanel: '',
-      activeArtifactId: null, activeArtifactHash: null, activeFilePath: null, activeSymbolId: null,
-      scroll: { x: 0, y: 0 }, cursor: { line: null, column: null },
-      selection: { start: null, end: null }, zoom: null, collapsedSections: [],
-      viewHash: delta.baseHash, createdAt: 0,
-    };
-  }
-
   ngOnDestroy(): void {
     this.unbindSession();
   }
-}
-
-function cloneViewState(state: SharedViewState): SharedViewState {
-  return {
-    ...state,
-    queryParams: { ...state.queryParams },
-    scroll: { ...state.scroll },
-    cursor: { ...state.cursor },
-    selection: { ...state.selection },
-    collapsedSections: [...state.collapsedSections],
-  };
 }
