@@ -15,7 +15,7 @@ silently rewritten.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ananta_codecompass.graph_store import CodeCompassGraphStore
@@ -112,6 +112,179 @@ def _neighbours_by_kind(bucket: dict[str, dict[str, list[dict[str, Any]]]],
     return out
 
 
+def _resolve_seed(seed: str, rig_nodes_by_id: dict[str, Any]) -> tuple[list[str], str | None]:
+    """Match a seed by node id, then by name, then by source-file substring.
+
+    Seed resolution is intentionally *not* scope-filtered: if the user asks
+    about "ep:fmt" we want to find it regardless of whether the seed node
+    itself has repository_id / module_id annotations.
+    """
+    if seed in rig_nodes_by_id:
+        return [seed], "id"
+    matches = [
+        nid
+        for nid, n in rig_nodes_by_id.items()
+        if str((n.get("attrs") or {}).get("name") or "").strip() == seed
+    ]
+    if matches:
+        return matches, "name"
+    matches = [
+        nid
+        for nid, n in rig_nodes_by_id.items()
+        if any(seed in str(f) for f in ((n.get("attrs") or {}).get("source_files") or []))
+    ]
+    return matches, ("source_file" if matches else None)
+
+
+_EdgeMap = dict[str, dict[str, list[dict[str, Any]]]]
+
+
+def _edge_maps(rig_edges_list: list[dict[str, Any]]) -> tuple[_EdgeMap, _EdgeMap]:
+    """Build the RIG outgoing/incoming maps once (in-memory; small)."""
+
+    rig_out: _EdgeMap = {}
+    rig_in: _EdgeMap = {}
+    for edge in rig_edges_list:
+        from_id = str(edge.get("from_id") or "")
+        to_id = str(edge.get("to_id") or "")
+        kind = str(edge.get("kind") or "").strip()
+        if not from_id or not to_id or not kind:
+            continue
+        rig_out.setdefault(from_id, {}).setdefault(kind, []).append(edge)
+        rig_in.setdefault(to_id, {}).setdefault(kind, []).append(edge)
+    return rig_out, rig_in
+
+
+@dataclass
+class _RigQueryContext:
+    """Scoped graph view plus the result/evidence accumulators of one query."""
+
+    rig_nodes_by_id: dict[str, Any]
+    rig_out: _EdgeMap
+    rig_in: _EdgeMap
+    repository_id: str | None
+    module_id: str | None
+    cross_scope: bool
+    max_results: int
+    results: list[dict[str, Any]] = field(default_factory=list)
+    evidence: set[str] = field(default_factory=set)
+
+    def in_scope(self, node_id: str) -> bool:
+        if self.cross_scope:
+            return True
+        node = self.rig_nodes_by_id.get(node_id) or {}
+        return _scope_filter(node, None, repository_id=self.repository_id, module_id=self.module_id)
+
+    def outgoing(self, node_id: str, kind: str) -> list[dict[str, Any]]:
+        return _neighbours_by_kind(self.rig_out, node_id, kind)
+
+    def incoming(self, node_id: str, kind: str) -> list[dict[str, Any]]:
+        return _neighbours_by_kind(self.rig_in, node_id, kind)
+
+    def add(self, result: dict[str, Any], edge: dict[str, Any]) -> None:
+        self.results.append(result)
+        src = (edge.get("evidence") or {}).get("source_file")
+        if src:
+            self.evidence.add(src)
+
+
+def _add_runner_tests(ctx: _RigQueryContext, runner_id: str, *, require_test_id: bool) -> None:
+    for e in ctx.outgoing(runner_id, "runs"):
+        test_id = str(e.get("to_id") or "")
+        if (require_test_id and not test_id) or not ctx.in_scope(test_id):
+            continue
+        ctx.add({"runner": runner_id, "test": test_id, "edge_kind": "runs"}, e)
+
+
+def _query_component_tests(ctx: _RigQueryContext, matches: list[str]) -> None:
+    # Walk tested_by -> runner -> runs -> test. Also accept direct
+    # covers edges in either direction.
+    for mid in matches:
+        if not ctx.in_scope(mid):
+            continue
+        for e in ctx.outgoing(mid, "covers"):
+            if ctx.in_scope(str(e.get("to_id") or "")):
+                ctx.add({"from": mid, "to": e.get("to_id"), "edge_kind": "covers"}, e)
+        for e in ctx.incoming(mid, "covers"):
+            if ctx.in_scope(str(e.get("from_id") or "")):
+                ctx.add({"from": e.get("from_id"), "to": mid, "edge_kind": "covers"}, e)
+        for e in ctx.outgoing(mid, "tested_by"):
+            runner_id = str(e.get("to_id") or "")
+            if not runner_id or not ctx.in_scope(runner_id):
+                continue
+            ctx.add({"component": mid, "runner": runner_id, "edge_kind": "tested_by"}, e)
+            _add_runner_tests(ctx, runner_id, require_test_id=True)
+
+
+def _query_package_dependents(ctx: _RigQueryContext, matches: list[str]) -> None:
+    for mid in matches:
+        if not ctx.in_scope(mid):
+            continue
+        for e in ctx.incoming(mid, "depends_on"):
+            comp = str(e.get("from_id") or "")
+            if ctx.in_scope(comp):
+                ctx.add({"from": comp, "to": mid, "edge_kind": "depends_on"}, e)
+
+
+def _query_runner_coverage(ctx: _RigQueryContext, matches: list[str]) -> None:
+    for mid in matches:
+        if not ctx.in_scope(mid):
+            continue
+        _add_runner_tests(ctx, mid, require_test_id=False)
+        for e in ctx.incoming(mid, "tested_by"):
+            comp = str(e.get("from_id") or "")
+            if ctx.in_scope(comp):
+                ctx.add({"component": comp, "runner": mid, "edge_kind": "tested_by"}, e)
+
+
+def _walk_built_by(ctx: _RigQueryContext, start: str) -> None:
+    stack = [(start, 0)]
+    visited: set[str] = set()
+    while stack and len(ctx.results) < ctx.max_results:
+        cur, depth = stack.pop(0)
+        if cur in visited or depth > 5:
+            continue
+        visited.add(cur)
+        for e in ctx.outgoing(cur, "built_by"):
+            nxt = str(e.get("to_id") or "")
+            if nxt and nxt not in visited and ctx.in_scope(nxt):
+                ctx.add({"from": cur, "to": nxt, "edge_kind": "built_by", "depth": depth + 1}, e)
+                stack.append((nxt, depth + 1))
+
+
+def _query_build_target_chain(ctx: _RigQueryContext, matches: list[str]) -> None:
+    for mid in matches:
+        if ctx.in_scope(mid):
+            _walk_built_by(ctx, mid)
+
+
+def _query_external_package_impact(ctx: _RigQueryContext, matches: list[str]) -> None:
+    seen_packages: set[str] = set()
+    for mid in matches:
+        if not ctx.in_scope(mid):
+            continue
+        for e in ctx.incoming(mid, "depends_on"):
+            comp = str(e.get("from_id") or "")
+            if not ctx.in_scope(comp):
+                continue
+            # External-package nodes are deduplicated but evidence
+            # per module is preserved (RIG-010 acceptance).
+            if mid in seen_packages:
+                continue
+            seen_packages.add(mid)
+            ctx.add({"component": comp, "package": mid, "edge_kind": "depends_on"}, e)
+
+
+# One strategy per whitelisted query type (OCP: a new type adds an entry).
+_QUERY_STRATEGIES = {
+    "component-tests": _query_component_tests,
+    "package-dependents": _query_package_dependents,
+    "runner-coverage": _query_runner_coverage,
+    "build-target-chain": _query_build_target_chain,
+    "external-package-impact": _query_external_package_impact,
+}
+
+
 def run_query(
     *,
     graph_store: CodeCompassGraphStore,
@@ -158,30 +331,8 @@ def run_query(
             confidence=0.0,
         )
 
-    # Seed resolution: match by id, name, or source_file substring.
-    # Seed resolution is intentionally *not* scope-filtered: if the user
-    # asks about "ep:fmt" we want to find it regardless of whether the
-    # seed node itself has repository_id / module_id annotations.
-    matches: list[str] = []
-    if seed in rig_nodes_by_id:
-        matches = [seed]
-        seed_resolution["matched_via"] = "id"
-    else:
-        for nid, n in rig_nodes_by_id.items():
-            attrs = n.get("attrs") or {}
-            name = str(attrs.get("name") or "").strip()
-            if name == seed:
-                matches.append(nid)
-        if matches:
-            seed_resolution["matched_via"] = "name"
-        else:
-            for nid, n in rig_nodes_by_id.items():
-                attrs = n.get("attrs") or {}
-                files = attrs.get("source_files") or []
-                if any(seed in str(f) for f in files):
-                    matches.append(nid)
-            if matches:
-                seed_resolution["matched_via"] = "source_file"
+    matches, matched_via = _resolve_seed(seed, rig_nodes_by_id)
+    seed_resolution["matched_via"] = matched_via
     seed_resolution["matched_node_ids"] = matches[:max_results]
 
     if not matches:
@@ -194,148 +345,29 @@ def run_query(
             confidence=0.0,
         )
 
-    # Build RIG outgoing/incoming maps once (in-memory; small).
-    rig_out: dict[str, dict[str, list[dict[str, Any]]]] = {}
-    rig_in: dict[str, dict[str, list[dict[str, Any]]]] = {}
-    for edge in rig_edges_list:
-        from_id = str(edge.get("from_id") or "")
-        to_id = str(edge.get("to_id") or "")
-        kind = str(edge.get("kind") or "").strip()
-        if not from_id or not to_id or not kind:
-            continue
-        rig_out.setdefault(from_id, {}).setdefault(kind, []).append(edge)
-        rig_in.setdefault(to_id, {}).setdefault(kind, []).append(edge)
+    rig_out, rig_in = _edge_maps(rig_edges_list)
+    ctx = _RigQueryContext(
+        rig_nodes_by_id=rig_nodes_by_id,
+        rig_out=rig_out,
+        rig_in=rig_in,
+        repository_id=repository_id,
+        module_id=module_id,
+        cross_scope=cross_scope,
+        max_results=max_results,
+    )
+    _QUERY_STRATEGIES[query_type](ctx, matches)
 
-    def _in_scope(node_id: str) -> bool:
-        if cross_scope:
-            return True
-        node = rig_nodes_by_id.get(node_id) or {}
-        return _scope_filter(node, None,
-                             repository_id=repository_id,
-                             module_id=module_id)
-
-    results: list[dict[str, Any]] = []
-    evidence: set[str] = set()
-
-    def _push_evidence(edge: dict[str, Any]) -> None:
-        src = (edge.get("evidence") or {}).get("source_file")
-        if src:
-            evidence.add(src)
-
-    if query_type == "component-tests":
-        # Walk tested_by -> runner -> runs -> test. Also accept direct
-        # covers edges in either direction.
-        for mid in matches:
-            if not _in_scope(mid):
-                continue
-            for e in _neighbours_by_kind(rig_out, mid, "covers"):
-                if not _in_scope(str(e.get("to_id") or "")):
-                    continue
-                results.append({"from": mid, "to": e.get("to_id"),
-                                "edge_kind": "covers"})
-                _push_evidence(e)
-            for e in _neighbours_by_kind(rig_in, mid, "covers"):
-                if not _in_scope(str(e.get("from_id") or "")):
-                    continue
-                results.append({"from": e.get("from_id"), "to": mid,
-                                "edge_kind": "covers"})
-                _push_evidence(e)
-            for e in _neighbours_by_kind(rig_out, mid, "tested_by"):
-                runner_id = str(e.get("to_id") or "")
-                if not runner_id or not _in_scope(runner_id):
-                    continue
-                results.append({"component": mid, "runner": runner_id,
-                                "edge_kind": "tested_by"})
-                _push_evidence(e)
-                for e2 in _neighbours_by_kind(rig_out, runner_id, "runs"):
-                    test_id = str(e2.get("to_id") or "")
-                    if not test_id or not _in_scope(test_id):
-                        continue
-                    results.append({"runner": runner_id, "test": test_id,
-                                    "edge_kind": "runs"})
-                    _push_evidence(e2)
-
-    elif query_type == "package-dependents":
-        for mid in matches:
-            if not _in_scope(mid):
-                continue
-            for e in _neighbours_by_kind(rig_in, mid, "depends_on"):
-                comp = str(e.get("from_id") or "")
-                if not _in_scope(comp):
-                    continue
-                results.append({"from": comp, "to": mid,
-                                "edge_kind": "depends_on"})
-                _push_evidence(e)
-
-    elif query_type == "runner-coverage":
-        for mid in matches:
-            if not _in_scope(mid):
-                continue
-            for e in _neighbours_by_kind(rig_out, mid, "runs"):
-                test_id = str(e.get("to_id") or "")
-                if not _in_scope(test_id):
-                    continue
-                results.append({"runner": mid, "test": test_id,
-                                "edge_kind": "runs"})
-                _push_evidence(e)
-            for e in _neighbours_by_kind(rig_in, mid, "tested_by"):
-                comp = str(e.get("from_id") or "")
-                if not _in_scope(comp):
-                    continue
-                results.append({"component": comp, "runner": mid,
-                                "edge_kind": "tested_by"})
-                _push_evidence(e)
-
-    elif query_type == "build-target-chain":
-        for mid in matches:
-            if not _in_scope(mid):
-                continue
-            stack = [(mid, 0)]
-            visited: set[str] = set()
-            while stack and len(results) < max_results:
-                cur, depth = stack.pop(0)
-                if cur in visited or depth > 5:
-                    continue
-                visited.add(cur)
-                for e in _neighbours_by_kind(rig_out, cur, "built_by"):
-                    nxt = str(e.get("to_id") or "")
-                    if nxt and nxt not in visited and _in_scope(nxt):
-                        results.append({"from": cur, "to": nxt,
-                                        "edge_kind": "built_by",
-                                        "depth": depth + 1})
-                        stack.append((nxt, depth + 1))
-                        _push_evidence(e)
-
-    elif query_type == "external-package-impact":
-        seen_packages: set[str] = set()
-        for mid in matches:
-            if not _in_scope(mid):
-                continue
-            for e in _neighbours_by_kind(rig_in, mid, "depends_on"):
-                comp = str(e.get("from_id") or "")
-                if not _in_scope(comp):
-                    continue
-                # External-package nodes are deduplicated but evidence
-                # per module is preserved (RIG-010 acceptance).
-                if mid in seen_packages:
-                    continue
-                seen_packages.add(mid)
-                results.append({"component": comp,
-                                "package": mid, "edge_kind": "depends_on"})
-                _push_evidence(e)
-
-    truncated = False
+    results = ctx.results
     if len(results) > max_results:
         results = results[:max_results]
-        truncated = True
         warnings.append("max_results_truncated")
 
     return QueryResult(
         query_type=query_type,
         seed_resolution=seed_resolution,
         results=tuple(results),
-        evidence_paths=tuple(sorted(evidence)),
-        warnings=tuple(warnings) if not truncated else tuple(warnings),
+        evidence_paths=tuple(sorted(ctx.evidence)),
+        warnings=tuple(warnings),
         confidence=0.9 if not warnings else 0.5,
     )
 
