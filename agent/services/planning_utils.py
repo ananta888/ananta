@@ -198,92 +198,114 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
             return value
 
     # Common LLM response variants for plan-like outputs.
-    actionable_steps = payload.get("actionable_steps")
-    if isinstance(actionable_steps, list):
-        extracted_steps: list[object] = []
-        for step in actionable_steps:
-            if isinstance(step, dict):
-                extracted_steps.append(
-                    {
-                        "title": step.get("title") or step.get("name") or step.get("step") or "",
-                        "description": step.get("detail") or step.get("description") or step.get("title") or "",
-                        "priority": step.get("priority") or payload.get("priority"),
-                        "depends_on": step.get("depends_on") if isinstance(step.get("depends_on"), list) else [],
-                    }
-                )
-            elif isinstance(step, str):
-                extracted_steps.append({"description": step, "priority": payload.get("priority")})
-        if extracted_steps:
-            return extracted_steps
-
-    roadmap = payload.get("implementation_roadmap")
-    if isinstance(roadmap, dict):
-        roadmap_tasks: list[object] = []
-        for phase_value in roadmap.values():
-            if not isinstance(phase_value, dict):
-                continue
-            phase_goal = str(phase_value.get("goal") or "").strip()
-            phase_tasks = phase_value.get("tasks")
-            if not isinstance(phase_tasks, list):
-                continue
-            for task in phase_tasks:
-                if isinstance(task, str):
-                    title = task[:80]
-                    if phase_goal:
-                        title = f"{phase_goal}: {title}"[:80]
-                    roadmap_tasks.append(
-                        {
-                            "title": title,
-                            "description": task,
-                            "priority": payload.get("priority"),
-                            "depends_on": [],
-                        }
-                    )
-                elif isinstance(task, dict):
-                    roadmap_tasks.append(
-                        {
-                            "title": task.get("title") or task.get("name") or "",
-                            "description": task.get("detail") or task.get("description") or task.get("title") or "",
-                            "priority": task.get("priority") or payload.get("priority"),
-                            "depends_on": task.get("depends_on") if isinstance(task.get("depends_on"), list) else [],
-                        }
-                    )
-        if roadmap_tasks:
-            return roadmap_tasks
-
-    nested_dependencies = payload.get("depends_on")
-    if isinstance(nested_dependencies, list):
-        extracted: list[object] = []
-        for entry in nested_dependencies:
-            if isinstance(entry, dict):
-                extracted.append(
-                    {
-                        "title": entry.get("title") or entry.get("name") or "",
-                        "description": entry.get("description") or entry.get("task") or entry.get("name") or "",
-                        "priority": entry.get("priority") or payload.get("priority"),
-                        "depends_on": entry.get("depends_on") if isinstance(entry.get("depends_on"), list) else [],
-                    }
-                )
-            elif isinstance(entry, str):
-                extracted.append({"description": entry, "priority": payload.get("priority")})
+    for extractor in (_extract_actionable_steps, _extract_roadmap_tasks, _extract_nested_dependencies):
+        extracted = extractor(payload)
         if extracted:
             return extracted
 
     if any(str(payload.get(key) or "").strip() for key in ("title", "name", "description", "task", "detail", "recommendation")):
         return [payload]
 
-    # Generic recursive fallback: collect list entries that look like actionable task items.
-    def _looks_task_like(obj: object) -> bool:
-        if not isinstance(obj, dict):
-            return False
-        has_title = any(str(obj.get(k) or "").strip() for k in ("title", "name", "task", "step", "layer", "area"))
-        has_desc = any(str(obj.get(k) or "").strip() for k in ("description", "detail", "content", "responsibility", "recommendation"))
-        return bool(has_title or has_desc)
+    return _collect_task_like_items(payload)
 
+
+def _dependency_list(entry: dict) -> list:
+    return entry.get("depends_on") if isinstance(entry.get("depends_on"), list) else []
+
+
+def _extract_actionable_steps(payload: dict) -> list[object]:
+    actionable_steps = payload.get("actionable_steps")
+    if not isinstance(actionable_steps, list):
+        return []
+    extracted_steps: list[object] = []
+    for step in actionable_steps:
+        if isinstance(step, dict):
+            extracted_steps.append(
+                {
+                    "title": step.get("title") or step.get("name") or step.get("step") or "",
+                    "description": step.get("detail") or step.get("description") or step.get("title") or "",
+                    "priority": step.get("priority") or payload.get("priority"),
+                    "depends_on": _dependency_list(step),
+                }
+            )
+        elif isinstance(step, str):
+            extracted_steps.append({"description": step, "priority": payload.get("priority")})
+    return extracted_steps
+
+
+def _extract_roadmap_tasks(payload: dict) -> list[object]:
+    roadmap = payload.get("implementation_roadmap")
+    if not isinstance(roadmap, dict):
+        return []
+    roadmap_tasks: list[object] = []
+    for phase_value in roadmap.values():
+        if not isinstance(phase_value, dict):
+            continue
+        phase_goal = str(phase_value.get("goal") or "").strip()
+        phase_tasks = phase_value.get("tasks")
+        if not isinstance(phase_tasks, list):
+            continue
+        for task in phase_tasks:
+            entry = _roadmap_task_entry(task, phase_goal=phase_goal, payload=payload)
+            if entry is not None:
+                roadmap_tasks.append(entry)
+    return roadmap_tasks
+
+
+def _roadmap_task_entry(task: object, *, phase_goal: str, payload: dict) -> dict | None:
+    if isinstance(task, str):
+        title = task[:80]
+        if phase_goal:
+            title = f"{phase_goal}: {title}"[:80]
+        return {
+            "title": title,
+            "description": task,
+            "priority": payload.get("priority"),
+            "depends_on": [],
+        }
+    if isinstance(task, dict):
+        return {
+            "title": task.get("title") or task.get("name") or "",
+            "description": task.get("detail") or task.get("description") or task.get("title") or "",
+            "priority": task.get("priority") or payload.get("priority"),
+            "depends_on": _dependency_list(task),
+        }
+    return None
+
+
+def _extract_nested_dependencies(payload: dict) -> list[object]:
+    nested_dependencies = payload.get("depends_on")
+    if not isinstance(nested_dependencies, list):
+        return []
+    extracted: list[object] = []
+    for entry in nested_dependencies:
+        if isinstance(entry, dict):
+            extracted.append(
+                {
+                    "title": entry.get("title") or entry.get("name") or "",
+                    "description": entry.get("description") or entry.get("task") or entry.get("name") or "",
+                    "priority": entry.get("priority") or payload.get("priority"),
+                    "depends_on": _dependency_list(entry),
+                }
+            )
+        elif isinstance(entry, str):
+            extracted.append({"description": entry, "priority": payload.get("priority")})
+    return extracted
+
+
+def _looks_task_like(obj: object) -> bool:
+    if not isinstance(obj, dict):
+        return False
+    has_title = any(str(obj.get(k) or "").strip() for k in ("title", "name", "task", "step", "layer", "area"))
+    has_desc = any(str(obj.get(k) or "").strip() for k in ("description", "detail", "content", "responsibility", "recommendation"))
+    return bool(has_title or has_desc)
+
+
+def _collect_task_like_items(payload: dict, *, max_nodes: int = 20000) -> list[object]:
+    """Generic recursive fallback: collect list entries that look like actionable task items."""
     collected: list[object] = []
     stack: list[object] = [payload]
     visited: set[int] = set()
-    max_nodes = 20000
     visited_count = 0
 
     while stack and visited_count < max_nodes:
@@ -297,172 +319,151 @@ def extract_task_items_from_payload(payload: object) -> list[object]:
         if isinstance(node, dict):
             for key, value in node.items():
                 if isinstance(value, list):
-                    key_lower = str(key).lower()
-                    if "task" in key_lower or "step" in key_lower or "action" in key_lower:
-                        for item in value:
-                            if _looks_task_like(item):
-                                collected.append(item)
-                            elif isinstance(item, str):
-                                collected.append({"description": item, "priority": payload.get("priority")})
-                    for item in value:
-                        stack.append(item)
+                    _collect_from_task_list(collected, key, value, payload)
+                    stack.extend(value)
                 elif isinstance(value, dict):
                     stack.append(value)
         elif isinstance(node, list):
-            for item in node:
-                stack.append(item)
-    if collected:
-        return collected
-
-    return []
+            stack.extend(node)
+    return collected
 
 
-def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medium") -> tuple[list[dict], dict[str, Any]]:
-    from agent.services.planning_parser_chain import run_parser_chain
+def _collect_from_task_list(collected: list[object], key: object, value: list, payload: dict) -> None:
+    key_lower = str(key).lower()
+    if not ("task" in key_lower or "step" in key_lower or "action" in key_lower):
+        return
+    for item in value:
+        if _looks_task_like(item):
+            collected.append(item)
+        elif isinstance(item, str):
+            collected.append({"description": item, "priority": payload.get("priority")})
 
-    shape = classify_output_shape(response)
-    chain_result = run_parser_chain(response, default_priority=default_priority)
-    if chain_result.get("subtasks"):
-        subtasks = _postprocess_subtasks(list(chain_result.get("subtasks") or []))
-        return subtasks, {
-            "parse_mode": str(chain_result.get("used_step") or "parser_chain"),
-            "confidence": "medium",
-            "warnings": [],
-            "output_shape": shape.get("primary_shape"),
-            "detected_shapes": list(shape.get("detected_shapes") or []),
-            "format_error_codes": [],
-            "parser_trace": list(chain_result.get("trace") or []),
-        }
 
-    cleaned = strip_markdown_fences(response)
-    json_payload = extract_json_payload(cleaned) or cleaned
-    warnings: list[str] = []
-    parse_mode = "parse_failed"
-    confidence = "low"
-    parsed = None
+def _parse_diagnostics(
+    *,
+    parse_mode: str,
+    confidence: str,
+    warnings: list[str],
+    shape: dict[str, Any],
+    chain_result: dict[str, Any],
+    format_error_codes: list,
+) -> dict[str, Any]:
+    return {
+        "parse_mode": parse_mode,
+        "confidence": confidence,
+        "warnings": warnings,
+        "output_shape": shape.get("primary_shape"),
+        "detected_shapes": list(shape.get("detected_shapes") or []),
+        "format_error_codes": format_error_codes,
+        "parser_trace": list(chain_result.get("trace") or []),
+    }
+
+
+def _normalized_subtasks(items: list[object], default_priority: str) -> list[dict]:
+    normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
+    return _postprocess_subtasks([item for item in normalized if item])
+
+
+def _parse_structured_payload(json_payload: str, cleaned: str) -> tuple[object | None, str, str]:
+    """Parse strict JSON, then Python-literal payloads; return (parsed, parse_mode, confidence)."""
     try:
         parsed = json.loads(json_payload)
         parse_mode = "strict_json" if json_payload.strip() == cleaned.strip() else "json_extracted"
-        confidence = "high"
+        return parsed, parse_mode, "high"
     except json.JSONDecodeError:
         # Fallback for Python-literal style payloads (single quotes, True/False/None).
         try:
-            parsed = ast.literal_eval(json_payload)
-            parse_mode = "python_literal"
-            confidence = "medium"
+            return ast.literal_eval(json_payload), "python_literal", "medium"
         except Exception:
-            parsed = None
+            return None, "parse_failed", "low"
 
-    if parsed is None:
-        # Truncation-safe fallback: extract JSON objects from partial arrays/text.
-        objects: list[dict[str, Any]] = []
-        depth = 0
-        start = -1
-        in_string = False
-        escaped = False
-        for idx, ch in enumerate(json_payload):
-            if in_string:
-                if escaped:
-                    escaped = False
-                elif ch == "\\":
-                    escaped = True
-                elif ch == "\"":
-                    in_string = False
-                continue
-            if ch == "\"":
-                in_string = True
-                continue
-            if ch == "{":
-                if depth == 0:
-                    start = idx
-                depth += 1
-            elif ch == "}":
-                if depth > 0:
-                    depth -= 1
-                    if depth == 0 and start >= 0:
-                        candidate = json_payload[start : idx + 1]
-                        try:
-                            obj = json.loads(candidate)
-                            if isinstance(obj, dict):
-                                objects.append(obj)
-                        except Exception:
-                            try:
-                                obj = ast.literal_eval(candidate)
-                                if isinstance(obj, dict):
-                                    objects.append(obj)
-                            except Exception:
-                                pass
-                        start = -1
-        if objects:
-            items = extract_task_items_from_payload(objects)
-            normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
-            subtasks = _postprocess_subtasks([item for item in normalized if item])
-            if subtasks:
-                return subtasks, {
-                    "parse_mode": "partial_json_objects",
-                    "confidence": "low",
-                    "warnings": ["truncated_json_recovered"],
-                    "output_shape": shape.get("primary_shape"),
-                    "detected_shapes": list(shape.get("detected_shapes") or []),
-                    "format_error_codes": analyze_format_errors(response, parse_result={}),
-                    "parser_trace": list(chain_result.get("trace") or []),
-                }
 
-        # Last-resort salvage for truncated pseudo-JSON:
-        # extract title/description pairs directly from raw text.
-        title_matches = re.findall(r'"title"\s*:\s*"([^"\n]{1,180})"', json_payload)
-        desc_matches = re.findall(r'"description"\s*:\s*"([^"\n]{1,600})"', json_payload)
-        if title_matches:
-            recovered: list[dict[str, Any]] = []
-            for idx, title in enumerate(title_matches):
-                desc = desc_matches[idx] if idx < len(desc_matches) else f"Execute task: {title}"
-                recovered.append(
-                    {
-                        "title": str(title).strip(),
-                        "description": str(desc).strip(),
-                        "priority": default_priority,
-                        "depends_on": [],
-                    }
-                )
-            normalized = [normalize_subtask(item, default_priority=default_priority) for item in recovered]
-            subtasks = _postprocess_subtasks([item for item in normalized if item])
-            if subtasks:
-                return subtasks, {
-                    "parse_mode": "kv_text_salvage",
-                    "confidence": "low",
-                    "warnings": ["truncated_json_key_value_recovered"],
-                    "output_shape": shape.get("primary_shape"),
-                    "detected_shapes": list(shape.get("detected_shapes") or []),
-                    "format_error_codes": analyze_format_errors(response, parse_result={}),
-                    "parser_trace": list(chain_result.get("trace") or []),
-                }
+def _parse_object_candidate(candidate: str) -> dict | None:
+    try:
+        obj = json.loads(candidate)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        try:
+            obj = ast.literal_eval(candidate)
+            return obj if isinstance(obj, dict) else None
+        except Exception:
+            return None
 
-    if parsed is not None:
-        if isinstance(parsed, dict):
-            if isinstance(parsed.get("implementation_roadmap"), dict):
-                parse_mode = "roadmap_extracted"
-                confidence = "medium"
-            elif isinstance(parsed.get("depends_on"), list):
-                parse_mode = "nested_extracted"
-                confidence = "medium"
-        items = extract_task_items_from_payload(parsed)
-        normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
-        subtasks = _postprocess_subtasks([item for item in normalized if item])
-        if not subtasks:
-            parse_mode = "parse_failed"
-            confidence = "low"
-            warnings.append("no_subtasks_extracted")
-        diag = {
-            "parse_mode": parse_mode,
-            "confidence": confidence,
-            "warnings": warnings,
-            "output_shape": shape.get("primary_shape"),
-            "detected_shapes": list(shape.get("detected_shapes") or []),
-            "format_error_codes": analyze_format_errors(response, parse_result={}),
-            "parser_trace": list(chain_result.get("trace") or []),
-        }
-        return subtasks, diag
 
+def _balanced_object_spans(text: str) -> list[tuple[int, int]]:
+    """Top-level ``{...}`` spans outside JSON strings, tolerant of truncated tails."""
+    spans: list[tuple[int, int]] = []
+    depth = 0
+    start = -1
+    in_string = False
+    escaped = False
+    for idx, ch in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == "\"":
+                in_string = False
+            continue
+        if ch == "\"":
+            in_string = True
+        elif ch == "{":
+            if depth == 0:
+                start = idx
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start >= 0:
+                spans.append((start, idx + 1))
+                start = -1
+    return spans
+
+
+def _extract_partial_json_objects(text: str) -> list[dict[str, Any]]:
+    """Truncation-safe fallback: extract JSON objects from partial arrays/text."""
+    objects: list[dict[str, Any]] = []
+    for start, end in _balanced_object_spans(text):
+        obj = _parse_object_candidate(text[start:end])
+        if obj is not None:
+            objects.append(obj)
+    return objects
+
+
+def _salvage_title_description_pairs(json_payload: str, default_priority: str) -> list[dict[str, Any]]:
+    """Last-resort salvage for truncated pseudo-JSON: title/description pairs from raw text."""
+    title_matches = re.findall(r'"title"\s*:\s*"([^"\n]{1,180})"', json_payload)
+    desc_matches = re.findall(r'"description"\s*:\s*"([^"\n]{1,600})"', json_payload)
+    recovered: list[dict[str, Any]] = []
+    for idx, title in enumerate(title_matches):
+        desc = desc_matches[idx] if idx < len(desc_matches) else f"Execute task: {title}"
+        recovered.append(
+            {
+                "title": str(title).strip(),
+                "description": str(desc).strip(),
+                "priority": default_priority,
+                "depends_on": [],
+            }
+        )
+    return recovered
+
+
+def _recover_truncated_subtasks(json_payload: str, default_priority: str) -> tuple[list[dict], str, str] | None:
+    """Return ``(subtasks, parse_mode, warning)`` recovered from an unparseable payload."""
+    objects = _extract_partial_json_objects(json_payload)
+    if objects:
+        subtasks = _normalized_subtasks(extract_task_items_from_payload(objects), default_priority)
+        if subtasks:
+            return subtasks, "partial_json_objects", "truncated_json_recovered"
+    recovered = _salvage_title_description_pairs(json_payload, default_priority)
+    if recovered:
+        subtasks = _normalized_subtasks(recovered, default_priority)
+        if subtasks:
+            return subtasks, "kv_text_salvage", "truncated_json_key_value_recovered"
+    return None
+
+
+def _bullet_subtasks(cleaned: str, default_priority: str) -> list[dict]:
     tasks = []
     for line in cleaned.split("\n"):
         line = line.strip()
@@ -476,27 +477,61 @@ def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medi
             )
             if normalized:
                 tasks.append(normalized)
+    return tasks
+
+
+def parse_subtasks_with_diagnostics(response: str, default_priority: str = "Medium") -> tuple[list[dict], dict[str, Any]]:
+    from agent.services.planning_parser_chain import run_parser_chain
+
+    shape = classify_output_shape(response)
+    chain_result = run_parser_chain(response, default_priority=default_priority)
+
+    def diagnostics(parse_mode: str, confidence: str, warnings: list[str], *, format_errors: bool = True) -> dict:
+        return _parse_diagnostics(
+            parse_mode=parse_mode,
+            confidence=confidence,
+            warnings=warnings,
+            shape=shape,
+            chain_result=chain_result,
+            format_error_codes=analyze_format_errors(response, parse_result={}) if format_errors else [],
+        )
+
+    if chain_result.get("subtasks"):
+        subtasks = _postprocess_subtasks(list(chain_result.get("subtasks") or []))
+        parse_mode = str(chain_result.get("used_step") or "parser_chain")
+        return subtasks, diagnostics(parse_mode, "medium", [], format_errors=False)
+
+    cleaned = strip_markdown_fences(response)
+    json_payload = extract_json_payload(cleaned) or cleaned
+    warnings: list[str] = []
+    parsed, parse_mode, confidence = _parse_structured_payload(json_payload, cleaned)
+
+    if parsed is None:
+        recovered = _recover_truncated_subtasks(json_payload, default_priority)
+        if recovered is not None:
+            subtasks, recovered_mode, warning = recovered
+            return subtasks, diagnostics(recovered_mode, "low", [warning])
+
+    if parsed is not None:
+        if isinstance(parsed, dict):
+            if isinstance(parsed.get("implementation_roadmap"), dict):
+                parse_mode = "roadmap_extracted"
+                confidence = "medium"
+            elif isinstance(parsed.get("depends_on"), list):
+                parse_mode = "nested_extracted"
+                confidence = "medium"
+        subtasks = _normalized_subtasks(extract_task_items_from_payload(parsed), default_priority)
+        if not subtasks:
+            parse_mode = "parse_failed"
+            confidence = "low"
+            warnings.append("no_subtasks_extracted")
+        return subtasks, diagnostics(parse_mode, confidence, warnings)
+
+    tasks = _bullet_subtasks(cleaned, default_priority)
     if tasks:
-        tasks = _postprocess_subtasks(tasks)
-        return tasks, {
-            "parse_mode": "bullet_fallback",
-            "confidence": "low",
-            "warnings": warnings,
-            "output_shape": shape.get("primary_shape"),
-            "detected_shapes": list(shape.get("detected_shapes") or []),
-            "format_error_codes": analyze_format_errors(response, parse_result={}),
-            "parser_trace": list(chain_result.get("trace") or []),
-        }
+        return _postprocess_subtasks(tasks), diagnostics("bullet_fallback", "low", warnings)
     warnings.append("unparseable_response")
-    return [], {
-        "parse_mode": "parse_failed",
-        "confidence": "low",
-        "warnings": warnings,
-        "output_shape": shape.get("primary_shape"),
-        "detected_shapes": list(shape.get("detected_shapes") or []),
-        "format_error_codes": analyze_format_errors(response, parse_result={}),
-        "parser_trace": list(chain_result.get("trace") or []),
-    }
+    return [], diagnostics("parse_failed", "low", warnings)
 
 
 def parse_subtasks_from_llm_response(response: str, default_priority: str = "Medium") -> list[dict]:
