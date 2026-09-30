@@ -203,6 +203,7 @@ SUITE_SPECS: Mapping[str, SuiteSpec] = {
             "client_surfaces/operator_tui/dashboard_http_adapter.py",
             "client_surfaces/operator_tui/dashboard_autoload.py",
             "client_surfaces/operator_tui/interactive.py",
+            "client_surfaces/operator_tui/_interactive_editor_delegates.py",
             "client_surfaces/operator_tui/renderer.py",
             "scripts/e2e/tui_kanban_pty_resize.py",
             "tests/client_surfaces/operator_tui/"
