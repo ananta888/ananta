@@ -1,4 +1,9 @@
-"""Hub-owned model-analysis admission, lifecycle, and recovery."""
+"""Hub-owned model-analysis admission, lifecycle, and recovery.
+
+Lifecycle records live in ``agent.models.model_analysis_job`` and the
+repository port in ``agent.ports.model_analysis_job_repository``; both are
+re-exported here.
+"""
 
 from __future__ import annotations
 
@@ -7,11 +12,21 @@ import hashlib
 import json
 import threading
 import time
-from dataclasses import dataclass, replace
-from enum import Enum
+from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Callable
 
+from agent.models.model_analysis_job import (
+    QUEUED_STATES,
+    TERMINAL_STATES,
+    ModelAnalysisJobPage,
+    ModelAnalysisJobRecord,
+    ModelAnalysisJobServiceError,
+    ModelAnalysisJobState,
+    ModelAnalysisLimits,
+    ModelAnalysisRecoverySummary,
+)
+from agent.ports.model_analysis_job_repository import ModelAnalysisJobRepository
 from agent.services.model_analysis_task_port import (
     HubModelAnalysisTaskSubmissionPort,
     ModelAnalysisTaskSubmissionPort,
@@ -24,131 +39,6 @@ from ananta_contracts.model_intelligence_execution import (
     CompletionOutcome,
     ResourceLease,
 )
-
-
-class ModelAnalysisJobState(str, Enum):
-    SUBMISSION_PENDING = "submission_pending"
-    QUEUED = "queued"
-    RUNNING = "running"
-    CANCEL_REQUESTED = "cancel_requested"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
-TERMINAL_STATES = frozenset(
-    {
-        ModelAnalysisJobState.SUCCEEDED,
-        ModelAnalysisJobState.FAILED,
-        ModelAnalysisJobState.CANCELLED,
-    }
-)
-QUEUED_STATES = frozenset(
-    {
-        ModelAnalysisJobState.SUBMISSION_PENDING,
-        ModelAnalysisJobState.QUEUED,
-    }
-)
-
-
-class ModelAnalysisJobServiceError(RuntimeError):
-    def __init__(self, reason_code: str, *, retryable: bool = False) -> None:
-        self.reason_code = reason_code
-        self.retryable = retryable
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class ModelAnalysisLimits:
-    max_global_queued: int = 128
-    max_tenant_queued: int = 16
-    max_tenant_active: int = 32
-    max_attempts: int = 3
-    max_lease_seconds: int = 3600
-    max_worker_memory_bytes: int = 64 * 1024**3
-
-    def __post_init__(self) -> None:
-        for value in (
-            self.max_global_queued,
-            self.max_tenant_queued,
-            self.max_tenant_active,
-            self.max_attempts,
-            self.max_lease_seconds,
-            self.max_worker_memory_bytes,
-        ):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-                raise ValueError("model_analysis_limits_invalid")
-
-
-@dataclass(frozen=True, slots=True)
-class ModelAnalysisJobRecord:
-    job: AnalysisJob
-    state: ModelAnalysisJobState
-    version: int
-    attempt: int
-    lease: ResourceLease | None
-    completion: AnalysisCompletion | None
-    reason_code: str
-    projection_pending: bool
-    updated_epoch_ms: int
-
-
-@dataclass(frozen=True, slots=True)
-class ModelAnalysisRecoverySummary:
-    scanned: int = 0
-    recovered: int = 0
-    requeued: int = 0
-    failed: int = 0
-    cancelled: int = 0
-    conflicts: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class ModelAnalysisJobPage:
-    items: tuple[ModelAnalysisJobRecord, ...]
-    next_cursor: str | None
-
-
-class ModelAnalysisJobRepository(Protocol):
-    def admit(
-        self,
-        record: ModelAnalysisJobRecord,
-        *,
-        idempotency_key_digest: str,
-        request_digest: str,
-        limits: ModelAnalysisLimits,
-    ) -> tuple[ModelAnalysisJobRecord, bool]: ...
-
-    def get(self, job_id: str) -> ModelAnalysisJobRecord | None: ...
-
-    def compare_and_set(
-        self,
-        record: ModelAnalysisJobRecord,
-        *,
-        expected_version: int,
-    ) -> ModelAnalysisJobRecord: ...
-
-    def mark_projected(
-        self,
-        job_id: str,
-        *,
-        expected_version: int,
-    ) -> ModelAnalysisJobRecord: ...
-
-    def list_recoverable(
-        self,
-        *,
-        now_epoch_ms: int,
-        limit: int,
-    ) -> tuple[ModelAnalysisJobRecord, ...]: ...
-
-    def list_page(
-        self,
-        *,
-        tenant_id: str,
-        after_job_id: str | None,
-        limit: int,
-    ) -> tuple[ModelAnalysisJobRecord, ...]: ...
 
 
 class InMemoryModelAnalysisJobRepository:

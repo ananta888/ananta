@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Iterator
 
-from agent.services.model_analysis_job_service import (
+from agent.models.model_analysis_job import (
     QUEUED_STATES,
     TERMINAL_STATES,
     ModelAnalysisJobRecord,
