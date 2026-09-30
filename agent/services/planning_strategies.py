@@ -11,6 +11,11 @@ from agent.services.execution_focused_planning import match_execution_focused_go
 from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.model_response_behavior_profile_service import get_model_response_behavior_profile_service
 from agent.services.planning_domain_hints_service import get_planning_domain_hints_service
+from agent.services.planning_llm_repair import (
+    LLMPlanningRepairRequest,
+    LLMPlanningRepairRunner,
+    RepairPromptBuilders,
+)
 from agent.services.planning_model_profile_service import get_planning_model_profile_service
 from agent.services.planning_prompt_registry import get_planning_prompt_registry
 from agent.services.planning_strategy_repair_prompts import (
@@ -432,52 +437,178 @@ class LLMPlanningStrategy:
         mode: str = "generic",
         mode_data: Optional[dict] = None,
     ) -> PlanningStrategyResult | None:
-        resolved_context = context
-        if self._use_repo_context and not resolved_context:
-            repo_context = self._collaborators.repo_context_loader(goal)
-            if repo_context:
-                resolved_context = repo_context
+        resolved_context = self._resolve_repo_context(goal, context)
 
         scoped_cfg = getattr(planner, "_goal_effective_config", None)
         if not isinstance(scoped_cfg, dict):
             scoped_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         planning_policy = self.effective_planning_policy(scoped_cfg, mode_data)
         team_id = str((scoped_cfg.get("routing") or {}).get("team_id") or "").strip() or None
-        runtime_profiles = planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
-        runtime_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
-        runtime_profile = runtime_profiles.get(runtime_profile_id) if runtime_profile_id and isinstance(runtime_profiles, dict) else {}
-        if not isinstance(runtime_profile, dict):
-            runtime_profile = {}
+        runtime_profile = _default_runtime_profile(planning_policy)
 
-        # Configurable context truncation — helps small models with limited context windows
+        resolved_context = self._truncate_context(planning_policy, resolved_context)
+        resolved_context = self._with_mode_context(
+            resolved_context, mode=mode, mode_data=mode_data, planning_policy=planning_policy
+        )
+
+        llm_cfg = dict(scoped_cfg.get("llm_config") or {})
+        setup = self._resolve_prompt_setup(
+            planner,
+            goal=goal,
+            resolved_context=resolved_context,
+            mode=mode,
+            planning_policy=planning_policy,
+            runtime_profile=runtime_profile,
+            llm_cfg=llm_cfg,
+            team_id=team_id,
+        )
+
+        repair_attempts = self._safe_int(
+            planning_policy.get("unstructured_repair_attempts", 3) or 3,
+            default=3,
+            minimum=1,
+            maximum=6,
+        )
+        repair_strategies = self._resolve_repair_strategies(planning_policy, repair_attempts=repair_attempts)
+        llm_config = self._planning_llm_config(llm_cfg, planning_policy, setup.profile)
+
+        segmented_result = self._execute_segmented_planning(
+            planner=planner,
+            goal=goal,
+            resolved_context=resolved_context,
+            llm_config=llm_config,
+            planning_policy=planning_policy,
+            prompt_mode=setup.prompt_mode,
+            prompt_language=setup.prompt_language,
+            model_family=setup.profile.get("model_family"),
+            preferred_prompt_version_id=setup.profile.get("preferred_prompt_version_id"),
+            preferred_output_format=setup.preferred_output_format,
+            domain_hints=setup.domain_hints,
+            behavior_profile=setup.behavior_profile,
+        )
+        if segmented_result is not None:
+            subtasks, raw_response, parse_mode = segmented_result
+            return PlanningStrategyResult(
+                subtasks=subtasks,
+                raw_response=raw_response,
+                context=resolved_context,
+                template_used=False,
+                planning_mode="llm",
+                planning_origin="llm_segmented",
+                repair_strategy_used=None,
+                repair_attempt_count=0,
+                parse_mode=parse_mode,
+                parse_confidence="medium",
+                warnings=[],
+                output_shape="segmented",
+                format_error_codes=[],
+                parser_trace=[],
+                prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
+                planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
+            )
+
+        raw_response = planner._call_llm_with_retry(setup.prompt, llm_config)
+        import logging
+        logging.getLogger(__name__).debug(f"LLMPlanningStrategy: main LLM response: {raw_response}")
+        runner = LLMPlanningRepairRunner(collaborators=self._collaborators, prompts=self._repair_prompt_builders())
+        attempt = runner.parse_initial(raw_response, default_priority=planner.default_priority)
+        runner.repair(
+            LLMPlanningRepairRequest(
+                planner=planner,
+                goal=goal,
+                context=resolved_context,
+                mode=mode,
+                mode_data=mode_data,
+                llm_config=llm_config,
+                preferred_output_format=setup.preferred_output_format,
+                repair_attempts=repair_attempts,
+            ),
+            attempt,
+            repair_strategies=repair_strategies,
+            fast_fail_empty=bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project")),
+        )
+        return PlanningStrategyResult(
+            subtasks=attempt.subtasks,
+            raw_response=attempt.raw_response,
+            context=resolved_context,
+            template_used=False,
+            planning_mode="llm",
+            planning_origin=attempt.planning_origin,
+            repair_strategy_used=attempt.repair_strategy_used,
+            repair_attempt_count=attempt.repair_attempt_count,
+            parse_mode=attempt.parse_mode,
+            parse_confidence=attempt.parse_confidence,
+            warnings=attempt.warnings,
+            output_shape=attempt.output_shape,
+            format_error_codes=attempt.format_error_codes,
+            parser_trace=attempt.parser_trace,
+            prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
+            planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
+        )
+
+    def _repair_prompt_builders(self) -> RepairPromptBuilders:
+        return RepairPromptBuilders(
+            planning_repair=self._build_planning_repair_prompt,
+            new_project_execution_repair=self._build_new_project_execution_repair_prompt,
+            new_project_truncation_repair=self._build_new_project_truncation_repair_prompt,
+            looks_truncated_response=self._looks_truncated_response,
+            has_new_project_execution_coverage=self._has_new_project_execution_coverage,
+        )
+
+    def _resolve_repo_context(self, goal: str, context: str | None) -> str | None:
+        if self._use_repo_context and not context:
+            repo_context = self._collaborators.repo_context_loader(goal)
+            if repo_context:
+                return repo_context
+        return context
+
+    def _truncate_context(self, planning_policy: dict[str, Any], resolved_context: str | None) -> str | None:
+        """Configurable context truncation -- helps small models with limited context windows."""
         context_max_chars = planning_policy.get("context_max_chars")
         if not context_max_chars:
             segment_chars, max_segments = self.segmentation(planning_policy, len(resolved_context or ""))
             context_max_chars = segment_chars * max_segments
-        if context_max_chars and resolved_context:
-            limit = self._safe_int(context_max_chars, default=400, minimum=100)
-            if len(resolved_context) > limit:
-                from agent.context_window import estimate_tokens, record_truncation
+        if not (context_max_chars and resolved_context):
+            return resolved_context
+        limit = self._safe_int(context_max_chars, default=400, minimum=100)
+        if len(resolved_context) <= limit:
+            return resolved_context
+        from agent.context_window import estimate_tokens, record_truncation
 
-                record_truncation("planning.context", "char_cut", before_tokens=estimate_tokens(resolved_context),
-                                  after_tokens=estimate_tokens(resolved_context[:limit]), limit_chars=limit)
-                resolved_context = resolved_context[:limit]
+        record_truncation("planning.context", "char_cut", before_tokens=estimate_tokens(resolved_context),
+                          after_tokens=estimate_tokens(resolved_context[:limit]), limit_chars=limit)
+        return resolved_context[:limit]
 
-        if mode != "generic" and mode_data:
-            compact_mode_data = self._compact_mode_data_for_prompt(
-                mode_data,
-                max_chars=1600 if mode == "new_software_project" else 4000,
-            )
-            mode_label = f"Mode: {mode}" if planning_policy.get("prompt_language", "de") == "en" else f"Modus: {mode}"
-            mode_context = (
-                f"{(resolved_context or '').strip()}\n\n"
-                f"{mode_label}\n"
-                f"{json.dumps(compact_mode_data, indent=2)}"
-            )
-            resolved_context = mode_context.strip()
+    def _with_mode_context(
+        self, resolved_context: str | None, *, mode: str, mode_data: Optional[dict], planning_policy: dict[str, Any]
+    ) -> str | None:
+        if mode == "generic" or not mode_data:
+            return resolved_context
+        compact_mode_data = self._compact_mode_data_for_prompt(
+            mode_data,
+            max_chars=1600 if mode == "new_software_project" else 4000,
+        )
+        mode_label = f"Mode: {mode}" if planning_policy.get("prompt_language", "de") == "en" else f"Modus: {mode}"
+        mode_context = (
+            f"{(resolved_context or '').strip()}\n\n"
+            f"{mode_label}\n"
+            f"{json.dumps(compact_mode_data, indent=2)}"
+        )
+        return mode_context.strip()
 
+    def _resolve_prompt_setup(
+        self,
+        planner: PlannerLike,
+        *,
+        goal: str,
+        resolved_context: str | None,
+        mode: str,
+        planning_policy: dict[str, Any],
+        runtime_profile: dict[str, Any],
+        llm_cfg: dict[str, Any],
+        team_id: str | None,
+    ) -> _PlanningPromptSetup:
         # Configurable prompt language — "en" works better for small/embedded models
-        llm_cfg = dict(scoped_cfg.get("llm_config") or {})
         profile = get_planning_model_profile_service().resolve_profile(
             provider=llm_cfg.get("provider"),
             model_name=llm_cfg.get("model"),
@@ -526,16 +657,20 @@ class LLMPlanningStrategy:
         setattr(planner, "_resolved_planning_prompt_version_id", str(resolved_prompt.prompt_version_id or ""))
         setattr(planner, "_resolved_planning_profile", str(profile.get("profile_name") or ""))
         setattr(planner, "_resolved_planning_prompt_language", prompt_language)
-
-        repair_attempts = self._safe_int(
-            planning_policy.get("unstructured_repair_attempts", 3) or 3,
-            default=3,
-            minimum=1,
-            maximum=6,
+        return _PlanningPromptSetup(
+            prompt=prompt,
+            profile=profile,
+            preferred_output_format=preferred_output_format,
+            prompt_language=prompt_language,
+            prompt_mode=prompt_mode,
+            behavior_profile=behavior_profile,
+            domain_hints=domain_hints,
         )
-        repair_strategies = self._resolve_repair_strategies(planning_policy, repair_attempts=repair_attempts)
-        llm_config = llm_cfg
 
+    def _planning_llm_config(
+        self, llm_cfg: dict[str, Any], planning_policy: dict[str, Any], profile: dict[str, Any]
+    ) -> dict[str, Any]:
+        llm_config = llm_cfg
         # Configurable max_output_tokens for planning — reduces empty responses from small models
         policy_max_tokens = planning_policy.get("max_output_tokens")
         if not policy_max_tokens:
@@ -552,252 +687,31 @@ class LLMPlanningStrategy:
                 **llm_config,
                 "timeout": self._safe_int(policy_timeout, default=20, minimum=5, maximum=300),
             }
+        return llm_config
 
-        segmented_result = self._execute_segmented_planning(
-            planner=planner,
-            goal=goal,
-            resolved_context=resolved_context,
-            llm_config=llm_config,
-            planning_policy=planning_policy,
-            prompt_mode=prompt_mode,
-            prompt_language=prompt_language,
-            model_family=profile.get("model_family"),
-            preferred_prompt_version_id=profile.get("preferred_prompt_version_id"),
-            preferred_output_format=preferred_output_format,
-            domain_hints=domain_hints,
-            behavior_profile=behavior_profile,
-        )
-        if segmented_result is not None:
-            subtasks, raw_response, parse_mode = segmented_result
-            planning_origin = "llm_segmented"
-            return PlanningStrategyResult(
-                subtasks=subtasks,
-                raw_response=raw_response,
-                context=resolved_context,
-                template_used=False,
-                planning_mode="llm",
-                planning_origin=planning_origin,
-                repair_strategy_used=None,
-                repair_attempt_count=0,
-                parse_mode=parse_mode,
-                parse_confidence="medium",
-                warnings=[],
-                output_shape="segmented",
-                format_error_codes=[],
-                parser_trace=[],
-                prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
-                planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
-            )
 
-        raw_response = planner._call_llm_with_retry(prompt, llm_config)
-        import logging
-        logging.getLogger(__name__).debug(f"LLMPlanningStrategy: main LLM response: {raw_response}")
-        planning_origin = "llm"
-        repair_strategy_used: str | None = None
-        repair_attempt_count = 0
-        if callable(self._collaborators.parse_subtasks_with_diagnostics):
-            subtasks, parse_diag = self._collaborators.parse_subtasks_with_diagnostics(raw_response, default_priority=planner.default_priority)
-            parse_mode = str(parse_diag.get("parse_mode") or "parse_failed")
-            parse_confidence = str(parse_diag.get("confidence") or "low")
-            warnings = list(parse_diag.get("warnings") or [])
-            output_shape = str(parse_diag.get("output_shape") or "")
-            format_error_codes = [str(x) for x in list(parse_diag.get("format_error_codes") or [])]
-            parser_trace = [dict(x) for x in list(parse_diag.get("parser_trace") or []) if isinstance(x, dict)]
-            if not subtasks:
-                legacy_subtasks = self._collaborators.parse_subtasks(raw_response, default_priority=planner.default_priority)
-                if legacy_subtasks:
-                    subtasks = legacy_subtasks
-                    parse_mode = "legacy_parser_fallback"
-                    parse_confidence = "medium"
-        else:
-            subtasks = self._collaborators.parse_subtasks(raw_response, default_priority=planner.default_priority)
-            parse_mode = "legacy_parser"
-            parse_confidence = "low"
-            warnings = []
-            output_shape = ""
-            format_error_codes = []
-            parser_trace = []
-        is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(self._collaborators.parse_subtasks_with_diagnostics) else None)
-        fast_fail_empty = bool(planning_policy.get("fast_fail_on_empty_response", mode == "new_software_project"))
-        if not subtasks and not (fast_fail_empty and not str(raw_response or "").strip()):
-            for idx, strategy in enumerate(repair_strategies):
-                repair_attempt_count += 1
-                strategy_name = str(strategy.get("name") or "").strip().lower()
-                retry_temperature = strategy.get("temperature")
-                use_execution_prompt = mode == "new_software_project" and idx >= max(1, repair_attempts - 1)
-                if use_execution_prompt:
-                    repair_prompt = self._build_new_project_execution_repair_prompt(
-                        goal=goal,
-                        context=resolved_context,
-                        max_subtasks=planner.max_subtasks_per_goal,
-                        previous_output=raw_response,
-                        mode_data=mode_data,
-                        output_shape=output_shape,
-                        preferred_output_format=preferred_output_format,
-                    )
-                else:
-                    repair_prompt = self._build_planning_repair_prompt(
-                        goal=goal,
-                        context=resolved_context,
-                        max_subtasks=planner.max_subtasks_per_goal,
-                        previous_output=raw_response,
-                        mode=mode,
-                        mode_data=mode_data,
-                        output_shape=output_shape,
-                        preferred_output_format=preferred_output_format,
-                    )
-                if strategy_name == "hub_copilot":
-                    try:
-                        hub_llm = self._collaborators.hub_llm_service_provider()
-                        copilot_cfg = hub_llm.resolve_copilot_config()
-                        if (
-                            copilot_cfg.get("enabled")
-                            and copilot_cfg.get("supports_planning")
-                            and copilot_cfg.get("active")
-                        ):
-                            hub_resp = hub_llm.plan_with_copilot(
-                                prompt=repair_prompt,
-                                timeout=getattr(planner, "llm_timeout", None),
-                                temperature=retry_temperature,
-                            )
-                            hub_text = str(hub_resp.get("text") or "")
-                            hub_subtasks = self._collaborators.parse_subtasks(
-                                hub_text,
-                                default_priority=planner.default_priority,
-                            )
-                            if hub_subtasks:
-                                raw_response = hub_text
-                                subtasks = hub_subtasks
-                                planning_origin = "llm_repair"
-                                repair_strategy_used = "hub_copilot"
-                                parse_mode = "repair_hub_copilot"
-                                break
-                            if hub_text.strip():
-                                raw_response = hub_text
-                    except Exception:
-                        pass
-                elif strategy_name == "llm_config":
-                    repaired_response = planner._call_llm_with_retry(
-                        repair_prompt,
-                        llm_config,
-                        temperature=retry_temperature,
-                    )
-                    if callable(self._collaborators.parse_subtasks_with_diagnostics):
-                        repaired_subtasks, repaired_diag = self._collaborators.parse_subtasks_with_diagnostics(
-                            repaired_response,
-                            default_priority=planner.default_priority,
-                        )
-                        parse_diag = repaired_diag
-                        parse_mode = str(repaired_diag.get("parse_mode") or parse_mode)
-                        parse_confidence = str(repaired_diag.get("confidence") or parse_confidence)
-                        warnings = list(repaired_diag.get("warnings") or warnings)
-                        output_shape = str(repaired_diag.get("output_shape") or output_shape)
-                        format_error_codes = [str(x) for x in list(repaired_diag.get("format_error_codes") or format_error_codes)]
-                        parser_trace = [dict(x) for x in list(repaired_diag.get("parser_trace") or parser_trace) if isinstance(x, dict)]
-                        if not repaired_subtasks:
-                            repaired_legacy = self._collaborators.parse_subtasks(
-                                repaired_response,
-                                default_priority=planner.default_priority,
-                            )
-                            if repaired_legacy:
-                                repaired_subtasks = repaired_legacy
-                                parse_mode = "legacy_parser_fallback"
-                                parse_confidence = "medium"
-                    else:
-                        repaired_subtasks = self._collaborators.parse_subtasks(
-                            repaired_response,
-                            default_priority=planner.default_priority,
-                        )
-                    if repaired_subtasks:
-                        raw_response = repaired_response
-                        subtasks = repaired_subtasks
-                        planning_origin = "llm_repair"
-                        repair_strategy_used = "llm_config"
-                        parse_mode = "repair_llm_config"
-                        break
-                    if str(repaired_response or "").strip():
-                        raw_response = repaired_response
-                if not subtasks:
-                    is_truncated_response = self._looks_truncated_response(raw_response, parse_diag if callable(self._collaborators.parse_subtasks_with_diagnostics) else None)
-                    if mode == "new_software_project" and is_truncated_response:
-                        break
-        if mode == "new_software_project" and not subtasks:
-            repair_prompt = (
-                self._build_new_project_truncation_repair_prompt(
-                    goal=goal,
-                    context=resolved_context,
-                    max_subtasks=planner.max_subtasks_per_goal,
-                    previous_output=raw_response,
-                    mode_data=mode_data,
-                    output_shape=output_shape,
-                    preferred_output_format=preferred_output_format,
-                )
-                if is_truncated_response
-                else self._build_new_project_execution_repair_prompt(
-                    goal=goal,
-                    context=resolved_context,
-                    max_subtasks=planner.max_subtasks_per_goal,
-                    previous_output=raw_response,
-                    mode_data=mode_data,
-                    output_shape=output_shape,
-                    preferred_output_format=preferred_output_format,
-                )
-            )
-            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.05 if is_truncated_response else 0.1)
-            repaired_subtasks = self._collaborators.parse_subtasks(
-                repaired_response,
-                default_priority=planner.default_priority,
-            )
-            if repaired_subtasks:
-                raw_response = repaired_response
-                subtasks = repaired_subtasks
-                planning_origin = "llm_repair"
-                repair_strategy_used = "llm_config"
-                parse_mode = "repair_llm_config"
-        if (
-            mode == "new_software_project"
-            and subtasks
-            and not is_truncated_response
-            and not self._has_new_project_execution_coverage(subtasks)
-        ):
-            repair_prompt = self._build_new_project_execution_repair_prompt(
-                goal=goal,
-                context=resolved_context,
-                max_subtasks=planner.max_subtasks_per_goal,
-                previous_output=raw_response,
-                mode_data=mode_data,
-                output_shape=output_shape,
-                preferred_output_format=preferred_output_format,
-            )
-            repaired_response = planner._call_llm_with_retry(repair_prompt, llm_config, temperature=0.1)
-            repaired_subtasks = self._collaborators.parse_subtasks(
-                repaired_response,
-                default_priority=planner.default_priority,
-            )
-            if repaired_subtasks:
-                raw_response = repaired_response
-                subtasks = repaired_subtasks
-                planning_origin = "llm_repair"
-                repair_strategy_used = "llm_config"
-                parse_mode = "repair_llm_config"
-        return PlanningStrategyResult(
-            subtasks=subtasks,
-            raw_response=raw_response,
-            context=resolved_context,
-            template_used=False,
-            planning_mode="llm",
-            planning_origin=planning_origin,
-            repair_strategy_used=repair_strategy_used,
-            repair_attempt_count=repair_attempt_count,
-            parse_mode=parse_mode,
-            parse_confidence=parse_confidence,
-            warnings=warnings,
-            output_shape=output_shape,
-            format_error_codes=format_error_codes,
-            parser_trace=parser_trace,
-            prompt_version_id=str(getattr(planner, "_resolved_planning_prompt_version_id", "") or ""),
-            planning_profile=str(getattr(planner, "_resolved_planning_profile", "") or ""),
-        )
+@dataclass(frozen=True)
+class _PlanningPromptSetup:
+    """Resolved prompt and model/prompt profile of one LLM planning run."""
+
+    prompt: str
+    profile: dict[str, Any]
+    preferred_output_format: str
+    prompt_language: str
+    prompt_mode: str
+    behavior_profile: Any
+    domain_hints: Any
+
+
+def _default_runtime_profile(planning_policy: dict[str, Any]) -> dict[str, Any]:
+    runtime_profiles = (
+        planning_policy.get("runtime_profiles") if isinstance(planning_policy.get("runtime_profiles"), dict) else {}
+    )
+    runtime_profile_id = str(planning_policy.get("default_runtime_profile") or "").strip()
+    runtime_profile = (
+        runtime_profiles.get(runtime_profile_id) if runtime_profile_id and isinstance(runtime_profiles, dict) else {}
+    )
+    return runtime_profile if isinstance(runtime_profile, dict) else {}
 
 
 class HubCopilotPlanningStrategy:
