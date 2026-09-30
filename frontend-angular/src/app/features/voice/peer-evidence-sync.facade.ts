@@ -1,9 +1,6 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, Subscription, firstValueFrom } from 'rxjs';
 
-import {
-  SpeechEvidenceConsentReadModel,
-} from '../../services/speech-evidence-consent-api.service';
 import { SpeechEvidenceDatachannelTransportService } from '../../services/speech-evidence-datachannel-transport.service';
 import {
   SpeechEvidenceQuarantineGroupSnapshot,
@@ -12,32 +9,19 @@ import {
 import {
   SpeechEvidenceConsentPairAuthority,
   SpeechEvidenceHubCurationResponse,
-  SpeechEvidenceOfferRecord,
   SpeechEvidenceSyncApiService,
 } from '../../services/speech-evidence-sync-api.service';
-import {
-  SpeechEvidenceHubCurationBinding,
-  SpeechEvidenceHubCurationFacade,
-} from '../../services/speech-evidence-hub-curation.facade';
+import { SpeechEvidenceHubCurationFacade } from '../../services/speech-evidence-hub-curation.facade';
 import { SpeechEvidenceSyncCryptoContext } from '../../services/speech-evidence-sync.providers';
 import {
   SpeechEvidenceTransferSnapshot,
   SpeechEvidenceSyncService,
 } from '../../services/speech-evidence-sync.service';
 import {
-  SPEECH_EVIDENCE_GROUP_PREVIEW_VERSION,
-  SpeechEvidenceCandidateProjection,
-  SpeechEvidenceGroupPreview,
   SpeechEvidenceMessage,
   SpeechEvidenceValidationError,
-  canonicalJson,
   sha256Canonical,
-  speechEvidenceComparisonDigest,
   speechEvidenceGroupId,
-  speechEvidenceGroupPreviews,
-  speechEvidenceQualityPolicyDigest,
-  speechEvidenceResolutionDigest,
-  speechEvidenceSpeakerScopeDigest,
 } from '../../services/speech-evidence-sync.validators';
 import {
   SpeechTranscriptRevisionStore,
@@ -45,97 +29,89 @@ import {
 } from '../../services/speech-transcript-revision.store';
 import { WebrtcTransportService } from '../../services/webrtc-transport.service';
 import {
-  PeerEvidenceAcceptanceOffer,
   buildPeerEvidenceAcceptancePayload,
-  peerEvidenceBulkAcceptForbidden,
   verifyPeerEvidenceOfferPreview,
 } from './peer-evidence-acceptance';
 import {
-  PeerEvidenceLineageView,
-  PeerEvidenceLocalGroupView,
-  PeerEvidenceOfferView,
+  allowedDataClasses,
+  allowedTrainerClass,
+  assertAcceptanceNarrowsOffer,
+  assertIncomingProposalInScope,
+  consentDigestForPeer,
+  contextKey,
+  validateContext,
+  validatePairConsentAuthority,
+} from './peer-evidence-consent-policy';
+import {
+  assertInboundBoundToContext,
+  buildHubCurationRequestPayload,
+  buildProposalDraft,
+  chunkAckPayload,
+  currentSourceRevisions,
+  revocationAckPayload,
+  revocationRequestPayload,
+} from './peer-evidence-control-messages';
+import {
+  buildLocalEvidenceArtifact,
+  isShareableTranscriptTurn,
+  parseEvidenceGroup,
+  recipientPreAdmissionReason,
+} from './peer-evidence-group-payload';
+import {
+  aggregateOutboundSnapshots,
+  emptySync,
+  hubCurationBinding,
+  offerFromMessage,
+  offerFromRecord,
+  offerView,
+  outboundSnapshotFromHubStatus,
+} from './peer-evidence-offer.mappers';
+import {
+  buildDatasetLineageNodes,
+  completedGroupConflict,
+  lineageWithQuarantinedGroup,
+  lineageWithReceiptStates,
+  lineageWithRevokedGroups,
+  quarantineRowsFromSummaries,
+  resolutionCandidates,
+  revocationAckResolves,
+  verifiedRevocationAckTarget,
+  unresolvedResolutionRegions,
+} from './peer-evidence-projections';
+import {
   PeerEvidenceProposalIntent,
-  PeerEvidenceQuarantineView,
   PeerEvidenceSyncView,
 } from './peer-evidence-sync-panel.component';
 import {
-  PeerTranscriptCandidateView,
-  PeerTranscriptRegionView,
-} from './peer-transcript-conflict-panel.component';
-import type { SpeechDatasetLineageNodeView } from '../ml-intern/speech-dataset-lineage.component';
+  ActiveOffer,
+  LocalEvidenceArtifact,
+  MAX_REVOCATION_ATTEMPTS,
+  PeerEvidenceFlowView,
+  PeerEvidenceGroupPayload,
+  PeerEvidenceSyncContext,
+  PendingRevocation,
+  REVOCATION_RETRY_MS,
+  STATUS_POLL_MS,
+} from './peer-evidence-sync.models';
+import {
+  bytesToBase64,
+  concatenate,
+  reason,
+  sameSourceRevisions,
+  sha256Text,
+  stringArray,
+  unique,
+} from './peer-evidence-sync-primitives';
+import { PeerEvidenceViewState } from './peer-evidence-view-state';
 
-export interface PeerEvidenceSyncContext {
-  readonly hubUrl: string;
-  readonly sessionId: string;
-  readonly pairId: string;
-  readonly epoch: number;
-  readonly localPeerId: string;
-  readonly remotePeerId: string;
-  readonly consent: SpeechEvidenceConsentReadModel;
-}
+export type { PeerEvidenceFlowView, PeerEvidenceSyncContext } from './peer-evidence-sync.models';
 
-export interface PeerEvidenceFlowView {
-  readonly offer: PeerEvidenceOfferView | null;
-  readonly sync: PeerEvidenceSyncView;
-  readonly reasonCode: string;
-}
-
-interface LocalEvidenceArtifact {
-  readonly view: PeerEvidenceLocalGroupView;
-  readonly bytes: Uint8Array;
-  readonly contentDigest: string;
-  readonly sourceGroupDigest: string;
-  readonly originalCandidates: readonly SpeechEvidenceCandidateProjection[];
-  readonly resolutionState: 'resolved' | 'unresolved';
-  readonly selectedCandidateDigest: string | null;
-  readonly unresolvedRegionDigests: readonly string[];
-  readonly comparisonDigest: string;
-}
-
-interface ActiveOffer extends PeerEvidenceAcceptanceOffer {
-  readonly offerId: string;
-  readonly sessionId: string;
-  readonly pairId: string;
-  readonly epoch: number;
-  readonly senderId: string;
-  readonly recipientId: string;
-  readonly inventoryRootDigest: string;
-  readonly direction: string;
-  readonly purpose: string;
-  readonly dataClasses: readonly string[];
-  readonly fields: readonly string[];
-  readonly retentionSeconds: number;
-  readonly trainerClass: string;
-  readonly groupIds: readonly string[];
-  readonly groupPreviews: readonly SpeechEvidenceGroupPreview[];
-  readonly groupPreviewDigest: string;
-  readonly previewVerified: boolean;
-  readonly totalBytes: number;
-  readonly senderConsentDigest: string;
-  readonly recipientConsentDigest: string;
-  readonly scopeDigest: string;
-  readonly expiresAtMs: number;
-  readonly state: string;
-  readonly transferStarted: boolean;
-  readonly senderConsentVersion: number;
-  readonly recipientConsentVersion: number;
-}
-
-interface PendingRevocation {
-  readonly revocationId: string;
-  readonly offerId: string;
-  readonly groupIds: readonly string[];
-  readonly scopeDigest: string;
-  readonly revocationEpoch: number;
-  readonly deadlineAtMs: number;
-  attempts: number;
-  resolved: boolean;
-}
-
-const MAX_REVOCATION_ATTEMPTS = 5;
-const REVOCATION_RETRY_MS = 2_000;
-const STATUS_POLL_MS = 1_500;
-const PEER_CURATION_REQUEST_POLICY_DIGEST = 'bd02f0ea6843e13b4be73b3742f1d196a054522ffa4377ce0ddc339d39c46c19';
+/**
+ * Stateful orchestration of the peer evidence offer/transfer/curation flow.
+ * Pure consent policy, wire codecs and view projections live in the
+ * peer-evidence-* modules imported above (SRP); this facade only owns the
+ * runtime state, timers and the ordering of async steps.
+ */
 @Injectable()
 export class PeerEvidenceSyncFacade implements OnDestroy {
   private readonly api = inject(SpeechEvidenceSyncApiService);
@@ -150,6 +126,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   private readonly localArtifacts = new Map<string, LocalEvidenceArtifact>();
   private readonly outboundSnapshots = new Map<string, SpeechEvidenceTransferSnapshot>();
   private readonly localPreAdmissionReasons = new Map<string, string>();
+  private readonly evidenceView = new PeerEvidenceViewState();
   private context: PeerEvidenceSyncContext | null = null;
   private consentPair: SpeechEvidenceConsentPairAuthority | null = null;
   private offer: ActiveOffer | null = null;
@@ -163,12 +140,6 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   private pendingRevocation: PendingRevocation | null = null;
   private inboundChain: Promise<void> = Promise.resolve();
   private statusPollActive = false;
-  private conflictCandidates: readonly PeerTranscriptCandidateView[] = Object.freeze([]);
-  private conflictRegions: readonly PeerTranscriptRegionView[] = Object.freeze([]);
-  private resolutionHash = '';
-  private resolutionPolicyVersion = '';
-  private lineage: readonly PeerEvidenceLineageView[] = Object.freeze([]);
-  private quarantineRows: readonly PeerEvidenceQuarantineView[] = Object.freeze([]);
 
   readonly view$ = new BehaviorSubject<PeerEvidenceFlowView>(Object.freeze({
     offer: null,
@@ -214,12 +185,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     this.localArtifacts.clear();
     this.outboundSnapshots.clear();
     this.localPreAdmissionReasons.clear();
-    this.quarantineRows = Object.freeze([]);
-    this.lineage = Object.freeze([]);
-    this.conflictCandidates = Object.freeze([]);
-    this.conflictRegions = Object.freeze([]);
-    this.resolutionHash = '';
-    this.resolutionPolicyVersion = '';
+    this.evidenceView.reset();
     this.emit(next ? 'peer_evidence_sync_ready_for_activation' : 'peer_evidence_sync_context_missing', {
       state: next ? 'inactive' : 'disabled',
       reasonCode: next ? null : 'peer_evidence_sync_context_missing',
@@ -288,73 +254,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
         if (!artifact) throw new SpeechEvidenceValidationError('speech_evidence_local_group_not_found');
         return artifact;
       });
-      if (!artifacts.length || new Set(artifacts.map(value => value.view.dataClass)).size !== 1) {
-        throw new SpeechEvidenceValidationError('speech_evidence_offer_single_class_required');
-      }
-      if (artifacts.some(value => !consentPair.remote.dataClasses.includes(value.view.dataClass))) {
-        throw new SpeechEvidenceValidationError('speech_evidence_offer_scope_denied');
-      }
-      this.requireTrainerClass(context, intent.trainerClass, consentPair);
-      const consent = context.consent.consent;
-      const expiresAtMs = Math.min(
-        consent.expires_at_ms,
-        consentPair.remote.expiresAtMs,
-        Date.now() + 5 * 60_000,
-      );
-      const inventoryRootDigest = await sha256Canonical(artifacts.map(value => ({
-        group_id: value.view.groupId,
-        content_digest: value.contentDigest,
-        data_class: value.view.dataClass,
-        bytes: value.view.byteLength,
-      })));
-      const speakerScopeDigest = await speechEvidenceSpeakerScopeDigest(
-        context.pairId,
-        context.epoch,
-        context.consent.consent.speaker_id,
-      );
-      const qualityDigest = await speechEvidenceQualityPolicyDigest();
-      const groupPreviews = await Promise.all(artifacts.map(async artifact => ({
-        preview_version: SPEECH_EVIDENCE_GROUP_PREVIEW_VERSION,
-        group_id: artifact.view.groupId,
-        source_group_digest: artifact.sourceGroupDigest,
-        speaker_scope_digest: speakerScopeDigest,
-        quality_basis: 'policy',
-        quality_digest: qualityDigest,
-        resolution_digest: await speechEvidenceResolutionDigest(
-          artifact.sourceGroupDigest,
-          artifact.view.revision,
-        ),
-        original_candidates: artifact.originalCandidates.map(candidate => ({
-          ordinal: candidate.ordinal,
-          candidate_digest: candidate.candidateDigest,
-          authority_digest: candidate.authorityDigest,
-          revision: candidate.revision,
-        })),
-        resolution_state: artifact.resolutionState,
-        selected_candidate_digest: artifact.selectedCandidateDigest,
-        unresolved_region_digests: [...artifact.unresolvedRegionDigests],
-        comparison_digest: artifact.comparisonDigest,
-        revision: artifact.view.revision,
-        size_bytes: artifact.view.byteLength,
-      })));
-      const payload = {
-        traffic_class: 'control',
-        offer_id: `speech-offer-${crypto.randomUUID()}`,
-        stage: 'proposal',
-        inventory_root_digest: inventoryRootDigest,
-        direction: consent.direction,
-        purpose: consent.purpose,
-        data_classes: [artifacts[0].view.dataClass],
-        fields: ['transcript'],
-        retention_seconds: Math.min(consent.retention_seconds, consentPair.remote.maximumRetentionSeconds),
-        trainer_class: intent.trainerClass,
-        group_ids: artifacts.map(value => value.view.groupId).sort(),
-        group_previews: groupPreviews.sort((left, right) => left.group_id.localeCompare(right.group_id)),
-        total_bytes: artifacts.reduce((total, value) => total + value.view.byteLength, 0),
-        sender_consent_digest: context.consent.consentDigest,
-        recipient_consent_digest: consentPair.remote.digest,
-        scope_digest: context.consent.scopeDigest,
-      };
+      const { payload, expiresAtMs } = await buildProposalDraft(artifacts, intent, context, consentPair);
       const message = await this.crypto.sign('offer', payload, expiresAtMs);
       const delivered = await this.evidenceTransport.send('control', JSON.stringify(message), expiresAtMs);
       if (!this.isCurrentContext(context, generation) || !this.active) return;
@@ -402,7 +302,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
         offer,
         acceptedClasses: dataClasses,
         retentionSeconds: Math.min(offer.retentionSeconds, consent.retention_seconds),
-        trainerClass: this.allowedTrainerClass(context, offer.trainerClass, consentPair),
+        trainerClass: allowedTrainerClass(context, offer.trainerClass, consentPair),
         recipientConsentDigest: context.consent.consentDigest,
       });
       const message = await this.crypto.sign('offer', payload, expiresAtMs);
@@ -493,7 +393,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       if (
         complete.length !== offer.groupIds.length
         || complete.some(value => !offer.groupIds.includes(value.groupId))
-        || this.quarantineRows.some(value =>
+        || this.evidenceView.quarantineRows.some(value =>
           offer.groupIds.includes(value.groupId) && value.state !== 'quarantined')
       ) throw new SpeechEvidenceValidationError('speech_evidence_curation_transfer_incomplete');
       const groups: { groupId: string; chunksB64: string[] }[] = [];
@@ -510,30 +410,12 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
         groups.push({ groupId, chunksB64 });
       }
       if (!this.isCurrentContext(context, generation) || !this.active) return;
-      const groupIds = [...offer.groupIds].sort();
-      const resolutionDigest = await sha256Canonical({
-        offer_id: offer.offerId,
-        inventory_root_digest: offer.inventoryRootDigest,
-        quarantined_group_ids: groupIds,
-      });
-      const resultDigest = await sha256Canonical({
-        accepted: [],
-        quarantined: groupIds,
-        rejected: [],
-      });
-      const requestMessage = await this.crypto.sign('receipt', {
-        traffic_class: 'control',
-        receipt_id: `curation-request-${crypto.randomUUID()}`,
-        offer_id: offer.offerId,
-        inventory_root_digest: offer.inventoryRootDigest,
-        resolution_digest: resolutionDigest,
-        accepted_group_ids: [],
-        rejected_group_ids: [],
-        quarantined_group_ids: groupIds,
-        consent_digest: context.consent.consentDigest,
-        policy_digest: PEER_CURATION_REQUEST_POLICY_DIGEST,
-        result_digest: resultDigest,
-      }, Math.min(offer.expiresAtMs, context.consent.consent.expires_at_ms, Date.now() + 5 * 60_000));
+      const requestPayload = await buildHubCurationRequestPayload(offer, context);
+      const requestMessage = await this.crypto.sign(
+        'receipt',
+        requestPayload,
+        Math.min(offer.expiresAtMs, context.consent.consent.expires_at_ms, Date.now() + 5 * 60_000),
+      );
       const response = await this.hubCuration.request({
         hubUrl: context.hubUrl,
         binding: hubCurationBinding(context, offer),
@@ -561,8 +443,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       context.sessionId, context.pairId, context.epoch, offer.offerId, offer.groupIds,
     ).catch(() => 0);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
-    this.lineage = Object.freeze(this.lineage.map(row =>
-      offer.groupIds.includes(row.groupId) ? Object.freeze({ ...row, state: 'revoked' as const }) : row));
+    this.evidenceView.lineage = lineageWithRevokedGroups(this.evidenceView.lineage, offer.groupIds);
     try {
       const invalidated = await firstValueFrom(this.api.invalidate(
         context.hubUrl, offer.offerId, 'speech_evidence_user_revoked',
@@ -591,7 +472,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   }
 
   localOverride(regionId: string, candidateId: string): void {
-    this.conflictRegions = Object.freeze(this.conflictRegions.map(region =>
+    this.evidenceView.conflictRegions = Object.freeze(this.evidenceView.conflictRegions.map(region =>
       region.regionId === regionId && region.candidateIds.includes(candidateId)
         ? Object.freeze({ ...region, selectedCandidateId: candidateId })
         : region));
@@ -616,14 +497,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   private async handleInbound(message: SpeechEvidenceMessage, generation: number): Promise<void> {
     if (generation !== this.generation) return;
     const context = this.requireActiveContext();
-    if (
-      message.session_id !== context.sessionId
-      || message.pair_id !== context.pairId
-      || message.epoch !== context.epoch
-      || message.sender_id !== context.remotePeerId
-      || message.audience_id !== context.localPeerId
-      || message.consent_version !== context.consent.consent.consent_version
-    ) throw new SpeechEvidenceValidationError('speech_evidence_context_mismatch');
+    assertInboundBoundToContext(message, context);
     if (message.message_type === 'offer') await this.handleOffer(message, context, generation);
     else if (message.message_type === 'chunk') await this.handleChunk(message, context, generation);
     else if (message.message_type === 'chunk_ack') await this.handleChunkAck(message, context, generation);
@@ -645,50 +519,13 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     if (incoming.expiresAtMs <= Date.now()) throw new SpeechEvidenceValidationError('speech_evidence_offer_expired');
     const stage = message.payload['stage'];
     if (stage === 'proposal') {
-      const allowedClasses = allowedDataClasses(context.consent);
-      if (
-        incoming.recipientId !== context.localPeerId
-        || incoming.senderConsentDigest !== consentPair.remote.digest
-        || incoming.recipientConsentDigest !== context.consent.consentDigest
-        || incoming.direction !== context.consent.consent.direction
-        || incoming.purpose !== context.consent.consent.purpose
-        || incoming.dataClasses.some(value => peerEvidenceBulkAcceptForbidden(value)
-          || !allowedClasses.has(value as 'transcript' | 'text_corrections')
-          || !consentPair.remote.dataClasses.includes(value))
-        || incoming.fields.some(value => value !== 'transcript' || !consentPair.remote.fields.includes(value))
-        || incoming.retentionSeconds > Math.min(
-          context.consent.consent.retention_seconds,
-          consentPair.remote.maximumRetentionSeconds,
-        )
-        || (incoming.trainerClass === 'speech_adaptation'
-          && (!context.consent.consent.grants.dataset_import || !context.consent.consent.grants.training))
-      ) throw new SpeechEvidenceValidationError('speech_evidence_offer_scope_denied');
+      assertIncomingProposalInScope(incoming, context, consentPair);
       this.offer = incoming;
       this.emit('speech_evidence_offer_received', { state: 'offered', reasonCode: null });
       return;
     }
     const current = this.requireOffer();
-    if (
-      stage !== 'acceptance'
-      || current.senderId !== context.localPeerId
-      || incoming.offerId !== current.offerId
-      || incoming.senderConsentDigest !== current.senderConsentDigest
-      || incoming.recipientConsentDigest !== consentPair.remote.digest
-      || incoming.scopeDigest !== current.scopeDigest
-      || incoming.inventoryRootDigest !== current.inventoryRootDigest
-      || incoming.direction !== current.direction
-      || incoming.purpose !== current.purpose
-      || incoming.groupIds.some(value => !current.groupIds.includes(value))
-      || incoming.groupPreviews.some(value => {
-        const proposed = current.groupPreviews.find(row => row.groupId === value.groupId);
-        return !proposed || canonicalJson(value.value) !== canonicalJson(proposed.value);
-      })
-      || incoming.dataClasses.some(value => !current.dataClasses.includes(value))
-      || incoming.fields.some(value => !current.fields.includes(value))
-      || incoming.retentionSeconds > current.retentionSeconds
-      || (current.trainerClass === 'none' && incoming.trainerClass !== 'none')
-      || incoming.totalBytes > current.totalBytes
-    ) throw new SpeechEvidenceValidationError('speech_evidence_offer_acceptance_invalid');
+    assertAcceptanceNarrowsOffer(stage, incoming, current, context, consentPair);
     const authorized = await firstValueFrom(this.api.authorizeTransfer(context.hubUrl, incoming.offerId));
     if (!this.isCurrentContext(context, generation) || !this.active) return;
     this.offer = await this.verifyOfferPreview(
@@ -725,16 +562,11 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       this.fail('speech_evidence_chunk_index_conflict');
       return;
     }
-    const payload = message.payload;
-    const ack = await this.crypto.sign('chunk_ack', {
-      traffic_class: 'control',
-      offer_id: offerId,
-      group_id: groupId,
-      acknowledged_indices: [Number(payload['chunk_index'])],
-      first_missing_index: stored.snapshot.firstMissingIndex,
-      received_bytes: stored.snapshot.receivedBytes,
-      complete: stored.snapshot.complete,
-    }, Math.min(message.expires_at_ms, Date.now() + 5 * 60_000));
+    const ack = await this.crypto.sign(
+      'chunk_ack',
+      chunkAckPayload(offerId, groupId, message.payload['chunk_index'], stored.snapshot),
+      Math.min(message.expires_at_ms, Date.now() + 5 * 60_000),
+    );
     const delivered = await this.evidenceTransport.send('control', JSON.stringify(ack), ack.expires_at_ms);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
     if (!delivered) {
@@ -762,18 +594,13 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     if (message.payload['offer_id'] !== offer.offerId) {
       throw new SpeechEvidenceValidationError('speech_evidence_receipt_offer_mismatch');
     }
-    const accepted = new Set(stringArray(message.payload['accepted_group_ids']));
-    const rejected = new Set(stringArray(message.payload['rejected_group_ids']));
-    const quarantined = new Set(stringArray(message.payload['quarantined_group_ids']));
+    const accepted = stringArray(message.payload['accepted_group_ids']);
+    const rejected = stringArray(message.payload['rejected_group_ids']);
+    const quarantined = stringArray(message.payload['quarantined_group_ids']);
     if ([...accepted, ...rejected, ...quarantined].some(groupId => !offer.groupIds.includes(groupId))) {
       throw new SpeechEvidenceValidationError('speech_evidence_receipt_groups_invalid');
     }
-    this.lineage = Object.freeze(this.lineage.map(row => Object.freeze({
-      ...row,
-      state: accepted.has(row.groupId) ? 'accepted' as const
-        : rejected.has(row.groupId) ? 'rejected' as const
-          : quarantined.has(row.groupId) ? 'quarantined' as const : row.state,
-    })));
+    this.evidenceView.lineage = lineageWithReceiptStates(this.evidenceView.lineage, accepted, rejected, quarantined);
     this.emit('speech_evidence_peer_receipt_verified', {
       receiptId: String(message.payload['receipt_id']),
       receiptVerification: 'peer_verified',
@@ -785,37 +612,13 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     context: PeerEvidenceSyncContext,
     generation: number,
   ): Promise<void> {
-    const candidates = message.payload['candidates'];
-    if (!Array.isArray(candidates)) throw new SpeechEvidenceValidationError('speech_evidence_candidates_invalid');
-    const candidateIds = stringArray(message.payload['candidate_ids']);
-    if (candidateIds.length !== candidates.length) {
-      throw new SpeechEvidenceValidationError('speech_evidence_candidate_ids_invalid');
-    }
-    const projected = Object.freeze(await Promise.all(candidates.map(async (raw, index) => {
-      const value = object(raw, 'speech_evidence_candidate_invalid');
-      const text = boundedText(value['text']);
-      return Object.freeze({
-        candidateId: candidateIds[index],
-        contributorLabel: 'Peer',
-        sourceLabel: 'signierte Resolution-Evidence',
-        revision: 1,
-        text,
-        verified: true,
-      });
-    })));
+    const projected = await resolutionCandidates(message.payload);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
-    this.conflictCandidates = projected;
-    this.resolutionHash = String(message.payload['result_digest']);
-    this.resolutionPolicyVersion = String(message.payload['policy_version']);
+    this.evidenceView.conflictCandidates = projected;
+    this.evidenceView.resolutionHash = String(message.payload['result_digest']);
+    this.evidenceView.resolutionPolicyVersion = String(message.payload['policy_version']);
     const unresolved = stringArray(message.payload['unresolved_region_ids']);
-    this.conflictRegions = Object.freeze(unresolved.map(regionId => Object.freeze({
-      regionId,
-      kind: 'unresolved',
-      candidateIds: Object.freeze(this.conflictCandidates.map(value => value.candidateId)),
-      selectedCandidateId: null,
-      unresolved: true,
-      reasonCode: 'hub_curation_required',
-    })));
+    this.evidenceView.conflictRegions = unresolvedResolutionRegions(unresolved, this.evidenceView.conflictCandidates);
     this.emit('speech_evidence_resolution_verified');
   }
 
@@ -832,25 +635,13 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     await this.quarantine.removeGroups(context.sessionId, context.pairId, context.epoch, offer.offerId, groups);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
     this.evidence.revoke(offer.offerId, 'speech_evidence_remote_revoked');
-    this.lineage = Object.freeze(this.lineage.map(row =>
-      groups.includes(row.groupId) ? Object.freeze({ ...row, state: 'revoked' as const }) : row));
+    this.evidenceView.lineage = lineageWithRevokedGroups(this.evidenceView.lineage, groups);
     await this.restoreQuarantine(context, generation);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
-    const groupResults = groups.map(groupId => ({
-      group_id: groupId,
-      state: 'deleted',
-      reason_code: 'local_cleanup_complete',
-    }));
-    const impactDigest = await sha256Canonical(groupResults);
-    const ack = await this.crypto.sign('revocation_ack', {
-      traffic_class: 'control',
-      revocation_id: message.payload['revocation_id'],
-      scope_digest: offer.scopeDigest,
-      revocation_epoch: message.payload['revocation_epoch'],
-      impact_digest: impactDigest,
-      group_results: groupResults,
-      decision: 'complete',
-    }, Math.min(message.expires_at_ms, Date.now() + 5 * 60_000));
+    const ackPayload = await revocationAckPayload(message, offer.scopeDigest, groups);
+    const ack = await this.crypto.sign(
+      'revocation_ack', ackPayload, Math.min(message.expires_at_ms, Date.now() + 5 * 60_000),
+    );
     const delivered = await this.evidenceTransport.send('control', JSON.stringify(ack), ack.expires_at_ms);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
     this.emit('speech_evidence_remote_revocation_applied', {
@@ -861,23 +652,8 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   }
 
   private handleRevocationAck(message: SpeechEvidenceMessage): void {
-    const pending = this.pendingRevocation;
-    if (
-      !pending
-      || message.payload['revocation_id'] !== pending.revocationId
-      || message.payload['scope_digest'] !== pending.scopeDigest
-      || message.payload['revocation_epoch'] !== pending.revocationEpoch
-    ) throw new SpeechEvidenceValidationError('speech_evidence_revocation_ack_binding_mismatch');
-    const results = message.payload['group_results'];
-    if (!Array.isArray(results)) throw new SpeechEvidenceValidationError('speech_evidence_revocation_ack_invalid');
-    const resolved = new Set(results
-      .map(value => object(value, 'speech_evidence_revocation_ack_invalid'))
-      .filter(value => ['deleted', 'use_stopped', 'not_found'].includes(String(value['state'])))
-      .map(value => String(value['group_id'])));
-    if ([...resolved].some(groupId => !pending.groupIds.includes(groupId))) {
-      throw new SpeechEvidenceValidationError('speech_evidence_revocation_ack_groups_invalid');
-    }
-    pending.resolved = resolved.size === pending.groupIds.length && message.payload['decision'] === 'complete';
+    const pending = verifiedRevocationAckTarget(message, this.pendingRevocation);
+    pending.resolved = revocationAckResolves(message, pending);
     if (pending.resolved) {
       this.stopRevocationTimer();
       this.emit('speech_evidence_revocation_acknowledged', {
@@ -943,15 +719,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   }
 
   private currentSourceRevisions(): ReadonlyMap<string, number> {
-    const sourceRevisions = new Map<string, number>();
-    for (const turn of this.transcripts.turns$.value) {
-      if (typeof turn.sourceDigest !== 'string' || !/^[a-f0-9]{64}$/.test(turn.sourceDigest)) continue;
-      sourceRevisions.set(
-        turn.sourceDigest,
-        Math.max(sourceRevisions.get(turn.sourceDigest) ?? 0, turn.revision),
-      );
-    }
-    return sourceRevisions;
+    return currentSourceRevisions(this.transcripts.turns$.value);
   }
 
   private async projectCompletedGroup(
@@ -964,7 +732,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     );
     const chunks: Uint8Array[] = [];
     let bytes: Uint8Array | null = null;
-    let payload: ReturnType<typeof parseEvidenceGroup>;
+    let payload: PeerEvidenceGroupPayload;
     try {
       for (const message of messages) {
         chunks.push(await this.evidence.decryptChunk(message));
@@ -983,49 +751,18 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     }
     await this.restoreQuarantine(context, generation);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
-    const remoteCandidates: PeerTranscriptCandidateView[] = payload.candidates.map((candidate, index) => ({
-      candidateId: `${snapshot.groupId}-remote-${index}`,
-      contributorLabel: 'Peer',
-      sourceLabel: candidate.authority,
-      revision: candidate.revision,
-      text: candidate.text,
-      verified: true,
-    }));
     const local = this.transcripts.turns$.value.find(turn => turn.turnId === payload.turnId);
-    const localCandidates: PeerTranscriptCandidateView[] = (local?.originalCandidates ?? []).map((candidate, index) => ({
-      candidateId: `${snapshot.groupId}-local-${index}`,
-      contributorLabel: 'Lokal',
-      sourceLabel: candidate.authority,
-      revision: candidate.revision,
-      text: candidate.text,
-      verified: true,
-    }));
-    const candidates = [...localCandidates, ...remoteCandidates];
-    this.conflictCandidates = Object.freeze(candidates.map(value => Object.freeze(value)));
-    const texts = new Set(candidates.map(value => value.text));
-    this.conflictRegions = Object.freeze([Object.freeze({
-      regionId: `region-${snapshot.groupId}`,
-      kind: texts.size <= 1 ? 'exact' : 'lexical',
-      candidateIds: Object.freeze(candidates.map(value => value.candidateId)),
-      selectedCandidateId: texts.size <= 1 ? candidates[0]?.candidateId ?? null : null,
-      unresolved: texts.size > 1,
-      reasonCode: texts.size <= 1 ? 'exact_match' : 'hub_resolution_required',
-    })]);
-    this.resolutionHash = snapshot.lineageDigests.join(':');
-    this.resolutionPolicyVersion = 'display-only-no-admission-v1';
+    const conflict = completedGroupConflict(snapshot.groupId, payload, local);
+    this.evidenceView.conflictCandidates = conflict.candidates;
+    this.evidenceView.conflictRegions = conflict.regions;
+    this.evidenceView.resolutionHash = snapshot.lineageDigests.join(':');
+    this.evidenceView.resolutionPolicyVersion = 'display-only-no-admission-v1';
     const contributorDigest = await sha256Text(`peer\0${context.remotePeerId}`);
     const fieldDigest = await sha256Canonical(['transcript']);
     if (!this.isCurrentContext(context, generation) || !this.active) return;
-    this.lineage = Object.freeze([
-      ...this.lineage.filter(value => value.groupId !== snapshot.groupId),
-      Object.freeze({
-        groupId: snapshot.groupId,
-        contributorDigest,
-        consentDigest: context.consent.consentDigest,
-        fieldProvenanceDigests: Object.freeze([fieldDigest]),
-        state: 'quarantined' as const,
-      }),
-    ]);
+    this.evidenceView.lineage = lineageWithQuarantinedGroup(
+      this.evidenceView.lineage, snapshot.groupId, contributorDigest, fieldDigest, context.consent.consentDigest,
+    );
   }
 
   private async restoreHubState(context: PeerEvidenceSyncContext, generation: number): Promise<void> {
@@ -1071,24 +808,18 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   ): Promise<void> {
     const receipt = response.curation.receipt;
     const expected = [...offer.groupIds].sort();
-    const accepted = new Set(receipt.acceptedGroupIds);
-    const rejected = new Set(receipt.rejectedGroupIds);
-    const quarantined = new Set(receipt.quarantinedGroupIds);
-    this.lineage = Object.freeze(this.lineage.map(row => Object.freeze({
-      ...row,
-      state: accepted.has(row.groupId) ? 'accepted' as const
-        : rejected.has(row.groupId) ? 'rejected' as const
-          : quarantined.has(row.groupId) ? 'quarantined' as const : row.state,
-    })));
-    this.resolutionHash = receipt.resolutionDigest;
-    this.resolutionPolicyVersion = receipt.policyDigest;
+    this.evidenceView.lineage = lineageWithReceiptStates(
+      this.evidenceView.lineage, receipt.acceptedGroupIds, receipt.rejectedGroupIds, receipt.quarantinedGroupIds,
+    );
+    this.evidenceView.resolutionHash = receipt.resolutionDigest;
+    this.evidenceView.resolutionPolicyVersion = receipt.policyDigest;
     await this.quarantine.removeGroups(
       context.sessionId, context.pairId, context.epoch, offer.offerId, expected,
     );
     if (!this.isCurrentContext(context, generation) || offer !== this.offer) return;
     await this.restoreQuarantine(context, generation);
     if (!this.isCurrentContext(context, generation) || offer !== this.offer) return;
-    const datasetLineageNodes = await buildDatasetLineageNodes(response, offer, this.lineage);
+    const datasetLineageNodes = await buildDatasetLineageNodes(response, offer, this.evidenceView.lineage);
     if (!this.isCurrentContext(context, generation) || offer !== this.offer) return;
     this.emit('speech_evidence_hub_receipt_verified', {
       pending: false,
@@ -1111,20 +842,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       context.sessionId, context.pairId, context.epoch, this.offer?.offerId,
     );
     if (!this.isCurrentContext(context, generation) || !this.active) return;
-    this.quarantineRows = Object.freeze(summaries.map(row => {
-      const localReason = this.localPreAdmissionReasons.get(row.groupId) ?? null;
-      return Object.freeze({
-        offerId: row.offerId,
-        groupId: row.groupId,
-        receivedChunks: row.receivedChunks,
-        chunkCount: row.chunkCount,
-        firstMissingIndex: row.firstMissingIndex,
-        receivedBytes: row.receivedBytes,
-        state: row.conflictCount || localReason ? 'conflict' as const
-          : row.complete ? 'quarantined' as const : 'receiving' as const,
-        reasonCode: row.conflictCount ? 'speech_evidence_chunk_index_conflict' : localReason,
-      });
-    }));
+    this.evidenceView.quarantineRows = quarantineRowsFromSummaries(summaries, this.localPreAdmissionReasons);
   }
 
   private startStatusPoll(): void {
@@ -1152,17 +870,9 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       if (!this.isCurrentContext(context, generation) || !this.active || offer !== this.offer) return;
       for (const status of statuses) {
         if (!status) continue;
-        this.outboundSnapshots.set(status.groupId, {
-          offerId: status.offerId,
-          groupId: status.groupId,
-          state: status.state === 'completed' ? 'completed' : status.state === 'active' ? 'active' : 'failed',
-          chunkCount: status.chunkCount,
-          acknowledgedChunks: status.acknowledgedChunks,
-          firstMissingIndex: status.firstMissingIndex,
-          inFlightBytes: status.inFlightBytes,
-          retries: this.outboundSnapshots.get(status.groupId)?.retries ?? 0,
-          reasonCode: status.reasonCode,
-        });
+        this.outboundSnapshots.set(status.groupId, outboundSnapshotFromHubStatus(
+          status, this.outboundSnapshots.get(status.groupId)?.retries ?? 0,
+        ));
       }
       if (this.outboundSnapshots.size) this.emitAggregatedOutbound('speech_evidence_transfer_status_refreshed');
       if (this.view$.value.sync.receiptVerification === 'hub_verified'
@@ -1183,16 +893,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     }
     pending.attempts += 1;
     try {
-      const message = await this.crypto.sign('revocation', {
-        traffic_class: 'control',
-        revocation_id: pending.revocationId,
-        group_ids: [...pending.groupIds],
-        scope_digest: pending.scopeDigest,
-        reason_code: 'speech_evidence_user_revoked',
-        revocation_epoch: pending.revocationEpoch,
-        deadline_at_ms: pending.deadlineAtMs,
-        requested_action: 'delete',
-      }, pending.deadlineAtMs);
+      const message = await this.crypto.sign('revocation', revocationRequestPayload(pending), pending.deadlineAtMs);
       await this.evidenceTransport.send('control', JSON.stringify(message), message.expires_at_ms);
     } catch {
       if (this.context && pending === this.pendingRevocation && !pending.resolved && this.active) {
@@ -1229,44 +930,8 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
     if (!context) return;
     const allowed = allowedDataClasses(context.consent);
     const built = await Promise.all(turns
-      .filter(turn => ['final', 'corrected', 'correction_failed'].includes(turn.state)
-        && typeof turn.sourceDigest === 'string' && /^[a-f0-9]{64}$/.test(turn.sourceDigest))
-      .map(async turn => {
-        const dataClass = turn.state === 'corrected' ? 'text_corrections' as const : 'transcript' as const;
-        if (!allowed.has(dataClass)) return null;
-        const payload = {
-          schema: 'ananta.peer-transcript-evidence.v1',
-          turn_id: turn.turnId,
-          revision: turn.revision,
-          state: turn.state,
-          source_digest: turn.sourceDigest,
-          candidates: turn.originalCandidates.map(candidate => ({
-            revision: candidate.revision,
-            authority: candidate.authority,
-            text: candidate.text,
-          })),
-        };
-        const bytes = new TextEncoder().encode(canonicalJson(payload));
-        if (!bytes.byteLength || bytes.byteLength > 1024 * 1024) return null;
-        const contentDigest = await sha256Bytes(bytes);
-        const groupId = await speechEvidenceGroupId(turn.sourceDigest, turn.revision);
-        const comparison = await contentFreeComparisonProjection(turn);
-        return Object.freeze({
-          view: Object.freeze({
-            groupId,
-            turnId: turn.turnId,
-            revision: turn.revision,
-            dataClass,
-            fields: Object.freeze(['transcript']),
-            byteLength: bytes.byteLength,
-            sourceState: turn.state,
-          }),
-          bytes,
-          contentDigest,
-          sourceGroupDigest: turn.sourceDigest,
-          ...comparison,
-        } satisfies LocalEvidenceArtifact);
-      }));
+      .filter(isShareableTranscriptTurn)
+      .map(turn => buildLocalEvidenceArtifact(turn, allowed)));
     if (generation !== this.localBuildGeneration || context !== this.context) return;
     this.localArtifacts.clear();
     for (const artifact of built) if (artifact) this.localArtifacts.set(artifact.view.groupId, artifact);
@@ -1274,19 +939,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   }
 
   private emitAggregatedOutbound(reasonCode: string): void {
-    const snapshots = [...this.outboundSnapshots.values()];
-    const acknowledged = snapshots.reduce((total, value) => total + value.acknowledgedChunks, 0);
-    const count = snapshots.reduce((total, value) => total + value.chunkCount, 0);
-    this.emit(reasonCode, {
-      state: snapshots.length && snapshots.every(value => value.state === 'completed') ? 'completed'
-        : snapshots.some(value => value.state === 'failed') ? 'failed' : 'transferring',
-      acknowledgedChunks: acknowledged,
-      chunkCount: count,
-      firstMissingIndex: snapshots.length ? Math.min(...snapshots.map(value => value.firstMissingIndex)) : 0,
-      inFlightBytes: snapshots.reduce((total, value) => total + value.inFlightBytes, 0),
-      retries: snapshots.reduce((total, value) => total + value.retries, 0),
-      reasonCode: snapshots.find(value => value.reasonCode)?.reasonCode ?? null,
-    });
+    this.emit(reasonCode, aggregateOutboundSnapshots([...this.outboundSnapshots.values()]));
   }
 
   private emit(reasonCode: string, patch: Partial<PeerEvidenceSyncView> = {}): void {
@@ -1295,13 +948,7 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
       ...previous,
       ...patch,
       localGroups: Object.freeze([...this.localArtifacts.values()].map(value => value.view)),
-      quarantine: this.quarantineRows,
-      quarantineCount: this.quarantineRows.filter(value => value.state === 'quarantined' || value.state === 'conflict').length,
-      lineage: this.lineage,
-      candidates: this.conflictCandidates,
-      regions: this.conflictRegions,
-      resolutionHash: this.resolutionHash,
-      resolutionPolicyVersion: this.resolutionPolicyVersion,
+      ...this.evidenceView.project(),
     });
     this.view$.next(Object.freeze({ offer: this.offer ? offerView(this.offer, this.context?.localPeerId ?? '') : null, sync, reasonCode }));
   }
@@ -1336,541 +983,4 @@ export class PeerEvidenceSyncFacade implements OnDestroy {
   private isCurrentContext(context: PeerEvidenceSyncContext, generation: number): boolean {
     return generation === this.generation && context === this.context;
   }
-
-  private requireTrainerClass(
-    context: PeerEvidenceSyncContext,
-    value: string,
-    consentPair: SpeechEvidenceConsentPairAuthority,
-  ): void {
-    if (value !== 'none' && value !== 'speech_adaptation') {
-      throw new SpeechEvidenceValidationError('speech_evidence_trainer_class_invalid');
-    }
-    if (value === 'speech_adaptation'
-      && (!context.consent.consent.grants.dataset_import
-        || !context.consent.consent.grants.training
-        || !consentPair.remote.trainerClasses.includes('speech_adaptation'))) {
-      throw new SpeechEvidenceValidationError('speech_evidence_training_consent_required');
-    }
-  }
-
-  private allowedTrainerClass(
-    context: PeerEvidenceSyncContext,
-    requested: string,
-    consentPair: SpeechEvidenceConsentPairAuthority,
-  ): 'none' | 'speech_adaptation' {
-    if (requested === 'speech_adaptation'
-      && context.consent.consent.grants.dataset_import
-      && context.consent.consent.grants.training
-      && consentPair.remote.trainerClasses.includes('speech_adaptation')) return 'speech_adaptation';
-    return 'none';
-  }
-}
-
-function emptySync(state: string): PeerEvidenceSyncView {
-  return Object.freeze({
-    state,
-    pending: false,
-    acknowledgedChunks: 0,
-    chunkCount: 0,
-    firstMissingIndex: 0,
-    inFlightBytes: 0,
-    retries: 0,
-    quarantineCount: 0,
-    receiptId: null,
-    receiptVerification: 'none',
-    curationTaskId: null,
-    datasetId: null,
-    datasetManifestDigest: null,
-    datasetLineageNodes: Object.freeze([]),
-    revocationState: null,
-    reasonCode: null,
-    localGroups: Object.freeze([]),
-    quarantine: Object.freeze([]),
-    lineage: Object.freeze([]),
-    candidates: Object.freeze([]),
-    regions: Object.freeze([]),
-    resolutionHash: '',
-    resolutionPolicyVersion: '',
-  });
-}
-
-function validateContext(value: PeerEvidenceSyncContext): PeerEvidenceSyncContext {
-  const consent = value.consent.consent;
-  const participants = new Set([consent.speaker_id, consent.recipient_id]);
-  if (
-    !/^https?:\/\/[^\s]+$/.test(value.hubUrl)
-    || value.pairId !== value.sessionId
-    || consent.session_id !== value.sessionId
-    || consent.pair_id !== value.pairId
-    || consent.session_epoch !== value.epoch
-    || consent.owner_subject !== consent.speaker_id
-    || participants.size !== 2
-    || !participants.has(value.localPeerId)
-    || !participants.has(value.remotePeerId)
-    || consent.required_signers.length !== 2
-    || consent.required_signers.some(signer => !participants.has(signer))
-    || consent.direction !== 'sender_to_receiver'
-    || consent.state !== 'active'
-    || consent.expires_at_ms <= Date.now()
-    || (!consent.grants.transcript_share && !consent.grants.feature_share)
-  ) throw new SpeechEvidenceValidationError('peer_evidence_sync_context_invalid');
-  return Object.freeze({ ...value, hubUrl: value.hubUrl.replace(/\/+$/, '') });
-}
-
-function contextKey(value: PeerEvidenceSyncContext | null): string {
-  return value ? [
-    value.hubUrl, value.sessionId, value.pairId, value.epoch, value.localPeerId, value.remotePeerId,
-    value.consent.consent.consent_version, value.consent.consentDigest,
-  ].join('\0') : '';
-}
-
-function validatePairConsentAuthority(
-  value: SpeechEvidenceConsentPairAuthority,
-  context: PeerEvidenceSyncContext,
-): SpeechEvidenceConsentPairAuthority {
-  const local = value.local;
-  const remote = value.remote;
-  const consent = context.consent.consent;
-  if (
-    local.peerId !== context.localPeerId
-    || remote.peerId !== context.remotePeerId
-    || local.pairId !== context.pairId
-    || remote.pairId !== context.pairId
-    || local.version !== consent.consent_version
-    || remote.version !== local.version
-    || local.digest !== context.consent.consentDigest
-    || local.expiresAtMs > consent.expires_at_ms
-    || local.expiresAtMs <= Date.now()
-    || remote.expiresAtMs <= Date.now()
-    || !local.directions.includes(consent.direction)
-    || !remote.directions.includes(consent.direction)
-    || !local.purposes.includes(consent.purpose)
-    || !remote.purposes.includes(consent.purpose)
-  ) throw new SpeechEvidenceValidationError('speech_evidence_consent_authority_stale');
-  return value;
-}
-
-function offerFromMessage(message: SpeechEvidenceMessage, localConsentVersion: number): ActiveOffer {
-  const payload = message.payload;
-  const stage = String(payload['stage']);
-  if (stage !== 'proposal' && stage !== 'acceptance') {
-    throw new SpeechEvidenceValidationError('speech_evidence_offer_stage_invalid');
-  }
-  const groupPreviews = speechEvidenceGroupPreviews(payload);
-  return Object.freeze({
-    offerId: identifier(payload['offer_id']),
-    sessionId: message.session_id,
-    pairId: message.pair_id,
-    epoch: message.epoch,
-    senderId: stage === 'proposal' ? message.sender_id : message.audience_id,
-    recipientId: stage === 'proposal' ? message.audience_id : message.sender_id,
-    inventoryRootDigest: digest(payload['inventory_root_digest']),
-    direction: identifier(payload['direction']),
-    purpose: identifier(payload['purpose']),
-    dataClasses: Object.freeze(stringArray(payload['data_classes'])),
-    fields: Object.freeze(stringArray(payload['fields'])),
-    retentionSeconds: positiveInteger(payload['retention_seconds']),
-    trainerClass: identifier(payload['trainer_class']),
-    groupIds: Object.freeze(stringArray(payload['group_ids'])),
-    groupPreviews,
-    groupPreviewDigest: message.payload_digest,
-    previewVerified: false,
-    totalBytes: positiveInteger(payload['total_bytes']),
-    senderConsentDigest: digest(payload['sender_consent_digest']),
-    recipientConsentDigest: digest(payload['recipient_consent_digest']),
-    scopeDigest: digest(payload['scope_digest']),
-    expiresAtMs: message.expires_at_ms,
-    state: stage === 'proposal' ? 'proposed' : 'accepted',
-    transferStarted: false,
-    senderConsentVersion: stage === 'proposal' ? message.consent_version : localConsentVersion,
-    recipientConsentVersion: stage === 'acceptance' ? message.consent_version : localConsentVersion,
-  });
-}
-
-function offerFromRecord(
-  record: SpeechEvidenceOfferRecord,
-  context: PeerEvidenceSyncContext,
-  consentPair: SpeechEvidenceConsentPairAuthority,
-): ActiveOffer {
-  const versionFor = (peerId: string): number => peerId === context.localPeerId
-    ? consentPair.local.version
-    : peerId === context.remotePeerId
-      ? consentPair.remote.version
-      : 0;
-  const senderConsentVersion = versionFor(record.senderId);
-  const recipientConsentVersion = versionFor(record.recipientId);
-  if (!senderConsentVersion || !recipientConsentVersion) {
-    throw new SpeechEvidenceValidationError('speech_evidence_offer_pair_invalid');
-  }
-  return Object.freeze({
-    offerId: record.offerId,
-    sessionId: record.sessionId,
-    pairId: record.pairId,
-    epoch: record.epoch,
-    senderId: record.senderId,
-    recipientId: record.recipientId,
-    inventoryRootDigest: record.inventoryRootDigest,
-    direction: record.direction,
-    purpose: record.purpose,
-    dataClasses: record.dataClasses,
-    fields: record.fields,
-    retentionSeconds: record.retentionSeconds,
-    trainerClass: record.trainerClass,
-    groupIds: record.groupIds,
-    groupPreviews: record.groupPreviews,
-    groupPreviewDigest: record.groupPreviewDigest,
-    previewVerified: false,
-    totalBytes: record.totalBytes,
-    senderConsentDigest: record.senderConsentDigest,
-    recipientConsentDigest: record.recipientConsentDigest,
-    scopeDigest: record.scopeDigest,
-    expiresAtMs: record.expiresAtMs,
-    state: record.state,
-    transferStarted: record.transferStarted,
-    senderConsentVersion,
-    recipientConsentVersion,
-  });
-}
-
-function consentDigestForPeer(
-  peerId: string,
-  context: PeerEvidenceSyncContext,
-  consentPair: SpeechEvidenceConsentPairAuthority,
-): string {
-  if (peerId === context.localPeerId) return consentPair.local.digest;
-  if (peerId === context.remotePeerId) return consentPair.remote.digest;
-  return '';
-}
-
-function hubCurationBinding(
-  context: PeerEvidenceSyncContext,
-  offer: ActiveOffer,
-): SpeechEvidenceHubCurationBinding {
-  return Object.freeze({
-    offerId: offer.offerId,
-    inventoryRootDigest: offer.inventoryRootDigest,
-    pairId: offer.pairId,
-    direction: offer.direction,
-    consentDigest: context.consent.consentDigest,
-    groupIds: Object.freeze([...offer.groupIds]),
-  });
-}
-
-function offerView(offer: ActiveOffer, localPeerId: string): PeerEvidenceOfferView {
-  const action: PeerEvidenceOfferView['action'] = ['invalidated', 'expired', 'rejected'].includes(offer.state)
-    ? 'terminal'
-    : offer.state === 'proposed' && offer.recipientId === localPeerId
-      ? 'accept'
-      : offer.state === 'proposed'
-        ? 'awaiting_peer'
-        : 'transfer';
-  return Object.freeze({
-    offerId: offer.offerId,
-    direction: offer.direction,
-    purpose: offer.purpose,
-    dataClasses: offer.dataClasses,
-    fields: offer.fields,
-    retentionSeconds: offer.retentionSeconds,
-    trainerClass: offer.trainerClass,
-    groupCount: offer.groupIds.length,
-    groupPreviews: offer.groupPreviews,
-    previewVerified: offer.previewVerified,
-    totalBytes: offer.totalBytes,
-    senderConsentVersion: offer.senderConsentVersion,
-    recipientConsentVersion: offer.recipientConsentVersion,
-    state: offer.state,
-    action,
-    expiresAtMs: offer.expiresAtMs,
-  });
-}
-
-function allowedDataClasses(consent: SpeechEvidenceConsentReadModel): Set<'transcript' | 'text_corrections'> {
-  const values = new Set<'transcript' | 'text_corrections'>();
-  if (consent.consent.grants.transcript_share && consent.consent.data_classes.includes('transcript')) {
-    values.add('transcript');
-    values.add('text_corrections');
-  }
-  if (consent.consent.grants.transcript_share && consent.consent.data_classes.includes('correction')) {
-    values.add('text_corrections');
-  }
-  return values;
-}
-
-function parseEvidenceGroup(bytes: Uint8Array): Readonly<{
-  turnId: string;
-  revision: number;
-  state: 'final' | 'corrected' | 'correction_failed';
-  sourceDigest: string;
-  candidates: readonly Readonly<{ revision: number; authority: string; text: string }>[];
-}> {
-  let raw: unknown;
-  try { raw = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
-  catch { throw new SpeechEvidenceValidationError('speech_evidence_group_payload_invalid'); }
-  const row = object(raw, 'speech_evidence_group_payload_invalid');
-  const fields = ['schema', 'turn_id', 'revision', 'state', 'source_digest', 'candidates'];
-  if (Object.keys(row).some(key => !fields.includes(key)) || fields.some(key => !(key in row))) {
-    throw new SpeechEvidenceValidationError('speech_evidence_group_payload_invalid');
-  }
-  if (row['schema'] !== 'ananta.peer-transcript-evidence.v1' || !Array.isArray(row['candidates'])
-    || !row['candidates'].length || row['candidates'].length > 32) {
-    throw new SpeechEvidenceValidationError('speech_evidence_group_payload_invalid');
-  }
-  const revision = positiveInteger(row['revision']);
-  const state = String(row['state']);
-  if (!['final', 'corrected', 'correction_failed'].includes(state)) {
-    throw new SpeechEvidenceValidationError('speech_evidence_group_state_invalid');
-  }
-  const sourceDigest = digest(row['source_digest']);
-  const candidates = row['candidates'].map(value => {
-    const candidate = object(value, 'speech_evidence_candidate_invalid');
-    const expected = ['revision', 'authority', 'text'];
-    if (Object.keys(candidate).some(key => !expected.includes(key)) || expected.some(key => !(key in candidate))) {
-      throw new SpeechEvidenceValidationError('speech_evidence_candidate_invalid');
-    }
-    const candidateRevision = positiveInteger(candidate['revision']);
-    if (candidateRevision > revision) {
-      throw new SpeechEvidenceValidationError('speech_evidence_candidate_revision_invalid');
-    }
-    return Object.freeze({
-      revision: candidateRevision,
-      authority: identifier(candidate['authority']),
-      text: boundedText(candidate['text']),
-    });
-  });
-  return Object.freeze({
-    turnId: identifier(row['turn_id']),
-    revision,
-    state: state as 'final' | 'corrected' | 'correction_failed',
-    sourceDigest,
-    candidates: Object.freeze(candidates),
-  });
-}
-
-async function recipientPreAdmissionReason(
-  payload: ReturnType<typeof parseEvidenceGroup>,
-  snapshot: SpeechEvidenceQuarantineGroupSnapshot,
-  expectedGroupId: string,
-  preview: SpeechEvidenceGroupPreview | undefined,
-): Promise<string | null> {
-  if (!preview) return 'speech_evidence_offer_preview_required';
-  if (
-    preview.sourceGroupDigest !== payload.sourceDigest
-    || preview.groupId !== expectedGroupId
-  ) return 'speech_evidence_source_group_mismatch';
-  if (preview.revision !== payload.revision) return 'speech_evidence_offer_preview_stale';
-  if (preview.sizeBytes !== snapshot.receivedBytes) return 'speech_evidence_offer_preview_size_mismatch';
-  const actualComparison = await contentFreeComparisonProjection(payload);
-  if (
-    preview.comparisonDigest !== actualComparison.comparisonDigest
-    || preview.resolutionState !== actualComparison.resolutionState
-    || preview.selectedCandidateDigest !== actualComparison.selectedCandidateDigest
-    || canonicalJson(preview.originalCandidates) !== canonicalJson(actualComparison.originalCandidates)
-    || canonicalJson(preview.unresolvedRegionDigests) !== canonicalJson(actualComparison.unresolvedRegionDigests)
-  ) return 'speech_evidence_comparison_projection_mismatch';
-  if (snapshot.groupId !== expectedGroupId || snapshot.conflictCount !== 0 || !snapshot.complete) {
-    return 'speech_evidence_local_digest_binding_failed';
-  }
-  const candidateBindings = new Set<string>();
-  for (const candidate of payload.candidates) {
-    const binding = `${candidate.authority}\0${candidate.revision}\0${candidate.text}`;
-    if (candidateBindings.has(binding)) return 'speech_evidence_local_candidate_replay';
-    candidateBindings.add(binding);
-    const text = candidate.text.toLowerCase();
-    if (/\bignore\s+(?:all\s+|any\s+)?(?:previous|prior)\s+(?:system\s+)?(?:instructions?|prompts?)\b/.test(text)
-      || /\btargeted[\s_-]+trigger\b/.test(text)) {
-      return 'speech_evidence_local_prompt_injection_risk';
-    }
-    if (/\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i.test(candidate.text)
-      || /\b(?:api[_ -]?key|access[_ -]?token|password|private[_ -]?key)\s*[:=]\s*\S+/i.test(candidate.text)) {
-      return 'speech_evidence_local_privacy_risk';
-    }
-  }
-  return null;
-}
-
-async function contentFreeComparisonProjection(value: Readonly<{
-  revision: number;
-  state: string;
-  sourceDigest: string | null;
-  originalCandidates?: readonly Readonly<{ revision: number; authority: string; text: string }>[];
-  candidates?: readonly Readonly<{ revision: number; authority: string; text: string }>[];
-}>): Promise<Readonly<{
-  originalCandidates: readonly SpeechEvidenceCandidateProjection[];
-  resolutionState: 'resolved' | 'unresolved';
-  selectedCandidateDigest: string | null;
-  unresolvedRegionDigests: readonly string[];
-  comparisonDigest: string;
-}>> {
-  const sourceGroupDigest = value.sourceDigest;
-  const rawCandidates = value.originalCandidates ?? value.candidates ?? [];
-  if (!sourceGroupDigest || !/^[a-f0-9]{64}$/.test(sourceGroupDigest) || !rawCandidates.length || rawCandidates.length > 32) {
-    throw new SpeechEvidenceValidationError('speech_evidence_candidate_projection_invalid');
-  }
-  const originalCandidates = Object.freeze(await Promise.all(rawCandidates.map(async (candidate, index) => Object.freeze({
-    ordinal: index + 1,
-    candidateDigest: await sha256Canonical({
-      domain: 'ananta.speech-evidence-original-candidate.v1',
-      source_group_digest: sourceGroupDigest,
-      ordinal: index + 1,
-      revision: candidate.revision,
-      authority: candidate.authority,
-      candidate_value: candidate.text,
-    }),
-    authorityDigest: await sha256Canonical({
-      domain: 'ananta.speech-evidence-candidate-authority.v1',
-      authority: candidate.authority,
-    }),
-    revision: candidate.revision,
-  }))));
-  if (new Set(originalCandidates.map(candidate => candidate.candidateDigest)).size !== originalCandidates.length) {
-    throw new SpeechEvidenceValidationError('speech_evidence_candidate_projection_invalid');
-  }
-  const resolutionState = value.state === 'correction_failed' ? 'unresolved' as const : 'resolved' as const;
-  const selectedCandidateDigest = resolutionState === 'resolved'
-    ? ([...originalCandidates].reverse().find(candidate => candidate.revision === value.revision)
-      ?? originalCandidates[originalCandidates.length - 1]).candidateDigest
-    : null;
-  const unresolvedRegionDigests = resolutionState === 'unresolved'
-    ? Object.freeze([await sha256Canonical({
-      domain: 'ananta.speech-evidence-unresolved-region.v1',
-      source_group_digest: sourceGroupDigest,
-      candidate_digests: originalCandidates.map(candidate => candidate.candidateDigest).sort(),
-    })])
-    : Object.freeze([] as string[]);
-  const comparisonDigest = await speechEvidenceComparisonDigest({
-    sourceGroupDigest,
-    revision: value.revision,
-    originalCandidates,
-    resolutionState,
-    selectedCandidateDigest,
-    unresolvedRegionDigests,
-  });
-  return Object.freeze({
-    originalCandidates,
-    resolutionState,
-    selectedCandidateDigest,
-    unresolvedRegionDigests,
-    comparisonDigest,
-  });
-}
-
-function concatenate(chunks: readonly Uint8Array[]): Uint8Array {
-  const size = chunks.reduce((total, value) => total + value.byteLength, 0);
-  if (!size || size > 1024 * 1024) throw new SpeechEvidenceValidationError('speech_evidence_group_size_invalid');
-  const result = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
-  return result;
-}
-
-function unique(values: readonly string[]): string[] {
-  if (!Array.isArray(values) || values.length > 4096) throw new SpeechEvidenceValidationError('speech_evidence_groups_invalid');
-  const result = [...new Set(values.map(identifier))];
-  if (result.length !== values.length) throw new SpeechEvidenceValidationError('speech_evidence_groups_invalid');
-  return result;
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length > 4096) throw new SpeechEvidenceValidationError('speech_evidence_groups_invalid');
-  return unique(value.map(identifier));
-}
-
-function object(value: unknown, reasonCode: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new SpeechEvidenceValidationError(reasonCode);
-  return value as Record<string, unknown>;
-}
-
-function identifier(value: unknown): string {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/.test(value)) {
-    throw new SpeechEvidenceValidationError('speech_evidence_identifier_invalid');
-  }
-  return value;
-}
-
-function digest(value: unknown): string {
-  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) {
-    throw new SpeechEvidenceValidationError('speech_evidence_digest_invalid');
-  }
-  return value;
-}
-
-function positiveInteger(value: unknown): number {
-  if (!Number.isSafeInteger(value) || Number(value) < 1) {
-    throw new SpeechEvidenceValidationError('speech_evidence_integer_invalid');
-  }
-  return Number(value);
-}
-
-function boundedText(value: unknown): string {
-  if (typeof value !== 'string' || !value.length || value.length > 32_768) {
-    throw new SpeechEvidenceValidationError('speech_evidence_text_invalid');
-  }
-  return value;
-}
-
-async function sha256Bytes(value: Uint8Array): Promise<string> {
-  const digestBytes = await crypto.subtle.digest('SHA-256', Uint8Array.from(value).buffer);
-  return [...new Uint8Array(digestBytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-async function sha256Text(value: string): Promise<string> {
-  return sha256Bytes(new TextEncoder().encode(value));
-}
-
-async function buildDatasetLineageNodes(
-  response: SpeechEvidenceHubCurationResponse,
-  offer: ActiveOffer,
-  evidenceLineage: readonly PeerEvidenceLineageView[],
-): Promise<readonly SpeechDatasetLineageNodeView[]> {
-  const curation = response.curation;
-  const manifestDigest = curation.datasetManifestDigest;
-  const taskId = curation.curationTaskId;
-  if (curation.state !== 'dataset_published' || !manifestDigest || !taskId) return Object.freeze([]);
-  const accepted = evidenceLineage.filter(value => value.state === 'accepted');
-  const contributors = [...new Set(accepted.map(value => value.contributorDigest))];
-  if (!contributors.length) contributors.push(await sha256Text(`peer\0${offer.senderId}`));
-  const fieldProvenance = [...new Set(accepted.flatMap(value => value.fieldProvenanceDigests))];
-  if (!fieldProvenance.length) fieldProvenance.push(await sha256Canonical([...offer.fields].sort()));
-  return Object.freeze([Object.freeze({
-    datasetId: curation.datasetId,
-    version: `sha256:${manifestDigest}`,
-    parentVersion: curation.datasetParentDigest ? `sha256:${curation.datasetParentDigest}` : null,
-    manifestDigest,
-    receiptId: curation.receipt.receiptId,
-    contributorDigests: Object.freeze(contributors.sort()),
-    direction: curation.receipt.direction,
-    consentDigest: curation.receipt.consentDigest,
-    fieldProvenanceDigests: Object.freeze(fieldProvenance.sort()),
-    createdByTaskId: taskId,
-  })]);
-}
-
-function bytesToBase64(value: Uint8Array): string {
-  let binary = '';
-  for (let offset = 0; offset < value.byteLength; offset += 0x8000) {
-    binary += String.fromCharCode(...value.subarray(offset, Math.min(value.byteLength, offset + 0x8000)));
-  }
-  return btoa(binary);
-}
-
-function sameSourceRevisions(
-  first: ReadonlyMap<string, number>,
-  second: ReadonlyMap<string, number>,
-): boolean {
-  if (first.size !== second.size) return false;
-  for (const [sourceDigest, revision] of first) {
-    if (second.get(sourceDigest) !== revision) return false;
-  }
-  return true;
-}
-
-function reason(error: unknown, fallback: string): string {
-  if (error && typeof error === 'object') {
-    const value = error as { error?: { error?: { code?: unknown } | string }; message?: unknown };
-    const nested = value.error?.error;
-    if (typeof nested === 'string' && /^[a-z][a-z0-9_]{2,159}$/.test(nested)) return nested;
-    if (nested && typeof nested === 'object' && typeof nested.code === 'string') return nested.code;
-    if (typeof value.message === 'string' && /^[a-z][a-z0-9_]{2,159}$/.test(value.message)) return value.message;
-  }
-  return fallback;
 }
