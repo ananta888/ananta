@@ -133,115 +133,97 @@ def shortcut_action_display_map(self) -> dict[str, str]:
     return result
 
 
+def _shortcut_cycle_focus_or_channel(self) -> None:
+    if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
+        self._chat_cycle_channel()
+    else:
+        self._exit_command_mode_for_global_shortcut()
+        move_focus(self, 1)
+
+
+def _shortcut_refresh(self) -> None:
+    game = dict(self.state.header_logo_game or {})
+    if is_showing_chat_long_message(game):
+        refresh_rendered_view(game)
+        self._set_state(
+            self.state.with_updates(header_logo_game=game, status_message="Chat-Ansicht: Render aktualisiert")
+        )
+    else:
+        self._run_command(":refresh")
+
+
+def _shortcut_inspect(self) -> None:
+    if self._open_selected_item_inline():
+        return
+    self._run_command(":inspect")
+
+
+def _shortcut_quit(self) -> None:
+    try:
+        self._flush_config_on_exit()
+        self._app.exit()
+    except Exception:
+        self._set_state(self.state.with_updates(status_message="quit"))
+
+
+def _shortcut_clear_chat_input(self) -> None:
+    if self._chat_focus_active():
+        self._chat_clear_input()
+    elif self._artifact_chat_focus_active():
+        self._artifact_chat_clear_input()
+
+
+def _global_shortcut(method: str):
+    """A shortcut that leaves command mode before calling ``self.<method>()``."""
+
+    def run(self) -> None:
+        self._exit_command_mode_for_global_shortcut()
+        getattr(self, method)()
+
+    return run
+
+
+def _call(method: str, *args, **kwargs):
+    return lambda self: getattr(self, method)(*args, **kwargs)
+
+
+# Action name -> handler(self). Actions without an entry (escape, enter, ...) are ignored.
+SHORTCUT_ACTIONS = {
+    "cycle_focus_or_channel": _shortcut_cycle_focus_or_channel,
+    "selection_down": lambda self: self._set_selected_index(clamp_down(self)),
+    "selection_up": lambda self: self._set_selected_index(max(0, self.state.selected_index - 1)),
+    "refresh": _shortcut_refresh,
+    "next_section": _call("_run_command", ":next"),
+    "toggle_ai_snake_config": _call("_toggle_ai_snake_config_panel"),
+    "toggle_visual_view_switcher_overlay": _call("_toggle_visual_view_switcher_overlay"),
+    "copy_tui_snapshot": _global_shortcut("_copy_tui_snapshot"),
+    "save_tui_snapshot": _global_shortcut("_save_tui_snapshot"),
+    "open_long_chat_message": _global_shortcut("_open_latest_long_chat_message"),
+    "scroll_page_up": _call("_scroll_active_panel", direction="page_up"),
+    "scroll_page_down": _call("_scroll_active_panel", direction="page_down"),
+    "inspect": _shortcut_inspect,
+    "help": _call("_run_command", ":help"),
+    "quit": _shortcut_quit,
+    "toggle_snake_mode": _global_shortcut("_toggle_snake_mode"),
+    "toggle_chat_panel": _global_shortcut("_toggle_chat_panel_open"),
+    "chat_focus": _global_shortcut("_toggle_chat_focus"),
+    "snake_pause": _call("_toggle_snake_pause"),
+    "toggle_tutorial_ai": _call("_toggle_tutorial_ai_mode"),
+    "toggle_mouse_follow": _call("_toggle_snake_mouse_follow"),
+    "snake_toggle_frame": _call("_snake_toggle_frame_mode"),
+    "snake_toggle_selection": _call("_snake_toggle_selection"),
+    "snake_replace_selection": _call("_snake_replace_selection"),
+    "snake_clear_marks": _call("_snake_clear_visual_marks"),
+    "copy_chat_panel": _call("_copy_chat_panel_snapshot"),
+    "copy_ai_status": _global_shortcut("_copy_ai_status_snapshot"),
+    "clear_chat_input": _shortcut_clear_chat_input,
+}
+
+
 def trigger_shortcut_action(self, action: str) -> None:
-    if action == "cycle_focus_or_channel":
-        if self._chat_focus_active() or self._artifact_chat_focus_active() or self._snake_mode_active():
-            self._chat_cycle_channel()
-        else:
-            self._exit_command_mode_for_global_shortcut()
-            move_focus(self, 1)
-        return
-    if action == "selection_down":
-        self._set_selected_index(clamp_down(self))
-        return
-    if action == "selection_up":
-        self._set_selected_index(max(0, self.state.selected_index - 1))
-        return
-    if action == "refresh":
-        game = dict(self.state.header_logo_game or {})
-        if is_showing_chat_long_message(game):
-            refresh_rendered_view(game)
-            self._set_state(self.state.with_updates(header_logo_game=game, status_message="Chat-Ansicht: Render aktualisiert"))
-        else:
-            self._run_command(":refresh")
-        return
-    if action == "next_section":
-        self._run_command(":next")
-        return
-    if action == "toggle_ai_snake_config":
-        self._toggle_ai_snake_config_panel()
-        return
-    if action == "toggle_visual_view_switcher_overlay":
-        self._toggle_visual_view_switcher_overlay()
-        return
-    if action == "copy_tui_snapshot":
-        self._exit_command_mode_for_global_shortcut()
-        self._copy_tui_snapshot()
-        return
-    if action == "save_tui_snapshot":
-        self._exit_command_mode_for_global_shortcut()
-        self._save_tui_snapshot()
-        return
-    if action == "open_long_chat_message":
-        self._exit_command_mode_for_global_shortcut()
-        self._open_latest_long_chat_message()
-        return
-    if action == "scroll_page_up":
-        self._scroll_active_panel(direction="page_up")
-        return
-    if action == "scroll_page_down":
-        self._scroll_active_panel(direction="page_down")
-        return
-    if action == "inspect":
-        if self._open_selected_item_inline():
-            return
-        self._run_command(":inspect")
-        return
-    if action == "help":
-        self._run_command(":help")
-        return
-    if action == "quit":
-        try:
-            self._flush_config_on_exit()
-            self._app.exit()
-        except Exception:
-            self._set_state(self.state.with_updates(status_message="quit"))
-        return
-    if action == "toggle_snake_mode":
-        self._exit_command_mode_for_global_shortcut()
-        self._toggle_snake_mode()
-        return
-    if action == "toggle_chat_panel":
-        self._exit_command_mode_for_global_shortcut()
-        self._toggle_chat_panel_open()
-        return
-    if action == "chat_focus":
-        self._exit_command_mode_for_global_shortcut()
-        self._toggle_chat_focus()
-        return
-    if action == "snake_pause":
-        self._toggle_snake_pause()
-        return
-    if action == "toggle_tutorial_ai":
-        self._toggle_tutorial_ai_mode()
-        return
-    if action == "toggle_mouse_follow":
-        self._toggle_snake_mouse_follow()
-        return
-    if action == "snake_toggle_frame":
-        self._snake_toggle_frame_mode()
-        return
-    if action == "snake_toggle_selection":
-        self._snake_toggle_selection()
-        return
-    if action == "snake_replace_selection":
-        self._snake_replace_selection()
-        return
-    if action == "snake_clear_marks":
-        self._snake_clear_visual_marks()
-        return
-    if action == "copy_chat_panel":
-        self._copy_chat_panel_snapshot()
-        return
-    if action == "copy_ai_status":
-        self._exit_command_mode_for_global_shortcut()
-        self._copy_ai_status_snapshot()
-        return
-    if action == "clear_chat_input":
-        if self._chat_focus_active():
-            self._chat_clear_input()
-        elif self._artifact_chat_focus_active():
-            self._artifact_chat_clear_input()
+    handler = SHORTCUT_ACTIONS.get(action)
+    if handler is not None:
+        handler(self)
 
 
 # ── Mouse event ingestion ────────────────────────────────────────────────────
@@ -645,6 +627,205 @@ def handle_visual_viewport_scrollbar_mouse(
 
 # ── Left click handler ───────────────────────────────────────────────────────
 
+def _click_tab(self, game: dict[str, object], target: RegionTarget) -> None:
+    from client_surfaces.operator_tui.tab_manager import activate_tab
+
+    tab_id = str(target.payload.get("tab_id") or "")
+    if tab_id:
+        new_state, new_game = activate_tab(self.state, tab_id, game=dict(self.state.header_logo_game or {}))
+        self._set_state(new_state.with_updates(header_logo_game=new_game))
+
+
+def _click_tab_close(self, game: dict[str, object], target: RegionTarget) -> None:
+    from client_surfaces.operator_tui.tab_manager import close_tab
+
+    tab_id = str(target.payload.get("tab_id") or "")
+    if tab_id:
+        new_state = close_tab(self.state, tab_id)
+        game_out = dict(new_state.header_logo_game or {})
+        game_out["visual_viewport_enabled"] = False
+        game_out["visual_viewport"] = {"enabled": False}
+        self._set_state(new_state.with_updates(header_logo_game=game_out))
+
+
+def _click_tab_scroll_left(self, game: dict[str, object], target: RegionTarget) -> None:
+    self._set_state(self.state.with_updates(tab_scroll_offset=max(0, self.state.tab_scroll_offset - 1)))
+
+
+def _click_tab_scroll_right(self, game: dict[str, object], target: RegionTarget) -> None:
+    max_offset = max(0, len(self.state.open_tabs) - 1)
+    self._set_state(self.state.with_updates(tab_scroll_offset=min(max_offset, self.state.tab_scroll_offset + 1)))
+
+
+def _payload_index(target: RegionTarget, key: str) -> int:
+    raw = target.payload.get(key)
+    return int(raw) if isinstance(raw, int) else -1
+
+
+def _click_chat_history(self, game: dict[str, object], target: RegionTarget) -> None:
+    rows = long_message_history_rows(game)
+    idx = _payload_index(target, "history_index")
+    if not (0 <= idx < len(rows) and configure_middle_view_for_history_entry(game, rows[idx])):
+        return
+    from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
+
+    preview = str(rows[idx].get("preview") or rows[idx].get("text") or "Chat")
+    next_state = open_or_activate_tab(
+        self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=0),
+        section_id=self.state.section_id,
+        kind="chat_viewport",
+        label=tab_label_for_chat_preview(preview),
+        viewport_state={"scroll_offset": 0, "preview": preview[:80]},
+    )
+    game_out = dict(next_state.header_logo_game or game)
+    game_out["visual_viewport_enabled"] = True
+    game_out["visual_viewport"] = {"enabled": True}
+    game["_copy_status_message"] = "Chat-History: Originalausgabe"
+    self._set_state(next_state.with_updates(header_logo_game=game_out))
+
+
+def _select_nav_section(self, game: dict[str, object], section_id: str, item_index: int, **updates) -> None:
+    """Focus ``item_index`` of ``section_id`` (loading the section when switching to it)."""
+    self._clear_chat_input_focus(game)
+    next_state = self.state.with_updates(
+        header_logo_game=game, section_id=section_id, focus=FocusPane.CONTENT, selected_index=item_index, **updates
+    )
+    if self.state.section_id != section_id:
+        next_state = load_active_section(next_state, self._registry)
+    self._set_state(next_state)
+
+
+def _click_template_nav_item(self, game: dict[str, object], target: RegionTarget) -> None:
+    item_index = _payload_index(target, "template_item_index")
+    if item_index < 0:
+        return
+    _select_nav_section(self, game, "templates", item_index)
+    payload = dict((self.state.section_payloads or {}).get("templates") or {})
+    items = payload.get("items")
+    entry = items[item_index] if isinstance(items, list) and 0 <= item_index < len(items) else {}
+    if isinstance(entry, dict) and hasattr(self, "_open_template_editor_for_selected"):
+        self._open_template_editor_for_selected()
+    else:
+        self._run_command(":inspect")
+    game["_copy_status_message"] = str(self.state.status_message or "template ausgewählt")
+
+
+def _click_audit_nav_item(self, game: dict[str, object], target: RegionTarget) -> None:
+    item_index = _payload_index(target, "audit_item_index")
+    if item_index < 0:
+        return
+    _select_nav_section(self, game, "audit", item_index, mode=OperatorMode.NORMAL)
+    if hasattr(self, "_open_audit_viewer_for_selected"):
+        self._open_audit_viewer_for_selected()
+    game["_copy_status_message"] = str(self.state.status_message or "audit ausgewählt")
+
+
+# Target kinds that are fully handled by one click handler.
+_LEFT_CLICK_KIND_HANDLERS = {
+    "tab": _click_tab,
+    "tab_close": _click_tab_close,
+    "tab_scroll_left": _click_tab_scroll_left,
+    "tab_scroll_right": _click_tab_scroll_right,
+    "chat_history": _click_chat_history,
+    "template_nav_item": _click_template_nav_item,
+    "audit_nav_item": _click_audit_nav_item,
+}
+
+
+def _mouse_click_geometry(self, width: int, height: int) -> dict[str, int]:
+    return {"x": int(self._mouse_state.x), "y": int(self._mouse_state.y), "width": int(width), "height": int(height)}
+
+
+def _click_template_editor_content(self, game, target: RegionTarget, width: int, height: int) -> bool:
+    if not (
+        self.state.section_id == "templates"
+        and target.pane == "content"
+        and hasattr(self, "_template_editor_set_cursor_from_content_click")
+    ):
+        return False
+    if not self._template_editor_set_cursor_from_content_click(**_mouse_click_geometry(self, width, height)):
+        return False
+    game["_copy_status_message"] = "template editor: cursor"
+    return True
+
+
+def _click_share_content(self, game, target: RegionTarget, width: int, height: int) -> bool:
+    if self.state.section_id != "share" or target.pane != "content":
+        return False
+    return bool(handle_share_content_click(self, x=int(self._mouse_state.x), y=int(self._mouse_state.y), game=game))
+
+
+def _click_audit_content(self, game, target: RegionTarget, width: int, height: int) -> bool:
+    if not (
+        self.state.section_id == "audit"
+        and target.pane == "content"
+        and hasattr(self, "_open_audit_viewer_for_selected")
+    ):
+        return False
+    if hasattr(self, "_audit_cleanup_handle_mouse_click") and self._audit_cleanup_handle_mouse_click(
+        **_mouse_click_geometry(self, width, height)
+    ):
+        game["_copy_status_message"] = str(self.state.status_message or "cleanup")
+        return True
+    self._open_audit_viewer_for_selected()
+    game["_copy_status_message"] = str(self.state.status_message or "audit viewer")
+    return True
+
+
+def _click_ai_snake_config_content(self, game, target: RegionTarget, width: int, height: int) -> bool:
+    if not (bool(game.get("ai_snake_config_open")) and target.pane == "content"):
+        return False
+    combo_value = str(target.payload.get("ai_snake_combo_option_value") or "")
+    if combo_value:
+        self._ai_snake_config_combo_select_value(value=combo_value)
+        return True
+    cfg_key = str(target.payload.get("ai_snake_config_key") or "")
+    idx = int(target.payload.get("selected_index") or 0)
+    if not cfg_key:
+        items = ai_snake_config_items(game)
+        if 0 <= idx < len(items):
+            cfg_key = str(items[idx].get("key") or "")
+    if not cfg_key:
+        return False
+    self.state = self.state.with_updates(selected_index=max(0, idx), focus=FocusPane.CONTENT)
+    self._open_ai_snake_config_combo(game, key=cfg_key, idx=max(0, idx))
+    return True
+
+
+# Content-pane click handlers in precedence order; the first that returns True wins.
+_CONTENT_CLICK_HANDLERS = (
+    _click_template_editor_content,
+    _click_share_content,
+    _click_audit_content,
+    _click_ai_snake_config_content,
+)
+
+
+def _direct_artifact_chat_to_target(self, game: dict[str, object], target: RegionTarget, now: float) -> None:
+    """Point the AI snake and the artifact chat at the clicked target and ask for an explanation."""
+    game["artifact_target_cell"] = (self._mouse_state.x, self._mouse_state.y)
+    game["tutorial_ai_target_mode"] = "fast_target"
+    game["tutorial_ai_target_hint"] = target.pane or "content"
+    game["artifact_intent_confidence"] = "confirmed"
+    game["artifact_intent_target"] = {
+        "kind": target.kind,
+        "section_id": target.section_id,
+        "pane": target.pane,
+        "label": target.label,
+        "payload": dict(target.payload),
+    }
+    self._activate_artifact_chat(game, target=target, now=now)
+    if not bool(game.get("active")):
+        return
+    label = str(target.label or target.section_id or "diesen Bereich")
+    section = str(target.section_id or self.state.section_id or "")
+    game["tutorial_user_feed"] = f"Erkläre {label} im Abschnitt {section}."
+    game["tutorial_ai_local_contact"] = True
+    game["tutorial_ai_contact_zone"] = target.pane or "content"
+    self._tutorial_async_next_refresh_at = 0.0
+    self._tutorial_async_tip_future = None
+
+
 def handle_left_click(
     self,
     game: dict[str, object],
@@ -658,189 +839,18 @@ def handle_left_click(
     if target.section_id in {"kanban", "models"} and self._activate_dashboard_target(target):
         game["_copy_status_message"] = f"{target.section_id}: {target.label}"
         return
-
-    if target.kind == "tab":
-        from client_surfaces.operator_tui.tab_manager import activate_tab
-        tab_id = str(target.payload.get("tab_id") or "")
-        if tab_id:
-            new_state, new_game = activate_tab(self.state, tab_id, game=dict(self.state.header_logo_game or {}))
-            self._set_state(new_state.with_updates(header_logo_game=new_game))
+    kind_handler = _LEFT_CLICK_KIND_HANDLERS.get(target.kind)
+    if kind_handler is not None:
+        kind_handler(self, game, target)
         return
-
-    if target.kind == "tab_close":
-        from client_surfaces.operator_tui.tab_manager import close_tab
-        tab_id = str(target.payload.get("tab_id") or "")
-        if tab_id:
-            new_state = close_tab(self.state, tab_id)
-            game_out = dict(new_state.header_logo_game or {})
-            game_out["visual_viewport_enabled"] = False
-            game_out["visual_viewport"] = {"enabled": False}
-            self._set_state(new_state.with_updates(header_logo_game=game_out))
+    if any(handler(self, game, target, width, height) for handler in _CONTENT_CLICK_HANDLERS):
         return
-
-    if target.kind == "tab_scroll_left":
-        new_offset = max(0, self.state.tab_scroll_offset - 1)
-        self._set_state(self.state.with_updates(tab_scroll_offset=new_offset))
-        return
-
-    if target.kind == "tab_scroll_right":
-        max_offset = max(0, len(self.state.open_tabs) - 1)
-        new_offset = min(max_offset, self.state.tab_scroll_offset + 1)
-        self._set_state(self.state.with_updates(tab_scroll_offset=new_offset))
-        return
-
-    if target.kind == "chat_history":
-        rows = long_message_history_rows(game)
-        idx_raw = target.payload.get("history_index")
-        idx = int(idx_raw) if isinstance(idx_raw, int) else -1
-        if 0 <= idx < len(rows) and configure_middle_view_for_history_entry(game, rows[idx]):
-            from client_surfaces.operator_tui.tab_manager import open_or_activate_tab, tab_label_for_chat_preview
-            entry = rows[idx]
-            preview = str(entry.get("preview") or entry.get("text") or "Chat")
-            label = tab_label_for_chat_preview(preview)
-            vp_state = {"scroll_offset": 0, "preview": preview[:80]}
-            next_state = open_or_activate_tab(
-                self.state.with_updates(header_logo_game=game, focus=FocusPane.CONTENT, selected_index=0),
-                section_id=self.state.section_id,
-                kind="chat_viewport",
-                label=label,
-                viewport_state=vp_state,
-            )
-            game_out = dict(next_state.header_logo_game or game)
-            game_out["visual_viewport_enabled"] = True
-            game_out["visual_viewport"] = {"enabled": True}
-            game["_copy_status_message"] = "Chat-History: Originalausgabe"
-            self._set_state(next_state.with_updates(header_logo_game=game_out))
-        return
-
-    if target.kind == "template_nav_item":
-        item_index_raw = target.payload.get("template_item_index")
-        item_index = int(item_index_raw) if isinstance(item_index_raw, int) else -1
-        if item_index < 0:
-            return
-        self._clear_chat_input_focus(game)
-        next_state = self.state.with_updates(
-            header_logo_game=game,
-            section_id="templates",
-            focus=FocusPane.CONTENT,
-            selected_index=item_index,
-        )
-        if self.state.section_id != "templates":
-            next_state = load_active_section(next_state, self._registry)
-        self._set_state(next_state)
-        payload = dict((self.state.section_payloads or {}).get("templates") or {})
-        items = payload.get("items")
-        entry = items[item_index] if isinstance(items, list) and 0 <= item_index < len(items) else {}
-        if isinstance(entry, dict) and hasattr(self, "_open_template_editor_for_selected"):
-            self._open_template_editor_for_selected()
-        else:
-            self._run_command(":inspect")
-        game["_copy_status_message"] = str(self.state.status_message or "template ausgewählt")
-        return
-
-    if target.kind == "audit_nav_item":
-        item_index_raw = target.payload.get("audit_item_index")
-        item_index = int(item_index_raw) if isinstance(item_index_raw, int) else -1
-        if item_index < 0:
-            return
-        self._clear_chat_input_focus(game)
-        next_state = self.state.with_updates(
-            header_logo_game=game,
-            section_id="audit",
-            focus=FocusPane.CONTENT,
-            selected_index=item_index,
-            mode=OperatorMode.NORMAL,
-        )
-        if self.state.section_id != "audit":
-            next_state = load_active_section(next_state, self._registry)
-        self._set_state(next_state)
-        if hasattr(self, "_open_audit_viewer_for_selected"):
-            self._open_audit_viewer_for_selected()
-        game["_copy_status_message"] = str(self.state.status_message or "audit ausgewählt")
-        return
-
-    if (
-        self.state.section_id == "templates"
-        and target.pane == "content"
-        and hasattr(self, "_template_editor_set_cursor_from_content_click")
-    ):
-        if self._template_editor_set_cursor_from_content_click(
-            x=int(self._mouse_state.x),
-            y=int(self._mouse_state.y),
-            width=int(width),
-            height=int(height),
-        ):
-            game["_copy_status_message"] = "template editor: cursor"
-            return
-    if self.state.section_id == "share" and target.pane == "content":
-        if handle_share_content_click(self, x=int(self._mouse_state.x), y=int(self._mouse_state.y), game=game):
-            return
-
-    if (
-        self.state.section_id == "audit"
-        and target.pane == "content"
-        and hasattr(self, "_open_audit_viewer_for_selected")
-    ):
-        if hasattr(self, "_audit_cleanup_handle_mouse_click") and self._audit_cleanup_handle_mouse_click(
-            x=int(self._mouse_state.x),
-            y=int(self._mouse_state.y),
-            width=int(width),
-            height=int(height),
-        ):
-            game["_copy_status_message"] = str(self.state.status_message or "cleanup")
-            return
-        self._open_audit_viewer_for_selected()
-        game["_copy_status_message"] = str(self.state.status_message or "audit viewer")
-        return
-
-    if bool(game.get("ai_snake_config_open")) and target.pane == "content":
-        combo_value = str(target.payload.get("ai_snake_combo_option_value") or "")
-        if combo_value:
-            self._ai_snake_config_combo_select_value(value=combo_value)
-            return
-        cfg_key = str(target.payload.get("ai_snake_config_key") or "")
-        idx = int(target.payload.get("selected_index") or 0)
-        if not cfg_key:
-            items = ai_snake_config_items(game)
-            if 0 <= idx < len(items):
-                cfg_key = str(items[idx].get("key") or "")
-        if cfg_key:
-            self.state = self.state.with_updates(selected_index=max(0, idx), focus=FocusPane.CONTENT)
-            self._open_ai_snake_config_combo(game, key=cfg_key, idx=max(0, idx))
-            return
-
     if target.kind in {"pane", "section"}:
         self._clear_chat_input_focus(game)
         self._select_region_target(target)
         return
-
     self._select_region_target(target)
-
-    game["artifact_target_cell"] = (self._mouse_state.x, self._mouse_state.y)
-    game["tutorial_ai_target_mode"] = "fast_target"
-    game["tutorial_ai_target_hint"] = target.pane or "content"
-    game["artifact_intent_confidence"] = "confirmed"
-    game["artifact_intent_target"] = {
-        "kind": target.kind,
-        "section_id": target.section_id,
-        "pane": target.pane,
-        "label": target.label,
-        "payload": dict(target.payload),
-    }
-
-    self._activate_artifact_chat(game, target=target, now=now)
-
-    if not bool(game.get("active")):
-        return
-
-    label = str(target.label or target.section_id or "diesen Bereich")
-    section = str(target.section_id or self.state.section_id or "")
-    game["tutorial_user_feed"] = f"Erkläre {label} im Abschnitt {section}."
-    game["tutorial_ai_local_contact"] = True
-    game["tutorial_ai_contact_zone"] = target.pane or "content"
-
-    self._tutorial_async_next_refresh_at = 0.0
-    self._tutorial_async_tip_future = None
+    _direct_artifact_chat_to_target(self, game, target, now)
 
 
 # ── Share section mouse click ────────────────────────────────────────────────
