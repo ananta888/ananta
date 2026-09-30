@@ -463,6 +463,299 @@ def _attach_token_ws_session(ws: Any, token: str, app: Any) -> None:
         )
 
 
+class _InputPreviewLog:
+    """Buffer terminal input and write one audited preview line per entered command."""
+
+    _MAX_BUFFER_CHARS = 4096
+    _PARTIAL_TAIL_CHARS = 256
+
+    def __init__(self, session: "_TerminalWsSession") -> None:
+        self._session = session
+        self._buffer = ""
+
+    def _append(self, raw_line: str, *, partial: bool = False) -> None:
+        candidate = str(raw_line or "").strip()
+        if not candidate:
+            return
+        limit = _terminal_preview_limit(self._session.policy)
+        try:
+            preview = " ".join(shlex.split(candidate))[:limit]
+        except ValueError:
+            preview = candidate.replace("\n", " ").replace("\r", " ")[:limit]
+        extra: dict[str, Any] = {"preview": preview}
+        if partial:
+            extra["partial"] = True
+        self._session.log("input", **extra)
+
+    def feed(self, text: str) -> None:
+        self._buffer += text
+        self.flush(force=False)
+
+    def flush(self, *, force: bool = False) -> None:
+        while True:
+            match = re.search(r"[\r\n]", self._buffer)
+            if not match:
+                break
+            line = self._buffer[: match.start()]
+            self._buffer = self._buffer[match.end():]
+            self._append(line, partial=False)
+        if force and self._buffer.strip():
+            self._append(self._buffer, partial=True)
+            self._buffer = ""
+        elif not force and len(self._buffer) > self._MAX_BUFFER_CHARS:
+            self._append(self._buffer[-self._PARTIAL_TAIL_CHARS:], partial=True)
+            self._buffer = ""
+
+
+class _TerminalWsSession:
+    """One ``/ws/terminal`` connection: authorization, audit log and the three session modes."""
+
+    def __init__(self, ws: Any, app: Any) -> None:
+        self.ws = ws
+        self.app = app
+        self.session_id = f"ws-{uuid.uuid4()}"
+        environ, self.provided_token, mode, self.forward_param = _extract_ws_context(ws)
+        self.environ = environ
+        self.mode = mode if mode in {"interactive", "read"} else "interactive"
+        self.data_dir = app.config.get("DATA_DIR", settings.data_dir)
+        self.remote_addr = environ.get("REMOTE_ADDR")
+        self.principal = "anonymous"
+        self.policy: dict[str, Any] = {}
+        self.started_at = time.monotonic()
+        self.last_activity_at = self.started_at
+
+    # ── audit log and limits ────────────────────────────────────────────────
+
+    def log(self, event: str, **fields: Any) -> None:
+        _append_terminal_log(
+            self.data_dir,
+            {
+                "timestamp": time.time(),
+                "timestamp_iso": _utc_now_iso(),
+                "session_id": self.session_id,
+                "event": event,
+                "mode": self.mode,
+                "principal": self.principal,
+                **fields,
+            },
+        )
+
+    def touch(self) -> None:
+        self.last_activity_at = time.monotonic()
+
+    def limit_reason(self) -> str | None:
+        return _terminal_limit_reason(
+            policy=self.policy,
+            started_at=self.started_at,
+            last_activity_at=self.last_activity_at,
+        )
+
+    def send_limit_if_needed(self) -> str | None:
+        reason = self.limit_reason()
+        if reason:
+            _send_event(self.ws, "error", {"message": "terminal_session_closed", "details": reason})
+        return reason
+
+    # ── lifecycle ────────────────────────────────────────────────────────────
+
+    def authorize(self) -> bool:
+        """Authenticate the token and evaluate the terminal policy; reports rejections."""
+        auth_payload, auth_reason, auth_required = _authenticate_terminal_token(
+            self.provided_token,
+            app_config=self.app.config,
+            token_from_query=_ws_token_came_from_query(self.environ),
+        )
+        if (auth_required or self.provided_token) and not auth_payload and auth_reason != "auth_disabled":
+            _send_event(self.ws, "error", {"message": "unauthorized", "details": auth_reason or "invalid_token"})
+            return False
+        self.principal = (auth_payload or {}).get("sub") or "anonymous"
+        decision = get_platform_governance_service().evaluate_terminal_access(
+            cfg=self.app.config.get("AGENT_CONFIG", {}) or {},
+            terminal_mode=self.mode,
+            is_admin=_auth_payload_is_admin(auth_payload),
+            is_authenticated=bool(auth_payload),
+            roles=_auth_payload_roles(auth_payload),
+            remote_addr=self.remote_addr,
+        )
+        if decision.allowed:
+            self.policy = decision.policy
+            return True
+        _send_event(
+            self.ws,
+            "error",
+            {
+                "message": "forbidden",
+                "details": decision.reason,
+                "platform_mode": decision.platform_mode,
+                "mode": decision.mode,
+            },
+        )
+        if decision.policy.get("emit_audit_events", True):
+            self.log(
+                "session_blocked",
+                reason=decision.reason,
+                platform_mode=decision.platform_mode,
+                remote_addr=self.remote_addr,
+            )
+        return False
+
+    def serve(self) -> None:
+        if not self.authorize():
+            return
+        self.started_at = time.monotonic()
+        self.last_activity_at = self.started_at
+        self.log("session_open", forward_param=self.forward_param, remote_addr=self.remote_addr)
+        _send_event(
+            self.ws,
+            "ready",
+            {"session_id": self.session_id, "mode": self.mode, "read_only": self.mode == "read"},
+        )
+        if self.mode == "read":
+            self.follow_terminal_log()
+            return
+        if self.forward_param:
+            self.forward_live_terminal()
+            return
+        self.run_shell()
+
+    # ── read mode ────────────────────────────────────────────────────────────
+
+    def _receive_keepalive(self) -> bool:
+        """Consume one client message; ``False`` when the connection is gone."""
+        try:
+            if _recv_message(self.ws, timeout_seconds=0.5) is not None:
+                self.touch()
+        except Exception as exc:
+            return _is_timeout_error(exc)
+        return True
+
+    def _send_appended_log(self, log_path: Path, file_pos: int) -> tuple[int, bool]:
+        """Send what was appended since ``file_pos``; returns ``(new_pos, ok)``."""
+        try:
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as fh:
+                fh.seek(file_pos)
+                fresh = fh.read()
+                file_pos = fh.tell()
+            if fresh:
+                self.touch()
+                _send_event(self.ws, "output", {"chunk": fresh})
+        except Exception:
+            return file_pos, False
+        return file_pos, True
+
+    def follow_terminal_log(self) -> None:
+        """Stream the terminal audit log like ``tail -f``."""
+        log_path = Path(self.data_dir) / "terminal_log.jsonl"
+        for line in _tail_lines(log_path):
+            _send_event(self.ws, "output", {"chunk": line})
+        file_pos = log_path.stat().st_size if log_path.exists() else 0
+        while self._receive_keepalive():
+            if log_path.exists():
+                file_pos, sent = self._send_appended_log(log_path, file_pos)
+                if not sent:
+                    continue
+            if self.send_limit_if_needed():
+                break
+        self.log("session_close", reason=self.limit_reason())
+
+    # ── forwarded live terminal ──────────────────────────────────────────────
+
+    def forward_live_terminal(self) -> None:
+        live_terminals = get_live_terminal_session_service()
+        forward_param = self.forward_param
+        if live_terminals.get_session(forward_param) is None:
+            _send_event(self.ws, "error", {"message": "forward_terminal_not_found"})
+            self.log("session_close", error="forward_terminal_not_found")
+            return
+        chunks, offset = live_terminals.read_from(forward_param, 0)
+        if chunks:
+            _send_event(self.ws, "output", {"chunk": "".join(chunks)})
+
+        def _handle_forwarded_input(incoming: Any) -> None:
+            resize = _extract_terminal_resize(incoming)
+            if resize is not None:
+                self.touch()
+                get_live_terminal_session_service().resize(forward_param, resize[0], resize[1])
+                return
+            text = _extract_terminal_input(incoming)
+            if isinstance(text, str) and text:
+                self.touch()
+                get_live_terminal_session_service().write(forward_param, text)
+
+        pump = _WebSocketInputPump(self.ws, _handle_forwarded_input)
+        pump.start()
+        try:
+            while True:
+                if get_live_terminal_session_service().wait_for_update(
+                    forward_param, offset, _TERMINAL_OUTPUT_WAIT_SECONDS
+                ):
+                    fresh, offset = get_live_terminal_session_service().read_from(forward_param, offset)
+                    if fresh:
+                        self.touch()
+                        _send_event(self.ws, "output", {"chunk": "".join(fresh)})
+                if pump.closed or self.send_limit_if_needed():
+                    break
+        finally:
+            pump.close()
+            self.log("session_close", forward_param=forward_param, reason=self.limit_reason())
+
+    # ── local shell ──────────────────────────────────────────────────────────
+
+    def run_shell(self) -> None:
+        bridge = build_terminal_bridge(_safe_shell())
+        try:
+            bridge.start()
+        except RuntimeError as exc:
+            _send_event(self.ws, "error", {"message": str(exc)})
+            self.log("session_close", error=str(exc))
+            return
+        preview_log = _InputPreviewLog(self)
+        pump: _WebSocketInputPump | None = None
+        try:
+            pump = _WebSocketInputPump(
+                self.ws, lambda incoming: self._handle_shell_input(bridge, preview_log, incoming)
+            )
+            pump.start()
+            self._pump_shell_output(bridge, pump)
+        except Exception as exc:
+            LOGGER.exception("Terminal websocket session %s aborted: %s", self.session_id, exc)
+        finally:
+            if pump is not None:
+                pump.close()
+            preview_log.flush(force=True)
+            bridge.close()
+            self.log("session_close", reason=self.limit_reason())
+
+    def _handle_shell_input(self, bridge: Any, preview_log: _InputPreviewLog, incoming: Any) -> None:
+        resize = _extract_terminal_resize(incoming)
+        if resize is not None:
+            self.touch()
+            resize_fn = getattr(bridge, "resize", None)
+            if callable(resize_fn):
+                resize_fn(resize[0], resize[1])
+            return
+        text = _extract_terminal_input(incoming)
+        if not text:
+            return
+        bridge.write(text)
+        self.touch()
+        preview_log.feed(text)
+
+    def _pump_shell_output(self, bridge: Any, pump: _WebSocketInputPump) -> None:
+        while True:
+            wait_for_output = getattr(bridge, "wait_for_output", None)
+            if callable(wait_for_output):
+                wait_for_output(_TERMINAL_OUTPUT_WAIT_SECONDS)
+            else:
+                time.sleep(_TERMINAL_IO_TIMEOUT_SECONDS)
+            chunks = bridge.drain()
+            if chunks:
+                self.touch()
+                _send_event(self.ws, "output", {"chunk": "".join(chunks)})
+            if pump.closed or self.send_limit_if_needed():
+                break
+
+
 def register_ws_terminal(app: Any) -> None:
     if Sock is None:
         LOGGER.warning("flask-sock not installed, /ws/terminal endpoint disabled")
@@ -483,347 +776,4 @@ def register_ws_terminal(app: Any) -> None:
 
     @sock.route("/ws/terminal")
     def ws_terminal(ws: Any):
-        session_id = f"ws-{uuid.uuid4()}"
-        environ, provided_token, mode, forward_param = _extract_ws_context(ws)
-        mode = mode if mode in {"interactive", "read"} else "interactive"
-        data_dir = app.config.get("DATA_DIR", settings.data_dir)
-        remote_addr = environ.get("REMOTE_ADDR")
-        auth_payload, auth_reason, auth_required = _authenticate_terminal_token(
-            provided_token,
-            app_config=app.config,
-            token_from_query=_ws_token_came_from_query(environ),
-        )
-
-        if (auth_required or provided_token) and not auth_payload and auth_reason != "auth_disabled":
-            _send_event(
-                ws,
-                "error",
-                {"message": "unauthorized", "details": auth_reason or "invalid_token"},
-            )
-            return
-
-        principal = (auth_payload or {}).get("sub") or "anonymous"
-        terminal_decision = get_platform_governance_service().evaluate_terminal_access(
-            cfg=app.config.get("AGENT_CONFIG", {}) or {},
-            terminal_mode=mode,
-            is_admin=_auth_payload_is_admin(auth_payload),
-            is_authenticated=bool(auth_payload),
-            roles=_auth_payload_roles(auth_payload),
-            remote_addr=remote_addr,
-        )
-        if not terminal_decision.allowed:
-            _send_event(
-                ws,
-                "error",
-                {
-                    "message": "forbidden",
-                    "details": terminal_decision.reason,
-                    "platform_mode": terminal_decision.platform_mode,
-                    "mode": terminal_decision.mode,
-                },
-            )
-            if terminal_decision.policy.get("emit_audit_events", True):
-                _append_terminal_log(
-                    data_dir,
-                    {
-                        "timestamp": time.time(),
-                        "timestamp_iso": _utc_now_iso(),
-                        "session_id": session_id,
-                        "event": "session_blocked",
-                        "mode": mode,
-                        "principal": principal,
-                        "reason": terminal_decision.reason,
-                        "platform_mode": terminal_decision.platform_mode,
-                        "remote_addr": remote_addr,
-                    },
-                )
-            return
-        terminal_policy = terminal_decision.policy
-        session_started_monotonic = time.monotonic()
-        last_activity_monotonic = session_started_monotonic
-
-        def _touch_terminal_activity() -> None:
-            nonlocal last_activity_monotonic
-            last_activity_monotonic = time.monotonic()
-
-        def _send_terminal_limit_if_needed() -> str | None:
-            reason = _terminal_limit_reason(
-                policy=terminal_policy,
-                started_at=session_started_monotonic,
-                last_activity_at=last_activity_monotonic,
-            )
-            if reason:
-                _send_event(ws, "error", {"message": "terminal_session_closed", "details": reason})
-            return reason
-
-        _append_terminal_log(
-            data_dir,
-            {
-                "timestamp": time.time(),
-                "timestamp_iso": _utc_now_iso(),
-                "session_id": session_id,
-                "event": "session_open",
-                "mode": mode,
-                "principal": principal,
-                "forward_param": forward_param,
-                "remote_addr": remote_addr,
-            },
-        )
-
-        _send_event(
-            ws,
-            "ready",
-            {
-                "session_id": session_id,
-                "mode": mode,
-                "read_only": mode == "read",
-            },
-        )
-
-        if mode == "read":
-            log_path = Path(data_dir) / "terminal_log.jsonl"
-            for line in _tail_lines(log_path):
-                _send_event(ws, "output", {"chunk": line})
-
-            # Follow file updates like `tail -f`.
-            file_pos = log_path.stat().st_size if log_path.exists() else 0
-            while True:
-                try:
-                    _ = _recv_message(ws, timeout_seconds=0.5)
-                    if _ is not None:
-                        _touch_terminal_activity()
-                except Exception as exc:
-                    if _is_timeout_error(exc):
-                        pass
-                    else:
-                        break
-
-                if not log_path.exists():
-                    if _send_terminal_limit_if_needed():
-                        break
-                    continue
-
-                try:
-                    with open(log_path, "r", encoding="utf-8", errors="ignore") as fh:
-                        fh.seek(file_pos)
-                        fresh = fh.read()
-                        file_pos = fh.tell()
-                    if fresh:
-                        _touch_terminal_activity()
-                        _send_event(ws, "output", {"chunk": fresh})
-                except Exception:
-                    continue
-                if _send_terminal_limit_if_needed():
-                    break
-
-            _append_terminal_log(
-                data_dir,
-                {
-                    "timestamp": time.time(),
-                    "timestamp_iso": _utc_now_iso(),
-                    "session_id": session_id,
-                    "event": "session_close",
-                    "mode": mode,
-                    "principal": principal,
-                    "reason": _terminal_limit_reason(
-                        policy=terminal_policy,
-                        started_at=session_started_monotonic,
-                        last_activity_at=last_activity_monotonic,
-                    ),
-                },
-            )
-            return
-
-        forwarded_terminal = None
-        if forward_param:
-            forwarded_terminal = get_live_terminal_session_service().get_session(forward_param)
-            if forwarded_terminal is None:
-                _send_event(ws, "error", {"message": "forward_terminal_not_found"})
-                _append_terminal_log(
-                    data_dir,
-                    {
-                        "timestamp": time.time(),
-                        "timestamp_iso": _utc_now_iso(),
-                        "session_id": session_id,
-                        "event": "session_close",
-                        "mode": mode,
-                        "principal": principal,
-                        "error": "forward_terminal_not_found",
-                    },
-                )
-                return
-        if forwarded_terminal is not None:
-            offset = 0
-            chunks, offset = get_live_terminal_session_service().read_from(forward_param, offset)
-            if chunks:
-                _send_event(ws, "output", {"chunk": "".join(chunks)})
-            def _handle_forwarded_input(incoming: Any) -> None:
-                resize = _extract_terminal_resize(incoming)
-                if resize is not None:
-                    _touch_terminal_activity()
-                    get_live_terminal_session_service().resize(forward_param, resize[0], resize[1])
-                    return
-                text = _extract_terminal_input(incoming)
-                if isinstance(text, str) and text:
-                    _touch_terminal_activity()
-                    get_live_terminal_session_service().write(forward_param, text)
-
-            pump = _WebSocketInputPump(ws, _handle_forwarded_input)
-            pump.start()
-            try:
-                while True:
-                    changed = get_live_terminal_session_service().wait_for_update(
-                        forward_param,
-                        offset,
-                        _TERMINAL_OUTPUT_WAIT_SECONDS,
-                    )
-                    if changed:
-                        fresh, offset = get_live_terminal_session_service().read_from(forward_param, offset)
-                        if fresh:
-                            _touch_terminal_activity()
-                            _send_event(ws, "output", {"chunk": "".join(fresh)})
-                    if pump.closed:
-                        break
-                    if _send_terminal_limit_if_needed():
-                        break
-            finally:
-                pump.close()
-                _append_terminal_log(
-                    data_dir,
-                    {
-                        "timestamp": time.time(),
-                        "timestamp_iso": _utc_now_iso(),
-                        "session_id": session_id,
-                        "event": "session_close",
-                        "mode": mode,
-                        "principal": principal,
-                        "forward_param": forward_param,
-                        "reason": _terminal_limit_reason(
-                            policy=terminal_policy,
-                            started_at=session_started_monotonic,
-                            last_activity_at=last_activity_monotonic,
-                        ),
-                    },
-                )
-            return
-
-        bridge = build_terminal_bridge(_safe_shell())
-        try:
-            bridge.start()
-        except RuntimeError as exc:
-            _send_event(ws, "error", {"message": str(exc)})
-            _append_terminal_log(
-                data_dir,
-                {
-                    "timestamp": time.time(),
-                    "timestamp_iso": _utc_now_iso(),
-                    "session_id": session_id,
-                    "event": "session_close",
-                    "mode": mode,
-                    "principal": principal,
-                    "error": str(exc),
-                },
-            )
-            return
-
-        try:
-            input_preview_buffer = ""
-            pump: _WebSocketInputPump | None = None
-
-            def _append_input_preview_log(raw_line: str, *, partial: bool = False) -> None:
-                candidate = str(raw_line or "").strip()
-                if not candidate:
-                    return
-                try:
-                    preview = " ".join(shlex.split(candidate))[: _terminal_preview_limit(terminal_policy)]
-                except ValueError:
-                    preview = candidate.replace("\n", " ").replace("\r", " ")[: _terminal_preview_limit(terminal_policy)]
-                payload = {
-                    "timestamp": time.time(),
-                    "timestamp_iso": _utc_now_iso(),
-                    "session_id": session_id,
-                    "event": "input",
-                    "mode": mode,
-                    "principal": principal,
-                    "preview": preview,
-                }
-                if partial:
-                    payload["partial"] = True
-                _append_terminal_log(data_dir, payload)
-
-            def _flush_input_preview(*, force: bool = False) -> None:
-                nonlocal input_preview_buffer
-                while True:
-                    match = re.search(r"[\r\n]", input_preview_buffer)
-                    if not match:
-                        break
-                    line = input_preview_buffer[: match.start()]
-                    input_preview_buffer = input_preview_buffer[match.end() :]
-                    _append_input_preview_log(line, partial=False)
-                if force and input_preview_buffer.strip():
-                    _append_input_preview_log(input_preview_buffer, partial=True)
-                    input_preview_buffer = ""
-                elif not force and len(input_preview_buffer) > 4096:
-                    _append_input_preview_log(input_preview_buffer[-256:], partial=True)
-                    input_preview_buffer = ""
-
-            def _handle_bridge_input(incoming: Any) -> None:
-                nonlocal input_preview_buffer
-                resize = _extract_terminal_resize(incoming)
-                if resize is not None:
-                    _touch_terminal_activity()
-                    resize_fn = getattr(bridge, "resize", None)
-                    if callable(resize_fn):
-                        resize_fn(resize[0], resize[1])
-                    return
-
-                text = _extract_terminal_input(incoming)
-                if not text:
-                    return
-
-                bridge.write(text)
-                _touch_terminal_activity()
-                input_preview_buffer += text
-                _flush_input_preview(force=False)
-
-            pump = _WebSocketInputPump(ws, _handle_bridge_input)
-            pump.start()
-            while True:
-                wait_for_output = getattr(bridge, "wait_for_output", None)
-                if callable(wait_for_output):
-                    wait_for_output(_TERMINAL_OUTPUT_WAIT_SECONDS)
-                else:
-                    time.sleep(_TERMINAL_IO_TIMEOUT_SECONDS)
-
-                chunks = bridge.drain()
-                if chunks:
-                    _touch_terminal_activity()
-                    _send_event(ws, "output", {"chunk": "".join(chunks)})
-
-                if pump.closed:
-                    break
-                if _send_terminal_limit_if_needed():
-                    break
-        except Exception as exc:
-            LOGGER.exception("Terminal websocket session %s aborted: %s", session_id, exc)
-        finally:
-            if pump is not None:
-                pump.close()
-            _flush_input_preview(force=True)
-            bridge.close()
-            _append_terminal_log(
-                data_dir,
-                {
-                    "timestamp": time.time(),
-                    "timestamp_iso": _utc_now_iso(),
-                    "session_id": session_id,
-                    "event": "session_close",
-                    "mode": mode,
-                    "principal": principal,
-                    "reason": _terminal_limit_reason(
-                        policy=terminal_policy,
-                        started_at=session_started_monotonic,
-                        last_activity_at=last_activity_monotonic,
-                    ),
-                },
-            )
+        _TerminalWsSession(ws, app).serve()
