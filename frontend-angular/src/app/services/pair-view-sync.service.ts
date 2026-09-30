@@ -29,39 +29,30 @@ import {
   CursorPos,
   PermissionKey,
   RelayEnvelope,
-  RemoteViewProjection,
   SharedViewState,
   ViewStateDelta,
 } from './pair-view-sync.types';
 import {
   isControlMessage,
   isCursorPos,
-  isViewStateDelta,
   MAX_DATACHANNEL_BYTES,
   MAX_ENCRYPTED_PAYLOAD_BYTES,
   SNAPSHOT_WARN_BYTES,
 } from './pair-view-sync.validators';
 import { PairSyncStats, PairSyncStatsRecorder } from './pair-view-sync-stats';
 import { PairControlGrantState, isSnapshotRequestFor } from './pair-view-sync-control';
-import { CursorMessage, PairPeerCursorPresence, PeerCursor, parseCursorMessage } from './pair-view-sync-peer-cursors';
-import {
-  cloneViewState,
-  deltaSetsArtifactReference,
-  emptyRemoteViewBase,
-  newPairMessageId,
-  projectOutgoingViewState,
-  redactRemoteArtifacts,
-} from './pair-view-sync-projection';
+import { PairPeerCursorPresence, parseCursorMessage } from './pair-view-sync-peer-cursors';
+import { cloneViewState, newPairMessageId, projectOutgoingViewState } from './pair-view-sync-projection';
+import { PairRemoteViewProjections } from './pair-view-sync-remote-views';
+import { PairCursorSendPipeline } from './pair-view-sync-cursor-pipeline';
+import { PairSnapshotRequestTracker, snapshotRequestKey } from './pair-view-sync-snapshot-requests';
 
 export type { PairSyncStats } from './pair-view-sync-stats';
 export type { CursorMessage, PeerCursor } from './pair-view-sync-peer-cursors';
 
 const VIEW_DELTA_DEBOUNCE_MS = 80;
 const MAX_DELTAS_PER_SECOND = 5;
-const CURSOR_INTERVAL_MS = 50;
 const SNAPSHOT_RESPONSE_INTERVAL_MS = 500;
-const SNAPSHOT_REQUEST_COOLDOWN_MS = 500;
-const SNAPSHOT_REQUEST_TIMEOUT_MS = 5000;
 
 @Injectable({ providedIn: 'root' })
 export class PairViewSyncService implements OnDestroy {
@@ -81,8 +72,10 @@ export class PairViewSyncService implements OnDestroy {
   // ── Peer cursor presence (T10 overlay read model) ─────────────────
   private readonly peerCursorPresence = new PairPeerCursorPresence();
   readonly peerCursors$ = this.peerCursorPresence.peerCursors$;
-  private readonly _remoteViews$ = new BehaviorSubject<ReadonlyMap<string, RemoteViewProjection>>(new Map());
-  readonly remoteViews$ = this._remoteViews$.asObservable();
+  private readonly remoteViewProjections = new PairRemoteViewProjections(
+    this.delta, state => this.hashOf(state),
+  );
+  readonly remoteViews$ = this.remoteViewProjections.remoteViews$;
   private readonly _localCompactSharing$ = new BehaviorSubject<Readonly<{
     view: boolean;
     cursor: boolean;
@@ -120,13 +113,15 @@ export class PairViewSyncService implements OnDestroy {
   private pendingViewState: SharedViewState | null = null;
   private pendingViewForceSnapshot = false;
   private viewSendGeneration = 0;
-  private readonly pendingSnapshotRequests = new Map<string, { requestedAt: number; expiresAt: number }>();
+  private readonly snapshotRequests = new PairSnapshotRequestTracker();
   private permissionsSignature = '';
-  private cursorSendInFlight = false;
-  private pendingCursorMessage: CursorMessage | null = null;
-  private cursorSendGeneration = 0;
-  private lastCursorDispatchAt = 0;
-  private cursorDispatchHandle: ReturnType<typeof setTimeout> | null = null;
+  private readonly cursorPipeline = new PairCursorSendPipeline({
+    sharingEnabled: () => this.localCursorSharingEnabled,
+    send: (message, isCurrent) => this.sendSecurePayload(
+      'cursor', message, 'pair.cursor', 'control', 'remote_cursor', isCurrent,
+    ),
+    onSent: () => this.statsRecorder.increment('cursorsSent'),
+  });
   private lastSnapshotResponseAt = 0;
   private localCursorSharingEnabled = false;
   private localViewSharingEnabled = false;
@@ -149,7 +144,7 @@ export class PairViewSyncService implements OnDestroy {
     this.controlGrant.reset();
     this.clearLocalViewSendState();
     this.permissionsSignature = '';
-    this.cancelCursorSend();
+    this.cursorPipeline.cancel();
     this.lastSnapshotResponseAt = 0;
     this.localCursorSharingEnabled = false;
     this.localViewSharingEnabled = false;
@@ -159,7 +154,7 @@ export class PairViewSyncService implements OnDestroy {
     this.publishLocalCompactSharing();
     this.securityEpoch = Number.isSafeInteger(securityEpoch) && securityEpoch > 0 ? securityEpoch : 0;
     this.peerCursorPresence.clearSilently();
-    this._remoteViews$.next(new Map());
+    this.remoteViewProjections.clear();
     this.peerCursorPresence.startReaping();
     this.view.bindToSession(sessionId, ownerUserId);
     this.subscribeToView();
@@ -179,12 +174,12 @@ export class PairViewSyncService implements OnDestroy {
     this.view.unbindFromSession();
     this.peerCursorPresence.stopReaping();
     this.peerCursorPresence.clearAndPublish();
-    this._remoteViews$.next(new Map());
+    this.remoteViewProjections.clear();
     // Session-bound send state: debounce/rate-limit timers, in-flight
     // snapshot/delta fences, snapshot requests and the cursor pipeline.
     this.clearLocalViewSendState();
     this.permissionsSignature = '';
-    this.cancelCursorSend();
+    this.cursorPipeline.cancel();
     this.lastSnapshotResponseAt = 0;
     this.localCursorSharingEnabled = false;
     this.localViewSharingEnabled = false;
@@ -274,7 +269,7 @@ export class PairViewSyncService implements OnDestroy {
     const startView = nextView && !this.localViewSharingEnabled;
     this.localViewSharingEnabled = nextView;
     this.localCursorSharingEnabled = nextCursor;
-    if (!nextCursor) this.cancelCursorSend();
+    if (!nextCursor) this.cursorPipeline.cancel();
     if (!nextView) this.clearLocalViewSendState();
     if (startView) {
       this.clearLocalViewSendState();
@@ -591,62 +586,15 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   private applyIncomingView(plain: string, authenticatedSenderId: string): void {
-    let parsed: unknown;
-    try { parsed = JSON.parse(plain); } catch {
+    const outcome = this.remoteViewProjections.applyAuthenticated(
+      plain, authenticatedSenderId, this.sessionId, () => this.share.currentPermissions(),
+    );
+    if (outcome === 'snapshot_required') this.requestSnapshot(authenticatedSenderId);
+    if (outcome === 'rejected' || outcome === 'snapshot_required') {
       this.rejectApply();
       return;
     }
-    if (!isViewStateDelta(parsed)) {
-      this.rejectApply();
-      return;
-    }
-    const delta = parsed;
-    if (delta.sessionId !== this.sessionId || delta.senderUserId !== authenticatedSenderId) {
-      this.rejectApply();
-      return;
-    }
-    const perms = this.share.currentPermissions();
-    if (!hasPermission(perms, 'view_tui')) {
-      this.rejectApply();
-      return;
-    }
-    if (
-      !hasPermission(perms, 'artifact_share')
-      && deltaSetsArtifactReference(delta)
-    ) {
-      this.rejectApply();
-      return;
-    }
-    const currentProjection = this._remoteViews$.value.get(authenticatedSenderId)?.state ?? null;
-    if (currentProjection && delta.seq <= currentProjection.seq) {
-      // AEAD/replay validation authenticates each envelope but deliberately
-      // permits a bounded out-of-order network window. The read model itself
-      // is monotonic per authenticated sender, including full snapshots.
-      this.rejectApply();
-      return;
-    }
-    if (
-      delta.kind !== 'snapshot'
-      && (!currentProjection || this.delta.requiresSnapshotRequest(delta, currentProjection))
-    ) {
-      this.requestSnapshot(authenticatedSenderId);
-      this.rejectApply();
-      return;
-    }
-    const base = currentProjection ?? emptyRemoteViewBase(delta, this.sessionId, authenticatedSenderId);
-    const next = this.delta.applyDelta(base, delta);
-    if (this.hashOf(next) !== delta.newHash) {
-      this.rejectApply();
-      return;
-    }
-    const projections = new Map(this._remoteViews$.value);
-    projections.set(authenticatedSenderId, Object.freeze({
-      senderUserId: authenticatedSenderId,
-      state: Object.freeze({ ...next }),
-      receivedAt: Date.now(),
-    }));
-    this._remoteViews$.next(projections);
-    if (delta.kind === 'snapshot') this.clearSnapshotRequests(authenticatedSenderId);
+    if (outcome === 'accepted_snapshot') this.clearSnapshotRequests(authenticatedSenderId);
     this.statsRecorder.increment('appliesAccepted');
   }
 
@@ -685,14 +633,13 @@ export class PairViewSyncService implements OnDestroy {
     if (!this.share.currentPermissions() || !hasPermission(this.share.currentPermissions(), 'remote_cursor')) return;
     const safeLabel = userLabel.trim().slice(0, 32);
     if (!safeLabel || !isCursorPos(cursor)) return;
-    this.pendingCursorMessage = {
+    this.cursorPipeline.submit({
       sessionId: this.sessionId,
       senderUserId: this.ownerUserId,
       userLabel: safeLabel,
       cursor,
       sentAt: Date.now(),
-    };
-    this.flushPendingCursor();
+    });
   }
 
   sendArtifactReference(reference: { artifactId: string; artifactHash: string }): void {
@@ -724,23 +671,13 @@ export class PairViewSyncService implements OnDestroy {
 
   private requestSnapshot(authenticatedSenderId: string): void {
     if (!this.active) return;
-    const now = Date.now();
-    for (const [key, pending] of this.pendingSnapshotRequests) {
-      if (pending.expiresAt <= now) this.pendingSnapshotRequests.delete(key);
-    }
-    const key = `${this.sessionId}:${this.securityEpoch}:${authenticatedSenderId}`;
-    const pending = this.pendingSnapshotRequests.get(key);
-    if (pending && now - pending.requestedAt < SNAPSHOT_REQUEST_COOLDOWN_MS) return;
-    if (pending && pending.expiresAt > now) return;
-    this.pendingSnapshotRequests.set(key, {
-      requestedAt: now,
-      expiresAt: now + SNAPSHOT_REQUEST_TIMEOUT_MS,
-    });
+    const key = snapshotRequestKey(this.sessionId, this.securityEpoch, authenticatedSenderId);
+    if (!this.snapshotRequests.reserve(key, Date.now())) return;
     void this.sendSecurePayload(
       'control', { sessionId: this.sessionId }, 'pair.snapshot_request', 'control', 'view_tui',
     ).then(sent => {
       if (!sent) {
-        this.pendingSnapshotRequests.delete(key);
+        this.snapshotRequests.release(key);
         return;
       }
       this.statsRecorder.increment('snapshotRequestsSent');
@@ -794,41 +731,6 @@ export class PairViewSyncService implements OnDestroy {
     }
   }
 
-  private flushPendingCursor(): void {
-    if (this.cursorSendInFlight || !this.pendingCursorMessage) return;
-    const waitMs = CURSOR_INTERVAL_MS - (Date.now() - this.lastCursorDispatchAt);
-    if (waitMs > 0) {
-      if (this.cursorDispatchHandle === null) {
-        this.cursorDispatchHandle = setTimeout(() => {
-          this.cursorDispatchHandle = null;
-          this.flushPendingCursor();
-        }, waitMs);
-      }
-      return;
-    }
-    const message = this.pendingCursorMessage;
-    this.pendingCursorMessage = null;
-    this.cursorSendInFlight = true;
-    this.lastCursorDispatchAt = Date.now();
-    const generation = this.cursorSendGeneration;
-    void this.sendSecurePayload(
-      'cursor',
-      message,
-      'pair.cursor',
-      'control',
-      'remote_cursor',
-      () => generation === this.cursorSendGeneration && this.localCursorSharingEnabled,
-    ).then(sent => {
-      if (sent) {
-        this.statsRecorder.increment('cursorsSent');
-      }
-    }).finally(() => {
-      if (generation !== this.cursorSendGeneration) return;
-      this.cursorSendInFlight = false;
-      if (this.pendingCursorMessage) this.flushPendingCursor();
-    });
-  }
-
   private captureSecurityContext(): Readonly<{ sessionId: string; securityEpoch: number; ownerUserId: string }> | null {
     if (!this.active || !this.sessionId || !this.ownerUserId || this.securityEpoch < 1) return null;
     return Object.freeze({
@@ -866,7 +768,7 @@ export class PairViewSyncService implements OnDestroy {
     this.pendingViewForceSnapshot = false;
     this.viewSendGeneration += 1;
     this.viewSendInFlight = false;
-    this.pendingSnapshotRequests.clear();
+    this.snapshotRequests.clear();
   }
 
   private resetForSecurityEpochChange(): void {
@@ -877,10 +779,10 @@ export class PairViewSyncService implements OnDestroy {
     this.localCursorSharingEnabled = false;
     this.publishLocalCompactSharing();
     this.clearLocalViewSendState();
-    this.cancelCursorSend();
+    this.cursorPipeline.cancel();
     this.lastSnapshotResponseAt = 0;
     this.peerCursorPresence.clearAndPublish();
-    this._remoteViews$.next(new Map());
+    this.remoteViewProjections.clear();
   }
 
   private consumePendingFirstReadyCompactSharing(): boolean {
@@ -900,17 +802,6 @@ export class PairViewSyncService implements OnDestroy {
       view: true,
       cursor: true,
     });
-  }
-
-  private cancelCursorSend(): void {
-    this.pendingCursorMessage = null;
-    this.cursorSendGeneration += 1;
-    this.cursorSendInFlight = false;
-    if (this.cursorDispatchHandle !== null) {
-      clearTimeout(this.cursorDispatchHandle);
-      this.cursorDispatchHandle = null;
-    }
-    this.lastCursorDispatchAt = 0;
   }
 
   private currentShareUserId(): string {
@@ -935,9 +826,7 @@ export class PairViewSyncService implements OnDestroy {
   }
 
   private clearSnapshotRequests(authenticatedSenderId: string): void {
-    this.pendingSnapshotRequests.delete(
-      `${this.sessionId}:${this.securityEpoch}:${authenticatedSenderId}`,
-    );
+    this.snapshotRequests.release(snapshotRequestKey(this.sessionId, this.securityEpoch, authenticatedSenderId));
   }
 
   private rejectApply(): void {
@@ -951,18 +840,12 @@ export class PairViewSyncService implements OnDestroy {
       this.permissionsSignature = signature;
       this.lastSentState = null;
       this.lastSnapshotHashSent = '';
-      this.clearForbiddenRemoteArtifacts(permissions);
+      this.remoteViewProjections.redactForbiddenArtifacts(permissions);
     }
     const projected = projectOutgoingViewState(
       state, this.sessionId, this.ownerUserId, hasPermission(permissions, 'artifact_share'),
     );
     return { ...projected, viewHash: this.hashOf(projected) };
-  }
-
-  private clearForbiddenRemoteArtifacts(permissions: ReturnType<ShareSessionService['currentPermissions']>): void {
-    if (hasPermission(permissions, 'artifact_share') || this._remoteViews$.value.size === 0) return;
-    const redacted = redactRemoteArtifacts(this._remoteViews$.value);
-    this._remoteViews$.next(redacted);
   }
 
   private publishLocalCompactSharing(): void {
