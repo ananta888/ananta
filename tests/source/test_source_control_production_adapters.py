@@ -112,9 +112,7 @@ def _graph_adapter(
     return adapter, projection
 
 
-def test_query_authorizes_only_the_hub_resolved_active_index(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_query_authorizes_only_the_hub_resolved_active_index() -> None:
     calls: list[dict] = []
 
     class _Retrieval:
@@ -132,11 +130,10 @@ def test_query_authorizes_only_the_hub_resolved_active_index(
         "state": "available",
         "knowledge_index_id": index.id,
     }
-    monkeypatch.setattr(
-        "agent.services.source_control_production_adapters."
-        "KnowledgeIndexRetrievalService",
-        _Retrieval,
-    )
+    # Inject the retrieval double through the adapter's explicit
+    # ``retrieval_factory`` seam (the constructor default is the production
+    # KnowledgeIndexRetrievalService).
+    adapter._retrieval_factory = _Retrieval
 
     result = adapter.query(
         parameters={"query": "organization source catalog", "limit": 5}
