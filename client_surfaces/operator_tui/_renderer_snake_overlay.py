@@ -99,6 +99,157 @@ def _ansi_color(text: str, color: tuple[int, int, int]) -> str:
 
 
 
+def _wrapped_cell(item, play_width: int, rows: list[str]) -> tuple[int, int]:
+    """Terminal cell of a snake coordinate: x wraps on the play width, y on the row count."""
+    return int(item[0]) % play_width, int(item[1]) % max(1, len(rows))
+
+
+def _overlay_snake_marks(out: list[str], snapshot: dict, play_width: int) -> None:
+    """Marked cells and the selection of one snake, in that snake's own colors."""
+    pal = _snake_palette(str(snapshot.get("snake_color") or "mint"))
+    mark_cells = snapshot.get("mark_cells") if isinstance(snapshot.get("mark_cells"), list) else []
+    mcol = pal["body"]
+    for item in mark_cells:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            continue
+        x, y = _wrapped_cell(item, play_width, out)
+        base = _visible_char_at(out[y], x)
+        if base == " ":
+            continue
+        repl = f"\x1b[48;2;{mcol[0]};{mcol[1]};{mcol[2]}m\x1b[38;2;20;20;20m{base}\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], x, repl)
+
+    selection = snapshot.get("selection_cells") if isinstance(snapshot.get("selection_cells"), list) else []
+    scol = pal["head"]
+    for item in selection:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        x, y = _wrapped_cell(item, play_width, out)
+        base = _visible_char_at(out[y], x)
+        if base == " ":
+            base = "░"
+        repl = f"\x1b[48;2;{scol[0]};{scol[1]};{scol[2]}m\x1b[38;2;15;15;15m{base}\x1b[0m"
+        out[y] = _overlay_at_visible_col(out[y], x, repl)
+
+
+def _overlay_selection_anchor(out: list[str], game: dict, local_pal: dict, play_width: int) -> None:
+    anchor = game.get("selection_anchor")
+    if not (isinstance(anchor, (list, tuple)) and len(anchor) == 2):
+        return
+    x, y = _wrapped_cell(anchor, play_width, out)
+    acol = local_pal["label"]
+    out[y] = _overlay_at_visible_col(out[y], x, f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m")
+
+
+def _mouse_selection_ranges(game: dict) -> list[dict]:
+    ranges: list[dict] = []
+    active_range = game.get("mouse_selection_range")
+    if isinstance(active_range, dict):
+        ranges.append(active_range)
+    ranges.extend(item for item in (game.get("mouse_selection_committed_ranges") or []) if isinstance(item, dict))
+    return ranges
+
+
+def _selection_row_columns(
+    row: int, start: tuple[int, int], end: tuple[int, int], mode: str, width: int
+) -> tuple[int, int]:
+    """Highlighted column span of ``row`` for a linear or block mouse selection."""
+    (sx, sy), (ex, ey) = start, end
+    if mode == "block" or (row == sy and row == ey):
+        return tuple(sorted([sx, ex]))  # type: ignore[return-value]
+    if row == sy:
+        return sx, width - 1
+    if row == ey:
+        return 0, ex
+    return 0, width - 1
+
+
+def _overlay_mouse_selection(out: list[str], game: dict, local_pal: dict, width: int) -> None:
+    """Mouse drag selection: efficient range-based rendering (linear or block)."""
+    color = local_pal["head"]
+    for sel in _mouse_selection_ranges(game):
+        start = (int(sel.get("start_x", 0)), int(sel.get("start_y", 0)))
+        end = (int(sel.get("end_x", 0)), int(sel.get("end_y", 0)))
+        mode = str(sel.get("mode", "linear"))
+        if start[1] > end[1] or (start[1] == end[1] and start[0] > end[0]):
+            start, end = end, start
+        for row in range(max(0, start[1]), min(end[1] + 1, len(out))):
+            x1, x2 = _selection_row_columns(row, start, end, mode, width)
+            out[row] = _highlight_line_range(out[row], x1, x2, (15, 15, 15), color)
+
+
+def _is_cell(value) -> bool:
+    return isinstance(value, (list, tuple)) and len(value) == 2
+
+
+def _overlay_selection_frame(out: list[str], game: dict, local_snake: list, local_pal: dict, width: int) -> list[str]:
+    if not bool(game.get("selection_frame_mode")):
+        return out
+    frame_anchor = game.get("selection_frame_anchor")
+    local_head = local_snake[0] if local_snake and isinstance(local_snake[0], (list, tuple)) else None
+    if not (_is_cell(frame_anchor) and _is_cell(local_head)):
+        return out
+    ax, ay = int(frame_anchor[0]), int(frame_anchor[1])
+    hx, hy = int(local_head[0]), int(local_head[1])
+    return _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=local_pal["label"])
+
+
+def _overlay_snake_body(out: list[str], snake: list, pal: dict, play_width: int) -> None:
+    for idx, pos in enumerate(snake):
+        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+            continue
+        x, y = _wrapped_cell(pos, play_width, out)
+        ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
+        col = pal["head"] if idx == 0 else pal["body"]
+        out[y] = _overlay_at_visible_col(out[y], x, f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m")
+
+
+def _snake_message_effect_enabled(snapshot: dict, game: dict, style: str) -> bool:
+    explicit_effect_flag = snapshot.get("snake_message_effect_enabled", game.get("snake_message_effect_enabled"))
+    enabled = style != "ticker" if explicit_effect_flag is None else bool(explicit_effect_flag)
+    return enabled or (
+        os.environ.get("ANANTA_TUI_SNAKE_MESSAGE_EFFECT", "").strip().lower() in {"1", "true", "yes", "on"}
+    )
+
+
+def _overlay_snake_trail_message(
+    out: list[str], snapshot: dict, game: dict, snake: list, pal: dict, width: int
+) -> list[str]:
+    style = str(snapshot.get("message_style") or "trail")
+    enabled = _snake_message_effect_enabled(snapshot, game, style)
+    message = _display_message_for_snake(str(snapshot.get("message") or "")) if enabled else ""
+    trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
+    if not (message and trail):
+        return out
+    trail_window = int(snapshot.get("trail_window") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10"))
+    trail_speed = float(snapshot.get("trail_speed") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0"))
+    return _overlay_snake_message_effect(
+        out,
+        snake=snake,
+        trail=trail,
+        message=message,
+        width=width,
+        mode=style,
+        color=pal["label"],
+        trail_window=trail_window,
+        trail_speed=trail_speed,
+    )
+
+
+def _overlay_snake_hud(
+    out: list[str], game: dict, *, width: int, body_s: int, body_h: int, split_view: bool
+) -> list[str]:
+    """Pause overlay (T01.02), score header (T01.05) and the min-size warning (T01.03)."""
+    if bool(game.get("paused")):
+        out = _overlay_snake_paused_at(out, width=width, center_y=body_s + max(0, body_h // 2 - 1))
+    if not split_view and body_h > 0:
+        out = _overlay_snake_score_header(out, game, width=width, row=body_s)
+    if (width < 40 or body_h < 18) and body_s < len(out):
+        warn = "Terminal zu klein für Snake"
+        out[body_s] = _overlay_text(out[body_s:body_s + 1], x=2, y=0, text=warn, color=(255, 80, 80))[0]
+    return out
+
+
 def _overlay_fullscreen_snake(
     lines: list[str],
     state: OperatorState,
@@ -125,17 +276,10 @@ def _overlay_fullscreen_snake(
     # Body bounds used only for AI/chat panel placement (panels stay in the body area).
     body_s = max(0, min(len(shell), int(body_start)))
     body_e = len(shell) if body_end is None else max(body_s, min(len(shell), int(body_end)))
-    body_h = body_e - body_s
 
-    split_view = width >= 100
-
-    # Snake playfield always uses the full terminal width.
-    # Right-side panels may still be rendered, but they are overlays and do not
-    # constrain snake coordinates or wrapping.
+    # Snake playfield always uses the full terminal width. Right-side panels
+    # are overlays and do not constrain snake coordinates or wrapping.
     play_width = max(1, width)
-
-    def _project_x(raw_x: int) -> int:
-        return int(raw_x) % play_width
 
     local_id = str(game.get("local_snake_id") or "s1")
     snakes = _collect_snakes(game, local_snake_id=local_id)
@@ -143,143 +287,24 @@ def _overlay_fullscreen_snake(
     local_pal = _snake_palette(str(local_snapshot.get("snake_color") or game.get("snake_color") or "mint"))
 
     # Markings and selections are rendered in each snake's own color.
-    for sid, snapshot in snakes.items():
-        if not isinstance(snapshot, dict):
-            continue
-        pal = _snake_palette(str(snapshot.get("snake_color") or "mint"))
-        mark_cells = snapshot.get("mark_cells") if isinstance(snapshot.get("mark_cells"), list) else []
-        for item in mark_cells:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            x = _project_x(int(item[0]))
-            y = int(item[1]) % max(1, len(out))
-            base = _visible_char_at(out[y], x)
-            if base == " ":
-                continue
-            mcol = pal["body"]
-            repl = f"\x1b[48;2;{mcol[0]};{mcol[1]};{mcol[2]}m\x1b[38;2;20;20;20m{base}\x1b[0m"
-            out[y] = _overlay_at_visible_col(out[y], x, repl)
+    for snapshot in snakes.values():
+        if isinstance(snapshot, dict):
+            _overlay_snake_marks(out, snapshot, play_width)
+    _overlay_selection_anchor(out, game, local_pal, play_width)
+    _overlay_mouse_selection(out, game, local_pal, width)
+    out = _overlay_selection_frame(out, game, local_snake, local_pal, width)
 
-        selection = snapshot.get("selection_cells") if isinstance(snapshot.get("selection_cells"), list) else []
-        for item in selection:
-            if not isinstance(item, (list, tuple)) or len(item) != 2:
-                continue
-            x = _project_x(int(item[0]))
-            y = int(item[1]) % max(1, len(out))
-            base = _visible_char_at(out[y], x)
-            if base == " ":
-                base = "░"
-            scol = pal["head"]
-            repl = f"\x1b[48;2;{scol[0]};{scol[1]};{scol[2]}m\x1b[38;2;15;15;15m{base}\x1b[0m"
-            out[y] = _overlay_at_visible_col(out[y], x, repl)
-
-    anchor = game.get("selection_anchor")
-    if isinstance(anchor, (list, tuple)) and len(anchor) == 2:
-        x = _project_x(int(anchor[0]))
-        y = int(anchor[1]) % max(1, len(out))
-        acol = local_pal["label"]
-        repl = f"\x1b[38;2;{acol[0]};{acol[1]};{acol[2]}m◎\x1b[0m"
-        out[y] = _overlay_at_visible_col(out[y], x, repl)
-
-    # Mouse drag selection: efficient range-based rendering (linear or block)
-    _mouse_sel_ranges: list[dict] = []
-    _active_range = game.get("mouse_selection_range")
-    if isinstance(_active_range, dict):
-        _mouse_sel_ranges.append(_active_range)
-    for _committed in (game.get("mouse_selection_committed_ranges") or []):
-        if isinstance(_committed, dict):
-            _mouse_sel_ranges.append(_committed)
-    if _mouse_sel_ranges:
-        _scol = local_pal["head"]
-        _fg = (15, 15, 15)
-        for _r in _mouse_sel_ranges:
-            _sx = int(_r.get("start_x", 0))
-            _sy = int(_r.get("start_y", 0))
-            _ex = int(_r.get("end_x", 0))
-            _ey = int(_r.get("end_y", 0))
-            _mode = str(_r.get("mode", "linear"))
-            if _sy > _ey or (_sy == _ey and _sx > _ex):
-                _sx, _ex = _ex, _sx
-                _sy, _ey = _ey, _sy
-            for _ly in range(max(0, _sy), min(_ey + 1, len(out))):
-                if _mode == "block":
-                    _lx1, _lx2 = sorted([_sx, _ex])
-                elif _ly == _sy and _ly == _ey:
-                    _lx1, _lx2 = sorted([_sx, _ex])
-                elif _ly == _sy:
-                    _lx1, _lx2 = _sx, width - 1
-                elif _ly == _ey:
-                    _lx1, _lx2 = 0, _ex
-                else:
-                    _lx1, _lx2 = 0, width - 1
-                out[_ly] = _highlight_line_range(out[_ly], _lx1, _lx2, _fg, _scol)
-
-    if bool(game.get("selection_frame_mode")):
-        frame_anchor = game.get("selection_frame_anchor")
-        local_head = local_snake[0] if local_snake and isinstance(local_snake[0], (list, tuple)) else None
-        if isinstance(frame_anchor, (list, tuple)) and len(frame_anchor) == 2 and isinstance(local_head, (list, tuple)) and len(local_head) == 2:
-            ax, ay = int(frame_anchor[0]), int(frame_anchor[1])
-            hx, hy = int(local_head[0]), int(local_head[1])
-            out = _overlay_frame_preview(out, x1=ax, y1=ay, x2=hx, y2=hy, width=width, color=local_pal["label"])
-
-    for sid, snapshot in snakes.items():
+    for snapshot in snakes.values():
         snake = snapshot.get("snake") if isinstance(snapshot.get("snake"), list) else []
         if not snake:
             continue
         pal = _snake_palette(str(snapshot.get("snake_color") or "mint"))
-        for idx, pos in enumerate(snake):
-            if not isinstance(pos, (list, tuple)) or len(pos) != 2:
-                continue
-            x = _project_x(int(pos[0]))
-            y = int(pos[1]) % max(1, len(out))
-            ch = "●" if idx == 0 else ("◉" if idx < 4 else "·")
-            col = pal["head"] if idx == 0 else pal["body"]
-            repl = f"\x1b[38;2;{col[0]};{col[1]};{col[2]}m{ch}\x1b[0m"
-            out[y] = _overlay_at_visible_col(out[y], x, repl)
+        _overlay_snake_body(out, snake, pal, play_width)
+        out = _overlay_snake_trail_message(out, snapshot, game, snake, pal, width)
 
-        style = str(snapshot.get("message_style") or "trail")
-        explicit_effect_flag = snapshot.get("snake_message_effect_enabled", game.get("snake_message_effect_enabled"))
-        if explicit_effect_flag is None:
-            message_effect_enabled = style != "ticker"
-        else:
-            message_effect_enabled = bool(explicit_effect_flag)
-        message_effect_enabled = message_effect_enabled or (
-            os.environ.get("ANANTA_TUI_SNAKE_MESSAGE_EFFECT", "").strip().lower() in {"1", "true", "yes", "on"}
-        )
-        message = _display_message_for_snake(str(snapshot.get("message") or "")) if message_effect_enabled else ""
-        trail = snapshot.get("trail_path") if isinstance(snapshot.get("trail_path"), list) else []
-        if message and trail:
-            trail_window = int(snapshot.get("trail_window") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_WINDOW", "10"))
-            trail_speed = float(snapshot.get("trail_speed") or os.environ.get("ANANTA_TUI_SNAKE_TRAIL_SPEED", "8.0"))
-            out = _overlay_snake_message_effect(
-                out,
-                snake=snake,
-                trail=trail,
-                message=message,
-                width=width,
-                mode=style,
-                color=pal["label"],
-                trail_window=trail_window,
-                trail_speed=trail_speed,
-            )
-
-    # Pause overlay (T01.02) — centered in the body area
-    if bool(game.get("paused")):
-        pause_cy = body_s + max(0, body_h // 2 - 1)
-        out = _overlay_snake_paused_at(out, width=width, center_y=pause_cy)
-
-    # Score / highscore header (T01.05) — in top row of body area
-    if not split_view and body_h > 0:
-        out = _overlay_snake_score_header(out, game, width=width, row=body_s)
-
-    # Min-size warning (T01.03)
-    if width < 40 or body_h < 18:
-        warn = "Terminal zu klein für Snake"
-        if body_s < len(out):
-            out[body_s] = _overlay_text(out[body_s:body_s + 1], x=2, y=0, text=warn, color=(255, 80, 80))[0]
-
-    return out
-
+    return _overlay_snake_hud(
+        out, game, width=width, body_s=body_s, body_h=body_e - body_s, split_view=width >= 100
+    )
 
 
 def _reserve_snake_right_dock(lines: list[str], *, split_col: int, width: int) -> list[str]:
