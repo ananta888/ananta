@@ -40,6 +40,8 @@ VISUAL_LIFECYCLE_SOURCE_PATHS = (
     "agent/services/semantic_media_program_evidence.py",
     "agent/models/semantic_media_content_policy.py",
     "scripts/e2e/semantic_media_e2e_report.py",
+    "scripts/e2e/semantic_media_e2e_sources.py",
+    "scripts/e2e/semantic_media_e2e_summary.py",
     "frontend-angular/tests/semantic-visual-lifecycle.spec.ts",
     "frontend-angular/src/main.ts",
     "frontend-angular/src/app/e2e/semantic-visual-lifecycle-live-driver.ts",
