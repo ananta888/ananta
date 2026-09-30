@@ -17,9 +17,22 @@ from ananta_contracts.general_worker_capabilities import (
     GENERAL_PURPOSE_WORKER_CAPABILITIES,
 )
 
-TERMINAL_STATUSES = {"completed", "failed", "cancelled", "aborted", "timeout"}
-ACTIVE_STATUSES = {"assigned", "proposing", "in_progress", "running"}
-BLOCKED_SET = {"todo", "blocked_by_dependency"}
+try:
+    from scripts.first_goal_acceptance_observation import (  # noqa: F401 - status sets stay importable here
+        ACTIVE_STATUSES,
+        BLOCKED_SET,
+        TERMINAL_STATUSES,
+        GoalRunObservation,
+        early_analysis,
+    )
+except ModuleNotFoundError:  # executed directly: the scripts directory is sys.path[0]
+    from first_goal_acceptance_observation import (  # type: ignore[no-redef]  # noqa: F401
+        ACTIVE_STATUSES,
+        BLOCKED_SET,
+        TERMINAL_STATUSES,
+        GoalRunObservation,
+        early_analysis,
+    )
 
 
 _CRITERION_STABLE_IDS: dict[int, str] = {
@@ -465,6 +478,69 @@ commit;
     subprocess.run(["docker", "exec", "ananta-postgres-1", "psql", "-U", "ananta", "-d", "ananta", "-v", "ON_ERROR_STOP=1", "-c", sql], check=True)
 
 
+def _criterion_task_materialization(observation: GoalRunObservation) -> CriterionResult:
+    obs = observation
+    passed = (obs.task_count_at_60 >= 1) or (
+        (obs.first_task_seen_at is not None) and obs.planning_extended_by_activity and not obs.idle_hang_violation
+    )
+    details = (
+        f"task_count_within_60s={obs.task_count_at_60}; "
+        f"first_task_seen_at={obs.seconds_since_start(obs.first_task_seen_at)}; "
+        f"planning_extended_by_activity={obs.planning_extended_by_activity}; "
+        f"idle_hang_violation={obs.idle_hang_violation}; max_idle_stretch_s={obs.max_idle_stretch_s:.1f}"
+    )
+    return CriterionResult(2, "Task-Materialisierung erfolgt automatisch", passed, details)
+
+
+def _criterion_autopilot_takeover(observation: GoalRunObservation) -> CriterionResult:
+    obs = observation
+    assigned = obs.first_assigned_at is not None and obs.first_post_assigned_change
+    fast = assigned and (obs.first_assigned_at - obs.started_at) <= 90
+    slow = (
+        assigned
+        and not obs.idle_hang_violation
+        and (obs.planning_real_llm_seen or obs.planning_synthetic_llm_seen)
+    )
+    details = (
+        f"first_assigned_at={obs.seconds_since_start(obs.first_assigned_at)}; "
+        f"post_assigned_change={obs.first_post_assigned_change}; "
+        f"planning_real_llm_seen={obs.planning_real_llm_seen}; "
+        f"planning_synthetic_llm_seen={obs.planning_synthetic_llm_seen}; "
+        f"idle_hang_violation={obs.idle_hang_violation}"
+    )
+    return CriterionResult(3, "Autopilot-Übernahme ohne Eingriff", fast or slow, details)
+
+
+def _append_run_criteria(
+    report: RunReport,
+    observation: GoalRunObservation,
+    *,
+    runner_timeout_s: int,
+    host_dir: Path,
+    ci_safe: bool,
+) -> None:
+    """Evaluate criteria 1b-10 from the polling observation."""
+
+    obs = observation
+    c1b = obs.first_status_time is not None and (obs.first_status_time - obs.started_at) <= 30
+    report.criteria[0].passed = report.criteria[0].passed and c1b
+    if obs.first_status_time is not None:
+        report.criteria[0].details += f"; first_planning_state_at={obs.first_status_time - obs.started_at:.2f}s"
+    report.criteria.append(_criterion_task_materialization(obs))
+    report.criteria.append(_criterion_autopilot_takeover(obs))
+    report.criteria.append(CriterionResult(4, "Kein Planungs-Deadlock", not obs.deadlock_violation, f"deadlock_violation={obs.deadlock_violation}"))
+    if ci_safe:
+        # In CI-safe mode, skip the live provider check and mark it explicitly
+        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", True, "skipped_in_ci_safe_mode"))
+        report.skipped_checks.append("provider_stability")
+    else:
+        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", not obs.cb_open_violation, f"circuit_open_violation={obs.cb_open_violation}"))
+    report.criteria.append(CriterionResult(6, "Workspace-Schreibphase erreicht", obs.workspace_file_seen, f"workspace={host_dir}; file_seen={obs.workspace_file_seen}"))
+    report.criteria.append(CriterionResult(7, "Verifikation vorhanden", obs.verification_seen, f"verification_seen={obs.verification_seen}"))
+    report.criteria.append(CriterionResult(8, "Terminaler Goal-Status", report.final_goal_status in {"completed", "failed"}, f"final_status={report.final_goal_status}; sla_s={runner_timeout_s}"))
+    report.criteria.append(CriterionResult(10, "Kein manueller Operatoreingriff", True, "runner used no manual start/tick/retarget/db edits during run"))
+
+
 def run_once(
     runner: AcceptanceRunner,
     *,
@@ -528,27 +604,10 @@ def run_once(
             report.criteria.append(CriterionResult(i, name, False, "goal not created"))
         return report
 
-    status_seen: list[tuple[float, str]] = []
-    first_status_time = None
-    task_count_at_60 = 0
-    first_task_seen_at = None
-    first_assigned_at = None
-    first_post_assigned_change = False
-    deadlock_start = None
-    deadlock_violation = False
-    cb_open_start = None
-    cb_open_violation = False
-    workspace_file_seen = False
-    verification_seen = False
-    max_idle_stretch_s = 0.0
-    idle_hang_violation = False
-    last_activity_at = started_at
-    prev_status = None
-    prev_task_count = 0
-    planning_extended_by_activity = False
-    planning_real_llm_seen = False
-    planning_synthetic_llm_seen = False
-
+    observation = GoalRunObservation(
+        started_at=started_at,
+        max_circuit_breaker_open_seconds=max_circuit_breaker_open_seconds,
+    )
     final_status = None
     deadline = started_at + runner.timeout_s
     early_deadline = started_at + max(0, int(early_analysis_seconds or 0))
@@ -558,124 +617,24 @@ def run_once(
         goal = dict(detail.get("goal") or {})
         tasks = list(detail.get("tasks") or [])
         status = str(goal.get("status") or "")
-        if status:
-            status_seen.append((now, status))
-            if first_status_time is None and status in {"planning", "planning_queued", "planning_running", "planned"}:
-                first_status_time = now
-            if prev_status is None or status != prev_status:
-                last_activity_at = now
-            prev_status = status
-        if now - started_at <= 60:
-            task_count_at_60 = max(task_count_at_60, len(tasks))
-        if first_task_seen_at is None and len(tasks) > 0:
-            first_task_seen_at = now
-            last_activity_at = now
-        if len(tasks) != prev_task_count:
-            last_activity_at = now
-            prev_task_count = len(tasks)
-
-        task_statuses = [str(t.get("status") or "") for t in tasks]
-        assigned_now = any(s == "assigned" for s in task_statuses)
-        if assigned_now and first_assigned_at is None:
-            first_assigned_at = now
-            last_activity_at = now
-        if first_assigned_at is not None and any(s in {"proposing", "in_progress", "completed", "failed"} for s in task_statuses):
-            first_post_assigned_change = True
-            last_activity_at = now
-
-        non_terminal = [s for s in task_statuses if s and s not in TERMINAL_STATUSES]
-        if non_terminal and all(s in BLOCKED_SET for s in non_terminal):
-            if deadlock_start is None:
-                deadlock_start = now
-            elif now - deadlock_start > 120:
-                deadlock_violation = True
-        else:
-            deadlock_start = None
-
-        ap = runner._get_autopilot_status()
-        open_count = int((ap.get("circuit_breakers") or {}).get("open_count") or 0)
-        if open_count > 0:
-            if cb_open_start is None:
-                cb_open_start = now
-            elif now - cb_open_start > max_circuit_breaker_open_seconds:
-                cb_open_violation = True
-        else:
-            cb_open_start = None
-
-        if host_dir.exists() and any(p.is_file() for p in host_dir.rglob("*")):
-            workspace_file_seen = True
-
-        for t in tasks:
-            tid = str(t.get("id") or "").strip()
-            if not tid:
-                continue
-            task_detail = runner._get_task(tid)
-            last_output = str(task_detail.get("last_output") or "")
-            vstat = task_detail.get("verification_status")
-            if vstat:
-                verification_seen = True
-                break
-            if any(k in last_output.lower() for k in ("pytest", "test", "verification", "smoke", "nicht-ausfuehrbar", "nicht ausführbar")):
-                verification_seen = True
-                break
-            proposal = dict(task_detail.get("last_proposal") or {})
-            cli_result = dict(proposal.get("cli_result") or {})
-            prof_entries = list(cli_result.get("llm_call_profile") or [])
-            if prof_entries:
-                last_activity_at = now
-            for entry in prof_entries:
-                if not isinstance(entry, dict):
-                    continue
-                est = bool(entry.get("estimated"))
-                src = str(entry.get("source") or "").strip()
-                if est or src == "orchestrator_synthetic":
-                    planning_synthetic_llm_seen = True
-                else:
-                    planning_real_llm_seen = True
-
-        idle_s = now - last_activity_at
-        max_idle_stretch_s = max(max_idle_stretch_s, idle_s)
-        if status in {"planning", "planned"} and idle_s > 120:
-            idle_hang_violation = True
-        if status in {"planning", "planning_queued", "planning_running", "planned"} and (now - started_at) > 60 and (planning_real_llm_seen or first_task_seen_at is not None):
-            planning_extended_by_activity = True
+        observation.observe_poll(
+            now,
+            status=status,
+            tasks=tasks,
+            host_dir=host_dir,
+            autopilot_status=runner._get_autopilot_status,
+            task_detail=runner._get_task,
+        )
         if status in TERMINAL_STATUSES:
             final_status = status
             break
         if early_analysis_seconds and time.time() >= early_deadline:
-            report.early_analysis = {
-                "mode": "early_exit",
-                "classification": "planning_stuck" if status in {"planning", "planning_queued", "planning_running"} and not tasks else "progressing",
-                "status": status,
-                "task_count": len(tasks),
-            }
+            report.early_analysis = early_analysis(status, tasks)
             break
         time.sleep(runner.poll_s)
 
     report.final_goal_status = final_status or str((runner._get_goal_detail(goal_id).get("goal") or {}).get("status") or "")
-
-    c1b = first_status_time is not None and (first_status_time - started_at) <= 30
-    report.criteria[0].passed = report.criteria[0].passed and c1b
-    if first_status_time is not None:
-        report.criteria[0].details += f"; first_planning_state_at={first_status_time-started_at:.2f}s"
-
-    c2 = (task_count_at_60 >= 1) or ((first_task_seen_at is not None) and planning_extended_by_activity and not idle_hang_violation)
-    report.criteria.append(CriterionResult(2, "Task-Materialisierung erfolgt automatisch", c2, f"task_count_within_60s={task_count_at_60}; first_task_seen_at={(first_task_seen_at-started_at) if first_task_seen_at else None}; planning_extended_by_activity={planning_extended_by_activity}; idle_hang_violation={idle_hang_violation}; max_idle_stretch_s={max_idle_stretch_s:.1f}"))
-
-    c3_fast = first_assigned_at is not None and (first_assigned_at - started_at) <= 90 and first_post_assigned_change
-    c3_slow = first_assigned_at is not None and first_post_assigned_change and not idle_hang_violation and (planning_real_llm_seen or planning_synthetic_llm_seen)
-    report.criteria.append(CriterionResult(3, "Autopilot-Übernahme ohne Eingriff", c3_fast or c3_slow, f"first_assigned_at={(first_assigned_at-started_at) if first_assigned_at else None}; post_assigned_change={first_post_assigned_change}; planning_real_llm_seen={planning_real_llm_seen}; planning_synthetic_llm_seen={planning_synthetic_llm_seen}; idle_hang_violation={idle_hang_violation}"))
-    report.criteria.append(CriterionResult(4, "Kein Planungs-Deadlock", not deadlock_violation, f"deadlock_violation={deadlock_violation}"))
-    if ci_safe:
-        # In CI-safe mode, skip the live provider check and mark it explicitly
-        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", True, "skipped_in_ci_safe_mode"))
-        report.skipped_checks.append("provider_stability")
-    else:
-        report.criteria.append(CriterionResult(5, "Provider-Stabilität ausreichend", not cb_open_violation, f"circuit_open_violation={cb_open_violation}"))
-    report.criteria.append(CriterionResult(6, "Workspace-Schreibphase erreicht", workspace_file_seen, f"workspace={host_dir}; file_seen={workspace_file_seen}"))
-    report.criteria.append(CriterionResult(7, "Verifikation vorhanden", verification_seen, f"verification_seen={verification_seen}"))
-    report.criteria.append(CriterionResult(8, "Terminaler Goal-Status", report.final_goal_status in {"completed", "failed"}, f"final_status={report.final_goal_status}; sla_s={runner.timeout_s}"))
-    report.criteria.append(CriterionResult(10, "Kein manueller Operatoreingriff", True, "runner used no manual start/tick/retarget/db edits during run"))
+    _append_run_criteria(report, observation, runner_timeout_s=runner.timeout_s, host_dir=host_dir, ci_safe=ci_safe)
 
     cfg_status, cfg_payload = runner.get_goal_effective_config(goal_id)
     report.effective_config_endpoint_status = cfg_status
