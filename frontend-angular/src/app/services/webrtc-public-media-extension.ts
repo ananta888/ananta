@@ -248,14 +248,17 @@ export class WebrtcPublicMediaExtension {
   }
 
   /**
-   * After a remote offer: rejects media of a disabled contract and binds the
-   * offered topology. Returns false when the peer generation was superseded.
+   * After a remote offer: synchronously rejects media of a disabled contract
+   * and returns the binding of the offered topology when one is awaited, or
+   * null. The caller awaits the returned binding itself so that a peer
+   * without a pending binding creates its answer in the same microtask turn
+   * (no extra await is introduced into the SDP path).
    */
-  async prepareAnswerTopology(
+  prepareAnswerTopology(
     pc: RTCPeerConnection,
     sessionId: string,
     generation: number,
-  ): Promise<boolean> {
+  ): (() => Promise<void>) | null {
     const disabledContract = this.deps.securityBootstrap.mediaContractFor(sessionId);
     if (
       this.deps.controlPlane.isPublicSession(sessionId)
@@ -266,25 +269,22 @@ export class WebrtcPublicMediaExtension {
     }
     const mediaContext = this.activeContext;
     if (
-      this.isActiveContext(mediaContext, pc, sessionId, generation)
-      && this.deps.pairMediaTransforms.isAwaitingRemoteTopology(
+      !this.isActiveContext(mediaContext, pc, sessionId, generation)
+      || !this.deps.pairMediaTransforms.isAwaitingRemoteTopology(
         sessionId, mediaContext.adapterGeneration,
       )
-    ) {
-      try {
-        await this.deps.pairMediaTransforms.bindRemoteOfferTopology(
-          sessionId, mediaContext.adapterGeneration,
-        );
-        if (!this.session.isCurrentSession(pc, sessionId, generation)) return false;
-      } catch (error) {
-        this.session.audit('public_media_topology_disabled', error instanceof Error ? error.message : String(error));
-        this.deps.pairMediaE2ee.failMediaExtension(
-          sessionId,
-          error instanceof Error ? error.message : 'public_media_topology_invalid',
-        );
-      }
-    }
-    return true;
+    ) return null;
+    const adapterGeneration = mediaContext.adapterGeneration;
+    return () => this.deps.pairMediaTransforms.bindRemoteOfferTopology(sessionId, adapterGeneration);
+  }
+
+  /** Disables only the media extension when the offered topology is invalid. */
+  failOfferedTopology(sessionId: string, error: unknown): void {
+    this.session.audit('public_media_topology_disabled', error instanceof Error ? error.message : String(error));
+    this.deps.pairMediaE2ee.failMediaExtension(
+      sessionId,
+      error instanceof Error ? error.message : 'public_media_topology_invalid',
+    );
   }
 
   markTopologyNegotiated(pc: RTCPeerConnection, sessionId: string, generation: number): void {

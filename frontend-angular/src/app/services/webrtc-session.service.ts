@@ -599,7 +599,15 @@ export class WebrtcSessionService {
       this.remoteDescriptionApplied = true;
       await this.flushRemoteIce(pc, sessionId, generation);
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
-      if (!(await this.publicMedia.prepareAnswerTopology(pc, sessionId, generation))) return;
+      const bindOfferedTopology = this.publicMedia.prepareAnswerTopology(pc, sessionId, generation);
+      if (bindOfferedTopology) {
+        try {
+          await bindOfferedTopology();
+          if (!this.isCurrentSession(pc, sessionId, generation)) return;
+        } catch (error) {
+          this.publicMedia.failOfferedTopology(sessionId, error);
+        }
+      }
       const answer = await pc.createAnswer();
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
       await this.publishLocalDescription('answer', answer, pc, sessionId, generation);
