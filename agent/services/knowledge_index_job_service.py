@@ -10,6 +10,7 @@ each overridable through a keyword-only constructor parameter:
 * ``knowledge_index_bound_task_projection`` -- bound task projection rules
 * ``knowledge_index_bound_dispatch_gate`` -- mandatory Hub dispatch gate
 * ``knowledge_index_bound_job_admission`` -- bound execution admission
+* ``knowledge_index_bound_job_maintenance`` -- bound retry and expired dispatch
 * ``knowledge_index_completion_saga`` -- durable completion projection
 """
 
@@ -22,17 +23,16 @@ from typing import Any
 
 from agent.services.knowledge_index_bound_dispatch_gate import (
     KnowledgeIndexBoundDispatchGate,
-    persist_bound_execution_envelope,
 )
 from agent.services.knowledge_index_bound_job_admission import (
     KnowledgeIndexBoundJobAdmission,
 )
+from agent.services.knowledge_index_bound_job_maintenance import (
+    reconcile_expired_bound_dispatch,
+    retry_bound_execution,
+)
 from agent.services.knowledge_index_bound_task_projection import (
     bound_task_ingest_request,
-    expired_dispatch_reconciliation_marker,
-    project_expired_dispatch_failure,
-    task_has_expired_dispatch_projection,
-    task_matches_bound_execution,
     validate_bound_task_projection,
 )
 from agent.services.knowledge_index_completion_saga import (
@@ -46,7 +46,6 @@ from agent.services.knowledge_index_job_contract import (
     KNOWLEDGE_INDEX_JOB_SCHEMA,
     KNOWLEDGE_INDEX_RESULT_SCHEMA,
     MAX_JOB_PAYLOAD_BYTES,
-    RECONCILABLE_TASK_STATUSES,
     canonical_json,
     legacy_job_ingest_request,
     normalize_graph_visual_metrics_options,
@@ -74,9 +73,6 @@ from agent.services.knowledge_index_job_ports import (
 )
 from agent.services.knowledge_index_worker_result_references import (
     validate_worker_artifact_references,
-)
-from ananta_contracts.knowledge_index_execution import (
-    KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
 )
 
 
@@ -233,41 +229,12 @@ class KnowledgeIndexJobService:
     ) -> dict[str, Any]:
         """Retry through the Hub gate and fail closed on stale queue context."""
 
-        from ananta_contracts.knowledge_index_execution import (
-            KnowledgeIndexExecutionAssignment,
-        )
-
-        service = self._execution_binding_service
-        if service is None:
-            raise RuntimeError(
-                "knowledge_index_execution_binding_service_unavailable"
-            )
-        task = self._repository().get_by_id(str(job_id))
-        if task is None:
-            raise ValueError("knowledge_index_job_not_found")
-        raw_task = (
-            task.model_dump()
-            if hasattr(task, "model_dump")
-            else dict(task)
-        )
-        expected_envelope = dict(
-            dict(raw_task.get("worker_execution_context") or {}).get(
-                "knowledge_index_job"
-            )
-            or {}
-        )
-        record = service.retry(
-            job_id=str(job_id),
-            assignment=KnowledgeIndexExecutionAssignment.model_validate(
-                dict(assignment)
-            ),
+        record = retry_bound_execution(
+            binding_service=self._execution_binding_service,
+            repository_provider=self._repository,
+            job_id=job_id,
+            assignment=assignment,
             **retry_options,
-        )
-        persist_bound_execution_envelope(
-            self._repository(),
-            job_id=str(job_id),
-            expected_envelope=expected_envelope,
-            envelope=record.job.to_wire(),
         )
         return self.get_job(str(job_id)) or {
             "job_id": str(job_id),
@@ -282,77 +249,12 @@ class KnowledgeIndexJobService:
     ) -> dict[str, Any]:
         """Project one expired Hub assignment or dispatch without replay."""
 
-        normalized_job_id = str(job_id or "").strip()
-        if not normalized_job_id:
-            raise ValueError("knowledge_index_job_not_found")
-        try:
-            normalized_lock_version = int(expected_lock_version)
-        except (TypeError, ValueError):
-            normalized_lock_version = 0
-        if isinstance(expected_lock_version, bool) or normalized_lock_version < 1:
-            raise ValueError("knowledge_index_execution_lock_version_invalid")
-        binding_service = self._execution_binding_service
-        if binding_service is None:
-            raise RuntimeError(
-                "knowledge_index_execution_binding_service_unavailable"
-            )
-        reconcile = getattr(
-            binding_service,
-            "reconcile_expired_dispatch",
-            None,
+        return reconcile_expired_bound_dispatch(
+            binding_service=self._execution_binding_service,
+            repository_provider=self._repository,
+            job_id=job_id,
+            expected_lock_version=expected_lock_version,
         )
-        if not callable(reconcile):
-            raise RuntimeError(
-                "knowledge_index_execution_reconcile_service_unavailable"
-            )
-        record = reconcile(
-            job_id=normalized_job_id,
-            expected_lock_version=normalized_lock_version,
-        )
-        if record.state != "failed" or record.completed_at_epoch_ms is None:
-            raise RuntimeError(
-                "knowledge_index_execution_reconcile_result_invalid"
-            )
-
-        repository = self._repository()
-        status_cas = getattr(repository, "compare_and_set_status", None)
-        if not callable(status_cas):
-            raise RuntimeError(
-                "knowledge_index_atomic_task_status_repository_required"
-            )
-        marker = expired_dispatch_reconciliation_marker(record)
-        result = status_cas(
-            normalized_job_id,
-            expected_statuses=set(RECONCILABLE_TASK_STATUSES),
-            target_status="failed",
-            predicate=lambda task: task_matches_bound_execution(
-                task,
-                expected_envelope=record.job.to_wire(),
-            ),
-            mutate=lambda task: project_expired_dispatch_failure(
-                task,
-                marker=marker,
-            ),
-        )
-        projected_task = getattr(result, "task", None)
-        if not bool(getattr(result, "updated", False)) and not (
-            projected_task is not None
-            and task_has_expired_dispatch_projection(
-                projected_task,
-                marker=marker,
-            )
-        ):
-            raise ValueError(
-                "knowledge_index_execution_task_projection_conflict"
-            )
-        return {
-            "job_id": normalized_job_id,
-            "status": "failed",
-            "reason_code": KNOWLEDGE_INDEX_EXPIRED_DISPATCH_REASON,
-            "execution_state": record.state,
-            "execution_lock_version": int(record.lock_version),
-            "completed_at_epoch_ms": int(record.completed_at_epoch_ms),
-        }
 
     def _ensure_bound_task_projection(
         self,
