@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -41,7 +42,213 @@ FINDING_FIELDS = frozenset({"finding_id", "severity", "package", "version", "fix
 SEVERITIES = frozenset({"critical", "high", "medium", "low", "negligible", "unknown"})
 
 
-def evaluate(  # noqa: C901 - one contract evaluation keeps evidence accounting atomic
+_REPORT_FIELDS = frozenset({"schema", "source_sha256", "policy_sha256", "build_manifest_sha256"})
+_SBOM_COMPONENT_FIELDS = frozenset({"name", "image_digest", "packages"})
+_SCANNER_IMAGE_FIELDS = frozenset({"component", "image_digest", "critical", "high", "findings", "exceptions"})
+_UNKNOWN_LICENSES = frozenset({"unknown", "noassertion", "none"})
+_SCANNER_BINDING_REASONS = (
+    ("source_sha256", "semantic_media_scanner_source_mismatch"),
+    ("policy_sha256", "semantic_media_scanner_policy_mismatch"),
+    ("build_manifest_sha256", "semantic_media_scanner_build_manifest_mismatch"),
+)
+
+
+@dataclass
+class _SbomTally:
+    """Counters accumulated while walking the SBOM components."""
+
+    names: set[str] = field(default_factory=set)
+    package_count: int = 0
+    unknown_license_count: int = 0
+    composite_license_count: int = 0
+    image_digests: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class _ScanTally:
+    """Counters accumulated while walking the scanned images."""
+
+    scanned: set[str] = field(default_factory=set)
+    critical_count: int = 0
+    unaccepted_high: int = 0
+
+
+def _tally_package(package: Any, tally: _SbomTally, reasons: list[str]) -> None:
+    if not isinstance(package, Mapping) or set(package) != PACKAGE_FIELDS or not all(package.values()):
+        reasons.append("semantic_media_sbom_package_invalid")
+        return
+    for value in package.values():
+        _safe_text(value)
+    if str(package["license"]).casefold() in _UNKNOWN_LICENSES:
+        tally.unknown_license_count += 1
+    if str(package["license"]).startswith("COMPOSITE-SPDX-SHA256:"):
+        tally.composite_license_count += 1
+    tally.package_count += 1
+
+
+def _tally_sbom_component(component: Any, tally: _SbomTally, reasons: list[str]) -> None:
+    if not isinstance(component, Mapping) or set(component) != _SBOM_COMPONENT_FIELDS:
+        raise ProgramEvidenceError("semantic_media_sbom_component_invalid")
+    name = str(component["name"])
+    tally.names.add(name)
+    _digest(component["image_digest"])
+    tally.image_digests[name] = str(component["image_digest"])
+    packages = component["packages"]
+    if not isinstance(packages, list) or not packages:
+        reasons.append("semantic_media_sbom_package_inventory_missing")
+        return
+    for package in packages:
+        _tally_package(package, tally, reasons)
+
+
+def _evaluate_sbom(
+    sbom: Mapping[str, Any],
+    *,
+    build_manifest: Mapping[str, Any],
+    built_images: Mapping[str, Any],
+    build_manifest_digest: str,
+    policy_digest: str,
+    reasons: list[str],
+) -> _SbomTally:
+    if set(sbom) != {*_REPORT_FIELDS, "components"} or sbom.get("schema") != "ananta.semantic-media-sbom.v2":
+        raise ProgramEvidenceError("semantic_media_sbom_contract_invalid")
+    _digest(sbom["source_sha256"])
+    _digest(sbom["policy_sha256"])
+    _digest(sbom["build_manifest_sha256"])
+    components = sbom.get("components")
+    if not isinstance(components, list):
+        raise ProgramEvidenceError("semantic_media_sbom_components_invalid")
+    tally = _SbomTally()
+    for component in components:
+        _tally_sbom_component(component, tally, reasons)
+    if tally.names != COMPONENTS:
+        reasons.append("semantic_media_sbom_component_coverage_missing")
+    if sbom.get("source_sha256") != build_manifest.get("source_sha256"):
+        reasons.append("semantic_media_sbom_source_stale")
+    if sbom.get("policy_sha256") != policy_digest:
+        reasons.append("semantic_media_sbom_policy_stale")
+    if sbom.get("build_manifest_sha256") != build_manifest_digest:
+        reasons.append("semantic_media_sbom_build_manifest_mismatch")
+    if any(tally.image_digests.get(component) != built_images[component][1] for component in built_images):
+        reasons.append("semantic_media_sbom_build_image_mismatch")
+    return tally
+
+
+def _normalized_findings(findings: Any) -> list[tuple[str, str]]:
+    if not isinstance(findings, list):
+        raise ProgramEvidenceError("semantic_media_scanner_findings_invalid")
+    normalized_findings: list[tuple[str, str]] = []
+    for finding in findings:
+        if not isinstance(finding, Mapping) or set(finding) != FINDING_FIELDS:
+            raise ProgramEvidenceError("semantic_media_scanner_finding_invalid")
+        for value in finding.values():
+            _safe_text(value)
+        severity = str(finding["severity"]).casefold()
+        if severity not in SEVERITIES:
+            raise ProgramEvidenceError("semantic_media_scanner_finding_invalid")
+        normalized_findings.append((str(finding["finding_id"]), severity))
+    return normalized_findings
+
+
+def _exception_expiry(exception: Any) -> dt.date:
+    if not isinstance(exception, Mapping) or set(exception) != EXCEPTION_FIELDS:
+        raise ProgramEvidenceError("semantic_media_scanner_exception_invalid")
+    for field_name in ("finding_id", "owner", "rationale"):
+        _safe_text(exception[field_name])
+    try:
+        return dt.date.fromisoformat(str(exception["expires_on"]))
+    except ValueError as exc:
+        raise ProgramEvidenceError("semantic_media_scanner_exception_invalid") from exc
+
+
+def _valid_exception_ids(
+    exceptions: Any,
+    high_finding_ids: set[str],
+    *,
+    as_of: dt.date,
+    reasons: list[str],
+) -> set[str]:
+    """Return the high findings covered by an unexpired, bound exception."""
+
+    if not isinstance(exceptions, list):
+        raise ProgramEvidenceError("semantic_media_scanner_exception_invalid")
+    valid_exception_ids: set[str] = set()
+    for exception in exceptions:
+        expiry = _exception_expiry(exception)
+        finding_id = str(exception["finding_id"])
+        if finding_id not in high_finding_ids:
+            reasons.append("semantic_media_scanner_exception_orphaned")
+        elif expiry >= as_of:
+            valid_exception_ids.add(finding_id)
+    return valid_exception_ids
+
+
+def _tally_scanned_image(
+    image: Any,
+    tally: _ScanTally,
+    *,
+    image_digests: Mapping[str, str],
+    as_of: dt.date,
+    reasons: list[str],
+) -> None:
+    if not isinstance(image, Mapping) or set(image) != _SCANNER_IMAGE_FIELDS:
+        raise ProgramEvidenceError("semantic_media_scanner_image_invalid")
+    component = str(image["component"])
+    tally.scanned.add(component)
+    if image_digests.get(component) != image["image_digest"]:
+        reasons.append("semantic_media_scanner_image_mismatch")
+    critical = _count(image["critical"])
+    high = _count(image["high"])
+    normalized_findings = _normalized_findings(image["findings"])
+    measured_critical = sum(severity == "critical" for _, severity in normalized_findings)
+    measured_high = sum(severity == "high" for _, severity in normalized_findings)
+    if critical != measured_critical or high != measured_high:
+        reasons.append("semantic_media_scanner_count_mismatch")
+    tally.critical_count += measured_critical
+    high_finding_ids = {finding_id for finding_id, severity in normalized_findings if severity == "high"}
+    valid_exception_ids = _valid_exception_ids(image["exceptions"], high_finding_ids, as_of=as_of, reasons=reasons)
+    tally.unaccepted_high += sum(
+        severity == "high" and finding_id not in valid_exception_ids for finding_id, severity in normalized_findings
+    )
+
+
+def _evaluate_scanner(
+    scanner: Mapping[str, Any],
+    sbom: Mapping[str, Any],
+    *,
+    image_digests: Mapping[str, str],
+    as_of: dt.date,
+    reasons: list[str],
+) -> _ScanTally:
+    if (
+        set(scanner) != {*_REPORT_FIELDS, "images"}
+        or scanner.get("schema") != "ananta.semantic-media-vulnerability-report.v2"
+    ):
+        raise ProgramEvidenceError("semantic_media_scanner_contract_invalid")
+    for key, reason in _SCANNER_BINDING_REASONS:
+        if scanner.get(key) != sbom.get(key):
+            reasons.append(reason)
+    images = scanner.get("images")
+    if not isinstance(images, list):
+        raise ProgramEvidenceError("semantic_media_scanner_images_invalid")
+    tally = _ScanTally()
+    for image in images:
+        _tally_scanned_image(image, tally, image_digests=image_digests, as_of=as_of, reasons=reasons)
+    return tally
+
+
+def _supply_chain_verdict_reasons(sbom_tally: _SbomTally, scan_tally: _ScanTally) -> list[str]:
+    checks = (
+        (scan_tally.scanned != COMPONENTS, "semantic_media_scanner_coverage_missing"),
+        (bool(scan_tally.critical_count), "semantic_media_critical_vulnerability"),
+        (bool(scan_tally.unaccepted_high), "semantic_media_high_vulnerability_unaccepted"),
+        (bool(sbom_tally.unknown_license_count), "semantic_media_license_unresolved"),
+        (bool(sbom_tally.composite_license_count), "semantic_media_composite_license_review_required"),
+    )
+    return [reason for failed, reason in checks if failed]
+
+
+def evaluate(
     sbom: Mapping[str, Any],
     scanner: Mapping[str, Any],
     *,
@@ -55,144 +262,22 @@ def evaluate(  # noqa: C901 - one contract evaluation keeps evidence accounting 
         raise ProgramEvidenceError("semantic_media_build_manifest_invalid_or_stale") from exc
     build_manifest_digest = canonical_sha256(build_manifest)
     policy_digest = source_hash(ROOT, SOURCE_BINDINGS)
-    report_fields = {
-        "schema",
-        "source_sha256",
-        "policy_sha256",
-        "build_manifest_sha256",
-    }
-    if (
-        set(sbom) != {*report_fields, "components"}
-        or sbom.get("schema") != "ananta.semantic-media-sbom.v2"
-    ):
-        raise ProgramEvidenceError("semantic_media_sbom_contract_invalid")
-    _digest(sbom["source_sha256"])
-    _digest(sbom["policy_sha256"])
-    _digest(sbom["build_manifest_sha256"])
-    components = sbom.get("components")
-    if not isinstance(components, list):
-        raise ProgramEvidenceError("semantic_media_sbom_components_invalid")
-    names: set[str] = set()
-    package_count = 0
-    unknown_license_count = 0
-    composite_license_count = 0
-    image_digests: dict[str, str] = {}
-    for component in components:
-        if not isinstance(component, Mapping) or set(component) != {"name", "image_digest", "packages"}:
-            raise ProgramEvidenceError("semantic_media_sbom_component_invalid")
-        name = str(component["name"])
-        names.add(name)
-        _digest(component["image_digest"])
-        image_digests[name] = str(component["image_digest"])
-        packages = component["packages"]
-        if not isinstance(packages, list) or not packages:
-            reasons.append("semantic_media_sbom_package_inventory_missing")
-            continue
-        for package in packages:
-            if not isinstance(package, Mapping) or set(package) != PACKAGE_FIELDS or not all(package.values()):
-                reasons.append("semantic_media_sbom_package_invalid")
-                continue
-            for value in package.values():
-                _safe_text(value)
-            if str(package["license"]).casefold() in {"unknown", "noassertion", "none"}:
-                unknown_license_count += 1
-            if str(package["license"]).startswith("COMPOSITE-SPDX-SHA256:"):
-                composite_license_count += 1
-            package_count += 1
-    if names != COMPONENTS:
-        reasons.append("semantic_media_sbom_component_coverage_missing")
-    if sbom.get("source_sha256") != build_manifest.get("source_sha256"):
-        reasons.append("semantic_media_sbom_source_stale")
-    if sbom.get("policy_sha256") != policy_digest:
-        reasons.append("semantic_media_sbom_policy_stale")
-    if sbom.get("build_manifest_sha256") != build_manifest_digest:
-        reasons.append("semantic_media_sbom_build_manifest_mismatch")
-    if any(image_digests.get(component) != built_images[component][1] for component in built_images):
-        reasons.append("semantic_media_sbom_build_image_mismatch")
-
-    if (
-        set(scanner) != {*report_fields, "images"}
-        or scanner.get("schema") != "ananta.semantic-media-vulnerability-report.v2"
-    ):
-        raise ProgramEvidenceError("semantic_media_scanner_contract_invalid")
-    if scanner.get("source_sha256") != sbom.get("source_sha256"):
-        reasons.append("semantic_media_scanner_source_mismatch")
-    if scanner.get("policy_sha256") != sbom.get("policy_sha256"):
-        reasons.append("semantic_media_scanner_policy_mismatch")
-    if scanner.get("build_manifest_sha256") != sbom.get("build_manifest_sha256"):
-        reasons.append("semantic_media_scanner_build_manifest_mismatch")
-    images = scanner.get("images")
-    scanned: set[str] = set()
-    critical_count = 0
-    unaccepted_high = 0
-    if not isinstance(images, list):
-        raise ProgramEvidenceError("semantic_media_scanner_images_invalid")
-    for image in images:
-        if not isinstance(image, Mapping) or set(image) != {
-            "component",
-            "image_digest",
-            "critical",
-            "high",
-            "findings",
-            "exceptions",
-        }:
-            raise ProgramEvidenceError("semantic_media_scanner_image_invalid")
-        component = str(image["component"])
-        scanned.add(component)
-        if image_digests.get(component) != image["image_digest"]:
-            reasons.append("semantic_media_scanner_image_mismatch")
-        critical = _count(image["critical"])
-        high = _count(image["high"])
-        findings = image["findings"]
-        if not isinstance(findings, list):
-            raise ProgramEvidenceError("semantic_media_scanner_findings_invalid")
-        normalized_findings: list[tuple[str, str]] = []
-        for finding in findings:
-            if not isinstance(finding, Mapping) or set(finding) != FINDING_FIELDS:
-                raise ProgramEvidenceError("semantic_media_scanner_finding_invalid")
-            for value in finding.values():
-                _safe_text(value)
-            severity = str(finding["severity"]).casefold()
-            if severity not in SEVERITIES:
-                raise ProgramEvidenceError("semantic_media_scanner_finding_invalid")
-            normalized_findings.append((str(finding["finding_id"]), severity))
-        measured_critical = sum(severity == "critical" for _, severity in normalized_findings)
-        measured_high = sum(severity == "high" for _, severity in normalized_findings)
-        if critical != measured_critical or high != measured_high:
-            reasons.append("semantic_media_scanner_count_mismatch")
-        critical_count += measured_critical
-        exceptions = image["exceptions"]
-        if not isinstance(exceptions, list):
-            raise ProgramEvidenceError("semantic_media_scanner_exception_invalid")
-        valid_exception_ids: set[str] = set()
-        high_finding_ids = {finding_id for finding_id, severity in normalized_findings if severity == "high"}
-        for exception in exceptions:
-            if not isinstance(exception, Mapping) or set(exception) != EXCEPTION_FIELDS:
-                raise ProgramEvidenceError("semantic_media_scanner_exception_invalid")
-            for field in ("finding_id", "owner", "rationale"):
-                _safe_text(exception[field])
-            try:
-                expiry = dt.date.fromisoformat(str(exception["expires_on"]))
-            except ValueError as exc:
-                raise ProgramEvidenceError("semantic_media_scanner_exception_invalid") from exc
-            finding_id = str(exception["finding_id"])
-            if finding_id not in high_finding_ids:
-                reasons.append("semantic_media_scanner_exception_orphaned")
-            elif expiry >= as_of:
-                valid_exception_ids.add(finding_id)
-        unaccepted_high += sum(
-            severity == "high" and finding_id not in valid_exception_ids for finding_id, severity in normalized_findings
-        )
-    if scanned != COMPONENTS:
-        reasons.append("semantic_media_scanner_coverage_missing")
-    if critical_count:
-        reasons.append("semantic_media_critical_vulnerability")
-    if unaccepted_high:
-        reasons.append("semantic_media_high_vulnerability_unaccepted")
-    if unknown_license_count:
-        reasons.append("semantic_media_license_unresolved")
-    if composite_license_count:
-        reasons.append("semantic_media_composite_license_review_required")
+    sbom_tally = _evaluate_sbom(
+        sbom,
+        build_manifest=build_manifest,
+        built_images=built_images,
+        build_manifest_digest=build_manifest_digest,
+        policy_digest=policy_digest,
+        reasons=reasons,
+    )
+    scan_tally = _evaluate_scanner(
+        scanner,
+        sbom,
+        image_digests=sbom_tally.image_digests,
+        as_of=as_of,
+        reasons=reasons,
+    )
+    reasons.extend(_supply_chain_verdict_reasons(sbom_tally, scan_tally))
 
     static = static_hardening_checks()
     reasons.extend(reason for reason, passed in static.items() if not passed)
@@ -215,12 +300,12 @@ def evaluate(  # noqa: C901 - one contract evaluation keeps evidence accounting 
         source_sha256=source_digest,
         config_sha256=config_digest,
         measurements={
-            "component_count": len(names),
-            "package_count": package_count,
-            "unknown_license_count": unknown_license_count,
-            "composite_license_count": composite_license_count,
-            "critical_count": critical_count,
-            "unaccepted_high_count": unaccepted_high,
+            "component_count": len(sbom_tally.names),
+            "package_count": sbom_tally.package_count,
+            "unknown_license_count": sbom_tally.unknown_license_count,
+            "composite_license_count": sbom_tally.composite_license_count,
+            "critical_count": scan_tally.critical_count,
+            "unaccepted_high_count": scan_tally.unaccepted_high,
             "hardening_check_count": len(static),
         },
     )
