@@ -7,6 +7,7 @@ import pytest
 
 from agent.auth import generate_token
 from agent.config import settings
+from agent.routes.control_center_route_dependencies import CONTROL_CENTER_ROUTE_DEPENDENCIES
 from agent.services.knowledge_index_task_ingress_policy import (
     BOUND_KNOWLEDGE_INDEX_MUTATION_REASON,
     RESERVED_KNOWLEDGE_INDEX_TASK_INGRESS_REASON,
@@ -542,12 +543,9 @@ def test_control_center_session_rejects_partial_vector_without_side_effects(
         )
 
     share_session_calls: list[dict] = []
-    monkeypatch.setattr(
-        (
-            "agent.routes.control_center_api."
-            "get_share_session_service"
-        ),
-        lambda: SimpleNamespace(
+    CONTROL_CENTER_ROUTE_DEPENDENCIES.install(
+        client.application,
+        share_session_service=lambda: SimpleNamespace(
             create_session=lambda **kwargs: (
                 share_session_calls.append(kwargs)
                 or {"id": "unexpected"}

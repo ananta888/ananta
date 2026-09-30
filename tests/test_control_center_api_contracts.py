@@ -373,8 +373,7 @@ def test_control_center_event_poller_has_joinable_lifecycle(monkeypatch):
         task_repo = _EmptyRepository()
         policy_decision_repo = _EmptyRepository()
 
-    monkeypatch.setattr(control_center, "_repos", lambda: _Repositories())
-    control_center._ensure_event_poller()
+    control_center._ensure_event_poller(repository_provider=lambda: _Repositories())
     thread = control_center._EVENT_POLL_THREAD
 
     assert thread is not None and thread.is_alive()

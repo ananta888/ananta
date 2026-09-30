@@ -10,7 +10,7 @@ import json
 import threading
 import time
 import uuid
-from typing import Any
+from typing import Any, Callable
 
 import jwt
 from flask import Blueprint, Response, g, request
@@ -32,6 +32,7 @@ from agent.routes.control_center_projections import (
 from agent.routes.control_center_projections import (
     tool_call_item as _tool_call_item,
 )
+from agent.routes.control_center_route_dependencies import CONTROL_CENTER_ROUTE_DEPENDENCIES
 from agent.routes.control_center_stream_scope import (
     ControlCenterStreamScopeResolver,
 )
@@ -47,8 +48,6 @@ from agent.routes.tasks.task_read_access import require_task_read
 from agent.routes.tasks.vector_admin_boundary import (
     reserved_vector_mutation_response,
 )
-from agent.services.repository_registry import get_repository_registry
-from agent.services.share_session_service import get_share_session_service
 from agent.services.source_control_access_policy import SourceControlAction
 from agent.services.task_read_projection_service import (
     get_task_read_projection_service,
@@ -73,7 +72,11 @@ _EVENT_LAST_POLICY_TS = 0.0
 
 
 def _repos():
-    return get_repository_registry()
+    return CONTROL_CENTER_ROUTE_DEPENDENCIES.resolve().repository_registry()
+
+
+def _share_sessions():
+    return CONTROL_CENTER_ROUTE_DEPENDENCIES.resolve().share_session_service()
 
 
 def _user_id() -> str:
@@ -158,8 +161,7 @@ def _next_event_id() -> str:
     return f"cc-{int(time.time() * 1000)}-{_EVENT_SEQUENCE}"
 
 
-# The provider defers to the module-level ``_repos`` seam at call time.
-_stream_scopes = ControlCenterStreamScopeResolver(repository_provider=lambda: _repos())
+_stream_scopes = ControlCenterStreamScopeResolver(repository_provider=_repos)
 _task_stream_scopes = _stream_scopes.task_scopes
 _policy_stream_scopes = _stream_scopes.policy_scopes
 _authorize_stream_scope = _stream_scopes.authorize
@@ -201,11 +203,11 @@ def _append_event(
         _EVENT_COND.notify_all()
 
 
-def _event_poll_loop() -> None:
+def _event_poll_loop(repository_provider: Callable[[], Any]) -> None:
     global _EVENT_LAST_TASK_TS, _EVENT_LAST_POLICY_TS
     while not _EVENT_POLL_STOP.is_set():
         try:
-            repos = _repos()
+            repos = repository_provider()
             task_rows = repos.task_repo.get_all() or []
             for task in task_rows:
                 updated_at = float(getattr(task, "updated_at", 0.0) or 0.0)
@@ -250,13 +252,19 @@ def _event_poll_loop() -> None:
         _EVENT_POLL_STOP.wait(timeout=2.0)
 
 
-def _ensure_event_poller() -> None:
+def _ensure_event_poller(*, repository_provider: Callable[[], Any] = _repos) -> None:
+    """Start the process-local poller; it reads rows through ``repository_provider``."""
     global _EVENT_POLL_THREAD
     with _EVENT_LOCK:
         if _EVENT_POLL_THREAD and _EVENT_POLL_THREAD.is_alive():
             return
         _EVENT_POLL_STOP.clear()
-        _EVENT_POLL_THREAD = threading.Thread(target=_event_poll_loop, daemon=True, name="control-center-event-poller")
+        _EVENT_POLL_THREAD = threading.Thread(
+            target=_event_poll_loop,
+            args=(repository_provider,),
+            daemon=True,
+            name="control-center-event-poller",
+        )
         _EVENT_POLL_THREAD.start()
 
 
@@ -329,9 +337,9 @@ def get_task_detail(task_id: str):
 
 
 _task_mutation_routes = ControlCenterTaskMutationRoutes(
-    repository_provider=lambda: _repos(),
-    task_serializer=lambda task: _task_item(task),
-    user_id_provider=lambda: _user_id(),
+    repository_provider=_repos,
+    task_serializer=_task_item,
+    user_id_provider=_user_id,
 )
 _task_mutation_routes.register(control_center_api_bp)
 create_task = _task_mutation_routes.create_task
@@ -365,7 +373,7 @@ def get_session(session_id: str):
         return api_response(status="error", message="not_found", code=404)
     participants: list[dict[str, Any]] = []
     if persisted.share_session_id:
-        participants = get_share_session_service().get_participants(str(persisted.share_session_id))
+        participants = _share_sessions().get_participants(str(persisted.share_session_id))
     decisions = [
         {
             "id": str(getattr(p, "id", "") or ""),
@@ -436,7 +444,7 @@ def create_task_session(task_id: str):
         if isinstance(body.get("permissions"), dict)
         else {"chat": True, "view_tui": True}
     )
-    session = get_share_session_service().create_session(
+    session = _share_sessions().create_session(
         owner_user_id=user_id,
         owner_device_id=device_id,
         title=str(body.get("title") or task.title or "Task Session").strip() or "Task Session",
@@ -522,7 +530,7 @@ def cancel_session(session_id: str):
         return api_response(status="error", message="forbidden", code=403)
 
     if persisted.share_session_id:
-        ok, reason = get_share_session_service().revoke_session(
+        ok, reason = _share_sessions().revoke_session(
             session_id=str(persisted.share_session_id),
             actor_user_id=user_id,
         )

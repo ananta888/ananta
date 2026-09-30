@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from agent.routes.control_center_route_dependencies import CONTROL_CENTER_ROUTE_DEPENDENCIES
 from agent.services.source_control_access_policy import HubSourcePrincipal
 from agent.services.task_query_service import (
     _TASK_READ_SCAN_CHUNK_SIZE,
@@ -428,13 +429,10 @@ def test_foreign_task_is_hidden_from_generic_and_control_center_reads(
     repositories = SimpleNamespace(
         task_repo=SimpleNamespace(get_by_id=lambda _task_id: foreign_task),
     )
-    monkeypatch.setattr(
-        "agent.routes.control_center_api._repos",
-        lambda: repositories,
-    )
-    monkeypatch.setattr(
-        "agent.routes.control_center_api.get_share_session_service",
-        lambda: pytest.fail("foreign task must not create a session"),
+    CONTROL_CENTER_ROUTE_DEPENDENCIES.install(
+        client.application,
+        repository_registry=lambda: repositories,
+        share_session_service=lambda: pytest.fail("foreign task must not create a session"),
     )
 
     detail = client.get("/api/tasks/foreign-task", headers=user_auth_header)
@@ -493,9 +491,9 @@ def test_authorized_control_center_task_detail_uses_closed_projection(
         policy_decision_repo=SimpleNamespace(get_all=lambda: [policy]),
         artifact_repo=SimpleNamespace(get_all=lambda: [artifact]),
     )
-    monkeypatch.setattr(
-        "agent.routes.control_center_api._repos",
-        lambda: repositories,
+    CONTROL_CENTER_ROUTE_DEPENDENCIES.install(
+        client.application,
+        repository_registry=lambda: repositories,
     )
 
     response = client.get("/api/tasks/task-a", headers=admin_auth_header)
@@ -541,10 +539,7 @@ def test_scoped_control_center_create_records_authenticated_owner_once(
         artifact_repo=SimpleNamespace(get_all=lambda: []),
     )
     app.extensions["project_access_authority"] = project_access
-    monkeypatch.setattr(
-        "agent.routes.control_center_api._repos",
-        lambda: repositories,
-    )
+    CONTROL_CENTER_ROUTE_DEPENDENCIES.install(app, repository_registry=lambda: repositories)
     monkeypatch.setattr(
         "agent.routes.control_center_task_mutations.get_authenticated_source_control_principal",
         lambda: principal,
