@@ -547,8 +547,15 @@ def build_knowledge_index_task_handler(
 
     if index_service is None:
         from agent.services.rag_helper_index_service import get_rag_helper_index_service
+        from worker.retrieval.repository_codecompass_bridge import (
+            RepositoryCodeCompassBridge,
+        )
 
-        index_service = get_rag_helper_index_service()
+        # The Worker owns graph execution: bind its CodeCompass bridge to
+        # the Hub-owned RepositoryGraphOutputBuilderPort of the service.
+        index_service = get_rag_helper_index_service().with_repository_graph_builder(
+            RepositoryCodeCompassBridge()
+        )
     return KnowledgeIndexWorkerTaskHandler(
         RagHelperKnowledgeIndexExecution(
             index_service,

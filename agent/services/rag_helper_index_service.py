@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import shutil
@@ -37,6 +38,10 @@ from agent.services.rag_helper_index_preview_reader import (
 )
 from agent.services.rag_helper_module_loader import load_rag_helper_modules
 from agent.services.rag_helper_profile_resolver import RagHelperProfileCatalog
+from agent.services.rag_helper_repository_graph_port import (
+    RepositoryGraphBuilderUnavailableError,
+    RepositoryGraphOutputBuilderPort,
+)
 from agent.services.rag_index_chunker import chunk_wiki_records, index_wiki_records_with_codecompass
 from ananta_contracts import (  # noqa: F401 - historic exports of this module
     FileTypeRolloutPolicy,
@@ -78,7 +83,10 @@ class RagHelperIndexService:
         artifact_repository: Any | None = None,
         artifact_version_repository: Any | None = None,
         profile_catalog: RagHelperProfileCatalog | None = None,
+        repository_graph_builder: RepositoryGraphOutputBuilderPort | None = None,
     ) -> None:
+        # Worker-composed (DIP): the Hub never imports the CodeCompass bridge.
+        self._repository_graph_builder = repository_graph_builder
         self._knowledge_index_repo = (
             knowledge_index_repo if knowledge_index_repository is None else knowledge_index_repository
         )
@@ -92,6 +100,12 @@ class RagHelperIndexService:
         self._profiles = profile_catalog or RagHelperProfileCatalog(
             helper_root=lambda: self._rag_helper_root(),
         )
+
+    def with_repository_graph_builder(self, builder: RepositoryGraphOutputBuilderPort) -> "RagHelperIndexService":
+        """Return a copy of this service that exports repository graphs through ``builder``."""
+        bound = copy.copy(self)
+        bound._repository_graph_builder = builder
+        return bound
 
     def _repo_root(self) -> Path:
         return Path(__file__).resolve().parents[2]
@@ -823,11 +837,9 @@ class RagHelperIndexService:
                 ).strip().lower()
                 graph_manifest: dict[str, Any] = {}
                 if normalized_scope == "repo_path" and graph_export_mode != "off":
-                    from worker.retrieval.repository_codecompass_bridge import (
-                        RepositoryCodeCompassBridge,
-                    )
-
-                    graph_manifest = RepositoryCodeCompassBridge().build_outputs(
+                    if self._repository_graph_builder is None:
+                        raise RepositoryGraphBuilderUnavailableError()
+                    graph_manifest = self._repository_graph_builder.build_outputs(
                         source_id=normalized_source_id,
                         records=normalized_records,
                         output_dir=output_dir,

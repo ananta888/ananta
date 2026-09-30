@@ -10,7 +10,9 @@ from agent.services.rag_helper_index_service import RagHelperIndexService
 from worker.retrieval.knowledge_index_job_handler import (
     BOUND_JOB_SCHEMA,
     RagHelperKnowledgeIndexExecution,
+    build_knowledge_index_task_handler,
 )
+from worker.retrieval.repository_codecompass_bridge import RepositoryCodeCompassBridge
 
 
 def test_rag_helper_index_service_runs_against_markdown_artifact():
@@ -373,7 +375,9 @@ def test_legacy_source_records_do_not_persist_hub_projections():
 
 
 def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):
-    service = RagHelperIndexService()
+    # The graph export is Worker execution: the Worker composition binds its
+    # CodeCompass bridge to the Hub-owned RepositoryGraphOutputBuilderPort.
+    service = RagHelperIndexService().with_repository_graph_builder(RepositoryCodeCompassBridge())
     service._knowledge_output_root = (
         lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
     )
@@ -429,6 +433,43 @@ def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):
         assert (first_output / filename).read_bytes() == (
             second_output / filename
         ).read_bytes()
+
+
+def test_repo_graph_export_fails_closed_without_a_composed_graph_builder(tmp_path):
+    service = RagHelperIndexService()
+    service._knowledge_output_root = (
+        lambda *, source_scope: tmp_path / "knowledge_indices" / source_scope
+    )
+
+    knowledge_index, run = service.index_source_records(
+        source_scope="repo_path",
+        source_id="hub-without-graph-builder",
+        records=[{"id": "src/a.py", "content": "class A: pass\n", "metadata": {"relative_path": "src/a.py"}}],
+        created_by="tester",
+        profile_name="deep_code",
+    )
+
+    assert run.status == "failed"
+    assert run.error_message == "repository_graph_builder_unavailable"
+    assert knowledge_index.status == "failed"
+
+
+def test_worker_task_handler_binds_the_codecompass_graph_builder(monkeypatch):
+    import agent.services.rag_helper_index_service as rag_module
+
+    captured = {}
+    original = rag_module.RagHelperIndexService.with_repository_graph_builder
+
+    def spy(self, builder):
+        captured["builder"] = builder
+        return original(self, builder)
+
+    monkeypatch.setattr(rag_module.RagHelperIndexService, "with_repository_graph_builder", spy)
+
+    build_knowledge_index_task_handler()
+
+    assert isinstance(captured["builder"], RepositoryCodeCompassBridge)
+    assert rag_module.get_rag_helper_index_service()._repository_graph_builder is None
 
 
 def test_rag_helper_index_service_wiki_chunk_ids_are_stable_across_rebuilds():
