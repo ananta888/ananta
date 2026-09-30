@@ -19,8 +19,8 @@ from agent.db_models import (
     VoiceResultArtifactDB,
     VoiceReviewDB,
 )
+from agent.models.voice_governance_domain import VoicePrincipal
 from agent.repositories.voice_privacy import VoicePrivacyRepository
-from agent.services.voice_governance_domain import VoicePrincipal
 
 
 @dataclass(frozen=True)

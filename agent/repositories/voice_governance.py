@@ -15,7 +15,7 @@ from agent.db_models import (
     VoicePersonalizationProfileDB,
     VoiceReviewDB,
 )
-from agent.services.voice_governance_domain import VoiceGovernanceError, VoicePrincipal
+from agent.models.voice_governance_domain import VoiceGovernanceError, VoicePrincipal
 
 _IDEMPOTENCY_LEASE_SECONDS = 600
 

@@ -19,7 +19,7 @@ from agent.db_models import (
     VoiceResultArtifactDB,
     VoiceReviewDB,
 )
-from agent.services.voice_governance_domain import VoicePrincipal
+from agent.models.voice_governance_domain import VoicePrincipal
 
 
 class VoicePrivacyRepository:

@@ -10,7 +10,7 @@ from sqlmodel import Session, delete, select, update
 
 from agent.database import engine
 from agent.db_models import VoiceLiveRunDB, VoiceLiveRunSegmentDB
-from agent.services.voice_governance_domain import VoicePrincipal
+from agent.models.voice_governance_domain import VoicePrincipal
 
 _SEGMENT_PROCESSING_LEASE_SECONDS = 600
 _CORRECTION_PROCESSING_LEASE_SECONDS = 300

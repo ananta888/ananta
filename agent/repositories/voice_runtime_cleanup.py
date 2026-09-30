@@ -9,7 +9,7 @@ from sqlmodel import Session, delete, select
 
 from agent.database import engine
 from agent.db_models import VoiceRuntimeCleanupDB
-from agent.services.voice_governance_domain import VoicePrincipal
+from agent.models.voice_governance_domain import VoicePrincipal
 
 
 @dataclass(frozen=True)

@@ -9,12 +9,12 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import VoiceDeletionTombstoneDB
-from agent.services.voice_deletion_ledger import VoiceDeletionLedger, VoiceDeletionLedgerRecord
-from agent.services.voice_governance_domain import (
+from agent.models.voice_governance_domain import (
     VoicePrincipal,
     voice_idempotency_key_digest,
     voice_scope_digest,
 )
+from agent.repositories.voice_deletion_ledger import VoiceDeletionLedger, VoiceDeletionLedgerRecord
 
 
 @dataclass(frozen=True)

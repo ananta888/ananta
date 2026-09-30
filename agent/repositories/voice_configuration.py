@@ -8,7 +8,7 @@ from sqlmodel import Session, select, update
 
 from agent.database import engine
 from agent.db_models import VoiceConfigurationDeltaDB, VoiceGovernanceIdempotencyDB
-from agent.services.voice_governance_domain import VoiceGovernanceError, VoicePrincipal
+from agent.models.voice_governance_domain import VoiceGovernanceError, VoicePrincipal
 
 
 class VoiceConfigurationRepository:
