@@ -25,6 +25,11 @@ from agent.db_models.source_control import (
     KnowledgeIndexRunSourceBindingDB,
     KnowledgeIndexSourceBindingDB,
 )
+from agent.models.codecompass_artifact_manifest import (
+    CodeCompassArtifactManifestError,
+    CodeCompassArtifactManifestProjector,
+)
+from agent.ports.knowledge_index_bound_records import BoundKnowledgeRecordReader
 from agent.repositories.organizations.instances import (
     SqlOrganizationAdminGrantRepository,
     SqlOrganizationInstanceRepository,
@@ -33,13 +38,6 @@ from agent.repositories.organizations.instances import (
 from agent.repositories.organizations.operations import (
     SqlOrganizationAuditOutboxRepository,
     SqlOrganizationOperationRepository,
-)
-from agent.services.codecompass_artifact_manifest import (
-    CodeCompassArtifactManifestError,
-    CodeCompassArtifactManifestProjector,
-)
-from agent.services.knowledge_index_retrieval_service import (
-    KnowledgeIndexRetrievalService,
 )
 
 _READ_CHUNK_BYTES = 1024 * 1024
@@ -137,11 +135,13 @@ class SqlOrganizationSourceCatalogRepository:
         self,
         session: Session,
         *,
-        record_reader: KnowledgeIndexRetrievalService | None = None,
+        record_reader: BoundKnowledgeRecordReader | None = None,
         manifest_projector: CodeCompassArtifactManifestProjector | None = None,
     ) -> None:
         self._session = session
-        self._records = record_reader or KnowledgeIndexRetrievalService()
+        # Injected by the composing Hub service; only bound-record
+        # verification needs it, and it fails closed when absent.
+        self._records = record_reader
         self._manifest_projector = (
             manifest_projector or CodeCompassArtifactManifestProjector()
         )
@@ -325,6 +325,8 @@ class SqlOrganizationSourceCatalogRepository:
         Returned content is deliberately discarded at this boundary.
         """
 
+        if self._records is None:
+            raise RuntimeError("organization_source_catalog_record_reader_not_configured")
         index = self._one(
             select(KnowledgeIndexDB).where(
                 KnowledgeIndexDB.id == authority.knowledge_index_id,
@@ -657,8 +659,14 @@ class SqlOrganizationSourceCatalogRepository:
 class OrganizationSourceCatalogUnitOfWork:
     """One commit for authority revalidation, catalog Task and audit receipt."""
 
-    def __init__(self, *, session_factory: Callable[[], Session] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        session_factory: Callable[[], Session] | None = None,
+        record_reader_factory: Callable[[], BoundKnowledgeRecordReader] | None = None,
+    ) -> None:
         self._session_factory = session_factory or self._default_session
+        self._record_reader_factory = record_reader_factory
         self.session: Session | None = None
 
     @staticmethod
@@ -676,7 +684,14 @@ class OrganizationSourceCatalogUnitOfWork:
         self.admin_grants = SqlOrganizationAdminGrantRepository(self.session)
         self.operations = SqlOrganizationOperationRepository(self.session)
         self.audit_outbox = SqlOrganizationAuditOutboxRepository(self.session)
-        self.catalogs = SqlOrganizationSourceCatalogRepository(self.session)
+        self.catalogs = SqlOrganizationSourceCatalogRepository(
+            self.session,
+            record_reader=(
+                self._record_reader_factory()
+                if self._record_reader_factory is not None
+                else None
+            ),
+        )
         return self
 
     def flush(self) -> None:

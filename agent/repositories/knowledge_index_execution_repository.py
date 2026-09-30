@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from agent.db_models.knowledge_index_execution import (
     KnowledgeIndexExecutionBindingDB,
 )
-from agent.services.knowledge_index_execution_binding_service import (
+from agent.models.knowledge_index_execution_binding import (
     KnowledgeIndexCompletionProjectionRecord,
     KnowledgeIndexExecutionBindingError,
     KnowledgeIndexExecutionRecord,

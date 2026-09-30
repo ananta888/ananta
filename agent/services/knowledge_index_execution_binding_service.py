@@ -1,13 +1,27 @@
-"""Hub-only authority, lease and result gate for knowledge-index v2 jobs."""
+"""Hub-only authority, lease and result gate for knowledge-index v2 jobs.
+
+Records live in ``agent.models.knowledge_index_execution_binding`` and ports in
+``agent.ports.knowledge_index_execution_binding``; both are re-exported here.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import time
-from dataclasses import dataclass, replace
-from typing import Any, Protocol
+from dataclasses import replace
+from typing import Any
 
+from agent.models.knowledge_index_execution_binding import (
+    CurrentKnowledgeIndexAuthority,
+    KnowledgeIndexCompletionProjectionRecord,
+    KnowledgeIndexExecutionBindingError,
+    KnowledgeIndexExecutionRecord,
+)
+from agent.ports.knowledge_index_execution_binding import (
+    KnowledgeIndexAuthoritySnapshotPort,
+    KnowledgeIndexExecutionRepositoryPort,
+)
 from ananta_contracts.knowledge_index_execution import (
     KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS,
     KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON,
@@ -22,123 +36,6 @@ from ananta_contracts.knowledge_index_execution import (
     KnowledgeIndexResourceBudget,
     parse_execution_result,
 )
-
-
-class KnowledgeIndexExecutionBindingError(ValueError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True)
-class CurrentKnowledgeIndexAuthority:
-    tenant_id: str
-    project_id: str
-    source_revision_id: str
-    source_revision_digest: str
-    admission_digest: str
-    policy_snapshot_id: str
-    policy_snapshot_digest: str
-    destination_id: str
-    destination_digest: str
-    source_access_grant_id: str
-    source_access_grant_digest: str
-
-    def to_binding(self) -> KnowledgeIndexAuthorityBinding:
-        return KnowledgeIndexAuthorityBinding.create(**self.__dict__)
-
-
-class KnowledgeIndexAuthoritySnapshotPort(Protocol):
-    def resolve(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        source_revision_id: str,
-        destination_id: str,
-        source_access_grant_id: str,
-    ) -> CurrentKnowledgeIndexAuthority: ...
-
-
-@dataclass(frozen=True)
-class KnowledgeIndexExecutionRecord:
-    job: KnowledgeIndexExecutionJob
-    owner_id: str
-    state: str
-    lock_version: int
-    result_digest: str | None
-    updated_at_epoch_ms: int
-    completed_at_epoch_ms: int | None = None
-
-
-@dataclass(frozen=True)
-class KnowledgeIndexCompletionProjectionRecord:
-    job_id: str
-    state: str
-    lock_version: int
-    projection_digest: str
-    payload: dict[str, Any]
-    created_at_epoch_ms: int
-    updated_at_epoch_ms: int
-    projected_at_epoch_ms: int | None = None
-
-
-class KnowledgeIndexExecutionRepositoryPort(Protocol):
-    def admit(
-        self,
-        record: KnowledgeIndexExecutionRecord,
-    ) -> tuple[KnowledgeIndexExecutionRecord, bool]: ...
-
-    def get(self, job_id: str) -> KnowledgeIndexExecutionRecord | None: ...
-
-    def get_by_idempotency(
-        self,
-        *,
-        tenant_id: str,
-        project_id: str,
-        idempotency_key_digest: str,
-    ) -> KnowledgeIndexExecutionRecord | None: ...
-
-    def get_by_assignment(
-        self,
-        *,
-        assignment_id: str,
-        lease_id: str,
-    ) -> KnowledgeIndexExecutionRecord | None: ...
-
-    def compare_and_set(
-        self,
-        record: KnowledgeIndexExecutionRecord,
-        *,
-        expected_lock_version: int,
-    ) -> KnowledgeIndexExecutionRecord: ...
-
-    def complete_with_projection(
-        self,
-        *,
-        record: KnowledgeIndexExecutionRecord,
-        expected_lock_version: int,
-        projection_digest: str,
-        projection_payload: dict[str, Any],
-        now_epoch_ms: int,
-    ) -> tuple[
-        KnowledgeIndexExecutionRecord,
-        KnowledgeIndexCompletionProjectionRecord,
-    ]: ...
-
-    def get_completion_projection(
-        self,
-        job_id: str,
-    ) -> KnowledgeIndexCompletionProjectionRecord | None: ...
-
-    def mark_completion_projection_projected(
-        self,
-        *,
-        job_id: str,
-        expected_lock_version: int,
-        expected_projection_digest: str,
-        now_epoch_ms: int,
-    ) -> KnowledgeIndexCompletionProjectionRecord: ...
 
 
 def _digest(value: object) -> str:
@@ -1123,3 +1020,14 @@ class KnowledgeIndexExecutionBindingService:
                 ),
             )
         )
+
+
+__all__ = [
+    "CurrentKnowledgeIndexAuthority",
+    "KnowledgeIndexAuthoritySnapshotPort",
+    "KnowledgeIndexCompletionProjectionRecord",
+    "KnowledgeIndexExecutionBindingError",
+    "KnowledgeIndexExecutionBindingService",
+    "KnowledgeIndexExecutionRecord",
+    "KnowledgeIndexExecutionRepositoryPort",
+]

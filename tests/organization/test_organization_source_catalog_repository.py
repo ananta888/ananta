@@ -140,7 +140,9 @@ def _snapshot(tmp_path):
 
 def test_bound_record_snapshot_is_hydratable_and_manifest_verified(tmp_path) -> None:
     index, binding, _record = _snapshot(tmp_path)
-    repository = SqlOrganizationSourceCatalogRepository(_IndexSession(index))
+    repository = SqlOrganizationSourceCatalogRepository(
+        _IndexSession(index), record_reader=KnowledgeIndexRecordReader()
+    )
 
     repository.verify_bound_records(
         authority=_authority(),
@@ -155,7 +157,9 @@ def test_bound_record_mutation_between_query_and_publish_fails_closed(tmp_path) 
         json.dumps(record, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    repository = SqlOrganizationSourceCatalogRepository(_IndexSession(index))
+    repository = SqlOrganizationSourceCatalogRepository(
+        _IndexSession(index), record_reader=KnowledgeIndexRecordReader()
+    )
 
     with pytest.raises(
         OrganizationSourceCatalogPersistenceError,
@@ -171,11 +175,27 @@ def test_nonselected_output_mutation_breaks_manifest_snapshot(tmp_path) -> None:
     index, binding, _record = _snapshot(tmp_path)
     with (tmp_path / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write('{"content":"unbound mutation","id":"other"}\n')
-    repository = SqlOrganizationSourceCatalogRepository(_IndexSession(index))
+    repository = SqlOrganizationSourceCatalogRepository(
+        _IndexSession(index), record_reader=KnowledgeIndexRecordReader()
+    )
 
     with pytest.raises(
         OrganizationSourceCatalogPersistenceError,
         match="organization_source_catalog_output_manifest_mismatch",
+    ):
+        repository.verify_bound_records(
+            authority=_authority(),
+            record_bindings=[binding],
+        )
+
+
+def test_bound_record_verification_without_injected_reader_fails_closed(tmp_path) -> None:
+    index, binding, _record = _snapshot(tmp_path)
+    repository = SqlOrganizationSourceCatalogRepository(_IndexSession(index))
+
+    with pytest.raises(
+        RuntimeError,
+        match="organization_source_catalog_record_reader_not_configured",
     ):
         repository.verify_bound_records(
             authority=_authority(),
@@ -189,3 +209,17 @@ def test_uow_translates_only_unique_flush_failures_to_replay_signal() -> None:
 
     with pytest.raises(OrganizationSourceCatalogUniqueRaceError):
         uow.flush()
+
+
+def test_default_publisher_uow_injects_the_hub_record_reader() -> None:
+    from agent.services.knowledge_index_retrieval_service import (
+        KnowledgeIndexRetrievalService,
+    )
+    from agent.services.organization_source_catalog_publisher_service import (
+        default_organization_source_catalog_uow,
+    )
+
+    uow = default_organization_source_catalog_uow()
+
+    assert isinstance(uow, OrganizationSourceCatalogUnitOfWork)
+    assert uow._record_reader_factory is KnowledgeIndexRetrievalService

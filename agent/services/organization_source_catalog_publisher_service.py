@@ -21,6 +21,9 @@ from agent.repositories.organization_source_catalog_repository import (
     SourceCatalogPublishingAuthority,
 )
 from agent.services.hub_event_service import build_task_history_event
+from agent.services.knowledge_index_retrieval_service import (
+    KnowledgeIndexRetrievalService,
+)
 from agent.services.organization_membership_service import (
     OrganizationAccessPrincipal,
     OrganizationMembershipService,
@@ -111,6 +114,18 @@ class _RetrievedRecord:
         return (*self.locator(), self.content_hash)
 
 
+def default_organization_source_catalog_uow() -> OrganizationSourceCatalogUnitOfWork:
+    """Compose the SQL Unit of Work with the Hub knowledge-index record reader.
+
+    The repository depends only on the ``BoundKnowledgeRecordReader`` port;
+    the concrete retrieval service is wired here, in the service layer.
+    """
+
+    return OrganizationSourceCatalogUnitOfWork(
+        record_reader_factory=KnowledgeIndexRetrievalService,
+    )
+
+
 class OrganizationSourceCatalogPublisherService:
     """Publish evidence identities without executing or dispatching Worker work."""
 
@@ -130,7 +145,7 @@ class OrganizationSourceCatalogPublisherService:
         self._membership = membership_service or OrganizationMembershipService()
         self._catalogs = catalog_service or SourceCatalogService()
         self._bindings = binding_service or OrganizationSourceCatalogBindingService()
-        self._uow_factory = uow_factory or OrganizationSourceCatalogUnitOfWork
+        self._uow_factory = uow_factory or default_organization_source_catalog_uow
         self._clock = clock
         self._fault_injector = fault_injector or (lambda _step: None)
 
