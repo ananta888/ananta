@@ -189,6 +189,40 @@ def export_blueprint_bundle(repos, blueprint: TeamBlueprintDB, *, team: TeamDB |
 def build_bundle_import_plan(repos, bundle: TeamBlueprintBundle, conflict_strategy: str) -> BundleImportPlan:
     normalized_mode = normalize_bundle_mode(bundle.mode)
     normalized_strategy = (conflict_strategy or "fail").strip().lower()
+    parts = normalize_bundle_parts(bundle.parts, _available_bundle_parts(bundle))
+    diff = {"templates": [], "blueprints": [], "teams": []}
+    errors = validate_bundle_mode_and_parts(normalized_mode, parts)
+    errors.extend(_validate_bundle_header(bundle, normalized_mode, normalized_strategy, parts))
+    bundled_templates_by_name = _index_bundled_templates(bundle.templates, errors)
+
+    template_specs: list[dict] = []
+    if "templates" in parts:
+        template_specs = _plan_template_imports(repos, bundle.templates, normalized_strategy, diff, errors)
+    blueprint_spec = None
+    if "blueprint" in parts and bundle.blueprint is not None:
+        blueprint_spec = _plan_blueprint_import(
+            repos, bundle.blueprint, bundled_templates_by_name, normalized_strategy, diff, errors
+        )
+    team_spec = None
+    if "team" in parts and bundle.team is not None:
+        team_spec = _plan_team_import(repos, bundle, bundled_templates_by_name, normalized_strategy, diff, errors)
+
+    summary = _build_summary(diff)
+    return BundleImportPlan(
+        schema_version=bundle.schema_version,
+        mode=normalized_mode,
+        conflict_strategy=normalized_strategy,
+        parts=parts,
+        diff=diff,
+        summary=summary,
+        errors=errors,
+        template_specs=template_specs,
+        blueprint_spec=blueprint_spec,
+        team_spec=team_spec,
+    )
+
+
+def _available_bundle_parts(bundle: TeamBlueprintBundle) -> list[str]:
     available_parts = []
     if bundle.blueprint is not None:
         available_parts.append("blueprint")
@@ -196,13 +230,11 @@ def build_bundle_import_plan(repos, bundle: TeamBlueprintBundle, conflict_strate
         available_parts.append("templates")
     if bundle.team is not None:
         available_parts.append("team")
-    parts = normalize_bundle_parts(bundle.parts, available_parts)
-    diff = {"templates": [], "blueprints": [], "teams": []}
-    errors = validate_bundle_mode_and_parts(normalized_mode, parts)
-    template_specs: list[dict] = []
-    blueprint_spec = None
-    team_spec = None
+    return available_parts
 
+
+def _validate_bundle_header(bundle: TeamBlueprintBundle, mode: str, strategy: str, parts: list[str]) -> list[dict]:
+    errors: list[dict] = []
     if bundle.schema_version != BUNDLE_SCHEMA_VERSION:
         errors.append(
             {
@@ -211,15 +243,15 @@ def build_bundle_import_plan(repos, bundle: TeamBlueprintBundle, conflict_strate
                 "details": {"schema_version": bundle.schema_version, "supported": BUNDLE_SCHEMA_VERSION},
             }
         )
-    if normalized_strategy not in ALLOWED_CONFLICT_STRATEGIES:
+    if strategy not in ALLOWED_CONFLICT_STRATEGIES:
         errors.append(
             {
                 "type": "validation",
                 "message": "unsupported_conflict_strategy",
-                "details": {"conflict_strategy": normalized_strategy, "allowed": sorted(ALLOWED_CONFLICT_STRATEGIES)},
+                "details": {"conflict_strategy": strategy, "allowed": sorted(ALLOWED_CONFLICT_STRATEGIES)},
             }
         )
-    if normalized_mode == "full" and bundle.blueprint is None:
+    if mode == "full" and bundle.blueprint is None:
         errors.append(
             {
                 "type": "validation",
@@ -227,16 +259,22 @@ def build_bundle_import_plan(repos, bundle: TeamBlueprintBundle, conflict_strate
                 "details": {"parts": parts},
             }
         )
+    part_present = {
+        "blueprint": bundle.blueprint is not None,
+        "templates": bool(bundle.templates),
+        "team": bundle.team is not None,
+    }
     for part in parts:
-        if part == "blueprint" and bundle.blueprint is None:
-            errors.append({"type": "validation", "message": "bundle_part_missing", "details": {"part": "blueprint"}})
-        if part == "templates" and not bundle.templates:
-            errors.append({"type": "validation", "message": "bundle_part_missing", "details": {"part": "templates"}})
-        if part == "team" and bundle.team is None:
-            errors.append({"type": "validation", "message": "bundle_part_missing", "details": {"part": "team"}})
+        if part in part_present and not part_present[part]:
+            errors.append({"type": "validation", "message": "bundle_part_missing", "details": {"part": part}})
+    return errors
 
+
+def _index_bundled_templates(
+    templates: list[BlueprintBundleTemplate], errors: list[dict]
+) -> dict[str, BlueprintBundleTemplate]:
     bundled_templates_by_name: dict[str, BlueprintBundleTemplate] = {}
-    for template in bundle.templates:
+    for template in templates:
         normalized_name = (template.name or "").strip()
         if not normalized_name:
             errors.append({"type": "validation", "message": "bundle_template_name_required", "details": {}})
@@ -252,146 +290,164 @@ def build_bundle_import_plan(repos, bundle: TeamBlueprintBundle, conflict_strate
             )
             continue
         bundled_templates_by_name[key] = template
+    return bundled_templates_by_name
 
-    if "templates" in parts:
-        for template in bundle.templates:
-            existing = repos.template_repo.get_by_name(template.name.strip())
-            changes = []
-            if existing is not None:
-                if existing.description != template.description:
-                    changes.append("description")
-                if existing.prompt_template != template.prompt_template:
-                    changes.append("prompt_template")
-            if existing is None:
-                action = "create"
-            elif normalized_strategy == "fail":
-                action = "conflict"
-            elif normalized_strategy == "skip":
-                action = "skip"
-            elif changes:
-                action = "update"
-            else:
-                action = "unchanged"
-            spec = {"name": template.name.strip(), "existing": existing, "bundle": template, "action": action, "changes": changes}
-            template_specs.append(spec)
-            diff["templates"].append({"name": spec["name"], "action": action, "changes": changes})
-            if action == "conflict":
-                errors.append(
-                    {
-                        "type": "conflict",
-                        "message": "template_name_exists",
-                        "details": {"name": template.name.strip()},
-                    }
-                )
 
-    if "blueprint" in parts and bundle.blueprint is not None:
-        blueprint_errors = _validate_blueprint_bundle_definition(bundle.blueprint)
-        errors.extend(blueprint_errors)
-        for role in bundle.blueprint.roles:
-            if not role.template_name:
-                continue
-            template_exists = role.template_name.strip().lower() in bundled_templates_by_name or repos.template_repo.get_by_name(role.template_name.strip()) is not None
-            if not template_exists:
-                errors.append(
-                    {
-                        "type": "validation",
-                        "message": "template_not_found",
-                        "details": {"template_name": role.template_name.strip(), "role_name": role.name.strip()},
-                    }
-                )
-        existing_blueprint = repos.team_blueprint_repo.get_by_name(bundle.blueprint.name.strip())
+def _resolve_import_action(existing, strategy: str, changes: list[str]) -> str:
+    if existing is None:
+        return "create"
+    if strategy == "fail":
+        return "conflict"
+    if strategy == "skip":
+        return "skip"
+    return "update" if changes else "unchanged"
+
+
+def _changed_fields(existing_payload: dict, incoming_payload: dict, fields) -> list[str]:
+    return [field for field in fields if existing_payload[field] != incoming_payload[field]]
+
+
+def _record_import_entry(
+    diff_items: list[dict], errors: list[dict], *, name: str, action: str, changes: list[str], conflict_message: str
+) -> None:
+    diff_items.append({"name": name, "action": action, "changes": changes})
+    if action == "conflict":
+        errors.append({"type": "conflict", "message": conflict_message, "details": {"name": name}})
+
+
+def _plan_template_imports(
+    repos, templates: list[BlueprintBundleTemplate], strategy: str, diff: dict, errors: list[dict]
+) -> list[dict]:
+    template_specs: list[dict] = []
+    for template in templates:
+        existing = repos.template_repo.get_by_name(template.name.strip())
         changes = []
-        if existing_blueprint is not None:
-            existing_payload = _existing_blueprint_payload(repos, existing_blueprint)
-            incoming_payload = _incoming_blueprint_payload(bundle.blueprint)
-            for field in ("description", "base_team_type_name", "roles", "artifacts"):
-                if existing_payload[field] != incoming_payload[field]:
-                    changes.append(field)
-        if existing_blueprint is None:
-            action = "create"
-        elif normalized_strategy == "fail":
-            action = "conflict"
-        elif normalized_strategy == "skip":
-            action = "skip"
-        elif changes:
-            action = "update"
-        else:
-            action = "unchanged"
-        blueprint_spec = {
-            "name": bundle.blueprint.name.strip(),
-            "existing": existing_blueprint,
-            "bundle": bundle.blueprint,
+        if existing is not None:
+            if existing.description != template.description:
+                changes.append("description")
+            if existing.prompt_template != template.prompt_template:
+                changes.append("prompt_template")
+        action = _resolve_import_action(existing, strategy, changes)
+        spec = {
+            "name": template.name.strip(),
+            "existing": existing,
+            "bundle": template,
             "action": action,
             "changes": changes,
         }
-        diff["blueprints"].append({"name": blueprint_spec["name"], "action": action, "changes": changes})
-        if action == "conflict":
-            errors.append(
-                {
-                    "type": "conflict",
-                    "message": "blueprint_name_exists",
-                    "details": {"name": bundle.blueprint.name.strip()},
-                }
-            )
+        template_specs.append(spec)
+        _record_import_entry(
+            diff["templates"],
+            errors,
+            name=spec["name"],
+            action=action,
+            changes=changes,
+            conflict_message="template_name_exists",
+        )
+    return template_specs
 
-    if "team" in parts and bundle.team is not None:
-        team_errors = _validate_team_bundle_definition(repos, bundle, bundled_templates_by_name)
-        errors.extend(team_errors)
-        existing_team = repos.team_repo.get_by_name(bundle.team.name.strip())
-        blueprint_name = (bundle.team.blueprint_name or (bundle.blueprint.name if bundle.blueprint else "")).strip() or None
-        include_members = _bundle_includes_members(bundle)
-        changes = []
-        if existing_team is not None:
-            existing_payload = _existing_team_payload(repos, existing_team)
-            incoming_payload = _incoming_team_payload(bundle.team, blueprint_name=blueprint_name, include_members=include_members)
-            fields = ["description", "team_type_name", "blueprint_name", "role_templates", "is_active"]
-            if include_members:
-                fields.append("members")
-            for field in fields:
-                if existing_payload[field] != incoming_payload[field]:
-                    changes.append(field)
-        if existing_team is None:
-            action = "create"
-        elif normalized_strategy == "fail":
-            action = "conflict"
-        elif normalized_strategy == "skip":
-            action = "skip"
-        elif changes:
-            action = "update"
-        else:
-            action = "unchanged"
-        team_spec = {
-            "name": bundle.team.name.strip(),
-            "existing": existing_team,
-            "bundle": bundle.team,
-            "action": action,
-            "changes": changes,
-            "blueprint_name": blueprint_name,
-            "include_members": include_members,
-        }
-        diff["teams"].append({"name": team_spec["name"], "action": action, "changes": changes})
-        if action == "conflict":
-            errors.append(
-                {
-                    "type": "conflict",
-                    "message": "team_name_exists",
-                    "details": {"name": bundle.team.name.strip()},
-                }
-            )
 
-    summary = _build_summary(diff)
-    return BundleImportPlan(
-        schema_version=bundle.schema_version,
-        mode=normalized_mode,
-        conflict_strategy=normalized_strategy,
-        parts=parts,
-        diff=diff,
-        summary=summary,
-        errors=errors,
-        template_specs=template_specs,
-        blueprint_spec=blueprint_spec,
-        team_spec=team_spec,
+def _plan_blueprint_import(
+    repos,
+    blueprint: BlueprintBundleDefinition,
+    bundled_templates_by_name: dict[str, BlueprintBundleTemplate],
+    strategy: str,
+    diff: dict,
+    errors: list[dict],
+) -> dict:
+    errors.extend(_validate_blueprint_bundle_definition(blueprint))
+    errors.extend(_missing_role_template_errors(repos, blueprint, bundled_templates_by_name))
+    existing_blueprint = repos.team_blueprint_repo.get_by_name(blueprint.name.strip())
+    changes = []
+    if existing_blueprint is not None:
+        changes = _changed_fields(
+            _existing_blueprint_payload(repos, existing_blueprint),
+            _incoming_blueprint_payload(blueprint),
+            ("description", "base_team_type_name", "roles", "artifacts"),
+        )
+    action = _resolve_import_action(existing_blueprint, strategy, changes)
+    blueprint_spec = {
+        "name": blueprint.name.strip(),
+        "existing": existing_blueprint,
+        "bundle": blueprint,
+        "action": action,
+        "changes": changes,
+    }
+    _record_import_entry(
+        diff["blueprints"],
+        errors,
+        name=blueprint_spec["name"],
+        action=action,
+        changes=changes,
+        conflict_message="blueprint_name_exists",
     )
+    return blueprint_spec
+
+
+def _missing_role_template_errors(
+    repos, blueprint: BlueprintBundleDefinition, bundled_templates_by_name: dict[str, BlueprintBundleTemplate]
+) -> list[dict]:
+    errors: list[dict] = []
+    for role in blueprint.roles:
+        if not role.template_name:
+            continue
+        template_exists = (
+            role.template_name.strip().lower() in bundled_templates_by_name
+            or repos.template_repo.get_by_name(role.template_name.strip()) is not None
+        )
+        if not template_exists:
+            errors.append(
+                {
+                    "type": "validation",
+                    "message": "template_not_found",
+                    "details": {"template_name": role.template_name.strip(), "role_name": role.name.strip()},
+                }
+            )
+    return errors
+
+
+def _plan_team_import(
+    repos,
+    bundle: TeamBlueprintBundle,
+    bundled_templates_by_name: dict[str, BlueprintBundleTemplate],
+    strategy: str,
+    diff: dict,
+    errors: list[dict],
+) -> dict:
+    team = bundle.team
+    errors.extend(_validate_team_bundle_definition(repos, bundle, bundled_templates_by_name))
+    existing_team = repos.team_repo.get_by_name(team.name.strip())
+    blueprint_name = (team.blueprint_name or (bundle.blueprint.name if bundle.blueprint else "")).strip() or None
+    include_members = _bundle_includes_members(bundle)
+    changes = []
+    if existing_team is not None:
+        fields = ["description", "team_type_name", "blueprint_name", "role_templates", "is_active"]
+        if include_members:
+            fields.append("members")
+        changes = _changed_fields(
+            _existing_team_payload(repos, existing_team),
+            _incoming_team_payload(team, blueprint_name=blueprint_name, include_members=include_members),
+            fields,
+        )
+    action = _resolve_import_action(existing_team, strategy, changes)
+    team_spec = {
+        "name": team.name.strip(),
+        "existing": existing_team,
+        "bundle": team,
+        "action": action,
+        "changes": changes,
+        "blueprint_name": blueprint_name,
+        "include_members": include_members,
+    }
+    _record_import_entry(
+        diff["teams"],
+        errors,
+        name=team_spec["name"],
+        action=action,
+        changes=changes,
+        conflict_message="team_name_exists",
+    )
+    return team_spec
 
 
 def _build_summary(diff: dict) -> dict:
