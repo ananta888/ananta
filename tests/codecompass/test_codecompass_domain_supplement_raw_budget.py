@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-import worker.retrieval.codecompass_domain_supplement as supplement_module
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_RAW_BYTES,
 )
@@ -14,6 +13,7 @@ from ananta_contracts.codecompass_semantic_partitions import (
 )
 from worker.retrieval.codecompass_domain_supplement import (
     CodeCompassDomainSupplementSourceWriter,
+    DomainSupplementLogicalContentReader,
     SemanticDomainIdentity,
     WorkerCodeCompassDomainSupplementMaterializer,
 )
@@ -77,8 +77,15 @@ def _raw_payload_bytes(path: Path) -> int:
         )
 
 
-def _materialize(source: Path, destination: Path) -> dict[str, object]:
-    return WorkerCodeCompassDomainSupplementMaterializer().materialize(
+def _materialize(
+    source: Path,
+    destination: Path,
+    *,
+    content_reader: DomainSupplementLogicalContentReader | None = None,
+) -> dict[str, object]:
+    return WorkerCodeCompassDomainSupplementMaterializer(
+        content_reader=content_reader,
+    ).materialize(
         source_path=source,
         output_path=destination,
         graph_revision=_GRAPH_REVISION,
@@ -95,41 +102,41 @@ def test_shared_raw_payload_budget_is_the_hub_compatible_384_mib() -> None:
 
 
 def test_worker_accepts_exact_raw_budget_before_publication(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     source = _source(tmp_path / "source.sqlite3")
     raw_payload_bytes = _raw_payload_bytes(source)
-    monkeypatch.setattr(
-        supplement_module,
-        "MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_RAW_BYTES",
-        raw_payload_bytes,
-    )
 
-    result = _materialize(source, tmp_path / "accepted.sqlite3")
+    result = _materialize(
+        source,
+        tmp_path / "accepted.sqlite3",
+        content_reader=DomainSupplementLogicalContentReader(
+            max_raw_bytes=raw_payload_bytes,
+        ),
+    )
 
     assert result["size_bytes"] > 0
     assert (tmp_path / "accepted.sqlite3").is_file()
 
 
 def test_worker_rejects_one_byte_over_raw_budget_before_publication(
-    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     source = _source(tmp_path / "source.sqlite3")
     raw_payload_bytes = _raw_payload_bytes(source)
     destination = tmp_path / "rejected.sqlite3"
-    monkeypatch.setattr(
-        supplement_module,
-        "MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_RAW_BYTES",
-        raw_payload_bytes - 1,
-    )
 
     with pytest.raises(
         ValueError,
         match="codecompass_domain_supplement_raw_budget_exceeded",
     ):
-        _materialize(source, destination)
+        _materialize(
+            source,
+            destination,
+            content_reader=DomainSupplementLogicalContentReader(
+                max_raw_bytes=raw_payload_bytes - 1,
+            ),
+        )
 
     assert not destination.exists()
     assert not list(tmp_path.glob(".rejected.sqlite3.*.tmp"))
