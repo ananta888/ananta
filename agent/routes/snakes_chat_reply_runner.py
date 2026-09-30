@@ -6,14 +6,19 @@ context, picks the answer strategy (Ananta-config tool loop, bounded agentic
 RAG, full scan or grounded single-shot delegation) and writes the answer plus
 trace events. :mod:`.snakes_chat_reply_spawner` owns the thread and the
 UI-state store and injects the collaborators here as narrow callables.
+
+Each strategy is one method working on a :class:`_ReplyContext`; ``run``
+only orchestrates them (SRP).
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import Any
 
 from agent.config import settings
@@ -36,6 +41,12 @@ from .snakes_chat_helpers import (
     _trace_feature_enabled,
     _with_answer_budget_instruction,
 )
+from .snakes_chat_reply_trace import (
+    config_loaded_details,
+    llm_call_started_summary,
+    rag_iterative_summary,
+    rag_iterative_trace_status,
+)
 from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
 from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
 from .snakes_worker_routing import (
@@ -54,6 +65,63 @@ _SNAKE_CHAT_PROMPT = (
     "5) Halte Antworten kurz, konkret, technisch nutzbar, auf Deutsch.\n"
     "6) Wenn Schrittfolge noetig ist, gib maximal 5 nummerierte Schritte.\n"
 )
+
+_ANANTA_SETTINGS_SESSION = "ananta-settings"
+_CONCRETE_FACT_TOKENS = (
+    "konkret", "datei", "dateien", "artefakt", "artefakte", "welche", "verfuegbar", "verfügbar"
+)
+_SETTINGS_PROFILE_CONFIG_OVERRIDES = {
+    "chat_architecture_analysis_mode": False,
+    "chat_retrieval_profile": "none",
+    "chat_use_codecompass": False,
+    "chat_code_questions_repo_first": False,
+    "chat_include_local_project": False,
+}
+
+
+@dataclass
+class _ReplyContext:
+    """Per-reply state shared by the answer strategies."""
+
+    prompt: str
+    original_prompt: str
+    snake_id: str | None
+    owner_principal: dict[str, str] | None
+    conversation_history: list[dict[str, str]]
+    session_id: str = ""
+    session_prompt: str | None = None
+    is_settings_profile: bool = False
+    provider: str = ""
+    model: str | None = None
+    api_base: str | None = None
+    guide_suffix: str = ""
+    answer_chars_limit: int = 0
+    chat_config: dict[str, Any] = field(default_factory=dict)
+    rec: Any = None
+    store: Any = None
+    trace_id: str | None = None
+
+    def event(self, *args, **kwargs) -> None:
+        if self.rec:
+            self.rec.event(*args, **kwargs)
+
+    def complete_trace(self) -> None:
+        if self.store and self.trace_id:
+            self.store.complete_trace(self.trace_id)
+
+    def cancel_keys(self) -> list[str]:
+        return ["room"] + ([self.snake_id] if self.snake_id else [])
+
+    def ask_limits(self) -> SnakeAskLimits:
+        return SnakeAskLimits(
+            answer_chars=self.answer_chars_limit,
+            answer_overflow_policy=_answer_overflow_policy(),
+            never_truncate_answers=_chat_never_truncate_answers(),
+        )
+
+
+def _http_timeout_seconds() -> int:
+    return min(int(getattr(settings, "http_timeout", 120) or 120), 180)
 
 
 class SnakeChatReplyRunner:
@@ -93,544 +161,464 @@ class SnakeChatReplyRunner:
     ) -> None:
         # Handle /guide intent — bypass normal LLM, trigger visual guide
         if prompt.startswith("/guide "):
-            _intent = prompt[7:].strip()
-            if _intent:
-                _eff_sess = str((session_snapshot or {}).get("id") or "")
-                _ui_ctx_now = self._ui_state.get(snake_id or "") or {}
-                self._append_room_message(
-                    text=f"Guide wird gestartet: {_intent[:100]}…",
-                    session_id=_eff_sess,
-                    owner_principal=owner_principal,
-                )
-                from agent.services.visual_guide.service import _visual_guide_service as _vgs
-                _vgs.handle_manual_guide(
-                    snake_id=snake_id or "",
-                    intent=_intent,
-                    snapshot=str(_ui_ctx_now.get("ui_snapshot") or ""),
-                    route=str(_ui_ctx_now.get("route") or ""),
-                    owner_principal=owner_principal,
-                )
+            self._start_visual_guide(prompt, snake_id, session_snapshot, owner_principal)
             return
 
-        rec = None
-        store = None
-        trace_id = None
+        ctx = _ReplyContext(
+            prompt=prompt,
+            original_prompt=prompt,
+            snake_id=snake_id,
+            owner_principal=owner_principal,
+            conversation_history=[],
+        )
         try:
-            if _trace_feature_enabled():
-                from agent.routes.ai_snake_config import _current_config as _trc_cfg
-                from agent.routes.ai_snake_trace_store import TraceRecorder, get_trace_store
-                _trc_settings = _trc_cfg()
-                _max_preview = int(_trc_settings.get("ai_snake_trace_max_preview_chars") or 200000)
-                store = get_trace_store()
-                trace_id = store.new_trace(
+            self._start_trace(ctx, client_session_id)
+            ctx.conversation_history = context_history if context_history is not None else (
+                _build_room_conversation_history(
                     snake_id=snake_id,
-                    session_id=client_session_id or None,
-                )
-                rec = TraceRecorder(store, trace_id, max_preview_chars=_max_preview)
-                _prompt_preview = prompt[:120] + ("…" if len(prompt) > 120 else "")
-                rec.event(
-                    "request_received", "Anfrage empfangen",
-                    status="completed",
-                    summary=f"Prompt: {_prompt_preview}",
-                )
-
-            conversation_history = context_history if context_history is not None else _build_room_conversation_history(
-                snake_id=snake_id,
-                current_text=prompt,
-                session_id=client_session_id,
-                owner_principal=owner_principal,
-            )
-            # The request thread resolves and authorizes the exact session.
-            # Background work consumes only that immutable snapshot and never
-            # re-enters global chat state or an active-session fallback.
-            _authorized_session = deepcopy(session_snapshot) if session_snapshot else {}
-            _active_session_id = (
-                str(_authorized_session.get("id") or "")
-                if _authorized_session
-                else ""
-            )
-            _active_session_prompt = str(_authorized_session.get("system_prompt") or "").strip() or None
-            _active_session_group = str(_authorized_session.get("group") or "").strip()
-            _active_session_settings = dict(_authorized_session.get("settings") or {})
-            _active_profile_id = str(_authorized_session.get("profile_id") or "")
-            self._logger.info(
-                "chat session resolved: active_session_id=%r client_session_id=%r",
-                _active_session_id, client_session_id,
-            )
-
-            from agent.routes.ai_snake_config import _current_config as _provider_config
-            _effective_provider_config = _provider_config()
-            if _active_session_settings:
-                _effective_provider_config = {**_effective_provider_config, **_active_session_settings}
-            provider, model, api_base = self._resolve_chat_provider(_effective_provider_config)
-            if rec:
-                rec.event(
-                    "config_loaded",
-                    "Angeforderte Session-Konfiguration geladen",
-                    status="completed",
-                    details={
-                        "requested_provider": provider,
-                        "requested_model": model,
-                        "session_requested_provider": provider,
-                        "session_requested_model": model,
-                        "backend": _effective_provider_config.get("chat_backend"),
-                        "effective_runtime": (
-                            "hub_worker_profile_routing"
-                            if snake_profile_routing_enabled()
-                            else "legacy_direct_provider"
-                        ),
-                        "routing_authority": (
-                            "local_model_profile"
-                            if snake_profile_routing_enabled()
-                            else "session_provider_config"
-                        ),
-                        "session_metadata_advisory": snake_profile_routing_enabled(),
-                        "effective_provider": (
-                            "hub_worker_profile" if snake_profile_routing_enabled() else provider
-                        ),
-                        "effective_model": (
-                            "resolved_per_task" if snake_profile_routing_enabled() else model
-                        ),
-                        "expected_research_profile": (
-                            "local_lfm25_agentic_fast"
-                            if snake_profile_routing_enabled()
-                            else None
-                        ),
-                        "expected_synthesis_profile": (
-                            "local_kat_coder_v25_heavy"
-                            if snake_profile_routing_enabled()
-                            else None
-                        ),
-                        "session_id": _active_session_id,
-                        "conversation_history_messages": len(conversation_history),
-                    },
-                )
-
-            # Ananta-Settings session: enrich prompt with current settings context
-            _original_prompt = prompt
-            _is_settings_profile = _active_profile_id == "ananta-settings" or _active_session_id == "ananta-settings"
-            if _is_settings_profile:
-                # Resolve effective UI context: per-message > continuous push > empty
-                _effective_ui_ctx = (ui_context or {}) or (self._ui_state.get(snake_id or "") if snake_id else {}) or {}
-                _settings_ctx = _read_ananta_settings_summary()
-                if _effective_ui_ctx:
-                    _ui_route = _effective_ui_ctx.get("route", "?")
-                    _ui_waypoints = ", ".join(_effective_ui_ctx.get("visible_waypoints") or []) or "(keine)"
-                    _ui_surface = _effective_ui_ctx.get("active_surface", "")
-                    _ui_snapshot = str(_effective_ui_ctx.get("ui_snapshot") or "").strip()
-                    _ui_ctx_block = (
-                        "[Aktueller UI-Kontext]\n"
-                        + (f"UI-Ansicht: {_ui_snapshot}\n" if _ui_snapshot else f"Route: {_ui_route}\n")
-                        + (f"Surface: {_ui_surface}\n" if _ui_surface and not _ui_snapshot else "")
-                        + (f"Waypoints: {_ui_waypoints}\n" if not _ui_snapshot else "")
-                        + "\n"
-                    )
-                    prompt = f"{_ui_ctx_block}[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
-                else:
-                    prompt = f"[Aktuelle Ananta-Konfiguration]\n{_settings_ctx}\n\n[Nutzerfrage]\n{prompt}"
-
-            elif _should_include_light_ui_context(
-                active_session_id=_active_session_id,
-                active_session_group=_active_session_group,
-                active_session_settings=_active_session_settings,
-                prompt=_original_prompt,
-            ):
-                # Lightweight UI context for sessions that explicitly benefit from UI state.
-                _light_ui = (ui_context or {}) or (self._ui_state.get(snake_id or "") if snake_id else {}) or {}
-                if _light_ui:
-                    _light_hint = str(_light_ui.get("ui_snapshot") or _light_ui.get("route") or "").strip()
-                    if _light_hint:
-                        prompt = f"[UI-Kontext: {_light_hint[:100]}]\n\n{prompt}"
-
-            # Compute guide suffix for ananta-settings session (used below in all emit paths)
-            import json as _json
-            _guide_suffix = ""
-            if _is_settings_profile:
-                _guide = _build_ui_guide(_original_prompt)
-                if _guide:
-                    _guide_suffix = f"\n\n__GUIDE__:{_json.dumps(_guide, ensure_ascii=False)}"
-
-            _answer_chars_limit = _chat_answer_chars_limit()
-            try:
-                from agent.routes.ai_snake_config import _current_config
-                from agent.services.retrieval_profile_service import _is_full_scan_intent
-                from agent.services.snake_agentic_tool_policy import (
-                    resolve_snake_agentic_tool_decision,
-                )
-                _cfg = _current_config()
-                # Apply session-level setting overrides so they take precedence over global config.
-                # For ananta-settings: force disable RAG/code-analysis regardless of persisted values,
-                # since legacy persisted sessions may have rag_iterative from before the session existed.
-                if _is_settings_profile:
-                    _cfg = {
-                        **_cfg,
-                        "chat_architecture_analysis_mode": False,
-                        "chat_retrieval_profile": "none",
-                        "chat_use_codecompass": False,
-                        "chat_code_questions_repo_first": False,
-                        "chat_include_local_project": False,
-                        **({"chat_answer_chars": 3000} if not _cfg.get("chat_answer_chars") else {}),
-                    }
-                elif _active_session_settings:
-                    _cfg = {**_cfg, **_active_session_settings}
-                _answer_chars_limit = _chat_answer_chars_limit()
-
-                # ananta-settings: dedicated config tool loop (search_ui_docs, read_ananta_config, get_hub_*)
-                if _is_settings_profile:
-                    from agent.routes.snakes_ananta_config_tool_loop import run_ananta_config_tool_loop
-                    if rec:
-                        rec.event("ananta_config_tool_loop_start", "Ananta-Konfig Tool-Loop gestartet",
-                                  status="running", summary="Konfigurations-Guide mit Tool-Calling aktiv")
-                    _t0_cfg = time.time()
-                    _cancel_keys_cfg = ["room"] + ([snake_id] if snake_id else [])
-                    _cancel_event_cfg = register_chat_cancel(_cancel_keys_cfg)
-                    try:
-                        _cfg_messages = [
-                            {"role": "system", "content": _active_session_prompt or _SNAKE_CHAT_PROMPT},
-                            *conversation_history,
-                            {"role": "user", "content": prompt},
-                        ]
-                        _cfg_answer, _cfg_trace = run_ananta_config_tool_loop(
-                            messages=_cfg_messages,
-                            provider=provider,
-                            model=model,
-                            api_base=api_base,
-                            max_tool_calls=8,
-                            timeout=120,
-                            cancel_event=_cancel_event_cfg,
-                        )
-                    finally:
-                        unregister_chat_cancel(_cancel_keys_cfg, _cancel_event_cfg)
-                    _tc_made = _cfg_trace.get("tool_calls_made", 0)
-                    _tools_str = ", ".join(_cfg_trace.get("tools_used") or []) or "–"
-                    _cfg_summary = f"ananta-config: {_tc_made} Tool-Calls [{_tools_str}]"
-                    if rec:
-                        rec.event("ananta_config_tool_loop_done", "Ananta-Konfig Tool-Loop abgeschlossen",
-                                  status="completed" if _cfg_answer else "failed",
-                                  summary=_cfg_summary,
-                                  duration_ms=(time.time() - _t0_cfg) * 1000,
-                                  details=_cfg_trace)
-                    if not _cfg_answer:
-                        _cfg_answer = "Keine Antwort vom Konfigurations-Guide."
-                    self._append_room_message(
-                        text=f"{_cfg_answer}\n\n[{_cfg_summary}]{_guide_suffix}",
-                        session_id=_active_session_id,
-                        owner_principal=owner_principal,
-                    )
-                    if store and trace_id:
-                        store.complete_trace(trace_id)
-                    return
-
-                _tool_decision = resolve_snake_agentic_tool_decision(prompt, _cfg)
-                if _tool_decision.enabled:
-                    _bounded_simple_tools = _tool_decision.max_tool_calls is not None
-                    if rec:
-                        rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
-                                  summary=(
-                                      "Begrenzte agentische Code-Recherche wird gestartet"
-                                      if _bounded_simple_tools
-                                      else "Iterative Datei-Analyse wird gestartet"
-                                  ),
-                                  details={
-                                      "trigger": _tool_decision.trigger,
-                                      "profile_id": _tool_decision.profile_id,
-                                      "tool_budget": _tool_decision.max_tool_calls,
-                                  })
-                    t0 = time.time()
-                    _cancel_keys = ["room"] + ([snake_id] if snake_id else [])
-                    _cancel_event = register_chat_cancel(_cancel_keys)
-                    try:
-                        answer, scan_trace = _worker_chat_rag_iterative(
-                            prompt,
-                            provider=provider,
-                            model=model,
-                            api_base=api_base,
-                            limits=SnakeAskLimits(
-                                answer_chars=_answer_chars_limit,
-                                answer_overflow_policy=_answer_overflow_policy(),
-                                never_truncate_answers=_chat_never_truncate_answers(),
-                            ),
-                            rec=rec,
-                            conversation_history=conversation_history,
-                            cancel_event=_cancel_event,
-                            system_prompt=_active_session_prompt,
-                            max_tool_calls_override=_tool_decision.max_tool_calls,
-                            max_search_calls_override=_tool_decision.max_search_calls,
-                            final_task_kind=_tool_decision.final_task_kind,
-                        )
-                    finally:
-                        unregister_chat_cancel(_cancel_keys, _cancel_event)
-                    _tl = scan_trace.get("tool_loop") or {}
-                    if scan_trace.get("cancelled") or _tl.get("cancelled"):
-                        scan_summary = "rag_iterative: abgebrochen"
-                    elif _tl or scan_trace.get("available_files"):
-                        _avail = scan_trace.get("available_files") or []
-                        _tc_made = _tl.get("tool_calls_made", 0)
-                        file_names = ", ".join(str(p).split("/")[-1] for p in _avail[:6])
-                        if len(_avail) > 6:
-                            file_names += f" +{len(_avail) - 6}"
-                        scan_summary = f"rag_iterative: {_tc_made} Tool-Calls, {len(_avail)} Dateien verfügbar" + (f" ({file_names})" if file_names else "")
-                    else:
-                        batches_done = scan_trace.get("batches_completed", 0)
-                        files_found = scan_trace.get("files_resolved", 0)
-                        file_list = scan_trace.get("file_list") or []
-                        file_names = ", ".join(str(p).split("/")[-1] for p in file_list[:6])
-                        if len(file_list) > 6:
-                            file_names += f" +{len(file_list) - 6}"
-                        scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
-                    if rec:
-                        _synthesis_degraded = (
-                            _tl.get("final_synthesis_status") == "completed_degraded"
-                        )
-                        if _synthesis_degraded:
-                            scan_summary += " — KAT-Synthese degradiert, LFM-Rechercheantwort verwendet"
-                        rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
-                                  status="cancelled" if scan_trace.get("cancelled") or _tl.get("cancelled") else ("warning" if _synthesis_degraded else ("completed" if answer else "failed")),
-                                  summary=scan_summary, duration_ms=(time.time() - t0) * 1000,
-                                  details=scan_trace)
-                    if not answer:
-                        answer = "Anfrage abgebrochen." if scan_trace.get("cancelled") or _tl.get("cancelled") else "RAG-Iterativ ergab keine Antwort."
-                    answer = _fit_answer_to_chars(
-                        answer,
-                        limit=_answer_chars_limit,
-                        provider=provider,
-                        model=model,
-                        timeout=int(_cfg.get("chat_ask_timeout_s") or 180),
-                        overflow_policy=_answer_overflow_policy(),
-                        never_truncate=_chat_never_truncate_answers(),
-                    )
-                    self._append_room_message(
-                        text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}",
-                        session_id=_active_session_id,
-                        owner_principal=owner_principal,
-                    )
-                    if store and trace_id:
-                        store.complete_trace(trace_id)
-                    return
-                elif _is_full_scan_intent(prompt, "", _cfg):
-                    if rec:
-                        rec.event("full_scan_detected", "Full-Scan erkannt", status="running",
-                                  summary="Architektur-Analyse wird gestartet")
-                    t0 = time.time()
-                    answer, scan_trace = _worker_chat_full_scan(
-                        prompt,
-                        provider=provider,
-                        model=model,
-                        limits=SnakeAskLimits(
-                            answer_chars=_answer_chars_limit,
-                            answer_overflow_policy=_answer_overflow_policy(),
-                            never_truncate_answers=_chat_never_truncate_answers(),
-                        ),
-                        cancel_key="room",
-                        conversation_history=conversation_history,
-                    )
-                    files_found = scan_trace.get("files_found", 0)
-                    batches_done = scan_trace.get("batches_completed", 0)
-                    scan_summary = f"full_scan: {batches_done} Batches, {files_found} Dateien"
-                    if rec:
-                        rec.event(
-                            "full_scan_batch_completed", "Full-Scan abgeschlossen",
-                            status="completed" if answer else "failed",
-                            summary=scan_summary,
-                            duration_ms=(time.time() - t0) * 1000,
-                            details={
-                                "files_found": files_found,
-                                "batches_completed": batches_done,
-                                "mode": scan_trace.get("mode"),
-                                "error": scan_trace.get("error"),
-                            },
-                        )
-                    if not answer:
-                        answer = "Full-Scan ergab keine Antwort."
-                    answer = _fit_answer_to_chars(
-                        answer,
-                        limit=_answer_chars_limit,
-                        provider=provider,
-                        model=model,
-                        timeout=int(_cfg.get("chat_ask_timeout_s") or 180),
-                        overflow_policy=_answer_overflow_policy(),
-                        never_truncate=_chat_never_truncate_answers(),
-                    )
-                    if rec:
-                        rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
-                                  summary=f"{len(answer)} Zeichen")
-                    self._append_room_message(
-                        text=f"{answer}\n\n[{scan_summary}]{_guide_suffix}",
-                        session_id=_active_session_id,
-                        owner_principal=owner_principal,
-                    )
-                    if rec:
-                        rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
-                    if store and trace_id:
-                        store.complete_trace(trace_id)
-                    return
-            except Exception as exc:
-                self._logger.debug("full_scan check failed, falling back: %s", exc)
-
-            if rec:
-                rec.event("retrieval_profile_selected", "Retrieval-Profil wird aufgelöst", status="running",
-                          input_preview=prompt)
-
-            retrieval_start = time.time()
-            if rec:
-                rec.event("codecompass_retrieval_started", "CodeCompass Retrieval gestartet", status="running",
-                          input_preview=prompt)
-
-            grounded_prompt, has_context, context_summary, _domain_info, chunk_meta = _build_grounded_snake_prompt(prompt)
-
-            retrieval_ms = (time.time() - retrieval_start) * 1000
-            if rec:
-                rec.event(
-                    "codecompass_retrieval_completed", "CodeCompass Retrieval abgeschlossen",
-                    status="completed" if has_context else "skipped",
-                    summary=context_summary,
-                    duration_ms=retrieval_ms,
-                    details={
-                        "has_context": has_context,
-                        "chunk_count": len(chunk_meta),
-                        "grounded_chars": len(grounded_prompt),
-                        "chunks": chunk_meta,
-                        "source_ranking": _domain_info.get("source_ranking"),
-                    },
-                    output_preview=chunk_meta if chunk_meta else None,
-                )
-                rec.event("prompt_built", "Prompt an LLM aufgebaut", status="completed",
-                          summary=f"{len(grounded_prompt)} Zeichen Gesamtprompt, {len(chunk_meta)} Dateien eingebettet",
-                          details={"context_summary": context_summary, "prompt_chars": len(grounded_prompt)},
-                          output_preview=grounded_prompt)
-
-            q = prompt.lower()
-            asks_for_concrete_local_facts = any(
-                token in q for token in (
-                    "konkret", "datei", "dateien", "artefakt", "artefakte", "welche", "verfuegbar", "verfügbar"
-                )
-            )
-                        # Skip the "no-context" short-circuit for ananta-settings (it intentionally has no RAG)
-            if asks_for_concrete_local_facts and not has_context and not _is_settings_profile:
-                if rec:
-                    rec.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
-                              summary="Kein Kontext verfügbar für konkrete Fragen")
-                self._append_room_message(
-                    text=f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]",
-                    session_id=_active_session_id,
+                    current_text=prompt,
+                    session_id=client_session_id,
                     owner_principal=owner_principal,
                 )
-                if rec:
-                    rec.event("chat_message_written", "Hinweis in Raum geschrieben", status="completed")
-                if store and trace_id:
-                    store.complete_trace(trace_id)
+            )
+            session_settings = self._bind_session(ctx, session_snapshot, client_session_id)
+            self._resolve_provider(ctx, session_settings)
+            self._enrich_prompt(ctx, ui_context, session_snapshot or {}, session_settings)
+            ctx.answer_chars_limit = _chat_answer_chars_limit()
+            if self._answer_with_specialized_strategy(ctx, session_settings):
                 return
-
-            # Use the active session's system prompt when set, otherwise fall back to the snake default
-            _effective_system_prompt = _active_session_prompt or _SNAKE_CHAT_PROMPT
-
-            llm_start = time.time()
-            if rec:
-                rec.event("llm_call_started", "LLM-Aufruf gestartet", status="running",
-                          summary=(
-                              "lokales Hub-Worker-Profil — "
-                              if snake_profile_routing_enabled()
-                              else f"{provider} / {model or 'default'} — "
-                          ) + f"{len(grounded_prompt)} Zeichen Eingabe",
-                          details={
-                              "provider": provider,
-                              "model": model,
-                              "requested_provider_advisory": provider if snake_profile_routing_enabled() else None,
-                              "requested_model_advisory": model if snake_profile_routing_enabled() else None,
-                              "prompt_chars": len(grounded_prompt),
-                              "system_prompt_chars": len(_effective_system_prompt),
-                              "conversation_history_messages": len(conversation_history),
-                          },
-                          input_preview=grounded_prompt)
-
-            budgeted_prompt = _with_answer_budget_instruction(
-                grounded_prompt,
-                _answer_chars_limit,
-                policy=_answer_overflow_policy(),
-            )
-            delegated_context = "\n".join(
-                f"[{str(item.get('role') or 'context')}]: {str(item.get('content') or '')}"
-                for item in conversation_history
-                if isinstance(item, dict) and str(item.get("content") or "").strip()
-            )
-            delegated_prompt = (
-                f"[system]: {_effective_system_prompt}\n"
-                + (f"{delegated_context}\n" if delegated_context else "")
-                + f"[user]: {budgeted_prompt}"
-            )
-            answer, delegated_trace = self._worker_propose(
-                delegated_prompt,
-                None,
-                provider=provider,
-                limits=SnakeAskLimits(
-                    answer_chars=_answer_chars_limit,
-                    answer_overflow_policy=_answer_overflow_policy(),
-                    never_truncate_answers=_chat_never_truncate_answers(),
-                ),
-                worker_picker=self._worker_picker,
-                routing_task_kind=resolve_snake_routing_task_kind(prompt),
-            )
-            if not answer and not snake_profile_routing_enabled():
-                answer = self._generate_text(
-                    prompt=budgeted_prompt,
-                    provider=provider,
-                    model=model,
-                    base_url=api_base,
-                    history=[{"role": "system", "content": _effective_system_prompt}, *conversation_history],
-                    timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
-                )
-
-            llm_ms = (time.time() - llm_start) * 1000
-            if rec:
-                rec.event("llm_call_completed", "LLM-Aufruf abgeschlossen", status="completed",
-                          duration_ms=llm_ms,
-                          summary=f"{len(str(answer or ''))} Zeichen Antwort in {round(llm_ms / 1000, 1)}s",
-                          details={"delegated_routing": delegated_trace},
-                          output_preview=str(answer or ""))
-
-            text = str(answer or "").strip()
-            asked_for_link = any(token in prompt.lower() for token in ("link", "url", "quelle", "source"))
-            if text and not asked_for_link:
-                text = text.replace("http://", "").replace("https://", "")
-            text = _fit_answer_to_chars(
-                text,
-                limit=_answer_chars_limit,
-                provider=provider,
-                model=model,
-                timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
-                overflow_policy=_answer_overflow_policy(),
-                never_truncate=_chat_never_truncate_answers(),
-            )
-            if not text:
-                text = "AI-Snake konnte gerade keine Antwort erzeugen."
-            text = f"{text}\n\n[{context_summary}]"
-
-            if rec:
-                rec.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
-                          summary=f"{len(text)} Zeichen, Kontext angehängt")
-
-            self._append_room_message(
-                text=f"{text}{_guide_suffix}",
-                session_id=_active_session_id,
-                owner_principal=owner_principal,
-            )
-
-            if rec:
-                rec.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
-            if store and trace_id:
-                store.complete_trace(trace_id)
-
+            self._answer_with_grounded_delegation(ctx)
         except Exception as exc:
             self._logger.warning("ai-snake-chat-reply failed: %s", exc)
-            if rec and store and trace_id:
+            if ctx.rec and ctx.store and ctx.trace_id:
                 try:
-                    rec.event("failed", "Fehler bei der Antwortgenerierung", status="failed",
-                              error=str(exc)[:300])
-                    store.complete_trace(trace_id, status="failed")
+                    ctx.rec.event("failed", "Fehler bei der Antwortgenerierung", status="failed",
+                                  error=str(exc)[:300])
+                    ctx.store.complete_trace(ctx.trace_id, status="failed")
                 except Exception:
                     pass
             self._append_room_message(
                 text="AI-Snake Fehler: Antwort konnte nicht erzeugt werden.",
-                session_id=_active_session_id,
+                session_id=ctx.session_id,
                 owner_principal=owner_principal,
             )
+
+    # ── setup ────────────────────────────────────────────────────────────────
+
+    def _start_visual_guide(self, prompt, snake_id, session_snapshot, owner_principal) -> None:
+        intent = prompt[7:].strip()
+        if not intent:
+            return
+        ui_now = self._ui_state.get(snake_id or "") or {}
+        self._append_room_message(
+            text=f"Guide wird gestartet: {intent[:100]}…",
+            session_id=str((session_snapshot or {}).get("id") or ""),
+            owner_principal=owner_principal,
+        )
+        from agent.services.visual_guide.service import _visual_guide_service as _vgs
+        _vgs.handle_manual_guide(
+            snake_id=snake_id or "",
+            intent=intent,
+            snapshot=str(ui_now.get("ui_snapshot") or ""),
+            route=str(ui_now.get("route") or ""),
+            owner_principal=owner_principal,
+        )
+
+    @staticmethod
+    def _start_trace(ctx: _ReplyContext, client_session_id: str) -> None:
+        if not _trace_feature_enabled():
+            return
+        from agent.routes.ai_snake_config import _current_config as _trc_cfg
+        from agent.routes.ai_snake_trace_store import TraceRecorder, get_trace_store
+        max_preview = int(_trc_cfg().get("ai_snake_trace_max_preview_chars") or 200000)
+        ctx.store = get_trace_store()
+        ctx.trace_id = ctx.store.new_trace(snake_id=ctx.snake_id, session_id=client_session_id or None)
+        ctx.rec = TraceRecorder(ctx.store, ctx.trace_id, max_preview_chars=max_preview)
+        prompt_preview = ctx.prompt[:120] + ("…" if len(ctx.prompt) > 120 else "")
+        ctx.rec.event("request_received", "Anfrage empfangen", status="completed", summary=f"Prompt: {prompt_preview}")
+
+    def _bind_session(self, ctx: _ReplyContext, session_snapshot, client_session_id: str) -> dict[str, Any]:
+        """Bind the immutable, request-authorized session snapshot; return its settings.
+
+        Background work consumes only that snapshot and never re-enters global
+        chat state or an active-session fallback.
+        """
+        authorized_session = deepcopy(session_snapshot) if session_snapshot else {}
+        ctx.session_id = str(authorized_session.get("id") or "") if authorized_session else ""
+        ctx.session_prompt = str(authorized_session.get("system_prompt") or "").strip() or None
+        profile_id = str(authorized_session.get("profile_id") or "")
+        ctx.is_settings_profile = _ANANTA_SETTINGS_SESSION in {profile_id, ctx.session_id}
+        self._logger.info(
+            "chat session resolved: active_session_id=%r client_session_id=%r",
+            ctx.session_id, client_session_id,
+        )
+        return dict(authorized_session.get("settings") or {})
+
+    def _resolve_provider(self, ctx: _ReplyContext, session_settings: dict[str, Any]) -> None:
+        from agent.routes.ai_snake_config import _current_config as _provider_config
+        provider_config = _provider_config()
+        if session_settings:
+            provider_config = {**provider_config, **session_settings}
+        ctx.provider, ctx.model, ctx.api_base = self._resolve_chat_provider(provider_config)
+        ctx.event(
+            "config_loaded",
+            "Angeforderte Session-Konfiguration geladen",
+            status="completed",
+            details=config_loaded_details(
+                provider=ctx.provider,
+                model=ctx.model,
+                backend=provider_config.get("chat_backend"),
+                session_id=ctx.session_id,
+                history_messages=len(ctx.conversation_history),
+            ),
+        )
+
+    def _effective_ui_context(self, ctx: _ReplyContext, ui_context) -> dict:
+        return (ui_context or {}) or (self._ui_state.get(ctx.snake_id or "") if ctx.snake_id else {}) or {}
+
+    def _enrich_prompt(self, ctx: _ReplyContext, ui_context, session_snapshot: dict, session_settings: dict) -> None:
+        if ctx.is_settings_profile:
+            ctx.prompt = self._settings_profile_prompt(ctx, self._effective_ui_context(ctx, ui_context))
+            guide = _build_ui_guide(ctx.original_prompt)
+            if guide:
+                ctx.guide_suffix = f"\n\n__GUIDE__:{json.dumps(guide, ensure_ascii=False)}"
+            return
+        if _should_include_light_ui_context(
+            active_session_id=ctx.session_id,
+            active_session_group=str(session_snapshot.get("group") or "").strip(),
+            active_session_settings=session_settings,
+            prompt=ctx.original_prompt,
+        ):
+            # Lightweight UI context for sessions that explicitly benefit from UI state.
+            light_ui = self._effective_ui_context(ctx, ui_context)
+            light_hint = str(light_ui.get("ui_snapshot") or light_ui.get("route") or "").strip() if light_ui else ""
+            if light_hint:
+                ctx.prompt = f"[UI-Kontext: {light_hint[:100]}]\n\n{ctx.prompt}"
+
+    @staticmethod
+    def _settings_profile_prompt(ctx: _ReplyContext, effective_ui: dict) -> str:
+        """Ananta-Settings session: enrich the prompt with UI and current settings context."""
+        settings_ctx = _read_ananta_settings_summary()
+        settings_block = f"[Aktuelle Ananta-Konfiguration]\n{settings_ctx}\n\n[Nutzerfrage]\n{ctx.prompt}"
+        if not effective_ui:
+            return settings_block
+        route = effective_ui.get("route", "?")
+        waypoints = ", ".join(effective_ui.get("visible_waypoints") or []) or "(keine)"
+        surface = effective_ui.get("active_surface", "")
+        snapshot = str(effective_ui.get("ui_snapshot") or "").strip()
+        ui_block = (
+            "[Aktueller UI-Kontext]\n"
+            + (f"UI-Ansicht: {snapshot}\n" if snapshot else f"Route: {route}\n")
+            + (f"Surface: {surface}\n" if surface and not snapshot else "")
+            + (f"Waypoints: {waypoints}\n" if not snapshot else "")
+            + "\n"
+        )
+        return f"{ui_block}{settings_block}"
+
+    @staticmethod
+    def _effective_chat_config(ctx: _ReplyContext, session_settings: dict) -> dict[str, Any]:
+        """Global chat config with session overrides.
+
+        For ananta-settings RAG/code analysis is forced off regardless of
+        persisted values (legacy sessions may still carry rag_iterative).
+        """
+        from agent.routes.ai_snake_config import _current_config
+        cfg = _current_config()
+        if ctx.is_settings_profile:
+            return {
+                **cfg,
+                **_SETTINGS_PROFILE_CONFIG_OVERRIDES,
+                **({"chat_answer_chars": 3000} if not cfg.get("chat_answer_chars") else {}),
+            }
+        if session_settings:
+            return {**cfg, **session_settings}
+        return cfg
+
+    # ── answer strategies ────────────────────────────────────────────────────
+
+    def _answer_with_specialized_strategy(self, ctx: _ReplyContext, session_settings: dict) -> bool:
+        """Config tool loop, bounded agentic RAG or full scan; ``False`` falls back to grounding."""
+        try:
+            from agent.services.retrieval_profile_service import _is_full_scan_intent
+            from agent.services.snake_agentic_tool_policy import (
+                resolve_snake_agentic_tool_decision,
+            )
+            ctx.chat_config = self._effective_chat_config(ctx, session_settings)
+            ctx.answer_chars_limit = _chat_answer_chars_limit()
+            if ctx.is_settings_profile:
+                self._answer_with_config_tool_loop(ctx)
+                return True
+            tool_decision = resolve_snake_agentic_tool_decision(ctx.prompt, ctx.chat_config)
+            if tool_decision.enabled:
+                self._answer_with_rag_iterative(ctx, tool_decision)
+                return True
+            if _is_full_scan_intent(ctx.prompt, "", ctx.chat_config):
+                self._answer_with_full_scan(ctx)
+                return True
+        except Exception as exc:
+            self._logger.debug("full_scan check failed, falling back: %s", exc)
+        return False
+
+    def _answer_with_config_tool_loop(self, ctx: _ReplyContext) -> None:
+        """ananta-settings: dedicated config tool loop (search_ui_docs, read_ananta_config, get_hub_*)."""
+        from agent.routes.snakes_ananta_config_tool_loop import run_ananta_config_tool_loop
+        ctx.event("ananta_config_tool_loop_start", "Ananta-Konfig Tool-Loop gestartet",
+                  status="running", summary="Konfigurations-Guide mit Tool-Calling aktiv")
+        started = time.time()
+        cancel_keys = ctx.cancel_keys()
+        cancel_event = register_chat_cancel(cancel_keys)
+        try:
+            answer, trace = run_ananta_config_tool_loop(
+                messages=[
+                    {"role": "system", "content": ctx.session_prompt or _SNAKE_CHAT_PROMPT},
+                    *ctx.conversation_history,
+                    {"role": "user", "content": ctx.prompt},
+                ],
+                provider=ctx.provider,
+                model=ctx.model,
+                api_base=ctx.api_base,
+                max_tool_calls=8,
+                timeout=120,
+                cancel_event=cancel_event,
+            )
+        finally:
+            unregister_chat_cancel(cancel_keys, cancel_event)
+        tools_used = ", ".join(trace.get("tools_used") or []) or "–"
+        summary = f"ananta-config: {trace.get('tool_calls_made', 0)} Tool-Calls [{tools_used}]"
+        ctx.event("ananta_config_tool_loop_done", "Ananta-Konfig Tool-Loop abgeschlossen",
+                  status="completed" if answer else "failed",
+                  summary=summary,
+                  duration_ms=(time.time() - started) * 1000,
+                  details=trace)
+        answer = answer or "Keine Antwort vom Konfigurations-Guide."
+        self._publish(ctx, f"{answer}\n\n[{summary}]{ctx.guide_suffix}")
+        ctx.complete_trace()
+
+    def _answer_with_rag_iterative(self, ctx: _ReplyContext, tool_decision) -> None:
+        bounded_simple_tools = tool_decision.max_tool_calls is not None
+        ctx.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
+                  summary=(
+                      "Begrenzte agentische Code-Recherche wird gestartet"
+                      if bounded_simple_tools
+                      else "Iterative Datei-Analyse wird gestartet"
+                  ),
+                  details={
+                      "trigger": tool_decision.trigger,
+                      "profile_id": tool_decision.profile_id,
+                      "tool_budget": tool_decision.max_tool_calls,
+                  })
+        started = time.time()
+        cancel_keys = ctx.cancel_keys()
+        cancel_event = register_chat_cancel(cancel_keys)
+        try:
+            answer, scan_trace = _worker_chat_rag_iterative(
+                ctx.prompt,
+                provider=ctx.provider,
+                model=ctx.model,
+                api_base=ctx.api_base,
+                limits=ctx.ask_limits(),
+                rec=ctx.rec,
+                conversation_history=ctx.conversation_history,
+                cancel_event=cancel_event,
+                system_prompt=ctx.session_prompt,
+                max_tool_calls_override=tool_decision.max_tool_calls,
+                max_search_calls_override=tool_decision.max_search_calls,
+                final_task_kind=tool_decision.final_task_kind,
+            )
+        finally:
+            unregister_chat_cancel(cancel_keys, cancel_event)
+        tool_loop = scan_trace.get("tool_loop") or {}
+        cancelled = bool(scan_trace.get("cancelled") or tool_loop.get("cancelled"))
+        scan_summary = rag_iterative_summary(scan_trace)
+        if ctx.rec:
+            synthesis_degraded = tool_loop.get("final_synthesis_status") == "completed_degraded"
+            if synthesis_degraded:
+                scan_summary += " — KAT-Synthese degradiert, LFM-Rechercheantwort verwendet"
+            ctx.rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
+                          status=rag_iterative_trace_status(
+                              cancelled=cancelled, synthesis_degraded=synthesis_degraded, answered=bool(answer)
+                          ),
+                          summary=scan_summary, duration_ms=(time.time() - started) * 1000,
+                          details=scan_trace)
+        if not answer:
+            answer = "Anfrage abgebrochen." if cancelled else "RAG-Iterativ ergab keine Antwort."
+        answer = self._fit_scan_answer(ctx, answer)
+        self._publish(ctx, f"{answer}\n\n[{scan_summary}]{ctx.guide_suffix}")
+        ctx.complete_trace()
+
+    def _answer_with_full_scan(self, ctx: _ReplyContext) -> None:
+        ctx.event("full_scan_detected", "Full-Scan erkannt", status="running",
+                  summary="Architektur-Analyse wird gestartet")
+        started = time.time()
+        answer, scan_trace = _worker_chat_full_scan(
+            ctx.prompt,
+            provider=ctx.provider,
+            model=ctx.model,
+            limits=ctx.ask_limits(),
+            cancel_key="room",
+            conversation_history=ctx.conversation_history,
+        )
+        files_found = scan_trace.get("files_found", 0)
+        batches_done = scan_trace.get("batches_completed", 0)
+        scan_summary = f"full_scan: {batches_done} Batches, {files_found} Dateien"
+        ctx.event(
+            "full_scan_batch_completed", "Full-Scan abgeschlossen",
+            status="completed" if answer else "failed",
+            summary=scan_summary,
+            duration_ms=(time.time() - started) * 1000,
+            details={
+                "files_found": files_found,
+                "batches_completed": batches_done,
+                "mode": scan_trace.get("mode"),
+                "error": scan_trace.get("error"),
+            },
+        )
+        answer = self._fit_scan_answer(ctx, answer or "Full-Scan ergab keine Antwort.")
+        ctx.event("answer_postprocessed", "Antwort aufbereitet", status="completed", summary=f"{len(answer)} Zeichen")
+        self._publish(ctx, f"{answer}\n\n[{scan_summary}]{ctx.guide_suffix}")
+        ctx.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
+        ctx.complete_trace()
+
+    def _answer_with_grounded_delegation(self, ctx: _ReplyContext) -> None:
+        ctx.event("retrieval_profile_selected", "Retrieval-Profil wird aufgelöst", status="running",
+                  input_preview=ctx.prompt)
+        grounded_prompt, has_context, context_summary = self._retrieve_grounding(ctx)
+        asks_for_concrete_local_facts = any(token in ctx.prompt.lower() for token in _CONCRETE_FACT_TOKENS)
+        # Skip the "no-context" short-circuit for ananta-settings (it intentionally has no RAG)
+        if asks_for_concrete_local_facts and not has_context and not ctx.is_settings_profile:
+            ctx.event("answer_postprocessed", "Anfrage ohne Kontext abgebrochen", status="skipped",
+                      summary="Kein Kontext verfügbar für konkrete Fragen")
+            self._publish(ctx, f"Unklar, bitte Kontext pruefen.\n\n[{context_summary}]")
+            ctx.event("chat_message_written", "Hinweis in Raum geschrieben", status="completed")
+            ctx.complete_trace()
+            return
+
+        answer = self._delegate_llm_answer(ctx, grounded_prompt)
+        text = self._postprocess_answer(ctx, answer)
+        text = f"{text}\n\n[{context_summary}]"
+        ctx.event("answer_postprocessed", "Antwort aufbereitet", status="completed",
+                  summary=f"{len(text)} Zeichen, Kontext angehängt")
+        self._publish(ctx, f"{text}{ctx.guide_suffix}")
+        ctx.event("chat_message_written", "Nachricht in Raum geschrieben", status="completed")
+        ctx.complete_trace()
+
+    # ── grounded delegation steps ────────────────────────────────────────────
+
+    @staticmethod
+    def _retrieve_grounding(ctx: _ReplyContext) -> tuple[str, bool, str]:
+        retrieval_start = time.time()
+        ctx.event("codecompass_retrieval_started", "CodeCompass Retrieval gestartet", status="running",
+                  input_preview=ctx.prompt)
+        grounded_prompt, has_context, context_summary, domain_info, chunk_meta = _build_grounded_snake_prompt(
+            ctx.prompt
+        )
+        ctx.event(
+            "codecompass_retrieval_completed", "CodeCompass Retrieval abgeschlossen",
+            status="completed" if has_context else "skipped",
+            summary=context_summary,
+            duration_ms=(time.time() - retrieval_start) * 1000,
+            details={
+                "has_context": has_context,
+                "chunk_count": len(chunk_meta),
+                "grounded_chars": len(grounded_prompt),
+                "chunks": chunk_meta,
+                "source_ranking": domain_info.get("source_ranking"),
+            },
+            output_preview=chunk_meta if chunk_meta else None,
+        )
+        ctx.event("prompt_built", "Prompt an LLM aufgebaut", status="completed",
+                  summary=f"{len(grounded_prompt)} Zeichen Gesamtprompt, {len(chunk_meta)} Dateien eingebettet",
+                  details={"context_summary": context_summary, "prompt_chars": len(grounded_prompt)},
+                  output_preview=grounded_prompt)
+        return grounded_prompt, has_context, context_summary
+
+    def _delegate_llm_answer(self, ctx: _ReplyContext, grounded_prompt: str):
+        # Use the active session's system prompt when set, otherwise fall back to the snake default
+        system_prompt = ctx.session_prompt or _SNAKE_CHAT_PROMPT
+        profile_routing = snake_profile_routing_enabled()
+        llm_start = time.time()
+        ctx.event("llm_call_started", "LLM-Aufruf gestartet", status="running",
+                  summary=llm_call_started_summary(ctx.provider, ctx.model, len(grounded_prompt), profile_routing),
+                  details={
+                      "provider": ctx.provider,
+                      "model": ctx.model,
+                      "requested_provider_advisory": ctx.provider if profile_routing else None,
+                      "requested_model_advisory": ctx.model if profile_routing else None,
+                      "prompt_chars": len(grounded_prompt),
+                      "system_prompt_chars": len(system_prompt),
+                      "conversation_history_messages": len(ctx.conversation_history),
+                  },
+                  input_preview=grounded_prompt)
+        budgeted_prompt = _with_answer_budget_instruction(
+            grounded_prompt,
+            ctx.answer_chars_limit,
+            policy=_answer_overflow_policy(),
+        )
+        delegated_context = "\n".join(
+            f"[{str(item.get('role') or 'context')}]: {str(item.get('content') or '')}"
+            for item in ctx.conversation_history
+            if isinstance(item, dict) and str(item.get("content") or "").strip()
+        )
+        delegated_prompt = (
+            f"[system]: {system_prompt}\n"
+            + (f"{delegated_context}\n" if delegated_context else "")
+            + f"[user]: {budgeted_prompt}"
+        )
+        answer, delegated_trace = self._worker_propose(
+            delegated_prompt,
+            None,
+            provider=ctx.provider,
+            limits=ctx.ask_limits(),
+            worker_picker=self._worker_picker,
+            routing_task_kind=resolve_snake_routing_task_kind(ctx.prompt),
+        )
+        if not answer and not snake_profile_routing_enabled():
+            answer = self._generate_text(
+                prompt=budgeted_prompt,
+                provider=ctx.provider,
+                model=ctx.model,
+                base_url=ctx.api_base,
+                history=[{"role": "system", "content": system_prompt}, *ctx.conversation_history],
+                timeout=_http_timeout_seconds(),
+            )
+        llm_ms = (time.time() - llm_start) * 1000
+        ctx.event("llm_call_completed", "LLM-Aufruf abgeschlossen", status="completed",
+                  duration_ms=llm_ms,
+                  summary=f"{len(str(answer or ''))} Zeichen Antwort in {round(llm_ms / 1000, 1)}s",
+                  details={"delegated_routing": delegated_trace},
+                  output_preview=str(answer or ""))
+        return answer
+
+    @staticmethod
+    def _postprocess_answer(ctx: _ReplyContext, answer) -> str:
+        text = str(answer or "").strip()
+        asked_for_link = any(token in ctx.prompt.lower() for token in ("link", "url", "quelle", "source"))
+        if text and not asked_for_link:
+            text = text.replace("http://", "").replace("https://", "")
+        text = _fit_answer_to_chars(
+            text,
+            limit=ctx.answer_chars_limit,
+            provider=ctx.provider,
+            model=ctx.model,
+            timeout=_http_timeout_seconds(),
+            overflow_policy=_answer_overflow_policy(),
+            never_truncate=_chat_never_truncate_answers(),
+        )
+        return text or "AI-Snake konnte gerade keine Antwort erzeugen."
+
+    # ── shared output ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _fit_scan_answer(ctx: _ReplyContext, answer: str) -> str:
+        return _fit_answer_to_chars(
+            answer,
+            limit=ctx.answer_chars_limit,
+            provider=ctx.provider,
+            model=ctx.model,
+            timeout=int(ctx.chat_config.get("chat_ask_timeout_s") or 180),
+            overflow_policy=_answer_overflow_policy(),
+            never_truncate=_chat_never_truncate_answers(),
+        )
+
+    def _publish(self, ctx: _ReplyContext, text: str) -> None:
+        self._append_room_message(text=text, session_id=ctx.session_id, owner_principal=ctx.owner_principal)
