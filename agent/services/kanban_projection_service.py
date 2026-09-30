@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
-import json
-import time
 import uuid
 from collections.abc import Iterable
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -21,19 +17,40 @@ from agent.repositories.kanban_projection import (
     KanbanTaskNotFound,
     SqlKanbanProjectionStore,
 )
-from agent.services.hub_event_service import build_task_history_event
 from agent.services.kanban_authorization_service import (
     KanbanAuthorizationError,
     KanbanAuthorizationService,
     KanbanPrincipal,
 )
+from agent.services.kanban_board_projection import (
+    COLUMN_TARGET,
+    decode_kanban_cursor_offset,
+    encode_kanban_cursor,
+    kanban_board_revision,
+    kanban_card_assignee,
+    kanban_column,
+    kanban_history_event_type,
+    kanban_sort_key,
+    ordered_kanban_tasks,
+    project_kanban_board,
+    project_kanban_cards,
+    require_kanban_page_limit,
+)
 from agent.services.kanban_event_stream_service import (
     build_kanban_event,
     get_kanban_event_stream_service,
 )
+from agent.services.kanban_mutation_rules import (
+    KanbanMutation,
+    kanban_mutation_fingerprint,
+    kanban_store_error,
+    rank_kanban_tasks,
+    record_kanban_history_event,
+    require_acyclic_kanban_dependencies,
+    require_kanban_transition,
+)
 from agent.services.kanban_service_error import KanbanServiceError
 from agent.services.kanban_vector_task_boundary import (
-    is_kanban_rankable_task,
     require_kanban_mutation_allowed,
 )
 from agent.services.recovery_task_mutation_policy import (
@@ -41,7 +58,6 @@ from agent.services.recovery_task_mutation_policy import (
     ensure_external_recovery_mutation_allowed,
 )
 from agent.services.task_runtime_service import notify_task_update
-from agent.services.task_state_machine_service import can_transition_to
 from ananta_contracts.kanban import (
     AssignCardCommand,
     BlockCardCommand,
@@ -51,7 +67,6 @@ from ananta_contracts.kanban import (
     CreateCardCommand,
     KanbanActivity,
     KanbanActivityPage,
-    KanbanAssignee,
     KanbanBoard,
     KanbanBoardPage,
     KanbanBoardSummary,
@@ -59,7 +74,6 @@ from ananta_contracts.kanban import (
     KanbanCapability,
     KanbanCard,
     KanbanCardPage,
-    KanbanColumn,
     KanbanColumnId,
     KanbanComment,
     KanbanCommentPage,
@@ -69,39 +83,6 @@ from ananta_contracts.kanban import (
     SetDependenciesCommand,
 )
 from ananta_contracts.kanban_events import KanbanEvent
-
-STATUS_ALIASES = {
-    "backlog": "todo",
-    "created": "todo",
-    "in-progress": "in_progress",
-    "done": "completed",
-    "blocked": "blocked_by_dependency",
-}
-COLUMN_STATUSES = {
-    KanbanColumnId.TODO: ("todo", "created", "assigned", "proposing", "updated"),
-    KanbanColumnId.IN_PROGRESS: ("in_progress", "delegated", "waiting_for_review", "paused"),
-    KanbanColumnId.BLOCKED: (
-        "blocked_by_dependency",
-        "blocked",
-        "failed",
-        "cancelled",
-        "verification_failed",
-    ),
-    KanbanColumnId.COMPLETED: ("completed", "done", "skipped"),
-}
-COLUMN_TARGET = {
-    KanbanColumnId.TODO: "todo",
-    KanbanColumnId.IN_PROGRESS: "in_progress",
-    KanbanColumnId.BLOCKED: "blocked_by_dependency",
-    KanbanColumnId.COMPLETED: "completed",
-}
-COLUMN_TITLE = {
-    KanbanColumnId.TODO: "To do",
-    KanbanColumnId.IN_PROGRESS: "In progress",
-    KanbanColumnId.BLOCKED: "Blocked",
-    KanbanColumnId.COMPLETED: "Completed",
-}
-COLUMN_ORDER = tuple(KanbanColumnId)
 
 
 class KanbanEventPort(Protocol):
@@ -131,10 +112,6 @@ class HubKanbanCommittedEventMirror:
         get_kanban_event_stream_service().mirror(event)
 
 
-@dataclass(frozen=True)
-class _Mutation:
-    key_hash: str
-    digest: str
 class KanbanProjectionService:
     def __init__(
         self,
@@ -197,98 +174,18 @@ class KanbanProjectionService:
             capabilities=tuple(sorted(capabilities, key=lambda item: item.value)),
         )
 
-    @staticmethod
-    def _column(status: str | None) -> KanbanColumnId:
-        normalized = STATUS_ALIASES.get(str(status or "todo").lower(), str(status or "todo").lower())
-        for column, statuses in COLUMN_STATUSES.items():
-            if normalized in statuses:
-                return column
-        return KanbanColumnId.BLOCKED
-
-    @staticmethod
-    def _sort_key(task: TaskDB) -> tuple[int, str, str]:
-        position = int(task.kanban_position or 0)
-        created = task.created_at.isoformat() if isinstance(task.created_at, datetime) else ""
-        return (0, f"{position:020d}", task.id) if position > 0 else (1, created, task.id)
+    _column = staticmethod(kanban_column)
+    _sort_key = staticmethod(kanban_sort_key)
 
     def _ordered(self, tasks: Iterable[TaskDB]) -> list[TaskDB]:
-        grouped = {column: [] for column in COLUMN_ORDER}
-        for task in tasks:
-            grouped[self._column(task.status)].append(task)
-        return [
-            task
-            for column in COLUMN_ORDER
-            for task in sorted(grouped[column], key=self._sort_key)
-        ]
+        return ordered_kanban_tasks(tasks)
 
-    @staticmethod
-    def _revision(scope: KanbanScope, tasks: Iterable[TaskDB]) -> str:
-        values = [
-            (
-                task.id,
-                str(task.status),
-                int(task.kanban_position or 0),
-                int(task.kanban_revision or 0),
-                task.updated_at.isoformat() if isinstance(task.updated_at, datetime) else "",
-            )
-            for task in sorted(tasks, key=lambda item: item.id)
-        ]
-        raw = json.dumps({"board": scope.board_id, "tasks": values}, separators=(",", ":"))
-        return hashlib.sha256(raw.encode()).hexdigest()[:24]
-
-    @staticmethod
-    def _event_type(event: dict[str, Any]) -> str:
-        return str(event.get("event_type") or event.get("type") or event.get("event") or "")
-
-    @staticmethod
-    def _assignee(task: TaskDB) -> KanbanAssignee | None:
-        context = task.worker_execution_context if isinstance(task.worker_execution_context, dict) else {}
-        assignee_id = context.get("kanban_assignee_id")
-        if not assignee_id and not task.assigned_agent_url:
-            return None
-        return KanbanAssignee(
-            id=str(assignee_id or task.assigned_agent_url),
-            name=context.get("kanban_assignee_name"),
-            url=task.assigned_agent_url,
-        )
+    _revision = staticmethod(kanban_board_revision)
+    _event_type = staticmethod(kanban_history_event_type)
+    _assignee = staticmethod(kanban_card_assignee)
 
     def _cards(self, scope: KanbanScope, tasks: list[TaskDB]) -> list[KanbanCard]:
-        by_id = {task.id: task for task in tasks}
-        positions = {column: 0 for column in COLUMN_ORDER}
-        result = []
-        for task in self._ordered(tasks):
-            column = self._column(task.status)
-            history = [event for event in list(task.history or []) if isinstance(event, dict)]
-            dependencies = tuple(str(value) for value in list(task.depends_on or []))
-            blocked = column == KanbanColumnId.BLOCKED or any(
-                value not in by_id or self._column(by_id[value].status) != KanbanColumnId.COMPLETED
-                for value in dependencies
-            )
-            context = task.worker_execution_context if isinstance(task.worker_execution_context, dict) else {}
-            labels = context.get("kanban_labels")
-            result.append(
-                KanbanCard(
-                    id=task.id,
-                    board_id=scope.board_id,
-                    title=task.title or "",
-                    description=task.description,
-                    status=str(task.status),
-                    column_id=column,
-                    position=positions[column],
-                    revision=int(task.kanban_revision or 0),
-                    priority=str(task.priority or "Medium"),
-                    assignee=self._assignee(task),
-                    labels=tuple(labels) if isinstance(labels, list) else (),
-                    blocked=blocked,
-                    dependencies=dependencies,
-                    comment_count=sum(self._event_type(event) == "kanban_comment_added" for event in history),
-                    activity_count=sum(self._event_type(event).startswith("kanban_") for event in history),
-                    created_at=task.created_at,
-                    updated_at=task.updated_at,
-                )
-            )
-            positions[column] += 1
-        return result
+        return project_kanban_cards(scope, tasks)
 
     def _board(
         self,
@@ -298,66 +195,17 @@ class KanbanProjectionService:
         goal: Any | None = None,
         team: Any | None = None,
     ) -> KanbanBoard:
-        cards = self._cards(scope, tasks)
-        counts = {column: 0 for column in COLUMN_ORDER}
-        for card in cards:
-            counts[card.column_id] += 1
-        name = (
-            "Hub task board"
-            if scope.kind == "hub"
-            else str(getattr(goal, "goal", None) or f"Goal {scope.scope_id}")
-            if scope.kind == "goal"
-            else str(getattr(team, "name", None) or f"Team {scope.scope_id}")
-        )
-        return KanbanBoard(
-            id=scope.board_id,
-            name=name,
-            scope_type=KanbanScopeType(scope.kind),
-            scope_id=scope.scope_id,
-            revision=self._revision(scope, tasks),
-            card_count=len(cards),
+        return project_kanban_board(
+            scope,
+            tasks,
             capabilities=tuple(sorted(self._auth.capabilities_for(principal), key=lambda item: item.value)),
-            columns=tuple(
-                KanbanColumn(
-                    id=column,
-                    title=COLUMN_TITLE[column],
-                    statuses=COLUMN_STATUSES[column],
-                    card_count=counts[column],
-                )
-                for column in COLUMN_ORDER
-            ),
+            goal=goal,
+            team=team,
         )
 
-    @staticmethod
-    def _cursor(offset: int, revision: str) -> str:
-        raw = json.dumps({"offset": offset, "revision": revision}, separators=(",", ":"))
-        return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
-
-    @staticmethod
-    def _offset(cursor: str | None, revision: str) -> int:
-        if not cursor:
-            return 0
-        try:
-            payload = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
-            if payload.get("revision") != revision:
-                raise KanbanServiceError(
-                    "kanban_cursor_stale", "the board changed while paging", status_code=409
-                )
-            offset = int(payload["offset"])
-            if offset < 0:
-                raise ValueError
-            return offset
-        except KanbanServiceError:
-            raise
-        except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
-            raise KanbanServiceError("kanban_cursor_invalid", "cursor is invalid", status_code=400) from exc
-
-    @staticmethod
-    def _limit(limit: int) -> None:
-        if not 1 <= limit <= 200:
-            raise KanbanServiceError(
-                "kanban_limit_invalid", "limit must be between 1 and 200", status_code=400
-            )
+    _cursor = staticmethod(encode_kanban_cursor)
+    _offset = staticmethod(decode_kanban_cursor_offset)
+    _limit = staticmethod(require_kanban_page_limit)
 
     def list_boards(
         self, principal: KanbanPrincipal, *, limit: int = 50, cursor: str | None = None
@@ -478,132 +326,12 @@ class KanbanProjectionService:
             raise KanbanServiceError("kanban_card_not_found", "card was not found", status_code=404)
         return card
 
-    @staticmethod
-    def _mutation(
-        principal: KanbanPrincipal,
-        key: str,
-        name: str,
-        payload: dict[str, Any],
-    ) -> _Mutation:
-        key_hash = hashlib.sha256(f"{principal.subject}:{name}:{key}".encode()).hexdigest()
-        raw = json.dumps({"key": key_hash, "payload": payload}, sort_keys=True, default=str)
-        return _Mutation(key_hash, hashlib.sha256(raw.encode()).hexdigest())
-
-    @staticmethod
-    def _record(
-        task: TaskDB,
-        *,
-        event_type: str,
-        message: str,
-        actor: str,
-        mutation: _Mutation,
-        details: dict[str, Any],
-    ) -> None:
-        task.kanban_revision = int(task.kanban_revision or 0) + 1
-        task.updated_at = time.time()
-        event = build_task_history_event(
-            task,
-            event_type,
-            actor=actor,
-            details={
-                "actor_id": actor,
-                "summary": message,
-                "kanban_revision": task.kanban_revision,
-                "idempotency_key_hash": mutation.key_hash,
-                "idempotency_digest": mutation.digest,
-                **details,
-            },
-        )
-        task.history = [*list(task.history or []), event]
-
-    @classmethod
-    def _rank(
-        cls,
-        tasks: list[TaskDB],
-        moved: TaskDB,
-        target: KanbanColumnId,
-        position: int,
-        source: KanbanColumnId | None = None,
-    ) -> None:
-        source = source or cls._column(moved.status)
-        for column in {source, target}:
-            values = [
-                task
-                for task in tasks
-                if task.id != moved.id
-                and is_kanban_rankable_task(task)
-                and cls._column(task.status) == column
-            ]
-            values.sort(key=cls._sort_key)
-            if column == target:
-                values.insert(min(position, len(values)), moved)
-            for index, task in enumerate(values):
-                rank = (index + 1) * 1024
-                if int(task.kanban_position or 0) != rank:
-                    task.kanban_position = rank
-                    if task.id != moved.id:
-                        task.kanban_revision = int(task.kanban_revision or 0) + 1
-                        task.updated_at = time.time()
-
-    @staticmethod
-    def _transition(task: TaskDB, target: str) -> None:
-        current = STATUS_ALIASES.get(str(task.status), str(task.status))
-        allowed = can_transition_to(current, target)
-        if isinstance(allowed, tuple):
-            allowed = allowed[0]
-        if not allowed:
-            raise KanbanServiceError(
-                "kanban_transition_invalid",
-                f"task cannot transition from {current} to {target}",
-                status_code=409,
-            )
-
-    @staticmethod
-    def _dependencies(target: TaskDB, dependencies: tuple[str, ...], tasks: list[TaskDB]) -> None:
-        dependencies = tuple(dict.fromkeys(dependencies))
-        by_id = {task.id: task for task in tasks}
-        if target.id in dependencies:
-            raise KanbanServiceError(
-                "kanban_dependency_cycle", "a card cannot depend on itself", status_code=409
-            )
-        missing = [value for value in dependencies if value not in by_id]
-        if missing:
-            raise KanbanServiceError(
-                "kanban_dependency_not_found",
-                "dependencies must belong to the same board",
-                status_code=404,
-                details={"missing": missing},
-            )
-        graph = {
-            task.id: list(dependencies if task.id == target.id else (task.depends_on or []))
-            for task in tasks
-        }
-
-        def reaches(node: str, visited: set[str]) -> bool:
-            if node == target.id:
-                return True
-            if node in visited:
-                return False
-            visited.add(node)
-            return any(reaches(child, visited) for child in graph.get(node, []))
-
-        if any(reaches(value, set()) for value in dependencies):
-            raise KanbanServiceError(
-                "kanban_dependency_cycle", "dependencies would create a cycle", status_code=409
-            )
-
-    @staticmethod
-    def _store_error(exc: Exception) -> KanbanServiceError:
-        if isinstance(exc, KanbanTaskNotFound):
-            return KanbanServiceError("kanban_card_not_found", "card was not found", status_code=404)
-        if isinstance(exc, KanbanRevisionConflict):
-            return KanbanServiceError(
-                "kanban_revision_conflict",
-                "the card was changed by another command",
-                status_code=409,
-                details={"current_revision": exc.current_revision},
-            )
-        return KanbanServiceError("kanban_idempotency_conflict", str(exc), status_code=409)
+    _mutation = staticmethod(kanban_mutation_fingerprint)
+    _record = staticmethod(record_kanban_history_event)
+    _rank = staticmethod(rank_kanban_tasks)
+    _transition = staticmethod(require_kanban_transition)
+    _dependencies = staticmethod(require_acyclic_kanban_dependencies)
+    _store_error = staticmethod(kanban_store_error)
 
     def _publish_committed(
         self,
@@ -825,7 +553,7 @@ class KanbanProjectionService:
     def move_card(
         self, card_id: str, command: MoveCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
-        def change(task: TaskDB, tasks: list[TaskDB], mutation: _Mutation) -> None:
+        def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             source = self._column(task.status)
             old_status = str(task.status)
             target_status = COLUMN_TARGET[command.column_id]
@@ -875,7 +603,7 @@ class KanbanProjectionService:
                 status_code=409,
             )
 
-        def change(task: TaskDB, _tasks: list[TaskDB], mutation: _Mutation) -> None:
+        def change(task: TaskDB, _tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             context = dict(task.worker_execution_context or {})
             if agent is None:
                 context.pop("kanban_assignee_id", None)
@@ -912,7 +640,7 @@ class KanbanProjectionService:
     def comment_card(
         self, card_id: str, command: CommentCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
-        def change(task: TaskDB, _tasks: list[TaskDB], mutation: _Mutation) -> None:
+        def change(task: TaskDB, _tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             self._record(
                 task,
                 event_type="kanban_comment_added",
@@ -939,7 +667,7 @@ class KanbanProjectionService:
     def set_dependencies(
         self, card_id: str, command: SetDependenciesCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
-        def change(task: TaskDB, tasks: list[TaskDB], mutation: _Mutation) -> None:
+        def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             self._dependencies(task, command.dependencies, tasks)
             task.depends_on = list(dict.fromkeys(command.dependencies))
             self._record(
@@ -964,7 +692,7 @@ class KanbanProjectionService:
     def block_card(
         self, card_id: str, command: BlockCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
-        def change(task: TaskDB, tasks: list[TaskDB], mutation: _Mutation) -> None:
+        def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             source = self._column(task.status)
             self._dependencies(task, command.dependencies, tasks)
             self._transition(task, "blocked_by_dependency")
@@ -997,7 +725,7 @@ class KanbanProjectionService:
     def complete_card(
         self, card_id: str, command: CompleteCardCommand, principal: KanbanPrincipal
     ) -> KanbanCard:
-        def change(task: TaskDB, tasks: list[TaskDB], mutation: _Mutation) -> None:
+        def change(task: TaskDB, tasks: list[TaskDB], mutation: KanbanMutation) -> None:
             source = self._column(task.status)
             self._transition(task, "completed")
             task.status = "completed"
