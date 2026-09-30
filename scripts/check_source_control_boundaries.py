@@ -48,6 +48,21 @@ _V1_EXTENSION_BLUEPRINTS = {
         "create_source_control_git_authorizations_blueprint",
         "_access_guard",
     ),
+    "agent/routes/source_control_public_remotes.py": (
+        "agent.routes.source_control_public_remotes",
+        "create_source_control_public_remotes_blueprint",
+        "_access_guard",
+    ),
+    "agent/routes/source_control_workspace_registrations.py": (
+        "agent.routes.source_control_workspace_registrations",
+        "create_source_control_workspace_registrations_blueprint",
+        "_access_guard",
+    ),
+    "agent/routes/source_control_workspace_snapshots.py": (
+        "agent.routes.source_control_workspace_snapshots",
+        "create_source_control_workspace_snapshots_blueprint",
+        "_access_guard",
+    ),
 }
 
 

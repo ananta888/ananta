@@ -138,3 +138,20 @@ def test_v1_route_without_auth_is_reported(tmp_path) -> None:
         and item.detail == "unsafe"
         for item in violations
     )
+
+
+def test_repository_v1_extension_routes_are_bootstrap_verified() -> None:
+    """Every v1 extension route of the repository passes the static proof."""
+
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+
+    violations = check_source_control_boundaries(root)
+
+    assert [
+        item.path
+        for item in violations
+        if item.code
+        == "source_control_v1_route_outside_canonical_bootstrap"
+    ] == []
