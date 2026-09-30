@@ -9,17 +9,14 @@ with its operation receipt and redacted audit event in one Unit of Work.
 from __future__ import annotations
 
 import time
-from dataclasses import asdict
 from typing import Any, Mapping
 
 from agent.db_models.organizations import (
-    OrganizationAuditOutboxDB,
     OrganizationBlueprintRevisionDB,
     OrganizationOperationDB,
 )
 from agent.models.organization_models import (
     OrganizationBlueprintDefinition,
-    VersionedDefinitionRef,
     canonical_definition_sha256,
     canonical_sha256,
 )
@@ -34,18 +31,22 @@ from agent.services.organization_definition_catalog_service import (
     FileCatalogDefinitionRepositoryAdapter,
     OrganizationDefinitionCatalogService,
 )
+from agent.services.organization_definition_errors import OrganizationDefinitionMutationError
+from agent.services.organization_definition_operation_ledger import (
+    finish_definition_operation,
+    replay_definition_operation,
+)
+from agent.services.organization_definition_reference_projection import (
+    definition_reference_hashes,
+    normalized_override_paths,
+    reconciliation_plan_payload,
+    reconciliation_projection,
+)
 from agent.services.organization_reconciliation_service import (
-    OrganizationReconciliationPlan,
     OrganizationReconciliationService,
 )
 from agent.services.organization_unit_of_work import OrganizationUnitOfWork
 from agent.services.project_plan_grant_service import ProjectPlanGrantService
-
-
-class OrganizationDefinitionMutationError(ValueError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
 
 
 class OrganizationDefinitionApplicationService:
@@ -106,7 +107,7 @@ class OrganizationDefinitionApplicationService:
                 raise OrganizationDefinitionMutationError("organization_definition_parent_revision_stale")
             content_hash = canonical_definition_sha256(definition)
             policy_hash = limit_profile.content_hash()
-            references = self._reference_hashes(definition, definitions=definitions)
+            references = definition_reference_hashes(definition, definitions=definitions)
             mutation_digest = self._mutation_digest(
                 definition=definition,
                 lifecycle=normalized_lifecycle,
@@ -152,7 +153,7 @@ class OrganizationDefinitionApplicationService:
             }
         )
         with self._uow() as uow:
-            replay = self._operation_replay(
+            replay = replay_definition_operation(
                 uow,
                 tenant_id=tenant_id,
                 project_id=project_id,
@@ -183,7 +184,7 @@ class OrganizationDefinitionApplicationService:
             if expected_parent_revision != parent_revision:
                 raise OrganizationDefinitionMutationError("organization_definition_parent_revision_stale")
             policy_hash = limit_profile.content_hash()
-            references = self._reference_hashes(
+            references = definition_reference_hashes(
                 definition,
                 definitions=definitions,
             )
@@ -243,7 +244,7 @@ class OrganizationDefinitionApplicationService:
                 "mutation_digest": expected_mutation_digest,
                 "replayed": False,
             }
-            self._finish_operation(
+            finish_definition_operation(
                 uow,
                 operation=operation,
                 event_kind="organization.definition_revision_created.v1",
@@ -328,7 +329,7 @@ class OrganizationDefinitionApplicationService:
             }
         )
         with self._uow() as uow:
-            replay = self._operation_replay(
+            replay = replay_definition_operation(
                 uow,
                 tenant_id=tenant_id,
                 project_id=project_id,
@@ -400,7 +401,7 @@ class OrganizationDefinitionApplicationService:
                     content_hash=row.content_hash,
                     limit_policy_ref=row.limit_policy_ref,
                     definition_json=dict(row.definition_json),
-                    referenced_definition_hashes=self._reference_hashes(
+                    referenced_definition_hashes=definition_reference_hashes(
                         definition,
                         definitions=self._catalog,
                     ),
@@ -428,7 +429,7 @@ class OrganizationDefinitionApplicationService:
                 "mutation_digest": expected_digest,
                 "replayed": False,
             }
-            self._finish_operation(
+            finish_definition_operation(
                 uow,
                 operation=operation,
                 event_kind="organization.definition_revision_retired.v1",
@@ -452,7 +453,7 @@ class OrganizationDefinitionApplicationService:
         desired = OrganizationBlueprintDefinition.model_validate(dict(desired_definition))
         if desired.key != key:
             raise OrganizationDefinitionMutationError("organization_definition_key_mismatch")
-        override_paths = self._override_paths(local_override_paths)
+        override_paths = normalized_override_paths(local_override_paths)
         with self._uow() as uow:
             current = self._definition_row(uow, tenant_id, project_id, key, current_version)
             if current is None:
@@ -497,22 +498,22 @@ class OrganizationDefinitionApplicationService:
             current_definition = OrganizationBlueprintDefinition.model_validate(current_payload)
             current_reference_hashes = dict(
                 getattr(current, "referenced_definition_hashes", {}) or {}
-            ) or self._reference_hashes(
+            ) or definition_reference_hashes(
                 current_definition,
                 definitions=definitions,
             )
-            desired_reference_hashes = self._reference_hashes(
+            desired_reference_hashes = definition_reference_hashes(
                 desired,
                 definitions=definitions,
             )
             plan = self._reconciler.plan(
                 definition_key=key,
-                current_definition=self._reconciliation_projection(
+                current_definition=reconciliation_projection(
                     current_definition,
                     definitions=definitions,
                     reference_hashes=current_reference_hashes,
                 ),
-                desired_definition=self._reconciliation_projection(
+                desired_definition=reconciliation_projection(
                     desired,
                     definitions=definitions,
                     reference_hashes=desired_reference_hashes,
@@ -524,7 +525,7 @@ class OrganizationDefinitionApplicationService:
                 active_assignment_links=assignment_links,
             )
         return {
-            **self._plan_payload(plan),
+            **reconciliation_plan_payload(plan),
             "current_version": current_version,
             "desired_definition": desired.model_dump(mode="json"),
             "policy_hash": limit_profile.content_hash(),
@@ -660,7 +661,7 @@ class OrganizationDefinitionApplicationService:
             }
         )
         with self._uow() as uow:
-            replay = self._operation_replay(
+            replay = replay_definition_operation(
                 uow,
                 tenant_id=tenant_id,
                 project_id=project_id,
@@ -720,7 +721,7 @@ class OrganizationDefinitionApplicationService:
                 content_hash=canonical_definition_sha256(desired),
                 limit_policy_ref=desired.limit_policy_ref,
                 definition_json=desired.model_dump(mode="json"),
-                referenced_definition_hashes=self._reference_hashes(desired, definitions=definitions),
+                referenced_definition_hashes=definition_reference_hashes(desired, definitions=definitions),
                 created_by=principal_id,
                 created_at=now,
                 activated_at=now,
@@ -746,7 +747,7 @@ class OrganizationDefinitionApplicationService:
                 "preserved_instance_snapshots": True,
                 "replayed": False,
             }
-            self._finish_operation(
+            finish_definition_operation(
                 uow,
                 operation=operation,
                 event_kind="organization.definition_reconciled.v1",
@@ -846,112 +847,6 @@ class OrganizationDefinitionApplicationService:
             raise OrganizationDefinitionMutationError("organization_definition_lifecycle_invalid")
         return lifecycle
 
-    @staticmethod
-    def _reference_hashes(definition, *, definitions) -> dict[str, str]:
-        refs: set[str] = {definition.limit_policy_ref, definition.budgets.policy_ref}
-        team_refs = {value for value in (unit.team_blueprint_ref for unit in definition.units) if value}
-        team_refs.update(group.team_blueprint_ref for group in definition.unit_groups)
-        refs.update(team_refs)
-        refs.update(group.limit_policy_ref for group in definition.unit_groups)
-        refs.update(value for value in (relation.handoff_contract_ref for relation in definition.relations) if value)
-        for value in sorted(team_refs):
-            team_ref = VersionedDefinitionRef.parse(value)
-            team = definitions.get_team_blueprint(team_ref.key, team_ref.version)
-            if team is None:
-                continue
-            refs.add(team.workflow_ref)
-            refs.update(team.policies)
-            for slot in team.role_slots:
-                refs.add(slot.role_template_ref)
-                refs.update(slot.overlays)
-        result: dict[str, str] = {}
-        for value in sorted(refs):
-            content_hash = definitions.content_hash_for_ref(value)
-            if content_hash is None:
-                raise OrganizationDefinitionMutationError("organization_referenced_definition_hash_missing")
-            result[value] = content_hash
-        return result
-
-    @staticmethod
-    def _reconciliation_projection(
-        definition: OrganizationBlueprintDefinition,
-        *,
-        definitions,
-        reference_hashes: Mapping[str, str],
-    ) -> dict[str, Any]:
-        """Enrich an immutable definition for role/workflow/policy drift only."""
-
-        payload = definition.model_dump(mode="json")
-        team_refs = {
-            value
-            for value in (
-                *(unit.team_blueprint_ref for unit in definition.units),
-                *(group.team_blueprint_ref for group in definition.unit_groups),
-            )
-            if value
-        }
-        role_slots: list[dict[str, Any]] = []
-        workflows: dict[str, dict[str, Any]] = {}
-        policy_refs = {definition.limit_policy_ref, definition.budgets.policy_ref}
-        policy_refs.update(group.limit_policy_ref for group in definition.unit_groups)
-        for team_ref in sorted(team_refs):
-            key, _separator, raw_version = team_ref.rpartition("@")
-            team = definitions.get_team_blueprint(key, int(raw_version))
-            if team is None:
-                continue
-            for slot in team.role_slots:
-                item = slot.model_dump(mode="json")
-                item["slot_id"] = f"{team_ref}:{slot.slot_id}"
-                item["team_blueprint_ref"] = team_ref
-                role_slots.append(item)
-                policy_refs.update(slot.overlays)
-            workflow_key, _separator, workflow_version = team.workflow_ref.rpartition("@")
-            workflow = definitions.get_workflow_definition(
-                workflow_key,
-                int(workflow_version),
-            )
-            workflows[team.workflow_ref] = {
-                "key": team.workflow_ref,
-                "definition": workflow or {"unresolved": True},
-            }
-            policy_refs.update(team.policies)
-        payload["role_slots"] = role_slots
-        payload["workflows"] = [workflows[key] for key in sorted(workflows)]
-        payload["policies"] = [
-            {
-                "key": value,
-                "content_hash": definitions.content_hash_for_ref(value),
-            }
-            for value in sorted(policy_refs)
-        ]
-        payload["referenced_versions"] = dict(sorted(reference_hashes.items()))
-        return payload
-
-    @staticmethod
-    def _operation_replay(
-        uow,
-        *,
-        tenant_id,
-        project_id,
-        operation_kind,
-        idempotency_key,
-        request_digest,
-    ):
-        existing = uow.operations.get_by_idempotency_key(
-            tenant_id,
-            project_id,
-            operation_kind,
-            idempotency_key,
-            for_update=True,
-        )
-        if existing is None:
-            return None
-        if existing.request_digest != request_digest:
-            raise OrganizationDefinitionMutationError("organization_idempotency_key_conflict")
-        if existing.status != "applied":
-            raise OrganizationDefinitionMutationError("organization_definition_mutation_in_progress")
-        return {**dict(existing.result_json or {}), "replayed": True}
-
     def _consume_grant(
         self,
         uow,
@@ -975,33 +870,6 @@ class OrganizationDefinitionApplicationService:
             policy_hash=policy_hash,
         )
 
-    @staticmethod
-    def _finish_operation(
-        uow,
-        *,
-        operation,
-        event_kind,
-        event_key,
-        result,
-        principal_id,
-        now,
-    ) -> None:
-        uow.audit_outbox.add(
-            OrganizationAuditOutboxDB(
-                tenant_id=operation.tenant_id,
-                project_id=operation.project_id,
-                organization_id=None,
-                event_key=event_key,
-                event_kind=event_kind,
-                payload_json={**result, "principal_id": principal_id},
-            )
-        )
-        operation.status = "applied"
-        operation.result_ref = str(result.get("definition_key") or "")
-        operation.result_json = result
-        operation.applied_at = now
-        uow.operations.add(operation)
-
     def _active_instance_ids(
         self,
         uow,
@@ -1019,34 +887,6 @@ class OrganizationDefinitionApplicationService:
             version,
             for_update=for_update,
         )
-
-    @staticmethod
-    def _override_paths(values: tuple[str, ...]) -> tuple[str, ...]:
-        normalized: list[str] = []
-        for value in values:
-            path = str(value or "").strip()
-            if not path.startswith("$.") or len(path) > 512 or any(character.isspace() for character in path):
-                raise OrganizationDefinitionMutationError("organization_local_override_path_invalid")
-            normalized.append(path)
-        return tuple(sorted(set(normalized)))
-
-    @staticmethod
-    def _plan_payload(plan: OrganizationReconciliationPlan) -> dict[str, Any]:
-        return {
-            "definition_key": plan.definition_key,
-            "current_revision": plan.current_revision,
-            "desired_revision": plan.desired_revision,
-            "drift": [asdict(value) for value in plan.drift],
-            "entity_drift": [asdict(value) for value in plan.entity_drift],
-            "assignment_impacts": [asdict(value) for value in plan.assignment_impacts],
-            "planned_writes": list(plan.planned_writes),
-            "preserved_local_overrides": list(plan.preserved_local_overrides),
-            "preserved_snapshot_revisions": list(plan.preserved_snapshot_revisions),
-            "blockers": list(plan.blockers),
-            "plan_digest": plan.plan_digest,
-            "applicable": plan.applicable,
-            "requires_apply": bool(plan.drift),
-        }
 
 
 __all__ = [

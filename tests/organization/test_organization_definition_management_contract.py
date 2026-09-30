@@ -22,6 +22,9 @@ from agent.services.organization_compile_application_service import (
 from agent.services.organization_definition_application_service import (
     OrganizationDefinitionApplicationService,
 )
+from agent.services.organization_definition_reference_projection import (
+    definition_reference_hashes,
+)
 from agent.services.organization_reconciliation_service import (
     OrganizationReconciliationService,
 )
@@ -229,7 +232,7 @@ def test_definition_mutation_hashes_transitive_execution_references() -> None:
         {"definition_ref": value}
     )
 
-    references = OrganizationDefinitionApplicationService._reference_hashes(  # noqa: SLF001
+    references = definition_reference_hashes(
         organization_definition(),
         definitions=definitions,
     )
