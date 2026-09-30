@@ -14,49 +14,17 @@ from datetime import UTC, datetime
 from typing import Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit
 
+from agent.models.turn_pool import (
+    TurnPoolNode,
+    TurnPoolRegistration,
+)
+
 
 class TurnPoolDirectoryError(RuntimeError):
     def __init__(self, reason_code: str, status_code: int = 409) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
         self.status_code = status_code
-
-
-@dataclass(frozen=True)
-class TurnPoolRegistration:
-    pool_id: str
-    instance_id: str
-    region: str
-    endpoints: tuple[Mapping[str, str], ...]
-    credential_modes: tuple[str, ...]
-    config_version: str
-    config_digest: str
-    observer_identity_id: str
-    observer_identity_version: int
-    trust_policy_version: str
-    cost_units: int
-
-
-@dataclass(frozen=True)
-class TurnPoolNode:
-    pool_id: str
-    instance_id: str
-    region: str
-    endpoints: tuple[Mapping[str, str], ...]
-    credential_modes: tuple[str, ...]
-    config_version: str
-    config_digest: str
-    observer_identity_id: str
-    observer_identity_version: int
-    trust_policy_version: str
-    lifecycle_state: str
-    health_status: str
-    relay_ready: bool
-    capacity_status: str
-    cost_units: int
-    fresh_until: datetime | None
-    observation_fencing_token: int
-    version: int
 
 
 @dataclass(frozen=True)

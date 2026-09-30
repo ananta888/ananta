@@ -16,7 +16,7 @@ from agent.db_models.turn_accounting import (
     TurnAccountingLedgerDB,
     TurnAccountingSourceCursorDB,
 )
-from agent.services.turn_accounting_repository_port import (
+from agent.models.turn_accounting import (
     TurnAccountingCounters,
     TurnAccountingIngestRequest,
     TurnAccountingPage,

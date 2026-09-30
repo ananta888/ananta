@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import time
 
-from agent.services.turn_pool_contract import (
+from agent.models.turn_pool_contract import (
     TurnPoolNodeDocument,
     TurnPoolObservationDocument,
 )
@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.db_models.turn_pool_nodes import TurnPoolNodeDB, TurnPoolNodeMutationDB
-from agent.services.turn_pool_directory import TurnPoolNode, TurnPoolRegistration
+from agent.models.turn_pool import TurnPoolNode, TurnPoolRegistration
 
 
 class TurnPoolRepositoryError(RuntimeError):
