@@ -9,6 +9,8 @@ import math
 import os
 import sys
 import tempfile
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from itertools import product
 from pathlib import Path
 from typing import Any, Mapping
@@ -257,7 +259,280 @@ def _evaluate_v1(report: Mapping[str, Any]) -> tuple[GateEvidence, dict[str, int
     return evidence, measurements
 
 
-def _evaluate_v2(  # noqa: C901 - one closed-contract policy reducer keeps row invariants co-located.
+_V2_ROW_FIELDS = frozenset(
+    {
+        "topology",
+        "window_seconds",
+        "receivers",
+        "offline_factor",
+        "network_profile",
+        "comparison_binding_sha256",
+        "quality",
+        "claimed_savings",
+        "ordinary",
+        "semantic",
+    }
+)
+_V2_MEASUREMENT_CONTRACT_FIELDS = frozenset(
+    {"clock", "live_transport", "security", "offline_runtime", "metric_fields", "policy_sha256"}
+)
+_V2_CONFIG_DIGEST_FIELDS = ("hardware_sha256", "model_sha256", "policy_sha256", "source_sha256", "fixture_sha256")
+_V2_FIXTURE_CONFIG_FIELDS = ("duration_seconds", "width", "height", "framerate", "audio_format")
+_LIVE_RATIO_METRICS = ("latency_p50_ms", "latency_p95_ms", "latency_p99_ms", "ram_bytes")
+_OFFLINE_SATURATION_MAXIMA = (
+    ("maximum_sound_p95", "sound_p95_ms"),
+    ("maximum_sound_p99", "sound_p99_ms"),
+    ("maximum_text_p95", "text_p95_ms"),
+    ("maximum_text_p99", "text_p99_ms"),
+    ("maximum_ui_p95", "ui_p95_ms"),
+    ("maximum_ui_p99", "ui_p99_ms"),
+)
+
+
+@dataclass
+class _V2RowTally:
+    """Matrix coverage and worst-case measurements reduced over the v2 rows."""
+
+    seen_live_matrix: set[tuple[str, int, int]] = dataclass_field(default_factory=set)
+    seen_offline_matrix: set[int] = dataclass_field(default_factory=set)
+    maximum_p95_ratio: int = 0
+    maximum_p99_ratio: int = 0
+    maximum_growth: int = 0
+    quality_failures: int = 0
+    unavailable_metrics: set[str] = dataclass_field(default_factory=set)
+    maximum_sound_p95: int = 0
+    maximum_sound_p99: int = 0
+    maximum_text_p95: int = 0
+    maximum_text_p99: int = 0
+    maximum_ui_p95: int = 0
+    maximum_ui_p99: int = 0
+    saturated_factor_count: int = 0
+
+    def record_saturation(self, saturation_metrics: Mapping[str, int]) -> None:
+        self.saturated_factor_count += 1
+        for attribute, metric in _OFFLINE_SATURATION_MAXIMA:
+            setattr(self, attribute, max(getattr(self, attribute), saturation_metrics[metric]))
+
+
+def _check_v2_run_config(config: Mapping[str, Any], reasons: list[str]) -> None:
+    _validate_v2_config_values(config)
+    for name in _V2_CONFIG_DIGEST_FIELDS:
+        _digest(config[name])
+    if config["source_sha256"] != current_source_sha256():
+        reasons.append("program_benchmark_source_binding_stale")
+    if config["policy_sha256"] != _policy_sha256():
+        reasons.append("program_benchmark_policy_binding_stale")
+    source_fixture = EXECUTION_POLICY["source_fixture"]
+    if config["fixture_sha256"] != canonical_sha256(source_fixture):
+        reasons.append("program_benchmark_fixture_binding_stale")
+    if config["seed"] != EXECUTION_POLICY["seed"]:
+        reasons.append("program_benchmark_seed_invalid")
+    if config["execution_mode"] != "measured-product-contract-loopback":
+        reasons.append("program_benchmark_execution_mode_invalid")
+    if any(config[name] != source_fixture[name] for name in _V2_FIXTURE_CONFIG_FIELDS):
+        reasons.append("program_benchmark_fixture_config_invalid")
+    if config["network_profiles"] != EXECUTION_POLICY["matrix"]["network_profiles"]:
+        reasons.append("program_benchmark_network_profiles_missing")
+    if config.get("quality_bindings") != current_quality_bindings():
+        reasons.append("program_benchmark_quality_evidence_stale")
+
+
+def _check_v2_measurement_contract(
+    measurement_contract: Any,
+    config: Mapping[str, Any],
+    reasons: list[str],
+) -> None:
+    if not isinstance(measurement_contract, Mapping) or set(measurement_contract) != _V2_MEASUREMENT_CONTRACT_FIELDS:
+        raise ProgramEvidenceError("program_benchmark_measurement_contract_invalid")
+    expected = {
+        "clock": "perf_counter_ns",
+        "live_transport": "udp-ipv4-loopback",
+        "security": "production-aes-gcm-envelope",
+        "offline_runtime": "production-speech-reconciliation-resolver",
+        "metric_fields": list(EXECUTOR_METRIC_FIELDS),
+        "policy_sha256": config["policy_sha256"],
+    }
+    if any(measurement_contract.get(key) != value for key, value in expected.items()):
+        reasons.append("program_benchmark_measurement_contract_invalid")
+
+
+def _reduce_offline_row(
+    row: Mapping[str, Any],
+    *,
+    window: int,
+    receivers: int,
+    factor: int,
+    tally: _V2RowTally,
+    reasons: list[str],
+) -> None:
+    if factor in tally.seen_offline_matrix:
+        reasons.append("program_benchmark_duplicate_measurement")
+    tally.seen_offline_matrix.add(factor)
+    if window != 20 or receivers != 2:
+        reasons.append("program_benchmark_offline_matrix_invalid")
+    saturation_metrics = _validate_offline_saturation(
+        row["ordinary"].get("offline_saturation"),
+        row["semantic"].get("offline_saturation"),
+        reasons,
+    )
+    if saturation_metrics is not None:
+        tally.record_saturation(saturation_metrics)
+
+
+def _reduce_live_ratios(
+    ordinary: Mapping[str, int | None],
+    semantic: Mapping[str, int | None],
+    *,
+    receivers: int,
+    tally: _V2RowTally,
+    reasons: list[str],
+) -> None:
+    if not _ordered_percentiles(ordinary) or not _ordered_percentiles(semantic):
+        reasons.append("program_benchmark_percentile_order_invalid")
+    p95_ratio = _ratio_micros(
+        _required_metric(semantic, "latency_p95_ms"),
+        _required_metric(ordinary, "latency_p95_ms"),
+    )
+    p99_ratio = _ratio_micros(
+        _required_metric(semantic, "latency_p99_ms"),
+        _required_metric(ordinary, "latency_p99_ms"),
+    )
+    tally.maximum_p95_ratio = max(tally.maximum_p95_ratio, p95_ratio)
+    tally.maximum_p99_ratio = max(tally.maximum_p99_ratio, p99_ratio)
+    growth = max(0, _required_metric(semantic, "ram_bytes") - _required_metric(ordinary, "ram_bytes"))
+    tally.maximum_growth = max(tally.maximum_growth, growth // receivers)
+
+
+def _reduce_live_row(
+    row: Mapping[str, Any],
+    *,
+    topology: str,
+    window: int,
+    receivers: int,
+    factor: int,
+    measured: tuple[tuple[Mapping[str, int | None], Mapping[str, str]], ...],
+    tally: _V2RowTally,
+    reasons: list[str],
+) -> None:
+    key = (topology, window, receivers)
+    if key in tally.seen_live_matrix:
+        reasons.append("program_benchmark_duplicate_measurement")
+    tally.seen_live_matrix.add(key)
+    if factor != 1:
+        reasons.append("program_benchmark_live_factor_invalid")
+    if (
+        row["ordinary"].get("offline_saturation") is not None
+        or row["semantic"].get("offline_saturation") is not None
+    ):
+        reasons.append("program_benchmark_live_saturation_shape_invalid")
+    (ordinary, ordinary_availability), (semantic, semantic_availability) = measured
+    if all(
+        availability[name] == "measured"
+        for availability in (ordinary_availability, semantic_availability)
+        for name in _LIVE_RATIO_METRICS
+    ):
+        _reduce_live_ratios(ordinary, semantic, receivers=receivers, tally=tally, reasons=reasons)
+
+
+def _check_v2_row_binding(row: Mapping[str, Any], topology: str, config: Mapping[str, Any], reasons: list[str]) -> None:
+    expected_network = "offline" if topology == "offline" else config["network_profiles"][0]
+    if row["network_profile"] != expected_network:
+        reasons.append("program_benchmark_network_profile_invalid")
+    _digest(row["comparison_binding_sha256"])
+    if row["comparison_binding_sha256"] != recompute_comparison_binding(config, row):
+        reasons.append("program_benchmark_comparison_binding_mismatch")
+
+
+def _measure_v2_row_modes(
+    row: Mapping[str, Any],
+    topology: str,
+    tally: _V2RowTally,
+    reasons: list[str],
+) -> tuple[tuple[dict[str, int | None], dict[str, str]], ...]:
+    measured = tuple(
+        _metrics_v2(
+            row[mode],
+            expected_binding=str(row["comparison_binding_sha256"]),
+            topology=topology,
+            reasons=reasons,
+        )
+        for mode in ("ordinary", "semantic")
+    )
+    _validate_metric_availability(
+        topology=topology,
+        ordinary=measured[0][1],
+        semantic=measured[1][1],
+        unavailable_metrics=tally.unavailable_metrics,
+        reasons=reasons,
+    )
+    return measured
+
+
+def _reduce_v2_row(row: Any, config: Mapping[str, Any], tally: _V2RowTally, reasons: list[str]) -> None:
+    if not isinstance(row, Mapping) or set(row) != _V2_ROW_FIELDS:
+        reasons.append("program_benchmark_row_shape_invalid")
+        return
+    topology = str(row["topology"])
+    window = _positive_integer(row["window_seconds"])
+    receivers = _positive_integer(row["receivers"])
+    factor = _positive_integer(row["offline_factor"])
+    if topology not in TOPOLOGIES:
+        reasons.append("program_benchmark_topology_invalid")
+        return
+    if window not in WINDOWS:
+        reasons.append("program_benchmark_window_invalid")
+    _check_v2_row_binding(row, topology, config, reasons)
+    if type(row["claimed_savings"]) is not bool:
+        reasons.append("program_benchmark_boolean_invalid")
+        return
+    measured = _measure_v2_row_modes(row, topology, tally, reasons)
+    quality_passed = _quality_v2(row["quality"], reasons)
+    if not quality_passed:
+        tally.quality_failures += 1
+        reasons.append("program_benchmark_quality_gate_failed")
+    if row["claimed_savings"] is True and not quality_passed:
+        reasons.append("program_benchmark_unqualified_savings")
+    if topology == "offline":
+        _reduce_offline_row(row, window=window, receivers=receivers, factor=factor, tally=tally, reasons=reasons)
+    else:
+        _reduce_live_row(
+            row,
+            topology=topology,
+            window=window,
+            receivers=receivers,
+            factor=factor,
+            measured=measured,
+            tally=tally,
+            reasons=reasons,
+        )
+
+
+def _v2_matrix_reasons(tally: _V2RowTally) -> list[str]:
+    required_live_matrix = set(product(("pair", "group", "evidence"), WINDOWS, (2, 10, 100)))
+    checks = (
+        (tally.seen_live_matrix != required_live_matrix, "program_benchmark_live_matrix_incomplete"),
+        (tally.seen_offline_matrix != set(OFFLINE_FACTORS), "program_benchmark_offline_matrix_incomplete"),
+        (
+            tally.maximum_p95_ratio > V2_THRESHOLDS["maximum_live_p95_ratio_micros"],
+            "program_benchmark_live_p95_regression",
+        ),
+        (
+            tally.maximum_p99_ratio > V2_THRESHOLDS["maximum_live_p99_ratio_micros"],
+            "program_benchmark_live_p99_regression",
+        ),
+        (
+            tally.maximum_growth > V2_THRESHOLDS["maximum_resource_growth_per_receiver_bytes"],
+            "program_benchmark_resource_growth_unbounded",
+        ),
+        (
+            tally.saturated_factor_count != len(OFFLINE_FACTORS),
+            "program_benchmark_offline_saturation_matrix_incomplete",
+        ),
+    )
+    return [reason for failed, reason in checks if failed]
+
+
+def _evaluate_v2(
     report: Mapping[str, Any],
 ) -> tuple[GateEvidence, dict[str, int | bool | str]]:
     reasons: list[str] = []
@@ -267,217 +542,36 @@ def _evaluate_v2(  # noqa: C901 - one closed-contract policy reducer keeps row i
     config = report.get("run_config")
     if not isinstance(config, Mapping) or set(config) != V2_RUN_CONFIG_FIELDS:
         raise ProgramEvidenceError("program_benchmark_config_invalid")
-    _validate_v2_config_values(config)
-    for name in (
-        "hardware_sha256",
-        "model_sha256",
-        "policy_sha256",
-        "source_sha256",
-        "fixture_sha256",
-    ):
-        _digest(config[name])
-    if config["source_sha256"] != current_source_sha256():
-        reasons.append("program_benchmark_source_binding_stale")
-    if config["policy_sha256"] != _policy_sha256():
-        reasons.append("program_benchmark_policy_binding_stale")
-    expected_fixture = canonical_sha256(EXECUTION_POLICY["source_fixture"])
-    if config["fixture_sha256"] != expected_fixture:
-        reasons.append("program_benchmark_fixture_binding_stale")
-    if config["seed"] != EXECUTION_POLICY["seed"]:
-        reasons.append("program_benchmark_seed_invalid")
-    if config["execution_mode"] != "measured-product-contract-loopback":
-        reasons.append("program_benchmark_execution_mode_invalid")
-    if (
-        config["duration_seconds"] != EXECUTION_POLICY["source_fixture"]["duration_seconds"]
-        or config["width"] != EXECUTION_POLICY["source_fixture"]["width"]
-        or config["height"] != EXECUTION_POLICY["source_fixture"]["height"]
-        or config["framerate"] != EXECUTION_POLICY["source_fixture"]["framerate"]
-        or config["audio_format"] != EXECUTION_POLICY["source_fixture"]["audio_format"]
-    ):
-        reasons.append("program_benchmark_fixture_config_invalid")
-    if config["network_profiles"] != EXECUTION_POLICY["matrix"]["network_profiles"]:
-        reasons.append("program_benchmark_network_profiles_missing")
-    if config.get("quality_bindings") != current_quality_bindings():
-        reasons.append("program_benchmark_quality_evidence_stale")
-    measurement_contract = report.get("measurement_contract")
-    if not isinstance(measurement_contract, Mapping) or set(measurement_contract) != {
-        "clock",
-        "live_transport",
-        "security",
-        "offline_runtime",
-        "metric_fields",
-        "policy_sha256",
-    }:
-        raise ProgramEvidenceError("program_benchmark_measurement_contract_invalid")
-    if (
-        measurement_contract.get("clock") != "perf_counter_ns"
-        or measurement_contract.get("live_transport") != "udp-ipv4-loopback"
-        or measurement_contract.get("security") != "production-aes-gcm-envelope"
-        or measurement_contract.get("offline_runtime") != "production-speech-reconciliation-resolver"
-        or measurement_contract.get("metric_fields") != list(EXECUTOR_METRIC_FIELDS)
-        or measurement_contract.get("policy_sha256") != config["policy_sha256"]
-    ):
-        reasons.append("program_benchmark_measurement_contract_invalid")
+    _check_v2_run_config(config, reasons)
+    _check_v2_measurement_contract(report.get("measurement_contract"), config, reasons)
 
     rows = report.get("rows")
     if not isinstance(rows, list) or not rows:
         reasons.append("program_benchmark_rows_missing")
         rows = []
-    seen_live_matrix: set[tuple[str, int, int]] = set()
-    seen_offline_matrix: set[int] = set()
-    maximum_p95_ratio = 0
-    maximum_p99_ratio = 0
-    maximum_growth = 0
-    quality_failures = 0
-    unavailable_metrics: set[str] = set()
-    maximum_sound_p95 = 0
-    maximum_sound_p99 = 0
-    maximum_text_p95 = 0
-    maximum_text_p99 = 0
-    maximum_ui_p95 = 0
-    maximum_ui_p99 = 0
-    saturated_factor_count = 0
+    tally = _V2RowTally()
     for row in rows:
-        if not isinstance(row, Mapping) or set(row) != {
-            "topology",
-            "window_seconds",
-            "receivers",
-            "offline_factor",
-            "network_profile",
-            "comparison_binding_sha256",
-            "quality",
-            "claimed_savings",
-            "ordinary",
-            "semantic",
-        }:
-            reasons.append("program_benchmark_row_shape_invalid")
-            continue
-        topology = str(row["topology"])
-        window = _positive_integer(row["window_seconds"])
-        receivers = _positive_integer(row["receivers"])
-        factor = _positive_integer(row["offline_factor"])
-        if topology not in TOPOLOGIES:
-            reasons.append("program_benchmark_topology_invalid")
-            continue
-        if window not in WINDOWS:
-            reasons.append("program_benchmark_window_invalid")
-        expected_network = "offline" if topology == "offline" else config["network_profiles"][0]
-        if row["network_profile"] != expected_network:
-            reasons.append("program_benchmark_network_profile_invalid")
-        _digest(row["comparison_binding_sha256"])
-        if row["comparison_binding_sha256"] != recompute_comparison_binding(config, row):
-            reasons.append("program_benchmark_comparison_binding_mismatch")
-        if type(row["claimed_savings"]) is not bool:
-            reasons.append("program_benchmark_boolean_invalid")
-            continue
-        ordinary, ordinary_availability = _metrics_v2(
-            row["ordinary"],
-            expected_binding=str(row["comparison_binding_sha256"]),
-            topology=topology,
-            reasons=reasons,
-        )
-        semantic, semantic_availability = _metrics_v2(
-            row["semantic"],
-            expected_binding=str(row["comparison_binding_sha256"]),
-            topology=topology,
-            reasons=reasons,
-        )
-        _validate_metric_availability(
-            topology=topology,
-            ordinary=ordinary_availability,
-            semantic=semantic_availability,
-            unavailable_metrics=unavailable_metrics,
-            reasons=reasons,
-        )
-        quality_passed = _quality_v2(row["quality"], reasons)
-        if not quality_passed:
-            quality_failures += 1
-            reasons.append("program_benchmark_quality_gate_failed")
-        if row["claimed_savings"] is True and not quality_passed:
-            reasons.append("program_benchmark_unqualified_savings")
-        if topology == "offline":
-            if factor in seen_offline_matrix:
-                reasons.append("program_benchmark_duplicate_measurement")
-            seen_offline_matrix.add(factor)
-            if window != 20 or receivers != 2:
-                reasons.append("program_benchmark_offline_matrix_invalid")
-            ordinary_saturation = row["ordinary"].get("offline_saturation")
-            semantic_saturation = row["semantic"].get("offline_saturation")
-            saturation_metrics = _validate_offline_saturation(
-                ordinary_saturation,
-                semantic_saturation,
-                reasons,
-            )
-            if saturation_metrics is not None:
-                saturated_factor_count += 1
-                maximum_sound_p95 = max(maximum_sound_p95, saturation_metrics["sound_p95_ms"])
-                maximum_sound_p99 = max(maximum_sound_p99, saturation_metrics["sound_p99_ms"])
-                maximum_text_p95 = max(maximum_text_p95, saturation_metrics["text_p95_ms"])
-                maximum_text_p99 = max(maximum_text_p99, saturation_metrics["text_p99_ms"])
-                maximum_ui_p95 = max(maximum_ui_p95, saturation_metrics["ui_p95_ms"])
-                maximum_ui_p99 = max(maximum_ui_p99, saturation_metrics["ui_p99_ms"])
-        else:
-            key = (topology, window, receivers)
-            if key in seen_live_matrix:
-                reasons.append("program_benchmark_duplicate_measurement")
-            seen_live_matrix.add(key)
-            if factor != 1:
-                reasons.append("program_benchmark_live_factor_invalid")
-            if row["ordinary"].get("offline_saturation") is not None or row["semantic"].get(
-                "offline_saturation"
-            ) is not None:
-                reasons.append("program_benchmark_live_saturation_shape_invalid")
-            if all(
-                availability[name] == "measured"
-                for availability in (ordinary_availability, semantic_availability)
-                for name in ("latency_p50_ms", "latency_p95_ms", "latency_p99_ms", "ram_bytes")
-            ):
-                if not _ordered_percentiles(ordinary) or not _ordered_percentiles(semantic):
-                    reasons.append("program_benchmark_percentile_order_invalid")
-                p95_ratio = _ratio_micros(
-                    _required_metric(semantic, "latency_p95_ms"),
-                    _required_metric(ordinary, "latency_p95_ms"),
-                )
-                p99_ratio = _ratio_micros(
-                    _required_metric(semantic, "latency_p99_ms"),
-                    _required_metric(ordinary, "latency_p99_ms"),
-                )
-                maximum_p95_ratio = max(maximum_p95_ratio, p95_ratio)
-                maximum_p99_ratio = max(maximum_p99_ratio, p99_ratio)
-                growth = max(0, _required_metric(semantic, "ram_bytes") - _required_metric(ordinary, "ram_bytes"))
-                maximum_growth = max(maximum_growth, growth // receivers)
+        _reduce_v2_row(row, config, tally, reasons)
+    reasons.extend(_v2_matrix_reasons(tally))
 
-    required_live_matrix = set(product(("pair", "group", "evidence"), WINDOWS, (2, 10, 100)))
-    if seen_live_matrix != required_live_matrix:
-        reasons.append("program_benchmark_live_matrix_incomplete")
-    if seen_offline_matrix != set(OFFLINE_FACTORS):
-        reasons.append("program_benchmark_offline_matrix_incomplete")
-    if maximum_p95_ratio > V2_THRESHOLDS["maximum_live_p95_ratio_micros"]:
-        reasons.append("program_benchmark_live_p95_regression")
-    if maximum_p99_ratio > V2_THRESHOLDS["maximum_live_p99_ratio_micros"]:
-        reasons.append("program_benchmark_live_p99_regression")
-    if maximum_growth > V2_THRESHOLDS["maximum_resource_growth_per_receiver_bytes"]:
-        reasons.append("program_benchmark_resource_growth_unbounded")
-    if saturated_factor_count != len(OFFLINE_FACTORS):
-        reasons.append("program_benchmark_offline_saturation_matrix_incomplete")
     report_sha256 = canonical_sha256(report)
     source_digest = _gate_source_digest()
     measurements: dict[str, int | bool | str] = {
         "verified_runs": 1,
         "input_report_sha256": report_sha256,
         "row_count": len(rows),
-        "quality_failure_count": quality_failures,
-        "unavailable_metric_count": len(unavailable_metrics),
-        "maximum_p95_ratio_micros": maximum_p95_ratio,
-        "maximum_p99_ratio_micros": maximum_p99_ratio,
-        "maximum_growth_per_receiver_bytes": maximum_growth,
-        "offline_saturated_factor_count": saturated_factor_count,
-        "maximum_offline_sound_p95_ms": maximum_sound_p95,
-        "maximum_offline_sound_p99_ms": maximum_sound_p99,
-        "maximum_offline_text_p95_ms": maximum_text_p95,
-        "maximum_offline_text_p99_ms": maximum_text_p99,
-        "maximum_offline_ui_p95_ms": maximum_ui_p95,
-        "maximum_offline_ui_p99_ms": maximum_ui_p99,
+        "quality_failure_count": tally.quality_failures,
+        "unavailable_metric_count": len(tally.unavailable_metrics),
+        "maximum_p95_ratio_micros": tally.maximum_p95_ratio,
+        "maximum_p99_ratio_micros": tally.maximum_p99_ratio,
+        "maximum_growth_per_receiver_bytes": tally.maximum_growth,
+        "offline_saturated_factor_count": tally.saturated_factor_count,
+        "maximum_offline_sound_p95_ms": tally.maximum_sound_p95,
+        "maximum_offline_sound_p99_ms": tally.maximum_sound_p99,
+        "maximum_offline_text_p95_ms": tally.maximum_text_p95,
+        "maximum_offline_text_p99_ms": tally.maximum_text_p99,
+        "maximum_offline_ui_p95_ms": tally.maximum_ui_p95,
+        "maximum_offline_ui_p99_ms": tally.maximum_ui_p99,
     }
     evidence = GateEvidence(
         "ASMP-QA-009",
