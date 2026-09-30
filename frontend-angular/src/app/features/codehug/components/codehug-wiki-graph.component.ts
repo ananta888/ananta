@@ -16,6 +16,7 @@ import {
   MAX_GRAPH_PREVIEW_NODES,
   WikiOperationSlot,
 } from './codehug-wiki-graph.support';
+import { CodehugWikiBuildStatus } from './codehug-wiki-build-status';
 import {
   codeGraphContentRevision,
   fullGraphLoadErrorMessage,
@@ -51,14 +52,12 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   private pendingInventoryRevision = '';
   private inventoryLoaded = false;
   private revisionRecoveryAttempted = false;
-  private readonly wikiStatusOperation = new WikiOperationSlot();
   private readonly graphDomainInventoryOperation = new WikiOperationSlot();
   private readonly fullGraphOperation = new WikiOperationSlot();
-  private readonly wikiDomainStatusBootstrapOperation = new WikiOperationSlot();
-  private readonly wikiBuildOperation = new WikiOperationSlot();
-  private readonly wikiDomainBuildOperations = new Map<string, WikiOperationSlot>();
-  private readonly wikiDomainPollOperations = new Map<string, WikiOperationSlot>();
-  private readonly wikiReadyDomainOperations = new Map<string, WikiOperationSlot>();
+  private readonly wikiBuild = new CodehugWikiBuildStatus(this.service, {
+    isCurrentIndex: indexId => this.wikiIndexIsCurrent(indexId),
+    reportError: message => this.error.set(message),
+  });
 
   readonly indexes = signal<any[]>([]);
   readonly selectedConnectionId = signal('');
@@ -181,14 +180,14 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     && !this.fullGraphLoading()
   ));
 
-  readonly status = signal<any>(null);
+  readonly status = this.wikiBuild.status;
   readonly searchQuery = signal('');
   readonly searchResults = signal<Array<{ slug: string; title: string }>>([]);
   readonly expandedSlug = signal('');
-  readonly domainStatus = signal<any>(null);
-  readonly hubDomains = signal<any[]>([]);
-  readonly categoryDomains = signal<any[]>([]);
-  readonly clusterDomains = signal<any[]>([]);
+  readonly domainStatus = this.wikiBuild.domainStatus;
+  readonly hubDomains = this.wikiBuild.hubDomains;
+  readonly categoryDomains = this.wikiBuild.categoryDomains;
+  readonly clusterDomains = this.wikiBuild.clusterDomains;
 
   ngOnInit(): void {
     this.loading.set(true);
@@ -528,61 +527,17 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
   build(force = false): void {
     const indexId = this.selectedKnowledgeIndexId();
     if (!indexId) return;
-    this.status.set({ status: 'building' });
-    this.wikiStatusOperation.cancel();
-    const generation = this.wikiBuildOperation.restart();
-    const subscription = this.service.triggerWikiGraphBuild(indexId, force).subscribe({
-      next: () => {
-        if (
-          this.wikiBuildOperation.isCurrent(generation)
-          && this.wikiIndexIsCurrent(indexId)
-        ) {
-          this.pollStatus(indexId);
-        }
-      },
-      error: () => {
-        if (
-          this.wikiBuildOperation.isCurrent(generation)
-          && this.wikiIndexIsCurrent(indexId)
-        ) {
-          this.status.set({ status: 'error' });
-          this.error.set('Wiki-Graph-Build konnte nicht gestartet werden');
-        }
-      },
-    });
-    this.wikiBuildOperation.replaceRequest(generation, subscription);
+    this.wikiBuild.build(indexId, force);
   }
 
   buildDomain(mode: string): void {
     const indexId = this.selectedKnowledgeIndexId();
     if (!indexId) return;
-    this.domainStatus.update(current => ({ ...(current ?? {}), [mode]: { status: 'building' } }));
-    this.wikiDomainStatusBootstrapOperation.cancel();
-    this.operationFor(this.wikiReadyDomainOperations, mode).cancel();
-    this.operationFor(this.wikiDomainPollOperations, mode).cancel();
-    const operation = this.operationFor(this.wikiDomainBuildOperations, mode);
-    const generation = operation.restart();
-    const subscription = this.service.buildWikiDomains(indexId, mode).subscribe({
-      next: () => {
-        if (operation.isCurrent(generation) && this.wikiIndexIsCurrent(indexId)) {
-          this.pollDomainStatus(indexId, mode);
-        }
-      },
-      error: () => {
-        if (operation.isCurrent(generation) && this.wikiIndexIsCurrent(indexId)) {
-          this.domainStatus.update(current => ({
-            ...(current ?? {}),
-            [mode]: { status: 'error' },
-          }));
-          this.error.set('Domain-Build konnte nicht gestartet werden');
-        }
-      },
-    });
-    operation.replaceRequest(generation, subscription);
+    this.wikiBuild.buildDomain(indexId, mode);
   }
 
   domainModeStatus(mode: string): string {
-    return this.domainStatus()?.[mode]?.status ?? 'not_built';
+    return this.wikiBuild.domainModeStatus(mode);
   }
 
   indexLabel(index: any): string {
@@ -594,18 +549,7 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     if (this.initializedWikiIndexId === indexId) return;
     this.cancelWikiContext();
     this.initializedWikiIndexId = indexId;
-    const generation = this.wikiStatusOperation.restart();
-    const statusSubscription = this.service.getWikiGraphStatus(indexId).subscribe(status => {
-      if (
-        !this.wikiStatusOperation.isCurrent(generation)
-        || !this.wikiIndexIsCurrent(indexId)
-      ) return;
-      this.status.set(status);
-      if (status?.status === 'ready') {
-        this.loadWikiDomainStatus(indexId);
-      }
-    });
-    this.wikiStatusOperation.replaceRequest(generation, statusSubscription);
+    this.wikiBuild.loadStatus(indexId);
     const searchSubscription = this.searchRequests.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -763,82 +707,6 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.loadGraph(true);
   }
 
-  private loadReadyDomains(indexId: string, status: any): void {
-    for (const mode of ['hubs', 'categories', 'clusters'] as const) {
-      if (status?.[mode]?.status === 'ready') {
-        this.loadReadyDomain(indexId, mode);
-      }
-    }
-  }
-
-  private loadReadyDomain(indexId: string, mode: string): void {
-    const operation = this.operationFor(this.wikiReadyDomainOperations, mode);
-    const generation = operation.restart();
-    const subscription = this.service.getWikiDomains(indexId, mode).subscribe(domains => {
-      if (operation.isCurrent(generation) && this.wikiIndexIsCurrent(indexId)) {
-        this.setWikiDomains(mode, domains);
-      }
-    });
-    operation.replaceRequest(generation, subscription);
-  }
-
-  private loadWikiDomainStatus(indexId: string): void {
-    const generation = this.wikiDomainStatusBootstrapOperation.restart();
-    const subscription = this.service.getWikiDomainStatus(indexId).subscribe(domainStatus => {
-      if (
-        !this.wikiDomainStatusBootstrapOperation.isCurrent(generation)
-        || !this.wikiIndexIsCurrent(indexId)
-      ) return;
-      this.domainStatus.set(domainStatus);
-      this.loadReadyDomains(indexId, domainStatus);
-    });
-    this.wikiDomainStatusBootstrapOperation.replaceRequest(generation, subscription);
-  }
-
-  private pollStatus(indexId: string): void {
-    const generation = this.wikiStatusOperation.restart();
-    const poll = () => {
-      if (
-        !this.wikiStatusOperation.isCurrent(generation)
-        || !this.wikiIndexIsCurrent(indexId)
-      ) return;
-      const subscription = this.service.getWikiGraphStatus(indexId).subscribe(status => {
-        if (
-          !this.wikiStatusOperation.isCurrent(generation)
-          || !this.wikiIndexIsCurrent(indexId)
-        ) return;
-        this.status.set(status);
-        if (status?.status === 'building') {
-          this.wikiStatusOperation.schedule(generation, poll, 5000);
-        }
-      });
-      this.wikiStatusOperation.replaceRequest(generation, subscription);
-    };
-    this.wikiStatusOperation.schedule(generation, poll, 3000);
-  }
-
-  private pollDomainStatus(indexId: string, mode: string): void {
-    const operation = this.operationFor(this.wikiDomainPollOperations, mode);
-    const generation = operation.restart();
-    const poll = () => {
-      if (!operation.isCurrent(generation) || !this.wikiIndexIsCurrent(indexId)) return;
-      const subscription = this.service.getWikiDomainStatus(indexId).subscribe(status => {
-        if (!operation.isCurrent(generation) || !this.wikiIndexIsCurrent(indexId)) return;
-        this.domainStatus.update(current => ({
-          ...(current ?? {}),
-          [mode]: status?.[mode] ?? { status: 'not_built' },
-        }));
-        if (status?.[mode]?.status === 'building') {
-          operation.schedule(generation, poll, 5000);
-        } else if (status?.[mode]?.status === 'ready') {
-          this.loadReadyDomain(indexId, mode);
-        }
-      });
-      operation.replaceRequest(generation, subscription);
-    };
-    operation.schedule(generation, poll, 3000);
-  }
-
   private resetViewState(): void {
     this.metadata.set(null);
     this.rawGraph.set(null);
@@ -883,47 +751,12 @@ export class CodehugWikiGraphComponent implements OnInit, OnDestroy {
     this.wikiSubscriptions.unsubscribe();
     this.wikiSubscriptions = new Subscription();
     this.initializedWikiIndexId = '';
-    this.wikiStatusOperation.cancel();
-    this.wikiDomainStatusBootstrapOperation.cancel();
-    this.wikiBuildOperation.cancel();
-    this.cancelWikiOperationMap(this.wikiDomainBuildOperations);
-    this.cancelWikiOperationMap(this.wikiDomainPollOperations);
-    this.cancelWikiOperationMap(this.wikiReadyDomainOperations);
+    this.wikiBuild.cancel();
   }
 
   private wikiIndexIsCurrent(indexId: string): boolean {
     return this.initializedWikiIndexId === indexId
       && this.selectedKnowledgeIndexId() === indexId;
-  }
-
-  private operationFor(
-    operations: Map<string, WikiOperationSlot>,
-    key: string,
-  ): WikiOperationSlot {
-    const existing = operations.get(key);
-    if (existing) return existing;
-    const operation = new WikiOperationSlot();
-    operations.set(key, operation);
-    return operation;
-  }
-
-  private cancelWikiOperationMap(operations: Map<string, WikiOperationSlot>): void {
-    operations.forEach(operation => operation.cancel());
-    operations.clear();
-  }
-
-  private setWikiDomains(mode: string, domains: any[]): void {
-    switch (mode) {
-      case 'hubs':
-        this.hubDomains.set(domains);
-        break;
-      case 'categories':
-        this.categoryDomains.set(domains);
-        break;
-      case 'clusters':
-        this.clusterDomains.set(domains);
-        break;
-    }
   }
 
   private graphRequestIsCurrent(
