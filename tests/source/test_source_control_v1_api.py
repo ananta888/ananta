@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from flask import Flask
 
-import agent.routes.source_control_v1 as routes
+from agent.routes.source_control_v1 import SourceControlV1RequestGuard
 from agent.routes.source_control_v1 import (
     create_source_control_v1_blueprint,
 )
@@ -75,14 +75,20 @@ class _Api:
 
 
 def _app(monkeypatch):
-    monkeypatch.setattr(routes, "check_auth", lambda view: view)
-    monkeypatch.setattr(
-        routes, "authorize_route_request", lambda **kwargs: None
+    # Inject auth, authorization and principal doubles through the
+    # blueprint's explicit request-guard / auth-decorator seams.
+    request_guard = SourceControlV1RequestGuard(
+        route_authorizer=lambda **kwargs: None,
+        principal_resolver=lambda: _Principal(),
     )
-    monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(_Api()))
+    app.register_blueprint(create_source_control_v1_blueprint(
+            _Api(),
+            request_guard=request_guard,
+            auth_decorator=lambda view: view,
+        )
+    )
     return app
 
 
@@ -244,22 +250,26 @@ def test_unknown_object_is_uniform_404_not_success(monkeypatch) -> None:
 def test_common_policy_denial_stops_collection_before_service(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(routes, "check_auth", lambda view: view)
-    monkeypatch.setattr(
-        routes,
-        "authorize_route_request",
-        lambda **kwargs: (
+    # Inject auth, authorization and principal doubles through the
+    # blueprint's explicit request-guard / auth-decorator seams.
+    request_guard = SourceControlV1RequestGuard(
+        route_authorizer=lambda **kwargs: (
             {
                 "schema": "ananta.source-control.error.v1",
                 "error": {"code": "source_control_forbidden"},
             },
             403,
         ),
+        principal_resolver=lambda: _Principal(),
     )
-    monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(_Api()))
+    app.register_blueprint(create_source_control_v1_blueprint(
+            _Api(),
+            request_guard=request_guard,
+            auth_decorator=lambda view: view,
+        )
+    )
 
     response = app.test_client().get(
         "/api/source-control/v1/connections"
@@ -388,16 +398,22 @@ def test_existing_mutation_requires_dry_run_if_match_and_key(
 def test_unexpected_exception_never_crosses_versioned_boundary(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(routes, "check_auth", lambda view: view)
-    monkeypatch.setattr(
-        routes, "authorize_route_request", lambda **kwargs: None
+    # Inject auth, authorization and principal doubles through the
+    # blueprint's explicit request-guard / auth-decorator seams.
+    request_guard = SourceControlV1RequestGuard(
+        route_authorizer=lambda **kwargs: None,
+        principal_resolver=lambda: _Principal(),
     )
-    monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     api = _Api()
     api.raise_detail = True
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(api))
+    app.register_blueprint(create_source_control_v1_blueprint(
+            api,
+            request_guard=request_guard,
+            auth_decorator=lambda view: view,
+        )
+    )
 
     response = app.test_client().get(
         "/api/source-control/v1/connections/conn-example"

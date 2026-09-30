@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from flask import Flask
 
-import agent.routes.source_control_v1 as routes
+from agent.routes.source_control_v1 import SourceControlV1RequestGuard
 from agent.routes.source_control_v1 import create_source_control_v1_blueprint
 from tests.project_access_fakes import AllowProjectAccess
 
@@ -75,14 +75,20 @@ class _Api:
 
 def _app(monkeypatch):
     api = _Api()
-    monkeypatch.setattr(routes, "check_auth", lambda view: view)
-    monkeypatch.setattr(
-        routes, "authorize_route_request", lambda **_kwargs: None
+    # Inject auth, authorization and principal doubles through the
+    # blueprint's explicit request-guard / auth-decorator seams.
+    request_guard = SourceControlV1RequestGuard(
+        route_authorizer=lambda **_kwargs: None,
+        principal_resolver=lambda: _Principal(),
     )
-    monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(api))
+    app.register_blueprint(create_source_control_v1_blueprint(
+            api,
+            request_guard=request_guard,
+            auth_decorator=lambda view: view,
+        )
+    )
     return app.test_client(), api
 
 

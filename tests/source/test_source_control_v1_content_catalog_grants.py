@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from flask import Flask
 import pytest
 
-import agent.routes.source_control_v1 as routes
+from agent.routes.source_control_v1 import SourceControlV1RequestGuard
 from agent.routes.source_control_v1 import (
     create_source_control_v1_blueprint,
 )
@@ -98,14 +98,20 @@ class _RecordingApi:
 def _app(monkeypatch):
     principal = _Principal()
     api = _RecordingApi()
-    monkeypatch.setattr(routes, "check_auth", lambda view: view)
-    monkeypatch.setattr(
-        routes, "authorize_route_request", lambda **kwargs: None
+    # Inject auth, authorization and principal doubles through the
+    # blueprint's explicit request-guard / auth-decorator seams.
+    request_guard = SourceControlV1RequestGuard(
+        route_authorizer=lambda **kwargs: None,
+        principal_resolver=lambda: principal,
     )
-    monkeypatch.setattr(routes, "_principal", lambda: principal)
     app = Flask(__name__)
     app.extensions["project_access_authority"] = AllowProjectAccess()
-    app.register_blueprint(create_source_control_v1_blueprint(api))
+    app.register_blueprint(create_source_control_v1_blueprint(
+            api,
+            request_guard=request_guard,
+            auth_decorator=lambda view: view,
+        )
+    )
     return app, api, principal
 
 
