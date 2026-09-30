@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import re
 import time
+from dataclasses import dataclass
 from textwrap import shorten
 from typing import TYPE_CHECKING
 
@@ -167,38 +168,23 @@ def _content_browser_lines(game: dict, width: int, *, height: int | None = None)
 
 
 
-def _content_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
-    section = get_section(state.section_id)
-    panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
-    payload = (state.section_payloads or {}).get(section.id, {})
-    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
-    lines = [_pane_title(section.title.upper(), state.focus == FocusPane.CONTENT)]
+_GLOBAL_CONTENT_OVERLAY_KEYS = ("shortcut_help_middle_open", "ai_snake_config_open", "center_browser_active")
 
-    global_overlay_active = any(
-        bool(game.get(key))
-        for key in (
-            "shortcut_help_middle_open",
-            "ai_snake_config_open",
-            "center_browser_active",
-        )
-    )
-    if section.id in {"kanban", "models"} and not global_overlay_active:
-        from client_surfaces.operator_tui.plugins import default_plugin_registry
 
-        plugin = default_plugin_registry().get(section.id)
-        if plugin is not None:
-            plugin_payload = dict(payload)
-            plugin_payload["_panel_state"] = panel_state.value
-            rendered = plugin.render(
-                plugin_payload,
-                width,
-                max(1, int(height or 24) - 1),
-                state.selected_index,
-            )
-            if rendered:
-                lines.extend(rendered)
-                return lines
+def _plugin_section_lines(section, state: OperatorState, payload: dict, panel_state, width: int, height) -> list[str]:
+    """Rendered lines of a section plugin (kanban, models); empty when no plugin renders."""
+    from client_surfaces.operator_tui.plugins import default_plugin_registry
 
+    plugin = default_plugin_registry().get(section.id)
+    if plugin is None:
+        return []
+    plugin_payload = dict(payload)
+    plugin_payload["_panel_state"] = panel_state.value
+    return plugin.render(plugin_payload, width, max(1, int(height or 24) - 1), state.selected_index) or []
+
+
+def _content_overlay_lines(state: OperatorState, game: dict, width: int, height) -> list[str] | None:
+    """Full-pane overlays that replace the section content; ``None`` when none is active."""
     if bool(game.get("shortcut_help_middle_open")):
         return _content_shortcut_lines(state, width)
     if bool(game.get("ai_snake_config_open")):
@@ -214,113 +200,187 @@ def _content_lines(state: OperatorState, width: int, *, height: int | None = Non
                 return ask_lines
     if bool(dict(game.get("visual_viewport") or {}).get("enabled")):
         return _content_visual_viewport_lines(state, width)
+    return None
 
+
+def _panel_state_lines(state: OperatorState, panel_state) -> list[str] | None:
+    """Placeholder lines for loading, unauthorized and degraded panels."""
     if panel_state == PanelState.LOADING:
-        lines.append("  loading...")
-        return lines
+        return ["  loading..."]
     if panel_state == PanelState.UNAUTHORIZED:
-        lines.append("  ! access denied")
-        lines.append("    export ANANTA_USER=admin")
-        lines.append("    export ANANTA_PASSWORD=...")
-        return lines
+        return ["  ! access denied", "    export ANANTA_USER=admin", "    export ANANTA_PASSWORD=..."]
     if panel_state == PanelState.DEGRADED:
-        lines.append(f"  ! degraded — {state.status_message or 'check system logs'}")
-        lines.append("    press r to retry")
-        return lines
+        return [f"  ! degraded — {state.status_message or 'check system logs'}", "    press r to retry"]
+    return None
 
-    if section.id == "dashboard":
-        lines.extend(_dashboard_content_lines(payload, state=state, width=width))
-    elif section.id == "goals":
-        items = payload.get("items") or []
-        if not items:
-            lines.append('  no goals — try: ananta plan "..."')
-        else:
-            for i, item in enumerate(items):
-                marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
-                lines.append(f"{marker} {item.get('id','?')}  [{item.get('status','?')}]  {item.get('title','')}")
-    elif section.id == "tasks":
-        items = payload.get("items") or []
-        if not items:
-            lines.append("  no tasks yet")
-        else:
-            for i, item in enumerate(items):
-                marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
-                lines.append(f"{marker} {item.get('id','?')}  [{item.get('status','?')}]  agent={item.get('agent','?')}  {item.get('title','')}")
-        timeline = payload.get("timeline") or []
-        if timeline:
-            lines.append("")
-            lines.append("  Timeline:")
-            for entry in timeline[:3]:
-                lines.append(f"    {entry.get('id','?')}  {entry.get('summary','')}")
-    elif section.id == "templates":
-        editor = dict(game.get("template_editor") or {})
-        if state.mode is OperatorMode.EDIT and bool(editor.get("active")):
-            lines.extend(_templates_editor_content_lines(state, width, viewport_height=height))
-        else:
-            lines.extend(_templates_content_lines(payload, state, width))
-    elif section.id == "audit":
-        viewer = dict(game.get("audit_viewer") or {})
-        if bool(viewer.get("active")):
-            lines.extend(_audit_viewer_content_lines(state, width, viewport_height=height))
-        else:
-            items = payload.get("items") or []
-            if not items:
-                lines.append("  (empty)")
-                lines.append("  press r to refresh")
-            else:
-                lines.append("  Audit-Datasets (read-only)")
-                for i, item in enumerate(items[:20]):
-                    marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
-                    title = str(item.get("title") or item.get("id") or "dataset")
-                    group = str(item.get("group") or "")
-                    summary = str(item.get("summary") or "")
-                    status = str(item.get("status") or "")
-                    warn = " ⚠" if status and status != "ok" else ""
-                    parts = [p for p in (group, summary) if p]
-                    lines.append(f"{marker} {title}{warn}" + (f" — {' · '.join(parts)}" if parts else ""))
-    elif section.id == "system":
-        lines.extend(_system_content_lines(payload))
-    elif section.id == "terminal":
-        lines.extend(_terminal_content_lines(payload, state, width))
-    elif section.id == "share":
-        lines.extend(_share_section_content_lines(payload, state, width))
-    elif section.id == "help":
-        lines.append("")
-        lines.extend(_binding_lines(state, width))
-    elif section.id == "artifacts" and bool(payload.get("diff3_mode")):
-        lines.extend(_diff3_content_lines(payload, width=width))
-    elif section.id == "artifacts" and bool(payload.get("planning_track_mode")):
-        lines.extend(_planning_track_content_lines(payload, width=width, compact=width < 74))
-    elif section.id == "artifacts" and bool(payload.get("mail_mode")):
-        lines.extend(_mail_content_lines(payload, width=width, compact=width < 74))
-    elif section.id == "artifacts" and bool(payload.get("helpcenter_mode")):
-        lines.extend(_helpcenter_content_lines(payload, width=width, compact=width < 74))
-    elif section.id == "artifacts" and bool(payload.get("goal_artifacts_mode")):
-        lines.extend(_goal_artifacts_content_lines(payload, width=width, compact=width < 74))
-    elif section.id == "artifacts" and bool(payload.get("organization_mode")):
-        lines.extend(_rc_art_x._organization_content_lines(payload, width=width, compact=width < 74))
-    else:
-        items = payload.get("items") or []
-        if panel_state == PanelState.EMPTY or not items:
-            lines.append("  (empty)")
-            lines.append("  press r to refresh")
-        else:
-            for i, item in enumerate(items[:20]):
-                marker = DEFAULT_THEME.selected_prefix if i == state.selected_index else " "
-                label = item.get("title") or item.get("id") or str(item)
-                lines.append(f"{marker} {label}")
 
-    if state.markdown_source:
-        lines.append("")
-        for block in detect_diagram_blocks(state.markdown_source):
-            lines.extend(render_diagram_fallback(block, width=width))
-            lines.append("")
-        max_lines = 24 if state.mode.value == "edit" else 8
-        lines.append("markdown:")
-        lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=max_lines))
+@dataclass(frozen=True)
+class _ContentContext:
+    """Inputs shared by the section body renderers of the content pane."""
 
+    state: OperatorState
+    payload: dict
+    game: dict
+    width: int
+    height: int | None
+    panel_state: PanelState
+
+
+def _selection_marker(index: int, state: OperatorState) -> str:
+    return DEFAULT_THEME.selected_prefix if index == state.selected_index else " "
+
+
+def _goals_section_lines(ctx: _ContentContext) -> list[str]:
+    items = ctx.payload.get("items") or []
+    if not items:
+        return ['  no goals — try: ananta plan "..."']
+    state = ctx.state
+    return [
+        f"{_selection_marker(i, state)} {item.get('id','?')}  [{item.get('status','?')}]  {item.get('title','')}"
+        for i, item in enumerate(items)
+    ]
+
+
+def _tasks_section_lines(ctx: _ContentContext) -> list[str]:
+    payload, state = ctx.payload, ctx.state
+    items = payload.get("items") or []
+    lines = [] if items else ["  no tasks yet"]
+    for i, item in enumerate(items):
+        lines.append(
+            f"{_selection_marker(i, state)} {item.get('id','?')}  [{item.get('status','?')}]  "
+            f"agent={item.get('agent','?')}  {item.get('title','')}"
+        )
+    timeline = payload.get("timeline") or []
+    if timeline:
+        lines.extend(["", "  Timeline:"])
+        lines.extend(f"    {entry.get('id','?')}  {entry.get('summary','')}" for entry in timeline[:3])
     return lines
 
+
+def _templates_section_lines(ctx: _ContentContext) -> list[str]:
+    state = ctx.state
+    editor = dict(ctx.game.get("template_editor") or {})
+    if state.mode is OperatorMode.EDIT and bool(editor.get("active")):
+        return _templates_editor_content_lines(state, ctx.width, viewport_height=ctx.height)
+    return _templates_content_lines(ctx.payload, state, ctx.width)
+
+
+def _audit_dataset_line(i: int, item: dict, state: OperatorState) -> str:
+    title = str(item.get("title") or item.get("id") or "dataset")
+    group = str(item.get("group") or "")
+    summary = str(item.get("summary") or "")
+    status = str(item.get("status") or "")
+    warn = " ⚠" if status and status != "ok" else ""
+    parts = [p for p in (group, summary) if p]
+    return f"{_selection_marker(i, state)} {title}{warn}" + (f" — {' · '.join(parts)}" if parts else "")
+
+
+def _audit_section_lines(ctx: _ContentContext) -> list[str]:
+    state = ctx.state
+    viewer = dict(ctx.game.get("audit_viewer") or {})
+    if bool(viewer.get("active")):
+        return _audit_viewer_content_lines(state, ctx.width, viewport_height=ctx.height)
+    items = ctx.payload.get("items") or []
+    if not items:
+        return ["  (empty)", "  press r to refresh"]
+    return ["  Audit-Datasets (read-only)"] + [_audit_dataset_line(i, item, state) for i, item in enumerate(items[:20])]
+
+
+def _generic_section_lines(ctx: _ContentContext) -> list[str]:
+    items = ctx.payload.get("items") or []
+    if ctx.panel_state == PanelState.EMPTY or not items:
+        return ["  (empty)", "  press r to refresh"]
+    state = ctx.state
+    return [
+        f"{_selection_marker(i, state)} {item.get('title') or item.get('id') or str(item)}"
+        for i, item in enumerate(items[:20])
+    ]
+
+
+# Artifacts sub-views in precedence order: (payload flag, renderer).
+_ARTIFACT_MODE_RENDERERS = (
+    ("diff3_mode", lambda ctx: _diff3_content_lines(ctx.payload, width=ctx.width)),
+    (
+        "planning_track_mode",
+        lambda ctx: _planning_track_content_lines(ctx.payload, width=ctx.width, compact=ctx.width < 74),
+    ),
+    ("mail_mode", lambda ctx: _mail_content_lines(ctx.payload, width=ctx.width, compact=ctx.width < 74)),
+    (
+        "helpcenter_mode",
+        lambda ctx: _helpcenter_content_lines(ctx.payload, width=ctx.width, compact=ctx.width < 74),
+    ),
+    (
+        "goal_artifacts_mode",
+        lambda ctx: _goal_artifacts_content_lines(ctx.payload, width=ctx.width, compact=ctx.width < 74),
+    ),
+    (
+        "organization_mode",
+        lambda ctx: _rc_art_x._organization_content_lines(ctx.payload, width=ctx.width, compact=ctx.width < 74),
+    ),
+)
+
+
+def _artifacts_section_lines(ctx: _ContentContext) -> list[str]:
+    for flag, render in _ARTIFACT_MODE_RENDERERS:
+        if bool(ctx.payload.get(flag)):
+            return render(ctx)
+    return _generic_section_lines(ctx)
+
+
+_SECTION_BODY_RENDERERS = {
+    "dashboard": lambda ctx: _dashboard_content_lines(ctx.payload, state=ctx.state, width=ctx.width),
+    "goals": _goals_section_lines,
+    "tasks": _tasks_section_lines,
+    "templates": _templates_section_lines,
+    "audit": _audit_section_lines,
+    "system": lambda ctx: _system_content_lines(ctx.payload),
+    "terminal": lambda ctx: _terminal_content_lines(ctx.payload, ctx.state, ctx.width),
+    "share": lambda ctx: _share_section_content_lines(ctx.payload, ctx.state, ctx.width),
+    "help": lambda ctx: [""] + list(_binding_lines(ctx.state, ctx.width)),
+    "artifacts": _artifacts_section_lines,
+}
+
+
+def _markdown_appendix_lines(state: OperatorState, width: int) -> list[str]:
+    if not state.markdown_source:
+        return []
+    lines = [""]
+    for block in detect_diagram_blocks(state.markdown_source):
+        lines.extend(render_diagram_fallback(block, width=width))
+        lines.append("")
+    max_lines = 24 if state.mode.value == "edit" else 8
+    lines.append("markdown:")
+    lines.extend(render_markdown_lines(state.markdown_source, width=width, max_lines=max_lines))
+    return lines
+
+
+def _content_lines(state: OperatorState, width: int, *, height: int | None = None) -> list[str]:
+    section = get_section(state.section_id)
+    panel_state = (state.panel_states or {}).get(section.id, PanelState.LOADING)
+    payload = (state.section_payloads or {}).get(section.id, {})
+    game = state.header_logo_game if isinstance(state.header_logo_game, dict) else {}
+    lines = [_pane_title(section.title.upper(), state.focus == FocusPane.CONTENT)]
+
+    global_overlay_active = any(bool(game.get(key)) for key in _GLOBAL_CONTENT_OVERLAY_KEYS)
+    if section.id in {"kanban", "models"} and not global_overlay_active:
+        rendered = _plugin_section_lines(section, state, payload, panel_state, width, height)
+        if rendered:
+            return lines + list(rendered)
+
+    overlay = _content_overlay_lines(state, game, width, height)
+    if overlay is not None:
+        return overlay
+    placeholder = _panel_state_lines(state, panel_state)
+    if placeholder is not None:
+        return lines + placeholder
+
+    ctx = _ContentContext(
+        state=state, payload=payload, game=game, width=width, height=height, panel_state=panel_state
+    )
+    render_body = _SECTION_BODY_RENDERERS.get(section.id, _generic_section_lines)
+    lines.extend(render_body(ctx))
+    lines.extend(_markdown_appendix_lines(state, width))
+    return lines
 
 
 def _templates_content_lines(payload: dict, state: OperatorState, width: int) -> list[str]:
