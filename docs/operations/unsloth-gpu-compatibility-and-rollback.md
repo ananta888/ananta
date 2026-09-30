@@ -19,7 +19,7 @@ external deployment responsibility.
 | Matrix entry | Python | CUDA | Minimum NVIDIA driver | Torch | Unsloth | Approved model basename | Required runs |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `unsloth-2026.7.5-cu124-torch260-tiny-causal-lm` | `3.11.15` | `12.4` | `550.54.14` | `2.6.0+cu124` + `torchao 0.13.0` | `2026.7.5` | `tiny-causal-lm` | `3` |
-| `unsloth-2026.7.5-cu128-torch280-tiny-causal-lm` | `3.11.15` | `12.8` | `570.26` | `2.8.0+cu128` + `torchao 0.13.0` | `2026.7.5` | `tiny-causal-lm` | `3` |
+| `unsloth-2026.7.5-cu128-torch280-tiny-causal-lm` | `3.11.15` | `12.8` | `570.26` | `2.8.0+cu128` + `torchao 0.13.0+cu128` | `2026.7.5` | `tiny-causal-lm` | `3` |
 
 The `cu128-torch280` entry is the current worker-image default. CUDA 12.8 is
 the first runtime that ships Blackwell (`sm_120`, for example RTX 50-series)

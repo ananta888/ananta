@@ -44,7 +44,7 @@
         "peft": "0.18.0",
         "safetensors": "0.6.2",
         "torch": "2.8.0+cu128",
-        "torchao": "0.13.0",
+        "torchao": "0.13.0+cu128",
         "transformers": "4.57.3",
         "trl": "0.24.0",
         "unsloth": "2026.7.5",
