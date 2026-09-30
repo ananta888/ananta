@@ -47,11 +47,14 @@
   "source_files": [
     "agent/db_models/semantic_relay.py",
     "agent/repositories/semantic_relay_repository.py",
+    "agent/models/semantic_media_audit.py",
+    "agent/models/semantic_relay_errors.py",
+    "agent/models/semantic_relay_limits.py",
     "agent/repositories/semantic_relay_shared_store.py",
     "agent/services/semantic_relay_limits.py",
     "migrations/versions/d8e9f0a1b2c3_add_semantic_relay_store.py",
     "migrations/versions/e9f0a1b2c3d4_add_semantic_relay_wire_metadata.py",
     "scripts/e2e/semantic_relay_multi_hub_e2e.py"
   ],
-  "source_sha256": "6d49a6cdf3026f8f8cf1d3351de0726a5a9c35276429a36e2f7932ebd0257fb9"
+  "source_sha256": "066c68404ccbf59cc27a2e228599cb039026f7f3ea4f0b7352b7e42ba11735af"
 }
