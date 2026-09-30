@@ -36,13 +36,22 @@ from agent.services.rag_helper_index_preview_reader import (
     load_jsonl_preview,
     load_partitioned_jsonl_preview,
 )
+from agent.services.rag_helper_index_run_recorder import KnowledgeIndexRunRecorder
 from agent.services.rag_helper_module_loader import load_rag_helper_modules
 from agent.services.rag_helper_profile_resolver import RagHelperProfileCatalog
 from agent.services.rag_helper_repository_graph_port import (
     RepositoryGraphBuilderUnavailableError,
     RepositoryGraphOutputBuilderPort,
 )
-from agent.services.rag_index_chunker import chunk_wiki_records, index_wiki_records_with_codecompass
+from agent.services.rag_helper_source_record_manifest import (
+    manifest_summary_metadata,
+    normalize_source_records,
+    record_file_type_metrics_snapshot,
+    source_record_files,
+    source_record_manifest,
+    wiki_codecompass_manifest,
+)
+from agent.services.rag_index_chunker import index_wiki_records_with_codecompass
 from ananta_contracts import (  # noqa: F401 - historic exports of this module
     FileTypeRolloutPolicy,
     load_file_type_support_registry,
@@ -376,64 +385,34 @@ class RagHelperIndexService:
                 manifest_path,
                 self._load_manifest(manifest_path),
             )
-            duration_ms = round((time.perf_counter() - started) * 1000, 3)
-            run.status = "completed"
-            run.output_dir = str(output_dir)
-            run.manifest_path = str(manifest_path)
-            run.duration_ms = duration_ms
-            run.finished_at = time.time()
-            run.run_metadata = {**(run.run_metadata or {}), "manifest": manifest}
-            run = self._knowledge_index_run_repo.save(run)
-
-            knowledge_index.status = "completed"
-            knowledge_index.latest_run_id = run.id
-            knowledge_index.output_dir = str(output_dir)
-            knowledge_index.manifest_path = str(manifest_path)
-            knowledge_index.updated_at = time.time()
-            knowledge_index.index_metadata = {
-                **(knowledge_index.index_metadata or {}),
-                "artifact_version_id": version.id,
-                "profile": profile,
-                "manifest_summary": {
-                    "file_count": manifest.get("file_count", 0),
-                    "index_record_count": manifest.get("index_record_count", 0),
-                    "detail_record_count": manifest.get("detail_record_count", 0),
-                    "relation_record_count": manifest.get("relation_record_count", 0),
-                    "error_count": manifest.get("error_count", 0),
+            knowledge_index, run = self._run_recorder().completed(
+                knowledge_index,
+                run,
+                manifest=manifest,
+                index_metadata={
+                    "artifact_version_id": version.id,
+                    "profile": profile,
+                    **manifest_summary_metadata(manifest),
                 },
-                "available_outputs": manifest.get("partitioned_outputs", {}),
-            }
-            knowledge_index = self._knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=source_scope, status="completed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile["name"]).observe(
-                duration_ms / 1000.0
+                started=started,
+                output_dir=output_dir,
+                manifest_path=manifest_path,
+                source_scope=source_scope,
+                profile_name=profile["name"],
             )
             self._observe_rag_helper_file_type_metrics(manifest)
             _checkpoint(execution_deadline)
             return knowledge_index, run
         except Exception as exc:
-            duration_ms = round((time.perf_counter() - started) * 1000, 3)
-            run.status = "failed"
-            run.output_dir = str(output_dir)
-            run.manifest_path = str(manifest_path)
-            run.duration_ms = duration_ms
-            run.error_message = str(exc)
-            run.finished_at = time.time()
-            run = self._knowledge_index_run_repo.save(run)
-
-            knowledge_index.status = "failed"
-            knowledge_index.latest_run_id = run.id
-            knowledge_index.output_dir = str(output_dir)
-            knowledge_index.manifest_path = str(manifest_path)
-            knowledge_index.updated_at = time.time()
-            knowledge_index.index_metadata = {
-                **(knowledge_index.index_metadata or {}),
-                "last_error": str(exc),
-            }
-            knowledge_index = self._knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=source_scope, status="failed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=source_scope, profile=profile["name"]).observe(
-                duration_ms / 1000.0
+            knowledge_index, run = self._run_recorder().failed(
+                knowledge_index,
+                run,
+                exc=exc,
+                started=started,
+                output_dir=output_dir,
+                manifest_path=manifest_path,
+                source_scope=source_scope,
+                profile_name=profile["name"],
             )
             if isinstance(exc, TimeoutError):
                 raise
@@ -697,21 +676,13 @@ class RagHelperIndexService:
             and _records_path is not None
             and _records_path.exists()
         )
-        if _streaming:
-            normalized_records = []
-        else:
-            if not records:
-                raise ValueError("source_records_required")
-            if any(not isinstance(record, dict) for record in records):
-                raise ValueError("invalid_source_records")
-            normalized_records = [dict(record) for record in records]
-            if normalized_scope == "wiki":
-                normalized_records = chunk_wiki_records(
-                    source_id=normalized_source_id,
-                    records=normalized_records,
-                )
-            if not normalized_records:
-                raise ValueError("source_records_empty_after_normalization")
+        normalized_records = (
+            []
+            if _streaming
+            else normalize_source_records(
+                normalized_scope=normalized_scope, source_id=normalized_source_id, records=records
+            )
+        )
 
         profile = self._resolve_profile(profile_name, None)
         index_artifact_id = normalized_source_id if normalized_scope == "artifact" else None
@@ -790,20 +761,7 @@ class RagHelperIndexService:
                 )
             serialized.sort()
             _checkpoint(execution_deadline)
-            source_files = {
-                str(
-                    (
-                        (item.get("metadata") or {}).get("relative_path")
-                        if isinstance(item.get("metadata"), dict)
-                        else ""
-                    )
-                    or item.get("file")
-                    or item.get("path")
-                    or ""
-                ).strip()
-                for item in normalized_records
-            }
-            source_files.discard("")
+            source_files = source_record_files(normalized_records)
             if normalized_scope == "wiki" and codecompass_prerender:
                 manifest = index_wiki_records_with_codecompass(
                     records=normalized_records if not _streaming else None,
@@ -812,23 +770,13 @@ class RagHelperIndexService:
                     profile=profile,
                     links_path=links_path,
                 )
-                manifest = {
-                    **manifest,
-                    "chunking": {
-                        "source_scope": normalized_scope,
-                        "input_record_count": len(records) if not _streaming else 0,
-                        "normalized_record_count": (
-                            len(normalized_records)
-                            if not _streaming
-                            else manifest.get("index_record_count", 0)
-                        ),
-                        "strategy": (
-                            "wiki_streaming_codecompass_prerender"
-                            if _streaming
-                            else "wiki_sentence_chunks+wiki_streaming_codecompass_prerender"
-                        ),
-                    },
-                }
+                manifest = wiki_codecompass_manifest(
+                    manifest,
+                    normalized_scope=normalized_scope,
+                    records=records,
+                    normalized_records=normalized_records,
+                    streaming=_streaming,
+                )
             else:
                 index_path.write_text("\n".join(serialized) + ("\n" if serialized else ""), encoding="utf-8")
                 graph_export_mode = str(
@@ -845,135 +793,55 @@ class RagHelperIndexService:
                         output_dir=output_dir,
                         execution_deadline=execution_deadline,
                     )
-                manifest = {
-                    "source_scope": normalized_scope,
-                    "source_id": normalized_source_id,
-                    "profile_name": profile["name"],
-                    "file_count": int(
-                        graph_manifest.get("file_count", len(source_files))
-                    ),
-                    "index_record_count": len(serialized),
-                    "detail_record_count": int(
-                        graph_manifest.get("semantic_node_count", 0)
-                    ),
-                    "relation_record_count": int(
-                        graph_manifest.get("graph_edge_count", 0)
-                    )
-                    + int(graph_manifest.get("semantic_edge_count", 0)),
-                    "error_count": int(
-                        graph_manifest.get("diagnostic_count", 0)
-                    ),
-                    "partitioned_outputs": dict(
-                        graph_manifest.get("partitioned_outputs") or {}
-                    ),
-                    **(
-                        {
-                            "semantic_budget": dict(
-                                graph_manifest["semantic_budget"]
-                            )
-                        }
-                        if graph_manifest.get("semantic_budget")
-                        else {}
-                    ),
-                    "graph_export_mode": graph_export_mode,
-                    "deterministic_order": "json_sort_keys",
-                    "chunking": {
-                        "source_scope": normalized_scope,
-                        "input_record_count": len(records),
-                        "normalized_record_count": len(normalized_records),
-                        "strategy": (
-                            "wiki_sentence_chunks"
-                            if normalized_scope == "wiki"
-                            else (
-                                "identity+codecompass_graph"
-                                if graph_manifest
-                                else "identity"
-                            )
-                        ),
-                    },
-                    "generated_at": time.time(),
-                }
+                manifest = source_record_manifest(
+                    normalized_scope=normalized_scope,
+                    source_id=normalized_source_id,
+                    profile=profile,
+                    records=records,
+                    normalized_records=normalized_records,
+                    serialized_count=len(serialized),
+                    source_files=source_files,
+                    graph_manifest=graph_manifest,
+                    graph_export_mode=graph_export_mode,
+                )
             manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8")
             _checkpoint(execution_deadline)
-            duration_ms = round((time.perf_counter() - started) * 1000, 3)
-
-            run.status = "completed"
-            run.output_dir = str(output_dir)
-            run.manifest_path = str(manifest_path)
-            run.duration_ms = duration_ms
-            run.finished_at = time.time()
-            run.run_metadata = {**(run.run_metadata or {}), "manifest": manifest}
-            if persist_control_plane_records:
-                run = self._knowledge_index_run_repo.save(run)
-
-            knowledge_index.status = "completed"
-            knowledge_index.latest_run_id = run.id
-            knowledge_index.output_dir = str(output_dir)
-            knowledge_index.manifest_path = str(manifest_path)
-            knowledge_index.updated_at = time.time()
-            knowledge_index.index_metadata = {
-                **(knowledge_index.index_metadata or {}),
-                "manifest_summary": {
-                    "file_count": manifest.get("file_count", 0),
-                    "index_record_count": manifest.get("index_record_count", 0),
-                    "detail_record_count": manifest.get("detail_record_count", 0),
-                    "relation_record_count": manifest.get("relation_record_count", 0),
-                    "error_count": manifest.get("error_count", 0),
-                },
-                "available_outputs": manifest.get("partitioned_outputs", {}),
-            }
-            if persist_control_plane_records:
-                knowledge_index = self._knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=normalized_scope, status="completed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
-                duration_ms / 1000.0
+            knowledge_index, run = self._run_recorder().completed(
+                knowledge_index,
+                run,
+                manifest=manifest,
+                index_metadata=manifest_summary_metadata(manifest),
+                started=started,
+                output_dir=output_dir,
+                manifest_path=manifest_path,
+                source_scope=normalized_scope,
+                profile_name=profile["name"],
+                persist=persist_control_plane_records,
             )
-            metric_snapshot = (source_metadata or {}).get("file_type_metrics_snapshot")
-            if isinstance(metric_snapshot, list):
-                try:
-                    from agent.services.file_type_metrics_service import get_file_type_metrics_service
-
-                    get_file_type_metrics_service().observe_snapshot(
-                        pipeline="setup_index",
-                        snapshot=metric_snapshot,
-                    )
-                except Exception as exc:
-                    # Metrics must never change the persisted index outcome.
-                    _LOGGER.warning(
-                        "CodeCompass file-type metrics snapshot could not be recorded: %s",
-                        exc,
-                    )
+            record_file_type_metrics_snapshot(source_metadata)
             _checkpoint(execution_deadline)
             return knowledge_index, run
         except Exception as exc:
-            duration_ms = round((time.perf_counter() - started) * 1000, 3)
-            run.status = "failed"
-            run.output_dir = str(output_dir)
-            run.manifest_path = str(manifest_path)
-            run.duration_ms = duration_ms
-            run.error_message = str(exc)
-            run.finished_at = time.time()
-            if persist_control_plane_records:
-                run = self._knowledge_index_run_repo.save(run)
-
-            knowledge_index.status = "failed"
-            knowledge_index.latest_run_id = run.id
-            knowledge_index.output_dir = str(output_dir)
-            knowledge_index.manifest_path = str(manifest_path)
-            knowledge_index.updated_at = time.time()
-            knowledge_index.index_metadata = {
-                **(knowledge_index.index_metadata or {}),
-                "last_error": str(exc),
-            }
-            if persist_control_plane_records:
-                knowledge_index = self._knowledge_index_repo.save(knowledge_index)
-            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope=normalized_scope, status="failed", profile=profile["name"]).inc()
-            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope=normalized_scope, profile=profile["name"]).observe(
-                duration_ms / 1000.0
+            knowledge_index, run = self._run_recorder().failed(
+                knowledge_index,
+                run,
+                exc=exc,
+                started=started,
+                output_dir=output_dir,
+                manifest_path=manifest_path,
+                source_scope=normalized_scope,
+                profile_name=profile["name"],
+                persist=persist_control_plane_records,
             )
             if isinstance(exc, TimeoutError):
                 raise
             return knowledge_index, run
+
+    def _run_recorder(self) -> KnowledgeIndexRunRecorder:
+        return KnowledgeIndexRunRecorder(
+            knowledge_index_repository=self._knowledge_index_repo,
+            knowledge_index_run_repository=self._knowledge_index_run_repo,
+        )
 
     def get_artifact_status(self, artifact_id: str) -> tuple[KnowledgeIndexDB | None, list[KnowledgeIndexRunDB]]:
         knowledge_index = self._knowledge_index_repo.get_by_artifact(artifact_id)
