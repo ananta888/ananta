@@ -19,6 +19,16 @@ from agent.services.mail_application_service import (
     get_mail_application_service,
 )
 from agent.services.mail_task_service import MailWorkspaceScope
+from client_surfaces.operator_tui.mail_message_projection import account_status as _account_status
+from client_surfaces.operator_tui.mail_message_projection import annotate_thread_counts as _annotate_thread_counts
+from client_surfaces.operator_tui.mail_message_projection import body_text as _body_text
+from client_surfaces.operator_tui.mail_message_projection import header_meta as _header_meta
+from client_surfaces.operator_tui.mail_message_projection import json_safe as _json_safe
+from client_surfaces.operator_tui.mail_message_projection import mail_message_key as _mail_message_key
+from client_surfaces.operator_tui.mail_message_projection import mailboxes as _mailboxes
+from client_surfaces.operator_tui.mail_message_projection import matches_filters as _matches_filters
+from client_surfaces.operator_tui.mail_message_projection import message_ref as _message_ref
+from client_surfaces.operator_tui.mail_message_projection import parse_search_filters as _parse_search_filters
 from client_surfaces.operator_tui.models import CommandResult, OperatorState, PanelState
 
 
@@ -57,173 +67,6 @@ def _mapping(value: Any) -> dict[str, Any]:
         mapped = to_dict()
         return dict(mapped) if isinstance(mapped, Mapping) else {}
     return {}
-
-
-def _json_safe(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {
-            str(key): _json_safe(item)
-            for key, item in value.items()
-            if str(key).lower()
-            not in {"body", "content", "raw", "data", "credential_ref", "password", "token"}
-        }
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    if isinstance(value, bytes):
-        return {"content_omitted": True, "size": len(value)}
-    return value
-
-
-def _message_ref(row: Mapping[str, Any]) -> dict[str, Any]:
-    source = {**dict(row.get("message_ref") or {}), **dict(row)}
-    protocol = str(source.get("protocol") or "imap").lower()
-    mail_ref_id = str(source.get("mail_ref_id") or "").strip()
-    ref: dict[str, Any] = {
-        "mail_ref_id": mail_ref_id,
-        "account_id": str(source.get("account_id") or ""),
-        "protocol": protocol,
-    }
-    thread_ref = str(source.get("thread_ref_id") or "").strip()
-    if thread_ref:
-        ref["thread_ref_id"] = thread_ref
-    message_id = str(source.get("message_id_header") or source.get("message_id") or "").strip()
-    if message_id:
-        ref["message_id"] = message_id
-    # Legacy locators are input compatibility only. JMAP provider locators never
-    # cross the surface boundary.
-    if protocol == "imap":
-        mailbox = str(source.get("mailbox") or "").strip()
-        uid = source.get("uid")
-        if mailbox:
-            ref["mailbox"] = mailbox
-        if uid is not None:
-            ref["uid"] = uid
-    return ref
-
-
-def _header_meta(row: Mapping[str, Any]) -> dict[str, Any]:
-    source = {**dict(row.get("header_meta") or {}), **dict(row)}
-    raw_to = source.get("to_addresses") or source.get("to") or []
-    to_addresses = [raw_to] if isinstance(raw_to, str) else list(raw_to)
-    header = {
-        "subject": str(source.get("subject") or ""),
-        "from": str(source.get("from_address") or source.get("from") or ""),
-        "to": to_addresses,
-        "date": str(source.get("date") or ""),
-        "unread": bool(source.get("unread", False)),
-        "size": int(source.get("size") or 0),
-    }
-    message_id = str(source.get("message_id_header") or source.get("message_id") or "").strip()
-    if message_id:
-        header["message_id"] = message_id
-    return header
-
-
-def _normalize_message(row: Mapping[str, Any]) -> dict[str, Any]:
-    source = {**dict(row.get("message_ref") or {}), **dict(row.get("header_meta") or {}), **dict(row)}
-    ref = _message_ref(source)
-    return {
-        "mail_ref_id": str(ref.get("mail_ref_id") or ""),
-        "message_ref": ref,
-        "header_meta": _header_meta(source),
-        "mailbox_ref_ids": [
-            str(item)
-            for item in list(source.get("mailbox_ref_ids") or [])
-            if str(item).strip()
-        ],
-        "keywords": dict(source.get("keywords") or {}),
-        "stale": bool(source.get("stale", False)),
-        "body_scope": "metadata_only",
-        "source_ref": str(source.get("source_ref") or ""),
-        "attachments": [
-            dict(item)
-            for item in list(source.get("attachments") or [])
-            if isinstance(item, Mapping)
-        ],
-    }
-
-
-def _mail_message_key(row: Mapping[str, Any]) -> str:
-    ref = _message_ref(row)
-    mail_ref_id = str(ref.get("mail_ref_id") or "").strip()
-    if mail_ref_id:
-        return mail_ref_id
-    message_id = str(ref.get("message_id") or "").strip()
-    if message_id:
-        return message_id
-    return f"{ref.get('account_id')}::{ref.get('mailbox')}::{ref.get('uid')}"
-
-
-def _mailboxes(row: Mapping[str, Any]) -> set[str]:
-    normalized = _normalize_message(row)
-    values = {str(item) for item in normalized.get("mailbox_ref_ids") or [] if str(item)}
-    legacy = str(dict(normalized.get("message_ref") or {}).get("mailbox") or "").strip()
-    if legacy:
-        values.add(legacy)
-    return values
-
-
-def _matches_filters(row: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
-    normalized = _normalize_message(row)
-    ref = dict(normalized.get("message_ref") or {})
-    header = dict(normalized.get("header_meta") or {})
-    mailbox = str(filters.get("mailbox") or "")
-    if mailbox and mailbox not in _mailboxes(normalized):
-        return False
-    if filters.get("from") and str(filters["from"]).casefold() not in str(header.get("from") or "").casefold():
-        return False
-    if filters.get("to") and str(filters["to"]).casefold() not in " ".join(str(item) for item in header.get("to") or []).casefold():
-        return False
-    if filters.get("subject") and str(filters["subject"]).casefold() not in str(header.get("subject") or "").casefold():
-        return False
-    if filters.get("unread") is not None and bool(header.get("unread")) is not bool(filters["unread"]):
-        return False
-    date = str(header.get("date") or "")
-    if filters.get("date_from") and date < str(filters["date_from"]):
-        return False
-    if filters.get("date_to") and date > str(filters["date_to"]):
-        return False
-    return bool(ref.get("mail_ref_id") or ref.get("uid") is not None)
-
-
-def _annotate_thread_counts(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    counts: dict[str, int] = {}
-    normalized = [_normalize_message(row) for row in rows]
-    for row in normalized:
-        ref = dict(row.get("message_ref") or {})
-        thread_ref = str(ref.get("thread_ref_id") or ref.get("mail_ref_id") or "")
-        counts[thread_ref] = counts.get(thread_ref, 0) + 1
-    for row in normalized:
-        ref = dict(row.get("message_ref") or {})
-        thread_ref = str(ref.get("thread_ref_id") or ref.get("mail_ref_id") or "")
-        row["thread_message_count"] = counts.get(thread_ref, 1)
-    return normalized
-
-
-def _account_status(account: Mapping[str, Any]) -> dict[str, Any]:
-    enabled = bool(account.get("enabled", True))
-    last_task = dict(account.get("last_task") or {})
-    task_status = str(last_task.get("status") or "")
-    if not enabled:
-        state = "disabled"
-        reason_code = "account_disabled"
-    elif task_status in {"queued", "pending", "processing", "running"}:
-        state = "syncing"
-        reason_code = "mail_task_active"
-    elif task_status in {"failed", "cancelled"}:
-        state = "degraded"
-        reason_code = str(last_task.get("reason_code") or f"mail_task_{task_status}")
-    elif str(account.get("runtime_state") or "") == "offline":
-        state = "offline"
-        reason_code = "passive_provider_offline"
-    else:
-        state = "ready"
-        reason_code = "passive_metadata_ready"
-    return {
-        **dict(account),
-        "state": state,
-        "reason_code": reason_code,
-    }
 
 
 def _build_mail_payload(*, game: dict[str, Any], repo_root: Path) -> dict[str, Any]:
@@ -364,18 +207,6 @@ def _selected_row(payload: Mapping[str, Any], target: str = "") -> dict[str, Any
     return next((row for row in rows if _mail_message_key(row) == selected), {})
 
 
-def _body_text(value: Mapping[str, Any]) -> str:
-    for field in ("body_text", "text", "body", "value"):
-        candidate = value.get(field)
-        if isinstance(candidate, str):
-            return candidate
-        if isinstance(candidate, Mapping):
-            nested = candidate.get("text") or candidate.get("value")
-            if isinstance(nested, str):
-                return nested
-    return ""
-
-
 def _authorize_content(
     application: MailApplicationService,
     row: Mapping[str, Any],
@@ -413,29 +244,6 @@ def _extension(application: MailApplicationService, operation: str, **kwargs: An
     if not callable(method):
         raise MailApplicationError(f"mail_{operation}_unavailable")
     return method(**kwargs)
-
-
-def _parse_search_filters(query: str) -> dict[str, Any]:
-    filters: dict[str, Any] = {}
-    for token in query.split():
-        lowered = token.lower()
-        if lowered.startswith("from:"):
-            filters["from"] = token.split(":", 1)[1]
-        elif lowered.startswith("to:"):
-            filters["to"] = token.split(":", 1)[1]
-        elif lowered.startswith("subject:"):
-            filters["subject"] = token.split(":", 1)[1]
-        elif lowered.startswith("mailbox:"):
-            filters["mailbox"] = token.split(":", 1)[1]
-        elif lowered.startswith("date:"):
-            value = token.split(":", 1)[1]
-            if ".." in value:
-                filters["date_from"], filters["date_to"] = value.split("..", 1)
-        elif lowered.startswith("unread:"):
-            filters["unread"] = token.split(":", 1)[1].lower() in {"1", "true", "yes", "on"}
-        else:
-            filters["subject"] = f"{filters.get('subject', '')} {token}".strip()
-    return filters
 
 
 def handle_mail_command(args: list[str], state: OperatorState) -> CommandResult:
