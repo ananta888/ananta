@@ -25,6 +25,8 @@ from agent.models import (
     SgptSessionTurnRequest,
     SgptSourceRequest,
 )
+from agent.routes import sgpt_account_login_routes as _account_login_routes
+from agent.routes import sgpt_claude_workspace_routes as _claude_workspace_routes
 from agent.routes import sgpt_execute as _sgpt_execute
 from agent.routes.sgpt_source_preview import resolve_source_preview_path
 from agent.runtime_policy import (
@@ -677,146 +679,29 @@ def cli_backend_worker_action(backend_id: str):
     )
 
 
-@sgpt_bp.route("/backends/<backend_id>/account-login", methods=["POST"])
-@admin_required
-def cli_backend_account_login(backend_id: str):
-    """Manage a browser-assisted account login inside one Worker."""
+cli_backend_account_login = admin_required(_account_login_routes.cli_backend_account_login)
+sgpt_bp.add_url_rule(
+    "/backends/<backend_id>/account-login",
+    endpoint="cli_backend_account_login",
+    view_func=cli_backend_account_login,
+    methods=["POST"],
+)
 
-    from agent.cli_backends.account_login import (
-        SUPPORTED_ACCOUNT_LOGIN_BACKENDS,
-        CliBackendAccountLoginError,
-        get_cli_backend_account_login_service,
-    )
+claude_write_armed_run = check_auth(_claude_workspace_routes.claude_write_armed_run)
+sgpt_bp.add_url_rule(
+    "/backends/claude_code/write-armed-run",
+    endpoint="claude_write_armed_run",
+    view_func=claude_write_armed_run,
+    methods=["POST"],
+)
 
-    backend = str(backend_id or "").strip().lower()
-    if backend not in SUPPORTED_ACCOUNT_LOGIN_BACKENDS:
-        return api_response(status="error", message="account_login_backend_unsupported", code=404)
-    if settings.role != "worker":
-        return api_response(status="error", message="worker_role_required", code=409)
-
-    body = request.get_json(silent=True) or {}
-    action = str(body.get("action") or "").strip().lower()
-    service = get_cli_backend_account_login_service()
-    try:
-        if action == "account_status":
-            result = service.account_status(backend)
-        elif action == "login_start":
-            result = service.start(backend)
-        elif action == "login_status":
-            result = service.status(backend, str(body.get("session_id") or ""))
-        elif action == "login_input":
-            result = service.submit_input(
-                backend,
-                str(body.get("session_id") or ""),
-                str(body.get("value") or ""),
-            )
-        elif action == "login_cancel":
-            result = service.cancel(backend, str(body.get("session_id") or ""))
-        else:
-            return api_response(status="error", message="invalid_account_login_action", code=400)
-    except CliBackendAccountLoginError as exc:
-        reason_code = str(exc)
-        response_code = 404 if reason_code in {"backend_not_installed", "account_login_session_not_found"} else 400
-        log_audit(
-            "cli_backend_account_login_failed",
-            {"backend": backend, "action": action, "reason_code": reason_code},
-        )
-        return api_response(
-            status="error",
-            message=reason_code,
-            data={"backend": backend, "action": action},
-            code=response_code,
-        )
-
-    log_audit(
-        "cli_backend_account_login_action",
-        {
-            "backend": backend,
-            "action": action,
-            "login_status": result.get("status"),
-        },
-    )
-    return api_response(data=result)
-
-
-@sgpt_bp.route("/backends/claude_code/write-armed-run", methods=["POST"])
-@check_auth
-def claude_write_armed_run():
-    """write_armed-Run fuer Claude Code: schreibt nur in eine isolierte
-    Workspace-Kopie und liefert den Diff als Artefakt
-    (status=awaiting_diff_review). Der Diff wird nie automatisch
-    angewendet — Uebernahme ist eine manuelle Review-Entscheidung.
-    """
-    body = request.get_json(silent=True) or {}
-    prompt = str(body.get("prompt") or "").strip()
-    if not prompt:
-        return api_response(status="error", message="prompt is required", code=400)
-    workdir = str(body.get("workdir") or "").strip()
-    if not workdir:
-        return api_response(
-            status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400
-        )
-    model = str(body.get("model") or "").strip() or None
-    try:
-        timeout = int(body.get("timeout") or 600)
-    except (TypeError, ValueError):
-        timeout = 600
-    timeout = max(30, min(timeout, 3600))
-
-    from agent.cli_backends.opencode import run_claude_write_armed
-
-    started = time.time()
-    result = run_claude_write_armed(prompt=prompt[:4000], model=model, timeout=timeout, workdir=workdir)
-    duration_ms = int((time.time() - started) * 1000)
-    audit_logger.info(
-        f"Claude write_armed run: status={result.get('status')} changed_files={len(result.get('changed_files') or [])}",
-        extra={
-            "extra_fields": {
-                "action": "claude_write_armed_run",
-                "status": result.get("status"),
-                "rc": result.get("rc"),
-                "changed_files": len(result.get("changed_files") or []),
-                "duration_ms": duration_ms,
-            }
-        },
-    )
-    result["duration_ms"] = duration_ms
-    return api_response(data=result)
-
-
-@sgpt_bp.route("/backends/claude_code/apply-diff", methods=["POST"])
-@check_auth
-def claude_apply_reviewed_diff():
-    """Diff-Apply nach Review: wendet einen geprueften write_armed-Diff
-    auf das Original-Workdir an (git apply --check, dann git apply).
-    Es wird nicht committet — der Commit bleibt manuelle Entscheidung.
-    """
-    body = request.get_json(silent=True) or {}
-    diff = str(body.get("diff") or "")
-    if not diff.strip():
-        return api_response(status="error", message="diff is required", code=400)
-    workdir = str(body.get("workdir") or "").strip()
-    if not workdir:
-        return api_response(
-            status="error", message="workdir is required (git repo within claude_cli.allowed_paths)", code=400
-        )
-
-    from agent.cli_backends.opencode import apply_reviewed_diff
-
-    result = apply_reviewed_diff(diff=diff, workdir=workdir)
-    audit_logger.info(
-        f"Claude diff-apply: status={result.get('status')} changed_files={len(result.get('changed_files') or [])}",
-        extra={
-            "extra_fields": {
-                "action": "claude_apply_reviewed_diff",
-                "status": result.get("status"),
-                "applied": bool(result.get("applied")),
-                "changed_files": len(result.get("changed_files") or []),
-            }
-        },
-    )
-    code = {"applied": 200, "conflict": 409}.get(result.get("status"), 422)
-    return api_response(data=result, code=code)
+claude_apply_reviewed_diff = check_auth(_claude_workspace_routes.claude_apply_reviewed_diff)
+sgpt_bp.add_url_rule(
+    "/backends/claude_code/apply-diff",
+    endpoint="claude_apply_reviewed_diff",
+    view_func=claude_apply_reviewed_diff,
+    methods=["POST"],
+)
 
 
 @sgpt_bp.route("/sessions", methods=["POST"])
