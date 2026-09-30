@@ -11,14 +11,9 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import WebrtcKeyConfirmationDB
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.models.webrtc_peer_key_confirmation import WebrtcPeerKeyRepositoryError
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
-
-
-class WebrtcPeerKeyRepositoryError(ValueError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
 
 
 class WebrtcPeerKeyRepository:

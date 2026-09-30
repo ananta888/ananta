@@ -10,13 +10,13 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models.semantic_relay import SemanticRelayCursorDB, SemanticRelayEnvelopeDB
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.models.semantic_relay_limits import DEFAULT_SEMANTIC_RELAY_LIMITS, SemanticRelayLimits
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from agent.repositories.semantic_relay_repository import (
     SemanticRelayEnvelope,
     SemanticRelayRepositoryError,
 )
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
-from agent.services.semantic_relay_limits import DEFAULT_SEMANTIC_RELAY_LIMITS, SemanticRelayLimits
 
 _DB_RELAY_LOCK = threading.RLock()
 

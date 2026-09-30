@@ -11,13 +11,13 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models import MlInternSpeechAdapterDB, MlInternSpeechAdapterLegacyImportDB
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from agent.repositories.speech_evidence_lineage import (
     SpeechEvidenceLineageRepository,
     SpeechLineageEdge,
     SpeechLineageNode,
 )
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
 
 _WRITE_LOCK = threading.RLock()
 _IMMUTABLE_FIELDS = (

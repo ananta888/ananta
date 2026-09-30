@@ -15,12 +15,12 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models import SemanticSfuAdmissionReceiptDB, SemanticSfuRoomStateDB
-from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import (
+from agent.models.semantic_media_audit import (
     SemanticMediaAuditError,
     SemanticMediaAuditEvent,
     same_idempotent_audit_request,
 )
+from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 
 
 class SemanticSfuAdmissionRepositoryError(RuntimeError):

@@ -10,8 +10,8 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models.speech_evidence import SpeechEvidenceConsentDB
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
 from ananta_contracts.speech_evidence_governance import SpeechEvidenceConsent
 
 

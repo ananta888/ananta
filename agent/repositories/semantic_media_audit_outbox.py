@@ -11,13 +11,13 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models import SemanticMediaAuditEventDB, SemanticMediaAuditOutboxDB
-from agent.services.semantic_media_audit_service import (
+from agent.models.semantic_media_audit import (
     MAX_SCOPE_EVENTS,
     SemanticMediaAuditError,
     SemanticMediaAuditEvent,
     same_idempotent_audit_request,
 )
-from agent.services.semantic_media_program_evidence import assert_content_free
+from agent.models.semantic_media_content_policy import assert_content_free
 
 
 @dataclass(frozen=True, slots=True)

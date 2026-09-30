@@ -18,20 +18,15 @@ from agent.db_models import (
     SemanticContractMutationDB,
     SemanticSessionMembershipDB,
 )
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.models.semantic_principal import SemanticPrincipal
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
 
 
 class SemanticContractRepositoryError(RuntimeError):
     def __init__(self, reason_code: str) -> None:
         self.reason_code = reason_code
         super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class SemanticPrincipal:
-    tenant_id: str
-    subject: str
 
 
 @dataclass(frozen=True, slots=True)

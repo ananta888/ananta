@@ -25,8 +25,8 @@ from agent.db_models.speech_evidence_sync import (
     SpeechEvidenceTransferChunkDB,
     SpeechEvidenceTransferDB,
 )
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
 from agent.services.speech_evidence_offer_service import (
     SpeechEvidenceGroupPreview,
     SpeechEvidenceOfferError,

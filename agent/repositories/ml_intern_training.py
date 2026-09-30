@@ -16,6 +16,8 @@ from agent.db_models import (
     MlInternTrainingExecutionLeaseDB,
     MlInternTrainingJobDB,
 )
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.ports.semantic_media_audit import SemanticMediaAuditPort
 from agent.repositories.ml_intern_training_serialization import (
     is_slot_or_idempotency_conflict as _is_slot_or_idempotency_conflict,
 )
@@ -27,10 +29,6 @@ from agent.repositories.ml_intern_training_serialization import (
 )
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
-from agent.services.semantic_media_audit_service import (
-    SemanticMediaAuditEvent,
-    SemanticMediaAuditPort,
-)
 
 _DEFAULT_AUDIT: SemanticMediaAuditPort | None = None
 

@@ -12,8 +12,8 @@ from sqlmodel import Session, select
 
 from agent.database import engine as default_engine
 from agent.db_models import WebrtcEpochDB, WebrtcReplayStateDB
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import SemanticMediaAuditEvent
 
 
 @dataclass(frozen=True)

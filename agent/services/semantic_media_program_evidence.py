@@ -8,43 +8,24 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import os
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+# Compatibility re-exports: the content-free policy is dependency-free and lives
+# in ``agent.models.semantic_media_content_policy`` so audit persistence can
+# enforce it without importing this service module (DIP).
+from agent.models.semantic_media_content_policy import (
+    FORBIDDEN_KEY_FRAGMENTS,
+    ProgramEvidenceError,
+    assert_content_free,
+)
+
 EVIDENCE_SCHEMA = "ananta.semantic-media-gate-evidence.v1"
 GATE_STATUSES = frozenset({"passed", "failed", "unverified"})
 BLOCKING_RISKS = frozenset({"critical", "high"})
-FORBIDDEN_KEY_FRAGMENTS = frozenset(
-    {
-        "audio",
-        "ciphertext",
-        "content",
-        "embedding",
-        "feature_vector",
-        "frame",
-        "key_material",
-        "local_path",
-        "media",
-        "password",
-        "payload",
-        "pixel",
-        "prompt",
-        "raw_text",
-        "secret",
-        "token_value",
-        "transcript",
-    }
-)
-
-
-class ProgramEvidenceError(ValueError):
-    def __init__(self, reason_code: str) -> None:
-        super().__init__(reason_code)
-        self.reason_code = reason_code
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,27 +176,6 @@ def write_report(path: Path, evidence: GateEvidence) -> None:
         Path(temporary).replace(path)
     finally:
         Path(temporary).unlink(missing_ok=True)
-
-
-def assert_content_free(value: Any, *, known_secrets: Sequence[str] = (), path: tuple[str, ...] = ()) -> None:
-    if isinstance(value, Mapping):
-        for key, nested in value.items():
-            normalized = str(key).casefold()
-            if any(fragment in normalized for fragment in FORBIDDEN_KEY_FRAGMENTS):
-                raise ProgramEvidenceError(f"content_field_forbidden:{'.'.join((*path, str(key)))}")
-            assert_content_free(nested, known_secrets=known_secrets, path=(*path, str(key)))
-        return
-    if isinstance(value, (list, tuple)):
-        for index, nested in enumerate(value):
-            assert_content_free(nested, known_secrets=known_secrets, path=(*path, str(index)))
-        return
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ProgramEvidenceError("non_finite_evidence_value")
-    if isinstance(value, str):
-        if len(value) > 512 or any(secret and secret in value for secret in known_secrets):
-            raise ProgramEvidenceError("secret_or_unbounded_evidence_value")
-        if value.startswith(("/", "file:", "~")) or "\\" in value:
-            raise ProgramEvidenceError("absolute_path_in_evidence")
 
 
 def release_decision(evidence: Sequence[GateEvidence]) -> tuple[str, tuple[str, ...]]:

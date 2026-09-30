@@ -21,11 +21,9 @@ from agent.db_models import (
     SemanticComputeScheduleReceiptDB,
     SemanticLeaseFenceDB,
 )
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.ports.semantic_media_audit import SemanticMediaAuditPort
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import (
-    SemanticMediaAuditEvent,
-    SemanticMediaAuditPort,
-)
 
 
 class SemanticLeaseRepositoryError(RuntimeError):

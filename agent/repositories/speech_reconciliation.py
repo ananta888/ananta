@@ -21,16 +21,14 @@ from agent.db_models.speech_reconciliation import (
     SpeechReconciliationJobDB,
     SpeechReconciliationMutationDB,
 )
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.ports.semantic_media_audit import SemanticMediaAuditPort
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from agent.repositories.speech_evidence_lineage import (
     SpeechEvidenceLineageRepository,
     SpeechLineageEdge,
     SpeechLineageNode,
     get_speech_evidence_lineage_repository,
-)
-from agent.services.semantic_media_audit_service import (
-    SemanticMediaAuditEvent,
-    SemanticMediaAuditPort,
 )
 from agent.services.speech_reconciliation_state_machine import SpeechReconciliationStateMachine
 from ananta_contracts.speech_reconciliation import (

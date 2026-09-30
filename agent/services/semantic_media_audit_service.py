@@ -7,125 +7,27 @@ import hmac
 import json
 import threading
 import time
-from dataclasses import asdict, dataclass
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Mapping
 
-from agent.services.semantic_media_program_evidence import FORBIDDEN_KEY_FRAGMENTS, assert_content_free
-
-MAX_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
-MIN_RETENTION_MS = 60 * 60 * 1000
-MAX_PAGE_SIZE = 100
-MAX_SCOPE_EVENTS = 10_000
-REFERENCE_FIELDS = ("contract_ref", "lease_ref", "job_ref")
-AUDIT_EVENT_TYPES = frozenset(
-    {
-        "semantic_budget",
-        "semantic_admission",
-        "semantic_consent",
-        "semantic_contract",
-        "semantic_fallback",
-        "semantic_job",
-        "semantic_lease",
-        "semantic_recovery",
-        "semantic_rekey",
-        "semantic_relay",
-        "speech_adapter",
-        "speech_dataset",
-        "speech_evidence",
-        "speech_training",
-    }
+from agent.models.semantic_media_audit import (
+    AUDIT_EVENT_TYPES,
+    MAX_PAGE_SIZE,
+    MAX_RETENTION_MS,
+    MAX_SCOPE_EVENTS,
+    MIN_RETENTION_MS,
+    REFERENCE_FIELDS,
+    SemanticMediaAuditError,
+    SemanticMediaAuditEvent,
+    same_idempotent_audit_request,
 )
+from agent.models.semantic_media_content_policy import FORBIDDEN_KEY_FRAGMENTS, assert_content_free
+from agent.ports.semantic_media_audit import SemanticMediaAuditPort, SemanticMediaAuditRepository
 
-
-class SemanticMediaAuditError(ValueError):
-    def __init__(self, reason_code: str, *, status_code: int = 422) -> None:
-        super().__init__(reason_code)
-        self.reason_code = reason_code
-        self.status_code = status_code
-
-
-@dataclass(frozen=True, slots=True)
-class SemanticMediaAuditEvent:
-    event_id: str
-    idempotency_digest: str
-    tenant_digest: str
-    scope_digest: str
-    event_type: str
-    transition: str
-    reason_code: str
-    epoch: int
-    contract_ref: str | None
-    lease_ref: str | None
-    job_ref: str | None
-    created_at_ms: int
-    expires_at_ms: int
-
-    def public(self) -> dict[str, object]:
-        result = asdict(self)
-        result.pop("idempotency_digest", None)
-        assert_content_free(result)
-        return result
-
-
-class SemanticMediaAuditRepository(Protocol):
-    def append_once(self, event: SemanticMediaAuditEvent) -> tuple[SemanticMediaAuditEvent, bool]: ...
-
-    def page(
-        self,
-        *,
-        tenant_digest: str,
-        scope_digest: str,
-        after_event_id: str | None,
-        limit: int,
-        now_ms: int,
-    ) -> tuple[tuple[SemanticMediaAuditEvent, ...], str | None]: ...
-
-    def delete_expired(self, *, now_ms: int, limit: int) -> int: ...
-
-    def delete_scope(self, *, tenant_digest: str, scope_digest: str, limit: int) -> int: ...
-
-    def delete_tenant(self, *, tenant_digest: str, limit: int) -> int: ...
-
-
-class SemanticMediaAuditPort(Protocol):
-    """Narrow write-only port used by Hub domain services (DIP/ISP)."""
-
-    def record_transition(
-        self,
-        *,
-        idempotency_key: str,
-        tenant_id: str,
-        scope: str,
-        event_type: str,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-        contract_ref: str | None = None,
-        lease_ref: str | None = None,
-        job_ref: str | None = None,
-        retention_ms: int = 7 * 24 * 60 * 60 * 1000,
-    ) -> tuple[SemanticMediaAuditEvent, bool]: ...
-
-    def prepare_transition(
-        self,
-        *,
-        idempotency_key: str,
-        tenant_id: str,
-        scope: str,
-        event_type: str,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-        contract_ref: str | None = None,
-        lease_ref: str | None = None,
-        job_ref: str | None = None,
-        retention_ms: int = 7 * 24 * 60 * 60 * 1000,
-    ) -> SemanticMediaAuditEvent: ...
-
-    def append_prepared(
-        self,
-        event: SemanticMediaAuditEvent,
-    ) -> tuple[SemanticMediaAuditEvent, bool]: ...
+# Compatibility re-exports: the audit event value type, bounds and error live in
+# ``agent.models.semantic_media_audit`` and the ports in
+# ``agent.ports.semantic_media_audit`` so persistence adapters can use them
+# without depending on this service module (DIP). ``MAX_SCOPE_EVENTS`` is read
+# from this module's globals by the in-memory adapter below.
 
 
 class InMemorySemanticMediaAuditRepository:
@@ -463,29 +365,6 @@ class SemanticMediaAuditRecorder:
         return self._service.append_prepared(event)
 
 
-def same_idempotent_audit_request(
-    first: SemanticMediaAuditEvent,
-    second: SemanticMediaAuditEvent,
-) -> bool:
-    """Compare the command binding, excluding first-write timestamps and ID."""
-
-    return all(
-        getattr(first, field) == getattr(second, field)
-        for field in (
-            "idempotency_digest",
-            "tenant_digest",
-            "scope_digest",
-            "event_type",
-            "transition",
-            "reason_code",
-            "epoch",
-            "contract_ref",
-            "lease_ref",
-            "job_ref",
-        )
-    )
-
-
 def _canonical(value: Mapping[str, object]) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
@@ -505,8 +384,13 @@ def _identifier(value: str, reason: str) -> None:
 
 
 __all__ = [
+    "AUDIT_EVENT_TYPES",
     "InMemorySemanticMediaAuditRepository",
     "MAX_PAGE_SIZE",
+    "MAX_RETENTION_MS",
+    "MAX_SCOPE_EVENTS",
+    "MIN_RETENTION_MS",
+    "REFERENCE_FIELDS",
     "SemanticMediaAuditError",
     "SemanticMediaAuditEvent",
     "SemanticMediaAuditRepository",

@@ -22,11 +22,9 @@ from agent.db_models.speech_adaptation import (
     SpeechAdaptationJobDB,
 )
 from agent.db_models.speech_evidence import SpeechEvidenceConsentDB
+from agent.models.semantic_media_audit import SemanticMediaAuditEvent
+from agent.ports.semantic_media_audit import SemanticMediaAuditPort
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
-from agent.services.semantic_media_audit_service import (
-    SemanticMediaAuditEvent,
-    SemanticMediaAuditPort,
-)
 from agent.services.speech_adaptation_job_service import (
     SpeechAdaptationDecisionConflict,
     SpeechAdmissionDecision,

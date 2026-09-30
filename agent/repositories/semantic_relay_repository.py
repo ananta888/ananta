@@ -6,18 +6,13 @@ import threading
 from dataclasses import dataclass, replace
 from typing import Protocol
 
-from agent.services.semantic_media_audit_service import (
+from agent.models.semantic_media_audit import (
     SemanticMediaAuditError,
     SemanticMediaAuditEvent,
     same_idempotent_audit_request,
 )
-from agent.services.semantic_relay_limits import DEFAULT_SEMANTIC_RELAY_LIMITS, SemanticRelayLimits
-
-
-class SemanticRelayRepositoryError(ValueError):
-    def __init__(self, reason_code: str) -> None:
-        super().__init__(reason_code)
-        self.reason_code = reason_code
+from agent.models.semantic_relay_errors import SemanticRelayRepositoryError
+from agent.models.semantic_relay_limits import DEFAULT_SEMANTIC_RELAY_LIMITS, SemanticRelayLimits
 
 
 @dataclass(frozen=True, slots=True)
