@@ -16,6 +16,11 @@ from agent.db_models.organizations import (
 from agent.services.organization_role_activation_read_service import (
     OrganizationRoleActivationReadService,
 )
+from agent.services.organization_role_activation_runtime import (
+    hub_routed_fact,
+    task_ready_fact,
+)
+from agent.services.organization_role_activation_workflow import cross_team_artifact_edges
 
 
 class _Rows:
@@ -506,7 +511,7 @@ def test_runtime_projection_uses_only_exact_task_job_and_live_lease_facts() -> N
 def test_task_ready_is_unknown_when_a_dependency_is_outside_the_scoped_task_set() -> None:
     task = TaskDB(id="task", status="todo", depends_on=["foreign-dependency"])
 
-    assert OrganizationRoleActivationReadService._task_ready_fact(task, tasks_by_id={task.id: task}) == "unknown"
+    assert task_ready_fact(task, tasks_by_id={task.id: task}) == "unknown"
 
 
 def test_dependency_blocked_task_is_ready_after_all_scoped_dependencies_complete() -> None:
@@ -517,7 +522,7 @@ def test_dependency_blocked_task_is_ready_after_all_scoped_dependencies_complete
         depends_on=[dependency.id],
     )
     assert (
-        OrganizationRoleActivationReadService._task_ready_fact(
+        task_ready_fact(
             task,
             tasks_by_id={dependency.id: dependency, task.id: task},
         )
@@ -538,11 +543,10 @@ def test_hub_routed_requires_complete_hub_dispatch_binding() -> None:
         },
     )
 
-    assert OrganizationRoleActivationReadService._hub_routed_fact(task) == "unknown"
+    assert hub_routed_fact(task) == "unknown"
 
 
 def test_cross_team_handoffs_explain_declared_input_producers_without_runtime_claims() -> None:
-    service = OrganizationRoleActivationReadService(catalog=object())
     source_step = {
         "step_ref": "team:direction/workflow:direction@1/step:goal",
         "owner_role_ref": "portfolio_product_owner@1",
@@ -582,7 +586,7 @@ def test_cross_team_handoffs_explain_declared_input_producers_without_runtime_cl
         lifecycle="active",
     )
 
-    edges = service._cross_team_artifact_edges(
+    edges = cross_team_artifact_edges(
         teams=teams,
         units=[direction_unit, delivery_unit],
         relations=[relation],
@@ -621,7 +625,6 @@ def test_cross_team_handoffs_explain_declared_input_producers_without_runtime_cl
 
 
 def test_declared_handoff_edges_survive_without_artifact_overlap_and_have_distinct_ids() -> None:
-    service = OrganizationRoleActivationReadService(catalog=object())
     source_step = {
         "step_ref": "team:enablement/workflow:enablement@1/step:operate",
         "owner_role_ref": "sre@1",
@@ -675,7 +678,7 @@ def test_declared_handoff_edges_survive_without_artifact_overlap_and_have_distin
         ),
     ]
 
-    edges = service._cross_team_artifact_edges(
+    edges = cross_team_artifact_edges(
         teams=teams,
         units=[enablement, delivery],
         relations=relations,
