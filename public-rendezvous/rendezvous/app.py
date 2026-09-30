@@ -34,6 +34,11 @@ import service as svc
 from flask import Flask, Response, jsonify, request
 from oidc_auth import AuthContext, verify_bearer_token
 from pair_security import SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS
+from rendezvous_transport_routes import (
+    TURN_CREDENTIAL_ERROR_STATUS,
+    TransportRoutes,
+    TransportRouteSupport,
+)
 
 import config as cfg
 
@@ -48,11 +53,7 @@ app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 
-_TURN_CREDENTIAL_ERROR_STATUS = {
-    "session_not_found": 404,
-    "forbidden": 403,
-    "turn_not_configured": 503,
-}
+_TURN_CREDENTIAL_ERROR_STATUS = TURN_CREDENTIAL_ERROR_STATUS
 
 
 @app.after_request
@@ -763,239 +764,25 @@ def set_membership_runtime(session_id: str):
     return response, 200
 
 
-@app.get("/rendezvous/turn-credentials")
-def turn_credentials():
-    ctx = _require_auth()
-    if not ctx:
-        return _auth_error()
-    if set(request.args) != {"session_id"} or len(request.args.getlist("session_id")) != 1:
-        error = "session_id_required" if "session_id" not in request.args else "turn_request_invalid"
-        return jsonify({"error": error}), 400
-    raw_session_id = str(request.args.get("session_id") or "").strip()
-    try:
-        session_id = str(uuid.UUID(raw_session_id))
-    except (AttributeError, ValueError):
-        return jsonify({"error": "session_id_invalid"}), 400
-    if limited := _membership_probe_limit(ctx.account_id):
-        return limited
-    requested_peer_id = _requested_peer_id()
-    membership_capability = _membership_capability()
-    membership = svc.authenticate_session_membership(
-        session_id=session_id,
-        account_id=ctx.account_id,
-        requested_peer_id=requested_peer_id,
-        membership_capability=membership_capability,
-    )
-    if not membership.get("ok"):
-        reason = str(membership.get("reason") or "forbidden")
-        return jsonify({"error": reason}), _member_error_status(
-            reason,
-            default=_TURN_CREDENTIAL_ERROR_STATUS.get(reason, 409),
-        )
-    if limited := _rate_limit_guard(
-        "turn_credentials",
-        # A retired session must not transfer its exhausted TURN budget to a
-        # replacement session on the same device. Both values are canonical
-        # server-resolved identifiers; the raw tuple is hashed by the limiter
-        # and never contains the membership capability or bearer token.
-        f"{session_id}\0{membership['local_peer_id']}",
-        cfg.RATE_TURN_CREDENTIAL_LIMIT,
-        cfg.RATE_TURN_CREDENTIAL_WINDOW,
-    ):
-        return limited
-    result = svc.issue_turn_credentials(
-        session_id=session_id,
-        requester_user_id=ctx.account_id,
-        requester_peer_id=requested_peer_id,
-        membership_capability=membership_capability,
-    )
-    if not result.get("ok"):
-        reason = str(result.get("reason") or "turn_credentials_unavailable")
-        status = _member_error_status(
-            reason,
-            default=_TURN_CREDENTIAL_ERROR_STATUS.get(reason, 409),
-        )
-        return jsonify({"error": reason}), status
-    response = jsonify(
-        {
-            "ok": True,
-            "session_id": session_id,
-            "local_peer_id": result["credentials"]["local_peer_id"],
-            "data": result["credentials"],
-        }
-    )
-    response.headers["Cache-Control"] = "no-store"
-    return response, 200
-
-
-# --- WebRTC Signaling ---
-
-
-@app.post("/webrtc/sessions/<session_id>/signal")
-def push_signal(session_id: str):
-    ctx = _require_auth()
-    if not ctx:
-        return _auth_error()
-    raw = request.get_data(as_text=False)
-    if len(raw) > svc._MAX_SIGNAL_BYTES:
-        return jsonify({"error": "signal_too_large"}), 413
-    body, body_error = _closed_json_body(
-        {
-            "type",
-            "session_id",
-            "sender_id",
-            "recipient_id",
-            "payload",
-            "security_epoch",
-        }
-    )
-    if body_error:
-        return body_error
-    assert body is not None
-    declared_session = str(body.get("session_id") or "").strip()
-    declared_sender = str(body.get("sender_id") or "").strip()
-    if limited := _membership_probe_limit(ctx.account_id):
-        return limited
-    requested_peer_id = _requested_peer_id()
-    membership_capability = _membership_capability()
-    membership = svc.authenticate_session_membership(
-        session_id=session_id,
-        account_id=ctx.account_id,
-        requested_peer_id=requested_peer_id,
-        membership_capability=membership_capability,
-        require_pair=True,
-    )
-    if not membership.get("ok"):
-        reason = str(membership.get("reason") or "forbidden")
-        return jsonify({"error": reason}), _member_error_status(reason)
-    selected_peer_id = str(membership["local_peer_id"])
-    if declared_session and declared_session != session_id:
-        return jsonify({"error": "signal_session_mismatch"}), 400
-    if declared_sender and declared_sender != selected_peer_id:
-        return jsonify({"error": "signal_sender_mismatch"}), 403
-    recipient_id = str(body.get("recipient_id") or "").strip()
-    if not recipient_id:
-        return jsonify({"error": "recipient_id_required"}), 400
-    if limited := _rate_limit_guard(
-        "signal", selected_peer_id, cfg.RATE_SIGNAL_LIMIT, cfg.RATE_SIGNAL_WINDOW,
-    ):
-        return limited
-    signal_type = str(body.get("type") or "").strip()
-    security_epoch = body.get("security_epoch")
-    if security_epoch is not None and (
-        isinstance(security_epoch, bool) or not isinstance(security_epoch, int) or security_epoch < 1
-    ):
-        return jsonify({"error": "signal_epoch_invalid"}), 400
-    result = svc.push_signal(
-        session_id=session_id,
-        sender_id=selected_peer_id,
-        recipient_id=recipient_id,
-        signal_type=signal_type,
-        payload=body.get("payload"),
-        security_epoch=security_epoch,
-        sender_account_id=ctx.account_id,
-        membership_capability=membership_capability,
-    )
-    if not result.get("ok"):
-        reason = result["reason"]
-        status = (
-            _member_error_status(reason)
-            if reason
-            in {
-                "forbidden",
-                "local_peer_id_required",
-                "membership_capability_required",
-                "membership_capability_invalid",
-            }
-            else 400
-            if reason.startswith("invalid_signal")
-            else 409
-        )
-        return jsonify({"error": reason}), status
-    return jsonify({**result, "local_peer_id": selected_peer_id}), 201
-
-
-@app.get("/webrtc/sessions/<session_id>/signal")
-def poll_signals(session_id: str):
-    ctx = _require_auth()
-    if not ctx:
-        return _auth_error()
-    since_values = request.args.getlist("since")
-    if len(since_values) > 1:
-        return jsonify({"error": "signal_cursor_invalid"}), 400
-    raw_since = str(since_values[0]) if since_values else ""
-    if raw_since and (len(raw_since) > 19 or not raw_since.isascii() or not raw_since.isdecimal()):
-        return jsonify({"error": "signal_cursor_invalid"}), 400
-    since = int(raw_since) if raw_since else 0
-    if since > svc._MAX_SIGNAL_CURSOR:
-        return jsonify({"error": "signal_cursor_invalid"}), 400
-    epoch_values = request.args.getlist("security_epoch")
-    if len(epoch_values) > 1:
-        return jsonify({"error": "signal_epoch_invalid"}), 400
-    raw_epoch = str(epoch_values[0]) if epoch_values else ""
-    if raw_epoch and (
-        len(raw_epoch) > 19 or not raw_epoch.isascii() or not raw_epoch.isdecimal() or int(raw_epoch) < 1
-    ):
-        return jsonify({"error": "signal_epoch_invalid"}), 400
-    security_epoch = int(raw_epoch) if raw_epoch else None
-    if limited := _membership_probe_limit(ctx.account_id):
-        return limited
-    requested_peer_id = _requested_peer_id()
-    membership_capability = _membership_capability()
-    membership = svc.authenticate_session_membership(
-        session_id=session_id,
-        account_id=ctx.account_id,
-        requested_peer_id=requested_peer_id,
-        membership_capability=membership_capability,
-        require_pair=True,
-    )
-    if not membership.get("ok"):
-        reason = str(membership.get("reason") or "forbidden")
-        return jsonify({"error": reason}), _member_error_status(reason)
-    if limited := _rate_limit_guard(
-        "signal_poll",
-        str(membership["local_peer_id"]),
-        cfg.RATE_SIGNAL_POLL_LIMIT,
-        cfg.RATE_SIGNAL_POLL_WINDOW,
-    ):
-        return limited
-    result = svc.poll_signals(
-        session_id=session_id,
-        user_id=ctx.account_id,
-        since=since,
-        requester_peer_id=requested_peer_id,
-        membership_capability=membership_capability,
-        security_epoch=security_epoch,
-    )
-    if not result.get("ok"):
-        reason = str(result.get("reason") or "forbidden")
-        status = 400 if reason == "signal_cursor_invalid" else _member_error_status(reason)
-        return jsonify({"error": reason}), status
-    data = {key: value for key, value in result.items() if key != "ok"}
-    return jsonify(
-        {
-            "ok": True,
-            "local_peer_id": result["local_peer_id"],
-            "data": data,
-        }
-    ), 200
-
-
-# --- /signaling Alias (HTTP-Polling, zukünftig WebSocket) ---
-
-
-@app.route("/signaling", methods=["GET", "POST"])
-def signaling_alias():
-    """HTTP-Polling-Kompatibilitäts-Endpunkt. Leitet zu /webrtc/sessions/<id>/signal."""
-    ctx = _require_auth()
-    if not ctx:
-        return _auth_error()
-    session_id = str(request.args.get("session_id") or "").strip()
-    if not session_id:
-        return jsonify({"error": "session_id query param required"}), 400
-    if request.method == "POST":
-        return push_signal(session_id)
-    return poll_signals(session_id)
+_TRANSPORT_ROUTES = TransportRoutes(
+    support=TransportRouteSupport(
+        require_auth=_require_auth,
+        auth_error=_auth_error,
+        closed_json_body=_closed_json_body,
+        requested_peer_id=_requested_peer_id,
+        membership_capability=_membership_capability,
+        membership_probe_limit=_membership_probe_limit,
+        rate_limit_guard=_rate_limit_guard,
+        member_error_status=_member_error_status,
+    ),
+    service=svc,
+    config=cfg,
+)
+_TRANSPORT_ROUTES.register(app)
+turn_credentials = _TRANSPORT_ROUTES.turn_credentials
+push_signal = _TRANSPORT_ROUTES.push_signal
+poll_signals = _TRANSPORT_ROUTES.poll_signals
+signaling_alias = _TRANSPORT_ROUTES.signaling_alias
 
 
 # --- Error handlers ---
