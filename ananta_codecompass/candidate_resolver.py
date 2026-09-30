@@ -489,6 +489,224 @@ def _tokens_match(terms: list[str], text: str) -> list[str]:
     low = text.lower()
     return [t for t in terms if t.lower() in low]
 
+_SEARCHABLE_RECORD_FIELDS = (
+    "symbol", "name", "summary", "content", "embedding_text", "title", "description", "path", "file",
+)
+_RELATION_SOURCE_FIELDS = ("file", "source_name", "path", "from_path", "from", "source")
+
+
+@dataclass(frozen=True)
+class _QueryTerms:
+    """Parsed query terms the per-record scoring matches against."""
+
+    exact_symbols: list[str]
+    phrases: list[str]
+    broad_tokens: list[str]
+
+
+def _query_terms(question: str, memory_context: str | None) -> _QueryTerms:
+    parsed = parse_codecompass_query(question)
+    broad_tokens = parsed["broad_terms"]
+    if memory_context:
+        mem_parsed = parse_codecompass_query(memory_context)
+        broad_tokens = list({*broad_tokens, *mem_parsed["broad_terms"]})[:30]
+    return _QueryTerms(
+        exact_symbols=parsed["exact_symbol_terms"],
+        phrases=parsed["phrase_terms"],
+        broad_tokens=broad_tokens,
+    )
+
+
+def _record_search_text(record: dict[str, Any]) -> str:
+    """Build the searchable text of one CodeCompass record."""
+
+    text_parts: list[str] = []
+    for field_name in _SEARCHABLE_RECORD_FIELDS:
+        val = record.get(field_name)
+        if val and isinstance(val, str):
+            text_parts.append(val)
+    return " ".join(text_parts)
+
+
+def _add_reason(cs: CandidateScore, reason: str) -> None:
+    if reason not in cs.match_reasons:
+        cs.match_reasons.append(reason)
+
+
+def _apply_flat_bonus(cs: CandidateScore, bonus: str, weight: float, reason: str) -> None:
+    """Add a bonus at most once per (path, bonus)."""
+
+    if bonus in cs.applied_bonuses:
+        return
+    cs.total += weight
+    cs.applied_bonuses.add(bonus)
+    _add_reason(cs, reason)
+
+
+def _score_exact_symbols(cs: CandidateScore, exact_symbols: list[str], text: str) -> None:
+    # Exact symbol matches — applied at most once per (path,
+    # exact_symbol_set). The per-symbol weight inside the set still
+    # counts every unique symbol that was hit, but a file with 100
+    # records of the same symbol doesn't get 100× the weight of a
+    # file with 1 record of the same symbol.
+    if "exact_symbol" in cs.applied_bonuses:
+        return
+    hit_symbols = _tokens_match(exact_symbols, text)
+    if not hit_symbols:
+        return
+    cs.total += _WEIGHT["exact_symbol"] * len(hit_symbols)
+    cs.applied_bonuses.add("exact_symbol")
+    _add_reason(cs, f"exact_symbol:{','.join(hit_symbols[:3])}")
+    for s in hit_symbols:
+        if s not in cs.matched_symbols:
+            cs.matched_symbols.append(s)
+
+
+def _score_phrases(cs: CandidateScore, phrases: list[str], text: str) -> None:
+    # Phrase matches — same once-per-path semantics.
+    if "phrase" in cs.applied_bonuses:
+        return
+    hit_phrases = _tokens_match(phrases, text)
+    if hit_phrases:
+        cs.total += _WEIGHT["phrase"] * len(hit_phrases)
+        cs.applied_bonuses.add("phrase")
+        _add_reason(cs, f"phrase:{','.join(hit_phrases[:2])}")
+
+
+def _score_broad_tokens(cs: CandidateScore, broad_tokens: list[str], text: str) -> None:
+    # Broad token matches — diminishing returns.
+    # Per-path cap: apply AT MOST ONCE per (path, "broad_token_match").
+    # Otherwise large files with hundreds of records flood the
+    # ranking for any query that shares even one common short token
+    # (e.g. "re" or "de") with the file's symbols, embeddings, or
+    # content snippets.
+    if "broad_token_match" in cs.applied_bonuses:
+        return
+    hit_broad = _tokens_match(broad_tokens[:15], text)
+    if hit_broad:
+        cs.total += _WEIGHT["broad_token"] * math.log1p(len(hit_broad))
+        cs.applied_bonuses.add("broad_token_match")
+        _add_reason(cs, "broad_token_match")
+
+
+def _score_output_kind(cs: CandidateScore, kind: str) -> None:
+    # Per-path kind-bonus caps: context_hit, details_hit, and
+    # graph_neighbor (from graph_nodes) are applied AT MOST ONCE
+    # per (path, bonus_kind). This stops a single large file with
+    # 200+ details records from outscoring a small file with 1
+    # details record just because of file size.
+    if kind == "context":
+        _apply_flat_bonus(cs, "context_hit", _WEIGHT["context_hit"], "context_hit")
+    elif kind == "details":
+        _apply_flat_bonus(cs, "details_hit", _WEIGHT["details_hit"], "details_hit")
+
+
+def _score_embedding_text(cs: CandidateScore, record: dict[str, Any], terms: _QueryTerms) -> None:
+    # Embedding text match bonus (kind==embedding) — per-symbol, capped
+    # at 1× per (path, "embedding_text_match") so the textual bonus
+    # reflects the existence of an embedding match, not its count.
+    emb_text = str(record.get("embedding_text") or "")
+    if emb_text and _tokens_match(terms.exact_symbols or terms.phrases, emb_text):
+        _apply_flat_bonus(cs, "embedding_text_match", _WEIGHT["embedding_text"], "embedding_text_match")
+
+
+def _relation_source_path(record: dict[str, Any]) -> str:
+    raw = ""
+    for field_name in _RELATION_SOURCE_FIELDS:
+        raw = record.get(field_name)
+        if raw:
+            break
+    return _normalize_path(str(raw or ""))
+
+
+def _score_relation(cs: CandidateScore, record: dict[str, Any]) -> None:
+    # Relations: each record names a source FILE (the file that
+    # declares/owns the relation) plus a target SYMBOL (the
+    # type/method being referenced). The target symbol is usually
+    # a Java fully-qualified class name, a method-call snippet,
+    # or a hash ID — never a repo-relative file path. Only the
+    # source file's path is usable for ranking.
+    #
+    # Capping rule: a single file with N outgoing relations contributes
+    # AT MOST 1× to graph_neighbor for itself (files like
+    # AnantaApiClient.java — 506 relations — would otherwise saturate
+    # the graph_neighbor slot for every query).
+    relation_source = _relation_source_path(record)
+    if not relation_source or not _looks_like_path(relation_source):
+        # No usable source path (e.g. {from, to, type} only, both being hash IDs).
+        return
+    if "relation_neighbor" in cs.match_reasons:
+        return
+    cs.total += _WEIGHT["graph_neighbor"] * 0.5
+    _add_reason(cs, "relation_neighbor")
+
+
+def _score_record(cs: CandidateScore, record: dict[str, Any], kind: str, terms: _QueryTerms) -> None:
+    """Apply every capped bonus of one record to its path score (original order)."""
+
+    text = _record_search_text(record)
+    _score_exact_symbols(cs, terms.exact_symbols, text)
+    _score_phrases(cs, terms.phrases, text)
+    _score_broad_tokens(cs, terms.broad_tokens, text)
+    _score_output_kind(cs, kind)
+    if kind == "embedding":
+        _score_embedding_text(cs, record, terms)
+    # Graph neighbor (from graph_nodes) — once per path.
+    if kind == "graph_nodes":
+        _apply_flat_bonus(cs, "graph_neighbor_node", _WEIGHT["graph_neighbor"], "graph_neighbor")
+    if kind == "relations":
+        _score_relation(cs, record)
+
+
+def _register_record(
+    scores: dict[str, CandidateScore],
+    record: dict[str, Any],
+    manifest_hash: str,
+) -> tuple[CandidateScore, str] | None:
+    """Return the path score and output kind of a record, or None when it names no file."""
+
+    prov = record.get("_provenance") or {}
+    kind = str(prov.get("output_kind") or "index")
+    record_id = str(prov.get("record_id") or record.get("id") or "")
+    path = extract_file_path_from_record(record, output_kind=kind)
+    if not path:
+        return None
+    path = _normalize_path(path)
+    cs = scores.get(path)
+    if cs is None:
+        cs = scores[path] = CandidateScore(path=path, manifest_hash=manifest_hash)
+    if record_id and record_id not in cs.source_record_ids:
+        cs.source_record_ids.append(record_id)
+    if kind not in cs.source_output_kinds:
+        cs.source_output_kinds.append(kind)
+    return cs, kind
+
+
+def _excludes_any_kind(mode: ResolverConfig) -> bool:
+    return (
+        not mode.include_source
+        or not mode.include_test_paths
+        or not mode.include_docs
+        or not mode.include_workflows
+        or not mode.include_third_party
+    )
+
+
+def _candidate_file(c: CandidateScore) -> dict[str, Any]:
+    return {
+        "path": c.path,
+        "score": round(c.total, 4),
+        "reason": "; ".join(c.match_reasons[:5]) or "indirect_match",
+        "source_record_ids": c.source_record_ids[:10],
+        "source_output_kinds": sorted(set(c.source_output_kinds)),
+        "matched_symbols": c.matched_symbols[:10],
+        "relation_path": c.relation_path,
+        "manifest_hash": c.manifest_hash,
+        "sensitivity": "internal",
+        "read_policy": "allowed",
+        "requires_read": bool(c.matched_symbols or "context_hit" in c.match_reasons),
+    }
+
 
 class CodeCompassCandidateResolver:
     """
@@ -536,162 +754,14 @@ class CodeCompassCandidateResolver:
         loaded = self._reader.load_from_output_dir(output_dir=output_dir)
         records: list[dict[str, Any]] = loaded.get("records") or []
         mhash = manifest_hash or str((loaded.get("manifest") or {}).get("manifest_hash") or "")
-
-        parsed = parse_codecompass_query(question)
-        exact_symbols = parsed["exact_symbol_terms"]
-        phrases = parsed["phrase_terms"]
-        broad_tokens = parsed["broad_terms"]
-
-        if memory_context:
-            mem_parsed = parse_codecompass_query(memory_context)
-            broad_tokens = list({*broad_tokens, *mem_parsed["broad_terms"]})[:30]
+        terms = _query_terms(question, memory_context)
 
         scores: dict[str, CandidateScore] = {}
-
-        def _get(path: str) -> CandidateScore:
-            if path not in scores:
-                scores[path] = CandidateScore(path=path, manifest_hash=mhash)
-            return scores[path]
-
         for record in records:
-            prov = record.get("_provenance") or {}
-            kind = str(prov.get("output_kind") or "index")
-            record_id = str(prov.get("record_id") or record.get("id") or "")
-
-            path = extract_file_path_from_record(record, output_kind=kind)
-            if not path:
-                continue
-            path = _normalize_path(path)
-
-            cs = _get(path)
-            if record_id and record_id not in cs.source_record_ids:
-                cs.source_record_ids.append(record_id)
-            if kind not in cs.source_output_kinds:
-                cs.source_output_kinds.append(kind)
-
-            # Build searchable text from record
-            text_parts: list[str] = []
-            for field_name in ("symbol", "name", "summary", "content", "embedding_text",
-                               "title", "description", "path", "file"):
-                val = record.get(field_name)
-                if val and isinstance(val, str):
-                    text_parts.append(val)
-            text = " ".join(text_parts)
-
-            # Exact symbol matches — applied at most once per (path,
-            # exact_symbol_set). The per-symbol weight inside the set still
-            # counts every unique symbol that was hit, but a file with 100
-            # records of the same symbol doesn't get 100× the weight of a
-            # file with 1 record of the same symbol.
-            if "exact_symbol" not in cs.applied_bonuses:
-                hit_symbols = _tokens_match(exact_symbols, text)
-                if hit_symbols:
-                    weight = _WEIGHT["exact_symbol"] * len(hit_symbols)
-                    cs.total += weight
-                    cs.applied_bonuses.add("exact_symbol")
-                    reason = f"exact_symbol:{','.join(hit_symbols[:3])}"
-                    if reason not in cs.match_reasons:
-                        cs.match_reasons.append(reason)
-                    for s in hit_symbols:
-                        if s not in cs.matched_symbols:
-                            cs.matched_symbols.append(s)
-
-            # Phrase matches — same once-per-path semantics.
-            if "phrase" not in cs.applied_bonuses:
-                hit_phrases = _tokens_match(phrases, text)
-                if hit_phrases:
-                    cs.total += _WEIGHT["phrase"] * len(hit_phrases)
-                    cs.applied_bonuses.add("phrase")
-                    reason = f"phrase:{','.join(hit_phrases[:2])}"
-                    if reason not in cs.match_reasons:
-                        cs.match_reasons.append(reason)
-
-            # Broad token matches — diminishing returns.
-            # Per-path cap: apply AT MOST ONCE per (path, "broad_token_match").
-            # Otherwise large files with hundreds of records flood the
-            # ranking for any query that shares even one common short token
-            # (e.g. "re" or "de") with the file's symbols, embeddings, or
-            # content snippets.
-            if "broad_token_match" not in cs.applied_bonuses:
-                hit_broad = _tokens_match(broad_tokens[:15], text)
-                if hit_broad:
-                    cs.total += _WEIGHT["broad_token"] * math.log1p(len(hit_broad))
-                    cs.applied_bonuses.add("broad_token_match")
-                    if "broad_token_match" not in cs.match_reasons:
-                        cs.match_reasons.append("broad_token_match")
-
-            # Per-path kind-bonus caps: context_hit, details_hit, and
-            # graph_neighbor (from graph_nodes) are applied AT MOST ONCE
-            # per (path, bonus_kind). This stops a single large file with
-            # 200+ details records from outscoring a small file with 1
-            # details record just because of file size.
-            if kind == "context" and "context_hit" not in cs.applied_bonuses:
-                cs.total += _WEIGHT["context_hit"]
-                cs.applied_bonuses.add("context_hit")
-                if "context_hit" not in cs.match_reasons:
-                    cs.match_reasons.append("context_hit")
-            elif kind == "details" and "details_hit" not in cs.applied_bonuses:
-                cs.total += _WEIGHT["details_hit"]
-                cs.applied_bonuses.add("details_hit")
-                if "details_hit" not in cs.match_reasons:
-                    cs.match_reasons.append("details_hit")
-
-            # Embedding text match bonus (kind==embedding) — per-symbol, capped
-            # at 1× per (path, "embedding_text_match") so the textual bonus
-            # reflects the existence of an embedding match, not its count.
-            if kind == "embedding":
-                emb_text = str(record.get("embedding_text") or "")
-                if emb_text and _tokens_match(exact_symbols or phrases, emb_text):
-                    if "embedding_text_match" not in cs.applied_bonuses:
-                        cs.total += _WEIGHT["embedding_text"]
-                        cs.applied_bonuses.add("embedding_text_match")
-                        if "embedding_text_match" not in cs.match_reasons:
-                            cs.match_reasons.append("embedding_text_match")
-
-            # Graph neighbor (from graph_nodes) — once per path.
-            if kind == "graph_nodes" and "graph_neighbor_node" not in cs.applied_bonuses:
-                cs.total += _WEIGHT["graph_neighbor"]
-                cs.applied_bonuses.add("graph_neighbor_node")
-                if "graph_neighbor" not in cs.match_reasons:
-                    cs.match_reasons.append("graph_neighbor")
-
-            # Relations: each record names a source FILE (the file that
-            # declares/owns the relation) plus a target SYMBOL (the
-            # type/method being referenced). The target symbol is usually
-            # a Java fully-qualified class name, a method-call snippet,
-            # or a hash ID — never a repo-relative file path. Only the
-            # source file's path is usable for ranking.
-            #
-            # Capping rules:
-            #  - Per-source: a single file with N outgoing relations
-            #    contributes AT MOST 1× to graph_neighbor for itself.
-            #    (Without the cap, files like
-            #    AnantaApiClient.java — 506 relations — would saturate
-            #    the graph_neighbor slot for every query.)
-            if kind == "relations":
-                relation_source = _normalize_path(
-                    str(
-                        record.get("file")
-                        or record.get("source_name")
-                        or record.get("path")
-                        or record.get("from_path")
-                        or record.get("from")
-                        or record.get("source")
-                        or ""
-                    )
-                )
-                if not relation_source or not _looks_like_path(relation_source):
-                    # No usable source path (e.g. {from, to, type} only,
-                    # both being hash IDs). Skip.
-                    continue
-                # Cap: at most 1× graph_neighbor from relations per file,
-                # regardless of how many outgoing relations it has.
-                if "relation_neighbor" in cs.match_reasons:
-                    # cs already has a relation boost — skip.
-                    continue
-                cs.total += _WEIGHT["graph_neighbor"] * 0.5
-                if "relation_neighbor" not in cs.match_reasons:
-                    cs.match_reasons.append("relation_neighbor")
+            registered = _register_record(scores, record, mhash)
+            if registered is not None:
+                cs, kind = registered
+                _score_record(cs, record, kind, terms)
 
         if not scores:
             return []
@@ -699,13 +769,7 @@ class CodeCompassCandidateResolver:
         # Mode-aware filtering: drop paths whose kind the user has not
         # opted into. Filter happens AFTER scoring (so opt-in toggles
         # are cheap) but BEFORE multiplier application.
-        if (
-            not mode.include_source
-            or not mode.include_test_paths
-            or not mode.include_docs
-            or not mode.include_workflows
-            or not mode.include_third_party
-        ):
+        if _excludes_any_kind(mode):
             scores = {p: cs for p, cs in scores.items() if mode.accepts(p)}
             if not scores:
                 return []
@@ -714,7 +778,7 @@ class CodeCompassCandidateResolver:
         # to the accumulated raw scores. We do this once at the end (not
         # inside the per-record loop) so the per-record bookkeeping stays
         # clean and the multiplier can be inspected in tests.
-        all_query_tokens = set(exact_symbols) | set(phrases) | set(broad_tokens)
+        all_query_tokens = set(terms.exact_symbols) | set(terms.phrases) | set(terms.broad_tokens)
         for cs in scores.values():
             path_mult = mode.path_multiplier(cs.path)
             stem_boost = _stem_boost(cs.path, all_query_tokens, mode=mode)
@@ -722,21 +786,4 @@ class CodeCompassCandidateResolver:
 
         sorted_candidates = sorted(scores.values(), key=lambda c: c.total, reverse=True)
         top = sorted_candidates[: mode.max_candidates]
-
-        return [
-            {
-                "path": c.path,
-                "score": round(c.total, 4),
-                "reason": "; ".join(c.match_reasons[:5]) or "indirect_match",
-                "source_record_ids": c.source_record_ids[:10],
-                "source_output_kinds": sorted(set(c.source_output_kinds)),
-                "matched_symbols": c.matched_symbols[:10],
-                "relation_path": c.relation_path,
-                "manifest_hash": c.manifest_hash,
-                "sensitivity": "internal",
-                "read_policy": "allowed",
-                "requires_read": bool(c.matched_symbols or "context_hit" in c.match_reasons),
-            }
-            for c in top
-            if c.total > 0
-        ]
+        return [_candidate_file(c) for c in top if c.total > 0]
