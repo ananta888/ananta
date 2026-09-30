@@ -8,7 +8,6 @@ from typing import Any
 from ananta_contracts.codecompass_semantic_partitions import (
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
 )
-from worker.retrieval import repository_codecompass_bridge as bridge_module
 from worker.retrieval.repository_codecompass_bridge import (
     _DEFERRED_EDGE_DOMAIN_FIELD,
     RepositoryCodeCompassBridge,
@@ -611,14 +610,7 @@ def test_deferred_reservoir_does_not_report_duplicates_as_truncated() -> None:
     assert spool.truncated_edge_count == 0
 
 
-def test_deferred_reservoir_keeps_domain_loss_visible_after_identity_saturation(
-    monkeypatch: Any,
-) -> None:
-    monkeypatch.setattr(
-        bridge_module,
-        "MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES",
-        2,
-    )
+def test_deferred_reservoir_keeps_domain_loss_visible_after_identity_saturation() -> None:
     candidates = [
         {
             "source": f"semantic:{domain}:source",
@@ -630,7 +622,11 @@ def test_deferred_reservoir_keeps_domain_loss_visible_after_identity_saturation(
     ]
     snapshots: list[tuple[list[dict[str, Any]], dict[str, int], int]] = []
     for ordered in (candidates, list(reversed(candidates))):
-        spool = _BoundedSemanticEdgeSpool(max_records=2, max_bytes=2048)
+        spool = _BoundedSemanticEdgeSpool(
+            max_records=2,
+            max_bytes=2048,
+            max_tracked_candidates=2,
+        )
         for edge in ordered:
             spool.append(edge)
         snapshots.append(

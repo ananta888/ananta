@@ -1,12 +1,15 @@
-"""Deterministic CodeCompass graph outputs for governed repository records."""
+"""Deterministic CodeCompass graph outputs for governed repository records.
+
+Domain partitioning/admission evidence and the budgeted semantic collectors
+are composed from ``repository_codecompass_domain_admission`` and
+``repository_codecompass_semantic_budget``; they are re-exported here for
+existing importers.
+"""
 
 from __future__ import annotations
 
 import hashlib
-import heapq
-import json
-from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -18,7 +21,6 @@ from agent.codecompass.semantic_translation.registry import (
     SemanticGraphExecutionPort,
 )
 from ananta_contracts.codecompass_graph_limits import (
-    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
     MAX_CODECOMPASS_SEMANTIC_BYTES_PER_PARTITION,
     MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATE_BYTES,
     MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES,
@@ -28,24 +30,39 @@ from ananta_contracts.codecompass_graph_limits import (
 )
 from ananta_contracts.codecompass_semantic_partitions import (
     CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD,
-    codecompass_semantic_domain_key,
-    codecompass_semantic_repository_root_domain_key,
 )
 from worker.retrieval.codecompass_domain_supplement import (
     DOMAIN_SUPPLEMENT_SOURCE_FILENAME,
     CodeCompassDomainSupplementSourceWriter,
-    SemanticDomainIdentity,
+)
+from worker.retrieval.repository_codecompass_domain_admission import (
+    _AcceptedSemanticDomain,
+    _DomainAdmissionEvidence,
+    _SemanticDomainEvidence,
+    _TopLevelDomainPartitions,
+)
+from worker.retrieval.repository_codecompass_semantic_budget import (
+    _DEFERRED_EDGE_DOMAIN_FIELD,
+    _BoundedSemanticEdgeSpool,
+    _BoundedSemanticGraphCollector,
+    _canonical_json,
 )
 
-
-def _canonical_json(value: object) -> str:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
+# Compatibility re-exports: names that were importable from this module
+# before its collaborators were extracted.
+from ananta_contracts.codecompass_graph_limits import (  # noqa: F401,I001
+    MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
+from ananta_contracts.codecompass_semantic_partitions import (  # noqa: F401
+    codecompass_semantic_domain_key,
+    codecompass_semantic_repository_root_domain_key,
+)
+from worker.retrieval.codecompass_domain_supplement import (  # noqa: F401
+    SemanticDomainIdentity,
+)
+from worker.retrieval.repository_codecompass_domain_admission import (  # noqa: F401
+    _DOMAIN_ADMISSION_STRATEGY,
+)
 
 
 class RepositoryGraphExecutionDeadlinePort(Protocol):
@@ -58,386 +75,6 @@ def _checkpoint(
     if execution_deadline is not None:
         execution_deadline.checkpoint()
 
-
-_DOMAIN_ADMISSION_STRATEGY = "top_level_domain_bounded_admission_v1"
-_DEFERRED_EDGE_DOMAIN_FIELD = "__ananta_semantic_partition_domain"
-
-
-@dataclass(frozen=True)
-class _SemanticDomainEvidence:
-    identity: SemanticDomainIdentity
-    status: str
-    source_file_count: int
-    semantic_file_count: int
-    semantic_node_count: int
-    semantic_edge_count: int
-    semantic_node_bytes: int
-    semantic_edge_bytes: int
-    graph_declaration_count: int
-    graph_declaration_bytes: int
-    truncated_graph_declaration_count: int
-    truncated_node_count: int
-    truncated_edge_count: int
-    unresolved_edge_count: int
-
-    @property
-    def domain_key(self) -> str:
-        return self.identity.domain_key
-
-    def to_wire(self) -> dict[str, object]:
-        return {
-            "domain_key": self.domain_key,
-            "status": self.status,
-            "source_file_count": self.source_file_count,
-            "semantic_file_count": self.semantic_file_count,
-            "semantic_node_count": self.semantic_node_count,
-            "semantic_edge_count": self.semantic_edge_count,
-            "semantic_node_bytes": self.semantic_node_bytes,
-            "semantic_edge_bytes": self.semantic_edge_bytes,
-            "graph_declaration_count": self.graph_declaration_count,
-            "graph_declaration_bytes": self.graph_declaration_bytes,
-            "truncated_graph_declaration_count": (self.truncated_graph_declaration_count),
-            "truncated_node_count": self.truncated_node_count,
-            "truncated_edge_count": self.truncated_edge_count,
-            "unresolved_edge_count": self.unresolved_edge_count,
-        }
-
-
-@dataclass(frozen=True)
-class _DomainAdmissionEvidence:
-    domain_count: int
-    materialized_domain_count: int
-    omitted_domain_count: int
-    empty_domain_count: int
-    partition_count: int
-    domains: Sequence[_SemanticDomainEvidence]
-
-    _MAX_EVIDENCE = MAX_CODECOMPASS_SEMANTIC_PARTITIONS
-
-    @staticmethod
-    def _evidence_order(item: _SemanticDomainEvidence) -> tuple[int, str]:
-        status_priority = {
-            "materialized": 0,
-            "aggregate_byte_limit": 1,
-            "partition_limit": 1,
-            "per_partition_limit": 1,
-            "no_semantic_records": 2,
-        }
-        return status_priority[item.status], item.domain_key
-
-    def to_wire(self) -> dict[str, object]:
-        bounded_domains = tuple(sorted(self.domains, key=self._evidence_order)[: self._MAX_EVIDENCE])
-        return {
-            "strategy": _DOMAIN_ADMISSION_STRATEGY,
-            "top_level_domain_count": self.domain_count,
-            "materialized_domain_count": self.materialized_domain_count,
-            "omitted_domain_count": self.omitted_domain_count,
-            "empty_domain_count": self.empty_domain_count,
-            "partition_count": self.partition_count,
-            "evidence_count": len(bounded_domains),
-            "evidence_truncated_count": (self.domain_count - len(bounded_domains)),
-            "max_partitions": MAX_CODECOMPASS_SEMANTIC_PARTITIONS,
-            "max_total_bytes": MAX_CODECOMPASS_SEMANTIC_TOTAL_OUTPUT_BYTES,
-            "aggregate_scope": "semantic_and_declaration_jsonl",
-            "graph_declaration_bytes": sum(
-                item.graph_declaration_bytes for item in self.domains if item.status == "materialized"
-            ),
-            "final_graph_artifact_max_bytes": (MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES),
-            "final_materializer_fail_closed": True,
-            "domains": [item.to_wire() for item in bounded_domains],
-        }
-
-
-class _TopLevelDomainPartitions:
-    """Create deterministic, independently bounded top-level path shards.
-
-    Smaller domains are evaluated first for the aggregate output envelope, but
-    every admitted domain owns a separate collector.  Consequently a large
-    lexically early domain can never consume another domain's 5,000-record / 4
-    MiB shard allowance. Admission is intentionally greedy by ascending file
-    count and opaque domain hash; the aggregate envelope and partition-count
-    ceiling remain explicit safety limits for the final 32 MiB graph artifact.
-    """
-
-    def __init__(
-        self,
-        records: Sequence[tuple[str, dict[str, Any]]],
-    ) -> None:
-        grouped: dict[SemanticDomainIdentity, list[tuple[str, dict[str, Any]]]] = {}
-        for path, record in records:
-            grouped.setdefault(self._domain(path), []).append((path, record))
-        groups = {domain: tuple(values) for domain, values in grouped.items()}
-        self._groups = tuple(
-            (identity, groups[identity])
-            for identity in sorted(
-                groups,
-                key=lambda candidate: (
-                    len(groups[candidate]),
-                    candidate.domain_key,
-                ),
-            )
-        )
-
-    @staticmethod
-    def _domain(path: str) -> SemanticDomainIdentity:
-        head, separator, _tail = str(path or "").partition("/")
-        if separator and head:
-            return SemanticDomainIdentity(
-                domain_key=codecompass_semantic_domain_key(head),
-                domain_kind="top_level_path",
-                domain_label=head,
-            )
-        return SemanticDomainIdentity(
-            domain_key=codecompass_semantic_repository_root_domain_key(),
-            domain_kind="repository_root",
-            domain_label="",
-        )
-
-    @property
-    def domain_count(self) -> int:
-        return len(self._groups)
-
-    def groups(
-        self,
-    ) -> Iterator[
-        tuple[SemanticDomainIdentity, tuple[tuple[str, dict[str, Any]], ...]]
-    ]:
-        yield from self._groups
-
-
-@dataclass
-class _AcceptedSemanticDomain:
-    identity: SemanticDomainIdentity
-    collector: "_BoundedSemanticGraphCollector"
-    source_file_count: int
-    semantic_file_count: int
-    graph_declaration_count: int
-    graph_declaration_bytes: int
-    truncated_graph_declaration_count: int
-
-
-class _BoundedSemanticGraphCollector:
-    """Collect endpoint-closed semantic partitions within explicit budgets."""
-
-    def __init__(
-        self,
-        *,
-        max_records_per_partition: int,
-        max_bytes_per_partition: int,
-    ) -> None:
-        self._limit = max(1, int(max_records_per_partition))
-        self._max_bytes = max(1, int(max_bytes_per_partition))
-        self.nodes: dict[str, dict[str, Any]] = {}
-        self.edges: dict[str, dict[str, Any]] = {}
-        self.node_bytes = 0
-        self.edge_bytes = 0
-        self.truncated_node_count = 0
-        self.truncated_edge_count = 0
-        self.unresolved_edge_count = 0
-
-    def add_node(self, node: dict[str, Any]) -> str | None:
-        node_id = str(node.get("id") or "").strip()
-        if not node_id:
-            return None
-        if node_id in self.nodes:
-            return node_id
-        record_bytes = self._record_bytes(node)
-        if len(self.nodes) >= self._limit or self.node_bytes + record_bytes > self._max_bytes:
-            self.truncated_node_count += 1
-            return None
-        self.nodes[node_id] = node
-        self.node_bytes += record_bytes
-        return node_id
-
-    def add_edge(
-        self,
-        edge: dict[str, Any],
-        *,
-        additional_node_ids: set[str],
-    ) -> bool:
-        source = str(edge.get("source") or edge.get("source_id") or "").strip()
-        target = str(edge.get("target") or edge.get("target_id") or "").strip()
-        if not source or not target:
-            self.unresolved_edge_count += 1
-            return False
-        identity = _canonical_json(edge)
-        if identity in self.edges:
-            return True
-        source_available = source in self.nodes or source in additional_node_ids
-        target_available = target in self.nodes or target in additional_node_ids
-        if not source_available or not target_available:
-            self.unresolved_edge_count += 1
-            return False
-        record_bytes = self._record_bytes(edge)
-        if len(self.edges) >= self._limit or self.edge_bytes + record_bytes > self._max_bytes:
-            self.truncated_edge_count += 1
-            return False
-        self.edges[identity] = edge
-        self.edge_bytes += record_bytes
-        return True
-
-    def can_resolve_edge(
-        self,
-        edge: Mapping[str, Any],
-        *,
-        additional_node_ids: set[str],
-    ) -> bool:
-        source = str(edge.get("source") or edge.get("source_id") or "").strip()
-        target = str(edge.get("target") or edge.get("target_id") or "").strip()
-        return bool(
-            source
-            and target
-            and (source in self.nodes or source in additional_node_ids)
-            and (target in self.nodes or target in additional_node_ids)
-        )
-
-    @staticmethod
-    def _record_bytes(record: Mapping[str, Any]) -> int:
-        return len((_canonical_json(record) + "\n").encode("utf-8"))
-
-    @property
-    def truncated(self) -> bool:
-        return bool(self.truncated_node_count or self.truncated_edge_count)
-
-
-class _BoundedSemanticEdgeSpool:
-    """Keep a deterministic, order-independent reservoir of deferred edges."""
-
-    def __init__(self, *, max_records: int, max_bytes: int) -> None:
-        self.max_records = max(1, int(max_records))
-        self.max_bytes = max(1, int(max_bytes))
-        # Fixed slots make retention depend only on canonical hash priority,
-        # never on arrival order or on a previously evicted variable-size row.
-        self.max_record_bytes = max(1, self.max_bytes // self.max_records)
-        self._seen_candidate_hashes: set[bytes] = set()
-        self._tracked_candidate_count_by_domain: dict[str | None, int] = {}
-        self._records: dict[str, tuple[int, int, str | None, bool]] = {}
-        self._worst_first: list[tuple[int, str]] = []
-        self._byte_count = 0
-        self._saturated_lost_domains: set[str] = set()
-        self._saturated_unattributed_loss = False
-        self._saturated_domain_tracking_overflow = False
-
-    def append(self, edge: Mapping[str, Any]) -> None:
-        serialized = _canonical_json(edge)
-        if serialized in self._records:
-            return
-        digest_record = dict(edge)
-        digest_record.pop(CODECOMPASS_SEMANTIC_DOMAIN_KEY_FIELD, None)
-        digest = hashlib.sha256(_canonical_json(digest_record).encode("utf-8")).digest()
-        if digest in self._seen_candidate_hashes:
-            return
-        domain = self._candidate_domain(edge)
-        identity_tracked = False
-        if len(self._seen_candidate_hashes) < MAX_CODECOMPASS_SEMANTIC_EDGE_CANDIDATES:
-            self._seen_candidate_hashes.add(digest)
-            self._tracked_candidate_count_by_domain[domain] = self._tracked_candidate_count_by_domain.get(domain, 0) + 1
-            identity_tracked = True
-        else:
-            # Keep duplicate tracking bounded. Once saturated, the reported
-            # truncation counts remain conservative lower bounds.
-            identity_tracked = False
-        serialized_bytes = len((serialized + "\n").encode("utf-8"))
-        if serialized_bytes > self.max_record_bytes:
-            if not identity_tracked:
-                self._record_saturated_loss(domain)
-            return
-
-        priority = int.from_bytes(digest, byteorder="big")
-        self._records[serialized] = (
-            priority,
-            serialized_bytes,
-            domain,
-            identity_tracked,
-        )
-        self._byte_count += serialized_bytes
-        heapq.heappush(self._worst_first, (-priority, serialized))
-        while len(self._records) > self.max_records:
-            _negated_priority, evicted = heapq.heappop(self._worst_first)
-            (
-                _evicted_priority,
-                evicted_bytes,
-                evicted_domain,
-                evicted_identity_tracked,
-            ) = self._records.pop(evicted)
-            self._byte_count -= evicted_bytes
-            if not evicted_identity_tracked:
-                self._record_saturated_loss(evicted_domain)
-
-    def records(self) -> Iterator[dict[str, Any]]:
-        ordered = sorted(
-            self._records,
-            key=lambda serialized: (self._records[serialized][0], serialized),
-        )
-        for serialized in ordered:
-            parsed = json.loads(serialized)
-            if isinstance(parsed, dict):
-                yield parsed
-
-    @property
-    def record_count(self) -> int:
-        return len(self._records)
-
-    @property
-    def byte_count(self) -> int:
-        return self._byte_count
-
-    @property
-    def truncated_edge_count(self) -> int:
-        """Return a bounded lower bound for distinct discarded candidates."""
-
-        return sum(self.lost_by_domain.values()) + self.unattributed_truncated_edge_count
-
-    @property
-    def lost_by_domain(self) -> dict[str, int]:
-        """Return discarded-candidate lower bounds for opaque partition owners."""
-
-        retained_tracked_by_domain: dict[str | None, int] = {}
-        for _priority, _record_bytes, domain, identity_tracked in self._records.values():
-            if identity_tracked:
-                retained_tracked_by_domain[domain] = retained_tracked_by_domain.get(domain, 0) + 1
-        losses = {
-            domain: tracked_count - retained_tracked_by_domain.get(domain, 0)
-            for domain, tracked_count in self._tracked_candidate_count_by_domain.items()
-            if domain is not None and tracked_count > retained_tracked_by_domain.get(domain, 0)
-        }
-        for domain in self._saturated_lost_domains:
-            losses[domain] = losses.get(domain, 0) + 1
-        return losses
-
-    @property
-    def unattributed_truncated_edge_count(self) -> int:
-        retained_unattributed = sum(
-            1
-            for _priority, _record_bytes, domain, identity_tracked in self._records.values()
-            if identity_tracked and domain is None
-        )
-        tracked_unattributed = self._tracked_candidate_count_by_domain.get(None, 0)
-        saturated_lower_bound = int(self._saturated_unattributed_loss or self._saturated_domain_tracking_overflow)
-        return max(0, tracked_unattributed - retained_unattributed) + saturated_lower_bound
-
-    @staticmethod
-    def _candidate_domain(edge: Mapping[str, Any]) -> str | None:
-        raw_domain = edge.get(_DEFERRED_EDGE_DOMAIN_FIELD)
-        domain = str(raw_domain or "")
-        return domain or None
-
-    def _record_saturated_loss(self, domain: str | None) -> None:
-        if domain is None:
-            self._saturated_unattributed_loss = True
-            return
-        if domain in self._saturated_lost_domains:
-            return
-        if len(self._saturated_lost_domains) < MAX_CODECOMPASS_SEMANTIC_PARTITIONS:
-            self._saturated_lost_domains.add(domain)
-            return
-        self._saturated_domain_tracking_overflow = True
-
-    def __enter__(self) -> _BoundedSemanticEdgeSpool:
-        return self
-
-    def __exit__(self, *_args: object) -> None:
-        return None
 
 
 class RepositoryCodeCompassBridge:
