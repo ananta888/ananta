@@ -55,7 +55,7 @@ DEFAULT_IMAGE = "ananta-lora-training-worker:local-nvidia"
 DEFAULT_OLLAMA_IMAGE = "ollama/ollama@sha256:0ab10b9b9dc5f50d30dc61aec25e3316822ca22cf0f27d4e98d74cc7dedd7c80"
 DEFAULT_MODEL = ROOT / "data/gpu-models/tiny-causal-lm"
 DEFAULT_MATRIX = ROOT / "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
-DEFAULT_MATRIX_ENTRY = "unsloth-2026.7.5-cu124-torch260-tiny-causal-lm"
+DEFAULT_MATRIX_ENTRY = "unsloth-2026.7.5-cu128-torch280-tiny-causal-lm"
 DEFAULT_DATASET_CONTRACT = ROOT / "docs/contracts/unsloth-dolly-15k-local-evaluation.v1.json"
 SOURCE_PATHS = (
     "agent/services/hub_evidence_gate_service.py",

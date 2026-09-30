@@ -48,13 +48,13 @@ Baseline date: 2026-07-28.
 | Unsloth Core | `2026.7.5` | NVIDIA training worker | Apache-2.0 | Installed only in the optional NVIDIA worker image | [Unsloth package](https://pypi.org/project/unsloth/2026.7.5/) |
 | Unsloth Zoo | `2026.7.6` | NVIDIA training worker | LGPL-3.0-or-later | Installed only in the optional NVIDIA worker image | [Unsloth Zoo package](https://pypi.org/project/unsloth-zoo/2026.7.6/) |
 | Unsloth Studio UI | Deployment image must be digest pinned | `unsloth` Compose profile | AGPL-3.0 | Separate opt-in container; not linked into the Hub or worker Python package | [Upstream license boundary](https://github.com/unslothai/unsloth/blob/main/README.md?plain=1#L1608) |
-| PyTorch | `2.6.0+cu124` | NVIDIA training worker | BSD-3-Clause | Optional NVIDIA worker image | [PyTorch](https://github.com/pytorch/pytorch) |
+| PyTorch | `2.8.0+cu128` | NVIDIA training worker | BSD-3-Clause | Optional NVIDIA worker image | [PyTorch](https://github.com/pytorch/pytorch) |
 | Transformers | `4.57.3` | NVIDIA training worker | Apache-2.0 | Optional NVIDIA worker image | [Transformers](https://github.com/huggingface/transformers) |
 | PEFT | `0.18.0` | NVIDIA training worker | Apache-2.0 | Optional NVIDIA worker image | [PEFT](https://github.com/huggingface/peft) |
 | TRL | `0.24.0` | NVIDIA training worker | Apache-2.0 | Optional NVIDIA worker image | [TRL](https://github.com/huggingface/trl) |
 | sentence-transformers | `5.1.2` | Embedding modality | Apache-2.0 | Optional NVIDIA worker image | [Sentence Transformers](https://github.com/huggingface/sentence-transformers) |
-| bitsandbytes | `0.45.5` | 4-bit QLoRA | MIT | Optional NVIDIA worker image | [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) |
-| xFormers | `0.0.29.post3` | CUDA attention kernels | BSD-3-Clause | Optional NVIDIA worker image | [xFormers](https://github.com/facebookresearch/xformers) |
+| bitsandbytes | `0.47.0` | 4-bit QLoRA | MIT | Optional NVIDIA worker image | [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) |
+| xFormers | `0.0.32.post2` | CUDA attention kernels | BSD-3-Clause | Optional NVIDIA worker image | [xFormers](https://github.com/facebookresearch/xformers) |
 
 The executable dependency pins are maintained in
 `docker/compose-next/requirements.lora-training-nvidia.txt`. A change to that

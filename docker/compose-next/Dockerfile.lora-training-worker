@@ -120,7 +120,7 @@ RUN apt-get update \
     && rm /tmp/requirements.lora-training-nvidia.txt
 COPY --from=llama-cpp-builder --chown=10005:10005 /opt/llama.cpp /opt/llama.cpp
 COPY --chmod=0555 docker/compose-next/lora-training-worker-entrypoint.sh /usr/local/bin/lora-training-worker-entrypoint
-ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4" \
+ENV NVIDIA_REQUIRE_CUDA="cuda>=12.8" \
     ANANTA_UNSLOTH_LLAMA_CPP_SOURCE=/opt/llama.cpp \
     UNSLOTH_LLAMA_CPP_PATH=/tmp/ananta-unsloth/llama.cpp
 

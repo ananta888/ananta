@@ -1,20 +1,22 @@
-# CUDA 12.4 QLoRA/Unsloth engine. This stage never inherits CPU-only torch.
---extra-index-url https://download.pytorch.org/whl/cu124
+# CUDA 12.8 QLoRA/Unsloth engine. This stage never inherits CPU-only torch.
+--extra-index-url https://download.pytorch.org/whl/cu128
 
-# Keep this set inside the constraints published by Unsloth 2026.7.5.
-# Torch/CUDA remain pinned to the existing RTX 30-series production baseline.
+# Keep this set inside the constraints published by Unsloth 2026.7.5 for the
+# `cu128-torch280` extra. CUDA 12.8 is the first runtime with Blackwell
+# (sm_120, e.g. RTX 50-series) kernels while still covering Ampere/Ada.
+# Matrix entry: unsloth-2026.7.5-cu128-torch280-tiny-causal-lm.
 accelerate==1.14.0
-bitsandbytes==0.45.5
+bitsandbytes==0.47.0
 datasets==3.6.0
 peft==0.18.0
 safetensors==0.6.2
 sentence-transformers==5.1.2
-torch==2.6.0+cu124
+torch==2.8.0+cu128
 torchao==0.13.0
-torchaudio==2.6.0+cu124
-torchvision==0.21.0+cu124
+torchaudio==2.8.0+cu128
+torchvision==0.23.0+cu128
 transformers==4.57.3
 trl==0.24.0
-unsloth[cu124-torch260]==2026.7.5
+unsloth[cu128-torch280]==2026.7.5
 unsloth-zoo==2026.7.6
-xformers==0.0.29.post3
+xformers==0.0.32.post2

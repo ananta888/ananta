@@ -106,7 +106,7 @@ on:
       compatibility_entry:
         description: "Approved model/driver/image compatibility matrix entry"
         required: true
-        default: "unsloth-2026.7.5-cu124-torch260-tiny-causal-lm"
+        default: "unsloth-2026.7.5-cu128-torch280-tiny-causal-lm"
         type: string
 
 permissions:
@@ -243,7 +243,7 @@ jobs:
           COMPATIBILITY_ENTRY: ${{ inputs.compatibility_entry }}
         run: |
           test -d "$MODEL_PATH"
-          [[ "$COMPATIBILITY_ENTRY" == "unsloth-2026.7.5-cu124-torch260-tiny-causal-lm" ]]
+          [[ "$COMPATIBILITY_ENTRY" == "unsloth-2026.7.5-cu128-torch280-tiny-causal-lm" ]]
       - name: Build the commit-bound NVIDIA worker image
         env:
           WORKER_IMAGE: ananta-lora-training-worker:gpu-gate-${{ github.sha }}
