@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import time
 from typing import Callable
 
@@ -19,6 +18,9 @@ from agent.db_models import (
 from agent.models.semantic_media_audit import SemanticMediaAuditEvent
 from agent.ports.ml_intern_training_repository import MlInternTrainingPrincipal
 from agent.ports.semantic_media_audit import SemanticMediaAuditPort
+from agent.repositories.ml_intern_training_audit_events import MlInternTrainingAuditEvents
+from agent.repositories.ml_intern_training_conflict import MlInternTrainingRepositoryConflict
+from agent.repositories.ml_intern_training_execution_leases import MlInternTrainingExecutionLeaseStore
 from agent.repositories.ml_intern_training_serialization import (
     is_slot_or_idempotency_conflict as _is_slot_or_idempotency_conflict,
 )
@@ -33,10 +35,6 @@ from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAudit
 _DEFAULT_AUDIT: SemanticMediaAuditPort | None = None
 
 
-class MlInternTrainingRepositoryConflict(RuntimeError):
-    pass
-
-
 class MlInternTrainingRepository:
     """SQL-backed, tenant-scoped persistence adapter for training control state."""
 
@@ -46,14 +44,25 @@ class MlInternTrainingRepository:
         db_engine=default_engine,
         audit: SemanticMediaAuditPort | None = None,
         clock: Callable[[], float] = time.time,
+        audit_events: MlInternTrainingAuditEvents | None = None,
+        execution_leases: MlInternTrainingExecutionLeaseStore | None = None,
     ) -> None:
         self._engine = db_engine
         self._audit = audit
         self._clock = clock
+        self._events = audit_events or MlInternTrainingAuditEvents(
+            audit_resolver=lambda: self._audit or _DEFAULT_AUDIT
+        )
+        self._execution_leases = execution_leases or MlInternTrainingExecutionLeaseStore(
+            db_engine=db_engine,
+            events=self._events,
+            enqueue=self._enqueue,
+            clock=clock,
+        )
 
     @_serialized_write
     def create_dataset(self, dataset: MlInternDatasetDB) -> tuple[MlInternDatasetDB, bool]:
-        audit_event = self._dataset_event(
+        audit_event = self._events.dataset(
             dataset,
             transition="dataset_created",
             reason_code="training_dataset_created",
@@ -70,7 +79,7 @@ class MlInternTrainingRepository:
             if existing is not None:
                 self._enqueue(
                     session,
-                    self._dataset_event(
+                    self._events.dataset(
                         existing,
                         transition="dataset_created",
                         reason_code="training_dataset_created",
@@ -101,7 +110,7 @@ class MlInternTrainingRepository:
                     raise
                 self._enqueue(
                     session,
-                    self._dataset_event(
+                    self._events.dataset(
                         existing,
                         transition="dataset_created",
                         reason_code="training_dataset_created",
@@ -137,7 +146,7 @@ class MlInternTrainingRepository:
         now = self._clock()
         values = dataset.model_dump(exclude={"id", "version", "created_at"})
         values.update(version=expected_version + 1, updated_at=now)
-        audit_event = self._dataset_event(
+        audit_event = self._events.dataset(
             dataset,
             transition="dataset_updated",
             reason_code="training_dataset_updated",
@@ -172,7 +181,7 @@ class MlInternTrainingRepository:
                 raise MlInternTrainingRepositoryConflict("dataset_referenced")
             self._enqueue(
                 session,
-                self._dataset_event(
+                self._events.dataset(
                     dataset,
                     transition="dataset_deleted",
                     reason_code="training_dataset_deleted",
@@ -186,7 +195,7 @@ class MlInternTrainingRepository:
     @_serialized_write
     def create_job(self, job: MlInternTrainingJobDB) -> tuple[MlInternTrainingJobDB, bool]:
         principal = MlInternTrainingPrincipal(job.tenant_id, job.owner_subject)
-        audit_event = self._job_event(
+        audit_event = self._events.job(
             job,
             transition="job_created",
             reason_code="training_job_created",
@@ -199,7 +208,7 @@ class MlInternTrainingRepository:
                     raise MlInternTrainingRepositoryConflict("idempotency_payload_conflict")
                 self._enqueue(
                     session,
-                    self._job_event(
+                    self._events.job(
                         existing,
                         transition="job_created",
                         reason_code="training_job_created",
@@ -226,7 +235,7 @@ class MlInternTrainingRepository:
                     raise MlInternTrainingRepositoryConflict("idempotency_payload_conflict")
                 self._enqueue(
                     session,
-                    self._job_event(
+                    self._events.job(
                         existing,
                         transition="job_created",
                         reason_code="training_job_created",
@@ -275,7 +284,7 @@ class MlInternTrainingRepository:
                     with session.no_autoflush:
                         self._enqueue(
                             session,
-                            self._job_event(
+                            self._events.job(
                                 candidate,
                                 transition="job_created",
                                 reason_code="training_job_created",
@@ -284,7 +293,7 @@ class MlInternTrainingRepository:
                         )
                         self._enqueue(
                             session,
-                            self._capacity_event(
+                            self._events.capacity(
                                 candidate,
                                 lease,
                                 transition="capacity_acquired",
@@ -451,7 +460,7 @@ class MlInternTrainingRepository:
         now = self._clock()
         values = job.model_dump(exclude={"id", "version", "created_at"})
         values.update(version=expected_version + 1, updated_at=now)
-        job_event = self._job_event(
+        job_event = self._events.job(
             job,
             transition="job_updated",
             reason_code=f"training_job_{job.status}",
@@ -486,7 +495,7 @@ class MlInternTrainingRepository:
                 if capacity is not None:
                     self._enqueue(
                         session,
-                        self._capacity_event(
+                        self._events.capacity(
                             job,
                             capacity,
                             transition="capacity_released",
@@ -498,7 +507,7 @@ class MlInternTrainingRepository:
                 if execution is not None:
                     self._enqueue(
                         session,
-                        self._execution_event(
+                        self._events.execution(
                             job,
                             execution,
                             transition="execution_released",
@@ -536,7 +545,7 @@ class MlInternTrainingRepository:
                 if job.error_code == "speech_evidence_revoked":
                     self._enqueue(
                         session,
-                        self._job_event(
+                        self._events.job(
                             job,
                             transition="job_fenced",
                             reason_code="speech_evidence_revoked",
@@ -562,7 +571,7 @@ class MlInternTrainingRepository:
                 session.add(job)
                 self._enqueue(
                     session,
-                    self._job_event(
+                    self._events.job(
                         job,
                         transition="job_fenced",
                         reason_code="speech_evidence_revoked",
@@ -585,7 +594,7 @@ class MlInternTrainingRepository:
                     session.add(attempt)
                     self._enqueue(
                         session,
-                        self._attempt_event(
+                        self._events.attempt(
                             attempt,
                             transition="attempt_fenced",
                             reason_code="speech_evidence_revoked",
@@ -606,7 +615,7 @@ class MlInternTrainingRepository:
                     if capacity is not None:
                         self._enqueue(
                             session,
-                            self._capacity_event(
+                            self._events.capacity(
                                 job,
                                 capacity,
                                 transition="capacity_released",
@@ -618,7 +627,7 @@ class MlInternTrainingRepository:
                     if execution is not None:
                         self._enqueue(
                             session,
-                            self._execution_event(
+                            self._events.execution(
                                 job,
                                 execution,
                                 transition="execution_released",
@@ -641,167 +650,20 @@ class MlInternTrainingRepository:
     ) -> int | None:
         """Acquire one cluster-wide execution slot without count-then-insert races."""
 
-        if not 1 <= limit <= 128:
-            raise ValueError("execution capacity is outside its bounds")
-        timestamp = self._clock() if now is None else float(now)
-        with Session(self._engine) as session:
-            expired = session.exec(
-                select(MlInternTrainingExecutionLeaseDB).where(
-                    MlInternTrainingExecutionLeaseDB.lease_expires_at <= timestamp
-                )
-            ).all()
-            for lease in expired:
-                expired_job = session.get(MlInternTrainingJobDB, lease.job_id)
-                if expired_job is not None:
-                    self._enqueue(
-                        session,
-                        self._execution_event(
-                            expired_job,
-                            lease,
-                            transition="execution_expired",
-                            reason_code="training_execution_lease_expired",
-                            epoch=lease.version + 1,
-                        ),
-                    )
-                session.delete(lease)
-            existing = session.exec(
-                select(MlInternTrainingExecutionLeaseDB).where(
-                    MlInternTrainingExecutionLeaseDB.job_id == job_id
-                )
-            ).first()
-            if existing is not None:
-                job = session.get(MlInternTrainingJobDB, job_id)
-                if job is not None:
-                    self._enqueue(
-                        session,
-                        self._execution_event(
-                            job,
-                            existing,
-                            transition="execution_acquired",
-                            reason_code="training_execution_acquired",
-                            epoch=existing.version,
-                        ),
-                    )
-                session.commit()
-                # A second Hub replica must not join an already-running
-                # execution for the same job. Only an expired lease is
-                # reclaimable; those were deleted above.
-                return None
-            session.commit()
-        for slot in range(limit):
-            with Session(self._engine) as session:
-                job = session.get(MlInternTrainingJobDB, job_id)
-                if job is None:
-                    raise KeyError(job_id)
-                lease = MlInternTrainingExecutionLeaseDB(
-                    slot=slot,
-                    job_id=job_id,
-                    lease_expires_at=lease_expires_at,
-                )
-                session.add(lease)
-                try:
-                    with session.no_autoflush:
-                        self._enqueue(
-                            session,
-                            self._execution_event(
-                                job,
-                                lease,
-                                transition="execution_acquired",
-                                reason_code="training_execution_acquired",
-                                epoch=lease.version,
-                            ),
-                        )
-                    session.commit()
-                    return slot
-                except IntegrityError:
-                    session.rollback()
-                    existing = session.exec(
-                        select(MlInternTrainingExecutionLeaseDB).where(
-                            MlInternTrainingExecutionLeaseDB.job_id == job_id
-                        )
-                    ).first()
-                    if existing is not None:
-                        self._enqueue(
-                            session,
-                            self._execution_event(
-                                job,
-                                existing,
-                                transition="execution_acquired",
-                                reason_code="training_execution_acquired",
-                                epoch=existing.version,
-                            ),
-                        )
-                        session.commit()
-                        return None
-        return None
+        return self._execution_leases.try_acquire(
+            job_id,
+            limit=limit,
+            lease_expires_at=lease_expires_at,
+            now=now,
+        )
 
     @_serialized_write
     def renew_execution_slot(self, job_id: str, *, lease_expires_at: float) -> bool:
-        with Session(self._engine) as session:
-            lease = session.exec(
-                select(MlInternTrainingExecutionLeaseDB)
-                .where(MlInternTrainingExecutionLeaseDB.job_id == job_id)
-                .with_for_update()
-            ).first()
-            if lease is None:
-                return False
-            job = session.get(MlInternTrainingJobDB, job_id)
-            if job is None:
-                raise KeyError(job_id)
-            next_version = lease.version + 1
-            result = session.exec(
-                update(MlInternTrainingExecutionLeaseDB)
-                .where(
-                    MlInternTrainingExecutionLeaseDB.job_id == job_id,
-                    MlInternTrainingExecutionLeaseDB.version == lease.version,
-                )
-                .values(
-                    lease_expires_at=lease_expires_at,
-                    version=next_version,
-                    updated_at=self._clock(),
-                )
-            )
-            if result.rowcount != 1:
-                session.rollback()
-                raise MlInternTrainingRepositoryConflict("execution_lease_version_conflict")
-            self._enqueue(
-                session,
-                self._execution_event(
-                    job,
-                    lease,
-                    transition="execution_renewed",
-                    reason_code="training_execution_renewed",
-                    epoch=next_version,
-                ),
-            )
-            session.commit()
-            return True
+        return self._execution_leases.renew(job_id, lease_expires_at=lease_expires_at)
 
     @_serialized_write
     def release_execution_slot(self, job_id: str) -> None:
-        with Session(self._engine) as session:
-            lease = session.exec(
-                select(MlInternTrainingExecutionLeaseDB)
-                .where(MlInternTrainingExecutionLeaseDB.job_id == job_id)
-                .with_for_update()
-            ).first()
-            if lease is None:
-                return
-            job = session.get(MlInternTrainingJobDB, job_id)
-            if job is None:
-                raise KeyError(job_id)
-            self._enqueue(
-                session,
-                self._execution_event(
-                    job,
-                    lease,
-                    transition="execution_released",
-                    reason_code="training_execution_released",
-                    epoch=lease.version + 1,
-                ),
-            )
-            session.delete(lease)
-            session.commit()
+        self._execution_leases.release(job_id)
 
     @_serialized_write
     def append_event(
@@ -827,7 +689,7 @@ class MlInternTrainingRepository:
                 if existing is not None:
                     self._enqueue(
                         session,
-                        self._training_event_event(job, existing),
+                        self._events.training_event(job, existing),
                     )
                     session.commit()
                     session.refresh(existing)
@@ -848,7 +710,7 @@ class MlInternTrainingRepository:
                 session.add(event)
                 try:
                     with session.no_autoflush:
-                        self._enqueue(session, self._training_event_event(job, event))
+                        self._enqueue(session, self._events.training_event(job, event))
                     session.commit()
                     session.refresh(event)
                     return event
@@ -897,7 +759,7 @@ class MlInternTrainingRepository:
                     raise MlInternTrainingRepositoryConflict("attempt_number_conflict")
                 self._enqueue(
                     session,
-                    self._attempt_event(
+                    self._events.attempt(
                         existing,
                         transition="attempt_created",
                         reason_code="training_attempt_created",
@@ -913,7 +775,7 @@ class MlInternTrainingRepository:
                 with session.no_autoflush:
                     self._enqueue(
                         session,
-                        self._attempt_event(
+                        self._events.attempt(
                             attempt,
                             transition="attempt_created",
                             reason_code="training_attempt_created",
@@ -939,7 +801,7 @@ class MlInternTrainingRepository:
                     raise MlInternTrainingRepositoryConflict("attempt_number_conflict") from exc
                 self._enqueue(
                     session,
-                    self._attempt_event(
+                    self._events.attempt(
                         existing,
                         transition="attempt_created",
                         reason_code="training_attempt_created",
@@ -987,7 +849,7 @@ class MlInternTrainingRepository:
     ) -> MlInternTrainingAttemptDB:
         values = attempt.model_dump(exclude={"id", "version", "created_at"})
         values.update(version=expected_version + 1, updated_at=self._clock())
-        audit_event = self._attempt_event(
+        audit_event = self._events.attempt(
             attempt,
             transition="attempt_updated",
             reason_code=f"training_attempt_{attempt.status}",
@@ -1015,133 +877,6 @@ class MlInternTrainingRepository:
             session.expunge(saved)
             return saved
 
-    def _dataset_event(
-        self,
-        dataset: MlInternDatasetDB,
-        *,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-    ) -> SemanticMediaAuditEvent | None:
-        return self._prepare(
-            tenant_id=dataset.tenant_id,
-            scope=f"ml-training-dataset:{dataset.owner_subject}:{dataset.id}",
-            event_type="speech_dataset",
-            transition=transition,
-            reason_code=reason_code,
-            epoch=epoch,
-            job_ref=dataset.id,
-            idempotency_key=f"ml-training:{transition}:{dataset.id}:{epoch}",
-        )
-
-    def _job_event(
-        self,
-        job: MlInternTrainingJobDB,
-        *,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-    ) -> SemanticMediaAuditEvent | None:
-        return self._prepare(
-            tenant_id=job.tenant_id,
-            scope=f"ml-training-job:{job.owner_subject}:{job.id}",
-            event_type="speech_training",
-            transition=transition,
-            reason_code=reason_code,
-            epoch=epoch,
-            job_ref=job.id,
-            idempotency_key=f"ml-training:{transition}:{job.id}:{epoch}",
-        )
-
-    def _capacity_event(
-        self,
-        job: MlInternTrainingJobDB,
-        lease: MlInternTrainingCapacityLeaseDB,
-        *,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-    ) -> SemanticMediaAuditEvent | None:
-        return self._prepare(
-            tenant_id=job.tenant_id,
-            scope=f"ml-training-job:{job.owner_subject}:{job.id}",
-            event_type="speech_training",
-            transition=transition,
-            reason_code=reason_code,
-            epoch=epoch,
-            job_ref=job.id,
-            lease_ref=f"training-capacity:{lease.slot}:{job.id}",
-            idempotency_key=f"ml-training:{transition}:{job.id}:{lease.slot}:{epoch}",
-        )
-
-    def _execution_event(
-        self,
-        job: MlInternTrainingJobDB,
-        lease: MlInternTrainingExecutionLeaseDB,
-        *,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-    ) -> SemanticMediaAuditEvent | None:
-        # Execution leases are deliberately deleted and may later be acquired
-        # again in the same numeric slot.  Version therefore is only an epoch
-        # within one lease generation and cannot by itself identify the
-        # authority transition.  Bind the audit idempotency key to the stable
-        # creation value so replays of one lease collapse while reacquisitions
-        # remain distinct.
-        generation = hashlib.sha256(
-            f"{lease.job_id}:{lease.slot}:{float(lease.created_at).hex()}".encode()
-        ).hexdigest()[:24]
-        return self._prepare(
-            tenant_id=job.tenant_id,
-            scope=f"ml-training-job:{job.owner_subject}:{job.id}",
-            event_type="speech_training",
-            transition=transition,
-            reason_code=reason_code,
-            epoch=epoch,
-            job_ref=job.id,
-            lease_ref=f"training-execution:{lease.slot}:{job.id}",
-            idempotency_key=(
-                f"ml-training:{transition}:{job.id}:{lease.slot}:{generation}:{epoch}"
-            ),
-        )
-
-    def _attempt_event(
-        self,
-        attempt: MlInternTrainingAttemptDB,
-        *,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-    ) -> SemanticMediaAuditEvent | None:
-        return self._prepare(
-            tenant_id=attempt.tenant_id,
-            scope=f"ml-training-job:{attempt.owner_subject}:{attempt.job_id}",
-            event_type="speech_training",
-            transition=transition,
-            reason_code=reason_code,
-            epoch=epoch,
-            job_ref=attempt.id,
-            idempotency_key=f"ml-training:{transition}:{attempt.id}:{epoch}",
-        )
-
-    def _training_event_event(
-        self,
-        job: MlInternTrainingJobDB,
-        event: MlInternTrainingEventDB,
-    ) -> SemanticMediaAuditEvent | None:
-        dedupe_digest = hashlib.sha256(event.dedupe_key.encode("utf-8")).hexdigest()
-        return self._prepare(
-            tenant_id=job.tenant_id,
-            scope=f"ml-training-job:{job.owner_subject}:{job.id}",
-            event_type="speech_training",
-            transition="event_appended",
-            reason_code="training_event_appended",
-            epoch=event.sequence,
-            job_ref=event.id,
-            idempotency_key=f"ml-training:event:{job.id}:{dedupe_digest}",
-        )
-
     def _enqueue_job_and_capacity_replay(
         self,
         session: Session,
@@ -1149,7 +884,7 @@ class MlInternTrainingRepository:
     ) -> None:
         self._enqueue(
             session,
-            self._job_event(
+            self._events.job(
                 job,
                 transition="job_created",
                 reason_code="training_job_created",
@@ -1164,7 +899,7 @@ class MlInternTrainingRepository:
         if lease is not None:
             self._enqueue(
                 session,
-                self._capacity_event(
+                self._events.capacity(
                     job,
                     lease,
                     transition="capacity_acquired",
@@ -1172,34 +907,6 @@ class MlInternTrainingRepository:
                     epoch=lease.version,
                 ),
             )
-
-    def _prepare(
-        self,
-        *,
-        tenant_id: str,
-        scope: str,
-        event_type: str,
-        transition: str,
-        reason_code: str,
-        epoch: int,
-        idempotency_key: str,
-        job_ref: str | None = None,
-        lease_ref: str | None = None,
-    ) -> SemanticMediaAuditEvent | None:
-        audit = self._audit or _DEFAULT_AUDIT
-        if audit is None:
-            return None
-        return audit.prepare_transition(
-            idempotency_key=idempotency_key,
-            tenant_id=tenant_id,
-            scope=scope,
-            event_type=event_type,
-            transition=transition,
-            reason_code=reason_code,
-            epoch=max(1, int(epoch)),
-            job_ref=job_ref,
-            lease_ref=lease_ref,
-        )
 
     @staticmethod
     def _enqueue(session: Session, event: SemanticMediaAuditEvent | None) -> None:
